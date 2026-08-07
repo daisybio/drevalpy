@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from drevalpy.visualization.create_report import run_report
+
+# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
+_DEFAULT_DATA_DIR = Path("data")
+_DEFAULT_RESULTS_DIR = Path("results")
 
 
 def register(app: typer.Typer) -> None:
@@ -21,8 +26,8 @@ def register(app: typer.Typer) -> None:
         dataset_name: Annotated[
             str, typer.Option("--dataset_name", help="Name of the dataset for which to render the result file")
         ],
-        path_data: Annotated[str, typer.Option("--path_data", help="Path to the data")] = "data",
-        result_path: Annotated[str, typer.Option("--result_path", help="Path to the results")] = "results",
+        path_data: Annotated[Path, typer.Option("--path_data", help="Path to the data")] = _DEFAULT_DATA_DIR,
+        result_path: Annotated[Path, typer.Option("--result_path", help="Path to the results")] = _DEFAULT_RESULTS_DIR,
     ) -> None:
         """Generate reports from evaluation results.
 

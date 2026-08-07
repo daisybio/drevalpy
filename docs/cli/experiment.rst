@@ -3,7 +3,7 @@ Run an experiment
 
 The root ``drevalpy`` command runs the full drug-response evaluation pipeline:
 load data, split, tune (by default), train, test, and write predictions under
-``results/``.
+``results``.
 
 Minimal example:
 
@@ -25,7 +25,7 @@ Identity and paths
 
 ``--run_id`` names the result tree (default ``my_run``). ``--path_data`` is
 where datasets and features are stored or downloaded (default ``data``).
-``--path_out`` is the results root (default ``results/``). With the defaults,
+``--path_out`` is the results root (default ``results``). With the defaults,
 outputs appear under ``results/<run_id>/<dataset_name>/<test_mode>/``.
 
 Use ``--overwrite`` if you need to replace an existing run with the same
@@ -99,7 +99,8 @@ Logging and checkpoints
 
 ``--wandb_project`` enables Weights & Biases logging for every model in the
 run — see :doc:`wandb`. ``--model_checkpoint_dir`` stores neural checkpoints
-(default ``TEMPORARY``). ``--final_model_on_full_data`` trains and tunes a
+(a temporary directory is used when the option is omitted).
+``--final_model_on_full_data`` trains and tunes a
 final model on the union of all folds after CV.
 
 ``--response_transformation`` optionally scales the target during training

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -10,7 +10,7 @@ from ..datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from .normalize_metrics import normalize_metrics_by_mean_effects
 
 
-def load_drug_and_cell_line_metadata(path_data: os.PathLike | str) -> tuple[dict[str, str], dict[str, str]]:
+def load_drug_and_cell_line_metadata(path_data: str | Path) -> tuple[dict[str, str], dict[str, str]]:
     """Walk ``path_data`` and collect drug and cell-line name mappings.
 
     :param path_data: Root directory to search for ``drug_names.csv`` and
@@ -20,18 +20,17 @@ def load_drug_and_cell_line_metadata(path_data: os.PathLike | str) -> tuple[dict
     """
     drug_metadata: dict[str, str] = {}
     cell_line_metadata: dict[str, str] = {}
-    for root, _, files in os.walk(os.fspath(path_data)):
-        for file in files:
-            if file == "drug_names.csv":
-                drug_names = pd.read_csv(os.path.join(root, file))
-                drug_names["pubchem_id"] = drug_names["pubchem_id"].astype(str)
-                drug_metadata.update(zip(drug_names["pubchem_id"], drug_names["drug_name"]))
-            elif file == "cell_line_names.csv":
-                cell_line_metadata.update(_cell_line_name_mapping(os.path.join(root, file)))
+    for file in Path(path_data).rglob("*.csv"):
+        if file.name == "drug_names.csv":
+            drug_names = pd.read_csv(file)
+            drug_names["pubchem_id"] = drug_names["pubchem_id"].astype(str)
+            drug_metadata.update(zip(drug_names["pubchem_id"], drug_names["drug_name"]))
+        elif file.name == "cell_line_names.csv":
+            cell_line_metadata.update(_cell_line_name_mapping(file))
     return drug_metadata, cell_line_metadata
 
 
-def _cell_line_name_mapping(path: str) -> dict[str, str]:
+def _cell_line_name_mapping(path: Path) -> dict[str, str]:
     cell_line_names = pd.read_csv(path)
     try:
         cellosaurus_ids = cell_line_names["cellosaurus_id"].astype(str)

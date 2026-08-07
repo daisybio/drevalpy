@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import os
 import warnings
+from pathlib import Path
 from typing import Any
 
 from sklearn.base import TransformerMixin, clone
@@ -127,10 +127,10 @@ def _run_cross_study_for_fold(
     model: DRPModel,
     test_mode: str,
     train_dataset: DrugResponseDataset,
-    path_data: str,
+    path_data: str | Path,
     es_for_model: DrugResponseDataset | None,
     fold_transform: TransformerMixin | None,
-    parent_dir: str,
+    parent_dir: str | Path,
     split_index: int,
     model_name: str,
     drug_id: str | None,
@@ -159,23 +159,23 @@ def _run_fresh_cv_fold(
     drug_id: str | None,
     split_index: int,
     fold,
-    prediction_file: str,
-    hpam_save_path: str,
-    path_data: str,
-    model_checkpoint_dir: str,
+    prediction_file: str | Path,
+    hpam_save_path: str | Path,
+    path_data: str | Path,
+    model_checkpoint_dir: str | Path | None,
     response_transformation: TransformerMixin | None,
     hyperparameter_tuning: bool,
     hpam_optimization_metric: str,
     hpo_num_samples: int,
     hpo_random_state: int,
     hpo_resources_per_trial: dict[str, float] | None,
-    result_path: str,
+    result_path: str | Path,
     wandb_project: str | None,
     base_wandb_config: dict[str, Any],
     test_mode: str,
     response_data: DrugResponseDataset,
     cross_study_datasets: list[DrugResponseDataset],
-    parent_dir: str,
+    parent_dir: str | Path,
 ) -> tuple[DrugResponseDataset, DrugResponseDataset, dict[str, Any], DRPModel | None]:
     hpo_cfg = build_experiment_hpo_config(
         hpam_optimization_metric,
@@ -251,8 +251,8 @@ def _run_fresh_cv_fold(
 
 def _resume_cv_fold(
     fold,
-    prediction_file: str,
-    hpam_save_path: str,
+    prediction_file: str | Path,
+    hpam_save_path: str | Path,
     split_index: int,
 ) -> tuple[DrugResponseDataset, DrugResponseDataset, dict[str, Any], DRPModel | None]:
     print(f"Split {split_index} already exists. Skipping.")
@@ -274,14 +274,14 @@ def _run_post_fold_stress_tests(
     randomization_mode: list[str] | None,
     randomization_type: str,
     n_trials_robustness: int,
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     fold,
-    parent_dir: str,
+    parent_dir: str | Path,
     split_index: int,
     response_transformation: TransformerMixin | None,
-    model_checkpoint_dir: str,
+    model_checkpoint_dir: str | Path | None,
 ) -> None:
     if is_baseline:
         return
@@ -330,11 +330,11 @@ def _run_model_final_production(
     baselines: list[type[DRPModel]],
     model_name: str,
     drug_id: str | None,
-    result_path: str,
+    result_path: str | Path,
     response_data: DrugResponseDataset,
     response_transformation: TransformerMixin | None,
-    path_data: str,
-    model_checkpoint_dir: str,
+    path_data: str | Path,
+    model_checkpoint_dir: str | Path | None,
     hpam_optimization_metric: str,
     test_mode: str,
     hyperparameter_tuning: bool,
@@ -384,9 +384,9 @@ def _run_one_model(
     randomization_type: str,
     cross_study_datasets: list[DrugResponseDataset],
     n_trials_robustness: int,
-    result_path: str,
-    path_data: str,
-    model_checkpoint_dir: str,
+    result_path: str | Path,
+    path_data: str | Path,
+    model_checkpoint_dir: str | Path | None,
     hyperparameter_tuning: bool,
     final_model_on_full_data: bool,
     wandb_project: str | None,
@@ -411,7 +411,7 @@ def _run_one_model(
         result_path=result_path,
         suffix="best_hpams",
     )
-    parent_dir = os.path.dirname(predictions_path)
+    parent_dir = predictions_path.parent
 
     if multiprocessing:
         warnings.warn(
@@ -428,8 +428,8 @@ def _run_one_model(
         print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
         print()
 
-        prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
-        hpam_save_path = os.path.join(hpam_path, f"best_hpams_split_{split_index}.json")
+        prediction_file = predictions_path / f"predictions_split_{split_index}.csv"
+        hpam_save_path = hpam_path / f"best_hpams_split_{split_index}.json"
         fold = prepare_fold_datasets(split, model_class, model_name, drug_id)
         base_wandb_config = _fold_wandb_base_config(
             model_name,
@@ -441,7 +441,7 @@ def _run_one_model(
             hyperparameter_tuning,
         )
 
-        if not os.path.isfile(prediction_file):
+        if not prediction_file.is_file():
             train_dataset, test_dataset, best_hpams, model = _run_fresh_cv_fold(
                 model_class=model_class,
                 model_name=model_name,
@@ -525,10 +525,10 @@ def drug_response_experiment_impl(
     randomization_type: str = "permutation",
     cross_study_datasets: list[DrugResponseDataset] | None = None,
     n_trials_robustness: int = 0,
-    path_out: str = "results/",
+    path_out: str | Path = "results/",
     overwrite: bool = False,
-    path_data: str = "data",
-    model_checkpoint_dir: str = "TEMPORARY",
+    path_data: str | Path = "data",
+    model_checkpoint_dir: str | Path | None = None,
     hyperparameter_tuning: bool = True,
     final_model_on_full_data: bool = False,
     wandb_project: str | None = None,
@@ -560,7 +560,7 @@ def drug_response_experiment_impl(
     :param path_out: Root directory for experiment outputs.
     :param overwrite: Recompute splits and predictions even when artifacts exist.
     :param path_data: Root directory for feature tables.
-    :param model_checkpoint_dir: Directory for per-fold model checkpoints.
+    :param model_checkpoint_dir: Directory for per-fold model checkpoints, or ``None`` for a temporary one.
     :param hyperparameter_tuning: Whether to run HPO before final fold training.
     :param final_model_on_full_data: Train a production model on all data after CV.
     :param wandb_project: Optional Weights & Biases project name.
@@ -574,9 +574,9 @@ def drug_response_experiment_impl(
     baselines = _normalize_baselines(baselines)
     cross_study_datasets = cross_study_datasets or []
     split_label = custom_split_name if custom_split_name is not None else test_mode
-    result_path = str(experiment_result_path(path_out, run_id, response_data._name, split_label))
-    split_path = os.path.join(result_path, "splits")
-    result_folder_exists = os.path.exists(result_path)
+    result_path = experiment_result_path(path_out, run_id, response_data._name, split_label)
+    split_path = result_path / "splits"
+    result_folder_exists = result_path.exists()
     actual_n_cv_splits = prepare_response_splits_impl(
         response_data,
         split_path=split_path,

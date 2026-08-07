@@ -166,7 +166,7 @@ def test_single_drug_models(
             prediction_dataset=test_dataset,
             early_stopping_dataset=None,
             response_transformation=None,
-            model_checkpoint_dir="TEMPORARY",
+            model_checkpoint_dir=None,
         )
 
         # Save and load test (should either succeed or raise NotImplementedError)

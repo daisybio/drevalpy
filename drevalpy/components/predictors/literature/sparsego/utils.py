@@ -4,6 +4,7 @@ Adapted from https://github.com/KatynaSada/SparseGO_lightning
 """
 
 import sys
+from pathlib import Path
 
 import networkx as nx
 import networkx.algorithms.components.connected as nxacc
@@ -12,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 
-def load_mapping(mapping_file: str) -> dict:
+def load_mapping(mapping_file: str | Path) -> dict:
     """Open a txt file with two columns and return a dictionary.
 
     The second column becomes the key and the first column becomes the value.
@@ -31,7 +32,7 @@ def load_mapping(mapping_file: str) -> dict:
 
 
 def _read_ontology_edges(
-    ontology_file: str, gene2id_mapping: dict
+    ontology_file: str | Path, gene2id_mapping: dict
 ) -> tuple[nx.DiGraph, list[list[str]], list[list[str]], set[str], dict[str, set[int]]]:
     directed_graph = nx.DiGraph()
     terms_pairs: list[list[str]] = []
@@ -88,7 +89,7 @@ def _validate_ontology_topology(directed_graph: nx.DiGraph) -> None:
         sys.exit(1)
 
 
-def load_ontology(ontology_file: str, gene2id_mapping: dict) -> tuple:
+def load_ontology(ontology_file: str | Path, gene2id_mapping: dict) -> tuple:
     """Create the directed graph of GO terms and store connected elements in arrays.
 
     The ontology file is tab-delimited with three columns:

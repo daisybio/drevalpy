@@ -1,6 +1,7 @@
 """Contains the code needed to draw the correlation comparison scatter plot."""
 
 from io import TextIOWrapper
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -71,10 +72,10 @@ class ComparisonScatter(OutPlot):
         self.dropdown_buttons_x: list[dict] = list()
         self.dropdown_buttons_y: list[dict] = list()
 
-    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+    def draw_and_save(self, out_prefix: str | Path, out_suffix: str) -> None:
         """Draw scatter plots and save as HTML.
 
-        :param out_prefix: Output directory (for example ``results/my_run/comp_scatter/``).
+        :param out_prefix: Output directory (for example ``results/my_run/comp_scatter``).
         :param out_suffix: Expected plot name suffix; must match ``self.name``.
 
         :raises AssertionError: If ``out_suffix`` does not match ``self.name``.
@@ -84,7 +85,7 @@ class ComparisonScatter(OutPlot):
         self._draw()
         if self.name != out_suffix:
             raise AssertionError(f"Name mismatch: {self.name} != {out_suffix}")
-        path_out = f"{out_prefix}comp_scatter_{out_suffix}.html"
+        path_out = Path(out_prefix) / f"comp_scatter_{out_suffix}.html"
         self.dropdown_fig.write_html(path_out)
 
     def _draw(self) -> None:

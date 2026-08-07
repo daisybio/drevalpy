@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from drevalpy.cli.preprocess_custom import run_postprocess_viability
+
+# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
+_CWD = Path()
 
 
 def register(app: typer.Typer) -> None:
@@ -22,12 +26,12 @@ def register(app: typer.Typer) -> None:
             typer.Option("--dataset_name", help="Dataset name, e.g., MyCustomDataset."),
         ],
         path_data: Annotated[
-            str,
+            Path,
             typer.Option(
                 "--path_data",
                 help="Path to output folder of CurveCurator containing the curves.txt file, default: './'.",
             ),
-        ] = "./",
+        ] = _CWD,
     ) -> None:
         """Postprocess CurveCurator viability data into one CSV.
 

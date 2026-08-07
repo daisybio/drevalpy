@@ -26,7 +26,7 @@ def test_select_fold_hyperparameters_tunes_when_enabled(_has_tunable, mock_tune)
         response_transformation=None,
         metric="RMSE",
         path_data="data",
-        model_checkpoint_dir="TEMPORARY",
+        model_checkpoint_dir=None,
         hyperparameter_tuning=True,
         hpo_config=MagicMock(),
     )
@@ -48,7 +48,7 @@ def test_select_fold_hyperparameters_defaults_when_tuning_off(_has_tunable) -> N
         response_transformation=None,
         metric="RMSE",
         path_data="data",
-        model_checkpoint_dir="TEMPORARY",
+        model_checkpoint_dir=None,
         hyperparameter_tuning=False,
         hpo_config=MagicMock(),
     )

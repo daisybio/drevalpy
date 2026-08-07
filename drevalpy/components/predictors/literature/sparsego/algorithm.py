@@ -8,6 +8,7 @@ Code adapted from https://github.com/KatynaSada/SparseGO_lightning
 """
 
 import warnings
+from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
@@ -524,7 +525,7 @@ class SparseGOModel(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
+        model_checkpoint_dir: str | Path = "checkpoints",
     ) -> None:
         """Train the SparseGO model.
 

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from drevalpy.cli._helpers import as_list
 from drevalpy.cli.model_testing import run_train_and_predict_final
+
+# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
+_DEFAULT_DATA_DIR = Path("data")
 
 
 def register(app: typer.Typer) -> None:
@@ -37,7 +41,7 @@ def register(app: typer.Typer) -> None:
                 help="Path to yaml file containing the optimal hyperparameters.",
             ),
         ],
-        path_data: Annotated[str, typer.Option("--path_data", help="Path to data. Default: data")] = "data",
+        path_data: Annotated[Path, typer.Option("--path_data", help="Path to data. Default: data")] = _DEFAULT_DATA_DIR,
         mode: Annotated[
             str,
             typer.Option(
@@ -87,12 +91,12 @@ def register(app: typer.Typer) -> None:
             ),
         ] = None,
         model_checkpoint_dir: Annotated[
-            str,
+            Path | None,
             typer.Option(
                 "--model_checkpoint_dir",
                 help="model checkpoint directory, if not provided: temporary directory is used",
             ),
-        ] = "TEMPORARY",
+        ] = None,
     ) -> None:
         """Train and predict on the CV test set (full, randomization, or robustness mode).
 
@@ -108,7 +112,7 @@ def register(app: typer.Typer) -> None:
         :param randomization_type: ``permutation`` or ``invariant`` for randomization mode.
         :param robustness_trial: Trial index when ``mode`` is ``robustness``.
         :param cross_study_datasets: Optional pickled cross-study datasets for full mode.
-        :param model_checkpoint_dir: Directory for model checkpoints.
+        :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
         """
         run_train_and_predict_final(
             mode=mode,

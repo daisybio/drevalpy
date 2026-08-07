@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import Any
 
 from sklearn.base import TransformerMixin
@@ -21,8 +21,8 @@ def select_fold_hyperparameters(
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
     metric: str,
-    path_data: str,
-    model_checkpoint_dir: str,
+    path_data: str | Path,
+    model_checkpoint_dir: str | Path | None,
     hyperparameter_tuning: bool,
     hpo_config: Any,
     wandb_project: str | None = None,
@@ -38,7 +38,7 @@ def select_fold_hyperparameters(
     :param response_transformation: Optional response transformer.
     :param metric: Metric optimized during HPO.
     :param path_data: Root directory for feature tables.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hyperparameter_tuning: Whether to run HPO when tunable parameters exist.
     :param hpo_config: Ray Tune / Optuna configuration object.
     :param wandb_project: Optional Weights & Biases project name.
@@ -80,8 +80,8 @@ def select_final_model_hyperparameters(
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
     metric: str,
-    path_data: str,
-    model_checkpoint_dir: str,
+    path_data: str | Path,
+    model_checkpoint_dir: str | Path | None,
     hyperparameter_tuning: bool,
     hpo_config: Any,
 ) -> dict[str, Any]:
@@ -94,7 +94,7 @@ def select_final_model_hyperparameters(
     :param response_transformation: Optional response transformer.
     :param metric: Metric optimized during HPO.
     :param path_data: Root directory for feature tables.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hyperparameter_tuning: Whether to run HPO when tunable parameters exist.
     :param hpo_config: Ray Tune / Optuna configuration object.
 
@@ -120,21 +120,26 @@ def select_final_model_hyperparameters(
     )
 
 
-def fold_hpo_storage_path(result_path: str) -> str:
+def fold_hpo_storage_path(result_path: str | Path) -> str:
     """Absolute Ray Tune storage directory for nested-CV HPO.
+
+    Returns a ``str``: Ray also accepts ``s3://`` / ``gs://`` URIs for
+    ``storage_path``, and ``Path`` would collapse ``s3://b/x`` to ``s3:/b/x``.
 
     :param result_path: Experiment result root directory.
 
     :returns: Absolute path to the nested-CV Ray Tune storage folder.
     """
-    return os.path.abspath(os.path.join(result_path, "raytune"))
+    return str((Path(result_path) / "raytune").absolute())
 
 
-def final_model_hpo_storage_path(result_path: str) -> str:
+def final_model_hpo_storage_path(result_path: str | Path) -> str:
     """Absolute Ray Tune storage directory for final-model HPO.
+
+    Returns a ``str`` for the same URI-safety reason as ``fold_hpo_storage_path``.
 
     :param result_path: Experiment result root directory.
 
     :returns: Absolute path to the final-model Ray Tune storage folder.
     """
-    return os.path.abspath(os.path.join(result_path, "raytune_final"))
+    return str((Path(result_path) / "raytune_final").absolute())

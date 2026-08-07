@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import warnings
+from pathlib import Path
 
 import numpy as np
 from sklearn.base import TransformerMixin
@@ -117,10 +117,10 @@ def cross_study_prediction_impl(
     model: DRPModel,
     test_mode: str,
     train_dataset: DrugResponseDataset,
-    path_data: str,
+    path_data: str | Path,
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
-    path_out: str,
+    path_out: str | Path,
     split_index: int,
     single_drug_id: str | None = None,
 ) -> None:
@@ -138,7 +138,7 @@ def cross_study_prediction_impl(
     :param single_drug_id: Drug identifier when *model* is single-drug scoped.
     """
     dataset = dataset.copy()
-    os.makedirs(os.path.join(path_out, "cross_study"), exist_ok=True)
+    (Path(path_out) / "cross_study").mkdir(parents=True, exist_ok=True)
     if response_transformation:
         dataset.transform(response_transformation)
 
@@ -162,10 +162,4 @@ def cross_study_prediction_impl(
     remove_train_overlap_for_test_mode(test_mode, train_dataset, dataset)
     _predict_cross_study_subset(model, dataset, cl_features, drug_features, response_transformation)
 
-    dataset.to_csv(
-        os.path.join(
-            path_out,
-            "cross_study",
-            f"cross_study_{dataset.dataset_name}_split_{split_index}.csv",
-        )
-    )
+    dataset.to_csv(Path(path_out) / "cross_study" / f"cross_study_{dataset.dataset_name}_split_{split_index}.csv")

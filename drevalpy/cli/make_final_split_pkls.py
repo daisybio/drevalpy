@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from drevalpy.cli.model_testing import run_final_split
+
+# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
+_DEFAULT_DATA_DIR = Path("data")
 
 
 def register(app: typer.Typer) -> None:
@@ -18,7 +22,7 @@ def register(app: typer.Typer) -> None:
     @app.command("make-final-split-pkls")
     def make_final_split_pkls(
         response: Annotated[
-            str,
+            Path,
             typer.Option(
                 "--response",
                 help="Drug response data, pickled (output of load_response).",
@@ -31,7 +35,9 @@ def register(app: typer.Typer) -> None:
                 help="Model class name, e.g., RandomForest, SingleDrugRandomForest.",
             ),
         ],
-        path_data: Annotated[str, typer.Option("--path_data", help="Path to data. Default: data.")] = "data",
+        path_data: Annotated[
+            Path, typer.Option("--path_data", help="Path to data. Default: data.")
+        ] = _DEFAULT_DATA_DIR,
         test_mode: Annotated[
             str,
             typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO). Default: LPO."),

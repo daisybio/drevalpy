@@ -9,9 +9,10 @@ Details about the issues are explained in:
 https://github.com/daisybio/drevalpy/pull/336#discussion_r2682718948
 """
 
+from __future__ import annotations
+
 import argparse
 import codecs
-import os
 import tempfile
 from pathlib import Path
 
@@ -27,7 +28,7 @@ except ImportError:
 
 
 def create_pharmaformer_drug_embeddings(
-    data_path: str,
+    data_path: str | Path,
     dataset_name: str,
     num_symbols: int = 10000,
     max_length: int = 128,
@@ -76,19 +77,19 @@ def create_pharmaformer_drug_embeddings(
     # Create temporary file with SMILES strings for BPE learning
     # learn_bpe expects one item per line
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, suffix=".txt") as tmp_file:
-        tmp_smiles_file = tmp_file.name
+        tmp_smiles_file = Path(tmp_file.name)
         for smiles in smiles_df["canonical_smiles"]:
             tmp_file.write(f"{smiles}\n")
 
     # Learn BPE codes from SMILES corpus
     try:
-        with codecs.open(tmp_smiles_file, encoding="utf-8") as f_in:
+        # ``codecs.open`` is typed for ``str`` only, hence the explicit conversion.
+        with codecs.open(str(tmp_smiles_file), encoding="utf-8") as f_in:
             with codecs.open(str(bpe_codes_path), "w", encoding="utf-8") as f_out:
                 learn_bpe(f_in, f_out, num_symbols=num_symbols)
     finally:
         # Clean up temporary file
-        if os.path.exists(tmp_smiles_file):
-            os.remove(tmp_smiles_file)
+        tmp_smiles_file.unlink(missing_ok=True)
 
     print(f"BPE codes saved to {bpe_codes_path}")
 
@@ -146,7 +147,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Preprocess drug SMILES to BPE-encoded embeddings.")
     parser.add_argument("dataset_name", type=str, help="The name of the dataset to process.")
-    parser.add_argument("--data_path", type=str, default="data", help="Path to the data folder")
+    parser.add_argument("--data_path", type=Path, default=Path("data"), help="Path to the data folder")
     parser.add_argument("--num-symbols", type=int, default=10000, help="Number of BPE symbols to learn")
     parser.add_argument("--max-length", type=int, default=128, help="Maximum length of encoded SMILES")
     args = parser.parse_args()

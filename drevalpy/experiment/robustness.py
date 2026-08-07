@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 from sklearn.base import TransformerMixin, clone
 
@@ -13,15 +13,15 @@ from .training import train_and_predict_impl
 
 def robustness_train_predict_impl(
     trial: int,
-    trial_file: str,
+    trial_file: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
     model_class: type[DRPModel],
     hyperparameters: dict,
-    path_data: str,
+    path_data: str | Path,
     response_transformation: TransformerMixin | None = None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Train and predict for one robustness trial.
 
@@ -34,7 +34,7 @@ def robustness_train_predict_impl(
     :param hyperparameters: Hyperparameters for model construction.
     :param path_data: Root directory for feature tables.
     :param response_transformation: Optional response transformer.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
     train_trial = train_dataset.shuffled(random_state=trial)
     test_trial = test_dataset.shuffled(random_state=trial)
@@ -57,14 +57,14 @@ def robustness_test_impl(
     n_trials: int,
     model_class: type[DRPModel],
     hyperparameters: dict,
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
-    path_out: str,
+    path_out: str | Path,
     split_index: int,
     response_transformation: TransformerMixin | None = None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Run robustness tests with varying shuffle seeds.
 
@@ -78,14 +78,14 @@ def robustness_test_impl(
     :param path_out: Directory where predictions are written.
     :param split_index: CV fold index for output file naming.
     :param response_transformation: Optional response transformer.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
-    robustness_test_path = os.path.join(path_out, "robustness")
-    os.makedirs(robustness_test_path, exist_ok=True)
+    robustness_test_path = Path(path_out) / "robustness"
+    robustness_test_path.mkdir(parents=True, exist_ok=True)
     for trial in range(n_trials):
         print(f"Running robustness test trial {trial + 1}/{n_trials}")
-        trial_file = os.path.join(robustness_test_path, f"robustness_{trial + 1}_split_{split_index}.csv")
-        if os.path.isfile(trial_file):
+        trial_file = robustness_test_path / f"robustness_{trial + 1}_split_{split_index}.csv"
+        if trial_file.is_file():
             continue
         robustness_train_predict_impl(
             trial=trial,

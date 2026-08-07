@@ -45,7 +45,7 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
         super().__init__(view=view)
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load precomputed PharmaFormer BPE token embeddings.
 
         :param data_path: data path.

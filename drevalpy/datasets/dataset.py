@@ -8,7 +8,6 @@ vectors per cell line or drug, including optional per-view metadata.
 """
 
 import copy
-import os
 from pathlib import Path
 from typing import Any, Callable, ClassVar
 
@@ -443,7 +442,7 @@ class DrugResponseDataset:
         self._cv_splits = cv_splits
         return cv_splits
 
-    def save_splits(self, path: str):
+    def save_splits(self, path: str | Path):
         """Save cross validation splits to path/cv_split_0_train.csv and path/cv_split_0_test.csv.
 
         :param path: path to the directory where the cv split files are saved
@@ -451,7 +450,8 @@ class DrugResponseDataset:
         """
         if not self.cv_splits:
             raise AssertionError("Trying to save splits, but DrugResponseDataset was not split.")
-        os.makedirs(path, exist_ok=True)
+        splits_dir = Path(path)
+        splits_dir.mkdir(parents=True, exist_ok=True)
         for i, split in enumerate(self.cv_splits):
 
             for mode in [
@@ -462,10 +462,9 @@ class DrugResponseDataset:
                 "early_stopping",
             ]:
                 if mode in split:
-                    split_path = os.path.join(path, f"cv_split_{i}_{mode}.csv")
-                    split[mode].to_csv(path=split_path)
+                    split[mode].to_csv(path=splits_dir / f"cv_split_{i}_{mode}.csv")
 
-    def load_splits(self, path: str) -> None:
+    def load_splits(self, path: str | Path) -> None:
         """Load cross validation splits from path/cv_split_0_train.csv and path/cv_split_0_test.csv.
 
         :param path: path to the directory containing the cv split files

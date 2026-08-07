@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -132,7 +133,7 @@ class Featurizer(ABC):
         return {key: spec["default"] for key, spec in space.items()}
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load the raw dataset required by this featurizer.
 
         Featurizers that require bespoke on-disk artifacts override this hook.

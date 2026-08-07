@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import secrets
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -120,7 +120,7 @@ def run_pharmaformer_training(
     cell_line_input: FeatureDataset,
     drug_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset,
-    model_checkpoint_dir: str,
+    model_checkpoint_dir: str | Path,
     pharmaformer_dataset_cls: type[_PharmaFormerDataset],
 ) -> None:
     """Train PharmaFormer with early stopping and reload the best checkpoint.
@@ -164,9 +164,10 @@ def run_pharmaformer_training(
 
     best_val_loss = float("inf")
     epochs_without_improvement = 0
-    os.makedirs(model_checkpoint_dir, exist_ok=True)
+    checkpoint_dir = Path(model_checkpoint_dir)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     version = "version-" + "".join([secrets.choice("0123456789abcdef") for _ in range(20)])
-    checkpoint_path = os.path.join(model_checkpoint_dir, f"{version}_best_PharmaFormer_model.pth")
+    checkpoint_path = checkpoint_dir / f"{version}_best_PharmaFormer_model.pth"
 
     print("Training PharmaFormer model")
     for epoch in range(engine.hyperparameters["epochs"]):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, Literal
 
 from drevalpy.components.data_loading.view_resolution import (
@@ -25,7 +26,7 @@ from drevalpy.datasets.feature_tables import (
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, ResolvedModelConfig
 
 
-def load_tissue_features(data_path: str, dataset_name: str) -> FeatureDataset:
+def load_tissue_features(data_path: str | Path, dataset_name: str) -> FeatureDataset:
     """Load tissue labels keyed by cell line id.
 
     :param data_path: Root directory containing dataset feature tables.
@@ -106,7 +107,7 @@ def _load_from_featurizer_tree(
     config: FeaturizerConfig,
     *,
     registry: Literal["cell_line", "drug"],
-    data_path: str,
+    data_path: Path,
     dataset_name: str,
     resolved: ResolvedModelConfig | None = None,
 ) -> FeatureDataset | None:
@@ -140,7 +141,7 @@ def _load_from_featurizer_tree(
     return loaded
 
 
-def load_cell_line_id_features(data_path: str, dataset_name: str) -> FeatureDataset:
+def load_cell_line_id_features(data_path: str | Path, dataset_name: str) -> FeatureDataset:
     """Load cell-line identifier features.
 
     :param data_path: Root directory containing dataset feature tables.
@@ -153,7 +154,7 @@ def load_cell_line_id_features(data_path: str, dataset_name: str) -> FeatureData
 
 def load_cell_line_features_for_model_config(
     config: ModelConfig | ResolvedModelConfig,
-    data_path: str,
+    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load cell-line features implied by *config*, including identity-only featurizers.
@@ -164,29 +165,30 @@ def load_cell_line_features_for_model_config(
 
     :returns: ``FeatureDataset`` with views required by the cell-line featurizer tree.
     """
+    root = Path(data_path)
     template, resolved = _unwrap_model_config(config)
     featurizer = template.cell_line_featurizer
     if featurizer is not None and featurizer.name == "tissue":
-        return load_tissues_from_csv(data_path, dataset_name)
+        return load_tissues_from_csv(root, dataset_name)
     if template.predictor.name == "naiveMeanEffects" and (featurizer is None or featurizer.name == "identity"):
-        return load_cl_ids_and_tissues_from_csv(data_path, dataset_name)
+        return load_cl_ids_and_tissues_from_csv(root, dataset_name)
     if cell_line_entity_id_only_from_model_config(template):
-        return load_cl_ids_from_csv(data_path, dataset_name)
+        return load_cl_ids_from_csv(root, dataset_name)
     if featurizer is None:
-        return load_cl_ids_from_csv(data_path, dataset_name)
+        return load_cl_ids_from_csv(root, dataset_name)
     loaded = _load_from_featurizer_tree(
         featurizer,
         registry="cell_line",
-        data_path=data_path,
+        data_path=root,
         dataset_name=dataset_name,
         resolved=resolved,
     )
-    return loaded if loaded is not None else load_cl_ids_from_csv(data_path, dataset_name)
+    return loaded if loaded is not None else load_cl_ids_from_csv(root, dataset_name)
 
 
 def load_drug_features_for_model_config(
     config: ModelConfig | ResolvedModelConfig,
-    data_path: str,
+    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset | None:
     """Load drug features implied by *config*, including identity-only featurizers.
@@ -197,15 +199,16 @@ def load_drug_features_for_model_config(
 
     :returns: ``FeatureDataset`` with drug views, or ``None`` when the model has no drug featurizer.
     """
+    root = Path(data_path)
     template, resolved = _unwrap_model_config(config)
     if template.drug_featurizer is None:
         return None
     if drug_entity_id_only_from_model_config(template):
-        return load_drug_ids_from_csv(data_path, dataset_name)
+        return load_drug_ids_from_csv(root, dataset_name)
     return _load_from_featurizer_tree(
         template.drug_featurizer,
         registry="drug",
-        data_path=data_path,
+        data_path=root,
         dataset_name=dataset_name,
         resolved=resolved,
     )

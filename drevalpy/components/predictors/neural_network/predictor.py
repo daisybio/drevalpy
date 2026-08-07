@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import io
-import os
 import secrets
+from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -143,8 +143,8 @@ class NeuralNetworkPredictor(MatrixPredictor):
         ]
 
         checkpoint_dir = batch.training_context.checkpoint_dir
-        unique_subfolder = os.path.join(checkpoint_dir, "run_" + secrets.token_hex(8))
-        os.makedirs(unique_subfolder, exist_ok=True)
+        unique_subfolder = Path(checkpoint_dir) / ("run_" + secrets.token_hex(8))
+        unique_subfolder.mkdir(parents=True, exist_ok=True)
         checkpoint_callback = pl.callbacks.ModelCheckpoint(
             dirpath=unique_subfolder,
             monitor=monitor,

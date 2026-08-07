@@ -39,6 +39,9 @@ from .training import train_and_predict_impl
 # Public compatibility re-export (callers may import from ``drevalpy.experiment``).
 get_datasets_from_cv_split = _fold_module.get_datasets_from_cv_split
 
+# Module-level constant so the default is not a fresh object on every call (flake8 B008).
+_CWD = Path()
+
 ray: ModuleType | None
 if importlib.util.find_spec("ray") is not None:
     ray = importlib.import_module("ray")
@@ -75,8 +78,8 @@ __all__ = [
 def prepare_response_splits(
     response_data: DrugResponseDataset,
     *,
-    split_path: str,
-    result_path: str,
+    split_path: str | Path,
+    result_path: str | Path,
     split_label: str,
     test_mode: str,
     n_cv_splits: int,
@@ -134,10 +137,10 @@ def drug_response_experiment(
     randomization_type: str = "permutation",
     cross_study_datasets: list[DrugResponseDataset] | None = None,
     n_trials_robustness: int = 0,
-    path_out: str = "results/",
+    path_out: str | Path = "results/",
     overwrite: bool = False,
-    path_data: str = "data",
-    model_checkpoint_dir: str = "TEMPORARY",
+    path_data: str | Path = "data",
+    model_checkpoint_dir: str | Path | None = None,
     hyperparameter_tuning=True,
     final_model_on_full_data: bool = False,
     wandb_project: str | None = None,
@@ -169,7 +172,7 @@ def drug_response_experiment(
     :param path_out: Root directory for experiment outputs.
     :param overwrite: Recompute splits and predictions even when artifacts exist.
     :param path_data: Root directory for feature tables.
-    :param model_checkpoint_dir: Directory for per-fold model checkpoints.
+    :param model_checkpoint_dir: Directory for per-fold model checkpoints, or ``None`` for a temporary one.
     :param hyperparameter_tuning: Whether to run HPO before final fold training.
     :param final_model_on_full_data: Train a production model on all data after CV.
     :param wandb_project: Optional Weights & Biases project name.
@@ -212,11 +215,11 @@ def drug_response_experiment(
 def consolidate_single_drug_model_predictions(
     models: list[type[DRPModel]],
     n_cv_splits: int,
-    results_path: str,
+    results_path: str | Path,
     cross_study_datasets: list[str],
     randomization_mode: list[str] | None = None,
     n_trials_robustness: int = 0,
-    out_path: str = "",
+    out_path: str | Path = _CWD,
 ) -> None:
     """Consolidate per-fold single-drug predictions into summary files.
 
@@ -226,7 +229,7 @@ def consolidate_single_drug_model_predictions(
     :param cross_study_datasets: Names of cross-study datasets to include.
     :param randomization_mode: Randomization views to consolidate, if any.
     :param n_trials_robustness: Number of robustness trials to consolidate.
-    :param out_path: Output directory; defaults to *results_path* when empty.
+    :param out_path: Output directory; defaults to the current working directory.
     """
     consolidate_single_drug_model_predictions_impl(
         models=models,
@@ -245,10 +248,10 @@ def cross_study_prediction(
     model: DRPModel,
     test_mode: str,
     train_dataset: DrugResponseDataset,
-    path_data: str,
+    path_data: str | Path,
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
-    path_out: str,
+    path_out: str | Path,
     split_index: int,
     single_drug_id: str | None = None,
 ) -> None:
@@ -300,15 +303,15 @@ def randomization_test(
     randomization_test_views: dict[str, list[str]],
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
-    path_out: str,
+    path_out: str | Path,
     split_index: int,
     randomization_type: str = "permutation",
     response_transformation: TransformerMixin | None = None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Run randomization stress tests for one CV fold.
 
@@ -323,7 +326,7 @@ def randomization_test(
     :param split_index: CV fold index for output file naming.
     :param randomization_type: Randomization strategy (for example ``permutation``).
     :param response_transformation: Optional response transformer.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
     randomization_test_impl(
         randomization_test_views=randomization_test_views,
@@ -346,14 +349,14 @@ def randomize_train_predict(
     views: list[str] | str,
     test_name: str,
     randomization_type: str,
-    randomization_test_file: str,
+    randomization_test_file: str | Path,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
     response_transformation: TransformerMixin | None = None,
 ) -> None:
     """Randomize feature views, then train and predict once.
@@ -368,7 +371,7 @@ def randomize_train_predict(
     :param train_dataset: Training split for the fold.
     :param test_dataset: Test split for the fold.
     :param early_stopping_dataset: Optional early-stopping data.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param response_transformation: Optional response transformer.
     """
     randomize_train_predict_impl(
@@ -391,14 +394,14 @@ def robustness_test(
     n_trials: int,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
-    path_out: str,
+    path_out: str | Path,
     split_index: int,
     response_transformation: TransformerMixin | None = None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ):
     """Run robustness tests for one CV fold.
 
@@ -412,7 +415,7 @@ def robustness_test(
     :param path_out: Directory where predictions are written.
     :param split_index: CV fold index for output file naming.
     :param response_transformation: Optional response transformer.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
     robustness_test_impl(
         n_trials=n_trials,
@@ -432,15 +435,15 @@ def robustness_test(
 @pipeline_function
 def robustness_train_predict(
     trial: int,
-    trial_file: str,
+    trial_file: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str,
+    path_data: str | Path,
     response_transformation: TransformerMixin | None = None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Train and predict for one robustness-test trial.
 
@@ -453,7 +456,7 @@ def robustness_train_predict(
     :param hyperparameters: Hyperparameters for model construction.
     :param path_data: Root directory for feature tables.
     :param response_transformation: Optional response transformer.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
     robustness_train_predict_impl(
         trial=trial,
@@ -494,14 +497,14 @@ def split_early_stopping(
 @pipeline_function
 def train_and_predict(
     model: DRPModel,
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None = None,
     response_transformation: TransformerMixin | None = None,
     cl_features: FeatureDataset | None = None,
     drug_features: FeatureDataset | None = None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> DrugResponseDataset:
     """Train the model and predict the response for the prediction dataset.
 
@@ -513,7 +516,7 @@ def train_and_predict(
     :param response_transformation: Optional sklearn response transformer.
     :param cl_features: Preloaded cell-line features, or ``None`` to load from disk.
     :param drug_features: Preloaded drug features, or ``None`` to load from disk.
-    :param model_checkpoint_dir: Directory for predictor checkpoints.
+    :param model_checkpoint_dir: Directory for predictor checkpoints, or ``None`` for a temporary one.
 
     :returns: *prediction_dataset* with ``predictions`` populated.
     """
@@ -532,13 +535,13 @@ def train_and_predict(
 
 def train_and_evaluate(
     model: DRPModel,
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None = None,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> dict[str, float]:
     """Train a model and compute validation metrics.
 
@@ -549,7 +552,7 @@ def train_and_evaluate(
     :param early_stopping_dataset: Optional early-stopping data.
     :param response_transformation: Optional response transformer.
     :param metric: Primary metric to optimize and return.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
 
     :returns: Validation metrics keyed by metric name.
     """
@@ -598,7 +601,12 @@ def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
 
 
 @pipeline_function
-def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
+def generate_data_saving_path(
+    model_name: str,
+    drug_id: str | None,
+    result_path: str | Path,
+    suffix: str,
+) -> Path:
     """Return an output directory for predictions, HPO, and similar artifacts.
 
     :param model_name: Base model name.
@@ -612,7 +620,11 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
 
 
 @pipeline_function
-def generate_final_model_checkpoint_path(model_name, drug_id, result_path) -> str:
+def generate_final_model_checkpoint_path(
+    model_name: str,
+    drug_id: str | None,
+    result_path: str | Path,
+) -> Path:
     """Return archive path stem for a final production model checkpoint.
 
     :param model_name: Base model name.
@@ -627,8 +639,8 @@ def train_final_model(
     model_class: type[DRPModel],
     full_dataset: DrugResponseDataset,
     response_transformation: TransformerMixin,
-    path_data: str,
-    model_checkpoint_dir: str,
+    path_data: str | Path,
+    model_checkpoint_dir: str | Path | None,
     metric: str,
     final_model_path: str,
     test_mode: str = "LCO",
@@ -645,7 +657,7 @@ def train_final_model(
     :param full_dataset: Complete response dataset for final training.
     :param response_transformation: Response transformer fitted on training data.
     :param path_data: Root directory for feature tables.
-    :param model_checkpoint_dir: Directory for intermediate checkpoints.
+    :param model_checkpoint_dir: Directory for intermediate checkpoints, or ``None`` for a temporary one.
     :param metric: Metric optimized during optional hyperparameter tuning.
     :param final_model_path: Archive path stem for the final model (``.zip`` appended on save).
     :param test_mode: Split mode for the internal train/validation holdout.

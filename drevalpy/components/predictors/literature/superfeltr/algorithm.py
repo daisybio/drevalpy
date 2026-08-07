@@ -14,6 +14,7 @@ Code adapted from their Github: https://github.com/DMCB-GIST/Super.FELT
 and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/kramerlab/Multi-Omics_analysis
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -104,7 +105,7 @@ class SuperFELTR(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "superfeltr_checkpoints",
+        model_checkpoint_dir: str | Path = "superfeltr_checkpoints",
     ) -> None:
         """Does feature selection, trains the encoders sequentially, and then trains the regressor.
 

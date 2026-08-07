@@ -59,7 +59,7 @@ def run_load_response(
 
 def run_cv_split(
     *,
-    response: str,
+    response: str | Path,
     n_cv_splits: int,
     test_mode: str = "LPO",
     validation_ratio: float = 0.1,
@@ -136,12 +136,12 @@ def run_hpam_split(
 def run_train_and_predict_cv(
     *,
     model_name: str,
-    path_data: str = "data",
+    path_data: str | Path = "data",
     test_mode: str = "LPO",
     hyperparameters: str,
-    cv_data: str,
+    cv_data: str | Path,
     response_transformation: str = "None",
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Train on a CV split and pickle validation predictions.
 
@@ -151,7 +151,7 @@ def run_train_and_predict_cv(
     :param hyperparameters: hyperparameters.
     :param cv_data: cv data.
     :param response_transformation: response transformation.
-    :param model_checkpoint_dir: model checkpoint dir.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
     from drevalpy.experiment import get_model_name_and_drug_id, train_and_predict
     from drevalpy.experiment.fold import get_datasets_from_cv_split

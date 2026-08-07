@@ -6,6 +6,8 @@ https://doi.org/10.1186/s12885-017-3500-5.
 Matlab code adapted from https://github.com/linwang1982/SRMF.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import jaccard
@@ -89,7 +91,7 @@ class SRMF(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
+        model_checkpoint_dir: str | Path = "checkpoints",
     ) -> None:
         """Prepares data and trains the SRMF model.
 

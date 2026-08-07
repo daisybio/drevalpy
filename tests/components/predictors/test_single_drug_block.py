@@ -93,7 +93,7 @@ def _omics_batch() -> ModelInputBatch:
                 format=FeatureFormat.NUMERIC_MATRIX,
             ),
         },
-        training_context=TrainingContext(checkpoint_dir="checkpoints"),
+        training_context=TrainingContext(checkpoint_dir=Path("checkpoints")),
     )
 
 
@@ -194,7 +194,7 @@ def test_state_round_trip_preserves_per_drug_algorithms() -> None:
 def test_per_drug_checkpoint_dirs_are_isolated() -> None:
     predictor = _FakePredictor()
     batch = _omics_batch()
-    seen_dirs: list[str] = []
+    seen_dirs: list[Path] = []
 
     def _capture_train(algorithm_cls, hyperparameters, preload_state, sub, cell_lines, drugs):
         seen_dirs.append(sub.training_context.checkpoint_dir)
@@ -218,4 +218,4 @@ def test_per_drug_checkpoint_dirs_are_isolated() -> None:
         predictor.fit(batch)
     assert len(seen_dirs) == 2
     assert len(set(seen_dirs)) == 2
-    assert all(Path(path).as_posix().startswith("checkpoints/drug_") for path in seen_dirs)
+    assert all(path.as_posix().startswith("checkpoints/drug_") for path in seen_dirs)

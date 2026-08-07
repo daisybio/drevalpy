@@ -8,6 +8,7 @@ Original authors: Chawla et al. (2022, 10.1038/s41467-022-33291-z)
 Reference code: https://github.com/SmritiChawla/Precily
 """
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -124,7 +125,7 @@ class PrecilyModel(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
+        model_checkpoint_dir: str | Path = "checkpoints",
     ) -> None:
         """Train the Precily model.
 

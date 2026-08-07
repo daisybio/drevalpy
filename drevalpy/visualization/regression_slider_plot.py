@@ -1,6 +1,7 @@
 """Module for generating regression plots with a slider for Pearson correlation coefficient."""
 
 from io import TextIOWrapper
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -70,14 +71,14 @@ class RegressionSliderPlot(OutPlot):
                 columns={"model_x": "model", "algorithm_x": "algorithm", "CV_split_x": "CV_split"}
             )
 
-    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+    def draw_and_save(self, out_prefix: str | Path, out_suffix: str) -> None:
         """Draw regression plot and save as HTML.
 
-        :param out_prefix: Output directory (for example ``results/my_run/regression_plots/``).
+        :param out_prefix: Output directory (for example ``results/my_run/regression_plots``).
         :param out_suffix: Filename suffix (for example ``LPO_drug_SimpleNeuralNetwork``).
         """
         self._draw()
-        self.fig.write_html(f"{out_prefix}regression_lines_{out_suffix}.html")
+        self.fig.write_html(Path(out_prefix) / f"regression_lines_{out_suffix}.html")
 
     def _draw(self):
         """Draw the regression plot."""

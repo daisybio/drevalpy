@@ -1,9 +1,7 @@
 """Generate evaluation reports after running a drug response experiment."""
 
-import os
-import pathlib
 from collections.abc import Iterable
-from typing import Union
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -27,8 +25,8 @@ def generate_reports_for_test_mode(
     evaluation_results_per_cell_line: pd.DataFrame,
     true_vs_pred: pd.DataFrame,
     run_id: str,
-    path_data: Union[str, pathlib.Path],
-    result_path: Union[str, pathlib.Path],
+    path_data: str | Path,
+    result_path: str | Path,
 ) -> None:
     """Generate plots and HTML for a single test mode.
 
@@ -41,8 +39,8 @@ def generate_reports_for_test_mode(
     :param path_data: Path to the dataset directory.
     :param result_path: Path to the results directory.
     """
-    path_data = pathlib.Path(path_data)
-    result_path = pathlib.Path(result_path)
+    data_dir = Path(path_data)
+    results_dir = Path(result_path)
 
     print(f"Generating report for {test_mode} ...")
     unique_algos_ndarray = draw_test_mode_plots(
@@ -51,8 +49,8 @@ def generate_reports_for_test_mode(
         ev_res_per_drug=evaluation_results_per_drug,
         ev_res_per_cell_line=evaluation_results_per_cell_line,
         custom_id=run_id,
-        path_data=path_data,
-        result_path=result_path,
+        path_data=data_dir,
+        result_path=results_dir,
     )
     unique_algos: Iterable[str] = (
         list(unique_algos_ndarray) if isinstance(unique_algos_ndarray, (np.ndarray, tuple)) else unique_algos_ndarray
@@ -74,22 +72,24 @@ def generate_reports_for_test_mode(
             t_vs_p=true_vs_pred,
             test_mode=test_mode,
             custom_id=run_id,
-            result_path=result_path,
+            result_path=results_dir,
         )
 
+    run_dir = results_dir / run_id
     all_files = []
-    for _, _, files in os.walk(f"{result_path}/{run_id}"):
-        for file in files:
-            if file.endswith("json") or (
-                file.endswith(".html") and file not in ["index.html", "LPO.html", "LCO.html", "LDO.html"]
-            ):
-                all_files.append(file)
+    for entry in run_dir.rglob("*"):
+        if not entry.is_file():
+            continue
+        if entry.name.endswith("json") or (
+            entry.suffix == ".html" and entry.name not in ["index.html", "LPO.html", "LCO.html", "LDO.html"]
+        ):
+            all_files.append(entry.name)
 
     create_html(
         run_id=run_id,
         test_mode=test_mode,
         files=all_files,
-        prefix_results=f"{result_path}/{run_id}",
+        prefix_results=run_dir,
     )
 
 
@@ -100,8 +100,8 @@ def generate_reports_for_all_test_modes(
     evaluation_results_per_cell_line: pd.DataFrame,
     true_vs_pred: pd.DataFrame,
     run_id: str,
-    path_data: Union[str, pathlib.Path],
-    result_path: Union[str, pathlib.Path],
+    path_data: str | Path,
+    result_path: str | Path,
 ) -> None:
     """Generate reports for all listed test modes.
 
@@ -130,8 +130,8 @@ def generate_reports_for_all_test_modes(
 def create_report(
     run_id: str,
     dataset: str,
-    path_data: Union[str, pathlib.Path] = "data",
-    result_path: Union[str, pathlib.Path] = "results",
+    path_data: str | Path = "data",
+    result_path: str | Path = "results",
 ) -> None:
     """Render a full evaluation report pipeline.
 
@@ -145,18 +145,19 @@ def create_report(
 
     :raises AssertionError: If ``result_path/run_id`` does not exist.
     """
-    path_data = pathlib.Path(path_data).resolve()
-    result_path = pathlib.Path(result_path).resolve()
+    data_dir = Path(path_data).resolve()
+    results_dir = Path(result_path).resolve()
+    run_dir = results_dir / run_id
 
-    if not os.path.exists(f"{result_path}/{run_id}"):
-        raise AssertionError(f"Folder {result_path}/{run_id} does not exist. The pipeline has to be run first.")
+    if not run_dir.exists():
+        raise AssertionError(f"Folder {run_dir} does not exist. The pipeline has to be run first.")
 
     (
         evaluation_results,
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=f"{result_path}/{run_id}", dataset=dataset)
+    ) = parse_results(path_to_results=run_dir, dataset=dataset)
 
     (
         evaluation_results,
@@ -164,18 +165,18 @@ def create_report(
         evaluation_results_per_cell_line,
         true_vs_pred,
     ) = prep_results(
-        evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred, path_data
+        evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred, data_dir
     )
 
     write_results(
-        path_out=f"{result_path}/{run_id}/",
+        path_out=run_dir,
         eval_results=evaluation_results,
         eval_results_per_drug=evaluation_results_per_drug,
         eval_results_per_cl=evaluation_results_per_cell_line,
         t_vs_p=true_vs_pred,
     )
 
-    create_output_directories(result_path, run_id)
+    create_output_directories(results_dir, run_id)
     test_modes = list(evaluation_results["test_mode"].unique())
 
     generate_reports_for_all_test_modes(
@@ -185,14 +186,14 @@ def create_report(
         evaluation_results_per_cell_line=evaluation_results_per_cell_line,
         true_vs_pred=true_vs_pred,
         run_id=run_id,
-        path_data=path_data,
-        result_path=result_path,
+        path_data=data_dir,
+        result_path=results_dir,
     )
 
     create_index_html(
         custom_id=run_id,
         test_modes=test_modes,
-        prefix_results=f"{result_path}/{run_id}",
+        prefix_results=run_dir,
     )
 
 
@@ -200,8 +201,8 @@ def run_report(
     *,
     run_id: str,
     dataset: str,
-    path_data: str = "data",
-    result_path: str = "results",
+    path_data: str | Path = "data",
+    result_path: str | Path = "results",
 ) -> None:
     """Generate HTML report from a standalone experiment run.
 
@@ -216,22 +217,24 @@ def run_report(
 def run_pipeline_report(
     *,
     test_modes: list[str],
+    # These stay ``str``: the pipeline passes the literal ``"NO_FILE"`` sentinel for
+    # the optional CSVs, which is compared by value below.
     eval_results: str,
     eval_results_per_drug: str,
     eval_results_per_cl: str,
     true_vs_predicted: str,
-    path_data: str,
+    path_data: str | Path,
 ) -> None:
     """Generate HTML report from pipeline evaluation CSVs.
 
     :param test_modes: Test modes to include in the report.
     :param eval_results: Path to aggregated evaluation results CSV.
-    :param eval_results_per_drug: Path to per-drug CSV, or ``"NO_FILE"``.
-    :param eval_results_per_cl: Path to per-cell-line CSV, or ``"NO_FILE"``.
+    :param eval_results_per_drug: Path to per-drug CSV, or the ``"NO_FILE"`` sentinel.
+    :param eval_results_per_cl: Path to per-cell-line CSV, or the ``"NO_FILE"`` sentinel.
     :param true_vs_predicted: Path to true-versus-predicted CSV.
     :param path_data: Path to the dataset directory.
     """
-    result_path = pathlib.Path(".")
+    result_path = Path(".")
     outdir_name = "report"
     create_output_directories(result_path=result_path, custom_id=outdir_name)
 
@@ -259,5 +262,5 @@ def run_pipeline_report(
     create_index_html(
         custom_id=outdir_name,
         test_modes=test_modes,
-        prefix_results=f"{result_path}/{outdir_name}",
+        prefix_results=result_path / outdir_name,
     )

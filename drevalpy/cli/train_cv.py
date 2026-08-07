@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from drevalpy.cli.run_cv import run_train_and_predict_cv
+
+# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
+_DEFAULT_DATA_DIR = Path("data")
 
 
 def register(app: typer.Typer) -> None:
@@ -31,8 +35,10 @@ def register(app: typer.Typer) -> None:
                 help="Path to the yaml file containing the hyperparameter configuration for this run.",
             ),
         ],
-        cv_data: Annotated[str, typer.Option("--cv_data", help="Path to the pickled cv data split.")],
-        path_data: Annotated[str, typer.Option("--path_data", help="Data directory path, default: data.")] = "data",
+        cv_data: Annotated[Path, typer.Option("--cv_data", help="Path to the pickled cv data split.")],
+        path_data: Annotated[
+            Path, typer.Option("--path_data", help="Data directory path, default: data.")
+        ] = _DEFAULT_DATA_DIR,
         test_mode: Annotated[
             str,
             typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO), default: LPO."),
@@ -45,12 +51,12 @@ def register(app: typer.Typer) -> None:
             ),
         ] = "None",
         model_checkpoint_dir: Annotated[
-            str,
+            Path | None,
             typer.Option(
                 "--model_checkpoint_dir",
                 help="model checkpoint directory, if not provided: temporary directory is used",
             ),
-        ] = "TEMPORARY",
+        ] = None,
     ) -> None:
         """Train on a CV split and save validation predictions as pickle.
 
@@ -60,7 +66,7 @@ def register(app: typer.Typer) -> None:
         :param path_data: Root data directory passed to feature loaders.
         :param test_mode: Split label used when naming outputs.
         :param response_transformation: Sklearn response transform name.
-        :param model_checkpoint_dir: Directory for model checkpoints.
+        :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
         """
         run_train_and_predict_cv(
             model_name=model_name,

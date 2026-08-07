@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -35,7 +36,7 @@ def register(app: typer.Typer) -> None:
         true_vs_predicted: Annotated[
             str, typer.Option("--true_vs_predicted", help="Path to the true vs predicted results.")
         ],
-        path_data: Annotated[str, typer.Option("--path_data", help="Path to the data.")],
+        path_data: Annotated[Path, typer.Option("--path_data", help="Path to the data.")],
     ) -> None:
         """Make the HTML report for the pipeline.
 

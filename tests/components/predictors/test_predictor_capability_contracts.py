@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -67,7 +68,7 @@ def _neural_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
         cell_line_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
         early_stopping_response=early_stopping,
-        training_context=TrainingContext(checkpoint_dir=tempfile.mkdtemp()),
+        training_context=TrainingContext(checkpoint_dir=Path(tempfile.mkdtemp())),
     )
 
 
@@ -105,7 +106,7 @@ def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
         cell_line_blocks=cell_line_blocks,
         drug_blocks=drug_blocks,
         early_stopping_response=early_stopping,
-        training_context=TrainingContext(checkpoint_dir=tempfile.mkdtemp()),
+        training_context=TrainingContext(checkpoint_dir=Path(tempfile.mkdtemp())),
     )
 
 

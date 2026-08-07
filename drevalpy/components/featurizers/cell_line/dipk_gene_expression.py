@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -43,7 +44,7 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         self._latent_dim = 512
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load the DIPK intersection gene-expression view.
 
         :param data_path: Parent directory for dataset artifacts.

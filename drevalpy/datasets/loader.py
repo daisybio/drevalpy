@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -23,7 +22,7 @@ from .utils import (
 )
 
 _REGISTRY_JSON = "available_datasets.json"
-_META_TISSUE_MAPPING = os.path.join("meta", "tissue_mapping.csv")
+_META_TISSUE_MAPPING = Path("meta") / "tissue_mapping.csv"
 
 
 @dataclass(frozen=True)
@@ -122,37 +121,38 @@ def check_measure(measure_queried: str, measures_data: list[str], dataset_name: 
         )
 
 
-def _ensure_zenodo_artifacts(path_data: str, entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
-    response_path = Path(path_data) / entry.response_file
+def _ensure_zenodo_artifacts(path_data: Path, entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
+    response_path = path_data / entry.response_file
     if not response_path.is_file():
         download_dataset(entry.name, path_data, redownload=True)
 
-    meta_path = Path(path_data) / _META_TISSUE_MAPPING
+    meta_path = path_data / _META_TISSUE_MAPPING
     if "meta" in source.ensure_artifacts and not meta_path.is_file():
         download_dataset("meta", path_data, redownload=True)
 
 
-def _download_nfcore_zip(path_data: str, artifact_name: str, base_url: str) -> None:
+def _download_nfcore_zip(path_data: Path, artifact_name: str, base_url: str) -> None:
+    # ``base_url`` is a URL, not a filesystem path, so it stays a plain string.
     file_url = f"{base_url}/{artifact_name}.zip"
-    file_path = Path(path_data) / f"{artifact_name}.zip"
+    file_path = path_data / f"{artifact_name}.zip"
     response = download_from_url(dataset_name=artifact_name, file_url=file_url)
     unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
 
 
-def _ensure_nfcore_artifacts(path_data: str, entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
+def _ensure_nfcore_artifacts(path_data: Path, entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
     if source.base_url is None:
         raise ValueError(f"nfcore source for dataset {entry.name} is missing base_url")
     base_url = source.base_url
-    Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data.mkdir(parents=True, exist_ok=True)
     for artifact in source.ensure_artifacts:
-        artifact_path = Path(path_data) / artifact
+        artifact_path = path_data / artifact
         if not artifact_path.exists():
             _download_nfcore_zip(path_data, artifact, base_url)
 
     _download_nfcore_zip(path_data, entry.name, base_url)
 
 
-def _ensure_builtin_artifacts(path_data: str, entry: BuiltinDatasetEntry) -> None:
+def _ensure_builtin_artifacts(path_data: Path, entry: BuiltinDatasetEntry) -> None:
     source = _SOURCES[entry.source]
     if source.kind == "zenodo":
         _ensure_zenodo_artifacts(path_data, entry, source)
@@ -166,9 +166,10 @@ def _read_response_csv(path: Path) -> pd.DataFrame:
     return response_data
 
 
-def _load_builtin(entry: BuiltinDatasetEntry, path_data: str, measure: str) -> DrugResponseDataset:
-    _ensure_builtin_artifacts(path_data, entry)
-    response_path = Path(path_data) / entry.response_file
+def _load_builtin(entry: BuiltinDatasetEntry, path_data: str | Path, measure: str) -> DrugResponseDataset:
+    data_root = Path(path_data)
+    _ensure_builtin_artifacts(data_root, entry)
+    response_path = data_root / entry.response_file
     response_data = _read_response_csv(response_path)
     check_measure(measure, list(response_data.columns), entry.name)
     if entry.tissue_override is not None:
@@ -200,7 +201,7 @@ def load_custom(
 
 def load_response_dataset(
     dataset_name: str,
-    path_data: str = "data",
+    path_data: str | Path = "data",
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,
@@ -236,8 +237,8 @@ def load_response_dataset(
     if input_file.is_file():
         if curve_curator:
             fit_curves(
-                input_file=str(input_file),
-                output_dir=str(input_file.parent),
+                input_file=input_file,
+                output_dir=input_file.parent,
                 dataset_name=dataset_name,
                 cores=cores,
                 normalize=normalize,
@@ -253,7 +254,7 @@ def load_response_dataset(
 
 def load_dataset(
     dataset_name: str,
-    path_data: str = "data",
+    path_data: str | Path = "data",
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,

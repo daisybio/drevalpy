@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from drevalpy.components.data_loading.multiomics import get_multiomics_feature_dataset, load_and_select_gene_features
 from drevalpy.datasets.dataset import FeatureDataset
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def load_cell_line_feature_views(
     views: list[str],
-    data_path: str,
+    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load cell-line features for the configured cell-line views.
@@ -29,14 +30,15 @@ def load_cell_line_feature_views(
 
     :returns: ``FeatureDataset`` with the requested cell-line views.
     """
+    root = Path(data_path)
     if len(views) == 1:
-        return load_single_cell_line_view(views, data_path, dataset_name)
-    return load_multi_cell_line_view(views, data_path, dataset_name)
+        return load_single_cell_line_view(views, root, dataset_name)
+    return load_multi_cell_line_view(views, root, dataset_name)
 
 
 def load_drug_feature_views(
     views: list[str],
-    data_path: str,
+    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset | None:
     """Load drug features for the configured drug views.
@@ -49,12 +51,12 @@ def load_drug_feature_views(
     """
     if not views:
         return None
-    return load_single_drug_view(views, data_path, dataset_name)
+    return load_single_drug_view(views, Path(data_path), dataset_name)
 
 
 def load_single_cell_line_view(
     cell_line_views: list[str],
-    data_path: str,
+    data_path: Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load cell line features for a single-view model.
@@ -98,7 +100,7 @@ def load_single_cell_line_view(
 
 def load_multi_cell_line_view(
     cell_line_views: list[str],
-    data_path: str,
+    data_path: Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load cell line features for a multi-view model.
@@ -138,7 +140,7 @@ def load_multi_cell_line_view(
 
 def load_single_drug_view(
     drug_views: list[str],
-    data_path: str,
+    data_path: Path,
     dataset_name: str,
 ) -> FeatureDataset | None:
     """Load drug features for a single-view model.

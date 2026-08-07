@@ -1,6 +1,5 @@
 """Utility functions for datasets."""
 
-import os
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -18,7 +17,7 @@ ALLOWED_MEASURES = ["LN_IC50", "EC50", "IC50", "pEC50", "AUC", "response"]
 ALLOWED_MEASURES.extend([f"{m}_curvecurator" for m in ALLOWED_MEASURES])
 
 
-def unzip_data(path_to_zip: Path, response: Response, data_path: str):
+def unzip_data(path_to_zip: Path, response: Response, data_path: str | Path):
     """Unzips the downloaded data.
 
     :param path_to_zip: Path to the zip file to be unzipped.
@@ -31,7 +30,7 @@ def unzip_data(path_to_zip: Path, response: Response, data_path: str):
     with zipfile.ZipFile(path_to_zip, "r") as z:
         for member in z.infolist():
             if not member.filename.startswith("__MACOSX/"):
-                z.extract(member, os.path.join(data_path))
+                z.extract(member, Path(data_path))
     path_to_zip.unlink()  # Remove zip file after extraction
 
 
@@ -52,7 +51,7 @@ def download_from_url(dataset_name: str, file_url: str) -> Response:
 
 def download_dataset(
     dataset_name: str,
-    data_path: str = "data",
+    data_path: str | Path = "data",
     redownload: bool = False,
 ):
     """Download the latets dataset from Zenodo.

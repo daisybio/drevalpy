@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -106,7 +107,7 @@ def _batch() -> ModelInputBatch:
                 format=FeatureFormat.NUMERIC_MATRIX,
             ),
         },
-        training_context=TrainingContext(checkpoint_dir="checkpoints"),
+        training_context=TrainingContext(checkpoint_dir=Path("checkpoints")),
     )
 
 

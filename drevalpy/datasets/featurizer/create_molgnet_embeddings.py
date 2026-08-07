@@ -5,8 +5,11 @@ Creates MolGNet embeddings for molecules given their SMILES strings. This module
 python create_molgnet_embeddings.py dataset_name --checkpoint meta/MolGNet.pt --data_path data
 """
 
+from __future__ import annotations
+
 import argparse
 import math
+from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
@@ -774,7 +777,8 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--data_path",
-        default="data",
+        type=Path,
+        default=Path("data"),
         help="Top-level data folder path",
     )
     p.add_argument(
@@ -791,7 +795,8 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--checkpoint",
-        default="MolGNet.pt",
+        type=Path,
+        default=Path("MolGNet.pt"),
         help="MolGNet checkpoint (state_dict), can be obtained from Zenodo: https://doi.org/10.5281/zenodo.12633909",
     )
     p.add_argument(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import ClassVar
 
 import numpy as np
@@ -36,7 +37,7 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         self._is_fitted = False
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load reduced landmark gene-expression values without arcsinh.
 
         :param data_path: Parent directory for dataset artifacts.

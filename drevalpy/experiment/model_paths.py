@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 import numpy as np
 
@@ -54,7 +54,12 @@ def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
     return parsed_name, name_split[1]
 
 
-def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
+def generate_data_saving_path(
+    model_name: str,
+    drug_id: str | None,
+    result_path: str | Path,
+    suffix: str,
+) -> Path:
     """Return output directory for predictions, hpams, and similar artifacts.
 
     :param model_name: Base model name.
@@ -64,15 +69,20 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
 
     :returns: Created output directory path.
     """
+    root = Path(result_path)
     if is_single_drug_model_name(model_name):
-        model_path = os.path.join(result_path, model_name, "drugs", drug_id, suffix)
+        model_path = root / model_name / "drugs" / str(drug_id) / suffix
     else:
-        model_path = os.path.join(result_path, model_name, suffix)
-    os.makedirs(model_path, exist_ok=True)
+        model_path = root / model_name / suffix
+    model_path.mkdir(parents=True, exist_ok=True)
     return model_path
 
 
-def generate_final_model_checkpoint_path(model_name, drug_id, result_path) -> str:
+def generate_final_model_checkpoint_path(
+    model_name: str,
+    drug_id: str | None,
+    result_path: str | Path,
+) -> Path:
     """Return archive path stem for a final production model checkpoint.
 
     Creates the model (and optional drug) parent directory only. ``save_model``
@@ -84,9 +94,10 @@ def generate_final_model_checkpoint_path(model_name, drug_id, result_path) -> st
     :param result_path: Experiment result root directory.
     :returns: Checkpoint path stem (for example ``.../ElasticNet/final_model``).
     """
+    root = Path(result_path)
     if is_single_drug_model_name(model_name):
-        parent = os.path.join(result_path, model_name, "drugs", drug_id)
+        parent = root / model_name / "drugs" / str(drug_id)
     else:
-        parent = os.path.join(result_path, model_name)
-    os.makedirs(parent, exist_ok=True)
-    return os.path.join(parent, "final_model")
+        parent = root / model_name
+    parent.mkdir(parents=True, exist_ok=True)
+    return parent / "final_model"

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from drevalpy.cli.preprocess_custom import run_preprocess_raw_viability
+
+# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
+_DEFAULT_DATA_DIR = Path("data")
 
 
 def register(app: typer.Typer) -> None:
@@ -22,13 +26,13 @@ def register(app: typer.Typer) -> None:
             typer.Option("--dataset_name", help="Dataset name, e.g., MyCustomDataset."),
         ],
         path_data: Annotated[
-            str,
+            Path,
             typer.Option(
                 "--path_data",
                 help="Path to base folder containing datasets, in particular dataset_name/dataset_name_raw.csv, "
                 "default: ./data.",
             ),
-        ] = "./data",
+        ] = _DEFAULT_DATA_DIR,
         cores: Annotated[
             int,
             typer.Option(

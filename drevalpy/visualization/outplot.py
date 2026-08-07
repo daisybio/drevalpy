@@ -2,13 +2,14 @@
 
 from abc import ABC, abstractmethod
 from io import TextIOWrapper
+from pathlib import Path
 
 
 class OutPlot(ABC):
     """Abstract base for report plot classes."""
 
     @abstractmethod
-    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+    def draw_and_save(self, out_prefix: str | Path, out_suffix: str) -> None:
         """Draw the plot and write it to disk.
 
         :param out_prefix: Output directory path.

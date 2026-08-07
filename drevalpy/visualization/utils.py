@@ -1,6 +1,5 @@
 """Utility functions for the visualization part of the package."""
 
-import os
 import pathlib
 import shutil
 from typing import TextIO
@@ -57,10 +56,10 @@ def create_output_directories(result_path: pathlib.Path, custom_id: str) -> None
         "html_tables",
         "critical_difference_plots",
     ]:
-        os.makedirs(pathlib.Path(result_path / custom_id / dir), exist_ok=True)
+        (pathlib.Path(result_path) / custom_id / dir).mkdir(parents=True, exist_ok=True)
 
 
-def _parse_layout(f: TextIO, path_to_layout: str, test_mode: str) -> None:
+def _parse_layout(f: TextIO, path_to_layout: pathlib.Path, test_mode: str) -> None:
     """Parse the layout file and write it to the output file.
 
     :param f: File to write to.
@@ -69,7 +68,7 @@ def _parse_layout(f: TextIO, path_to_layout: str, test_mode: str) -> None:
     """
     with open(path_to_layout, encoding="utf-8") as layout_f:
         layout = layout_f.readlines()
-    if path_to_layout.endswith("index_layout.html"):
+    if path_to_layout.name == "index_layout.html":
         # remove the last 2 lines (</body>, </html>)
         layout = layout[:-2]
     else:
@@ -101,7 +100,9 @@ def _resolve_result_test_mode(result_dir: pathlib.Path, dataset: str, split_labe
     return split_label
 
 
-def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def parse_results(
+    path_to_results: str | pathlib.Path, dataset: str
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Parse experiment outputs and compute evaluation metrics.
 
     :param path_to_results: Directory containing experiment result CSVs.
@@ -122,7 +123,7 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
 
     # read every result file and compute the evaluation metrics
     for file in result_files:
-        rel_file = str(os.path.normpath(file.relative_to(result_dir))).replace("\\", "/")
+        rel_file = file.relative_to(result_dir).as_posix()
         print(f'Evaluating file: "{rel_file}" ...')
         split_label = file.parent.parent.parent.name
         algorithm = file.parent.parent.name
@@ -176,7 +177,7 @@ def evaluate_file(
     :returns: Tuple of overall evaluation, per-drug, per-cell-line tables, true versus
     :returns: predicted values, and the generated model run name.
     """
-    print("Parsing file:", os.path.normpath(pred_file))
+    print("Parsing file:", pred_file)
     dataset = DrugResponseDataset.from_csv(input_file=pred_file, dataset_name=dataset_name)
 
     model = _generate_model_names(test_mode=test_mode, model_name=model_name, pred_file=pred_file)
@@ -271,7 +272,7 @@ def _generate_model_names(test_mode: str, model_name: str, pred_file: pathlib.Pa
 
     :raises ValueError: If the prediction file prefix is unknown.
     """
-    file_parts = os.path.basename(pred_file).split("_")
+    file_parts = pred_file.name.split("_")
     pred_rand_rob = file_parts[0]
     if pred_rand_rob == "predictions":
         pred_setting = "predictions"
@@ -283,7 +284,7 @@ def _generate_model_names(test_mode: str, model_name: str, pred_file: pathlib.Pa
         pred_setting = "cross-study-" + file_parts[2]
     else:
         raise ValueError(f"Unknown prediction test_mode: {pred_rand_rob}")
-    split = "_".join(os.path.basename(pred_file).split(".")[0].split("_")[-2:])
+    split = "_".join(pred_file.name.split(".")[0].split("_")[-2:])
     return f"{model_name}_{pred_setting}_{test_mode}_{split}"
 
 
@@ -343,7 +344,7 @@ def compute_evaluation(df: pd.DataFrame, return_df: pd.DataFrame | None, group_b
 
 @pipeline_function
 def write_results(
-    path_out: str,
+    path_out: str | pathlib.Path,
     eval_results: pd.DataFrame,
     eval_results_per_drug: pd.DataFrame,
     eval_results_per_cl: pd.DataFrame,
@@ -351,22 +352,23 @@ def write_results(
 ) -> None:
     """Write evaluation tables to CSV files.
 
-    :param path_out: Output directory (for example ``results/my_run/``).
+    :param path_out: Output directory (for example ``results/my_run``).
     :param eval_results: Overall evaluation results.
     :param eval_results_per_drug: Per-drug evaluation results.
     :param eval_results_per_cl: Per-cell-line evaluation results.
     :param t_vs_p: True versus predicted values.
     """
-    eval_results.to_csv(f"{path_out}evaluation_results.csv", index=True)
+    out_dir = pathlib.Path(path_out)
+    eval_results.to_csv(out_dir / "evaluation_results.csv", index=True)
     if eval_results_per_drug is not None:
-        eval_results_per_drug.to_csv(f"{path_out}evaluation_results_per_drug.csv", index=True)
+        eval_results_per_drug.to_csv(out_dir / "evaluation_results_per_drug.csv", index=True)
     if eval_results_per_cl is not None:
-        eval_results_per_cl.to_csv(f"{path_out}evaluation_results_per_cl.csv", index=True)
-    t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
+        eval_results_per_cl.to_csv(out_dir / "evaluation_results_per_cl.csv", index=True)
+    t_vs_p.to_csv(out_dir / "true_vs_pred.csv", index=True)
 
 
 @pipeline_function
-def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str) -> None:
+def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str | pathlib.Path) -> None:
     """Create the report index HTML page.
 
     :param custom_id: Run identifier (for example ``my_run``).
@@ -378,22 +380,14 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
         "favicon.png",
         "nf-core-drugresponseeval_logo_light.png",
     ]
+    results_dir = pathlib.Path(prefix_results)
+    # ``importlib_resources.files`` returns a Traversable, not a Path, so convert via str().
+    style_dir = pathlib.Path(str(importlib_resources.files("drevalpy"))) / "visualization" / "style_utils"
     for file in file_to_copy:
-        file_path = os.path.join(
-            str(importlib_resources.files("drevalpy")),
-            "visualization",
-            "style_utils",
-            file,
-        )
-        shutil.copyfile(file_path, os.path.join(prefix_results, file))
+        shutil.copyfile(style_dir / file, results_dir / file)
 
-    layout_path = os.path.join(
-        str(importlib_resources.files("drevalpy")),
-        "visualization",
-        "style_utils",
-        "index_layout.html",
-    )
-    idx_html_path = os.path.join(prefix_results, "index.html")
+    layout_path = style_dir / "index_layout.html"
+    idx_html_path = results_dir / "index.html"
     with open(idx_html_path, "w", encoding="utf-8") as f:
         _parse_layout(f=f, path_to_layout=layout_path, test_mode="")
         f.write('<div class="main">\n')
@@ -405,13 +399,7 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
 
         test_modes.sort()
         for test_mode in test_modes:
-            img_path = os.path.join(
-                str(importlib_resources.files("drevalpy")),
-                "visualization",
-                "style_utils",
-                f"{test_mode}.png",
-            )
-            shutil.copyfile(img_path, os.path.join(prefix_results, f"{test_mode}.png"))
+            shutil.copyfile(style_dir / f"{test_mode}.png", results_dir / f"{test_mode}.png")
             f.write(
                 f'<a href="{test_mode}.html" target="_blank"><img src="{test_mode}.png" '
                 f'style="width:300px;height:300px;"></a>\n'
@@ -422,7 +410,7 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
         f.write("</html>\n")
 
 
-def create_html(run_id: str, test_mode: str, files: list, prefix_results: str) -> None:
+def create_html(run_id: str, test_mode: str, files: list, prefix_results: str | pathlib.Path) -> None:
     """Create the per-test-mode HTML report page.
 
     :param run_id: Run identifier shown in the page title.
@@ -430,11 +418,12 @@ def create_html(run_id: str, test_mode: str, files: list, prefix_results: str) -
     :param files: List of generated artifact filenames in the run directory.
     :param prefix_results: Directory containing report assets and subfolders.
     """
-    page_layout = os.path.join(
-        str(importlib_resources.files("drevalpy")),
-        "visualization/style_utils/page_layout.html",
+    results_dir = pathlib.Path(prefix_results)
+    # ``importlib_resources.files`` returns a Traversable, not a Path, so convert via str().
+    page_layout = (
+        pathlib.Path(str(importlib_resources.files("drevalpy"))) / "visualization" / "style_utils" / "page_layout.html"
     )
-    html_path = os.path.join(prefix_results, f"{test_mode}.html")
+    html_path = results_dir / f"{test_mode}.html"
 
     with open(html_path, "w", encoding="utf-8") as f:
         _parse_layout(f=f, path_to_layout=page_layout, test_mode=test_mode)
@@ -456,7 +445,7 @@ def create_html(run_id: str, test_mode: str, files: list, prefix_results: str) -
         f = ComparisonScatter.write_to_html(test_mode=test_mode, f=f, files=files)
 
         # Cross-study evaluation tables
-        f = CrossStudyTables.write_to_html(test_mode=test_mode, f=f, files=files, prefix=prefix_results)
+        f = CrossStudyTables.write_to_html(test_mode=test_mode, f=f, files=files, prefix=results_dir)
 
         f.write("</div>\n")
         f.write("</body>\n")

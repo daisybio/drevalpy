@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import warnings
+from pathlib import Path
 from typing import Any
 
 from sklearn.base import TransformerMixin, clone
@@ -122,14 +122,14 @@ def randomize_train_predict_impl(
     views: list[str] | str,
     test_name: str,
     randomization_type: str,
-    randomization_test_file: str,
+    randomization_test_file: str | Path,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
     response_transformation: TransformerMixin | None = None,
 ) -> None:
     """Randomize views, train once, and write predictions.
@@ -144,7 +144,7 @@ def randomize_train_predict_impl(
     :param train_dataset: Training split for the fold.
     :param test_dataset: Test split for the fold.
     :param early_stopping_dataset: Optional early-stopping data.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param response_transformation: Optional response transformer.
     """
     view_list = _normalize_view_list(views)
@@ -188,15 +188,15 @@ def randomization_test_impl(
     randomization_test_views: dict[str, list[str]],
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
-    path_out: str,
+    path_out: str | Path,
     split_index: int,
     randomization_type: str = "permutation",
     response_transformation: TransformerMixin | None = None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Run randomization tests once per view configuration.
 
@@ -211,16 +211,13 @@ def randomization_test_impl(
     :param split_index: CV fold index for output file naming.
     :param randomization_type: Randomization strategy (for example ``permutation``).
     :param response_transformation: Optional response transformer.
-    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
     for test_name, views in randomization_test_views.items():
-        randomization_test_path = os.path.join(path_out, "randomization")
-        os.makedirs(randomization_test_path, exist_ok=True)
-        randomization_test_file = os.path.join(
-            randomization_test_path,
-            f"randomization_{test_name}_split_{split_index}.csv",
-        )
-        if os.path.isfile(randomization_test_file):
+        randomization_test_path = Path(path_out) / "randomization"
+        randomization_test_path.mkdir(parents=True, exist_ok=True)
+        randomization_test_file = randomization_test_path / f"randomization_{test_name}_split_{split_index}.csv"
+        if randomization_test_file.is_file():
             print(f"Randomization test {test_name} already exists. Skipping.")
             continue
         print(f"Randomizing views {views} for randomization test {test_name} ...")

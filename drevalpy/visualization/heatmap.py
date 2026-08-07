@@ -1,5 +1,7 @@
 """Plots a heatmap of the evaluation metrics."""
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from plotly.subplots import make_subplots
@@ -64,14 +66,14 @@ class Heatmap(VioHeat):
             vertical_spacing=0.1,
         )
 
-    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+    def draw_and_save(self, out_prefix: str | Path, out_suffix: str) -> None:
         """Draw heatmap and save as HTML.
 
-        :param out_prefix: Output directory (for example ``results/my_run/heatmaps/``).
+        :param out_prefix: Output directory (for example ``results/my_run/heatmaps``).
         :param out_suffix: Filename suffix (for example ``algorithms_normalized``).
         """
         self._draw()
-        path_out = f"{out_prefix}heatmap_{out_suffix}.html"
+        path_out = Path(out_prefix) / f"heatmap_{out_suffix}.html"
         self.fig.write_html(path_out)
 
     def _draw(self) -> None:

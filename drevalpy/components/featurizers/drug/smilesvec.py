@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
@@ -25,7 +27,7 @@ class SmilesVecDrugFeaturizer(ViewDrugFeaturizer):
         super().__init__(view=view)
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load generated SMILESVec embeddings under the predictor block name.
 
         :param data_path: data path.

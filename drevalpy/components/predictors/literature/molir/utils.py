@@ -8,6 +8,7 @@ https://github.com/kramerlab/Multi-Omics_analysis
 import os
 import secrets
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 import pytorch_lightning as pl
@@ -381,7 +382,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         cell_line_input: FeatureDataset,
         output_earlystopping: DrugResponseDataset | None = None,
         patience: int = 5,
-        model_checkpoint_dir: str = "checkpoints",
+        model_checkpoint_dir: str | Path = "checkpoints",
         wandb_project: str | None = None,
     ) -> None:
         """Trains the MOLIR model.
@@ -414,7 +415,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
             [secrets.choice("0123456789abcdef") for _ in range(20)]
         )  # preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=os.path.join(model_checkpoint_dir, name),
+            dirpath=Path(model_checkpoint_dir) / name,
             monitor=monitor,
             mode="min",
             save_top_k=1,

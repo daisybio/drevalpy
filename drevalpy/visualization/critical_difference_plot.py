@@ -25,6 +25,7 @@ not significantly different. The critical difference is determined based on the 
 import pathlib
 import warnings
 from io import TextIOWrapper
+from pathlib import Path
 from typing import Optional
 
 import matplotlib
@@ -73,24 +74,24 @@ class CriticalDifferencePlot(OutPlot):
         self.fig: Optional[plt.Figure] = None
         self.test_results: Optional[pd.DataFrame] = None
 
-    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+    def draw_and_save(self, out_prefix: str | Path, out_suffix: str) -> None:
         """Draw critical difference plot and save SVG and HTML table.
 
-        :param out_prefix: Output directory (for example ``results/my_run/critical_difference_plots/``).
+        :param out_prefix: Output directory (for example ``results/my_run/critical_difference_plots``).
         :param out_suffix: Filename suffix (for example ``LPO``).
 
         :raises ValueError: If the figure or test results were not produced.
         """
         try:
             self._draw()
-            path_out = f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
+            path_out = Path(out_prefix) / f"critical_difference_algorithms_{out_suffix}.svg"
             if self.fig is None or self.test_results is None:
                 raise ValueError("Figure is None. Cannot save the plot.")
             else:
                 self.fig.savefig(path_out, bbox_inches="tight")
                 plt.clf()
                 self.test_results = self.test_results.round(4)
-                self.test_results.to_html(f"{out_prefix}critical_difference_algorithms_{out_suffix}.html")
+                self.test_results.to_html(Path(out_prefix) / f"critical_difference_algorithms_{out_suffix}.html")
         except Exception as e:
             print(f"Error in drawing critical difference plot: {e}")
 

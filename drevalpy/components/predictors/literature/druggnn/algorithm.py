@@ -1,5 +1,6 @@
 """DrugGNN model."""
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -286,7 +287,7 @@ class DrugGNN(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
+        model_checkpoint_dir: str | Path = "checkpoints",
         **kwargs: Any,
     ) -> None:
         """Train the model.

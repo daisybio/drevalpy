@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -74,7 +75,7 @@ def main(args) -> None:
 def get_datasets(
     dataset_name: str,
     cross_study_datasets: list,
-    path_data: str = "data",
+    path_data: str | Path = "data",
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,

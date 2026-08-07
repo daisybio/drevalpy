@@ -1,13 +1,14 @@
 """For the nf-core/drugresponseeval subworkflow model_testing."""
 
 import json
-import pathlib
 from argparse import Namespace
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import yaml
 
+from drevalpy.utils.checkpoints import checkpoint_dir_or_temporary
 from drevalpy.utils.pickle_io import dump_trusted_pickle, load_trusted_pickle
 
 
@@ -57,12 +58,12 @@ def run_train_and_predict_final(
     hyperparameters_path: str,
     response_transformation: str = "None",
     test_mode: str = "LPO",
-    path_data: str = "data",
+    path_data: str | Path = "data",
     randomization_views_path: str | None = None,
     randomization_type: str = "permutation",
     robustness_trial: int | None = None,
     cross_study_datasets: list[str] | None = None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Train and predict on the CV test set (full, randomization, or robustness mode).
 
@@ -78,7 +79,7 @@ def run_train_and_predict_final(
     :param randomization_type: randomization type.
     :param robustness_trial: robustness trial.
     :param cross_study_datasets: cross study datasets.
-    :param model_checkpoint_dir: model checkpoint dir.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :raises ValueError: If ``mode`` is not ``full``, ``randomization``, or ``robustness``.
     """
     from drevalpy.experiment import (
@@ -112,16 +113,16 @@ def run_train_and_predict_final(
         predictions_path = generate_data_saving_path(
             model_name=selected_model.get_model_name(),
             drug_id=drug_id,
-            result_path="",
+            result_path=Path("."),
             suffix="predictions",
         )
         hpam_path = generate_data_saving_path(
             model_name=selected_model.get_model_name(),
             drug_id=drug_id,
-            result_path="",
+            result_path=Path("."),
             suffix="best_hpams",
         )
-        hpam_path = pathlib.Path(hpam_path) / f"best_hpams_{args.split_id}.json"
+        hpam_path = Path(hpam_path) / f"best_hpams_{args.split_id}.json"
         with open(hpam_path, "w", encoding="utf-8") as f:
             json.dump(hpam_combi, f)
 
@@ -134,7 +135,7 @@ def run_train_and_predict_final(
             response_transformation=transformation,
             model_checkpoint_dir=args.model_checkpoint_dir,
         )
-        prediction_dataset = pathlib.Path(predictions_path) / f"predictions_{args.split_id}.csv"
+        prediction_dataset = Path(predictions_path) / f"predictions_{args.split_id}.csv"
         test_set.to_csv(prediction_dataset)
         if args.cross_study_datasets:
             for cs_ds in args.cross_study_datasets:
@@ -151,7 +152,7 @@ def run_train_and_predict_final(
                     path_data=args.path_data,
                     early_stopping_dataset=(es_set if selected_model.supports_early_stopping() else None),
                     response_transformation=transformation,
-                    path_out=str(pathlib.Path(predictions_path).parent),
+                    path_out=str(Path(predictions_path).parent),
                     split_index=split_index,
                     single_drug_id=drug_id,
                 )
@@ -161,12 +162,10 @@ def run_train_and_predict_final(
         rand_path = generate_data_saving_path(
             model_name=selected_model.get_model_name(),
             drug_id=drug_id,
-            result_path="",
+            result_path=Path("."),
             suffix="randomization",
         )
-        randomization_test_file = (
-            pathlib.Path(rand_path) / f"randomization_{rand_test_view['test_name']}_{args.split_id}.csv"
-        )
+        randomization_test_file = Path(rand_path) / f"randomization_{rand_test_view['test_name']}_{args.split_id}.csv"
         views = rand_test_view.get("views")
         if views is None:
             views = [rand_test_view["view"]]
@@ -188,10 +187,10 @@ def run_train_and_predict_final(
         rob_path = generate_data_saving_path(
             model_name=selected_model.get_model_name(),
             drug_id=drug_id,
-            result_path="",
+            result_path=Path("."),
             suffix="robustness",
         )
-        robustness_test_file = pathlib.Path(rob_path) / f"robustness_{args.robustness_trial}_{args.split_id}.csv"
+        robustness_test_file = Path(rob_path) / f"robustness_{args.robustness_trial}_{args.split_id}.csv"
         robustness_train_predict(
             trial=args.robustness_trial,
             trial_file=str(robustness_test_file),
@@ -243,9 +242,9 @@ def run_randomization_split(*, model_name: str, randomization_mode: str) -> None
 
 def run_final_split(
     *,
-    response: str,
+    response: str | Path,
     model_name: str,
-    path_data: str = "data",
+    path_data: str | Path = "data",
     test_mode: str = "LPO",
     val_ratio: float = 0.1,
 ) -> None:
@@ -285,14 +284,14 @@ def run_final_split(
 
 def run_tune_final_model(
     *,
-    train_data: str,
-    val_data: str,
-    early_stopping_data: str,
+    train_data: str | Path,
+    val_data: str | Path,
+    early_stopping_data: str | Path,
     model_name: str,
     hpam_combi: str,
     response_transformation: str = "None",
-    path_data: str = "data",
-    model_checkpoint_dir: str = "TEMPORARY",
+    path_data: str | Path = "data",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Score a final-model candidate on the validation split (no search).
 
@@ -307,7 +306,7 @@ def run_tune_final_model(
     :param hpam_combi: hpam combi.
     :param response_transformation: response transformation.
     :param path_data: path data.
-    :param model_checkpoint_dir: model checkpoint dir.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
     import warnings
 
@@ -350,14 +349,14 @@ def run_tune_final_model(
 
 def run_train_final_model(
     *,
-    train_data: str,
-    val_data: str,
-    early_stopping_data: str,
+    train_data: str | Path,
+    val_data: str | Path,
+    early_stopping_data: str | Path,
     response_transformation: str = "None",
     model_name: str,
-    path_data: str = "data",
-    model_checkpoint_dir: str = "TEMPORARY",
-    best_hpam_combi: str,
+    path_data: str | Path = "data",
+    model_checkpoint_dir: str | Path | None = None,
+    best_hpam_combi: str | Path,
 ) -> None:
     """Train and save the final production model.
 
@@ -367,7 +366,7 @@ def run_train_final_model(
     :param response_transformation: response transformation.
     :param model_name: model name.
     :param path_data: path data.
-    :param model_checkpoint_dir: model checkpoint dir.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param best_hpam_combi: best hpam combi.
     """
     from drevalpy.experiment import (
@@ -378,7 +377,9 @@ def run_train_final_model(
     from drevalpy.utils import get_response_transformation
 
     resolved_name, _drug_id = get_model_name_and_drug_id(model_name)
-    final_model_path = generate_final_model_checkpoint_path(model_name=resolved_name, drug_id=_drug_id, result_path="")
+    final_model_path = generate_final_model_checkpoint_path(
+        model_name=resolved_name, drug_id=_drug_id, result_path=Path(".")
+    )
     response_transform = get_response_transformation(response_transformation)
     train_dataset = load_trusted_pickle(train_data)
     validation_dataset = load_trusted_pickle(val_data)
@@ -393,14 +394,15 @@ def run_train_final_model(
     model = get_model_class(resolved_name)(best_hpam)
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
-    model.train(
-        output=train_dataset,
-        output_earlystopping=es_dataset,
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-        model_checkpoint_dir=model_checkpoint_dir,
-    )
-    pathlib.Path(final_model_path).parent.mkdir(parents=True, exist_ok=True)
+    with checkpoint_dir_or_temporary(model_checkpoint_dir) as checkpoint_dir:
+        model.train(
+            output=train_dataset,
+            output_earlystopping=es_dataset,
+            cell_line_input=cl_features,
+            drug_input=drug_features,
+            model_checkpoint_dir=checkpoint_dir,
+        )
+    Path(final_model_path).parent.mkdir(parents=True, exist_ok=True)
     model.save(final_model_path)
 
 
@@ -449,7 +451,7 @@ def run_consolidate_results(
         cross_study_datasets=cross_study,
         randomization_mode=randomizations,
         n_trials_robustness=n_trials_robustness,
-        out_path="",
+        out_path=Path("."),
     )
 
 
@@ -503,7 +505,7 @@ def _collapse_file(files: list[str]) -> pd.DataFrame | None:
 def run_collect_results(
     *,
     outfiles: list[str],
-    path_data: str = "data",
+    path_data: str | Path = "data",
 ) -> None:
     """Collect parallel Nextflow evaluation outputs into merged CSVs.
 
@@ -512,7 +514,7 @@ def run_collect_results(
     """
     from drevalpy.visualization.utils import prep_results, write_results
 
-    path_data_path = pathlib.Path(path_data)
+    path_data_path = Path(path_data)
     (
         eval_result_files,
         eval_result_per_drug_files,

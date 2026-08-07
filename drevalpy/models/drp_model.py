@@ -232,7 +232,7 @@ class DRPModel(_DRPLoggingMixin):
         self._empty_training = False
 
     @pipeline_function
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str | Path, dataset_name: str) -> FeatureDataset:
         """Load cell-line features required by the resolved model config.
 
         :param data_path: Root directory containing dataset feature tables.
@@ -252,7 +252,7 @@ class DRPModel(_DRPLoggingMixin):
         )
 
     @pipeline_function
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
+    def load_drug_features(self, data_path: str | Path, dataset_name: str) -> FeatureDataset | None:
         """Load drug features required by the resolved model config.
 
         :param data_path: Root directory containing dataset feature tables.
@@ -279,7 +279,7 @@ class DRPModel(_DRPLoggingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
+        model_checkpoint_dir: str | Path = "checkpoints",
     ) -> None:
         """Train the component stack on the given response data.
 
@@ -302,7 +302,7 @@ class DRPModel(_DRPLoggingMixin):
             drug_input,
             output_earlystopping=output_earlystopping,
             training_context=TrainingContext(
-                checkpoint_dir=model_checkpoint_dir,
+                checkpoint_dir=Path(model_checkpoint_dir),
                 logging_metadata={"model_name": self.get_model_name()},
             ),
         )

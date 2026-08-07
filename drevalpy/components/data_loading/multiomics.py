@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -14,7 +16,7 @@ from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER
 def load_and_select_gene_features(
     feature_type: str,
     gene_list: str | None,
-    data_path: str,
+    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load and reduce features of a single feature type.
@@ -31,7 +33,7 @@ def load_and_select_gene_features(
 
     :raises ValueError: If genes from *gene_list* are missing in the dataset.
     """
-    ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=CELL_LINE_IDENTIFIER)
+    ge = pd.read_csv(Path(data_path) / dataset_name / f"{feature_type}.csv", index_col=CELL_LINE_IDENTIFIER)
     ge.index = ge.index.astype(str)
     if "cellosaurus_id" in ge.columns:
         ge = ge.drop(columns=["cellosaurus_id"])
@@ -70,7 +72,7 @@ def load_and_select_gene_features(
 
 
 def get_multiomics_feature_dataset(
-    data_path: str,
+    data_path: str | Path,
     dataset_name: str,
     gene_lists: dict | None = None,
     omics: list[str] | None = None,

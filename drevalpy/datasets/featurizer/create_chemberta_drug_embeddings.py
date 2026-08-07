@@ -1,5 +1,7 @@
 """Preprocesses drug SMILES strings into ChemBERTa embeddings."""
 
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 
@@ -41,7 +43,7 @@ def main():
     parser = argparse.ArgumentParser(description="Preprocess drug SMILES to ChemBERTa embeddings.")
     parser.add_argument("dataset_name", type=str, help="The name of the dataset to process.")
     parser.add_argument("--device", type=str, default="cpu", help="Torch device (cpu or cuda)")
-    parser.add_argument("--data_path", type=str, default="data", help="Path to the data folder")
+    parser.add_argument("--data_path", type=Path, default=Path("data"), help="Path to the data folder")
     args = parser.parse_args()
 
     dataset_name = args.dataset_name

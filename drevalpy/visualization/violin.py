@@ -1,5 +1,7 @@
 """Plots a violin plot of the evaluation metrics."""
 
+from pathlib import Path
+
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -23,14 +25,14 @@ class Violin(VioHeat):
         self.fig = go.Figure()
         self.occurring_metrics = [metric for metric in self.all_metrics if metric in self.df.columns]
 
-    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+    def draw_and_save(self, out_prefix: str | Path, out_suffix: str) -> None:
         """Draw violin plot and save as HTML.
 
-        :param out_prefix: Output directory (for example ``results/my_run/violin_plots/``).
+        :param out_prefix: Output directory (for example ``results/my_run/violin_plots``).
         :param out_suffix: Filename suffix (for example ``algorithms_normalized``).
         """
         self._draw()
-        path_out = f"{out_prefix}violin_{out_suffix}.html"
+        path_out = Path(out_prefix) / f"violin_{out_suffix}.html"
         self.fig.write_html(path_out)
 
     def _draw(self) -> None:

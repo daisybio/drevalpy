@@ -33,7 +33,6 @@ python -m mymodule.add_tissue_mapping data/ all
 """
 
 import argparse
-import os
 from pathlib import Path
 
 import pandas as pd
@@ -295,7 +294,7 @@ def _harmonize_disease_annotations(df_cellosaurus: pd.DataFrame, sample_info: pd
 def main():
     """Main function to add tissue mapping to datasets."""
     parser = argparse.ArgumentParser(description="Add tissue mapping to datasets")
-    parser.add_argument("data_path", help="Path to dataset root directory", default="data")
+    parser.add_argument("data_path", type=Path, help="Path to dataset root directory", default=Path("data"))
     parser.add_argument("dataset", help="Dataset name (e.g., CCLE) or 'all'", default="all")
     parser.add_argument(
         "--save_tissue_mapping",
@@ -303,7 +302,7 @@ def main():
         help="Save the tissue mapping to a CSV file",
     )
     args = parser.parse_args()
-    data_path = args.data_path
+    data_path = Path(args.data_path)
     dataset = args.dataset
     save_tissue_mapping = args.save_tissue_mapping
     if dataset != "all":
@@ -315,7 +314,7 @@ def main():
 
     # Load all unique Cellosaurus IDs from available datasets
     for ds in datasets:
-        csv_path = os.path.join(data_path, ds, f"{ds}.csv")
+        csv_path = data_path / ds / f"{ds}.csv"
         try:
             df = pd.read_csv(csv_path, dtype=str, low_memory=False)
             cell_lines.extend(df["cellosaurus_id"].dropna().unique())
@@ -324,7 +323,7 @@ def main():
 
     cellosaurus_ids = pd.Series(cell_lines).drop_duplicates().reset_index(drop=True)
 
-    cellosaurus_path = Path(data_path) / "meta" / "cellosaurus.txt"
+    cellosaurus_path = data_path / "meta" / "cellosaurus.txt"
     cellosaurus_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not cellosaurus_path.exists():
@@ -345,8 +344,8 @@ def main():
     ).dropna(subset=["cell_line_name"])
 
     # Load DepMap sample_info
-    depmap_path = os.path.join(data_path, "meta", "DepMap_sample_info.csv")
-    if not os.path.exists(depmap_path):
+    depmap_path = data_path / "meta" / "DepMap_sample_info.csv"
+    if not depmap_path.exists():
         download_dataset(dataset_name="meta", data_path=data_path, redownload=True)
 
     sample_info = pd.read_csv(depmap_path, dtype=str, low_memory=False)
@@ -388,13 +387,13 @@ def main():
     final = final.assign(tissue=final["cellosaurus_id"].map(tissue_map))
     if save_tissue_mapping:
         final.drop_duplicates(subset="cellosaurus_id", inplace=True)
-        tissue_mapping_path = os.path.join(data_path, "meta", "tissue_mapping.csv")
+        tissue_mapping_path = data_path / "meta" / "tissue_mapping.csv"
         final.to_csv(tissue_mapping_path, index=False)
 
     # Add tissue column to each dataset
     for ds in datasets:
-        path = os.path.join(data_path, ds, f"{ds}.csv")
-        if not os.path.exists(path):
+        path = data_path / ds / f"{ds}.csv"
+        if not path.exists():
             print(f"Dataset {path} not found, skipping.")
             continue
 

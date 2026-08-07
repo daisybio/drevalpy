@@ -36,7 +36,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         self._output_dim = 0
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load precomputed DrugGNN graph artifacts.
 
         :param data_path: Parent directory for dataset artifacts.

@@ -75,7 +75,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         self._gene_dim_input = 0
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load, align, and annotate the active SparseGO omics feature view.
 
         :param data_path: Parent directory for dataset artifacts.
@@ -91,7 +91,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         ontology_file, gene_index_file = root / "sparseGO_ont.txt", root / "gene2ind.txt"
         if not ontology_file.exists() or not gene_index_file.exists():
             raise FileNotFoundError(f"SparseGO requires {ontology_file.name} and {gene_index_file.name} in {root}")
-        mapping = load_mapping(str(gene_index_file))
+        mapping = load_mapping(gene_index_file)
         order = tuple(sorted(mapping, key=mapping.__getitem__))
         features = load_and_select_gene_features(view, None, data_path, dataset_name)
         columns = {str(gene): index for index, gene in enumerate(features.meta_info[view])}
@@ -102,7 +102,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         for identifier in features.identifiers:
             features.features[str(identifier)][view] = features.features[str(identifier)][view][indices]
         features.meta_info[view] = np.asarray(order)
-        graph, term_pairs, gene_term_pairs = load_ontology(str(ontology_file), mapping)
+        graph, term_pairs, gene_term_pairs = load_ontology(ontology_file, mapping)
         sorted_pairs, level_list, level_numbers = sort_pairs(gene_term_pairs, term_pairs, graph, mapping)
         metadata = SparseGOOntologyMetadata(
             layer_connections=pairs_in_layers(sorted_pairs, level_list, level_numbers),

@@ -37,7 +37,7 @@ from drevalpy.visualization.utils import (
             "n_cv_splits": 2,
             "response_transformation": "standard",
             "multiprocessing": False,
-            "model_checkpoint_dir": "TEMPORARY",
+            "model_checkpoint_dir": None,
             "no_hyperparameter_tuning": True,
             "final_model_on_full_data": True,
             "wandb_project": None,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -45,7 +46,7 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         self._feature_names: dict[str, tuple[str, ...] | None] = {}
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load the intersection-gene multi-omics tables required by MOLIR.
 
         :param data_path: Parent directory for dataset artifacts.

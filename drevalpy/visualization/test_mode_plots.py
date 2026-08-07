@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -35,7 +36,7 @@ def _draw_critical_difference(
 ) -> None:
     cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="MSE")
     cd_plot.draw_and_save(
-        out_prefix=f"{result_path}/{custom_id}/critical_difference_plots/",
+        out_prefix=Path(result_path) / custom_id / "critical_difference_plots",
         out_suffix=test_mode,
     )
 
@@ -63,7 +64,7 @@ def _draw_violin_and_heatmap_panels(
                     whole_name=False,
                 )
             out_plot.draw_and_save(
-                out_prefix=f"{result_path}/{custom_id}/{out_dir}/",
+                out_prefix=Path(result_path) / custom_id / out_dir,
                 out_suffix=out_suffix,
             )
 
@@ -85,7 +86,7 @@ def _draw_per_group_setting_plots(
     )
     if corr_comp.name is not None:
         corr_comp.draw_and_save(
-            out_prefix=f"{result_path}/{custom_id}/comp_scatter/",
+            out_prefix=Path(result_path) / custom_id / "comp_scatter",
             out_suffix=corr_comp.name,
         )
 
@@ -124,7 +125,7 @@ def draw_test_mode_plots(
         evaluation_metrics=ev_res[ev_res["test_mode"] == test_mode], path_data=path_data
     )
     cross_study_tables.draw_and_save(
-        out_prefix=f"{result_path}/{custom_id}/html_tables/",
+        out_prefix=Path(result_path) / custom_id / "html_tables",
         out_suffix=test_mode,
     )
 

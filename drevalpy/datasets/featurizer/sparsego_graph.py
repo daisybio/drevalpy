@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import itertools
 import math
-import os
+from pathlib import Path
 
 import networkx as nx
 import networkx.algorithms.components.connected as nxacc
@@ -45,7 +45,7 @@ def build_level_list(g: nx.DiGraph) -> list[list[str]]:
     return level_list
 
 
-def download_obo(url: str, dest: str) -> None:
+def download_obo(url: str, dest: str | Path) -> None:
     """Download a file with a browser-like User-Agent to avoid 403 errors.
 
     :param url: Remote OBO file URL.
@@ -61,7 +61,7 @@ def download_obo(url: str, dest: str) -> None:
         with open(dest, "wb") as fh:
             for chunk in response.iter_content(chunk_size=1024 * 64):
                 fh.write(chunk)
-        print(f"  Saved to {dest} ({os.path.getsize(dest) // 1024} KB)")
+        print(f"  Saved to {dest} ({Path(dest).stat().st_size // 1024} KB)")
     except ImportError as exc:
         raise RuntimeError("requests is required to download go-basic.obo: pip install requests") from exc
 
@@ -124,12 +124,12 @@ def fetch_gene_go_annotations(genes: list[str]) -> pd.DataFrame:
     return gene_go_df
 
 
-def _ensure_obo_path(obo_file: str | None) -> str:
+def _ensure_obo_path(obo_file: str | Path | None) -> Path:
     if obo_file is not None:
-        return obo_file
+        return Path(obo_file)
     obo_url = "https://current.geneontology.org/ontology/go-basic.obo"
-    obo_file = "go-basic.obo"
-    if not os.path.exists(obo_file):
+    obo_file = Path("go-basic.obo")
+    if not obo_file.exists():
         print(f"Downloading go-basic.obo from {obo_url} ...")
         download_obo(obo_url, obo_file)
     else:
@@ -137,7 +137,7 @@ def _ensure_obo_path(obo_file: str | None) -> str:
     return obo_file
 
 
-def _load_reversed_obo(obo_file: str) -> nx.MultiDiGraph:
+def _load_reversed_obo(obo_file: Path) -> nx.MultiDiGraph:
     try:
         import obonet
     except ImportError as exc:
@@ -244,7 +244,7 @@ def _report_connectivity(graph: nx.DiGraph) -> None:
 
 def build_pruned_graph(
     gene_go_df: pd.DataFrame,
-    obo_file: str | None,
+    obo_file: str | Path | None,
     n: int,
     m: int,
     p: int,

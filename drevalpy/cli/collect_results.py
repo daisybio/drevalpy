@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from drevalpy.cli._helpers import as_list
 from drevalpy.cli.model_testing import run_collect_results
+
+# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
+_DEFAULT_DATA_DIR = Path("data")
 
 
 def register(app: typer.Typer) -> None:
@@ -26,7 +30,9 @@ def register(app: typer.Typer) -> None:
                 "Pass multiple values separated by spaces.",
             ),
         ],
-        path_data: Annotated[str, typer.Option("--path_data", help="Data directory path. Default: data.")] = "data",
+        path_data: Annotated[
+            Path, typer.Option("--path_data", help="Data directory path. Default: data.")
+        ] = _DEFAULT_DATA_DIR,
     ) -> None:
         """Collect results and write to single files.
 

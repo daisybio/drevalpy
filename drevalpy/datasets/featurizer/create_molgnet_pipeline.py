@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +15,7 @@ from drevalpy.utils.pickle_io import dump_trusted_pickle
 from drevalpy.utils.torch_io import load_state_dict
 
 
-def resolve_molgnet_dataset_dir(data_path: str, dataset_name: str) -> Path:
+def resolve_molgnet_dataset_dir(data_path: str | Path, dataset_name: str) -> Path:
     """Resolve and validate the dataset directory under ``data_path``.
 
     :param data_path: Root data directory.
@@ -176,7 +175,7 @@ def write_molgnet_drug_csvs(molgnet_dict: dict[Any, torch.Tensor], drugs_dir: Pa
     """
     from .create_molgnet_embeddings import tensor_to_csv_friendly
 
-    os.makedirs(drugs_dir, exist_ok=True)
+    drugs_dir.mkdir(parents=True, exist_ok=True)
     for idx, emb in tqdm(molgnet_dict.items(), desc="writing csvs"):
         arr = tensor_to_csv_friendly(emb)
         df_emb = pd.DataFrame(arr)

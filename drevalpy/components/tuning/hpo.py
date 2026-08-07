@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -88,8 +89,8 @@ def tune_fold(
     *,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
-    path_data: str = "data",
-    model_checkpoint_dir: str = "TEMPORARY",
+    path_data: str | Path = "data",
+    model_checkpoint_dir: str | Path | None = None,
     hpo_config: HPOConfig | None = None,
     split_index: int | None = None,
     wandb_project: str | None = None,
@@ -104,7 +105,7 @@ def tune_fold(
     :param response_transformation: response transformation.
     :param metric: metric.
     :param path_data: path data.
-    :param model_checkpoint_dir: model checkpoint dir.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hpo_config: hpo config.
     :param split_index: split index.
     :param wandb_project: wandb project.
@@ -135,8 +136,8 @@ def hpam_tune(
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
-    path_data: str = "data",
-    model_checkpoint_dir: str = "TEMPORARY",
+    path_data: str | Path = "data",
+    model_checkpoint_dir: str | Path | None = None,
     hpo_config: HPOConfig | None = None,
     split_index: int | None = None,
     wandb_project: str | None = None,
@@ -151,7 +152,7 @@ def hpam_tune(
     :param response_transformation: response transformation.
     :param metric: metric.
     :param path_data: path data.
-    :param model_checkpoint_dir: model checkpoint dir.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hpo_config: hpo config.
     :param split_index: split index.
     :param wandb_project: wandb project.

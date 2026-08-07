@@ -7,6 +7,7 @@ Original authors: Zhou et al. (2025, 10.1038/s41698-025-01082-6)
 Code adapted from their Github: https://github.com/zhouyuru1205/PharmaFormer
 """
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -131,7 +132,7 @@ class PharmaFormerModel(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
+        model_checkpoint_dir: str | Path = "checkpoints",
     ) -> None:
         """Trains the model.
 

@@ -1,7 +1,7 @@
 """Utility functions for the SuperFELTR model."""
 
-import os
 import secrets
+from pathlib import Path
 
 import numpy as np
 import pytorch_lightning as pl
@@ -307,7 +307,7 @@ def train_superfeltr_model(
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset | None = None,
     patience: int = 5,
-    model_checkpoint_dir: str = "superfeltr_checkpoints",
+    model_checkpoint_dir: str | Path = "superfeltr_checkpoints",
     wandb_project: str | None = None,
 ) -> pl.callbacks.ModelCheckpoint:
     """Trains one encoder or the regressor.
@@ -342,7 +342,7 @@ def train_superfeltr_model(
         [secrets.choice("0123456789abcdef") for _ in range(20)]
     )  # preventing conflicts of filenames
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath=os.path.join(model_checkpoint_dir, name),
+        dirpath=Path(model_checkpoint_dir) / name,
         monitor=monitor,
         mode="min",
         save_top_k=1,

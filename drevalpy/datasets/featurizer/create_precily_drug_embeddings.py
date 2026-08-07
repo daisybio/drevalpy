@@ -15,7 +15,7 @@ import pandas as pd
 from gensim.models import KeyedVectors
 
 
-def _load_smiles(data_path: str, dataset_name: str) -> pd.DataFrame:
+def _load_smiles(data_path: str | Path, dataset_name: str) -> pd.DataFrame:
     """Load drug SMILES from DrEvalPy's expected file structure.
 
     :param data_path: Root directory containing dataset subfolders.
@@ -63,7 +63,7 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("dataset_name")
-    parser.add_argument("--data_path", default="data")
+    parser.add_argument("--data_path", type=Path, default=Path("data"))
     parser.add_argument("--smilesvec_model", required=True, help="path to pretrained SMILESVec word2vec model")
     parser.add_argument("--k", type=int, default=8, help="length of substring (chemical word)")
     args = parser.parse_args()

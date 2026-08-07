@@ -67,6 +67,8 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""
 
 
 def _prepare_toml(
+    # ``filename`` stays a ``str``: it is written into the TOML config, and
+    # ``toml.dump`` rejects ``Path`` values.
     filename: str,
     n_exp: int,
     n_replicates: int,
@@ -94,6 +96,8 @@ def _prepare_toml(
             "search_engine": "OTHER",
             "search_engine_version": "0",
         },
+        # Values here stay plain strings: they are serialized by ``toml.dump``,
+        # which rejects ``Path`` objects.
         "Paths": {
             "input_file": "curvecurator_input.tsv",
             "curves_file": "curves.tsv",
@@ -197,7 +201,7 @@ def _calc_ic50(model_params_df: pd.DataFrame):
 
 
 @pipeline_function
-def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, normalize: bool = False):
+def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int, normalize: bool = False):
     """Preprocess raw viability data and create required input files for CurveCurator.
 
     This function takes an input file containing raw viability in long format. The required columns
@@ -267,14 +271,16 @@ def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, 
         config_path = output_path / prefix / "config.toml"
         with open(config_path, "w") as f:
             toml.dump(config, f)
-        configs.append(f"{config_path}\n")
+        # Written as file *content* and read back by the external CurveCurator binary,
+        # so the path must be serialized explicitly rather than relying on f-string coercion.
+        configs.append(f"{config_path!s}\n")
 
     with open(output_path / "configlist.txt", "w") as f:
         f.writelines(configs)
 
 
 @pipeline_function
-def postprocess(output_folder: str, dataset_name: str):
+def postprocess(output_folder: str | Path, dataset_name: str):
     """Postprocess CurveCurator output files.
 
     This function reads all curves.tsv files created by CurveCurator, which contain the
@@ -324,7 +330,7 @@ def postprocess(output_folder: str, dataset_name: str):
         f.close()
 
 
-def fit_curves(input_file: str, output_dir: str, dataset_name: str, cores: int, normalize: bool = False):
+def fit_curves(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int, normalize: bool = False):
     """Fit curves for provided raw viability data.
 
     This functions reads viability data in a predefined input format, preprocesses the data

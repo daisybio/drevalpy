@@ -6,8 +6,8 @@ Pengyong Li, Zhengxiang Jiang, Tianxiao Liu, Xinyu Liu, Hui Qiao, Xiaojun Yao
 Briefings in Bioinformatics, Volume 25, Issue 3, May 2024, bbae153, https://doi.org/10.1093/bib/bbae153
 """
 
-import os
 import secrets
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -85,7 +85,7 @@ class DIPKModel(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
+        model_checkpoint_dir: str | Path = "checkpoints",
     ) -> None:
         """Trains the model.
 
@@ -140,12 +140,13 @@ class DIPKModel(LiteratureTrainingMixin):
         epochs_without_improvement = 0
 
         # Ensure the checkpoint directory exists
-        os.makedirs(model_checkpoint_dir, exist_ok=True)
+        checkpoint_dir = Path(model_checkpoint_dir)
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
         version = "version-" + "".join(
             [secrets.choice("0123456789abcdef") for _ in range(20)]
         )  # preventing conflicts of filenames
 
-        checkpoint_path = os.path.join(model_checkpoint_dir, f"{version}_best_DIPK_model.pth")
+        checkpoint_path = checkpoint_dir / f"{version}_best_DIPK_model.pth"
 
         # Train model
         print("Training DIPK model")

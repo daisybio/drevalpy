@@ -1,6 +1,7 @@
 """Parent class for Violin and Heatmap plots of performance measures over CV runs."""
 
 from io import TextIOWrapper
+from pathlib import Path
 
 import pandas as pd
 
@@ -38,7 +39,7 @@ class VioHeat(OutPlot):
         else:
             self.all_metrics = [metric for metric in self.all_metrics if "normalized" not in metric]
 
-    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+    def draw_and_save(self, out_prefix: str | Path, out_suffix: str) -> None:
         """Draw and save the plot (implemented by subclasses).
 
         :param out_prefix: Output directory path.

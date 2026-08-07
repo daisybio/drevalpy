@@ -15,13 +15,13 @@ Example::
 from __future__ import annotations
 
 import argparse
-import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 
-def _load_gene_expression(data_path: str, dataset_name: str) -> pd.DataFrame:
+def _load_gene_expression(data_path: Path, dataset_name: str) -> pd.DataFrame:
     """Load the dataset's gene-expression matrix.
 
     :param data_path: root data path
@@ -29,8 +29,8 @@ def _load_gene_expression(data_path: str, dataset_name: str) -> pd.DataFrame:
     :return: DataFrame, cell lines in rows, genes in columns
     :raises FileNotFoundError: if the expression file is not found
     """
-    expr_file = os.path.join(data_path, dataset_name, "gene_expression.csv")
-    if not os.path.exists(expr_file):
+    expr_file = data_path / dataset_name / "gene_expression.csv"
+    if not expr_file.exists():
         raise FileNotFoundError(f"{expr_file} not found.")
     df = pd.read_csv(expr_file, index_col=0)
     df = df.select_dtypes(include="number")
@@ -85,7 +85,7 @@ def _run_gsva(
 
 
 def create_precily_pathway_features(
-    data_path: str,
+    data_path: str | Path,
     dataset_name: str,
     gene_sets: str,
     min_size: int = 5,
@@ -107,7 +107,8 @@ def create_precily_pathway_features(
     :param threads: parallelism
     :param seed: random seed
     """
-    expr = _load_gene_expression(data_path, dataset_name)  # [cell lines x genes]
+    data_root = Path(data_path)
+    expr = _load_gene_expression(data_root, dataset_name)  # [cell lines x genes]
 
     before = len(expr)
     expr = expr.loc[~expr.index.duplicated(keep="first")]
@@ -127,9 +128,9 @@ def create_precily_pathway_features(
         seed=seed,
     )  # [cell lines x pathways]
 
-    names_file = os.path.join(data_path, dataset_name, "cell_line_names.csv")
+    names_file = data_root / dataset_name / "cell_line_names.csv"
 
-    if os.path.exists(names_file):
+    if names_file.exists():
         names_df = pd.read_csv(names_file)
 
         if {"cellosaurus_id", "cell_line_name"}.issubset(names_df.columns):
@@ -137,7 +138,7 @@ def create_precily_pathway_features(
             scores = scores.join(names, how="inner")
             scores = scores.set_index("cell_line_name")
     scores.index.name = "cell_line_name"
-    out_path = os.path.join(data_path, dataset_name, "pathway_features.csv")
+    out_path = data_root / dataset_name / "pathway_features.csv"
     scores.to_csv(out_path)
     print(f"Wrote {scores.shape[0]} cell lines x {scores.shape[1]} pathways -> {out_path}")
 
@@ -146,7 +147,7 @@ def main() -> None:
     """Compute and save GSVA pathway features for a dataset."""
     parser = argparse.ArgumentParser(description="GSVA pathway featurizer for Precily.")
     parser.add_argument("dataset_name")
-    parser.add_argument("--data_path", default="data")
+    parser.add_argument("--data_path", type=Path, default=Path("data"))
     parser.add_argument(
         "--gene_sets",
         required=True,

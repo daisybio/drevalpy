@@ -5,7 +5,7 @@ from pathlib import Path
 
 def run_preprocess_raw_viability(
     *,
-    path_data: str = "./data",
+    path_data: str | Path = "./data",
     dataset_name: str,
     cores: int = 4,
 ) -> None:
@@ -34,7 +34,7 @@ def run_preprocess_raw_viability(
 def run_postprocess_viability(
     *,
     dataset_name: str,
-    path_data: str = "./",
+    path_data: str | Path = "./",
 ) -> None:
     """Postprocess CurveCurator output into a single dataset CSV.
 

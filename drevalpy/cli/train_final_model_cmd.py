@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from drevalpy.cli.model_testing import run_train_final_model
+
+# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
+_DEFAULT_DATA_DIR = Path("data")
 
 
 def register(app: typer.Typer) -> None:
@@ -17,8 +21,8 @@ def register(app: typer.Typer) -> None:
 
     @app.command("train-final-model")
     def train_final_model_cmd(
-        train_data: Annotated[str, typer.Option("--train_data", help="Train data, pickled.")],
-        val_data: Annotated[str, typer.Option("--val_data", help="Validation data, pickled.")],
+        train_data: Annotated[Path, typer.Option("--train_data", help="Train data, pickled.")],
+        val_data: Annotated[Path, typer.Option("--val_data", help="Validation data, pickled.")],
         early_stopping_data: Annotated[
             str,
             typer.Option("--early_stopping_data", help="Early stopping data, pickled."),
@@ -31,24 +35,26 @@ def register(app: typer.Typer) -> None:
             ),
         ],
         best_hpam_combi: Annotated[
-            str,
+            Path,
             typer.Option(
                 "--best_hpam_combi",
                 help="Best hyperparameter combination file, yaml format.",
             ),
         ],
-        path_data: Annotated[str, typer.Option("--path_data", help="Path to data. Default: data.")] = "data",
+        path_data: Annotated[
+            Path, typer.Option("--path_data", help="Path to data. Default: data.")
+        ] = _DEFAULT_DATA_DIR,
         response_transformation: Annotated[
             str,
             typer.Option("--response_transformation", help="Response transformation."),
         ] = "None",
         model_checkpoint_dir: Annotated[
-            str,
+            Path | None,
             typer.Option(
                 "--model_checkpoint_dir",
                 help="model checkpoint directory, if not provided: temporary directory is used",
             ),
-        ] = "TEMPORARY",
+        ] = None,
     ) -> None:
         """Train a final model on the full dataset using the best hyperparameters.
 
@@ -59,7 +65,7 @@ def register(app: typer.Typer) -> None:
         :param best_hpam_combi: Path to YAML with the selected hyperparameters.
         :param path_data: Root data directory passed to feature loaders.
         :param response_transformation: Sklearn response transform name.
-        :param model_checkpoint_dir: Directory for model checkpoints.
+        :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
         """
         run_train_final_model(
             train_data=train_data,

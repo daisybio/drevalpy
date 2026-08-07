@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from importlib.metadata import version as pkg_version
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -11,6 +12,10 @@ from typer import _click
 from drevalpy.cli._helpers import as_list, pipeline_namespace
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.utils import check_arguments, main
+
+# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
+_DEFAULT_DATA_DIR = Path("data")
+_DEFAULT_RESULTS_DIR = Path("results")
 
 
 def _version_callback(value: bool) -> None:
@@ -91,7 +96,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             ),
         ] = False,
         run_id: Annotated[str, typer.Option("--run_id", help="Identifier to save the results.")] = "my_run",
-        path_data: Annotated[str, typer.Option("--path_data", help="Path to the data directory.")] = "data",
+        path_data: Annotated[Path, typer.Option("--path_data", help="Path to the data directory.")] = _DEFAULT_DATA_DIR,
         models: Annotated[
             list[str] | None, typer.Option("--models", help="Model to evaluate or list of models to compare.")
         ] = None,
@@ -112,7 +117,9 @@ def register_pipeline_callback(app: typer.Typer) -> None:
                 help="List of datasets to use for cross-study prediction evaluation. Default is empty list.",
             ),
         ] = None,
-        path_out: Annotated[str, typer.Option("--path_out", help="Path to the output directory.")] = "results/",
+        path_out: Annotated[
+            Path, typer.Option("--path_out", help="Path to the output directory.")
+        ] = _DEFAULT_RESULTS_DIR,
         no_refitting: Annotated[bool, typer.Option("--no_refitting", help=NO_REFITTING_HELP)] = False,
         curve_curator_cores: Annotated[
             int,
@@ -188,8 +195,8 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             typer.Option("--hpo_gpu", help="Ray GPU resources per HPO trial (defaults to 1 when CUDA is available)."),
         ] = None,
         model_checkpoint_dir: Annotated[
-            str, typer.Option("--model_checkpoint_dir", help="Directory to save model checkpoints.")
-        ] = "TEMPORARY",
+            Path | None, typer.Option("--model_checkpoint_dir", help="Directory to save model checkpoints.")
+        ] = None,
         final_model_on_full_data: Annotated[
             bool,
             typer.Option(
@@ -249,7 +256,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
         :param hpo_random_state: hpo random state.
         :param hpo_cpu: hpo cpu.
         :param hpo_gpu: hpo gpu.
-        :param model_checkpoint_dir: model checkpoint dir.
+        :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
         :param final_model_on_full_data: final model on full data.
         :param no_hyperparameter_tuning: no hyperparameter tuning.
         :param custom_splitter_path: custom splitter path.
@@ -282,7 +289,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
         :param hpo_random_state: hpo random state.
         :param hpo_cpu: hpo cpu.
         :param hpo_gpu: hpo gpu.
-        :param model_checkpoint_dir: model checkpoint dir.
+        :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
         :param final_model_on_full_data: final model on full data.
         :param no_hyperparameter_tuning: no hyperparameter tuning.
         :param custom_splitter_path: custom splitter path.

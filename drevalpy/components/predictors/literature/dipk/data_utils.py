@@ -5,8 +5,8 @@
 - DIPKDataset: Dataset class for the DIPK model.
 """
 
-import os
 from abc import ABC
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ from torch.utils.data import Dataset
 from drevalpy.datasets.dataset import FeatureDataset
 
 
-def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 512) -> FeatureDataset:
+def load_bionic_features(data_path: str | Path, dataset_name: str, gene_add_num: int = 512) -> FeatureDataset:
     """Load biological network (BIONIC) features for DIPK.
 
     :param data_path: Path to the data, e.g., "data/"
@@ -26,16 +26,17 @@ def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 
     :returns: returns: FeatureDataset with gene expression and biological network features
     """
     # Load gene expression dataset
-    gene_expression_path = os.path.join(data_path, dataset_name, "gene_expression.csv")
+    data_root = Path(data_path)
+    gene_expression_path = data_root / dataset_name / "gene_expression.csv"
     gene_expression = pd.read_csv(gene_expression_path)
     expression_dict = gene_expression.set_index("cell_line_name").drop("cellosaurus_id", axis=1).T.to_dict()
 
     # Load gene list and PPI features
-    gene_list_path = os.path.join(data_path, dataset_name, "DIPK_features", "gene_list_sel.txt")
+    gene_list_path = data_root / dataset_name / "DIPK_features" / "gene_list_sel.txt"
     with open(gene_list_path, encoding="gbk") as f:
         gene_list = {line.strip() for line in f}
 
-    ppi_path = os.path.join(data_path, dataset_name, "DIPK_features", "human_ppi_features.tsv")
+    ppi_path = data_root / dataset_name / "DIPK_features" / "human_ppi_features.tsv"
     dataset = pd.read_csv(ppi_path, index_col=0, sep="\t")
 
     # Ensure BIONIC dictionary uses gene names directly

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from drevalpy.components.predictors.literature.molir.utils import get_dimensions_of_omics_data, make_ranges
@@ -20,7 +21,7 @@ def _train_encoder_for_omic(
     output: DrugResponseDataset,
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset | None,
-    model_checkpoint_dir: str,
+    model_checkpoint_dir: str | Path,
 ) -> SuperFELTEncoder:
     encoder = SuperFELTEncoder(input_size=dim, hpams=model.hyperparameters, omic_type=omic_type, ranges=model.ranges)
     if len(output) >= model.hyperparameters["mini_batch"]:
@@ -45,7 +46,7 @@ def run_superfeltr_training(
     output: DrugResponseDataset,
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset | None,
-    model_checkpoint_dir: str,
+    model_checkpoint_dir: str | Path,
 ) -> None:
     """Train encoders and regressor on featurizer-preprocessed omics.
 

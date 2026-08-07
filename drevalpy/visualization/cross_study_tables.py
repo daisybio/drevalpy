@@ -1,8 +1,8 @@
 """Module for generating evaluation tables for cross-study drug response prediction."""
 
-import os
 import pathlib
 from io import TextIOWrapper
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -84,20 +84,21 @@ class CrossStudyTables:
             fig.update_layout(title_text=f"Evaluation Metrics for Cross-Study Predictions to {dataset_name}")
             self.figures[dataset_name] = fig
 
-    def draw_and_save(self, out_prefix: str, out_suffix: str):
+    def draw_and_save(self, out_prefix: str | Path, out_suffix: str):
         """Generate and save HTML tables for each cross-study dataset.
 
         :param out_prefix: Directory for output HTML files.
         :param out_suffix: Suffix appended to each output filename.
         """
-        os.makedirs(out_prefix, exist_ok=True)
+        out_dir = Path(out_prefix)
+        out_dir.mkdir(parents=True, exist_ok=True)
         self.draw()
         for dataset_name, fig in self.figures.items():
-            filename = f"{out_prefix}/table_cross_study_{dataset_name}_{out_suffix}.html"
+            filename = out_dir / f"table_cross_study_{dataset_name}_{out_suffix}.html"
             fig.write_html(filename, include_plotlyjs="embed", full_html=True)
 
     @staticmethod
-    def write_to_html(test_mode: str, f: TextIOWrapper, files: list[str], prefix: str) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, files: list[str], prefix: str | Path) -> TextIOWrapper:
         """Embed cross-study table iframes into the report HTML.
 
         :param test_mode: Substring to match filenames (for example ``"LCO"``).
@@ -107,9 +108,8 @@ class CrossStudyTables:
 
         :returns: The same file handle after writing.
         """
-        if prefix:
-            prefix = os.path.join(prefix, "html_tables")
-        os.makedirs(prefix, exist_ok=True)
+        table_dir = Path(prefix) / "html_tables" if prefix else Path()
+        table_dir.mkdir(parents=True, exist_ok=True)
 
         for file in files:
             if file.startswith("table_cross_study_") and file.endswith(".html") and test_mode in file:

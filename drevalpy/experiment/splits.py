@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 
@@ -13,8 +12,8 @@ from ..datasets.splits import ExternalSplitCreator, create_and_record_splits
 def prepare_response_splits_impl(
     response_data: DrugResponseDataset,
     *,
-    split_path: str,
-    result_path: str,
+    split_path: str | Path,
+    result_path: str | Path,
     split_label: str,
     test_mode: str,
     n_cv_splits: int,
@@ -42,19 +41,21 @@ def prepare_response_splits_impl(
 
     :returns: Actual number of CV splits attached to *response_data*.
     """
+    splits_dir = Path(split_path)
+    results_dir = Path(result_path)
     if result_folder_exists and overwrite:
-        print(f"Overwriting existing results at {result_path}")
-        shutil.rmtree(result_path)
+        print(f"Overwriting existing results at {results_dir}")
+        shutil.rmtree(results_dir)
 
-    if result_folder_exists and os.path.exists(split_path) and not overwrite:
-        print(f"Loading existing cv splits from {split_path}")
-        response_data.load_splits(path=split_path)
+    if result_folder_exists and splits_dir.exists() and not overwrite:
+        print(f"Loading existing cv splits from {splits_dir}")
+        response_data.load_splits(path=splits_dir)
     else:
-        print(f"Creating cv splits at {split_path}")
-        os.makedirs(result_path, exist_ok=True)
+        print(f"Creating cv splits at {splits_dir}")
+        results_dir.mkdir(parents=True, exist_ok=True)
         create_and_record_splits(
             response_data,
-            split_path=split_path,
+            split_path=splits_dir,
             split_label=split_label,
             external_splitter=custom_splitter,
             test_mode=test_mode,
@@ -63,6 +64,6 @@ def prepare_response_splits_impl(
             random_state=random_state,
             split_early_stopping=split_early_stopping,
         )
-        response_data.save_splits(path=split_path)
+        response_data.save_splits(path=splits_dir)
 
     return len(response_data.cv_splits)

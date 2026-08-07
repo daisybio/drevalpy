@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import os
-import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -11,13 +10,14 @@ from sklearn.base import TransformerMixin
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..models.drp_model import DRPModel
+from ..utils.checkpoints import checkpoint_dir_or_temporary
 
 if TYPE_CHECKING:
     pass
 
 
 def load_features(
-    model: DRPModel, path_data: str, dataset: DrugResponseDataset
+    model: DRPModel, path_data: str | Path, dataset: DrugResponseDataset
 ) -> tuple[FeatureDataset, FeatureDataset | None]:
     """Load and reduce cell line and drug features for a given dataset.
 
@@ -45,7 +45,7 @@ def _copy_fold_datasets(
 
 def _resolve_feature_matrices(
     model: DRPModel,
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     cl_features: FeatureDataset | None,
     drug_features: FeatureDataset | None,
@@ -116,31 +116,18 @@ def _train_model_with_checkpoints(
     early_stopping_dataset: DrugResponseDataset | None,
     cl_features: FeatureDataset,
     drug_features: FeatureDataset | None,
-    model_checkpoint_dir: str,
+    model_checkpoint_dir: str | Path | None,
 ) -> None:
     drug_input = drug_features.copy() if drug_features is not None else None
     print("Training model ...")
-    if model_checkpoint_dir == "TEMPORARY":
-        with tempfile.TemporaryDirectory() as temp_dir:
-            print(f"Using temporary directory: {temp_dir} for model checkpoints")
-            model.train(
-                output=train_dataset,
-                output_earlystopping=early_stopping_dataset,
-                cell_line_input=cl_features.copy(),
-                drug_input=drug_input,
-                model_checkpoint_dir=temp_dir,
-            )
-        return
-    if not os.path.exists(model_checkpoint_dir):
-        os.makedirs(model_checkpoint_dir, exist_ok=True)
-    print(f"Using directory: {model_checkpoint_dir} for model checkpoints")
-    model.train(
-        output=train_dataset,
-        output_earlystopping=early_stopping_dataset,
-        cell_line_input=cl_features.copy(),
-        drug_input=drug_input,
-        model_checkpoint_dir=model_checkpoint_dir,
-    )
+    with checkpoint_dir_or_temporary(model_checkpoint_dir) as checkpoint_dir:
+        model.train(
+            output=train_dataset,
+            output_earlystopping=early_stopping_dataset,
+            cell_line_input=cl_features.copy(),
+            drug_input=drug_input,
+            model_checkpoint_dir=checkpoint_dir,
+        )
 
 
 def _run_predictions(
@@ -178,14 +165,14 @@ def _inverse_transform_fold(
 
 def train_and_predict_impl(
     model: DRPModel,
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None = None,
     response_transformation: TransformerMixin | None = None,
     cl_features: FeatureDataset | None = None,
     drug_features: FeatureDataset | None = None,
-    model_checkpoint_dir: str = "TEMPORARY",
+    model_checkpoint_dir: str | Path | None = None,
 ) -> DrugResponseDataset:
     """Train the model and predict the response for the prediction dataset.
 
@@ -197,7 +184,7 @@ def train_and_predict_impl(
     :param response_transformation: Optional sklearn response transformer.
     :param cl_features: Preloaded cell-line features, or ``None`` to load from disk.
     :param drug_features: Preloaded drug features, or ``None`` to load from disk.
-    :param model_checkpoint_dir: Directory for predictor checkpoints.
+    :param model_checkpoint_dir: Directory for predictor checkpoints, or ``None`` for a temporary one.
 
     :returns: *prediction_dataset* with ``predictions`` populated.
 

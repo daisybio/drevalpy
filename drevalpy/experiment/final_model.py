@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 from sklearn.base import TransformerMixin, clone
 
 from ..datasets.dataset import DrugResponseDataset, split_early_stopping_data
 from ..models.drp_model import DRPModel
+from ..utils.checkpoints import checkpoint_dir_or_temporary
 from .fold import make_train_val_split_impl, merge_train_validation
 from .hpo import select_final_model_hyperparameters
 
@@ -65,10 +66,10 @@ def train_final_model_impl(
     model_class: type[DRPModel],
     full_dataset: DrugResponseDataset,
     response_transformation: TransformerMixin,
-    path_data: str,
-    model_checkpoint_dir: str,
+    path_data: str | Path,
+    model_checkpoint_dir: str | Path | None,
     metric: str,
-    final_model_path: str,
+    final_model_path: str | Path,
     test_mode: str = "LCO",
     val_ratio: float = 0.1,
     hyperparameter_tuning: bool = True,
@@ -83,7 +84,7 @@ def train_final_model_impl(
     :param full_dataset: Complete response dataset for final training.
     :param response_transformation: Response transformer fitted on training data.
     :param path_data: Root directory for feature tables.
-    :param model_checkpoint_dir: Directory for intermediate checkpoints.
+    :param model_checkpoint_dir: Directory for intermediate checkpoints, or ``None`` for a temporary one.
     :param metric: Metric optimized during optional hyperparameter tuning.
     :param final_model_path: Archive path stem for the final model (``.zip`` appended on save).
     :param test_mode: Split mode for the internal train/validation holdout.
@@ -140,17 +141,19 @@ def train_final_model_impl(
     )
 
     drug_features_copy = drug_features.copy() if drug_features is not None else None
-    model.train(
-        output=train_dataset,
-        output_earlystopping=early_stopping_dataset,
-        cell_line_input=cl_features.copy(),
-        drug_input=drug_features_copy,
-        model_checkpoint_dir=model_checkpoint_dir,
-    )
+    with checkpoint_dir_or_temporary(model_checkpoint_dir) as checkpoint_dir:
+        model.train(
+            output=train_dataset,
+            output_earlystopping=early_stopping_dataset,
+            cell_line_input=cl_features.copy(),
+            drug_input=drug_features_copy,
+            model_checkpoint_dir=checkpoint_dir,
+        )
     if fold_transform is not None:
         train_dataset.inverse_transform(fold_transform)
         if early_stopping_dataset is not None:
             early_stopping_dataset.inverse_transform(fold_transform)
 
-    os.makedirs(os.path.dirname(final_model_path) or ".", exist_ok=True)
-    model.save(final_model_path)
+    final_model_target = Path(final_model_path)
+    final_model_target.parent.mkdir(parents=True, exist_ok=True)
+    model.save(final_model_target)

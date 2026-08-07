@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -20,7 +22,7 @@ class PathwaysCellLineFeaturizer(DenseViewCellLineFeaturizer):
     _default_view = "pathways"
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load generated GSVA pathway features under the predictor block name.
 
         :param data_path: data path.

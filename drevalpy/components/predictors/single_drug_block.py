@@ -37,9 +37,9 @@ _DEPRECATION_MESSAGE = (
 )
 
 
-def _checkpoint_dir_for_drug(base_dir: str, drug_id: str) -> str:
+def _checkpoint_dir_for_drug(base_dir: Path, drug_id: str) -> Path:
     digest = hashlib.sha256(drug_id.encode()).hexdigest()[:16]
-    return str(Path(base_dir) / f"drug_{digest}")
+    return base_dir / f"drug_{digest}"
 
 
 @deprecated(_DEPRECATION_MESSAGE, category=None)

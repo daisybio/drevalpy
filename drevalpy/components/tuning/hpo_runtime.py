@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 from typing import Any, Callable
 
 from sklearn.base import TransformerMixin
@@ -16,6 +16,7 @@ from drevalpy.components.tuning.drp_hyperparameters import (
 from drevalpy.components.tuning.search_space import dict_to_ray_space
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.utils.checkpoints import resolve_checkpoint_dir
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +37,18 @@ def current_trial_id() -> str:
     return "unknown"
 
 
-def trial_checkpoint_dir(base_dir: str) -> str:
-    """Trial checkpoint dir.
+def trial_checkpoint_dir(base_dir: str | Path | None) -> Path | None:
+    """Return a per-trial subdirectory of *base_dir*.
 
-    :param base_dir: base dir.
-    :returns: Result.
+    :param base_dir: Root checkpoint directory, or ``None`` for a temporary one.
+
+    :returns: The trial subdirectory, or ``None`` when a temporary one should be used.
     """
-    path = os.path.join(base_dir, f"trial_{current_trial_id()}")
-    os.makedirs(path, exist_ok=True)
+    resolved = resolve_checkpoint_dir(base_dir)
+    if resolved is None:
+        return None
+    path = resolved / f"trial_{current_trial_id()}"
+    path.mkdir(parents=True, exist_ok=True)
     return path
 
 
@@ -58,12 +63,12 @@ def _evaluate_trial_model(
     trial_model: DRPModel,
     *,
     metric: str,
-    path_data: str,
+    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
-    model_checkpoint_dir: str,
+    model_checkpoint_dir: str | Path | None,
 ) -> float:
     from drevalpy import experiment
 
@@ -151,8 +156,8 @@ def build_ray_trainable(
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
     metric: str,
-    path_data: str,
-    model_checkpoint_dir: str,
+    path_data: str | Path,
+    model_checkpoint_dir: str | Path | None,
     cfg: HPOConfig,
     wandb_project: str | None,
     wandb_base_config: dict[str, Any] | None,
@@ -168,7 +173,7 @@ def build_ray_trainable(
     :param response_transformation: response transformation.
     :param metric: metric.
     :param path_data: path data.
-    :param model_checkpoint_dir: model checkpoint dir.
+    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param cfg: cfg.
     :param wandb_project: wandb project.
     :param wandb_base_config: wandb base config.

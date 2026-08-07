@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
 from drevalpy.components.predictors.literature.dipk.data_utils import load_bionic_features
@@ -20,7 +22,7 @@ class BionicCellLineFeaturizer(DenseViewCellLineFeaturizer):
     _default_view = "bionic_features"
 
     @classmethod
-    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load precomputed DIPK BIONIC features.
 
         :param data_path: data path.
