@@ -9,29 +9,19 @@ import pandas as pd
 _GENE_NAME_COLUMNS = ("Symbol", "gene_name", "symbol", "Gene", "gene")
 
 
-def _candidate_gene_lists_dirs() -> list[Path]:
-    """Return directories that may contain package/repo gene-list CSVs.
-
-    :returns: Candidate gene-list directories in search order.
-    """
-    package_root = Path(__file__).resolve().parents[1]
-    repo_root = Path(__file__).resolve().parents[2]
-    return [
-        repo_root / "data" / "meta" / "gene_lists",
-        package_root / "assets" / "gene_lists",
-        Path(__file__).resolve().parent / "meta" / "gene_lists",
-    ]
+# Gene lists arrive in the downloaded ``meta`` bundle, so ``<data_path>/meta/gene_lists`` is
+# their real home. This path additionally covers a source checkout left on the default
+# ``data_path="data"``; it resolves to nothing once the package is installed, since ``data/``
+# is not shipped as package data.
+_REPO_GENE_LISTS_DIR = Path(__file__).resolve().parents[2] / "data" / "meta" / "gene_lists"
 
 
 def default_gene_lists_dir() -> Path:
-    """Return the first existing package/repo gene-lists directory.
+    """Return the repo-local gene-lists directory used when no data path is given.
 
-    :returns: First existing candidate directory, or the primary default path.
+    :returns: Gene-list directory inside a source checkout.
     """
-    for path in _candidate_gene_lists_dirs():
-        if path.is_dir():
-            return path
-    return _candidate_gene_lists_dirs()[0]
+    return _REPO_GENE_LISTS_DIR
 
 
 def resolve_gene_list_path(
@@ -39,7 +29,7 @@ def resolve_gene_list_path(
     *,
     data_path: str | Path | None = None,
 ) -> Path:
-    """Resolve ``{stem}.csv`` under ``data_path/meta/gene_lists`` or package defaults.
+    """Resolve ``{stem}.csv`` under ``data_path/meta/gene_lists`` or the repo-local default.
 
     :param gene_list_stem: Gene-list filename stem without ``.csv``.
     :param data_path: Optional dataset root that may contain ``meta/gene_lists``.
@@ -49,7 +39,7 @@ def resolve_gene_list_path(
     candidates: list[Path] = []
     if data_path is not None:
         candidates.append(Path(data_path) / "meta" / "gene_lists" / f"{gene_list_stem}.csv")
-    candidates.extend(directory / f"{gene_list_stem}.csv" for directory in _candidate_gene_lists_dirs())
+    candidates.append(_REPO_GENE_LISTS_DIR / f"{gene_list_stem}.csv")
     for path in candidates:
         if path.is_file():
             return path
