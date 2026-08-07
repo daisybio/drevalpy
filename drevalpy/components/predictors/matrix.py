@@ -22,8 +22,7 @@ class MatrixPredictor(Predictor):
         :param batch: Featurized pairs with training responses.
         """
         x = batch.to_feature_matrix()
-        y = np.asarray(batch.response, dtype=np.float64)
-        self._fit_matrix(x, y)
+        self._fit_matrix(x, batch.response)
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict from a dense pair-level design matrix built from *batch*.

@@ -49,6 +49,8 @@ class ModelInputBatch:
         if self.drug_pair_idx is not None and len(self.drug_pair_idx) != n:
             msg = f"drug_pair_idx length ({len(self.drug_pair_idx)}) must match n_pairs ({n})"
             raise ValueError(msg)
+        if self.response is not None:
+            self.response = np.asarray(self.response, dtype=np.float64)
 
     @property
     def n_pairs(self) -> int:
@@ -92,7 +94,7 @@ class ModelInputBatch:
         return cls(
             cell_line_ids=response.cell_line_ids,
             drug_ids=response.drug_ids,
-            response=np.asarray(response.response, dtype=np.float64),
+            response=response.response,
             cell_line_entity_ids=cell_line_entity_ids,
             drug_entity_ids=drug_entity_ids,
             cell_line_features=cell_line_features,
@@ -173,7 +175,7 @@ class ModelInputBatch:
             msg = "ModelInputBatch.response is required to build a feature matrix"
             raise ValueError(msg)
         response = DrugResponseDataset(
-            response=np.asarray(self.response, dtype=np.float64),
+            response=self.response,
             cell_line_ids=self.cell_line_ids,
             drug_ids=self.drug_ids,
         )
@@ -207,7 +209,7 @@ class ModelInputBatch:
         return ModelInputBatch(
             cell_line_ids=self.cell_line_ids[mask],
             drug_ids=self.drug_ids[mask],
-            response=None if self.response is None else np.asarray(self.response, dtype=np.float64)[mask],
+            response=None if self.response is None else self.response[mask],
             cell_line_entity_ids=self.cell_line_entity_ids,
             drug_entity_ids=self.drug_entity_ids,
             cell_line_features=self.cell_line_features,

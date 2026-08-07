@@ -51,7 +51,7 @@ class NaiveTissueMeanPredictor(BlockPredictor):
         if design.shape[1] == 0:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
-        y = np.asarray(batch.response, dtype=np.float64)
+        y = batch.response
         self._dataset_mean = float(np.mean(y))
         self._effects = additive_effects(design, y, baseline=self._dataset_mean)
 
@@ -137,7 +137,7 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
         if tissue.shape[1] == 0 or drugs.shape[1] == 0:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
-        y = np.asarray(batch.response, dtype=np.float64)
+        y = batch.response
         self._dataset_mean = float(np.mean(y))
         tissue64 = np.asarray(tissue, dtype=np.float64)
         drugs64 = np.asarray(drugs, dtype=np.float64)

@@ -93,7 +93,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
         :param batch: batch.
         """
         x = batch.to_feature_matrix()
-        y = np.asarray(batch.response, dtype=np.float64)
+        y = batch.response
         input_dim = int(x.shape[1]) if x.ndim == 2 else 0
         self._materialize(input_dim)
         if batch.n_pairs == 0:

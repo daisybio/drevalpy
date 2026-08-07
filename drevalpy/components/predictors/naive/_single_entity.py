@@ -36,7 +36,7 @@ class SingleEntityNaivePredictor(BlockPredictor):
 
         :param batch: batch.
         """
-        y = np.asarray(batch.response, dtype=np.float64)
+        y = batch.response
         design = require_pair_matrix(batch, side=self._feature_side)
         self._dataset_mean = float(np.mean(y))
         self._effects = additive_effects(design, y, baseline=self._dataset_mean)

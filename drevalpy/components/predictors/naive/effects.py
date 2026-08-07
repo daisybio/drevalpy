@@ -60,7 +60,7 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
 
         :param batch: batch.
         """
-        y = np.asarray(batch.response, dtype=np.float64)
+        y = batch.response
         cell, tissue = self._cell_and_tissue(batch)
         drugs = np.asarray(require_pair_matrix(batch, side="drug"), dtype=np.float64)
         self._dataset_mean = float(np.mean(y))

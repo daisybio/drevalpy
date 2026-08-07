@@ -44,7 +44,7 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         :param batch: batch.
         """
         x = self._cell_line_matrix(batch)
-        y = np.asarray(batch.response, dtype=np.float64).ravel()
+        y = batch.response.ravel()
         keys = routing_keys(batch)
         require_known_training_keys(keys)
 
