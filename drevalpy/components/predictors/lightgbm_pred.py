@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import lightgbm as lgb
+
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.registry import register_predictor
@@ -22,13 +24,7 @@ class LightGBMPredictor(SklearnTabularPredictor):
         """Return an unfitted LightGBM regressor.
 
         :returns: Unfitted ``LGBMRegressor`` configured from hyperparameters.
-        :raises ImportError: If ``lightgbm`` is not installed.
         """
-        try:
-            import lightgbm as lgb
-        except ImportError as exc:
-            msg = "lightgbm is required for LightGBMPredictor. Reinstall drevalpy (lightgbm is a core dependency)."
-            raise ImportError(msg) from exc
         return lgb.LGBMRegressor(
             n_estimators=int(self._h.get("n_estimators", 100)),
             learning_rate=float(self._h.get("learning_rate", 0.1)),

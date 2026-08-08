@@ -6,9 +6,12 @@ import itertools
 import math
 from pathlib import Path
 
+import mygene
 import networkx as nx
 import networkx.algorithms.components.connected as nxacc
+import obonet
 import pandas as pd
+import requests
 
 GO_ROOT = "GO:0008150"
 
@@ -50,20 +53,14 @@ def download_obo(url: str, dest: str | Path) -> None:
 
     :param url: Remote OBO file URL.
     :param dest: Local destination path.
-    :raises RuntimeError: If ``requests`` is not installed.
     """
-    try:
-        import requests
-
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; drevalpy-sparsego/1.0)"}
-        response = requests.get(url, headers=headers, timeout=120, stream=True)
-        response.raise_for_status()
-        with open(dest, "wb") as fh:
-            for chunk in response.iter_content(chunk_size=1024 * 64):
-                fh.write(chunk)
-        print(f"  Saved to {dest} ({Path(dest).stat().st_size // 1024} KB)")
-    except ImportError as exc:
-        raise RuntimeError("requests is required to download go-basic.obo: pip install requests") from exc
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; drevalpy-sparsego/1.0)"}
+    response = requests.get(url, headers=headers, timeout=120, stream=True)
+    response.raise_for_status()
+    with open(dest, "wb") as fh:
+        for chunk in response.iter_content(chunk_size=1024 * 64):
+            fh.write(chunk)
+    print(f"  Saved to {dest} ({Path(dest).stat().st_size // 1024} KB)")
 
 
 def _pairs_from_go_bp_row(row: pd.Series) -> list[tuple[str, str]]:
@@ -82,14 +79,7 @@ def fetch_gene_go_annotations(genes: list[str]) -> pd.DataFrame:
 
     :param genes: Gene symbols to annotate.
     :returns: Two-column dataframe of GO term and gene symbol pairs.
-    :raises ImportError: If ``mygene`` is not installed.
     """
-    try:
-        import mygene
-    except ImportError as exc:
-        msg = "mygene is required. Reinstall drevalpy (mygene is a core dependency), or: pip install mygene"
-        raise ImportError(msg) from exc
-
     mg = mygene.MyGeneInfo()
     print(f"Querying MyGene.info: {len(genes)} symbols -> entrezgene IDs ...")
     genes_ids: pd.DataFrame = mg.querymany(
@@ -138,12 +128,6 @@ def _ensure_obo_path(obo_file: str | Path | None) -> Path:
 
 
 def _load_reversed_obo(obo_file: Path) -> nx.MultiDiGraph:
-    try:
-        import obonet
-    except ImportError as exc:
-        msg = "obonet is required. Reinstall drevalpy (obonet is a core dependency), or: pip install obonet"
-        raise ImportError(msg) from exc
-
     print(f"Parsing {obo_file} ...")
     full_graph: nx.MultiDiGraph = obonet.read_obo(obo_file)
     full_graph = full_graph.reverse()

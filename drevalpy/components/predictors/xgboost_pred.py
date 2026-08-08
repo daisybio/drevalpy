@@ -32,6 +32,11 @@ def _set_xgboost_thread_defaults() -> None:
         os.environ.setdefault(name, value)
 
 
+_set_xgboost_thread_defaults()
+
+from xgboost import XGBRegressor  # noqa: E402
+
+
 @register_predictor(
     "xgboost",
     description="XGBoost regressor on concatenated dense features.",
@@ -45,14 +50,7 @@ class XGBoostPredictor(SklearnTabularPredictor):
         """Return an unfitted XGBoost regressor.
 
         :returns: Unfitted ``XGBRegressor`` configured from hyperparameters.
-        :raises ImportError: If ``xgboost`` is not installed.
         """
-        try:
-            _set_xgboost_thread_defaults()
-            from xgboost import XGBRegressor
-        except ImportError as exc:
-            msg = "xgboost is required for XGBoostPredictor. Reinstall drevalpy (xgboost is a core dependency)."
-            raise ImportError(msg) from exc
         return XGBRegressor(
             n_estimators=int(self._h.get("n_estimators", 100)),
             max_depth=int(self._h.get("max_depth", 6)),
@@ -70,7 +68,6 @@ class XGBoostPredictor(SklearnTabularPredictor):
         :param state: state.
         :raises PredictorStateError: Raised on invalid input.
         """
-        _set_xgboost_thread_defaults()
         super().set_state(state)
         if self._estimator is None:
             msg = "XGBoostPredictor state did not restore a fitted estimator"
