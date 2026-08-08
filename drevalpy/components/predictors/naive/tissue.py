@@ -46,12 +46,15 @@ class NaiveTissueMeanPredictor(BlockPredictor):
 
         :param batch: batch.
         :raises ValueError: Raised on invalid input.
+        :raises RuntimeError: If batch.response is None.
         """
         design = require_pair_matrix(batch, side="cell_line")
         if design.shape[1] == 0:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
         y = batch.response
+        if y is None:
+            raise RuntimeError("batch.response is required for fit")
         self._dataset_mean = float(np.mean(y))
         self._effects = additive_effects(design, y, baseline=self._dataset_mean)
 
@@ -131,6 +134,7 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
 
         :param batch: batch.
         :raises ValueError: Raised on invalid input.
+        :raises RuntimeError: If batch.response is None.
         """
         tissue = require_pair_matrix(batch, side="cell_line")
         drugs = require_pair_matrix(batch, side="drug")
@@ -138,6 +142,8 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
         y = batch.response
+        if y is None:
+            raise RuntimeError("batch.response is required for fit")
         self._dataset_mean = float(np.mean(y))
         tissue64 = np.asarray(tissue, dtype=np.float64)
         drugs64 = np.asarray(drugs, dtype=np.float64)

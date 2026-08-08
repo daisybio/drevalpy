@@ -40,7 +40,7 @@ def test_normalize_registration_metadata_rejects_blank_description() -> None:
 
 def test_normalize_registration_metadata_rejects_bare_string_tags() -> None:
     with pytest.raises(TypeError, match="iterable of strings"):
-        normalize_registration_metadata("demo", tags="baseline")  # type: ignore[arg-type]
+        normalize_registration_metadata("demo", tags="baseline")
 
 
 def test_normalize_registration_metadata_rejects_non_string_tags() -> None:
@@ -71,6 +71,6 @@ def test_apply_registration_metadata_assigns_fields() -> None:
         reference=None,
     )
     apply_registration_metadata(Target, metadata)
-    assert Target.description == "demo"
-    assert Target.tags == frozenset({"baseline"})
-    assert Target.reference is None
+    assert Target.description == "demo"  # type: ignore[attr-defined]
+    assert Target.tags == frozenset({"baseline"})  # type: ignore[attr-defined]
+    assert Target.reference is None  # type: ignore[attr-defined]

@@ -11,6 +11,7 @@ from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.components.tuning.search_space import dict_to_ray_space, merge_model_config_spaces
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
+from drevalpy.models.config.model import ModelConfig
 
 
 def test_dict_to_ray_space_converts_structured_specs() -> None:
@@ -36,6 +37,7 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
     register_builtins.register_builtin_components()
     model_cls = construct_model("ComboRF", "pca[expression]+landmarkGenes:fingerprints:randomForest")
     config = from_spec("pca[expression]+landmarkGenes:fingerprints:randomForest")
+    assert isinstance(config, ModelConfig)
     merged = merge_model_config_spaces(config)
     assert any("cell_line_featurizer.pca[expression]." in key for key in merged)
     assert any("predictor.randomForest." in key for key in merged)

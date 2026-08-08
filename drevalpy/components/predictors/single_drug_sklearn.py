@@ -51,8 +51,11 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         """Fit on training data.
 
         :param batch: batch.
+        :raises RuntimeError: If batch.response is None.
         """
         x = self._cell_line_matrix(batch)
+        if batch.response is None:
+            raise RuntimeError("batch.response is required for fit")
         y = batch.response.ravel()
         keys = routing_keys(batch)
         require_known_training_keys(keys)

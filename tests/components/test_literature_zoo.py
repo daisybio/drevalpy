@@ -8,7 +8,7 @@ from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor
 from drevalpy.models import construct_model
-from drevalpy.models.config import from_spec, validate
+from drevalpy.models.config import ModelConfig, from_spec, validate
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 
 LITERATURE_ZOO_NAMES = [
@@ -60,6 +60,7 @@ def test_single_drug_zoo_entries_route_with_identity(name: str) -> None:
 
 def test_from_spec_resolves_literature_zoo() -> None:
     config = from_spec("DrugGNN")
+    assert isinstance(config, ModelConfig)
     assert config.predictor.name == "drugGNN"
     assert config.cell_line_featurizer is not None
     assert config.drug_featurizer is not None

@@ -10,7 +10,7 @@ import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
-from drevalpy.models.config import from_spec, validate
+from drevalpy.models.config import ModelConfig, from_spec, validate
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import model_config_for_name
 from drevalpy.models.zoo import list_zoo_names
@@ -40,6 +40,7 @@ def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDatas
 @pytest.mark.parametrize("name", list_zoo_names(include_external=False))
 def test_model_factory_names_resolve_to_model_config(name: str) -> None:
     config = model_config_for_name(name)
+    assert isinstance(config, ModelConfig)
     validate(config)
     assert config.predictor.name
 
@@ -47,6 +48,7 @@ def test_model_factory_names_resolve_to_model_config(name: str) -> None:
 @pytest.mark.parametrize("name", list_zoo_names(include_external=False))
 def test_zoo_entries_create_runnable_models(name: str) -> None:
     config = from_spec(name)
+    assert isinstance(config, ModelConfig)
     validate(config)
     model_cls = construct_model(name)
     assert issubclass(model_cls, DRPModel)
@@ -68,6 +70,7 @@ def test_multiview_baselines_are_construct_model_classes() -> None:
         cls = construct_model(name)
         assert issubclass(cls, DRPModel)
         config = from_spec(name)
+        assert isinstance(config, ModelConfig)
         assert config.cell_line_featurizer is not None
 
 

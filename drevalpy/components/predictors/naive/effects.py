@@ -59,8 +59,11 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
         """Fit on training data.
 
         :param batch: batch.
+        :raises RuntimeError: If batch.response is None.
         """
         y = batch.response
+        if y is None:
+            raise RuntimeError("batch.response is required for fit")
         cell, tissue = self._cell_and_tissue(batch)
         drugs = np.asarray(require_pair_matrix(batch, side="drug"), dtype=np.float64)
         self._dataset_mean = float(np.mean(y))

@@ -82,6 +82,7 @@ def test_zoo_config_copy_isolation() -> None:
     assert first == second
     assert first is not second
     assert first.cell_line_featurizer is not None
+    assert first.cell_line_featurizer.featurizers is not None
     child = first.cell_line_featurizer.featurizers[1]
     assert child.hyperparameter_space is not None
     with pytest.raises(TypeError):

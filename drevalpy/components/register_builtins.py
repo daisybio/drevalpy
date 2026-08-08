@@ -7,10 +7,11 @@ import inspect
 from types import ModuleType
 
 from drevalpy.components.registry.featurizer_registry import (
+    FeaturizerRegistry,
     cell_line_featurizer_registry,
     drug_featurizer_registry,
 )
-from drevalpy.components.registry.predictor_registry import predictor_registry
+from drevalpy.components.registry.predictor_registry import PredictorRegistry, predictor_registry
 
 _CELL_LINE_MODULES = {
     "scaledGeneExpression": "drevalpy.components.featurizers.cell_line.scaled_gene_expression",
@@ -173,6 +174,7 @@ def register_native_components() -> None:
         "drevalpy.components.predictors.sklearn_models",
     }
     for module_path in sorted(modules):
+        registry: FeaturizerRegistry | PredictorRegistry
         if ".cell_line." in module_path:
             registry = cell_line_featurizer_registry
         elif ".featurizers.drug." in module_path:

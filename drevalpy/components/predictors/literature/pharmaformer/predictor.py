@@ -157,6 +157,7 @@ class PharmaFormerPredictor(BlockPredictor):
 
         :param batch: Training batch with gene_expression and bpe_smiles blocks.
         :raises ValueError: If early stopping data is not provided.
+        :raises RuntimeError: If drug_pair_idx is None.
         """
         if batch.early_stopping_response is None:
             msg = "PharmaFormer model requires early stopping data."
@@ -166,6 +167,8 @@ class PharmaFormerPredictor(BlockPredictor):
         drug_entity = batch.drug_blocks["bpe_smiles"].values
         cell_pair_idx = batch.cell_line_pair_idx
         drug_pair_idx = batch.drug_pair_idx
+        if drug_pair_idx is None:
+            raise RuntimeError("drug_pair_idx is required for this predictor")
         response = np.asarray(batch.response, dtype=np.float32)
 
         gene_input_size = gene_entity.shape[1]
@@ -185,6 +188,8 @@ class PharmaFormerPredictor(BlockPredictor):
 
         es_response = batch.early_stopping_response
         es_cell_pair_idx, es_drug_pair_idx = batch._pair_indices_for(es_response)
+        if es_drug_pair_idx is None:
+            raise RuntimeError("drug_pair_idx is required for this predictor")
         es_resp = np.asarray(es_response.response, dtype=np.float32)
 
         val_loader = make_pair_loader(
@@ -238,6 +243,7 @@ class PharmaFormerPredictor(BlockPredictor):
         :param batch: Featurized pairs to score.
         :returns: One predicted response per pair.
         :raises ValueError: If the model has not been trained yet.
+        :raises RuntimeError: If drug_pair_idx is None.
         """
         if self._model is None:
             msg = "PharmaFormer model not initialized."
@@ -247,6 +253,8 @@ class PharmaFormerPredictor(BlockPredictor):
         drug_entity = batch.drug_blocks["bpe_smiles"].values
         cell_pair_idx = batch.cell_line_pair_idx
         drug_pair_idx = batch.drug_pair_idx
+        if drug_pair_idx is None:
+            raise RuntimeError("drug_pair_idx is required for this predictor")
 
         predict_loader = make_pair_loader(
             (gene_entity, cell_pair_idx),

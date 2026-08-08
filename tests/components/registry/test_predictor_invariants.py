@@ -98,7 +98,7 @@ def test_registered_predictor_scope_defaults_to_multi_drug() -> None:
 def test_register_existing_rejects_invalid_predictor_class() -> None:
     class InvalidRestored:
         description = "invalid"
-        tags = frozenset()
+        tags: frozenset[str] = frozenset()
         reference = None
         cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
         drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)

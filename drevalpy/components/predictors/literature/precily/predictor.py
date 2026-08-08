@@ -69,11 +69,14 @@ class PrecilyPredictor(BlockPredictor):
         """Train the Precily model on the batch.
 
         :param batch: Training batch with pathways and smilesvec blocks.
+        :raises RuntimeError: If drug_pair_idx is None.
         """
         pathway_entity = batch.cell_line_blocks["pathways"].values
         drug_entity = batch.drug_blocks["smilesvec"].values
         cell_pair_idx = batch.cell_line_pair_idx
         drug_pair_idx = batch.drug_pair_idx
+        if drug_pair_idx is None:
+            raise RuntimeError("drug_pair_idx is required for this predictor")
         response = np.asarray(batch.response, dtype=np.float32)
 
         n_pathways = pathway_entity.shape[1]
@@ -125,6 +128,7 @@ class PrecilyPredictor(BlockPredictor):
         :param batch: Featurized pairs to score.
         :returns: One predicted response per pair.
         :raises ValueError: If the model has not been trained yet.
+        :raises RuntimeError: If drug_pair_idx is None.
         """
         if self._model is None:
             msg = "Precily model not initialized."
@@ -134,6 +138,8 @@ class PrecilyPredictor(BlockPredictor):
         drug_entity = batch.drug_blocks["smilesvec"].values
         cell_pair_idx = batch.cell_line_pair_idx
         drug_pair_idx = batch.drug_pair_idx
+        if drug_pair_idx is None:
+            raise RuntimeError("drug_pair_idx is required for this predictor")
 
         predict_loader = make_pair_loader(
             (pathway_entity, cell_pair_idx),

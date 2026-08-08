@@ -51,7 +51,7 @@ def test_literature_reference_missing_fields_fails_on_normalize() -> None:
 def test_featurizer_role_validation_requires_contract() -> None:
     class Native:
         description = "native"
-        tags = frozenset()
+        tags: frozenset[str] = frozenset()
         reference = None
 
     with pytest.raises(ValueError, match="missing=\\['contract'\\]"):
@@ -66,7 +66,7 @@ def test_featurizer_role_validation_requires_contract() -> None:
 def test_predictor_role_validation_requires_contracts() -> None:
     class Native:
         description = "native"
-        tags = frozenset()
+        tags: frozenset[str] = frozenset()
         reference = None
 
     with pytest.raises(ValueError, match="missing=\\['cell_line_contract', 'drug_contract'\\]"):
@@ -94,7 +94,7 @@ def test_missing_description_fails() -> None:
 def test_wrong_type_contract_fails() -> None:
     class BadContract:
         description = "bad"
-        tags = frozenset()
+        tags: frozenset[str] = frozenset()
         reference = None
         contract = "numeric_matrix"
 

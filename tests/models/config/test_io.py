@@ -14,6 +14,7 @@ from drevalpy.models.config.io import (
     from_spec,
     from_yaml,
 )
+from drevalpy.models.config.model import ModelConfig
 
 
 @pytest.fixture(autouse=True)
@@ -23,6 +24,7 @@ def _register_components() -> None:
 
 def test_model_config_from_predictor_only_spec() -> None:
     config = from_spec("naiveMean")
+    assert isinstance(config, ModelConfig)
     assert config.predictor.name == "naiveMean"
     assert config.cell_line_featurizer is None
     assert config.drug_featurizer is None
@@ -30,6 +32,7 @@ def test_model_config_from_predictor_only_spec() -> None:
 
 def test_model_config_from_triple_spec() -> None:
     config = from_spec("scaledGeneExpression:fingerprints:elasticNet")
+    assert isinstance(config, ModelConfig)
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "scaledGeneExpression"
     assert config.drug_featurizer is not None
@@ -39,6 +42,7 @@ def test_model_config_from_triple_spec() -> None:
 
 def test_model_config_from_triple_spec_with_plus_concat() -> None:
     config = from_spec("raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
+    assert isinstance(config, ModelConfig)
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
@@ -48,6 +52,7 @@ def test_model_config_from_triple_spec_with_plus_concat() -> None:
 
 def test_model_config_from_zoo_name() -> None:
     config = from_spec("ElasticNet")
+    assert isinstance(config, ModelConfig)
     assert config.predictor.name == "elasticNet"
 
 

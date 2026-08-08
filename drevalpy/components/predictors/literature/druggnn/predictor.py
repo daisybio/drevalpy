@@ -189,7 +189,7 @@ class DrugGNNPredictor(BlockPredictor):
 
         val_loader = self._build_val_loader(batch, cell_line_matrix, drug_graphs)
 
-        callbacks = None
+        callbacks: list[pl.callbacks.Callback] | None = None
         if val_loader is not None:
             callbacks = [pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)]
 

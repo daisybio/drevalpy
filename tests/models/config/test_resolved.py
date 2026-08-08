@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.tuning.search_space import resolve_model_config
-from drevalpy.models.config import ResolvedModelConfig, from_spec
+from drevalpy.models.config import ModelConfig, ResolvedModelConfig, from_spec
 from drevalpy.models.zoo import zoo_model_config
 
 
 def test_resolve_model_config_separates_template_and_values() -> None:
     register_builtin_components()
     template = from_spec("ElasticNet")
+    assert isinstance(template, ModelConfig)
     resolved = resolve_model_config(template)
     assert isinstance(resolved, ResolvedModelConfig)
     assert resolved.template is template or resolved.template.model_dump() == template.model_dump()

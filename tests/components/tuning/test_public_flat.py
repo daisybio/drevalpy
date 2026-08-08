@@ -9,6 +9,7 @@ from drevalpy.components.tuning.public_flat import (
     public_hyperparameters_from_config,
 )
 from drevalpy.models import construct_model
+from drevalpy.models.config.model import ModelConfig
 
 
 def test_public_round_trip_for_factory_model() -> None:
@@ -26,5 +27,5 @@ def test_construct_model_spec_resolves_without_hyperparameters() -> None:
     register_builtins.register_builtin_components()
     model_cls = construct_model("PcaIdentityRF", "pca[expression]:identity:randomForest")
     config = model_config_for_drp_model(model_cls)
-    assert config is not None
+    assert isinstance(config, ModelConfig)
     assert config.predictor.name == "randomForest"

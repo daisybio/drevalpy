@@ -32,7 +32,7 @@ _StubPredictor.drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATR
 def test_predictor_rejects_class_body_contracts() -> None:
     with pytest.raises(TypeError, match="do not set cell_line_contract"):
 
-        class BadPredictor(Predictor):  # type: ignore[misc]
+        class BadPredictor(Predictor):  # noqa: B903
             cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 

@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from drevalpy.components.featurizer_tree import ensure_unique_qualified_featurizers
 from drevalpy.components.register_builtins import register_builtin_components
-from drevalpy.models.config import FeaturizerConfig, from_spec
+from drevalpy.models.config import FeaturizerConfig, ModelConfig, from_spec
 
 
 def test_ensure_unique_allows_same_name_different_views() -> None:
@@ -48,5 +48,6 @@ def test_recipe_string_rejects_duplicate_qualified_selector() -> None:
 def test_recipe_string_allows_same_name_different_views() -> None:
     register_builtin_components()
     config = from_spec("raw[expression]+raw[mutations]:fingerprints:randomForest")
+    assert isinstance(config, ModelConfig)
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import numpy as np
 import torch
@@ -57,9 +57,9 @@ def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarr
         gene_order = list(gene2id_mapping.keys())
 
     return (
-        list(layer_connections),
-        dict(gene2id_mapping),
-        list(gene_order) if gene_order else list(gene2id_mapping.keys()),
+        cast(list, layer_connections),
+        cast(dict, gene2id_mapping),
+        cast(list, gene_order) if gene_order else list(cast(dict, gene2id_mapping).keys()),
     )
 
 
@@ -171,6 +171,7 @@ class SparseGOPredictor(BlockPredictor):
 
         :param batch: Training batch with responses and cell-line/drug blocks.
         :raises ValueError: If ontology metadata is missing or network build fails.
+        :raises RuntimeError: If drug_pair_idx is None.
         """
         active_view = _resolve_active_view(batch)
         block = batch.cell_line_blocks[active_view]
@@ -185,6 +186,8 @@ class SparseGOPredictor(BlockPredictor):
         drug_entity = np.asarray(batch.drug_blocks["fingerprints"].values, dtype=np.float32)
         cell_pair_idx = batch.cell_line_pair_idx
         drug_pair_idx = batch.drug_pair_idx
+        if drug_pair_idx is None:
+            raise RuntimeError("drug_pair_idx is required for this predictor")
 
         self._hyperparameters["drug_dim"] = int(drug_entity.shape[1])
         self._build_network()
@@ -231,6 +234,7 @@ class SparseGOPredictor(BlockPredictor):
         :param batch: Featurized pairs to score.
         :returns: Predicted response values as a 1D numpy array.
         :raises ValueError: If the model is not fitted.
+        :raises RuntimeError: If drug_pair_idx is None.
         """
         if self._model is None:
             raise ValueError("SparseGOPredictor must be fitted before predict().")
@@ -242,6 +246,8 @@ class SparseGOPredictor(BlockPredictor):
         drug_entity = np.asarray(batch.drug_blocks["fingerprints"].values, dtype=np.float32)
         cell_pair_idx = batch.cell_line_pair_idx
         drug_pair_idx = batch.drug_pair_idx
+        if drug_pair_idx is None:
+            raise RuntimeError("drug_pair_idx is required for this predictor")
 
         loader = make_pair_loader(
             (cell_entity, cell_pair_idx),

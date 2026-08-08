@@ -38,7 +38,10 @@ class NaiveMeanPredictor(FeatureFreePredictor):
         """Fit on training data.
 
         :param batch: batch.
+        :raises RuntimeError: If batch.response is None.
         """
+        if batch.response is None:
+            raise RuntimeError("batch.response is required for fit")
         self._dataset_mean = float(np.mean(batch.response))
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:

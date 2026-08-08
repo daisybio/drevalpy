@@ -57,6 +57,7 @@ def run_superfeltr_training(
         model.expr_encoder, model.mut_encoder, model.cnv_encoder, model.regressor = None, None, None, None
         return
 
+    pair_idx = np.arange(n_samples)
     dim_gex, dim_mut, dim_cnv = gene_expression.shape[1], mutations.shape[1], copy_number.shape[1]
     std = float(np.std(response))
     model.ranges = (std * 0.1, std)
@@ -85,10 +86,12 @@ def run_superfeltr_training(
                 mutations=mutations,
                 copy_number=copy_number,
                 response=response,
+                pair_idx=pair_idx,
                 val_gene_expression=val_gene_expression,
                 val_mutations=val_mutations,
                 val_copy_number=val_copy_number,
                 val_response=val_response,
+                val_pair_idx=np.arange(len(val_response)) if val_response is not None else None,
                 patience=5,
                 model_checkpoint_dir=model_checkpoint_dir,
                 wandb_project=model.wandb_project,
@@ -118,10 +121,12 @@ def run_superfeltr_training(
             mutations=mutations,
             copy_number=copy_number,
             response=response,
+            pair_idx=pair_idx,
             val_gene_expression=val_gene_expression,
             val_mutations=val_mutations,
             val_copy_number=val_copy_number,
             val_response=val_response,
+            val_pair_idx=np.arange(len(val_response)) if val_response is not None else None,
             patience=5,
             model_checkpoint_dir=model_checkpoint_dir,
             wandb_project=model.wandb_project,

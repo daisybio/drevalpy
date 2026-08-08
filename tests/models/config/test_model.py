@@ -249,6 +249,7 @@ def test_from_spec_classmethod() -> None:
 
     register_builtin_components()
     config = from_spec("NaivePredictor")
+    assert isinstance(config, ModelConfig)
     assert config.predictor.name == "naiveMean"
 
 

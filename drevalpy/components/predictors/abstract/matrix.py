@@ -20,8 +20,11 @@ class MatrixPredictor(Predictor):
         """Fit on a dense pair-level design matrix built from *batch*.
 
         :param batch: Featurized pairs with training responses.
+        :raises RuntimeError: If batch.response is None.
         """
         x = batch.to_feature_matrix()
+        if batch.response is None:
+            raise RuntimeError("batch.response is required for fit")
         self._fit_matrix(x, batch.response)
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:

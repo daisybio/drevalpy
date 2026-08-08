@@ -14,6 +14,7 @@ import pytest
 from drevalpy.components.extensions import load_extensions
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import from_spec, validate
+from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.spec import reject_unknown_spec, zoo_config
 from drevalpy.types.prediction_mode import PredictionMode
 
@@ -25,6 +26,7 @@ def _register_components() -> None:
 
 def test_build_model_config_from_zoo_name() -> None:
     config = from_spec("ElasticNet")
+    assert isinstance(config, ModelConfig)
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "scaledGeneExpression"
     assert config.drug_featurizer is not None
@@ -70,6 +72,7 @@ def test_zoo_name_prediction_mode_is_threaded_but_ignored_with_hyperparameters(
 
 def test_build_model_config_from_baseline_predictor_token() -> None:
     config = from_spec("naiveMean")
+    assert isinstance(config, ModelConfig)
     assert config.predictor.name == "naiveMean"
     assert config.cell_line_featurizer is None
     assert config.drug_featurizer is None
@@ -77,11 +80,13 @@ def test_build_model_config_from_baseline_predictor_token() -> None:
 
 def test_build_model_config_from_recipe_triple() -> None:
     config = from_spec("scaledGeneExpression:fingerprints:elasticNet")
+    assert isinstance(config, ModelConfig)
     assert config.model_id == "scaledGeneExpression:fingerprints:elasticNet"
 
 
 def test_single_drug_recipe_infers_scope_and_identity_routing() -> None:
     config = from_spec("scaledGeneExpression:identity:singleDrugElasticNet")
+    assert isinstance(config, ModelConfig)
     assert config.model_id == "scaledGeneExpression:singleDrugElasticNet"
     assert config.scope.value == "single_drug"
     assert config.drug_featurizer is not None
@@ -91,6 +96,8 @@ def test_single_drug_recipe_infers_scope_and_identity_routing() -> None:
 def test_two_part_single_drug_recipe_matches_explicit_identity() -> None:
     two_part = from_spec("scaledGeneExpression:singleDrugElasticNet")
     three_part = from_spec("scaledGeneExpression:identity:singleDrugElasticNet")
+    assert isinstance(two_part, ModelConfig)
+    assert isinstance(three_part, ModelConfig)
     assert two_part.model_id == three_part.model_id == "scaledGeneExpression:singleDrugElasticNet"
     assert two_part.drug_featurizer is not None
     assert two_part.drug_featurizer.name == "identity"
@@ -104,6 +111,7 @@ def test_two_part_multi_drug_recipe_rejected() -> None:
 
 def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
     config = from_spec("raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
+    assert isinstance(config, ModelConfig)
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
@@ -121,6 +129,7 @@ def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
 
 def test_build_model_config_from_recipe_triple_with_bracket_views() -> None:
     config = from_spec("raw[expression]+pca[proteomics]:identity:randomForest")
+    assert isinstance(config, ModelConfig)
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
@@ -136,6 +145,7 @@ def test_build_model_config_from_recipe_triple_with_bracket_views() -> None:
 
 def test_build_model_config_from_literature_zoo_name() -> None:
     config = from_spec("DIPK")
+    assert isinstance(config, ModelConfig)
     assert config.predictor.name == "dipk"
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
@@ -147,6 +157,8 @@ def test_prediction_mode_accepts_a_string_or_the_enum() -> None:
     """The public entry point takes either, so callers need not import the enum."""
     from_string = from_spec("ElasticNet", prediction_mode="regression")
     from_enum = from_spec("ElasticNet", prediction_mode=PredictionMode.REGRESSION)
+    assert isinstance(from_string, ModelConfig)
+    assert isinstance(from_enum, ModelConfig)
     assert from_string.prediction_mode == from_enum.prediction_mode == PredictionMode.REGRESSION
 
 
@@ -162,7 +174,7 @@ def test_unknown_spec_raises_helpful_error() -> None:
 
 def test_reject_unknown_spec_passes_a_known_builtin_predictor_through() -> None:
     """A predictor drevalpy knows is left for ``from_dict`` to resolve and report on."""
-    assert reject_unknown_spec("randomForest") is None
+    reject_unknown_spec("randomForest")  # should not raise
 
 
 def test_reject_unknown_spec_passes_an_unregistered_builtin_through(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -174,7 +186,7 @@ def test_reject_unknown_spec_passes_an_unregistered_builtin_through(monkeypatch:
     :param monkeypatch: Pytest fixture used to empty the registered-predictor list.
     """
     monkeypatch.setattr("drevalpy.models.config.spec.list_predictors", lambda: [])
-    assert reject_unknown_spec("dipk") is None
+    reject_unknown_spec("dipk")  # should not raise
 
 
 def test_reject_unknown_spec_passes_a_registered_non_builtin_through(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -183,7 +195,7 @@ def test_reject_unknown_spec_passes_a_registered_non_builtin_through(monkeypatch
     :param monkeypatch: Pytest fixture used to deny that the name is a built-in.
     """
     monkeypatch.setattr("drevalpy.models.config.spec.is_known_builtin_predictor", lambda name: False)
-    assert reject_unknown_spec("randomForest") is None
+    reject_unknown_spec("randomForest")  # should not raise
 
 
 def test_reject_unknown_spec_reports_a_typo_as_an_unknown_spec() -> None:
@@ -223,6 +235,7 @@ def test_recipe_validation_error_names_the_recipe() -> None:
 def test_zoo_name_wins_over_a_bare_predictor_name() -> None:
     """``ElasticNet`` is a preset; the recipe path would reject it for missing featurizers."""
     config = from_spec("ElasticNet")
+    assert isinstance(config, ModelConfig)
     assert config.cell_line_featurizer is not None
 
 
@@ -283,6 +296,7 @@ resolverEntry:
     )
     load_extensions(directories=[ext_dir], zoo_files=[zoo_file])
     config = from_spec("resolverEntry")
+    assert isinstance(config, ModelConfig)
     assert config.cell_line_featurizer is None
     assert config.predictor.name == "resolverPredictor"
     validate(config)

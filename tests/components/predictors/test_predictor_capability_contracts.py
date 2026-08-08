@@ -24,7 +24,7 @@ from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import construct_model
-from drevalpy.models.config import from_spec
+from drevalpy.models.config import ModelConfig, from_spec
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
     drug_fingerprints,
@@ -209,6 +209,7 @@ def test_structured_predictor_set_state_raises_on_invalid_blob() -> None:
 
 def test_ridge_zoo_preset_exists() -> None:
     config = from_spec("Ridge")
+    assert isinstance(config, ModelConfig)
     assert config.predictor.name == "ridge"
 
 

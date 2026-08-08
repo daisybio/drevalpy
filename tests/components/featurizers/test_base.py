@@ -11,5 +11,5 @@ from drevalpy.components.featurizers.base import Featurizer
 def test_featurizer_rejects_class_body_contract() -> None:
     with pytest.raises(TypeError, match="do not set contract on the class body"):
 
-        class BadFeaturizer(Featurizer):  # type: ignore[misc]
+        class BadFeaturizer(Featurizer):  # noqa: B903
             contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)

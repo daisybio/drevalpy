@@ -124,6 +124,7 @@ def create_dataset_and_loaders(
     :param val_pair_idx: validation pair indices into val entity matrices
 
     :returns: training and validation data loaders
+    :raises ValueError: If val_mutations or val_copy_number is None when validation data is provided.
     """
     resp_col = response.reshape(-1, 1) if response.ndim == 1 else response
     train_loader = make_pair_loader(
@@ -138,6 +139,9 @@ def create_dataset_and_loaders(
 
     val_loader = None
     if val_gene_expression is not None and val_response is not None and val_pair_idx is not None:
+        if val_mutations is None or val_copy_number is None:
+            msg = "val_mutations and val_copy_number are required when val_gene_expression is provided"
+            raise ValueError(msg)
         val_resp_col = val_response.reshape(-1, 1) if val_response.ndim == 1 else val_response
         val_loader = make_pair_loader(
             (val_gene_expression, val_pair_idx),

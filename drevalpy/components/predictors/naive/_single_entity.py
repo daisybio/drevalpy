@@ -35,8 +35,11 @@ class SingleEntityNaivePredictor(BlockPredictor):
         """Fit on training data.
 
         :param batch: batch.
+        :raises RuntimeError: If batch.response is None.
         """
         y = batch.response
+        if y is None:
+            raise RuntimeError("batch.response is required for fit")
         design = require_pair_matrix(batch, side=self._feature_side)
         self._dataset_mean = float(np.mean(y))
         self._effects = additive_effects(design, y, baseline=self._dataset_mean)
