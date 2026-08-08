@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from drevalpy.components.feature_block import FeatureBlock
-from drevalpy.components.featurizers._matrix import stack_pair_features
 from drevalpy.components.pair_features import pair_cell_line_indices, pair_drug_indices
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset
@@ -148,6 +147,8 @@ class ModelInputBatch:
         if drug_pair_idx is None:
             msg = "drug_pair_idx is required when drug features are present"
             raise ValueError(msg)
+        from drevalpy.components.featurizers._matrix import stack_pair_features
+
         return stack_pair_features(
             self.cell_line_features,
             self.drug_features,
