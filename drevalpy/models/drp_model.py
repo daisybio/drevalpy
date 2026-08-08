@@ -7,12 +7,23 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
+import wandb
 
+from drevalpy.components.data_loading import (
+    load_cell_line_features_for_model_config,
+    load_drug_features_for_model_config,
+)
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
 from drevalpy.models._drp_logging import _DRPLoggingMixin
+from drevalpy.models._model_persistence import (
+    CorruptedCheckpointError,
+    IncompatibleModelCheckpointError,
+    load_model_payload,
+    save_model,
+)
 from drevalpy.models.config import ModelConfig, ModelScope
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.utils._pipeline_function import pipeline_function
@@ -207,8 +218,6 @@ class DRPModel(_DRPLoggingMixin):
 
         :param hyperparameters: Flat public hyperparameters for this instance.
         """
-        import wandb
-
         self._hyperparameters = copy.deepcopy(hyperparameters)
         if not self.is_wandb_enabled():
             return
@@ -237,8 +246,6 @@ class DRPModel(_DRPLoggingMixin):
         config = self._resolved_model_config
         if config is None:
             raise RuntimeError("Model has not been constructed with a ModelConfig")
-        from drevalpy.components.data_loading import load_cell_line_features_for_model_config
-
         return load_cell_line_features_for_model_config(
             config,
             data_path,
@@ -258,8 +265,6 @@ class DRPModel(_DRPLoggingMixin):
         config = self._resolved_model_config
         if config is None:
             raise RuntimeError("Model has not been constructed with a ModelConfig")
-        from drevalpy.components.data_loading import load_drug_features_for_model_config
-
         return load_drug_features_for_model_config(
             config,
             data_path,
@@ -331,8 +336,6 @@ class DRPModel(_DRPLoggingMixin):
 
         :param path: Archive file path; ``.zip`` is appended when missing.
         """
-        from drevalpy.models._model_persistence import save_model
-
         save_model(self, path)
 
     @classmethod
@@ -344,12 +347,6 @@ class DRPModel(_DRPLoggingMixin):
         :raises IncompatibleModelCheckpointError: If the stored model name does not match this class.
         :raises CorruptedCheckpointError: If the archive payload is invalid or incomplete.
         """
-        from drevalpy.models._model_persistence import (
-            CorruptedCheckpointError,
-            IncompatibleModelCheckpointError,
-            load_model_payload,
-        )
-
         model_name, config, state = load_model_payload(path)
         if model_name != cls.get_model_name():
             raise IncompatibleModelCheckpointError(
