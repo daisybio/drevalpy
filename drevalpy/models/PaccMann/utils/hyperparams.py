@@ -1,16 +1,11 @@
 """Customizable model hyperparameters."""
 
 import torch.nn as nn
-import torch.optim as optim
 
 from drevalpy.models.PaccMann.utils.loss_functions import (
     correlation_coefficient_loss,
     mse_cc_loss,
 )
-
-# LSTM(10, 20, 2) -> input has 10 features, 20 hidden size and 2 layers.
-# NOTE: Make sure to set batch_first=True. Optionally set bidirectional=True
-RNN_CELL_FACTORY = {"lstm": nn.LSTM, "gru": nn.GRU}
 
 LOSS_FN_FACTORY = {
     "mse": nn.MSELoss(),
@@ -27,16 +22,4 @@ ACTIVATION_FN_FACTORY = {
     "tanh": nn.Tanh(),
     "lrelu": nn.LeakyReLU(),
     "elu": nn.ELU(),
-}
-OPTIMIZER_FACTORY = {
-    "adam": optim.Adam,
-    "adadelta": optim.Adadelta,
-    "adagrad": optim.Adagrad,
-    "gd": optim.SGD,
-    "sparseadam": optim.SparseAdam,
-    "adamax": optim.Adamax,
-    "asgd": optim.ASGD,
-    "lbfgs": optim.LBFGS,
-    "rmsprop": optim.RMSprop,
-    "rprop": optim.Rprop,
 }

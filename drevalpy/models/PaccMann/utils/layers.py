@@ -42,26 +42,6 @@ def dense_layer(
     )
 
 
-def dense_attention_layer(number_of_features: int, temperature: float = 1.0, dropout=0.0) -> nn.Sequential:
-    """Attention mechanism layer for dense inputs.
-
-    :param number_of_features: size of the feature dimension
-    :param temperature: softmax temperature parameter
-    :param dropout: Dropout probability
-    :return: sequential attention layer
-    """
-    return nn.Sequential(
-        OrderedDict(
-            [
-                ("dense", nn.Linear(number_of_features, number_of_features)),
-                ("dropout", nn.Dropout(p=dropout)),
-                ("temperature", Temperature(temperature)),
-                ("softmax", nn.Softmax(dim=-1)),
-            ]
-        )
-    )
-
-
 def convolutional_layer(
     num_kernel,
     kernel_size,
@@ -230,6 +210,8 @@ class ContextAttentionLayer(nn.Module):
         alphas = self.alpha_projection(torch.tanh(reference_attention + context_attention))
 
         output = reference * torch.unsqueeze(alphas, -1)
-        output = torch.sum(output, 1) if average_seq else torch.squeeze(output)
+        # Squeeze only the last dimension. A bare torch.squeeze would also drop the batch dimension
+        # for a batch of size 1, which breaks the concatenation of the encodings further downstream.
+        output = torch.sum(output, 1) if average_seq else torch.squeeze(output, -1)
 
         return output, alphas

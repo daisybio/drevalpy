@@ -3,7 +3,7 @@ PaccMann:
     - gene_list_paccmann_network_prop
 
   epochs:
-    - 3
+    - 10
   batch_size:
     - 64
   learning_rate:
@@ -24,7 +24,7 @@ PaccMann:
     - [2, 2, 2, 2]
 
   smiles_padding_length:
-    - 128
+    - 512
 
   dropout:
     - 0.5

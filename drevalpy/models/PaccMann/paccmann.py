@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 from typing import Any
 
 import joblib
@@ -19,6 +20,23 @@ from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_and_select_gene_features
 
 from .paccmann_network_v2 import PaccMannV2
+
+# Atom-level SMILES tokenizer, copied verbatim from pytoda.smiles.processing.SMILES_TOKENIZER, which is what
+# the original implementation tokenizes with. Splitting SMILES by character instead would break multi-character
+# atoms: "Cl" and "Br" would collide with chlorine/bromine-free molecules that contain carbon or boron, and
+# bracket atoms such as "[C@@H]" or "[Pt+2]" would fall apart into their individual characters.
+SMILES_TOKENIZER = re.compile(
+    r"(\[[^\]]+]|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|" r"-|\+|\\\\|\/|:|~|@|\?|>|\*|\$|\%[0-9]{2}|[0-9])"
+)
+
+
+def _tokenize_smiles(smiles: str) -> list[str]:
+    """Split a SMILES string into atom-level tokens.
+
+    :param smiles: SMILES string
+    :return: list of tokens
+    """
+    return [token for token in SMILES_TOKENIZER.split(smiles) if token]
 
 
 class PaccMann(DRPModel):
@@ -161,14 +179,14 @@ class PaccMann(DRPModel):
         return smiles_list
 
     def _build_smiles_vocab(self, smiles_list: list[str]) -> None:
-        """Build a character-level vocabulary from training SMILES strings.
+        """Build a token vocabulary from training SMILES strings.
 
         :param smiles_list: list of SMILES strings
         """
-        for smile in smiles_list:  # Build vocabulary: "C", "O", "=" ... -> {"C": 2, "O": 3, "=": 4}
-            for char in smile:
-                if char not in self.smiles_to_idx:
-                    self.smiles_to_idx[char] = len(self.smiles_to_idx)
+        for smile in smiles_list:  # Build vocabulary: "Cl", "C", "=" ... -> {"Cl": 2, "C": 3, "=": 4}
+            for token in _tokenize_smiles(smile):
+                if token not in self.smiles_to_idx:
+                    self.smiles_to_idx[token] = len(self.smiles_to_idx)
 
     def _encode_smiles(self, smiles_list: list[str]) -> np.ndarray:
         """Encode SMILES strings as padded integer sequences.
@@ -187,7 +205,8 @@ class PaccMann(DRPModel):
         )
 
         for i, smile in enumerate(smiles_list):
-            token_ids = [self.smiles_to_idx.get(char, self.unk_idx) for char in smile]  # "CCO" -> [2, 2, 3]
+            tokens = _tokenize_smiles(smile)
+            token_ids = [self.smiles_to_idx.get(token, self.unk_idx) for token in tokens]  # "CCO" -> [2, 2, 3]
             token_ids = token_ids[: self.smiles_padding_length]
             encoded[i, : len(token_ids)] = token_ids  # Padding: [2,2,2] -> [2,2,3,0,0,0,...]
 
@@ -344,7 +363,7 @@ class PaccMann(DRPModel):
         if "smiles_padding_length" in self.hyperparameters:
             self.smiles_padding_length = int(self.hyperparameters["smiles_padding_length"])
         else:
-            self.smiles_padding_length = max(len(smile) for smile in smiles)
+            self.smiles_padding_length = max(len(_tokenize_smiles(smile)) for smile in smiles)
 
         # Encode and pad SMILES strings
         smiles_encoded = self._encode_smiles(smiles)
@@ -366,10 +385,18 @@ class PaccMann(DRPModel):
 
         # Create PyTorch dataset and dataloader
         dataset = TensorDataset(smiles_tensor, gex_tensor, y_tensor)
+        batch_size = model_params.get("batch_size", 64)
+
+        # The batch norm layers cannot process a batch that holds a single sample, so a trailing batch of size 1
+        # has to be dropped. The original implementation always drops the last batch; dropping it only when it
+        # would contain a single sample keeps training sets smaller than one batch usable.
+        drop_last = len(dataset) > batch_size and len(dataset) % batch_size == 1
+
         train_loader = DataLoader(
             dataset,
-            batch_size=model_params.get("batch_size", 64),
+            batch_size=batch_size,
             shuffle=True,
+            drop_last=drop_last,
         )
 
         # Initialize optimizer
@@ -386,7 +413,7 @@ class PaccMann(DRPModel):
             output_earlystopping,
             cell_line_input,
             drug_input,
-            model_params.get("batch_size", 64),
+            batch_size,
         )
 
         best_validation_loss = float("inf")
