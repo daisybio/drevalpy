@@ -59,7 +59,7 @@ def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarr
     return (
         list(layer_connections),  # type: ignore[call-overload]
         dict(gene2id_mapping),  # type: ignore[call-overload]
-        list(gene_order) if gene_order else list(gene2id_mapping.keys()),  # type: ignore[call-overload]
+        list(gene_order) if gene_order else list(gene2id_mapping.keys()),  # type: ignore[call-overload, attr-defined]
     )
 
 
