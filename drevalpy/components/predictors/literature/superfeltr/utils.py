@@ -10,11 +10,10 @@ from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.components.predictors._tensor_data import make_tensor_loader
 from drevalpy.components.predictors.literature.molir.utils import (
-    create_dataset_and_loaders,
     generate_triplets_indices,
 )
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 class SuperFELTEncoder(pl.LightningModule):
@@ -147,6 +146,7 @@ class SuperFELTEncoder(pl.LightningModule):
         :returns: triplet loss
         """
         data_expr, data_mut, data_cnv, response = batch
+        response = response.squeeze(-1)
         data = self._get_omic_data(data_expr, data_mut, data_cnv)
         encoded = self.encode(data)
         triplet_loss = self._compute_loss(encoded, response)
@@ -162,6 +162,7 @@ class SuperFELTEncoder(pl.LightningModule):
         :returns: triplet loss
         """
         data_expr, data_mut, data_cnv, response = batch
+        response = response.squeeze(-1)
         data = self._get_omic_data(data_expr, data_mut, data_cnv)
         encoded = self.encode(data)
         triplet_loss = self._compute_loss(encoded, response)
@@ -270,6 +271,7 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         :returns: regression loss
         """
         data_expr, data_mut, data_cnv, response = batch
+        response = response.squeeze(-1)
         encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
         pred = self.regressor(encoded)
         loss = self.regression_loss(pred.squeeze(), response)
@@ -289,6 +291,7 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         :returns: regression loss
         """
         data_expr, data_mut, data_cnv, response = batch
+        response = response.squeeze(-1)
         encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
         pred = self.regressor(encoded)
         loss = self.regression_loss(pred.squeeze(), response)
@@ -303,22 +306,30 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
 def train_superfeltr_model(
     model: SuperFELTEncoder | SuperFELTRegressor,
     hpams: dict[str, int | float | dict],
-    output_train: DrugResponseDataset,
-    cell_line_input: FeatureDataset,
-    output_earlystopping: DrugResponseDataset | None = None,
+    gene_expression: np.ndarray,
+    mutations: np.ndarray,
+    copy_number: np.ndarray,
+    response: np.ndarray,
+    val_gene_expression: np.ndarray | None = None,
+    val_mutations: np.ndarray | None = None,
+    val_copy_number: np.ndarray | None = None,
+    val_response: np.ndarray | None = None,
     patience: int = 5,
     model_checkpoint_dir: str | Path = "superfeltr_checkpoints",
     wandb_project: str | None = None,
 ) -> pl.callbacks.ModelCheckpoint:
     """Trains one encoder or the regressor.
 
-    First, the dataset and loaders are created. Then, the model is trained with the Lightning trainer.
-
     :param model: either one of the encoders or the regressor
     :param hpams: hyperparameters for the model
-    :param output_train: response data for training
-    :param cell_line_input: cell line omics features
-    :param output_earlystopping: response data for early stopping
+    :param gene_expression: pair-level gene expression matrix (n_samples, n_features)
+    :param mutations: pair-level mutation matrix (n_samples, n_features)
+    :param copy_number: pair-level copy number matrix (n_samples, n_features)
+    :param response: training response values (n_samples,)
+    :param val_gene_expression: validation gene expression matrix
+    :param val_mutations: validation mutation matrix
+    :param val_copy_number: validation copy number matrix
+    :param val_response: validation response values
     :param patience: for early stopping, defaults to 5
     :param model_checkpoint_dir: directory to save the model checkpoints
     :param wandb_project: Optional Weights & Biases project name for Lightning logging.
@@ -330,12 +341,31 @@ def train_superfeltr_model(
     if not isinstance(hpams["epochs"], int) or not isinstance(hpams["mini_batch"], int):
         raise ValueError("epochs and mini_batch must be integers!")
 
-    train_loader, val_loader = create_dataset_and_loaders(
-        batch_size=hpams["mini_batch"],
-        output_train=output_train,
-        cell_line_input=cell_line_input,
-        output_earlystopping=output_earlystopping,
+    batch_size = hpams["mini_batch"]
+    resp_col = response.reshape(-1, 1) if response.ndim == 1 else response
+    train_loader = make_tensor_loader(
+        gene_expression,
+        mutations,
+        copy_number,
+        resp_col,
+        batch_size=batch_size,
+        shuffle=False,
+        drop_last=True,
     )
+
+    val_loader = None
+    if val_gene_expression is not None and val_response is not None:
+        val_resp_col = val_response.reshape(-1, 1) if val_response.ndim == 1 else val_response
+        val_loader = make_tensor_loader(
+            val_gene_expression,
+            val_mutations,
+            val_copy_number,
+            val_resp_col,
+            batch_size=batch_size,
+            shuffle=False,
+            drop_last=False,
+        )
+
     monitor = "train_loss" if (val_loader is None) else "val_loss"
     early_stop_callback = EarlyStopping(monitor=monitor, mode="min", patience=patience)
     name = "version-" + "".join(

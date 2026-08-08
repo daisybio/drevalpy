@@ -10,11 +10,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors._tensor_data import make_tensor_loader
 from drevalpy.components.predictors.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import (
@@ -29,44 +30,6 @@ from drevalpy.models.config import PredictionMode
 from drevalpy.utils.torch_io import save_torch_payload
 
 from .model_utils import CombinedModel
-
-
-class _PharmaFormerDataset(Dataset):
-    """PyTorch Dataset for PharmaFormer model."""
-
-    def __init__(
-        self,
-        gene_features: np.ndarray,
-        drug_features: np.ndarray,
-        response: np.ndarray,
-    ):
-        """Initialize the PharmaFormer dataset.
-
-        :param gene_features: Gene expression features per sample.
-        :param drug_features: BPE SMILES features per sample.
-        :param response: Response values per sample.
-        """
-        self.gene_features = gene_features
-        self.drug_features = drug_features
-        self.response = response
-
-    def __len__(self) -> int:
-        """Return the number of samples.
-
-        :returns: Dataset length.
-        """
-        return len(self.response)
-
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Return (gene, drug, response) tensors for the given index.
-
-        :param idx: Sample index.
-        :returns: Tuple of gene, drug, and response tensors.
-        """
-        gene = torch.tensor(self.gene_features[idx], dtype=torch.float32)
-        drug = torch.tensor(self.drug_features[idx], dtype=torch.float32)
-        response = torch.tensor(self.response[idx], dtype=torch.float32)
-        return gene, drug, response
 
 
 def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any], device: torch.device) -> CombinedModel:
@@ -210,13 +173,10 @@ class PharmaFormerPredictor(BlockPredictor):
         loss_func = nn.MSELoss()
         optimizer = optim.Adam(self._model.parameters(), lr=self._hyperparameters["lr"])
 
-        train_dataset = _PharmaFormerDataset(
-            gene_features=gene_features,
-            drug_features=drug_features,
-            response=response,
-        )
-        train_loader = DataLoader(
-            train_dataset,
+        train_loader = make_tensor_loader(
+            gene_features,
+            drug_features,
+            response,
             batch_size=self._hyperparameters["batch_size"],
             shuffle=True,
         )
@@ -228,13 +188,10 @@ class PharmaFormerPredictor(BlockPredictor):
         es_drug = batch.drug_blocks["bpe_smiles"].values[es_drug_pair_idx]
         es_resp = np.asarray(es_response.response, dtype=np.float32)
 
-        val_dataset = _PharmaFormerDataset(
-            gene_features=es_gene,
-            drug_features=es_drug,
-            response=es_resp,
-        )
-        val_loader = DataLoader(
-            val_dataset,
+        val_loader = make_tensor_loader(
+            es_gene,
+            es_drug,
+            es_resp,
             batch_size=self._hyperparameters["batch_size"],
             shuffle=False,
         )
@@ -290,13 +247,10 @@ class PharmaFormerPredictor(BlockPredictor):
         gene_features = batch.cell_line_blocks["gene_expression"].values[batch.cell_line_pair_idx]
         drug_features = batch.drug_blocks["bpe_smiles"].values[batch.drug_pair_idx]
 
-        predict_dataset = _PharmaFormerDataset(
-            gene_features=gene_features,
-            drug_features=drug_features,
-            response=np.zeros(len(gene_features), dtype=np.float32),
-        )
-        predict_loader = DataLoader(
-            predict_dataset,
+        predict_loader = make_tensor_loader(
+            gene_features,
+            drug_features,
+            np.zeros(len(gene_features), dtype=np.float32),
             batch_size=self._hyperparameters.get("batch_size", 64),
             shuffle=False,
         )

@@ -1,12 +1,15 @@
-"""SuperFELTR training orchestration (encoders + regressor)."""
+"""SuperFELTR training orchestration (encoders + regressor).
+
+This module is retained for backward compatibility but the main training logic
+has been inlined into the predictor's ``_fit_single_drug`` method.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Protocol
 
-from drevalpy.components.predictors.literature.molir.utils import get_dimensions_of_omics_data, make_ranges
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+import numpy as np
 
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
@@ -22,80 +25,76 @@ class _SuperFELTRLike(Protocol):
     best_checkpoint: Any
     early_stopping: bool
 
-    def record_feature_names(self, cell_line_input: FeatureDataset) -> None: ...
-
-
-def _train_encoder_for_omic(
-    model: _SuperFELTRLike,
-    omic_type: str,
-    dim: int,
-    output: DrugResponseDataset,
-    cell_line_input: FeatureDataset,
-    output_earlystopping: DrugResponseDataset | None,
-    model_checkpoint_dir: str | Path,
-) -> SuperFELTEncoder:
-    encoder = SuperFELTEncoder(input_size=dim, hpams=model.hyperparameters, omic_type=omic_type, ranges=model.ranges)
-    if len(output) >= model.hyperparameters["mini_batch"]:
-        print(f"Training SuperFELTR Encoder for {omic_type} ... ")
-        best_checkpoint = train_superfeltr_model(
-            model=encoder,
-            hpams=model.hyperparameters,
-            output_train=output,
-            cell_line_input=cell_line_input,
-            output_earlystopping=output_earlystopping,
-            patience=5,
-            model_checkpoint_dir=model_checkpoint_dir,
-            wandb_project=model.wandb_project,
-        )
-        return SuperFELTEncoder.load_from_checkpoint(best_checkpoint.best_model_path)
-    print(f"Not enough training data provided for SuperFELTR Encoder for {omic_type}. Using random initialization.")
-    return encoder
-
 
 def run_superfeltr_training(
     model: _SuperFELTRLike,
-    output: DrugResponseDataset,
-    cell_line_input: FeatureDataset,
-    output_earlystopping: DrugResponseDataset | None,
-    model_checkpoint_dir: str | Path,
+    gene_expression: np.ndarray,
+    mutations: np.ndarray,
+    copy_number: np.ndarray,
+    response: np.ndarray,
+    val_gene_expression: np.ndarray | None = None,
+    val_mutations: np.ndarray | None = None,
+    val_copy_number: np.ndarray | None = None,
+    val_response: np.ndarray | None = None,
+    model_checkpoint_dir: str | Path = "checkpoints",
 ) -> None:
-    """Train encoders and regressor on featurizer-preprocessed omics.
+    """Train encoders and regressor on pre-expanded pair-level omics matrices.
 
     :param model: SuperFELTR algorithm instance being trained.
-    :param output: Training responses and pair identifiers.
-    :param cell_line_input: Cell-line omics feature dataset.
-    :param output_earlystopping: Optional validation responses for early stopping.
+    :param gene_expression: pair-level gene expression matrix (n_samples, n_features)
+    :param mutations: pair-level mutation matrix (n_samples, n_features)
+    :param copy_number: pair-level copy number matrix (n_samples, n_features)
+    :param response: training response values (n_samples,)
+    :param val_gene_expression: validation gene expression matrix
+    :param val_mutations: validation mutation matrix
+    :param val_copy_number: validation copy number matrix
+    :param val_response: validation response values
     :param model_checkpoint_dir: Directory for encoder checkpoint persistence.
     """
-    if len(output) <= 0:
-        print("No training data provided, skipping model")
+    n_samples = gene_expression.shape[0]
+    if n_samples <= 0:
         model.best_checkpoint = None
         model.expr_encoder, model.mut_encoder, model.cnv_encoder, model.regressor = None, None, None, None
         return
 
-    model.record_feature_names(cell_line_input)
-    if output_earlystopping is not None and model.early_stopping and len(output_earlystopping) < 2:
-        output_earlystopping = None
-    dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
-    model.ranges = make_ranges(output)
+    dim_gex, dim_mut, dim_cnv = gene_expression.shape[1], mutations.shape[1], copy_number.shape[1]
+    std = float(np.std(response))
+    model.ranges = (std * 0.1, std)
+
+    if model.early_stopping and val_response is not None and len(val_response) < 2:
+        val_gene_expression = None
+        val_mutations = None
+        val_copy_number = None
+        val_response = None
 
     encoder_dims = {
         "expression": dim_gex,
         "mutation": dim_mut,
         "copy_number_variation_gistic": dim_cnv,
     }
-    encoders = {
-        omic_type: _train_encoder_for_omic(
-            model,
-            omic_type,
-            dim,
-            output,
-            cell_line_input,
-            output_earlystopping,
-            model_checkpoint_dir,
+    encoders = {}
+    for omic_type, dim in encoder_dims.items():
+        encoder = SuperFELTEncoder(
+            input_size=dim, hpams=model.hyperparameters, omic_type=omic_type, ranges=model.ranges
         )
-        for omic_type, dim in encoder_dims.items()
-    }
+        if n_samples >= model.hyperparameters["mini_batch"]:
+            best_checkpoint = train_superfeltr_model(
+                model=encoder,
+                hpams=model.hyperparameters,
+                gene_expression=gene_expression,
+                mutations=mutations,
+                copy_number=copy_number,
+                response=response,
+                val_gene_expression=val_gene_expression,
+                val_mutations=val_mutations,
+                val_copy_number=val_copy_number,
+                val_response=val_response,
+                patience=5,
+                model_checkpoint_dir=model_checkpoint_dir,
+                wandb_project=model.wandb_project,
+            )
+            encoder = SuperFELTEncoder.load_from_checkpoint(best_checkpoint.best_model_path)
+        encoders[omic_type] = encoder
 
     model.expr_encoder = encoders["expression"]
     model.mut_encoder = encoders["mutation"]
@@ -111,20 +110,23 @@ def run_superfeltr_training(
         hpams=model.hyperparameters,
         encoders=(model.expr_encoder, model.mut_encoder, model.cnv_encoder),
     )
-    if len(output) >= model.hyperparameters["mini_batch"]:
-        print("Training SuperFELTR Regressor ... ")
+    if n_samples >= model.hyperparameters["mini_batch"]:
         model.best_checkpoint = train_superfeltr_model(
             model=model.regressor,
             hpams=model.hyperparameters,
-            output_train=output,
-            cell_line_input=cell_line_input,
-            output_earlystopping=output_earlystopping,
+            gene_expression=gene_expression,
+            mutations=mutations,
+            copy_number=copy_number,
+            response=response,
+            val_gene_expression=val_gene_expression,
+            val_mutations=val_mutations,
+            val_copy_number=val_copy_number,
+            val_response=val_response,
             patience=5,
             model_checkpoint_dir=model_checkpoint_dir,
             wandb_project=model.wandb_project,
         )
     else:
-        print("Not enough training data provided for SuperFELTR Regressor. Using random initialization.")
         model.best_checkpoint = None
 
     if model.best_checkpoint is not None:

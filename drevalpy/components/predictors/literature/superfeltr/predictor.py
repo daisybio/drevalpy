@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -31,14 +31,10 @@ from drevalpy.components.predictors.single_drug_routing import (
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models.config import PredictionMode
 from drevalpy.types.model_scope import ModelScope
 
 from .utils import SuperFELTEncoder, SuperFELTRegressor
-
-if TYPE_CHECKING:
-    from drevalpy.datasets.dataset import FeatureDataset
 
 
 def _checkpoint_dir_for_drug(base_dir: Path, drug_id: str) -> Path:
@@ -180,35 +176,13 @@ class SuperFELTRPredictor(BlockPredictor):
 
         dim_gex, dim_mut, dim_cnv = gex.shape[1], mut.shape[1], cnv.shape[1]
 
-        response = np.asarray(batch.response, dtype=np.float64)
-        from drevalpy.components.predictors.literature.molir.utils import make_ranges
+        response = np.asarray(batch.response, dtype=np.float32)
+        std = float(np.std(response))
+        ranges = (std * 0.1, std)
 
-        ranges = make_ranges(
-            DrugResponseDataset(response=response, cell_line_ids=batch.cell_line_ids, drug_ids=batch.drug_ids)
-        )
-
-        output_train = DrugResponseDataset(
-            response=response,
-            cell_line_ids=batch.cell_line_ids,
-            drug_ids=batch.drug_ids,
-        )
-        output_earlystopping = batch.early_stopping_response
-        if output_earlystopping is not None and len(output_earlystopping) < 2:
-            output_earlystopping = None
-
-        cell_line_input = self._build_feature_dataset(batch)
+        val_gex, val_mut, val_cnv, val_response = self._build_early_stopping_matrices(batch)
 
         from .utils import train_superfeltr_model
-
-        class _AlgoProxy:
-            """Minimal proxy so _train_encoder_for_omic can access hyperparameters and ranges."""
-
-            hyperparameters = dict(self._hyperparameters)
-            early_stopping = True
-            wandb_project = None
-
-        proxy = _AlgoProxy()
-        proxy.ranges = ranges
 
         encoder_dims = {
             "expression": dim_gex,
@@ -218,14 +192,21 @@ class SuperFELTRPredictor(BlockPredictor):
 
         encoders = {}
         for omic_type, dim in encoder_dims.items():
-            encoder = SuperFELTEncoder(input_size=dim, hpams=proxy.hyperparameters, omic_type=omic_type, ranges=ranges)
+            encoder = SuperFELTEncoder(
+                input_size=dim, hpams=dict(self._hyperparameters), omic_type=omic_type, ranges=ranges
+            )
             if n_samples >= self._hyperparameters["mini_batch"]:
                 best_ckpt = train_superfeltr_model(
                     model=encoder,
-                    hpams=proxy.hyperparameters,
-                    output_train=output_train,
-                    cell_line_input=cell_line_input,
-                    output_earlystopping=output_earlystopping,
+                    hpams=dict(self._hyperparameters),
+                    gene_expression=gex,
+                    mutations=mut,
+                    copy_number=cnv,
+                    response=response,
+                    val_gene_expression=val_gex,
+                    val_mutations=val_mut,
+                    val_copy_number=val_cnv,
+                    val_response=val_response,
                     patience=5,
                     model_checkpoint_dir=str(batch.training_context.checkpoint_dir),
                 )
@@ -243,7 +224,7 @@ class SuperFELTRPredictor(BlockPredictor):
         )
         regressor = SuperFELTRegressor(
             input_size=regressor_input_size,
-            hpams=proxy.hyperparameters,
+            hpams=dict(self._hyperparameters),
             encoders=(expr_encoder, mut_encoder, cnv_encoder),
         )
 
@@ -251,10 +232,15 @@ class SuperFELTRPredictor(BlockPredictor):
         if n_samples >= self._hyperparameters["mini_batch"]:
             best_checkpoint = train_superfeltr_model(
                 model=regressor,
-                hpams=proxy.hyperparameters,
-                output_train=output_train,
-                cell_line_input=cell_line_input,
-                output_earlystopping=output_earlystopping,
+                hpams=dict(self._hyperparameters),
+                gene_expression=gex,
+                mutations=mut,
+                copy_number=cnv,
+                response=response,
+                val_gene_expression=val_gex,
+                val_mutations=val_mut,
+                val_copy_number=val_cnv,
+                val_response=val_response,
                 patience=5,
                 model_checkpoint_dir=str(batch.training_context.checkpoint_dir),
             )
@@ -262,7 +248,7 @@ class SuperFELTRPredictor(BlockPredictor):
                 regressor = SuperFELTRegressor.load_from_checkpoint(
                     best_checkpoint.best_model_path,
                     input_size=regressor_input_size,
-                    hpams=proxy.hyperparameters,
+                    hpams=dict(self._hyperparameters),
                     encoders=(expr_encoder, mut_encoder, cnv_encoder),
                 )
 
@@ -351,36 +337,30 @@ class SuperFELTRPredictor(BlockPredictor):
             return values
         return _realign_omic_matrix(values, model_features, current_features)
 
-    def _build_feature_dataset(self, batch: ModelInputBatch) -> FeatureDataset:
-        """Build a FeatureDataset from batch blocks for encoder training compatibility.
+    def _build_early_stopping_matrices(
+        self, batch: ModelInputBatch
+    ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None, np.ndarray | None]:
+        """Build validation matrices from the batch early stopping data.
 
-        :param batch: Input batch with cell-line blocks.
-        :returns: FeatureDataset suitable for encoder training.
+        :param batch: Training batch.
+        :returns: Tuple of (gex, mut, cnv, response) for validation, all None if unavailable.
         """
-        from drevalpy.datasets.dataset import FeatureDataset
+        es_resp = batch.early_stopping_response
+        if es_resp is None or len(es_resp) < 2:
+            return None, None, None, None
+
+        entity_map = {str(eid): row for row, eid in enumerate(batch.cell_line_entity_ids)}
+        val_idx = np.array([entity_map[str(cl_id)] for cl_id in es_resp.cell_line_ids], dtype=np.intp)
 
         gex_block = batch.cell_line_blocks["gene_expression"]
         mut_block = batch.cell_line_blocks["mutations"]
         cnv_block = batch.cell_line_blocks["copy_number_variation_gistic"]
 
-        unique_entity_ids = np.unique(batch.cell_line_ids)
-        features: dict[str, dict[str, np.ndarray]] = {}
-        entity_id_to_row = {str(eid): i for i, eid in enumerate(batch.cell_line_entity_ids)}
-
-        for cl_id in unique_entity_ids:
-            row = entity_id_to_row[str(cl_id)]
-            features[str(cl_id)] = {
-                "gene_expression": np.asarray(gex_block.values[row], dtype=np.float32),
-                "mutations": np.asarray(mut_block.values[row], dtype=np.float32),
-                "copy_number_variation_gistic": np.asarray(cnv_block.values[row], dtype=np.float32),
-            }
-
-        meta_info: dict[str, list[str]] = {
-            "gene_expression": list(gex_block.feature_names or []),
-            "mutations": list(mut_block.feature_names or []),
-            "copy_number_variation_gistic": list(cnv_block.feature_names or []),
-        }
-        return FeatureDataset(features=features, meta_info=meta_info)
+        val_gex = np.asarray(gex_block.values[val_idx], dtype=np.float32)
+        val_mut = np.asarray(mut_block.values[val_idx], dtype=np.float32)
+        val_cnv = np.asarray(cnv_block.values[val_idx], dtype=np.float32)
+        val_response = np.asarray(es_resp.response, dtype=np.float32)
+        return val_gex, val_mut, val_cnv, val_response
 
     def is_fitted(self) -> bool:
         """Report whether trained models exist.

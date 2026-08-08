@@ -8,10 +8,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors._tensor_data import make_tensor_loader
 from drevalpy.components.predictors.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import PRECILY_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import (
@@ -25,44 +25,6 @@ from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 
 from .model_utils import PrecilyNetwork
-
-
-class _PrecilyDataset(Dataset):
-    """PyTorch Dataset yielding (pathway_features, drug_features, response)."""
-
-    def __init__(
-        self,
-        pathways: np.ndarray,
-        drugs: np.ndarray,
-        response: np.ndarray,
-    ):
-        """Initialize the Precily dataset.
-
-        :param pathways: Pathway features per sample.
-        :param drugs: Drug features per sample.
-        :param response: Response values per sample.
-        """
-        self.pathways = pathways
-        self.drugs = drugs
-        self.response = response
-
-    def __len__(self) -> int:
-        """Return the number of samples.
-
-        :returns: Dataset length.
-        """
-        return len(self.response)
-
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Return (pathway, drug, response) tensors for the given index.
-
-        :param idx: Sample index.
-        :returns: Tuple of pathway, drug, and response tensors.
-        """
-        pathway = torch.tensor(self.pathways[idx], dtype=torch.float32)
-        drug = torch.tensor(self.drugs[idx], dtype=torch.float32)
-        response = torch.tensor(self.response[idx], dtype=torch.float32)
-        return pathway, drug, response
 
 
 @register_predictor(
@@ -124,13 +86,10 @@ class PrecilyPredictor(BlockPredictor):
         loss_func = nn.MSELoss()
         optimizer = optim.Adam(self._model.parameters(), lr=self._hyperparameters["learning_rate"])
 
-        train_dataset = _PrecilyDataset(
-            pathways=pathways,
-            drugs=drugs,
-            response=response,
-        )
-        train_loader = DataLoader(
-            train_dataset,
+        train_loader = make_tensor_loader(
+            pathways,
+            drugs,
+            response,
             batch_size=self._hyperparameters["batch_size"],
             shuffle=True,
         )
@@ -172,13 +131,10 @@ class PrecilyPredictor(BlockPredictor):
         pathways = batch.cell_line_blocks["pathways"].values[batch.cell_line_pair_idx]
         drugs = batch.drug_blocks["smilesvec"].values[batch.drug_pair_idx]
 
-        predict_dataset = _PrecilyDataset(
-            pathways=pathways,
-            drugs=drugs,
-            response=np.zeros(len(pathways), dtype=np.float32),
-        )
-        predict_loader = DataLoader(
-            predict_dataset,
+        predict_loader = make_tensor_loader(
+            pathways,
+            drugs,
+            np.zeros(len(pathways), dtype=np.float32),
             batch_size=self._hyperparameters.get("batch_size", 128),
             shuffle=False,
         )

@@ -11,12 +11,11 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import EarlyStopping
-from torch.utils.data import DataLoader
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors._tensor_data import make_tensor_loader
 from drevalpy.components.predictors.matrix import MatrixPredictor
-from drevalpy.components.predictors.neural_network.data import PairMatrixDataset
 from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
@@ -112,8 +111,9 @@ class NeuralNetworkPredictor(MatrixPredictor):
             msg = "Neural network predictor must be materialized before training"
             raise RuntimeError(msg)
         batch_size = min(int(self._hyperparameters.get("batch_size", 16)), len(x))
-        train_loader = DataLoader(
-            PairMatrixDataset(x, y),
+        train_loader = make_tensor_loader(
+            x,
+            y.reshape(-1),
             batch_size=batch_size,
             shuffle=True,
             drop_last=batch_size < len(x),
@@ -124,8 +124,9 @@ class NeuralNetworkPredictor(MatrixPredictor):
         if x_val is not None and batch.early_stopping_response is not None:
             y_val = np.asarray(batch.early_stopping_response.response, dtype=np.float64)
             if len(x_val) > 0 and len(x_val) == len(y_val):
-                val_loader = DataLoader(
-                    PairMatrixDataset(x_val, y_val),
+                val_loader = make_tensor_loader(
+                    x_val,
+                    y_val.reshape(-1),
                     batch_size=batch_size,
                     shuffle=False,
                 )

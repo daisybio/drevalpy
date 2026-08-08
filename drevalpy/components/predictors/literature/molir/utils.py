@@ -5,7 +5,6 @@ Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7),
 https://github.com/kramerlab/Multi-Omics_analysis
 """
 
-import os
 import secrets
 from collections.abc import Sequence
 from pathlib import Path
@@ -15,54 +14,11 @@ import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
-from drevalpy.components.predictors.literature._protocols import MultiOmicsFeatureAttributes
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.components.predictors._tensor_data import make_tensor_loader
 from drevalpy.utils.torch_io import load_state_dict
-
-
-class RegressionDataset(Dataset):
-    """Dataset for regression tasks for the data loader."""
-
-    def __init__(
-        self,
-        output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-    ) -> None:
-        """Initializes the dataset by setting the output and the cell line input.
-
-        :param output: drug response dataset
-        :param cell_line_input: omics features of the cell lines
-        """
-        self.output = output
-        self.cell_line_input = cell_line_input
-
-    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.float32]:
-        """Overwrites the getitem method.
-
-        :param idx: index of the sample
-
-        :returns: returns: gene expression, mutations, copy number variation, and response of the sample as numpy arrays
-        """
-        response: np.float32 = np.float32(self.output.response[idx])
-
-        cell_line_id = str(self.output.cell_line_ids[idx])
-        gene_expression: np.ndarray = self.cell_line_input.features[cell_line_id]["gene_expression"].astype(np.float32)
-        mutations: np.ndarray = self.cell_line_input.features[cell_line_id]["mutations"].astype(np.float32)
-        copy_number: np.ndarray = self.cell_line_input.features[cell_line_id]["copy_number_variation_gistic"].astype(
-            np.float32
-        )
-
-        return gene_expression, mutations, copy_number, response
-
-    def __len__(self) -> int:
-        """Overwrites the len method.
-
-        :returns: returns: number of samples in the dataset
-        """
-        return len(self.output.response)
 
 
 def generate_triplets_indices(
@@ -140,71 +96,53 @@ def _get_negative_class_indices(label: np.float32, y: np.ndarray, negative_range
     return dissimilar_samples
 
 
-def make_ranges(output: DrugResponseDataset) -> tuple[float, float]:
-    """Compute the positive and negative range for the triplet loss.
-
-    :param output: drug response dataset
-
-    :returns: returns: positive and negative range for the triplet loss
-    """
-    positive_range = float(np.std(output.response) * 0.1)
-    negative_range = float(np.std(output.response))
-    return positive_range, negative_range
-
-
 def create_dataset_and_loaders(
     batch_size: int,
-    output_train: DrugResponseDataset,
-    cell_line_input: FeatureDataset,
-    output_earlystopping: DrugResponseDataset | None = None,
+    gene_expression: np.ndarray,
+    mutations: np.ndarray,
+    copy_number: np.ndarray,
+    response: np.ndarray,
+    val_gene_expression: np.ndarray | None = None,
+    val_mutations: np.ndarray | None = None,
+    val_copy_number: np.ndarray | None = None,
+    val_response: np.ndarray | None = None,
 ) -> tuple[DataLoader, DataLoader | None]:
-    """Creates the RegressionDataset (torch Dataset) and the DataLoader for the training and validation data.
+    """Create DataLoaders from pre-expanded pair-level matrices.
 
     :param batch_size: specified batch size
-    :param output_train: response values for the training data
-    :param cell_line_input: omic input features of the cell lines
-    :param output_earlystopping: early stopping dataset
+    :param gene_expression: pair-level gene expression matrix (n_samples, n_features)
+    :param mutations: pair-level mutation matrix (n_samples, n_features)
+    :param copy_number: pair-level copy number matrix (n_samples, n_features)
+    :param response: response values for training (n_samples,)
+    :param val_gene_expression: validation gene expression matrix
+    :param val_mutations: validation mutation matrix
+    :param val_copy_number: validation copy number matrix
+    :param val_response: validation response values
 
-    :returns: returns: training and validation data loaders
+    :returns: training and validation data loaders
     """
-    train_dataset = RegressionDataset(output_train, cell_line_input)
-    train_loader = DataLoader(
-        train_dataset,
+    train_loader = make_tensor_loader(
+        gene_expression,
+        mutations,
+        copy_number,
+        response.reshape(-1, 1) if response.ndim == 1 else response,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=1 if os.name == "nt" else 4,  # multiprocessing on Windows is not supported
-        persistent_workers=True,
-        drop_last=True,  # avoids batch norm errors if last batch < batch_size
+        drop_last=True,
     )
 
     val_loader = None
-    if output_earlystopping is not None:
-        val_dataset = RegressionDataset(
-            output=output_earlystopping,
-            cell_line_input=cell_line_input,
-        )
-        val_loader = DataLoader(
-            val_dataset,
+    if val_gene_expression is not None and val_response is not None:
+        val_loader = make_tensor_loader(
+            val_gene_expression,
+            val_mutations,
+            val_copy_number,
+            val_response.reshape(-1, 1) if val_response.ndim == 1 else val_response,
             batch_size=batch_size,
             shuffle=False,
-            num_workers=1,
-            persistent_workers=True,
+            drop_last=False,
         )
     return train_loader, val_loader
-
-
-def get_dimensions_of_omics_data(cell_line_input: FeatureDataset) -> tuple[int, int, int]:
-    """Determines the dimensions of the omics data for the creation of the input layers.
-
-    :param cell_line_input: omic input features of the cell lines
-
-    :returns: returns: dimensions of the gene expression, mutations, and copy number variation data
-    """
-    first_item = next(iter(cell_line_input.features.values()))
-    dim_gex = first_item["gene_expression"].shape[0]
-    dim_mut = first_item["mutations"].shape[0]
-    dim_cnv = first_item["copy_number_variation_gistic"].shape[0]
-    return dim_gex, dim_mut, dim_cnv
 
 
 def _realign_omic_matrix(
@@ -228,43 +166,6 @@ def _realign_omic_matrix(
         if feature in lookup_table:
             realigned[:, column] = values[:, lookup_table[feature]]
     return realigned
-
-
-def filter_and_sort_omics(
-    model: MultiOmicsFeatureAttributes,
-    gene_expression: np.ndarray,
-    mutations: np.ndarray,
-    cnvs: np.ndarray,
-    cell_line_input: FeatureDataset,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Filters out features that were not present during training and imputes missing features with zeros.
-
-    This is necessary because the feature order might have changed or more features are available (cross-study setting).
-
-    :param model: either MOLIR or SuperFELTR self
-    :param gene_expression: new gene expression data from which to predict
-    :param mutations: new mutation data from which to predict
-    :param cnvs: new copy number variation data from which to predict
-    :param cell_line_input: needed for meta information (feature names)
-
-    :returns: Filtered and sorted gene expression, mutations, and copy number variation data.
-
-    :raises ValueError: If required omics views are missing from *cell_line_input*.
-    """
-    view_keys = ("gene_expression", "mutations", "copy_number_variation_gistic")
-    model_feature_lists = (
-        model.gene_expression_features,
-        model.mutations_features,
-        model.copy_number_variation_features,
-    )
-    value_arrays = (gene_expression, mutations, cnvs)
-    realigned: list[np.ndarray] = []
-    for key, model_features, values in zip(view_keys, model_feature_lists, value_arrays, strict=True):
-        if model_features is None:
-            msg = f"Missing trained feature names for {key!r}"
-            raise ValueError(msg)
-        realigned.append(_realign_omic_matrix(values, model_features, cell_line_input.meta_info[key]))
-    return realigned[0], realigned[1], realigned[2]
 
 
 class MOLIEncoder(nn.Module):
@@ -378,9 +279,14 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
 
     def fit(
         self,
-        output_train: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        output_earlystopping: DrugResponseDataset | None = None,
+        gene_expression: np.ndarray,
+        mutations: np.ndarray,
+        copy_number: np.ndarray,
+        response: np.ndarray,
+        val_gene_expression: np.ndarray | None = None,
+        val_mutations: np.ndarray | None = None,
+        val_copy_number: np.ndarray | None = None,
+        val_response: np.ndarray | None = None,
         patience: int = 5,
         model_checkpoint_dir: str | Path = "checkpoints",
         wandb_project: str | None = None,
@@ -391,20 +297,32 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         Then, the training and validation data loaders are created. The model is trained using the Lightning Trainer
         with an early stopping callback and patience of 5.
 
-        :param output_train: training dataset containing the response output
-        :param cell_line_input: feature dataset containing the omics data of the cell lines
-        :param output_earlystopping: early stopping dataset
+        :param gene_expression: pair-level gene expression matrix (n_samples, n_features)
+        :param mutations: pair-level mutation matrix (n_samples, n_features)
+        :param copy_number: pair-level copy number matrix (n_samples, n_features)
+        :param response: training response values (n_samples,)
+        :param val_gene_expression: validation gene expression matrix
+        :param val_mutations: validation mutation matrix
+        :param val_copy_number: validation copy number matrix
+        :param val_response: validation response values
         :param patience: for early stopping
         :param model_checkpoint_dir: directory to save the model checkpoints
         :param wandb_project: Optional Weights & Biases project name for Lightning logging.
         """
-        self.positive_range, self.negative_range = make_ranges(output_train)
+        std = float(np.std(response))
+        self.positive_range = std * 0.1
+        self.negative_range = std
 
         train_loader, val_loader = create_dataset_and_loaders(
             batch_size=self.mini_batch,
-            output_train=output_train,
-            cell_line_input=cell_line_input,
-            output_earlystopping=output_earlystopping,
+            gene_expression=gene_expression,
+            mutations=mutations,
+            copy_number=copy_number,
+            response=response,
+            val_gene_expression=val_gene_expression,
+            val_mutations=val_mutations,
+            val_copy_number=val_copy_number,
+            val_response=val_response,
         )
 
         # Train the model
@@ -536,6 +454,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         :returns: returns: combined loss
         """
         gene_expression, mutations, copy_number, response = batch
+        response = response.squeeze(-1)
 
         # Encode and concatenate
         z = self._encode_and_concatenate(gene_expression, mutations, copy_number)
@@ -561,6 +480,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         :returns: returns: combined loss
         """
         gene_expression, mutations, copy_number, response = batch
+        response = response.squeeze(-1)
 
         # Encode and concatenate
         z = self._encode_and_concatenate(gene_expression, mutations, copy_number)
