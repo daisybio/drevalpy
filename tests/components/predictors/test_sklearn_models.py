@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.predictors.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor
 from drevalpy.components.predictors.sklearn_models import (
     ElasticNetPredictor,

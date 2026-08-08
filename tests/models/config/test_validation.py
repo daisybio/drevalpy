@@ -9,9 +9,9 @@ from pydantic import ValidationError
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
-from drevalpy.components.predictors.block import BlockPredictor
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-from drevalpy.components.predictors.matrix import MatrixPredictor
+from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.registry import (
     register_cell_line_featurizer,
     register_drug_featurizer,

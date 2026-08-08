@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors.matrix import MatrixPredictor
+from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.state_helpers import state_mapping
 from drevalpy.types.prediction_mode import PredictionMode

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry.predictor_registry import PredictorRegistry, predictor_registry
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.predictors.block import BlockPredictor
+from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor
 from drevalpy.models import construct_model

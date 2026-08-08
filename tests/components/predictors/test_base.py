@@ -7,7 +7,7 @@ import pytest
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import PredictorConfig

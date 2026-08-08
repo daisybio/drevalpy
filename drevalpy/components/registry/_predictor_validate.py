@@ -37,9 +37,9 @@ def validate_predictor_registration(name: str, cls: type[Any]) -> None:
     :param cls: Predictor class with contracts already attached by the decorator.
     """
     from drevalpy.components.hyperparameter_space import validate_component_hyperparameter_space
-    from drevalpy.components.predictors.block import BlockPredictor
-    from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-    from drevalpy.components.predictors.matrix import MatrixPredictor
+    from drevalpy.components.predictors.abstract.block import BlockPredictor
+    from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
+    from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 
     leaf_bases = (FeatureFreePredictor, MatrixPredictor, BlockPredictor)
     leaf_base = _leaf_interface_match(name, cls, leaf_bases)

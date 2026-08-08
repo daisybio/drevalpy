@@ -17,7 +17,7 @@ def test_prediction_mode_reexported_from_models_config() -> None:
 
 
 def test_predictors_base_imports_prediction_mode_from_types() -> None:
-    import drevalpy.components.predictors.base as base_module
+    import drevalpy.components.predictors.abstract.base as base_module
 
     source_path = base_module.__file__
     assert source_path is not None

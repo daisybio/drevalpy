@@ -13,7 +13,7 @@ from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.model_input_build import build_model_input_batch
-from drevalpy.components.predictors.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode

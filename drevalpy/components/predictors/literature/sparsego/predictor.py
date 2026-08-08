@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.block import BlockPredictor
+from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
 from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork

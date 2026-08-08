@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.block import BlockPredictor
+from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
     predict_with_effects,

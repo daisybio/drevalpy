@@ -94,7 +94,7 @@ The details about what the input for each predictor type looks like are explaine
 
          from drevalpy.components.contracts import FeatureFormat
          from drevalpy.components.model_input_batch import ModelInputBatch
-         from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+         from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
          from drevalpy.components.registry import register_predictor
 
 
@@ -138,7 +138,7 @@ The details about what the input for each predictor type looks like are explaine
          from sklearn.linear_model import Ridge
 
          from drevalpy.components.contracts import FeatureFormat
-         from drevalpy.components.predictors.matrix import MatrixPredictor
+         from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
          from drevalpy.components.registry import register_predictor
 
 
@@ -198,7 +198,7 @@ The details about what the input for each predictor type looks like are explaine
 
          from drevalpy.components.contracts import FeatureFormat
          from drevalpy.components.model_input_batch import ModelInputBatch
-         from drevalpy.components.predictors.block import BlockPredictor
+         from drevalpy.components.predictors.abstract.block import BlockPredictor
          from drevalpy.components.registry import register_predictor
 
 

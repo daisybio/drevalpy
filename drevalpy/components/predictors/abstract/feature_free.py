@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from drevalpy.components.predictors.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor
 
 
 class FeatureFreePredictor(Predictor):

@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.predictors.block import BlockPredictor
-from drevalpy.components.predictors.matrix import MatrixPredictor
+from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor
 

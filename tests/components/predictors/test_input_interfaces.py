@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.predictors.block import BlockPredictor
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-from drevalpy.components.predictors.matrix import MatrixPredictor
+from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor, list_predictors
 

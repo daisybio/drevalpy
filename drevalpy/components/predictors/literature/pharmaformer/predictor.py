@@ -16,7 +16,7 @@ from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors._tensor_data import make_tensor_loader
-from drevalpy.components.predictors.block import BlockPredictor
+from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import (
     load_object_mapping,

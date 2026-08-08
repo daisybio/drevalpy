@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from drevalpy.components.contracts import contracts_compatible, featurizer_contract, predictor_contracts
 from drevalpy.components.feature_block import BlockSpec
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.single_drug_routing import ROUTING_DRUG_FEATURIZER
 from drevalpy.components.registry import (
     get_cell_line_featurizer,

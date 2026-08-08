@@ -12,7 +12,7 @@ from drevalpy.components.hyperparameter_space import (
     validate_component_hyperparameter_space,
     validate_hyperparameter_space,
 )
-from drevalpy.components.predictors.matrix import MatrixPredictor
+from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry, drug_featurizer_registry
 from drevalpy.components.registry.predictor_registry import predictor_registry

@@ -43,7 +43,7 @@ import numpy as np
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
 
@@ -95,7 +95,7 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
         "from drevalpy.components.registry import register_predictor\n"
         "from drevalpy.components.contracts import FeatureFormat\n"
         "from drevalpy.components.model_input_batch import ModelInputBatch\n"
-        "from drevalpy.components.predictors.feature_free import FeatureFreePredictor\n"
+        "from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
         "@register_predictor('toyB', description='b',\n"
         "    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,\n"
@@ -109,7 +109,7 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
         "from drevalpy.components.registry import register_predictor\n"
         "from drevalpy.components.contracts import FeatureFormat\n"
         "from drevalpy.components.model_input_batch import ModelInputBatch\n"
-        "from drevalpy.components.predictors.feature_free import FeatureFreePredictor\n"
+        "from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
         "@register_predictor('toyA', description='a',\n"
         "    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,\n"
@@ -133,7 +133,7 @@ import numpy as np
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
 @register_cell_line_featurizer(
@@ -255,7 +255,7 @@ def test_failed_extension_file_does_not_leave_sys_modules_or_registry_mutation(t
 from drevalpy.components.registry import register_predictor
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 import numpy as np
 
 @register_predictor(
@@ -295,7 +295,7 @@ def test_subprocess_extension_load_does_not_import_optional_families(tmp_path: P
 from drevalpy.components.registry import register_predictor
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 import numpy as np
 
 @register_predictor(

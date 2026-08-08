@@ -235,7 +235,7 @@ import numpy as np
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
 @register_cell_line_featurizer(

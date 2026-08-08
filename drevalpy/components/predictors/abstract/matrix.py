@@ -8,7 +8,7 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor
 
 
 class MatrixPredictor(Predictor):
