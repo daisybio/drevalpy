@@ -10,7 +10,7 @@ from drevalpy.components.predictors.literature.sparsego.utils import load_ontolo
 def test_load_ontology_builds_graph_and_pair_arrays(tmp_path) -> None:
     ont_path = tmp_path / "sparseGO_ont.txt"
     ont_path.write_text(
-        "ROOT TERM default\n" "TERM GENE1 gene\n",
+        "ROOT TERM default\nTERM GENE1 gene\n",
         encoding="utf-8",
     )
     gene2id = {"GENE1": 0}

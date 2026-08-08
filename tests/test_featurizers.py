@@ -27,10 +27,10 @@ def test_chemberta_featurizer(tmp_path):
 
     fake_embedding = [1.0, 2.0, 3.0]
 
-    with patch.object(chemberta, "_smiles_to_chemberta", return_value=fake_embedding), patch.object(
-        sys, "argv", ["prog", dataset, "--data_path", str(tmp_path)]
+    with (
+        patch.object(chemberta, "_smiles_to_chemberta", return_value=fake_embedding),
+        patch.object(sys, "argv", ["prog", dataset, "--data_path", str(tmp_path)]),
     ):
-
         chemberta.main()
 
     out_file = data_dir / "drug_chemberta_embeddings.csv"

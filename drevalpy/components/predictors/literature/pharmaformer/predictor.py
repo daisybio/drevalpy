@@ -211,14 +211,12 @@ class PharmaFormerPredictor(BlockPredictor):
         for epoch in range(self._hyperparameters["epochs"]):
             epoch_loss = _run_epoch(self._model, train_loader, loss_func, optimizer, self._device)
             print(
-                f"PharmaFormer: Epoch [{epoch + 1}/{self._hyperparameters['epochs']}] "
-                f"Training Loss: {epoch_loss:.4f}"
+                f"PharmaFormer: Epoch [{epoch + 1}/{self._hyperparameters['epochs']}] Training Loss: {epoch_loss:.4f}"
             )
 
             val_loss = _run_epoch(self._model, val_loader, loss_func, None, self._device)
             print(
-                f"PharmaFormer: Epoch [{epoch + 1}/{self._hyperparameters['epochs']}] "
-                f"Validation Loss: {val_loss:.4f}"
+                f"PharmaFormer: Epoch [{epoch + 1}/{self._hyperparameters['epochs']}] Validation Loss: {val_loss:.4f}"
             )
 
             if val_loss < best_val_loss:

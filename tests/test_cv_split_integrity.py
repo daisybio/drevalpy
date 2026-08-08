@@ -79,12 +79,12 @@ class TestTissueColumnPreservation:
             for i, split in enumerate(new_dataset.cv_splits):
                 for split_name in ["train", "test", "validation", "validation_es", "early_stopping"]:
                     if split_name in split:
-                        assert (
-                            split[split_name].tissue is not None
-                        ), f"Tissue column should be loaded for split {i} {split_name}"
-                        assert len(split[split_name].tissue) == len(
-                            split[split_name].response
-                        ), f"Tissue array length should match response length for split {i} {split_name}"
+                        assert split[split_name].tissue is not None, (
+                            f"Tissue column should be loaded for split {i} {split_name}"
+                        )
+                        assert len(split[split_name].tissue) == len(split[split_name].response), (
+                            f"Tissue array length should match response length for split {i} {split_name}"
+                        )
 
     def test_from_csv_default_tissue_column(self):
         """Test that from_csv defaults to loading tissue column when present."""
@@ -197,9 +197,9 @@ class TestCVSplitDataLeakage:
         original_train_len = len(sample_cv_split["train"].response)
         train.add_rows(val)
 
-        assert (
-            len(sample_cv_split["train"].response) == original_train_len
-        ), "Original train dataset should not be modified when adding rows to the copy"
+        assert len(sample_cv_split["train"].response) == original_train_len, (
+            "Original train dataset should not be modified when adding rows to the copy"
+        )
 
     def test_get_datasets_returns_copies_with_early_stopping(self, sample_cv_split):
         """Test that early stopping datasets are also copies.
@@ -220,9 +220,9 @@ class TestCVSplitDataLeakage:
         original_es_len = len(sample_cv_split["early_stopping"].response)
         es.remove_rows(np.array([0, 1, 2]))
 
-        assert (
-            len(sample_cv_split["early_stopping"].response) == original_es_len
-        ), "Original early_stopping dataset should not be modified"
+        assert len(sample_cv_split["early_stopping"].response) == original_es_len, (
+            "Original early_stopping dataset should not be modified"
+        )
 
     def test_no_validation_accumulation_across_models(self, sample_cv_split):
         """Test that validation data is not accumulated into training data across models.
@@ -253,8 +253,7 @@ class TestCVSplitDataLeakage:
                 f"after processing {model_name}, but got {len(sample_cv_split['train'].response)}"
             )
             assert len(sample_cv_split["validation"].response) == original_val_len, (
-                f"Original validation dataset should remain {original_val_len} samples "
-                f"after processing {model_name}"
+                f"Original validation dataset should remain {original_val_len} samples after processing {model_name}"
             )
 
     def test_no_test_data_leakage(self, sample_cv_split):

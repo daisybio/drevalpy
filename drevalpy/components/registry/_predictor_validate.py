@@ -26,7 +26,7 @@ def _validate_matrix_contracts(name: str, cls: type[Any]) -> None:
         if contract is None or contract.format != FeatureFormat.NUMERIC_MATRIX:
             actual = getattr(contract, "format", None)
             actual_value = actual.value if actual is not None else "<missing>"
-            msg = f"Matrix predictor {name!r} requires numeric_matrix " f"{side} contract, got {actual_value!r}"
+            msg = f"Matrix predictor {name!r} requires numeric_matrix {side} contract, got {actual_value!r}"
             raise ValueError(msg)
 
 

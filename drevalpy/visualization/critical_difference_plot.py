@@ -26,7 +26,6 @@ import pathlib
 import warnings
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -71,8 +70,8 @@ class CriticalDifferencePlot(OutPlot):
 
         self.eval_results_preds = eval_results_preds
         self.metric = metric
-        self.fig: Optional[plt.Figure] = None
-        self.test_results: Optional[pd.DataFrame] = None
+        self.fig: plt.Figure | None = None
+        self.test_results: pd.DataFrame | None = None
 
     def draw_and_save(self, out_prefix: str | Path, out_suffix: str) -> None:
         """Draw critical difference plot and save SVG and HTML table.

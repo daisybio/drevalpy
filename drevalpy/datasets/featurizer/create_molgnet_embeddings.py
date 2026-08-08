@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import math
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -23,8 +23,8 @@ from torch_geometric.utils import add_self_loops, softmax
 try:
     from rdkit import Chem
     from rdkit.Chem.rdchem import Mol as RDMol
-except ImportError:
-    raise ImportError("Please install rdkit package for MolGNet featurizer: pip install rdkit")
+except ImportError as err:
+    raise ImportError("Please install rdkit package for MolGNet featurizer: pip install rdkit") from err
 
 # building graphs
 allowable_features: dict[str, list[Any]] = {
@@ -437,7 +437,7 @@ class MessagePassing(nn.Module):
         self.flow = flow
         self.node_dim = node_dim
 
-    def propagate(self, edge_index: torch.Tensor, size: Optional[tuple[int, int]] = None, **kwargs) -> torch.Tensor:
+    def propagate(self, edge_index: torch.Tensor, size: tuple[int, int] | None = None, **kwargs) -> torch.Tensor:
         """Run full message-passing: message -> aggregate -> update.
 
         :param edge_index: Edge indices tensor of shape [2, E].
@@ -488,7 +488,7 @@ class MessagePassing(nn.Module):
             raise ValueError("message requires node features 'x_j'")
         return x_j
 
-    def aggregate(self, inputs: torch.Tensor, index: torch.Tensor, dim_size: Optional[int] = None) -> torch.Tensor:
+    def aggregate(self, inputs: torch.Tensor, index: torch.Tensor, dim_size: int | None = None) -> torch.Tensor:
         """Aggregate messages using ``torch_scatter.scatter``.
 
         :param inputs: Message tensor of shape [E, hidden].
@@ -548,7 +548,7 @@ class GraphAttentionConv(MessagePassing):
         x: torch.Tensor,
         edge_index: torch.Tensor,
         edge_attr: torch.Tensor,
-        size: Optional[tuple[int, int]] = None,
+        size: tuple[int, int] | None = None,
     ) -> torch.Tensor:
         """Execute the graph attention conv over the provided inputs.
 
@@ -567,7 +567,7 @@ class GraphAttentionConv(MessagePassing):
         x_i: torch.Tensor,
         x_j: torch.Tensor,
         pseudo: torch.Tensor,
-        size_i: Optional[int] = None,
+        size_i: int | None = None,
         **kwargs,
     ) -> torch.Tensor:
         """Compute messages using multi-head attention between nodes.
@@ -770,7 +770,7 @@ def parse_args() -> argparse.Namespace:
 
     :return: Parsed arguments namespace.
     """
-    p = argparse.ArgumentParser(description=("Standalone MolGNet extractor " "(dataset-oriented)"))
+    p = argparse.ArgumentParser(description=("Standalone MolGNet extractor (dataset-oriented)"))
     p.add_argument(
         "dataset_name",
         help="Name of the dataset (folder under data_path)",

@@ -2,7 +2,6 @@
 
 import os
 import tempfile
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -53,8 +52,7 @@ def test_load_cl_ids_from_csv() -> None:
     temp_file = os.path.join(temp.name, "GDSC1_small", "cell_line_names.csv")
     with open(temp_file, "w") as f:
         f.write(
-            "cellosaurus_id,cell_line_name\nCVCL_X481,201T\nCVCL_1045,22Rv1\n"
-            "CVCL_1046,23132/87\nCVCL_1798,42-MG-BA\n"
+            "cellosaurus_id,cell_line_name\nCVCL_X481,201T\nCVCL_1045,22Rv1\nCVCL_1046,23132/87\nCVCL_1798,42-MG-BA\n"
         )
 
     cl_ids_gdsc1 = load_cl_ids_from_csv(temp.name, "GDSC1_small")
@@ -99,7 +97,7 @@ def test_load_cl_ids_and_tissues_from_csv() -> None:
         os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
         temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
         with open(temp_file, "w") as f:
-            f.write("cellosaurus_id,cell_line_name,tissue\n" "CVCL_X481,201T,lung\n" "CVCL_1045,22Rv1,breast\n")
+            f.write("cellosaurus_id,cell_line_name,tissue\nCVCL_X481,201T,lung\nCVCL_1045,22Rv1,breast\n")
 
         features = load_cl_ids_and_tissues_from_csv(temp_dir, "GDSC1_small")
         assert len(features.features) == 2
@@ -121,7 +119,7 @@ def test_load_cl_ids_and_tissues_from_csv_missing_tissue_column() -> None:
         assert TISSUE_IDENTIFIER not in features.features["201T"]
 
 
-def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[str] = None) -> None:
+def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: str | None = None) -> None:
     """Write a gene list to a temporary directory.
 
     :param temp_dir: temporary directory
@@ -141,10 +139,10 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
             )
     elif gene_list == "drug_target_genes_all_drugs":
         with open(temp_file, "w") as f:
-            f.write("Symbol\n" "TSPAN6\n" "SCYL3\n" "BRCA1\n")
+            f.write("Symbol\nTSPAN6\nSCYL3\nBRCA1\n")
     elif gene_list == "gene_list_paccmann_network_prop":
         with open(temp_file, "w") as f:
-            f.write("Symbol\n" "HDAC1\n" "ALS2CR12\n" "BFAR\n" "ZCWPW1\n" "ZP1\n" "PDZD7")
+            f.write("Symbol\nHDAC1\nALS2CR12\nBFAR\nZCWPW1\nZP1\nPDZD7")
 
 
 @pytest.mark.parametrize(
@@ -156,7 +154,7 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
+def test_load_and_select_gene_features(gene_list: str | None) -> None:
     """Test the loading and reduction of gene features.
 
     :param gene_list: either None, landmark_genes, drug_target_genes_all_drugs, or gene_list_paccmann_network_prop
@@ -268,14 +266,7 @@ def test_load_drugs_from_fingerprints() -> None:
         "pubchem_id_to_demorgan_128_map.csv",
     )
     with open(temp_file, "w") as f:
-        f.write(
-            "3827738,5311510,46883536,73707530,16720766\n"
-            "1,1,1,1,1\n"
-            "1,1,0,0,1\n"
-            "0,1,1,0,1\n"
-            "1,0,1,1,1\n"
-            "1,1,0,1,1\n"
-        )
+        f.write("3827738,5311510,46883536,73707530,16720766\n1,1,1,1,1\n1,1,0,0,1\n0,1,1,0,1\n1,0,1,1,1\n1,1,0,1,1\n")
     drug_features_gdsc1 = load_drug_fingerprint_features(temp.name, "GDSC1_small")
     assert len(drug_features_gdsc1.features) == 5
     assert drug_features_gdsc1.features.keys() == {
@@ -337,7 +328,7 @@ def _write_gdsc1_small_omics_fixture(temp: tempfile.TemporaryDirectory) -> None:
 
 def _assert_multiomics_gene_list_meta(
     dataset,
-    gene_list: Optional[str],
+    gene_list: str | None,
     *,
     valerr: pytest.ExceptionInfo[ValueError] | None = None,
 ) -> None:
@@ -378,7 +369,7 @@ def _assert_multiomics_gene_list_meta(
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
+def test_get_multiomics_feature_dataset(gene_list: str | None) -> None:
     """Test the loading of multiomics features.
 
     :param gene_list: list of genes to keep

@@ -16,12 +16,10 @@ from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import (
     load_object_mapping,
-)
-from drevalpy.components.predictors.literature._torch_state import load_state_dict as _load_torch_state_dict
-from drevalpy.components.predictors.literature._torch_state import (
     save_object_mapping,
     save_state_dict,
 )
+from drevalpy.components.predictors.literature._torch_state import load_state_dict as _load_torch_state_dict
 from drevalpy.components.predictors.literature.molir.utils import _realign_omic_matrix
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,

@@ -50,9 +50,7 @@ _MODEL_RECIPE = (
 ) + pp.StringEnd()
 
 _FEATURIZER_SYNTAX = "atoms must be non-empty and shaped 'name' or 'name[view]', joined by '+'"
-_MODEL_SYNTAX = (
-    "expected 'predictor', 'cellLineFeaturizer:predictor', " "or 'cellLineFeaturizer:drugFeaturizer:predictor'"
-)
+_MODEL_SYNTAX = "expected 'predictor', 'cellLineFeaturizer:predictor', or 'cellLineFeaturizer:drugFeaturizer:predictor'"
 
 
 def parse_featurizer_atoms(token: str) -> list[tuple[str, str | None]]:

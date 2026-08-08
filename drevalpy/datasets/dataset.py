@@ -8,8 +8,9 @@ vectors per cell line or drug, including optional per-view metadata.
 """
 
 import copy
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, ClassVar
+from typing import Any, ClassVar
 
 import networkx as nx
 import numpy as np
@@ -453,7 +454,6 @@ class DrugResponseDataset:
         splits_dir = Path(path)
         splits_dir.mkdir(parents=True, exist_ok=True)
         for i, split in enumerate(self.cv_splits):
-
             for mode in [
                 "train",
                 "validation",

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional, Union
-
 from matplotlib import pyplot
 from matplotlib.axes import Axes
 from pandas import DataFrame, Series
@@ -18,7 +16,7 @@ def _validate_color_palette(ranks: Series, color_palette: dict | list) -> None:
     raise ValueError("color_palette keys are not consistent, or list size too small")
 
 
-def _split_rank_points(ranks: Series, left_only: bool) -> tuple[Series, Optional[Series]]:
+def _split_rank_points(ranks: Series, left_only: bool) -> tuple[Series, Series | None]:
     ranks = Series(ranks).sort_values()
     if left_only:
         return ranks, None
@@ -95,17 +93,17 @@ def _plot_rank_items(
 
 
 def critical_difference_diagram(
-    ranks: Union[dict, Series],
+    ranks: dict | Series,
     sig_matrix: DataFrame,
     *,
     color_palette: dict,
-    ax: Optional[Axes] = None,
+    ax: Axes | None = None,
     label_fmt_left: str = "{label} ({rank:.2g})",
     label_fmt_right: str = "({rank:.2g}) {label}",
-    label_props: Optional[dict] = None,
-    marker_props: Optional[dict] = None,
-    elbow_props: Optional[dict] = None,
-    crossbar_props: Optional[dict] = None,
+    label_props: dict | None = None,
+    marker_props: dict | None = None,
+    elbow_props: dict | None = None,
+    crossbar_props: dict | None = None,
     text_h_margin: float = 0.01,
     left_only: bool = False,
 ) -> dict[str, list]:

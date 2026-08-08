@@ -31,7 +31,6 @@ class Heatmap(VioHeat):
 
         self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
         if self.df.empty:
-
             raise ValueError("The DataFrame does not contain any valid metrics. Please check the columns.")
         self.n_models = len(self.df.index)
 
@@ -80,7 +79,6 @@ class Heatmap(VioHeat):
         """Draw the heatmap."""
         print("Drawing heatmaps ...")
         for plot_setting in self.plot_settings:
-
             self._draw_subplots(plot_setting)
 
         # Dynamically adjust figure height based on number of models

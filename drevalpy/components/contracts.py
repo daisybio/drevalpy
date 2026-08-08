@@ -79,7 +79,7 @@ def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContrac
     cell_line = getattr(cls, "cell_line_contract", None)
     drug = getattr(cls, "drug_contract", None)
     if cell_line is None or drug is None:
-        msg = f"Predictor {cls.__name__!r} must define both " "cell_line_contract and drug_contract"
+        msg = f"Predictor {cls.__name__!r} must define both cell_line_contract and drug_contract"
         raise TypeError(msg)
     if not isinstance(cell_line, FeatureContract) or not isinstance(drug, FeatureContract):
         msg = f"Predictor {cls.__name__!r} contracts must be FeatureContract instances"

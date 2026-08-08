@@ -94,7 +94,7 @@ class ComparisonScatter(OutPlot):
         self._generate_comp_scatterplots()
 
         self.dropdown_fig.update_layout(
-            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} '
+            title=f"{str(self.color_by).replace('_', ' ').capitalize()}-wise scatter plot of {self.metric} "
             f"for each model",
             showlegend=False,
         )
@@ -164,8 +164,7 @@ class ComparisonScatter(OutPlot):
                 listed_files.sort()
                 for group_comparison in listed_files:
                     f.write(
-                        f'<li><a href="comp_scatter/{group_comparison}" target="_blank">'
-                        f"{group_comparison}</a></li>\n"
+                        f'<li><a href="comp_scatter/{group_comparison}" target="_blank">{group_comparison}</a></li>\n'
                     )
                 f.write("</ul>\n")
         return f

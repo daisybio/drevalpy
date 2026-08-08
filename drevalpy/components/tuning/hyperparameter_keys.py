@@ -238,7 +238,7 @@ def resolve_to_qualified_mapping(
         target = index.qualified_to_target[qualified_key]
         if target in seen_targets:
             previous = seen_targets[target]
-            msg = f"Duplicate hyperparameter assignment for {qualified_key!r} " f"from {previous!r} and {key!r}."
+            msg = f"Duplicate hyperparameter assignment for {qualified_key!r} from {previous!r} and {key!r}."
             raise ValueError(msg)
         seen_targets[target] = key
         qualified[qualified_key] = value

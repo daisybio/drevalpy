@@ -391,7 +391,7 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
     with open(idx_html_path, "w", encoding="utf-8") as f:
         _parse_layout(f=f, path_to_layout=layout_path, test_mode="")
         f.write('<div class="main">\n')
-        f.write('<img src="nf-core-drugresponseeval_logo_light.png" ' 'width="364px" height="100px" alt="Logo">\n')
+        f.write('<img src="nf-core-drugresponseeval_logo_light.png" width="364px" height="100px" alt="Logo">\n')
         f.write(f"<h1>Results for {custom_id}</h1>\n")
         f.write("<h2>Available settings</h2>\n")
         f.write('<div style="display: inline-block;">\n')

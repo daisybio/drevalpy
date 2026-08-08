@@ -11,11 +11,9 @@ from torch_geometric.data import Data
 
 from drevalpy.components.predictors.literature._torch_state import (
     load_object_mapping,
-)
-from drevalpy.components.predictors.literature._torch_state import load_state_dict as load_state_dict_bytes
-from drevalpy.components.predictors.literature._torch_state import (
     save_object_mapping,
 )
+from drevalpy.components.predictors.literature._torch_state import load_state_dict as load_state_dict_bytes
 from drevalpy.components.predictors.literature._torch_state import save_state_dict as save_state_dict_bytes
 from drevalpy.utils.pickle_io import UnpicklingError
 from drevalpy.utils.torch_io import (

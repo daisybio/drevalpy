@@ -45,7 +45,7 @@ def download_from_url(dataset_name: str, file_url: str) -> Response:
     print(f"Downloading {dataset_name} from {file_url}...")
     response = requests.get(file_url, timeout=120)
     if response.status_code != 200:
-        raise requests.exceptions.HTTPError(f"Error downloading file: " f"{response.status_code}")
+        raise requests.exceptions.HTTPError(f"Error downloading file: {response.status_code}")
     return response
 
 

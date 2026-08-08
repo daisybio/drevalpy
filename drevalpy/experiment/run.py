@@ -425,7 +425,7 @@ def _run_one_model(
 
     for split_index, split in enumerate(response_data.cv_splits):
         print()
-        print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
+        print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} #################")
         print()
 
         prediction_file = predictions_path / f"predictions_split_{split_index}.csv"

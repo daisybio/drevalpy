@@ -63,9 +63,7 @@ def _assert_disjoint_groups(
     for role in REQUIRED_ROLES:
         for group in _group_ids(roles[role], test_mode):
             if group in seen:
-                msg = (
-                    f"Split {split_index}: {test_mode} leakage — " f"{seen[group]!r} and {role!r} share group {group!r}"
-                )
+                msg = f"Split {split_index}: {test_mode} leakage — {seen[group]!r} and {role!r} share group {group!r}"
                 raise SplitError(msg)
             seen[group] = role
 
@@ -85,7 +83,7 @@ def _assert_disjoint_rows(
     for role in REQUIRED_ROLES:
         for row in _row_keys(roles[role]):
             if row in seen:
-                msg = f"Split {split_index}: exact row overlap between " f"{seen[row]!r} and {role!r}: {row[:2]}"
+                msg = f"Split {split_index}: exact row overlap between {seen[row]!r} and {role!r}: {row[:2]}"
                 raise SplitError(msg)
             seen[row] = role
 

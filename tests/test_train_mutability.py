@@ -54,7 +54,7 @@ def test_train_and_predict_does_not_mutate_with_reduce_to(data_dir):
 
     # Before fix: these fail because reduce_to removes rows from original datasets
     # After fix: these pass because train_and_predict copies datasets first
-    assert (
-        len(train) == original_train_len
-    ), f"train_dataset was mutated by reduce_to: {original_train_len} -> {len(train)}"
+    assert len(train) == original_train_len, (
+        f"train_dataset was mutated by reduce_to: {original_train_len} -> {len(train)}"
+    )
     assert len(test) == original_test_len, f"test_dataset was mutated by reduce_to: {original_test_len} -> {len(test)}"

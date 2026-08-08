@@ -120,7 +120,7 @@ class PrecilyPredictor(BlockPredictor):
                 batch_count += 1
 
             epoch_loss /= max(batch_count, 1)
-            print(f"Precily: Epoch [{epoch + 1}/{self._hyperparameters['epochs']}] " f"Training Loss: {epoch_loss:.4f}")
+            print(f"Precily: Epoch [{epoch + 1}/{self._hyperparameters['epochs']}] Training Loss: {epoch_loss:.4f}")
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Run Precily inference on the given batch.

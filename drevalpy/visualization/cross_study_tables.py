@@ -62,8 +62,9 @@ class CrossStudyTables:
 
     def draw(self):
         """Create and store Plotly table figures sorted by MSE."""
-        for dataset_name, mean_df, std_df in zip(self.cross_study_datasets, self.mean_metrics, self.std_metrics):
-
+        for dataset_name, mean_df, std_df in zip(
+            self.cross_study_datasets, self.mean_metrics, self.std_metrics, strict=False
+        ):
             formatted_data = mean_df.map(lambda x: f"{x:.3f}") + " ± " + std_df.map(lambda x: f"{x:.3f}")
 
             fig = go.Figure(

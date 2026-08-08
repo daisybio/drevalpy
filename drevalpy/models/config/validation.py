@@ -87,8 +87,7 @@ def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> 
         contract = featurizer_contract(getter(featurizer.name))
         if not contracts_compatible(contract, required):
             msg = (
-                f"{label} featurizer contract {contract!r} is incompatible with "
-                f"predictor {side}_contract {required!r}"
+                f"{label} featurizer contract {contract!r} is incompatible with predictor {side}_contract {required!r}"
             )
             raise ValueError(msg)
 

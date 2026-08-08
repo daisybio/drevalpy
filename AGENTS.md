@@ -1,14 +1,27 @@
 # Agent notes
 
-## Running pre-commit / committing
+## Running prek / committing
 
-The hooks in `.pre-commit-config.yaml` use `language: system`, so they resolve `black`,
-`flake8`, `pyupgrade`, `check-*`, etc. from `PATH` instead of installing their own copies.
-Those tools live in the project venv, so prepend it before committing or running hooks:
+Hooks are managed by prek (a fast, drop-in replacement for pre-commit). Run all hooks:
 
 ```bash
-PATH="$(pwd)/.venv/bin:$PATH" git commit -m "..."
-PATH="$(pwd)/.venv/bin:$PATH" pre-commit run --all-files
+uv run prek run --all-files
 ```
 
-Without this, hooks fail with "Executable `black` not found" (and the same for the other tools). Activating the venv (`source .venv/bin/activate`) works too.
+Install the git hook so it runs automatically on commit:
+
+```bash
+uv run prek install
+```
+
+## Running tests
+
+```bash
+uv run pytest
+```
+
+## Building docs
+
+```bash
+uv run --group docs sphinx-build -W docs docs/_build
+```

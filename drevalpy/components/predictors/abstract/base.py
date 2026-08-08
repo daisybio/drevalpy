@@ -42,8 +42,7 @@ class Predictor(ABC):
         forbidden = [name for name in ("cell_line_contract", "drug_contract") if name in cls.__dict__]
         if forbidden:
             msg = (
-                f"{cls.__name__}: do not set {', '.join(forbidden)} on the class body; "
-                "pass them to @register_predictor"
+                f"{cls.__name__}: do not set {', '.join(forbidden)} on the class body; pass them to @register_predictor"
             )
             raise TypeError(msg)
 

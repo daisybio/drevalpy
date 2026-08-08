@@ -9,7 +9,6 @@ python create_leaderboard.py --results_path /path/to/results.csv
 
 import argparse
 from pathlib import Path
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -129,7 +128,7 @@ def create_leaderboard(
     dataset: str = "CTRPv2",
     measure: str = "LN_IC50_curvecurator",
     figsize: tuple = (16, 12),
-    show_top_n: Optional[int] = None,
+    show_top_n: int | None = None,
     font_adder: int = 6,
 ) -> tuple:
     """Generate the dual-panel leaderboard figure.

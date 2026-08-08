@@ -15,8 +15,7 @@ from .critical_difference_plot import CriticalDifferencePlot
 def _require_prediction_subset(ev_res: pd.DataFrame, test_mode: str) -> pd.DataFrame:
     if ev_res.empty:
         raise ValueError(
-            f"No evaluation results found for test_mode {test_mode}. "
-            "Please check if the evaluation was run correctly."
+            f"No evaluation results found for test_mode {test_mode}. Please check if the evaluation was run correctly."
         )
     ev_res_subset = ev_res[ev_res["test_mode"] == test_mode]
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
