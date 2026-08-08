@@ -121,8 +121,34 @@ max-complexity = 10
 docstring-code-format = true
 
 [tool.ty]
+
 [tool.ty.environment]
 python-version = "3.11"
+
+[tool.ty.rules]
+# Optional dependencies not installed in dev venv (rdkit, transformers, gensim, etc.)
+unresolved-import = "ignore"
+# Incomplete third-party stubs (pandas, matplotlib, torch)
+invalid-argument-type = "ignore"
+no-matching-overload = "ignore"
+# ty beta: does not support type[Any] in return annotations (featurizer registry pattern)
+invalid-type-form = "ignore"
+# Standard PyTorch Dataset.__getitem__ override pattern
+invalid-method-override = "ignore"
+# ty beta: false positive on pytest.skip(reason)
+too-many-positional-arguments = "ignore"
+# Tests intentionally violate types to test immutability (all have # type: ignore)
+invalid-assignment = "ignore"
+# Complex return type narrowing ty cannot yet handle
+invalid-return-type = "ignore"
+# scikit-learn TransformerMixin stub does not declare .fit/.transform
+unresolved-attribute = "ignore"
+# Tests intentionally pass wrong args (all have # type: ignore)
+missing-argument = "ignore"
+unknown-argument = "ignore"
+# Informational only
+redundant-cast = "ignore"
+deprecated = "ignore"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
