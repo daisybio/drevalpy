@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 from typing import Any
@@ -32,9 +33,16 @@ class PaccMann(DRPModel):
     - tokenizes SMILES into padded integer sequences
     - scales gene expression on training data only
     - trains a PaccMannV2 PyTorch model
+    - keeps the weights of the epoch with the lowest loss on the early stopping set
+
+    The original implementation (https://github.com/PaccMann/paccmann_predictor) trains for a fixed number of
+    epochs and checkpoints the model whenever the loss on a held-out set improves, using that checkpoint as the
+    final model. This wrapper follows the same procedure with the early stopping set: training always runs for
+    the full epoch budget and the weights of the best epoch are restored at the end. There is no patience-based
+    termination, since the original implementation does not stop early either.
     """
 
-    early_stopping = False
+    early_stopping = True
     is_single_drug_model = False
 
     cell_line_views = ["gene_expression"]
@@ -185,6 +193,91 @@ class PaccMann(DRPModel):
 
         return encoded
 
+    def _encode_inputs(
+        self,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Turn cell line and drug features into model input tensors.
+
+        Gene expression is scaled with the scaler fitted on the training data and SMILES are encoded with the
+        vocabulary built from the training data, so this may only be called after train() has fitted both.
+
+        :param cell_line_input: FeatureDataset containing cell line features
+        :param drug_input: FeatureDataset containing drug features
+        :param cell_line_ids: array of cell line identifiers
+        :param drug_ids: array of drug identifiers
+        :return: tuple of the encoded SMILES tensor and the scaled gene expression tensor
+        """
+        gex = cell_line_input.get_feature_matrix("gene_expression", cell_line_ids)
+        gex = np.asarray(gex, dtype=np.float32)
+        gex = self.gene_expression_scaler.transform(gex).astype(np.float32)
+
+        smiles = self._normalize_smiles_array(drug_input.get_feature_matrix("smiles", drug_ids))
+        smiles_encoded = self._encode_smiles(smiles)
+
+        return (
+            torch.tensor(smiles_encoded, dtype=torch.long),
+            torch.tensor(gex, dtype=torch.float32),
+        )
+
+    def _build_validation_loader(
+        self,
+        output_earlystopping: DrugResponseDataset | None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+        batch_size: int,
+    ) -> DataLoader | None:
+        """Build a loader over the early stopping set, used to pick the best epoch.
+
+        :param output_earlystopping: early stopping dataset, may be None
+        :param cell_line_input: FeatureDataset containing cell line features
+        :param drug_input: FeatureDataset containing drug features
+        :param batch_size: batch size to use
+        :return: DataLoader over the early stopping set, or None if there is nothing to evaluate
+        """
+        if output_earlystopping is None or len(output_earlystopping) == 0:
+            return None
+
+        smiles_tensor, gex_tensor = self._encode_inputs(
+            cell_line_input,
+            drug_input,
+            output_earlystopping.cell_line_ids,
+            output_earlystopping.drug_ids,
+        )
+        y_tensor = torch.tensor(np.asarray(output_earlystopping.response, dtype=np.float32)).view(-1, 1)
+
+        return DataLoader(
+            TensorDataset(smiles_tensor, gex_tensor, y_tensor),
+            batch_size=batch_size,
+            shuffle=False,
+        )
+
+    def _validation_loss(self, validation_loader: DataLoader) -> float:
+        """Compute the mean loss over the early stopping set.
+
+        :param validation_loader: DataLoader over the early stopping set
+        :return: mean loss per batch
+        :raises ValueError: if the model has not been built yet
+        """
+        if self.model is None:
+            raise ValueError("Model has not been built yet.")
+
+        self.model.eval()
+        total_loss = 0.0
+        with torch.no_grad():
+            for batch_smiles, batch_gex, batch_y in validation_loader:
+                batch_smiles = batch_smiles.to(self.device)
+                batch_gex = batch_gex.to(self.device)
+                batch_y = batch_y.to(self.device)
+
+                predictions, _ = self.model(batch_smiles, batch_gex)
+                total_loss += self.model.loss(predictions, batch_y).item()
+
+        return total_loss / len(validation_loader)
+
     def train(
         self,
         output: DrugResponseDataset,
@@ -203,12 +296,14 @@ class PaccMann(DRPModel):
         - encode and pad the SMILES strings
         - initialize the PaccMann network
         - convert both inputs to tensors
-        - train the network
+        - train the network for the full epoch budget, evaluating the early stopping set after every epoch
+        - restore the weights of the epoch with the lowest loss on the early stopping set
 
         :param output: training dataset containing response values, cell line ids, and drug ids
         :param cell_line_input: FeatureDataset containing cell line features
         :param drug_input: FeatureDataset containing drug features
-        :param output_earlystopping: optional early stopping dataset
+        :param output_earlystopping: dataset used to select the best epoch. If None, the weights of the last
+            epoch are kept.
         :param model_checkpoint_dir: optional directory to save a model checkpoint
         :raises ValueError: if drug_input is None
         :raises ValueError: if the model has not been built yet
@@ -286,8 +381,19 @@ class PaccMann(DRPModel):
 
         epochs = model_params.get("epochs", 20)
 
+        # The early stopping set is evaluated after every epoch to pick the best epoch
+        validation_loader = self._build_validation_loader(
+            output_earlystopping,
+            cell_line_input,
+            drug_input,
+            model_params.get("batch_size", 64),
+        )
+
+        best_validation_loss = float("inf")
+        best_state_dict: dict[str, Any] | None = None
+
         # Train the model
-        for _ in range(epochs):
+        for epoch in range(epochs):
             self.model.train()
             for batch_smiles, batch_gex, batch_y in train_loader:
                 batch_smiles = batch_smiles.to(self.device)
@@ -302,8 +408,24 @@ class PaccMann(DRPModel):
                 loss.backward()
                 optimizer.step()
 
+            if validation_loader is None:
+                continue
+
+            # Keep the weights of the epoch with the lowest loss on the early stopping set, which is what the
+            # original implementation checkpoints. Training itself is never cut short.
+            validation_loss = self._validation_loss(validation_loader)
+            self.log_metrics({"validation_loss": validation_loss}, step=epoch)
+
+            if validation_loss < best_validation_loss:
+                best_validation_loss = validation_loss
+                best_state_dict = copy.deepcopy(self.model.state_dict())
+
+        # Restore the weights of the best epoch
+        if best_state_dict is not None:
+            self.model.load_state_dict(best_state_dict)
+
         # Optional: save trained model checkpoint
-        if self.model is not None and model_checkpoint_dir is not None:
+        if model_checkpoint_dir is not None:
             self.model.save(f"{model_checkpoint_dir}/paccmann.pt")
 
     def predict(
@@ -337,27 +459,9 @@ class PaccMann(DRPModel):
         if self.model is None:
             raise ValueError("Model has not been trained yet.")
 
-        # Retrieve gene expression features
-        gex = cell_line_input.get_feature_matrix("gene_expression", cell_line_ids)
-
-        # Retrieve raw SMILES features
-        smiles_raw = drug_input.get_feature_matrix("smiles", drug_ids)
-
-        # Convert gene expression to numpy array
-        gex = np.asarray(gex, dtype=np.float32)
-
-        # Convert SMILES to a list of strings
-        smiles = self._normalize_smiles_array(smiles_raw)
-
-        # Apply the fitted gene expression scaler
-        gex = self.gene_expression_scaler.transform(gex).astype(np.float32)
-
-        # Encode and pad SMILES strings using the training vocabulary
-        smiles_encoded = self._encode_smiles(smiles)
-
-        # Convert inputs to CPU tensors; batches are moved to device one at a time below
-        smiles_tensor = torch.tensor(smiles_encoded, dtype=torch.long)
-        gex_tensor = torch.tensor(gex, dtype=torch.float32)
+        # Scale gene expression and encode SMILES with the training scaler and vocabulary.
+        # These are CPU tensors; batches are moved to the device one at a time below.
+        smiles_tensor, gex_tensor = self._encode_inputs(cell_line_input, drug_input, cell_line_ids, drug_ids)
 
         dataset = TensorDataset(smiles_tensor, gex_tensor)
         predict_loader = DataLoader(
