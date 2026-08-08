@@ -75,6 +75,20 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
         self._store_predictions(predictions, response, is_training=name == "train_loss")
         return loss
 
+    @staticmethod
+    def _unpack_batch(batch: Sequence[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor]:
+        """Concatenate feature tensors and separate the response.
+
+        The batch is ``(*feature_tensors, response)`` where the number of feature
+        tensors depends on how many entity blocks are present (e.g. cell-line
+        only vs cell-line + drug).
+
+        :param batch: Sequence of tensors from the DataLoader.
+        :returns: ``(concatenated_features, response)``.
+        """
+        features = torch.cat(list(batch[:-1]), dim=1)
+        return features, batch[-1]
+
     def training_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Compute and log training loss for one batch.
 
@@ -83,7 +97,8 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
         :returns: Result.
         """
         _ = batch_idx
-        return self._loss_and_log(batch[0], batch[1], name="train_loss")
+        features, response = self._unpack_batch(batch)
+        return self._loss_and_log(features, response, name="train_loss")
 
     def validation_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Compute and log validation loss for one batch.
@@ -93,7 +108,8 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
         :returns: Result.
         """
         _ = batch_idx
-        return self._loss_and_log(batch[0], batch[1], name="val_loss")
+        features, response = self._unpack_batch(batch)
+        return self._loss_and_log(features, response, name="val_loss")
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Build the Adam optimizer used by the original predictor.

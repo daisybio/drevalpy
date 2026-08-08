@@ -17,7 +17,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
-from drevalpy.components.predictors._tensor_data import make_tensor_loader
+from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.utils.torch_io import load_state_dict
 
 
@@ -102,42 +102,48 @@ def create_dataset_and_loaders(
     mutations: np.ndarray,
     copy_number: np.ndarray,
     response: np.ndarray,
+    pair_idx: np.ndarray,
     val_gene_expression: np.ndarray | None = None,
     val_mutations: np.ndarray | None = None,
     val_copy_number: np.ndarray | None = None,
     val_response: np.ndarray | None = None,
+    val_pair_idx: np.ndarray | None = None,
 ) -> tuple[DataLoader, DataLoader | None]:
-    """Create DataLoaders from pre-expanded pair-level matrices.
+    """Create DataLoaders using lazy pair-level index lookup.
 
     :param batch_size: specified batch size
-    :param gene_expression: pair-level gene expression matrix (n_samples, n_features)
-    :param mutations: pair-level mutation matrix (n_samples, n_features)
-    :param copy_number: pair-level copy number matrix (n_samples, n_features)
-    :param response: response values for training (n_samples,)
-    :param val_gene_expression: validation gene expression matrix
-    :param val_mutations: validation mutation matrix
-    :param val_copy_number: validation copy number matrix
+    :param gene_expression: entity-level gene expression matrix (n_entities, n_features)
+    :param mutations: entity-level mutation matrix (n_entities, n_features)
+    :param copy_number: entity-level copy number matrix (n_entities, n_features)
+    :param response: response values for training (n_pairs,)
+    :param pair_idx: indices into entity matrices for each pair (n_pairs,)
+    :param val_gene_expression: validation gene expression matrix (entity-level)
+    :param val_mutations: validation mutation matrix (entity-level)
+    :param val_copy_number: validation copy number matrix (entity-level)
     :param val_response: validation response values
+    :param val_pair_idx: validation pair indices into val entity matrices
 
     :returns: training and validation data loaders
     """
-    train_loader = make_tensor_loader(
-        gene_expression,
-        mutations,
-        copy_number,
-        response.reshape(-1, 1) if response.ndim == 1 else response,
+    resp_col = response.reshape(-1, 1) if response.ndim == 1 else response
+    train_loader = make_pair_loader(
+        (gene_expression, pair_idx),
+        (mutations, pair_idx),
+        (copy_number, pair_idx),
+        response=resp_col,
         batch_size=batch_size,
         shuffle=False,
         drop_last=True,
     )
 
     val_loader = None
-    if val_gene_expression is not None and val_response is not None:
-        val_loader = make_tensor_loader(
-            val_gene_expression,
-            val_mutations,
-            val_copy_number,
-            val_response.reshape(-1, 1) if val_response.ndim == 1 else val_response,
+    if val_gene_expression is not None and val_response is not None and val_pair_idx is not None:
+        val_resp_col = val_response.reshape(-1, 1) if val_response.ndim == 1 else val_response
+        val_loader = make_pair_loader(
+            (val_gene_expression, val_pair_idx),
+            (val_mutations, val_pair_idx),
+            (val_copy_number, val_pair_idx),
+            response=val_resp_col,
             batch_size=batch_size,
             shuffle=False,
             drop_last=False,
@@ -283,10 +289,12 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         mutations: np.ndarray,
         copy_number: np.ndarray,
         response: np.ndarray,
+        pair_idx: np.ndarray,
         val_gene_expression: np.ndarray | None = None,
         val_mutations: np.ndarray | None = None,
         val_copy_number: np.ndarray | None = None,
         val_response: np.ndarray | None = None,
+        val_pair_idx: np.ndarray | None = None,
         patience: int = 5,
         model_checkpoint_dir: str | Path = "checkpoints",
         wandb_project: str | None = None,
@@ -297,14 +305,16 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         Then, the training and validation data loaders are created. The model is trained using the Lightning Trainer
         with an early stopping callback and patience of 5.
 
-        :param gene_expression: pair-level gene expression matrix (n_samples, n_features)
-        :param mutations: pair-level mutation matrix (n_samples, n_features)
-        :param copy_number: pair-level copy number matrix (n_samples, n_features)
-        :param response: training response values (n_samples,)
-        :param val_gene_expression: validation gene expression matrix
-        :param val_mutations: validation mutation matrix
-        :param val_copy_number: validation copy number matrix
+        :param gene_expression: entity-level gene expression matrix (n_entities, n_features)
+        :param mutations: entity-level mutation matrix (n_entities, n_features)
+        :param copy_number: entity-level copy number matrix (n_entities, n_features)
+        :param response: training response values (n_pairs,)
+        :param pair_idx: indices into entity matrices for each pair (n_pairs,)
+        :param val_gene_expression: validation entity-level gene expression matrix
+        :param val_mutations: validation entity-level mutation matrix
+        :param val_copy_number: validation entity-level copy number matrix
         :param val_response: validation response values
+        :param val_pair_idx: validation pair indices into val entity matrices
         :param patience: for early stopping
         :param model_checkpoint_dir: directory to save the model checkpoints
         :param wandb_project: Optional Weights & Biases project name for Lightning logging.
@@ -319,10 +329,12 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
             mutations=mutations,
             copy_number=copy_number,
             response=response,
+            pair_idx=pair_idx,
             val_gene_expression=val_gene_expression,
             val_mutations=val_mutations,
             val_copy_number=val_copy_number,
             val_response=val_response,
+            val_pair_idx=val_pair_idx,
         )
 
         # Train the model

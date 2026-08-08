@@ -7,11 +7,11 @@ from typing import Any, ClassVar
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
@@ -181,24 +181,23 @@ class SparseGOPredictor(BlockPredictor):
             dict(block.metadata)
         )
 
-        cell_matrix = block.values[batch.cell_line_pair_idx]
-        drug_matrix = batch.drug_blocks["fingerprints"].values[batch.drug_pair_idx]
+        cell_entity = np.asarray(block.values, dtype=np.float32)
+        drug_entity = np.asarray(batch.drug_blocks["fingerprints"].values, dtype=np.float32)
+        cell_pair_idx = batch.cell_line_pair_idx
+        drug_pair_idx = batch.drug_pair_idx
 
-        self._hyperparameters["drug_dim"] = int(drug_matrix.shape[1])
+        self._hyperparameters["drug_dim"] = int(drug_entity.shape[1])
         self._build_network()
         if self._model is None:
             msg = "SparseGO network build failed"
             raise ValueError(msg)
 
-        features = np.concatenate([cell_matrix, drug_matrix], axis=1)
-        labels = batch.response.reshape(-1, 1)  # type: ignore[union-attr]
+        response = np.asarray(batch.response, dtype=np.float32).reshape(-1, 1)
 
-        features_t = torch.from_numpy(features).float()
-        labels_t = torch.from_numpy(labels).float()
-
-        dataset = TensorDataset(features_t, labels_t)
-        loader = DataLoader(
-            dataset,
+        loader = make_pair_loader(
+            (cell_entity, cell_pair_idx),
+            (drug_entity, drug_pair_idx),
+            response=response,
             batch_size=self._hyperparameters.get("batch_size", 10000),
             shuffle=True,
         )
@@ -217,8 +216,8 @@ class SparseGOPredictor(BlockPredictor):
             for param_group in optimizer.param_groups:
                 param_group["lr"] = current_lr
 
-            for batch_features, batch_labels in loader:
-                batch_features = batch_features.to(self._device)
+            for cell_feats, drug_feats, batch_labels in loader:
+                batch_features = torch.cat([cell_feats, drug_feats], dim=1).to(self._device)
                 batch_labels = batch_labels.to(self._device)
                 optimizer.zero_grad()
                 outputs = self._model(batch_features)
@@ -239,14 +238,14 @@ class SparseGOPredictor(BlockPredictor):
         active_view = _resolve_active_view(batch)
         block = batch.cell_line_blocks[active_view]
 
-        cell_matrix = block.values[batch.cell_line_pair_idx]
-        drug_matrix = batch.drug_blocks["fingerprints"].values[batch.drug_pair_idx]
-        features = np.concatenate([cell_matrix, drug_matrix], axis=1)
-        features_t = torch.from_numpy(features).float()
+        cell_entity = np.asarray(block.values, dtype=np.float32)
+        drug_entity = np.asarray(batch.drug_blocks["fingerprints"].values, dtype=np.float32)
+        cell_pair_idx = batch.cell_line_pair_idx
+        drug_pair_idx = batch.drug_pair_idx
 
-        dataset = TensorDataset(features_t, torch.zeros(len(features_t)))
-        loader = DataLoader(
-            dataset,
+        loader = make_pair_loader(
+            (cell_entity, cell_pair_idx),
+            (drug_entity, drug_pair_idx),
             batch_size=self._hyperparameters.get("batch_size", 10000),
             shuffle=False,
         )
@@ -254,8 +253,8 @@ class SparseGOPredictor(BlockPredictor):
         self._model.eval()
         predictions = []
         with torch.no_grad():
-            for batch_features, _ in loader:
-                batch_features = batch_features.to(self._device)
+            for cell_feats, drug_feats in loader:
+                batch_features = torch.cat([cell_feats, drug_feats], dim=1).to(self._device)
                 outputs = self._model(batch_features)
                 predictions.append(outputs.squeeze().cpu().numpy())
 

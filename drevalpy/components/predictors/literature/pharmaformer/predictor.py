@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors._tensor_data import make_tensor_loader
+from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import (
@@ -162,36 +162,35 @@ class PharmaFormerPredictor(BlockPredictor):
             msg = "PharmaFormer model requires early stopping data."
             raise ValueError(msg)
 
-        gene_features = batch.cell_line_blocks["gene_expression"].values[batch.cell_line_pair_idx]
-        drug_features = batch.drug_blocks["bpe_smiles"].values[batch.drug_pair_idx]
+        gene_entity = batch.cell_line_blocks["gene_expression"].values
+        drug_entity = batch.drug_blocks["bpe_smiles"].values
+        cell_pair_idx = batch.cell_line_pair_idx
+        drug_pair_idx = batch.drug_pair_idx
         response = np.asarray(batch.response, dtype=np.float32)
 
-        gene_input_size = gene_features.shape[1]
+        gene_input_size = gene_entity.shape[1]
         self._gene_input_size = gene_input_size
         self._model = _build_combined_model(gene_input_size, self._hyperparameters, self._device)
 
         loss_func = nn.MSELoss()
         optimizer = optim.Adam(self._model.parameters(), lr=self._hyperparameters["lr"])
 
-        train_loader = make_tensor_loader(
-            gene_features,
-            drug_features,
-            response,
+        train_loader = make_pair_loader(
+            (gene_entity, cell_pair_idx),
+            (drug_entity, drug_pair_idx),
+            response=response,
             batch_size=self._hyperparameters["batch_size"],
             shuffle=True,
         )
 
-        # Build early-stopping validation loader
         es_response = batch.early_stopping_response
         es_cell_pair_idx, es_drug_pair_idx = batch._pair_indices_for(es_response)
-        es_gene = batch.cell_line_blocks["gene_expression"].values[es_cell_pair_idx]
-        es_drug = batch.drug_blocks["bpe_smiles"].values[es_drug_pair_idx]
         es_resp = np.asarray(es_response.response, dtype=np.float32)
 
-        val_loader = make_tensor_loader(
-            es_gene,
-            es_drug,
-            es_resp,
+        val_loader = make_pair_loader(
+            (gene_entity, es_cell_pair_idx),
+            (drug_entity, es_drug_pair_idx),
+            response=es_resp,
             batch_size=self._hyperparameters["batch_size"],
             shuffle=False,
         )
@@ -244,13 +243,14 @@ class PharmaFormerPredictor(BlockPredictor):
             msg = "PharmaFormer model not initialized."
             raise ValueError(msg)
 
-        gene_features = batch.cell_line_blocks["gene_expression"].values[batch.cell_line_pair_idx]
-        drug_features = batch.drug_blocks["bpe_smiles"].values[batch.drug_pair_idx]
+        gene_entity = batch.cell_line_blocks["gene_expression"].values
+        drug_entity = batch.drug_blocks["bpe_smiles"].values
+        cell_pair_idx = batch.cell_line_pair_idx
+        drug_pair_idx = batch.drug_pair_idx
 
-        predict_loader = make_tensor_loader(
-            gene_features,
-            drug_features,
-            np.zeros(len(gene_features), dtype=np.float32),
+        predict_loader = make_pair_loader(
+            (gene_entity, cell_pair_idx),
+            (drug_entity, drug_pair_idx),
             batch_size=self._hyperparameters.get("batch_size", 64),
             shuffle=False,
         )
@@ -258,7 +258,7 @@ class PharmaFormerPredictor(BlockPredictor):
         self._model.eval()
         predictions: list[float] = []
         with torch.no_grad():
-            for gene_inputs, smiles_inputs, _ in predict_loader:
+            for gene_inputs, smiles_inputs in predict_loader:
                 gene_inputs = gene_inputs.to(self._device)
                 smiles_inputs = smiles_inputs.to(self._device)
                 outputs = self._model(gene_inputs, smiles_inputs)

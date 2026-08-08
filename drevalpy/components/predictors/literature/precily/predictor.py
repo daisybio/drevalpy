@@ -11,7 +11,7 @@ import torch.optim as optim
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors._tensor_data import make_tensor_loader
+from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import PRECILY_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import (
@@ -70,12 +70,14 @@ class PrecilyPredictor(BlockPredictor):
 
         :param batch: Training batch with pathways and smilesvec blocks.
         """
-        pathways = batch.cell_line_blocks["pathways"].values[batch.cell_line_pair_idx]
-        drugs = batch.drug_blocks["smilesvec"].values[batch.drug_pair_idx]
+        pathway_entity = batch.cell_line_blocks["pathways"].values
+        drug_entity = batch.drug_blocks["smilesvec"].values
+        cell_pair_idx = batch.cell_line_pair_idx
+        drug_pair_idx = batch.drug_pair_idx
         response = np.asarray(batch.response, dtype=np.float32)
 
-        n_pathways = pathways.shape[1]
-        drug_dim = drugs.shape[1]
+        n_pathways = pathway_entity.shape[1]
+        drug_dim = drug_entity.shape[1]
         input_dim = n_pathways + drug_dim
 
         self._model = PrecilyNetwork(
@@ -86,10 +88,10 @@ class PrecilyPredictor(BlockPredictor):
         loss_func = nn.MSELoss()
         optimizer = optim.Adam(self._model.parameters(), lr=self._hyperparameters["learning_rate"])
 
-        train_loader = make_tensor_loader(
-            pathways,
-            drugs,
-            response,
+        train_loader = make_pair_loader(
+            (pathway_entity, cell_pair_idx),
+            (drug_entity, drug_pair_idx),
+            response=response,
             batch_size=self._hyperparameters["batch_size"],
             shuffle=True,
         )
@@ -128,13 +130,14 @@ class PrecilyPredictor(BlockPredictor):
             msg = "Precily model not initialized."
             raise ValueError(msg)
 
-        pathways = batch.cell_line_blocks["pathways"].values[batch.cell_line_pair_idx]
-        drugs = batch.drug_blocks["smilesvec"].values[batch.drug_pair_idx]
+        pathway_entity = batch.cell_line_blocks["pathways"].values
+        drug_entity = batch.drug_blocks["smilesvec"].values
+        cell_pair_idx = batch.cell_line_pair_idx
+        drug_pair_idx = batch.drug_pair_idx
 
-        predict_loader = make_tensor_loader(
-            pathways,
-            drugs,
-            np.zeros(len(pathways), dtype=np.float32),
+        predict_loader = make_pair_loader(
+            (pathway_entity, cell_pair_idx),
+            (drug_entity, drug_pair_idx),
             batch_size=self._hyperparameters.get("batch_size", 128),
             shuffle=False,
         )
@@ -142,7 +145,7 @@ class PrecilyPredictor(BlockPredictor):
         self._model.eval()
         predictions: list[float] = []
         with torch.no_grad():
-            for pathway_inputs, drug_inputs, _ in predict_loader:
+            for pathway_inputs, drug_inputs in predict_loader:
                 pathway_inputs = pathway_inputs.to(self._device)
                 drug_inputs = drug_inputs.to(self._device)
                 x = torch.cat([pathway_inputs, drug_inputs], dim=1)

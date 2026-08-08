@@ -14,7 +14,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors._tensor_data import make_tensor_loader
+from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 from drevalpy.components.predictors.state_errors import PredictorStateError
@@ -87,48 +87,99 @@ class NeuralNetworkPredictor(MatrixPredictor):
         self._is_fitted = False
 
     def _fit(self, batch: ModelInputBatch) -> None:
-        """Fit on training data.
+        """Fit on training data using lazy pair-level lookup.
 
         :param batch: batch.
         """
-        x = batch.to_feature_matrix()
-        y = batch.response
-        input_dim = int(x.shape[1]) if x.ndim == 2 else 0
+        input_dim = self._compute_input_dim(batch)
         self._materialize(input_dim)
         if batch.n_pairs == 0:
             self._is_fitted = False
             return
-        self._train_with_optional_early_stopping(batch, x, y)
+        self._train_with_optional_early_stopping(batch)
         self._is_fitted = True
 
-    def _train_with_optional_early_stopping(
+    @staticmethod
+    def _compute_input_dim(batch: ModelInputBatch) -> int:
+        """Determine the concatenated feature width from entity matrices.
+
+        :param batch: Input batch.
+        :returns: Total feature dimensionality per pair.
+        """
+        dim = 0
+        if batch.cell_line_features.size > 0 and batch.cell_line_features.ndim == 2:
+            dim += batch.cell_line_features.shape[1]
+        if batch.drug_features is not None and batch.drug_features.size > 0 and batch.drug_features.ndim == 2:
+            dim += batch.drug_features.shape[1]
+        return dim
+
+    def _build_pair_loader(
         self,
         batch: ModelInputBatch,
-        x: np.ndarray,
-        y: np.ndarray,
-    ) -> None:
+        cell_pair_idx: np.ndarray,
+        drug_pair_idx: np.ndarray | None,
+        response: np.ndarray | None,
+        *,
+        shuffle: bool,
+        drop_last: bool,
+    ):
+        """Build a lazy pair loader from entity matrices and pair indices.
+
+        :param batch: Batch providing entity-level feature matrices.
+        :param cell_pair_idx: Cell-line pair indices.
+        :param drug_pair_idx: Drug pair indices (or None).
+        :param response: Optional response array.
+        :param shuffle: Whether to shuffle.
+        :param drop_last: Whether to drop last incomplete batch.
+        :returns: DataLoader.
+        """
+        batch_size = min(int(self._hyperparameters.get("batch_size", 16)), len(cell_pair_idx))
+        if batch_size < 1:
+            batch_size = 1
+
+        specs: list[tuple[np.ndarray, np.ndarray]] = []
+        if batch.cell_line_features.size > 0:
+            specs.append((batch.cell_line_features, cell_pair_idx))
+        if batch.drug_features is not None and batch.drug_features.size > 0 and drug_pair_idx is not None:
+            specs.append((batch.drug_features, drug_pair_idx))
+
+        return make_pair_loader(
+            *specs,
+            response=response,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            drop_last=drop_last,
+        )
+
+    def _train_with_optional_early_stopping(self, batch: ModelInputBatch) -> None:
         if self._model is None:
             msg = "Neural network predictor must be materialized before training"
             raise RuntimeError(msg)
-        batch_size = min(int(self._hyperparameters.get("batch_size", 16)), len(x))
-        train_loader = make_tensor_loader(
-            x,
-            y.reshape(-1),
-            batch_size=batch_size,
+
+        y = np.asarray(batch.response, dtype=np.float32).reshape(-1)
+        batch_size = min(int(self._hyperparameters.get("batch_size", 16)), batch.n_pairs)
+        train_loader = self._build_pair_loader(
+            batch,
+            batch.cell_line_pair_idx,
+            batch.drug_pair_idx,
+            y,
             shuffle=True,
-            drop_last=batch_size < len(x),
+            drop_last=batch_size < batch.n_pairs,
         )
 
         val_loader = None
-        x_val = batch.early_stopping_feature_matrix()
-        if x_val is not None and batch.early_stopping_response is not None:
-            y_val = np.asarray(batch.early_stopping_response.response, dtype=np.float64)
-            if len(x_val) > 0 and len(x_val) == len(y_val):
-                val_loader = make_tensor_loader(
-                    x_val,
-                    y_val.reshape(-1),
-                    batch_size=batch_size,
+        es_resp = batch.early_stopping_response
+        if es_resp is not None and len(es_resp) > 0 and es_resp.response is not None:
+            es_cell_idx, es_drug_idx = batch._pair_indices_for(es_resp)
+            y_val = np.asarray(es_resp.response, dtype=np.float32).reshape(-1)
+            if len(y_val) > 0:
+                val_loader = self._build_pair_loader(
+                    batch,
+                    es_cell_idx,
+                    es_drug_idx,
+                    y_val,
                     shuffle=False,
+                    drop_last=False,
                 )
 
         monitor = "val_loss" if val_loader is not None else "train_loss"
@@ -165,6 +216,34 @@ class NeuralNetworkPredictor(MatrixPredictor):
         if checkpoint_callback.best_model_path:
             checkpoint = load_state_dict(checkpoint_callback.best_model_path)
             self._model.load_state_dict(checkpoint["state_dict"])
+
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict using lazy pair-level lookup (no full feature expansion).
+
+        :param batch: Featurized pairs to score.
+        :returns: Predicted responses.
+        """
+        if not self._is_fitted or self._model is None or batch.n_pairs == 0:
+            return np.full(batch.n_pairs, np.nan, dtype=np.float64)
+
+        loader = self._build_pair_loader(
+            batch,
+            batch.cell_line_pair_idx,
+            batch.drug_pair_idx,
+            response=None,
+            shuffle=False,
+            drop_last=False,
+        )
+
+        self._model.eval()
+        predictions: list[np.ndarray] = []
+        with torch.no_grad():
+            for tensors in loader:
+                x = torch.cat(tensors, dim=1)
+                preds = self._model(x).cpu().numpy()
+                predictions.append(preds)
+
+        return np.concatenate(predictions, axis=0).astype(np.float64).reshape(-1)
 
     def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
         _ = x, y

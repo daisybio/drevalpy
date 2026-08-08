@@ -160,13 +160,16 @@ class SuperFELTRPredictor(BlockPredictor):
         :param drug_id: Identifier of the drug to train on.
         :param batch: Subset batch for this drug.
         """
-        gex, mut, cnv = self._extract_pair_omics(batch)
-        n_samples = gex.shape[0]
+        pair_idx = batch.cell_line_pair_idx
+        gex_block = batch.cell_line_blocks["gene_expression"]
+        mut_block = batch.cell_line_blocks["mutations"]
+        cnv_block = batch.cell_line_blocks["copy_number_variation_gistic"]
+        n_samples = batch.n_pairs
 
         feature_names = _OmicFeatureNames(
-            gene_expression=batch.cell_line_blocks["gene_expression"].feature_names,
-            mutations=batch.cell_line_blocks["mutations"].feature_names,
-            copy_number_variation=batch.cell_line_blocks["copy_number_variation_gistic"].feature_names,
+            gene_expression=gex_block.feature_names,
+            mutations=mut_block.feature_names,
+            copy_number_variation=cnv_block.feature_names,
         )
         self._feature_names[drug_id] = feature_names
 
@@ -174,13 +177,19 @@ class SuperFELTRPredictor(BlockPredictor):
             self._drug_models[drug_id] = _DrugModel()
             return
 
-        dim_gex, dim_mut, dim_cnv = gex.shape[1], mut.shape[1], cnv.shape[1]
+        dim_gex = gex_block.values.shape[1]
+        dim_mut = mut_block.values.shape[1]
+        dim_cnv = cnv_block.values.shape[1]
 
         response = np.asarray(batch.response, dtype=np.float32)
         std = float(np.std(response))
         ranges = (std * 0.1, std)
 
-        val_gex, val_mut, val_cnv, val_response = self._build_early_stopping_matrices(batch)
+        val_pair_idx, val_response = self._build_early_stopping_indices(batch)
+
+        gex_entity = np.asarray(gex_block.values, dtype=np.float32)
+        mut_entity = np.asarray(mut_block.values, dtype=np.float32)
+        cnv_entity = np.asarray(cnv_block.values, dtype=np.float32)
 
         from .utils import train_superfeltr_model
 
@@ -199,14 +208,16 @@ class SuperFELTRPredictor(BlockPredictor):
                 best_ckpt = train_superfeltr_model(
                     model=encoder,
                     hpams=dict(self._hyperparameters),
-                    gene_expression=gex,
-                    mutations=mut,
-                    copy_number=cnv,
+                    gene_expression=gex_entity,
+                    mutations=mut_entity,
+                    copy_number=cnv_entity,
                     response=response,
-                    val_gene_expression=val_gex,
-                    val_mutations=val_mut,
-                    val_copy_number=val_cnv,
+                    pair_idx=pair_idx,
+                    val_gene_expression=gex_entity if val_pair_idx is not None else None,
+                    val_mutations=mut_entity if val_pair_idx is not None else None,
+                    val_copy_number=cnv_entity if val_pair_idx is not None else None,
                     val_response=val_response,
+                    val_pair_idx=val_pair_idx,
                     patience=5,
                     model_checkpoint_dir=str(batch.training_context.checkpoint_dir),
                 )
@@ -233,14 +244,16 @@ class SuperFELTRPredictor(BlockPredictor):
             best_checkpoint = train_superfeltr_model(
                 model=regressor,
                 hpams=dict(self._hyperparameters),
-                gene_expression=gex,
-                mutations=mut,
-                copy_number=cnv,
+                gene_expression=gex_entity,
+                mutations=mut_entity,
+                copy_number=cnv_entity,
                 response=response,
-                val_gene_expression=val_gex,
-                val_mutations=val_mut,
-                val_copy_number=val_cnv,
+                pair_idx=pair_idx,
+                val_gene_expression=gex_entity if val_pair_idx is not None else None,
+                val_mutations=mut_entity if val_pair_idx is not None else None,
+                val_copy_number=cnv_entity if val_pair_idx is not None else None,
                 val_response=val_response,
+                val_pair_idx=val_pair_idx,
                 patience=5,
                 model_checkpoint_dir=str(batch.training_context.checkpoint_dir),
             )
@@ -293,7 +306,11 @@ class SuperFELTRPredictor(BlockPredictor):
         if feature_names is None or dm.regressor is None:
             return np.full(batch.n_pairs, np.nan)
 
-        gex, mut, cnv = self._extract_pair_omics(batch)
+        pair_idx = batch.cell_line_pair_idx
+        gex = np.asarray(batch.cell_line_blocks["gene_expression"].values[pair_idx], dtype=np.float32)
+        mut = np.asarray(batch.cell_line_blocks["mutations"].values[pair_idx], dtype=np.float32)
+        cnv = np.asarray(batch.cell_line_blocks["copy_number_variation_gistic"].values[pair_idx], dtype=np.float32)
+
         gex = self._align_omic(
             gex, feature_names.gene_expression, batch.cell_line_blocks["gene_expression"].feature_names
         )
@@ -306,17 +323,20 @@ class SuperFELTRPredictor(BlockPredictor):
 
         return np.atleast_1d(dm.regressor.predict(gex, mut, cnv))
 
-    def _extract_pair_omics(self, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Extract pair-level omics matrices from batch blocks.
+    def _build_early_stopping_indices(self, batch: ModelInputBatch) -> tuple[np.ndarray | None, np.ndarray | None]:
+        """Build validation pair indices from the batch early stopping data.
 
-        :param batch: Input batch with cell-line blocks.
-        :returns: Tuple of (gene_expression, mutations, cnv) matrices.
+        :param batch: Training batch.
+        :returns: Tuple of (val_pair_idx, val_response), both None if unavailable.
         """
-        idx = batch.cell_line_pair_idx
-        gex = np.asarray(batch.cell_line_blocks["gene_expression"].values[idx], dtype=np.float32)
-        mut = np.asarray(batch.cell_line_blocks["mutations"].values[idx], dtype=np.float32)
-        cnv = np.asarray(batch.cell_line_blocks["copy_number_variation_gistic"].values[idx], dtype=np.float32)
-        return gex, mut, cnv
+        es_resp = batch.early_stopping_response
+        if es_resp is None or len(es_resp) < 2:
+            return None, None
+
+        entity_map = {str(eid): row for row, eid in enumerate(batch.cell_line_entity_ids)}
+        val_idx = np.array([entity_map[str(cl_id)] for cl_id in es_resp.cell_line_ids], dtype=np.intp)
+        val_response = np.asarray(es_resp.response, dtype=np.float32)
+        return val_idx, val_response
 
     @staticmethod
     def _align_omic(
@@ -336,31 +356,6 @@ class SuperFELTRPredictor(BlockPredictor):
         if len(model_features) == values.shape[1] and model_features == current_features:
             return values
         return _realign_omic_matrix(values, model_features, current_features)
-
-    def _build_early_stopping_matrices(
-        self, batch: ModelInputBatch
-    ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None, np.ndarray | None]:
-        """Build validation matrices from the batch early stopping data.
-
-        :param batch: Training batch.
-        :returns: Tuple of (gex, mut, cnv, response) for validation, all None if unavailable.
-        """
-        es_resp = batch.early_stopping_response
-        if es_resp is None or len(es_resp) < 2:
-            return None, None, None, None
-
-        entity_map = {str(eid): row for row, eid in enumerate(batch.cell_line_entity_ids)}
-        val_idx = np.array([entity_map[str(cl_id)] for cl_id in es_resp.cell_line_ids], dtype=np.intp)
-
-        gex_block = batch.cell_line_blocks["gene_expression"]
-        mut_block = batch.cell_line_blocks["mutations"]
-        cnv_block = batch.cell_line_blocks["copy_number_variation_gistic"]
-
-        val_gex = np.asarray(gex_block.values[val_idx], dtype=np.float32)
-        val_mut = np.asarray(mut_block.values[val_idx], dtype=np.float32)
-        val_cnv = np.asarray(cnv_block.values[val_idx], dtype=np.float32)
-        val_response = np.asarray(es_resp.response, dtype=np.float32)
-        return val_gex, val_mut, val_cnv, val_response
 
     def is_fitted(self) -> bool:
         """Report whether trained models exist.
