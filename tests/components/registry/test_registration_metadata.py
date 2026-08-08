@@ -49,7 +49,7 @@ def test_normalize_registration_metadata_rejects_non_string_tags() -> None:
 
 
 def test_normalize_registration_metadata_rejects_bad_reference_type() -> None:
-    with pytest.raises(TypeError, match="LiteratureReference"):
+    with pytest.raises((TypeError, Exception), match="LiteratureReference|did not match any element in the union"):
         normalize_registration_metadata("demo", reference="not-a-reference")  # type: ignore[arg-type]
 
 

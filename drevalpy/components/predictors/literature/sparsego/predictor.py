@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -57,9 +57,9 @@ def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarr
         gene_order = list(gene2id_mapping.keys())
 
     return (
-        cast(list, layer_connections),
-        cast(dict, gene2id_mapping),
-        cast(list, gene_order) if gene_order else list(cast(dict, gene2id_mapping).keys()),
+        list(layer_connections),  # type: ignore[arg-type]
+        dict(gene2id_mapping),  # type: ignore[arg-type]
+        list(gene_order) if gene_order else list(gene2id_mapping.keys()),  # type: ignore[arg-type]
     )
 
 

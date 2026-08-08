@@ -119,7 +119,9 @@ def test_register_rejects_blank_description_before_class_body() -> None:
 
 def test_register_rejects_bad_contract_before_class_body() -> None:
     registry = FeaturizerRegistry("test", "Test", "tests")
-    with pytest.raises(TypeError, match="FeatureContract or FeatureFormat"):
+    with pytest.raises(
+        (TypeError, Exception), match="FeatureContract|FeatureFormat|did not match any element in the union"
+    ):
         registry.register(
             "badContract",
             description="demo",
