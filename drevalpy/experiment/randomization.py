@@ -6,11 +6,14 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+import pandas as pd
 from sklearn.base import TransformerMixin, clone
 
-from ..datasets.dataset import DrugResponseDataset
+from ..datasets.mudataset import MuDataset
+from ..datasets.splitting import SplitMasks
 from ..models.drp_model import DRPModel
-from .training import load_features, train_and_predict_impl
+from .training import mu_train_and_predict
 
 
 def _resolve_cell_line_and_drug_views(
@@ -72,37 +75,48 @@ def build_randomization_test_views(
     return randomization_test_views
 
 
-def _normalize_view_list(views: list[str] | str) -> list[str]:
-    return [views] if isinstance(views, str) else list(views)
+def _available_views(mudataset: MuDataset) -> set[str]:
+    """Gather all view names available in the MuDataset."""
+    views: set[str] = set(mudataset.mdata.mod.keys()) - {"response"}
+    if mudataset.response.varm:
+        views.update(mudataset.response.varm.keys())
+    if "pathway_features" in (mudataset.response.obsm or {}):
+        views.add("pathway_features")
+    return views
 
 
-def _missing_randomization_views(
-    view_list: list[str],
-    cl_features,
-    drug_features,
-) -> list[str]:
-    return [
-        view
-        for view in view_list
-        if (cl_features is None or view not in cl_features.view_names)
-        and (drug_features is None or view not in drug_features.view_names)
-    ]
+def _missing_randomization_views(view_list: list[str], mudataset: MuDataset) -> list[str]:
+    """Return views from view_list not present in the MuDataset."""
+    available = _available_views(mudataset)
+    return [v for v in view_list if v not in available]
 
 
-def _randomize_feature_views(
-    view_list: list[str],
-    cl_features,
-    drug_features,
-    randomization_type: str,
-) -> tuple:
-    cl_features_rand = cl_features.copy() if cl_features is not None else None
-    drug_features_rand = drug_features.copy() if drug_features is not None else None
-    for view in view_list:
-        if cl_features_rand is not None and view in cl_features_rand.view_names:
-            cl_features_rand.randomize_features(view, randomization_type=randomization_type)
-        if drug_features_rand is not None and view in drug_features_rand.view_names:
-            drug_features_rand.randomize_features(view, randomization_type=randomization_type)
-    return cl_features_rand, drug_features_rand
+def _write_randomization_predictions(
+    prediction_file: Path,
+    mudataset: MuDataset,
+    test_masks: SplitMasks,
+    predictions: np.ndarray,
+) -> None:
+    """Write randomization test prediction CSV."""
+    cl_ids = mudataset.cell_line_ids
+    drug_ids = mudataset.drug_ids
+    response_matrix = mudataset.response_matrix
+
+    cl_idx = test_masks.test_cell_lines
+    dr_idx = test_masks.test_drugs
+
+    rows: dict[str, Any] = {"cell_line_ids": cl_ids[cl_idx]}
+    if dr_idx is not None:
+        rows["drug_ids"] = drug_ids[dr_idx]
+        rows["response"] = response_matrix[cl_idx, dr_idx]
+    else:
+        rows["drug_ids"] = np.full(len(cl_idx), "all", dtype=object)
+        rows["response"] = np.nanmean(response_matrix[cl_idx, :], axis=1)
+    rows["predictions"] = predictions
+
+    df = pd.DataFrame(rows)
+    prediction_file.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(prediction_file, index=False)
 
 
 def randomize_train_predict_impl(
@@ -112,9 +126,10 @@ def randomize_train_predict_impl(
     randomization_test_file: str | Path,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    train_dataset: DrugResponseDataset,
-    test_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
+    mudataset: MuDataset,
+    train_masks: SplitMasks,
+    test_masks: SplitMasks,
+    early_stopping_masks: SplitMasks | None = None,
     model_checkpoint_dir: str | Path | None = None,
     response_transformation: TransformerMixin | None = None,
 ) -> None:
@@ -126,55 +141,57 @@ def randomize_train_predict_impl(
     :param randomization_test_file: Output path for predictions.
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
-    :param train_dataset: Training split for the fold.
-    :param test_dataset: Test split for the fold.
-    :param early_stopping_dataset: Optional early-stopping data.
+    :param mudataset: Full MuDataset with all features.
+    :param train_masks: SplitMasks for training samples.
+    :param test_masks: SplitMasks for test samples.
+    :param early_stopping_masks: Optional SplitMasks for early stopping.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param response_transformation: Optional response transformer.
     """
-    view_list = _normalize_view_list(views)
-    trial_model = model_class(hyperparameters)
-    cl_features, drug_features = load_features(trial_model, train_dataset)
+    view_list = [views] if isinstance(views, str) else list(views)
 
-    if cl_features is None and drug_features is None:
-        warnings.warn(
-            "Both cl_features and drug_features are None. Skipping randomization test.",
-            stacklevel=2,
-        )
-        return
-
-    missing = _missing_randomization_views(view_list, cl_features, drug_features)
+    missing = _missing_randomization_views(view_list, mudataset)
     if missing:
         warnings.warn(
-            f"Views {missing} not found in features. Skipping randomization test {test_name}.",
+            f"Views {missing} not found in MuDataset. Skipping randomization test {test_name}.",
             stacklevel=2,
         )
         return
 
-    cl_features_rand, drug_features_rand = _randomize_feature_views(
-        view_list, cl_features, drug_features, randomization_type
+    randomized_mudataset = mudataset.with_randomized_views(
+        views=view_list,
+        randomization_type=randomization_type,
     )
+
+    trial_model = model_class(hyperparameters)
     trial_transform = None if response_transformation is None else clone(response_transformation)
-    test_dataset_rand = train_and_predict_impl(
+
+    predictions = mu_train_and_predict(
         model=trial_model,
-        train_dataset=train_dataset,
-        prediction_dataset=test_dataset,
-        early_stopping_dataset=early_stopping_dataset,
+        mudataset=randomized_mudataset,
+        train_masks=train_masks,
+        test_masks=test_masks,
+        early_stopping_masks=early_stopping_masks,
         response_transformation=trial_transform,
-        cl_features=cl_features_rand,
-        drug_features=drug_features_rand,
         model_checkpoint_dir=model_checkpoint_dir,
     )
-    test_dataset_rand.to_csv(randomization_test_file)
+
+    _write_randomization_predictions(
+        Path(randomization_test_file),
+        mudataset,
+        test_masks,
+        predictions,
+    )
 
 
 def randomization_test_impl(
     randomization_test_views: dict[str, list[str]],
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    train_dataset: DrugResponseDataset,
-    test_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
+    mudataset: MuDataset,
+    train_masks: SplitMasks,
+    test_masks: SplitMasks,
+    early_stopping_masks: SplitMasks | None,
     path_out: str | Path,
     split_index: int,
     randomization_type: str = "permutation",
@@ -186,9 +203,10 @@ def randomization_test_impl(
     :param randomization_test_views: Mapping from test names to feature views.
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
-    :param train_dataset: Training split for the fold.
-    :param test_dataset: Test split for the fold.
-    :param early_stopping_dataset: Optional early-stopping data.
+    :param mudataset: Full MuDataset with all features.
+    :param train_masks: SplitMasks for training samples.
+    :param test_masks: SplitMasks for test samples.
+    :param early_stopping_masks: Optional SplitMasks for early stopping.
     :param path_out: Directory where predictions are written.
     :param split_index: CV fold index for output file naming.
     :param randomization_type: Randomization strategy (for example ``permutation``).
@@ -210,9 +228,10 @@ def randomization_test_impl(
             randomization_test_file=randomization_test_file,
             model_class=model_class,
             hyperparameters=hyperparameters,
-            train_dataset=train_dataset,
-            test_dataset=test_dataset,
-            early_stopping_dataset=early_stopping_dataset,
+            mudataset=mudataset,
+            train_masks=train_masks,
+            test_masks=test_masks,
+            early_stopping_masks=early_stopping_masks,
             response_transformation=response_transformation,
             model_checkpoint_dir=model_checkpoint_dir,
         )

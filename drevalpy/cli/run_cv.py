@@ -14,13 +14,12 @@ def run_load_response(
     cross_study_dataset: bool = False,
     measure: str = "LN_IC50_curvecurator",
 ) -> None:
-    """Load drug response CSV and pickle a ``DrugResponseDataset``.
+    """Load drug response CSV and pickle a response DataFrame.
 
     :param response_dataset: response dataset.
     :param cross_study_dataset: cross study dataset.
     :param measure: measure.
     """
-    from drevalpy.datasets.dataset import DrugResponseDataset
     from drevalpy.datasets.loader import get_builtin_dataset_entry
     from drevalpy.datasets.utils import (
         CELL_LINE_IDENTIFIER,
@@ -31,28 +30,17 @@ def run_load_response(
     input_file = Path(response_dataset)
     dataset_name = input_file.stem
     entry = get_builtin_dataset_entry(dataset_name)
-    if entry is not None:
-        response_file = pd.read_csv(input_file, dtype={"pubchem_id": str})
-        if entry.tissue_override is not None:
-            response_file[TISSUE_IDENTIFIER] = entry.tissue_override
-        response_data = DrugResponseDataset(
-            response=response_file[measure].values,
-            cell_line_ids=response_file[CELL_LINE_IDENTIFIER].values,
-            drug_ids=response_file[DRUG_IDENTIFIER].values,
-            tissues=response_file[TISSUE_IDENTIFIER].values,
-            dataset_name=dataset_name,
-        )
-    else:
-        tissue_column: str | None = TISSUE_IDENTIFIER
-        if TISSUE_IDENTIFIER not in pd.read_csv(input_file, nrows=1).columns:
-            tissue_column = None
 
-        response_data = DrugResponseDataset.from_csv(
-            input_file=input_file,
-            dataset_name=dataset_name,
-            measure=measure,
-            tissue_column=tissue_column,
-        )
+    response_file = pd.read_csv(input_file, dtype={"pubchem_id": str})
+    if entry is not None and entry.tissue_override is not None:
+        response_file[TISSUE_IDENTIFIER] = entry.tissue_override
+
+    required_cols = [CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, measure]
+    if TISSUE_IDENTIFIER in response_file.columns:
+        required_cols.append(TISSUE_IDENTIFIER)
+    response_data = response_file[required_cols].rename(columns={measure: "response"})
+    response_data.attrs["dataset_name"] = dataset_name
+
     outfile = f"cross_study_{dataset_name}.pkl" if cross_study_dataset else "response_dataset.pkl"
     dump_trusted_pickle(response_data, outfile)
 
@@ -133,58 +121,6 @@ def run_hpam_split(
         yaml.dump(defaults, yaml_file, default_flow_style=False)
 
 
-def run_train_and_predict_cv(
-    *,
-    model_name: str,
-    test_mode: str = "LPO",
-    hyperparameters: str,
-    cv_data: str | Path,
-    response_transformation: str = "None",
-    model_checkpoint_dir: str | Path | None = None,
-) -> None:
-    """Train on a CV split and pickle validation predictions.
-
-    :param model_name: model name.
-    :param test_mode: test mode.
-    :param hyperparameters: hyperparameters.
-    :param cv_data: cv data.
-    :param response_transformation: response transformation.
-    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
-    """
-    from drevalpy.experiment import get_model_name_and_drug_id, train_and_predict
-    from drevalpy.experiment.fold import get_datasets_from_cv_split
-    from drevalpy.models._model_lookup import get_model_class
-    from drevalpy.utils import get_response_transformation
-
-    resolved_name, drug_id = get_model_name_and_drug_id(model_name)
-    model_class = get_model_class(resolved_name)
-    split = load_trusted_pickle(cv_data)
-
-    train_dataset, validation_dataset, es_dataset, _test_dataset = get_datasets_from_cv_split(
-        split, model_class, resolved_name, drug_id
-    )
-
-    response_transform = get_response_transformation(response_transformation)
-    with open(hyperparameters) as f:
-        hpams = yaml.safe_load(f)
-    model = model_class(hpams)
-
-    validation_dataset = train_and_predict(
-        model=model,
-        train_dataset=train_dataset,
-        prediction_dataset=validation_dataset,
-        early_stopping_dataset=es_dataset,
-        response_transformation=response_transform,
-        model_checkpoint_dir=model_checkpoint_dir,
-    )
-
-    dump_trusted_pickle(
-        validation_dataset,
-        f"prediction_dataset_{resolved_name}_{str(cv_data).split('.pkl')[0]}_"
-        f"{str(hyperparameters).split('.yaml')[0]}.pkl",
-    )
-
-
 def _best_metric(metric, current_metric, best_metric, minimization_metrics, maximization_metrics):
     if metric in minimization_metrics:
         if current_metric < best_metric:
@@ -233,7 +169,7 @@ def run_evaluate_and_find_max(
         pred_data = load_trusted_pickle(pred_datas[i])
         with open(hpam_yamls[i]) as yaml_file:
             hpam_combi = yaml.safe_load(yaml_file)
-        results = evaluate(pred_data, optim_metric)
+        results = evaluate(predictions=pred_data.predictions, response=pred_data.response, metric=optim_metric)
         if best_result is None:
             best_result = results[optim_metric]
             best_hpam_combi = hpam_combi

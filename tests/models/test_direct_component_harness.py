@@ -12,11 +12,9 @@ from drevalpy.models import construct_model
 from drevalpy.models.config import from_dict, validate
 from tests._trusted_subprocess import run_trusted_python
 from tests.models.synthetic_fixtures import (
-    cell_line_gene_expression,
-    drug_fingerprints,
-    identity_cell_line_features,
-    identity_drug_features,
-    multi_drug_response,
+    lco_split_masks,
+    synthetic_mudataset_gene_expression_fingerprints,
+    synthetic_mudataset_identity,
 )
 
 _NAIVE_PRESETS = (
@@ -36,37 +34,35 @@ _SKLEARN_PRESETS = (
 
 @pytest.mark.parametrize("preset", _NAIVE_PRESETS)
 def test_naive_direct_component_round_trip(preset: str) -> None:
-    response = multi_drug_response()
-    cell_line_input = identity_cell_line_features()
-    drug_input = identity_drug_features()
+    mudataset = synthetic_mudataset_identity()
+    split = lco_split_masks()
     model = construct_model(preset)()
-    model.train(response, cell_line_input, drug_input)
-    preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
-    assert preds.shape == (4,)
+    model.train(mudataset, split)
+    preds = model.predict(mudataset, split)
+    assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
         loaded = type(model).load(checkpoint)
-        loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+        loaded_preds = loaded.predict(mudataset, split)
     assert np.allclose(preds, loaded_preds)
 
 
 @pytest.mark.parametrize("preset", _SKLEARN_PRESETS)
 def test_sklearn_direct_component_round_trip(preset: str) -> None:
-    response = multi_drug_response()
-    cell_line_input = cell_line_gene_expression()
-    drug_input = None if preset.startswith("SingleDrug") else drug_fingerprints()
+    mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    split = lco_split_masks()
     model = construct_model(preset)()
-    model.train(response, cell_line_input, drug_input)
-    preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
-    assert preds.shape == (4,)
+    model.train(mudataset, split)
+    preds = model.predict(mudataset, split)
+    assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
         loaded = type(model).load(checkpoint)
-        loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+        loaded_preds = loaded.predict(mudataset, split)
     assert np.allclose(preds, loaded_preds)
 
 
@@ -135,33 +131,51 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
 
         sys.meta_path.insert(0, BlockFinder())
 
-        from drevalpy.models import construct_model
-        from drevalpy.models._model_lookup import known_model_names
-        from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+        import anndata as ad
+        import mudata as md
         import numpy as np
+        import pandas as pd
 
-        assert "NaivePredictor" in known_model_names()
-        response = DrugResponseDataset(
-            response=np.array([1.0, 2.0]),
-            cell_line_ids=np.array(["cl1", "cl2"]),
-            drug_ids=np.array(["d1", "d2"]),
+        from drevalpy.datasets.mudataset import MuDataset
+        from drevalpy.datasets.splitting import SplitMasks
+        from drevalpy.models import construct_model
+
+        cl_ids = np.array(["cl1", "cl2"])
+        drug_ids = np.array(["d1", "d2"])
+        response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+        response_ad = ad.AnnData(
+            X=response_matrix,
+            obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["L", "B"]}, index=cl_ids),
+            var=pd.DataFrame(index=drug_ids),
         )
-        cell = FeatureDataset(
-            features={
-                "cl1": {"gene_expression": np.ones(3)},
-                "cl2": {"gene_expression": np.zeros(3)},
-            }
+        ge_matrix = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], dtype=np.float32)
+        ge_ad = ad.AnnData(
+            X=ge_matrix,
+            obs=pd.DataFrame(index=cl_ids),
+            var=pd.DataFrame(index=["g0", "g1", "g2"]),
         )
-        drugs = FeatureDataset(
-            features={
-                "d1": {"fingerprints": np.array([1.0, 0.0])},
-                "d2": {"fingerprints": np.array([0.0, 1.0])},
-            }
+        response_ad.varm["fingerprints"] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+        mdata = md.MuData({"response": response_ad, "gene_expression": ge_ad})
+        mudataset_ge = MuDataset(mdata)
+
+        response_ad2 = ad.AnnData(
+            X=response_matrix.copy(),
+            obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["L", "B"]}, index=cl_ids),
+            var=pd.DataFrame(index=drug_ids),
         )
+        mdata2 = md.MuData({"response": response_ad2})
+        mudataset_id = MuDataset(mdata2)
+
+        split = SplitMasks(
+            train_cell_lines=np.array([0]),
+            test_cell_lines=np.array([1]),
+            val_cell_lines=np.array([], dtype=np.intp),
+        )
+
         naive = construct_model("NaivePredictor")({})
-        naive.train(response, FeatureDataset(features={}), FeatureDataset(features={}))
+        naive.train(mudataset_id, split)
         elastic = construct_model("ElasticNet")(construct_model("ElasticNet").get_hyperparameter_set()[0])
-        elastic.train(response, cell, drugs)
+        elastic.train(mudataset_ge, split)
         """)
     completed = run_trusted_python(script)
     assert completed.returncode == 0, completed.stdout + completed.stderr

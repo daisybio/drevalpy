@@ -85,28 +85,8 @@ def _ensure_bpe_smiles_features(path_data: str, dataset_name: str) -> None:
         print(f"Warning: drug_smiles.csv not found for {dataset_name}, skipping BPE creation")
         return
 
-    try:
-        from drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings import (
-            create_pharmaformer_drug_embeddings,
-        )
-    except ImportError:
-        print(f"Creating synthetic BPE SMILES features for {dataset_name}...")
-        _write_synthetic_bpe_smiles(smiles_file, bpe_smiles_file)
-        return
-
-    try:
-        print(f"Creating BPE SMILES features for {dataset_name}...")
-        create_pharmaformer_drug_embeddings(
-            data_path=path_data,
-            dataset_name=dataset_name,
-            num_symbols=10000,
-            max_length=128,
-        )
-        print(f"BPE SMILES features created for {dataset_name}")
-    except Exception as exc:
-        print(f"Warning: could not create BPE features for {dataset_name}: {exc}")
-        print(f"Creating synthetic BPE SMILES features for {dataset_name}...")
-        _write_synthetic_bpe_smiles(smiles_file, bpe_smiles_file)
+    print(f"Creating synthetic BPE SMILES features for {dataset_name}...")
+    _write_synthetic_bpe_smiles(smiles_file, bpe_smiles_file)
 
 
 def _ensure_smilesvec_features(path_data: str, dataset_name: str) -> None:
@@ -248,13 +228,49 @@ def ensure_precily_pathway_features(data_dir) -> None:
     path_data = str(data_dir)
 
     try:
-        from drevalpy.datasets.featurizer.create_precily_pathway_features import (
-            create_precily_pathway_features,
-        )
+        from gseapy import gsva  # noqa: F401
+
+        _has_gseapy = True
     except ImportError:
-        # If gseapy is not installed, skip pathway feature creation
-        # Tests that require Precily features will fail with a clear error message
+        _has_gseapy = False
+
+    if not _has_gseapy:
         return
+
+    def _csv_create_precily_pathway_features(data_path, dataset_name, gene_sets, min_size=5, max_size=2000):
+        """Lightweight CSV-based pathway feature generation for tests."""
+        import gseapy as gp
+
+        data_root = pathlib.Path(data_path)
+        expr_file = data_root / dataset_name / "gene_expression.csv"
+        import pandas as pd
+
+        expr = pd.read_csv(expr_file, index_col=0).select_dtypes(include="number")
+        expr = expr.loc[~expr.index.duplicated(keep="first")]
+        gv = gp.gsva(
+            data=expr.T,
+            gene_sets=gene_sets,
+            kcdf="Gaussian",
+            min_size=min_size,
+            max_size=max_size,
+            mx_diff=True,
+            threads=1,
+            seed=42,
+            outdir=None,
+            verbose=False,
+        )
+        long = gv.res2d.copy()
+        cols_map = {c.lower(): c for c in long.columns}
+        term_col = cols_map.get("term", "Term")
+        name_col = cols_map.get("name", "Name")
+        es_col = cols_map.get("es", cols_map.get("nes", "ES"))
+        import numpy as np
+
+        wide = long.pivot(index=term_col, columns=name_col, values=es_col)
+        scores = wide.T.astype(np.float32)
+        scores.index.name = "cell_line_name"
+        out_path = data_root / dataset_name / "pathway_features.csv"
+        scores.to_csv(out_path)
 
     # Ensure datasets are loaded first (this will download them if needed)
     if not _load_toy_datasets():
@@ -264,7 +280,7 @@ def ensure_precily_pathway_features(data_dir) -> None:
         _create_precily_pathway_features_for_dataset(
             path_data,
             dataset_name,
-            create_precily_pathway_features,
+            _csv_create_precily_pathway_features,
         )
 
 
@@ -324,20 +340,40 @@ def ensure_sparsego_ontology_features(data_dir) -> None:
             continue
 
         try:
-            from drevalpy.datasets.featurizer.create_sparsego_features import create_sparsego_files
+            import mygene  # noqa: F401
+            import obonet  # noqa: F401
         except ImportError:
-            print(f"Warning: SparseGO feature generators unavailable for {dataset_name}")
+            print(f"Warning: SparseGO dependencies (mygene, obonet) unavailable for {dataset_name}")
             continue
 
         try:
-            print(f"Generating SparseGO ontology features for {dataset_name} (network calls to GO/MyGene.info)...")
-            create_sparsego_files(
-                data_path=path_data,
-                dataset_name=dataset_name,
-            )
+            import sys
+
+            _scripts_dir = str(pathlib.Path(__file__).resolve().parent.parent / "scripts" / "featurizer")
+            if _scripts_dir not in sys.path:
+                sys.path.insert(0, _scripts_dir)
+            import pandas as pd
+            from sparsego_graph import build_pruned_graph, fetch_gene_go_annotations
+
+            expr_genes = pd.read_csv(expr_file, index_col=0, nrows=0).columns.tolist()
+            gene_go_df = fetch_gene_go_annotations(expr_genes)
+            our_graph = build_pruned_graph(gene_go_df, None, n=5, m=10, p=8)
+
+            import numpy as np
+
+            edges = np.array(list(our_graph.edges()))
+            edges = np.unique(edges, axis=0)
+            type_col = np.where(np.char.startswith(edges[:, 1].astype(str), "GO:"), "default", "gene")
+            edges_with_type = np.column_stack([edges, type_col])
+            pd.DataFrame(edges_with_type).to_csv(ont_file, sep="\t", index=False, header=False)
+
+            gene_edges = edges_with_type[edges_with_type[:, 2] == "gene"]
+            keep_genes = sorted(set(gene_edges[:, 1]))
+            with open(gene2ind_file, "w") as fh:
+                for idx, gene in enumerate(keep_genes):
+                    fh.write(f"{idx}\t{gene}\n")
             print(f"SparseGO ontology features created for {dataset_name}")
         except Exception as e:
-            # Log but don't fail - let individual tests handle missing features
             print(f"Warning: could not create SparseGO ontology features for {dataset_name}: {e}")
             import traceback
 
@@ -366,3 +402,28 @@ def ensure_model_drug_embeddings(
     for dataset_name in _TOY_DATASETS:
         _ensure_bpe_smiles_features(path_data, dataset_name)
         _ensure_smilesvec_features(path_data, dataset_name)
+
+
+def load_features_for_model(model, dataset_name: str = "TOYv1"):
+    """Load cell-line and drug features for a model via MuDataset.
+
+    Replaces the removed ``model.load_cell_line_features()`` / ``model.load_drug_features()``
+    pattern with the MuDataset-based approach.
+
+    :param model: DRPModel instance.
+    :param dataset_name: Dataset name to load.
+    :returns: Tuple of (cell_line_features, drug_features).
+    """
+    from drevalpy.components.data_loading import (
+        build_cell_line_features_from_mudataset,
+        build_drug_features_from_mudataset,
+    )
+    from drevalpy.datasets import load_mudataset
+
+    mudataset = load_mudataset(dataset_name)
+    config = model._resolved_model_config or model.model_config()
+    cl_ids = np.array(mudataset.cell_line_ids)
+    drug_ids = np.array(mudataset.drug_ids)
+    cl_features = build_cell_line_features_from_mudataset(mudataset, config, cl_ids)
+    drug_features = build_drug_features_from_mudataset(mudataset, config, drug_ids)
+    return cl_features, drug_features

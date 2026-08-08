@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 from pydantic import ValidationError
 
@@ -125,31 +123,6 @@ def test_view_featurizer_resolves_options_view() -> None:
         ),
     )
     assert config.drug_views() == ["drug_chemberta_embeddings"]
-
-
-def test_identity_drug_loading_uses_drug_ids_not_fingerprints() -> None:
-    from drevalpy.components.data_loading import load_drug_features_for_model_config
-
-    config = _model_config(
-        drug_featurizer=DrugFeaturizerConfig.model_validate("identity"),
-    )
-    with patch("drevalpy.components.data_loading.feature_loaders.load_drug_ids_from_csv") as load_ids:
-        with patch("drevalpy.components.data_loading.feature_loaders.load_drug_feature_views") as load_views:
-            load_drug_features_for_model_config(config, "GDSC1")
-    load_ids.assert_called_once_with("GDSC1")
-    load_views.assert_not_called()
-
-
-def test_no_drug_featurizer_skips_drug_loading() -> None:
-    from drevalpy.components.data_loading import load_drug_features_for_model_config
-
-    config = ModelConfig.model_validate({"predictor": PredictorConfig(name="naiveMean")})
-    with patch("drevalpy.components.data_loading.feature_loaders.load_drug_ids_from_csv") as load_ids:
-        with patch("drevalpy.components.data_loading.feature_loaders.load_drug_feature_views") as load_views:
-            result = load_drug_features_for_model_config(config, "GDSC1")
-    assert result is None
-    load_ids.assert_not_called()
-    load_views.assert_not_called()
 
 
 def test_feature_based_predictor_requires_a_drug_featurizer() -> None:

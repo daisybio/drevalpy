@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import tempfile
 
+import anndata as ad
 import numpy as np
+import pandas as pd
 import pytest
 
+import mudata as md
 from drevalpy.components.register_builtins import register_builtin_components
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.mudataset import MuDataset
+from drevalpy.datasets.splitting import SplitMasks
 from drevalpy.models import construct_model
 
 
@@ -17,56 +21,82 @@ def _register_components() -> None:
     register_builtin_components()
 
 
-def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:
-    response = DrugResponseDataset(
-        response=np.array([1.0, 2.0, 3.0, 4.0]),
-        cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
-        drug_ids=np.array(["d1", "d2", "d1", "d2"]),
+def _make_mudataset_ge_fingerprints() -> tuple[MuDataset, SplitMasks]:
+    cl_ids = np.array(["cl1", "cl2"])
+    drug_ids = np.array(["d1", "d2"])
+    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    response_ad = ad.AnnData(
+        X=response_matrix,
+        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
+        var=pd.DataFrame(index=drug_ids),
     )
-    cell_line_input = FeatureDataset(
-        features={
-            "cl1": {"gene_expression": np.array([0.1, 0.2, 0.3, 0.4])},
-            "cl2": {"gene_expression": np.array([0.5, 0.6, 0.7, 0.8])},
-        }
+    ge_matrix = np.array([[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]], dtype=np.float32)
+    gene_expression_ad = ad.AnnData(
+        X=ge_matrix,
+        obs=pd.DataFrame(index=cl_ids),
+        var=pd.DataFrame(index=[f"gene{i}" for i in range(4)]),
     )
-    drug_input = FeatureDataset(
-        features={
-            "d1": {"fingerprints": np.array([1.0, 0.0, 0.5, 0.2])},
-            "d2": {"fingerprints": np.array([0.0, 1.0, 0.3, 0.7])},
-        }
+    response_ad.varm["fingerprints"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
+    mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
+    mudataset = MuDataset(mdata)
+    split = SplitMasks(
+        train_cell_lines=np.array([0]),
+        test_cell_lines=np.array([1]),
+        val_cell_lines=np.array([], dtype=np.intp),
     )
-    return response, cell_line_input, drug_input
+    return mudataset, split
 
 
-def _multi_view_synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:
-    response = DrugResponseDataset(
-        response=np.array([1.0, 2.0, 3.0, 4.0]),
-        cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
-        drug_ids=np.array(["d1", "d2", "d1", "d2"]),
+def _make_mudataset_multiview() -> tuple[MuDataset, SplitMasks]:
+    cl_ids = np.array(["cl1", "cl2"])
+    drug_ids = np.array(["d1", "d2"])
+    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    response_ad = ad.AnnData(
+        X=response_matrix,
+        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
+        var=pd.DataFrame(index=drug_ids),
     )
-    cell_line_input = FeatureDataset(
-        features={
-            "cl1": {
-                "gene_expression": np.array([0.1, 0.2, 0.3, 0.4]),
-                "methylation": np.array([0.2, 0.3, 0.4, 0.5]),
-                "mutations": np.array([0.0, 1.0, 0.0, 1.0]),
-                "copy_number_variation_gistic": np.array([0.1, 0.1, 0.2, 0.2]),
-            },
-            "cl2": {
-                "gene_expression": np.array([0.5, 0.6, 0.7, 0.8]),
-                "methylation": np.array([0.6, 0.7, 0.8, 0.9]),
-                "mutations": np.array([1.0, 0.0, 1.0, 0.0]),
-                "copy_number_variation_gistic": np.array([0.3, 0.3, 0.4, 0.4]),
-            },
+    ge_matrix = np.array([[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]], dtype=np.float32)
+    gene_expression_ad = ad.AnnData(
+        X=ge_matrix,
+        obs=pd.DataFrame(index=cl_ids),
+        var=pd.DataFrame(index=[f"gene{i}" for i in range(4)]),
+    )
+    meth_matrix = np.array([[0.2, 0.3, 0.4, 0.5], [0.6, 0.7, 0.8, 0.9]], dtype=np.float32)
+    methylation_ad = ad.AnnData(
+        X=meth_matrix,
+        obs=pd.DataFrame(index=cl_ids),
+        var=pd.DataFrame(index=[f"cpg{i}" for i in range(4)]),
+    )
+    mut_matrix = np.array([[0.0, 1.0, 0.0, 1.0], [1.0, 0.0, 1.0, 0.0]], dtype=np.float32)
+    mutations_ad = ad.AnnData(
+        X=mut_matrix,
+        obs=pd.DataFrame(index=cl_ids),
+        var=pd.DataFrame(index=[f"mut{i}" for i in range(4)]),
+    )
+    cnv_matrix = np.array([[0.1, 0.1, 0.2, 0.2], [0.3, 0.3, 0.4, 0.4]], dtype=np.float32)
+    cnv_ad = ad.AnnData(
+        X=cnv_matrix,
+        obs=pd.DataFrame(index=cl_ids),
+        var=pd.DataFrame(index=[f"cnv{i}" for i in range(4)]),
+    )
+    response_ad.varm["fingerprints"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
+    mdata = md.MuData(
+        {
+            "response": response_ad,
+            "gene_expression": gene_expression_ad,
+            "methylation": methylation_ad,
+            "mutations": mutations_ad,
+            "copy_number_variation_gistic": cnv_ad,
         }
     )
-    drug_input = FeatureDataset(
-        features={
-            "d1": {"fingerprints": np.array([1.0, 0.0, 0.5, 0.2])},
-            "d2": {"fingerprints": np.array([0.0, 1.0, 0.3, 0.7])},
-        }
+    mudataset = MuDataset(mdata)
+    split = SplitMasks(
+        train_cell_lines=np.array([0]),
+        test_cell_lines=np.array([1]),
+        val_cell_lines=np.array([], dtype=np.intp),
     )
-    return response, cell_line_input, drug_input
+    return mudataset, split
 
 
 LITERATURE_MODEL_NAMES = (
@@ -103,8 +133,8 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
 @pytest.mark.parametrize(
     ("model_name", "hyperparameters", "data_factory"),
     [
-        ("SimpleNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, "_synthetic_data"),
-        ("SRMF", {"K": 2, "max_iter": 2, "n_features": 4}, "_synthetic_data"),
+        ("SimpleNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, "_make_mudataset_ge_fingerprints"),
+        ("SRMF", {"K": 2, "max_iter": 2, "n_features": 4}, "_make_mudataset_ge_fingerprints"),
         (
             "MultiViewNeuralNetwork",
             {
@@ -112,9 +142,9 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
                 "max_epochs": 1,
                 "methylation_pca_components": 2,
             },
-            "_multi_view_synthetic_data",
+            "_make_mudataset_multiview",
         ),
-        ("NaiveDrugMeanPredictor", {}, "_synthetic_data"),
+        ("NaiveDrugMeanPredictor", {}, "_make_mudataset_ge_fingerprints"),
     ],
 )
 def test_literature_model_lifecycle(
@@ -122,28 +152,18 @@ def test_literature_model_lifecycle(
     hyperparameters: dict,
     data_factory: str,
 ) -> None:
-    response, cell_line_input, drug_input = globals()[data_factory]()
+    mudataset, split = globals()[data_factory]()
     model = construct_model(model_name)(hyperparameters)
-    model.train(response, cell_line_input, drug_input)
-    preds = model.predict(
-        response.cell_line_ids,
-        response.drug_ids,
-        cell_line_input,
-        drug_input,
-    )
-    assert preds.shape == (len(response),)
+    model.train(mudataset, split)
+    preds = model.predict(mudataset, split)
+    assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
 
     with tempfile.TemporaryDirectory() as directory:
         checkpoint = f"{directory}/model"
         model.save(checkpoint)
         loaded = type(model).load(checkpoint)
-        loaded_preds = loaded.predict(
-            response.cell_line_ids,
-            response.drug_ids,
-            cell_line_input,
-            drug_input,
-        )
+        loaded_preds = loaded.predict(mudataset, split)
     assert np.allclose(preds, loaded_preds, rtol=1e-5, atol=1e-5)
 
 
@@ -152,11 +172,6 @@ def test_untrained_component_model_raises() -> None:
 
     model_cls = construct_model("elasticNet", "raw[expression]:fingerprints:elasticNet")
     model = model_cls({})
-    response, cell_line_input, drug_input = _synthetic_data()
+    mudataset, split = _make_mudataset_ge_fingerprints()
     with pytest.raises(RuntimeError, match="not been trained"):
-        model.predict(
-            response.cell_line_ids,
-            response.drug_ids,
-            cell_line_input,
-            drug_input,
-        )
+        model.predict(mudataset, split)

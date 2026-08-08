@@ -4,7 +4,8 @@ import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.decomposition import PCA
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.components._feature_dataset import FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 
 
 def prepare_expression_and_methylation(

@@ -28,7 +28,6 @@ from drevalpy.models.config import ModelConfig, from_spec
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
     drug_fingerprints,
-    identity_cell_line_features,
     multi_drug_response,
 )
 
@@ -226,17 +225,38 @@ def test_sklearn_set_state_raises_when_estimator_missing() -> None:
 
 
 def test_naive_tissue_round_trip() -> None:
-    response = multi_drug_response()
-    cell_line_input = identity_cell_line_features(with_tissue=True)
+    import anndata as ad
+    import pandas as pd
+
+    import mudata as md
+    from drevalpy.datasets.mudataset import MuDataset
+    from drevalpy.datasets.splitting import SplitMasks
+
+    cl_ids = np.array(["cl1", "cl2"])
+    drug_ids = np.array(["d1", "d2"])
+    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    response_ad = ad.AnnData(
+        X=response_matrix,
+        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
+        var=pd.DataFrame(index=drug_ids),
+    )
+    mdata = md.MuData({"response": response_ad})
+    mdata.obs["tissue"] = ["Lung", "Blood"]
+    mudataset = MuDataset(mdata)
+    split = SplitMasks(
+        train_cell_lines=np.array([0]),
+        test_cell_lines=np.array([1]),
+        val_cell_lines=np.array([], dtype=np.intp),
+    )
     model = construct_model("NaiveTissueMeanPredictor")()
-    model.train(response, cell_line_input, None)
-    preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, None)
+    model.train(mudataset, split)
+    preds = model.predict(mudataset, split)
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
         loaded = type(model).load(checkpoint)
-        loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, None)
+        loaded_preds = loaded.predict(mudataset, split)
     assert np.allclose(preds, loaded_preds)
 
 

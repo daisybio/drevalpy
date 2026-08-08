@@ -18,8 +18,10 @@ from drevalpy.components.tuning.drp_hyperparameters import (
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
-from drevalpy.components.tuning.hpo_runtime import build_ray_trainable, run_ray_tuner
+from drevalpy.components.tuning.hpo_runtime import build_ray_trainable, mu_build_ray_trainable, run_ray_tuner
 from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.mudataset import MuDataset
+from drevalpy.datasets.splitting import SplitMasks
 from drevalpy.models.drp_model import DRPModel
 
 logger = logging.getLogger(__name__)
@@ -185,6 +187,95 @@ def hpam_tune(
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             early_stopping_dataset=early_stopping_dataset,
+            response_transformation=response_transformation,
+            metric=metric,
+            model_checkpoint_dir=model_checkpoint_dir,
+            cfg=cfg,
+            wandb_project=wandb_project,
+            wandb_base_config=wandb_base_config,
+            split_index=split_index,
+            model_name=model_name,
+        )
+        results = run_ray_tuner(trainable_fn=trainable, structured_space=structured_space, cfg=cfg)
+        best_result = _select_best_result(results, cfg)
+        if best_result is None:
+            warnings.warn(
+                "Ray/Optuna tuning did not find a valid configuration; using defaults.",
+                stacklevel=2,
+            )
+            return default_hyperparameters_for_drp_model(model_class)
+
+        best_config = best_result.config or {}
+        best_model_config = tuned_config_for_drp_model(model_class, best_config)
+        if best_model_config is None:
+            return dict(best_config)
+        return public_hyperparameters_from_config(best_model_config)
+    finally:
+        if ray_initialized_here and ray.is_initialized():
+            ray.shutdown()
+
+
+def mu_hpam_tune(
+    *,
+    model_class: type[DRPModel],
+    mudataset: MuDataset,
+    train_masks: SplitMasks,
+    val_masks: SplitMasks,
+    early_stopping_masks: SplitMasks | None,
+    response_transformation: TransformerMixin | None = None,
+    metric: str = "RMSE",
+    model_checkpoint_dir: str | Path | None = None,
+    hpo_config: HPOConfig | None = None,
+    split_index: int | None = None,
+    wandb_project: str | None = None,
+    wandb_base_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Tune hyperparameters using MuDataset + SplitMasks (no DrugResponseDataset).
+
+    :param model_class: Model class to tune.
+    :param mudataset: Full dataset with all features.
+    :param train_masks: Training split masks.
+    :param val_masks: Validation split masks for scoring.
+    :param early_stopping_masks: Optional early-stopping masks.
+    :param response_transformation: Optional response transformer.
+    :param metric: Metric to optimize.
+    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param hpo_config: HPO configuration.
+    :param split_index: CV fold index for W&B logging.
+    :param wandb_project: W&B project name.
+    :param wandb_base_config: Base W&B config merged per trial.
+    :returns: Best flat hyperparameter mapping.
+    """
+    validate_hpo_metric(metric)
+    cfg = hpo_config or HPOConfig.from_metric(metric)
+    if cfg.metric != metric:
+        msg = f"HPOConfig.metric ({cfg.metric!r}) must match metric argument ({metric!r})"
+        raise ValueError(msg)
+
+    structured_space = structured_space_for_drp_model(model_class)
+    if not structured_space or not has_tunable_hyperparameters(model_class):
+        return model_class.get_default_hyperparameters()
+    if cfg.n_trials == 0:
+        return model_class.get_default_hyperparameters()
+
+    try:
+        import ray
+    except ImportError as exc:
+        msg = "Ray Tune with Optuna requires ray[tune] and optuna to be installed"
+        raise ImportError(msg) from exc
+
+    ray_initialized_here = not ray.is_initialized()
+    try:
+        if ray_initialized_here:
+            ray.init(ignore_reinit_error=True)
+
+        model_name = model_class.get_model_name()
+        trainable = mu_build_ray_trainable(
+            model_class=model_class,
+            mudataset=mudataset,
+            train_masks=train_masks,
+            val_masks=val_masks,
+            early_stopping_masks=early_stopping_masks,
             response_transformation=response_transformation,
             metric=metric,
             model_checkpoint_dir=model_checkpoint_dir,

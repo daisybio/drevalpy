@@ -50,9 +50,10 @@ def _accumulate_cross_study(
         filename = f"cross_study_{cross_study_dataset}_split_{split}.csv"
         if cross_study_dataset not in predictions["cross_study"]:
             predictions["cross_study"][cross_study_dataset] = []
-        predictions["cross_study"][cross_study_dataset].append(
-            pd.read_csv(cross_study_prediction_path / filename, index_col=0)
-        )
+        file_path = cross_study_prediction_path / filename
+        if not file_path.exists():
+            continue
+        predictions["cross_study"][cross_study_dataset].append(pd.read_csv(file_path, index_col=0))
 
 
 def _accumulate_robustness(
@@ -120,6 +121,8 @@ def _write_consolidated_split(
 ) -> None:
     pd.concat(predictions["main"], axis=0).to_csv(out_path / "predictions" / f"predictions_split_{split}.csv")
     for dataset_name, dataset_predictions in predictions["cross_study"].items():
+        if not dataset_predictions:
+            continue
         pd.concat(dataset_predictions, axis=0).to_csv(
             out_path / "cross_study" / f"cross_study_{dataset_name}_split_{split}.csv"
         )

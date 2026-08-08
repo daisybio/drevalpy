@@ -9,7 +9,6 @@ import numpy as np
 import wandb
 from pytorch_lightning.loggers import WandbLogger
 
-from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import AVAILABLE_METRICS, evaluate
 
 
@@ -133,25 +132,27 @@ class _DRPLoggingMixin:
 
     def compute_and_log_final_metrics(
         self,
-        dataset: DrugResponseDataset,
+        predictions: np.ndarray,
+        response: np.ndarray,
         additional_metrics: list[str] | None = None,
         prefix: str = "val_",
     ) -> dict[str, float]:
-        """Compute final metrics from a dataset and store them in wandb summary.
+        """Compute final metrics and store them in wandb summary.
 
-        :param dataset: Dataset with ``predictions`` populated.
+        :param predictions: Predicted response values.
+        :param response: Observed (true) response values.
         :param additional_metrics: Extra metric names beyond R² and Pearson.
         :param prefix: Key prefix for logged metric names.
         :returns: Mapping from metric name to scalar score.
         """
-        if dataset.predictions is None:
+        if predictions is None or len(predictions) == 0:
             return {}
 
         metrics_to_compute = ["R^2", "Pearson"]
         if additional_metrics:
             metrics_to_compute.extend(additional_metrics)
 
-        results = evaluate(dataset, metric=metrics_to_compute)
+        results = evaluate(predictions=predictions, response=response, metric=metrics_to_compute)
         if self.is_wandb_enabled() and wandb.run is not None:
             wandb_metrics = {f"{prefix}{key}": value for key, value in results.items()}
             self.log_final_metrics(wandb_metrics)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -12,21 +11,11 @@ from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_f
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line._sparsego_metadata import (
-    SparseGOOntologyMetadata,
-    attach_sparsego_ontology_metadata,
     read_sparsego_ontology_metadata,
 )
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.predictors.literature.sparsego.utils import (
-    load_mapping,
-    load_ontology,
-    pairs_in_layers,
-    sort_pairs,
-)
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.datasets._paths import get_default_data_dir
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.datasets.loading.multiomics import load_and_select_gene_features
 
 _INPUT_TYPES = frozenset({"expression", "mutations"})
 
@@ -94,45 +83,6 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         self._gene2id_mapping_ont: dict[str, int] | None = None
         self._ontology_gene_order: tuple[str, ...] = ()
         self._gene_dim_input = 0
-
-    @classmethod
-    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load, align, and annotate the active SparseGO omics feature view.
-
-        :param dataset_name: Dataset folder name.
-        :param kwargs: Loader options; ``input_type`` selects expression vs mutations.
-        :returns: Feature dataset with ontology metadata attached.
-        :raises FileNotFoundError: If SparseGO ontology files are missing.
-        :raises ValueError: If ontology genes are absent from the active view.
-        """
-        data_path = get_default_data_dir()
-        input_type = str(kwargs.get("input_type", "expression"))
-        view = _view_for_input_type(input_type)
-        root = Path(data_path) / dataset_name
-        ontology_file, gene_index_file = root / "sparseGO_ont.txt", root / "gene2ind.txt"
-        if not ontology_file.exists() or not gene_index_file.exists():
-            raise FileNotFoundError(f"SparseGO requires {ontology_file.name} and {gene_index_file.name} in {root}")
-        mapping = load_mapping(gene_index_file)
-        order = tuple(sorted(mapping, key=mapping.__getitem__))
-        features = load_and_select_gene_features(view, None, dataset_name)
-        columns = {str(gene): index for index, gene in enumerate(features.meta_info[view])}
-        missing = [gene for gene in order if gene not in columns]
-        if missing:
-            raise ValueError(f"Genes from gene2ind.txt missing in {view}: {missing[:5]}")
-        indices = [columns[gene] for gene in order]
-        for identifier in features.identifiers:
-            features.features[str(identifier)][view] = features.features[str(identifier)][view][indices]
-        features.meta_info[view] = np.asarray(order)
-        graph, term_pairs, gene_term_pairs = load_ontology(ontology_file, mapping)
-        sorted_pairs, level_list, level_numbers = sort_pairs(gene_term_pairs, term_pairs, graph, mapping)
-        metadata = SparseGOOntologyMetadata(
-            layer_connections=pairs_in_layers(sorted_pairs, level_list, level_numbers),
-            gene2id_mapping_ont=mapping,
-            ontology_gene_order=order,
-            gene_dim_input=len(mapping),
-        )
-        attach_sparsego_ontology_metadata(features, metadata)
-        return features
 
     def fit(
         self,

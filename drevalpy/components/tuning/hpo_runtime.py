@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from sklearn.base import TransformerMixin
 
 from drevalpy.components.tuning.config import HPOConfig
@@ -16,6 +17,8 @@ from drevalpy.components.tuning.drp_hyperparameters import (
 )
 from drevalpy.components.tuning.search_space import dict_to_ray_space
 from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.mudataset import MuDataset
+from drevalpy.datasets.splitting import SplitMasks
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.utils.checkpoints import resolve_checkpoint_dir
 
@@ -275,3 +278,174 @@ def run_ray_tuner(
         ),
     )
     return tuner.fit()
+
+
+# ------------------------------------------------------------------
+# MuDataset + SplitMasks path (no DrugResponseDataset)
+# ------------------------------------------------------------------
+
+
+def _extract_ground_truth(mudataset: MuDataset, split: SplitMasks, subset: str = "test") -> np.ndarray:
+    """Extract ground truth response values from MuDataset for the given subset.
+
+    :param mudataset: Source of response values.
+    :param split: Fold masks with cell-line/drug indices.
+    :param subset: Which portion to extract ("train", "test", or "val").
+    :returns: 1-D array of non-NaN ground-truth response values.
+    """
+    response_matrix = mudataset.response_matrix
+
+    if subset == "train":
+        cl_idx = split.train_cell_lines
+        dr_idx = split.train_drugs
+    elif subset == "test":
+        cl_idx = split.test_cell_lines
+        dr_idx = split.test_drugs
+    else:
+        cl_idx = split.val_cell_lines
+        dr_idx = split.val_drugs
+
+    if dr_idx is None:
+        sub_matrix = response_matrix[np.ix_(cl_idx, np.arange(response_matrix.shape[1]))]
+        values = sub_matrix[~np.isnan(sub_matrix)]
+    elif len(cl_idx) == response_matrix.shape[0] or (
+        len(cl_idx) > 0 and np.array_equal(cl_idx, np.arange(response_matrix.shape[0]))
+    ):
+        sub_matrix = response_matrix[np.ix_(cl_idx, dr_idx)]
+        values = sub_matrix[~np.isnan(sub_matrix)]
+    else:
+        responses = response_matrix[cl_idx, dr_idx]
+        values = responses[~np.isnan(responses)]
+
+    return values.astype(np.float64)
+
+
+def _mu_evaluate_trial_model(
+    trial_model: DRPModel,
+    *,
+    metric: str,
+    mudataset: MuDataset,
+    train_masks: SplitMasks,
+    val_masks: SplitMasks,
+    early_stopping_masks: SplitMasks | None,
+    response_transformation: TransformerMixin | None,
+    model_checkpoint_dir: str | Path | None,
+) -> float:
+    """Train a trial model and compute a validation metric using MuDataset + SplitMasks."""
+    from drevalpy.evaluation import AVAILABLE_METRICS
+
+    trial_dir = trial_checkpoint_dir(model_checkpoint_dir)
+    from drevalpy.utils.checkpoints import checkpoint_dir_or_temporary
+
+    with checkpoint_dir_or_temporary(trial_dir) as checkpoint_dir:
+        trial_model.train(
+            mudataset=mudataset,
+            split=train_masks,
+            model_checkpoint_dir=checkpoint_dir,
+        )
+
+    predictions = trial_model.predict(mudataset=mudataset, split=val_masks)
+
+    if response_transformation is not None:
+        predictions = response_transformation.inverse_transform(predictions.reshape(-1, 1)).ravel()
+
+    ground_truth = _extract_ground_truth(mudataset, val_masks, subset="test")
+
+    if len(predictions) != len(ground_truth):
+        min_len = min(len(predictions), len(ground_truth))
+        predictions = predictions[:min_len]
+        ground_truth = ground_truth[:min_len]
+
+    if len(predictions) == 0:
+        return float("nan")
+
+    metric_fn = AVAILABLE_METRICS.get(metric)
+    if metric_fn is None:
+        return float("nan")
+    return float(metric_fn(y_pred=predictions, y_true=ground_truth))
+
+
+def mu_build_ray_trainable(
+    *,
+    model_class: type[DRPModel],
+    mudataset: MuDataset,
+    train_masks: SplitMasks,
+    val_masks: SplitMasks,
+    early_stopping_masks: SplitMasks | None,
+    response_transformation: TransformerMixin | None,
+    metric: str,
+    model_checkpoint_dir: str | Path | None,
+    cfg: HPOConfig,
+    wandb_project: str | None,
+    wandb_base_config: dict[str, Any] | None,
+    split_index: int | None,
+    model_name: str,
+) -> Callable[[dict[str, Any]], None]:
+    """Build a Ray Tune trainable using MuDataset + SplitMasks.
+
+    :param model_class: Model class to tune.
+    :param mudataset: Full dataset with all features.
+    :param train_masks: Training split masks.
+    :param val_masks: Validation split masks for scoring.
+    :param early_stopping_masks: Optional early-stopping masks.
+    :param response_transformation: Optional response transformer.
+    :param metric: Metric to optimize.
+    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param cfg: HPO configuration.
+    :param wandb_project: W&B project name.
+    :param wandb_base_config: Base W&B config merged per trial.
+    :param split_index: CV fold index for W&B logging.
+    :param model_name: Model name for logging.
+    :returns: Callable trainable for Ray Tune.
+    """
+
+    def trainable(sampled: dict[str, Any]) -> None:
+        try:
+            trial_model = _construct_trial_model(model_class, sampled)
+            score = _mu_evaluate_trial_model(
+                trial_model,
+                metric=metric,
+                mudataset=mudataset,
+                train_masks=train_masks,
+                val_masks=val_masks,
+                early_stopping_masks=early_stopping_masks,
+                response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
+            _report_trial_score(metric, score)
+        except Exception:
+            _report_trial_failure(metric)
+
+    def trainable_with_wandb(sampled: dict[str, Any]) -> None:
+        if wandb_project is None:
+            trainable(sampled)
+            return
+        trial_model = _construct_trial_model(model_class, sampled)
+        trial_model._in_hyperparameter_tuning = True
+        _init_trial_wandb(
+            trial_model,
+            wandb_project=wandb_project,
+            wandb_base_config=wandb_base_config,
+            cfg=cfg,
+            model_name=model_name,
+            split_index=split_index,
+        )
+        try:
+            score = _mu_evaluate_trial_model(
+                trial_model,
+                metric=metric,
+                mudataset=mudataset,
+                train_masks=train_masks,
+                val_masks=val_masks,
+                early_stopping_masks=early_stopping_masks,
+                response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
+            _report_trial_score(metric, score)
+        except Exception:
+            _report_trial_failure(metric)
+        finally:
+            if trial_model.is_wandb_enabled():
+                trial_model.finish_wandb()
+
+    return trainable_with_wandb if wandb_project is not None else trainable

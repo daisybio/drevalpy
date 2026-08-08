@@ -7,15 +7,12 @@ import tempfile
 import numpy as np
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
-    cell_line_gene_expression,
-    drug_fingerprints,
-    identity_cell_line_features,
-    identity_drug_features,
-    multi_drug_response,
+    lco_split_masks,
+    synthetic_mudataset_gene_expression_fingerprints,
+    synthetic_mudataset_identity,
 )
 
 
@@ -23,27 +20,25 @@ def test_construct_model_supports_factory_lifecycle() -> None:
     elastic_net_cls = construct_model("ElasticNet")
     model = elastic_net_cls({"alpha": 0.1, "l1_ratio": 0.5})
     assert model.get_model_name() == "ElasticNet"
-    response = multi_drug_response()
-    cell_line_input = cell_line_gene_expression()
-    drug_input = drug_fingerprints()
-    model.train(response, cell_line_input, drug_input)
-    preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
-    assert preds.shape == (4,)
+    mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    split = lco_split_masks()
+    model.train(mudataset, split)
+    preds = model.predict(mudataset, split)
+    assert preds.shape == (2,)
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
         loaded = elastic_net_cls.load(checkpoint)
-        loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+        loaded_preds = loaded.predict(mudataset, split)
     assert np.allclose(preds, loaded_preds)
 
 
 def test_naive_model_round_trip() -> None:
     naive_drug_mean_cls = construct_model("NaiveDrugMeanPredictor")
     model = naive_drug_mean_cls({})
-    response = multi_drug_response()
-    cell_line_input = identity_cell_line_features()
-    drug_input = identity_drug_features()
-    model.train(response, cell_line_input, drug_input)
+    mudataset = synthetic_mudataset_identity()
+    split = lco_split_masks()
+    model.train(mudataset, split)
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
@@ -53,57 +48,54 @@ def test_naive_model_round_trip() -> None:
 
 
 def test_empty_training_transitions() -> None:
+    import anndata as ad
+    import pandas as pd
+
+    import mudata as md
+    from drevalpy.datasets.mudataset import MuDataset
+    from drevalpy.datasets.splitting import SplitMasks
+
     naive_drug_mean_cls = construct_model("NaiveDrugMeanPredictor")
     model = naive_drug_mean_cls({})
-    cell_line_input = identity_cell_line_features()
-    drug_input = identity_drug_features()
-    empty = DrugResponseDataset(
-        response=np.array([]),
-        cell_line_ids=np.array([]),
-        drug_ids=np.array([]),
-    )
-    response = multi_drug_response()
 
-    model.train(empty, cell_line_input, drug_input)
-    assert model._empty_training is True
-    empty_preds = model.predict(
-        np.array(["cl1"]),
-        np.array(["d1"]),
-        cell_line_input,
-        drug_input,
+    # All-NaN response matrix → empty training
+    nan_response = np.full((2, 2), np.nan, dtype=np.float32)
+    cl_ids = np.array(["cl1", "cl2"])
+    drug_ids = np.array(["d1", "d2"])
+    empty_ad = ad.AnnData(
+        X=nan_response,
+        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["L", "B"]}, index=cl_ids),
+        var=pd.DataFrame(index=drug_ids),
     )
+    empty_mudataset = MuDataset(md.MuData({"response": empty_ad}))
+    empty_split = SplitMasks(
+        train_cell_lines=np.array([0]),
+        test_cell_lines=np.array([1]),
+        val_cell_lines=np.array([], dtype=np.intp),
+    )
+
+    model.train(empty_mudataset, empty_split)
+    assert model._empty_training is True
+    empty_preds = model.predict(empty_mudataset, empty_split)
     assert np.isnan(empty_preds).all()
 
-    model.train(response, cell_line_input, drug_input)
+    mudataset = synthetic_mudataset_identity()
+    split = lco_split_masks()
+    model.train(mudataset, split)
     assert model._empty_training is False
     assert model._stack is not None
     assert model._stack.is_fitted()
-    real_preds = model.predict(
-        response.cell_line_ids,
-        response.drug_ids,
-        cell_line_input,
-        drug_input,
-    )
+    real_preds = model.predict(mudataset, split)
     assert np.isfinite(real_preds).all()
 
-    model.train(empty, cell_line_input, drug_input)
+    model.train(empty_mudataset, empty_split)
     assert model._empty_training is True
-    reempty_preds = model.predict(
-        np.array(["cl1"]),
-        np.array(["d1"]),
-        cell_line_input,
-        drug_input,
-    )
+    reempty_preds = model.predict(empty_mudataset, empty_split)
     assert np.isnan(reempty_preds).all()
 
-    model.train(response, cell_line_input, drug_input)
+    model.train(mudataset, split)
     assert model._empty_training is False
-    again_preds = model.predict(
-        response.cell_line_ids,
-        response.drug_ids,
-        cell_line_input,
-        drug_input,
-    )
+    again_preds = model.predict(mudataset, split)
     assert np.isfinite(again_preds).all()
 
 
@@ -129,12 +121,11 @@ def test_constructor_overrides_affect_views_before_feature_load() -> None:
 
 def test_separate_constructor_calls_have_isolated_fitted_state() -> None:
     naive_drug_mean_cls = construct_model("NaiveDrugMeanPredictor")
-    response = multi_drug_response()
-    cell_line_input = identity_cell_line_features()
-    drug_input = identity_drug_features()
+    mudataset = synthetic_mudataset_identity()
+    split = lco_split_masks()
     first = naive_drug_mean_cls()
     second = naive_drug_mean_cls()
-    first.train(response, cell_line_input, drug_input)
+    first.train(mudataset, split)
     assert first._stack is not None
     assert first._stack.is_fitted()
     assert second._stack is not None
@@ -146,16 +137,15 @@ def test_from_resolved_config_and_load_skip_default_stack() -> None:
     config = from_spec("ElasticNet", hyperparameters={"alpha": 0.2, "l1_ratio": 0.3})
     model = elastic_net_cls._from_resolved_config(config)
     assert model.hyperparameters["alpha"] == 0.2
-    response = multi_drug_response()
-    cell_line_input = cell_line_gene_expression()
-    drug_input = drug_fingerprints()
-    model.train(response, cell_line_input, drug_input)
-    preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+    mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    split = lco_split_masks()
+    model.train(mudataset, split)
+    preds = model.predict(mudataset, split)
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
         loaded = elastic_net_cls.load(checkpoint)
-    loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+    loaded_preds = loaded.predict(mudataset, split)
     assert np.allclose(preds, loaded_preds)
     assert loaded._stack is not None
     assert loaded._stack.is_fitted()
@@ -184,41 +174,3 @@ def test_hyperparameters_and_views_are_immutable_after_construction() -> None:
         model.drug_views = ["fingerprints"]  # type: ignore[misc]
 
     assert not hasattr(model, "_sync_predictor_hyperparameters")
-
-
-def test_load_drug_features_uses_featurizer_loader_when_configured(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from drevalpy.components.registry import get_predictor
-    from drevalpy.datasets.dataset import FeatureDataset
-
-    elastic_net_cls = construct_model("ElasticNet")
-    model = elastic_net_cls({"alpha": 0.1, "l1_ratio": 0.5})
-    assert model._resolved_model_config is not None
-    predictor_cls = get_predictor(model._resolved_model_config.template.predictor.name)
-
-    def _fake_loader(
-        cls: type,
-        data_path: str,
-        dataset_name: str,
-        *,
-        hyperparameters: dict | None = None,
-        model_name: str | None = None,
-    ):
-        _ = cls, data_path, dataset_name, model_name
-        _ = hyperparameters
-        raise AssertionError("predictor loader must not run when a featurizer is configured")
-
-    monkeypatch.setattr(
-        predictor_cls,
-        "load_dataset_drug_features",
-        classmethod(_fake_loader),
-        raising=False,
-    )
-
-    expected = FeatureDataset(features={"d1": {"fingerprints": np.array([1.0])}})
-    monkeypatch.setattr(
-        "drevalpy.components.data_loading.load_drug_features_for_model_config",
-        lambda *args, **kwargs: expected,
-    )
-    assert model.load_drug_features("TOY") is expected

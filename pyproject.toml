@@ -40,6 +40,7 @@ dependencies = [
     "platformdirs>=4.0",
     "typing-extensions>=4.12.0",
     "ray[tune]; sys_platform != 'win32' or python_version < '3.13'",
+    "mudata>=0.3.10",
 ]
 
 [project.scripts]
@@ -50,12 +51,8 @@ drevalpy-viability-postprocess = "drevalpy.cli.legacy:postprocess_viability"
 drevalpy-load-response = "drevalpy.cli.legacy:load_response"
 drevalpy-make-cv-pkls = "drevalpy.cli.legacy:cv_split"
 drevalpy-make-hpam-yamls = "drevalpy.cli.legacy:hpam_split"
-drevalpy-train-cv = "drevalpy.cli.legacy:train_and_predict_cv"
 drevalpy-evaluate-hpams = "drevalpy.cli.legacy:evaluate_and_find_max"
-drevalpy-test-cv = "drevalpy.cli.legacy:train_and_predict_final"
 drevalpy-make-randomization-yamls = "drevalpy.cli.legacy:randomization_split"
-drevalpy-make-final-split-pkls = "drevalpy.cli.legacy:final_split"
-drevalpy-tune-final-model = "drevalpy.cli.legacy:tune_final_model"
 drevalpy-train-final-model = "drevalpy.cli.legacy:train_final_model"
 drevalpy-consolidate-single-drug = "drevalpy.cli.legacy:consolidate_results"
 drevalpy-evaluate-test = "drevalpy.cli.legacy:evaluate_test_results"
@@ -75,6 +72,7 @@ dev = [
     "xdoctest",
     "types-PyYAML",
     "types-toml",
+    "jupyter>=1.1.1",
 ]
 docs = [
     "sphinx>=4.0.2",
@@ -110,6 +108,7 @@ ignore = []
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "D103"]
 "drevalpy/datasets/curvecurator.py" = ["S404", "S603"]
+"scripts/*" = ["D100", "D101", "D102", "D103", "D107"]
 "*.ipynb" = ["E402", "E501"]
 
 [tool.ruff.lint.pydocstyle]

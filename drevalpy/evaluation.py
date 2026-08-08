@@ -1,10 +1,12 @@
 """Functions for evaluating model performance."""
 
+from __future__ import annotations
+
 import numpy as np
+import pandas as pd
 from scipy.stats import kendalltau, pearsonr, spearmanr
 from sklearn import metrics
 
-from .datasets.dataset import DrugResponseDataset
 from .utils._pipeline_function import pipeline_function
 
 warning_shown = False
@@ -156,27 +158,44 @@ def _compute_metric_value(metric_name: str, predictions: np.ndarray, response: n
 
 
 @pipeline_function
-def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
-    """Compute evaluation metrics from stored predictions on a dataset.
+def evaluate(
+    predictions_or_dataset=None,
+    response: np.ndarray | pd.Series | None = None,
+    metric: list[str] | str = "Pearson",
+    *,
+    predictions: np.ndarray | pd.Series | None = None,
+) -> dict[str, float]:
+    """Compute evaluation metrics from predictions and observed response.
 
-    :param dataset: ``DrugResponseDataset`` with ``predictions`` populated.
+    Accepts either (predictions_array, response_array) or a single
+    DrugResponseDataset that carries both .predictions and .response.
+
+    :param predictions_or_dataset: Predicted values or a DrugResponseDataset.
+    :param response: Observed (true) response values (omit if dataset passed).
     :param metric: One metric name or a list of names from ``AVAILABLE_METRICS``.
-
+    :param predictions: Keyword-only alias for predictions_or_dataset.
     :returns: Mapping from metric name to scalar score.
-
     :raises AssertionError: If predictions are missing or a metric name is unknown.
     """
     if isinstance(metric, str):
         metric = [metric]
-    predictions = dataset.predictions
-    if predictions is None:
-        raise AssertionError("No predictions found in the dataset")
-    response = dataset.response
+
+    # Handle keyword-only predictions= argument
+    if predictions is not None:
+        preds_arr = np.asarray(predictions)
+        response_arr = np.asarray(response)
+    elif response is None and predictions_or_dataset is not None:
+        dataset = predictions_or_dataset
+        preds_arr = np.asarray(dataset.predictions)
+        response_arr = np.asarray(dataset.response)
+    else:
+        preds_arr = np.asarray(predictions_or_dataset)
+        response_arr = np.asarray(response)
 
     results = {}
     for m in metric:
         if m not in AVAILABLE_METRICS:
             raise AssertionError(f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}")
-        results[m] = _compute_metric_value(m, predictions, response)
+        results[m] = _compute_metric_value(m, preds_arr, response_arr)
 
     return results

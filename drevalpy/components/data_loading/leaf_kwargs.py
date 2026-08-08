@@ -17,13 +17,13 @@ def featurizer_leaf_kwargs(
 ) -> dict[str, Any]:
     """Build featurizer kwargs from options, hyperparameter defaults, and resolved values.
 
-    These are the kwargs passed to ``load_features`` / featurizer construction, and
+    These are the kwargs passed to featurizer construction, and
     the same kwargs that ``Featurizer.resolve_input_views`` interprets.
 
     :param leaf: Featurizer leaf configuration.
     :param registry: ``cell_line`` or ``drug``.
     :param resolved: Optional resolved instance values for tunable kwargs.
-    :returns: Keyword arguments for ``load_features`` / featurizer construction.
+    :returns: Keyword arguments for featurizer construction.
     """
     from drevalpy.components.featurizer_label import qualified_featurizer_selector
     from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer

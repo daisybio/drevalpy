@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
+from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizer_label import qualified_featurizer_selector
@@ -15,9 +16,13 @@ from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
 from drevalpy.models.config.resolved import ResolvedModelConfig
+
+if TYPE_CHECKING:
+    from drevalpy.datasets.mudataset import MuDataset
+    from drevalpy.datasets.splitting import SplitMasks
 
 
 def _build_fit_context(
@@ -256,7 +261,7 @@ class _ComponentStack:
         self._drug_entity_ids = entity_ids
         self._drug_matrix = matrix
 
-    def train(
+    def _fit_featurizers_and_predictor(
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
@@ -265,6 +270,15 @@ class _ComponentStack:
         output_earlystopping: DrugResponseDataset | None = None,
         training_context: TrainingContext | None = None,
     ) -> _ComponentStack:
+        """Fit featurizers on entity features and train the predictor on the batch.
+
+        :param output: Training response pairs.
+        :param cell_line_input: Cell-line feature views.
+        :param drug_input: Drug feature views, or ``None``.
+        :param output_earlystopping: Optional early-stopping response pairs.
+        :param training_context: Optional runtime metadata.
+        :returns: Self after training.
+        """
         if len(output) == 0:
             return self
 
@@ -331,13 +345,22 @@ class _ComponentStack:
                     raise ValueError(f"{key} state is not a mapping")
                 featurizer.set_state(value)
 
-    def predict(
+    def predict_from_features(
         self,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
+        """Predict using pre-built FeatureDataset objects.
+
+        :param cell_line_ids: Cell-line identifiers for each pair.
+        :param drug_ids: Drug identifiers for each pair.
+        :param cell_line_input: Cell-line feature views.
+        :param drug_input: Drug feature views, or ``None``.
+        :returns: Predicted response values.
+        :raises RuntimeError: If the predictor has not been fitted.
+        """
         if not self.is_fitted():
             msg = "Model has not been trained; call train() or load() before predict()"
             raise RuntimeError(msg)
@@ -375,3 +398,209 @@ class _ComponentStack:
             drug_matrix=drug_matrix,
         )
         return self._predictor.predict(batch)
+
+    # ------------------------------------------------------------------
+    # MuDataset-backed API
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _grid_pairs(
+        response_matrix: np.ndarray,
+        cl_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cl_idx: np.ndarray,
+        dr_idx: np.ndarray,
+    ) -> DrugResponseDataset:
+        """Extract response pairs from a cell-line x drug grid (LCO/LTO/LDO group mode).
+
+        :param response_matrix: Full response matrix (n_cell_lines x n_drugs).
+        :param cl_ids: All cell-line IDs.
+        :param drug_ids: All drug IDs.
+        :param cl_idx: Cell-line row indices to include.
+        :param dr_idx: Drug column indices to include.
+        :returns: Flat DrugResponseDataset with non-NaN entries from the grid.
+        """
+        sub_matrix = response_matrix[np.ix_(cl_idx, dr_idx)]
+        row_pos, col_pos = np.where(~np.isnan(sub_matrix))
+        return DrugResponseDataset(
+            response=sub_matrix[row_pos, col_pos].astype(np.float64),
+            cell_line_ids=cl_ids[cl_idx[row_pos]],
+            drug_ids=drug_ids[dr_idx[col_pos]],
+        )
+
+    @staticmethod
+    def _positional_pairs(
+        response_matrix: np.ndarray,
+        cl_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cl_idx: np.ndarray,
+        dr_idx: np.ndarray,
+    ) -> DrugResponseDataset:
+        """Extract response pairs from matched positional indices (LPO mode).
+
+        :param response_matrix: Full response matrix (n_cell_lines x n_drugs).
+        :param cl_ids: All cell-line IDs.
+        :param drug_ids: All drug IDs.
+        :param cl_idx: Cell-line indices (paired with dr_idx).
+        :param dr_idx: Drug indices (paired with cl_idx).
+        :returns: Flat DrugResponseDataset with non-NaN entries from the pairs.
+        """
+        responses = response_matrix[cl_idx, dr_idx]
+        valid = ~np.isnan(responses)
+        return DrugResponseDataset(
+            response=responses[valid].astype(np.float64),
+            cell_line_ids=cl_ids[cl_idx[valid]],
+            drug_ids=drug_ids[dr_idx[valid]],
+        )
+
+    @staticmethod
+    def _is_all_indices(cl_idx: np.ndarray, n_cell_lines: int) -> bool:
+        """Return True if cl_idx covers all cell-line positions (LDO group pattern)."""
+        return len(cl_idx) == n_cell_lines and np.array_equal(cl_idx, np.arange(n_cell_lines))
+
+    @staticmethod
+    def _extract_response_pairs(
+        mudataset: MuDataset,
+        split: SplitMasks,
+        *,
+        subset: Literal["train", "test", "val"],
+    ) -> DrugResponseDataset:
+        """Build a DrugResponseDataset from the MuDataset + SplitMasks for a given subset.
+
+        :param mudataset: Source of response values.
+        :param split: Fold masks with cell-line/drug indices.
+        :param subset: Which portion of the split to extract.
+        :returns: Flat DrugResponseDataset of (cell_line, drug, response) triples.
+        """
+        cl_ids = mudataset.cell_line_ids
+        drug_ids = mudataset.drug_ids
+        response_matrix = mudataset.response_matrix
+
+        if subset == "train":
+            cl_idx = split.train_cell_lines
+            dr_idx = split.train_drugs
+        elif subset == "test":
+            cl_idx = split.test_cell_lines
+            dr_idx = split.test_drugs
+        else:
+            cl_idx = split.val_cell_lines
+            dr_idx = split.val_drugs
+
+        if dr_idx is None:
+            # LCO/LTO: subset of cell lines x all drugs
+            all_dr_idx = np.arange(len(drug_ids))
+            return _ComponentStack._grid_pairs(response_matrix, cl_ids, drug_ids, cl_idx, all_dr_idx)
+
+        # Determine if these are positional pairs (LPO) or group-based (LDO)
+        if _ComponentStack._is_all_indices(cl_idx, len(cl_ids)):
+            return _ComponentStack._grid_pairs(response_matrix, cl_ids, drug_ids, cl_idx, dr_idx)
+
+        return _ComponentStack._positional_pairs(response_matrix, cl_ids, drug_ids, cl_idx, dr_idx)
+
+    def _build_features_from_mudataset(
+        self,
+        mudataset: MuDataset,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+    ) -> tuple[FeatureDataset, FeatureDataset | None]:
+        """Construct FeatureDatasets from MuDataset for the relevant entities.
+
+        :param mudataset: Source of feature data.
+        :param cell_line_ids: Unique cell-line IDs needed.
+        :param drug_ids: Unique drug IDs needed.
+        :returns: Tuple of (cell_line_features, drug_features).
+        """
+        from drevalpy.components.data_loading.feature_loaders import (
+            build_cell_line_features_from_mudataset,
+            build_drug_features_from_mudataset,
+        )
+
+        cl_features = build_cell_line_features_from_mudataset(mudataset, self._resolved, cell_line_ids)
+        drug_features = build_drug_features_from_mudataset(mudataset, self._resolved, drug_ids)
+        return cl_features, drug_features
+
+    def train(
+        self,
+        mudataset: MuDataset,
+        split: SplitMasks,
+        *,
+        training_context: TrainingContext | None = None,
+    ) -> _ComponentStack:
+        """Train the component stack using a MuDataset and SplitMasks.
+
+        Extracts response pairs and features from the MuDataset, then fits
+        featurizers and the predictor.
+
+        :param mudataset: Source of response values and features.
+        :param split: Fold masks defining train/val/test indices.
+        :param training_context: Optional runtime metadata.
+        :returns: Self after training.
+        """
+        output = self._extract_response_pairs(mudataset, split, subset="train")
+        if len(output) == 0:
+            return self
+
+        output_earlystopping: DrugResponseDataset | None = None
+        if split.val_cell_lines.size > 0:
+            output_earlystopping = self._extract_response_pairs(mudataset, split, subset="val")
+            if len(output_earlystopping) == 0:
+                output_earlystopping = None
+
+        all_cl_ids = unique_entity_ids(
+            np.concatenate(
+                [
+                    output.cell_line_ids,
+                    output_earlystopping.cell_line_ids if output_earlystopping else np.array([], dtype=str),
+                ]
+            )
+        )
+        all_drug_ids = unique_entity_ids(
+            np.concatenate(
+                [
+                    output.drug_ids,
+                    output_earlystopping.drug_ids if output_earlystopping else np.array([], dtype=str),
+                ]
+            )
+        )
+
+        cell_line_input, drug_input = self._build_features_from_mudataset(mudataset, all_cl_ids, all_drug_ids)
+
+        return self._fit_featurizers_and_predictor(
+            output,
+            cell_line_input,
+            drug_input,
+            output_earlystopping=output_earlystopping,
+            training_context=training_context,
+        )
+
+    def predict(
+        self,
+        mudataset: MuDataset,
+        split: SplitMasks,
+    ) -> np.ndarray:
+        """Predict responses for the test set defined by a SplitMasks.
+
+        :param mudataset: Source of feature data and entity IDs.
+        :param split: Fold masks; uses test indices for prediction.
+        :returns: Predicted response values for the test pairs.
+        :raises RuntimeError: If the predictor has not been fitted.
+        """
+        if not self.is_fitted():
+            msg = "Model has not been trained; call train() or load() before predict()"
+            raise RuntimeError(msg)
+
+        test_response = self._extract_response_pairs(mudataset, split, subset="test")
+        if len(test_response) == 0:
+            return np.array([])
+
+        all_cl_ids = unique_entity_ids(test_response.cell_line_ids)
+        all_drug_ids = unique_entity_ids(test_response.drug_ids)
+
+        cell_line_input, drug_input = self._build_features_from_mudataset(mudataset, all_cl_ids, all_drug_ids)
+
+        return self.predict_from_features(
+            test_response.cell_line_ids,
+            test_response.drug_ids,
+            cell_line_input,
+            drug_input,
+        )

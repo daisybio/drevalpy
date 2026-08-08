@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import ClassVar
 
 import numpy as np
@@ -12,9 +11,6 @@ from drevalpy.components.feature_block import BlockSpec, FeatureBlock, graph_fea
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
-from drevalpy.datasets._paths import get_default_data_dir
-from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.utils.torch_io import load_trusted_payload
 
 
 @register_drug_featurizer(
@@ -36,26 +32,6 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         self._view = view
         self._graphs: dict[str, object] = {}
         self._output_dim = 0
-
-    @classmethod
-    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load precomputed DrugGNN graph artifacts.
-
-        :param dataset_name: Dataset folder name.
-        :param kwargs: Unused loader keyword arguments.
-        :returns: Feature dataset mapping drug ids to graph payloads.
-        :raises FileNotFoundError: If the graph directory is missing.
-        :raises ValueError: If no graph files are found.
-        """
-        data_path = get_default_data_dir()
-        _ = cls, kwargs
-        directory = Path(data_path) / dataset_name / "drug_graphs"
-        if not directory.exists():
-            raise FileNotFoundError(f"Drug graph directory not found at {directory}")
-        graphs = {path.stem: load_trusted_payload(path) for path in directory.glob("*.pt")}
-        if not graphs:
-            raise ValueError(f"No drug graphs loaded from {directory}")
-        return FeatureDataset({drug_id: {"drug_graph": graph} for drug_id, graph in graphs.items()})
 
     def fit(
         self,

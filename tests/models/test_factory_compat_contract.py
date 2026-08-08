@@ -7,16 +7,13 @@ import tempfile
 import numpy as np
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY, construct_model
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.zoo import list_zoo_names
 from tests.models.synthetic_fixtures import (
-    cell_line_gene_expression,
-    drug_fingerprints,
-    identity_cell_line_features,
-    identity_drug_features,
-    multi_drug_response,
+    lco_split_masks,
+    synthetic_mudataset_gene_expression_fingerprints,
+    synthetic_mudataset_identity,
 )
 
 _FAST_EXECUTION_MODELS = (
@@ -137,42 +134,52 @@ def test_factory_entry_builds_flat_hyperparameters_full(model_name: str) -> None
 
 @pytest.mark.parametrize("model_name", _FAST_EXECUTION_MODELS)
 def test_fast_execution_matrix_train_predict_save_load(model_name: str) -> None:
-    response = multi_drug_response()
     if model_name.startswith("Naive"):
-        cell_line_input = identity_cell_line_features()
-        drug_input: FeatureDataset | None = identity_drug_features()
+        mudataset = synthetic_mudataset_identity()
     else:
-        cell_line_input = cell_line_gene_expression()
-        drug_input = drug_fingerprints()
-    if model_name.startswith("SingleDrug"):
-        drug_input = None
+        mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    split = lco_split_masks()
 
     model = MODEL_FACTORY[model_name](_minimal_hyperparameters(model_name))
-    model.train(response, cell_line_input, drug_input)
-    preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
-    assert preds.shape == (4,)
+    model.train(mudataset, split)
+    preds = model.predict(mudataset, split)
+    assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
         loaded = MODEL_FACTORY[model_name].load(checkpoint)
-        loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+        loaded_preds = loaded.predict(mudataset, split)
     assert np.allclose(preds, loaded_preds, equal_nan=True)
 
 
 def test_empty_training_predicts_nan() -> None:
+    import anndata as ad
+    import pandas as pd
+
+    import mudata as md
+    from drevalpy.datasets.mudataset import MuDataset
+    from drevalpy.datasets.splitting import SplitMasks
+
     model = construct_model("NaivePredictor")({})
-    empty = DrugResponseDataset(
-        response=np.array([]),
-        cell_line_ids=np.array([]),
-        drug_ids=np.array([]),
+
+    # All-NaN matrix produces empty training
+    nan_response = np.full((2, 2), np.nan, dtype=np.float32)
+    cl_ids = np.array(["cl1", "cl2"])
+    drug_ids = np.array(["d1", "d2"])
+    empty_ad = ad.AnnData(
+        X=nan_response,
+        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["L", "B"]}, index=cl_ids),
+        var=pd.DataFrame(index=drug_ids),
     )
-    model.train(empty, identity_cell_line_features(), identity_drug_features())
-    preds = model.predict(
-        np.array(["cl1"]),
-        np.array(["d1"]),
-        identity_cell_line_features(),
-        identity_drug_features(),
+    empty_mudataset = MuDataset(md.MuData({"response": empty_ad}))
+    # test_cell_lines=[1] → cl2 row is all NaN
+    empty_split = SplitMasks(
+        train_cell_lines=np.array([0]),
+        test_cell_lines=np.array([1]),
+        val_cell_lines=np.array([], dtype=np.intp),
     )
-    assert preds.shape == (1,)
+
+    model.train(empty_mudataset, empty_split)
+    preds = model.predict(empty_mudataset, empty_split)
     assert np.isnan(preds).all()

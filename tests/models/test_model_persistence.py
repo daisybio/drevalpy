@@ -23,16 +23,16 @@ from drevalpy.models._model_persistence import (
 )
 from drevalpy.models.config import ModelScope, from_spec
 from tests.models.synthetic_fixtures import (
-    cell_line_gene_expression,
-    drug_fingerprints,
-    multi_drug_response,
+    lco_split_masks,
+    synthetic_mudataset_gene_expression_fingerprints,
 )
 
 
 def _fitted_model():
     model = construct_model("ElasticNet")({"alpha": 0.1, "l1_ratio": 0.5})
-    response = multi_drug_response()
-    model.train(response, cell_line_gene_expression(), drug_fingerprints())
+    mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    split = lco_split_masks()
+    model.train(mudataset, split)
     return model
 
 
@@ -85,8 +85,9 @@ def test_load_model_reconstructs_without_class_handle() -> None:
 
 def test_load_model_supports_custom_model_names() -> None:
     model = construct_model("MyRF", "scaledGeneExpression:fingerprints:randomForest")({"n_estimators": 5})
-    response = multi_drug_response()
-    model.train(response, cell_line_gene_expression(), drug_fingerprints())
+    mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    split = lco_split_masks()
+    model.train(mudataset, split)
     with tempfile.TemporaryDirectory() as directory:
         checkpoint = str(Path(directory) / "my_rf")
         model.save(checkpoint)

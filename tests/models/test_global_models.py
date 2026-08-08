@@ -124,8 +124,6 @@ def _assert_global_model_save_load_roundtrip(
             checkpoint = f"{model_dir}/model"
             model.save(checkpoint)
             loaded_model = model_class.load(checkpoint)
-            if model_name == "SparseGO":
-                loaded_model.load_cell_line_features(dataset_name="TOYv1")
             assert isinstance(loaded_model, DRPModel)
 
             preds_after = loaded_model.predict(
@@ -190,8 +188,9 @@ def test_global_models(
     _apply_global_model_hpam_tweaks(model_name, hpam_combi)
     model = model_class(hpam_combi)
 
-    cell_line_input = model.load_cell_line_features(dataset_name="TOYv1")
-    drug_input = model.load_drug_features(dataset_name="TOYv1")
+    from tests.conftest import load_features_for_model
+
+    cell_line_input, drug_input = load_features_for_model(model, dataset_name="TOYv1")
     if drug_input is None:
         raise ValueError("Drug input is None")
 
@@ -290,8 +289,9 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
         }
         model = model_class(hpam_combi)
 
-        cell_line_input = model.load_cell_line_features(dataset_name="TOYv1")
-        drug_input = model.load_drug_features(dataset_name="TOYv1")
+        from tests.conftest import load_features_for_model
+
+        cell_line_input, drug_input = load_features_for_model(model, dataset_name="TOYv1")
         if drug_input is None:
             raise ValueError("Drug input is None")
 

@@ -19,7 +19,6 @@ from drevalpy.components.predictors.literature.dipk.gene_expression_encoder impo
 )
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.datasets.loading.multiomics import load_and_select_gene_features
 
 
 @register_cell_line_featurizer(
@@ -42,17 +41,6 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         self._encoder: GeneExpressionEncoder | None = None
         self._input_dim = 0
         self._latent_dim = 512
-
-    @classmethod
-    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load the DIPK intersection gene-expression view.
-
-        :param dataset_name: Dataset folder name.
-        :param kwargs: Unused loader keyword arguments.
-        :returns: Feature dataset with intersection gene expression.
-        """
-        _ = cls, kwargs
-        return load_and_select_gene_features("gene_expression", "gene_expression_intersection", dataset_name)
 
     def fit(
         self,

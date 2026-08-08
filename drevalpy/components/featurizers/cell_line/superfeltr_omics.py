@@ -14,7 +14,6 @@ from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.preprocessing import VarianceFeatureSelector
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.datasets.loading.multiomics import get_multiomics_feature_dataset
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 
@@ -42,19 +41,6 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         self._n_features = int(n_features_per_view)
         self._selectors = {view: VarianceFeatureSelector(view, self._n_features) for view in _VIEWS}
         self._feature_names: dict[str, tuple[str, ...]] = {}
-
-    @classmethod
-    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load full omics and apply SuperFELTR's arcsinh expression transform.
-
-        :param dataset_name: Dataset folder name.
-        :param kwargs: Unused loader keyword arguments.
-        :returns: Multi-omics feature dataset with arcsinh gene expression.
-        """
-        _ = cls, kwargs
-        features = get_multiomics_feature_dataset(dataset_name, gene_lists=None, omics=list(_VIEWS))
-        features.apply(np.arcsinh, view="gene_expression")
-        return features
 
     def fit(
         self,

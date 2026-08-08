@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.components._feature_dataset import FeatureDataset
 
 
 def unique_entity_ids(entity_ids: np.ndarray) -> np.ndarray:

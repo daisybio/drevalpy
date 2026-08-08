@@ -469,10 +469,36 @@ class DrugResponseDataset:
 
         :param path: path to the directory containing the cv split files
         """
-        from .cv_splits_load import load_cv_splits_from_dir
+        splits_dir = Path(path)
+        files = sorted(
+            entry.name
+            for entry in splits_dir.iterdir()
+            if entry.name.endswith(".csv") and entry.name.startswith("cv_split")
+        )
+        if not files:
+            raise AssertionError(f"No cv split files found in {splits_dir}")
+        train_files = sorted(f for f in files if "train" in f)
+        test_files = sorted(f for f in files if "test" in f)
+        validation_es_files = sorted(f for f in files if "validation_es" in f)
+        validation_files = sorted(f for f in files if "validation" in f and f not in validation_es_files)
+        es_files = sorted(f for f in files if "early_stopping" in f)
 
         self._cv_splits.clear()
-        self._cv_splits.extend(load_cv_splits_from_dir(path, self.dataset_name))
+        for split_train, split_test in zip(train_files, test_files, strict=True):
+            fold: dict[str, DrugResponseDataset] = {
+                "train": DrugResponseDataset.from_csv(splits_dir / split_train, dataset_name=self.dataset_name),
+                "test": DrugResponseDataset.from_csv(splits_dir / split_test, dataset_name=self.dataset_name),
+            }
+            self._cv_splits.append(fold)
+        for mode, mode_files in [
+            ("validation", validation_files),
+            ("validation_es", validation_es_files),
+            ("early_stopping", es_files),
+        ]:
+            for i, fname in enumerate(mode_files):
+                self._cv_splits[i][mode] = DrugResponseDataset.from_csv(
+                    splits_dir / fname, dataset_name=self.dataset_name
+                )
 
     def copy(self):
         """Returns a copy of the drug response dataset.

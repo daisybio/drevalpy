@@ -7,11 +7,10 @@ from typing import Any, ClassVar
 
 import numpy as np
 
+from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.contracts import FeatureContract, featurizer_contract
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.datasets._paths import get_default_data_dir
-from drevalpy.datasets.dataset import FeatureDataset
 
 
 class Featurizer(ABC):
@@ -166,21 +165,6 @@ class Featurizer(ABC):
         space = cls.get_hyperparameter_space()
         validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")
         return {key: spec["default"] for key, spec in space.items()}
-
-    @classmethod
-    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load the raw dataset required by this featurizer.
-
-        Featurizers that require bespoke on-disk artifacts override this hook.
-        Generic views continue to be loaded by the model data-loading layer.
-
-        :param dataset_name: Dataset folder name (for example ``"GDSC1"``).
-        :param kwargs: Featurizer-specific loader options from the model config.
-        :raises NotImplementedError: When the featurizer does not provide a custom loader.
-        """
-        data_path = get_default_data_dir()
-        _ = data_path, dataset_name, kwargs
-        raise NotImplementedError
 
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state for legacy save/load bridges.

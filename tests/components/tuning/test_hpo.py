@@ -336,8 +336,10 @@ def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
 
     model_cls = construct_model("ElasticNet")
     model = model_cls()
-    cell_line_input = model.load_cell_line_features(dataset_name="TOYv1")
-    drug_input = model.load_drug_features(dataset_name="TOYv1")
+
+    from tests.conftest import load_features_for_model
+
+    cell_line_input, drug_input = load_features_for_model(model, dataset_name="TOYv1")
     valid_cell_lines = list(cell_line_input.identifiers)[:2]
     valid_drugs = list(drug_input.identifiers)[:2]
     responses = np.array([1.0, 2.0, 3.0, 4.0], dtype=float)

@@ -8,8 +8,8 @@ import importlib_resources
 import pandas as pd
 
 from ..datasets._paths import get_default_data_dir
-from ..datasets.dataset import DrugResponseDataset
 from ..datasets.splits import MANIFEST_FILENAME, read_split_manifest
+from ..datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from ..evaluation import AVAILABLE_METRICS, evaluate
 from ..utils._pipeline_function import pipeline_function
 from . import (
@@ -173,26 +173,30 @@ def evaluate_file(
     :param pred_file: Path to a prediction CSV file.
     :param test_mode: Evaluation test mode (for example ``"LPO"``).
     :param model_name: Model or algorithm name.
-    :param dataset_name: Dataset label stored on the loaded ``DrugResponseDataset``.
+    :param dataset_name: Dataset label (unused, kept for API compatibility).
 
     :returns: Tuple of overall evaluation, per-drug, per-cell-line tables, true versus
     :returns: predicted values, and the generated model run name.
     """
     print("Parsing file:", pred_file)
-    dataset = DrugResponseDataset.from_csv(input_file=pred_file, dataset_name=dataset_name)
+    df = pd.read_csv(pred_file)
+
+    predictions = df["predictions"].to_numpy()
+    response = df["response"].to_numpy()
+    drug_ids = df[DRUG_IDENTIFIER].to_numpy()
+    cell_line_ids = df[CELL_LINE_IDENTIFIER].to_numpy()
 
     model = _generate_model_names(test_mode=test_mode, model_name=model_name, pred_file=pred_file)
 
-    # overall evaluation
-    overall_eval = {model: evaluate(dataset, list(AVAILABLE_METRICS.keys()))}
+    overall_eval = {model: evaluate(predictions=predictions, response=response, metric=list(AVAILABLE_METRICS.keys()))}
 
     true_vs_pred = pd.DataFrame(
         {
-            "model": [model for _ in range(len(dataset.response))],
-            "drug": dataset.drug_ids,
-            "cell_line": dataset.cell_line_ids,
-            "y_true": dataset.response,
-            "y_pred": dataset.predictions,
+            "model": [model for _ in range(len(response))],
+            "drug": drug_ids,
+            "cell_line": cell_line_ids,
+            "y_true": response,
+            "y_pred": predictions,
         }
     )
 
@@ -320,15 +324,11 @@ def compute_evaluation(df: pd.DataFrame, return_df: pd.DataFrame | None, group_b
 
     :returns: Evaluation metrics aggregated per group.
     """
-    result_per_group = df.groupby(group_by)[["y_true", "cell_line", "drug", "y_pred"]].apply(
+    result_per_group = df.groupby(group_by)[["y_true", "y_pred"]].apply(
         lambda x: evaluate(
-            DrugResponseDataset(
-                response=x["y_true"].to_numpy(),
-                cell_line_ids=x["cell_line"].to_numpy(),
-                drug_ids=x["drug"].to_numpy(),
-                predictions=x["y_pred"].to_numpy(),
-            ),
-            list(AVAILABLE_METRICS.keys()),
+            predictions=x["y_pred"].to_numpy(),
+            response=x["y_true"].to_numpy(),
+            metric=list(AVAILABLE_METRICS.keys()),
         )
     )
     groups = result_per_group.index

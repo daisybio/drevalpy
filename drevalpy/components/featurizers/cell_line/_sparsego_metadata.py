@@ -6,11 +6,11 @@ from typing import TypedDict, cast
 
 import numpy as np
 
-from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.components._feature_dataset import FeatureDataset
 
 
 class SparseGOOntologyMetadata(TypedDict):
-    """Ontology graph metadata produced by ``SparseGOOntologyFeaturizer.load_features``."""
+    """Ontology graph metadata attached to a SparseGO ``FeatureDataset``."""
 
     layer_connections: list[np.ndarray]
     gene2id_mapping_ont: dict[str, int]

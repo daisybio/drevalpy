@@ -2,53 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING
 
-from drevalpy.components.data_loading.leaf_kwargs import featurizer_leaf_kwargs
+import numpy as np
+
+from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.data_loading.view_resolution import views_from_featurizer_config
-from drevalpy.components.featurizer_tree import iter_featurizer_leaves
-from drevalpy.components.featurizers.base import Featurizer
-from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
-from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.datasets.feature_tables import (
-    load_cl_ids_and_tissues_from_csv,
-    load_cl_ids_from_csv,
-    load_drug_ids_from_csv,
-    load_tissues_from_csv,
-)
-from drevalpy.datasets.loading.views import load_cell_line_feature_views, load_drug_feature_views
-from drevalpy.models.config import FeaturizerConfig, ModelConfig, ResolvedModelConfig
+from drevalpy.models.config import ModelConfig, ResolvedModelConfig
 
-
-def _merge_features(current: FeatureDataset | None, incoming: FeatureDataset) -> FeatureDataset:
-    """Merge distinct feature views while rejecting ambiguous collisions.
-
-    :param current: Existing feature dataset, or ``None`` when this is the first view.
-    :param incoming: New views to add to *current*.
-
-    :returns: Combined ``FeatureDataset`` with views from both inputs.
-
-    :raises ValueError: If *incoming* reuses a view name already present in *current*.
-    """
-    if current is None:
-        return incoming
-    overlap = set(current.view_names).intersection(incoming.view_names)
-    if overlap:
-        raise ValueError(f"Featurizer loaders emitted duplicate views: {sorted(overlap)}")
-    current.add_features(incoming)
-    return current
-
-
-def _has_custom_loader(featurizer_cls: type[Featurizer]) -> bool:
-    """Return whether a featurizer overrides the optional disk-loading hook.
-
-    :param featurizer_cls: Featurizer class to inspect.
-
-    :returns: ``True`` when ``load_features`` is overridden on the subclass.
-    """
-    return getattr(featurizer_cls.load_features, "__func__", None) is not getattr(
-        Featurizer.load_features, "__func__", None
-    )
+if TYPE_CHECKING:
+    from drevalpy.datasets.mudataset import MuDataset
 
 
 def _unwrap_model_config(config: ModelConfig | ResolvedModelConfig) -> tuple[ModelConfig, ResolvedModelConfig | None]:
@@ -57,91 +20,118 @@ def _unwrap_model_config(config: ModelConfig | ResolvedModelConfig) -> tuple[Mod
     return config, None
 
 
-def _load_from_featurizer_tree(
-    config: FeaturizerConfig,
-    *,
-    registry: Literal["cell_line", "drug"],
-    dataset_name: str,
-    resolved: ResolvedModelConfig | None = None,
-) -> FeatureDataset | None:
-    """Load every leaf's raw data, using bespoke loaders where available.
+# ---------------------------------------------------------------------------
+# MuDataset-based feature construction
+# ---------------------------------------------------------------------------
 
-    :param config: Featurizer tree configuration for the requested registry.
-    :param registry: Whether to resolve cell-line or drug featurizers.
-    :param dataset_name: Dataset subdirectory or registry name.
-    :param resolved: Optional resolved instance values for tunable loader kwargs.
 
-    :returns: Merged ``FeatureDataset`` for all leaves, or ``None`` when nothing was loaded.
+def _build_cell_line_feature_dict(
+    mudataset: MuDataset,
+    views: list[str],
+    cell_line_ids: np.ndarray,
+) -> dict[str, dict[str, np.ndarray]]:
+    """Build the nested ``{entity_id: {view: array}}`` structure from a MuDataset.
+
+    :param mudataset: Dataset wrapper providing cell-line feature accessors.
+    :param views: Raw view names required by the featurizer tree.
+    :param cell_line_ids: Cell-line IDs to include.
+    :returns: Nested dict suitable for ``FeatureDataset``.
     """
-    loaded: FeatureDataset | None = None
-    for leaf in iter_featurizer_leaves(config, registry):
-        cls = get_cell_line_featurizer(leaf.name) if registry == "cell_line" else get_drug_featurizer(leaf.name)
-        kwargs = featurizer_leaf_kwargs(leaf, registry=registry, resolved=resolved)
-        if _has_custom_loader(cls):
-            loaded = _merge_features(loaded, cls.load_features(dataset_name, **kwargs))
-            continue
-        views = views_from_featurizer_config(leaf, registry=registry, resolved=resolved)
-        if not views:
-            continue
-        fallback = (
-            load_cell_line_feature_views(views, dataset_name)
-            if registry == "cell_line"
-            else load_drug_feature_views(views, dataset_name)
-        )
-        if fallback is not None:
-            loaded = _merge_features(loaded, fallback)
-    return loaded
+    features: dict[str, dict[str, np.ndarray]] = {}
+    view_matrices: dict[str, np.ndarray] = {}
+    for view in views:
+        view_matrices[view] = mudataset.get_cell_line_features(view, cell_line_ids)
+    for i, cl_id in enumerate(cell_line_ids):
+        features[str(cl_id)] = {view: view_matrices[view][i] for view in views}
+    return features
 
 
-def load_cell_line_features_for_model_config(
+def _build_drug_feature_dict(
+    mudataset: MuDataset,
+    views: list[str],
+    drug_ids: np.ndarray,
+) -> dict[str, dict[str, np.ndarray]]:
+    """Build the nested ``{entity_id: {view: array}}`` structure for drugs.
+
+    :param mudataset: Dataset wrapper providing drug feature accessors.
+    :param views: Drug view names (varm keys) required by the featurizer tree.
+    :param drug_ids: Drug IDs to include.
+    :returns: Nested dict suitable for ``FeatureDataset``.
+    """
+    features: dict[str, dict[str, np.ndarray]] = {}
+    view_matrices: dict[str, np.ndarray] = {}
+    for view in views:
+        view_matrices[view] = mudataset.get_drug_features(view, drug_ids)
+    for i, drug_id in enumerate(drug_ids):
+        features[str(drug_id)] = {view: view_matrices[view][i] for view in views}
+    return features
+
+
+def build_cell_line_features_from_mudataset(
+    mudataset: MuDataset,
     config: ModelConfig | ResolvedModelConfig,
-    dataset_name: str,
+    cell_line_ids: np.ndarray,
 ) -> FeatureDataset:
-    """Load cell-line features implied by *config*, including identity-only featurizers.
+    """Construct a ``FeatureDataset`` for cell lines from a MuDataset.
 
-    :param config: Template or resolved model configuration.
-    :param dataset_name: Dataset subdirectory or registry name.
+    Uses the model config to determine which views are needed, then pulls
+    data from the MuDataset. For identity/tissue-only featurizers, builds a
+    minimal FeatureDataset with just IDs or tissue labels.
 
-    :returns: ``FeatureDataset`` with views required by the cell-line featurizer tree.
+    :param mudataset: MuDataset providing all feature data.
+    :param config: Model config declaring required views.
+    :param cell_line_ids: Cell-line IDs to include in the feature dataset.
+    :returns: FeatureDataset populated from the MuDataset.
     """
     template, resolved = _unwrap_model_config(config)
     featurizer = template.cell_line_featurizer
+
     if featurizer is not None and featurizer.name == "tissue":
-        return load_tissues_from_csv(dataset_name)
+        tissues = mudataset.get_tissue(cell_line_ids)
+        return FeatureDataset(
+            features={str(cl): {"tissue": np.array([t])} for cl, t in zip(cell_line_ids, tissues, strict=True)}
+        )
+
     if template.predictor.name == "naiveMeanEffects" and (featurizer is None or featurizer.name == "identity"):
-        return load_cl_ids_and_tissues_from_csv(dataset_name)
-    if template.cell_line_entity_id_only():
-        return load_cl_ids_from_csv(dataset_name)
-    if featurizer is None:
-        return load_cl_ids_from_csv(dataset_name)
-    loaded = _load_from_featurizer_tree(
-        featurizer,
-        registry="cell_line",
-        dataset_name=dataset_name,
-        resolved=resolved,
-    )
-    return loaded if loaded is not None else load_cl_ids_from_csv(dataset_name)
+        tissues = mudataset.get_tissue(cell_line_ids)
+        return FeatureDataset(
+            features={
+                str(cl): {"cell_line_id": np.array([cl]), "tissue": np.array([t])}
+                for cl, t in zip(cell_line_ids, tissues, strict=True)
+            }
+        )
+
+    if featurizer is None or template.cell_line_entity_id_only():
+        return FeatureDataset(features={str(cl): {"cell_line_id": np.array([cl])} for cl in cell_line_ids})
+
+    views = views_from_featurizer_config(featurizer, registry="cell_line", resolved=resolved)
+    if not views:
+        return FeatureDataset(features={str(cl): {"cell_line_id": np.array([cl])} for cl in cell_line_ids})
+    feat_dict = _build_cell_line_feature_dict(mudataset, views, cell_line_ids)
+    return FeatureDataset(features=feat_dict)
 
 
-def load_drug_features_for_model_config(
+def build_drug_features_from_mudataset(
+    mudataset: MuDataset,
     config: ModelConfig | ResolvedModelConfig,
-    dataset_name: str,
+    drug_ids: np.ndarray,
 ) -> FeatureDataset | None:
-    """Load drug features implied by *config*, including identity-only featurizers.
+    """Construct a ``FeatureDataset`` for drugs from a MuDataset.
 
-    :param config: Template or resolved model configuration.
-    :param dataset_name: Dataset subdirectory or registry name.
-
-    :returns: ``FeatureDataset`` with drug views, or ``None`` when the model has no drug featurizer.
+    :param mudataset: MuDataset providing all feature data.
+    :param config: Model config declaring required drug views.
+    :param drug_ids: Drug IDs to include in the feature dataset.
+    :returns: FeatureDataset populated from the MuDataset, or None if no drug featurizer.
     """
     template, resolved = _unwrap_model_config(config)
     if template.drug_featurizer is None:
         return None
+
     if template.drug_entity_id_only():
-        return load_drug_ids_from_csv(dataset_name)
-    return _load_from_featurizer_tree(
-        template.drug_featurizer,
-        registry="drug",
-        dataset_name=dataset_name,
-        resolved=resolved,
-    )
+        return FeatureDataset(features={str(d): {"drug_id": np.array([d])} for d in drug_ids})
+
+    views = views_from_featurizer_config(template.drug_featurizer, registry="drug", resolved=resolved)
+    if not views:
+        return FeatureDataset(features={str(d): {"drug_id": np.array([d])} for d in drug_ids})
+    feat_dict = _build_drug_feature_dict(mudataset, views, drug_ids)
+    return FeatureDataset(features=feat_dict)

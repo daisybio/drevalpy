@@ -1,4 +1,8 @@
-"""Cross-study prediction helpers for experiment workflows."""
+"""Cross-study prediction helpers for experiment workflows.
+
+Evaluates a model trained on one study against a held-out target study,
+removing overlap according to the test mode (LPO, LCO, LDO, LTO).
+"""
 
 from __future__ import annotations
 
@@ -6,158 +10,209 @@ import warnings
 from pathlib import Path
 
 import numpy as np
-from sklearn.base import TransformerMixin
+import pandas as pd
 
-from ..datasets.dataset import DrugResponseDataset
+from ..datasets.mudataset import MuDataset
+from ..datasets.splitting import SplitMasks
 from ..models.drp_model import DRPModel
-from .training import load_features
 
 
-def _merge_early_stopping_into_train(
-    train_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
-) -> DrugResponseDataset:
-    if early_stopping_dataset is not None:
-        train_dataset.add_rows(early_stopping_dataset)
-    return train_dataset
-
-
-def _remove_lpo_overlap(train_dataset: DrugResponseDataset, dataset: DrugResponseDataset) -> None:
-    train_pairs = {f"{cl}_{drug}" for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids, strict=True)}
-    dataset_pairs = [f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids, strict=True)]
-    dataset.remove_rows(np.array([i for i, pair in enumerate(dataset_pairs) if pair in train_pairs]))
-
-
-def _remove_lco_overlap(train_dataset: DrugResponseDataset, dataset: DrugResponseDataset) -> None:
-    dataset.reduce_to(
-        cell_line_ids=np.setdiff1d(dataset.cell_line_ids, train_dataset.cell_line_ids),
-        drug_ids=None,
+def _all_pairs_masks(mudataset: MuDataset) -> SplitMasks:
+    """Build SplitMasks that select all non-NaN pairs as the test set."""
+    response = mudataset.response_matrix
+    row_idx, col_idx = np.where(~np.isnan(response))
+    empty = np.array([], dtype=np.intp)
+    return SplitMasks(
+        train_cell_lines=empty,
+        test_cell_lines=row_idx,
+        val_cell_lines=empty,
+        train_drugs=None,
+        test_drugs=col_idx,
+        val_drugs=None,
     )
 
 
-def _remove_ldo_overlap(train_dataset: DrugResponseDataset, dataset: DrugResponseDataset) -> None:
-    dataset.reduce_to(
-        cell_line_ids=None,
-        drug_ids=np.setdiff1d(dataset.drug_ids, train_dataset.drug_ids),
-    )
+def _remove_lpo_overlap(
+    train_masks: SplitMasks,
+    source: MuDataset,
+    target_cl_idx: np.ndarray,
+    target_dr_idx: np.ndarray,
+    target: MuDataset,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Remove pairs that appear in both training and target (leave-pair-out)."""
+    src_cl_ids = source.cell_line_ids
+    src_drug_ids = source.drug_ids
+    train_cl = train_masks.train_cell_lines
+    train_dr = train_masks.train_drugs
 
-
-def _remove_lto_overlap(train_dataset: DrugResponseDataset, dataset: DrugResponseDataset) -> None:
-    if train_dataset.tissue is None or dataset.tissue is None:
-        raise ValueError("Tissue information not available.")
-    train_tissues = set(train_dataset.tissue)
-    indices = np.array([i for i, t in enumerate(dataset.tissue) if t not in train_tissues])
-    if len(indices) > 0:
-        cell_lines_to_keep = np.unique(dataset.cell_line_ids[indices])
+    if train_dr is not None:
+        train_pairs = {f"{src_cl_ids[c]}_{src_drug_ids[d]}" for c, d in zip(train_cl, train_dr, strict=True)}
     else:
-        cell_lines_to_keep = np.array([])
-    dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
+        all_drugs = np.arange(len(src_drug_ids))
+        train_pairs = {f"{src_cl_ids[c]}_{src_drug_ids[d]}" for c in train_cl for d in all_drugs}
+
+    tgt_cl_ids = target.cell_line_ids
+    tgt_drug_ids = target.drug_ids
+    keep = np.array(
+        [
+            i
+            for i in range(len(target_cl_idx))
+            if f"{tgt_cl_ids[target_cl_idx[i]]}_{tgt_drug_ids[target_dr_idx[i]]}" not in train_pairs
+        ],
+        dtype=np.intp,
+    )
+    return target_cl_idx[keep], target_dr_idx[keep]
 
 
-def remove_train_overlap_for_test_mode(
+def _remove_lco_overlap(
+    train_masks: SplitMasks,
+    source: MuDataset,
+    target_cl_idx: np.ndarray,
+    target_dr_idx: np.ndarray,
+    target: MuDataset,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Remove cell lines that appear in training (leave-cell-line-out)."""
+    train_cl_names = set(source.cell_line_ids[train_masks.train_cell_lines])
+    tgt_cl_ids = target.cell_line_ids
+    keep = np.array(
+        [i for i in range(len(target_cl_idx)) if tgt_cl_ids[target_cl_idx[i]] not in train_cl_names],
+        dtype=np.intp,
+    )
+    return target_cl_idx[keep], target_dr_idx[keep]
+
+
+def _remove_ldo_overlap(
+    train_masks: SplitMasks,
+    source: MuDataset,
+    target_cl_idx: np.ndarray,
+    target_dr_idx: np.ndarray,
+    target: MuDataset,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Remove drugs that appear in training (leave-drug-out)."""
+    if train_masks.train_drugs is not None:
+        train_drug_names = set(source.drug_ids[train_masks.train_drugs])
+    else:
+        train_drug_names = set(source.drug_ids)
+    tgt_drug_ids = target.drug_ids
+    keep = np.array(
+        [i for i in range(len(target_cl_idx)) if tgt_drug_ids[target_dr_idx[i]] not in train_drug_names],
+        dtype=np.intp,
+    )
+    return target_cl_idx[keep], target_dr_idx[keep]
+
+
+def _remove_lto_overlap(
+    train_masks: SplitMasks,
+    source: MuDataset,
+    target_cl_idx: np.ndarray,
+    target_dr_idx: np.ndarray,
+    target: MuDataset,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Remove tissues that appear in training (leave-tissue-out)."""
+    train_cl_ids = source.cell_line_ids[train_masks.train_cell_lines]
+    train_tissues = set(source.get_tissue(train_cl_ids))
+    tgt_cl_ids = target.cell_line_ids
+    tgt_tissues = target.get_tissue(tgt_cl_ids)
+    keep = np.array(
+        [i for i in range(len(target_cl_idx)) if tgt_tissues[target_cl_idx[i]] not in train_tissues],
+        dtype=np.intp,
+    )
+    return target_cl_idx[keep], target_dr_idx[keep]
+
+
+def _remove_train_overlap(
     test_mode: str,
-    train_dataset: DrugResponseDataset,
-    dataset: DrugResponseDataset,
-) -> None:
-    """Remove rows from ``dataset`` that overlap training according to ``test_mode``.
-
-    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
-    :param train_dataset: Training split used to define overlap.
-    :param dataset: Dataset to filter in place.
-
-    :raises ValueError: If ``test_mode`` is invalid or tissue data is missing for ``LTO``.
-    """
-    if test_mode == "LPO":
-        _remove_lpo_overlap(train_dataset, dataset)
-    elif test_mode == "LCO":
-        _remove_lco_overlap(train_dataset, dataset)
-    elif test_mode == "LDO":
-        _remove_ldo_overlap(train_dataset, dataset)
-    elif test_mode == "LTO":
-        _remove_lto_overlap(train_dataset, dataset)
-    else:
+    train_masks: SplitMasks,
+    source: MuDataset,
+    target_cl_idx: np.ndarray,
+    target_dr_idx: np.ndarray,
+    target: MuDataset,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Dispatch to the appropriate overlap-removal function."""
+    dispatch = {
+        "LPO": _remove_lpo_overlap,
+        "LCO": _remove_lco_overlap,
+        "LDO": _remove_ldo_overlap,
+        "LTO": _remove_lto_overlap,
+    }
+    if test_mode not in dispatch:
         raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO, LTO")
+    return dispatch[test_mode](train_masks, source, target_cl_idx, target_dr_idx, target)
 
 
-def _resolve_drugs_to_keep(
-    single_drug_id: str | None,
-    drug_features,
-) -> np.ndarray | None:
-    if single_drug_id is not None:
-        return np.array([single_drug_id])
-    if drug_features is not None:
-        return drug_features.identifiers
-    return None
-
-
-def _predict_cross_study_subset(
-    model: DRPModel,
-    dataset: DrugResponseDataset,
-    cl_features,
-    drug_features,
-    response_transformation: TransformerMixin | None,
+def _write_cross_study_predictions(
+    prediction_file: Path,
+    target: MuDataset,
+    test_cl_idx: np.ndarray,
+    test_dr_idx: np.ndarray,
+    predictions: np.ndarray,
 ) -> None:
-    if len(dataset) == 0:
-        dataset._predictions = np.array([])
-        return
-    drug_input = drug_features.copy() if drug_features is not None else None
-    dataset.shuffle(random_state=42)
-    dataset._predictions = model.predict(
-        cell_line_ids=dataset.cell_line_ids,
-        drug_ids=dataset.drug_ids,
-        cell_line_input=cl_features.copy(),
-        drug_input=drug_input,
+    """Write cross-study prediction CSV."""
+    cl_ids = target.cell_line_ids
+    drug_ids = target.drug_ids
+    response_matrix = target.response_matrix
+
+    df = pd.DataFrame(
+        {
+            "cell_line_ids": cl_ids[test_cl_idx],
+            "drug_ids": drug_ids[test_dr_idx],
+            "predictions": predictions,
+            "response": response_matrix[test_cl_idx, test_dr_idx],
+        }
     )
-    if response_transformation:
-        dataset.inverse_transform(response_transformation)
+    prediction_file.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(prediction_file, index=False)
 
 
 def cross_study_prediction_impl(
-    dataset: DrugResponseDataset,
+    target: MuDataset,
     model: DRPModel,
     test_mode: str,
-    train_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
-    response_transformation: TransformerMixin | None,
+    train_masks: SplitMasks,
+    source: MuDataset,
     path_out: str | Path,
     split_index: int,
-    single_drug_id: str | None = None,
+    dataset_name: str = "cross_study",
 ) -> None:
     """Run cross-study prediction and write CSV output.
 
-    :param dataset: Held-out dataset from another study.
-    :param model: Trained model instance to evaluate.
-    :param test_mode: Split mode used for overlap removal.
-    :param train_dataset: Training dataset from the source study.
-    :param early_stopping_dataset: Optional early-stopping data for retraining.
-    :param response_transformation: Optional response transformer.
+    :param target: Held-out MuDataset from another study.
+    :param model: Already-trained model instance.
+    :param test_mode: Split mode for overlap removal (LPO, LCO, LDO, LTO).
+    :param train_masks: SplitMasks used when training the model on the source study.
+    :param source: Source MuDataset the model was trained on.
     :param path_out: Directory where predictions are written.
     :param split_index: CV fold index for output file naming.
-    :param single_drug_id: Drug identifier when *model* is single-drug scoped.
+    :param dataset_name: Name for the target dataset (used in the output filename).
     """
-    dataset = dataset.copy()
-    (Path(path_out) / "cross_study").mkdir(parents=True, exist_ok=True)
-    if response_transformation:
-        dataset.transform(response_transformation)
+    all_masks = _all_pairs_masks(target)
+    target_cl_idx = all_masks.test_cell_lines
+    target_dr_idx = all_masks.test_drugs
 
-    try:
-        cl_features, drug_features = load_features(model, dataset)
-    except ValueError as e:
-        warnings.warn(str(e), stacklevel=2)
-        return
-
-    cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
-    drugs_to_keep = _resolve_drugs_to_keep(single_drug_id, drug_features)
-
-    print(
-        f"Reducing cross study dataset ... feature data available for "
-        f"{len(cell_lines_to_keep) if cell_lines_to_keep is not None else 'all'} cell lines "
-        f"and {len(drugs_to_keep) if drugs_to_keep is not None else 'all'} drugs."
+    target_cl_idx, target_dr_idx = _remove_train_overlap(
+        test_mode, train_masks, source, target_cl_idx, target_dr_idx, target
     )
 
-    dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    train_dataset = _merge_early_stopping_into_train(train_dataset, early_stopping_dataset)
-    remove_train_overlap_for_test_mode(test_mode, train_dataset, dataset)
-    _predict_cross_study_subset(model, dataset, cl_features, drug_features, response_transformation)
+    if len(target_cl_idx) == 0:
+        warnings.warn(
+            f"No samples remaining after overlap removal for cross-study dataset {dataset_name}.",
+            stacklevel=2,
+        )
+        return
 
-    dataset.to_csv(Path(path_out) / "cross_study" / f"cross_study_{dataset.dataset_name}_split_{split_index}.csv")
+    print(f"Cross-study prediction: {len(target_cl_idx)} samples after overlap removal.")
+
+    test_masks = SplitMasks(
+        train_cell_lines=np.array([], dtype=np.intp),
+        test_cell_lines=target_cl_idx,
+        val_cell_lines=np.array([], dtype=np.intp),
+        train_drugs=None,
+        test_drugs=target_dr_idx,
+        val_drugs=None,
+    )
+
+    predictions = model.predict(mudataset=target, split=test_masks)
+
+    output_dir = Path(path_out) / "cross_study"
+    output_file = output_dir / f"cross_study_{dataset_name}_split_{split_index}.csv"
+    _write_cross_study_predictions(output_file, target, target_cl_idx, target_dr_idx, predictions)

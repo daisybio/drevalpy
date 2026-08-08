@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.splitting import SplitMasks
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 
 
@@ -51,4 +52,82 @@ def identity_drug_features() -> FeatureDataset:
             "d1": {DRUG_IDENTIFIER: np.array(["d1"])},
             "d2": {DRUG_IDENTIFIER: np.array(["d2"])},
         }
+    )
+
+
+def synthetic_mudataset_gene_expression_fingerprints():
+    """Build a minimal MuDataset with gene_expression + fingerprints for 2 cell lines and 2 drugs."""
+    import anndata as ad
+    import pandas as pd
+
+    import mudata as md
+    from drevalpy.datasets.mudataset import MuDataset
+
+    # Response matrix: 2 cell lines x 2 drugs
+    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    cl_ids = np.array(["cl1", "cl2"])
+    drug_ids = np.array(["d1", "d2"])
+
+    response_ad = ad.AnnData(
+        X=response_matrix,
+        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
+        var=pd.DataFrame(index=drug_ids),
+    )
+    # Gene expression modality: 2 cell lines x 3 genes
+    ge_matrix = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], dtype=np.float32)
+    gene_expression_ad = ad.AnnData(
+        X=ge_matrix,
+        obs=pd.DataFrame(index=cl_ids),
+        var=pd.DataFrame(index=[f"gene{i}" for i in range(3)]),
+    )
+    # Fingerprints in response.varm
+    fingerprints = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+    response_ad.varm["fingerprints"] = fingerprints
+
+    mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
+    return MuDataset(mdata)
+
+
+def synthetic_mudataset_identity():
+    """Build a minimal MuDataset for identity (cell_line_id + drug_id) models."""
+    import anndata as ad
+    import pandas as pd
+
+    import mudata as md
+    from drevalpy.datasets.mudataset import MuDataset
+
+    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    cl_ids = np.array(["cl1", "cl2"])
+    drug_ids = np.array(["d1", "d2"])
+
+    response_ad = ad.AnnData(
+        X=response_matrix,
+        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
+        var=pd.DataFrame(index=drug_ids),
+    )
+    mdata = md.MuData({"response": response_ad})
+    return MuDataset(mdata)
+
+
+def lpo_split_masks_all_train() -> SplitMasks:
+    """LPO-style masks: all 4 pairs (cl0,d0),(cl0,d1),(cl1,d0),(cl1,d1) as train, none as test/val."""
+    return SplitMasks(
+        train_cell_lines=np.array([0, 0, 1, 1]),
+        test_cell_lines=np.array([0]),
+        val_cell_lines=np.array([], dtype=np.intp),
+        train_drugs=np.array([0, 1, 0, 1]),
+        test_drugs=np.array([0]),
+        val_drugs=np.array([], dtype=np.intp),
+    )
+
+
+def lco_split_masks() -> SplitMasks:
+    """LCO-style masks: cl0 in train, cl1 in test, no val."""
+    return SplitMasks(
+        train_cell_lines=np.array([0]),
+        test_cell_lines=np.array([1]),
+        val_cell_lines=np.array([], dtype=np.intp),
+        train_drugs=None,
+        test_drugs=None,
+        val_drugs=None,
     )

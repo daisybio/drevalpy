@@ -8,33 +8,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig, from_spec, validate
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import model_config_for_name
 from drevalpy.models.zoo import list_zoo_names
-
-
-def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:
-    response = DrugResponseDataset(
-        response=np.array([1.0, 2.0, 3.0, 4.0, 2.5, 3.5]),
-        cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2", "cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d2", "d1", "d2", "d1", "d2"]),
-    )
-    cell_line_input = FeatureDataset(
-        features={
-            "cl1": {"gene_expression": np.array([0.1, 0.2, 0.3, 0.4])},
-            "cl2": {"gene_expression": np.array([0.5, 0.6, 0.7, 0.8])},
-        }
-    )
-    drug_input = FeatureDataset(
-        features={
-            "d1": {"fingerprints": np.array([1.0, 0.0, 0.5, 0.2])},
-            "d2": {"fingerprints": np.array([0.0, 1.0, 0.3, 0.7])},
-        }
-    )
-    return response, cell_line_input, drug_input
+from tests.models.synthetic_fixtures import (
+    lco_split_masks,
+    synthetic_mudataset_gene_expression_fingerprints,
+    synthetic_mudataset_identity,
+)
 
 
 @pytest.mark.parametrize("name", list_zoo_names(include_external=False))
@@ -76,26 +59,18 @@ def test_multiview_baselines_are_construct_model_classes() -> None:
 
 @pytest.mark.parametrize("name", ["ElasticNet", "NaiveDrugMeanPredictor"])
 def test_component_stack_save_load_round_trip(name: str) -> None:
-    response, cell_line_input, drug_input = _synthetic_data()
     if name == "ElasticNet":
         model = construct_model(name)({"alpha": 0.1, "l1_ratio": 0.5, "max_iter": 1000})
+        mudataset = synthetic_mudataset_gene_expression_fingerprints()
     else:
         model = construct_model(name)({})
-    model.train(response, cell_line_input, drug_input)
-    preds_before = model.predict(
-        response.cell_line_ids,
-        response.drug_ids,
-        cell_line_input,
-        drug_input,
-    )
+        mudataset = synthetic_mudataset_identity()
+    split = lco_split_masks()
+    model.train(mudataset, split)
+    preds_before = model.predict(mudataset, split)
     with tempfile.TemporaryDirectory() as directory:
         checkpoint = f"{directory}/model"
         model.save(checkpoint)
         loaded = type(model).load(checkpoint)
-        preds_after = loaded.predict(
-            response.cell_line_ids,
-            response.drug_ids,
-            cell_line_input,
-            drug_input,
-        )
+        preds_after = loaded.predict(mudataset, split)
     assert np.allclose(preds_before, preds_after, rtol=1e-6, atol=1e-6)

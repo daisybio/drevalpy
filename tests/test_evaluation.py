@@ -5,21 +5,13 @@ import pytest
 from flaky import flaky
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, kendall, pearson, spearman
 
 
 def test_evaluate() -> None:
     """Test the evaluate function."""
-    # Create mock dataset
     predictions = np.array([1, 2, 3, 4, 5])
     response = np.array([1.1, 2.2, 3.3, 4.4, 5.5])
-    dataset = DrugResponseDataset(
-        response=response,
-        cell_line_ids=np.array(["A", "B", "C", "D", "E"]),
-        drug_ids=np.array(["a", "b", "c", "d", "e"]),
-        predictions=predictions,
-    )
 
     # Test metrics calculation
     mse_expected = mean_squared_error(predictions, response)
@@ -28,7 +20,7 @@ def test_evaluate() -> None:
     r2_expected = r2_score(y_pred=predictions, y_true=response)
 
     # Evaluate using all available metrics
-    results = evaluate(dataset, metric=["MSE", "RMSE", "MAE", "R^2"])
+    results = evaluate(predictions, response, metric=["MSE", "RMSE", "MAE", "R^2"])
 
     # Check if the calculated metrics match the expected values
     assert np.isclose(results["MSE"], mse_expected), f"Expected mse: {mse_expected}, Got: {results['MSE']}"

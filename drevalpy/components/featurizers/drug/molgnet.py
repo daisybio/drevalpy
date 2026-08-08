@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import ClassVar
 
 import numpy as np
-import pandas as pd
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, ragged_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
-from drevalpy.datasets._paths import get_default_data_dir
-from drevalpy.datasets.dataset import FeatureDataset
 
 
 @register_drug_featurizer(
@@ -38,30 +34,6 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
         self._view = view
         self._features_by_drug: dict[str, np.ndarray] = {}
         self._output_dim = 0
-
-    @classmethod
-    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load DIPK MolGNet per-drug CSV embeddings.
-
-        :param dataset_name: Dataset folder name.
-        :param kwargs: Unused loader keyword arguments.
-        :returns: Feature dataset with MolGNet tensors per drug.
-        :raises FileNotFoundError: If no MolGNet CSV files are found.
-        """
-        data_path = get_default_data_dir()
-        _ = cls, kwargs
-        directory = Path(data_path) / dataset_name / "DIPK_features" / "Drugs"
-        files = sorted(directory.glob("MolGNet_*.csv"))
-        if not files:
-            raise FileNotFoundError(f"No MolGNet_*.csv files found in {directory}")
-        return FeatureDataset(
-            {
-                file.stem.removeprefix("MolGNet_"): {
-                    "molgnet_features": np.asarray(pd.read_csv(file, index_col=0, sep="\t"))
-                }
-                for file in files
-            }
-        )
 
     def fit(
         self,

@@ -14,7 +14,6 @@ from drevalpy.components.featurizers._matrix import feature_names_for_view, stac
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.datasets.loading.multiomics import load_and_select_gene_features
 
 
 @register_cell_line_featurizer(
@@ -35,17 +34,6 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         self._feature_names: tuple[str, ...] | None = None
         self._output_dim = 0
         self._is_fitted = False
-
-    @classmethod
-    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load reduced landmark gene-expression values without arcsinh.
-
-        :param dataset_name: Dataset folder name.
-        :param kwargs: Unused loader keyword arguments.
-        :returns: Feature dataset with reduced landmark genes.
-        """
-        _ = cls, kwargs
-        return load_and_select_gene_features("gene_expression", "landmark_genes_reduced", dataset_name)
 
     def fit(
         self,

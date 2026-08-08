@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pandas as pd
 
-from ..datasets.dataset import DrugResponseDataset
 from ..evaluation import AVAILABLE_METRICS, evaluate
 
 
@@ -46,13 +45,11 @@ def _evaluate_normalized_cv_splits(
     metric_names = list(AVAILABLE_METRICS.keys() - {"MAE", "MSE", "RMSE"})
     for cv_split in setting_subset["CV_split"].unique():
         cv_rows = setting_subset[setting_subset["CV_split"] == cv_split]
-        dt = DrugResponseDataset(
-            response=cv_rows["y_true"].to_numpy(),
-            cell_line_ids=cv_rows["cell_line_name"].to_numpy(),
-            drug_ids=cv_rows["drug_name"].to_numpy(),
+        res = evaluate(
             predictions=cv_rows["y_pred"].to_numpy(),
+            response=cv_rows["y_true"].to_numpy(),
+            metric=metric_names,
         )
-        res = evaluate(dataset=dt, metric=metric_names)
         eval_results_mod[f"{algorithm}_{rand_setting}_{test_mode}_split_{cv_split}"] = res
     return eval_results_mod
 

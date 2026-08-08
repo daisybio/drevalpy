@@ -1,62 +1,126 @@
-"""Robustness testing helpers for experiment workflows."""
+"""Robustness testing helpers for experiment workflows.
+
+Tests model stability by re-training with shuffled index orderings
+(different random seeds) and comparing prediction consistency.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
+import numpy as np
+import pandas as pd
 from sklearn.base import TransformerMixin, clone
 
-from ..datasets.dataset import DrugResponseDataset
+from ..datasets.mudataset import MuDataset
+from ..datasets.splitting import SplitMasks
 from ..models.drp_model import DRPModel
-from .training import train_and_predict_impl
+from .training import mu_train_and_predict
+
+
+def _shuffle_masks(masks: SplitMasks, rng: np.random.Generator) -> SplitMasks:
+    """Return a copy of masks with index arrays shuffled in-place order."""
+    train_cl = rng.permutation(masks.train_cell_lines)
+    test_cl = rng.permutation(masks.test_cell_lines)
+    val_cl = rng.permutation(masks.val_cell_lines)
+
+    train_dr = rng.permutation(masks.train_drugs) if masks.train_drugs is not None else None
+    test_dr = rng.permutation(masks.test_drugs) if masks.test_drugs is not None else None
+    val_dr = rng.permutation(masks.val_drugs) if masks.val_drugs is not None else None
+
+    return SplitMasks(
+        train_cell_lines=train_cl,
+        test_cell_lines=test_cl,
+        val_cell_lines=val_cl,
+        train_drugs=train_dr,
+        test_drugs=test_dr,
+        val_drugs=val_dr,
+    )
+
+
+def _write_robustness_predictions(
+    prediction_file: Path,
+    mudataset: MuDataset,
+    test_masks: SplitMasks,
+    predictions: np.ndarray,
+) -> None:
+    """Write robustness trial prediction CSV."""
+    cl_ids = mudataset.cell_line_ids
+    drug_ids = mudataset.drug_ids
+    response_matrix = mudataset.response_matrix
+
+    cl_idx = test_masks.test_cell_lines
+    dr_idx = test_masks.test_drugs
+
+    rows: dict[str, Any] = {"cell_line_ids": cl_ids[cl_idx]}
+    if dr_idx is not None:
+        rows["drug_ids"] = drug_ids[dr_idx]
+        rows["response"] = response_matrix[cl_idx, dr_idx]
+    else:
+        rows["drug_ids"] = np.full(len(cl_idx), "all", dtype=object)
+        rows["response"] = np.nanmean(response_matrix[cl_idx, :], axis=1)
+    rows["predictions"] = predictions
+
+    df = pd.DataFrame(rows)
+    prediction_file.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(prediction_file, index=False)
 
 
 def robustness_train_predict_impl(
     trial: int,
     trial_file: str | Path,
-    train_dataset: DrugResponseDataset,
-    test_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
+    mudataset: MuDataset,
+    train_masks: SplitMasks,
+    test_masks: SplitMasks,
+    early_stopping_masks: SplitMasks | None,
     model_class: type[DRPModel],
-    hyperparameters: dict,
+    hyperparameters: dict[str, Any],
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Train and predict for one robustness trial.
 
-    :param trial: Trial index within the robustness test.
+    :param trial: Trial index (used as random seed for shuffling).
     :param trial_file: Output path for predictions.
-    :param train_dataset: Training split for the fold.
-    :param test_dataset: Test split for the fold.
-    :param early_stopping_dataset: Optional early-stopping data.
+    :param mudataset: Full MuDataset with all features.
+    :param train_masks: SplitMasks for training samples.
+    :param test_masks: SplitMasks for test samples.
+    :param early_stopping_masks: Optional SplitMasks for early stopping.
     :param model_class: Model class to train on perturbed data.
     :param hyperparameters: Hyperparameters for model construction.
     :param response_transformation: Optional response transformer.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
-    train_trial = train_dataset.shuffled(random_state=trial)
-    test_trial = test_dataset.shuffled(random_state=trial)
-    es_trial = early_stopping_dataset.shuffled(random_state=trial) if early_stopping_dataset is not None else None
+    rng = np.random.default_rng(trial)
+    shuffled_train = _shuffle_masks(train_masks, rng)
+    shuffled_test = _shuffle_masks(test_masks, rng)
+    shuffled_es = _shuffle_masks(early_stopping_masks, rng) if early_stopping_masks is not None else None
+
     trial_model = model_class(hyperparameters)
     trial_transform = None if response_transformation is None else clone(response_transformation)
-    predicted = train_and_predict_impl(
+
+    predictions = mu_train_and_predict(
         model=trial_model,
-        train_dataset=train_trial,
-        prediction_dataset=test_trial,
-        early_stopping_dataset=es_trial,
+        mudataset=mudataset,
+        train_masks=shuffled_train,
+        test_masks=shuffled_test,
+        early_stopping_masks=shuffled_es,
         response_transformation=trial_transform,
         model_checkpoint_dir=model_checkpoint_dir,
     )
-    predicted.to_csv(trial_file)
+
+    _write_robustness_predictions(Path(trial_file), mudataset, shuffled_test, predictions)
 
 
 def robustness_test_impl(
     n_trials: int,
     model_class: type[DRPModel],
-    hyperparameters: dict,
-    train_dataset: DrugResponseDataset,
-    test_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
+    hyperparameters: dict[str, Any],
+    mudataset: MuDataset,
+    train_masks: SplitMasks,
+    test_masks: SplitMasks,
+    early_stopping_masks: SplitMasks | None,
     path_out: str | Path,
     split_index: int,
     response_transformation: TransformerMixin | None = None,
@@ -67,9 +131,10 @@ def robustness_test_impl(
     :param n_trials: Number of robustness trials to run.
     :param model_class: Model class to retrain on perturbed data.
     :param hyperparameters: Hyperparameters for model construction.
-    :param train_dataset: Training split for the fold.
-    :param test_dataset: Test split for the fold.
-    :param early_stopping_dataset: Optional early-stopping data.
+    :param mudataset: Full MuDataset with all features.
+    :param train_masks: SplitMasks for training samples.
+    :param test_masks: SplitMasks for test samples.
+    :param early_stopping_masks: Optional SplitMasks for early stopping.
     :param path_out: Directory where predictions are written.
     :param split_index: CV fold index for output file naming.
     :param response_transformation: Optional response transformer.
@@ -85,9 +150,10 @@ def robustness_test_impl(
         robustness_train_predict_impl(
             trial=trial,
             trial_file=trial_file,
-            train_dataset=train_dataset,
-            test_dataset=test_dataset,
-            early_stopping_dataset=early_stopping_dataset,
+            mudataset=mudataset,
+            train_masks=train_masks,
+            test_masks=test_masks,
+            early_stopping_masks=early_stopping_masks,
             model_class=model_class,
             hyperparameters=hyperparameters,
             response_transformation=response_transformation,

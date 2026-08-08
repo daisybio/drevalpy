@@ -7,18 +7,18 @@ from typing import Any
 
 from sklearn.base import TransformerMixin
 
-from drevalpy.components.tuning.hpo import hpam_tune
-
-from ..datasets.dataset import DrugResponseDataset
+from ..datasets.mudataset import MuDataset
+from ..datasets.splitting import SplitMasks
 from ..models.drp_model import DRPModel
 
 
 def select_fold_hyperparameters(
     *,
     model_class: type[DRPModel],
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
+    mudataset: MuDataset,
+    train_masks: SplitMasks,
+    val_masks: SplitMasks,
+    early_stopping_masks: SplitMasks | None,
     response_transformation: TransformerMixin | None,
     metric: str,
     model_checkpoint_dir: str | Path | None,
@@ -31,9 +31,10 @@ def select_fold_hyperparameters(
     """Resolve hyperparameters for one CV fold (tuning or defaults).
 
     :param model_class: Model class to tune or instantiate with defaults.
-    :param train_dataset: Training split for the fold.
-    :param validation_dataset: Validation split for scoring.
-    :param early_stopping_dataset: Optional early-stopping data.
+    :param mudataset: Full dataset shared across all folds.
+    :param train_masks: Training split masks for the fold.
+    :param val_masks: Validation split masks for scoring.
+    :param early_stopping_masks: Optional early-stopping masks.
     :param response_transformation: Optional response transformer.
     :param metric: Metric optimized during HPO.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
@@ -48,15 +49,17 @@ def select_fold_hyperparameters(
     from drevalpy.components.tuning.drp_hyperparameters import (
         has_tunable_hyperparameters,
     )
+    from drevalpy.components.tuning.hpo import mu_hpam_tune
 
     if not hyperparameter_tuning or not has_tunable_hyperparameters(model_class):
         return model_class.get_default_hyperparameters()
 
     tuning_inputs: dict[str, Any] = {
         "model_class": model_class,
-        "train_dataset": train_dataset,
-        "validation_dataset": validation_dataset,
-        "early_stopping_dataset": early_stopping_dataset,
+        "mudataset": mudataset,
+        "train_masks": train_masks,
+        "val_masks": val_masks,
+        "early_stopping_masks": early_stopping_masks,
         "response_transformation": response_transformation,
         "metric": metric,
         "model_checkpoint_dir": model_checkpoint_dir,
@@ -66,15 +69,16 @@ def select_fold_hyperparameters(
         tuning_inputs["wandb_project"] = wandb_project
         tuning_inputs["split_index"] = split_index
         tuning_inputs["wandb_base_config"] = wandb_base_config
-    return hpam_tune(**tuning_inputs)
+    return mu_hpam_tune(**tuning_inputs)
 
 
 def select_final_model_hyperparameters(
     *,
     model_class: type[DRPModel],
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
+    mudataset: MuDataset,
+    train_masks: SplitMasks,
+    val_masks: SplitMasks,
+    early_stopping_masks: SplitMasks | None,
     response_transformation: TransformerMixin | None,
     metric: str,
     model_checkpoint_dir: str | Path | None,
@@ -84,9 +88,10 @@ def select_final_model_hyperparameters(
     """Resolve hyperparameters for final full-data model training.
 
     :param model_class: Model class to tune or instantiate with defaults.
-    :param train_dataset: Training split for final-model holdout.
-    :param validation_dataset: Validation split for scoring.
-    :param early_stopping_dataset: Optional early-stopping data.
+    :param mudataset: Full dataset shared across all folds.
+    :param train_masks: Training split masks for the holdout.
+    :param val_masks: Validation split masks for scoring.
+    :param early_stopping_masks: Optional early-stopping masks.
     :param response_transformation: Optional response transformer.
     :param metric: Metric optimized during HPO.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
@@ -98,15 +103,17 @@ def select_final_model_hyperparameters(
     from drevalpy.components.tuning.drp_hyperparameters import (
         has_tunable_hyperparameters,
     )
+    from drevalpy.components.tuning.hpo import mu_hpam_tune
 
     default_hpams = model_class.get_default_hyperparameters()
     if not hyperparameter_tuning or not has_tunable_hyperparameters(model_class):
         return default_hpams
-    return hpam_tune(
+    return mu_hpam_tune(
         model_class=model_class,
-        train_dataset=train_dataset,
-        validation_dataset=validation_dataset,
-        early_stopping_dataset=early_stopping_dataset,
+        mudataset=mudataset,
+        train_masks=train_masks,
+        val_masks=val_masks,
+        early_stopping_masks=early_stopping_masks,
         response_transformation=response_transformation,
         metric=metric,
         model_checkpoint_dir=model_checkpoint_dir,

@@ -9,7 +9,6 @@ from pathlib import Path
 import pandas as pd
 
 from drevalpy.cli.run_cv import run_load_response
-from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.utils.pickle_io import load_trusted_pickle
 
@@ -40,7 +39,7 @@ def test_run_load_response_uses_provided_path() -> None:
 
             loaded = load_trusted_pickle(work_path / "response_dataset.pkl")
 
-            assert isinstance(loaded, DrugResponseDataset)
-            assert loaded.dataset_name == "custom_response"
-            assert list(loaded.cell_line_ids) == ["CL1", "CL2"]
-            assert list(loaded.drug_ids) == ["100", "200"]
+            assert isinstance(loaded, pd.DataFrame)
+            assert loaded.attrs.get("dataset_name") == "custom_response"
+            assert list(loaded[CELL_LINE_IDENTIFIER]) == ["CL1", "CL2"]
+            assert list(loaded[DRUG_IDENTIFIER]) == ["100", "200"]

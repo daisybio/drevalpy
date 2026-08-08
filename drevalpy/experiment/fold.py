@@ -1,196 +1,130 @@
-"""Shared CV-fold preparation for experiment and CLI paths."""
+"""Shared CV-fold preparation for the MuData experiment path."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 
-from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.models._model_lookup import is_single_drug_model_name
+from drevalpy.datasets.mudataset import MuDataset
+from drevalpy.datasets.splitting import SplitMasks
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.utils._pipeline_function import pipeline_function
 
 
 @dataclass(frozen=True)
-class FoldDatasets:
-    """Copied and optionally drug-masked datasets for one CV fold."""
+class MuFoldData:
+    """Per-fold data referencing the shared MuDataset with split masks.
 
-    train: DrugResponseDataset
-    validation: DrugResponseDataset
-    early_stopping: DrugResponseDataset | None
-    test: DrugResponseDataset
-
-
-@pipeline_function
-def get_datasets_from_cv_split(
-    split: dict[str, DrugResponseDataset],
-    model_class: type[DRPModel],
-    model_name: str,
-    drug_id: str | None = None,
-) -> tuple[
-    DrugResponseDataset,
-    DrugResponseDataset,
-    DrugResponseDataset | None,
-    DrugResponseDataset,
-]:
-    """Extract train, validation, early-stopping, and test sets from a CV fold.
-
-    Returns copies so in-place edits do not affect other models on the same fold.
-
-    :param split: CV split dict with ``train``, ``validation``, and ``test`` keys.
-    :param model_class: Model class used to decide early-stopping partitions.
-    :param model_name: Run key used for single-drug masking.
-    :param drug_id: Drug identifier for single-drug models.
-
-    :returns: Train, validation, early-stopping (or ``None``), and test datasets.
+    The MuDataset is never copied -- splits are represented as index arrays.
     """
-    fold = prepare_fold_datasets(split, model_class, model_name, drug_id)
-    return fold.train, fold.validation, fold.early_stopping, fold.test
+
+    mudataset: MuDataset
+    train_masks: SplitMasks
+    val_masks: SplitMasks
+    test_masks: SplitMasks
+    early_stopping_masks: SplitMasks | None
 
 
-def prepare_fold_datasets(
-    split: dict[str, DrugResponseDataset],
+def prepare_mu_fold(
+    mudataset: MuDataset,
+    split_masks: SplitMasks,
     model_class: type[DRPModel],
-    model_name: str,
-    drug_id: str | None = None,
-) -> FoldDatasets:
-    """Copy and optionally drug-mask fold partitions for experiment runners.
+) -> MuFoldData:
+    """Build per-fold MuFoldData from a single SplitMasks.
 
-    :param split: CV split dict with ``train``, ``validation``, and ``test`` keys.
-    :param model_class: Model class used to decide early-stopping partitions.
-    :param model_name: Run key used for single-drug masking.
-    :param drug_id: Drug identifier for single-drug models.
+    For models that support early stopping, the validation set is further
+    subdivided into a smaller validation and early-stopping partition.
 
-    :returns: Fold datasets with copies and optional drug masks applied.
+    :param mudataset: Full dataset (shared across all folds).
+    :param split_masks: Fold masks from MuDataSplitter.
+    :param model_class: Model class to check for early-stopping support.
+
+    :returns: MuFoldData with appropriate masks for train/val/test/early_stopping.
     """
-    train_dataset = split["train"].copy()
-    validation_dataset = split["validation"].copy()
-    test_dataset = split["test"].copy()
+    train_masks = SplitMasks(
+        train_cell_lines=split_masks.train_cell_lines,
+        test_cell_lines=split_masks.train_cell_lines,
+        val_cell_lines=np.array([], dtype=np.intp),
+        train_drugs=split_masks.train_drugs,
+        test_drugs=split_masks.train_drugs,
+        val_drugs=np.array([], dtype=np.intp) if split_masks.train_drugs is not None else None,
+    )
 
-    if model_class.supports_early_stopping():
-        validation_dataset = split["validation_es"].copy()
-        early_stopping_dataset = split["early_stopping"].copy()
+    val_masks = SplitMasks(
+        train_cell_lines=split_masks.val_cell_lines,
+        test_cell_lines=split_masks.val_cell_lines,
+        val_cell_lines=np.array([], dtype=np.intp),
+        train_drugs=split_masks.val_drugs,
+        test_drugs=split_masks.val_drugs,
+        val_drugs=np.array([], dtype=np.intp) if split_masks.val_drugs is not None else None,
+    )
+
+    test_masks = SplitMasks(
+        train_cell_lines=split_masks.test_cell_lines,
+        test_cell_lines=split_masks.test_cell_lines,
+        val_cell_lines=np.array([], dtype=np.intp),
+        train_drugs=split_masks.test_drugs,
+        test_drugs=split_masks.test_drugs,
+        val_drugs=np.array([], dtype=np.intp) if split_masks.test_drugs is not None else None,
+    )
+
+    if model_class.supports_early_stopping() and len(split_masks.val_cell_lines) > 1:
+        n_val = len(split_masks.val_cell_lines)
+        n_es = max(1, n_val // 4)
+        es_cl = split_masks.val_cell_lines[:n_es]
+        actual_val_cl = split_masks.val_cell_lines[n_es:]
+
+        es_drugs = None
+        actual_val_drugs = None
+        if split_masks.val_drugs is not None:
+            es_drugs = split_masks.val_drugs[:n_es]
+            actual_val_drugs = split_masks.val_drugs[n_es:]
+
+        val_masks = SplitMasks(
+            train_cell_lines=actual_val_cl,
+            test_cell_lines=actual_val_cl,
+            val_cell_lines=np.array([], dtype=np.intp),
+            train_drugs=actual_val_drugs,
+            test_drugs=actual_val_drugs,
+            val_drugs=np.array([], dtype=np.intp) if actual_val_drugs is not None else None,
+        )
+        early_stopping_masks = SplitMasks(
+            train_cell_lines=es_cl,
+            test_cell_lines=es_cl,
+            val_cell_lines=np.array([], dtype=np.intp),
+            train_drugs=es_drugs,
+            test_drugs=es_drugs,
+            val_drugs=np.array([], dtype=np.intp) if es_drugs is not None else None,
+        )
     else:
-        early_stopping_dataset = None
+        early_stopping_masks = None
 
-    if is_single_drug_model_name(model_name):
-        train_dataset = train_dataset.masked(train_dataset.drug_ids == drug_id)
-        validation_dataset = validation_dataset.masked(validation_dataset.drug_ids == drug_id)
-        test_dataset = test_dataset.masked(test_dataset.drug_ids == drug_id)
-        if early_stopping_dataset is not None:
-            early_stopping_dataset = early_stopping_dataset.masked(early_stopping_dataset.drug_ids == drug_id)
-
-    return FoldDatasets(
-        train=train_dataset,
-        validation=validation_dataset,
-        early_stopping=early_stopping_dataset,
-        test=test_dataset,
+    return MuFoldData(
+        mudataset=mudataset,
+        train_masks=train_masks,
+        val_masks=val_masks,
+        test_masks=test_masks,
+        early_stopping_masks=early_stopping_masks,
     )
 
 
-def merge_train_validation(
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    *,
-    random_state: int = 42,
-) -> DrugResponseDataset:
-    """Return a shuffled train-plus-validation copy for final fold training.
+def merge_train_val_masks(split_masks: SplitMasks) -> SplitMasks:
+    """Merge train and validation masks into a single training set for final training.
 
-    :param train_dataset: Training dataset.
-    :param validation_dataset: Validation dataset to merge into training.
-    :param random_state: Shuffle seed.
-
-    :returns: Shuffled concatenation of *train_dataset* and *validation_dataset*.
+    :param split_masks: Original fold split masks.
+    :returns: New SplitMasks with train+val merged into train.
     """
-    return train_dataset.with_rows_added(validation_dataset).shuffled(random_state=random_state)
+    merged_cl = np.concatenate([split_masks.train_cell_lines, split_masks.val_cell_lines])
 
+    merged_drugs: np.ndarray | None = None
+    if split_masks.train_drugs is not None and split_masks.val_drugs is not None:
+        merged_drugs = np.concatenate([split_masks.train_drugs, split_masks.val_drugs])
 
-def prepare_final_fold_training_data(
-    split: dict[str, DrugResponseDataset],
-    model_class: type[DRPModel],
-    model_name: str,
-    drug_id: str | None = None,
-    *,
-    random_state: int = 42,
-) -> FoldDatasets:
-    """Prepare fold data with train and validation merged for final training.
-
-    :param split: CV split dict with ``train``, ``validation``, and ``test`` keys.
-    :param model_class: Model class used to decide early-stopping partitions.
-    :param model_name: Run key used for single-drug masking.
-    :param drug_id: Drug identifier for single-drug models.
-    :param random_state: Shuffle seed for the merged train set.
-
-    :returns: Fold datasets with merged train and optional early stopping.
-    """
-    fold = prepare_fold_datasets(split, model_class, model_name, drug_id)
-    merged_train = merge_train_validation(fold.train, fold.validation, random_state=random_state)
-    return FoldDatasets(
-        train=merged_train,
-        validation=fold.validation,
-        early_stopping=fold.early_stopping if model_class.supports_early_stopping() else None,
-        test=fold.test,
+    return SplitMasks(
+        train_cell_lines=merged_cl,
+        test_cell_lines=split_masks.test_cell_lines,
+        val_cell_lines=np.array([], dtype=np.intp),
+        train_drugs=merged_drugs,
+        test_drugs=split_masks.test_drugs,
+        val_drugs=None,
     )
-
-
-def early_stopping_for_model(
-    model_or_class: Any,
-    early_stopping_dataset: DrugResponseDataset | None,
-) -> DrugResponseDataset | None:
-    """Return early-stopping data only when the model supports it.
-
-    :param model_or_class: Model instance or class with early-stopping capability.
-    :param early_stopping_dataset: Candidate early-stopping dataset.
-
-    :returns: *early_stopping_dataset* when supported, otherwise ``None``.
-    """
-    supports_fn = getattr(model_or_class, "supports_early_stopping", None)
-    if callable(supports_fn):
-        supports = bool(supports_fn())
-    else:
-        supports = bool(getattr(model_or_class, "early_stopping", False))
-    return early_stopping_dataset if supports else None
-
-
-def make_train_val_split_impl(
-    dataset: DrugResponseDataset,
-    test_mode: str,
-    val_ratio: float = 0.1,
-    random_state: int = 42,
-) -> tuple[DrugResponseDataset, DrugResponseDataset]:
-    """Split a dataset into train and validation sets according to the test mode and desired ratio.
-
-    :param dataset: Full dataset to split.
-    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
-    :param val_ratio: Approximate validation fraction.
-    :param random_state: Random seed for splitting.
-
-    :returns: Train and validation datasets.
-
-    :raises ValueError: If tissue information is missing for ``LTO`` mode.
-    """
-    if test_mode == "LTO":
-        if dataset.tissue is not None:
-            n_groups = len(np.unique(dataset.tissue))
-        else:
-            raise ValueError("Tissue information is missing but required for LTO mode.")
-    elif test_mode == "LCO":
-        n_groups = len(np.unique(dataset.cell_line_ids))
-    elif test_mode == "LDO":
-        n_groups = len(np.unique(dataset.drug_ids))
-    else:
-        n_groups = len(dataset)
-
-    n_splits = int(1 / val_ratio)
-    n_splits = min(n_splits, n_groups)
-
-    split = dataset.split_dataset(
-        n_cv_splits=n_splits,
-        mode=test_mode,
-        split_validation=False,
-        random_state=random_state,
-    )[0]
-
-    return split["train"], split["test"]

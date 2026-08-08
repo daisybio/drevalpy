@@ -399,8 +399,9 @@ def _call_naive_tissue_drug_predictor(
 
 def _subset_dataset(model: DRPModel, train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, data_dir):
     _ = data_dir
-    cell_line_input = model.load_cell_line_features(dataset_name="TOYv1")
-    drug_input = model.load_drug_features(dataset_name="TOYv1")
+    from tests.conftest import load_features_for_model
+
+    cell_line_input, drug_input = load_features_for_model(model, dataset_name="TOYv1")
     cell_lines_to_keep = cell_line_input.identifiers if cell_line_input.features else None
     drugs_to_keep = drug_input.identifiers if drug_input is not None and drug_input.features else None
     if cell_lines_to_keep is not None or drugs_to_keep is not None:

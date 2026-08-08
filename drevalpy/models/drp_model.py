@@ -9,9 +9,11 @@ from typing import Any, ClassVar
 import numpy as np
 import wandb
 
+from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.mudataset import MuDataset
+from drevalpy.datasets.splitting import SplitMasks
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
 from drevalpy.models._drp_logging import _DRPLoggingMixin
 from drevalpy.models._model_persistence import (
@@ -230,101 +232,190 @@ class DRPModel(_DRPLoggingMixin):
         self._stack = build_component_stack(self._resolved_model_config)
         self._empty_training = False
 
-    @pipeline_function
-    def load_cell_line_features(self, dataset_name: str) -> FeatureDataset:
-        """Load cell-line features required by the resolved model config.
-
-        :param dataset_name: Dataset subdirectory or registry name.
-        :returns: Feature views required by the model's cell-line featurizer config.
-        :raises RuntimeError: If the model has not been constructed with a ``ModelConfig``.
-        """
-        config = self._resolved_model_config
-        if config is None:
-            raise RuntimeError("Model has not been constructed with a ModelConfig")
-        from drevalpy.components.data_loading import load_cell_line_features_for_model_config
-
-        return load_cell_line_features_for_model_config(
-            config,
-            dataset_name,
-        )
-
-    @pipeline_function
-    def load_drug_features(self, dataset_name: str) -> FeatureDataset | None:
-        """Load drug features required by the resolved model config.
-
-        :param dataset_name: Dataset subdirectory or registry name.
-        :returns: Feature views required by the model's drug featurizer config, or ``None`` when
-            drug features are unused.
-        :raises RuntimeError: If the model has not been constructed with a ``ModelConfig``.
-        """
-        config = self._resolved_model_config
-        if config is None:
-            raise RuntimeError("Model has not been constructed with a ModelConfig")
-        from drevalpy.components.data_loading import load_drug_features_for_model_config
-
-        return load_drug_features_for_model_config(
-            config,
-            dataset_name,
-        )
+    def _resolve_train_args(
+        self,
+        mudataset_or_output,
+        split_or_cell_line_input,
+        drug_input,
+        *,
+        mudataset: MuDataset | None,
+        split: SplitMasks | None,
+        output,
+        cell_line_input,
+    ) -> tuple[MuDataset | None, SplitMasks | None, Any, Any, Any]:
+        """Resolve overloaded positional/keyword args for train()."""
+        if mudataset is None and mudataset_or_output is not None:
+            if isinstance(mudataset_or_output, MuDataset):
+                mudataset = mudataset_or_output
+            else:
+                output = mudataset_or_output
+        if split is None and split_or_cell_line_input is not None:
+            if isinstance(split_or_cell_line_input, SplitMasks):
+                split = split_or_cell_line_input
+            else:
+                cell_line_input = split_or_cell_line_input
+        return mudataset, split, output, cell_line_input, drug_input
 
     @pipeline_function
     def train(
         self,
-        output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
-        output_earlystopping: DrugResponseDataset | None = None,
+        mudataset_or_output=None,
+        split_or_cell_line_input=None,
+        drug_input=None,
+        *,
+        mudataset: MuDataset | None = None,
+        split: SplitMasks | None = None,
+        output=None,
+        cell_line_input=None,
+        output_earlystopping=None,
         model_checkpoint_dir: str | Path = "checkpoints",
     ) -> None:
-        """Train the component stack on the given response data.
+        """Train the component stack.
 
-        :param output: Training response values with cell-line and drug identifiers.
-        :param cell_line_input: Cell-line feature views required by the model config.
-        :param drug_input: Drug feature views, or ``None`` for feature-free predictors.
-        :param output_earlystopping: Optional hold-out responses for early stopping.
-        :param model_checkpoint_dir: Directory for predictor checkpoints during training.
+        Supports both the MuDataset path (positional: mudataset, split) and the
+        legacy internal path (output, cell_line_input, drug_input).
+
+        :param mudataset: MuDataset containing response data and all features.
+        :param split: SplitMasks defining train/val/test indices for this fold.
+        :param output: (legacy) DrugResponseDataset for training pairs.
+        :param cell_line_input: (legacy) FeatureDataset for cell lines.
+        :param drug_input: (legacy) FeatureDataset for drugs, or None.
+        :param output_earlystopping: (legacy) Optional early-stopping dataset.
+        :param model_checkpoint_dir: Directory for predictor checkpoints.
         :raises RuntimeError: If the model lacks a component stack.
         """
         if self._stack is None:
             raise RuntimeError("Model has not been constructed with a component stack")
-        if len(output) == 0:
-            self._empty_training = True
-            return
-        self._empty_training = False
-        self._stack.train(
-            output,
-            cell_line_input,
+
+        mudataset, split, output, cell_line_input, drug_input = self._resolve_train_args(
+            mudataset_or_output,
+            split_or_cell_line_input,
             drug_input,
-            output_earlystopping=output_earlystopping,
-            training_context=TrainingContext(
-                checkpoint_dir=Path(model_checkpoint_dir),
-                logging_metadata={"model_name": self.get_model_name()},
-            ),
+            mudataset=mudataset,
+            split=split,
+            output=output,
+            cell_line_input=cell_line_input,
         )
+
+        # New MuDataset path
+        if mudataset is not None and split is not None:
+            train_response = _ComponentStack._extract_response_pairs(mudataset, split, subset="train")
+            if len(train_response) == 0:
+                self._empty_training = True
+                return
+            self._empty_training = False
+            self._stack.train(
+                mudataset,
+                split,
+                training_context=TrainingContext(
+                    checkpoint_dir=Path(model_checkpoint_dir),
+                    logging_metadata={"model_name": self.get_model_name()},
+                ),
+            )
+            return
+
+        # Legacy DrugResponseDataset + FeatureDataset path
+        if output is not None and cell_line_input is not None:
+            self._empty_training = len(output) == 0
+            if not self._empty_training:
+                self._stack._fit_featurizers_and_predictor(
+                    output,
+                    cell_line_input,
+                    drug_input,
+                    output_earlystopping=output_earlystopping,
+                    training_context=TrainingContext(
+                        checkpoint_dir=Path(model_checkpoint_dir),
+                        logging_metadata={"model_name": self.get_model_name()},
+                    ),
+                )
+            return
+
+        raise TypeError("train() requires either (mudataset, split) or (output, cell_line_input)")
+
+    def _resolve_predict_args(
+        self,
+        mudataset_or_cell_line_ids,
+        split_or_drug_ids,
+        cell_line_input,
+        drug_input,
+        *,
+        mudataset: MuDataset | None,
+        split: SplitMasks | None,
+        cell_line_ids: np.ndarray | None,
+        drug_ids: np.ndarray | None,
+    ) -> tuple[MuDataset | None, SplitMasks | None, np.ndarray | None, np.ndarray | None, Any, Any]:
+        """Resolve overloaded positional/keyword args for predict()."""
+        if mudataset is None and mudataset_or_cell_line_ids is not None:
+            if isinstance(mudataset_or_cell_line_ids, MuDataset):
+                mudataset = mudataset_or_cell_line_ids
+            else:
+                if cell_line_ids is None:
+                    cell_line_ids = mudataset_or_cell_line_ids
+                if drug_ids is None:
+                    drug_ids = split_or_drug_ids
+        if split is None and split_or_drug_ids is not None and isinstance(split_or_drug_ids, SplitMasks):
+            split = split_or_drug_ids
+        return mudataset, split, cell_line_ids, drug_ids, cell_line_input, drug_input
 
     def predict(
         self,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
+        mudataset_or_cell_line_ids=None,
+        split_or_drug_ids=None,
+        cell_line_input=None,
+        drug_input=None,
+        *,
+        mudataset: MuDataset | None = None,
+        split: SplitMasks | None = None,
+        cell_line_ids: np.ndarray | None = None,
+        drug_ids: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Predict responses for the given cell-line/drug pairs.
+        """Predict responses.
 
-        :param cell_line_ids: Cell-line identifiers, one per pair.
-        :param drug_ids: Drug identifiers, one per pair.
-        :param cell_line_input: Cell-line feature views required by the model config.
-        :param drug_input: Drug feature views, or ``None`` for feature-free predictors.
-        :returns: Predicted response values aligned with ``cell_line_ids`` and ``drug_ids``.
+        Supports both the MuDataset path (positional: mudataset, split) and the
+        legacy internal path (cell_line_ids, drug_ids, cell_line_input, drug_input).
+
+        :param mudataset: MuDataset containing all features.
+        :param split: SplitMasks with test indices to predict on.
+        :returns: Predicted response values.
         :raises RuntimeError: If the model is untrained or lacks a component stack.
         """
-        if self._empty_training:
-            return np.full(len(cell_line_ids), np.nan)
         if self._stack is None:
             raise RuntimeError("Model has not been constructed with a component stack")
-        if not self._stack.is_fitted():
-            raise RuntimeError("Model has not been trained; call train() or load() before predict()")
-        return self._stack.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
+
+        mudataset, split, cell_line_ids, drug_ids, cell_line_input, drug_input = self._resolve_predict_args(
+            mudataset_or_cell_line_ids,
+            split_or_drug_ids,
+            cell_line_input,
+            drug_input,
+            mudataset=mudataset,
+            split=split,
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
+        )
+
+        # Legacy path: cell_line_ids, drug_ids, cell_line_input, drug_input
+        if cell_line_ids is not None and drug_ids is not None:
+            if self._empty_training:
+                return np.full(len(cell_line_ids), np.nan)
+            if not self._stack.is_fitted():
+                raise RuntimeError("Model has not been trained; call train() or load() before predict()")
+            return self._stack.predict_from_features(
+                cell_line_ids=cell_line_ids,
+                drug_ids=drug_ids,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+            )
+
+        # New MuDataset path
+        if mudataset is not None and split is not None:
+            if self._empty_training:
+                test_response = _ComponentStack._extract_response_pairs(mudataset, split, subset="test")
+                return np.full(len(test_response), np.nan)
+            if not self._stack.is_fitted():
+                raise RuntimeError("Model has not been trained; call train() or load() before predict()")
+            return self._stack.predict(mudataset, split)
+
+        raise TypeError("predict() requires either (mudataset, split) or (cell_line_ids, drug_ids, ...)")
 
     @pipeline_function
     def save(self, path: str | Path) -> None:

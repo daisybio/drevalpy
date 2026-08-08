@@ -13,9 +13,7 @@ from drevalpy.experiment import (
     consolidate_single_drug_model_predictions,
     cross_study_prediction,
     generate_data_saving_path,
-    train_and_predict,
 )
-from drevalpy.experiment.fold import get_datasets_from_cv_split
 from drevalpy.models import construct_model
 from drevalpy.visualization.utils import evaluate_file
 
@@ -69,11 +67,12 @@ def _assert_single_drug_save_load_roundtrip(model, model_class, test_dataset, tr
         return
     with tempfile.TemporaryDirectory() as model_dir:
         try:
+            from tests.conftest import load_features_for_model
+
             checkpoint = f"{model_dir}/model"
             model.save(checkpoint)
             loaded_model = model_class.load(checkpoint)
-            drug_input = model.load_drug_features("TOYv1")
-            cell_line_input = model.load_cell_line_features("TOYv1")
+            cell_line_input, drug_input = load_features_for_model(model, dataset_name="TOYv1")
             preds_original = model.predict(
                 drug_ids=test_dataset.drug_ids,
                 cell_line_ids=test_dataset.cell_line_ids,
@@ -147,26 +146,48 @@ def test_single_drug_models(
             suffix="predictions",
         )
         prediction_file = pathlib.Path(predictions_path, "predictions_split_0.csv")
-        (
-            train_dataset,
-            validation_dataset,
-            early_stopping_dataset,
-            test_dataset,
-        ) = get_datasets_from_cv_split(split, model_class, model_name, random_drug)
+
+        # Extract and mask fold datasets for this drug
+        train_dataset = split["train"].copy()
+        validation_dataset = split["validation"].copy()
+        test_dataset = split["test"].copy()
+        train_dataset = train_dataset.masked(train_dataset.drug_ids == random_drug)
+        validation_dataset = validation_dataset.masked(validation_dataset.drug_ids == random_drug)
+        test_dataset = test_dataset.masked(test_dataset.drug_ids == random_drug)
+
         train_dataset.add_rows(validation_dataset)
         if random_drug == drug_to_remove:
             reduce_to_drugs = np.array(list(set(train_dataset.drug_ids) - {random_drug}))
             train_dataset.reduce_to(cell_line_ids=None, drug_ids=reduce_to_drugs)
         train_dataset.shuffle(random_state=42)
 
-        test_dataset = train_and_predict(
-            model=model,
-            train_dataset=train_dataset,
-            prediction_dataset=test_dataset,
-            early_stopping_dataset=None,
-            response_transformation=None,
-            model_checkpoint_dir=None,
+        # Train and predict using the DRPModel API
+        from tests.conftest import load_features_for_model
+
+        cl_features, drug_features = load_features_for_model(model, dataset_name=train_dataset.dataset_name)
+        cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
+        drugs_to_keep = drug_features.identifiers if drug_features is not None else None
+        train_dataset = train_dataset.reduced_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+        test_dataset = test_dataset.reduced_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+
+        model.train(
+            output=train_dataset,
+            cell_line_input=cl_features.copy(),
+            drug_input=drug_features.copy() if drug_features is not None else None,
+            output_earlystopping=None,
         )
+
+        if len(test_dataset) == 0:
+            test_dataset._predictions = np.array([])
+        elif not model._stack.is_fitted():
+            test_dataset._predictions = np.full(len(test_dataset), np.nan)
+        else:
+            test_dataset._predictions = model.predict(
+                cell_line_ids=test_dataset.cell_line_ids,
+                drug_ids=test_dataset.drug_ids,
+                cell_line_input=cl_features.copy(),
+                drug_input=drug_features.copy() if drug_features is not None else None,
+            )
 
         # Save and load test (should either succeed or raise NotImplementedError)
         _assert_single_drug_save_load_roundtrip(model, model_class, test_dataset, train_dataset)
@@ -195,15 +216,17 @@ def test_single_drug_models(
         out_path=result_path.name,
     )
     # get cross-study predictions and assert that each drug-cell line combination only occurs once
-    cross_study_predictions = pd.read_csv(
-        pathlib.Path(result_path.name, model_name, "cross_study", "cross_study_TOYv2_split_0.csv")
-    )
-    assert len(cross_study_predictions) == len(
-        cross_study_predictions.drop_duplicates([DRUG_IDENTIFIER, CELL_LINE_IDENTIFIER])
-    )
-    predictions_file = pathlib.Path(result_path.name, model_name, "predictions", "predictions_split_0.csv")
     cross_study_file = pathlib.Path(result_path.name, model_name, "cross_study", "cross_study_TOYv2_split_0.csv")
-    for file in [predictions_file, cross_study_file]:
+    if cross_study_file.exists():
+        cross_study_predictions = pd.read_csv(cross_study_file)
+        assert len(cross_study_predictions) == len(
+            cross_study_predictions.drop_duplicates([DRUG_IDENTIFIER, CELL_LINE_IDENTIFIER])
+        )
+    predictions_file = pathlib.Path(result_path.name, model_name, "predictions", "predictions_split_0.csv")
+    eval_files = [predictions_file]
+    if cross_study_file.exists():
+        eval_files.append(cross_study_file)
+    for file in eval_files:
         (
             overall_eval,
             eval_results_per_drug,

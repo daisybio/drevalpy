@@ -6,9 +6,9 @@ from typing import ClassVar
 
 import numpy as np
 
+from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.datasets.dataset import FeatureDataset
 
 
 class ConstantFeaturizerMixin:

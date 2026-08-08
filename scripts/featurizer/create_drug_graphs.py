@@ -1,9 +1,6 @@
 """Preprocesses drug SMILES strings into graph representations.
 
-This script takes a dataset name as input, reads the corresponding
-drug_smiles.csv file, and converts each SMILES string into a
-torch_geometric.data.Data object. The resulting graph objects are saved
-to {data_path}/{dataset_name}/drug_graphs/{drug_name}.pt.
+Reads SMILES from a .h5mu file and writes drug graphs to mdata.uns["drug_graphs"].
 """
 
 from __future__ import annotations
@@ -11,17 +8,17 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import pandas as pd
 import torch
 from torch_geometric.data import Data
 from tqdm import tqdm
+
+import mudata as md
 
 try:
     from rdkit import Chem
 except ImportError as err:
     raise ImportError("Please install rdkit package for drug graphs featurizer: pip install rdkit") from err
 
-# Atom feature configuration
 ATOM_FEATURES = {
     "atomic_num": list(range(1, 119)),
     "degree": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -36,7 +33,6 @@ ATOM_FEATURES = {
     ],
 }
 
-# Bond feature configuration
 BOND_FEATURES = {
     "bond_type": [
         Chem.rdchem.BondType.SINGLE,
@@ -48,29 +44,17 @@ BOND_FEATURES = {
 
 
 def _one_hot_encode(value, choices):
-    """Create a one-hot encoding for a value in a list of choices.
-
-    :param value: The value to be one-hot encoded.
-    :param choices: A list of possible choices for the value.
-    :return: A list representing the one-hot encoding.
-    """
     encoding = [0] * (len(choices) + 1)
     index = choices.index(value) if value in choices else -1
     encoding[index] = 1
     return encoding
 
 
-def _smiles_to_graph(smiles: str):
-    """Converts a SMILES string to a torch_geometric.data.Data object.
-
-    :param smiles: The SMILES string for the drug.
-    :return: A Data object representing the molecular graph, or None if conversion fails.
-    """
+def _smiles_to_graph(smiles: str) -> Data | None:
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None
 
-    # Atom features
     atom_features_list = []
     for atom in mol.GetAtoms():
         features = []
@@ -84,21 +68,17 @@ def _smiles_to_graph(smiles: str):
         atom_features_list.append(features)
     x = torch.tensor(atom_features_list, dtype=torch.float)
 
-    # Edge index and edge features
     edge_indices = []
     edge_features_list = []
     for bond in mol.GetBonds():
         i = bond.GetBeginAtomIdx()
         j = bond.GetEndAtomIdx()
-
-        # Edge features
         features = []
         features.extend(_one_hot_encode(bond.GetBondType(), BOND_FEATURES["bond_type"]))
         features.append(bond.GetIsConjugated())
         features.append(bond.IsInRing())
-
         edge_indices.extend([[i, j], [j, i]])
-        edge_features_list.extend([features, features])  # Same features for both directions
+        edge_features_list.extend([features, features])
 
     edge_index = torch.tensor(edge_indices, dtype=torch.long).t().contiguous()
     edge_attr = torch.tensor(edge_features_list, dtype=torch.float)
@@ -106,39 +86,37 @@ def _smiles_to_graph(smiles: str):
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 
 
-def main():
-    """Main function to run the preprocessing."""
-    parser = argparse.ArgumentParser(description="Preprocess drug SMILES to graphs.")
-    parser.add_argument("dataset_name", type=str, help="The name of the dataset to process.")
-    parser.add_argument("--data_path", type=Path, default=Path("data"), help="Path to the data folder")
-    args = parser.parse_args()
+def main(h5mu_path: Path) -> None:
+    """Compute drug graphs from SMILES and write to mdata.uns['drug_graphs'].
 
-    dataset_name = args.dataset_name
-    data_dir = Path(args.data_path).resolve()
-    smiles_file = data_dir / dataset_name / "drug_smiles.csv"
-    output_dir = data_dir / dataset_name / "drug_graphs"
+    :param h5mu_path: Path to the .h5mu file.
+    """
+    mdata = md.read(str(h5mu_path))
+    response = mdata.mod["response"]
 
-    if not smiles_file.exists():
-        print(f"Error: {smiles_file} not found.")
-        return
+    smiles_col = "canonical_smiles"
+    if smiles_col not in response.var.columns:
+        msg = f"Column {smiles_col!r} not found in response.var. Available: {list(response.var.columns)}"
+        raise ValueError(msg)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    drug_graphs: dict[str, Data] = {}
 
-    smiles_df = pd.read_csv(smiles_file)
-
-    print(f"Processing {len(smiles_df)} drugs for dataset {dataset_name}...")
-
-    for _, row in tqdm(smiles_df.iterrows(), total=smiles_df.shape[0]):
-        drug_id = row["pubchem_id"]
-        smiles = row["canonical_smiles"]
-
+    print(f"Processing {len(response.var_names)} drugs...")
+    for drug_id in tqdm(response.var_names):
+        smiles = response.var.loc[drug_id, smiles_col]
+        if not isinstance(smiles, str) or not smiles:
+            continue
         graph = _smiles_to_graph(smiles)
+        if graph is not None:
+            drug_graphs[drug_id] = graph
 
-        if graph:
-            torch.save(graph, output_dir / f"{drug_id}.pt")
-
-    print(f"Finished processing. Graphs saved to {output_dir}")
+    mdata.uns["drug_graphs"] = drug_graphs
+    mdata.write(str(h5mu_path))
+    print(f"Wrote {len(drug_graphs)} drug graphs to mdata.uns['drug_graphs'] in {h5mu_path}")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Compute drug graphs from SMILES and store in .h5mu.")
+    parser.add_argument("h5mu_path", type=Path, help="Path to the .h5mu file")
+    args = parser.parse_args()
+    main(args.h5mu_path)

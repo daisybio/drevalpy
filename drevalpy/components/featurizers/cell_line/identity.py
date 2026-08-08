@@ -6,13 +6,13 @@ from typing import ClassVar
 
 import numpy as np
 
+from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, metadata_feature_block, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.datasets.dataset import FeatureDataset
 
 
 @register_cell_line_featurizer(

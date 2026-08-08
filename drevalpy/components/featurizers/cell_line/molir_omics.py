@@ -15,7 +15,6 @@ from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.preprocessing import VarianceFeatureSelector
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.datasets.loading.multiomics import get_multiomics_feature_dataset
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 
@@ -44,25 +43,6 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         self._scaler = StandardScaler()
         self._selector = VarianceFeatureSelector("gene_expression", self._n_features)
         self._feature_names: dict[str, tuple[str, ...] | None] = {}
-
-    @classmethod
-    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load the intersection-gene multi-omics tables required by MOLIR.
-
-        :param dataset_name: Dataset folder name.
-        :param kwargs: Unused loader keyword arguments.
-        :returns: Multi-omics feature dataset with intersection gene lists.
-        """
-        _ = cls, kwargs
-        return get_multiomics_feature_dataset(
-            dataset_name,
-            gene_lists={
-                "gene_expression": "gene_expression_intersection",
-                "mutations": "mutations_intersection",
-                "copy_number_variation_gistic": "copy_number_variation_gistic_intersection",
-            },
-            omics=list(_VIEWS),
-        )
 
     def fit(
         self,

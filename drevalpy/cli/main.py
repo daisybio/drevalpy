@@ -13,16 +13,12 @@ from drevalpy.cli import (
     evaluate_test,
     load_response,
     make_cv_pkls,
-    make_final_split_pkls,
     make_hpam_yamls,
     make_pipeline_report,
     make_randomization_yamls,
     pipeline,
     report,
-    test_cv,
-    train_cv,
     train_final_model_cmd,
-    tune_final_model,
     viability_postprocess,
     viability_preprocess,
 )
@@ -41,12 +37,8 @@ viability_postprocess.register(app)
 load_response.register(app)
 make_cv_pkls.register(app)
 make_hpam_yamls.register(app)
-train_cv.register(app)
 evaluate_hpams.register(app)
-test_cv.register(app)
 make_randomization_yamls.register(app)
-make_final_split_pkls.register(app)
-tune_final_model.register(app)
 train_final_model_cmd.register(app)
 consolidate_single_drug.register(app)
 evaluate_test.register(app)

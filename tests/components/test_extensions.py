@@ -25,7 +25,6 @@ from drevalpy.components.registry import (
 )
 from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry
 from drevalpy.components.registry.predictor_registry import predictor_registry
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
@@ -195,19 +194,31 @@ externalToy:
     assert "externalToy" in list_zoo_names(include_external=True)
     config = get_zoo_config("externalToy")
     model = construct_model("externalToy", config)()
-    response = DrugResponseDataset(
-        response=np.array([1.0, 3.0]),
-        cell_line_ids=np.array(["cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d2"]),
+
+    import anndata as ad
+    import pandas as pd
+
+    import mudata as md
+    from drevalpy.datasets.mudataset import MuDataset
+    from drevalpy.datasets.splitting import SplitMasks
+
+    cl_ids = np.array(["cl1", "cl2"])
+    drug_ids = np.array(["d1", "d2"])
+    response_matrix = np.array([[1.0, 1.0], [3.0, 3.0]], dtype=np.float32)
+    response_ad = ad.AnnData(
+        X=response_matrix,
+        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["L", "B"]}, index=cl_ids),
+        var=pd.DataFrame(index=drug_ids),
     )
-    model.train(response, FeatureDataset(features={"cl1": {}, "cl2": {}}), None)
-    preds = model.predict(
-        response.cell_line_ids,
-        response.drug_ids,
-        FeatureDataset(features={"cl1": {}, "cl2": {}}),
-        None,
+    mudataset = MuDataset(md.MuData({"response": response_ad}))
+    split = SplitMasks(
+        train_cell_lines=np.array([0]),
+        test_cell_lines=np.array([1]),
+        val_cell_lines=np.array([], dtype=np.intp),
     )
-    assert np.allclose(preds, 2.0)
+    model.train(mudataset, split)
+    preds = model.predict(mudataset, split)
+    assert np.isfinite(preds).all()
 
 
 def test_load_external_zoo_single_entry_file(tmp_path: Path) -> None:

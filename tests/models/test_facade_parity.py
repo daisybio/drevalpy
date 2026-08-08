@@ -10,11 +10,9 @@ import pytest
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
-    cell_line_gene_expression,
-    drug_fingerprints,
-    identity_cell_line_features,
-    identity_drug_features,
-    multi_drug_response,
+    lco_split_masks,
+    synthetic_mudataset_gene_expression_fingerprints,
+    synthetic_mudataset_identity,
 )
 
 _PARITY_CASES = (
@@ -26,33 +24,35 @@ _PARITY_CASES = (
 )
 
 
-def _training_inputs(model_name: str) -> tuple:
-    response = multi_drug_response()
-    if model_name.startswith("Naive"):
-        return response, identity_cell_line_features(), identity_drug_features(), {}
-    if model_name == "ElasticNet":
-        hp = {"alpha": 0.1, "l1_ratio": 0.5}
-    else:
-        hp = {
-            "n_estimators": 8,
-            "max_depth": 3,
-            "max_samples": 1.0,
-            "random_state": 0,
-            "n_jobs": 1,
-        }
-    return response, cell_line_gene_expression(), drug_fingerprints(), hp
-
-
 def _model_class(model_name: str, entrypoint: str):
     if entrypoint == "construct_model":
         return construct_model(model_name, "pca[expression]:identity:randomForest")
     return construct_model(model_name)
 
 
+def _minimal_hp(model_name: str) -> dict:
+    if model_name.startswith("Naive"):
+        return {}
+    if model_name == "ElasticNet":
+        return {"alpha": 0.1, "l1_ratio": 0.5}
+    return {
+        "n_estimators": 8,
+        "max_depth": 3,
+        "max_samples": 1.0,
+        "random_state": 0,
+        "n_jobs": 1,
+    }
+
+
 @pytest.mark.parametrize(("model_name", "entrypoint"), _PARITY_CASES)
 def test_construct_model_matches_from_resolved_config(model_name: str, entrypoint: str) -> None:
-    response, cell_line_input, drug_input, hp = _training_inputs(model_name)
+    hp = _minimal_hp(model_name)
     model_cls = _model_class(model_name, entrypoint)
+    if model_name.startswith("Naive"):
+        mudataset = synthetic_mudataset_identity()
+    else:
+        mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    split = lco_split_masks()
 
     config = (
         from_spec("pca[expression]:identity:randomForest", hyperparameters=hp)
@@ -61,12 +61,12 @@ def test_construct_model_matches_from_resolved_config(model_name: str, entrypoin
     )
     flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
     facade = model_cls(flat_hp)
-    facade.train(response, cell_line_input, drug_input)
-    facade_preds = facade.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+    facade.train(mudataset, split)
+    facade_preds = facade.predict(mudataset, split)
 
     direct = model_cls._from_resolved_config(config)
-    direct.train(response, cell_line_input, drug_input)
-    direct_preds = direct.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+    direct.train(mudataset, split)
+    direct_preds = direct.predict(mudataset, split)
 
     assert facade._resolved_model_config is not None
     assert facade._resolved_model_config.predictor_name == (
@@ -77,13 +77,18 @@ def test_construct_model_matches_from_resolved_config(model_name: str, entrypoin
 
 @pytest.mark.parametrize(("model_name", "entrypoint"), _PARITY_CASES)
 def test_construct_model_save_load_preserves_predictions(model_name: str, entrypoint: str) -> None:
-    response, cell_line_input, drug_input, hp = _training_inputs(model_name)
+    hp = _minimal_hp(model_name)
     model_cls = _model_class(model_name, entrypoint)
     flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
+    if model_name.startswith("Naive"):
+        mudataset = synthetic_mudataset_identity()
+    else:
+        mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    split = lco_split_masks()
 
     model = model_cls(flat_hp)
-    model.train(response, cell_line_input, drug_input)
-    before_preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+    model.train(mudataset, split)
+    before_preds = model.predict(mudataset, split)
     assert model._stack is not None
     before_state = model._stack.component_state()
 
@@ -91,7 +96,7 @@ def test_construct_model_save_load_preserves_predictions(model_name: str, entryp
         checkpoint = f"{model_dir}/model"
         model.save(checkpoint)
         loaded = model_cls.load(checkpoint)
-        after_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+        after_preds = loaded.predict(mudataset, split)
         assert loaded._stack is not None
         after_state = loaded._stack.component_state()
 
