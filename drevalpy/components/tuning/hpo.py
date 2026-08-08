@@ -89,7 +89,6 @@ def tune_fold(
     *,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
-    path_data: str | Path = "data",
     model_checkpoint_dir: str | Path | None = None,
     hpo_config: HPOConfig | None = None,
     split_index: int | None = None,
@@ -104,7 +103,6 @@ def tune_fold(
     :param early_stopping_dataset: early stopping dataset.
     :param response_transformation: response transformation.
     :param metric: metric.
-    :param path_data: path data.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hpo_config: hpo config.
     :param split_index: split index.
@@ -119,7 +117,6 @@ def tune_fold(
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
         metric=metric,
-        path_data=path_data,
         model_checkpoint_dir=model_checkpoint_dir,
         hpo_config=hpo_config,
         split_index=split_index,
@@ -136,7 +133,6 @@ def hpam_tune(
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
-    path_data: str | Path = "data",
     model_checkpoint_dir: str | Path | None = None,
     hpo_config: HPOConfig | None = None,
     split_index: int | None = None,
@@ -151,7 +147,6 @@ def hpam_tune(
     :param early_stopping_dataset: early stopping dataset.
     :param response_transformation: response transformation.
     :param metric: metric.
-    :param path_data: path data.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hpo_config: hpo config.
     :param split_index: split index.
@@ -192,7 +187,6 @@ def hpam_tune(
             early_stopping_dataset=early_stopping_dataset,
             response_transformation=response_transformation,
             metric=metric,
-            path_data=path_data,
             model_checkpoint_dir=model_checkpoint_dir,
             cfg=cfg,
             wandb_project=wandb_project,

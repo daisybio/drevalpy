@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -136,8 +135,8 @@ def test_identity_drug_loading_uses_drug_ids_not_fingerprints() -> None:
     )
     with patch("drevalpy.components.data_loading.feature_loaders.load_drug_ids_from_csv") as load_ids:
         with patch("drevalpy.components.data_loading.feature_loaders.load_drug_feature_views") as load_views:
-            load_drug_features_for_model_config(config, "/data", "GDSC1")
-    load_ids.assert_called_once_with(Path("/data"), "GDSC1")
+            load_drug_features_for_model_config(config, "GDSC1")
+    load_ids.assert_called_once_with("GDSC1")
     load_views.assert_not_called()
 
 
@@ -147,7 +146,7 @@ def test_no_drug_featurizer_skips_drug_loading() -> None:
     config = ModelConfig.model_validate({"predictor": PredictorConfig(name="naiveMean")})
     with patch("drevalpy.components.data_loading.feature_loaders.load_drug_ids_from_csv") as load_ids:
         with patch("drevalpy.components.data_loading.feature_loaders.load_drug_feature_views") as load_views:
-            result = load_drug_features_for_model_config(config, "/data", "GDSC1")
+            result = load_drug_features_for_model_config(config, "GDSC1")
     assert result is None
     load_ids.assert_not_called()
     load_views.assert_not_called()

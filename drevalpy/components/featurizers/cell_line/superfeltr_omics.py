@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -45,16 +44,15 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         self._feature_names: dict[str, tuple[str, ...]] = {}
 
     @classmethod
-    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load full omics and apply SuperFELTR's arcsinh expression transform.
 
-        :param data_path: Parent directory for dataset artifacts.
         :param dataset_name: Dataset folder name.
         :param kwargs: Unused loader keyword arguments.
         :returns: Multi-omics feature dataset with arcsinh gene expression.
         """
         _ = cls, kwargs
-        features = get_multiomics_feature_dataset(data_path, dataset_name, gene_lists=None, omics=list(_VIEWS))
+        features = get_multiomics_feature_dataset(dataset_name, gene_lists=None, omics=list(_VIEWS))
         features.apply(np.arcsinh, view="gene_expression")
         return features
 

@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from ._paths import get_default_data_dir
+
 _GENE_NAME_COLUMNS = ("Symbol", "gene_name", "symbol", "Gene", "gene")
 
 
@@ -26,20 +28,17 @@ def default_gene_lists_dir() -> Path:
 
 def resolve_gene_list_path(
     gene_list_stem: str,
-    *,
-    data_path: str | Path | None = None,
 ) -> Path:
-    """Resolve ``{stem}.csv`` under ``data_path/meta/gene_lists`` or the repo-local default.
+    """Resolve ``{stem}.csv`` under the cache directory or the repo-local default.
 
     :param gene_list_stem: Gene-list filename stem without ``.csv``.
-    :param data_path: Optional dataset root that may contain ``meta/gene_lists``.
     :returns: Path to the resolved gene-list CSV.
     :raises FileNotFoundError: If no matching gene-list file exists.
     """
-    candidates: list[Path] = []
-    if data_path is not None:
-        candidates.append(Path(data_path) / "meta" / "gene_lists" / f"{gene_list_stem}.csv")
-    candidates.append(_REPO_GENE_LISTS_DIR / f"{gene_list_stem}.csv")
+    candidates: list[Path] = [
+        get_default_data_dir() / "meta" / "gene_lists" / f"{gene_list_stem}.csv",
+        _REPO_GENE_LISTS_DIR / f"{gene_list_stem}.csv",
+    ]
     for path in candidates:
         if path.is_file():
             return path

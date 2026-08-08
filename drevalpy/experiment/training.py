@@ -16,19 +16,16 @@ if TYPE_CHECKING:
     pass
 
 
-def load_features(
-    model: DRPModel, path_data: str | Path, dataset: DrugResponseDataset
-) -> tuple[FeatureDataset, FeatureDataset | None]:
+def load_features(model: DRPModel, dataset: DrugResponseDataset) -> tuple[FeatureDataset, FeatureDataset | None]:
     """Load and reduce cell line and drug features for a given dataset.
 
     :param model: Model used to load feature views.
-    :param path_data: Root data directory (for example ``data/``).
     :param dataset: Dataset whose ``dataset_name`` selects feature tables.
 
     :returns: Cell-line features and optional drug features.
     """
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
+    cl_features = model.load_cell_line_features(dataset_name=dataset.dataset_name)
+    drug_features = model.load_drug_features(dataset_name=dataset.dataset_name)
     return cl_features, drug_features
 
 
@@ -45,17 +42,16 @@ def _copy_fold_datasets(
 
 def _resolve_feature_matrices(
     model: DRPModel,
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     cl_features: FeatureDataset | None,
     drug_features: FeatureDataset | None,
 ) -> tuple[FeatureDataset | None, FeatureDataset | None]:
     if cl_features is None:
         print("Loading cell line features ...")
-        cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
+        cl_features = model.load_cell_line_features(dataset_name=train_dataset.dataset_name)
     if drug_features is None:
         print("Loading drug features ...")
-        drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
+        drug_features = model.load_drug_features(dataset_name=train_dataset.dataset_name)
     return cl_features, drug_features
 
 
@@ -165,7 +161,6 @@ def _inverse_transform_fold(
 
 def train_and_predict_impl(
     model: DRPModel,
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None = None,
@@ -177,7 +172,6 @@ def train_and_predict_impl(
     """Train the model and predict the response for the prediction dataset.
 
     :param model: Trained or untrained ``DRPModel`` instance.
-    :param path_data: Root directory for feature tables.
     :param train_dataset: Training responses and identifiers.
     :param prediction_dataset: Pairs to predict; receives predictions in place.
     :param early_stopping_dataset: Optional hold-out for early stopping.
@@ -198,7 +192,7 @@ def train_and_predict_impl(
     if train_dataset.dataset_name is None:
         raise ValueError("train_dataset must have a dataset_name")
 
-    cl_features, drug_features = _resolve_feature_matrices(model, path_data, train_dataset, cl_features, drug_features)
+    cl_features, drug_features = _resolve_feature_matrices(model, train_dataset, cl_features, drug_features)
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
     drugs_to_keep = drug_features.identifiers if drug_features is not None else None
     _log_feature_coverage(train_dataset, cell_lines_to_keep, drugs_to_keep)

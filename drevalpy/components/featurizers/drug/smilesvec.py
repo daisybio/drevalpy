@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import ClassVar
 
 from drevalpy.components.contracts import FeatureFormat
@@ -30,16 +29,15 @@ class SmilesVecDrugFeaturizer(ViewDrugFeaturizer):
         super().__init__(view=view)
 
     @classmethod
-    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load generated SMILESVec embeddings under the predictor block name.
 
-        :param data_path: data path.
         :param dataset_name: dataset name.
         :param kwargs: Keyword arguments.
         :returns: Result.
         """
         _ = cls, kwargs
-        features = load_generic_csv(data_path, dataset_name, "drug_smilesvec", index_col="pubchem_id")
+        features = load_generic_csv(dataset_name, "drug_smilesvec", index_col="pubchem_id")
         for views in features.features.values():
             views["smilesvec"] = views.pop("drug_smilesvec")
         features.meta_info["smilesvec"] = features.meta_info.pop("drug_smilesvec")

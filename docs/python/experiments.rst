@@ -25,7 +25,7 @@ Minimal call
    from drevalpy.experiment import drug_response_experiment
    from drevalpy.models import construct_model
 
-   response_data = load_dataset("TOYv1", path_data="data")
+   response_data = load_dataset("TOYv1")
    ElasticNet = construct_model("ElasticNet")
 
    drug_response_experiment(
@@ -34,7 +34,6 @@ Minimal call
        run_id="en_toy",
        test_mode="LCO",
        n_cv_splits=5,
-       path_data="data",
        path_out="results/",
        hyperparameter_tuning=False,
    )
@@ -51,8 +50,9 @@ Common options
 - ``baselines``: extra baseline classes; randomization and robustness apply
   only to ``models``.
 - ``n_cv_splits``: number of outer CV folds (default ``5``).
-- ``path_data`` / ``path_out`` / ``run_id``: where features are cached and
-  where predictions are written.
+- ``path_out`` / ``run_id``: where predictions are written. Built-in
+  datasets and features are cached in the system cache directory (see
+  :doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``).
 - ``randomization_mode`` / ``n_trials_robustness``: optional stress tests
   (see :doc:`/concepts/evaluation`).
 - ``cross_study_datasets``: other ``DrugResponseDataset`` instances for

@@ -221,4 +221,4 @@ def test_load_drug_features_uses_featurizer_loader_when_configured(
         "drevalpy.components.data_loading.load_drug_features_for_model_config",
         lambda *args, **kwargs: expected,
     )
-    assert model.load_drug_features(".", "TOY") is expected
+    assert model.load_drug_features("TOY") is expected

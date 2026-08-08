@@ -42,7 +42,6 @@ def test_check_arguments_and_model_lookup_do_not_warn(tmp_path: pathlib.Path) ->
         baselines = ["NaivePredictor"]
         test_mode = ["LPO"]
         dataset_name = "GDSC1"
-        path_data = str(tmp_path / "drevalpy-data")
         no_refitting = True
         curve_curator_cores = 1
         cross_study_datasets: list[str] = []
@@ -117,8 +116,6 @@ def test_test_cv_with_modern_hpams_does_not_warn_on_legacy_views(
                     str(split_path),
                     "--hyperparameters_path",
                     str(hpam_path),
-                    "--path_data",
-                    str(data_dir),
                     "--test_mode",
                     "LCO",
                 ],

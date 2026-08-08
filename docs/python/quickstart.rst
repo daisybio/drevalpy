@@ -13,7 +13,7 @@ the model class to :func:`~drevalpy.experiment.drug_response_experiment`:
    from drevalpy.experiment import drug_response_experiment
    from drevalpy.models import construct_model
 
-   response_data = load_dataset("TOYv1", path_data="data")
+   response_data = load_dataset("TOYv1")
 
    ElasticNet = construct_model("ElasticNet")
 
@@ -22,7 +22,6 @@ the model class to :func:`~drevalpy.experiment.drug_response_experiment`:
        response_data=response_data,
        run_id="my_first_run",
        test_mode="LCO",
-       path_data="data",
        path_out="results/",
        hyperparameter_tuning=False,
    )

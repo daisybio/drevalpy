@@ -63,7 +63,7 @@ def _select_single_drug_test_drugs(
     return np.concatenate([random_drugs, [drug_to_remove]]), drug_to_remove
 
 
-def _assert_single_drug_save_load_roundtrip(model, model_class, test_dataset, train_dataset, data_dir) -> None:
+def _assert_single_drug_save_load_roundtrip(model, model_class, test_dataset, train_dataset) -> None:
     if len(train_dataset) == 0:
         print("Training dataset empty, continuing with train_and_predict anyway")
         return
@@ -72,8 +72,8 @@ def _assert_single_drug_save_load_roundtrip(model, model_class, test_dataset, tr
             checkpoint = f"{model_dir}/model"
             model.save(checkpoint)
             loaded_model = model_class.load(checkpoint)
-            drug_input = model.load_drug_features(str(data_dir), "TOYv1")
-            cell_line_input = model.load_cell_line_features(str(data_dir), "TOYv1")
+            drug_input = model.load_drug_features("TOYv1")
+            cell_line_input = model.load_cell_line_features("TOYv1")
             preds_original = model.predict(
                 drug_ids=test_dataset.drug_ids,
                 cell_line_ids=test_dataset.cell_line_ids,
@@ -161,7 +161,6 @@ def test_single_drug_models(
 
         test_dataset = train_and_predict(
             model=model,
-            path_data=str(data_dir),
             train_dataset=train_dataset,
             prediction_dataset=test_dataset,
             early_stopping_dataset=None,
@@ -170,7 +169,7 @@ def test_single_drug_models(
         )
 
         # Save and load test (should either succeed or raise NotImplementedError)
-        _assert_single_drug_save_load_roundtrip(model, model_class, test_dataset, train_dataset, data_dir)
+        _assert_single_drug_save_load_roundtrip(model, model_class, test_dataset, train_dataset)
 
         cross_study_dataset.remove_nan_responses()
         parent_dir = str(pathlib.Path(predictions_path).parent)
@@ -179,7 +178,6 @@ def test_single_drug_models(
             model=model,
             test_mode=test_mode,
             train_dataset=train_dataset,
-            path_data=str(data_dir),
             early_stopping_dataset=None,
             response_transformation=None,
             path_out=parent_dir,

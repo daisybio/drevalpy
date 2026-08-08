@@ -12,6 +12,7 @@ from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.datasets._paths import get_default_data_dir
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.types.literature_reference import LiteratureReference
 
@@ -46,15 +47,15 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
         super().__init__(view=view)
 
     @classmethod
-    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load precomputed PharmaFormer BPE token embeddings.
 
-        :param data_path: data path.
         :param dataset_name: dataset name.
         :param kwargs: Keyword arguments.
         :returns: Result.
         :raises FileNotFoundError: Raised on invalid input.
         """
+        data_path = get_default_data_dir()
         _ = cls, kwargs
         path = Path(data_path) / dataset_name / "drug_bpe_smiles.csv"
         if not path.exists():

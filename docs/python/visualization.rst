@@ -66,7 +66,6 @@ results directory:
    create_report(
        run_id="my_first_run",
        dataset="TOYv1",
-       path_data="data",
        result_path="results",
    )
 

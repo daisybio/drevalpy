@@ -117,7 +117,6 @@ def cross_study_prediction_impl(
     model: DRPModel,
     test_mode: str,
     train_dataset: DrugResponseDataset,
-    path_data: str | Path,
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
     path_out: str | Path,
@@ -130,7 +129,6 @@ def cross_study_prediction_impl(
     :param model: Trained model instance to evaluate.
     :param test_mode: Split mode used for overlap removal.
     :param train_dataset: Training dataset from the source study.
-    :param path_data: Root directory for feature tables.
     :param early_stopping_dataset: Optional early-stopping data for retraining.
     :param response_transformation: Optional response transformer.
     :param path_out: Directory where predictions are written.
@@ -143,7 +141,7 @@ def cross_study_prediction_impl(
         dataset.transform(response_transformation)
 
     try:
-        cl_features, drug_features = load_features(model, path_data, dataset)
+        cl_features, drug_features = load_features(model, dataset)
     except ValueError as e:
         warnings.warn(str(e), stacklevel=2)
         return

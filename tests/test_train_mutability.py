@@ -15,6 +15,7 @@ def test_train_and_predict_does_not_mutate_with_reduce_to(data_dir):
 
     :param data_dir: path to the data directory
     """
+    _ = data_dir
     train = DrugResponseDataset(
         response=np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
         cell_line_ids=np.array(["CL-1", "CL-2", "CL-3", "CL-4", "CL-5"]),
@@ -45,7 +46,6 @@ def test_train_and_predict_does_not_mutate_with_reduce_to(data_dir):
 
     train_and_predict(
         model=model,
-        path_data=str(data_dir),
         train_dataset=train,
         prediction_dataset=test,
         cl_features=cl_features,

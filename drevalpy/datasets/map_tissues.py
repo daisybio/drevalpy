@@ -346,7 +346,7 @@ def main():
     # Load DepMap sample_info
     depmap_path = data_path / "meta" / "DepMap_sample_info.csv"
     if not depmap_path.exists():
-        download_dataset(dataset_name="meta", data_path=data_path, redownload=True)
+        download_dataset(dataset_name="meta", redownload=True)
 
     sample_info = pd.read_csv(depmap_path, dtype=str, low_memory=False)
 

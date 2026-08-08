@@ -52,10 +52,8 @@ def test_fitting_and_loading_custom_dataset(sample_dataset: DrugResponseDataset,
     """
     assert sample_dataset.dataset_name == "TOYv1"
     dataset_name = "CTRPv2_sample_test"
-    path_data = str(data_dir)
     load_response_dataset(
         dataset_name=dataset_name,
-        path_data=path_data,
         measure="IC50",
         curve_curator=True,
         cores=200,
@@ -73,11 +71,15 @@ def _curve_function(x, wanted_ec50, front, back, slope):
     return (front - back) / (1 + (x / wanted_ec50) ** slope) + back
 
 
-def test_curvecurator_measures():
-    """Tests if CurveCurator computes the response measures correctly."""
+def test_curvecurator_measures(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests if CurveCurator computes the response measures correctly.
+
+    :param monkeypatch: pytest fixture to set the cache directory for this test
+    """
     temp_dir = tempfile.TemporaryDirectory()
     path_to_temp_dir = Path(temp_dir.name)
     Path.mkdir(path_to_temp_dir / "toy_curves", exist_ok=True)
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(path_to_temp_dir))
 
     expected_ec50 = 6
     front = 1.0
@@ -96,7 +98,6 @@ def test_curvecurator_measures():
     df.to_csv(path_to_temp_dir / "toy_curves" / "toy_curves_raw.csv", index=False)
     load_response_dataset(
         dataset_name="toy_curves",
-        path_data=str(path_to_temp_dir),
         measure="IC50",
         curve_curator=True,
         cores=200,

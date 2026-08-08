@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from drevalpy.datasets._paths import get_default_data_dir
+
 _VALID_TEST_MODES = frozenset({"LPO", "LCO", "LDO", "LTO"})
 _VALID_RANDOMIZATION_MODES = frozenset({"SVCC", "SVRC", "SVCD", "SVRD"})
 _VALID_RESPONSE_TRANSFORMS = frozenset({"None", "standard", "minmax", "robust"})
@@ -48,7 +50,7 @@ def validate_test_modes(args) -> None:
 
 
 def _expected_custom_dataset_path(args) -> Path:
-    base = Path(args.path_data).absolute() / args.dataset_name
+    base = Path(get_default_data_dir()).absolute() / args.dataset_name
     if not args.no_refitting:
         return base / f"{args.dataset_name}_raw.csv"
     return base / f"{args.dataset_name}.csv"
@@ -59,21 +61,21 @@ def _custom_dataset_error_message(args, expected: Path) -> str:
         return (
             "You specified the curve_curator option with a custom dataset name which requires raw "
             f"viability data to be located at {expected} but the file does not exist. "
-            "Please check the 'path_data' and 'dataset_name' arguments and ensure the raw viability "
-            "input file is located at <path_data>/<dataset_name>/<dataset_name>_raw.csv."
+            "Please check the cache directory (see DREVALPY_CACHE_DIR) and 'dataset_name' arguments and "
+            "ensure the raw viability input file is located at <cache_dir>/<dataset_name>/<dataset_name>_raw.csv."
         )
     return (
         "You specified a custom dataset name which requires prefit curve data to be located at "
-        f"{expected} but the file does not exist. Please check the 'path_data' and "
-        "'dataset_name' arguments and ensure the prefit curve data is located at input file is "
-        "located at <path_data>/<dataset_name>/<dataset_name>.csv."
+        f"{expected} but the file does not exist. Please check the cache directory (see DREVALPY_CACHE_DIR) "
+        "and 'dataset_name' arguments and ensure the prefit curve data is located at input file is "
+        "located at <cache_dir>/<dataset_name>/<dataset_name>.csv."
     )
 
 
 def validate_dataset_name_and_paths(args) -> None:
     """Validate built-in or custom dataset paths.
 
-    :param args: Parsed CLI arguments with ``dataset_name``, ``path_data``, and ``no_refitting``.
+    :param args: Parsed CLI arguments with ``dataset_name`` and ``no_refitting``.
 
     :raises FileNotFoundError: If a custom dataset CSV is missing at the expected path.
     """
@@ -111,7 +113,7 @@ def validate_cross_study_dataset_names(args) -> None:
             raise AssertionError(
                 f"Invalid dataset name in cross_study_datasets. Available datasets are "
                 f"{list_builtin_datasets()}. If you want to use your own dataset, place it under "
-                f"<path_data>/<dataset_name>/ and load it with load_dataset."
+                f"<cache_dir>/<dataset_name>/ (see DREVALPY_CACHE_DIR) and load it with load_dataset."
             )
 
 
@@ -203,7 +205,6 @@ def check_arguments(args) -> None:
     validate_dataset_name_and_paths(args)
     validate_curve_curator_cores(args)
     validate_cross_study_dataset_names(args)
-    Path(args.path_data).mkdir(parents=True, exist_ok=True)
     validate_cv_split_settings(args)
     validate_randomization_settings(args)
     validate_robustness_and_hpo_settings(args)

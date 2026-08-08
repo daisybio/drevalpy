@@ -20,4 +20,4 @@ def test_train_and_predict_requires_dataset_name() -> None:
     )
     test = train.copy()
     with pytest.raises(ValueError, match="dataset_name"):
-        train_and_predict_impl(model, "data", train, test)
+        train_and_predict_impl(model, train, test)

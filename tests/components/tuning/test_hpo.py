@@ -336,8 +336,8 @@ def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
 
     model_cls = construct_model("ElasticNet")
     model = model_cls()
-    cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
-    drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
+    cell_line_input = model.load_cell_line_features(dataset_name="TOYv1")
+    drug_input = model.load_drug_features(dataset_name="TOYv1")
     valid_cell_lines = list(cell_line_input.identifiers)[:2]
     valid_drugs = list(drug_input.identifiers)[:2]
     responses = np.array([1.0, 2.0, 3.0, 4.0], dtype=float)
@@ -360,7 +360,6 @@ def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
         validation_dataset=val_dataset,
         early_stopping_dataset=None,
         metric="RMSE",
-        path_data=str(data_dir),
         hpo_config=build_experiment_hpo_config("RMSE", n_trials=1, storage_path=str(storage)),
     )
     assert isinstance(best, dict)

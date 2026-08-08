@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -21,14 +20,12 @@ def _load_gene_indices(
     feature_dataset,
     view: str,
     gene_list_stem: str,
-    *,
-    data_path: str | Path | None = None,
 ) -> list[int]:
     meta = feature_dataset.meta_info.get(view)
     if meta is None:
         msg = f"FeatureDataset meta_info missing view {view!r}"
         raise ValueError(msg)
-    gene_list_path = resolve_gene_list_path(gene_list_stem, data_path=data_path)
+    gene_list_path = resolve_gene_list_path(gene_list_stem)
     selected_genes = gene_names_from_list_csv(gene_list_path)
     gene_to_idx = {str(gene): index for index, gene in enumerate(meta)}
     indices = [gene_to_idx[gene] for gene in selected_genes if gene in gene_to_idx]
@@ -78,7 +75,6 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         standardize: bool = True,
         minmax_scale: bool = False,
         arcsinh: bool = True,
-        data_path: str | Path | None = None,
     ) -> None:
         """Initialize instance state.
 
@@ -87,14 +83,12 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         :param standardize: standardize.
         :param minmax_scale: minmax scale.
         :param arcsinh: arcsinh.
-        :param data_path: data path.
         """
         self._view = view
         self._gene_list_stem = gene_list_stem
         self._standardize = standardize
         self._minmax_scale = minmax_scale
         self._arcsinh = arcsinh
-        self._data_path = None if data_path is None else Path(data_path)
         self._gene_indices: list[int] = []
         self._scaler: StandardScaler | None = None
         self._minmax: MinMaxScaler | None = None
@@ -121,7 +115,6 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             features,
             self._view,
             self._gene_list_stem,
-            data_path=self._data_path,
         )
         self._output_dim = len(self._gene_indices)
         matrix = stack_view_matrix(features, self._view, ids).astype(np.float64)[:, self._gene_indices]
@@ -218,8 +211,6 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             "standardize": self._standardize,
             "minmax_scale": self._minmax_scale,
             "arcsinh": self._arcsinh,
-            # Normalized to ``str`` so the persisted artifact format stays stable.
-            "data_path": None if self._data_path is None else str(self._data_path),
             "gene_indices": list(self._gene_indices),
             "scaler": self._scaler,
             "minmax": self._minmax,
@@ -240,11 +231,8 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             self._minmax_scale = bool(state["minmax_scale"])
         if "arcsinh" in state:
             self._arcsinh = bool(state["arcsinh"])
-        data_path = state.get("data_path")
-        if isinstance(data_path, (str, Path)):
-            self._data_path = Path(data_path)
-        elif data_path is None:
-            self._data_path = None
+        # Backward compatibility: older pickled state may include a "data_path" key,
+        # but the attribute no longer exists on this class, so it is intentionally ignored.
 
     def _restore_landmark_fit_state(self, state: dict[str, object]) -> None:
         gene_indices = state.get("gene_indices")
@@ -290,7 +278,6 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
         standardize: bool = False,
         minmax_scale: bool = False,
         arcsinh: bool = False,
-        data_path: str | Path | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize the reduced landmark featurizer variant.
@@ -299,7 +286,6 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
         :param standardize: Whether to z-score features after loading.
         :param minmax_scale: Whether to min-max scale features after loading.
         :param arcsinh: Whether to apply ``arcsinh`` transform after loading.
-        :param data_path: Optional override for dataset artifact root.
         :param kwargs: Ignored legacy keyword arguments.
         """
         super().__init__(
@@ -308,5 +294,4 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
             standardize=standardize,
             minmax_scale=minmax_scale,
             arcsinh=arcsinh,
-            data_path=data_path,
         )

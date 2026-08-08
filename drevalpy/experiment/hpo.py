@@ -21,7 +21,6 @@ def select_fold_hyperparameters(
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
     metric: str,
-    path_data: str | Path,
     model_checkpoint_dir: str | Path | None,
     hyperparameter_tuning: bool,
     hpo_config: Any,
@@ -37,7 +36,6 @@ def select_fold_hyperparameters(
     :param early_stopping_dataset: Optional early-stopping data.
     :param response_transformation: Optional response transformer.
     :param metric: Metric optimized during HPO.
-    :param path_data: Root directory for feature tables.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hyperparameter_tuning: Whether to run HPO when tunable parameters exist.
     :param hpo_config: Ray Tune / Optuna configuration object.
@@ -61,7 +59,6 @@ def select_fold_hyperparameters(
         "early_stopping_dataset": early_stopping_dataset,
         "response_transformation": response_transformation,
         "metric": metric,
-        "path_data": path_data,
         "model_checkpoint_dir": model_checkpoint_dir,
         "hpo_config": hpo_config,
     }
@@ -80,7 +77,6 @@ def select_final_model_hyperparameters(
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
     metric: str,
-    path_data: str | Path,
     model_checkpoint_dir: str | Path | None,
     hyperparameter_tuning: bool,
     hpo_config: Any,
@@ -93,7 +89,6 @@ def select_final_model_hyperparameters(
     :param early_stopping_dataset: Optional early-stopping data.
     :param response_transformation: Optional response transformer.
     :param metric: Metric optimized during HPO.
-    :param path_data: Root directory for feature tables.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hyperparameter_tuning: Whether to run HPO when tunable parameters exist.
     :param hpo_config: Ray Tune / Optuna configuration object.
@@ -114,7 +109,6 @@ def select_final_model_hyperparameters(
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
         metric=metric,
-        path_data=path_data,
         model_checkpoint_dir=model_checkpoint_dir,
         hpo_config=hpo_config,
     )

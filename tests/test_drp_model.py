@@ -45,9 +45,13 @@ def test_factory() -> None:
     assert "SparseGO" in names
 
 
-def test_load_cl_ids_from_csv() -> None:
-    """Test the loading of cell line identifiers from a CSV file."""
+def test_load_cl_ids_from_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the loading of cell line identifiers from a CSV file.
+
+    :param monkeypatch: pytest fixture for setting the cache dir env var
+    """
     temp = tempfile.TemporaryDirectory()
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", temp.name)
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "cell_line_names.csv")
     with open(temp_file, "w") as f:
@@ -55,14 +59,18 @@ def test_load_cl_ids_from_csv() -> None:
             "cellosaurus_id,cell_line_name\nCVCL_X481,201T\nCVCL_1045,22Rv1\nCVCL_1046,23132/87\nCVCL_1798,42-MG-BA\n"
         )
 
-    cl_ids_gdsc1 = load_cl_ids_from_csv(temp.name, "GDSC1_small")
+    cl_ids_gdsc1 = load_cl_ids_from_csv("GDSC1_small")
     assert len(cl_ids_gdsc1.features) == 4
     assert cl_ids_gdsc1.identifiers[0] == "201T"
 
 
-def test_load_tissues_from_csv() -> None:
-    """Test the loading of tissues from a CSV file."""
+def test_load_tissues_from_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the loading of tissues from a CSV file.
+
+    :param monkeypatch: pytest fixture for setting the cache dir env var
+    """
     with tempfile.TemporaryDirectory() as temp_dir:
+        monkeypatch.setenv("DREVALPY_CACHE_DIR", temp_dir)
         os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
         temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
         with open(temp_file, "w") as f:
@@ -74,7 +82,7 @@ def test_load_tissues_from_csv() -> None:
                 "CVCL_1798,42-MG-BA,kidney\n"
             )
 
-        tissues_gdsc1 = load_tissues_from_csv(temp_dir, "GDSC1_small")
+        tissues_gdsc1 = load_tissues_from_csv("GDSC1_small")
         assert len(tissues_gdsc1.features) == 4
 
         expected = {
@@ -91,29 +99,37 @@ def test_load_tissues_from_csv() -> None:
             assert tissue_value[0] == expected_tissue
 
 
-def test_load_cl_ids_and_tissues_from_csv() -> None:
-    """Test loading cell line ids and tissues from a CSV file."""
+def test_load_cl_ids_and_tissues_from_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test loading cell line ids and tissues from a CSV file.
+
+    :param monkeypatch: pytest fixture for setting the cache dir env var
+    """
     with tempfile.TemporaryDirectory() as temp_dir:
+        monkeypatch.setenv("DREVALPY_CACHE_DIR", temp_dir)
         os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
         temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
         with open(temp_file, "w") as f:
             f.write("cellosaurus_id,cell_line_name,tissue\nCVCL_X481,201T,lung\nCVCL_1045,22Rv1,breast\n")
 
-        features = load_cl_ids_and_tissues_from_csv(temp_dir, "GDSC1_small")
+        features = load_cl_ids_and_tissues_from_csv("GDSC1_small")
         assert len(features.features) == 2
         assert features.features["201T"][TISSUE_IDENTIFIER][0] == "lung"
         assert features.features["22Rv1"][CELL_LINE_IDENTIFIER][0] == "22Rv1"
 
 
-def test_load_cl_ids_and_tissues_from_csv_missing_tissue_column() -> None:
-    """Test that missing tissue column falls back to cell line ids."""
+def test_load_cl_ids_and_tissues_from_csv_missing_tissue_column(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that missing tissue column falls back to cell line ids.
+
+    :param monkeypatch: pytest fixture for setting the cache dir env var
+    """
     with tempfile.TemporaryDirectory() as temp_dir:
+        monkeypatch.setenv("DREVALPY_CACHE_DIR", temp_dir)
         os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
         temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
         with open(temp_file, "w") as f:
             f.write("cellosaurus_id,cell_line_name\nCVCL_X481,201T\n")
 
-        features = load_cl_ids_and_tissues_from_csv(temp_dir, "GDSC1_small")
+        features = load_cl_ids_and_tissues_from_csv("GDSC1_small")
         assert len(features.features) == 1
         assert features.features["201T"][CELL_LINE_IDENTIFIER][0] == "201T"
         assert TISSUE_IDENTIFIER not in features.features["201T"]
@@ -154,12 +170,14 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: str | Non
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_load_and_select_gene_features(gene_list: str | None) -> None:
+def test_load_and_select_gene_features(gene_list: str | None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the loading and reduction of gene features.
 
     :param gene_list: either None, landmark_genes, drug_target_genes_all_drugs, or gene_list_paccmann_network_prop
+    :param monkeypatch: pytest fixture for setting the cache dir env var
     """
     temp = tempfile.TemporaryDirectory()
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", temp.name)
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "gene_expression.csv")
     with open(temp_file, "w") as f:
@@ -181,9 +199,9 @@ def test_load_and_select_gene_features(gene_list: str | None) -> None:
 
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
-            gene_features_gdsc1 = load_and_select_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
+            gene_features_gdsc1 = load_and_select_gene_features("gene_expression", gene_list, "GDSC1_small")
     else:
-        gene_features_gdsc1 = load_and_select_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
+        gene_features_gdsc1 = load_and_select_gene_features("gene_expression", gene_list, "GDSC1_small")
     if gene_list is None:
         assert len(gene_features_gdsc1.features) == 5
         assert gene_features_gdsc1.meta_info is not None
@@ -220,8 +238,8 @@ def test_order_load_and_select_gene_features(
     assert sample_dataset.dataset_name == "TOYv1"
     assert cross_study_dataset.dataset_name == "TOYv2"
     gene_list = "gene_expression_intersection"
-    a = load_and_select_gene_features("gene_expression", gene_list, str(data_dir), "TOYv1")
-    b = load_and_select_gene_features("gene_expression", gene_list, str(data_dir), "TOYv2")
+    a = load_and_select_gene_features("gene_expression", gene_list, "TOYv1")
+    b = load_and_select_gene_features("gene_expression", gene_list, "TOYv2")
     # assert the meta info (=gene names) are the same
     assert np.all(a.meta_info["gene_expression"] == b.meta_info["gene_expression"])
     # assert the shape of the features for a random cell line is actually the same
@@ -242,21 +260,29 @@ def test_iterate_features() -> None:
     assert np.all(features["CellLine1"]["gene_expression"] == [1.5, 3, 4.5])
 
 
-def test_load_drug_ids_from_csv() -> None:
-    """Test the loading of drug identifiers from a CSV file."""
+def test_load_drug_ids_from_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the loading of drug identifiers from a CSV file.
+
+    :param monkeypatch: pytest fixture for setting the cache dir env var
+    """
     temp = tempfile.TemporaryDirectory()
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", temp.name)
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "drug_names.csv")
     with open(temp_file, "w") as f:
         f.write(f"{DRUG_IDENTIFIER}\n(5Z)-7-Oxozeaenol\n5-Fluorouracil\nA-443654\nA-770041\n")
-    drug_ids_gdsc1 = load_drug_ids_from_csv(temp.name, "GDSC1_small")
+    drug_ids_gdsc1 = load_drug_ids_from_csv("GDSC1_small")
     assert len(drug_ids_gdsc1.features) == 4
     assert drug_ids_gdsc1.identifiers[0] == "(5Z)-7-Oxozeaenol"
 
 
-def test_load_drugs_from_fingerprints() -> None:
-    """Test the loading of drugs from fingerprints."""
+def test_load_drugs_from_fingerprints(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the loading of drugs from fingerprints.
+
+    :param monkeypatch: pytest fixture for setting the cache dir env var
+    """
     temp = tempfile.TemporaryDirectory()
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", temp.name)
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     os.mkdir(os.path.join(temp.name, "GDSC1_small", "drug_fingerprints"))
     temp_file = os.path.join(
@@ -267,7 +293,7 @@ def test_load_drugs_from_fingerprints() -> None:
     )
     with open(temp_file, "w") as f:
         f.write("3827738,5311510,46883536,73707530,16720766\n1,1,1,1,1\n1,1,0,0,1\n0,1,1,0,1\n1,0,1,1,1\n1,1,0,1,1\n")
-    drug_features_gdsc1 = load_drug_fingerprint_features(temp.name, "GDSC1_small")
+    drug_features_gdsc1 = load_drug_fingerprint_features("GDSC1_small")
     assert len(drug_features_gdsc1.features) == 5
     assert drug_features_gdsc1.features.keys() == {
         "3827738",
@@ -369,12 +395,14 @@ def _assert_multiomics_gene_list_meta(
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_get_multiomics_feature_dataset(gene_list: str | None) -> None:
+def test_get_multiomics_feature_dataset(gene_list: str | None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the loading of multiomics features.
 
     :param gene_list: list of genes to keep
+    :param monkeypatch: pytest fixture for setting the cache dir env var
     """
     temp = tempfile.TemporaryDirectory()
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", temp.name)
     _write_gdsc1_small_omics_fixture(temp)
     if gene_list is not None:
         _write_gene_list(temp, gene_list)
@@ -384,7 +412,6 @@ def test_get_multiomics_feature_dataset(gene_list: str | None) -> None:
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
             get_multiomics_feature_dataset(
-                data_path=temp.name,
                 dataset_name="GDSC1_small",
                 gene_lists=gene_lists,
                 omics=omics,
@@ -393,7 +420,6 @@ def test_get_multiomics_feature_dataset(gene_list: str | None) -> None:
         return
 
     dataset = get_multiomics_feature_dataset(
-        data_path=temp.name,
         dataset_name="GDSC1_small",
         gene_lists=gene_lists,
         omics=omics,

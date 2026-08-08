@@ -14,7 +14,6 @@ from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.utils import check_arguments, main
 
 # Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
-_DEFAULT_DATA_DIR = Path("data")
 _DEFAULT_RESULTS_DIR = Path("results")
 
 
@@ -52,8 +51,9 @@ ROBUSTNESS_HELP = (
 NO_REFITTING_HELP = (
     "If not set, the measure is appended with '_curvecurator'. If a custom dataset_name was provided, this will invoke "
     "the fitting procedure of raw viability data, which is expected to exist at "
-    "``<path_data>/<dataset_name>/<dataset_name>_raw.csv``. The fitted dataset will be stored in the same folder, "
-    "in a file called ``<dataset_name>.csv``. Default is False, i.e., curvecurated drug response measures are utilized."
+    "``<cache_dir>/<dataset_name>/<dataset_name>_raw.csv`` (see DREVALPY_CACHE_DIR). The fitted dataset will be stored "
+    "in the same folder, in a file called ``<dataset_name>.csv``. Default is False, i.e., curvecurated drug response "
+    "measures are utilized."
 )
 
 MEASURE_HELP = (
@@ -96,7 +96,6 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             ),
         ] = False,
         run_id: Annotated[str, typer.Option("--run_id", help="Identifier to save the results.")] = "my_run",
-        path_data: Annotated[Path, typer.Option("--path_data", help="Path to the data directory.")] = _DEFAULT_DATA_DIR,
         models: Annotated[
             list[str] | None, typer.Option("--models", help="Model to evaluate or list of models to compare.")
         ] = None,
@@ -232,7 +231,6 @@ def register_pipeline_callback(app: typer.Typer) -> None:
         :param ctx: ctx.
         :param show_version: show version.
         :param run_id: run id.
-        :param path_data: path data.
         :param models: models.
         :param baselines: baselines.
         :param test_mode: test mode.
@@ -265,7 +263,6 @@ def register_pipeline_callback(app: typer.Typer) -> None:
         :param ctx: ctx.
         :param show_version: show version.
         :param run_id: run id.
-        :param path_data: path data.
         :param models: models.
         :param baselines: baselines.
         :param test_mode: test mode.
@@ -307,7 +304,6 @@ def register_pipeline_callback(app: typer.Typer) -> None:
 
         args = pipeline_namespace(
             run_id=run_id,
-            path_data=path_data,
             models=as_list(models),
             baselines=as_list(baselines) if baselines is not None else None,
             test_mode=as_list(test_mode) if test_mode is not None else ["LPO"],

@@ -18,7 +18,6 @@ class _MinimalArgs:
     baselines = None
     test_mode = ["LPO"]
     dataset_name = "GDSC1"
-    path_data = "data"
     no_refitting = True
     curve_curator_cores = 1
     cross_study_datasets: list[str] = []
@@ -47,7 +46,7 @@ def test_validate_measure_rejects_unknown() -> None:
         validate_measure_and_metrics(args)
 
 
-def test_check_arguments_accepts_builtin_dataset(tmp_path: pathlib.Path) -> None:
+def test_check_arguments_accepts_builtin_dataset(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
     args = _MinimalArgs()
-    args.path_data = str(tmp_path)
     check_arguments(args)

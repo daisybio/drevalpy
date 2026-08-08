@@ -12,6 +12,7 @@ from drevalpy.components.feature_block import BlockSpec, FeatureBlock, graph_fea
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.datasets._paths import get_default_data_dir
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.utils.torch_io import load_trusted_payload
 
@@ -37,16 +38,16 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         self._output_dim = 0
 
     @classmethod
-    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load precomputed DrugGNN graph artifacts.
 
-        :param data_path: Parent directory for dataset artifacts.
         :param dataset_name: Dataset folder name.
         :param kwargs: Unused loader keyword arguments.
         :returns: Feature dataset mapping drug ids to graph payloads.
         :raises FileNotFoundError: If the graph directory is missing.
         :raises ValueError: If no graph files are found.
         """
+        data_path = get_default_data_dir()
         _ = cls, kwargs
         directory = Path(data_path) / dataset_name / "drug_graphs"
         if not directory.exists():

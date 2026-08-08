@@ -9,9 +9,6 @@ import typer
 
 from drevalpy.cli.run_cv import run_train_and_predict_cv
 
-# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
-_DEFAULT_DATA_DIR = Path("data")
-
 
 def register(app: typer.Typer) -> None:
     """Register the ``train-cv`` subcommand on ``app``.
@@ -36,9 +33,6 @@ def register(app: typer.Typer) -> None:
             ),
         ],
         cv_data: Annotated[Path, typer.Option("--cv_data", help="Path to the pickled cv data split.")],
-        path_data: Annotated[
-            Path, typer.Option("--path_data", help="Data directory path, default: data.")
-        ] = _DEFAULT_DATA_DIR,
         test_mode: Annotated[
             str,
             typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO), default: LPO."),
@@ -63,14 +57,12 @@ def register(app: typer.Typer) -> None:
         :param model_name: Registered model name (optionally ``Model.drug`` for single-drug).
         :param hyperparameters: Path to a YAML hyperparameter file.
         :param cv_data: Path to a pickled CV split artifact.
-        :param path_data: Root data directory passed to feature loaders.
         :param test_mode: Split label used when naming outputs.
         :param response_transformation: Sklearn response transform name.
         :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
         """
         run_train_and_predict_cv(
             model_name=model_name,
-            path_data=path_data,
             test_mode=test_mode,
             hyperparameters=hyperparameters,
             cv_data=cv_data,

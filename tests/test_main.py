@@ -71,7 +71,6 @@ def test_drevalpy_main(args, data_dir):
             pytest.fail(f"Report generation failed: {e}")
 
         result_path = pathlib.Path(temp_dir).resolve()
-        path_data = pathlib.Path(args.path_data).resolve()
 
         # Parse and prep results
         (
@@ -91,7 +90,6 @@ def test_drevalpy_main(args, data_dir):
             eval_results_per_drug=evaluation_results_per_drug,
             eval_results_per_cell_line=evaluation_results_per_cell_line,
             t_vs_p=true_vs_pred,
-            path_data=path_data,
         )
 
         # Basic structural assertions

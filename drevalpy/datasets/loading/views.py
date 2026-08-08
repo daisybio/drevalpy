@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.feature_tables import (
@@ -19,44 +18,38 @@ logger = logging.getLogger(__name__)
 
 def load_cell_line_feature_views(
     views: list[str],
-    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load cell-line features for the configured cell-line views.
 
     :param views: Canonical or legacy view names to load.
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
 
     :returns: ``FeatureDataset`` with the requested cell-line views.
     """
-    root = Path(data_path)
     if len(views) == 1:
-        return load_single_cell_line_view(views, root, dataset_name)
-    return load_multi_cell_line_view(views, root, dataset_name)
+        return load_single_cell_line_view(views, dataset_name)
+    return load_multi_cell_line_view(views, dataset_name)
 
 
 def load_drug_feature_views(
     views: list[str],
-    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset | None:
     """Load drug features for the configured drug views.
 
     :param views: Canonical drug view names to load.
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
 
     :returns: ``FeatureDataset`` with the requested drug views, or ``None`` when *views* is empty.
     """
     if not views:
         return None
-    return load_single_drug_view(views, Path(data_path), dataset_name)
+    return load_single_drug_view(views, dataset_name)
 
 
 def load_single_cell_line_view(
     cell_line_views: list[str],
-    data_path: Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load cell line features for a single-view model.
@@ -65,7 +58,6 @@ def load_single_cell_line_view(
     used for subsetting. Otherwise, the whole CSV is loaded.
 
     :param cell_line_views: View names; must contain exactly one element.
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
 
     :returns: ``FeatureDataset`` containing the requested cell-line view.
@@ -86,12 +78,10 @@ def load_single_cell_line_view(
         return load_and_select_gene_features(
             feature_type="gene_expression",
             gene_list="landmark_genes_reduced",
-            data_path=data_path,
             dataset_name=dataset_name,
         )
     else:
         return load_generic_csv(
-            path=data_path,
             dataset_name=dataset_name,
             feature_name=cell_line_views[0],
             index_col=CELL_LINE_IDENTIFIER,
@@ -100,7 +90,6 @@ def load_single_cell_line_view(
 
 def load_multi_cell_line_view(
     cell_line_views: list[str],
-    data_path: Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load cell line features for a multi-view model.
@@ -109,7 +98,6 @@ def load_multi_cell_line_view(
     loaded in full.
 
     :param cell_line_views: View names to combine into one dataset.
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
 
     :returns: ``FeatureDataset`` containing every requested cell-line view.
@@ -133,14 +121,11 @@ def load_multi_cell_line_view(
     }
     gene_lists = {feature_name: gene_list_defaults.get(feature_name, None) for feature_name in cell_line_views}
 
-    return get_multiomics_feature_dataset(
-        data_path=data_path, gene_lists=gene_lists, dataset_name=dataset_name, omics=cell_line_views
-    )
+    return get_multiomics_feature_dataset(gene_lists=gene_lists, dataset_name=dataset_name, omics=cell_line_views)
 
 
 def load_single_drug_view(
     drug_views: list[str],
-    data_path: Path,
     dataset_name: str,
 ) -> FeatureDataset | None:
     """Load drug features for a single-view model.
@@ -150,7 +135,6 @@ def load_single_drug_view(
     generically.
 
     :param drug_views: View names; at most one element is supported.
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
 
     :returns: ``FeatureDataset`` with drug ids or the requested drug view.
@@ -162,10 +146,8 @@ def load_single_drug_view(
     logger.debug("Loading the following drug views: %s", drug_views)
 
     if len(drug_views) == 0:
-        return load_drug_ids_from_csv(data_path, dataset_name)
+        return load_drug_ids_from_csv(dataset_name)
     elif drug_views[0] == "fingerprints":
-        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+        return load_drug_fingerprint_features(dataset_name, fill_na=True)
     else:
-        return load_generic_csv(
-            path=data_path, dataset_name=dataset_name, feature_name=drug_views[0], index_col=DRUG_IDENTIFIER
-        )
+        return load_generic_csv(dataset_name=dataset_name, feature_name=drug_views[0], index_col=DRUG_IDENTIFIER)

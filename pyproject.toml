@@ -37,6 +37,7 @@ dependencies = [
     "mygene",
     "obonet",
     "optuna",
+    "platformdirs>=4.0",
     "typing-extensions>=4.12.0",
     "ray[tune]; sys_platform != 'win32' or python_version < '3.13'",
 ]

@@ -23,8 +23,9 @@ model zoo, see :doc:`/concepts/datasets` and :doc:`/concepts/evaluation`.
 Identity and paths
 ------------------
 
-``--run_id`` names the result tree (default ``my_run``). ``--path_data`` is
-where datasets and features are stored or downloaded (default ``data``).
+``--run_id`` names the result tree (default ``my_run``). Built-in datasets and
+features are stored under the system cache directory (see
+:doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``).
 ``--path_out`` is the results root (default ``results``). With the defaults,
 outputs appear under ``results/<run_id>/<dataset_name>/<test_mode>/``.
 
@@ -47,15 +48,15 @@ Dataset and response
 --------------------
 
 ``--dataset_name`` selects a built-in dataset (default ``GDSC1``) or a custom
-name under ``--path_data``. ``--measure`` chooses the response column (default
-``LN_IC50``). Unless you pass ``--no_refitting``, DrEvalPy uses CurveCurator
-refit measures (for example ``LN_IC50_curvecurator``) for better
+name under the cache directory. ``--measure`` chooses the response column
+(default ``LN_IC50``). Unless you pass ``--no_refitting``, DrEvalPy uses
+CurveCurator refit measures (for example ``LN_IC50_curvecurator``) for better
 cross-dataset comparability.
 
-For custom raw viability, place ``<dataset_name>_raw.csv`` under
-``--path_data`` and leave refitting enabled. ``--curve_curator_cores`` and
-``--curve_curator_normalize`` control fitting. See
-:doc:`/concepts/datasets`.
+For custom raw viability, place ``<dataset_name>_raw.csv`` under the cache
+directory (``$DREVALPY_CACHE_DIR/<dataset_name>/``) and leave refitting
+enabled. ``--curve_curator_cores`` and ``--curve_curator_normalize`` control
+fitting. See :doc:`/concepts/datasets`.
 
 ``--cross_study_datasets`` adds external datasets for cross-study prediction
 checks after the main run.

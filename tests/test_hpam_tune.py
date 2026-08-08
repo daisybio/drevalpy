@@ -26,8 +26,8 @@ def test_hpam_tune(tmp_path, data_dir):
 
     model_cls = construct_model("ElasticNet")
     model = model_cls(defaults)
-    cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
-    drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
+    cell_line_input = model.load_cell_line_features(dataset_name="TOYv1")
+    drug_input = model.load_drug_features(dataset_name="TOYv1")
 
     valid_cell_lines = list(cell_line_input.identifiers)[:2]
     valid_drugs = list(drug_input.identifiers)[:2]
@@ -53,7 +53,6 @@ def test_hpam_tune(tmp_path, data_dir):
         validation_dataset=val_dataset,
         early_stopping_dataset=None,
         metric="RMSE",
-        path_data=str(data_dir),
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
     )
     assert isinstance(best, dict)

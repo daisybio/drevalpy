@@ -9,9 +9,6 @@ import typer
 
 from drevalpy.cli.model_testing import run_tune_final_model
 
-# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
-_DEFAULT_DATA_DIR = Path("data")
-
 
 def register(app: typer.Typer) -> None:
     """Register the ``tune-final-model`` subcommand on ``app``.
@@ -41,9 +38,6 @@ def register(app: typer.Typer) -> None:
                 help="Path to hyperparameter combination file, yaml format.",
             ),
         ],
-        path_data: Annotated[
-            Path, typer.Option("--path_data", help="Path to data. Default: data.")
-        ] = _DEFAULT_DATA_DIR,
         response_transformation: Annotated[
             str,
             typer.Option(
@@ -69,7 +63,6 @@ def register(app: typer.Typer) -> None:
         :param early_stopping_data: Path to pickled early-stopping dataset.
         :param model_name: Registered model name.
         :param hpam_combi: Path to a YAML hyperparameter file.
-        :param path_data: Root data directory passed to feature loaders.
         :param response_transformation: Sklearn response transform name.
         :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
         """
@@ -80,6 +73,5 @@ def register(app: typer.Typer) -> None:
             model_name=model_name,
             hpam_combi=hpam_combi,
             response_transformation=response_transformation,
-            path_data=path_data,
             model_checkpoint_dir=model_checkpoint_dir,
         )

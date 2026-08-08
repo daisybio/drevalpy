@@ -25,12 +25,13 @@ def _features() -> FeatureDataset:
     )
 
 
-def test_landmark_uses_symbol_column_and_persists_state(tmp_path: Path) -> None:
+def test_landmark_uses_symbol_column_and_persists_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     gene_dir = tmp_path / "meta" / "gene_lists"
     gene_dir.mkdir(parents=True)
     pd.DataFrame({"Symbol": ["B", "D"]}).to_csv(gene_dir / "landmark_genes.csv", index=False)
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
 
-    featurizer = LandmarkGenesFeaturizer(data_path=str(tmp_path), standardize=True)
+    featurizer = LandmarkGenesFeaturizer(standardize=True)
     features = _features()
     ids = np.array(["cl1", "cl2"])
     featurizer.fit(features, entity_ids=ids)
@@ -38,7 +39,7 @@ def test_landmark_uses_symbol_column_and_persists_state(tmp_path: Path) -> None:
     matrix = featurizer.transform(features, ids)
     assert matrix.shape == (2, 2)
 
-    restored = LandmarkGenesFeaturizer(data_path=str(tmp_path))
+    restored = LandmarkGenesFeaturizer()
     restored.set_state(featurizer.get_state())
     assert restored.output_dim == 2
     np.testing.assert_allclose(restored.transform(features, ids), matrix)
@@ -60,34 +61,38 @@ def test_landmark_reduced_uses_package_gene_list() -> None:
     assert featurizer.output_dim == 3
 
 
-def test_landmark_fails_clearly_on_bad_column(tmp_path: Path) -> None:
+def test_landmark_fails_clearly_on_bad_column(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     gene_dir = tmp_path / "meta" / "gene_lists"
     gene_dir.mkdir(parents=True)
     pd.DataFrame({"other": ["A"]}).to_csv(gene_dir / "landmark_genes.csv", index=False)
-    featurizer = LandmarkGenesFeaturizer(data_path=str(tmp_path))
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
+    featurizer = LandmarkGenesFeaturizer()
     with pytest.raises(ValueError, match="recognized gene-name column"):
         featurizer.fit(_features(), entity_ids=np.array(["cl1"]))
 
 
-def test_landmark_accepts_a_path_data_path_and_serializes_it_as_a_string(tmp_path: Path) -> None:
-    """A ``Path`` data_path round-trips, and is persisted as ``str`` for artifact stability.
+def test_landmark_ignores_legacy_data_path_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Legacy pickled state with a ``data_path`` key is ignored (the attribute no longer exists).
 
     :param tmp_path: Temporary directory used as the dataset root.
+    :param monkeypatch: pytest fixture to point the cache directory at the gene list fixture.
     """
     gene_dir = tmp_path / "meta" / "gene_lists"
     gene_dir.mkdir(parents=True)
     pd.DataFrame({"Symbol": ["B", "D"]}).to_csv(gene_dir / "landmark_genes.csv", index=False)
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
 
-    featurizer = LandmarkGenesFeaturizer(data_path=tmp_path, standardize=True)
+    featurizer = LandmarkGenesFeaturizer(standardize=True)
     features = _features()
     ids = np.array(["cl1", "cl2"])
     featurizer.fit(features, entity_ids=ids)
     matrix = featurizer.transform(features, ids)
 
     state = featurizer.get_state()
-    assert state["data_path"] == str(tmp_path)
+    assert "data_path" not in state
+    state["data_path"] = str(tmp_path)  # simulate a legacy pickled state
 
     restored = LandmarkGenesFeaturizer()
     restored.set_state(state)
-    assert restored._data_path == tmp_path
+    assert not hasattr(restored, "_data_path")
     np.testing.assert_allclose(restored.transform(features, ids), matrix)

@@ -64,7 +64,6 @@ def _evaluate_trial_model(
     trial_model: DRPModel,
     *,
     metric: str,
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
@@ -76,7 +75,6 @@ def _evaluate_trial_model(
     trial_dir = trial_checkpoint_dir(model_checkpoint_dir)
     result = experiment.train_and_evaluate(
         model=trial_model,
-        path_data=path_data,
         train_dataset=train_dataset,
         validation_dataset=validation_dataset,
         early_stopping_dataset=early_stopping_dataset,
@@ -157,7 +155,6 @@ def build_ray_trainable(
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
     metric: str,
-    path_data: str | Path,
     model_checkpoint_dir: str | Path | None,
     cfg: HPOConfig,
     wandb_project: str | None,
@@ -173,7 +170,6 @@ def build_ray_trainable(
     :param early_stopping_dataset: early stopping dataset.
     :param response_transformation: response transformation.
     :param metric: metric.
-    :param path_data: path data.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param cfg: cfg.
     :param wandb_project: wandb project.
@@ -193,7 +189,6 @@ def build_ray_trainable(
             score = _evaluate_trial_model(
                 trial_model,
                 metric=metric,
-                path_data=path_data,
                 train_dataset=train_dataset,
                 validation_dataset=validation_dataset,
                 early_stopping_dataset=early_stopping_dataset,
@@ -226,7 +221,6 @@ def build_ray_trainable(
             score = _evaluate_trial_model(
                 trial_model,
                 metric=metric,
-                path_data=path_data,
                 train_dataset=train_dataset,
                 validation_dataset=validation_dataset,
                 early_stopping_dataset=early_stopping_dataset,

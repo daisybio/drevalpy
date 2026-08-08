@@ -14,10 +14,6 @@ def run_preprocess_raw_viability(
     :param path_data: path data.
     :param dataset_name: dataset name.
     :param cores: cores.
-
-    :param path_data: path data.
-    :param dataset_name: dataset name.
-    :param cores: cores.
     """
     from drevalpy.datasets.curvecurator import preprocess
 
@@ -37,9 +33,6 @@ def run_postprocess_viability(
     path_data: str | Path = "./",
 ) -> None:
     """Postprocess CurveCurator output into a single dataset CSV.
-
-    :param dataset_name: dataset name.
-    :param path_data: path data.
 
     :param dataset_name: dataset name.
     :param path_data: path data.

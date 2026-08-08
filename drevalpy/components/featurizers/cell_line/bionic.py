@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import ClassVar
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
 from drevalpy.components.predictors.literature.dipk.data_utils import load_bionic_features
 from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.datasets._paths import get_default_data_dir
 from drevalpy.datasets.dataset import FeatureDataset
 
 
@@ -23,15 +23,15 @@ class BionicCellLineFeaturizer(DenseViewCellLineFeaturizer):
     input_views: ClassVar[tuple[str, ...]] = ("bionic_features",)
 
     @classmethod
-    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load precomputed DIPK BIONIC features.
 
-        :param data_path: data path.
         :param dataset_name: dataset name.
         :param kwargs: Keyword arguments.
         :returns: Result.
         :raises ValueError: Raised on invalid input.
         """
+        data_path = get_default_data_dir()
         _ = cls
         gene_add_num = kwargs.get("gene_add_num", 512)
         if not isinstance(gene_add_num, int):

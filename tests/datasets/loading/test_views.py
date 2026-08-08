@@ -5,12 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from drevalpy.datasets.loading.views import load_cell_line_feature_views, load_drug_feature_views
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 
-def test_load_cell_line_feature_views_single_custom_view(tmp_path: Path) -> None:
+def test_load_cell_line_feature_views_single_custom_view(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
     dataset_dir = tmp_path / "TOY"
     dataset_dir.mkdir()
     pd.DataFrame(
@@ -18,16 +20,18 @@ def test_load_cell_line_feature_views_single_custom_view(tmp_path: Path) -> None
         index=pd.Index(["cl1", "cl2"], name=CELL_LINE_IDENTIFIER),
     ).to_csv(dataset_dir / "custom_view.csv")
 
-    loaded = load_cell_line_feature_views(["custom_view"], str(tmp_path), "TOY")
+    loaded = load_cell_line_feature_views(["custom_view"], "TOY")
     assert set(loaded.identifiers) == {"cl1", "cl2"}
     assert "custom_view" in loaded.features["cl1"]
 
 
-def test_load_drug_feature_views_empty_returns_none(tmp_path: Path) -> None:
-    assert load_drug_feature_views([], str(tmp_path), "TOY") is None
+def test_load_drug_feature_views_empty_returns_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
+    assert load_drug_feature_views([], "TOY") is None
 
 
-def test_load_drug_feature_views_generic_csv(tmp_path: Path) -> None:
+def test_load_drug_feature_views_generic_csv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
     dataset_dir = tmp_path / "TOY"
     dataset_dir.mkdir()
     pd.DataFrame(
@@ -35,6 +39,6 @@ def test_load_drug_feature_views_generic_csv(tmp_path: Path) -> None:
         index=pd.Index(["d1", "d2"], name=DRUG_IDENTIFIER),
     ).to_csv(dataset_dir / "custom_drug.csv")
 
-    loaded = load_drug_feature_views(["custom_drug"], str(tmp_path), "TOY")
+    loaded = load_drug_feature_views(["custom_drug"], "TOY")
     assert loaded is not None
     assert set(loaded.identifiers) == {"d1", "d2"}

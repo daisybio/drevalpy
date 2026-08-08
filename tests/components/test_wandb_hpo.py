@@ -84,7 +84,6 @@ def test_hpam_tune_logs_wandb_config(monkeypatch) -> None:
         validation_dataset=dataset.copy(),
         early_stopping_dataset=None,
         metric="RMSE",
-        path_data="data",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
         wandb_project="test-project",
         wandb_base_config={"dataset": "TOYv1"},

@@ -49,7 +49,6 @@ def test_drug_response_experiment_runs_consolidation(
         baselines=[],
         n_cv_splits=1,
         path_out=str(tmp_path / "out"),
-        path_data=str(tmp_path / "data"),
         hyperparameter_tuning=False,
     )
     _run_one_model.assert_called_once()

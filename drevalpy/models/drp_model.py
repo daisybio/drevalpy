@@ -231,10 +231,9 @@ class DRPModel(_DRPLoggingMixin):
         self._empty_training = False
 
     @pipeline_function
-    def load_cell_line_features(self, data_path: str | Path, dataset_name: str) -> FeatureDataset:
+    def load_cell_line_features(self, dataset_name: str) -> FeatureDataset:
         """Load cell-line features required by the resolved model config.
 
-        :param data_path: Root directory containing dataset feature tables.
         :param dataset_name: Dataset subdirectory or registry name.
         :returns: Feature views required by the model's cell-line featurizer config.
         :raises RuntimeError: If the model has not been constructed with a ``ModelConfig``.
@@ -246,15 +245,13 @@ class DRPModel(_DRPLoggingMixin):
 
         return load_cell_line_features_for_model_config(
             config,
-            data_path,
             dataset_name,
         )
 
     @pipeline_function
-    def load_drug_features(self, data_path: str | Path, dataset_name: str) -> FeatureDataset | None:
+    def load_drug_features(self, dataset_name: str) -> FeatureDataset | None:
         """Load drug features required by the resolved model config.
 
-        :param data_path: Root directory containing dataset feature tables.
         :param dataset_name: Dataset subdirectory or registry name.
         :returns: Feature views required by the model's drug featurizer config, or ``None`` when
             drug features are unused.
@@ -267,7 +264,6 @@ class DRPModel(_DRPLoggingMixin):
 
         return load_drug_features_for_model_config(
             config,
-            data_path,
             dataset_name,
         )
 

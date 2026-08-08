@@ -24,6 +24,7 @@ from drevalpy.components.predictors.literature.sparsego.utils import (
     sort_pairs,
 )
 from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.datasets._paths import get_default_data_dir
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.loading.multiomics import load_and_select_gene_features
 
@@ -95,16 +96,16 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         self._gene_dim_input = 0
 
     @classmethod
-    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load, align, and annotate the active SparseGO omics feature view.
 
-        :param data_path: Parent directory for dataset artifacts.
         :param dataset_name: Dataset folder name.
         :param kwargs: Loader options; ``input_type`` selects expression vs mutations.
         :returns: Feature dataset with ontology metadata attached.
         :raises FileNotFoundError: If SparseGO ontology files are missing.
         :raises ValueError: If ontology genes are absent from the active view.
         """
+        data_path = get_default_data_dir()
         input_type = str(kwargs.get("input_type", "expression"))
         view = _view_for_input_type(input_type)
         root = Path(data_path) / dataset_name
@@ -113,7 +114,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
             raise FileNotFoundError(f"SparseGO requires {ontology_file.name} and {gene_index_file.name} in {root}")
         mapping = load_mapping(gene_index_file)
         order = tuple(sorted(mapping, key=mapping.__getitem__))
-        features = load_and_select_gene_features(view, None, data_path, dataset_name)
+        features = load_and_select_gene_features(view, None, dataset_name)
         columns = {str(gene): index for index, gene in enumerate(features.meta_info[view])}
         missing = [gene for gene in order if gene not in columns]
         if missing:

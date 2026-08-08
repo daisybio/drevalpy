@@ -9,9 +9,6 @@ import typer
 
 from drevalpy.cli.model_testing import run_final_split
 
-# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
-_DEFAULT_DATA_DIR = Path("data")
-
 
 def register(app: typer.Typer) -> None:
     """Register the ``make-final-split-pkls`` subcommand on ``app``.
@@ -35,9 +32,6 @@ def register(app: typer.Typer) -> None:
                 help="Model class name, e.g., RandomForest, SingleDrugRandomForest.",
             ),
         ],
-        path_data: Annotated[
-            Path, typer.Option("--path_data", help="Path to data. Default: data.")
-        ] = _DEFAULT_DATA_DIR,
         test_mode: Annotated[
             str,
             typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO). Default: LPO."),
@@ -48,14 +42,12 @@ def register(app: typer.Typer) -> None:
 
         :param response: Path to the pickled primary response dataset.
         :param model_name: Registered model name used to filter rows by available features.
-        :param path_data: Root data directory passed to feature loaders.
         :param test_mode: Split label for train/validation partitioning.
         :param val_ratio: Fraction of rows held out for validation.
         """
         run_final_split(
             response=response,
             model_name=model_name,
-            path_data=path_data,
             test_mode=test_mode,
             val_ratio=val_ratio,
         )

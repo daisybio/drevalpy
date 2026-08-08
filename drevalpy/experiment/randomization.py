@@ -112,7 +112,6 @@ def randomize_train_predict_impl(
     randomization_test_file: str | Path,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
@@ -127,7 +126,6 @@ def randomize_train_predict_impl(
     :param randomization_test_file: Output path for predictions.
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
-    :param path_data: Root directory for feature tables.
     :param train_dataset: Training split for the fold.
     :param test_dataset: Test split for the fold.
     :param early_stopping_dataset: Optional early-stopping data.
@@ -136,7 +134,7 @@ def randomize_train_predict_impl(
     """
     view_list = _normalize_view_list(views)
     trial_model = model_class(hyperparameters)
-    cl_features, drug_features = load_features(trial_model, path_data, train_dataset)
+    cl_features, drug_features = load_features(trial_model, train_dataset)
 
     if cl_features is None and drug_features is None:
         warnings.warn(
@@ -159,7 +157,6 @@ def randomize_train_predict_impl(
     trial_transform = None if response_transformation is None else clone(response_transformation)
     test_dataset_rand = train_and_predict_impl(
         model=trial_model,
-        path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=test_dataset,
         early_stopping_dataset=early_stopping_dataset,
@@ -175,7 +172,6 @@ def randomization_test_impl(
     randomization_test_views: dict[str, list[str]],
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
@@ -190,7 +186,6 @@ def randomization_test_impl(
     :param randomization_test_views: Mapping from test names to feature views.
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
-    :param path_data: Root directory for feature tables.
     :param train_dataset: Training split for the fold.
     :param test_dataset: Test split for the fold.
     :param early_stopping_dataset: Optional early-stopping data.
@@ -215,7 +210,6 @@ def randomization_test_impl(
             randomization_test_file=randomization_test_file,
             model_class=model_class,
             hyperparameters=hyperparameters,
-            path_data=path_data,
             train_dataset=train_dataset,
             test_dataset=test_dataset,
             early_stopping_dataset=early_stopping_dataset,

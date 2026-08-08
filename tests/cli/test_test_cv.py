@@ -71,8 +71,6 @@ def test_randomization_cli(
                 str(split_path),
                 "--hyperparameters_path",
                 str(hpam_path),
-                "--path_data",
-                str(data_dir),
                 "--randomization_views_path",
                 str(rand_views_path),
                 "--randomization_type",

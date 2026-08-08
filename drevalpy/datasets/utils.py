@@ -9,6 +9,8 @@ import numpy as np
 import requests
 from requests import Response
 
+from ._paths import get_default_data_dir
+
 # DRUG_IDENTIFIER, CELL_LINE_IDENTIFIER, and TISSUE_IDENTIFIER are used in pipeline
 DRUG_IDENTIFIER = "pubchem_id"
 CELL_LINE_IDENTIFIER = "cell_line_name"
@@ -51,16 +53,15 @@ def download_from_url(dataset_name: str, file_url: str) -> Response:
 
 def download_dataset(
     dataset_name: str,
-    data_path: str | Path = "data",
     redownload: bool = False,
 ):
     """Download the latets dataset from Zenodo.
 
     :param dataset_name: dataset name, from "GDSC1", "GDSC2", "CCLE", "CTRPv1", "CTRPv2", "TOYv1", "TOYv2", "meta"
-    :param data_path: where to save the data
     :param redownload: whether to redownload the data
     :raises HTTPError: if the download fails
     """
+    data_path = get_default_data_dir()
     file_name = f"{dataset_name}.zip"
     file_path = Path(data_path) / file_name
     extracted_folder_path = file_path.with_suffix("")

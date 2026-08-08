@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from ._paths import get_default_data_dir
 from .curvecurator import fit_curves
 from .dataset import DrugResponseDataset
 from .utils import (
@@ -121,14 +122,15 @@ def check_measure(measure_queried: str, measures_data: list[str], dataset_name: 
         )
 
 
-def _ensure_zenodo_artifacts(path_data: Path, entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
+def _ensure_zenodo_artifacts(entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
+    path_data = get_default_data_dir()
     response_path = path_data / entry.response_file
     if not response_path.is_file():
-        download_dataset(entry.name, path_data, redownload=True)
+        download_dataset(entry.name, redownload=True)
 
     meta_path = path_data / _META_TISSUE_MAPPING
     if "meta" in source.ensure_artifacts and not meta_path.is_file():
-        download_dataset("meta", path_data, redownload=True)
+        download_dataset("meta", redownload=True)
 
 
 def _download_nfcore_zip(path_data: Path, artifact_name: str, base_url: str) -> None:
@@ -139,7 +141,8 @@ def _download_nfcore_zip(path_data: Path, artifact_name: str, base_url: str) -> 
     unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
 
 
-def _ensure_nfcore_artifacts(path_data: Path, entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
+def _ensure_nfcore_artifacts(entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
+    path_data = get_default_data_dir()
     if source.base_url is None:
         raise ValueError(f"nfcore source for dataset {entry.name} is missing base_url")
     base_url = source.base_url
@@ -152,12 +155,12 @@ def _ensure_nfcore_artifacts(path_data: Path, entry: BuiltinDatasetEntry, source
     _download_nfcore_zip(path_data, entry.name, base_url)
 
 
-def _ensure_builtin_artifacts(path_data: Path, entry: BuiltinDatasetEntry) -> None:
+def _ensure_builtin_artifacts(entry: BuiltinDatasetEntry) -> None:
     source = _SOURCES[entry.source]
     if source.kind == "zenodo":
-        _ensure_zenodo_artifacts(path_data, entry, source)
+        _ensure_zenodo_artifacts(entry, source)
     else:
-        _ensure_nfcore_artifacts(path_data, entry, source)
+        _ensure_nfcore_artifacts(entry, source)
 
 
 def _read_response_csv(path: Path) -> pd.DataFrame:
@@ -166,9 +169,9 @@ def _read_response_csv(path: Path) -> pd.DataFrame:
     return response_data
 
 
-def _load_builtin(entry: BuiltinDatasetEntry, path_data: str | Path, measure: str) -> DrugResponseDataset:
-    data_root = Path(path_data)
-    _ensure_builtin_artifacts(data_root, entry)
+def _load_builtin(entry: BuiltinDatasetEntry, measure: str) -> DrugResponseDataset:
+    data_root = get_default_data_dir()
+    _ensure_builtin_artifacts(entry)
     response_path = data_root / entry.response_file
     response_data = _read_response_csv(response_path)
     check_measure(measure, list(response_data.columns), entry.name)
@@ -201,7 +204,6 @@ def load_custom(
 
 def load_response_dataset(
     dataset_name: str,
-    path_data: str | Path = "data",
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,
@@ -212,10 +214,9 @@ def load_response_dataset(
 
     Built-in names resolve through the packaged registry and download artifacts
     on demand. Custom datasets are read from
-    ``<path_data>/<dataset_name>/<dataset_name>.csv``.
+    ``<cache_dir>/<dataset_name>/<dataset_name>.csv``.
 
     :param dataset_name: Built-in registry name or custom dataset folder name.
-    :param path_data: Parent directory for downloaded or custom datasets.
     :param measure: Response column name; ``"_curvecurator"`` is appended when ``curve_curator`` is ``True``.
     :param curve_curator: Fit CurveCurator from raw viability data for custom sets.
     :param cores: Worker count for CurveCurator fitting.
@@ -224,15 +225,16 @@ def load_response_dataset(
     :returns: ``DrugResponseDataset`` with response values and identifiers.
     :raises FileNotFoundError: If a custom dataset CSV cannot be found.
     """
+    data_dir = get_default_data_dir()
     if curve_curator:
         measure += "_curvecurator"
-        input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}_raw.csv"
+        input_file = data_dir / dataset_name / f"{dataset_name}_raw.csv"
     else:
-        input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}.csv"
+        input_file = data_dir / dataset_name / f"{dataset_name}.csv"
 
     entry = _REGISTRY.get(dataset_name)
     if entry is not None:
-        return _load_builtin(entry, path_data, measure=measure)
+        return _load_builtin(entry, measure=measure)
 
     if input_file.is_file():
         if curve_curator:
@@ -244,7 +246,7 @@ def load_response_dataset(
                 normalize=normalize,
             )
         return load_custom(
-            path_data=Path(path_data) / dataset_name / f"{dataset_name}.csv",
+            path_data=data_dir / dataset_name / f"{dataset_name}.csv",
             dataset_name=dataset_name,
             measure=measure,
             tissue_column=tissue_column,
@@ -254,7 +256,6 @@ def load_response_dataset(
 
 def load_dataset(
     dataset_name: str,
-    path_data: str | Path = "data",
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,
@@ -264,7 +265,6 @@ def load_dataset(
     """Backward-compatible alias for ``load_response_dataset``.
 
     :param dataset_name: Dataset name or custom study folder name.
-    :param path_data: Parent directory for downloaded or custom datasets.
     :param measure: Response measure column to load.
     :param curve_curator: Whether to fit curves via CurveCurator when needed.
     :param cores: Parallel cores for CurveCurator fitting.
@@ -274,7 +274,6 @@ def load_dataset(
     """
     return load_response_dataset(
         dataset_name=dataset_name,
-        path_data=path_data,
         measure=measure,
         curve_curator=curve_curator,
         cores=cores,

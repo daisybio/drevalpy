@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -11,6 +10,7 @@ import numpy as np
 from drevalpy.components.contracts import FeatureContract, featurizer_contract
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
+from drevalpy.datasets._paths import get_default_data_dir
 from drevalpy.datasets.dataset import FeatureDataset
 
 
@@ -168,17 +168,17 @@ class Featurizer(ABC):
         return {key: spec["default"] for key, spec in space.items()}
 
     @classmethod
-    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load the raw dataset required by this featurizer.
 
         Featurizers that require bespoke on-disk artifacts override this hook.
         Generic views continue to be loaded by the model data-loading layer.
 
-        :param data_path: Parent directory for dataset artifacts.
         :param dataset_name: Dataset folder name (for example ``"GDSC1"``).
         :param kwargs: Featurizer-specific loader options from the model config.
         :raises NotImplementedError: When the featurizer does not provide a custom loader.
         """
+        data_path = get_default_data_dir()
         _ = data_path, dataset_name, kwargs
         raise NotImplementedError
 

@@ -10,9 +10,6 @@ import typer
 from drevalpy.cli._helpers import as_list
 from drevalpy.cli.model_testing import run_train_and_predict_final
 
-# Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
-_DEFAULT_DATA_DIR = Path("data")
-
 
 def register(app: typer.Typer) -> None:
     """Register the ``test-cv`` subcommand on ``app``.
@@ -41,7 +38,6 @@ def register(app: typer.Typer) -> None:
                 help="Path to yaml file containing the optimal hyperparameters.",
             ),
         ],
-        path_data: Annotated[Path, typer.Option("--path_data", help="Path to data. Default: data")] = _DEFAULT_DATA_DIR,
         mode: Annotated[
             str,
             typer.Option(
@@ -104,7 +100,6 @@ def register(app: typer.Typer) -> None:
         :param split_id: CV split identifier used in output paths.
         :param split_dataset_path: Path to a pickled CV split artifact.
         :param hyperparameters_path: Path to the best-hyperparameter YAML for this split.
-        :param path_data: Root data directory passed to feature loaders.
         :param mode: One of ``full``, ``randomization``, or ``robustness``.
         :param response_transformation: Sklearn response transform name.
         :param test_mode: Split label passed to cross-study prediction.
@@ -122,7 +117,6 @@ def register(app: typer.Typer) -> None:
             hyperparameters_path=hyperparameters_path,
             response_transformation=response_transformation,
             test_mode=test_mode,
-            path_data=path_data,
             randomization_views_path=randomization_views_path,
             randomization_type=randomization_type,
             robustness_trial=robustness_trial,

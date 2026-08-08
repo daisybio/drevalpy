@@ -7,6 +7,7 @@ from typing import TextIO
 import importlib_resources
 import pandas as pd
 
+from ..datasets._paths import get_default_data_dir
 from ..datasets.dataset import DrugResponseDataset
 from ..datasets.splits import MANIFEST_FILENAME, read_split_manifest
 from ..evaluation import AVAILABLE_METRICS, evaluate
@@ -229,7 +230,6 @@ def prep_results(
     eval_results_per_drug: pd.DataFrame,
     eval_results_per_cell_line: pd.DataFrame,
     t_vs_p: pd.DataFrame,
-    path_data: pathlib.Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Enrich raw evaluation tables with metadata and normalized metrics.
 
@@ -237,10 +237,10 @@ def prep_results(
     :param eval_results_per_drug: Per-drug evaluation results.
     :param eval_results_per_cell_line: Per-cell-line evaluation results.
     :param t_vs_p: True versus predicted values.
-    :param path_data: Dataset root for drug and cell-line metadata files.
 
     :returns: The same four tables after reformatting and normalization.
     """
+    path_data = get_default_data_dir()
     print("Getting information about drugs and cell lines ...")
     drug_metadata, cell_line_metadata = load_drug_and_cell_line_metadata(path_data)
 

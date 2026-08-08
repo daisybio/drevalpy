@@ -164,9 +164,7 @@ def create_report(
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = prep_results(
-        evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred, data_dir
-    )
+    ) = prep_results(evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred)
 
     write_results(
         path_out=run_dir,

@@ -6,12 +6,15 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from drevalpy.datasets.loading.multiomics import load_and_select_gene_features
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER
 
 
-def test_load_and_select_gene_features_preserves_gene_list_order(tmp_path: Path) -> None:
+def test_load_and_select_gene_features_preserves_gene_list_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     dataset_dir = tmp_path / "TOY"
     dataset_dir.mkdir()
     gene_dir = tmp_path / "meta" / "gene_lists"
@@ -23,10 +26,10 @@ def test_load_and_select_gene_features_preserves_gene_list_order(tmp_path: Path)
     ).to_csv(dataset_dir / "gene_expression.csv")
     pd.DataFrame({"Symbol": ["A", "B", "C"]}).to_csv(gene_dir / "ordered_genes.csv", index=False)
 
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
     loaded = load_and_select_gene_features(
         feature_type="gene_expression",
         gene_list="ordered_genes",
-        data_path=str(tmp_path),
         dataset_name="TOY",
     )
     assert list(loaded.meta_info["gene_expression"]) == ["A", "B", "C"]

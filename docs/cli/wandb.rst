@@ -13,7 +13,6 @@ Pass ``--wandb_project`` to enable wandb logging.
        --models RandomForest \
        --baselines ElasticNet NaiveMeanEffectsPredictor \
        --dataset_name TOYv1 \
-       --path_data data \
        --wandb_project my_new_project_name
 
 Each model run logs config such as ``model_name``, ``dataset``, ``test_mode``,
@@ -50,7 +49,6 @@ Example: tune and compare baselines while logging to wandb:
        --models RandomForest \
        --baselines ElasticNet GradientBoosting AdaBoostDecisionTree NaiveMeanEffectsPredictor \
        --dataset_name TOYv1 \
-       --path_data data \
        --test_mode LPO \
        --n_cv_splits 5 \
        --optim_metric Pearson \

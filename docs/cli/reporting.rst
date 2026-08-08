@@ -9,7 +9,6 @@ Options
 
 - ``--run_id`` — same run identifier you passed to ``drevalpy``
 - ``--dataset_name`` — same dataset name used for the experiment
-- ``--path_data`` — data directory (default ``data``)
 - ``--result_path`` — results root (default ``results``)
 
 Example

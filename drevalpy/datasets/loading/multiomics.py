@@ -12,11 +12,12 @@ from drevalpy.datasets.feature_tables import iterate_features
 from drevalpy.datasets.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER
 
+from .._paths import get_default_data_dir
+
 
 def load_and_select_gene_features(
     feature_type: str,
     gene_list: str | None,
-    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load and reduce features of a single feature type.
@@ -26,13 +27,13 @@ def load_and_select_gene_features(
 
     :param feature_type: Feature view name, for example ``gene_expression``.
     :param gene_list: Optional gene-list CSV name used for subsetting and ordering.
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
 
     :returns: ``FeatureDataset`` with the selected features.
 
     :raises ValueError: If genes from *gene_list* are missing in the dataset.
     """
+    data_path = get_default_data_dir()
     df_feature = pd.read_csv(Path(data_path) / dataset_name / f"{feature_type}.csv", index_col=CELL_LINE_IDENTIFIER)
     df_feature.index = df_feature.index.astype(str)
     if "cellosaurus_id" in df_feature.columns:
@@ -45,7 +46,7 @@ def load_and_select_gene_features(
     if gene_list is None:
         return cl_features
 
-    ordered_genes = gene_names_from_list_csv(resolve_gene_list_path(gene_list, data_path=data_path))
+    ordered_genes = gene_names_from_list_csv(resolve_gene_list_path(gene_list))
 
     genes_in_features = set(cl_features.meta_info[feature_type])
     missing_genes = [gene for gene in ordered_genes if gene not in genes_in_features]
@@ -72,14 +73,12 @@ def load_and_select_gene_features(
 
 
 def get_multiomics_feature_dataset(
-    data_path: str | Path,
     dataset_name: str,
     gene_lists: dict | None = None,
     omics: list[str] | None = None,
 ) -> FeatureDataset:
     """Get multiomics feature dataset for the given list of OMICs.
 
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
     :param gene_lists: Optional per-omics gene-list names; ``None`` loads all features for that omics type.
     :param omics: Omics view names to include.
@@ -103,7 +102,6 @@ def get_multiomics_feature_dataset(
             feature_dataset = load_and_select_gene_features(
                 feature_type=omic,
                 gene_list=gene_lists[omic],
-                data_path=data_path,
                 dataset_name=dataset_name,
             )
         else:
@@ -111,7 +109,6 @@ def get_multiomics_feature_dataset(
                 load_and_select_gene_features(
                     feature_type=omic,
                     gene_list=gene_lists[omic],
-                    data_path=data_path,
                     dataset_name=dataset_name,
                 )
             )

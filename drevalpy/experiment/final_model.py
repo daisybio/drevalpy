@@ -66,7 +66,6 @@ def train_final_model_impl(
     model_class: type[DRPModel],
     full_dataset: DrugResponseDataset,
     response_transformation: TransformerMixin,
-    path_data: str | Path,
     model_checkpoint_dir: str | Path | None,
     metric: str,
     final_model_path: str | Path,
@@ -83,7 +82,6 @@ def train_final_model_impl(
     :param model_class: Model class to train.
     :param full_dataset: Complete response dataset for final training.
     :param response_transformation: Response transformer fitted on training data.
-    :param path_data: Root directory for feature tables.
     :param model_checkpoint_dir: Directory for intermediate checkpoints, or ``None`` for a temporary one.
     :param metric: Metric optimized during optional hyperparameter tuning.
     :param final_model_path: Archive path stem for the final model (``.zip`` appended on save).
@@ -116,7 +114,6 @@ def train_final_model_impl(
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
         metric=metric,
-        path_data=path_data,
         model_checkpoint_dir=model_checkpoint_dir,
         hyperparameter_tuning=hyperparameter_tuning,
         hpo_config=hpo_cfg,
@@ -125,8 +122,8 @@ def train_final_model_impl(
     print(f"Best hyperparameters for final model: {best_hpams}")
     model = model_class(best_hpams)
 
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
+    cl_features = model.load_cell_line_features(dataset_name=full_dataset.dataset_name)
+    drug_features = model.load_drug_features(dataset_name=full_dataset.dataset_name)
     cell_lines_to_keep = cl_features.identifiers
     drugs_to_keep = drug_features.identifiers if drug_features is not None else None
 

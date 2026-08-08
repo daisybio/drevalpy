@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 
 import numpy as np
@@ -30,16 +31,21 @@ _TESTS_DIR = pathlib.Path(__file__).parent.resolve()
 _DATA_DIR = (_TESTS_DIR.parent / "data").resolve()
 _TOY_DATASETS = ("TOYv1", "TOYv2")
 
+# Built-in dataset resolution now always goes through ``get_default_data_dir()``. Point it at
+# the repo-local ``data/`` directory so existing test fixtures/downloads are found without
+# every test having to pass a path explicitly. Set at import time (not as a fixture) so it is
+# guaranteed to be in place before any other fixture or test module runs.
+os.environ["DREVALPY_CACHE_DIR"] = str(_DATA_DIR)
 
-def _load_toy_datasets(path_data: str) -> bool:
+
+def _load_toy_datasets() -> bool:
     """Download TOYv1/TOYv2 once for session fixtures.
 
-    :param path_data: path to the data directory
     :returns: False when dataset download fails
     """
     try:
-        load_response_dataset("TOYv1", path_data, measure=_BUILTIN_MEASURE)
-        load_response_dataset("TOYv2", path_data, measure=_BUILTIN_MEASURE)
+        load_response_dataset("TOYv1", measure=_BUILTIN_MEASURE)
+        load_response_dataset("TOYv2", measure=_BUILTIN_MEASURE)
     except Exception as exc:
         print(f"Warning: could not load TOY datasets: {exc}")
         return False
@@ -137,7 +143,8 @@ def sample_dataset(data_dir) -> DrugResponseDataset:
     :param data_dir: path to the data directory
     :returns: drug_response, cell_line_input, drug_input
     """
-    drug_response = load_response_dataset("TOYv1", path_data=str(data_dir), measure=_BUILTIN_MEASURE)
+    _ = data_dir
+    drug_response = load_response_dataset("TOYv1", measure=_BUILTIN_MEASURE)
     drug_response.remove_nan_responses()
     return drug_response
 
@@ -149,7 +156,8 @@ def cross_study_dataset(data_dir) -> DrugResponseDataset:
     :param data_dir: path to the data directory
     :returns: drug_response, cell_line_input, drug_input
     """
-    drug_response = load_response_dataset("TOYv2", path_data=str(data_dir), measure=_BUILTIN_MEASURE)
+    _ = data_dir
+    drug_response = load_response_dataset("TOYv2", measure=_BUILTIN_MEASURE)
     drug_response.remove_nan_responses()
     return drug_response
 
@@ -164,7 +172,7 @@ def ensure_bpe_features(data_dir) -> None:
     :param data_dir: path to the data directory
     """
     path_data = str(data_dir)
-    if not _load_toy_datasets(path_data):
+    if not _load_toy_datasets():
         return
 
     for dataset_name in _TOY_DATASETS:
@@ -249,7 +257,7 @@ def ensure_precily_pathway_features(data_dir) -> None:
         return
 
     # Ensure datasets are loaded first (this will download them if needed)
-    if not _load_toy_datasets(path_data):
+    if not _load_toy_datasets():
         return
 
     for dataset_name in _TOY_DATASETS:
@@ -270,7 +278,7 @@ def ensure_precily_drug_features(data_dir) -> None:
     :param data_dir: path to the data directory
     """
     path_data = str(data_dir)
-    if not _load_toy_datasets(path_data):
+    if not _load_toy_datasets():
         return
 
     for dataset_name in _TOY_DATASETS:
@@ -291,7 +299,7 @@ def ensure_sparsego_ontology_features(data_dir) -> None:
     fixture_root = _TESTS_DIR / "fixtures" / "sparsego"
 
     # Ensure datasets are loaded first (this will download them if needed)
-    if not _load_toy_datasets(path_data):
+    if not _load_toy_datasets():
         return
 
     for dataset_name in _TOY_DATASETS:

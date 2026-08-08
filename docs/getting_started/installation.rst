@@ -91,8 +91,11 @@ Verify the console script:
    drevalpy --help
 
 Then :doc:`choose the CLI or Python API </getting_started/run_first_experiment>`
-for your first experiment. Data downloads on first use into ``--path_data``
-(default ``data``); predictions and reports go under ``--path_out`` /
+for your first experiment. Built-in datasets download on first use into a
+system cache directory (``platformdirs.user_cache_dir("drevalpy")``, for
+example ``~/.cache/drevalpy`` on Linux or ``~/Library/Caches/drevalpy`` on
+macOS). Set the ``DREVALPY_CACHE_DIR`` environment variable to use a
+different location. Predictions and reports go under ``--path_out`` /
 ``run_id`` (default ``results``).
 
 Hyperparameter tuning on Windows

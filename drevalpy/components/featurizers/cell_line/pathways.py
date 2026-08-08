@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import ClassVar
 
 from drevalpy.components.contracts import FeatureFormat
@@ -23,16 +22,15 @@ class PathwaysCellLineFeaturizer(DenseViewCellLineFeaturizer):
     input_views: ClassVar[tuple[str, ...]] = ("pathways",)
 
     @classmethod
-    def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:
+    def load_features(cls, dataset_name: str, **kwargs: object) -> FeatureDataset:
         """Load generated GSVA pathway features under the predictor block name.
 
-        :param data_path: data path.
         :param dataset_name: dataset name.
         :param kwargs: Keyword arguments.
         :returns: Result.
         """
         _ = cls, kwargs
-        features = load_generic_csv(data_path, dataset_name, "pathway_features")
+        features = load_generic_csv(dataset_name, "pathway_features")
         for views in features.features.values():
             views["pathways"] = views.pop("pathway_features")
         features.meta_info["pathways"] = features.meta_info.pop("pathway_features")

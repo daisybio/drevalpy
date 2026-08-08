@@ -136,7 +136,6 @@ def run_hpam_split(
 def run_train_and_predict_cv(
     *,
     model_name: str,
-    path_data: str | Path = "data",
     test_mode: str = "LPO",
     hyperparameters: str,
     cv_data: str | Path,
@@ -146,7 +145,6 @@ def run_train_and_predict_cv(
     """Train on a CV split and pickle validation predictions.
 
     :param model_name: model name.
-    :param path_data: path data.
     :param test_mode: test mode.
     :param hyperparameters: hyperparameters.
     :param cv_data: cv data.
@@ -173,7 +171,6 @@ def run_train_and_predict_cv(
 
     validation_dataset = train_and_predict(
         model=model,
-        path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,
         early_stopping_dataset=es_dataset,

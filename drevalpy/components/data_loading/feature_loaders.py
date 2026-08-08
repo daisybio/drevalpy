@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Literal
 
 from drevalpy.components.data_loading.leaf_kwargs import featurizer_leaf_kwargs
@@ -62,7 +61,6 @@ def _load_from_featurizer_tree(
     config: FeaturizerConfig,
     *,
     registry: Literal["cell_line", "drug"],
-    data_path: Path,
     dataset_name: str,
     resolved: ResolvedModelConfig | None = None,
 ) -> FeatureDataset | None:
@@ -70,7 +68,6 @@ def _load_from_featurizer_tree(
 
     :param config: Featurizer tree configuration for the requested registry.
     :param registry: Whether to resolve cell-line or drug featurizers.
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
     :param resolved: Optional resolved instance values for tunable loader kwargs.
 
@@ -81,15 +78,15 @@ def _load_from_featurizer_tree(
         cls = get_cell_line_featurizer(leaf.name) if registry == "cell_line" else get_drug_featurizer(leaf.name)
         kwargs = featurizer_leaf_kwargs(leaf, registry=registry, resolved=resolved)
         if _has_custom_loader(cls):
-            loaded = _merge_features(loaded, cls.load_features(data_path, dataset_name, **kwargs))
+            loaded = _merge_features(loaded, cls.load_features(dataset_name, **kwargs))
             continue
         views = views_from_featurizer_config(leaf, registry=registry, resolved=resolved)
         if not views:
             continue
         fallback = (
-            load_cell_line_feature_views(views, data_path, dataset_name)
+            load_cell_line_feature_views(views, dataset_name)
             if registry == "cell_line"
-            else load_drug_feature_views(views, data_path, dataset_name)
+            else load_drug_feature_views(views, dataset_name)
         )
         if fallback is not None:
             loaded = _merge_features(loaded, fallback)
@@ -98,61 +95,53 @@ def _load_from_featurizer_tree(
 
 def load_cell_line_features_for_model_config(
     config: ModelConfig | ResolvedModelConfig,
-    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset:
     """Load cell-line features implied by *config*, including identity-only featurizers.
 
     :param config: Template or resolved model configuration.
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
 
     :returns: ``FeatureDataset`` with views required by the cell-line featurizer tree.
     """
-    root = Path(data_path)
     template, resolved = _unwrap_model_config(config)
     featurizer = template.cell_line_featurizer
     if featurizer is not None and featurizer.name == "tissue":
-        return load_tissues_from_csv(root, dataset_name)
+        return load_tissues_from_csv(dataset_name)
     if template.predictor.name == "naiveMeanEffects" and (featurizer is None or featurizer.name == "identity"):
-        return load_cl_ids_and_tissues_from_csv(root, dataset_name)
+        return load_cl_ids_and_tissues_from_csv(dataset_name)
     if template.cell_line_entity_id_only():
-        return load_cl_ids_from_csv(root, dataset_name)
+        return load_cl_ids_from_csv(dataset_name)
     if featurizer is None:
-        return load_cl_ids_from_csv(root, dataset_name)
+        return load_cl_ids_from_csv(dataset_name)
     loaded = _load_from_featurizer_tree(
         featurizer,
         registry="cell_line",
-        data_path=root,
         dataset_name=dataset_name,
         resolved=resolved,
     )
-    return loaded if loaded is not None else load_cl_ids_from_csv(root, dataset_name)
+    return loaded if loaded is not None else load_cl_ids_from_csv(dataset_name)
 
 
 def load_drug_features_for_model_config(
     config: ModelConfig | ResolvedModelConfig,
-    data_path: str | Path,
     dataset_name: str,
 ) -> FeatureDataset | None:
     """Load drug features implied by *config*, including identity-only featurizers.
 
     :param config: Template or resolved model configuration.
-    :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
 
     :returns: ``FeatureDataset`` with drug views, or ``None`` when the model has no drug featurizer.
     """
-    root = Path(data_path)
     template, resolved = _unwrap_model_config(config)
     if template.drug_featurizer is None:
         return None
     if template.drug_entity_id_only():
-        return load_drug_ids_from_csv(root, dataset_name)
+        return load_drug_ids_from_csv(dataset_name)
     return _load_from_featurizer_tree(
         template.drug_featurizer,
         registry="drug",
-        data_path=root,
         dataset_name=dataset_name,
         resolved=resolved,
     )

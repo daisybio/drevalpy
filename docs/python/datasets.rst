@@ -23,21 +23,22 @@ Built-in names are listed in the packaged registry. Use
    print(list_builtin_datasets())
    # BeatAML2, CCLE, CTRPv1, CTRPv2, GDSC1, GDSC2, PDX_Bruna, TOYv1, TOYv2
 
-   response = load_dataset("TOYv1", path_data="data", measure="LN_IC50")
+   response = load_dataset("TOYv1", measure="LN_IC50")
 
-Built-in loaders download into ``path_data`` on first use. Pass ``measure`` to
-select the response column (for example ``LN_IC50``, ``AUC``, ``response``).
-When CurveCurator refitting is enabled for a workflow, measure names gain a
-``_curvecurator`` suffix — see :doc:`/concepts/datasets`.
+Built-in loaders download into the system cache directory on first use (see
+:doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``). Pass
+``measure`` to select the response column (for example ``LN_IC50``, ``AUC``,
+``response``). When CurveCurator refitting is enabled for a workflow, measure
+names gain a ``_curvecurator`` suffix — see :doc:`/concepts/datasets`.
 
 Custom raw and prefit tables
 ----------------------------
 
 An unknown ``dataset_name`` is treated as a custom load path under
-``{path_data}/{dataset_name}/``.
+``{cache_dir}/{dataset_name}/``.
 
 **Prefit response CSV** at
-``{path_data}/{dataset_name}/{dataset_name}.csv`` needs at least
+``{cache_dir}/{dataset_name}/{dataset_name}.csv`` needs at least
 ``cell_line_id``, ``drug_id``, and a measure column. Leave-Tissue-Out also
 needs ``tissue`` (pass ``tissue_column`` when the column name differs):
 
@@ -45,21 +46,19 @@ needs ``tissue`` (pass ``tissue_column`` when the column name differs):
 
    response = load_dataset(
        "MyStudy",
-       path_data="data",
        measure="LN_IC50",
        tissue_column="tissue",
    )
 
 **Raw viability** (long format with ``dose``, ``response``, ``sample``,
 ``drug``, optional ``replicate``; doses in µM) lives at
-``{path_data}/{dataset_name}/{dataset_name}_raw.csv``. Set
+``{cache_dir}/{dataset_name}/{dataset_name}_raw.csv``. Set
 ``curve_curator=True`` so CurveCurator fits curves and writes the prefit CSV:
 
 .. code-block:: python
 
    response = load_dataset(
        "MyRawStudy",
-       path_data="data",
        measure="response",
        curve_curator=True,
        cores=4,
@@ -104,7 +103,7 @@ at it with ``raw[view]``:
 
 .. important::
    Without a custom loader, the CSV must live at
-   ``{path_data}/{dataset_name}/mynewdatamodality.csv`` when the view name
+   ``{cache_dir}/{dataset_name}/mynewdatamodality.csv`` when the view name
    is ``mynewdatamodality``.
 
 The same setup as zoo YAML (this is **not** experiment hpam YAML):
@@ -163,7 +162,7 @@ training loop:
 
 .. code-block:: python
 
-   response = load_dataset("TOYv1", path_data="data")
+   response = load_dataset("TOYv1")
    response.split_dataset(n_cv_splits=5, mode="LCO")
 
 For external split scripts, pass ``custom_splitter`` to

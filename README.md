@@ -117,7 +117,7 @@ drevalpy \
   --test_mode LCO
 ```
 
-This downloads TOYv1 into `--path_data` (default `data`), trains the listed models, and evaluates with the default seven-fold CV. Outputs go to `results/my_first_run/TOYv1/LCO`.
+This downloads TOYv1 into the system cache directory (override with the `DREVALPY_CACHE_DIR` environment variable), trains the listed models, and evaluates with the default seven-fold CV. Outputs go to `results/my_first_run/TOYv1/LCO`.
 
 Build the HTML report:
 
@@ -138,7 +138,7 @@ from drevalpy.datasets.loader import load_dataset
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.models import construct_model
 
-response_data = load_dataset("TOYv1", path_data="data")
+response_data = load_dataset("TOYv1")
 
 ElasticNet = construct_model("ElasticNet")
 
@@ -147,7 +147,6 @@ drug_response_experiment(
     response_data=response_data,
     run_id="my_first_run",
     test_mode="LCO",
-    path_data="data",
     path_out="results/",
     hyperparameter_tuning=False,
 )
@@ -163,7 +162,6 @@ from drevalpy.visualization.create_report import create_report
 create_report(
     run_id="my_first_run",
     dataset="TOYv1",
-    path_data="data",
     result_path="results",
 )
 ```

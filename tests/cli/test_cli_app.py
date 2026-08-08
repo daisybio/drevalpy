@@ -43,7 +43,7 @@ def test_viability_preprocess_help() -> None:
     assert result.exit_code == 0
     help_text = _plain_stdout(result.stdout)
     assert "--dataset_name" in help_text
-    assert "--path_data" in help_text
+    assert "--path_data" not in help_text
     assert "--cores" in help_text
 
 

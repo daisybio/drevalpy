@@ -58,7 +58,6 @@ def run_train_and_predict_final(
     hyperparameters_path: str,
     response_transformation: str = "None",
     test_mode: str = "LPO",
-    path_data: str | Path = "data",
     randomization_views_path: str | None = None,
     randomization_type: str = "permutation",
     robustness_trial: int | None = None,
@@ -74,7 +73,6 @@ def run_train_and_predict_final(
     :param hyperparameters_path: hyperparameters path.
     :param response_transformation: response transformation.
     :param test_mode: test mode.
-    :param path_data: path data.
     :param randomization_views_path: randomization views path.
     :param randomization_type: randomization type.
     :param robustness_trial: robustness trial.
@@ -98,7 +96,6 @@ def run_train_and_predict_final(
         hyperparameters_path=hyperparameters_path,
         response_transformation=response_transformation,
         test_mode=test_mode,
-        path_data=path_data,
         randomization_views_path=randomization_views_path,
         randomization_type=randomization_type,
         robustness_trial=robustness_trial,
@@ -128,7 +125,6 @@ def run_train_and_predict_final(
 
         test_set = train_and_predict(
             model=selected_model,
-            path_data=args.path_data,
             train_dataset=train_set,
             prediction_dataset=test_set,
             early_stopping_dataset=es_set,
@@ -149,7 +145,6 @@ def run_train_and_predict_final(
                     model=selected_model,
                     test_mode=args.test_mode,
                     train_dataset=train_set,
-                    path_data=args.path_data,
                     early_stopping_dataset=(es_set if selected_model.supports_early_stopping() else None),
                     response_transformation=transformation,
                     path_out=str(Path(predictions_path).parent),
@@ -176,7 +171,6 @@ def run_train_and_predict_final(
             randomization_test_file=str(randomization_test_file),
             model_class=type(selected_model),
             hyperparameters=hpam_combi,
-            path_data=args.path_data,
             train_dataset=train_set,
             test_dataset=test_set,
             early_stopping_dataset=es_set,
@@ -199,7 +193,6 @@ def run_train_and_predict_final(
             early_stopping_dataset=es_set,
             model_class=type(selected_model),
             hyperparameters=hpam_combi,
-            path_data=args.path_data,
             response_transformation=transformation,
             model_checkpoint_dir=args.model_checkpoint_dir,
         )
@@ -244,7 +237,6 @@ def run_final_split(
     *,
     response: str | Path,
     model_name: str,
-    path_data: str | Path = "data",
     test_mode: str = "LPO",
     val_ratio: float = 0.1,
 ) -> None:
@@ -252,7 +244,6 @@ def run_final_split(
 
     :param response: response.
     :param model_name: model name.
-    :param path_data: path data.
     :param test_mode: test mode.
     :param val_ratio: val ratio.
     """
@@ -264,8 +255,8 @@ def run_final_split(
     response_data.remove_nan_responses()
     model_class = get_model_class(model_name)
     model = model_class()
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=response_data.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=response_data.dataset_name)
+    cl_features = model.load_cell_line_features(dataset_name=response_data.dataset_name)
+    drug_features = model.load_drug_features(dataset_name=response_data.dataset_name)
     cell_lines_to_keep = cl_features.identifiers
     drugs_to_keep = drug_features.identifiers if drug_features is not None else None
     response_data = response_data.reduced_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
@@ -290,7 +281,6 @@ def run_tune_final_model(
     model_name: str,
     hpam_combi: str,
     response_transformation: str = "None",
-    path_data: str | Path = "data",
     model_checkpoint_dir: str | Path | None = None,
 ) -> None:
     """Score a final-model candidate on the validation split (no search).
@@ -305,7 +295,6 @@ def run_tune_final_model(
     :param model_name: model name.
     :param hpam_combi: hpam combi.
     :param response_transformation: response transformation.
-    :param path_data: path data.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
     import warnings
@@ -334,7 +323,6 @@ def run_tune_final_model(
 
     validation_dataset = train_and_predict(
         model=model,
-        path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,
         early_stopping_dataset=early_stopping_dataset,
@@ -354,7 +342,6 @@ def run_train_final_model(
     early_stopping_data: str | Path,
     response_transformation: str = "None",
     model_name: str,
-    path_data: str | Path = "data",
     model_checkpoint_dir: str | Path | None = None,
     best_hpam_combi: str | Path,
 ) -> None:
@@ -365,7 +352,6 @@ def run_train_final_model(
     :param early_stopping_data: early stopping data.
     :param response_transformation: response transformation.
     :param model_name: model name.
-    :param path_data: path data.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param best_hpam_combi: best hpam combi.
     """
@@ -392,8 +378,8 @@ def run_train_final_model(
     with open(best_hpam_combi) as f:
         best_hpam = yaml.safe_load(f)[f"{resolved_name}_final"]["best_hpam_combi"]
     model = get_model_class(resolved_name)(best_hpam)
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
+    cl_features = model.load_cell_line_features(dataset_name=train_dataset.dataset_name)
+    drug_features = model.load_drug_features(dataset_name=train_dataset.dataset_name)
     with checkpoint_dir_or_temporary(model_checkpoint_dir) as checkpoint_dir:
         model.train(
             output=train_dataset,
@@ -505,16 +491,13 @@ def _collapse_file(files: list[str]) -> pd.DataFrame | None:
 def run_collect_results(
     *,
     outfiles: list[str],
-    path_data: str | Path = "data",
 ) -> None:
     """Collect parallel Nextflow evaluation outputs into merged CSVs.
 
     :param outfiles: outfiles.
-    :param path_data: path data.
     """
     from drevalpy.visualization.utils import prep_results, write_results
 
-    path_data_path = Path(path_data)
     (
         eval_result_files,
         eval_result_per_drug_files,
@@ -530,7 +513,6 @@ def run_collect_results(
         eval_results_per_drug=eval_results_per_drug,
         eval_results_per_cell_line=eval_results_per_cell_line,
         t_vs_p=t_vs_p,
-        path_data=path_data_path,
     )
     write_results(
         path_out="",

@@ -118,7 +118,6 @@ def _assert_global_model_save_load_roundtrip(
     prediction_dataset: DrugResponseDataset,
     drug_input,
     cell_line_input,
-    data_dir,
 ) -> None:
     with tempfile.TemporaryDirectory() as model_dir:
         try:
@@ -126,7 +125,7 @@ def _assert_global_model_save_load_roundtrip(
             model.save(checkpoint)
             loaded_model = model_class.load(checkpoint)
             if model_name == "SparseGO":
-                loaded_model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
+                loaded_model.load_cell_line_features(dataset_name="TOYv1")
             assert isinstance(loaded_model, DRPModel)
 
             preds_after = loaded_model.predict(
@@ -191,8 +190,8 @@ def test_global_models(
     _apply_global_model_hpam_tweaks(model_name, hpam_combi)
     model = model_class(hpam_combi)
 
-    cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
-    drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
+    cell_line_input = model.load_cell_line_features(dataset_name="TOYv1")
+    drug_input = model.load_drug_features(dataset_name="TOYv1")
     if drug_input is None:
         raise ValueError("Drug input is None")
 
@@ -208,7 +207,7 @@ def test_global_models(
         cell_line_input=cell_line_input,
     )
     _assert_global_model_save_load_roundtrip(
-        model, model_class, model_name, prediction_dataset, drug_input, cell_line_input, data_dir
+        model, model_class, model_name, prediction_dataset, drug_input, cell_line_input
     )
 
     metrics = evaluate(prediction_dataset, metric=["Pearson"])
@@ -222,7 +221,6 @@ def test_global_models(
             model=model,
             test_mode=test_mode,
             train_dataset=train_dataset,
-            path_data=str(data_dir),
             early_stopping_dataset=None,
             response_transformation=None,
             path_out=temp_dir,
@@ -245,7 +243,6 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
     """
     import pandas as pd
 
-    path_data = data_dir
     toy_dir = data_dir / "TOYv1"
 
     # Read existing cell line names from gene_expression.csv (cell_line_name is the index used by the loader)
@@ -293,8 +290,8 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
         }
         model = model_class(hpam_combi)
 
-        cell_line_input = model.load_cell_line_features(data_path=str(path_data), dataset_name="TOYv1")
-        drug_input = model.load_drug_features(data_path=str(path_data), dataset_name="TOYv1")
+        cell_line_input = model.load_cell_line_features(dataset_name="TOYv1")
+        drug_input = model.load_drug_features(dataset_name="TOYv1")
         if drug_input is None:
             raise ValueError("Drug input is None")
 

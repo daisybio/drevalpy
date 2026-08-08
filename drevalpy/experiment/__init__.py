@@ -139,7 +139,6 @@ def drug_response_experiment(
     n_trials_robustness: int = 0,
     path_out: str | Path = "results/",
     overwrite: bool = False,
-    path_data: str | Path = "data",
     model_checkpoint_dir: str | Path | None = None,
     hyperparameter_tuning=True,
     final_model_on_full_data: bool = False,
@@ -171,7 +170,6 @@ def drug_response_experiment(
     :param n_trials_robustness: Number of robustness-test resampling trials.
     :param path_out: Root directory for experiment outputs.
     :param overwrite: Recompute splits and predictions even when artifacts exist.
-    :param path_data: Root directory for feature tables.
     :param model_checkpoint_dir: Directory for per-fold model checkpoints, or ``None`` for a temporary one.
     :param hyperparameter_tuning: Whether to run HPO before final fold training.
     :param final_model_on_full_data: Train a production model on all data after CV.
@@ -198,7 +196,6 @@ def drug_response_experiment(
         n_trials_robustness=n_trials_robustness,
         path_out=path_out,
         overwrite=overwrite,
-        path_data=path_data,
         model_checkpoint_dir=model_checkpoint_dir,
         hyperparameter_tuning=hyperparameter_tuning,
         final_model_on_full_data=final_model_on_full_data,
@@ -248,7 +245,6 @@ def cross_study_prediction(
     model: DRPModel,
     test_mode: str,
     train_dataset: DrugResponseDataset,
-    path_data: str | Path,
     early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None,
     path_out: str | Path,
@@ -261,7 +257,6 @@ def cross_study_prediction(
     :param model: Trained model instance to evaluate.
     :param test_mode: Split mode used for overlap removal.
     :param train_dataset: Training dataset from the source study.
-    :param path_data: Root directory for feature tables.
     :param early_stopping_dataset: Optional early-stopping data for retraining.
     :param response_transformation: Optional response transformer.
     :param path_out: Directory where predictions are written.
@@ -273,7 +268,6 @@ def cross_study_prediction(
         model=model,
         test_mode=test_mode,
         train_dataset=train_dataset,
-        path_data=path_data,
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
         path_out=path_out,
@@ -303,7 +297,6 @@ def randomization_test(
     randomization_test_views: dict[str, list[str]],
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
@@ -318,7 +311,6 @@ def randomization_test(
     :param randomization_test_views: Mapping from test names to feature views.
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
-    :param path_data: Root directory for feature tables.
     :param train_dataset: Training split for the fold.
     :param test_dataset: Test split for the fold.
     :param early_stopping_dataset: Optional early-stopping data.
@@ -332,7 +324,6 @@ def randomization_test(
         randomization_test_views=randomization_test_views,
         model_class=model_class,
         hyperparameters=hyperparameters,
-        path_data=path_data,
         train_dataset=train_dataset,
         test_dataset=test_dataset,
         early_stopping_dataset=early_stopping_dataset,
@@ -352,7 +343,6 @@ def randomize_train_predict(
     randomization_test_file: str | Path,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
@@ -367,7 +357,6 @@ def randomize_train_predict(
     :param randomization_test_file: Output path for predictions.
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
-    :param path_data: Root directory for feature tables.
     :param train_dataset: Training split for the fold.
     :param test_dataset: Test split for the fold.
     :param early_stopping_dataset: Optional early-stopping data.
@@ -381,7 +370,6 @@ def randomize_train_predict(
         randomization_test_file=randomization_test_file,
         model_class=model_class,
         hyperparameters=hyperparameters,
-        path_data=path_data,
         train_dataset=train_dataset,
         test_dataset=test_dataset,
         early_stopping_dataset=early_stopping_dataset,
@@ -394,7 +382,6 @@ def robustness_test(
     n_trials: int,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
@@ -408,7 +395,6 @@ def robustness_test(
     :param n_trials: Number of robustness trials to run.
     :param model_class: Model class to retrain on perturbed data.
     :param hyperparameters: Hyperparameters for model construction.
-    :param path_data: Root directory for feature tables.
     :param train_dataset: Training split for the fold.
     :param test_dataset: Test split for the fold.
     :param early_stopping_dataset: Optional early-stopping data.
@@ -421,7 +407,6 @@ def robustness_test(
         n_trials=n_trials,
         model_class=model_class,
         hyperparameters=hyperparameters,
-        path_data=path_data,
         train_dataset=train_dataset,
         test_dataset=test_dataset,
         early_stopping_dataset=early_stopping_dataset,
@@ -441,7 +426,6 @@ def robustness_train_predict(
     early_stopping_dataset: DrugResponseDataset | None,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    path_data: str | Path,
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str | Path | None = None,
 ) -> None:
@@ -454,7 +438,6 @@ def robustness_train_predict(
     :param early_stopping_dataset: Optional early-stopping data.
     :param model_class: Model class to train on perturbed data.
     :param hyperparameters: Hyperparameters for model construction.
-    :param path_data: Root directory for feature tables.
     :param response_transformation: Optional response transformer.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
@@ -466,7 +449,6 @@ def robustness_train_predict(
         early_stopping_dataset=early_stopping_dataset,
         model_class=model_class,
         hyperparameters=hyperparameters,
-        path_data=path_data,
         response_transformation=response_transformation,
         model_checkpoint_dir=model_checkpoint_dir,
     )
@@ -497,7 +479,6 @@ def split_early_stopping(
 @pipeline_function
 def train_and_predict(
     model: DRPModel,
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None = None,
@@ -509,7 +490,6 @@ def train_and_predict(
     """Train the model and predict the response for the prediction dataset.
 
     :param model: Trained or untrained ``DRPModel`` instance.
-    :param path_data: Root directory for feature tables.
     :param train_dataset: Training responses and identifiers.
     :param prediction_dataset: Pairs to predict; receives predictions in place.
     :param early_stopping_dataset: Optional hold-out for early stopping.
@@ -522,7 +502,6 @@ def train_and_predict(
     """
     return train_and_predict_impl(
         model=model,
-        path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=prediction_dataset,
         early_stopping_dataset=early_stopping_dataset,
@@ -535,7 +514,6 @@ def train_and_predict(
 
 def train_and_evaluate(
     model: DRPModel,
-    path_data: str | Path,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None = None,
@@ -546,7 +524,6 @@ def train_and_evaluate(
     """Train a model and compute validation metrics.
 
     :param model: Model instance to train.
-    :param path_data: Root directory for feature tables.
     :param train_dataset: Training split.
     :param validation_dataset: Validation split to score.
     :param early_stopping_dataset: Optional early-stopping data.
@@ -559,7 +536,6 @@ def train_and_evaluate(
     trial_transform = None if response_transformation is None else clone(response_transformation)
     validation_dataset = train_and_predict(
         model=model,
-        path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,
         early_stopping_dataset=early_stopping_dataset,
@@ -639,7 +615,6 @@ def train_final_model(
     model_class: type[DRPModel],
     full_dataset: DrugResponseDataset,
     response_transformation: TransformerMixin,
-    path_data: str | Path,
     model_checkpoint_dir: str | Path | None,
     metric: str,
     final_model_path: str,
@@ -656,7 +631,6 @@ def train_final_model(
     :param model_class: Model class to train.
     :param full_dataset: Complete response dataset for final training.
     :param response_transformation: Response transformer fitted on training data.
-    :param path_data: Root directory for feature tables.
     :param model_checkpoint_dir: Directory for intermediate checkpoints, or ``None`` for a temporary one.
     :param metric: Metric optimized during optional hyperparameter tuning.
     :param final_model_path: Archive path stem for the final model (``.zip`` appended on save).
@@ -672,7 +646,6 @@ def train_final_model(
         model_class=model_class,
         full_dataset=full_dataset,
         response_transformation=response_transformation,
-        path_data=path_data,
         model_checkpoint_dir=model_checkpoint_dir,
         metric=metric,
         final_model_path=final_model_path,
