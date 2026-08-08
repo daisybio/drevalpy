@@ -23,7 +23,7 @@ REQUIRED_MIRRORS = (
     "components/predictors/naive/entity_mean.py",
     "components/predictors/naive/tissue.py",
     "components/predictors/naive/effects.py",
-    "components/predictors/feature_free.py",
+    "components/predictors/abstract/feature_free.py",
     "components/predictors/literature/precily/predictor.py",
     "components/predictors/literature/srmf/predictor.py",
     "components/predictors/single_drug_routing.py",

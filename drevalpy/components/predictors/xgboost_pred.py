@@ -68,6 +68,7 @@ class XGBoostPredictor(SklearnTabularPredictor):
         :param state: state.
         :raises PredictorStateError: Raised on invalid input.
         """
+        _set_xgboost_thread_defaults()
         super().set_state(state)
         if self._estimator is None:
             msg = "XGBoostPredictor state did not restore a fitted estimator"

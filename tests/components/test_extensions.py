@@ -160,7 +160,7 @@ class ExternalCellLineFeaturizer(CellLineFeaturizer):
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ExternalPredictor(FeatureFreePredictor):
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "response required"
             raise ValueError(msg)

@@ -9,10 +9,6 @@ from typing import Any, ClassVar
 import numpy as np
 import wandb
 
-from drevalpy.components.data_loading import (
-    load_cell_line_features_for_model_config,
-    load_drug_features_for_model_config,
-)
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -246,6 +242,8 @@ class DRPModel(_DRPLoggingMixin):
         config = self._resolved_model_config
         if config is None:
             raise RuntimeError("Model has not been constructed with a ModelConfig")
+        from drevalpy.components.data_loading import load_cell_line_features_for_model_config
+
         return load_cell_line_features_for_model_config(
             config,
             data_path,
@@ -265,6 +263,8 @@ class DRPModel(_DRPLoggingMixin):
         config = self._resolved_model_config
         if config is None:
             raise RuntimeError("Model has not been constructed with a ModelConfig")
+        from drevalpy.components.data_loading import load_drug_features_for_model_config
+
         return load_drug_features_for_model_config(
             config,
             data_path,

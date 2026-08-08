@@ -66,7 +66,7 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
                 hidden = self.dropout_layer(hidden)
             hidden = torch.relu(hidden)
         hidden = torch.relu(self.fully_connected_layers[-2](hidden))
-        return self.fully_connected_layers[-1](hidden).squeeze()
+        return self.fully_connected_layers[-1](hidden).squeeze(dim=-1)
 
     def _loss_and_log(self, features: torch.Tensor, response: torch.Tensor, name: str) -> torch.Tensor:
         predictions = self(features)
