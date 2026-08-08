@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 import wandb
+from pytorch_lightning.loggers import WandbLogger
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import AVAILABLE_METRICS, evaluate
@@ -93,8 +94,6 @@ class _DRPLoggingMixin:
         """
         if not self.is_wandb_enabled() or self.wandb_project is None:
             return None
-
-        from pytorch_lightning.loggers import WandbLogger
 
         return WandbLogger(project=self.wandb_project, log_model=False)
 
