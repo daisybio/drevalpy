@@ -143,7 +143,10 @@ def validate(config: ModelConfig) -> ModelConfig:
     :param config: Model configuration to validate.
     :returns: The unchanged *config*, so this doubles as a Pydantic ``after`` validator.
     """
-    pred_cls = get_predictor(config.predictor.name)
+    try:
+        pred_cls = get_predictor(config.predictor.name)
+    except ImportError:
+        return config
     _validate_prediction_mode(config, pred_cls)
     if issubclass(pred_cls, FeatureFreePredictor):
         _validate_feature_free_config(config)
