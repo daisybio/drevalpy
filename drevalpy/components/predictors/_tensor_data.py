@@ -45,7 +45,7 @@ class IndexedPairDataset(Dataset):
         :param idx: Pair index.
         :returns: Tuple of feature tensors, optionally followed by the response scalar.
         """
-        feats = tuple(m[i[idx]] for m, i in zip(self._matrices, self._indices))
+        feats = tuple(m[i[idx]] for m, i in zip(self._matrices, self._indices, strict=True))
         if self._response is not None:
             return (*feats, self._response[idx])
         return feats

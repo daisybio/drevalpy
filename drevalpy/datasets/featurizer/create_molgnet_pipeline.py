@@ -48,7 +48,7 @@ def load_smiles_map(dataset_dir: Path, smiles_col: str, id_col: str) -> dict[Any
         msg = f"Provided columns not in CSV: {smiles_col}, {id_col}"
         raise ValueError(msg)
     df = df.dropna(subset=[smiles_col])
-    return dict(zip(df[id_col], df[smiles_col]))
+    return dict(zip(df[id_col], df[smiles_col], strict=False))
 
 
 def build_graph_dict(smiles_map: dict[Any, str]) -> dict[Any, Data]:

@@ -18,8 +18,8 @@ from tqdm import tqdm
 
 try:
     from rdkit import Chem
-except ImportError:
-    raise ImportError("Please install rdkit package for drug graphs featurizer: pip install rdkit")
+except ImportError as err:
+    raise ImportError("Please install rdkit package for drug graphs featurizer: pip install rdkit") from err
 
 # Atom feature configuration
 ATOM_FEATURES = {

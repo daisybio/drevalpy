@@ -11,10 +11,10 @@ from tqdm import tqdm
 
 try:
     from transformers import AutoModel, AutoTokenizer
-except ImportError:
+except ImportError as err:
     raise ImportError(
         "Please install transformers package for ChemBERTa embedding featurizer: pip install transformers"
-    )
+    ) from err
 _CHEMBERTA_MODEL = "seyonec/ChemBERTa-zinc-base-v1"
 _CHEMBERTA_REVISION = "761d6a1"
 

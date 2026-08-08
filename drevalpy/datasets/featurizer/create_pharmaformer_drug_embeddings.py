@@ -23,8 +23,8 @@ from tqdm import tqdm
 try:
     from subword_nmt.apply_bpe import BPE
     from subword_nmt.learn_bpe import learn_bpe
-except ImportError:
-    raise ImportError("Please install subword-nmt package for BPE SMILES featurizer: pip install subword-nmt")
+except ImportError as err:
+    raise ImportError("Please install subword-nmt package for BPE SMILES featurizer: pip install subword-nmt") from err
 
 
 def create_pharmaformer_drug_embeddings(

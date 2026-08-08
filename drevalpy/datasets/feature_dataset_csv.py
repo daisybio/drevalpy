@@ -19,7 +19,7 @@ def _feature_column_names(meta_info: dict[str, Any], view_name: str, vector_leng
 
 def _feature_row(identifier: str, vector: Any, feature_names: list[str], id_column: str) -> dict[str, Any]:
     row: dict[str, Any] = {id_column: identifier}
-    row.update({name: value for name, value in zip(feature_names, vector)})
+    row.update({name: value for name, value in zip(feature_names, vector, strict=True)})
     return row
 
 

@@ -24,7 +24,7 @@ def load_drug_and_cell_line_metadata(path_data: str | Path) -> tuple[dict[str, s
         if file.name == "drug_names.csv":
             drug_names = pd.read_csv(file)
             drug_names["pubchem_id"] = drug_names["pubchem_id"].astype(str)
-            drug_metadata.update(zip(drug_names["pubchem_id"], drug_names["drug_name"]))
+            drug_metadata.update(zip(drug_names["pubchem_id"], drug_names["drug_name"], strict=False))
         elif file.name == "cell_line_names.csv":
             cell_line_metadata.update(_cell_line_name_mapping(file))
     return drug_metadata, cell_line_metadata
@@ -42,7 +42,7 @@ def _cell_line_name_mapping(path: Path) -> dict[str, str]:
         )
     except KeyError:
         cellosaurus_ids = pd.Series([f"unknown_id_{i}" for i in range(len(cell_line_names))])
-    return dict(zip(cell_line_names[CELL_LINE_IDENTIFIER], cellosaurus_ids))
+    return dict(zip(cell_line_names[CELL_LINE_IDENTIFIER], cellosaurus_ids, strict=False))
 
 
 def add_index_columns_from_model(eval_results: pd.DataFrame) -> pd.DataFrame:

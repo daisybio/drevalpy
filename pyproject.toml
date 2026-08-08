@@ -67,6 +67,7 @@ dev = [
     "ty",
     "prek",
     "pytest",
+    "pytest-cov",
     "coverage",
     "complexipy",
     "pygments",
@@ -120,6 +121,7 @@ max-complexity = 10
 docstring-code-format = true
 
 [tool.ty]
+[tool.ty.environment]
 python-version = "3.11"
 
 [tool.pytest.ini_options]
