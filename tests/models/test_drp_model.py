@@ -123,7 +123,6 @@ def test_constructor_overrides_affect_views_before_feature_load() -> None:
     assert overridden.cell_line_views == defaults.cell_line_views
     assert overridden.drug_views == defaults.drug_views
     assert overridden._stack is not None
-    assert overridden._stack.config is not None
     assert overridden._resolved_model_config is not None
     assert overridden._resolved_model_config.predictor_values()["n_estimators"] == 3
 
@@ -170,7 +169,6 @@ def test_hyperparameters_and_views_are_immutable_after_construction() -> None:
     exposed = model.hyperparameters
     exposed["alpha"] = 0.25
     assert model.hyperparameters["alpha"] == 0.1
-    assert model._stack.config is not None
     assert model._resolved_model_config is not None
     assert model._resolved_model_config.predictor_values()["alpha"] == 0.1
 

@@ -104,40 +104,31 @@ class _ComponentStack:
         predictor: Predictor,
         *,
         prediction_mode: PredictionMode = PredictionMode.REGRESSION,
-        resolved: ResolvedModelConfig | None = None,
-        config: ModelConfig | None = None,
+        resolved: ResolvedModelConfig,
     ) -> None:
         self._cell_line_featurizer = cell_line_featurizer
         self._drug_featurizer = drug_featurizer
         self._predictor = predictor
         self._prediction_mode = prediction_mode
-        self._resolved: ResolvedModelConfig | None
-        if resolved is not None:
-            self._resolved = ResolvedModelConfig.model_validate(resolved.model_dump(mode="python"))
-        elif config is not None:
-            from drevalpy.components.tuning.search_space import resolve_model_config
-
-            self._resolved = resolve_model_config(config)
-        else:
-            self._resolved = None
+        self._resolved = ResolvedModelConfig.model_validate(resolved.model_dump(mode="python"))
         self._cell_line_matrix: np.ndarray | None = None
         self._drug_matrix: np.ndarray | None = None
         self._cell_line_entity_ids: np.ndarray | None = None
         self._drug_entity_ids: np.ndarray | None = None
 
     @property
-    def config(self) -> ModelConfig | None:
+    def config(self) -> ModelConfig:
         """Return the immutable template associated with this stack.
 
-        :returns: Template ``ModelConfig``, or ``None``.
+        :returns: Template ``ModelConfig``.
         """
-        return self._resolved.template if self._resolved is not None else None
+        return self._resolved.template
 
     @property
-    def resolved(self) -> ResolvedModelConfig | None:
+    def resolved(self) -> ResolvedModelConfig:
         """Return the resolved instance configuration.
 
-        :returns: ``ResolvedModelConfig``, or ``None``.
+        :returns: ``ResolvedModelConfig``.
         """
         return self._resolved
 
