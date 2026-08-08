@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
+import functools
 import json
 from typing import Any
 
 from drevalpy.models.config import ModelConfig, ModelScope, from_spec
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.drp_model import DRPModel
-
-_CONSTRUCTED_CACHE: dict[tuple[str, str], type[DRPModel]] = {}
-
-
-def _canonical_config_key(config: ModelConfig) -> str:
-    return json.dumps(config.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
 
 
 def _as_template(config: ModelConfig | ResolvedModelConfig) -> ModelConfig:
@@ -43,10 +38,12 @@ def _resolve_base_config(name: str, spec: str | ModelConfig | ResolvedModelConfi
     return _as_template(config)
 
 
-def _generate_model_class(name: str, config: ModelConfig) -> type[DRPModel]:
+@functools.cache
+def _generate_model_class(name: str, config_json: str) -> type[DRPModel]:
+    config = ModelConfig.model_validate_json(config_json)
     attrs: dict[str, Any] = {
         "_model_name": name,
-        "_base_model_config": ModelConfig.model_validate(config.model_dump(mode="python")),
+        "_base_model_config": config,
     }
     cls = type(name, (DRPModel,), attrs)
     cls.__module__ = "drevalpy.models"
@@ -71,13 +68,8 @@ def construct_model(name: str, spec: str | ModelConfig | ResolvedModelConfig | N
     :returns: Generated ``DRPModel`` subclass bound to the resolved config.
     """
     config = _resolve_base_config(name, spec)
-    cache_key = (name, _canonical_config_key(config))
-    cached = _CONSTRUCTED_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
-    cls = _generate_model_class(name, config)
-    _CONSTRUCTED_CACHE[cache_key] = cls
-    return cls
+    config_json = json.dumps(config.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    return _generate_model_class(name, config_json)
 
 
 def build_builtin_factory_tables() -> tuple[
