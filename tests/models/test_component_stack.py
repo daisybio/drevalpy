@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.data.response_batch import ResponseBatch
+from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models._component_stack import build_component_stack
 from drevalpy.models.config import from_spec

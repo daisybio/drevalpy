@@ -5,7 +5,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from drevalpy.data.response_batch import ResponseBatch
+from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models.drp_model import DRPModel
 
@@ -61,7 +61,7 @@ def test_single_drug_models(
     :param data_dir: path to the data directory
     """
     from drevalpy.data import load_mudataset
-    from drevalpy.data.splitting import MuDataSplitter
+    from drevalpy.data.structures.splitting import MuDataSplitter
     from drevalpy.experiment import seed_everything
 
     seed_everything(42)

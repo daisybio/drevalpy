@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.tuning.config import HPOConfig
-from drevalpy.data.splitting import EntityScope
+from drevalpy.data.structures.splitting import EntityScope
 from drevalpy.models import construct_model
 
 

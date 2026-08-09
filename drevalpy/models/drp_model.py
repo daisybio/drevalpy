@@ -11,8 +11,8 @@ from upath import UPath as Path
 
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.data.mudataset import MuDataset
-from drevalpy.data.splitting import EntityScope, SplitMasks
+from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.splitting import EntityScope, SplitMasks
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
 from drevalpy.models._drp_logging import _DRPLoggingMixin
 from drevalpy.models._model_persistence import (

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor
-from drevalpy.data.response_batch import ResponseBatch
+from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.models._component_stack import build_component_stack
 from drevalpy.models.config import from_spec
 from tests.conftest import MockFeatureSource

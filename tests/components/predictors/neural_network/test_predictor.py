@@ -12,7 +12,7 @@ from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.data.response_batch import ResponseBatch
+from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 
@@ -28,8 +28,8 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.mudataset import MuDataset
-    from drevalpy.data.splitting import SplitMasks
+    from drevalpy.data.structures.mudataset import MuDataset
+    from drevalpy.data.structures.splitting import SplitMasks
 
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])
