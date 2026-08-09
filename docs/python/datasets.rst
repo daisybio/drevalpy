@@ -13,12 +13,12 @@ Built-in datasets
 -----------------
 
 Built-in names are listed in the packaged registry. Use
-:func:`~drevalpy.datasets.list_builtin_datasets` to discover them and
-:func:`~drevalpy.datasets.loader.load_mudataset` to load:
+:func:`~drevalpy.data.list_builtin_datasets` to discover them and
+:func:`~drevalpy.data.loader.load_mudataset` to load:
 
 .. code-block:: python
 
-   from drevalpy.datasets import list_builtin_datasets, load_mudataset
+   from drevalpy.data import list_builtin_datasets, load_mudataset
 
    print(list_builtin_datasets())
    # BeatAML2, CCLE, CTRPv1, CTRPv2, GDSC1, GDSC2, PDX_Bruna, TOYv1, TOYv2
@@ -119,7 +119,7 @@ or in zoo YAML:
    the training split only (``fit_transform``) and applies the learned transform
    to validation/test (``transform``).
 
-Generic CSV loading uses ``load_generic_csv`` from ``drevalpy.datasets.feature_tables``.
+Generic CSV loading uses ``load_generic_csv`` from ``drevalpy.data.feature_tables``.
 Depending on whether the featurizer is registered under the cell-line or drug
 registry, the index column must be ``CELL_LINE_IDENTIFIER``
 (``"cell_line_name"``) or ``DRUG_IDENTIFIER`` (``"pubchem_id"``).
@@ -139,7 +139,7 @@ training loop:
 
 .. code-block:: python
 
-   from drevalpy.datasets import load_mudataset, MuDataSplitter
+   from drevalpy.data import load_mudataset, MuDataSplitter
 
    mudataset = load_mudataset("TOYv1")
    splitter = MuDataSplitter()

@@ -8,8 +8,8 @@ from typing import TextIO
 import importlib_resources
 import pandas as pd
 
-from ..datasets._paths import get_default_data_dir
-from ..datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
+from ..data._paths import get_default_data_dir
+from ..data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from ..evaluation import AVAILABLE_METRICS, evaluate
 from ..utils._pipeline_function import pipeline_function
 from . import (

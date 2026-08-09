@@ -13,7 +13,7 @@ def main(args) -> None:
     validate_models(args)
     validate_test_modes(args)
 
-    from drevalpy.datasets.loader import load_mudataset
+    from drevalpy.data.loader import load_mudataset
     from drevalpy.experiment.run import mu_experiment
     from drevalpy.models._model_lookup import get_model_class
 

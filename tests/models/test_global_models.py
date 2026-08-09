@@ -7,7 +7,7 @@ from typing import Any, cast
 import numpy as np
 import pytest
 
-from drevalpy.datasets.response_batch import ResponseBatch
+from drevalpy.data.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig
 from drevalpy.models.drp_model import DRPModel
@@ -99,8 +99,8 @@ def test_global_models(
     :param data_dir: path to the data directory
     :raises ValueError: if drug input is None
     """
-    from drevalpy.datasets import load_mudataset
-    from drevalpy.datasets.splitting import MuDataSplitter
+    from drevalpy.data import load_mudataset
+    from drevalpy.data.splitting import MuDataSplitter
 
     mudataset = load_mudataset("TOYv1")
     splitter = MuDataSplitter()
@@ -152,8 +152,8 @@ def test_multi_view_neural_network_custom_views(sample_dataset: ResponseBatch, t
     """
     import pandas as pd
 
-    from drevalpy.datasets import load_mudataset
-    from drevalpy.datasets.splitting import MuDataSplitter
+    from drevalpy.data import load_mudataset
+    from drevalpy.data.splitting import MuDataSplitter
 
     toy_dir = data_dir / "TOYv1"
     gex = pd.read_csv(toy_dir / "gene_expression.csv")

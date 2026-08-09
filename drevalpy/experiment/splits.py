@@ -8,8 +8,8 @@ import shutil
 import numpy as np
 from upath import UPath as Path
 
-from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import MuDataSplitter, SplitMasks
+from ..data.mudataset import MuDataset
+from ..data.splitting import MuDataSplitter, SplitMasks
 
 
 def prepare_splits(

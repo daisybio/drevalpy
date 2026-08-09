@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from drevalpy.cli.run_cv import run_load_response
-from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
+from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.utils.pickle_io import load_trusted_pickle
 
 

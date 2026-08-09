@@ -8,8 +8,8 @@ from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
 from ..components.tuning.hpo import mu_hpam_tune  # noqa: F401
-from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import EntityScope, MuDataSplitter, SplitMasks
+from ..data.mudataset import MuDataset
+from ..data.splitting import EntityScope, MuDataSplitter, SplitMasks
 from ..models.drp_model import DRPModel
 from ..utils._pipeline_function import pipeline_function
 from .cross_study import cross_study_prediction_impl

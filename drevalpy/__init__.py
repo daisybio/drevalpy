@@ -2,6 +2,6 @@
 
 from importlib.metadata import version
 
-from . import datasets as datasets
+from . import data as data
 
 __version__ = version("drevalpy")

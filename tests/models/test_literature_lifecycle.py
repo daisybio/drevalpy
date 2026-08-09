@@ -11,8 +11,8 @@ import pytest
 
 import mudata as md
 from drevalpy.components.register_builtins import register_builtin_components
-from drevalpy.datasets.mudataset import MuDataset
-from drevalpy.datasets.splitting import SplitMasks
+from drevalpy.data.mudataset import MuDataset
+from drevalpy.data.splitting import SplitMasks
 from drevalpy.models import construct_model
 
 

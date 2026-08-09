@@ -1,4 +1,4 @@
-"""Layering policy: ``drevalpy.datasets`` must never depend on ``drevalpy.components``."""
+"""Layering policy: ``drevalpy.data`` must never depend on ``drevalpy.components``."""
 
 from __future__ import annotations
 

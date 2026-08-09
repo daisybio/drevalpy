@@ -16,13 +16,13 @@ from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.response_batch import ResponseBatch
+from drevalpy.data.response_batch import ResponseBatch
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
 from drevalpy.models.config.resolved import ResolvedModelConfig
 
 if TYPE_CHECKING:
-    from drevalpy.datasets.mudataset import MuDataset
-    from drevalpy.datasets.splitting import EntityScope
+    from drevalpy.data.mudataset import MuDataset
+    from drevalpy.data.splitting import EntityScope
 
 
 def _build_fit_context(

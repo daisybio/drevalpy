@@ -40,7 +40,7 @@ import requests
 from cellosaurus_parse import parse_cellosaurus
 from download import download_dataset
 
-from drevalpy.datasets import registry
+from drevalpy.data import registry
 
 _DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 120
 

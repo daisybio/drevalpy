@@ -134,7 +134,7 @@ More CLI options: [CLI quickstart](https://drevalpy.readthedocs.io/en/latest/cli
 Load the dataset, resolve zoo presets with `construct_model` (returns a **class**), and pass that class to `mu_experiment`:
 
 ```python
-from drevalpy.datasets import load_mudataset
+from drevalpy.data import load_mudataset
 from drevalpy.experiment import mu_experiment
 from drevalpy.models import construct_model
 

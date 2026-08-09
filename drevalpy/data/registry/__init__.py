@@ -6,7 +6,7 @@ with the built-in registry at import time.
 
 Usage::
 
-    from drevalpy.datasets import registry
+    from drevalpy.data import registry
 
     registry.list_datasets()  # pretty-print table
     registry.dataset_names  # programmatic access

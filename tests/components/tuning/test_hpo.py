@@ -10,7 +10,7 @@ import pytest
 
 from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.components.tuning.hpo import mu_hpam_tune
-from drevalpy.datasets.splitting import EntityScope
+from drevalpy.data.splitting import EntityScope
 from drevalpy.models import construct_model
 from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
@@ -316,8 +316,8 @@ def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
 
-    from drevalpy.datasets import load_mudataset
-    from drevalpy.datasets.splitting import MuDataSplitter
+    from drevalpy.data import load_mudataset
+    from drevalpy.data.splitting import MuDataSplitter
 
     mudataset = load_mudataset("TOYv1")
     splitter = MuDataSplitter()

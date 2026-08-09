@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from drevalpy.datasets.splitting import EntityScope
+from drevalpy.data.splitting import EntityScope
 from drevalpy.experiment.hpo import select_fold_hyperparameters
 from drevalpy.models._model_lookup import get_model_class
 

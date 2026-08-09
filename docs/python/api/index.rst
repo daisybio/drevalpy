@@ -16,7 +16,7 @@ APIs from the subpackages in the table.
      - Purpose
      - Python guide
      - Concepts
-   * - ``drevalpy.datasets``
+   * - ``drevalpy.data``
      - Load screens and custom response tables
      - :doc:`/python/datasets`
      - :doc:`/concepts/datasets`
@@ -57,7 +57,7 @@ tree.
    :caption: Packages
    :recursive:
 
-   drevalpy.datasets
+   drevalpy.data
    drevalpy.types
    drevalpy.experiment
    drevalpy.evaluation

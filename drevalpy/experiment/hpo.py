@@ -7,8 +7,8 @@ from typing import Any
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
-from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import EntityScope
+from ..data.mudataset import MuDataset
+from ..data.splitting import EntityScope
 from ..models.drp_model import DRPModel
 
 

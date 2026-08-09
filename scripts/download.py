@@ -6,7 +6,7 @@ from pathlib import Path
 import requests
 from requests import Response
 
-from drevalpy.datasets._paths import get_default_data_dir
+from drevalpy.data._paths import get_default_data_dir
 
 
 def unzip_data(path_to_zip: Path, response: Response, data_path: str | Path):

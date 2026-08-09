@@ -19,7 +19,7 @@ def run_load_response(
     :param cross_study_dataset: cross study dataset.
     :param measure: measure.
     """
-    from drevalpy.datasets.utils import (
+    from drevalpy.data.utils import (
         CELL_LINE_IDENTIFIER,
         DRUG_IDENTIFIER,
         TISSUE_IDENTIFIER,
@@ -58,7 +58,7 @@ def run_cv_split(
     :param seed: seed.
     :param custom_splitter_path: custom splitter path.
     """
-    from drevalpy.datasets.splitting import MuDataSplitter
+    from drevalpy.data.splitting import MuDataSplitter
 
     response_data = load_trusted_pickle(response)
     splitter = MuDataSplitter()

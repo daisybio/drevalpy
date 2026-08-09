@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from drevalpy.datasets.curvecurator import preprocess
+from drevalpy.data.curvecurator import preprocess
 
 
 def _viability_frame() -> pd.DataFrame:

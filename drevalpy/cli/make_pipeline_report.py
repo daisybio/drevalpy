@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 
 from drevalpy.cli._helpers import as_list
-from drevalpy.datasets._paths import get_default_data_dir
+from drevalpy.data._paths import get_default_data_dir
 from drevalpy.visualization.create_report import run_pipeline_report
 
 

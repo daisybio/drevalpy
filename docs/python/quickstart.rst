@@ -9,7 +9,7 @@ the model class to :func:`~drevalpy.experiment.mu_experiment`:
 
 .. code-block:: python
 
-   from drevalpy.datasets import load_mudataset
+   from drevalpy.data import load_mudataset
    from drevalpy.experiment import mu_experiment
    from drevalpy.models import construct_model
 

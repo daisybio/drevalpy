@@ -5,7 +5,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from drevalpy.datasets.response_batch import ResponseBatch
+from drevalpy.data.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models.drp_model import DRPModel
 
@@ -60,8 +60,8 @@ def test_single_drug_models(
     :param cross_study_dataset: ResponseBatch from conftest.py
     :param data_dir: path to the data directory
     """
-    from drevalpy.datasets import load_mudataset
-    from drevalpy.datasets.splitting import MuDataSplitter
+    from drevalpy.data import load_mudataset
+    from drevalpy.data.splitting import MuDataSplitter
     from drevalpy.experiment import seed_everything
 
     seed_everything(42)

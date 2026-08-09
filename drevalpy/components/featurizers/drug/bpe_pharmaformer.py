@@ -16,7 +16,7 @@ _BPE_PHARMAFORMER_REFERENCE = LiteratureReference(
     deviations=(
         "Consumes precomputed BPE token rows from the bpe_smiles view; "
         "offline embedding generation is implemented in "
-        "drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings."
+        "drevalpy.data.featurizer.create_pharmaformer_drug_embeddings."
     ),
 )
 

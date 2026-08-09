@@ -12,7 +12,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from drevalpy.datasets.mudataset import MuDataset
+from drevalpy.data.mudataset import MuDataset
 
 
 @runtime_checkable

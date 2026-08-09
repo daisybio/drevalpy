@@ -19,7 +19,7 @@ import pandas as pd
 import toml
 from upath import UPath as Path
 
-from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
+from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 from ..utils._pipeline_function import pipeline_function
 

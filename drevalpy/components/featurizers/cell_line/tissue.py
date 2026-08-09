@@ -13,7 +13,7 @@ from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.datasets.utils import TISSUE_IDENTIFIER
+from drevalpy.data.utils import TISSUE_IDENTIFIER
 
 
 def _tissue_label(source: FeatureSource, entity_id: str) -> str | None:

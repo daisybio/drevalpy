@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.datasets import registry
-from drevalpy.datasets.registry import Registry, get_config_path
-from drevalpy.datasets.registry.models import DrevalConfig, SourceEntry
+from drevalpy.data import registry
+from drevalpy.data.registry import Registry, get_config_path
+from drevalpy.data.registry.models import DrevalConfig, SourceEntry
 
 _EXPECTED_BUILTIN = [
     "BeatAML2",
@@ -28,7 +28,7 @@ class TestBuiltinRegistry:
 
     def test_available_datasets_json_structure(self) -> None:
         """Verify the packaged JSON has the expected schema."""
-        registry_path = resources.files("drevalpy.datasets.registry").joinpath("available_datasets.json")
+        registry_path = resources.files("drevalpy.data.registry").joinpath("available_datasets.json")
         with registry_path.open(encoding="utf-8") as handle:
             raw = json.load(handle)
 

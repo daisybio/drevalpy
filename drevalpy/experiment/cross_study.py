@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 from upath import UPath as Path
 
-from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import EntityScope, SplitMasks
+from ..data.mudataset import MuDataset
+from ..data.splitting import EntityScope, SplitMasks
 from ..models.drp_model import DRPModel
 
 

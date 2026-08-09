@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.datasets.response_batch import ResponseBatch
+from drevalpy.data.response_batch import ResponseBatch
 
 
 class MockFeatureSource:
@@ -479,7 +479,7 @@ def load_features_for_model(model, dataset_name: str = "TOYv1"):
         build_cell_line_features_from_mudataset,
         build_drug_features_from_mudataset,
     )
-    from drevalpy.datasets import load_mudataset
+    from drevalpy.data import load_mudataset
 
     mudataset = load_mudataset(dataset_name)
     config = model._resolved_model_config or model.model_config()

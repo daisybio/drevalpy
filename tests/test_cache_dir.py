@@ -1,8 +1,8 @@
-"""Tests for drevalpy.datasets._paths cache directory resolution."""
+"""Tests for drevalpy.data._paths cache directory resolution."""
 
 from pathlib import Path
 
-from drevalpy.datasets._paths import get_default_data_dir
+from drevalpy.data._paths import get_default_data_dir
 
 
 def test_env_var_override(monkeypatch, tmp_path):

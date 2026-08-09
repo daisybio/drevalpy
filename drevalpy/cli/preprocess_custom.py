@@ -15,7 +15,7 @@ def run_preprocess_raw_viability(
     :param dataset_name: dataset name.
     :param cores: cores.
     """
-    from drevalpy.datasets.curvecurator import preprocess
+    from drevalpy.data.curvecurator import preprocess
 
     input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}_raw.csv"
     output_dir = input_file.parent
@@ -37,7 +37,7 @@ def run_postprocess_viability(
     :param dataset_name: dataset name.
     :param path_data: path data.
     """
-    from drevalpy.datasets.curvecurator import postprocess
+    from drevalpy.data.curvecurator import postprocess
 
     output_folder = Path(path_data).resolve() / dataset_name
     postprocess(output_folder=str(output_folder), dataset_name=dataset_name)

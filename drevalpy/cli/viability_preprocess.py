@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 
 from drevalpy.cli.preprocess_custom import run_preprocess_raw_viability
-from drevalpy.datasets._paths import get_default_data_dir
+from drevalpy.data._paths import get_default_data_dir
 
 
 def register(app: typer.Typer) -> None:

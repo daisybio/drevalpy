@@ -48,7 +48,7 @@ def test_hpam_tune_uses_optuna(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
     from drevalpy.components.tuning.hpo import mu_hpam_tune
-    from drevalpy.datasets.splitting import EntityScope
+    from drevalpy.data.splitting import EntityScope
 
     captured: dict[str, object] = {}
 
@@ -99,8 +99,8 @@ def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
     pytest.importorskip("optuna")
 
     from drevalpy import experiment
-    from drevalpy.datasets import load_mudataset
-    from drevalpy.datasets.splitting import MuDataSplitter
+    from drevalpy.data import load_mudataset
+    from drevalpy.data.splitting import MuDataSplitter
     from drevalpy.experiment.fold import prepare_mu_fold
 
     model_cls = construct_model("ElasticNet")

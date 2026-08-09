@@ -2,7 +2,7 @@
 
 from upath import UPath as Path
 
-from drevalpy.datasets._paths import get_default_data_dir
+from drevalpy.data._paths import get_default_data_dir
 
 _VALID_TEST_MODES = frozenset({"LPO", "LCO", "LDO", "LTO"})
 _VALID_RANDOMIZATION_MODES = frozenset({"SVCC", "SVRC", "SVCD", "SVRD"})
@@ -79,7 +79,7 @@ def validate_dataset_name_and_paths(args) -> None:
 
     :raises FileNotFoundError: If a custom dataset CSV is missing at the expected path.
     """
-    from drevalpy.datasets import registry
+    from drevalpy.data import registry
 
     if registry.is_registered(args.dataset_name):
         return
@@ -106,7 +106,7 @@ def validate_cross_study_dataset_names(args) -> None:
 
     :raises AssertionError: If a cross-study name is not a built-in dataset.
     """
-    from drevalpy.datasets import registry
+    from drevalpy.data import registry
 
     for dataset in args.cross_study_datasets:
         if not registry.is_registered(dataset):
@@ -182,7 +182,7 @@ def validate_measure_and_metrics(args) -> None:
     :raises ValueError: If ``measure`` is not an allowed drug-response column.
     :raises AssertionError: If transformation or optimization metric is invalid.
     """
-    from drevalpy.datasets.utils import ALLOWED_MEASURES
+    from drevalpy.data.utils import ALLOWED_MEASURES
     from drevalpy.evaluation import AVAILABLE_METRICS
 
     if args.measure not in ALLOWED_MEASURES:

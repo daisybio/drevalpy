@@ -7,7 +7,7 @@ import pytest
 
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.model_input_build import build_model_input_batch
-from drevalpy.datasets.response_batch import ResponseBatch
+from drevalpy.data.response_batch import ResponseBatch
 
 
 def test_build_model_input_batch_indexes_entities() -> None:
