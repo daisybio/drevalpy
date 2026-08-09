@@ -40,7 +40,7 @@ import requests
 from cellosaurus_parse import parse_cellosaurus
 from download import download_dataset
 
-from drevalpy.datasets import list_builtin_datasets
+from drevalpy.datasets import registry
 
 _DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 120
 
@@ -308,7 +308,7 @@ def main():
     if dataset != "all":
         datasets = [dataset]
     else:
-        datasets = list_builtin_datasets()
+        datasets = registry.list_datasets()
 
     cell_lines = []
 

@@ -1,15 +1,8 @@
 """Dataset loading, MuDataset, and splitting utilities."""
 
-from .loader import (
-    is_builtin_dataset,
-    list_builtin_datasets,
-    load_mudataset,
-    register_dataset,
-    register_source,
-    unregister_dataset,
-    unregister_source,
-)
+from .loader import load_mudataset
 from .mudataset import MuDataset
+from .registry import Registry, registry
 from .response_batch import ResponseBatch
 from .splitting import (
     EntityScope,
@@ -27,15 +20,11 @@ __all__ = [
     "MuDataLike",
     "MuDataSplitter",
     "MuDataset",
+    "Registry",
     "ResponseBatch",
     "SplitMasks",
     "SplitParams",
-    "is_builtin_dataset",
-    "list_builtin_datasets",
     "load_external_splitter",
     "load_mudataset",
-    "register_dataset",
-    "register_source",
-    "unregister_dataset",
-    "unregister_source",
+    "registry",
 ]

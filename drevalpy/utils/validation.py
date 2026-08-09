@@ -79,9 +79,9 @@ def validate_dataset_name_and_paths(args) -> None:
 
     :raises FileNotFoundError: If a custom dataset CSV is missing at the expected path.
     """
-    from drevalpy.datasets.loader import is_builtin_dataset
+    from drevalpy.datasets import registry
 
-    if is_builtin_dataset(args.dataset_name):
+    if registry.is_registered(args.dataset_name):
         return
     expected = _expected_custom_dataset_path(args)
     if not expected.is_file():
@@ -106,13 +106,13 @@ def validate_cross_study_dataset_names(args) -> None:
 
     :raises AssertionError: If a cross-study name is not a built-in dataset.
     """
-    from drevalpy.datasets.loader import is_builtin_dataset, list_builtin_datasets
+    from drevalpy.datasets import registry
 
     for dataset in args.cross_study_datasets:
-        if not is_builtin_dataset(dataset):
+        if not registry.is_registered(dataset):
             raise AssertionError(
                 f"Invalid dataset name in cross_study_datasets. Available datasets are "
-                f"{list_builtin_datasets()}. If you want to use your own dataset, place it under "
+                f"{registry.list_datasets()}. If you want to use your own dataset, place it under "
                 f"<cache_dir>/<dataset_name>/ (see DREVALPY_CACHE_DIR) and load it with load_mudataset."
             )
 

@@ -3,10 +3,7 @@
 import json
 from importlib import resources
 
-from drevalpy.datasets.loader import (
-    is_builtin_dataset,
-    list_builtin_datasets,
-)
+from drevalpy.datasets import registry
 
 _REGISTRY_JSON = "available_datasets.json"
 _KNOWN_SOURCE_KINDS = frozenset({"zenodo", "nfcore_test"})
@@ -54,11 +51,11 @@ def test_available_datasets_json_structure() -> None:
 
 
 def test_list_builtin_datasets_matches_registry() -> None:
-    assert list_builtin_datasets() == sorted(_EXPECTED_BUILTIN)
-    assert len(list_builtin_datasets()) == 9
+    assert registry.list_datasets() == sorted(_EXPECTED_BUILTIN)
+    assert len(registry.list_datasets()) == 9
 
 
 def test_is_builtin_dataset() -> None:
-    assert is_builtin_dataset("TOYv1")
-    assert is_builtin_dataset("GDSC1")
-    assert not is_builtin_dataset("MyStudy")
+    assert registry.is_registered("TOYv1")
+    assert registry.is_registered("GDSC1")
+    assert not registry.is_registered("MyStudy")

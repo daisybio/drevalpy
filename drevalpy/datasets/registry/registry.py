@@ -1,0 +1,155 @@
+"""Dataset registry: built-in + user-registered sources and datasets."""
+
+from __future__ import annotations
+
+import json
+from importlib import resources
+from typing import Any
+
+from .io import config_lock, load_config, save_config
+from .models import DatasetEntry, DrevalConfig, SourceEntry
+
+_REGISTRY_JSON = "available_datasets.json"
+
+
+class Registry:
+    """Dataset registry merging built-in and user-registered datasets.
+
+    Built-in and custom entries are stored separately. The combined view
+    is a computed property so it always reflects the current state.
+    Mutation methods use file locking for atomic read-modify-write.
+    """
+
+    def __init__(self) -> None:
+        """Initialize by loading built-in and custom registries."""
+        self._builtin = self._load_builtin()
+        self._custom = load_config()
+
+    @staticmethod
+    def _load_builtin() -> DrevalConfig:
+        """Load the built-in sources and datasets from the packaged JSON."""
+        registry_path = resources.files(__package__).joinpath(_REGISTRY_JSON)
+        with registry_path.open(encoding="utf-8") as handle:
+            raw = json.load(handle)
+        return DrevalConfig.from_raw(raw)
+
+    @property
+    def sources(self) -> dict[str, SourceEntry]:
+        """All sources (custom overrides built-in)."""
+        return {**self._builtin.sources, **self._custom.sources}
+
+    @property
+    def datasets(self) -> dict[str, DatasetEntry]:
+        """All datasets (custom overrides built-in)."""
+        return {**self._builtin.datasets, **self._custom.datasets}
+
+    @property
+    def builtin_sources(self) -> dict[str, SourceEntry]:
+        """Only built-in sources (read-only)."""
+        return self._builtin.sources
+
+    @property
+    def builtin_datasets(self) -> dict[str, DatasetEntry]:
+        """Only built-in datasets (read-only)."""
+        return self._builtin.datasets
+
+    @property
+    def custom_sources(self) -> dict[str, SourceEntry]:
+        """Only user-registered sources."""
+        return self._custom.sources
+
+    @property
+    def custom_datasets(self) -> dict[str, DatasetEntry]:
+        """Only user-registered datasets."""
+        return self._custom.datasets
+
+    def list_datasets(self) -> list[str]:
+        """List all registered dataset names (built-in + custom).
+
+        :returns: Sorted dataset names available for ``load_mudataset``.
+        """
+        return sorted(self.datasets)
+
+    def is_registered(self, name: str) -> bool:
+        """Return whether ``name`` is a registered dataset.
+
+        :param name: Dataset name to look up.
+        :returns: ``True`` when ``name`` is registered.
+        """
+        return name in self.datasets
+
+    def register_source(self, name: str, base_url: str, storage_options: dict[str, Any] | None = None) -> None:
+        """Register a custom source (base URL + optional fsspec storage options).
+
+        Atomically reads the config, applies the change, and writes back.
+
+        :param name: Source name (used to reference from dataset entries).
+        :param base_url: Base URL (any fsspec-compatible protocol: https, s3, gs, az, ...).
+        :param storage_options: Optional dict passed to fsspec for auth/config.
+        """
+        entry = SourceEntry(url=base_url, storage_options=storage_options or {})
+        with config_lock():
+            config = load_config()
+            config.sources[name] = entry
+            save_config(config)
+            self._custom = config
+
+    def register_dataset(self, name: str, source: str, file: str) -> None:
+        """Register a custom dataset under an existing source.
+
+        Atomically reads the config, applies the change, and writes back.
+
+        :param name: Dataset name (used with ``load_mudataset``).
+        :param source: Source name (must be registered).
+        :param file: Filename of the .h5mu file at the source URL.
+        :raises KeyError: If the source is not registered.
+        """
+        if source not in self.sources:
+            raise KeyError(f"Source '{source}' not registered. Register it first with register_source().")
+
+        with config_lock():
+            config = load_config()
+            config.datasets[name] = DatasetEntry(source=source, file=file)
+            save_config(config)
+            self._custom = config
+
+    def unregister_dataset(self, name: str) -> None:
+        """Remove a custom dataset registration.
+
+        :param name: Dataset name to remove.
+        :raises KeyError: If the dataset is not in the custom registry.
+        """
+        with config_lock():
+            config = load_config()
+            if name not in config.datasets:
+                raise KeyError(f"Dataset '{name}' not in custom registry.")
+            del config.datasets[name]
+            save_config(config)
+            self._custom = config
+
+    def unregister_source(self, name: str) -> None:
+        """Remove a custom source registration.
+
+        :param name: Source name to remove.
+        :raises KeyError: If the source is not in the custom registry.
+        :raises ValueError: If datasets still reference this source.
+        """
+        with config_lock():
+            config = load_config()
+            if name not in config.sources:
+                raise KeyError(f"Source '{name}' not in custom registry.")
+
+            referencing = [ds for ds, entry in config.datasets.items() if entry.source == name]
+            if referencing:
+                raise ValueError(f"Cannot remove source '{name}': still referenced by datasets {referencing}")
+
+            del config.sources[name]
+            save_config(config)
+            self._custom = config
+
+    def reload(self) -> None:
+        """Re-read the custom registry from disk.
+
+        Useful after external modifications to the config file.
+        """
+        self._custom = load_config()
