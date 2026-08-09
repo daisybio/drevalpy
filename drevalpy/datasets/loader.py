@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
+
 from ._paths import get_default_data_dir, resolve_h5mu_path
 from .mudataset import MuDataset
 from .registry import registry
+
+logger = get_logger(__name__)
 
 
 def _download_h5mu(name: str) -> Path:
@@ -23,7 +27,9 @@ def _download_h5mu(name: str) -> Path:
     local_path = get_default_data_dir() / entry.file
     local_path.parent.mkdir(parents=True, exist_ok=True)
 
-    size = remote.stat().st_size
+    fs = remote.fs
+    remote_key = remote.path
+    size = fs.size(remote_key)
 
     with Progress(
         *Progress.get_default_columns(),
@@ -32,8 +38,9 @@ def _download_h5mu(name: str) -> Path:
         TimeRemainingColumn(),
     ) as progress:
         task = progress.add_task(f"Downloading {name}", total=size)
-        with remote.open("rb") as src, open(local_path, "wb") as dst:
-            while chunk := src.read(1024 * 64):
+
+        with fs.open(remote_key, "rb", block_size=0) as src, open(local_path, "wb") as dst:
+            while chunk := src.read(1024 * 256):
                 dst.write(chunk)
                 progress.advance(task, len(chunk))
 
@@ -55,14 +62,22 @@ def load_mudataset(dataset_name: str) -> MuDataset:
     """
     h5mu_path = resolve_h5mu_path(dataset_name)
     if h5mu_path.is_file():
-        return MuDataset.from_file(h5mu_path)
+        try:
+            return MuDataset.from_file(h5mu_path)
+        except Exception:
+            logger.warning("Corrupted file at %s, removing and re-downloading.", h5mu_path)
+            h5mu_path.unlink()
 
     if registry.is_registered(dataset_name):
         entry = registry.datasets[dataset_name]
         data_dir = get_default_data_dir()
         candidate = data_dir / entry.file
         if candidate.is_file():
-            return MuDataset.from_file(candidate)
+            try:
+                return MuDataset.from_file(candidate)
+            except Exception:
+                logger.warning("Corrupted file at %s, removing and re-downloading.", candidate)
+                candidate.unlink()
         downloaded = _download_h5mu(dataset_name)
         return MuDataset.from_file(downloaded)
 
