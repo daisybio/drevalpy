@@ -6,6 +6,7 @@ from .response_batch import ResponseBatch
 from .splitting import (
     EntityScope,
     ExternalSplitCreator,
+    MuDataLike,
     MuDataSplitter,
     SplitMasks,
     SplitParams,
@@ -15,6 +16,7 @@ from .splitting import (
 __all__ = [
     "EntityScope",
     "ExternalSplitCreator",
+    "MuDataLike",
     "MuDataSplitter",
     "MuDataset",
     "ResponseBatch",

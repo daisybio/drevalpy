@@ -4,8 +4,8 @@ Quickstart
 Install DrEvalPy and its dependencies first — see
 :doc:`/getting_started/installation`.
 
-Load the TOYv1 response table, resolve ElasticNet from the model zoo, and hand
-the model class to :func:`~drevalpy.experiment.drug_response_experiment`:
+Load the TOYv1 dataset, resolve ElasticNet from the model zoo, and hand
+the model class to :func:`~drevalpy.experiment.mu_experiment`:
 
 .. code-block:: python
 
@@ -17,9 +17,10 @@ the model class to :func:`~drevalpy.experiment.drug_response_experiment`:
 
    ElasticNet = construct_model("ElasticNet")
 
-   drug_response_experiment(
+   mu_experiment(
        models=[ElasticNet],
-       response_data=response_data,
+       mudataset=mudataset,
+       dataset_name="TOYv1",
        run_id="my_first_run",
        test_mode="LCO",
        path_out="results/",

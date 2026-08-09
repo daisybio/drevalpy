@@ -125,7 +125,7 @@ registry, the index column must be ``CELL_LINE_IDENTIFIER``
 (``"cell_line_name"``) or ``DRUG_IDENTIFIER`` (``"pubchem_id"``).
 
 Then run the model class through
-:func:`~drevalpy.experiment.drug_response_experiment` the same way as any
+:func:`~drevalpy.experiment.mu_experiment` the same way as any
 other zoo preset — see :doc:`experiments`. For registering entirely new
 featurizers or predictors, see :doc:`custom_models`.
 

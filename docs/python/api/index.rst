@@ -25,7 +25,7 @@ APIs from the subpackages in the table.
      - :doc:`/python/models`
      - :doc:`/concepts/from_components_to_models`
    * - ``drevalpy.experiment``
-     - ``drug_response_experiment`` and related runners
+     - ``mu_experiment`` and related runners
      - :doc:`/python/experiments`
      - :doc:`/concepts/evaluation`
    * - ``drevalpy.evaluation``

@@ -7,7 +7,7 @@ concepts:
 - :doc:`/concepts/evaluation`
 - :doc:`/concepts/from_components_to_models`
 
-:func:`~drevalpy.experiment.drug_response_experiment` runs nested
+:func:`~drevalpy.experiment.mu_experiment` runs nested
 cross-validation, optional hyperparameter tuning, baselines, and optional
 randomization or robustness tests. Results are written under ``path_out`` /
 ``run_id`` / dataset / split label.
@@ -28,9 +28,10 @@ Minimal call
    mudataset = load_mudataset("TOYv1")
    ElasticNet = construct_model("ElasticNet")
 
-   drug_response_experiment(
+   mu_experiment(
        models=[ElasticNet],
-       response_data=response_data,
+       mudataset=mudataset,
+       dataset_name="TOYv1",
        run_id="en_toy",
        test_mode="LCO",
        n_cv_splits=5,
@@ -82,9 +83,10 @@ Configure the search with:
 
 .. code-block:: python
 
-   drug_response_experiment(
+   mu_experiment(
        models=[ElasticNet],
-       response_data=response_data,
+       mudataset=mudataset,
+       dataset_name="TOYv1",
        run_id="en_toy_hpo",
        test_mode="LCO",
        hyperparameter_tuning=True,

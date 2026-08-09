@@ -24,13 +24,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.datasets.splitting import SplitMasks, SplitParams, _MuDataLike
+from drevalpy.datasets import MuDataLike, SplitMasks, SplitParams
 
 TEST_FRACTION = 0.2
 
 
 def create_splits(
-    mudataset: _MuDataLike,
+    mudataset: MuDataLike,
     params: SplitParams,
 ) -> list[SplitMasks]:
     """Return one LCO-style split with configurable train/validation/test cell-line groups.

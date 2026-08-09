@@ -131,20 +131,21 @@ More CLI options: [CLI quickstart](https://drevalpy.readthedocs.io/en/latest/cli
 
 ### Python API
 
-Load the response table, resolve zoo presets with `construct_model` (returns a **class**), and pass that class to `drug_response_experiment`:
+Load the dataset, resolve zoo presets with `construct_model` (returns a **class**), and pass that class to `mu_experiment`:
 
 ```python
-from drevalpy.datasets.loader import load_dataset
-from drevalpy.experiment import drug_response_experiment
+from drevalpy.datasets import load_mudataset
+from drevalpy.experiment import mu_experiment
 from drevalpy.models import construct_model
 
-response_data = load_dataset("TOYv1")
+mudataset = load_mudataset("TOYv1")
 
 ElasticNet = construct_model("ElasticNet")
 
-drug_response_experiment(
+mu_experiment(
     models=[ElasticNet],
-    response_data=response_data,
+    mudataset=mudataset,
+    dataset_name="TOYv1",
     run_id="my_first_run",
     test_mode="LCO",
     path_out="results/",

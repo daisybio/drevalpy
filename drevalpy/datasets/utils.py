@@ -51,7 +51,7 @@ def download_dataset(
     dataset_name: str,
     redownload: bool = False,
 ):
-    """Download the latets dataset from Zenodo.
+    """Download the latest dataset from Zenodo.
 
     :param dataset_name: dataset name, from "GDSC1", "GDSC2", "CCLE", "CTRPv1", "CTRPv2", "TOYv1", "TOYv2", "meta"
     :param redownload: whether to redownload the data

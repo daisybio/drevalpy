@@ -20,7 +20,7 @@ from sklearn.model_selection import GroupKFold, train_test_split
 
 
 @runtime_checkable
-class _MuDataLike(Protocol):
+class MuDataLike(Protocol):
     """Minimal interface expected from a MuDataset-compatible object.
 
     This allows the splitter to be used with the real MuDataset (once built)
@@ -57,7 +57,7 @@ class SplitParams:
     random_state: int
 
 
-ExternalSplitCreator = Callable[[_MuDataLike, SplitParams], "list[SplitMasks]"]
+ExternalSplitCreator = Callable[[MuDataLike, SplitParams], "list[SplitMasks]"]
 
 
 def load_external_splitter(path: Path | str) -> ExternalSplitCreator:
@@ -129,7 +129,7 @@ class MuDataSplitter:
 
     def split(
         self,
-        mudataset: _MuDataLike,
+        mudataset: MuDataLike,
         mode: str,
         n_splits: int = 5,
         validation_ratio: float = 0.1,
@@ -182,7 +182,7 @@ class MuDataSplitter:
 
     def _leave_pair_out(
         self,
-        mudataset: _MuDataLike,
+        mudataset: MuDataLike,
         n_splits: int,
         validation_ratio: float,
         random_state: int,
@@ -234,7 +234,7 @@ class MuDataSplitter:
 
     def _leave_group_out(
         self,
-        mudataset: _MuDataLike,
+        mudataset: MuDataLike,
         group_kind: str,
         n_splits: int,
         validation_ratio: float,
@@ -293,7 +293,7 @@ class MuDataSplitter:
         group_kind: str,
         cl_ids: np.ndarray,
         drug_ids: np.ndarray,
-        mudataset: _MuDataLike,
+        mudataset: MuDataLike,
         *,
         train_groups: np.ndarray,
         val_groups: np.ndarray,

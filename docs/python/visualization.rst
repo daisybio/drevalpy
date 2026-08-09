@@ -56,7 +56,7 @@ fragments). Prefer ``create_report`` unless you need a custom figure layout.
 create_report
 -------------
 
-After ``drug_response_experiment`` finishes, build the HTML report from the
+After ``mu_experiment`` finishes, build the HTML report from the
 results directory:
 
 .. code-block:: python
