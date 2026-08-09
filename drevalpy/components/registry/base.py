@@ -6,6 +6,8 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
+import pandas as pd
+
 from drevalpy.components.core.contracts.contracts import FeatureContract
 from drevalpy.components.registry._metadata_validate import validate_registered_class
 from drevalpy.log import get_logger
@@ -145,10 +147,8 @@ class Registry(ABC):
         :returns: Metadata dict.
         """
 
-    def to_dataframe(self) -> "pd.DataFrame":
+    def to_dataframe(self) -> pd.DataFrame:
         """Return registry contents as a pandas DataFrame."""
-        import pandas as pd
-
         rows = []
         for name in self.list_names():
             meta = self.get_metadata(name)

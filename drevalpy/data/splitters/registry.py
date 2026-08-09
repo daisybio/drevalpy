@@ -14,6 +14,8 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Protocol
 
+import pandas as pd
+
 from drevalpy.data.structures import MuDataLike, SplitMasks
 
 from .validation import Validation, validate_folds
@@ -126,10 +128,8 @@ class SplitterRegistry:
         """
         return self._descriptions.get(mode, "")
 
-    def to_dataframe(self) -> "pd.DataFrame":
+    def to_dataframe(self) -> pd.DataFrame:
         """Return registry contents as a pandas DataFrame."""
-        import pandas as pd
-
         rows = []
         for mode in self.modes:
             rows.append({
@@ -146,24 +146,6 @@ class SplitterRegistry:
     def _repr_html_(self) -> str:
         """HTML table for Jupyter notebooks."""
         return self.to_dataframe().to_html(index=False)
-
-    def _repr_html_(self) -> str:
-        """HTML table for Jupyter notebooks."""
-        rows = ""
-        for mode in self.modes:
-            rows += (
-                f"<tr><td><b>{mode}</b></td>"
-                f"<td>{self._descriptions.get(mode, '')}</td>"
-                f"<td>{self._validations.get(mode, '')}</td></tr>\n"
-            )
-
-        return (
-            "<h4>Registered Splitters</h4>\n"
-            '<table border="1" style="border-collapse: collapse; width: 100%;">\n'
-            "<thead><tr><th>Mode</th><th>Description</th><th>Validation</th></tr></thead>\n"
-            f"<tbody>{rows}</tbody>\n"
-            "</table>"
-        )
 
 
 splitter_registry = SplitterRegistry()

@@ -6,6 +6,8 @@ import json
 from importlib import resources
 from typing import Any
 
+import pandas as pd
+
 from .io import config_lock, load_config, save_config
 from .models import DatasetEntry, DrevalConfig, SourceEntry
 
@@ -73,10 +75,8 @@ class Registry:
         """Sorted list of all registered source names (built-in + custom)."""
         return sorted(self.sources)
 
-    def to_dataframe(self) -> "pd.DataFrame":
+    def to_dataframe(self) -> pd.DataFrame:
         """Return registry contents as a pandas DataFrame."""
-        import pandas as pd
-
         rows = []
         for name in sorted(self.datasets):
             entry = self.datasets[name]
