@@ -9,10 +9,9 @@ from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.preprocessing import scale_gene_expression
 from drevalpy.components.registry import register_cell_line_featurizer
 
 
@@ -38,35 +37,30 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
 
     def fit(
         self,
-        features,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> ScaledGeneExpressionFeaturizer:
         """Fit on training data.
 
-        :param features: features.
+        :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
         :param context: context.
         :returns: Result.
         """
         _ = context
-        ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
-        scaled = scale_gene_expression(
-            cell_line_input=features.copy(),
-            cell_line_ids=np.unique(ids),
-            training=True,
-            gene_expression_scaler=self._scaler,
-        )
-        matrix = stack_view_matrix(scaled, self._view, np.array(list(scaled.features.keys())))
+        ids = entity_ids if entity_ids is not None else source.identifiers
+        matrix = np.arcsinh(source.get_view_matrix(self._view, np.unique(ids)))
+        self._scaler.fit(matrix)
         self._output_dim = int(matrix.shape[1])
         self._is_fitted = True
         return self
 
-    def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
-        :param features: features.
+        :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
         :returns: Result.
         :raises RuntimeError: Raised on invalid input.
@@ -74,18 +68,13 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         if not self._is_fitted:
             msg = "ScaledGeneExpressionFeaturizer must be fit before transform"
             raise RuntimeError(msg)
-        scaled = scale_gene_expression(
-            cell_line_input=features.copy(),
-            cell_line_ids=np.unique(entity_ids),
-            training=False,
-            gene_expression_scaler=self._scaler,
-        )
-        return stack_view_matrix(scaled, self._view, entity_ids).astype(np.float32)
+        matrix = np.arcsinh(source.get_view_matrix(self._view, entity_ids))
+        return self._scaler.transform(matrix).astype(np.float32)
 
-    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
-        :param features: features.
+        :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
         :returns: Result.
         :raises RuntimeError: Raised on invalid input.
@@ -95,8 +84,8 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
             raise RuntimeError(msg)
         return {
             "gene_expression": numeric_feature_block(
-                self.transform(features, entity_ids),
-                feature_names=feature_names_for_view(features, self._view),
+                self.transform(source, entity_ids),
+                feature_names=source.get_feature_names(self._view),
             )
         }
 

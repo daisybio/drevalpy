@@ -18,7 +18,7 @@ from drevalpy.components.tuning.drp_hyperparameters import (
 from drevalpy.components.tuning.search_space import dict_to_ray_space
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.mudataset import MuDataset
-from drevalpy.datasets.splitting import SplitMasks
+from drevalpy.datasets.splitting import EntityScope
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.utils.checkpoints import resolve_checkpoint_dir
 
@@ -281,29 +281,20 @@ def run_ray_tuner(
 
 
 # ------------------------------------------------------------------
-# MuDataset + SplitMasks path (no DrugResponseDataset)
+# MuDataset + EntityScope path (no DrugResponseDataset)
 # ------------------------------------------------------------------
 
 
-def _extract_ground_truth(mudataset: MuDataset, split: SplitMasks, subset: str = "test") -> np.ndarray:
-    """Extract ground truth response values from MuDataset for the given subset.
+def _extract_ground_truth(mudataset: MuDataset, scope: EntityScope) -> np.ndarray:
+    """Extract ground truth response values from MuDataset for the given scope.
 
     :param mudataset: Source of response values.
-    :param split: Fold masks with cell-line/drug indices.
-    :param subset: Which portion to extract ("train", "test", or "val").
+    :param scope: EntityScope with cell-line/drug indices.
     :returns: 1-D array of non-NaN ground-truth response values.
     """
     response_matrix = mudataset.response_matrix
-
-    if subset == "train":
-        cl_idx = split.train_cell_lines
-        dr_idx = split.train_drugs
-    elif subset == "test":
-        cl_idx = split.test_cell_lines
-        dr_idx = split.test_drugs
-    else:
-        cl_idx = split.val_cell_lines
-        dr_idx = split.val_drugs
+    cl_idx = scope.cell_lines
+    dr_idx = scope.drugs
 
     if dr_idx is None:
         sub_matrix = response_matrix[np.ix_(cl_idx, np.arange(response_matrix.shape[1]))]
@@ -325,13 +316,13 @@ def _mu_evaluate_trial_model(
     *,
     metric: str,
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    val_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None,
+    train_scope: EntityScope,
+    val_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
     response_transformation: TransformerMixin | None,
     model_checkpoint_dir: str | Path | None,
 ) -> float:
-    """Train a trial model and compute a validation metric using MuDataset + SplitMasks."""
+    """Train a trial model and compute a validation metric using MuDataset + EntityScope."""
     from drevalpy.evaluation import AVAILABLE_METRICS
 
     trial_dir = trial_checkpoint_dir(model_checkpoint_dir)
@@ -340,16 +331,17 @@ def _mu_evaluate_trial_model(
     with checkpoint_dir_or_temporary(trial_dir) as checkpoint_dir:
         trial_model.train(
             mudataset=mudataset,
-            split=train_masks,
+            scope=train_scope,
+            early_stopping_scope=early_stopping_scope,
             model_checkpoint_dir=checkpoint_dir,
         )
 
-    predictions = trial_model.predict(mudataset=mudataset, split=val_masks)
+    predictions = trial_model.predict(mudataset=mudataset, scope=val_scope)
 
     if response_transformation is not None:
         predictions = response_transformation.inverse_transform(predictions.reshape(-1, 1)).ravel()
 
-    ground_truth = _extract_ground_truth(mudataset, val_masks, subset="test")
+    ground_truth = _extract_ground_truth(mudataset, val_scope)
 
     if len(predictions) != len(ground_truth):
         min_len = min(len(predictions), len(ground_truth))
@@ -369,9 +361,9 @@ def mu_build_ray_trainable(
     *,
     model_class: type[DRPModel],
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    val_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None,
+    train_scope: EntityScope,
+    val_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
     response_transformation: TransformerMixin | None,
     metric: str,
     model_checkpoint_dir: str | Path | None,
@@ -381,13 +373,13 @@ def mu_build_ray_trainable(
     split_index: int | None,
     model_name: str,
 ) -> Callable[[dict[str, Any]], None]:
-    """Build a Ray Tune trainable using MuDataset + SplitMasks.
+    """Build a Ray Tune trainable using MuDataset + EntityScope.
 
     :param model_class: Model class to tune.
     :param mudataset: Full dataset with all features.
-    :param train_masks: Training split masks.
-    :param val_masks: Validation split masks for scoring.
-    :param early_stopping_masks: Optional early-stopping masks.
+    :param train_scope: Training EntityScope.
+    :param val_scope: Validation EntityScope for scoring.
+    :param early_stopping_scope: Optional early-stopping scope.
     :param response_transformation: Optional response transformer.
     :param metric: Metric to optimize.
     :param model_checkpoint_dir: Directory for model checkpoints.
@@ -406,9 +398,9 @@ def mu_build_ray_trainable(
                 trial_model,
                 metric=metric,
                 mudataset=mudataset,
-                train_masks=train_masks,
-                val_masks=val_masks,
-                early_stopping_masks=early_stopping_masks,
+                train_scope=train_scope,
+                val_scope=val_scope,
+                early_stopping_scope=early_stopping_scope,
                 response_transformation=response_transformation,
                 model_checkpoint_dir=model_checkpoint_dir,
             )
@@ -435,9 +427,9 @@ def mu_build_ray_trainable(
                 trial_model,
                 metric=metric,
                 mudataset=mudataset,
-                train_masks=train_masks,
-                val_masks=val_masks,
-                early_stopping_masks=early_stopping_masks,
+                train_scope=train_scope,
+                val_scope=val_scope,
+                early_stopping_scope=early_stopping_scope,
                 response_transformation=response_transformation,
                 model_checkpoint_dir=model_checkpoint_dir,
             )

@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.cell_line.pca import PCACellLineFeaturizer
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
-def _make_features() -> FeatureDataset:
-    return FeatureDataset(
+def _make_features() -> MockFeatureSource:
+    return MockFeatureSource(
         features={
             "cl1": {"gene_expression": np.arange(6, dtype=np.float32)},
             "cl2": {"gene_expression": np.arange(6, 12, dtype=np.float32)},
@@ -48,18 +48,18 @@ def test_pca_state_roundtrip() -> None:
 
 
 def test_pca_aligns_cross_study_features_by_name() -> None:
-    training = FeatureDataset(
+    training = MockFeatureSource(
         features={
             "cl1": {"methylation": np.array([1.0, 2.0, 3.0])},
             "cl2": {"methylation": np.array([4.0, 5.0, 6.0])},
         },
         meta_info={"methylation": np.array(["a", "b", "c"])},
     )
-    cross_study = FeatureDataset(
+    cross_study = MockFeatureSource(
         features={"cl3": {"methylation": np.array([20.0, 30.0, 40.0])}},
         meta_info={"methylation": np.array(["b", "c", "d"])},
     )
-    expected = FeatureDataset(
+    expected = MockFeatureSource(
         features={"cl3": {"methylation": np.array([0.0, 20.0, 30.0])}},
         meta_info={"methylation": np.array(["a", "b", "c"])},
     )

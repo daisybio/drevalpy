@@ -5,12 +5,12 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.featurizers.drug.identity import DrugIdentityFeaturizer
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
 def test_drug_identity_round_trip_state() -> None:
     featurizer = DrugIdentityFeaturizer()
-    features = FeatureDataset(features={})
+    features = MockFeatureSource(features={})
     entity_ids = np.array(["d1", "d2"], dtype=str)
     featurizer.fit(features, entity_ids=entity_ids)
     restored = DrugIdentityFeaturizer()

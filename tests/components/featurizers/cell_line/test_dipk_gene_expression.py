@@ -9,11 +9,11 @@ from drevalpy.components.featurizers.cell_line.dipk_gene_expression import (
     DIPKGeneExpressionFeaturizer,
     GeneExpressionEncoder,
 )
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
 def test_dipk_gene_expression_round_trips_state(monkeypatch) -> None:
-    features = FeatureDataset(
+    features = MockFeatureSource(
         {f"cl{i}": {"gene_expression": np.arange(3, dtype=np.float32) + i} for i in range(3)},
         meta_info={"gene_expression": ["a", "b", "c"]},
     )

@@ -6,19 +6,15 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from drevalpy.datasets.splitting import SplitMasks
+from drevalpy.datasets.splitting import EntityScope
 from drevalpy.experiment.hpo import select_fold_hyperparameters
 from drevalpy.models._model_lookup import get_model_class
 
 
-def _dummy_masks() -> SplitMasks:
-    return SplitMasks(
-        train_cell_lines=np.arange(5),
-        test_cell_lines=np.arange(5, 8),
-        val_cell_lines=np.arange(8, 10),
-        train_drugs=None,
-        test_drugs=None,
-        val_drugs=None,
+def _dummy_scope() -> EntityScope:
+    return EntityScope(
+        cell_lines=np.arange(5),
+        drugs=None,
     )
 
 
@@ -32,13 +28,13 @@ def test_select_fold_hyperparameters_tunes_when_enabled(_has_tunable, mock_tune)
     mock_tune.return_value = {"alpha": 0.5}
     model_class = get_model_class("ElasticNet")
     mudataset = MagicMock()
-    masks = _dummy_masks()
+    scope = _dummy_scope()
     result = select_fold_hyperparameters(
         model_class=model_class,
         mudataset=mudataset,
-        train_masks=masks,
-        val_masks=masks,
-        early_stopping_masks=None,
+        train_scope=scope,
+        val_scope=scope,
+        early_stopping_scope=None,
         response_transformation=None,
         metric="RMSE",
         model_checkpoint_dir=None,
@@ -57,13 +53,13 @@ def test_select_fold_hyperparameters_defaults_when_tuning_off(_has_tunable) -> N
     """Verify that defaults are returned when tuning is disabled."""
     model_class = get_model_class("ElasticNet")
     mudataset = MagicMock()
-    masks = _dummy_masks()
+    scope = _dummy_scope()
     result = select_fold_hyperparameters(
         model_class=model_class,
         mudataset=mudataset,
-        train_masks=masks,
-        val_masks=masks,
-        early_stopping_masks=None,
+        train_scope=scope,
+        val_scope=scope,
+        early_stopping_scope=None,
         response_transformation=None,
         metric="RMSE",
         model_checkpoint_dir=None,

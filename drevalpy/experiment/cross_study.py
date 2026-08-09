@@ -13,23 +13,14 @@ import numpy as np
 import pandas as pd
 
 from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import SplitMasks
+from ..datasets.splitting import EntityScope, SplitMasks
 from ..models.drp_model import DRPModel
 
 
-def _all_pairs_masks(mudataset: MuDataset) -> SplitMasks:
-    """Build SplitMasks that select all non-NaN pairs as the test set."""
+def _all_pairs_indices(mudataset: MuDataset) -> tuple[np.ndarray, np.ndarray]:
+    """Return all non-NaN (row, col) index pairs from the response matrix."""
     response = mudataset.response_matrix
-    row_idx, col_idx = np.where(~np.isnan(response))
-    empty = np.array([], dtype=np.intp)
-    return SplitMasks(
-        train_cell_lines=empty,
-        test_cell_lines=row_idx,
-        val_cell_lines=empty,
-        train_drugs=None,
-        test_drugs=col_idx,
-        val_drugs=None,
-    )
+    return np.where(~np.isnan(response))
 
 
 def _remove_lpo_overlap(
@@ -185,9 +176,7 @@ def cross_study_prediction_impl(
     :param split_index: CV fold index for output file naming.
     :param dataset_name: Name for the target dataset (used in the output filename).
     """
-    all_masks = _all_pairs_masks(target)
-    target_cl_idx = all_masks.test_cell_lines
-    target_dr_idx = all_masks.test_drugs
+    target_cl_idx, target_dr_idx = _all_pairs_indices(target)
 
     target_cl_idx, target_dr_idx = _remove_train_overlap(
         test_mode, train_masks, source, target_cl_idx, target_dr_idx, target
@@ -202,16 +191,8 @@ def cross_study_prediction_impl(
 
     print(f"Cross-study prediction: {len(target_cl_idx)} samples after overlap removal.")
 
-    test_masks = SplitMasks(
-        train_cell_lines=np.array([], dtype=np.intp),
-        test_cell_lines=target_cl_idx,
-        val_cell_lines=np.array([], dtype=np.intp),
-        train_drugs=None,
-        test_drugs=target_dr_idx,
-        val_drugs=None,
-    )
-
-    predictions = model.predict(mudataset=target, split=test_masks)
+    test_scope = EntityScope(cell_lines=target_cl_idx, drugs=target_dr_idx)
+    predictions = model.predict(mudataset=target, scope=test_scope)
 
     output_dir = Path(path_out) / "cross_study"
     output_file = output_dir / f"cross_study_{dataset_name}_split_{split_index}.csv"

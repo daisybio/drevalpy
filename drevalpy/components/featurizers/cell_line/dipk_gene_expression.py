@@ -8,8 +8,8 @@ import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.predictors.literature._torch_state import load_state_dict, save_state_dict
 from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
@@ -18,7 +18,6 @@ from drevalpy.components.predictors.literature.dipk.gene_expression_encoder impo
     train_gene_expession_autoencoder,
 )
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.datasets.dataset import FeatureDataset
 
 
 @register_cell_line_featurizer(
@@ -44,14 +43,14 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
 
     def fit(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> DIPKGeneExpressionFeaturizer:
         """Train the DIPK autoencoder on pair-expanded train and validation IDs.
 
-        :param features: Cell-line feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Unused; IDs come from *context*.
         :param context: Fit context with train and early-stopping cell-line IDs.
         :returns: Fitted featurizer instance.
@@ -64,35 +63,35 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         validation_ids = context.pair_expanded_early_stopping_ids
         if len(train_ids) == 0 or len(validation_ids) == 0:
             raise ValueError("dipkGeneExpression requires non-empty train and early-stopping IDs")
-        train = stack_view_matrix(features, "gene_expression", train_ids)
-        validation = stack_view_matrix(features, "gene_expression", validation_ids)
+        train = source.get_view_matrix("gene_expression", train_ids)
+        validation = source.get_view_matrix("gene_expression", validation_ids)
         self._input_dim = int(train.shape[1])
         self._encoder = train_gene_expession_autoencoder(train, validation, self._epochs)
         self._latent_dim = int(self._encoder.latent_dim)
         return self
 
-    def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Encode gene expression into DIPK latent vectors.
 
-        :param features: Cell-line feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Float matrix of latent embeddings.
         :raises RuntimeError: If called before ``fit``.
         """
         if self._encoder is None:
             raise RuntimeError("DIPKGeneExpressionFeaturizer must be fit before transform")
-        return encode_gene_expression(stack_view_matrix(features, "gene_expression", entity_ids), self._encoder).astype(
+        return encode_gene_expression(source.get_view_matrix("gene_expression", entity_ids), self._encoder).astype(
             np.float32
         )
 
-    def transform_blocks(self, features: FeatureDataset, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return a single ``gene_expression`` numeric block.
 
-        :param features: Cell-line feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Mapping with one numeric ``gene_expression`` block.
         """
-        return {"gene_expression": numeric_feature_block(self.transform(features, entity_ids))}
+        return {"gene_expression": numeric_feature_block(self.transform(source, entity_ids))}
 
     @property
     def output_dim(self) -> int:

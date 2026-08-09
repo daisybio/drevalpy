@@ -14,35 +14,22 @@ import pandas as pd
 from sklearn.base import TransformerMixin, clone
 
 from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import SplitMasks
+from ..datasets.splitting import EntityScope
 from ..models.drp_model import DRPModel
 from .training import mu_train_and_predict
 
 
-def _shuffle_masks(masks: SplitMasks, rng: np.random.Generator) -> SplitMasks:
-    """Return a copy of masks with index arrays shuffled in-place order."""
-    train_cl = rng.permutation(masks.train_cell_lines)
-    test_cl = rng.permutation(masks.test_cell_lines)
-    val_cl = rng.permutation(masks.val_cell_lines)
-
-    train_dr = rng.permutation(masks.train_drugs) if masks.train_drugs is not None else None
-    test_dr = rng.permutation(masks.test_drugs) if masks.test_drugs is not None else None
-    val_dr = rng.permutation(masks.val_drugs) if masks.val_drugs is not None else None
-
-    return SplitMasks(
-        train_cell_lines=train_cl,
-        test_cell_lines=test_cl,
-        val_cell_lines=val_cl,
-        train_drugs=train_dr,
-        test_drugs=test_dr,
-        val_drugs=val_dr,
-    )
+def _shuffle_scope(scope: EntityScope, rng: np.random.Generator) -> EntityScope:
+    """Return a copy of scope with index arrays shuffled."""
+    cl = rng.permutation(scope.cell_lines)
+    dr = rng.permutation(scope.drugs) if scope.drugs is not None else None
+    return EntityScope(cell_lines=cl, drugs=dr)
 
 
 def _write_robustness_predictions(
     prediction_file: Path,
     mudataset: MuDataset,
-    test_masks: SplitMasks,
+    test_scope: EntityScope,
     predictions: np.ndarray,
 ) -> None:
     """Write robustness trial prediction CSV."""
@@ -50,8 +37,8 @@ def _write_robustness_predictions(
     drug_ids = mudataset.drug_ids
     response_matrix = mudataset.response_matrix
 
-    cl_idx = test_masks.test_cell_lines
-    dr_idx = test_masks.test_drugs
+    cl_idx = test_scope.cell_lines
+    dr_idx = test_scope.drugs
 
     rows: dict[str, Any] = {"cell_line_ids": cl_ids[cl_idx]}
     if dr_idx is not None:
@@ -71,9 +58,9 @@ def robustness_train_predict_impl(
     trial: int,
     trial_file: str | Path,
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    test_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None,
+    train_scope: EntityScope,
+    test_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
     response_transformation: TransformerMixin | None = None,
@@ -84,18 +71,18 @@ def robustness_train_predict_impl(
     :param trial: Trial index (used as random seed for shuffling).
     :param trial_file: Output path for predictions.
     :param mudataset: Full MuDataset with all features.
-    :param train_masks: SplitMasks for training samples.
-    :param test_masks: SplitMasks for test samples.
-    :param early_stopping_masks: Optional SplitMasks for early stopping.
+    :param train_scope: EntityScope for training samples.
+    :param test_scope: EntityScope for test samples.
+    :param early_stopping_scope: Optional EntityScope for early stopping.
     :param model_class: Model class to train on perturbed data.
     :param hyperparameters: Hyperparameters for model construction.
     :param response_transformation: Optional response transformer.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     """
     rng = np.random.default_rng(trial)
-    shuffled_train = _shuffle_masks(train_masks, rng)
-    shuffled_test = _shuffle_masks(test_masks, rng)
-    shuffled_es = _shuffle_masks(early_stopping_masks, rng) if early_stopping_masks is not None else None
+    shuffled_train = _shuffle_scope(train_scope, rng)
+    shuffled_test = _shuffle_scope(test_scope, rng)
+    shuffled_es = _shuffle_scope(early_stopping_scope, rng) if early_stopping_scope is not None else None
 
     trial_model = model_class(hyperparameters)
     trial_transform = None if response_transformation is None else clone(response_transformation)
@@ -103,9 +90,9 @@ def robustness_train_predict_impl(
     predictions = mu_train_and_predict(
         model=trial_model,
         mudataset=mudataset,
-        train_masks=shuffled_train,
-        test_masks=shuffled_test,
-        early_stopping_masks=shuffled_es,
+        train_scope=shuffled_train,
+        test_scope=shuffled_test,
+        early_stopping_scope=shuffled_es,
         response_transformation=trial_transform,
         model_checkpoint_dir=model_checkpoint_dir,
     )
@@ -118,9 +105,9 @@ def robustness_test_impl(
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    test_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None,
+    train_scope: EntityScope,
+    test_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
     path_out: str | Path,
     split_index: int,
     response_transformation: TransformerMixin | None = None,
@@ -132,9 +119,9 @@ def robustness_test_impl(
     :param model_class: Model class to retrain on perturbed data.
     :param hyperparameters: Hyperparameters for model construction.
     :param mudataset: Full MuDataset with all features.
-    :param train_masks: SplitMasks for training samples.
-    :param test_masks: SplitMasks for test samples.
-    :param early_stopping_masks: Optional SplitMasks for early stopping.
+    :param train_scope: EntityScope for training samples.
+    :param test_scope: EntityScope for test samples.
+    :param early_stopping_scope: Optional EntityScope for early stopping.
     :param path_out: Directory where predictions are written.
     :param split_index: CV fold index for output file naming.
     :param response_transformation: Optional response transformer.
@@ -151,9 +138,9 @@ def robustness_test_impl(
             trial=trial,
             trial_file=trial_file,
             mudataset=mudataset,
-            train_masks=train_masks,
-            test_masks=test_masks,
-            early_stopping_masks=early_stopping_masks,
+            train_scope=train_scope,
+            test_scope=test_scope,
+            early_stopping_scope=early_stopping_scope,
             model_class=model_class,
             hyperparameters=hyperparameters,
             response_transformation=response_transformation,

@@ -6,8 +6,8 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 
 
@@ -18,43 +18,43 @@ class ConstantFeaturizerMixin:
 
     def fit(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ):
         """Fit on training data.
 
-        :param features: features.
+        :param source: Feature source providing views for the entity type.
         :param entity_ids: entity ids.
         :param context: context.
         :returns: Result.
         """
-        _ = features, entity_ids, context
+        _ = source, entity_ids, context
         return self
 
-    def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
-        :param features: features.
+        :param source: Feature source providing views for the entity type.
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        _ = features
+        _ = source
         return np.ones((len(entity_ids), 1), dtype=np.float32)
 
     def transform_blocks(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         entity_ids: np.ndarray,
     ) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
-        :param features: features.
+        :param source: Feature source providing views for the entity type.
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        return {"constant": numeric_feature_block(self.transform(features, entity_ids))}
+        return {"constant": numeric_feature_block(self.transform(source, entity_ids))}
 
     @property
     def output_dim(self) -> int:

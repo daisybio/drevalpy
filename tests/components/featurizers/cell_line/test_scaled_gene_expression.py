@@ -5,11 +5,11 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.featurizers.cell_line.scaled_gene_expression import ScaledGeneExpressionFeaturizer
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
 def test_scaled_gene_expression_output_dim_round_trips() -> None:
-    features = FeatureDataset(
+    features = MockFeatureSource(
         features={
             "cl1": {"gene_expression": np.array([0.0, 1.0, 2.0], dtype=np.float32)},
             "cl2": {"gene_expression": np.array([1.0, 2.0, 3.0], dtype=np.float32)},

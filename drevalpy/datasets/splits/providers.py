@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import warnings
 from pathlib import Path
 from typing import Any, cast
 
@@ -194,6 +195,11 @@ def create_and_record_splits(
     :returns: Validated splits and per-split metadata rows.
     :raises ValueError: If neither ``params`` nor ``test_mode`` is provided.
     """
+    warnings.warn(
+        "create_and_record_splits is deprecated; migrate to MuDataSplitter from drevalpy.datasets.splitting.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     response_data.remove_nan_responses()
     if params is not None:
         split_params = params

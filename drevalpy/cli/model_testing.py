@@ -88,18 +88,14 @@ def run_train_final_model(
 
     import numpy as np
 
-    from drevalpy.components.data_loading import (
-        build_cell_line_features_from_mudataset,
-        build_drug_features_from_mudataset,
-    )
+    from drevalpy.components.feature_source import CellLineFeatureSource, DrugFeatureSource
     from drevalpy.datasets import load_mudataset
 
     mudataset = load_mudataset(train_dataset.dataset_name)
-    config = model._resolved_model_config or model.model_config()
     all_cl_ids = np.array(mudataset.cell_line_ids)
     all_drug_ids = np.array(mudataset.drug_ids)
-    cl_features = build_cell_line_features_from_mudataset(mudataset, config, all_cl_ids)
-    drug_features = build_drug_features_from_mudataset(mudataset, config, all_drug_ids)
+    cl_features = CellLineFeatureSource(mudataset, all_cl_ids)
+    drug_features = DrugFeatureSource(mudataset, all_drug_ids)
     with checkpoint_dir_or_temporary(model_checkpoint_dir) as checkpoint_dir:
         model.train(
             output=train_dataset,

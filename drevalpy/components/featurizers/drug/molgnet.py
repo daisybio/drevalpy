@@ -8,6 +8,7 @@ import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, ragged_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
@@ -37,37 +38,37 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
 
     def fit(
         self,
-        features,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> MolGNetDrugFeaturizer:
         """Cache MolGNet tensors and infer embedding width.
 
-        :param features: Drug feature dataset.
+        :param source: Feature source providing MolGNet views.
         :param entity_ids: Drug identifiers to fit on; all entities when ``None``.
         :param context: Unused featurizer fit context.
         :returns: Fitted featurizer instance.
         :raises KeyError: If the configured view is missing for a drug.
         """
         _ = context
-        ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
+        ids = entity_ids if entity_ids is not None else source.identifiers
         self._features_by_drug = {}
         for drug_id in ids:
-            views = features.features[str(drug_id)]
-            if self._view not in views:
+            entity_view = source.get_entity_view(str(drug_id), self._view)
+            if entity_view is None:
                 msg = f"View {self._view!r} missing for drug {drug_id!r}"
                 raise KeyError(msg)
-            self._features_by_drug[str(drug_id)] = np.asarray(views[self._view])
+            self._features_by_drug[str(drug_id)] = np.asarray(entity_view)
         if self._features_by_drug:
             first = next(iter(self._features_by_drug.values()))
             self._output_dim = int(first.shape[1]) if first.ndim == 2 else int(first.size)
         return self
 
-    def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return one MolGNet tensor per drug id.
 
-        :param features: Drug feature dataset.
+        :param source: Feature source providing MolGNet views.
         :param entity_ids: Drug identifiers to transform.
         :returns: Object array of MolGNet embedding tensors.
         :raises KeyError: If the view is missing for a requested drug.
@@ -78,21 +79,21 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
             if drug_key in self._features_by_drug:
                 rows.append(self._features_by_drug[drug_key])
                 continue
-            views = features.features.get(drug_key)
-            if views is None or self._view not in views:
+            entity_view = source.get_entity_view(drug_key, self._view)
+            if entity_view is None:
                 msg = f"View {self._view!r} missing for drug {drug_key!r}"
                 raise KeyError(msg)
-            rows.append(np.asarray(views[self._view]))
+            rows.append(np.asarray(entity_view))
         return np.array(rows, dtype=object)
 
-    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return a single ``molgnet_features`` ragged block.
 
-        :param features: Drug feature dataset.
+        :param source: Feature source providing MolGNet views.
         :param entity_ids: Drug identifiers to transform.
         :returns: Mapping with one ragged block.
         """
-        return {"molgnet_features": ragged_feature_block(self.transform(features, entity_ids))}
+        return {"molgnet_features": ragged_feature_block(self.transform(source, entity_ids))}
 
     @property
     def output_dim(self) -> int:

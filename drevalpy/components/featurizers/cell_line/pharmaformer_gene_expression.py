@@ -9,11 +9,10 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.datasets.dataset import FeatureDataset
 
 
 @register_cell_line_featurizer(
@@ -37,14 +36,14 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
 
     def fit(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> PharmaFormerGeneExpressionFeaturizer:
         """Fit StandardScaler and MinMaxScaler on pair-expanded training ids.
 
-        :param features: Cell-line gene-expression feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Unused; training ids come from *context*.
         :param context: Fit context with pair-expanded training cell-line ids.
         :returns: Fitted featurizer instance.
@@ -53,36 +52,36 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         _ = entity_ids
         if context is None:
             raise ValueError("pharmaFormerGeneExpression requires FeaturizerFitContext")
-        matrix = stack_view_matrix(features, "gene_expression", context.pair_expanded_train_ids)
+        matrix = source.get_view_matrix("gene_expression", context.pair_expanded_train_ids)
         self._minmax.fit(self._scaler.fit_transform(matrix))
-        self._feature_names = feature_names_for_view(features, "gene_expression")
+        self._feature_names = source.get_feature_names("gene_expression")
         self._output_dim = int(matrix.shape[1])
         self._is_fitted = True
         return self
 
-    def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Apply fitted scalers to gene-expression rows.
 
-        :param features: Cell-line gene-expression feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Scaled float matrix.
         :raises RuntimeError: If called before ``fit``.
         """
         if not self._is_fitted:
             raise RuntimeError("PharmaFormerGeneExpressionFeaturizer must be fit before transform")
-        matrix = stack_view_matrix(features, "gene_expression", entity_ids)
+        matrix = source.get_view_matrix("gene_expression", entity_ids)
         return self._minmax.transform(self._scaler.transform(matrix)).astype(np.float32)
 
-    def transform_blocks(self, features: FeatureDataset, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return a single ``gene_expression`` numeric block.
 
-        :param features: Cell-line gene-expression feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Mapping with one numeric block.
         """
         return {
             "gene_expression": numeric_feature_block(
-                self.transform(features, entity_ids),
+                self.transform(source, entity_ids),
                 feature_names=self._feature_names,
             )
         }

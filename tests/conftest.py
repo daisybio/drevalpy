@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -11,6 +12,47 @@ import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.loader import load_response_dataset
+
+
+class MockFeatureSource:
+    """Test helper satisfying the FeatureSource protocol."""
+
+    def __init__(self, features: dict[str, dict[str, Any]], meta_info: dict[str, Any] | None = None):
+        """Initialize with features dict and optional metadata.
+
+        :param features: Mapping of entity_id -> {view_name -> feature_array}.
+        :param meta_info: Optional mapping of view_name -> feature names or metadata.
+        """
+        self._features = features
+        self._meta_info = meta_info or {}
+
+    @property
+    def identifiers(self) -> np.ndarray:
+        """All available entity IDs."""
+        return np.array(list(self._features.keys()))
+
+    @property
+    def features(self) -> dict[str, dict[str, Any]]:
+        """Direct access to the backing features dict (for legacy test code)."""
+        return self._features
+
+    def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:
+        """Return (len(ids), n_features) float array for a dense numeric view."""
+        rows = [np.asarray(self._features[str(eid)][view], dtype=np.float64).ravel() for eid in entity_ids]
+        return np.vstack(rows)
+
+    def get_feature_names(self, view: str) -> tuple[str, ...] | None:
+        """Return ordered feature/column names for a view, or None."""
+        meta = self._meta_info.get(view)
+        return tuple(str(n) for n in meta) if meta else None
+
+    def get_entity_view(self, entity_id: str, view: str) -> Any:
+        """Return the raw per-entity object for non-numeric views (graphs, etc.)."""
+        return self._features[str(entity_id)][view]
+
+    def get_metadata(self, key: str) -> Any:
+        """Return arbitrary metadata (e.g. ontology structures)."""
+        return self._meta_info.get(key)
 
 
 def pytest_configure(config: pytest.Config) -> None:

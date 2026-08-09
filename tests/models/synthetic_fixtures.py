@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.splitting import SplitMasks
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+from tests.conftest import MockFeatureSource
 
 
 def multi_drug_response() -> DrugResponseDataset:
@@ -17,8 +18,8 @@ def multi_drug_response() -> DrugResponseDataset:
     )
 
 
-def cell_line_gene_expression() -> FeatureDataset:
-    return FeatureDataset(
+def cell_line_gene_expression() -> MockFeatureSource:
+    return MockFeatureSource(
         features={
             "cl1": {"gene_expression": np.array([0.1, 0.2, 0.3])},
             "cl2": {"gene_expression": np.array([0.4, 0.5, 0.6])},
@@ -26,8 +27,8 @@ def cell_line_gene_expression() -> FeatureDataset:
     )
 
 
-def drug_fingerprints() -> FeatureDataset:
-    return FeatureDataset(
+def drug_fingerprints() -> MockFeatureSource:
+    return MockFeatureSource(
         features={
             "d1": {"fingerprints": np.array([1.0, 0.0])},
             "d2": {"fingerprints": np.array([0.0, 1.0])},
@@ -35,7 +36,7 @@ def drug_fingerprints() -> FeatureDataset:
     )
 
 
-def identity_cell_line_features(*, with_tissue: bool = False) -> FeatureDataset:
+def identity_cell_line_features(*, with_tissue: bool = False) -> MockFeatureSource:
     features = {
         "cl1": {CELL_LINE_IDENTIFIER: np.array(["cl1"])},
         "cl2": {CELL_LINE_IDENTIFIER: np.array(["cl2"])},
@@ -43,11 +44,11 @@ def identity_cell_line_features(*, with_tissue: bool = False) -> FeatureDataset:
     if with_tissue:
         features["cl1"][TISSUE_IDENTIFIER] = np.array(["Lung"])
         features["cl2"][TISSUE_IDENTIFIER] = np.array(["Blood"])
-    return FeatureDataset(features=features)
+    return MockFeatureSource(features=features)
 
 
-def identity_drug_features() -> FeatureDataset:
-    return FeatureDataset(
+def identity_drug_features() -> MockFeatureSource:
+    return MockFeatureSource(
         features={
             "d1": {DRUG_IDENTIFIER: np.array(["d1"])},
             "d2": {DRUG_IDENTIFIER: np.array(["d2"])},

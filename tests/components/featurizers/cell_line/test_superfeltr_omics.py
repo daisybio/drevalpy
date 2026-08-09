@@ -5,11 +5,11 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.featurizers.cell_line.superfeltr_omics import SuperFELTROmicsFeaturizer
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
 def test_superfeltr_omics_selects_each_view_and_round_trips_state() -> None:
-    features = FeatureDataset(
+    features = MockFeatureSource(
         {
             f"cl{i}": {
                 "gene_expression": np.array([i, i * 2, 1], dtype=np.float32),

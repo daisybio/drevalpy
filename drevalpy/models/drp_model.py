@@ -9,11 +9,10 @@ from typing import Any, ClassVar
 import numpy as np
 import wandb
 
-from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.mudataset import MuDataset
-from drevalpy.datasets.splitting import SplitMasks
+from drevalpy.datasets.splitting import EntityScope, SplitMasks
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
 from drevalpy.models._drp_logging import _DRPLoggingMixin
 from drevalpy.models._model_persistence import (
@@ -240,21 +239,30 @@ class DRPModel(_DRPLoggingMixin):
         *,
         mudataset: MuDataset | None,
         split: SplitMasks | None,
+        scope: EntityScope | None,
+        early_stopping_scope: EntityScope | None,
         output,
         cell_line_input,
-    ) -> tuple[MuDataset | None, SplitMasks | None, Any, Any, Any]:
+    ) -> tuple[MuDataset | None, EntityScope | None, EntityScope | None, Any, Any, Any]:
         """Resolve overloaded positional/keyword args for train()."""
         if mudataset is None and mudataset_or_output is not None:
             if isinstance(mudataset_or_output, MuDataset):
                 mudataset = mudataset_or_output
             else:
                 output = mudataset_or_output
-        if split is None and split_or_cell_line_input is not None:
-            if isinstance(split_or_cell_line_input, SplitMasks):
+        if scope is None and split_or_cell_line_input is not None:
+            if isinstance(split_or_cell_line_input, EntityScope):
+                scope = split_or_cell_line_input
+            elif isinstance(split_or_cell_line_input, SplitMasks):
                 split = split_or_cell_line_input
             else:
                 cell_line_input = split_or_cell_line_input
-        return mudataset, split, output, cell_line_input, drug_input
+        # Convert SplitMasks to EntityScope for the new path
+        if scope is None and split is not None:
+            scope = EntityScope(cell_lines=split.train_cell_lines, drugs=split.train_drugs)
+            if split.val_cell_lines.size > 0:
+                early_stopping_scope = EntityScope(cell_lines=split.val_cell_lines, drugs=split.val_drugs)
+        return mudataset, scope, early_stopping_scope, output, cell_line_input, drug_input
 
     @pipeline_function
     def train(
@@ -265,6 +273,8 @@ class DRPModel(_DRPLoggingMixin):
         *,
         mudataset: MuDataset | None = None,
         split: SplitMasks | None = None,
+        scope: EntityScope | None = None,
+        early_stopping_scope: EntityScope | None = None,
         output=None,
         cell_line_input=None,
         output_earlystopping=None,
@@ -272,11 +282,13 @@ class DRPModel(_DRPLoggingMixin):
     ) -> None:
         """Train the component stack.
 
-        Supports both the MuDataset path (positional: mudataset, split) and the
+        Supports the MuDataset path (positional: mudataset, scope/split) and the
         legacy internal path (output, cell_line_input, drug_input).
 
         :param mudataset: MuDataset containing response data and all features.
-        :param split: SplitMasks defining train/val/test indices for this fold.
+        :param scope: EntityScope defining train indices for this fold.
+        :param split: (compat) SplitMasks; converted to EntityScope internally.
+        :param early_stopping_scope: Optional EntityScope for early stopping.
         :param output: (legacy) DrugResponseDataset for training pairs.
         :param cell_line_input: (legacy) FeatureDataset for cell lines.
         :param drug_input: (legacy) FeatureDataset for drugs, or None.
@@ -287,31 +299,42 @@ class DRPModel(_DRPLoggingMixin):
         if self._stack is None:
             raise RuntimeError("Model has not been constructed with a component stack")
 
-        mudataset, split, output, cell_line_input, drug_input = self._resolve_train_args(
+        mudataset, scope, early_stopping_scope, output, cell_line_input, drug_input = self._resolve_train_args(
             mudataset_or_output,
             split_or_cell_line_input,
             drug_input,
             mudataset=mudataset,
             split=split,
+            scope=scope,
+            early_stopping_scope=early_stopping_scope,
             output=output,
             cell_line_input=cell_line_input,
         )
 
         # New MuDataset path
-        if mudataset is not None and split is not None:
-            train_response = _ComponentStack._extract_response_pairs(mudataset, split, subset="train")
+        if mudataset is not None and scope is not None:
+            train_response = _ComponentStack._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
             if len(train_response) == 0:
                 self._empty_training = True
                 return
             self._empty_training = False
-            self._stack.train(
-                mudataset,
-                split,
-                training_context=TrainingContext(
-                    checkpoint_dir=Path(model_checkpoint_dir),
-                    logging_metadata={"model_name": self.get_model_name()},
-                ),
+            ctx = TrainingContext(
+                checkpoint_dir=Path(model_checkpoint_dir),
+                logging_metadata={"model_name": self.get_model_name()},
             )
+            if early_stopping_scope is not None:
+                self._stack.train_with_early_stopping(
+                    mudataset,
+                    scope,
+                    early_stopping_scope,
+                    training_context=ctx,
+                )
+            else:
+                self._stack.train(
+                    mudataset,
+                    scope,
+                    training_context=ctx,
+                )
             return
 
         # Legacy DrugResponseDataset + FeatureDataset path
@@ -330,64 +353,86 @@ class DRPModel(_DRPLoggingMixin):
                 )
             return
 
-        raise TypeError("train() requires either (mudataset, split) or (output, cell_line_input)")
+        raise TypeError("train() requires either (mudataset, scope) or (output, cell_line_input)")
 
     def _resolve_predict_args(
         self,
         mudataset_or_cell_line_ids,
-        split_or_drug_ids,
+        scope_or_drug_ids,
         cell_line_input,
         drug_input,
         *,
         mudataset: MuDataset | None,
+        scope: EntityScope | None,
         split: SplitMasks | None,
         cell_line_ids: np.ndarray | None,
         drug_ids: np.ndarray | None,
-    ) -> tuple[MuDataset | None, SplitMasks | None, np.ndarray | None, np.ndarray | None, Any, Any]:
+    ) -> tuple[MuDataset | None, EntityScope | None, np.ndarray | None, np.ndarray | None, Any, Any]:
         """Resolve overloaded positional/keyword args for predict()."""
-        if mudataset is None and mudataset_or_cell_line_ids is not None:
-            if isinstance(mudataset_or_cell_line_ids, MuDataset):
-                mudataset = mudataset_or_cell_line_ids
-            else:
-                if cell_line_ids is None:
-                    cell_line_ids = mudataset_or_cell_line_ids
-                if drug_ids is None:
-                    drug_ids = split_or_drug_ids
-        if split is None and split_or_drug_ids is not None and isinstance(split_or_drug_ids, SplitMasks):
-            split = split_or_drug_ids
-        return mudataset, split, cell_line_ids, drug_ids, cell_line_input, drug_input
+        mudataset, cell_line_ids, drug_ids = self._resolve_predict_positional(
+            mudataset_or_cell_line_ids, scope_or_drug_ids, mudataset, cell_line_ids, drug_ids
+        )
+        scope, split = self._resolve_predict_scope(scope_or_drug_ids, scope, split)
+        if scope is None and split is not None:
+            scope = EntityScope(cell_lines=split.test_cell_lines, drugs=split.test_drugs)
+        return mudataset, scope, cell_line_ids, drug_ids, cell_line_input, drug_input
+
+    @staticmethod
+    def _resolve_predict_positional(mudataset_or_cell_line_ids, scope_or_drug_ids, mudataset, cell_line_ids, drug_ids):
+        if mudataset is not None or mudataset_or_cell_line_ids is None:
+            return mudataset, cell_line_ids, drug_ids
+        if isinstance(mudataset_or_cell_line_ids, MuDataset):
+            return mudataset_or_cell_line_ids, cell_line_ids, drug_ids
+        if cell_line_ids is None:
+            cell_line_ids = mudataset_or_cell_line_ids
+        if drug_ids is None:
+            drug_ids = scope_or_drug_ids
+        return mudataset, cell_line_ids, drug_ids
+
+    @staticmethod
+    def _resolve_predict_scope(scope_or_drug_ids, scope, split):
+        if scope is not None or scope_or_drug_ids is None:
+            return scope, split
+        if isinstance(scope_or_drug_ids, EntityScope):
+            return scope_or_drug_ids, split
+        if isinstance(scope_or_drug_ids, SplitMasks):
+            return scope, scope_or_drug_ids
+        return scope, split
 
     def predict(
         self,
         mudataset_or_cell_line_ids=None,
-        split_or_drug_ids=None,
+        scope_or_drug_ids=None,
         cell_line_input=None,
         drug_input=None,
         *,
         mudataset: MuDataset | None = None,
+        scope: EntityScope | None = None,
         split: SplitMasks | None = None,
         cell_line_ids: np.ndarray | None = None,
         drug_ids: np.ndarray | None = None,
     ) -> np.ndarray:
         """Predict responses.
 
-        Supports both the MuDataset path (positional: mudataset, split) and the
+        Supports the MuDataset path (positional: mudataset, scope/split) and the
         legacy internal path (cell_line_ids, drug_ids, cell_line_input, drug_input).
 
         :param mudataset: MuDataset containing all features.
-        :param split: SplitMasks with test indices to predict on.
+        :param scope: EntityScope with indices to predict on.
+        :param split: (compat) SplitMasks; test indices converted to EntityScope.
         :returns: Predicted response values.
         :raises RuntimeError: If the model is untrained or lacks a component stack.
         """
         if self._stack is None:
             raise RuntimeError("Model has not been constructed with a component stack")
 
-        mudataset, split, cell_line_ids, drug_ids, cell_line_input, drug_input = self._resolve_predict_args(
+        mudataset, scope, cell_line_ids, drug_ids, cell_line_input, drug_input = self._resolve_predict_args(
             mudataset_or_cell_line_ids,
-            split_or_drug_ids,
+            scope_or_drug_ids,
             cell_line_input,
             drug_input,
             mudataset=mudataset,
+            scope=scope,
             split=split,
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -407,15 +452,15 @@ class DRPModel(_DRPLoggingMixin):
             )
 
         # New MuDataset path
-        if mudataset is not None and split is not None:
+        if mudataset is not None and scope is not None:
             if self._empty_training:
-                test_response = _ComponentStack._extract_response_pairs(mudataset, split, subset="test")
+                test_response = _ComponentStack._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
                 return np.full(len(test_response), np.nan)
             if not self._stack.is_fitted():
                 raise RuntimeError("Model has not been trained; call train() or load() before predict()")
-            return self._stack.predict(mudataset, split)
+            return self._stack.predict(mudataset, scope)
 
-        raise TypeError("predict() requires either (mudataset, split) or (cell_line_ids, drug_ids, ...)")
+        raise TypeError("predict() requires either (mudataset, scope) or (cell_line_ids, drug_ids, ...)")
 
     @pipeline_function
     def save(self, path: str | Path) -> None:
@@ -459,8 +504,8 @@ class DRPModel(_DRPLoggingMixin):
         drug_view: str | None,
         cell_line_ids_output: np.ndarray,
         drug_ids_output: np.ndarray,
-        cell_line_input: FeatureDataset | None,
-        drug_input: FeatureDataset | None,
+        cell_line_input: Any,
+        drug_input: Any,
     ) -> np.ndarray:
         """Concatenate selected cell-line and drug feature views into matrix ``X``.
 
@@ -468,8 +513,8 @@ class DRPModel(_DRPLoggingMixin):
         :param drug_view: Drug view name, or ``None`` to omit drug features.
         :param cell_line_ids_output: Cell-line identifiers for the output pairs.
         :param drug_ids_output: Drug identifiers for the output pairs.
-        :param cell_line_input: Cell-line feature views, or ``None``.
-        :param drug_input: Drug feature views, or ``None``.
+        :param cell_line_input: Cell-line feature source (legacy FeatureDataset), or ``None``.
+        :param drug_input: Drug feature source (legacy FeatureDataset), or ``None``.
         :returns: Feature matrix with one row per output pair.
         :raises ValueError: If a requested view is missing from the inputs.
         """
@@ -501,15 +546,15 @@ class DRPModel(_DRPLoggingMixin):
         self,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset | None,
-        drug_input: FeatureDataset | None,
+        cell_line_input: Any,
+        drug_input: Any,
     ) -> dict[str, np.ndarray]:
         """Return feature matrices for the model's required views.
 
         :param cell_line_ids: Cell-line identifiers, one per pair.
         :param drug_ids: Drug identifiers, one per pair.
-        :param cell_line_input: Cell-line feature views, or ``None``.
-        :param drug_input: Drug feature views, or ``None``.
+        :param cell_line_input: Cell-line feature source (legacy FeatureDataset), or ``None``.
+        :param drug_input: Drug feature source (legacy FeatureDataset), or ``None``.
         :returns: Mapping from view name to feature matrix aligned with the ids.
         :raises ValueError: If a required view is missing from the inputs.
         """

@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.base import TransformerMixin
 
 from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import SplitMasks
+from ..datasets.splitting import EntityScope
 from ..models.drp_model import DRPModel
 from ..utils.checkpoints import checkpoint_dir_or_temporary
 
@@ -16,22 +16,22 @@ from ..utils.checkpoints import checkpoint_dir_or_temporary
 def mu_train_and_predict(
     model: DRPModel,
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    test_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None = None,
+    train_scope: EntityScope,
+    test_scope: EntityScope,
+    early_stopping_scope: EntityScope | None = None,
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str | Path | None = None,
 ) -> np.ndarray:
-    """Train the model and predict using MuDataset and SplitMasks.
+    """Train the model and predict using MuDataset and EntityScope.
 
     No separate feature loading step is needed since MuDataset already
     contains all features.
 
     :param model: Untrained DRPModel instance.
     :param mudataset: Full dataset with all features.
-    :param train_masks: Index masks for training samples.
-    :param test_masks: Index masks for test samples.
-    :param early_stopping_masks: Optional masks for early stopping.
+    :param train_scope: EntityScope for training samples.
+    :param test_scope: EntityScope for test samples.
+    :param early_stopping_scope: Optional scope for early stopping.
     :param response_transformation: Optional sklearn response transformer.
     :param model_checkpoint_dir: Directory for checkpoints, or None for temporary.
 
@@ -40,8 +40,8 @@ def mu_train_and_predict(
     fold_transform = response_transformation
 
     if fold_transform is not None:
-        train_cl = train_masks.train_cell_lines
-        train_dr = train_masks.train_drugs
+        train_cl = train_scope.cell_lines
+        train_dr = train_scope.drugs
         response_matrix = mudataset.response_matrix
         if train_dr is not None:
             train_responses = response_matrix[train_cl, train_dr]
@@ -53,14 +53,15 @@ def mu_train_and_predict(
         print("Training model ...")
         model.train(
             mudataset=mudataset,
-            split=train_masks,
+            scope=train_scope,
+            early_stopping_scope=early_stopping_scope,
             model_checkpoint_dir=checkpoint_dir,
         )
 
     print("Predicting ...")
     predictions = model.predict(
         mudataset=mudataset,
-        split=test_masks,
+        scope=test_scope,
     )
 
     if fold_transform is not None:

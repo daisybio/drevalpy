@@ -5,10 +5,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import construct_model
 from drevalpy.models._component_stack import build_component_stack
 from drevalpy.models.config import from_spec
+from tests.conftest import MockFeatureSource
 from tests.models.synthetic_fixtures import (
     lco_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,
@@ -34,13 +35,13 @@ def test_build_component_stack_train_predict() -> None:
         cell_line_ids=np.array(["cl1", "cl2"]),
         drug_ids=np.array(["d1", "d2"]),
     )
-    cell_line_input = FeatureDataset(
+    cell_line_input = MockFeatureSource(
         features={
             "cl1": {"gene_expression": np.array([0.1, 0.2])},
             "cl2": {"gene_expression": np.array([0.3, 0.4])},
         }
     )
-    drug_input = FeatureDataset(
+    drug_input = MockFeatureSource(
         features={
             "d1": {"fingerprints": np.array([1.0])},
             "d2": {"fingerprints": np.array([0.0])},

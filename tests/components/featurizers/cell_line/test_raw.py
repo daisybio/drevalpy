@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.cell_line.raw import RawCellLineFeaturizer
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
-def _make_features() -> FeatureDataset:
-    return FeatureDataset(
+def _make_features() -> MockFeatureSource:
+    return MockFeatureSource(
         features={
             "cl1": {
                 "gene_expression": np.array([1.0, 2.0], dtype=np.float32),

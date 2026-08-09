@@ -8,15 +8,16 @@ import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
+from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
 
 @register_drug_featurizer(
     "view",
-    description="Pass through one dense drug view from a FeatureDataset.",
+    description="Pass through one dense drug view from a FeatureSource.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ViewDrugFeaturizer(DrugFeaturizer):
@@ -34,44 +35,44 @@ class ViewDrugFeaturizer(DrugFeaturizer):
 
     def fit(
         self,
-        features,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> ViewDrugFeaturizer:
         """Fit on training data.
 
-        :param features: features.
+        :param source: Feature source providing drug views.
         :param entity_ids: entity ids.
         :param context: context.
         :returns: Result.
         """
         _ = context
-        ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
-        matrix = stack_view_matrix(features, self._view, ids)
+        ids = entity_ids if entity_ids is not None else source.identifiers
+        matrix = stack_view_matrix(source, self._view, ids)
         self._output_dim = int(matrix.shape[1])
         return self
 
-    def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
-        :param features: features.
+        :param source: Feature source providing drug views.
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        return stack_view_matrix(features, self._view, entity_ids).astype(np.float32)
+        return stack_view_matrix(source, self._view, entity_ids).astype(np.float32)
 
-    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
-        :param features: features.
+        :param source: Feature source providing drug views.
         :param entity_ids: entity ids.
         :returns: Result.
         """
         return {
             self._view: numeric_feature_block(
-                self.transform(features, entity_ids),
-                feature_names=feature_names_for_view(features, self._view),
+                self.transform(source, entity_ids),
+                feature_names=source.get_feature_names(self._view),
             )
         }
 

@@ -9,6 +9,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
@@ -17,17 +18,17 @@ from drevalpy.datasets.gene_lists import gene_names_from_list_csv, resolve_gene_
 
 
 def _load_gene_indices(
-    feature_dataset,
+    source: FeatureSource,
     view: str,
     gene_list_stem: str,
 ) -> list[int]:
-    meta = feature_dataset.meta_info.get(view)
-    if meta is None:
-        msg = f"FeatureDataset meta_info missing view {view!r}"
+    names = source.get_feature_names(view)
+    if names is None:
+        msg = f"FeatureSource has no feature names for view {view!r}"
         raise ValueError(msg)
     gene_list_path = resolve_gene_list_path(gene_list_stem)
     selected_genes = gene_names_from_list_csv(gene_list_path)
-    gene_to_idx = {str(gene): index for index, gene in enumerate(meta)}
+    gene_to_idx = {str(gene): index for index, gene in enumerate(names)}
     indices = [gene_to_idx[gene] for gene in selected_genes if gene in gene_to_idx]
     if not indices:
         msg = f"No genes from {gene_list_stem!r} matched view {view!r}"
@@ -36,7 +37,7 @@ def _load_gene_indices(
 
 
 def _subset_matrix(
-    features,
+    source: FeatureSource,
     entity_ids: np.ndarray,
     *,
     view: str,
@@ -45,7 +46,7 @@ def _subset_matrix(
     minmax: MinMaxScaler | None = None,
     arcsinh: bool = True,
 ) -> np.ndarray:
-    matrix = stack_view_matrix(features, view, entity_ids).astype(np.float64)
+    matrix = stack_view_matrix(source, view, entity_ids).astype(np.float64)
     matrix = matrix[:, gene_indices]
     matrix = np.nan_to_num(matrix, nan=0.0, posinf=0.0, neginf=0.0)
     if arcsinh:
@@ -97,27 +98,27 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
 
     def fit(
         self,
-        features,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> LandmarkGenesFeaturizer:
         """Fit on training data.
 
-        :param features: features.
+        :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
         :param context: context.
         :returns: Result.
         """
         _ = context
-        ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
+        ids = entity_ids if entity_ids is not None else source.identifiers
         self._gene_indices = _load_gene_indices(
-            features,
+            source,
             self._view,
             self._gene_list_stem,
         )
         self._output_dim = len(self._gene_indices)
-        matrix = stack_view_matrix(features, self._view, ids).astype(np.float64)[:, self._gene_indices]
+        matrix = stack_view_matrix(source, self._view, ids).astype(np.float64)[:, self._gene_indices]
         matrix = np.nan_to_num(matrix, nan=0.0, posinf=0.0, neginf=0.0)
         if self._arcsinh:
             matrix = np.arcsinh(matrix)
@@ -136,10 +137,10 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         self._is_fitted = True
         return self
 
-    def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
-        :param features: features.
+        :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
         :returns: Result.
         :raises RuntimeError: Raised on invalid input.
@@ -148,7 +149,7 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             msg = "LandmarkGenesFeaturizer must be fit before transform"
             raise RuntimeError(msg)
         return _subset_matrix(
-            features,
+            source,
             entity_ids,
             view=self._view,
             gene_indices=self._gene_indices,
@@ -157,10 +158,10 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             arcsinh=self._arcsinh,
         )
 
-    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
-        :param features: features.
+        :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
         :returns: Result.
         :raises RuntimeError: Raised on invalid input.
@@ -169,12 +170,12 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             msg = "LandmarkGenesFeaturizer must be fit before transform"
             raise RuntimeError(msg)
         selected_names = None
-        meta = features.meta_info.get(self._view)
-        if meta is not None:
-            selected_names = tuple(str(meta[index]) for index in self._gene_indices)
+        names = source.get_feature_names(self._view)
+        if names is not None:
+            selected_names = tuple(str(names[index]) for index in self._gene_indices)
         return {
             "gene_expression": numeric_feature_block(
-                self.transform(features, entity_ids),
+                self.transform(source, entity_ids),
                 feature_names=selected_names,
             )
         }
@@ -231,8 +232,6 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             self._minmax_scale = bool(state["minmax_scale"])
         if "arcsinh" in state:
             self._arcsinh = bool(state["arcsinh"])
-        # Backward compatibility: older pickled state may include a "data_path" key,
-        # but the attribute no longer exists on this class, so it is intentionally ignored.
 
     def _restore_landmark_fit_state(self, state: dict[str, object]) -> None:
         gene_indices = state.get("gene_indices")

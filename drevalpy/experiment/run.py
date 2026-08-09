@@ -12,10 +12,10 @@ from sklearn.base import TransformerMixin, clone
 from drevalpy.components.tuning.config import build_experiment_hpo_config
 
 from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import SplitMasks
+from ..datasets.splitting import EntityScope
 from ..models._model_lookup import get_model_class
 from ..models.drp_model import DRPModel
-from .fold import merge_train_val_masks, prepare_mu_fold
+from .fold import merge_train_val_scopes, prepare_mu_fold
 from .hpo import fold_hpo_storage_path, select_fold_hyperparameters
 from .model_paths import generate_data_saving_path
 from .paths import experiment_result_path
@@ -127,7 +127,7 @@ def mu_experiment(
                 continue
 
             fold_data = prepare_mu_fold(mudataset, split_masks, model_class)
-            merged_masks = merge_train_val_masks(split_masks)
+            merged_scope = merge_train_val_scopes(split_masks)
 
             hpo_cfg = build_experiment_hpo_config(
                 hpam_optimization_metric,
@@ -140,9 +140,9 @@ def mu_experiment(
             best_hpams = select_fold_hyperparameters(
                 model_class=model_class,
                 mudataset=mudataset,
-                train_masks=fold_data.train_masks,
-                val_masks=fold_data.val_masks,
-                early_stopping_masks=fold_data.early_stopping_masks,
+                train_scope=fold_data.train_scope,
+                val_scope=fold_data.val_scope,
+                early_stopping_scope=fold_data.early_stopping_scope,
                 response_transformation=response_transformation,
                 metric=hpam_optimization_metric,
                 model_checkpoint_dir=model_checkpoint_dir,
@@ -160,9 +160,9 @@ def mu_experiment(
             predictions = mu_train_and_predict(
                 model=model,
                 mudataset=mudataset,
-                train_masks=merged_masks,
-                test_masks=fold_data.test_masks,
-                early_stopping_masks=fold_data.early_stopping_masks,
+                train_scope=merged_scope,
+                test_scope=fold_data.test_scope,
+                early_stopping_scope=fold_data.early_stopping_scope,
                 response_transformation=fold_transform,
                 model_checkpoint_dir=model_checkpoint_dir,
             )
@@ -170,7 +170,7 @@ def mu_experiment(
             _write_mu_predictions(
                 prediction_file,
                 mudataset=mudataset,
-                test_masks=fold_data.test_masks,
+                test_scope=fold_data.test_scope,
                 predictions=predictions,
             )
 
@@ -180,7 +180,7 @@ def mu_experiment(
 def _write_mu_predictions(
     prediction_file: str | Path,
     mudataset: MuDataset,
-    test_masks: SplitMasks,
+    test_scope: EntityScope,
     predictions: np.ndarray,
 ) -> None:
     """Write predictions to CSV in the standard drevalpy format."""
@@ -189,8 +189,8 @@ def _write_mu_predictions(
     cell_line_ids = mudataset.cell_line_ids
     drug_ids = mudataset.drug_ids
 
-    cl_indices = test_masks.test_cell_lines
-    dr_indices = test_masks.test_drugs
+    cl_indices = test_scope.cell_lines
+    dr_indices = test_scope.drugs
 
     rows: dict[str, Any] = {
         "cell_line_ids": cell_line_ids[cl_indices],

@@ -12,12 +12,12 @@ from drevalpy.components.featurizers.cell_line.concat import (
 )
 from drevalpy.components.featurizers.drug.concat import ConcatFeaturizersDrugFeaturizer
 from drevalpy.components.register_builtins import register_builtin_components
-from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.models.config import CellLineFeaturizerConfig, FeaturizerConfig
+from tests.conftest import MockFeatureSource
 
 
-def _feature_dataset() -> FeatureDataset:
-    return FeatureDataset(
+def _feature_dataset() -> MockFeatureSource:
+    return MockFeatureSource(
         features={
             "cl1": {
                 "gene_expression": np.array([1.0, 2.0], dtype=np.float32),
@@ -35,8 +35,8 @@ def _feature_dataset() -> FeatureDataset:
     )
 
 
-def _multi_view_feature_dataset() -> FeatureDataset:
-    return FeatureDataset(
+def _multi_view_feature_dataset() -> MockFeatureSource:
+    return MockFeatureSource(
         features={
             "cl1": {
                 "gene_expression": np.array([1.0, 2.0], dtype=np.float32),
@@ -111,8 +111,8 @@ def test_concat_rejects_duplicate_emitted_block_names() -> None:
         featurizer.transform_blocks(features, entity_ids)
 
 
-def _drug_feature_dataset() -> FeatureDataset:
-    return FeatureDataset(
+def _drug_feature_dataset() -> MockFeatureSource:
+    return MockFeatureSource(
         features={
             "drug1": {
                 "fingerprints": np.array([1.0, 0.0, 1.0], dtype=np.float32),

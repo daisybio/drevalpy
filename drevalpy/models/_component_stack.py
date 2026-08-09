@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
-from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.feature_block import FeatureBlock
+from drevalpy.components.feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._matrix import unique_entity_ids
@@ -22,7 +22,7 @@ from drevalpy.models.config.resolved import ResolvedModelConfig
 
 if TYPE_CHECKING:
     from drevalpy.datasets.mudataset import MuDataset
-    from drevalpy.datasets.splitting import SplitMasks
+    from drevalpy.datasets.splitting import EntityScope
 
 
 def _build_fit_context(
@@ -51,10 +51,6 @@ def _build_fit_context(
 
 def _entity_id_only_featurizer(featurizer: Featurizer | None) -> bool:
     return getattr(featurizer, "entity_id_only", False)
-
-
-def _empty_feature_dataset() -> FeatureDataset:
-    return FeatureDataset(features={})
 
 
 def _instantiate_featurizer(
@@ -141,8 +137,8 @@ class _ComponentStack:
         self,
         response: DrugResponseDataset,
         *,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None,
+        cell_line_input: FeatureSource,
+        drug_input: FeatureSource | None,
         cell_line_entity_ids: np.ndarray,
         drug_entity_ids: np.ndarray | None,
         cell_line_matrix: np.ndarray,
@@ -159,11 +155,11 @@ class _ComponentStack:
 
         drug_blocks: dict[str, FeatureBlock] = {}
         if self._drug_featurizer is not None and drug_entity_ids is not None:
-            drug_source = drug_input if drug_input is not None else _empty_feature_dataset()
             if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
                 msg = "drug_input is required when a drug featurizer is configured"
                 raise ValueError(msg)
-            drug_blocks = self._drug_featurizer.transform_blocks(drug_source, drug_entity_ids)
+            if drug_input is not None:
+                drug_blocks = self._drug_featurizer.transform_blocks(drug_input, drug_entity_ids)
 
         return build_model_input_batch(
             response,
@@ -177,37 +173,33 @@ class _ComponentStack:
             training_context=training_context,
         )
 
-    def _require_drug_input(self, drug_input: FeatureDataset | None) -> FeatureDataset:
-        drug_source = drug_input if drug_input is not None else _empty_feature_dataset()
+    def _require_drug_input(self, drug_input: FeatureSource | None) -> FeatureSource | None:
         if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
             msg = "drug_input is required when a drug featurizer is configured"
             raise ValueError(msg)
-        return drug_source
+        return drug_input
 
     def _fit_transform_featurizer(
         self,
         featurizer: Featurizer,
-        source: FeatureDataset,
+        source: FeatureSource | None,
         *,
         train_entity_ids: np.ndarray,
-        feature_input: FeatureDataset | None,
         entity_id_only_ids: np.ndarray,
         fit_context: FeaturizerFitContext | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         featurizer.fit(source, entity_ids=train_entity_ids, context=fit_context)
         if _entity_id_only_featurizer(featurizer):
             entity_ids = np.asarray(entity_id_only_ids, dtype=str)
-        elif feature_input is not None:
-            entity_ids = np.array(list(feature_input.features.keys()), dtype=str)
         else:
-            entity_ids = np.asarray(train_entity_ids, dtype=str)
+            entity_ids = np.asarray(source.identifiers, dtype=str)
         matrix = featurizer.transform(source, entity_ids)
         return entity_ids, matrix
 
     def _train_cell_line_side(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
+        cell_line_input: FeatureSource,
         *,
         output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
@@ -225,7 +217,6 @@ class _ComponentStack:
             self._cell_line_featurizer,
             cell_line_input,
             train_entity_ids=train_cell_lines,
-            feature_input=cell_line_input,
             entity_id_only_ids=train_cell_lines,
             fit_context=fit_context,
         )
@@ -235,7 +226,7 @@ class _ComponentStack:
     def _train_drug_side(
         self,
         output: DrugResponseDataset,
-        drug_input: FeatureDataset | None,
+        drug_input: FeatureSource | None,
         *,
         output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
@@ -254,7 +245,6 @@ class _ComponentStack:
             self._drug_featurizer,
             drug_source,
             train_entity_ids=train_drugs,
-            feature_input=drug_input,
             entity_id_only_ids=train_drugs,
             fit_context=fit_context,
         )
@@ -264,8 +254,8 @@ class _ComponentStack:
     def _fit_featurizers_and_predictor(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureSource,
+        drug_input: FeatureSource | None = None,
         *,
         output_earlystopping: DrugResponseDataset | None = None,
         training_context: TrainingContext | None = None,
@@ -273,8 +263,8 @@ class _ComponentStack:
         """Fit featurizers on entity features and train the predictor on the batch.
 
         :param output: Training response pairs.
-        :param cell_line_input: Cell-line feature views.
-        :param drug_input: Drug feature views, or ``None``.
+        :param cell_line_input: Cell-line feature source.
+        :param drug_input: Drug feature source, or ``None``.
         :param output_earlystopping: Optional early-stopping response pairs.
         :param training_context: Optional runtime metadata.
         :returns: Self after training.
@@ -349,15 +339,15 @@ class _ComponentStack:
         self,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureSource,
+        drug_input: FeatureSource | None = None,
     ) -> np.ndarray:
-        """Predict using pre-built FeatureDataset objects.
+        """Predict using pre-built FeatureSource objects.
 
         :param cell_line_ids: Cell-line identifiers for each pair.
         :param drug_ids: Drug identifiers for each pair.
-        :param cell_line_input: Cell-line feature views.
-        :param drug_input: Drug feature views, or ``None``.
+        :param cell_line_input: Cell-line feature source.
+        :param drug_input: Drug feature source, or ``None``.
         :returns: Predicted response values.
         :raises RuntimeError: If the predictor has not been fitted.
         """
@@ -382,11 +372,13 @@ class _ComponentStack:
         drug_matrix: np.ndarray | None = None
         if self._drug_featurizer is not None:
             drug_entity_ids = unique_entity_ids(drug_ids)
-            drug_source = drug_input if drug_input is not None else _empty_feature_dataset()
             if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
                 msg = "drug_input is required when a drug featurizer is configured"
                 raise ValueError(msg)
-            drug_matrix = self._drug_featurizer.transform(drug_source, drug_entity_ids)
+            if drug_input is not None:
+                drug_matrix = self._drug_featurizer.transform(drug_input, drug_entity_ids)
+            else:
+                drug_matrix = np.empty((0, 0), dtype=np.float32)
 
         batch = self._build_batch(
             response,
@@ -461,30 +453,19 @@ class _ComponentStack:
     @staticmethod
     def _extract_response_pairs(
         mudataset: MuDataset,
-        split: SplitMasks,
-        *,
-        subset: Literal["train", "test", "val"],
+        cl_idx: np.ndarray,
+        dr_idx: np.ndarray | None,
     ) -> DrugResponseDataset:
-        """Build a DrugResponseDataset from the MuDataset + SplitMasks for a given subset.
+        """Build a DrugResponseDataset from the MuDataset for given entity indices.
 
         :param mudataset: Source of response values.
-        :param split: Fold masks with cell-line/drug indices.
-        :param subset: Which portion of the split to extract.
+        :param cl_idx: Cell-line indices to include.
+        :param dr_idx: Drug indices to include, or ``None`` for all drugs (LCO/LTO).
         :returns: Flat DrugResponseDataset of (cell_line, drug, response) triples.
         """
         cl_ids = mudataset.cell_line_ids
         drug_ids = mudataset.drug_ids
         response_matrix = mudataset.response_matrix
-
-        if subset == "train":
-            cl_idx = split.train_cell_lines
-            dr_idx = split.train_drugs
-        elif subset == "test":
-            cl_idx = split.test_cell_lines
-            dr_idx = split.test_drugs
-        else:
-            cl_idx = split.val_cell_lines
-            dr_idx = split.val_drugs
 
         if dr_idx is None:
             # LCO/LTO: subset of cell lines x all drugs
@@ -502,49 +483,93 @@ class _ComponentStack:
         mudataset: MuDataset,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
-    ) -> tuple[FeatureDataset, FeatureDataset | None]:
-        """Construct FeatureDatasets from MuDataset for the relevant entities.
+    ) -> tuple[FeatureSource, FeatureSource | None]:
+        """Construct FeatureSource adapters from MuDataset for the relevant entities.
 
         :param mudataset: Source of feature data.
         :param cell_line_ids: Unique cell-line IDs needed.
         :param drug_ids: Unique drug IDs needed.
-        :returns: Tuple of (cell_line_features, drug_features).
+        :returns: Tuple of (cell_line_source, drug_source).
         """
-        from drevalpy.components.data_loading.feature_loaders import (
-            build_cell_line_features_from_mudataset,
-            build_drug_features_from_mudataset,
-        )
-
-        cl_features = build_cell_line_features_from_mudataset(mudataset, self._resolved, cell_line_ids)
-        drug_features = build_drug_features_from_mudataset(mudataset, self._resolved, drug_ids)
-        return cl_features, drug_features
+        cl_source = CellLineFeatureSource(mudataset, cell_line_ids)
+        drug_source = DrugFeatureSource(mudataset, drug_ids) if self._drug_featurizer is not None else None
+        return cl_source, drug_source
 
     def train(
         self,
         mudataset: MuDataset,
-        split: SplitMasks,
+        scope: EntityScope,
         *,
         training_context: TrainingContext | None = None,
     ) -> _ComponentStack:
-        """Train the component stack using a MuDataset and SplitMasks.
+        """Train the component stack using a MuDataset and EntityScope.
 
         Extracts response pairs and features from the MuDataset, then fits
         featurizers and the predictor.
 
         :param mudataset: Source of response values and features.
-        :param split: Fold masks defining train/val/test indices.
+        :param scope: Entity scope defining cell-line/drug indices to train on.
         :param training_context: Optional runtime metadata.
         :returns: Self after training.
         """
-        output = self._extract_response_pairs(mudataset, split, subset="train")
+        output = self._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
         if len(output) == 0:
             return self
 
         output_earlystopping: DrugResponseDataset | None = None
-        if split.val_cell_lines.size > 0:
-            output_earlystopping = self._extract_response_pairs(mudataset, split, subset="val")
-            if len(output_earlystopping) == 0:
-                output_earlystopping = None
+
+        all_cl_ids = unique_entity_ids(
+            np.concatenate(
+                [
+                    output.cell_line_ids,
+                    output_earlystopping.cell_line_ids if output_earlystopping else np.array([], dtype=str),
+                ]
+            )
+        )
+        all_drug_ids = unique_entity_ids(
+            np.concatenate(
+                [
+                    output.drug_ids,
+                    output_earlystopping.drug_ids if output_earlystopping else np.array([], dtype=str),
+                ]
+            )
+        )
+
+        cell_line_input, drug_input = self._build_features_from_mudataset(mudataset, all_cl_ids, all_drug_ids)
+
+        return self._fit_featurizers_and_predictor(
+            output,
+            cell_line_input,
+            drug_input,
+            output_earlystopping=output_earlystopping,
+            training_context=training_context,
+        )
+
+    def train_with_early_stopping(
+        self,
+        mudataset: MuDataset,
+        scope: EntityScope,
+        early_stopping_scope: EntityScope,
+        *,
+        training_context: TrainingContext | None = None,
+    ) -> _ComponentStack:
+        """Train with an explicit early-stopping scope.
+
+        :param mudataset: Source of response values and features.
+        :param scope: Entity scope defining cell-line/drug indices to train on.
+        :param early_stopping_scope: Entity scope for early-stopping samples.
+        :param training_context: Optional runtime metadata.
+        :returns: Self after training.
+        """
+        output = self._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
+        if len(output) == 0:
+            return self
+
+        output_earlystopping = self._extract_response_pairs(
+            mudataset, early_stopping_scope.cell_lines, early_stopping_scope.drugs
+        )
+        if len(output_earlystopping) == 0:
+            output_earlystopping = None
 
         all_cl_ids = unique_entity_ids(
             np.concatenate(
@@ -576,12 +601,12 @@ class _ComponentStack:
     def predict(
         self,
         mudataset: MuDataset,
-        split: SplitMasks,
+        scope: EntityScope,
     ) -> np.ndarray:
-        """Predict responses for the test set defined by a SplitMasks.
+        """Predict responses for the entities defined by an EntityScope.
 
         :param mudataset: Source of feature data and entity IDs.
-        :param split: Fold masks; uses test indices for prediction.
+        :param scope: Entity scope with cell-line/drug indices for prediction.
         :returns: Predicted response values for the test pairs.
         :raises RuntimeError: If the predictor has not been fitted.
         """
@@ -589,7 +614,7 @@ class _ComponentStack:
             msg = "Model has not been trained; call train() or load() before predict()"
             raise RuntimeError(msg)
 
-        test_response = self._extract_response_pairs(mudataset, split, subset="test")
+        test_response = self._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
         if len(test_response) == 0:
             return np.array([])
 

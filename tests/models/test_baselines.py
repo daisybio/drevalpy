@@ -8,12 +8,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import construct_model
 from drevalpy.models.drp_model import DRPModel
+from tests.conftest import MockFeatureSource
 
 
 def test_naive_mean_effects_predictor_tissue_decomposition() -> None:
@@ -21,14 +22,14 @@ def test_naive_mean_effects_predictor_tissue_decomposition() -> None:
     drugs = np.array(["D1", "D2", "D1", "D2", "D1", "D2"])
     response = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
     output = DrugResponseDataset(response=response, cell_line_ids=cell_lines, drug_ids=drugs)
-    cell_line_input = FeatureDataset(
+    cell_line_input = MockFeatureSource(
         features={
             "CL1": {CELL_LINE_IDENTIFIER: np.array(["CL1"]), TISSUE_IDENTIFIER: np.array(["Lung"])},
             "CL2": {CELL_LINE_IDENTIFIER: np.array(["CL2"]), TISSUE_IDENTIFIER: np.array(["Lung"])},
             "CL3": {CELL_LINE_IDENTIFIER: np.array(["CL3"]), TISSUE_IDENTIFIER: np.array(["Blood"])},
         }
     )
-    drug_input = FeatureDataset(
+    drug_input = MockFeatureSource(
         features={
             "D1": {DRUG_IDENTIFIER: np.array(["D1"])},
             "D2": {DRUG_IDENTIFIER: np.array(["D2"])},
@@ -81,13 +82,13 @@ def test_naive_mean_effects_predictor_without_tissue_matches_previous_decomposit
     drugs = np.array(["D1", "D2", "D1", "D2"])
     response = np.array([1.0, 2.0, 5.0, 8.0])
     output = DrugResponseDataset(response=response, cell_line_ids=cell_lines, drug_ids=drugs)
-    cell_line_input = FeatureDataset(
+    cell_line_input = MockFeatureSource(
         features={
             "CL1": {CELL_LINE_IDENTIFIER: np.array(["CL1"])},
             "CL2": {CELL_LINE_IDENTIFIER: np.array(["CL2"])},
         }
     )
-    drug_input = FeatureDataset(
+    drug_input = MockFeatureSource(
         features={
             "D1": {DRUG_IDENTIFIER: np.array(["D1"])},
             "D2": {DRUG_IDENTIFIER: np.array(["D2"])},
@@ -118,10 +119,10 @@ def test_random_forest_respects_max_depth() -> None:
         cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2", "cl3", "cl3", "cl4", "cl4"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2", "d1", "d2", "d1", "d2"]),
     )
-    cell_line_input = FeatureDataset(
+    cell_line_input = MockFeatureSource(
         features={f"cl{i}": {"gene_expression": np.linspace(i, i + 1, 4)} for i in range(1, 5)}
     )
-    drug_input = FeatureDataset(
+    drug_input = MockFeatureSource(
         features={
             "d1": {"fingerprints": np.array([1.0, 0.0, 0.5])},
             "d2": {"fingerprints": np.array([0.0, 1.0, 0.25])},
@@ -238,7 +239,7 @@ def _call_naive_predictor(
 ) -> tuple[DRPModel, np.ndarray]:
     _ = data_dir
     naive = construct_model("NaivePredictor")({})
-    empty = FeatureDataset(features={})
+    empty = MockFeatureSource(features={})
     naive.train(output=train_dataset, cell_line_input=empty, drug_input=None)
     val_dataset._predictions = naive.predict(
         cell_line_ids=val_dataset.cell_line_ids,
@@ -266,7 +267,6 @@ def _call_naive_group_predictor(
         naive = construct_model("NaiveTissueMeanPredictor")()
     else:
         raise ValueError(f"Unknown group: {group}")
-    # Defaults already applied by construction.
     train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
         model=naive, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir
     )
@@ -409,5 +409,5 @@ def _subset_dataset(model: DRPModel, train_dataset: DrugResponseDataset, val_dat
         val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     if cell_line_input.features or (drug_input is not None and drug_input.features):
         return train_dataset, val_dataset, cell_line_input, drug_input
-    empty = FeatureDataset(features={})
+    empty = MockFeatureSource(features={})
     return train_dataset, val_dataset, empty, None

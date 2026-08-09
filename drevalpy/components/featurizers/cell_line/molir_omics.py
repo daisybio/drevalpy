@@ -9,12 +9,10 @@ from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.preprocessing import VarianceFeatureSelector
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.datasets.dataset import FeatureDataset
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 
@@ -41,66 +39,73 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         """
         self._n_features = int(n_gene_expression_features)
         self._scaler = StandardScaler()
-        self._selector = VarianceFeatureSelector("gene_expression", self._n_features)
+        self._mask: np.ndarray = np.array([], dtype=bool)
+        self._selected_feature_names: tuple[str, ...] = ()
         self._feature_names: dict[str, tuple[str, ...] | None] = {}
 
     def fit(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> MOLIROmicsFeaturizer:
         """Arcsinh-scale gene expression and fit variance selection on training ids.
 
-        :param features: Cell-line multi-omics feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Optional explicit fit ids; otherwise derived from *context*.
         :param context: Optional fit context supplying unique training ids.
         :returns: Fitted featurizer instance.
         """
         ids = np.unique(
-            entity_ids if entity_ids is not None else context.unique_train_ids if context else features.identifiers
+            entity_ids if entity_ids is not None else context.unique_train_ids if context else source.identifiers
         )
-        matrix = np.arcsinh(stack_view_matrix(features, "gene_expression", ids))
+        matrix = np.arcsinh(source.get_view_matrix("gene_expression", ids))
         self._scaler.fit(matrix)
-        scaled = features.copy()
-        for identifier in scaled.identifiers:
-            value = np.asarray(scaled.features[str(identifier)]["gene_expression"], dtype=float)
-            scaled.features[str(identifier)]["gene_expression"] = self._scaler.transform(np.arcsinh(value)[None, :])[0]
-        self._selector.fit_on_ids(scaled, ids)
+        scaled = self._scaler.transform(matrix)
+        variances = np.var(scaled, axis=0)
+        self._mask = np.zeros(len(variances), dtype=bool)
+        self._mask[np.argsort(variances)[::-1][: min(self._n_features, len(variances))]] = True
+
+        ge_names = source.get_feature_names("gene_expression")
+        if ge_names is not None:
+            self._selected_feature_names = tuple(np.array(ge_names)[self._mask])
+        else:
+            self._selected_feature_names = ()
+
         self._feature_names = {
-            "gene_expression": tuple(self._selector.selected_meta_info),
-            **{view: feature_names_for_view(features, view) for view in _VIEWS[1:]},
+            "gene_expression": self._selected_feature_names,
+            **{view: source.get_feature_names(view) for view in _VIEWS[1:]},
         }
         return self
 
-    def _gene_expression(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
-        matrix = np.arcsinh(stack_view_matrix(features, "gene_expression", entity_ids))
-        return self._scaler.transform(matrix)[:, self._selector.mask].astype(np.float32)
+    def _gene_expression(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        matrix = np.arcsinh(source.get_view_matrix("gene_expression", entity_ids))
+        return self._scaler.transform(matrix)[:, self._mask].astype(np.float32)
 
-    def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return scaled, variance-selected gene-expression features.
 
-        :param features: Cell-line multi-omics feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Float matrix of selected gene-expression features.
         """
-        return self._gene_expression(features, entity_ids)
+        return self._gene_expression(source, entity_ids)
 
-    def transform_blocks(self, features: FeatureDataset, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return per-omics numeric blocks for MOLIR.
 
-        :param features: Cell-line multi-omics feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Mapping of omics view name to numeric blocks.
         """
         return {
             "gene_expression": numeric_feature_block(
-                self._gene_expression(features, entity_ids), feature_names=self._feature_names.get("gene_expression")
+                self._gene_expression(source, entity_ids), feature_names=self._feature_names.get("gene_expression")
             ),
             **{
                 view: numeric_feature_block(
-                    stack_view_matrix(features, view, entity_ids).astype(np.float32),
+                    source.get_view_matrix(view, entity_ids).astype(np.float32),
                     feature_names=self._feature_names.get(view),
                 )
                 for view in _VIEWS[1:]
@@ -113,7 +118,7 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
 
         :returns: Selected gene-expression feature count.
         """
-        return int(self._selector.mask.sum())
+        return int(self._mask.sum()) if self._mask.size > 0 else 0
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -124,28 +129,32 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         return {"n_gene_expression_features": {"type": "int", "low": 1, "high": 1000, "default": 1000}}
 
     def get_state(self) -> dict[str, object]:
-        """Serialize scaler, selector, and feature-name metadata.
+        """Serialize scaler, mask, and feature-name metadata.
 
         :returns: Fitted state mapping.
         """
         return {
             "scaler": self._scaler,
-            "selector": self._selector,
+            "mask": self._mask,
+            "selected_feature_names": self._selected_feature_names,
             "feature_names": self._feature_names,
             "n_gene_expression_features": self._n_features,
         }
 
     def set_state(self, state: dict[str, object]) -> None:
-        """Restore scaler, selector, and feature names from ``get_state``.
+        """Restore scaler, mask, and feature names from ``get_state``.
 
         :param state: Mapping previously returned by ``get_state``.
         """
         scaler = state.get("scaler")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler
-        selector = state.get("selector")
-        if isinstance(selector, VarianceFeatureSelector):
-            self._selector = selector
+        mask = state.get("mask")
+        if isinstance(mask, np.ndarray):
+            self._mask = mask
+        selected = state.get("selected_feature_names")
+        if isinstance(selected, tuple):
+            self._selected_feature_names = selected
         names = state.get("feature_names")
         if isinstance(names, dict):
             self._feature_names = {str(key): value for key, value in names.items()}

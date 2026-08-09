@@ -5,11 +5,11 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.featurizers.cell_line.molir_omics import MOLIROmicsFeaturizer
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
 def test_molir_omics_selects_expression_and_round_trips_state() -> None:
-    features = FeatureDataset(
+    features = MockFeatureSource(
         {
             f"cl{i}": {
                 "gene_expression": np.array([i, i * 2, 1], dtype=np.float32),

@@ -8,7 +8,7 @@ from typing import Any
 from sklearn.base import TransformerMixin
 
 from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import SplitMasks
+from ..datasets.splitting import EntityScope
 from ..models.drp_model import DRPModel
 
 
@@ -16,9 +16,9 @@ def select_fold_hyperparameters(
     *,
     model_class: type[DRPModel],
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    val_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None,
+    train_scope: EntityScope,
+    val_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
     response_transformation: TransformerMixin | None,
     metric: str,
     model_checkpoint_dir: str | Path | None,
@@ -32,9 +32,9 @@ def select_fold_hyperparameters(
 
     :param model_class: Model class to tune or instantiate with defaults.
     :param mudataset: Full dataset shared across all folds.
-    :param train_masks: Training split masks for the fold.
-    :param val_masks: Validation split masks for scoring.
-    :param early_stopping_masks: Optional early-stopping masks.
+    :param train_scope: Training EntityScope for the fold.
+    :param val_scope: Validation EntityScope for scoring.
+    :param early_stopping_scope: Optional early-stopping scope.
     :param response_transformation: Optional response transformer.
     :param metric: Metric optimized during HPO.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
@@ -57,9 +57,9 @@ def select_fold_hyperparameters(
     tuning_inputs: dict[str, Any] = {
         "model_class": model_class,
         "mudataset": mudataset,
-        "train_masks": train_masks,
-        "val_masks": val_masks,
-        "early_stopping_masks": early_stopping_masks,
+        "train_scope": train_scope,
+        "val_scope": val_scope,
+        "early_stopping_scope": early_stopping_scope,
         "response_transformation": response_transformation,
         "metric": metric,
         "model_checkpoint_dir": model_checkpoint_dir,
@@ -76,9 +76,9 @@ def select_final_model_hyperparameters(
     *,
     model_class: type[DRPModel],
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    val_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None,
+    train_scope: EntityScope,
+    val_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
     response_transformation: TransformerMixin | None,
     metric: str,
     model_checkpoint_dir: str | Path | None,
@@ -89,9 +89,9 @@ def select_final_model_hyperparameters(
 
     :param model_class: Model class to tune or instantiate with defaults.
     :param mudataset: Full dataset shared across all folds.
-    :param train_masks: Training split masks for the holdout.
-    :param val_masks: Validation split masks for scoring.
-    :param early_stopping_masks: Optional early-stopping masks.
+    :param train_scope: Training EntityScope for the holdout.
+    :param val_scope: Validation EntityScope for scoring.
+    :param early_stopping_scope: Optional early-stopping scope.
     :param response_transformation: Optional response transformer.
     :param metric: Metric optimized during HPO.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
@@ -111,9 +111,9 @@ def select_final_model_hyperparameters(
     return mu_hpam_tune(
         model_class=model_class,
         mudataset=mudataset,
-        train_masks=train_masks,
-        val_masks=val_masks,
-        early_stopping_masks=early_stopping_masks,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=early_stopping_scope,
         response_transformation=response_transformation,
         metric=metric,
         model_checkpoint_dir=model_checkpoint_dir,

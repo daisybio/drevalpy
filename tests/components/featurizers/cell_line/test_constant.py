@@ -6,12 +6,12 @@ import numpy as np
 
 from drevalpy.components.featurizers.cell_line.constant import CellLineConstantFeaturizer
 from drevalpy.components.registry import get_cell_line_featurizer, get_cell_line_featurizer_metadata
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
 def test_cell_line_constant_is_ones_column() -> None:
     featurizer = CellLineConstantFeaturizer()
-    features = FeatureDataset(features={"cl1": {"gene_expression": np.array([1.0, 2.0])}})
+    features = MockFeatureSource(features={"cl1": {"gene_expression": np.array([1.0, 2.0])}})
     entity_ids = np.array(["cl1", "cl2", "cl3"], dtype=str)
     featurizer.fit(features, entity_ids=entity_ids)
     matrix = featurizer.transform(features, entity_ids)

@@ -1,25 +1,20 @@
-"""Tests for the DrugResponseDataset and the FeatureDataset class."""
+"""Tests for the DrugResponseDataset class."""
 
 import shutil
 import tempfile
 from pathlib import Path
 
-import networkx as nx
 import numpy as np
 import pandas as pd
 import pytest
-from flaky import flaky
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.loader import load_response_dataset
 from drevalpy.utils import get_response_transformation
-
-# Tests for the DrugResponseDataset class
 
 
 def test_response_dataset_load() -> None:
     """Test if the dataset loads correctly from CSV files."""
-    # Create a temporary CSV file with mock data
     data = {
         "cell_line_id": np.array(["1", "2", "3"]),
         "drug_id": np.array(["A", "B", "C"]),
@@ -33,12 +28,10 @@ def test_response_dataset_load() -> None:
     dataset_path = Path("dataset.csv")
     dataset.to_csv(dataset_path)
     del dataset
-    # Load the dataset
     dataset = DrugResponseDataset.from_csv(dataset_path)
 
     dataset_path.unlink()
 
-    # Check if the dataset loaded correctly
     assert np.array_equal(dataset.cell_line_ids, data["cell_line_id"])
     assert np.array_equal(dataset.drug_ids, data["drug_id"])
     assert np.allclose(dataset.response, data["response"])
@@ -88,12 +81,6 @@ def test_curvecurator_measures(monkeypatch: pytest.MonkeyPatch) -> None:
     xvals = 10 ** np.linspace(np.log10(0.001) - 2, np.log10(1000) + 2, 50)
     yvals = _curve_function(xvals, expected_ec50, front, back, slope)
     expected_ic50 = expected_ec50 * (((front - back) / (0.5 - back)) - 1) ** (1 / slope)
-    """
-    import matplotlib.pyplot as plt
-    plt.scatter(xvals, yvals, s=1)
-    plt.xscale('log')
-    plt.show()
-    """
     df = pd.DataFrame({"dose": xvals, "response": yvals, "sample": "cell_line_1", "drug": "drug_1", "replicate": "1"})
     df.to_csv(path_to_temp_dir / "toy_curves" / "toy_curves_raw.csv", index=False)
     load_response_dataset(
@@ -104,7 +91,6 @@ def test_curvecurator_measures(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     assert Path(path_to_temp_dir / "toy_curves" / "toy_curves.csv").exists()
     df_processed = pd.read_csv(path_to_temp_dir / "toy_curves" / "toy_curves.csv", index_col=0)
-    # assert that df_processed["EC50_curvecurator"] is approximately expected_ec50
     assert np.isclose(df_processed.loc["cell_line_1|drug_1"]["EC50_curvecurator"], expected_ec50, atol=0.1)
     assert np.isclose(df_processed.loc["cell_line_1|drug_1"]["IC50_curvecurator"], expected_ic50, atol=0.1)
     assert round(np.log(df_processed.loc["cell_line_1|drug_1"]["IC50_curvecurator"]), 4) == round(
@@ -154,7 +140,6 @@ def test_remove_nan_responses() -> None:
 
 def test_response_dataset_shuffle():
     """Test if the shuffle method works correctly."""
-    # Create a dataset with known values
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5, 6]),
         cell_line_ids=np.array(["101", "102", "103", "104", "105", "106"]),
@@ -162,16 +147,13 @@ def test_response_dataset_shuffle():
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5", "Tissue6"]),
     )
 
-    # Shuffle the dataset
     dataset.shuffle(random_state=42)
 
-    # Check if the length remains the same
     assert len(dataset.response) == 6
     assert len(dataset.cell_line_ids) == 6
     assert len(dataset.drug_ids) == 6
     assert len(dataset.tissue) == 6
 
-    # Check if the response, cell_line_ids, and drug_ids arrays are shuffled
     assert not np.array_equal(dataset.response, np.array([1, 2, 3, 4, 5, 6]))
     assert not np.array_equal(dataset.cell_line_ids, np.array(["101", "102", "103", "104", "105", "106"]))
     assert not np.array_equal(dataset.drug_ids, np.array(["A", "B", "C", "D", "E", "F"]))
@@ -182,7 +164,6 @@ def test_response_dataset_shuffle():
 
 def test_response_data_remove_drugs_and_cell_lines():
     """Test if the remove_drugs and remove_cell_lines methods work correctly."""
-    # Create a dataset with known values
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5]),
         cell_line_ids=np.array(["101", "102", "103", "104", "105"]),
@@ -190,17 +171,14 @@ def test_response_data_remove_drugs_and_cell_lines():
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5"]),
     )
 
-    # Remove specific drugs and cell lines
     dataset._remove_drugs(["A", "C"])
     dataset._remove_cell_lines(["101", "103"])
 
-    # Check if the removed drugs and cell lines are not present in the dataset
     assert "A" not in dataset.drug_ids
     assert "C" not in dataset.drug_ids
     assert "101" not in dataset.cell_line_ids
     assert "103" not in dataset.cell_line_ids
 
-    # Check if the length of response, cell_line_ids, and drug_ids arrays is reduced accordingly
     assert len(dataset.response) == 3
     assert len(dataset.cell_line_ids) == 3
     assert len(dataset.drug_ids) == 3
@@ -224,7 +202,6 @@ def test_remove_rows():
 
 def test_response_dataset_reduce_to():
     """Test if the reduce_to method works correctly and handles edge cases."""
-    # Case 1: Standard reduction
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5]),
         cell_line_ids=np.array([101, 102, 103, 104, 105]),
@@ -241,7 +218,7 @@ def test_response_dataset_reduce_to():
     assert len(dataset.drug_ids) == 2
     assert len(dataset.tissue) == 2
 
-    # Case 2: reduce_to(None, None) does nothing
+    # reduce_to(None, None) does nothing
     dataset = DrugResponseDataset(
         response=np.array([1, 2]),
         cell_line_ids=np.array(["201", "202"]),
@@ -255,7 +232,7 @@ def test_response_dataset_reduce_to():
     assert set(dataset.cell_line_ids) == {"201", "202"}
     assert set(dataset.drug_ids) == {"X", "Y"}
 
-    # Case 3: reduce_to with empty lists removes all
+    # reduce_to with empty lists removes all
     dataset = DrugResponseDataset(
         response=np.array([1, 2]),
         cell_line_ids=np.array(["301", "302"]),
@@ -311,7 +288,6 @@ def test_split_response_dataset(mode: str, split_validation: bool) -> None:
     :param mode: test_mode, either LPO, LCO, or LDO
     :param split_validation: whether to split the dataset into validation and early stopping sets
     """
-    # Create a dataset with known values
     dataset = DrugResponseDataset(
         response=np.random.random(100),
         cell_line_ids=np.repeat([f"CL-{i}" for i in range(1, 11)], 10),
@@ -321,18 +297,7 @@ def test_split_response_dataset(mode: str, split_validation: bool) -> None:
             * 10
         ),
     )
-    # 100 datapoints, 10 cell lines, 10 drugs
-    # LPO: With 10% validation, 5 folds -> in 1 fold: 20 samples in test,
-    # 80 in train+val -> 40 in train,
-    # 40 samples in validation -> 30 in val_es, 10 in early stopping
-    # LCO: With 10% validation, 5 folds ->
-    # in 1 fold: 2 cell lines in test, 8 in train + val ->
-    # 4 in train, 4 samples in validation -> 3 in val_es, 1 in early stopping
-    # LDO: With 10% validation, 5 folds ->
-    # in 1 fold: 2 drugs in test, 8 in train + val ->
-    # 4 in train, 4 samples in validation -> 3 in val_es, 1 in early stopping
 
-    # Test splitting the dataset with the specified mode and validation split
     cv_splits = dataset.split_dataset(
         n_cv_splits=5,
         mode=mode,
@@ -341,7 +306,7 @@ def test_split_response_dataset(mode: str, split_validation: bool) -> None:
         random_state=42,
     )
     assert isinstance(cv_splits, list)
-    assert len(cv_splits) == 5  # Check if the correct number of splits is returned
+    assert len(cv_splits) == 5
     for split in cv_splits:
         assert isinstance(split["train"], DrugResponseDataset)
         assert isinstance(split["test"], DrugResponseDataset)
@@ -382,306 +347,3 @@ def test_transform(resp_transform: str):
 
     dataset.inverse_transform(transform)
     assert np.allclose(dataset.response, np.array([1, 2, 3, 4, 5]))
-
-
-# Tests for the FeatureDataset class
-
-
-@pytest.fixture
-def sample_feature_dataset() -> FeatureDataset:
-    """Create a sample FeatureDataset for testing.
-
-    :returns: a sample FeatureDataset
-    """
-    features = {
-        "drug1": {
-            "fingerprints": np.random.rand(5),
-            "chemical_features": np.random.rand(5),
-        },
-        "drug2": {
-            "fingerprints": np.random.rand(5),
-            "chemical_features": np.random.rand(5),
-        },
-        "drug3": {
-            "fingerprints": np.random.rand(5),
-            "chemical_features": np.random.rand(5),
-        },
-        "drug4": {
-            "fingerprints": np.random.rand(5),
-            "chemical_features": np.random.rand(5),
-        },
-        "drug5": {
-            "fingerprints": np.random.rand(5),
-            "chemical_features": np.random.rand(5),
-        },
-    }
-    meta_info = {
-        "fingerprints": ["Dim1", "Dim2", "Dim3", "Dim4", "Dim5"],
-        "chemical_features": [
-            "Feature1",
-            "Feature2",
-            "Feature3",
-            "Feature4",
-            "Feature5",
-        ],
-    }
-    return FeatureDataset(features=features, meta_info=meta_info)
-
-
-def random_power_law_graph(size: int = 20) -> nx.Graph:
-    """Create a random graph with power law degree distribution.
-
-    :param size: size of the graph
-    :returns: a random graph with power law degree distribution
-    """
-    # make a graph with degrees distributed as a power law
-    graph = nx.Graph()
-    degrees = np.round(nx.utils.powerlaw_sequence(size, 2.5))
-    graph.add_nodes_from(range(size))
-    graph = nx.expected_degree_graph(degrees, selfloops=False)
-    # only extract largest connected component
-    largest_cc = max(nx.connected_components(graph), key=len)
-    graph = graph.subgraph(largest_cc).copy()
-    # assign edge attributes
-    for u, v in graph.edges():
-        graph[u][v]["original_edge"] = f"({u}_{v})"
-    return graph
-
-
-@pytest.fixture
-def graph_dataset() -> FeatureDataset:
-    """Create a sample FeatureDataset with molecular graphs for testing.
-
-    :returns: a sample FeatureDataset with molecular graphs
-    """
-    features = {
-        "drug1": {
-            "molecular_graph": random_power_law_graph(),
-        },
-        "drug2": {
-            "molecular_graph": random_power_law_graph(),
-        },
-        "drug3": {
-            "molecular_graph": random_power_law_graph(),
-        },
-        "drug4": {
-            "molecular_graph": random_power_law_graph(),
-        },
-        "drug5": {
-            "molecular_graph": random_power_law_graph(),
-        },
-    }
-    meta_info = {
-        "molecular_graph": "Atom graph created with power law",
-    }
-    return FeatureDataset(features=features, meta_info=meta_info)
-
-
-def test_feature_dataset_get_ids(sample_feature_dataset: FeatureDataset) -> None:
-    """Test if the get_ids method works correctly.
-
-    :param sample_feature_dataset: sample FeatureDataset
-    """
-    assert np.all(sample_feature_dataset.identifiers == ["drug1", "drug2", "drug3", "drug4", "drug5"])
-
-
-def test_feature_dataset_get_view_names(sample_feature_dataset: FeatureDataset) -> None:
-    """Test if the get_view_names method works correctly.
-
-    :param sample_feature_dataset: sample FeatureDataset
-    """
-    assert sample_feature_dataset.view_names == [
-        "fingerprints",
-        "chemical_features",
-    ]
-
-
-def test_feature_dataset_get_feature_matrix(sample_feature_dataset: FeatureDataset) -> None:
-    """Test if the get_feature_matrix method works correctly.
-
-    :param sample_feature_dataset: sample FeatureDataset
-    """
-    feature_matrix = sample_feature_dataset.get_feature_matrix("fingerprints", np.array(["drug1", "drug2"]))
-    assert feature_matrix.shape == (2, 5)
-    assert np.allclose(
-        feature_matrix,
-        np.array(
-            [
-                sample_feature_dataset.features["drug1"]["fingerprints"],
-                sample_feature_dataset.features["drug2"]["fingerprints"],
-            ]
-        ),
-    )
-    assert isinstance(feature_matrix, np.ndarray)
-
-
-def test_feature_dataset_copy(sample_feature_dataset: FeatureDataset) -> None:
-    """Test if the copy method works correctly.
-
-    :param sample_feature_dataset: sample FeatureDataset
-    """
-    copied_dataset = sample_feature_dataset.copy()
-    assert (
-        copied_dataset.features["drug1"]["fingerprints"] is not sample_feature_dataset.features["drug1"]["fingerprints"]
-    )
-    assert np.allclose(
-        copied_dataset.features["drug1"]["fingerprints"],
-        sample_feature_dataset.features["drug1"]["fingerprints"],
-    )
-    assert copied_dataset.features is not sample_feature_dataset.features
-    copied_dataset.features["drug1"]["fingerprints"] = np.zeros(5)
-    assert not np.allclose(
-        copied_dataset.features["drug1"]["fingerprints"],
-        sample_feature_dataset.features["drug1"]["fingerprints"],
-    )
-
-
-@flaky(max_runs=25)  # permutation randomization might map to the same feature vector for some tries
-def test_permutation_randomization(sample_feature_dataset: FeatureDataset) -> None:
-    """Test if the permutation randomization works correctly.
-
-    :param sample_feature_dataset: sample FeatureDataset
-    """
-    views_to_randomize, randomization_type = "fingerprints", "permutation"
-    start_sample_dataset = sample_feature_dataset.copy()
-    sample_feature_dataset.randomize_features(views_to_randomize, randomization_type)
-    for drug, features in sample_feature_dataset.features.items():
-        assert not np.allclose(
-            features[views_to_randomize],
-            start_sample_dataset.features[drug][views_to_randomize],
-        )
-
-
-@flaky(max_runs=25)  # permutation randomization might map to the same feature vector for some tries
-def test_permutation_randomization_graph(graph_dataset: FeatureDataset) -> None:
-    """Test if the permutation randomization works correctly for molecular graphs.
-
-    :param graph_dataset: sample FeatureDataset with molecular graphs
-    """
-    views_to_randomize, randomization_type = "molecular_graph", "permutation"
-    start_graph_dataset = graph_dataset.copy()
-    graph_dataset.randomize_features(views_to_randomize, randomization_type)
-    for drug, features in graph_dataset.features.items():
-        # assert that drugs have different molecular graphs now
-        assert not nx.is_isomorphic(
-            features[views_to_randomize],
-            start_graph_dataset.features[drug][views_to_randomize],
-        )
-
-
-def test_invariant_randomization_array(sample_feature_dataset: FeatureDataset) -> None:
-    """Test if the invariant randomization works correctly.
-
-    :param sample_feature_dataset: sample FeatureDataset
-    """
-    views_to_randomize, randomization_type = "chemical_features", "invariant"
-    start_sample_dataset = sample_feature_dataset.copy()
-    sample_feature_dataset.randomize_features(views_to_randomize, randomization_type)
-    for drug, features in sample_feature_dataset.features.items():
-        assert not np.allclose(
-            features[views_to_randomize],
-            start_sample_dataset.features[drug][views_to_randomize],
-        )
-
-
-@flaky(max_runs=5)  # expected degree randomization might produce the same graph
-def test_invariant_randomization_graph(graph_dataset: FeatureDataset) -> None:
-    """Test if the invariant randomization works correctly for molecular graphs.
-
-    :param graph_dataset: sample FeatureDataset with molecular graphs
-    """
-    views_to_randomize, randomization_type = "molecular_graph", "invariant"
-    start_graph_dataset = graph_dataset.copy()
-    graph_dataset.randomize_features(views_to_randomize, randomization_type)
-    for drug, features in graph_dataset.features.items():
-        assert not nx.is_isomorphic(
-            features[views_to_randomize],
-            start_graph_dataset.features[drug][views_to_randomize],
-        )
-
-
-def test_add_features(sample_feature_dataset: FeatureDataset, graph_dataset: FeatureDataset) -> None:
-    """Test if the add_features method works correctly.
-
-    :param sample_feature_dataset: sample FeatureDataset
-    :param graph_dataset: sample FeatureDataset with molecular graphs
-    """
-    sample_feature_dataset.add_features(graph_dataset)
-    assert sample_feature_dataset.meta_info is not None
-    assert "molecular_graph" in sample_feature_dataset.meta_info
-    assert "molecular_graph" in sample_feature_dataset.view_names
-
-
-def test_feature_dataset_csv_meta_handling():
-    """Test `from_csv` and `to_csv` methods with and without meta_info handling."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_dir = Path(temp_dir)
-
-        # ------------------------------------
-        # 0. Create initial test DataFrame/CSV
-        # ------------------------------------
-        df_with_named_cols = pd.DataFrame(
-            {
-                "id": ["A", "B", "C"],
-                "feature_1": [1.0, 2.0, 3.0],
-                "feature_2": [4.0, 5.0, 6.0],
-            }
-        )
-        csv_with_meta = temp_dir / "input_with_meta.csv"
-        df_with_named_cols.to_csv(csv_with_meta, index=False)
-
-        view_name = "example_view"
-
-        # ------------------------------------
-        # 1. Load from CSV → should extract meta_info
-        # ------------------------------------
-        dataset = FeatureDataset.from_csv(
-            path_to_csv=csv_with_meta,
-            id_column="id",
-            view_name=view_name,
-        )
-
-        assert dataset.meta_info == {view_name: ["feature_1", "feature_2"]}
-        assert set(dataset.identifiers) == {"A", "B", "C"}
-        assert dataset.view_names == [view_name]
-
-        # ------------------------------------
-        # 2. Save with meta_info → column names should be preserved
-        # ------------------------------------
-        csv_out_with_meta = temp_dir / "saved_with_meta.csv"
-        dataset.to_csv(csv_out_with_meta, id_column="id", view_name=view_name)
-
-        saved_df = pd.read_csv(csv_out_with_meta)
-        pd.testing.assert_frame_equal(saved_df, df_with_named_cols, check_dtype=False)
-
-        # ------------------------------------
-        # 3. Save without meta_info → fallback to generic feature_0, feature_1
-        # ------------------------------------
-        dataset._meta_info = {}  # simulate no meta info
-        csv_out_no_meta = temp_dir / "saved_no_meta.csv"
-        dataset.to_csv(csv_out_no_meta, id_column="id", view_name=view_name)
-
-        df_fallback = pd.DataFrame(
-            {
-                "id": ["A", "B", "C"],
-                "feature_0": [1.0, 2.0, 3.0],
-                "feature_1": [4.0, 5.0, 6.0],
-            }
-        )
-        saved_fallback_df = pd.read_csv(csv_out_no_meta)
-        pd.testing.assert_frame_equal(saved_fallback_df, df_fallback, check_dtype=False)
-
-        # ------------------------------------
-        # 4. Load fallback CSV → should reconstruct generic meta_info
-        # ------------------------------------
-        dataset_fallback = FeatureDataset.from_csv(
-            path_to_csv=csv_out_no_meta,
-            id_column="id",
-            view_name=view_name,
-        )
-
-        assert dataset_fallback.meta_info == {view_name: ["feature_0", "feature_1"]}
-        np.testing.assert_array_equal(
-            dataset_fallback.features["B"][view_name],
-            np.array([2.0, 5.0]),
-        )

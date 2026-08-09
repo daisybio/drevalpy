@@ -7,22 +7,22 @@ from dataclasses import dataclass
 import numpy as np
 
 from drevalpy.datasets.mudataset import MuDataset
-from drevalpy.datasets.splitting import SplitMasks
+from drevalpy.datasets.splitting import EntityScope, SplitMasks
 from drevalpy.models.drp_model import DRPModel
 
 
 @dataclass(frozen=True)
 class MuFoldData:
-    """Per-fold data referencing the shared MuDataset with split masks.
+    """Per-fold data referencing the shared MuDataset with entity scopes.
 
     The MuDataset is never copied -- splits are represented as index arrays.
     """
 
     mudataset: MuDataset
-    train_masks: SplitMasks
-    val_masks: SplitMasks
-    test_masks: SplitMasks
-    early_stopping_masks: SplitMasks | None
+    train_scope: EntityScope
+    val_scope: EntityScope
+    test_scope: EntityScope
+    early_stopping_scope: EntityScope | None
 
 
 def prepare_mu_fold(
@@ -39,34 +39,24 @@ def prepare_mu_fold(
     :param split_masks: Fold masks from MuDataSplitter.
     :param model_class: Model class to check for early-stopping support.
 
-    :returns: MuFoldData with appropriate masks for train/val/test/early_stopping.
+    :returns: MuFoldData with appropriate scopes for train/val/test/early_stopping.
     """
-    train_masks = SplitMasks(
-        train_cell_lines=split_masks.train_cell_lines,
-        test_cell_lines=split_masks.train_cell_lines,
-        val_cell_lines=np.array([], dtype=np.intp),
-        train_drugs=split_masks.train_drugs,
-        test_drugs=split_masks.train_drugs,
-        val_drugs=np.array([], dtype=np.intp) if split_masks.train_drugs is not None else None,
+    train_scope = EntityScope(
+        cell_lines=split_masks.train_cell_lines,
+        drugs=split_masks.train_drugs,
     )
 
-    val_masks = SplitMasks(
-        train_cell_lines=split_masks.val_cell_lines,
-        test_cell_lines=split_masks.val_cell_lines,
-        val_cell_lines=np.array([], dtype=np.intp),
-        train_drugs=split_masks.val_drugs,
-        test_drugs=split_masks.val_drugs,
-        val_drugs=np.array([], dtype=np.intp) if split_masks.val_drugs is not None else None,
+    val_scope = EntityScope(
+        cell_lines=split_masks.val_cell_lines,
+        drugs=split_masks.val_drugs,
     )
 
-    test_masks = SplitMasks(
-        train_cell_lines=split_masks.test_cell_lines,
-        test_cell_lines=split_masks.test_cell_lines,
-        val_cell_lines=np.array([], dtype=np.intp),
-        train_drugs=split_masks.test_drugs,
-        test_drugs=split_masks.test_drugs,
-        val_drugs=np.array([], dtype=np.intp) if split_masks.test_drugs is not None else None,
+    test_scope = EntityScope(
+        cell_lines=split_masks.test_cell_lines,
+        drugs=split_masks.test_drugs,
     )
+
+    early_stopping_scope: EntityScope | None = None
 
     if model_class.supports_early_stopping() and len(split_masks.val_cell_lines) > 1:
         n_val = len(split_masks.val_cell_lines)
@@ -80,39 +70,29 @@ def prepare_mu_fold(
             es_drugs = split_masks.val_drugs[:n_es]
             actual_val_drugs = split_masks.val_drugs[n_es:]
 
-        val_masks = SplitMasks(
-            train_cell_lines=actual_val_cl,
-            test_cell_lines=actual_val_cl,
-            val_cell_lines=np.array([], dtype=np.intp),
-            train_drugs=actual_val_drugs,
-            test_drugs=actual_val_drugs,
-            val_drugs=np.array([], dtype=np.intp) if actual_val_drugs is not None else None,
+        val_scope = EntityScope(
+            cell_lines=actual_val_cl,
+            drugs=actual_val_drugs,
         )
-        early_stopping_masks = SplitMasks(
-            train_cell_lines=es_cl,
-            test_cell_lines=es_cl,
-            val_cell_lines=np.array([], dtype=np.intp),
-            train_drugs=es_drugs,
-            test_drugs=es_drugs,
-            val_drugs=np.array([], dtype=np.intp) if es_drugs is not None else None,
+        early_stopping_scope = EntityScope(
+            cell_lines=es_cl,
+            drugs=es_drugs,
         )
-    else:
-        early_stopping_masks = None
 
     return MuFoldData(
         mudataset=mudataset,
-        train_masks=train_masks,
-        val_masks=val_masks,
-        test_masks=test_masks,
-        early_stopping_masks=early_stopping_masks,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        test_scope=test_scope,
+        early_stopping_scope=early_stopping_scope,
     )
 
 
-def merge_train_val_masks(split_masks: SplitMasks) -> SplitMasks:
-    """Merge train and validation masks into a single training set for final training.
+def merge_train_val_scopes(split_masks: SplitMasks) -> EntityScope:
+    """Merge train and validation into a single training EntityScope.
 
     :param split_masks: Original fold split masks.
-    :returns: New SplitMasks with train+val merged into train.
+    :returns: EntityScope with train+val cell lines/drugs merged.
     """
     merged_cl = np.concatenate([split_masks.train_cell_lines, split_masks.val_cell_lines])
 
@@ -120,11 +100,4 @@ def merge_train_val_masks(split_masks: SplitMasks) -> SplitMasks:
     if split_masks.train_drugs is not None and split_masks.val_drugs is not None:
         merged_drugs = np.concatenate([split_masks.train_drugs, split_masks.val_drugs])
 
-    return SplitMasks(
-        train_cell_lines=merged_cl,
-        test_cell_lines=split_masks.test_cell_lines,
-        val_cell_lines=np.array([], dtype=np.intp),
-        train_drugs=merged_drugs,
-        test_drugs=split_masks.test_drugs,
-        val_drugs=None,
-    )
+    return EntityScope(cell_lines=merged_cl, drugs=merged_drugs)

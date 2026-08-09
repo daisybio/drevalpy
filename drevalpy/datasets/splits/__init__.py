@@ -1,4 +1,10 @@
-"""Test-mode split providers for drevalpy."""
+"""Test-mode split providers for drevalpy.
+
+.. deprecated::
+    This module is deprecated. New code should use
+    :class:`~drevalpy.datasets.splitting.MuDataSplitter` from
+    ``drevalpy.datasets.splitting`` instead.
+"""
 
 from .manifest import (
     MANIFEST_FILENAME,

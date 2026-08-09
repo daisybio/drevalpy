@@ -6,9 +6,9 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, metadata_feature_block, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
@@ -32,46 +32,46 @@ class DrugIdentityFeaturizer(DrugFeaturizer):
 
     def fit(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> DrugIdentityFeaturizer:
         """Fit on training data.
 
-        :param features: features.
+        :param source: Feature source (unused; identity only needs IDs).
         :param entity_ids: entity ids.
         :param context: context.
         :returns: Result.
         """
-        _ = features, context
-        ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()), dtype=str)
+        _ = context
+        ids = entity_ids if entity_ids is not None else source.identifiers
         self._encoder.fit_categories(ids)
         return self
 
-    def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
-        :param features: features.
+        :param source: Feature source (unused).
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        _ = features
+        _ = source
         return self._encoder.transform(entity_ids)
 
     def transform_blocks(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         entity_ids: np.ndarray,
     ) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
-        :param features: features.
+        :param source: Feature source (unused).
         :param entity_ids: entity ids.
         :returns: Result.
         """
         return {
-            "identity": numeric_feature_block(self.transform(features, entity_ids)),
+            "identity": numeric_feature_block(self.transform(source, entity_ids)),
             "identity_categories": metadata_feature_block(
                 np.asarray(self._encoder.categories, dtype=str),
             ),

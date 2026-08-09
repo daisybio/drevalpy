@@ -9,11 +9,11 @@ from sklearn.base import TransformerMixin
 
 from ..components.tuning.hpo import hpam_tune  # noqa: F401
 from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import MuDataSplitter, SplitMasks
+from ..datasets.splitting import EntityScope, MuDataSplitter, SplitMasks
 from ..models.drp_model import DRPModel
 from ..utils._pipeline_function import pipeline_function
 from .cross_study import cross_study_prediction_impl
-from .fold import MuFoldData, merge_train_val_masks, prepare_mu_fold
+from .fold import MuFoldData, merge_train_val_scopes, prepare_mu_fold
 from .model_paths import generate_data_saving_path as _generate_data_saving_path
 from .model_paths import generate_final_model_checkpoint_path as _generate_final_model_checkpoint_path
 from .model_paths import get_model_name_and_drug_id as _get_model_name_and_drug_id
@@ -25,6 +25,7 @@ from .training import mu_train_and_predict
 _CWD = Path()
 
 __all__ = [
+    "EntityScope",
     "MuDataSplitter",
     "MuDataset",
     "MuFoldData",
@@ -35,7 +36,7 @@ __all__ = [
     "generate_final_model_checkpoint_path",
     "get_model_name_and_drug_id",
     "get_randomization_test_views",
-    "merge_train_val_masks",
+    "merge_train_val_scopes",
     "mu_experiment",
     "mu_train_and_predict",
     "prepare_mu_fold",
@@ -70,18 +71,14 @@ def _cross_study_prediction_legacy(
         dataset.transform(response_transformation)
 
     try:
-        from drevalpy.components.data_loading import (
-            build_cell_line_features_from_mudataset,
-            build_drug_features_from_mudataset,
-        )
+        from drevalpy.components.feature_source import CellLineFeatureSource, DrugFeatureSource
         from drevalpy.datasets import load_mudataset
 
         mudataset = load_mudataset(dataset.dataset_name)
-        config = model._resolved_model_config or model.model_config()
         all_cl_ids = np.array(mudataset.cell_line_ids)
         all_drug_ids = np.array(mudataset.drug_ids)
-        cl_features = build_cell_line_features_from_mudataset(mudataset, config, all_cl_ids)
-        drug_features = build_drug_features_from_mudataset(mudataset, config, all_drug_ids)
+        cl_features = CellLineFeatureSource(mudataset, all_cl_ids)
+        drug_features = DrugFeatureSource(mudataset, all_drug_ids)
     except (ValueError, FileNotFoundError) as e:
         warnings.warn(str(e), stacklevel=2)
         return
@@ -305,9 +302,9 @@ def randomize_train_predict(
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    test_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None = None,
+    train_scope: EntityScope,
+    test_scope: EntityScope,
+    early_stopping_scope: EntityScope | None = None,
     model_checkpoint_dir: str | Path | None = None,
     response_transformation: TransformerMixin | None = None,
 ) -> None:
@@ -320,9 +317,9 @@ def randomize_train_predict(
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
     :param mudataset: Full MuDataset with all features.
-    :param train_masks: SplitMasks for training samples.
-    :param test_masks: SplitMasks for test samples.
-    :param early_stopping_masks: Optional SplitMasks for early stopping.
+    :param train_scope: EntityScope for training samples.
+    :param test_scope: EntityScope for test samples.
+    :param early_stopping_scope: Optional EntityScope for early stopping.
     :param model_checkpoint_dir: Directory for model checkpoints.
     :param response_transformation: Optional response transformer.
     """
@@ -336,9 +333,9 @@ def randomize_train_predict(
         model_class=model_class,
         hyperparameters=hyperparameters,
         mudataset=mudataset,
-        train_masks=train_masks,
-        test_masks=test_masks,
-        early_stopping_masks=early_stopping_masks,
+        train_scope=train_scope,
+        test_scope=test_scope,
+        early_stopping_scope=early_stopping_scope,
         model_checkpoint_dir=model_checkpoint_dir,
         response_transformation=response_transformation,
     )
@@ -349,9 +346,9 @@ def robustness_train_predict(
     trial: int,
     trial_file: str | Path,
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    test_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None,
+    train_scope: EntityScope,
+    test_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
     response_transformation: TransformerMixin | None = None,
@@ -362,9 +359,9 @@ def robustness_train_predict(
     :param trial: Trial index within the robustness test.
     :param trial_file: Output path for predictions.
     :param mudataset: Full MuDataset with all features.
-    :param train_masks: SplitMasks for training samples.
-    :param test_masks: SplitMasks for test samples.
-    :param early_stopping_masks: Optional SplitMasks for early stopping.
+    :param train_scope: EntityScope for training samples.
+    :param test_scope: EntityScope for test samples.
+    :param early_stopping_scope: Optional EntityScope for early stopping.
     :param model_class: Model class to train on perturbed data.
     :param hyperparameters: Hyperparameters for model construction.
     :param response_transformation: Optional response transformer.
@@ -376,9 +373,9 @@ def robustness_train_predict(
         trial=trial,
         trial_file=trial_file,
         mudataset=mudataset,
-        train_masks=train_masks,
-        test_masks=test_masks,
-        early_stopping_masks=early_stopping_masks,
+        train_scope=train_scope,
+        test_scope=test_scope,
+        early_stopping_scope=early_stopping_scope,
         model_class=model_class,
         hyperparameters=hyperparameters,
         response_transformation=response_transformation,
@@ -475,18 +472,14 @@ def train_and_evaluate(
 
     import numpy as np
 
-    from drevalpy.components.data_loading import (
-        build_cell_line_features_from_mudataset,
-        build_drug_features_from_mudataset,
-    )
+    from drevalpy.components.feature_source import CellLineFeatureSource, DrugFeatureSource
     from drevalpy.datasets import load_mudataset
 
     mudataset = load_mudataset(train_dataset.dataset_name)
-    config = model._resolved_model_config or model.model_config()
     all_cl_ids = np.array(mudataset.cell_line_ids)
     all_drug_ids = np.array(mudataset.drug_ids)
-    cl_features = build_cell_line_features_from_mudataset(mudataset, config, all_cl_ids)
-    drug_features = build_drug_features_from_mudataset(mudataset, config, all_drug_ids)
+    cl_features = CellLineFeatureSource(mudataset, all_cl_ids)
+    drug_features = DrugFeatureSource(mudataset, all_drug_ids)
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
     drugs_to_keep = drug_features.identifiers if drug_features is not None else None

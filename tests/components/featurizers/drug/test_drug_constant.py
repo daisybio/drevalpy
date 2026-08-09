@@ -6,12 +6,12 @@ import numpy as np
 
 from drevalpy.components.featurizers.drug.constant import DrugConstantFeaturizer
 from drevalpy.components.registry import get_drug_featurizer, get_drug_featurizer_metadata
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
 def test_drug_constant_is_ones_column() -> None:
     featurizer = DrugConstantFeaturizer()
-    features = FeatureDataset(features={"d1": {"fingerprints": np.array([1.0, 0.0])}})
+    features = MockFeatureSource(features={"d1": {"fingerprints": np.array([1.0, 0.0])}})
     entity_ids = np.array(["d1", "d2"], dtype=str)
     featurizer.fit(features, entity_ids=entity_ids)
     matrix = featurizer.transform(features, entity_ids)

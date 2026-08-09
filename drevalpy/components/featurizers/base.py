@@ -7,9 +7,9 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components._feature_dataset import FeatureDataset
 from drevalpy.components.contracts import FeatureContract, featurizer_contract
-from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_block import BlockSpec, FeatureBlock
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 
 
@@ -49,14 +49,14 @@ class Featurizer(ABC):
     @abstractmethod
     def fit(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> Featurizer:
         """Fit on the entities given by *entity_ids* (or all entities when ``None``).
 
-        :param features: Raw feature views for the entity type.
+        :param source: Feature source providing views for the entity type.
         :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
         :param context: Optional training context shared across featurizers.
 
@@ -64,30 +64,40 @@ class Featurizer(ABC):
         """
 
     @abstractmethod
-    def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
-        """Return one payload row per entity id in *entity_ids*.
-
-        :param features: Raw feature views for the entity type.
-        :param entity_ids: Entity identifiers to transform.
-
-        :returns: Feature payloads aligned with *entity_ids*.
-        """
-
     def transform_blocks(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         entity_ids: np.ndarray,
     ) -> dict[str, FeatureBlock]:
-        """Return named feature blocks; default is a single ``default`` block.
+        """Return named feature blocks aligned with *entity_ids*.
 
-        :param features: Raw feature views for the entity type.
+        This is the primary output method. Subclasses must implement this.
+
+        :param source: Feature source providing views for the entity type.
         :param entity_ids: Entity identifiers to transform.
 
         :returns: Mapping of block name to ``FeatureBlock`` payloads aligned with *entity_ids*.
         """
-        return {
-            "default": numeric_feature_block(self.transform(features, entity_ids)),
-        }
+
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        """Return a flat feature matrix by concatenating numeric blocks.
+
+        Default implementation derives the matrix from transform_blocks.
+        Override for custom flat-matrix behavior (e.g. multi-omics featurizers
+        that return a subset of blocks as the flat matrix).
+
+        :param source: Feature source providing views for the entity type.
+        :param entity_ids: Entity identifiers to transform.
+
+        :returns: Feature payloads aligned with *entity_ids*.
+        """
+        from drevalpy.components.contracts import FeatureFormat
+
+        blocks = self.transform_blocks(source, entity_ids)
+        arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
+        if not arrays:
+            return np.empty((len(entity_ids), 0), dtype=np.float32)
+        return np.concatenate(arrays, axis=1)
 
     @property
     @abstractmethod

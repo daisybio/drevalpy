@@ -10,7 +10,7 @@ from ..datasets.mudataset import MuDataset
 from ..datasets.splitting import MuDataSplitter
 from ..models.drp_model import DRPModel
 from ..utils.checkpoints import checkpoint_dir_or_temporary
-from .fold import merge_train_val_masks, prepare_mu_fold
+from .fold import merge_train_val_scopes, prepare_mu_fold
 from .hpo import select_final_model_hyperparameters
 
 
@@ -70,9 +70,9 @@ def train_final_model_impl(
     best_hpams = select_final_model_hyperparameters(
         model_class=model_class,
         mudataset=mudataset,
-        train_masks=fold_data.train_masks,
-        val_masks=fold_data.val_masks,
-        early_stopping_masks=fold_data.early_stopping_masks,
+        train_scope=fold_data.train_scope,
+        val_scope=fold_data.val_scope,
+        early_stopping_scope=fold_data.early_stopping_scope,
         response_transformation=response_transformation,
         metric=metric,
         model_checkpoint_dir=model_checkpoint_dir,
@@ -83,12 +83,12 @@ def train_final_model_impl(
     print(f"Best hyperparameters for final model: {best_hpams}")
     model = model_class(best_hpams)
 
-    merged_split = merge_train_val_masks(split_masks)
+    merged_scope = merge_train_val_scopes(split_masks)
 
     with checkpoint_dir_or_temporary(model_checkpoint_dir) as checkpoint_dir:
         model.train(
             mudataset=mudataset,
-            split=merged_split,
+            scope=merged_scope,
             model_checkpoint_dir=checkpoint_dir,
         )
 

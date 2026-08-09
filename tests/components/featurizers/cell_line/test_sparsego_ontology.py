@@ -6,11 +6,11 @@ import numpy as np
 
 from drevalpy.components.featurizers.cell_line._sparsego_metadata import attach_sparsego_ontology_metadata
 from drevalpy.components.featurizers.cell_line.sparsego_ontology import SparseGOOntologyFeaturizer
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
 def test_sparsego_ontology_emits_active_block_and_round_trips_state() -> None:
-    features = FeatureDataset(
+    features = MockFeatureSource(
         {"cl1": {"gene_expression": np.array([1.0, 2.0])}},
         meta_info={"gene_expression": ["a", "b"]},
     )

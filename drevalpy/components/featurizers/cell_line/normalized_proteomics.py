@@ -8,12 +8,12 @@ import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.preprocessing import (
     ProteomicsMedianCenterAndImputeTransformer,
-    prepare_proteomics,
+    log10_and_set_na,
 )
 from drevalpy.components.registry import register_cell_line_featurizer
 
@@ -56,56 +56,53 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
 
     def fit(
         self,
-        features,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> NormalizedProteomicsCellLineFeaturizer:
         """Fit on training data.
 
-        :param features: features.
+        :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
         :param context: context.
         :returns: Result.
         """
         _ = context
-        ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
-        processed = prepare_proteomics(
-            cell_line_input=features.copy(),
-            cell_line_ids=np.unique(ids),
-            training=True,
-            transformer=self._transformer,
-        )
-        matrix = stack_view_matrix(processed, self._view, np.array(list(processed.features.keys())))
-        self._output_dim = int(matrix.shape[1])
+        ids = entity_ids if entity_ids is not None else source.identifiers
+        matrix = log10_and_set_na(source.get_view_matrix(self._view, np.unique(ids)))
+        self._transformer.fit(matrix)
+        self._output_dim = len(self._transformer.protein_indices)
         return self
 
-    def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        """Get log10-transformed matrix and apply the fitted transformer row-by-row."""
+        matrix = log10_and_set_na(source.get_view_matrix(self._view, entity_ids))
+        rows = []
+        for row in matrix:
+            rows.append(self._transformer.transform(row[None, :])[0])
+        return np.vstack(rows).astype(np.float32)
+
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
-        :param features: features.
+        :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        processed = prepare_proteomics(
-            cell_line_input=features.copy(),
-            cell_line_ids=np.unique(entity_ids),
-            training=False,
-            transformer=self._transformer,
-        )
-        return stack_view_matrix(processed, self._view, entity_ids).astype(np.float32)
+        return self._transform_matrix(source, entity_ids)
 
-    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
-        :param features: features.
+        :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
         :returns: Result.
         """
         return {
             self._view: numeric_feature_block(
-                self.transform(features, entity_ids),
-                feature_names=feature_names_for_view(features, self._view),
+                self.transform(source, entity_ids),
+                feature_names=source.get_feature_names(self._view),
             )
         }
 

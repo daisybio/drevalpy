@@ -7,11 +7,11 @@ import numpy as np
 from drevalpy.components.featurizers.cell_line.normalized_proteomics import (
     NormalizedProteomicsCellLineFeaturizer,
 )
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
-def _make_features() -> FeatureDataset:
-    return FeatureDataset(
+def _make_features() -> MockFeatureSource:
+    return MockFeatureSource(
         features={
             "cl1": {"proteomics": np.array([1.0, 2.0, 3.0], dtype=np.float32)},
             "cl2": {"proteomics": np.array([4.0, 5.0, 6.0], dtype=np.float32)},

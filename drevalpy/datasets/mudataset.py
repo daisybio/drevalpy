@@ -8,6 +8,7 @@ with a single entry point backed by an .h5mu file.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +75,10 @@ class MuDataset:
     ``mdata.uns`` keys.
     """
 
+    _DRUG_VIEW_ALIASES: dict[str, str] = {
+        "fingerprints": "morgan_fingerprint",
+    }
+
     def __init__(self, mdata: md.MuData) -> None:
         """Wrap an existing MuData object.
 
@@ -86,6 +91,7 @@ class MuDataset:
         if "response" not in mdata.mod:
             raise KeyError("MuData must contain a 'response' modality.")
         self._mdata = mdata
+        self._drug_view_map: dict[str, str] = self._build_drug_view_map()
 
     @classmethod
     def from_file(cls, path: str | Path) -> MuDataset:
@@ -168,7 +174,7 @@ class MuDataset:
     # Cell-line features
     # ------------------------------------------------------------------
 
-    def get_cell_line_features(self, modality: str, ids: np.ndarray) -> np.ndarray:
+    def get_cell_line_features(self, modality: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Get a feature matrix for the specified cell lines from a modality.
 
         For standard omics modalities (gene_expression, proteomics, etc.) the
@@ -178,17 +184,18 @@ class MuDataset:
         Args:
             modality: Name of the modality or obsm key.
             ids: 1-D array of cell line IDs to retrieve.
+            strict: If True, raise KeyError for missing IDs instead of warning.
 
         Returns:
             Float32 array of shape (len(ids), n_features), rows aligned to *ids*.
 
         Raises:
-            KeyError: If the modality is not present.
+            KeyError: If the modality is not present, or if *strict* and IDs are missing.
         """
         ids = np.asarray(ids, dtype=str)
 
         if modality == "pathway_features":
-            return self._get_obsm_features("pathway_features", ids)
+            return self._get_obsm_features("pathway_features", ids, strict=strict)
 
         if modality not in self._mdata.mod:
             raise KeyError(f"Modality '{modality}' not found. Available: {list(self._mdata.mod.keys())}")
@@ -196,6 +203,18 @@ class MuDataset:
         adata = self._mdata.mod[modality]
         idx = pd.Index(adata.obs_names)
         positions = idx.get_indexer(ids)
+
+        missing_mask = positions == -1
+        if missing_mask.any():
+            n_missing = int(missing_mask.sum())
+            missing_ids = ids[missing_mask][:5].tolist()
+            msg = (
+                f"{n_missing} of {len(ids)} cell line IDs not found in the dataset "
+                f"(first few: {missing_ids}). Returning NaN rows."
+            )
+            if strict:
+                raise KeyError(msg)
+            warnings.warn(msg, stacklevel=2)
 
         n_features = adata.X.shape[1]
         result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
@@ -206,7 +225,7 @@ class MuDataset:
         result[valid] = np.asarray(x[positions[valid]], dtype=np.float32)
         return result
 
-    def _get_obsm_features(self, key: str, ids: np.ndarray) -> np.ndarray:
+    def _get_obsm_features(self, key: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Retrieve cell-line features stored in response.obsm."""
         if key not in self.response.obsm:
             raise KeyError(f"obsm key '{key}' not found in response modality.")
@@ -215,61 +234,140 @@ class MuDataset:
         idx = pd.Index(self.response.obs_names)
         positions = idx.get_indexer(ids)
 
+        missing_mask = positions == -1
+        if missing_mask.any():
+            n_missing = int(missing_mask.sum())
+            missing_ids = ids[missing_mask][:5].tolist()
+            msg = (
+                f"{n_missing} of {len(ids)} cell line IDs not found in the dataset "
+                f"(first few: {missing_ids}). Returning NaN rows."
+            )
+            if strict:
+                raise KeyError(msg)
+            warnings.warn(msg, stacklevel=2)
+
         n_features = obsm_data.shape[1]
         result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
         valid = positions >= 0
         result[valid] = np.asarray(obsm_data[positions[valid]], dtype=np.float32)
         return result
 
+    def get_cell_line_feature_names(self, view: str) -> tuple[str, ...] | None:
+        """Return the feature (column) names for a cell-line view.
+
+        For standard modalities the names come from ``mdata.mod[view].var_names``.
+        For "pathway_features" stored in ``response.obsm``, returns None (no
+        named columns available).
+
+        Args:
+            view: Name of the modality or obsm key.
+
+        Returns:
+            Tuple of feature names, or None if names are unavailable.
+        """
+        if view == "pathway_features":
+            return None
+        if view not in self._mdata.mod:
+            return None
+        return tuple(self._mdata.mod[view].var_names)
+
     # ------------------------------------------------------------------
     # Drug features
     # ------------------------------------------------------------------
 
-    _DRUG_VIEW_ALIASES: dict[str, str] = {
-        "fingerprints": "morgan_fingerprint",
-    }
+    def _build_drug_view_map(self) -> dict[str, str]:
+        """Build a mapping from canonical/alias names to actual varm keys."""
+        view_map: dict[str, str] = {}
+        varm_keys = list(self.response.varm.keys()) if self.response.varm else []
+
+        for key in varm_keys:
+            view_map[key] = key
+            if ":" in key:
+                prefix = key.split(":", 1)[0]
+                if prefix not in view_map:
+                    view_map[prefix] = key
+                else:
+                    warnings.warn(
+                        f"Drug view prefix {prefix!r} already maps to {view_map[prefix]!r}; "
+                        f"ignoring {key!r}. Use the full key to access it.",
+                        stacklevel=2,
+                    )
+
+        for alias, target in self._DRUG_VIEW_ALIASES.items():
+            if target in view_map and alias not in view_map:
+                view_map[alias] = view_map[target]
+
+        return view_map
+
+    @property
+    def available_drug_views(self) -> list[str]:
+        """Sorted list of canonical drug view names (keys of the view registry)."""
+        return sorted(self._drug_view_map.keys())
 
     def _resolve_drug_view(self, name: str) -> str | None:
-        """Resolve a drug view name to an actual varm key, trying aliases and prefix matches."""
-        if name in self.response.varm:
-            return name
-        alias = self._DRUG_VIEW_ALIASES.get(name)
-        if alias and alias in self.response.varm:
-            return alias
-        for key in self.response.varm:
-            if key.startswith(f"{alias}:") if alias else key.startswith(f"{name}:"):
-                return key
-        return None
+        """Resolve a drug view name to an actual varm key via the registry."""
+        return self._drug_view_map.get(name)
 
-    def get_drug_features(self, name: str, ids: np.ndarray) -> np.ndarray:
+    def get_drug_features(self, name: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Get a drug feature matrix from response.varm, aligned to given IDs.
 
         Args:
             name: Key in ``response.varm`` (e.g. "chemberta", "morgan_fingerprint").
             ids: 1-D array of drug (PubChem) IDs.
+            strict: If True, raise KeyError for missing IDs instead of warning.
 
         Returns:
             Float32 array of shape (len(ids), n_features), rows aligned to *ids*.
 
         Raises:
-            KeyError: If the varm key does not exist.
+            KeyError: If the varm key does not exist, or if *strict* and IDs are missing.
         """
         resolved = self._resolve_drug_view(name)
         if resolved is None:
-            raise KeyError(
-                f"Drug feature '{name}' not found in response.varm. Available: {list(self.response.varm.keys())}"
-            )
+            raise KeyError(f"Drug feature '{name}' not found. Available views: {self.available_drug_views}")
 
         ids = np.asarray(ids, dtype=str)
         varm_data = self.response.varm[resolved]
         idx = pd.Index(self.response.var_names)
         positions = idx.get_indexer(ids)
 
+        missing_mask = positions == -1
+        if missing_mask.any():
+            n_missing = int(missing_mask.sum())
+            missing_ids = ids[missing_mask][:5].tolist()
+            msg = (
+                f"{n_missing} of {len(ids)} drug IDs not found in the dataset "
+                f"(first few: {missing_ids}). Returning NaN rows."
+            )
+            if strict:
+                raise KeyError(msg)
+            warnings.warn(msg, stacklevel=2)
+
         n_features = varm_data.shape[1]
         result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
         valid = positions >= 0
         result[valid] = np.asarray(varm_data[positions[valid]], dtype=np.float32)
         return result
+
+    def get_drug_feature_names(self, view: str) -> tuple[str, ...] | None:
+        """Return the feature (column) names for a drug view stored in response.varm.
+
+        Column names are read from ``response.varm`` using a DataFrame-backed
+        varm entry or positional indices when no explicit names exist.
+
+        Args:
+            view: Drug view name (e.g. "chemberta", "morgan_fingerprint").
+
+        Returns:
+            Tuple of column name strings, or None if the view does not exist.
+        """
+        resolved = self._resolve_drug_view(view)
+        if resolved is None:
+            return None
+        varm_data = self.response.varm[resolved]
+        if hasattr(varm_data, "columns"):
+            return tuple(varm_data.columns.astype(str))
+        return tuple(str(i) for i in range(varm_data.shape[1]))
 
     # ------------------------------------------------------------------
     # Drug graphs

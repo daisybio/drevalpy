@@ -42,7 +42,6 @@ def test_scale_gene_expression_fits_and_transforms() -> None:
 
 
 def test_prepare_expression_detects_view_via_any_entity() -> None:
-    # FeatureDataset.view_names follows the first entity; presence checks must scan all entities.
     cell_line_input = FeatureDataset(
         features={
             "cl0": {

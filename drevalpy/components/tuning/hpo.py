@@ -21,7 +21,7 @@ from drevalpy.components.tuning.drp_hyperparameters import (
 from drevalpy.components.tuning.hpo_runtime import build_ray_trainable, mu_build_ray_trainable, run_ray_tuner
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.mudataset import MuDataset
-from drevalpy.datasets.splitting import SplitMasks
+from drevalpy.datasets.splitting import EntityScope
 from drevalpy.models.drp_model import DRPModel
 
 logger = logging.getLogger(__name__)
@@ -219,9 +219,9 @@ def mu_hpam_tune(
     *,
     model_class: type[DRPModel],
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    val_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None,
+    train_scope: EntityScope,
+    val_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     model_checkpoint_dir: str | Path | None = None,
@@ -230,13 +230,13 @@ def mu_hpam_tune(
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Tune hyperparameters using MuDataset + SplitMasks (no DrugResponseDataset).
+    """Tune hyperparameters using MuDataset + EntityScope (no DrugResponseDataset).
 
     :param model_class: Model class to tune.
     :param mudataset: Full dataset with all features.
-    :param train_masks: Training split masks.
-    :param val_masks: Validation split masks for scoring.
-    :param early_stopping_masks: Optional early-stopping masks.
+    :param train_scope: Training EntityScope.
+    :param val_scope: Validation EntityScope for scoring.
+    :param early_stopping_scope: Optional early-stopping scope.
     :param response_transformation: Optional response transformer.
     :param metric: Metric to optimize.
     :param model_checkpoint_dir: Directory for model checkpoints.
@@ -273,9 +273,9 @@ def mu_hpam_tune(
         trainable = mu_build_ray_trainable(
             model_class=model_class,
             mudataset=mudataset,
-            train_masks=train_masks,
-            val_masks=val_masks,
-            early_stopping_masks=early_stopping_masks,
+            train_scope=train_scope,
+            val_scope=val_scope,
+            early_stopping_scope=early_stopping_scope,
             response_transformation=response_transformation,
             metric=metric,
             model_checkpoint_dir=model_checkpoint_dir,

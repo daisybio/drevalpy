@@ -11,7 +11,7 @@ import pandas as pd
 from sklearn.base import TransformerMixin, clone
 
 from ..datasets.mudataset import MuDataset
-from ..datasets.splitting import SplitMasks
+from ..datasets.splitting import EntityScope
 from ..models.drp_model import DRPModel
 from .training import mu_train_and_predict
 
@@ -94,7 +94,7 @@ def _missing_randomization_views(view_list: list[str], mudataset: MuDataset) -> 
 def _write_randomization_predictions(
     prediction_file: Path,
     mudataset: MuDataset,
-    test_masks: SplitMasks,
+    test_scope: EntityScope,
     predictions: np.ndarray,
 ) -> None:
     """Write randomization test prediction CSV."""
@@ -102,8 +102,8 @@ def _write_randomization_predictions(
     drug_ids = mudataset.drug_ids
     response_matrix = mudataset.response_matrix
 
-    cl_idx = test_masks.test_cell_lines
-    dr_idx = test_masks.test_drugs
+    cl_idx = test_scope.cell_lines
+    dr_idx = test_scope.drugs
 
     rows: dict[str, Any] = {"cell_line_ids": cl_ids[cl_idx]}
     if dr_idx is not None:
@@ -127,9 +127,9 @@ def randomize_train_predict_impl(
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    test_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None = None,
+    train_scope: EntityScope,
+    test_scope: EntityScope,
+    early_stopping_scope: EntityScope | None = None,
     model_checkpoint_dir: str | Path | None = None,
     response_transformation: TransformerMixin | None = None,
 ) -> None:
@@ -142,9 +142,9 @@ def randomize_train_predict_impl(
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
     :param mudataset: Full MuDataset with all features.
-    :param train_masks: SplitMasks for training samples.
-    :param test_masks: SplitMasks for test samples.
-    :param early_stopping_masks: Optional SplitMasks for early stopping.
+    :param train_scope: EntityScope for training samples.
+    :param test_scope: EntityScope for test samples.
+    :param early_stopping_scope: Optional EntityScope for early stopping.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param response_transformation: Optional response transformer.
     """
@@ -169,9 +169,9 @@ def randomize_train_predict_impl(
     predictions = mu_train_and_predict(
         model=trial_model,
         mudataset=randomized_mudataset,
-        train_masks=train_masks,
-        test_masks=test_masks,
-        early_stopping_masks=early_stopping_masks,
+        train_scope=train_scope,
+        test_scope=test_scope,
+        early_stopping_scope=early_stopping_scope,
         response_transformation=trial_transform,
         model_checkpoint_dir=model_checkpoint_dir,
     )
@@ -179,7 +179,7 @@ def randomize_train_predict_impl(
     _write_randomization_predictions(
         Path(randomization_test_file),
         mudataset,
-        test_masks,
+        test_scope,
         predictions,
     )
 
@@ -189,9 +189,9 @@ def randomization_test_impl(
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
     mudataset: MuDataset,
-    train_masks: SplitMasks,
-    test_masks: SplitMasks,
-    early_stopping_masks: SplitMasks | None,
+    train_scope: EntityScope,
+    test_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
     path_out: str | Path,
     split_index: int,
     randomization_type: str = "permutation",
@@ -204,9 +204,9 @@ def randomization_test_impl(
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
     :param mudataset: Full MuDataset with all features.
-    :param train_masks: SplitMasks for training samples.
-    :param test_masks: SplitMasks for test samples.
-    :param early_stopping_masks: Optional SplitMasks for early stopping.
+    :param train_scope: EntityScope for training samples.
+    :param test_scope: EntityScope for test samples.
+    :param early_stopping_scope: Optional EntityScope for early stopping.
     :param path_out: Directory where predictions are written.
     :param split_index: CV fold index for output file naming.
     :param randomization_type: Randomization strategy (for example ``permutation``).
@@ -229,9 +229,9 @@ def randomization_test_impl(
             model_class=model_class,
             hyperparameters=hyperparameters,
             mudataset=mudataset,
-            train_masks=train_masks,
-            test_masks=test_masks,
-            early_stopping_masks=early_stopping_masks,
+            train_scope=train_scope,
+            test_scope=test_scope,
+            early_stopping_scope=early_stopping_scope,
             response_transformation=response_transformation,
             model_checkpoint_dir=model_checkpoint_dir,
         )

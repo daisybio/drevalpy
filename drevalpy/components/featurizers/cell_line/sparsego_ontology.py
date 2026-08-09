@@ -8,14 +8,13 @@ import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_source import FeatureSource
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line._sparsego_metadata import (
     read_sparsego_ontology_metadata,
 )
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.datasets.dataset import FeatureDataset
 
 _INPUT_TYPES = frozenset({"expression", "mutations"})
 
@@ -86,21 +85,21 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
 
     def fit(
         self,
-        features: FeatureDataset,
+        source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> SparseGOOntologyFeaturizer:
         """Copy ontology metadata produced by ``load_features`` into fitted state.
 
-        :param features: Feature dataset with ``_sparsego_ontology`` metadata.
+        :param source: Feature source with ``sparsego_ontology`` metadata.
         :param entity_ids: Unused.
         :param context: Unused featurizer fit context.
         :returns: Fitted featurizer instance.
-        :raises ValueError: If ontology metadata is missing on *features*.
+        :raises ValueError: If ontology metadata is missing on *source*.
         """
         _ = entity_ids, context
-        metadata = read_sparsego_ontology_metadata(features)
+        metadata = read_sparsego_ontology_metadata(source)
         if metadata is None:
             raise ValueError("SparseGO ontology metadata is missing; load features through sparsegoOntology")
         self._layer_connections = list(metadata["layer_connections"])
@@ -109,22 +108,22 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         self._gene_dim_input = int(metadata["gene_dim_input"])
         return self
 
-    def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return ontology-aligned omics matrix rows.
 
-        :param features: Cell-line omics feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Float matrix aligned to ontology gene order.
         :raises RuntimeError: If called before ``fit``.
         """
         if self._gene_dim_input == 0:
             raise RuntimeError("SparseGOOntologyFeaturizer must be fit before transform")
-        return stack_view_matrix(features, self._view, entity_ids).astype(np.float32)
+        return source.get_view_matrix(self._view, entity_ids).astype(np.float32)
 
-    def transform_blocks(self, features: FeatureDataset, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return an omics block with SparseGO ontology metadata attached.
 
-        :param features: Cell-line omics feature dataset.
+        :param source: Feature source providing view matrices.
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Mapping with one metadata-rich numeric block.
         """
@@ -136,8 +135,8 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         }
         return {
             self._view: numeric_feature_block(
-                self.transform(features, entity_ids),
-                feature_names=feature_names_for_view(features, self._view),
+                self.transform(source, entity_ids),
+                feature_names=source.get_feature_names(self._view),
                 metadata=metadata,
             )
         }

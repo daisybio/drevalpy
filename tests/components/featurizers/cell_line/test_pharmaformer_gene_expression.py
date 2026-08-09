@@ -8,11 +8,11 @@ from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.cell_line.pharmaformer_gene_expression import (
     PharmaFormerGeneExpressionFeaturizer,
 )
-from drevalpy.datasets.dataset import FeatureDataset
+from tests.conftest import MockFeatureSource
 
 
 def test_pharmaformer_gene_expression_round_trips_state() -> None:
-    features = FeatureDataset(
+    features = MockFeatureSource(
         {f"cl{i}": {"gene_expression": np.array([i, i + 2], dtype=np.float32)} for i in range(3)},
         meta_info={"gene_expression": ["a", "b"]},
     )
