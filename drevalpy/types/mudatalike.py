@@ -1,4 +1,7 @@
-"""Protocol for Dataset-compatible objects."""
+"""Protocol for Dataset-compatible objects.
+
+This is used to simplify testing, so tests don't have to implement all features of the Dataset class.
+"""
 
 from __future__ import annotations
 
