@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.view_aliases import format_view_alias, resolve_omics_view
+from drevalpy.components.core.features.view_aliases import format_view_alias, resolve_omics_view
 
 
 def test_resolve_expression_alias() -> None:

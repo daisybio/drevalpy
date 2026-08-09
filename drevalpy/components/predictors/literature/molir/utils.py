@@ -16,7 +16,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from upath import UPath as Path
 
-from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin
 from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.utils.torch_io import load_state_dict
 

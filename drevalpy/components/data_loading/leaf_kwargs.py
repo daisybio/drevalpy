@@ -25,7 +25,7 @@ def featurizer_leaf_kwargs(
     :param resolved: Optional resolved instance values for tunable kwargs.
     :returns: Keyword arguments for featurizer construction.
     """
-    from drevalpy.components.featurizer_label import qualified_featurizer_selector
+    from drevalpy.components.core.fitting.featurizer_label import qualified_featurizer_selector
     from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 
     kwargs: dict[str, Any] = dict(leaf.options or {})

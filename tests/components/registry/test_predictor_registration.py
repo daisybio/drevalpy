@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from drevalpy.components.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import get_predictor_metadata, register_predictor
 from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry, drug_featurizer_registry
@@ -19,7 +19,7 @@ def _clear_registries() -> Iterator[None]:
     drug_featurizer_registry.clear()
     predictor_registry.clear()
     yield
-    from drevalpy.components.register_builtins import register_builtin_components
+    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 
     register_builtin_components()
 

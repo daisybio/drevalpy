@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin
 
 
 class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):

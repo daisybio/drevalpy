@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.contracts import featurizer_contract
-from drevalpy.components.feature_block import BlockSpec
+from drevalpy.components.core.batch.feature_block import BlockSpec
+from drevalpy.components.core.contracts.contracts import featurizer_contract
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config.featurizer import FeaturizerConfig
 

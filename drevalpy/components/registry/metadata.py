@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.contracts import featurizer_contract
+from drevalpy.components.core.contracts.contracts import featurizer_contract
 from drevalpy.types.literature_reference import LiteratureReference
 
 

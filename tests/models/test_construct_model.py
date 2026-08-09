@@ -45,7 +45,7 @@ def test_construct_model_one_arg_unknown_raises() -> None:
 
 
 def test_default_hyperparameters_for_constructed_pca_model() -> None:
-    import drevalpy.components.register_builtins as register_builtins
+    import drevalpy.components.core.plugins.register_builtins as register_builtins
     from drevalpy.components.tuning.drp_hyperparameters import (
         assert_component_local_hyperparameters,
         default_config_for_drp_model,
@@ -72,7 +72,7 @@ def test_default_hyperparameters_for_constructed_pca_model() -> None:
 
 
 def test_construct_model_train_predict_smoke() -> None:
-    import drevalpy.components.register_builtins as register_builtins
+    import drevalpy.components.core.plugins.register_builtins as register_builtins
 
     register_builtins.register_builtin_components()
 

@@ -7,10 +7,10 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, featurizer_contract
-from drevalpy.components.feature_block import BlockSpec, FeatureBlock
-from drevalpy.components.feature_source import FeatureSource
-from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
+from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock
+from drevalpy.components.core.contracts.contracts import FeatureContract, featurizer_contract
+from drevalpy.components.core.features.feature_source import FeatureSource
+from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 
 
 class Featurizer(ABC):
@@ -91,7 +91,7 @@ class Featurizer(ABC):
 
         :returns: Feature payloads aligned with *entity_ids*.
         """
-        from drevalpy.components.contracts import FeatureFormat
+        from drevalpy.components.core.contracts.contracts import FeatureFormat
 
         blocks = self.transform_blocks(source, entity_ids)
         arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
@@ -170,7 +170,7 @@ class Featurizer(ABC):
 
         :returns: Parameter names mapped to their declared ``default`` values.
         """
-        from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
+        from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
 
         space = cls.get_hyperparameter_space()
         validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")

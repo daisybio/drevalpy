@@ -9,9 +9,10 @@ from typing import Any, ClassVar
 import numpy as np
 from upath import UPath as Path
 
-from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.feature_block import BlockSpec
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.feature_block import BlockSpec
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.core.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import (
@@ -28,7 +29,6 @@ from drevalpy.components.predictors.single_drug_routing import (
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
-from drevalpy.components.training_context import TrainingContext
 from drevalpy.models.config import PredictionMode
 from drevalpy.types.model_scope import ModelScope
 

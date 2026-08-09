@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import drevalpy.components.register_builtins as register_builtins
+import drevalpy.components.core.plugins.register_builtins as register_builtins
 from drevalpy.components.predictors.literature.dipk.predictor import DIPKPredictor
 from drevalpy.components.registry import get_predictor
 

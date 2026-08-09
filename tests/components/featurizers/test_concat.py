@@ -6,12 +6,12 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.feature_block import FeatureBlock
+from drevalpy.components.core.batch.feature_block import FeatureBlock
+from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.featurizers.cell_line.concat import (
     ConcatFeaturizersCellLineFeaturizer,
 )
 from drevalpy.components.featurizers.drug.concat import ConcatFeaturizersDrugFeaturizer
-from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import CellLineFeaturizerConfig, FeaturizerConfig
 from tests.conftest import MockFeatureSource
 

@@ -6,16 +6,16 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
-from drevalpy.components.feature_block import FeatureBlock
-from drevalpy.components.feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
-from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.components.featurizer_label import qualified_featurizer_selector
+from drevalpy.components.core.batch.feature_block import FeatureBlock
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_build import build_model_input_batch
+from drevalpy.components.core.contracts.training_context import TrainingContext
+from drevalpy.components.core.features.feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
+from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
+from drevalpy.components.core.fitting.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
-from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.abstract.base import Predictor
-from drevalpy.components.training_context import TrainingContext
 from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
 from drevalpy.models.config.resolved import ResolvedModelConfig

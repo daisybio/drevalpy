@@ -6,7 +6,7 @@ from typing import Any, TypedDict
 
 import numpy as np
 
-from drevalpy.components.feature_source import FeatureSource
+from drevalpy.components.core.features.feature_source import FeatureSource
 
 
 class SparseGOOntologyMetadata(TypedDict):

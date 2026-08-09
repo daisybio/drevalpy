@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import numpy as np
 
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 
 ROUTING_DRUG_FEATURIZER = "identity"
 """The drug featurizer per-drug routing is built on.

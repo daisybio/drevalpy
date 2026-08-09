@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
+from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 
 
 def test_featurizer_fit_context_stores_training_populations() -> None:

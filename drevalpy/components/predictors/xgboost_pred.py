@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 
 
 def one_hot(labels: list[str] | np.ndarray, categories: list[str]) -> np.ndarray:

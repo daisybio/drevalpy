@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 
 
 def _leaf_interface_match(name: str, cls: type[Any], leaf_bases: tuple[type[Any], ...]) -> type[Any]:
@@ -36,7 +36,7 @@ def validate_predictor_registration(name: str, cls: type[Any]) -> None:
     :param name: Registry name under which *cls* is being registered.
     :param cls: Predictor class with contracts already attached by the decorator.
     """
-    from drevalpy.components.hyperparameter_space import validate_component_hyperparameter_space
+    from drevalpy.components.core.contracts.hyperparameter_space import validate_component_hyperparameter_space
     from drevalpy.components.predictors.abstract.block import BlockPredictor
     from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
     from drevalpy.components.predictors.abstract.matrix import MatrixPredictor

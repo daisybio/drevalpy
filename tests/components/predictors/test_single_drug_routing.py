@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.feature_block import FeatureBlock
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.feature_block import FeatureBlock
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
     require_known_training_keys,

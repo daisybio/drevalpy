@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.featurizer_label import (
+from drevalpy.components.core.fitting.featurizer_label import (
     featurizer_config_block_label,
     qualified_featurizer_selector,
     requires_explicit_view,

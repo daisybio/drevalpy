@@ -6,11 +6,11 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.core.utils.state_helpers import state_float
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.components.state_helpers import state_float
 from drevalpy.models.config import PredictionMode
 
 

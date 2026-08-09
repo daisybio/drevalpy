@@ -7,8 +7,8 @@ from collections.abc import Iterator
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.hyperparameter_space import (
+from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.core.contracts.hyperparameter_space import (
     validate_component_hyperparameter_space,
     validate_hyperparameter_space,
 )
@@ -25,7 +25,7 @@ def _clear_registries() -> Iterator[None]:
     drug_featurizer_registry.clear()
     predictor_registry.clear()
     yield
-    from drevalpy.components.register_builtins import register_builtin_components
+    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 
     register_builtin_components()
 

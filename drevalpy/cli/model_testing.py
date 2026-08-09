@@ -87,7 +87,7 @@ def run_train_final_model(
 
     import numpy as np
 
-    from drevalpy.components.feature_source import CellLineFeatureSource, DrugFeatureSource
+    from drevalpy.components.core.features.feature_source import CellLineFeatureSource, DrugFeatureSource
     from drevalpy.data import load
 
     mudataset = load(train_dataset.dataset_name)

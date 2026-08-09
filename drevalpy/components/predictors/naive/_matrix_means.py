@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 
 
 def pair_align(entity_matrix: np.ndarray, pair_idx: np.ndarray | None) -> np.ndarray:

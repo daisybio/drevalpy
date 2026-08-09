@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.registry.featurizer_registry import (
     FeaturizerRegistry,
     cell_line_featurizer_registry,

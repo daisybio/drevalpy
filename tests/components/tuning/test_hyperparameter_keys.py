@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-import drevalpy.components.register_builtins as register_builtins
+import drevalpy.components.core.plugins.register_builtins as register_builtins
 from drevalpy.components.tuning.hyperparameter_keys import (
     build_ownership_index,
     export_public_mapping,

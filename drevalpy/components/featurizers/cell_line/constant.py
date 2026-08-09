@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._constant import ConstantFeaturizerMixin
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer

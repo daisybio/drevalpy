@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.featurizer_label import requires_explicit_view
+from drevalpy.components.core.features.view_aliases import canonicalize_omics_view
+from drevalpy.components.core.fitting.featurizer_label import requires_explicit_view
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
-from drevalpy.components.view_aliases import canonicalize_omics_view
 from drevalpy.models.config._recipe import CONCAT_FEATURIZER_NAME, expand_featurizer_recipe
 from drevalpy.models.config._space_defaults import split_space_and_options
 

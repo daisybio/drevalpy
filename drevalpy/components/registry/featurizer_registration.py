@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from drevalpy.components.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
@@ -52,7 +52,7 @@ def get_cell_line_featurizer(name: str) -> type[Any]:
     :raises ImportError: If the featurizer's optional dependency is unavailable.
     """
     if name not in cell_line_featurizer_registry.list_names():
-        from drevalpy.components.register_builtins import (
+        from drevalpy.components.core.plugins.register_builtins import (
             ensure_cell_line_featurizer_registered,
             is_known_builtin_cell_line_featurizer,
         )
@@ -139,7 +139,7 @@ def get_drug_featurizer(name: str) -> type[Any]:
     :raises ImportError: If the featurizer's optional dependency is unavailable.
     """
     if name not in drug_featurizer_registry.list_names():
-        from drevalpy.components.register_builtins import (
+        from drevalpy.components.core.plugins.register_builtins import (
             ensure_drug_featurizer_registered,
             is_known_builtin_drug_featurizer,
         )

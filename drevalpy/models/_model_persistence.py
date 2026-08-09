@@ -217,7 +217,7 @@ def _collect_legacy_featurizer_overrides(
     registry: str,
     overrides: dict[str, Any],
 ) -> None:
-    from drevalpy.components.featurizer_label import qualified_featurizer_selector
+    from drevalpy.components.core.fitting.featurizer_label import qualified_featurizer_selector
 
     if not isinstance(node, dict):
         return
@@ -252,7 +252,7 @@ def _collect_legacy_predictor_overrides(
 
 
 def _touch_template_featurizer_leaves(template: ModelConfig) -> None:
-    from drevalpy.components.featurizer_tree import iter_featurizer_leaves
+    from drevalpy.components.core.fitting.featurizer_tree import iter_featurizer_leaves
 
     if template.cell_line_featurizer is not None:
         list(iter_featurizer_leaves(template.cell_line_featurizer, "cell_line"))

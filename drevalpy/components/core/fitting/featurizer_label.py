@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.view_aliases import format_view_alias
+from drevalpy.components.core.features.view_aliases import format_view_alias
 
 
 def qualified_featurizer_selector(name: str, view: str | None = None) -> str:

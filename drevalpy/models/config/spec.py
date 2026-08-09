@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.register_builtins import is_known_builtin_predictor
+from drevalpy.components.core.plugins.register_builtins import is_known_builtin_predictor
 from drevalpy.components.registry import list_predictors
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig

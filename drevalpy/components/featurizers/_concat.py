@@ -6,10 +6,10 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.feature_block import FeatureBlock, merge_feature_blocks
-from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
-from drevalpy.components.featurizer_label import featurizer_config_block_label
+from drevalpy.components.core.batch.feature_block import FeatureBlock, merge_feature_blocks
+from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
+from drevalpy.components.core.fitting.featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
 
 

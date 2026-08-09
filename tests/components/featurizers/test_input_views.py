@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
-from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import (
     get_cell_line_featurizer,
     get_drug_featurizer,

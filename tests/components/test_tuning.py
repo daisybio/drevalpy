@@ -32,7 +32,7 @@ def test_dict_to_ray_space_converts_structured_specs() -> None:
 
 
 def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
-    import drevalpy.components.register_builtins as register_builtins
+    import drevalpy.components.core.plugins.register_builtins as register_builtins
 
     register_builtins.register_builtin_components()
     model_cls = construct_model("ComboRF", "pca[expression]+landmarkGenes:fingerprints:randomForest")

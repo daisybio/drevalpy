@@ -6,7 +6,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
-from drevalpy.components.contracts import FeatureContract
+from drevalpy.components.core.contracts.contracts import FeatureContract
 from drevalpy.components.registry._metadata_validate import validate_registered_class
 
 

@@ -6,7 +6,7 @@ from typing import Any
 
 import lightgbm as lgb
 
-from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.registry import register_predictor
 

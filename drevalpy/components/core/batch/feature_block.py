@@ -8,7 +8,7 @@ from types import MappingProxyType
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 
 
 @dataclass(frozen=True)

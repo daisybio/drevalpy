@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch_geometric.nn import GCNConv, global_mean_pool
 
-from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin
 
 
 class DrugGraphNet(nn.Module):

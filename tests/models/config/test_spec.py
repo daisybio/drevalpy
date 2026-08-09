@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.components.extensions import load_extensions
-from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.components.core.plugins.extensions import load_extensions
+from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.models.config import from_spec, validate
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.spec import reject_unknown_spec, zoo_config
@@ -245,9 +245,9 @@ def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
     (ext_dir / "components.py").write_text(
         """
 import numpy as np
-from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 

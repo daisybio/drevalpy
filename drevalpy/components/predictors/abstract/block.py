@@ -7,7 +7,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.base import Predictor
 
 

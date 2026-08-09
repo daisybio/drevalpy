@@ -10,13 +10,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.components.extensions import (
+from drevalpy.components.core.plugins.extensions import (
     _extension_module_name,
     load_extension_dir,
     load_extension_file,
     load_extensions,
 )
-from drevalpy.components.register_builtins import is_known_builtin_predictor
+from drevalpy.components.core.plugins.register_builtins import is_known_builtin_predictor
 from drevalpy.components.registry import (
     get_cell_line_featurizer,
     get_predictor,
@@ -39,9 +39,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
@@ -92,8 +92,8 @@ class ToyPredictor(FeatureFreePredictor):
 def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
     (tmp_path / "b_ext.py").write_text(
         "from drevalpy.components.registry import register_predictor\n"
-        "from drevalpy.components.contracts import FeatureFormat\n"
-        "from drevalpy.components.model_input_batch import ModelInputBatch\n"
+        "from drevalpy.components.core.contracts.contracts import FeatureFormat\n"
+        "from drevalpy.components.core.batch.model_input_batch import ModelInputBatch\n"
         "from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
         "@register_predictor('toyB', description='b',\n"
@@ -106,8 +106,8 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
     )
     (tmp_path / "a_ext.py").write_text(
         "from drevalpy.components.registry import register_predictor\n"
-        "from drevalpy.components.contracts import FeatureFormat\n"
-        "from drevalpy.components.model_input_batch import ModelInputBatch\n"
+        "from drevalpy.components.core.contracts.contracts import FeatureFormat\n"
+        "from drevalpy.components.core.batch.model_input_batch import ModelInputBatch\n"
         "from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
         "@register_predictor('toyA', description='a',\n"
@@ -129,9 +129,9 @@ def test_external_zoo_references_extension_components(tmp_path: Path) -> None:
     (ext_dir / "components.py").write_text(
         """
 import numpy as np
-from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
@@ -264,8 +264,8 @@ def test_failed_extension_file_does_not_leave_sys_modules_or_registry_mutation(t
     ext_file.write_text(
         """
 from drevalpy.components.registry import register_predictor
-from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 import numpy as np
 
@@ -304,8 +304,8 @@ def test_subprocess_extension_load_does_not_import_optional_families(tmp_path: P
     ext_file.write_text(
         """
 from drevalpy.components.registry import register_predictor
-from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 import numpy as np
 
@@ -353,7 +353,7 @@ class IsolatedPredictor(FeatureFreePredictor):
 
         sys.meta_path.insert(0, BlockFinder())
 
-        from drevalpy.components.extensions import load_extension_file
+        from drevalpy.components.core.plugins.extensions import load_extension_file
         from drevalpy.components.registry import get_predictor
 
         load_extension_file({str(ext_file)!r})
@@ -409,7 +409,7 @@ def test_unknown_builtin_predictor_raises_value_error() -> None:
         with pytest.raises(ValueError, match="Unknown Predictor"):
             get_predictor("notRegisteredAnywhere")
     finally:
-        from drevalpy.components.register_builtins import register_builtin_components
+        from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 
         predictor_registry.clear()
         register_builtin_components()
@@ -421,7 +421,7 @@ def test_unknown_builtin_featurizer_raises_value_error() -> None:
         with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
             get_cell_line_featurizer("notRegisteredAnywhere")
     finally:
-        from drevalpy.components.register_builtins import register_builtin_components
+        from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 
         cell_line_featurizer_registry.clear()
         register_builtin_components()

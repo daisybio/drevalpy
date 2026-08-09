@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.contracts import FeatureContract
+from drevalpy.components.core.contracts.contracts import FeatureContract
 from drevalpy.types.literature_reference import LiteratureReference
 
 _CONTRACT_FIELDS = frozenset({"contract", "cell_line_contract", "drug_contract"})

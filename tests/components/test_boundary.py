@@ -11,7 +11,7 @@ def test_native_component_registration_does_not_import_literature_models() -> No
 
     predictor_registry.clear()
     try:
-        from drevalpy.components.register_builtins import register_native_components
+        from drevalpy.components.core.plugins.register_builtins import register_native_components
 
         register_native_components()
         names = predictor_registry.list_names()
@@ -21,7 +21,7 @@ def test_native_component_registration_does_not_import_literature_models() -> No
         assert "precily" not in names
     finally:
         predictor_registry.clear()
-        from drevalpy.components.register_builtins import register_builtin_components
+        from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 
         register_builtin_components()
 
@@ -35,7 +35,7 @@ def test_component_featurizers_import_from_features_not_models_utils() -> None:
         source_path = module.__file__
         assert source_path is not None
         text = Path(source_path).read_text(encoding="utf-8")
-        assert "drevalpy.components.preprocessing" in text
+        assert "drevalpy.components.core.features.preprocessing" in text
         assert "drevalpy.models.utils" not in text
 
 
@@ -55,7 +55,7 @@ def test_component_predictors_avoid_models_utils() -> None:
 
 
 def test_models_lightning_metrics_mixin_reexports_component_mixin() -> None:
-    from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin as ComponentMixin
+    from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin as ComponentMixin
     from drevalpy.models.lightning_metrics_mixin import RegressionMetricsMixin as ModelsMixin
 
     assert ComponentMixin is ModelsMixin

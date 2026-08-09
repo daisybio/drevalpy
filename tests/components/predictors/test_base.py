@@ -5,11 +5,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
-from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import PredictorConfig
 
 

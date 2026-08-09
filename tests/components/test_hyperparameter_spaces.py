@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import drevalpy.components.register_builtins as register_builtins
+import drevalpy.components.core.plugins.register_builtins as register_builtins
 from drevalpy.components.registry import list_predictors
 from drevalpy.models import construct_model
 from drevalpy.models._model_lookup import known_model_names

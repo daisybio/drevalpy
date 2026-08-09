@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.models.config._predictor_parse import normalize_predictor_config
 
 

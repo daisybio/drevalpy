@@ -81,7 +81,7 @@ def test_multi_drug_sklearn_rejects_missing_drug_featurizer() -> None:
 
 
 def test_single_drug_sklearn_auto_injects_identity() -> None:
-    from drevalpy.components.register_builtins import register_builtin_components
+    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = from_dict(

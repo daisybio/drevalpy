@@ -9,8 +9,8 @@ import numpy as np
 import wandb
 from upath import UPath as Path
 
+from drevalpy.components.core.contracts.training_context import TrainingContext
 from drevalpy.components.registry import get_predictor
-from drevalpy.components.training_context import TrainingContext
 from drevalpy.data.structures import EntityScope, SplitMasks
 from drevalpy.data.structures.mudataset import MuDataset
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.feature_source import FeatureSource
+from drevalpy.components.core.features.feature_source import FeatureSource
 
 
 def unique_entity_ids(entity_ids: np.ndarray) -> np.ndarray:

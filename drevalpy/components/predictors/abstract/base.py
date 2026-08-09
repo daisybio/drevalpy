@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract
-from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.core.contracts.contracts import FeatureContract
+from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
-    from drevalpy.components.model_input_batch import ModelInputBatch
+    from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 
 
 class Predictor(ABC):

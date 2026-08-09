@@ -6,7 +6,7 @@ from pathlib import Path
 
 from _generated_io import write_text_if_changed
 
-from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor, get_predictor_metadata
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names

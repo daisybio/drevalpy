@@ -41,7 +41,7 @@ def ensure_unique_qualified_featurizers(featurizer: FeaturizerConfig, registry: 
         return
     seen: set[str] = set()
     for leaf in iter_featurizer_leaves(featurizer, registry):
-        from drevalpy.components.featurizer_label import qualified_featurizer_selector
+        from drevalpy.components.core.fitting.featurizer_label import qualified_featurizer_selector
 
         selector = qualified_featurizer_selector(leaf.name, leaf.view)
         if selector in seen:

@@ -12,9 +12,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from upath import UPath as Path
 
-from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.feature_block import BlockSpec
-from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.feature_block import BlockSpec
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE

@@ -9,7 +9,7 @@ from typing import TypedDict, TypeVar, cast
 
 from _generated_io import write_text_if_changed
 
-from drevalpy.components.register_builtins import (
+from drevalpy.components.core.plugins.register_builtins import (
     BUILTIN_CELL_LINE_FEATURIZER_NAMES,
     BUILTIN_DRUG_FEATURIZER_NAMES,
     BUILTIN_PREDICTOR_NAMES,

@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.model_input_build import build_model_input_batch
+from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+from drevalpy.components.core.batch.model_input_build import build_model_input_batch
 from drevalpy.data.structures.response_batch import ResponseBatch
 
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.feature_block import BlockSpec
+from drevalpy.components.core.batch.feature_block import BlockSpec
+from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
