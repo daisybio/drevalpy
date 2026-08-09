@@ -7,13 +7,10 @@ from drevalpy.components.core.tuning.drp_hyperparameters import (
     construct_drp_model_from_config,
     default_config_for_drp_model,
     default_hyperparameters_for_drp_model,
-    flat_hyperparameters_from_model_config,
     has_tunable_hyperparameters,
-    model_config_for_drp_model,
     public_hyperparameters_from_config,
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
-    tuned_flat_hyperparameters,
 )
 from drevalpy.components.core.tuning.hpo import hpam_tune
 from drevalpy.components.core.tuning.search_space import (
@@ -28,26 +25,23 @@ from drevalpy.components.core.tuning.search_space import (
 
 __all__ = [
     "HPOConfig",
-    "build_experiment_hpo_config",
-    "validate_hpo_metric",
     "apply_merged_to_model_config",
     "assert_component_local_hyperparameters",
-    "construct_drp_model_from_config",
+    "build_experiment_hpo_config",
     "config_from_public_hyperparameters",
+    "construct_drp_model_from_config",
     "default_config_for_drp_model",
     "default_hyperparameters_for_drp_model",
     "defaults_from_merged_space",
     "extract_defaults",
-    "flat_hyperparameters_from_model_config",
     "has_tunable_hyperparameters",
     "hpam_tune",
     "merge_model_config_spaces",
     "merge_search_spaces",
-    "model_config_for_drp_model",
     "public_hyperparameters_from_config",
     "sample_from_optuna_trial",
     "split_hyperparameters",
     "structured_space_for_drp_model",
     "tuned_config_for_drp_model",
-    "tuned_flat_hyperparameters",
+    "validate_hpo_metric",
 ]

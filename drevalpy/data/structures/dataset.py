@@ -8,7 +8,7 @@ legacy response arrays and feature dicts with a single entry point backed by an
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -18,6 +18,9 @@ import mudata as md
 from drevalpy.log import get_logger
 
 from .mudatalike import MuDataLike
+
+if TYPE_CHECKING:
+    from .view_location import ViewLocation
 
 logger = get_logger(__name__)
 
@@ -71,37 +74,44 @@ def _randomize_matrix(data: np.ndarray, rng: np.random.Generator, randomization_
 
 
 def _randomize_single_view(
+    dataset: Any,
     view: str,
-    modality_keys: set[str],
-    varm_keys: set[str],
     new_mods: dict[str, md.AnnData],
-    source: Any,
+    new_uns: dict[str, Any],
     rng: np.random.Generator,
     randomization_type: str,
 ) -> None:
-    """Randomize a single view in-place within new_mods."""
+    """Randomize a single view in-place within new_mods/new_uns."""
     import anndata
 
-    if view in modality_keys:
-        adata = new_mods[view]
+    from .view_location import ViewLocation
+
+    location = dataset.locate_view(view)
+    resolved = dataset._resolve_drug_view(view) or view
+
+    if location == ViewLocation.MODALITY:
+        adata = new_mods[resolved]
         x = adata.X
         if hasattr(x, "toarray"):
             x = x.toarray()
         x = _randomize_matrix(np.asarray(x, dtype=np.float32), rng, randomization_type)
-        new_mods[view] = anndata.AnnData(X=x, obs=adata.obs.copy(), var=adata.var.copy())
-    elif view in varm_keys:
+        new_mods[resolved] = anndata.AnnData(X=x, obs=adata.obs.copy(), var=adata.var.copy())
+    elif location == ViewLocation.VARM:
         resp = new_mods["response"]
-        varm_data = np.asarray(resp.varm[view], dtype=np.float32)
-        resp.varm[view] = _randomize_matrix(varm_data, rng, randomization_type)
-    elif view == "pathway_features" and "pathway_features" in (source.response.obsm or {}):
+        varm_data = np.asarray(resp.varm[resolved], dtype=np.float32)
+        resp.varm[resolved] = _randomize_matrix(varm_data, rng, randomization_type)
+    elif location == ViewLocation.OBSM:
         resp = new_mods["response"]
-        obsm_data = np.asarray(resp.obsm["pathway_features"], dtype=np.float32)
-        resp.obsm["pathway_features"] = _randomize_matrix(obsm_data, rng, randomization_type)
-    else:
-        raise ValueError(
-            f"View {view!r} not found in modalities {sorted(modality_keys)}, "
-            f"varm keys {sorted(varm_keys)}, or obsm keys."
-        )
+        obsm_data = np.asarray(resp.obsm[resolved], dtype=np.float32)
+        resp.obsm[resolved] = _randomize_matrix(obsm_data, rng, randomization_type)
+    elif location == ViewLocation.UNS:
+        data = new_uns[resolved]
+        if isinstance(data, dict):
+            keys = list(data.keys())
+            shuffled_keys = rng.permutation(keys).tolist()
+            new_uns[resolved] = dict(zip(shuffled_keys, data.values(), strict=True))
+        else:
+            logger.warning("Cannot randomize uns key '%s' (not a dict). Skipping.", resolved)
 
 
 class Dataset(MuDataLike):
@@ -377,6 +387,35 @@ class Dataset(MuDataLike):
         """Resolve a drug view name to an actual varm key via the registry."""
         return self._drug_view_map.get(name)
 
+    def locate_view(self, name: str) -> ViewLocation:
+        """Resolve where a named view is stored, using only presence checks.
+
+        Priority order: modality > varm > obsm > uns.
+        Drug view aliases are resolved before checking.
+
+        :param name: View name (e.g. "gene_expression", "fingerprints", "drug_graphs").
+        :returns: ViewLocation indicating the storage container.
+        :raises KeyError: If the view is not found in any location.
+        """
+        from .view_location import ViewLocation
+
+        resolved = self._resolve_drug_view(name) or name
+        if resolved in self._mdata.mod and resolved != "response":
+            return ViewLocation.MODALITY
+        if resolved in (self.response.varm or {}):
+            return ViewLocation.VARM
+        if resolved in (self.response.obsm or {}):
+            return ViewLocation.OBSM
+        if resolved in (self._mdata.uns or {}):
+            return ViewLocation.UNS
+        raise KeyError(
+            f"View '{name}' not found in any storage location. "
+            f"Available modalities: {sorted(set(self._mdata.mod.keys()) - {'response'})}, "
+            f"varm: {sorted(self.response.varm.keys()) if self.response.varm else []}, "
+            f"obsm: {sorted(self.response.obsm.keys()) if self.response.obsm else []}, "
+            f"uns: {sorted(self._mdata.uns.keys()) if self._mdata.uns else []}"
+        )
+
     def get_drug_features(self, name: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Get a drug feature matrix from response.varm, aligned to given IDs.
 
@@ -576,9 +615,10 @@ class Dataset(MuDataLike):
 
         For cell-line views (modalities or obsm keys), rows are permuted across
         cell lines. For drug views (varm keys), rows are permuted across drugs.
+        For uns dict keys, values are reassigned to shuffled keys.
 
         Args:
-            views: View names (modality names or varm keys) to randomize.
+            views: View names to randomize (resolved via locate_view).
             randomization_type: "permutation" shuffles rows; "invariant" replaces
                 each row with a random sample matching its mean and std.
             random_state: Seed for reproducibility.
@@ -587,7 +627,8 @@ class Dataset(MuDataLike):
             A new Dataset with the specified views randomized.
 
         Raises:
-            ValueError: If randomization_type is not recognized or a view is not found.
+            ValueError: If randomization_type is not recognized.
+            KeyError: If a view is not found in any storage location.
         """
         if randomization_type not in ("permutation", "invariant"):
             raise ValueError(f"Unknown randomization_type {randomization_type!r}. Use 'permutation' or 'invariant'.")
@@ -600,17 +641,18 @@ class Dataset(MuDataLike):
         for mod_name, mod_adata in self._mdata.mod.items():
             new_mods[mod_name] = mod_adata.copy()
 
-        varm_keys = set(self.response.varm.keys()) if self.response.varm else set()
-        modality_keys = set(self._mdata.mod.keys()) - {"response"}
+        new_uns: dict[str, Any] = {
+            key: copy.deepcopy(val) if isinstance(val, dict) else val for key, val in self._mdata.uns.items()
+        }
 
         for view in views:
-            _randomize_single_view(view, modality_keys, varm_keys, new_mods, self, rng, randomization_type)
+            _randomize_single_view(self, view, new_mods, new_uns, rng, randomization_type)
 
         md.set_options(pull_on_update=False)
         new_mdata = md.MuData(new_mods)
         new_mdata.obs = self._mdata.obs.copy()
-        for key, val in self._mdata.uns.items():
-            new_mdata.uns[key] = copy.deepcopy(val) if isinstance(val, dict) else val
+        for key, val in new_uns.items():
+            new_mdata.uns[key] = val
         return Dataset(new_mdata, name=self._name)
 
     # ------------------------------------------------------------------
