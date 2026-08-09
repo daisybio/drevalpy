@@ -56,20 +56,18 @@ class DataConfig(BaseModel):
 
 
 class DrevalConfig(BaseModel):
-    """Top-level user config (extensible with additional keys)."""
+    """Top-level user config. Only explicitly defined keys are allowed."""
+
+    model_config = {"extra": "forbid"}
 
     data: DataConfig = Field(default_factory=DataConfig)
-    extra: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def from_raw(cls, raw: dict[str, Any]) -> DrevalConfig:
-        """Parse from a raw JSON dict, preserving unknown top-level keys."""
+        """Parse from a raw JSON dict."""
         data = DataConfig.from_raw(raw.get("data", {}))
-        extra = {k: v for k, v in raw.items() if k != "data"}
-        return cls(data=data, extra=extra)
+        return cls(data=data)
 
     def to_raw(self) -> dict[str, Any]:
-        """Serialize to JSON-compatible dict, preserving extra keys."""
-        result: dict[str, Any] = {"data": self.data.to_raw()}
-        result.update(self.extra)
-        return result
+        """Serialize to JSON-compatible dict."""
+        return {"data": self.data.to_raw()}
