@@ -12,7 +12,7 @@ import pytest
 import mudata as md
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.data.structures.mudataset import MuDataset
-from drevalpy.data.structures.splitting import SplitMasks
+from drevalpy.data.structures import SplitMasks
 from drevalpy.models import construct_model
 
 

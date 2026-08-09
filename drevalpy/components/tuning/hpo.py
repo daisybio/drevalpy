@@ -20,7 +20,7 @@ from drevalpy.components.tuning.drp_hyperparameters import (
 )
 from drevalpy.components.tuning.hpo_runtime import mu_build_ray_trainable, run_ray_tuner
 from drevalpy.data.structures.mudataset import MuDataset
-from drevalpy.data.structures.splitting import EntityScope
+from drevalpy.data.structures import EntityScope
 from drevalpy.models.drp_model import DRPModel
 
 logger = logging.getLogger(__name__)

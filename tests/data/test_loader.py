@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 from drevalpy.data import registry
-from drevalpy.data.registry import Registry, get_config_path
-from drevalpy.data.registry.models import DrevalConfig, SourceEntry
+from drevalpy.data.dataset_registry import Registry, get_config_path
+from drevalpy.data.dataset_registry.models import DrevalConfig, SourceEntry
 
 _EXPECTED_BUILTIN = [
     "BeatAML2",

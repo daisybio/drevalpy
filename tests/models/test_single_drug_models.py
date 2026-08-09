@@ -61,7 +61,7 @@ def test_single_drug_models(
     :param data_dir: path to the data directory
     """
     from drevalpy.data import load_mudataset
-    from drevalpy.data.structures.splitting import MuDataSplitter
+    from drevalpy.data.splitting import get_splitter
     from drevalpy.experiment import seed_everything
 
     seed_everything(42)
@@ -70,8 +70,8 @@ def test_single_drug_models(
     model_name = _resolve_single_drug_model_name(whole_name)
 
     mudataset = load_mudataset("TOYv1")
-    splitter = MuDataSplitter()
-    folds = splitter.split(mudataset, mode=test_mode, n_splits=2, validation_ratio=0.4)
+    splitter = get_splitter(test_mode)
+    folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]
 
     model_class = _construct_single_drug_model(whole_name, model_name)

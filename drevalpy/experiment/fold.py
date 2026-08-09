@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from drevalpy.data.structures.mudataset import MuDataset
-from drevalpy.data.structures.splitting import EntityScope, SplitMasks
+from drevalpy.data.structures import EntityScope, SplitMasks
 from drevalpy.models.drp_model import DRPModel
 
 

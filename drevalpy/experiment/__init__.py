@@ -9,7 +9,8 @@ from upath import UPath as Path
 
 from ..components.tuning.hpo import mu_hpam_tune  # noqa: F401
 from ..data.mudataset import MuDataset
-from ..data.splitting import EntityScope, MuDataSplitter, SplitMasks
+from ..data.splitting import get_splitter
+from ..data.structures import EntityScope, SplitMasks
 from ..models.drp_model import DRPModel
 from ..utils._pipeline_function import pipeline_function
 from .cross_study import cross_study_prediction_impl
@@ -26,7 +27,7 @@ _CWD = Path()
 
 __all__ = [
     "EntityScope",
-    "MuDataSplitter",
+    "get_splitter",
     "MuDataset",
     "MuFoldData",
     "SplitMasks",

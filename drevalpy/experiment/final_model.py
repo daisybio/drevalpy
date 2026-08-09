@@ -48,7 +48,7 @@ def train_final_model_impl(
 
     print("Training final model with application-specific validation strategy ...")
 
-    splitter = MuDataSplitter()
+    splitter = get_splitter(test_mode)
     folds = splitter.split(
         mudataset,
         mode=test_mode,

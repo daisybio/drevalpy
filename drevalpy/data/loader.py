@@ -7,7 +7,7 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 
 from ._paths import get_default_data_dir, resolve_h5mu_path
-from .registry import registry
+from .dataset_registry import registry
 from .structures.mudataset import MuDataset
 
 logger = get_logger(__name__)

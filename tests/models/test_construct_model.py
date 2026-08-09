@@ -84,7 +84,7 @@ def test_construct_model_train_predict_smoke() -> None:
 
     import mudata as md
     from drevalpy.data.structures.mudataset import MuDataset
-    from drevalpy.data.structures.splitting import SplitMasks
+    from drevalpy.data.structures import SplitMasks
 
     cl_ids_unique = np.array(["cl1", "cl2"])
     drug_ids_all = np.array(["d1", "d2"])

@@ -2,24 +2,12 @@
 
 from .mudataset import MuDataset
 from .response_batch import ResponseBatch
-from .splitting import (
-    EntityScope,
-    ExternalSplitCreator,
-    MuDataLike,
-    MuDataSplitter,
-    SplitMasks,
-    SplitParams,
-    load_external_splitter,
-)
+from .types import EntityScope, MuDataLike, SplitMasks
 
 __all__ = [
     "EntityScope",
-    "ExternalSplitCreator",
     "MuDataLike",
-    "MuDataSplitter",
     "MuDataset",
     "ResponseBatch",
     "SplitMasks",
-    "SplitParams",
-    "load_external_splitter",
 ]

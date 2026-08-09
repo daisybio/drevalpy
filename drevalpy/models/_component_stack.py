@@ -22,7 +22,7 @@ from drevalpy.models.config.resolved import ResolvedModelConfig
 
 if TYPE_CHECKING:
     from drevalpy.data.structures.mudataset import MuDataset
-    from drevalpy.data.structures.splitting import EntityScope
+    from drevalpy.data.structures import EntityScope
 
 
 def _build_fit_context(

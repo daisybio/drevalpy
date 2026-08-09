@@ -1,32 +1,27 @@
-"""Config file I/O with file locking for drevalpy user configuration."""
+"""Config file I/O with file locking for drevalpy dataset registry."""
 
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Generator
 from contextlib import contextmanager
 
 from filelock import FileLock
-from platformdirs import user_config_dir
 from upath import UPath as Path
+
+from drevalpy.data._paths import get_config_dir
 
 from .models import DrevalConfig
 
-_ENV_VAR = "DREVALPY_CONFIG_DIR"
 _LOCK_TIMEOUT = 10
 
 
 def get_config_path() -> Path:
     """Return path to the dataset registry config file.
 
-    Checks ``DREVALPY_CONFIG_DIR`` env var first, falls back to platformdirs.
-
-    :returns: Path to ``datasets.json``.
+    :returns: Path to ``datasets.json`` in the config directory.
     """
-    env = os.environ.get(_ENV_VAR, "").strip()
-    config_dir = Path(env) if env else Path(user_config_dir("drevalpy"))
-    return config_dir / "datasets.json"
+    return get_config_dir() / "datasets.json"
 
 
 def _lock_path() -> Path:

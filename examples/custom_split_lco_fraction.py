@@ -5,9 +5,9 @@ Define ``create_splits(mudataset, params) -> list[SplitMasks]`` at module level.
 
 Usage::
 
-    from drevalpy.data.structures.splitting import MuDataSplitter
+    from drevalpy.data.splitting import get_splitter
 
-    splitter = MuDataSplitter()
+    splitter = get_splitter(test_mode)
     folds = splitter.split(
         my_mudataset,
         mode="LCO",

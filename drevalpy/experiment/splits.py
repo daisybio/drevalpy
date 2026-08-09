@@ -8,8 +8,8 @@ import shutil
 import numpy as np
 from upath import UPath as Path
 
-from ..data.mudataset import MuDataset
-from ..data.splitting import MuDataSplitter, SplitMasks
+from ..data.structures import MuDataset, SplitMasks
+from ..data.splitting import Splitter, splitter_registry
 
 
 def prepare_splits(
@@ -17,7 +17,7 @@ def prepare_splits(
     *,
     split_path: str | Path,
     result_path: str | Path,
-    test_mode: str,
+    test_mode: str | Splitter,
     n_cv_splits: int,
     overwrite: bool,
     result_folder_exists: bool,
@@ -54,10 +54,9 @@ def prepare_splits(
     results_dir.mkdir(parents=True, exist_ok=True)
     splits_dir.mkdir(parents=True, exist_ok=True)
 
-    splitter = MuDataSplitter()
+    splitter = splitter_registry.resolve(test_mode)
     folds = splitter.split(
         mudataset,
-        mode=test_mode,
         n_splits=n_cv_splits,
         validation_ratio=validation_ratio,
         random_state=random_state,
