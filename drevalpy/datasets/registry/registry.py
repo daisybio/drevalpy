@@ -105,7 +105,7 @@ class Registry:
 
         Console().print(table)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """Return a Rich-rendered string summary of the registry."""
         console = Console(width=120, highlight=False)
 
@@ -135,10 +135,6 @@ class Registry:
             console.print()
             console.print(sources_table)
         return capture.get().rstrip()
-
-    def __repr__(self) -> str:
-        """Return a Rich-rendered string summary of the registry."""
-        return self.__str__()
 
     def is_registered(self, name: str) -> bool:
         """Return whether ``name`` is a registered dataset.

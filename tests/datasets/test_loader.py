@@ -222,4 +222,4 @@ class TestStrRepr:
         assert "zenodo" in output
 
     def test_repr_equals_str(self) -> None:
-        assert repr(registry) == str(registry)
+        assert str(registry) == repr(registry)
