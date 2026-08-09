@@ -130,12 +130,20 @@ class Dataset(MuDataLike):
         "fingerprints": "morgan_fingerprint",
     }
 
-    def __init__(self, mdata: md.MuData, *, name: str) -> None:
+    def __init__(
+        self,
+        mdata: md.MuData,
+        *,
+        name: str,
+        randomization: tuple[str, list[str]] | None = None,
+    ) -> None:
         """Wrap an existing MuData object.
 
         Args:
             mdata: A MuData object with at least a "response" modality.
             name: Human-readable dataset name.
+            randomization: Optional (mode, views) tuple describing which
+                randomization was applied.
 
         Raises:
             KeyError: If the "response" modality is missing.
@@ -145,6 +153,7 @@ class Dataset(MuDataLike):
         self._mdata = mdata
         self._name = name
         self._drug_view_map: dict[str, str] = self._build_drug_view_map()
+        self.randomization = randomization
 
     @classmethod
     def from_file(cls, path: str | Path, *, name: str | None = None) -> Dataset:
@@ -611,7 +620,7 @@ class Dataset(MuDataLike):
         randomization_type: str = "permutation",
         random_state: int | None = None,
         *,
-        name: str | None = None,
+        randomization: tuple[str, list[str]] | None = None,
     ) -> Dataset:
         """Return a copy of this Dataset with specified views randomized.
 
@@ -624,7 +633,7 @@ class Dataset(MuDataLike):
             randomization_type: "permutation" shuffles rows; "invariant" replaces
                 each row with a random sample matching its mean and std.
             random_state: Seed for reproducibility.
-            name: Name for the new dataset. Defaults to the original name.
+            randomization: Optional (mode, views) tuple to attach to the new dataset.
 
         Returns:
             A new Dataset with the specified views randomized.
@@ -656,7 +665,7 @@ class Dataset(MuDataLike):
         new_mdata.obs = self._mdata.obs.copy()
         for key, val in new_uns.items():
             new_mdata.uns[key] = val
-        return Dataset(new_mdata, name=name if name is not None else self._name)
+        return Dataset(new_mdata, name=self._name, randomization=randomization)
 
     # ------------------------------------------------------------------
     # Dunder methods
@@ -676,6 +685,9 @@ class Dataset(MuDataLike):
             f"    Cell lines: {n_cl}",
             f"    Drugs: {n_dr}",
             f"    Measured pairs: {n_measured}",
+            f"    Randomization: {self.randomization[0]} ({', '.join(self.randomization[1])})"
+            if self.randomization
+            else "    Randomization: None",
             "    Modalities:",
         ]
         for mod in mods:

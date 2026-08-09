@@ -27,7 +27,7 @@ def randomization(
 
     For each randomization test (determined by model views and mode), produces
     a copy of the dataset with the relevant views shuffled. Each returned
-    dataset is named ``{original_name}__{mode}_{view}``.
+    dataset has its ``randomization`` field set to ``(mode_view, views)``.
 
     :param model_class: Model class whose config defines available views.
     :param dataset: Original dataset to randomize.
@@ -51,7 +51,8 @@ def randomization(
         if mode in builders:
             tests.update(builders[mode]())
 
-    return [
-        dataset.with_randomized_views(views, random_state=random_state, name=f"{dataset.name}__{name}")
-        for name, views in tests.items()
-    ]
+    results: list[Dataset] = []
+    for name, views in tests.items():
+        ds = dataset.with_randomized_views(views, random_state=random_state, randomization=(name, views))
+        results.append(ds)
+    return results
