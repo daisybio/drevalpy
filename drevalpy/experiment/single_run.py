@@ -167,7 +167,7 @@ class Run:
                 metric=self.hpo_metric,
                 model_checkpoint_dir=None,
                 hyperparameter_tuning=True,
-                hpo_cfg=hpo_cfg,
+                hpo_config=hpo_cfg,
             )
         else:
             best_hpams = self.model_class.get_default_hyperparameters()
