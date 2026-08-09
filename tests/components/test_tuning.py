@@ -1,34 +1,66 @@
-"""Tests for Ray/Optuna tuning helpers."""
+"""Tests for Optuna tuning helpers."""
 
 from __future__ import annotations
 
 import os
+from unittest.mock import patch
 
 import numpy as np
+import optuna
 import pytest
 
 from drevalpy.components.core.tuning.config import HPOConfig
-from drevalpy.components.core.tuning.search_space import dict_to_ray_space, merge_model_config_spaces
+from drevalpy.components.core.tuning.search_space import merge_model_config_spaces, sample_from_optuna_trial
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig
 
 
-def test_dict_to_ray_space_converts_structured_specs() -> None:
-    pytest.importorskip("ray")
-    space = dict_to_ray_space(
-        {
-            "predictor.randomForest.n_estimators": {"type": "int", "low": 10, "high": 20, "default": 15},
-            "predictor.randomForest.max_samples": {
-                "type": "float",
-                "low": 0.1,
-                "high": 0.9,
-                "default": 0.2,
-            },
-        }
-    )
-    assert "predictor.randomForest.n_estimators" in space
-    assert "predictor.randomForest.max_samples" in space
+def test_sample_from_optuna_trial_converts_structured_specs() -> None:
+    space = {
+        "predictor.randomForest.n_estimators": {"type": "int", "low": 10, "high": 20, "default": 15},
+        "predictor.randomForest.max_samples": {
+            "type": "float",
+            "low": 0.1,
+            "high": 0.9,
+            "default": 0.2,
+        },
+    }
+    study = optuna.create_study()
+    trial = study.ask()
+    sampled = sample_from_optuna_trial(trial, space)
+    assert "predictor.randomForest.n_estimators" in sampled
+    assert "predictor.randomForest.max_samples" in sampled
+    assert 10 <= sampled["predictor.randomForest.n_estimators"] <= 20
+    assert 0.1 <= sampled["predictor.randomForest.max_samples"] <= 0.9
+
+
+def test_sample_from_optuna_trial_log_scale() -> None:
+    space = {
+        "alpha": {"type": "float", "low": 0.001, "high": 10.0, "log": True, "default": 1.0},
+    }
+    study = optuna.create_study()
+    trial = study.ask()
+    sampled = sample_from_optuna_trial(trial, space)
+    assert 0.001 <= sampled["alpha"] <= 10.0
+
+
+def test_sample_from_optuna_trial_categorical() -> None:
+    space = {
+        "kernel": {"type": "categorical", "choices": ["linear", "rbf", "poly"], "default": "rbf"},
+    }
+    study = optuna.create_study()
+    trial = study.ask()
+    sampled = sample_from_optuna_trial(trial, space)
+    assert sampled["kernel"] in ["linear", "rbf", "poly"]
+
+
+def test_sample_from_optuna_trial_passthrough_non_mapping() -> None:
+    space = {"fixed_param": 42}
+    study = optuna.create_study()
+    trial = study.ask()
+    sampled = sample_from_optuna_trial(trial, space)
+    assert sampled["fixed_param"] == 42
 
 
 def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
@@ -44,35 +76,10 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
     assert model_cls.get_structured_hyperparameter_space() == merged
 
 
-def test_hpam_tune_uses_optuna(monkeypatch) -> None:
-    pytest.importorskip("ray")
-    pytest.importorskip("optuna")
+@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.1)
+def test_hpam_tune_uses_optuna(mock_evaluate) -> None:
     from drevalpy.components.core.tuning.hpo import mu_hpam_tune
     from drevalpy.data.structures import EntityScope
-
-    captured: dict[str, object] = {}
-
-    class FakeTuner:
-        def __init__(self, trainable, param_space, tune_config, run_config=None):
-            captured["param_space"] = param_space
-            captured["search_alg"] = tune_config.search_alg
-            captured["num_samples"] = tune_config.num_samples
-
-        def fit(self):
-            class Result:
-                config = {"predictor.elasticNet.alpha": 0.5, "predictor.elasticNet.l1_ratio": 0.5}
-                metrics = {"RMSE": 0.1}
-
-            class Results:
-                @staticmethod
-                def get_best_result(*_args, **_kwargs):
-                    return Result()
-
-            return Results()
-
-    monkeypatch.setattr("ray.tune.Tuner", FakeTuner)
-    monkeypatch.setattr("ray.init", lambda **kwargs: None)
-
     from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
     model_cls = construct_model("ElasticNet")
@@ -89,15 +96,11 @@ def test_hpam_tune_uses_optuna(monkeypatch) -> None:
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=3),
     )
     assert "alpha" in best
-    assert captured["num_samples"] == 3
-    assert captured["search_alg"] is not None
+    assert mock_evaluate.call_count == 3
 
 
-@pytest.mark.skipif(os.environ.get("DREVALPY_RUN_RAY_TESTS") != "1", reason="optional Ray runtime test")
+@pytest.mark.skipif(os.environ.get("DREVALPY_RUN_HPO_TESTS") != "1", reason="optional HPO runtime test")
 def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
-    pytest.importorskip("ray")
-    pytest.importorskip("optuna")
-
     from drevalpy import experiment
     from drevalpy.data import load
     from drevalpy.data.splitters import get_splitter
@@ -117,7 +120,7 @@ def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
         val_scope=fold_data.val_scope,
         early_stopping_scope=fold_data.early_stopping_scope,
         metric="RMSE",
-        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
     )
     assert isinstance(best, dict)
     assert "alpha" in best

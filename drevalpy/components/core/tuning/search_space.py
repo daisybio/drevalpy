@@ -295,15 +295,15 @@ def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
     return {key: spec["default"] for key, spec in space.items()}
 
 
-def dict_to_ray_space(space_dict: dict[str, Any]) -> dict[str, Any]:
-    """Convert structured specs to Ray Tune distributions.
+def sample_from_optuna_trial(trial: Any, space_dict: dict[str, Any]) -> dict[str, Any]:
+    """Sample hyperparameters from an Optuna trial using the structured search space.
 
-    :param space_dict: space dict.
-    :returns: Result.
-    :raises ValueError: Raised on invalid input.
+    :param trial: An ``optuna.Trial`` instance.
+    :param space_dict: Structured hyperparameter space with entries like
+        ``{"alpha": {"type": "float", "low": 0.001, "high": 10.0, "log": True}}``.
+    :returns: Flat dict of sampled concrete hyperparameter values.
+    :raises ValueError: If a parameter spec has an unknown type.
     """
-    from ray import tune
-
     result: dict[str, Any] = {}
     for name, spec in space_dict.items():
         if not isinstance(spec, Mapping):
@@ -311,21 +311,11 @@ def dict_to_ray_space(space_dict: dict[str, Any]) -> dict[str, Any]:
             continue
         kind = spec.get("type", "categorical")
         if kind == "int":
-            int_low, int_high = int(spec["low"]), int(spec["high"])
-            result[name] = (
-                tune.lograndint(int_low, int_high + 1)
-                if spec.get("log", False)
-                else tune.randint(int_low, int_high + 1)
-            )
+            result[name] = trial.suggest_int(name, int(spec["low"]), int(spec["high"]), log=spec.get("log", False))
         elif kind == "float":
-            float_low, float_high = float(spec["low"]), float(spec["high"])
-            result[name] = (
-                tune.loguniform(float_low, float_high)
-                if spec.get("log", False)
-                else tune.uniform(float_low, float_high)
-            )
+            result[name] = trial.suggest_float(name, float(spec["low"]), float(spec["high"]), log=spec.get("log", False))
         elif kind == "categorical":
-            result[name] = tune.choice(list(spec.get("choices", [])))
+            result[name] = trial.suggest_categorical(name, list(spec.get("choices", [])))
         else:
             msg = f"Unknown hyperparameter type {kind!r} for parameter {name!r}"
             raise ValueError(msg)

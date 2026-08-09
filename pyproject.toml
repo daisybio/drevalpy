@@ -42,7 +42,6 @@ dependencies = [
     "universal-pathlib",
     "filelock>=3.0",
     "typing-extensions>=4.12.0",
-    "ray[tune]; sys_platform != 'win32' or python_version < '3.13'",
     "mudata>=0.3.10",
 ]
 

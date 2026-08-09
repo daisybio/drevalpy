@@ -39,7 +39,7 @@ def select_fold_hyperparameters(
     :param metric: Metric optimized during HPO.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hyperparameter_tuning: Whether to run HPO when tunable parameters exist.
-    :param hpo_config: Ray Tune / Optuna configuration object.
+    :param hpo_config: Optuna configuration object.
     :param wandb_project: Optional Weights & Biases project name.
     :param split_index: CV fold index for W&B logging.
     :param wandb_base_config: Base W&B config merged per trial.
@@ -96,7 +96,7 @@ def select_final_model_hyperparameters(
     :param metric: Metric optimized during HPO.
     :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
     :param hyperparameter_tuning: Whether to run HPO when tunable parameters exist.
-    :param hpo_config: Ray Tune / Optuna configuration object.
+    :param hpo_config: Optuna configuration object.
 
     :returns: Flat hyperparameter mapping for ``model_class(...)``.
     """
@@ -119,28 +119,3 @@ def select_final_model_hyperparameters(
         model_checkpoint_dir=model_checkpoint_dir,
         hpo_config=hpo_config,
     )
-
-
-def fold_hpo_storage_path(result_path: str | Path) -> str:
-    """Absolute Ray Tune storage directory for nested-CV HPO.
-
-    Returns a ``str``: Ray also accepts ``s3://`` / ``gs://`` URIs for
-    ``storage_path``, and ``Path`` would collapse ``s3://b/x`` to ``s3:/b/x``.
-
-    :param result_path: Experiment result root directory.
-
-    :returns: Absolute path to the nested-CV Ray Tune storage folder.
-    """
-    return str((Path(result_path) / "raytune").absolute())
-
-
-def final_model_hpo_storage_path(result_path: str | Path) -> str:
-    """Absolute Ray Tune storage directory for final-model HPO.
-
-    Returns a ``str`` for the same URI-safety reason as ``fold_hpo_storage_path``.
-
-    :param result_path: Experiment result root directory.
-
-    :returns: Absolute path to the final-model Ray Tune storage folder.
-    """
-    return str((Path(result_path) / "raytune_final").absolute())

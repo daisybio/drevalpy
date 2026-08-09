@@ -1,6 +1,4 @@
-"""test mu_hpam_tune with Ray Tune."""
-
-import importlib.util
+"""Test mu_hpam_tune with Optuna."""
 
 import pytest
 
@@ -15,9 +13,6 @@ def test_hpam_tune(tmp_path, data_dir):
     :param tmp_path: pytest temporary path fixture
     :param data_dir: path to the data directory
     """
-    if importlib.util.find_spec("ray") is None:
-        pytest.skip("Ray is not installed")
-
     from drevalpy.data import load
     from drevalpy.data.splitters import get_splitter
     from drevalpy.experiment.fold import prepare_mu_fold
@@ -36,7 +31,7 @@ def test_hpam_tune(tmp_path, data_dir):
         val_scope=fold_data.val_scope,
         early_stopping_scope=fold_data.early_stopping_scope,
         metric="RMSE",
-        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
     )
     assert isinstance(best, dict)
     assert "alpha" in best

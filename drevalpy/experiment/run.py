@@ -17,7 +17,7 @@ from ..data.structures.mudataset import MuDataset
 from ..models._model_lookup import get_model_class
 from ..models.drp_model import DRPModel
 from .fold import merge_train_val_scopes, prepare_mu_fold
-from .hpo import fold_hpo_storage_path, select_fold_hyperparameters
+from .hpo import select_fold_hyperparameters
 from .model_paths import generate_data_saving_path
 from .paths import experiment_result_path
 from .seed import seed_everything
@@ -56,7 +56,6 @@ def mu_experiment(
     wandb_project: str | None = None,
     hpo_num_samples: int = 16,
     hpo_random_state: int = 42,
-    hpo_resources_per_trial: dict[str, float] | None = None,
 ) -> None:
     """Run the MuData-based drug response prediction experiment.
 
@@ -79,7 +78,6 @@ def mu_experiment(
     :param wandb_project: Optional W&B project name.
     :param hpo_num_samples: Number of HPO trials per fold.
     :param hpo_random_state: Random seed for HPO.
-    :param hpo_resources_per_trial: Optional Ray resource limits.
     """
     seed_everything(42)
     baselines = _normalize_baselines(baselines)
@@ -134,8 +132,6 @@ def mu_experiment(
                 hpam_optimization_metric,
                 n_trials=hpo_num_samples,
                 random_state=hpo_random_state,
-                resources_per_trial=hpo_resources_per_trial,
-                storage_path=fold_hpo_storage_path(result_path),
             )
 
             best_hpams = select_fold_hyperparameters(

@@ -62,7 +62,7 @@ See `docs/python/custom_models.rst` for a complete external extension walkthroug
 - Iterating `get_hyperparameter_set()` as a full grid — use
   `hyperparameter_tuning=True` or `get_structured_hyperparameter_space()`
 
-**Core dependencies:** `pydantic`, `optuna`, `ray[tune]`, `xgboost`, `lightgbm`,
+**Core dependencies:** `pydantic`, `optuna`, `xgboost`, `lightgbm`,
 `gseapy`, `mygene`, and `obonet` ship with the default install.
 
 ## Unsupported

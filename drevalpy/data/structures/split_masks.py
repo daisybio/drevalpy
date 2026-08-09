@@ -57,7 +57,7 @@ class SplitMasks:
     def __repr__(self) -> str:
         """Formatted summary."""
         lines = [
-            "SplitMask",
+            "SplitMasks",
             f"    Train: {len(self.train)} pairs",
             f"    Test: {len(self.test)} pairs",
             f"    Val: {len(self.val)} pairs",

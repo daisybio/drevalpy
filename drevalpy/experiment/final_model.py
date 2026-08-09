@@ -28,8 +28,6 @@ def train_final_model_impl(
     hyperparameter_tuning: bool = True,
     hpo_num_samples: int = 16,
     hpo_random_state: int = 42,
-    hpo_resources_per_trial: dict[str, float] | None = None,
-    hpo_storage_path: str | None = None,
 ) -> None:
     """Train and persist a final production model on the full dataset.
 
@@ -44,8 +42,6 @@ def train_final_model_impl(
     :param hyperparameter_tuning: Whether to tune hyperparameters before training.
     :param hpo_num_samples: Number of HPO trials when tuning is enabled.
     :param hpo_random_state: Random seed for hyperparameter search.
-    :param hpo_resources_per_trial: Ray resource allocation per HPO trial.
-    :param hpo_storage_path: Optional Ray Tune storage path for HPO results.
     """
     from drevalpy.components.core.tuning.config import build_experiment_hpo_config
     from drevalpy.data.splitters import splitter_registry
@@ -66,8 +62,6 @@ def train_final_model_impl(
         metric,
         n_trials=hpo_num_samples,
         random_state=hpo_random_state,
-        resources_per_trial=hpo_resources_per_trial,
-        storage_path=hpo_storage_path,
     )
     best_hpams = select_final_model_hyperparameters(
         model_class=model_class,

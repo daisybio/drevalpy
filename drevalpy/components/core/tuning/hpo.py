@@ -1,8 +1,7 @@
-"""Ray Tune / Optuna hyperparameter optimization for DRPModel experiments."""
+"""Optuna hyperparameter optimization for DRPModel experiments."""
 
 from __future__ import annotations
 
-import logging
 import warnings
 from typing import Any
 
@@ -18,68 +17,17 @@ from drevalpy.components.core.tuning.drp_hyperparameters import (
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
-from drevalpy.components.core.tuning.hpo_runtime import mu_build_ray_trainable, run_ray_tuner
+from drevalpy.components.core.tuning.hpo_runtime import build_optuna_objective, run_optuna_study
 from drevalpy.data.structures import EntityScope
 from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 
-logger = logging.getLogger(__name__)
-
-
-def _metric_value(metrics: dict[str, Any] | None, metric: str) -> float:
-    if not metrics:
-        return float("nan")
-    value = metrics.get(metric, float("nan"))
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return float("nan")
+logger = get_logger(__name__)
 
 
 def _is_valid_score(value: float) -> bool:
     return bool(np.isfinite(value))
-
-
-def _trial_is_usable(result: Any, cfg: HPOConfig) -> bool:
-    score = _metric_value(result.metrics, cfg.metric)
-    return _is_valid_score(score) and bool(result.config)
-
-
-def _better_trial_score(score: float, best_score: float, mode: str) -> bool:
-    if mode == "min":
-        return score < best_score
-    return score > best_score
-
-
-def _best_result_from_scan(results: Any, cfg: HPOConfig) -> Any | None:
-    best_candidate = None
-    best_score = float("inf") if cfg.mode == "min" else float("-inf")
-    try:
-        trial_results = list(results)
-    except TypeError:
-        return None
-
-    for result in trial_results:
-        if not _trial_is_usable(result, cfg):
-            continue
-        score = _metric_value(result.metrics, cfg.metric)
-        if _better_trial_score(score, best_score, cfg.mode):
-            best_score = score
-            best_candidate = result
-    return best_candidate
-
-
-def _select_best_result(results: Any, cfg: HPOConfig) -> Any | None:
-    try:
-        best_result = results.get_best_result(metric=cfg.metric, mode=cfg.mode)
-    except Exception as exc:
-        logger.warning("Ray Tune get_best_result failed: %s", exc)
-        best_result = None
-
-    if best_result is not None and _trial_is_usable(best_result, cfg):
-        return best_result
-
-    return _best_result_from_scan(results, cfg)
 
 
 def mu_hpam_tune(
@@ -97,7 +45,7 @@ def mu_hpam_tune(
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Tune hyperparameters using MuDataset + EntityScope.
+    """Tune hyperparameters using MuDataset + EntityScope with Optuna.
 
     :param model_class: Model class to tune.
     :param mudataset: Full dataset with all features.
@@ -125,47 +73,36 @@ def mu_hpam_tune(
     if cfg.n_trials == 0:
         return model_class.get_default_hyperparameters()
 
-    try:
-        import ray
-    except ImportError as exc:
-        msg = "Ray Tune with Optuna requires ray[tune] and optuna to be installed"
-        raise ImportError(msg) from exc
+    model_name = model_class.get_model_name()
+    objective = build_optuna_objective(
+        model_class=model_class,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=early_stopping_scope,
+        response_transformation=response_transformation,
+        metric=metric,
+        structured_space=structured_space,
+        model_checkpoint_dir=model_checkpoint_dir,
+        cfg=cfg,
+        wandb_project=wandb_project,
+        wandb_base_config=wandb_base_config,
+        split_index=split_index,
+        model_name=model_name,
+    )
 
-    ray_initialized_here = not ray.is_initialized()
-    try:
-        if ray_initialized_here:
-            ray.init(ignore_reinit_error=True)
+    study = run_optuna_study(objective=objective, cfg=cfg)
 
-        model_name = model_class.get_model_name()
-        trainable = mu_build_ray_trainable(
-            model_class=model_class,
-            mudataset=mudataset,
-            train_scope=train_scope,
-            val_scope=val_scope,
-            early_stopping_scope=early_stopping_scope,
-            response_transformation=response_transformation,
-            metric=metric,
-            model_checkpoint_dir=model_checkpoint_dir,
-            cfg=cfg,
-            wandb_project=wandb_project,
-            wandb_base_config=wandb_base_config,
-            split_index=split_index,
-            model_name=model_name,
+    best_trial = study.best_trial if study.best_trial is not None else None
+    if best_trial is None or not _is_valid_score(best_trial.value):
+        warnings.warn(
+            "Optuna tuning did not find a valid configuration; using defaults.",
+            stacklevel=2,
         )
-        results = run_ray_tuner(trainable_fn=trainable, structured_space=structured_space, cfg=cfg)
-        best_result = _select_best_result(results, cfg)
-        if best_result is None:
-            warnings.warn(
-                "Ray/Optuna tuning did not find a valid configuration; using defaults.",
-                stacklevel=2,
-            )
-            return default_hyperparameters_for_drp_model(model_class)
+        return default_hyperparameters_for_drp_model(model_class)
 
-        best_config = best_result.config or {}
-        best_model_config = tuned_config_for_drp_model(model_class, best_config)
-        if best_model_config is None:
-            return dict(best_config)
-        return public_hyperparameters_from_config(best_model_config)
-    finally:
-        if ray_initialized_here and ray.is_initialized():
-            ray.shutdown()
+    best_config = best_trial.params
+    best_model_config = tuned_config_for_drp_model(model_class, best_config)
+    if best_model_config is None:
+        return dict(best_config)
+    return public_hyperparameters_from_config(best_model_config)

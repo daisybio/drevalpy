@@ -19,10 +19,10 @@ from drevalpy.components.core.tuning.hpo import mu_hpam_tune
 from drevalpy.components.core.tuning.search_space import (
     apply_merged_to_model_config,
     defaults_from_merged_space,
-    dict_to_ray_space,
     extract_defaults,
     merge_model_config_spaces,
     merge_search_spaces,
+    sample_from_optuna_trial,
     split_hyperparameters,
 )
 
@@ -37,7 +37,6 @@ __all__ = [
     "default_config_for_drp_model",
     "default_hyperparameters_for_drp_model",
     "defaults_from_merged_space",
-    "dict_to_ray_space",
     "extract_defaults",
     "flat_hyperparameters_from_model_config",
     "has_tunable_hyperparameters",
@@ -46,6 +45,7 @@ __all__ = [
     "merge_search_spaces",
     "model_config_for_drp_model",
     "public_hyperparameters_from_config",
+    "sample_from_optuna_trial",
     "split_hyperparameters",
     "structured_space_for_drp_model",
     "tuned_config_for_drp_model",
