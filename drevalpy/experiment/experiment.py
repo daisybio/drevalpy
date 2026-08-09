@@ -88,7 +88,6 @@ class Experiment:
                         model_class=model_class,
                         mudataset=self.mudataset,
                         split_masks=split_masks,
-                        fold_index=fold_index,
                         hyperparameter_tuning=self.hyperparameter_tuning,
                         response_transformation=self.response_transformation,
                         hpo_metric=self.hpo_metric,

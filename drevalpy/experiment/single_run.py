@@ -40,7 +40,7 @@ class RunResult:
             "RunResult",
             f"    Model: {self.model_name}",
             "    Fold:",
-            f"        index: {self.fold_index}",
+            f"        index: {self.split_masks.metadata.get("fold_index", 0)}",
         ]
 
         for k, v in self.fold_metadata.items():
@@ -76,7 +76,6 @@ class Run:
         mudataset: MuDataset,
         split_masks: SplitMasks,
         *,
-        fold_index: int = 0,
         hyperparameter_tuning: bool = True,
         response_transformation: TransformerMixin | None = None,
         hpo_metric: str = "RMSE",
@@ -88,7 +87,6 @@ class Run:
         :param model_class: DRPModel subclass to train.
         :param mudataset: Full dataset with all features.
         :param split_masks: Single fold's train/test/val pair arrays.
-        :param fold_index: Index of this fold (for metadata).
         :param hyperparameter_tuning: Whether to run HPO.
         :param response_transformation: Optional sklearn transformer for responses.
         :param hpo_metric: Metric to optimize during HPO.
@@ -98,7 +96,6 @@ class Run:
         self.model_class = model_class
         self.mudataset = mudataset
         self.split_masks = split_masks
-        self.fold_index = fold_index
         self.hyperparameter_tuning = hyperparameter_tuning
         self.response_transformation = response_transformation
         self.hpo_metric = hpo_metric
@@ -126,7 +123,7 @@ class Run:
                     lines.append(f"        {k}: {v}")
 
         lines.append("    Fold:")
-        lines.append(f"        index: {self.fold_index}")
+        lines.append(f"        index: {self.split_masks.metadata.get("fold_index", 0)}")
         for k, v in self.split_masks.metadata.items():
             if k != "fold_index":
                 lines.append(f"        {k}: {v}")
@@ -146,7 +143,7 @@ class Run:
         from drevalpy.evaluation import AVAILABLE_METRICS
 
         model_name = self.model_class.get_model_name()
-        logger.info("Run: %s, fold %d", model_name, self.fold_index)
+        logger.info("Run: %s, fold %d", model_name, self.split_masks.metadata.get("fold_index", 0))
 
         fold_data = prepare_mu_fold(self.mudataset, self.split_masks, self.model_class)
 
@@ -209,7 +206,7 @@ class Run:
 
         return RunResult(
             model_name=model_name,
-            fold_index=self.fold_index,
+            fold_index=self.split_masks.metadata.get("fold_index", 0),
             predictions=predictions,
             ground_truth=ground_truth,
             cell_line_ids=cl_ids,
