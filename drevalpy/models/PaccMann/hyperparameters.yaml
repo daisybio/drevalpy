@@ -26,6 +26,11 @@ PaccMann:
   smiles_padding_length:
     - 512
 
+  # Train each drug on several equivalent SMILES strings. Requires rdkit; without it
+  # training falls back to the unaugmented SMILES and warns.
+  augment_smiles:
+    - true
+
   dropout:
     - 0.5
 

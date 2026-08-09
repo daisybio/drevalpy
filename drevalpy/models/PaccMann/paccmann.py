@@ -6,6 +6,7 @@ import copy
 import json
 import os
 import re
+import warnings
 from typing import Any
 
 import joblib
@@ -39,6 +40,53 @@ def _tokenize_smiles(smiles: str) -> list[str]:
     return [token for token in SMILES_TOKENIZER.split(smiles) if token]
 
 
+# Number of SMILES variants generated per drug. The original implementation re-randomizes on every access, which
+# would mean an RDKit call per sample per epoch. Since a dataset holds only a few hundred distinct drugs, a fixed
+# bank of variants is built once and sampled from during training instead.
+N_SMILES_VARIANTS = 20
+
+# Seed for building the variant bank, so that repeated runs on the same data produce the same variants
+SMILES_AUGMENTATION_SEED = 42
+
+
+def _randomize_smiles(smiles_list: list[str], n_variants: int) -> list[list[str]]:
+    """Generate alternative SMILES strings for the same molecules.
+
+    Every molecule is re-serialized from a shuffled atom order, which yields a different SMILES string that
+    describes the exact same molecule. This is the augmentation the original implementation applies to the drug
+    modality. Molecules that RDKit cannot parse keep their original SMILES.
+
+    :param smiles_list: list of distinct SMILES strings
+    :param n_variants: number of variants to generate per molecule, including the original SMILES
+    :return: list holding the variants of each molecule, the original SMILES first
+    :raises ImportError: if RDKit is not installed
+    """
+    try:
+        from rdkit import Chem, RDLogger
+    except ImportError as e:  # pragma: no cover - depends on the environment
+        raise ImportError("Please install rdkit to augment SMILES for PaccMann: pip install rdkit") from e
+
+    RDLogger.DisableLog("rdApp.*")  # RDKit warns loudly about SMILES it can still parse
+    rng = np.random.default_rng(SMILES_AUGMENTATION_SEED)
+
+    variants = []
+    for smiles in smiles_list:
+        molecule = Chem.MolFromSmiles(smiles)
+        if molecule is None:
+            variants.append([smiles] * n_variants)
+            continue
+
+        atom_order = list(range(molecule.GetNumAtoms()))
+        molecule_variants = [smiles]
+        for _ in range(n_variants - 1):
+            rng.shuffle(atom_order)
+            renumbered = Chem.RenumberAtoms(molecule, atom_order)
+            molecule_variants.append(Chem.MolToSmiles(renumbered, canonical=False))
+        variants.append(molecule_variants)
+
+    return variants
+
+
 class PaccMann(DRPModel):
     """PaccMann model for drug response prediction.
 
@@ -49,6 +97,7 @@ class PaccMann(DRPModel):
     - loads gene expression features for cell lines
     - loads SMILES strings for drugs
     - tokenizes SMILES into padded integer sequences
+    - augments the drugs with equivalent SMILES strings, unless augment_smiles is disabled
     - scales gene expression on training data only
     - trains a PaccMannV2 PyTorch model
     - keeps the weights of the epoch with the lowest loss on the early stopping set
@@ -242,6 +291,28 @@ class PaccMann(DRPModel):
             torch.tensor(gex, dtype=torch.float32),
         )
 
+    def _build_smiles_variants(self, unique_smiles: list[str]) -> list[list[str]]:
+        """Build the SMILES variants each drug is trained on.
+
+        With augmentation enabled every drug gets several equivalent SMILES strings; without it each drug keeps
+        its single original SMILES. If RDKit is missing, augmentation is skipped with a warning rather than
+        failing, so the model stays usable without the optional dependency.
+
+        :param unique_smiles: list of distinct SMILES strings
+        :return: list holding the variants of each molecule, the original SMILES first
+        """
+        if not self.hyperparameters.get("augment_smiles", True):
+            return [[smiles] for smiles in unique_smiles]
+
+        try:
+            return _randomize_smiles(unique_smiles, N_SMILES_VARIANTS)
+        except ImportError as e:  # pragma: no cover - depends on the environment
+            warnings.warn(
+                f"{e} Training PaccMann without SMILES augmentation.",
+                stacklevel=2,
+            )
+            return [[smiles] for smiles in unique_smiles]
+
     def _build_validation_loader(
         self,
         output_earlystopping: DrugResponseDataset | None,
@@ -352,21 +423,32 @@ class PaccMann(DRPModel):
         # Scale gene expression on training data only
         gex = self.gene_expression_scaler.fit_transform(gex).astype(np.float32)
 
-        # Build SMILES vocabulary from training data only
+        # Each drug is trained on several equivalent SMILES strings, so the variants are built per distinct drug
+        # and every response row only needs to remember which drug it belongs to.
+        unique_smiles, row_to_drug = np.unique(np.asarray(smiles, dtype=object), return_inverse=True)
+        smiles_variants = self._build_smiles_variants(list(unique_smiles))
+        flat_variants = [variant for molecule_variants in smiles_variants for variant in molecule_variants]
+
+        # Build SMILES vocabulary from training data only. It has to cover the augmented variants as well,
+        # otherwise their tokens would be encoded as unknown.
         self.smiles_to_idx = {
             "<pad>": 0,
             "<unk>": 1,
         }
-        self._build_smiles_vocab(smiles)
+        self._build_smiles_vocab(flat_variants)
 
         # Determine SMILES padding length
         if "smiles_padding_length" in self.hyperparameters:
             self.smiles_padding_length = int(self.hyperparameters["smiles_padding_length"])
         else:
-            self.smiles_padding_length = max(len(_tokenize_smiles(smile)) for smile in smiles)
+            self.smiles_padding_length = max(len(_tokenize_smiles(variant)) for variant in flat_variants)
 
-        # Encode and pad SMILES strings
-        smiles_encoded = self._encode_smiles(smiles)
+        # Encode the variants into a bank of shape (drugs, variants, padding length), sampled from per batch
+        n_variants = len(smiles_variants[0])
+        smiles_bank = torch.tensor(
+            self._encode_smiles(flat_variants).reshape(len(smiles_variants), n_variants, -1),
+            dtype=torch.long,
+        )
 
         # Copy hyperparameters and adapt the number of genes to the training data
         model_params = dict(self.hyperparameters)
@@ -378,13 +460,14 @@ class PaccMann(DRPModel):
         # Build the PaccMann neural network
         self.model = PaccMannV2(model_params).to(self.device)
 
-        # Convert all inputs to tensors
-        smiles_tensor = torch.tensor(smiles_encoded, dtype=torch.long)
+        # Convert all inputs to tensors. The dataset holds the drug index rather than the encoded SMILES, so that
+        # a fresh variant can be drawn for every row in every epoch without materializing one tensor per epoch.
+        drug_tensor = torch.tensor(row_to_drug, dtype=torch.long)
         gex_tensor = torch.tensor(gex, dtype=torch.float32)
         y_tensor = torch.tensor(y, dtype=torch.float32).view(-1, 1)
 
         # Create PyTorch dataset and dataloader
-        dataset = TensorDataset(smiles_tensor, gex_tensor, y_tensor)
+        dataset = TensorDataset(drug_tensor, gex_tensor, y_tensor)
         batch_size = model_params.get("batch_size", 64)
 
         # The batch norm layers cannot process a batch that holds a single sample, so a trailing batch of size 1
@@ -422,8 +505,11 @@ class PaccMann(DRPModel):
         # Train the model
         for epoch in range(epochs):
             self.model.train()
-            for batch_smiles, batch_gex, batch_y in train_loader:
-                batch_smiles = batch_smiles.to(self.device)
+            for batch_drugs, batch_gex, batch_y in train_loader:
+                # Draw one of the equivalent SMILES strings per row, so a drug is seen through a different
+                # SMILES string in every epoch
+                variant = torch.randint(0, n_variants, (batch_drugs.shape[0],))
+                batch_smiles = smiles_bank[batch_drugs, variant].to(self.device)
                 batch_gex = batch_gex.to(self.device)
                 batch_y = batch_y.to(self.device)
 
