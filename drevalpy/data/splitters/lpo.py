@@ -22,37 +22,33 @@ def leave_pair_out(
     cl_ids = mudataset.cell_line_ids
     drug_ids = mudataset.drug_ids
 
-    row_idx, col_idx = np.where(~np.isnan(response))
+    # Get a list of all (cell_line, drug) pairs that have a response
+    observed_pairs = np.column_stack(np.where(~np.isnan(response)))
 
     rng = np.random.default_rng(random_state)
-    perm = rng.permutation(len(row_idx))
-    row_idx = row_idx[perm]
-    col_idx = col_idx[perm]
+    rng.shuffle(observed_pairs)
 
-    groups = np.array([f"{cl_ids[r]}_{drug_ids[c]}" for r, c in zip(row_idx, col_idx, strict=True)])
+    # Give all pairs that have the same ids the same label
+    pair_labels = np.array([f"{cl_ids[cl]}_{drug_ids[dr]}" for cl, dr in observed_pairs])
 
     gkf = GroupKFold(n_splits=n_splits)
     folds: list[SplitMasks] = []
 
-    for train_pos, test_pos in gkf.split(row_idx, groups=groups):
+    # Split the pairs into n_splits groups, keeping the labels in one group together
+    for train_idx, test_idx in gkf.split(observed_pairs, groups=pair_labels):
         if validation_ratio > 0:
-            train_pos, val_pos = train_test_split(
-                train_pos,
-                test_size=validation_ratio,
-                shuffle=True,
-                random_state=random_state,
+            train_idx, val_idx = train_test_split(
+                train_idx, test_size=validation_ratio, shuffle=True, random_state=random_state
             )
         else:
-            val_pos = np.array([], dtype=np.intp)
+            val_idx = np.array([], dtype=np.intp)
 
         folds.append(
             SplitMasks(
-                train_cell_lines=row_idx[train_pos],
-                test_cell_lines=row_idx[test_pos],
-                val_cell_lines=row_idx[val_pos],
-                train_drugs=col_idx[train_pos],
-                test_drugs=col_idx[test_pos],
-                val_drugs=col_idx[val_pos],
+                train=observed_pairs[train_idx],
+                test=observed_pairs[test_idx],
+                val=observed_pairs[val_idx] if len(val_idx) > 0 else np.empty((0, 2), dtype=np.intp),
             )
         )
+
     return folds

@@ -9,11 +9,10 @@ import numpy as np
 
 @dataclass(frozen=True, slots=True)
 class EntityScope:
-    """Index scope for model train/predict operations.
+    """2D pair array defining which (cell_line, drug) pairs to operate on.
 
-    Unlike SplitMasks (which represents a CV fold partition), EntityScope simply
-    says "operate on these entities." Used by _ComponentStack.train() and predict().
+    The ``pairs`` array has shape (n_pairs, 2) where column 0 is cell line index
+    and column 1 is drug index. Used by _ComponentStack.train() and predict().
     """
 
-    cell_lines: np.ndarray
-    drugs: np.ndarray | None = None
+    pairs: np.ndarray

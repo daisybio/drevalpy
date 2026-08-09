@@ -10,6 +10,15 @@ from drevalpy.data.structures import MuDataLike, SplitMasks
 from .registry import splitter_registry
 
 
+def _expand_to_pairs(response: np.ndarray, dr_indices: np.ndarray) -> np.ndarray:
+    """Expand drug indices to all non-NaN (cl_idx, dr_idx) pairs."""
+    if len(dr_indices) == 0:
+        return np.empty((0, 2), dtype=np.intp)
+    sub = response[:, dr_indices]
+    row, col_local = np.where(~np.isnan(sub))
+    return np.column_stack([row, dr_indices[col_local]])
+
+
 @splitter_registry.register("LDO", "Leave-Drug-Out: test folds contain unseen drugs", validation="LDO")
 def leave_drug_out(
     mudataset: MuDataLike,
@@ -18,7 +27,7 @@ def leave_drug_out(
     random_state: int = 42,
 ) -> list[SplitMasks]:
     """Generate LDO folds where each drug appears in exactly one test set."""
-    cl_ids = mudataset.cell_line_ids
+    response = mudataset.response_matrix
     drug_ids = mudataset.drug_ids
 
     rng = np.random.default_rng(random_state)
@@ -45,19 +54,15 @@ def leave_drug_out(
             keep_groups = unique_train
             val_groups = np.array([], dtype=unique_train.dtype)
 
-        all_cl = np.arange(len(cl_ids))
         train_dr = np.where(np.isin(drug_ids, keep_groups))[0]
         test_dr = np.where(np.isin(drug_ids, test_groups))[0]
         val_dr = np.where(np.isin(drug_ids, val_groups))[0]
 
         folds.append(
             SplitMasks(
-                train_cell_lines=all_cl,
-                test_cell_lines=all_cl,
-                val_cell_lines=all_cl,
-                train_drugs=train_dr,
-                test_drugs=test_dr,
-                val_drugs=val_dr,
+                train=_expand_to_pairs(response, train_dr),
+                test=_expand_to_pairs(response, test_dr),
+                val=_expand_to_pairs(response, val_dr),
             )
         )
 

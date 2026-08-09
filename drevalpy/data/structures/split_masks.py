@@ -1,4 +1,4 @@
-"""Index arrays for a single cross-validation fold."""
+"""Unified 2D pair arrays for cross-validation folds."""
 
 from __future__ import annotations
 
@@ -12,24 +12,16 @@ from upath import UPath as Path
 
 @dataclass(frozen=True, slots=True)
 class SplitMasks:
-    """Index arrays for a single cross-validation fold.
+    """2D pair arrays for a single cross-validation fold.
 
-    For LCO/LTO the drug indices are *None* (all drugs used for all splits).
-    For LDO the cell line indices cover all cell lines and drug indices differ.
-    For LPO both cell_line and drug indices are populated (paired).
-
-    The ``metadata`` dict can hold arbitrary per-fold information (mode, params,
-    fold index, custom keys from splitters). It is persisted alongside arrays.
+    Each array has shape (n_pairs, 2) where column 0 is the cell line index
+    and column 1 is the drug index into the response matrix. This format is
+    uniform across all split modes (LPO, LCO, LDO, LTO).
     """
 
-    train_cell_lines: np.ndarray
-    test_cell_lines: np.ndarray
-    val_cell_lines: np.ndarray
-
-    train_drugs: np.ndarray | None = None
-    test_drugs: np.ndarray | None = None
-    val_drugs: np.ndarray | None = None
-
+    train: np.ndarray
+    test: np.ndarray
+    val: np.ndarray
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def save(self, path: str | Path) -> None:
@@ -38,16 +30,10 @@ class SplitMasks:
         :param path: Output file path (should end in .npz).
         """
         arrays: dict[str, np.ndarray] = {
-            "train_cell_lines": self.train_cell_lines,
-            "test_cell_lines": self.test_cell_lines,
-            "val_cell_lines": self.val_cell_lines,
+            "train": self.train,
+            "test": self.test,
+            "val": self.val,
         }
-        if self.train_drugs is not None:
-            arrays["train_drugs"] = self.train_drugs
-        if self.test_drugs is not None:
-            arrays["test_drugs"] = self.test_drugs
-        if self.val_drugs is not None:
-            arrays["val_drugs"] = self.val_drugs
         if self.metadata:
             arrays["_metadata"] = np.array(json.dumps(self.metadata))
         np.savez_compressed(Path(path), **arrays)
@@ -62,11 +48,8 @@ class SplitMasks:
         data = np.load(Path(path), allow_pickle=False)
         metadata = json.loads(str(data["_metadata"])) if "_metadata" in data else {}
         return cls(
-            train_cell_lines=data["train_cell_lines"],
-            test_cell_lines=data["test_cell_lines"],
-            val_cell_lines=data["val_cell_lines"],
-            train_drugs=data["train_drugs"] if "train_drugs" in data else None,
-            test_drugs=data["test_drugs"] if "test_drugs" in data else None,
-            val_drugs=data["val_drugs"] if "val_drugs" in data else None,
+            train=data["train"],
+            test=data["test"],
+            val=data["val"],
             metadata=metadata,
         )

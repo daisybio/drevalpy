@@ -10,6 +10,15 @@ from drevalpy.data.structures import MuDataLike, SplitMasks
 from .registry import splitter_registry
 
 
+def _expand_to_pairs(response: np.ndarray, cl_indices: np.ndarray) -> np.ndarray:
+    """Expand cell line indices to all non-NaN (cl_idx, dr_idx) pairs."""
+    if len(cl_indices) == 0:
+        return np.empty((0, 2), dtype=np.intp)
+    sub = response[cl_indices, :]
+    row_local, col = np.where(~np.isnan(sub))
+    return np.column_stack([cl_indices[row_local], col])
+
+
 @splitter_registry.register("LCO", "Leave-Cell-Line-Out: test folds contain unseen cell lines", validation="LCO")
 def leave_cell_line_out(
     mudataset: MuDataLike,
@@ -18,6 +27,7 @@ def leave_cell_line_out(
     random_state: int = 42,
 ) -> list[SplitMasks]:
     """Generate LCO folds where each cell line appears in exactly one test set."""
+    response = mudataset.response_matrix
     cl_ids = mudataset.cell_line_ids
 
     rng = np.random.default_rng(random_state)
@@ -48,6 +58,12 @@ def leave_cell_line_out(
         test_cl = np.where(np.isin(cl_ids, test_groups))[0]
         val_cl = np.where(np.isin(cl_ids, val_groups))[0]
 
-        folds.append(SplitMasks(train_cell_lines=train_cl, test_cell_lines=test_cl, val_cell_lines=val_cl))
+        folds.append(
+            SplitMasks(
+                train=_expand_to_pairs(response, train_cl),
+                test=_expand_to_pairs(response, test_cl),
+                val=_expand_to_pairs(response, val_cl),
+            )
+        )
 
     return folds

@@ -396,87 +396,38 @@ class _ComponentStack:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _grid_pairs(
-        response_matrix: np.ndarray,
-        cl_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cl_idx: np.ndarray,
-        dr_idx: np.ndarray,
+    def _extract_response_pairs(
+        mudataset: MuDataset,
+        scope: EntityScope,
     ) -> ResponseBatch:
-        """Extract response pairs from a cell-line x drug grid (LCO/LTO/LDO group mode).
+        """Build a ResponseBatch from the MuDataset for given pair indices.
 
-        :param response_matrix: Full response matrix (n_cell_lines x n_drugs).
-        :param cl_ids: All cell-line IDs.
-        :param drug_ids: All drug IDs.
-        :param cl_idx: Cell-line row indices to include.
-        :param dr_idx: Drug column indices to include.
-        :returns: Flat ResponseBatch with non-NaN entries from the grid.
+        :param mudataset: Source of response values.
+        :param scope: EntityScope with 2D pair array.
+        :returns: Flat ResponseBatch of (cell_line, drug, response) triples.
         """
-        sub_matrix = response_matrix[np.ix_(cl_idx, dr_idx)]
-        row_pos, col_pos = np.where(~np.isnan(sub_matrix))
-        return ResponseBatch(
-            response=sub_matrix[row_pos, col_pos].astype(np.float64),
-            cell_line_ids=cl_ids[cl_idx[row_pos]],
-            drug_ids=drug_ids[dr_idx[col_pos]],
-        )
+        pairs = scope.pairs
+        if len(pairs) == 0:
+            return ResponseBatch(
+                response=np.array([], dtype=np.float64),
+                cell_line_ids=np.array([], dtype=str),
+                drug_ids=np.array([], dtype=str),
+            )
 
-    @staticmethod
-    def _positional_pairs(
-        response_matrix: np.ndarray,
-        cl_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cl_idx: np.ndarray,
-        dr_idx: np.ndarray,
-    ) -> ResponseBatch:
-        """Extract response pairs from matched positional indices (LPO mode).
+        cl_ids = mudataset.cell_line_ids
+        drug_ids = mudataset.drug_ids
+        response_matrix = mudataset.response_matrix
 
-        :param response_matrix: Full response matrix (n_cell_lines x n_drugs).
-        :param cl_ids: All cell-line IDs.
-        :param drug_ids: All drug IDs.
-        :param cl_idx: Cell-line indices (paired with dr_idx).
-        :param dr_idx: Drug indices (paired with cl_idx).
-        :returns: Flat ResponseBatch with non-NaN entries from the pairs.
-        """
+        cl_idx = pairs[:, 0]
+        dr_idx = pairs[:, 1]
         responses = response_matrix[cl_idx, dr_idx]
+
         valid = ~np.isnan(responses)
         return ResponseBatch(
             response=responses[valid].astype(np.float64),
             cell_line_ids=cl_ids[cl_idx[valid]],
             drug_ids=drug_ids[dr_idx[valid]],
         )
-
-    @staticmethod
-    def _is_all_indices(cl_idx: np.ndarray, n_cell_lines: int) -> bool:
-        """Return True if cl_idx covers all cell-line positions (LDO group pattern)."""
-        return len(cl_idx) == n_cell_lines and np.array_equal(cl_idx, np.arange(n_cell_lines))
-
-    @staticmethod
-    def _extract_response_pairs(
-        mudataset: MuDataset,
-        cl_idx: np.ndarray,
-        dr_idx: np.ndarray | None,
-    ) -> ResponseBatch:
-        """Build a ResponseBatch from the MuDataset for given entity indices.
-
-        :param mudataset: Source of response values.
-        :param cl_idx: Cell-line indices to include.
-        :param dr_idx: Drug indices to include, or ``None`` for all drugs (LCO/LTO).
-        :returns: Flat ResponseBatch of (cell_line, drug, response) triples.
-        """
-        cl_ids = mudataset.cell_line_ids
-        drug_ids = mudataset.drug_ids
-        response_matrix = mudataset.response_matrix
-
-        if dr_idx is None:
-            # LCO/LTO: subset of cell lines x all drugs
-            all_dr_idx = np.arange(len(drug_ids))
-            return _ComponentStack._grid_pairs(response_matrix, cl_ids, drug_ids, cl_idx, all_dr_idx)
-
-        # Determine if these are positional pairs (LPO) or group-based (LDO)
-        if _ComponentStack._is_all_indices(cl_idx, len(cl_ids)):
-            return _ComponentStack._grid_pairs(response_matrix, cl_ids, drug_ids, cl_idx, dr_idx)
-
-        return _ComponentStack._positional_pairs(response_matrix, cl_ids, drug_ids, cl_idx, dr_idx)
 
     def _build_features_from_mudataset(
         self,
@@ -512,7 +463,7 @@ class _ComponentStack:
         :param training_context: Optional runtime metadata.
         :returns: Self after training.
         """
-        output = self._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
+        output = self._extract_response_pairs(mudataset, scope)
         if len(output) == 0:
             return self
 
@@ -561,13 +512,11 @@ class _ComponentStack:
         :param training_context: Optional runtime metadata.
         :returns: Self after training.
         """
-        output = self._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
+        output = self._extract_response_pairs(mudataset, scope)
         if len(output) == 0:
             return self
 
-        output_earlystopping = self._extract_response_pairs(
-            mudataset, early_stopping_scope.cell_lines, early_stopping_scope.drugs
-        )
+        output_earlystopping = self._extract_response_pairs(mudataset, early_stopping_scope)
         if len(output_earlystopping) == 0:
             output_earlystopping = None
 
@@ -614,7 +563,7 @@ class _ComponentStack:
             msg = "Model has not been trained; call train() or load() before predict()"
             raise RuntimeError(msg)
 
-        test_response = self._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
+        test_response = self._extract_response_pairs(mudataset, scope)
         if len(test_response) == 0:
             return np.array([])
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+import numpy as np
+
 from drevalpy.data.structures import MuDataLike, SplitMasks
 
 Validation = Literal["LCO", "LDO", "LPO", "LTO"]
@@ -32,9 +34,9 @@ def validate_folds(
 
 def _validate_lco(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
     """LCO: no cell line index appears in both train and test."""
-    train = set(fold.train_cell_lines.tolist())
-    test = set(fold.test_cell_lines.tolist())
-    overlap = train & test
+    train_cls = set(fold.train[:, 0].tolist())
+    test_cls = set(fold.test[:, 0].tolist())
+    overlap = train_cls & test_cls
     if overlap:
         raise SplitValidationError(
             f"LCO validation failed (fold {fold_index}): "
@@ -44,13 +46,9 @@ def _validate_lco(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -
 
 def _validate_ldo(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
     """LDO: no drug index appears in both train and test."""
-    if fold.train_drugs is None or fold.test_drugs is None:
-        raise SplitValidationError(
-            f"LDO validation failed (fold {fold_index}): drug indices are None."
-        )
-    train = set(fold.train_drugs.tolist())
-    test = set(fold.test_drugs.tolist())
-    overlap = train & test
+    train_drugs = set(fold.train[:, 1].tolist())
+    test_drugs = set(fold.test[:, 1].tolist())
+    overlap = train_drugs & test_drugs
     if overlap:
         raise SplitValidationError(
             f"LDO validation failed (fold {fold_index}): "
@@ -63,8 +61,8 @@ def _validate_lto(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -
     cl_ids = mudataset.cell_line_ids
     tissues = mudataset.get_tissue(cl_ids)
 
-    train_tissues = set(tissues[fold.train_cell_lines].tolist())
-    test_tissues = set(tissues[fold.test_cell_lines].tolist())
+    train_tissues = set(tissues[fold.train[:, 0]].tolist())
+    test_tissues = set(tissues[fold.test[:, 0]].tolist())
     overlap = train_tissues & test_tissues
     if overlap:
         raise SplitValidationError(
@@ -75,12 +73,8 @@ def _validate_lto(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -
 
 def _validate_lpo(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
     """LPO: no (cell_line_idx, drug_idx) pair appears in both train and test."""
-    if fold.train_drugs is None or fold.test_drugs is None:
-        raise SplitValidationError(
-            f"LPO validation failed (fold {fold_index}): drug indices are None."
-        )
-    train_pairs = set(zip(fold.train_cell_lines.tolist(), fold.train_drugs.tolist(), strict=True))
-    test_pairs = set(zip(fold.test_cell_lines.tolist(), fold.test_drugs.tolist(), strict=True))
+    train_pairs = set(map(tuple, fold.train.tolist()))
+    test_pairs = set(map(tuple, fold.test.tolist()))
     overlap = train_pairs & test_pairs
     if overlap:
         raise SplitValidationError(
