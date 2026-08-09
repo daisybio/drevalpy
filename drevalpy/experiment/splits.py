@@ -9,7 +9,7 @@ import numpy as np
 from upath import UPath as Path
 
 from ..data.structures import MuDataset, SplitMasks
-from ..data.splitting import Splitter, splitter_registry
+from ..data.splitters import Splitter, splitter_registry
 
 
 def prepare_splits(

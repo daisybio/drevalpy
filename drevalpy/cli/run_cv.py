@@ -58,7 +58,7 @@ def run_cv_split(
     :param seed: seed.
     :param custom_splitter_path: custom splitter path.
     """
-    from drevalpy.data.splitting import get_splitter
+    from drevalpy.data.splitters import get_splitter
 
     response_data = load_trusted_pickle(response)
     splitter = get_splitter(test_mode)

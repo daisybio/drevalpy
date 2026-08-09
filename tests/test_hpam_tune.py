@@ -19,7 +19,7 @@ def test_hpam_tune(tmp_path, data_dir):
         pytest.skip("Ray is not installed")
 
     from drevalpy.data import load_mudataset
-    from drevalpy.data.splitting import get_splitter
+    from drevalpy.data.splitters import get_splitter
     from drevalpy.experiment.fold import prepare_mu_fold
 
     model_cls = construct_model("ElasticNet")

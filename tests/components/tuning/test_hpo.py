@@ -317,7 +317,7 @@ def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
     pytest.importorskip("optuna")
 
     from drevalpy.data import load_mudataset
-    from drevalpy.data.splitting import get_splitter
+    from drevalpy.data.splitters import get_splitter
 
     mudataset = load_mudataset("TOYv1")
     splitter = get_splitter("LPO")

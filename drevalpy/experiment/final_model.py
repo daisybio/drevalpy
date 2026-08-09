@@ -5,8 +5,8 @@ from __future__ import annotations
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
-from ..data.mudataset import MuDataset
-from ..data.splitting import MuDataSplitter
+from ..data.structures.mudataset import MuDataset
+from ..data.splitters import MuDataSplitter
 from ..models.drp_model import DRPModel
 from ..utils.checkpoints import checkpoint_dir_or_temporary
 from .fold import merge_train_val_scopes, prepare_mu_fold

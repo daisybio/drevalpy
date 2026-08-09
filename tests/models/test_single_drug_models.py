@@ -61,7 +61,7 @@ def test_single_drug_models(
     :param data_dir: path to the data directory
     """
     from drevalpy.data import load_mudataset
-    from drevalpy.data.splitting import get_splitter
+    from drevalpy.data.splitters import get_splitter
     from drevalpy.experiment import seed_everything
 
     seed_everything(42)

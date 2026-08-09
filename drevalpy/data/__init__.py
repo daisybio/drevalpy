@@ -1,8 +1,8 @@
 """Data loading, registries, and structures."""
 
-from .dataset_registry import registry as dataset_registry
+from .datasets import registry as dataset_registry
 from .loader import load_mudataset
-from .splitting import splitter_registry
+from .splitters import splitter_registry
 
 __all__ = [
     "dataset_registry",
