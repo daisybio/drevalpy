@@ -3,51 +3,17 @@
 from __future__ import annotations
 
 import json
-import os
 from importlib import resources
 from pathlib import Path
 from typing import Any
 
 import fsspec
-from platformdirs import user_config_dir
 
 from ._paths import get_default_data_dir, resolve_h5mu_path
+from .config import DataConfig, DatasetEntry, SourceEntry, load_config, save_config
 from .mudataset import MuDataset
 
 _REGISTRY_JSON = "available_datasets.json"
-
-
-# ------------------------------------------------------------------
-# User config (persistent, extensible)
-# ------------------------------------------------------------------
-
-
-def _get_config_path() -> Path:
-    """Return path to the user config file.
-
-    Checks ``DREVALPY_CONFIG_DIR`` env var first, falls back to platformdirs.
-    """
-    env = os.environ.get("DREVALPY_CONFIG_DIR", "").strip()
-    config_dir = Path(env) if env else Path(user_config_dir("drevalpy"))
-    return config_dir / "drevalpy.json"
-
-
-def _load_user_config() -> dict[str, Any]:
-    """Read the full user config, returning {} if it doesn't exist."""
-    path = _get_config_path()
-    if not path.is_file():
-        return {}
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
-
-
-def _save_user_config(config: dict[str, Any]) -> None:
-    """Write the user config to disk, creating the directory if needed."""
-    path = _get_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2)
-        f.write("\n")
 
 
 # ------------------------------------------------------------------
@@ -55,51 +21,30 @@ def _save_user_config(config: dict[str, Any]) -> None:
 # ------------------------------------------------------------------
 
 
-def _load_builtin_registry() -> tuple[dict[str, Any], dict[str, Any]]:
+def _load_builtin_registry() -> DataConfig:
     """Load the built-in sources and datasets from the packaged JSON."""
     registry_path = resources.files(__package__).joinpath(_REGISTRY_JSON)
     with registry_path.open(encoding="utf-8") as handle:
         raw = json.load(handle)
-    return raw.get("sources", {}), raw.get("datasets", {})
+    return DataConfig.from_raw(raw)
 
 
-def _load_custom_registry() -> tuple[dict[str, Any], dict[str, Any]]:
-    """Load user-registered sources and datasets from the config file."""
-    config = _load_user_config()
-    data = config.get("data", {})
-    return data.get("sources", {}), data.get("datasets", {})
-
-
-def _build_merged_registry() -> tuple[dict[str, Any], dict[str, Any]]:
+def _build_merged_registry() -> DataConfig:
     """Merge built-in and custom registries (custom overrides built-in)."""
-    builtin_sources, builtin_datasets = _load_builtin_registry()
-    custom_sources, custom_datasets = _load_custom_registry()
-    return {**builtin_sources, **custom_sources}, {**builtin_datasets, **custom_datasets}
+    builtin = _load_builtin_registry()
+    custom = load_config().data
+    return DataConfig(
+        sources={**builtin.sources, **custom.sources},
+        datasets={**builtin.datasets, **custom.datasets},
+    )
 
 
-_SOURCES: dict[str, Any]
-_DATASETS: dict[str, Any]
-_SOURCES, _DATASETS = _build_merged_registry()
+_REGISTRY: DataConfig = _build_merged_registry()
 
 
 # ------------------------------------------------------------------
 # Source resolution and download
 # ------------------------------------------------------------------
-
-
-def _resolve_source(name: str) -> tuple[str, dict[str, Any]]:
-    """Return (base_url, storage_options) for a source name.
-
-    :param name: Source name from the registry.
-    :returns: Tuple of base URL and fsspec storage options.
-    :raises KeyError: If the source is not registered.
-    """
-    if name not in _SOURCES:
-        raise KeyError(f"Source '{name}' not registered. Available: {sorted(_SOURCES)}")
-    raw = _SOURCES[name]
-    if isinstance(raw, str):
-        return raw, {}
-    return raw["url"], raw.get("storage_options", {})
 
 
 def _download_h5mu(name: str) -> Path:
@@ -110,13 +55,13 @@ def _download_h5mu(name: str) -> Path:
     """
     from rich.progress import DownloadColumn, Progress, TimeRemainingColumn, TransferSpeedColumn
 
-    entry = _DATASETS[name]
-    base_url, storage_options = _resolve_source(entry["source"])
-    remote_path = f"{base_url}/{entry['file']}"
-    local_path = get_default_data_dir() / entry["file"]
+    entry = _REGISTRY.datasets[name]
+    source = _REGISTRY.sources[entry.source]
+    remote_path = f"{source.url}/{entry.file}"
+    local_path = get_default_data_dir() / entry.file
     local_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fs, _, paths = fsspec.get_fs_token_paths(remote_path, storage_options=storage_options)
+    fs, _, paths = fsspec.get_fs_token_paths(remote_path, storage_options=source.storage_options)
     size = fs.size(paths[0])
 
     with Progress(
@@ -144,7 +89,7 @@ def list_builtin_datasets() -> list[str]:
 
     :returns: Sorted dataset names available for ``load_mudataset``.
     """
-    return sorted(_DATASETS)
+    return sorted(_REGISTRY.datasets)
 
 
 def is_builtin_dataset(name: str) -> bool:
@@ -153,7 +98,7 @@ def is_builtin_dataset(name: str) -> bool:
     :param name: Dataset name to look up in the registry.
     :returns: ``True`` when ``name`` is registered.
     """
-    return name in _DATASETS
+    return name in _REGISTRY.datasets
 
 
 def load_mudataset(dataset_name: str) -> MuDataset:
@@ -173,9 +118,10 @@ def load_mudataset(dataset_name: str) -> MuDataset:
     if h5mu_path.is_file():
         return MuDataset.from_file(h5mu_path)
 
-    if dataset_name in _DATASETS:
+    if dataset_name in _REGISTRY.datasets:
+        entry = _REGISTRY.datasets[dataset_name]
         data_dir = get_default_data_dir()
-        candidate = data_dir / _DATASETS[dataset_name]["file"]
+        candidate = data_dir / entry.file
         if candidate.is_file():
             return MuDataset.from_file(candidate)
         downloaded = _download_h5mu(dataset_name)
@@ -187,7 +133,7 @@ def load_mudataset(dataset_name: str) -> MuDataset:
 
     raise FileNotFoundError(
         f"Cannot locate .h5mu for dataset '{dataset_name}'. "
-        f"Checked: {h5mu_path}, registry ({list(_DATASETS.keys())}), and direct path."
+        f"Checked: {h5mu_path}, registry ({list(_REGISTRY.datasets.keys())}), and direct path."
     )
 
 
@@ -199,47 +145,39 @@ def load_mudataset(dataset_name: str) -> MuDataset:
 def register_source(name: str, base_url: str, storage_options: dict[str, Any] | None = None) -> None:
     """Register a custom source (base URL + optional fsspec storage options).
 
-    Persists to the user config file at ``<config_dir>/drevalpy.json``.
+    Persists to the user config file.
 
     :param name: Source name (used to reference from dataset entries).
     :param base_url: Base URL (any fsspec-compatible protocol: https, s3, gs, az, ...).
     :param storage_options: Optional dict passed to fsspec for auth/config.
     """
-    global _SOURCES
-    config = _load_user_config()
-    data = config.setdefault("data", {})
-    sources = data.setdefault("sources", {})
-
-    if storage_options:
-        sources[name] = {"url": base_url, "storage_options": storage_options}
-    else:
-        sources[name] = base_url
-
-    _save_user_config(config)
-    _SOURCES[name] = sources[name]
+    global _REGISTRY
+    config = load_config()
+    entry = SourceEntry(url=base_url, storage_options=storage_options or {})
+    config.data.sources[name] = entry
+    save_config(config)
+    _REGISTRY.sources[name] = entry
 
 
 def register_dataset(name: str, source: str, file: str) -> None:
     """Register a custom dataset under an existing source.
 
-    Persists to the user config file at ``<config_dir>/drevalpy.json``.
+    Persists to the user config file.
 
     :param name: Dataset name (used with ``load_mudataset``).
     :param source: Source name (must be registered).
     :param file: Filename of the .h5mu file at the source URL.
     :raises KeyError: If the source is not registered.
     """
-    global _DATASETS
-    if source not in _SOURCES:
+    global _REGISTRY
+    if source not in _REGISTRY.sources:
         raise KeyError(f"Source '{source}' not registered. Register it first with register_source().")
 
-    config = _load_user_config()
-    data = config.setdefault("data", {})
-    datasets = data.setdefault("datasets", {})
-    datasets[name] = {"source": source, "file": file}
-
-    _save_user_config(config)
-    _DATASETS[name] = {"source": source, "file": file}
+    config = load_config()
+    entry = DatasetEntry(source=source, file=file)
+    config.data.datasets[name] = entry
+    save_config(config)
+    _REGISTRY.datasets[name] = entry
 
 
 def unregister_dataset(name: str) -> None:
@@ -248,15 +186,14 @@ def unregister_dataset(name: str) -> None:
     :param name: Dataset name to remove.
     :raises KeyError: If the dataset is not in the custom registry.
     """
-    global _DATASETS
-    config = _load_user_config()
-    datasets = config.get("data", {}).get("datasets", {})
-    if name not in datasets:
+    global _REGISTRY
+    config = load_config()
+    if name not in config.data.datasets:
         raise KeyError(f"Dataset '{name}' not in custom registry.")
 
-    del datasets[name]
-    _save_user_config(config)
-    _DATASETS.pop(name, None)
+    del config.data.datasets[name]
+    save_config(config)
+    _REGISTRY.datasets.pop(name, None)
 
 
 def unregister_source(name: str) -> None:
@@ -266,17 +203,15 @@ def unregister_source(name: str) -> None:
     :raises KeyError: If the source is not in the custom registry.
     :raises ValueError: If datasets still reference this source.
     """
-    global _SOURCES
-    config = _load_user_config()
-    sources = config.get("data", {}).get("sources", {})
-    if name not in sources:
+    global _REGISTRY
+    config = load_config()
+    if name not in config.data.sources:
         raise KeyError(f"Source '{name}' not in custom registry.")
 
-    datasets = config.get("data", {}).get("datasets", {})
-    referencing = [ds for ds, entry in datasets.items() if entry.get("source") == name]
+    referencing = [ds for ds, entry in config.data.datasets.items() if entry.source == name]
     if referencing:
         raise ValueError(f"Cannot remove source '{name}': still referenced by datasets {referencing}")
 
-    del sources[name]
-    _save_user_config(config)
-    _SOURCES.pop(name, None)
+    del config.data.sources[name]
+    save_config(config)
+    _REGISTRY.sources.pop(name, None)
