@@ -98,7 +98,7 @@ class ModelConfig(BaseModel):
         :param resolved: Optional resolved instance values that can affect view selection.
         :returns: View names required by the cell-line featurizer tree.
         """
-        from drevalpy.components.data_loading.view_resolution import views_from_featurizer_config
+        from drevalpy.components.core.data_loading.view_resolution import views_from_featurizer_config
 
         if self.cell_line_featurizer is None:
             return []
@@ -110,7 +110,7 @@ class ModelConfig(BaseModel):
         :param resolved: Optional resolved instance values that can affect view selection.
         :returns: View names required by the drug featurizer tree.
         """
-        from drevalpy.components.data_loading.view_resolution import views_from_featurizer_config
+        from drevalpy.components.core.data_loading.view_resolution import views_from_featurizer_config
 
         if self.drug_featurizer is None:
             return []
@@ -121,7 +121,7 @@ class ModelConfig(BaseModel):
 
         :returns: ``True`` when no cell-line omics views are required.
         """
-        from drevalpy.components.data_loading.view_resolution import entity_id_only_from_featurizer_config
+        from drevalpy.components.core.data_loading.view_resolution import entity_id_only_from_featurizer_config
 
         if self.cell_line_featurizer is None:
             return False
@@ -132,7 +132,7 @@ class ModelConfig(BaseModel):
 
         :returns: ``True`` when no drug feature views are required.
         """
-        from drevalpy.components.data_loading.view_resolution import entity_id_only_from_featurizer_config
+        from drevalpy.components.core.data_loading.view_resolution import entity_id_only_from_featurizer_config
 
         if self.drug_featurizer is None:
             return False

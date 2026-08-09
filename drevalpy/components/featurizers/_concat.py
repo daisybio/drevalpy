@@ -28,7 +28,7 @@ class ConcatFeaturizersMixin:
         _ = kwargs
         msg = (
             f"{cls.__name__} has no input views of its own; resolve them from the child configs "
-            "via drevalpy.components.data_loading.view_resolution.views_from_featurizer_config"
+            "via drevalpy.components.core.data_loading.view_resolution.views_from_featurizer_config"
         )
         raise TypeError(msg)
 

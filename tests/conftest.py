@@ -475,7 +475,7 @@ def load_features_for_model(model, dataset_name: str = "TOYv1"):
     :param dataset_name: Dataset name to load.
     :returns: Tuple of (cell_line_features, drug_features).
     """
-    from drevalpy.components.data_loading import (
+    from drevalpy.components.core.data_loading import (
         build_cell_line_features_from_mudataset,
         build_drug_features_from_mudataset,
     )
