@@ -9,25 +9,25 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 
 from ..data.structures import EntityScope
-from ..data.structures.mudataset import MuDataset
+from ..data.structures.dataset import Dataset
 from ..models.drp_model import DRPModel
 from ..utils.checkpoints import checkpoint_dir_or_temporary
 
 logger = get_logger(__name__)
 
 
-def mu_train_and_predict(
+def train_and_predict(
     model: DRPModel,
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     test_scope: EntityScope,
     early_stopping_scope: EntityScope | None = None,
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str | Path | None = None,
 ) -> np.ndarray:
-    """Train the model and predict using MuDataset and EntityScope.
+    """Train the model and predict using Dataset and EntityScope.
 
-    No separate feature loading step is needed since MuDataset already
+    No separate feature loading step is needed since Dataset already
     contains all features.
 
     :param model: Untrained DRPModel instance.

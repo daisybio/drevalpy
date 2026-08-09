@@ -57,12 +57,12 @@ def identity_drug_features() -> MockFeatureSource:
 
 
 def synthetic_mudataset_gene_expression_fingerprints():
-    """Build a minimal MuDataset with gene_expression + fingerprints for 2 cell lines and 2 drugs."""
+    """Build a minimal Dataset with gene_expression + fingerprints for 2 cell lines and 2 drugs."""
     import anndata as ad
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures.mudataset import MuDataset
+    from drevalpy.data.structures.dataset import Dataset
 
     # Response matrix: 2 cell lines x 2 drugs
     response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
@@ -86,16 +86,16 @@ def synthetic_mudataset_gene_expression_fingerprints():
     response_ad.varm["fingerprints"] = fingerprints
 
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
-    return MuDataset(mdata, name="test")
+    return Dataset(mdata, name="test")
 
 
 def synthetic_mudataset_identity():
-    """Build a minimal MuDataset for identity (cell_line_id + drug_id) models."""
+    """Build a minimal Dataset for identity (cell_line_id + drug_id) models."""
     import anndata as ad
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures.mudataset import MuDataset
+    from drevalpy.data.structures.dataset import Dataset
 
     response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
     cl_ids = np.array(["cl1", "cl2"])
@@ -107,7 +107,7 @@ def synthetic_mudataset_identity():
         var=pd.DataFrame(index=drug_ids),
     )
     mdata = md.MuData({"response": response_ad})
-    return MuDataset(mdata, name="test")
+    return Dataset(mdata, name="test")
 
 
 def lpo_split_masks_all_train() -> SplitMasks:

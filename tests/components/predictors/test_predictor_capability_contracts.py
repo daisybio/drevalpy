@@ -230,7 +230,7 @@ def test_naive_tissue_round_trip() -> None:
 
     import mudata as md
     from drevalpy.data.structures import SplitMasks
-    from drevalpy.data.structures.mudataset import MuDataset
+    from drevalpy.data.structures.dataset import Dataset
 
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])
@@ -242,7 +242,7 @@ def test_naive_tissue_round_trip() -> None:
     )
     mdata = md.MuData({"response": response_ad})
     mdata.obs["tissue"] = ["Lung", "Blood"]
-    mudataset = MuDataset(mdata, name="test")
+    mudataset = Dataset(mdata, name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),

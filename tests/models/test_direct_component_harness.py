@@ -136,7 +136,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         import numpy as np
         import pandas as pd
 
-        from drevalpy.data.structures.mudataset import MuDataset
+        from drevalpy.data.structures.dataset import Dataset
         from drevalpy.data.structures import SplitMasks
         from drevalpy.models import construct_model
 
@@ -156,7 +156,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         )
         response_ad.varm["fingerprints"] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
         mdata = md.MuData({"response": response_ad, "gene_expression": ge_ad})
-        mudataset_ge = MuDataset(mdata, name="test")
+        mudataset_ge = Dataset(mdata, name="test")
 
         response_ad2 = ad.AnnData(
             X=response_matrix.copy(),
@@ -164,7 +164,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
             var=pd.DataFrame(index=drug_ids),
         )
         mdata2 = md.MuData({"response": response_ad2})
-        mudataset_id = MuDataset(mdata2, name="test")
+        mudataset_id = Dataset(mdata2, name="test")
 
         split = SplitMasks(
             train=np.array([[0, 0], [0, 1]]),

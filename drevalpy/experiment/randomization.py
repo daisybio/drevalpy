@@ -13,9 +13,9 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 
 from ..data.structures import EntityScope
-from ..data.structures.mudataset import MuDataset
+from ..data.structures.dataset import Dataset
 from ..models.drp_model import DRPModel
-from .training import mu_train_and_predict
+from .training import train_and_predict
 
 logger = get_logger(__name__)
 
@@ -79,8 +79,8 @@ def build_randomization_test_views(
     return randomization_test_views
 
 
-def _available_views(mudataset: MuDataset) -> set[str]:
-    """Gather all view names available in the MuDataset."""
+def _available_views(mudataset: Dataset) -> set[str]:
+    """Gather all view names available in the Dataset."""
     views: set[str] = set(mudataset.mdata.mod.keys()) - {"response"}
     if mudataset.response.varm:
         views.update(mudataset.response.varm.keys())
@@ -89,15 +89,15 @@ def _available_views(mudataset: MuDataset) -> set[str]:
     return views
 
 
-def _missing_randomization_views(view_list: list[str], mudataset: MuDataset) -> list[str]:
-    """Return views from view_list not present in the MuDataset."""
+def _missing_randomization_views(view_list: list[str], mudataset: Dataset) -> list[str]:
+    """Return views from view_list not present in the Dataset."""
     available = _available_views(mudataset)
     return [v for v in view_list if v not in available]
 
 
 def _write_randomization_predictions(
     prediction_file: Path,
-    mudataset: MuDataset,
+    mudataset: Dataset,
     test_scope: EntityScope,
     predictions: np.ndarray,
 ) -> None:
@@ -129,7 +129,7 @@ def randomize_train_predict_impl(
     randomization_test_file: str | Path,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     test_scope: EntityScope,
     early_stopping_scope: EntityScope | None = None,
@@ -144,7 +144,7 @@ def randomize_train_predict_impl(
     :param randomization_test_file: Output path for predictions.
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
-    :param mudataset: Full MuDataset with all features.
+    :param mudataset: Full Dataset with all features.
     :param train_scope: EntityScope for training samples.
     :param test_scope: EntityScope for test samples.
     :param early_stopping_scope: Optional EntityScope for early stopping.
@@ -156,7 +156,7 @@ def randomize_train_predict_impl(
     missing = _missing_randomization_views(view_list, mudataset)
     if missing:
         warnings.warn(
-            f"Views {missing} not found in MuDataset. Skipping randomization test {test_name}.",
+            f"Views {missing} not found in Dataset. Skipping randomization test {test_name}.",
             stacklevel=2,
         )
         return
@@ -169,7 +169,7 @@ def randomize_train_predict_impl(
     trial_model = model_class(hyperparameters)
     trial_transform = None if response_transformation is None else clone(response_transformation)
 
-    predictions = mu_train_and_predict(
+    predictions = train_and_predict(
         model=trial_model,
         mudataset=randomized_mudataset,
         train_scope=train_scope,
@@ -191,7 +191,7 @@ def randomization_test_impl(
     randomization_test_views: dict[str, list[str]],
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     test_scope: EntityScope,
     early_stopping_scope: EntityScope | None,
@@ -206,7 +206,7 @@ def randomization_test_impl(
     :param randomization_test_views: Mapping from test names to feature views.
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
-    :param mudataset: Full MuDataset with all features.
+    :param mudataset: Full Dataset with all features.
     :param train_scope: EntityScope for training samples.
     :param test_scope: EntityScope for test samples.
     :param early_stopping_scope: Optional EntityScope for early stopping.

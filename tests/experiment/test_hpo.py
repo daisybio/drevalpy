@@ -17,7 +17,7 @@ def _dummy_scope() -> EntityScope:
     )
 
 
-@patch("drevalpy.components.core.tuning.hpo.mu_hpam_tune")
+@patch("drevalpy.components.core.tuning.hpo.hpam_tune")
 @patch(
     "drevalpy.components.core.tuning.drp_hyperparameters.has_tunable_hyperparameters",
     return_value=True,

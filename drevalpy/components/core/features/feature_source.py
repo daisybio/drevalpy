@@ -1,8 +1,8 @@
-"""FeatureSource protocol and MuDataset adapter classes.
+"""FeatureSource protocol and Dataset adapter classes.
 
 ``FeatureSource`` defines the minimal feature-access interface consumed by
 featurizers. ``CellLineFeatureSource`` and ``DrugFeatureSource`` are thin
-adapters that wrap a ``MuDataset`` and implement the protocol for the
+adapters that wrap a ``Dataset`` and implement the protocol for the
 respective entity type.
 """
 
@@ -12,7 +12,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.dataset import Dataset
 
 
 @runtime_checkable
@@ -20,7 +20,7 @@ class FeatureSource(Protocol):
     """Minimal feature-access interface consumed by featurizers.
 
     Provides the typed interface accepted by Featurizer.fit/transform.
-    Both MuDataset (via a thin wrapper) and test mocks can satisfy this.
+    Both Dataset (via a thin wrapper) and test mocks can satisfy this.
     """
 
     @property
@@ -46,10 +46,10 @@ class FeatureSource(Protocol):
 
 
 class CellLineFeatureSource:
-    """Adapts MuDataset for cell-line featurizers."""
+    """Adapts Dataset for cell-line featurizers."""
 
-    def __init__(self, mudataset: MuDataset, cell_line_ids: np.ndarray) -> None:
-        """Wrap a MuDataset for cell-line feature access.
+    def __init__(self, mudataset: Dataset, cell_line_ids: np.ndarray) -> None:
+        """Wrap a Dataset for cell-line feature access.
 
         Args:
             mudataset: The backing dataset.
@@ -74,7 +74,7 @@ class CellLineFeatureSource:
     def get_entity_view(self, entity_id: str, view: str) -> Any:
         """Return a per-entity value for a single cell line.
 
-        For metadata keys like "tissue", delegates to MuDataset.get_tissue().
+        For metadata keys like "tissue", delegates to Dataset.get_tissue().
         For omics modalities, returns the feature vector from that modality.
         """
         if view == "tissue":
@@ -82,15 +82,15 @@ class CellLineFeatureSource:
         return self._mu.get_cell_line_features(view, np.array([entity_id]))[0]
 
     def get_metadata(self, key: str) -> Any:
-        """Return arbitrary metadata from the underlying MuDataset."""
+        """Return arbitrary metadata from the underlying Dataset."""
         return self._mu.get_uns(key)
 
 
 class DrugFeatureSource:
-    """Adapts MuDataset for drug featurizers."""
+    """Adapts Dataset for drug featurizers."""
 
-    def __init__(self, mudataset: MuDataset, drug_ids: np.ndarray) -> None:
-        """Wrap a MuDataset for drug feature access.
+    def __init__(self, mudataset: Dataset, drug_ids: np.ndarray) -> None:
+        """Wrap a Dataset for drug feature access.
 
         Args:
             mudataset: The backing dataset.
@@ -124,5 +124,5 @@ class DrugFeatureSource:
         return self._mu.get_drug_features(view, np.array([entity_id]))[0]
 
     def get_metadata(self, key: str) -> Any:
-        """Return arbitrary metadata from the underlying MuDataset."""
+        """Return arbitrary metadata from the underlying Dataset."""
         return self._mu.get_uns(key)

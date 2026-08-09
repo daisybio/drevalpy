@@ -5,7 +5,7 @@ from __future__ import annotations
 from sklearn.base import TransformerMixin
 
 from drevalpy.data.structures import SplitMasks
-from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 
@@ -43,7 +43,7 @@ class Experiment:
     def __init__(
         self,
         models: list[type[DRPModel]],
-        mudataset: MuDataset,
+        mudataset: Dataset,
         folds: list[SplitMasks],
         *,
         hyperparameter_tuning: bool = True,
@@ -55,7 +55,7 @@ class Experiment:
         """Initialize an Experiment.
 
         :param models: List of DRPModel subclasses to evaluate.
-        :param mudataset: Loaded MuDataset with all features.
+        :param mudataset: Loaded Dataset with all features.
         :param folds: Pre-split list of SplitMasks (one per CV fold).
         :param hyperparameter_tuning: Whether to run HPO per fold.
         :param response_transformation: Optional sklearn transformer for responses.
@@ -64,7 +64,7 @@ class Experiment:
         :param hpo_random_state: Random seed for HPO.
         """
         self.models = models
-        self.mudataset = mudataset
+        self.dataset = mudataset
         self._folds = folds
         self.hyperparameter_tuning = hyperparameter_tuning
         self.response_transformation = response_transformation
@@ -82,11 +82,11 @@ class Experiment:
         """Cartesian product of models × folds as Run instances."""
         run_list = []
         for model_class in self.models:
-            for fold_index, split_masks in enumerate(self._folds):
+            for _fold_index, split_masks in enumerate(self._folds):
                 run_list.append(
                     Run(
                         model_class=model_class,
-                        mudataset=self.mudataset,
+                        mudataset=self.dataset,
                         split_masks=split_masks,
                         hyperparameter_tuning=self.hyperparameter_tuning,
                         response_transformation=self.response_transformation,

@@ -12,7 +12,7 @@ import pytest
 import mudata as md
 from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.data.structures import SplitMasks
-from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.dataset import Dataset
 from drevalpy.models import construct_model
 
 
@@ -21,7 +21,7 @@ def _register_components() -> None:
     register_builtin_components()
 
 
-def _make_mudataset_ge_fingerprints() -> tuple[MuDataset, SplitMasks]:
+def _make_mudataset_ge_fingerprints() -> tuple[Dataset, SplitMasks]:
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])
     response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
@@ -38,7 +38,7 @@ def _make_mudataset_ge_fingerprints() -> tuple[MuDataset, SplitMasks]:
     )
     response_ad.varm["fingerprints"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
-    mudataset = MuDataset(mdata, name="test")
+    mudataset = Dataset(mdata, name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),
@@ -47,7 +47,7 @@ def _make_mudataset_ge_fingerprints() -> tuple[MuDataset, SplitMasks]:
     return mudataset, split
 
 
-def _make_mudataset_multiview() -> tuple[MuDataset, SplitMasks]:
+def _make_mudataset_multiview() -> tuple[Dataset, SplitMasks]:
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])
     response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
@@ -90,7 +90,7 @@ def _make_mudataset_multiview() -> tuple[MuDataset, SplitMasks]:
             "copy_number_variation_gistic": cnv_ad,
         }
     )
-    mudataset = MuDataset(mdata, name="test")
+    mudataset = Dataset(mdata, name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),

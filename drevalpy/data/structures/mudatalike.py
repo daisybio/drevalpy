@@ -1,4 +1,4 @@
-"""Protocol for MuDataset-compatible objects."""
+"""Protocol for Dataset-compatible objects."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ import numpy as np
 
 @runtime_checkable
 class MuDataLike(Protocol):
-    """Minimal interface expected from a MuDataset-compatible object.
+    """Minimal interface expected from a Dataset-compatible object.
 
-    This allows splitters and other components to work with the real MuDataset
+    This allows splitters and other components to work with the real Dataset
     or with any object satisfying the protocol for testing.
     """
 

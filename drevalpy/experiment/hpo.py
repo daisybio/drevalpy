@@ -8,14 +8,14 @@ from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
 from ..data.structures import EntityScope
-from ..data.structures.mudataset import MuDataset
+from ..data.structures.dataset import Dataset
 from ..models.drp_model import DRPModel
 
 
 def select_fold_hyperparameters(
     *,
     model_class: type[DRPModel],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     val_scope: EntityScope,
     early_stopping_scope: EntityScope | None,
@@ -49,7 +49,7 @@ def select_fold_hyperparameters(
     from drevalpy.components.core.tuning.drp_hyperparameters import (
         has_tunable_hyperparameters,
     )
-    from drevalpy.components.core.tuning.hpo import mu_hpam_tune
+    from drevalpy.components.core.tuning.hpo import hpam_tune
 
     if not hyperparameter_tuning or not has_tunable_hyperparameters(model_class):
         return model_class.get_default_hyperparameters()
@@ -69,13 +69,13 @@ def select_fold_hyperparameters(
         tuning_inputs["wandb_project"] = wandb_project
         tuning_inputs["split_index"] = split_index
         tuning_inputs["wandb_base_config"] = wandb_base_config
-    return mu_hpam_tune(**tuning_inputs)
+    return hpam_tune(**tuning_inputs)
 
 
 def select_final_model_hyperparameters(
     *,
     model_class: type[DRPModel],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     val_scope: EntityScope,
     early_stopping_scope: EntityScope | None,
@@ -103,12 +103,12 @@ def select_final_model_hyperparameters(
     from drevalpy.components.core.tuning.drp_hyperparameters import (
         has_tunable_hyperparameters,
     )
-    from drevalpy.components.core.tuning.hpo import mu_hpam_tune
+    from drevalpy.components.core.tuning.hpo import hpam_tune
 
     default_hpams = model_class.get_default_hyperparameters()
     if not hyperparameter_tuning or not has_tunable_hyperparameters(model_class):
         return default_hpams
-    return mu_hpam_tune(
+    return hpam_tune(
         model_class=model_class,
         mudataset=mudataset,
         train_scope=train_scope,

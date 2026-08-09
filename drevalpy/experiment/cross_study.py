@@ -15,13 +15,13 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 
 from ..data.structures import EntityScope, SplitMasks
-from ..data.structures.mudataset import MuDataset
+from ..data.structures.dataset import Dataset
 from ..models.drp_model import DRPModel
 
 logger = get_logger(__name__)
 
 
-def _all_pairs_indices(mudataset: MuDataset) -> tuple[np.ndarray, np.ndarray]:
+def _all_pairs_indices(mudataset: Dataset) -> tuple[np.ndarray, np.ndarray]:
     """Return all non-NaN (row, col) index pairs from the response matrix."""
     response = mudataset.response_matrix
     return np.where(~np.isnan(response))
@@ -29,10 +29,10 @@ def _all_pairs_indices(mudataset: MuDataset) -> tuple[np.ndarray, np.ndarray]:
 
 def _remove_lpo_overlap(
     train_masks: SplitMasks,
-    source: MuDataset,
+    source: Dataset,
     target_cl_idx: np.ndarray,
     target_dr_idx: np.ndarray,
-    target: MuDataset,
+    target: Dataset,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Remove pairs that appear in both training and target (leave-pair-out)."""
     src_cl_ids = source.cell_line_ids
@@ -58,10 +58,10 @@ def _remove_lpo_overlap(
 
 def _remove_lco_overlap(
     train_masks: SplitMasks,
-    source: MuDataset,
+    source: Dataset,
     target_cl_idx: np.ndarray,
     target_dr_idx: np.ndarray,
-    target: MuDataset,
+    target: Dataset,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Remove cell lines that appear in training (leave-cell-line-out)."""
     train_cl_indices = train_masks.train[:, 0]
@@ -76,10 +76,10 @@ def _remove_lco_overlap(
 
 def _remove_ldo_overlap(
     train_masks: SplitMasks,
-    source: MuDataset,
+    source: Dataset,
     target_cl_idx: np.ndarray,
     target_dr_idx: np.ndarray,
-    target: MuDataset,
+    target: Dataset,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Remove drugs that appear in training (leave-drug-out)."""
     train_dr_indices = train_masks.train[:, 1]
@@ -94,10 +94,10 @@ def _remove_ldo_overlap(
 
 def _remove_lto_overlap(
     train_masks: SplitMasks,
-    source: MuDataset,
+    source: Dataset,
     target_cl_idx: np.ndarray,
     target_dr_idx: np.ndarray,
-    target: MuDataset,
+    target: Dataset,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Remove tissues that appear in training (leave-tissue-out)."""
     train_cl_ids = source.cell_line_ids[train_masks.train[:, 0]]
@@ -114,10 +114,10 @@ def _remove_lto_overlap(
 def _remove_train_overlap(
     test_mode: str,
     train_masks: SplitMasks,
-    source: MuDataset,
+    source: Dataset,
     target_cl_idx: np.ndarray,
     target_dr_idx: np.ndarray,
-    target: MuDataset,
+    target: Dataset,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Dispatch to the appropriate overlap-removal function."""
     dispatch = {
@@ -133,7 +133,7 @@ def _remove_train_overlap(
 
 def _write_cross_study_predictions(
     prediction_file: Path,
-    target: MuDataset,
+    target: Dataset,
     test_cl_idx: np.ndarray,
     test_dr_idx: np.ndarray,
     predictions: np.ndarray,
@@ -156,22 +156,22 @@ def _write_cross_study_predictions(
 
 
 def cross_study_prediction_impl(
-    target: MuDataset,
+    target: Dataset,
     model: DRPModel,
     test_mode: str,
     train_masks: SplitMasks,
-    source: MuDataset,
+    source: Dataset,
     path_out: str | Path,
     split_index: int,
     dataset_name: str = "cross_study",
 ) -> None:
     """Run cross-study prediction and write CSV output.
 
-    :param target: Held-out MuDataset from another study.
+    :param target: Held-out Dataset from another study.
     :param model: Already-trained model instance.
     :param test_mode: Split mode for overlap removal (LPO, LCO, LDO, LTO).
     :param train_masks: SplitMasks used when training the model on the source study.
-    :param source: Source MuDataset the model was trained on.
+    :param source: Source Dataset the model was trained on.
     :param path_out: Directory where predictions are written.
     :param split_index: CV fold index for output file naming.
     :param dataset_name: Name for the target dataset (used in the output filename).

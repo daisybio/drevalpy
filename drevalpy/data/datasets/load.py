@@ -5,7 +5,7 @@ from __future__ import annotations
 from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
-from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 
 from .registry import Registry
@@ -49,8 +49,8 @@ def _download(name: str) -> Path:
     return local_path
 
 
-def load(dataset_name: str) -> MuDataset:
-    """Load a registered or custom dataset as a MuDataset from its .h5mu file.
+def load(dataset_name: str) -> Dataset:
+    """Load a registered or custom dataset as a Dataset from its .h5mu file.
 
     Resolution order:
 
@@ -59,13 +59,13 @@ def load(dataset_name: str) -> MuDataset:
     3. If *dataset_name* is a path to an existing .h5mu file, load it directly.
 
     :param dataset_name: Registered dataset name, or path to a .h5mu file.
-    :returns: Loaded MuDataset.
+    :returns: Loaded Dataset.
     :raises FileNotFoundError: If the .h5mu file cannot be found or downloaded.
     """
     h5mu_path = resolve_h5mu_path(dataset_name)
     if h5mu_path.is_file():
         try:
-            return MuDataset.from_file(h5mu_path)
+            return Dataset.from_file(h5mu_path)
         except Exception:
             logger.warning("Corrupted file at %s, removing and re-downloading.", h5mu_path)
             h5mu_path.unlink()
@@ -76,16 +76,16 @@ def load(dataset_name: str) -> MuDataset:
         candidate = data_dir / entry.file
         if candidate.is_file():
             try:
-                return MuDataset.from_file(candidate)
+                return Dataset.from_file(candidate)
             except Exception:
                 logger.warning("Corrupted file at %s, removing and re-downloading.", candidate)
                 candidate.unlink()
         downloaded = _download(dataset_name)
-        return MuDataset.from_file(downloaded)
+        return Dataset.from_file(downloaded)
 
     candidate_path = Path(dataset_name)
     if candidate_path.is_file() and candidate_path.suffix == ".h5mu":
-        return MuDataset.from_file(candidate_path)
+        return Dataset.from_file(candidate_path)
 
     raise FileNotFoundError(
         f"Cannot locate .h5mu for dataset '{dataset_name}'. "

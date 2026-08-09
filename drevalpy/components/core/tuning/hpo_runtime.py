@@ -17,7 +17,7 @@ from drevalpy.components.core.tuning.drp_hyperparameters import (
 )
 from drevalpy.components.core.tuning.search_space import sample_from_optuna_trial
 from drevalpy.data.structures import EntityScope
-from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.utils.checkpoints import resolve_checkpoint_dir
@@ -47,8 +47,8 @@ def _construct_trial_model(model_class: type[DRPModel], sampled: dict[str, Any])
     return construct_drp_model_from_config(model_class, trial_config)
 
 
-def _extract_ground_truth(mudataset: MuDataset, scope: EntityScope) -> np.ndarray:
-    """Extract ground truth response values from MuDataset for the given scope.
+def _extract_ground_truth(mudataset: Dataset, scope: EntityScope) -> np.ndarray:
+    """Extract ground truth response values from Dataset for the given scope.
 
     :param mudataset: Source of response values.
     :param scope: EntityScope with 2D pair array.
@@ -69,7 +69,7 @@ def _mu_evaluate_trial_model(
     trial_model: DRPModel,
     *,
     metric: str,
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     val_scope: EntityScope,
     early_stopping_scope: EntityScope | None,
@@ -77,7 +77,7 @@ def _mu_evaluate_trial_model(
     model_checkpoint_dir: str | Path | None,
     trial_number: int = 0,
 ) -> float:
-    """Train a trial model and compute a validation metric using MuDataset + EntityScope."""
+    """Train a trial model and compute a validation metric using Dataset + EntityScope."""
     from drevalpy.evaluation import AVAILABLE_METRICS
 
     trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
@@ -117,6 +117,59 @@ def _mu_evaluate_trial_model(
     if metric_fn is None:
         return float("nan")
     return float(metric_fn(y_pred=predictions, y_true=ground_truth))
+
+
+def _mu_evaluate_trial_all_metrics(
+    trial_model: DRPModel,
+    *,
+    mudataset: Dataset,
+    train_scope: EntityScope,
+    val_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
+    response_transformation: TransformerMixin | None,
+    model_checkpoint_dir: str | Path | None,
+    trial_number: int = 0,
+) -> tuple[dict[str, float], np.ndarray]:
+    """Train a trial model and compute all validation metrics.
+
+    :returns: Tuple of (metrics_dict, predictions_array).
+    """
+    from drevalpy.evaluation import AVAILABLE_METRICS
+
+    trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
+    from drevalpy.utils.checkpoints import checkpoint_dir_or_temporary
+
+    with checkpoint_dir_or_temporary(trial_dir) as checkpoint_dir:
+        trial_model.train(
+            mudataset=mudataset,
+            scope=train_scope,
+            early_stopping_scope=early_stopping_scope,
+            model_checkpoint_dir=checkpoint_dir,
+        )
+
+    predictions = trial_model.predict(mudataset=mudataset, scope=val_scope)
+
+    if response_transformation is not None:
+        predictions = response_transformation.inverse_transform(predictions.reshape(-1, 1)).ravel()
+
+    ground_truth = _extract_ground_truth(mudataset, val_scope)
+
+    if len(predictions) != len(ground_truth):
+        min_len = min(len(predictions), len(ground_truth))
+        predictions = predictions[:min_len]
+        ground_truth = ground_truth[:min_len]
+
+    if len(predictions) == 0:
+        return {}, predictions
+
+    valid = ~np.isnan(predictions) & ~np.isnan(ground_truth)
+    if not valid.any():
+        return {}, predictions
+
+    metrics: dict[str, float] = {}
+    for name, fn in AVAILABLE_METRICS.items():
+        metrics[name] = float(fn(y_pred=predictions[valid], y_true=ground_truth[valid]))
+    return metrics, predictions
 
 
 def _wandb_trial_run_config(
@@ -173,7 +226,7 @@ def _optuna_objective(
     trial: optuna.Trial,
     *,
     model_class: type[DRPModel],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     val_scope: EntityScope,
     early_stopping_scope: EntityScope | None,
@@ -228,7 +281,7 @@ def _optuna_objective(
 def build_optuna_objective(
     *,
     model_class: type[DRPModel],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     val_scope: EntityScope,
     early_stopping_scope: EntityScope | None,

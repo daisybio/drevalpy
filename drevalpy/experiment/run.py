@@ -13,7 +13,7 @@ from drevalpy.components.core.tuning.config import build_experiment_hpo_config
 from drevalpy.log import get_logger
 
 from ..data.structures import EntityScope
-from ..data.structures.mudataset import MuDataset
+from ..data.structures.dataset import Dataset
 from ..models._model_lookup import get_model_class
 from ..models.drp_model import DRPModel
 from .fold import merge_train_val_scopes, prepare_mu_fold
@@ -22,7 +22,7 @@ from .model_paths import generate_data_saving_path
 from .paths import experiment_result_path
 from .seed import seed_everything
 from .splits import prepare_splits
-from .training import mu_train_and_predict
+from .training import train_and_predict
 
 logger = get_logger(__name__)
 
@@ -39,9 +39,9 @@ def _normalize_baselines(
     return baselines
 
 
-def mu_experiment(
+def run_experiment(
     models: list[type[DRPModel]],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     dataset_name: str,
     baselines: list[type[DRPModel]] | None = None,
     response_transformation: TransformerMixin | None = None,
@@ -60,10 +60,10 @@ def mu_experiment(
     """Run the MuData-based drug response prediction experiment.
 
     This is the primary entry point for the experiment pipeline. It uses
-    MuDataset + MuDataSplitter for drug response prediction.
+    Dataset + MuDataSplitter for drug response prediction.
 
     :param models: DRPModel subclasses to evaluate.
-    :param mudataset: Loaded MuDataset with all features.
+    :param mudataset: Loaded Dataset with all features.
     :param dataset_name: Name label for result paths.
     :param baselines: Optional baseline models.
     :param response_transformation: Optional sklearn transformer for responses.
@@ -154,7 +154,7 @@ def mu_experiment(
             model = model_class(best_hpams)
             fold_transform = None if response_transformation is None else clone(response_transformation)
 
-            predictions = mu_train_and_predict(
+            predictions = train_and_predict(
                 model=model,
                 mudataset=mudataset,
                 train_scope=merged_scope,
@@ -176,7 +176,7 @@ def mu_experiment(
 
 def _write_mu_predictions(
     prediction_file: str | Path,
-    mudataset: MuDataset,
+    mudataset: Dataset,
     test_scope: EntityScope,
     predictions: np.ndarray,
 ) -> None:

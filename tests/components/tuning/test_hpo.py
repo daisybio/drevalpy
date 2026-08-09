@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
-import optuna
 import pytest
 
 from drevalpy.components.core.tuning.config import HPOConfig
-from drevalpy.components.core.tuning.hpo import mu_hpam_tune
+from drevalpy.components.core.tuning.hpo import hpam_tune
 from drevalpy.data.structures import EntityScope
 from drevalpy.models import construct_model
 from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
@@ -35,7 +33,7 @@ def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
     )
 
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = mu_hpam_tune(
+    best = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -50,7 +48,7 @@ def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
 def test_hpam_tune_zero_trials_returns_defaults() -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = mu_hpam_tune(
+    best = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -66,7 +64,7 @@ def test_hpam_tune_zero_trials_returns_defaults() -> None:
 def test_hpam_tune_one_trial(mock_evaluate) -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = mu_hpam_tune(
+    best = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -84,7 +82,7 @@ def test_hpam_tune_one_trial(mock_evaluate) -> None:
 def test_hpam_tune_all_nan_returns_defaults(mock_evaluate) -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = mu_hpam_tune(
+    best = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -100,7 +98,7 @@ def test_hpam_tune_all_nan_returns_defaults(mock_evaluate) -> None:
 def test_hpam_tune_trial_exception_returns_defaults(mock_evaluate) -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = mu_hpam_tune(
+    best = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -116,7 +114,7 @@ def test_hpam_tune_rejects_metric_mismatch() -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
     with pytest.raises(ValueError, match="must match"):
-        mu_hpam_tune(
+        hpam_tune(
             model_class=model_cls,
             mudataset=mudataset,
             train_scope=train_scope,
@@ -134,7 +132,7 @@ def test_hpam_tune_multiple_trials_picks_best(mock_evaluate) -> None:
 
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = mu_hpam_tune(
+    best = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,

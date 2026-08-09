@@ -200,7 +200,7 @@ externalToy:
 
     import mudata as md
     from drevalpy.data.structures import SplitMasks
-    from drevalpy.data.structures.mudataset import MuDataset
+    from drevalpy.data.structures.dataset import Dataset
 
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])
@@ -210,7 +210,7 @@ externalToy:
         obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["L", "B"]}, index=cl_ids),
         var=pd.DataFrame(index=drug_ids),
     )
-    mudataset = MuDataset(md.MuData({"response": response_ad}), name="test")
+    mudataset = Dataset(md.MuData({"response": response_ad}), name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),

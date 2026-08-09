@@ -7,7 +7,7 @@ from upath import UPath as Path
 
 from drevalpy.log import get_logger
 
-from ..data.structures.mudataset import MuDataset
+from ..data.structures.dataset import Dataset
 from ..models.drp_model import DRPModel
 from ..utils.checkpoints import checkpoint_dir_or_temporary
 from .fold import merge_train_val_scopes, prepare_mu_fold
@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 def train_final_model_impl(
     model_class: type[DRPModel],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     response_transformation: TransformerMixin | None,
     model_checkpoint_dir: str | Path | None,
     metric: str,
@@ -32,7 +32,7 @@ def train_final_model_impl(
     """Train and persist a final production model on the full dataset.
 
     :param model_class: Model class to train.
-    :param mudataset: Full MuDataset for final training.
+    :param mudataset: Full Dataset for final training.
     :param response_transformation: Response transformer fitted on training data.
     :param model_checkpoint_dir: Directory for intermediate checkpoints, or ``None`` for a temporary one.
     :param metric: Metric optimized during optional hyperparameter tuning.

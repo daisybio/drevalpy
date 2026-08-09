@@ -9,7 +9,7 @@ from .structures import SplitMasks
 
 
 def split(
-    dataset: str | MuDataset,
+    dataset: str | Dataset,
     mode: str,
     n_splits: int = 5,
     validation_ratio: float = 0.1,
@@ -17,14 +17,14 @@ def split(
 ) -> list[SplitMasks]:
     """Split a dataset using a registered splitter.
 
-    :param dataset: MuDataset instance, registered dataset name, or path to .h5mu file.
+    :param dataset: Dataset instance, registered dataset name, or path to .h5mu file.
     :param mode: Splitter mode (e.g. "LCO", "LPO", "LDO", "LTO").
     :param n_splits: Number of CV folds.
     :param validation_ratio: Fraction of training data for validation.
     :param random_state: Seed for reproducibility.
     :returns: List of SplitMasks, one per fold.
     """
-    from .structures.mudataset import MuDataset as _MuDataset
+    from .structures.dataset import Dataset as _MuDataset
 
     mudataset = dataset if isinstance(dataset, _MuDataset) else load(dataset)
     splitter = splitter_registry.get(mode)
@@ -35,7 +35,7 @@ def split(
 
 
 # Lazy import to avoid circular ref
-from .structures.mudataset import MuDataset as MuDataset  # noqa: E402
+from .structures.dataset import Dataset as Dataset  # noqa: E402
 
 __all__ = [
     "dataset_registry",

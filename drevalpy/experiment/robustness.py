@@ -16,9 +16,9 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 
 from ..data.structures import EntityScope
-from ..data.structures.mudataset import MuDataset
+from ..data.structures.dataset import Dataset
 from ..models.drp_model import DRPModel
-from .training import mu_train_and_predict
+from .training import train_and_predict
 
 logger = get_logger(__name__)
 
@@ -31,7 +31,7 @@ def _shuffle_scope(scope: EntityScope, rng: np.random.Generator) -> EntityScope:
 
 def _write_robustness_predictions(
     prediction_file: Path,
-    mudataset: MuDataset,
+    mudataset: Dataset,
     test_scope: EntityScope,
     predictions: np.ndarray,
 ) -> None:
@@ -59,7 +59,7 @@ def _write_robustness_predictions(
 def robustness_train_predict_impl(
     trial: int,
     trial_file: str | Path,
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     test_scope: EntityScope,
     early_stopping_scope: EntityScope | None,
@@ -72,7 +72,7 @@ def robustness_train_predict_impl(
 
     :param trial: Trial index (used as random seed for shuffling).
     :param trial_file: Output path for predictions.
-    :param mudataset: Full MuDataset with all features.
+    :param mudataset: Full Dataset with all features.
     :param train_scope: EntityScope for training samples.
     :param test_scope: EntityScope for test samples.
     :param early_stopping_scope: Optional EntityScope for early stopping.
@@ -89,7 +89,7 @@ def robustness_train_predict_impl(
     trial_model = model_class(hyperparameters)
     trial_transform = None if response_transformation is None else clone(response_transformation)
 
-    predictions = mu_train_and_predict(
+    predictions = train_and_predict(
         model=trial_model,
         mudataset=mudataset,
         train_scope=shuffled_train,
@@ -106,7 +106,7 @@ def robustness_test_impl(
     n_trials: int,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     test_scope: EntityScope,
     early_stopping_scope: EntityScope | None,
@@ -120,7 +120,7 @@ def robustness_test_impl(
     :param n_trials: Number of robustness trials to run.
     :param model_class: Model class to retrain on perturbed data.
     :param hyperparameters: Hyperparameters for model construction.
-    :param mudataset: Full MuDataset with all features.
+    :param mudataset: Full Dataset with all features.
     :param train_scope: EntityScope for training samples.
     :param test_scope: EntityScope for test samples.
     :param early_stopping_scope: Optional EntityScope for early stopping.

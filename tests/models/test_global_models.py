@@ -90,7 +90,7 @@ def test_global_models(
     cross_study_dataset: ResponseBatch,
     data_dir,
 ) -> None:
-    """Test global drug response models via MuDataset path.
+    """Test global drug response models via Dataset path.
 
     :param sample_dataset: ResponseBatch from conftest.py
     :param model_name: e.g., DIPK, SRMF, SimpleNeuralNetwork, or MultiViewNeuralNetwork

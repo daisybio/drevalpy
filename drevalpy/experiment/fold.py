@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from drevalpy.data.structures import EntityScope, SplitMasks
-from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.dataset import Dataset
 from drevalpy.models.drp_model import DRPModel
 
 
@@ -15,10 +15,10 @@ from drevalpy.models.drp_model import DRPModel
 class MuFoldData:
     """All data for one CV fold.
 
-    The MuDataset is never copied -- splits are represented as pair arrays.
+    The Dataset is never copied -- splits are represented as pair arrays.
     """
 
-    mudataset: MuDataset
+    mudataset: Dataset
     train_scope: EntityScope
     val_scope: EntityScope
     test_scope: EntityScope
@@ -26,7 +26,7 @@ class MuFoldData:
 
 
 def prepare_mu_fold(
-    mudataset: MuDataset,
+    mudataset: Dataset,
     split_masks: SplitMasks,
     model_class: type[DRPModel],
 ) -> MuFoldData:

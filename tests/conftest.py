@@ -466,10 +466,10 @@ def ensure_model_drug_embeddings(
 
 
 def load_features_for_model(model, dataset_name: str = "TOYv1"):
-    """Load cell-line and drug features for a model via MuDataset.
+    """Load cell-line and drug features for a model via Dataset.
 
     Replaces the removed ``model.load_cell_line_features()`` / ``model.load_drug_features()``
-    pattern with the MuDataset-based approach.
+    pattern with the Dataset-based approach.
 
     :param model: DRPModel instance.
     :param dataset_name: Dataset name to load.

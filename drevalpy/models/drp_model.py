@@ -12,7 +12,7 @@ from upath import UPath as Path
 from drevalpy.components.core.contracts.training_context import TrainingContext
 from drevalpy.components.registry import get_predictor
 from drevalpy.data.structures import EntityScope, SplitMasks
-from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.dataset import Dataset
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
 from drevalpy.models._drp_logging import _DRPLoggingMixin
 from drevalpy.models._model_persistence import (
@@ -237,16 +237,16 @@ class DRPModel(_DRPLoggingMixin):
         split_or_cell_line_input,
         drug_input,
         *,
-        mudataset: MuDataset | None,
+        mudataset: Dataset | None,
         split: SplitMasks | None,
         scope: EntityScope | None,
         early_stopping_scope: EntityScope | None,
         output,
         cell_line_input,
-    ) -> tuple[MuDataset | None, EntityScope | None, EntityScope | None, Any, Any, Any]:
+    ) -> tuple[Dataset | None, EntityScope | None, EntityScope | None, Any, Any, Any]:
         """Resolve overloaded positional/keyword args for train()."""
         if mudataset is None and mudataset_or_output is not None:
-            if isinstance(mudataset_or_output, MuDataset):
+            if isinstance(mudataset_or_output, Dataset):
                 mudataset = mudataset_or_output
             else:
                 output = mudataset_or_output
@@ -271,7 +271,7 @@ class DRPModel(_DRPLoggingMixin):
         split_or_cell_line_input=None,
         drug_input=None,
         *,
-        mudataset: MuDataset | None = None,
+        mudataset: Dataset | None = None,
         split: SplitMasks | None = None,
         scope: EntityScope | None = None,
         early_stopping_scope: EntityScope | None = None,
@@ -282,10 +282,10 @@ class DRPModel(_DRPLoggingMixin):
     ) -> None:
         """Train the component stack.
 
-        Supports the MuDataset path (positional: mudataset, scope/split) and the
+        Supports the Dataset path (positional: mudataset, scope/split) and the
         legacy internal path (output, cell_line_input, drug_input).
 
-        :param mudataset: MuDataset containing response data and all features.
+        :param mudataset: Dataset containing response data and all features.
         :param scope: EntityScope defining train indices for this fold.
         :param split: (compat) SplitMasks; converted to EntityScope internally.
         :param early_stopping_scope: Optional EntityScope for early stopping.
@@ -311,7 +311,7 @@ class DRPModel(_DRPLoggingMixin):
             cell_line_input=cell_line_input,
         )
 
-        # New MuDataset path
+        # New Dataset path
         if mudataset is not None and scope is not None:
             train_response = _ComponentStack._extract_response_pairs(mudataset, scope)
             if len(train_response) == 0:
@@ -362,12 +362,12 @@ class DRPModel(_DRPLoggingMixin):
         cell_line_input,
         drug_input,
         *,
-        mudataset: MuDataset | None,
+        mudataset: Dataset | None,
         scope: EntityScope | None,
         split: SplitMasks | None,
         cell_line_ids: np.ndarray | None,
         drug_ids: np.ndarray | None,
-    ) -> tuple[MuDataset | None, EntityScope | None, np.ndarray | None, np.ndarray | None, Any, Any]:
+    ) -> tuple[Dataset | None, EntityScope | None, np.ndarray | None, np.ndarray | None, Any, Any]:
         """Resolve overloaded positional/keyword args for predict()."""
         mudataset, cell_line_ids, drug_ids = self._resolve_predict_positional(
             mudataset_or_cell_line_ids, scope_or_drug_ids, mudataset, cell_line_ids, drug_ids
@@ -381,7 +381,7 @@ class DRPModel(_DRPLoggingMixin):
     def _resolve_predict_positional(mudataset_or_cell_line_ids, scope_or_drug_ids, mudataset, cell_line_ids, drug_ids):
         if mudataset is not None or mudataset_or_cell_line_ids is None:
             return mudataset, cell_line_ids, drug_ids
-        if isinstance(mudataset_or_cell_line_ids, MuDataset):
+        if isinstance(mudataset_or_cell_line_ids, Dataset):
             return mudataset_or_cell_line_ids, cell_line_ids, drug_ids
         if cell_line_ids is None:
             cell_line_ids = mudataset_or_cell_line_ids
@@ -406,7 +406,7 @@ class DRPModel(_DRPLoggingMixin):
         cell_line_input=None,
         drug_input=None,
         *,
-        mudataset: MuDataset | None = None,
+        mudataset: Dataset | None = None,
         scope: EntityScope | None = None,
         split: SplitMasks | None = None,
         cell_line_ids: np.ndarray | None = None,
@@ -414,10 +414,10 @@ class DRPModel(_DRPLoggingMixin):
     ) -> np.ndarray:
         """Predict responses.
 
-        Supports the MuDataset path (positional: mudataset, scope/split) and the
+        Supports the Dataset path (positional: mudataset, scope/split) and the
         legacy internal path (cell_line_ids, drug_ids, cell_line_input, drug_input).
 
-        :param mudataset: MuDataset containing all features.
+        :param mudataset: Dataset containing all features.
         :param scope: EntityScope with indices to predict on.
         :param split: (compat) SplitMasks; test indices converted to EntityScope.
         :returns: Predicted response values.
@@ -451,7 +451,7 @@ class DRPModel(_DRPLoggingMixin):
                 drug_input=drug_input,
             )
 
-        # New MuDataset path
+        # New Dataset path
         if mudataset is not None and scope is not None:
             if self._empty_training:
                 test_response = _ComponentStack._extract_response_pairs(mudataset, scope)

@@ -22,7 +22,7 @@ from drevalpy.models.config.resolved import ResolvedModelConfig
 
 if TYPE_CHECKING:
     from drevalpy.data.structures import EntityScope
-    from drevalpy.data.structures.mudataset import MuDataset
+    from drevalpy.data.structures.dataset import Dataset
 
 
 def _build_fit_context(
@@ -522,15 +522,15 @@ class _ComponentStack:
         return entity_ids, matrix
 
     # ------------------------------------------------------------------
-    # MuDataset-backed API
+    # Dataset-backed API
     # ------------------------------------------------------------------
 
     @staticmethod
     def _extract_response_pairs(
-        mudataset: MuDataset,
+        mudataset: Dataset,
         scope: EntityScope,
     ) -> ResponseBatch:
-        """Build a ResponseBatch from the MuDataset for given pair indices.
+        """Build a ResponseBatch from the Dataset for given pair indices.
 
         :param mudataset: Source of response values.
         :param scope: EntityScope with 2D pair array.
@@ -561,11 +561,11 @@ class _ComponentStack:
 
     def _build_features_from_mudataset(
         self,
-        mudataset: MuDataset,
+        mudataset: Dataset,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
     ) -> tuple[FeatureSource, FeatureSource | None]:
-        """Construct FeatureSource adapters from MuDataset for the relevant entities.
+        """Construct FeatureSource adapters from Dataset for the relevant entities.
 
         :param mudataset: Source of feature data.
         :param cell_line_ids: Unique cell-line IDs needed.
@@ -578,14 +578,14 @@ class _ComponentStack:
 
     def train(
         self,
-        mudataset: MuDataset,
+        mudataset: Dataset,
         scope: EntityScope,
         *,
         training_context: TrainingContext | None = None,
     ) -> _ComponentStack:
-        """Train the component stack using a MuDataset and EntityScope.
+        """Train the component stack using a Dataset and EntityScope.
 
-        Extracts response pairs and features from the MuDataset, then fits
+        Extracts response pairs and features from the Dataset, then fits
         featurizers and the predictor.
 
         :param mudataset: Source of response values and features.
@@ -628,7 +628,7 @@ class _ComponentStack:
 
     def train_with_early_stopping(
         self,
-        mudataset: MuDataset,
+        mudataset: Dataset,
         scope: EntityScope,
         early_stopping_scope: EntityScope,
         *,
@@ -679,7 +679,7 @@ class _ComponentStack:
 
     def predict(
         self,
-        mudataset: MuDataset,
+        mudataset: Dataset,
         scope: EntityScope,
     ) -> np.ndarray:
         """Predict responses for the entities defined by an EntityScope.

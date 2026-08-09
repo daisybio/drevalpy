@@ -10,13 +10,13 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 
 from ..data.splitters import Splitter, splitter_registry
-from ..data.structures import MuDataset, SplitMasks
+from ..data.structures import Dataset, SplitMasks
 
 logger = get_logger(__name__)
 
 
 def prepare_splits(
-    mudataset: MuDataset,
+    mudataset: Dataset,
     *,
     split_path: str | Path,
     result_path: str | Path,
@@ -29,7 +29,7 @@ def prepare_splits(
 ) -> list[SplitMasks]:
     """Create, load, or reuse CV splits for an experiment run.
 
-    :param mudataset: MuDataset to split.
+    :param mudataset: Dataset to split.
     :param split_path: Directory for split manifest and fold files.
     :param result_path: Experiment result directory.
     :param test_mode: Split mode ("LPO", "LCO", "LDO", "LTO").

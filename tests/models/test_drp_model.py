@@ -53,7 +53,7 @@ def test_empty_training_transitions() -> None:
 
     import mudata as md
     from drevalpy.data.structures import SplitMasks
-    from drevalpy.data.structures.mudataset import MuDataset
+    from drevalpy.data.structures.dataset import Dataset
 
     naive_drug_mean_cls = construct_model("NaiveDrugMeanPredictor")
     model = naive_drug_mean_cls({})
@@ -67,7 +67,7 @@ def test_empty_training_transitions() -> None:
         obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["L", "B"]}, index=cl_ids),
         var=pd.DataFrame(index=drug_ids),
     )
-    empty_mudataset = MuDataset(md.MuData({"response": empty_ad}), name="test")
+    empty_mudataset = Dataset(md.MuData({"response": empty_ad}), name="test")
     empty_split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),

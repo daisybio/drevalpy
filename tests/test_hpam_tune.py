@@ -1,6 +1,4 @@
-"""Test mu_hpam_tune with Optuna."""
-
-import pytest
+"""Test hpam_tune with Optuna."""
 
 from drevalpy import experiment
 from drevalpy.components.core.tuning.config import HPOConfig
@@ -8,7 +6,7 @@ from drevalpy.models import construct_model
 
 
 def test_hpam_tune(tmp_path, data_dir):
-    """Test mu_hpam_tune with a toy MuDataset and ElasticNet model.
+    """Test hpam_tune with a toy Dataset and ElasticNet model.
 
     :param tmp_path: pytest temporary path fixture
     :param data_dir: path to the data directory
@@ -24,7 +22,7 @@ def test_hpam_tune(tmp_path, data_dir):
     split = folds[0]
     fold_data = prepare_mu_fold(mudataset, split, model_cls)
 
-    best = experiment.mu_hpam_tune(
+    best = experiment.hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=fold_data.train_scope,

@@ -1,6 +1,6 @@
 """MuData-backed dataset class for drevalpy.
 
-``MuDataset`` wraps a MuData object and provides typed access to response data,
+``Dataset`` wraps a MuData object and provides typed access to response data,
 cell-line and drug features, metadata, and auxiliary model data. It replaces both
 legacy response arrays and feature dicts with a single entry point backed by an
 .h5mu file.
@@ -104,7 +104,7 @@ def _randomize_single_view(
         )
 
 
-class MuDataset(MuDataLike):
+class Dataset(MuDataLike):
     """Single entry point for all dataset access in drevalpy.
 
     Wraps a MuData object containing a "response" modality (cell_line x drug
@@ -137,15 +137,15 @@ class MuDataset(MuDataLike):
         self._drug_view_map: dict[str, str] = self._build_drug_view_map()
 
     @classmethod
-    def from_file(cls, path: str | Path, *, name: str | None = None) -> MuDataset:
-        """Read a MuDataset from an .h5mu file on disk.
+    def from_file(cls, path: str | Path, *, name: str | None = None) -> Dataset:
+        """Read a Dataset from an .h5mu file on disk.
 
         Args:
             path: Path to the .h5mu file.
             name: Dataset name. Defaults to the file stem.
 
         Returns:
-            A MuDataset wrapping the loaded MuData.
+            A Dataset wrapping the loaded MuData.
         """
         from upath import UPath as Path
 
@@ -481,8 +481,8 @@ class MuDataset(MuDataLike):
     # Subsetting
     # ------------------------------------------------------------------
 
-    def subset_cell_lines(self, ids: np.ndarray) -> MuDataset:
-        """Return a new MuDataset restricted to the given cell lines.
+    def subset_cell_lines(self, ids: np.ndarray) -> Dataset:
+        """Return a new Dataset restricted to the given cell lines.
 
         Only keeps cell lines present in the response modality. Other modalities
         are also subset to their intersection with *ids*.
@@ -491,7 +491,7 @@ class MuDataset(MuDataLike):
             ids: 1-D array of cellosaurus IDs to keep.
 
         Returns:
-            New MuDataset backed by a view of the underlying MuData.
+            New Dataset backed by a view of the underlying MuData.
         """
         ids = np.asarray(ids, dtype=str)
         response_mask = np.isin(self.response.obs_names, ids)
@@ -507,10 +507,10 @@ class MuDataset(MuDataLike):
         new_mdata.obs = self._mdata.obs.loc[self._mdata.obs.index.isin(kept_cell_lines)].copy()
         for key, val in self._mdata.uns.items():
             new_mdata.uns[key] = val
-        return MuDataset(new_mdata, name=self._name)
+        return Dataset(new_mdata, name=self._name)
 
-    def subset_drugs(self, ids: np.ndarray) -> MuDataset:
-        """Return a new MuDataset restricted to the given drugs.
+    def subset_drugs(self, ids: np.ndarray) -> Dataset:
+        """Return a new Dataset restricted to the given drugs.
 
         Only the response modality has a drug axis; it is subset on var.
         Other modalities (cell-line features) are kept unchanged.
@@ -519,7 +519,7 @@ class MuDataset(MuDataLike):
             ids: 1-D array of PubChem drug IDs to keep.
 
         Returns:
-            New MuDataset backed by a view of the underlying MuData.
+            New Dataset backed by a view of the underlying MuData.
         """
         ids = np.asarray(ids, dtype=str)
         drug_mask = np.isin(self.response.var_names, ids)
@@ -536,7 +536,7 @@ class MuDataset(MuDataLike):
         new_mdata.obs = self._mdata.obs.copy()
         for key, val in self._mdata.uns.items():
             new_mdata.uns[key] = val
-        return MuDataset(new_mdata, name=self._name)
+        return Dataset(new_mdata, name=self._name)
 
     # ------------------------------------------------------------------
     # Auxiliary data
@@ -571,8 +571,8 @@ class MuDataset(MuDataLike):
         views: list[str],
         randomization_type: str = "permutation",
         random_state: int | None = None,
-    ) -> MuDataset:
-        """Return a copy of this MuDataset with specified views randomized.
+    ) -> Dataset:
+        """Return a copy of this Dataset with specified views randomized.
 
         For cell-line views (modalities or obsm keys), rows are permuted across
         cell lines. For drug views (varm keys), rows are permuted across drugs.
@@ -584,7 +584,7 @@ class MuDataset(MuDataLike):
             random_state: Seed for reproducibility.
 
         Returns:
-            A new MuDataset with the specified views randomized.
+            A new Dataset with the specified views randomized.
 
         Raises:
             ValueError: If randomization_type is not recognized or a view is not found.
@@ -611,7 +611,7 @@ class MuDataset(MuDataLike):
         new_mdata.obs = self._mdata.obs.copy()
         for key, val in self._mdata.uns.items():
             new_mdata.uns[key] = copy.deepcopy(val) if isinstance(val, dict) else val
-        return MuDataset(new_mdata, name=self._name)
+        return Dataset(new_mdata, name=self._name)
 
     # ------------------------------------------------------------------
     # Dunder methods
@@ -626,7 +626,7 @@ class MuDataset(MuDataLike):
         mods = [m for m in self._mdata.mod.keys() if m != "response"]
 
         lines = [
-            "MuDataset",
+            "Dataset",
             f"    Name: {self._name}",
             f"    Cell lines: {n_cl}",
             f"    Drugs: {n_dr}",

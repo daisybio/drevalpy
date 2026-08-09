@@ -14,7 +14,7 @@ def main(args) -> None:
     validate_test_modes(args)
 
     from drevalpy.data import load
-    from drevalpy.experiment.run import mu_experiment
+    from drevalpy.experiment.run import run_experiment
     from drevalpy.models._model_lookup import get_model_class
 
     from .response_transform import get_response_transformation
@@ -27,7 +27,7 @@ def main(args) -> None:
     response_transformation = get_response_transformation(args.response_transformation)
 
     for test_mode in args.test_mode:
-        mu_experiment(
+        run_experiment(
             models=models,
             mudataset=mudataset,
             dataset_name=args.dataset_name,

@@ -7,10 +7,10 @@ from typing import Any
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
-from ..components.core.tuning.hpo import mu_hpam_tune  # noqa: F401
+from ..components.core.tuning.hpo import hpam_tune  # noqa: F401
 from ..data.splitters import get_splitter
 from ..data.structures import EntityScope, SplitMasks
-from ..data.structures.mudataset import MuDataset
+from ..data.structures.dataset import Dataset
 from ..models.drp_model import DRPModel
 from ..utils._pipeline_function import pipeline_function
 from .cross_study import cross_study_prediction_impl
@@ -19,11 +19,11 @@ from .fold import MuFoldData, merge_train_val_scopes, prepare_mu_fold
 from .model_paths import generate_data_saving_path as _generate_data_saving_path
 from .model_paths import generate_final_model_checkpoint_path as _generate_final_model_checkpoint_path
 from .model_paths import get_model_name_and_drug_id as _get_model_name_and_drug_id
-from .run import mu_experiment
+from .run import run_experiment
 from .seed import seed_everything
 from .single_run import Run, RunResult
 from .splits import prepare_splits
-from .training import mu_train_and_predict
+from .training import train_and_predict
 
 _CWD = Path()
 
@@ -33,7 +33,7 @@ __all__ = [
     "Run",
     "RunResult",
     "get_splitter",
-    "MuDataset",
+    "Dataset",
     "MuFoldData",
     "SplitMasks",
     "consolidate_single_drug_model_predictions",
@@ -43,8 +43,8 @@ __all__ = [
     "get_model_name_and_drug_id",
     "get_randomization_test_views",
     "merge_train_val_scopes",
-    "mu_experiment",
-    "mu_train_and_predict",
+    "run_experiment",
+    "train_and_predict",
     "prepare_mu_fold",
     "prepare_splits",
     "randomize_train_predict",
@@ -55,22 +55,22 @@ __all__ = [
 
 @pipeline_function
 def cross_study_prediction(
-    target: MuDataset | None = None,
+    target: Dataset | None = None,
     model: DRPModel | None = None,
     test_mode: str = "LPO",
     train_masks: SplitMasks | None = None,
-    source: MuDataset | None = None,
+    source: Dataset | None = None,
     path_out: str | Path = ".",
     split_index: int = 0,
     dataset_name: str = "cross_study",
 ) -> None:
     """Run cross-study prediction to assess model generalizability.
 
-    :param target: Target MuDataset to predict on.
+    :param target: Target Dataset to predict on.
     :param model: Trained model.
     :param test_mode: Test mode (LPO, LCO, LDO, LTO).
     :param train_masks: Training split masks for overlap removal.
-    :param source: Source MuDataset the model was trained on.
+    :param source: Source Dataset the model was trained on.
     :param path_out: Output directory for prediction files.
     :param split_index: CV fold index.
     :param dataset_name: Name to assign to the cross-study dataset.
@@ -172,7 +172,7 @@ def randomize_train_predict(
     randomization_test_file: str | Path,
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     test_scope: EntityScope,
     early_stopping_scope: EntityScope | None = None,
@@ -187,7 +187,7 @@ def randomize_train_predict(
     :param randomization_test_file: Output path for predictions.
     :param model_class: Model class to train under randomized inputs.
     :param hyperparameters: Hyperparameters for model construction.
-    :param mudataset: Full MuDataset with all features.
+    :param mudataset: Full Dataset with all features.
     :param train_scope: EntityScope for training samples.
     :param test_scope: EntityScope for test samples.
     :param early_stopping_scope: Optional EntityScope for early stopping.
@@ -216,7 +216,7 @@ def randomize_train_predict(
 def robustness_train_predict(
     trial: int,
     trial_file: str | Path,
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     test_scope: EntityScope,
     early_stopping_scope: EntityScope | None,
@@ -229,7 +229,7 @@ def robustness_train_predict(
 
     :param trial: Trial index within the robustness test.
     :param trial_file: Output path for predictions.
-    :param mudataset: Full MuDataset with all features.
+    :param mudataset: Full Dataset with all features.
     :param train_scope: EntityScope for training samples.
     :param test_scope: EntityScope for test samples.
     :param early_stopping_scope: Optional EntityScope for early stopping.

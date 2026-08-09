@@ -2,26 +2,27 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 from sklearn.base import TransformerMixin, clone
+from upath import UPath as Path
 
 from drevalpy.data.structures import SplitMasks
-from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 
 from .fold import prepare_mu_fold
-from .hpo import select_fold_hyperparameters
-from .training import mu_train_and_predict
+from .training import train_and_predict
 
 logger = get_logger(__name__)
 
 
 def _available_entity_ids(
-    mudataset: MuDataset,
+    mudataset: Dataset,
     views: list[str],
     *,
     side: str,
@@ -40,6 +41,32 @@ def _available_entity_ids(
 
 
 @dataclass
+class TrialResult:
+    """Output of a single HPO trial."""
+
+    hyperparameters: dict[str, Any]
+    metrics: dict[str, float]
+    optimization_metric: str
+    predictions: np.ndarray
+
+    @property
+    def score(self) -> float:
+        """The score for the optimization metric."""
+        return self.metrics.get(self.optimization_metric, float("nan"))
+
+    def __repr__(self) -> str:
+        """Formatted summary."""
+        lines = ["TrialResult", "    Hyperparameters:"]
+        for k, v in self.hyperparameters.items():
+            lines.append(f"        {k}: {v}")
+        lines.append("    Metrics:")
+        for k, v in self.metrics.items():
+            marker = " *" if k == self.optimization_metric else ""
+            lines.append(f"        {k}: {v:.4f}{marker}")
+        return "\n".join(lines)
+
+
+@dataclass
 class RunResult:
     """Output of a single Run."""
 
@@ -52,6 +79,7 @@ class RunResult:
     best_hyperparameters: dict[str, Any] = field(default_factory=dict)
     metrics: dict[str, float] = field(default_factory=dict)
     fold_metadata: dict[str, Any] = field(default_factory=dict)
+    trials: list[TrialResult] | None = None
 
     def __repr__(self) -> str:
         """Formatted summary."""
@@ -78,7 +106,77 @@ class RunResult:
             for k, v in self.metrics.items():
                 lines.append(f"        {k}: {v:.4f}")
 
+        if self.trials:
+            lines.append(f"    HPO Trials: {len(self.trials)}")
+
         return "\n".join(lines)
+
+    def save(self, path: str | Path) -> None:
+        """Save to a compressed .npz file.
+
+        :param path: Output file path (should end in .npz).
+        """
+        arrays: dict[str, np.ndarray] = {
+            "predictions": self.predictions,
+            "ground_truth": self.ground_truth,
+            "cell_line_ids": self.cell_line_ids,
+            "drug_ids": self.drug_ids,
+        }
+        trials_meta = None
+        if self.trials:
+            trials_meta = []
+            for i, t in enumerate(self.trials):
+                arrays[f"trial_{i}_predictions"] = t.predictions
+                trials_meta.append(
+                    {
+                        "hyperparameters": t.hyperparameters,
+                        "metrics": t.metrics,
+                        "optimization_metric": t.optimization_metric,
+                    }
+                )
+        meta = {
+            "model_name": self.model_name,
+            "fold_index": self.fold_index,
+            "best_hyperparameters": self.best_hyperparameters,
+            "metrics": self.metrics,
+            "fold_metadata": self.fold_metadata,
+            "trials": trials_meta,
+        }
+        arrays["_metadata"] = np.array(json.dumps(meta))
+        np.savez_compressed(Path(path), **arrays)
+
+    @classmethod
+    def load(cls, path: str | Path) -> RunResult:
+        """Load from a .npz file saved by ``save()``.
+
+        :param path: Path to the .npz file.
+        :returns: Reconstructed RunResult with trial data.
+        """
+        data = np.load(Path(path), allow_pickle=False)
+        meta = json.loads(str(data["_metadata"]))
+        trials = None
+        if meta.get("trials"):
+            trials = [
+                TrialResult(
+                    hyperparameters=t["hyperparameters"],
+                    metrics=t["metrics"],
+                    optimization_metric=t["optimization_metric"],
+                    predictions=np.asarray(data[f"trial_{i}_predictions"]),
+                )
+                for i, t in enumerate(meta["trials"])
+            ]
+        return cls(
+            model_name=meta["model_name"],
+            fold_index=meta["fold_index"],
+            predictions=np.asarray(data["predictions"]),
+            ground_truth=np.asarray(data["ground_truth"]),
+            cell_line_ids=np.asarray(data["cell_line_ids"]),
+            drug_ids=np.asarray(data["drug_ids"]),
+            best_hyperparameters=meta.get("best_hyperparameters", {}),
+            metrics=meta.get("metrics", {}),
+            fold_metadata=meta.get("fold_metadata", {}),
+            trials=trials,
+        )
 
 
 class Run:
@@ -91,7 +189,7 @@ class Run:
     def __init__(
         self,
         model_class: type[DRPModel],
-        mudataset: MuDataset,
+        mudataset: Dataset,
         split_masks: SplitMasks,
         *,
         hyperparameter_tuning: bool = True,
@@ -112,7 +210,7 @@ class Run:
         :param hpo_random_state: Random seed for HPO.
         """
         self.model_class = model_class
-        self.mudataset = mudataset
+        self.dataset = mudataset
         self.hyperparameter_tuning = hyperparameter_tuning
         self.response_transformation = response_transformation
         self.hpo_metric = hpo_metric
@@ -124,13 +222,13 @@ class Run:
     @staticmethod
     def _filter_to_featurizable_pairs(
         model_class: type[DRPModel],
-        mudataset: MuDataset,
+        mudataset: Dataset,
         split_masks: SplitMasks,
     ) -> SplitMasks:
         """Filter split masks to only include pairs where both entities have features.
 
         Uses the model's declared views to determine which modalities are required,
-        then intersects with available entities in the MuDataset.
+        then intersects with available entities in the Dataset.
         """
         config = model_class.model_config()
         cl_views = config.cell_line_views()
@@ -214,27 +312,38 @@ class Run:
         model_name = self.model_class.get_model_name()
         logger.info("Run: %s, fold %d", model_name, self.split_masks.metadata.get("fold_index", 0))
 
-        fold_data = prepare_mu_fold(self.mudataset, self.split_masks, self.model_class)
+        fold_data = prepare_mu_fold(self.dataset, self.split_masks, self.model_class)
 
         # HPO or default hyperparameters
+        trials: list[TrialResult] | None = None
         if self.hyperparameter_tuning:
+            from drevalpy.components.core.tuning.hpo import hpam_tune_with_trials
+
             hpo_cfg = build_experiment_hpo_config(
                 self.hpo_metric,
                 n_trials=self.hpo_num_samples,
                 random_state=self.hpo_random_state,
             )
-            best_hpams = select_fold_hyperparameters(
+            best_hpams, raw_trials = hpam_tune_with_trials(
                 model_class=self.model_class,
-                mudataset=self.mudataset,
+                mudataset=self.dataset,
                 train_scope=fold_data.train_scope,
                 val_scope=fold_data.val_scope,
                 early_stopping_scope=fold_data.early_stopping_scope,
                 response_transformation=self.response_transformation,
                 metric=self.hpo_metric,
                 model_checkpoint_dir=None,
-                hyperparameter_tuning=True,
                 hpo_config=hpo_cfg,
             )
+            trials = [
+                TrialResult(
+                    hyperparameters=params,
+                    metrics=trial_metrics,
+                    optimization_metric=self.hpo_metric,
+                    predictions=preds,
+                )
+                for params, trial_metrics, preds in raw_trials
+            ]
         else:
             best_hpams = self.model_class.get_default_hyperparameters()
 
@@ -247,9 +356,9 @@ class Run:
         model = self.model_class(best_hpams)
         fold_transform = None if self.response_transformation is None else clone(self.response_transformation)
 
-        predictions = mu_train_and_predict(
+        predictions = train_and_predict(
             model=model,
-            mudataset=self.mudataset,
+            mudataset=self.dataset,
             train_scope=merged_scope,
             test_scope=fold_data.test_scope,
             early_stopping_scope=fold_data.early_stopping_scope,
@@ -257,12 +366,12 @@ class Run:
         )
 
         # Extract ground truth
-        response_matrix = self.mudataset.response_matrix
+        response_matrix = self.dataset.response_matrix
         test_pairs = self.split_masks.test
         ground_truth = response_matrix[test_pairs[:, 0], test_pairs[:, 1]]
 
-        cl_ids = self.mudataset.cell_line_ids[test_pairs[:, 0]]
-        dr_ids = self.mudataset.drug_ids[test_pairs[:, 1]]
+        cl_ids = self.dataset.cell_line_ids[test_pairs[:, 0]]
+        dr_ids = self.dataset.drug_ids[test_pairs[:, 1]]
 
         # Compute metrics
         valid = ~np.isnan(predictions) & ~np.isnan(ground_truth)
@@ -283,4 +392,5 @@ class Run:
             best_hyperparameters=best_hpams,
             metrics=metrics,
             fold_metadata=self.split_masks.metadata,
+            trials=trials,
         )

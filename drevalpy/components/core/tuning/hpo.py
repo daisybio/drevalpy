@@ -19,7 +19,7 @@ from drevalpy.components.core.tuning.drp_hyperparameters import (
 )
 from drevalpy.components.core.tuning.hpo_runtime import build_optuna_objective, run_optuna_study
 from drevalpy.data.structures import EntityScope
-from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 
@@ -30,10 +30,10 @@ def _is_valid_score(value: float) -> bool:
     return bool(np.isfinite(value))
 
 
-def mu_hpam_tune(
+def hpam_tune(
     *,
     model_class: type[DRPModel],
-    mudataset: MuDataset,
+    mudataset: Dataset,
     train_scope: EntityScope,
     val_scope: EntityScope,
     early_stopping_scope: EntityScope | None,
@@ -45,7 +45,7 @@ def mu_hpam_tune(
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Tune hyperparameters using MuDataset + EntityScope with Optuna.
+    """Tune hyperparameters using Dataset + EntityScope with Optuna.
 
     :param model_class: Model class to tune.
     :param mudataset: Full dataset with all features.
@@ -110,3 +110,79 @@ def mu_hpam_tune(
     if best_model_config is None:
         return dict(best_config)
     return public_hyperparameters_from_config(best_model_config)
+
+
+def hpam_tune_with_trials(
+    *,
+    model_class: type[DRPModel],
+    mudataset: Dataset,
+    train_scope: EntityScope,
+    val_scope: EntityScope,
+    early_stopping_scope: EntityScope | None,
+    response_transformation: TransformerMixin | None = None,
+    metric: str = "RMSE",
+    model_checkpoint_dir: str | Path | None = None,
+    hpo_config: HPOConfig | None = None,
+) -> tuple[dict[str, Any], list[tuple[dict[str, Any], dict[str, float], np.ndarray]]]:
+    """Tune hyperparameters and return per-trial results with all metrics.
+
+    :returns: Tuple of (best_params, trial_results) where trial_results is a
+        list of (hyperparameters, metrics_dict, predictions) tuples for each completed trial.
+    """
+    from drevalpy.components.core.tuning.hpo_runtime import (
+        _construct_trial_model,
+        _mu_evaluate_trial_all_metrics,
+    )
+
+    validate_hpo_metric(metric)
+    cfg = hpo_config or HPOConfig.from_metric(metric)
+    if cfg.metric != metric:
+        msg = f"HPOConfig.metric ({cfg.metric!r}) must match metric argument ({metric!r})"
+        raise ValueError(msg)
+
+    structured_space = structured_space_for_drp_model(model_class)
+    if not structured_space or not has_tunable_hyperparameters(model_class):
+        return model_class.get_default_hyperparameters(), []
+    if cfg.n_trials == 0:
+        return model_class.get_default_hyperparameters(), []
+
+    all_trial_data: list[tuple[dict[str, Any], dict[str, float], np.ndarray]] = []
+
+    def objective_with_metrics(trial: Any) -> float:
+        from drevalpy.components.core.tuning.search_space import sample_from_optuna_trial
+
+        sampled = sample_from_optuna_trial(trial, structured_space)
+        trial_model = _construct_trial_model(model_class, sampled)
+
+        metrics, predictions = _mu_evaluate_trial_all_metrics(
+            trial_model,
+            mudataset=mudataset,
+            train_scope=train_scope,
+            val_scope=val_scope,
+            early_stopping_scope=early_stopping_scope,
+            response_transformation=response_transformation,
+            model_checkpoint_dir=model_checkpoint_dir,
+            trial_number=trial.number,
+        )
+
+        if metrics:
+            all_trial_data.append((sampled, metrics, predictions))
+
+        target = metrics.get(metric, float("nan"))
+        return target if _is_valid_score(target) else float("nan")
+
+    study = run_optuna_study(objective=objective_with_metrics, cfg=cfg)
+
+    try:
+        best_trial = study.best_trial
+    except ValueError:
+        best_trial = None
+
+    if best_trial is None or not _is_valid_score(best_trial.value):
+        return default_hyperparameters_for_drp_model(model_class), all_trial_data
+
+    best_config = best_trial.params
+    best_model_config = tuned_config_for_drp_model(model_class, best_config)
+    if best_model_config is None:
+        return dict(best_config), all_trial_data
+    return public_hyperparameters_from_config(best_model_config), all_trial_data

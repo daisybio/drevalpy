@@ -52,7 +52,7 @@ def test_single_drug_models(
     cross_study_dataset: ResponseBatch,
     data_dir,
 ) -> None:
-    """Test single drug models via MuDataset path.
+    """Test single drug models via Dataset path.
 
     :param sample_dataset: ResponseBatch from conftest.py
     :param model_name: model name
