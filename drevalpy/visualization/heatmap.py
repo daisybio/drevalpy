@@ -1,10 +1,9 @@
 """Plots a heatmap of the evaluation metrics."""
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 from plotly.subplots import make_subplots
+from upath import UPath as Path
 
 from .vioheat import VioHeat
 

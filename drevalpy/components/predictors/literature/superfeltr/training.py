@@ -6,10 +6,10 @@ has been inlined into the predictor's ``_fit_single_drug`` method.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Protocol
 
 import numpy as np
+from upath import UPath as Path
 
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 

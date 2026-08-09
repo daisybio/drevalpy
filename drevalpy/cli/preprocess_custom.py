@@ -1,6 +1,6 @@
 """For the nf-core/drugresponseeval subworkflow preprocess_custom."""
 
-from pathlib import Path
+from upath import UPath as Path
 
 
 def run_preprocess_raw_viability(

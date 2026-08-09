@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import io
 import secrets
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import EarlyStopping
+from upath import UPath as Path
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch

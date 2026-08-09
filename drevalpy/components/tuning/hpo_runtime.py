@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 from sklearn.base import TransformerMixin
+from upath import UPath as Path
 
 from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.components.tuning.drp_hyperparameters import (

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
+from upath import UPath as Path
 
 from ._paths import get_default_data_dir
 

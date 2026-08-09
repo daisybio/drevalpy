@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import secrets
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -11,6 +10,7 @@ import torch
 import torch.optim as optim
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
+from upath import UPath as Path
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec

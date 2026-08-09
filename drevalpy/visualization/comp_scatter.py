@@ -1,10 +1,10 @@
 """Contains the code needed to draw the correlation comparison scatter plot."""
 
 from io import TextIOWrapper
-from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
+from upath import UPath as Path
 
 from ..models._model_lookup import single_drug_model_names
 from .outplot import OutPlot

@@ -6,10 +6,10 @@ import json
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
-from pathlib import Path
 
 from filelock import FileLock
 from platformdirs import user_config_dir
+from upath import UPath as Path
 
 from .models import DrevalConfig
 

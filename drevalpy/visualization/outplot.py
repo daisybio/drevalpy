@@ -2,7 +2,8 @@
 
 from abc import ABC, abstractmethod
 from io import TextIOWrapper
-from pathlib import Path
+
+from upath import UPath as Path
 
 
 class OutPlot(ABC):

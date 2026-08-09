@@ -7,10 +7,10 @@ removing overlap according to the test mode (LPO, LCO, LDO, LTO).
 from __future__ import annotations
 
 import warnings
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from upath import UPath as Path
 
 from ..datasets.mudataset import MuDataset
 from ..datasets.splitting import EntityScope, SplitMasks

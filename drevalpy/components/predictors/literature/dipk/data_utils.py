@@ -6,12 +6,12 @@
 """
 
 from abc import ABC
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
+from upath import UPath as Path
 
 from drevalpy.components.feature_source import FeatureSource
 

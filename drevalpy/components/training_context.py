@@ -1,7 +1,8 @@
 """Small, serializable context for one component training call."""
 
 from dataclasses import dataclass, field
-from pathlib import Path
+
+from upath import UPath as Path
 
 _DEFAULT_CHECKPOINT_DIR = Path("checkpoints")
 

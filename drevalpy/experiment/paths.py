@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from upath import UPath as Path
 
 
 def experiment_result_path(

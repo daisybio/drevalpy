@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import replace
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
+from upath import UPath as Path
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec

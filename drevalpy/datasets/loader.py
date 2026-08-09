@@ -1,10 +1,8 @@
-"""Load MuDatasets with protocol-agnostic downloads."""
+"""Load MuDatasets with protocol-agnostic downloads via universal-pathlib."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import fsspec
+from upath import UPath as Path
 
 from ._paths import get_default_data_dir, resolve_h5mu_path
 from .mudataset import MuDataset
@@ -19,15 +17,13 @@ def _download_h5mu(name: str) -> Path:
     """
     from rich.progress import DownloadColumn, Progress, TimeRemainingColumn, TransferSpeedColumn
 
-    reg = registry
-    entry = reg.datasets[name]
-    source = reg.sources[entry.source]
-    remote_path = f"{source.url}/{entry.file}"
+    entry = registry.datasets[name]
+    source = registry.sources[entry.source]
+    remote = Path(source.url, **source.storage_options) / entry.file
     local_path = get_default_data_dir() / entry.file
     local_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fs, _, paths = fsspec.get_fs_token_paths(remote_path, storage_options=source.storage_options)
-    size = fs.size(paths[0])
+    size = remote.stat().st_size
 
     with Progress(
         *Progress.get_default_columns(),
@@ -36,9 +32,9 @@ def _download_h5mu(name: str) -> Path:
         TimeRemainingColumn(),
     ) as progress:
         task = progress.add_task(f"Downloading {name}", total=size)
-        with fs.open(paths[0], "rb") as remote, open(local_path, "wb") as local:
-            while chunk := remote.read(1024 * 64):
-                local.write(chunk)
+        with remote.open("rb") as src, open(local_path, "wb") as dst:
+            while chunk := src.read(1024 * 64):
+                dst.write(chunk)
                 progress.advance(task, len(chunk))
 
     return local_path
@@ -61,9 +57,8 @@ def load_mudataset(dataset_name: str) -> MuDataset:
     if h5mu_path.is_file():
         return MuDataset.from_file(h5mu_path)
 
-    reg = registry
-    if reg.is_registered(dataset_name):
-        entry = reg.datasets[dataset_name]
+    if registry.is_registered(dataset_name):
+        entry = registry.datasets[dataset_name]
         data_dir = get_default_data_dir()
         candidate = data_dir / entry.file
         if candidate.is_file():
@@ -77,5 +72,5 @@ def load_mudataset(dataset_name: str) -> MuDataset:
 
     raise FileNotFoundError(
         f"Cannot locate .h5mu for dataset '{dataset_name}'. "
-        f"Checked: {h5mu_path}, registry ({reg.list_datasets()}), and direct path."
+        f"Checked: {h5mu_path}, registry ({registry.dataset_names}), and direct path."
     )

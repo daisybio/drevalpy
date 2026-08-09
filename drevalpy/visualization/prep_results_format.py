@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
+from upath import UPath as Path
 
 from ..datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from .normalize_metrics import normalize_metrics_by_mean_effects

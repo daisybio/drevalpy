@@ -1,6 +1,11 @@
 {
   "sources": {
-    "zenodo": "s3://omics-representation/drevalpy_h5mu/"
+    "zenodo": {
+      "url": "s3://omics-representation/drevalpy_h5mu/",
+      "storage_options": {
+        "profile": "orakl"
+      }
+    }
   },
   "datasets": {
     "GDSC1": { "source": "zenodo", "file": "GDSC1.h5mu" },

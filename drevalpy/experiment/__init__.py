@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from sklearn.base import TransformerMixin
+from upath import UPath as Path
 
 from ..components.tuning.hpo import mu_hpam_tune  # noqa: F401
 from ..datasets.mudataset import MuDataset

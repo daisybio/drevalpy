@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import pathlib
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from upath import UPath as Path
 
 from . import ComparisonScatter, CrossStudyTables, Heatmap, Violin
 from .critical_difference_plot import CriticalDifferencePlot

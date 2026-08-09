@@ -8,11 +8,11 @@ python create_leaderboard.py --results_path /path/to/results.csv
 """
 
 import argparse
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from upath import UPath as Path
 
 from .leaderboard_plot import (
     draw_bar,

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
+
+from upath import UPath as Path
 
 from drevalpy.models.config import ModelConfig, ResolvedModelConfig
 from drevalpy.models.config.io import from_yaml

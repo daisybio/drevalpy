@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import pickle  # noqa: S403
-from pathlib import Path
 from typing import Any, BinaryIO
+
+from upath import UPath as Path
 
 PickleDestination = Path | str | BinaryIO
 PickleSource = Path | str | BinaryIO

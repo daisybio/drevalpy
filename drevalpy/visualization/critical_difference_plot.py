@@ -25,7 +25,6 @@ not significantly different. The critical difference is determined based on the 
 import pathlib
 import warnings
 from io import TextIOWrapper
-from pathlib import Path
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -34,6 +33,7 @@ import pandas as pd
 import plotly.colors as pc
 import scikit_posthocs as sp
 from scipy import stats
+from upath import UPath as Path
 
 from ..evaluation import MINIMIZATION_METRICS
 from .critical_difference_layout import critical_difference_diagram as _critical_difference_diagram

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import yaml
 from pydantic import ValidationError
+from upath import UPath as Path
 
 from drevalpy.models.config._recipe import parse_model_recipe
 from drevalpy.models.config.model import ModelConfig

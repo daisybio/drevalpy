@@ -1,9 +1,8 @@
 """For the nf-core/drugresponseeval subworkflow model_testing."""
 
-from pathlib import Path
-
 import pandas as pd
 import yaml
+from upath import UPath as Path
 
 from drevalpy.utils.checkpoints import checkpoint_dir_or_temporary
 from drevalpy.utils.pickle_io import load_trusted_pickle

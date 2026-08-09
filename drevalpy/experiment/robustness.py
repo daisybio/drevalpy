@@ -6,12 +6,12 @@ Tests model stability by re-training with shuffled index orderings
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 from sklearn.base import TransformerMixin, clone
+from upath import UPath as Path
 
 from ..datasets.mudataset import MuDataset
 from ..datasets.splitting import EntityScope

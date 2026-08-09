@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
 import wandb
+from upath import UPath as Path
 
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext

@@ -1,6 +1,6 @@
 """CLI argument validation helpers for the evaluation pipeline."""
 
-from pathlib import Path
+from upath import UPath as Path
 
 from drevalpy.datasets._paths import get_default_data_dir
 

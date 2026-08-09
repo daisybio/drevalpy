@@ -12,11 +12,11 @@ from __future__ import annotations
 import importlib.util
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Protocol, cast, runtime_checkable
 
 import numpy as np
 from sklearn.model_selection import GroupKFold, train_test_split
+from upath import UPath as Path
 
 
 @runtime_checkable

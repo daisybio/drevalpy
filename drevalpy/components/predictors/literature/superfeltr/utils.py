@@ -1,13 +1,13 @@
 """Utility functions for the SuperFELTR model."""
 
 import secrets
-from pathlib import Path
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
+from upath import UPath as Path
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
 from drevalpy.components.predictors._tensor_data import make_pair_loader

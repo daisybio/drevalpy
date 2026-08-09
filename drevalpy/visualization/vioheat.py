@@ -1,9 +1,9 @@
 """Parent class for Violin and Heatmap plots of performance measures over CV runs."""
 
 from io import TextIOWrapper
-from pathlib import Path
 
 import pandas as pd
+from upath import UPath as Path
 
 from drevalpy.visualization.outplot import OutPlot
 

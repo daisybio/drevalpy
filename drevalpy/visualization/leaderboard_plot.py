@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from io import BytesIO
-from pathlib import Path
 from typing import Any
 
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 from matplotlib.patches import FancyBboxPatch
+from upath import UPath as Path
 
 COMPETITOR_COLOR = "#6A5ACD"
 

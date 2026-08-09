@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 from platformdirs import user_cache_dir
+from upath import UPath as Path
 
 _ENV_VAR = "DREVALPY_CACHE_DIR"
 

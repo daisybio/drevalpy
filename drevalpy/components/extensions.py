@@ -22,7 +22,8 @@ import hashlib
 import importlib
 import importlib.util
 import sys
-from pathlib import Path
+
+from upath import UPath as Path
 
 from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,

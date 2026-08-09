@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 import typer
+from upath import UPath as Path
 
 from drevalpy.cli.model_testing import run_train_final_model
 

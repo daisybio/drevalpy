@@ -11,10 +11,10 @@ import io
 import os
 import tempfile
 import zipfile
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import joblib
+from upath import UPath as Path
 
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig

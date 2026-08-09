@@ -1,9 +1,8 @@
 """Plots a violin plot of the evaluation metrics."""
 
-from pathlib import Path
-
 import pandas as pd
 import plotly.graph_objects as go
+from upath import UPath as Path
 
 from .vioheat import VioHeat
 

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from importlib.metadata import version as pkg_version
-from pathlib import Path
 from typing import Annotated
 
 import typer
 from typer import _click
+from upath import UPath as Path
 
 from drevalpy.cli._helpers import as_list, pipeline_namespace
 from drevalpy.evaluation import AVAILABLE_METRICS

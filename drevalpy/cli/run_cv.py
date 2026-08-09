@@ -1,9 +1,8 @@
 """For the nf-core/drugresponseeval subworkflow run_cv."""
 
-from pathlib import Path
-
 import pandas as pd
 import yaml
+from upath import UPath as Path
 
 from drevalpy.utils.pickle_io import dump_trusted_pickle, load_trusted_pickle
 

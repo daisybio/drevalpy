@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 import typer
+from upath import UPath as Path
 
 from drevalpy.datasets._paths import get_default_data_dir
 from drevalpy.visualization.create_report import run_report

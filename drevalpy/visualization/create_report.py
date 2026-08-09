@@ -1,10 +1,10 @@
 """Generate evaluation reports after running a drug response experiment."""
 
 from collections.abc import Iterable
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from upath import UPath as Path
 
 from drevalpy.visualization.test_mode_plots import draw_test_mode_plots
 from drevalpy.visualization.utils import (

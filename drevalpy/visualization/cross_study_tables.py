@@ -2,10 +2,10 @@
 
 import pathlib
 from io import TextIOWrapper
-from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
+from upath import UPath as Path
 
 
 class CrossStudyTables:

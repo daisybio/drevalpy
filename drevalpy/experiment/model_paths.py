@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
+from upath import UPath as Path
 
 from ..models._model_lookup import (
     is_multi_drug_model_name,

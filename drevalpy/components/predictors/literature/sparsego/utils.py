@@ -4,13 +4,13 @@ Adapted from https://github.com/KatynaSada/SparseGO_lightning
 """
 
 import sys
-from pathlib import Path
 
 import networkx as nx
 import networkx.algorithms.components.connected as nxacc
 import networkx.algorithms.dag as nxadag
 import numpy as np
 import pandas as pd
+from upath import UPath as Path
 
 
 def load_mapping(mapping_file: str | Path) -> dict:

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from sklearn.base import TransformerMixin
+from upath import UPath as Path
 
 from ..datasets.mudataset import MuDataset
 from ..datasets.splitting import MuDataSplitter

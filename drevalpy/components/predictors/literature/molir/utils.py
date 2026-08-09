@@ -7,7 +7,6 @@ https://github.com/kramerlab/Multi-Omics_analysis
 
 import secrets
 from collections.abc import Sequence
-from pathlib import Path
 
 import numpy as np
 import pytorch_lightning as pl
@@ -15,6 +14,7 @@ import torch
 from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 from torch.utils.data import DataLoader
+from upath import UPath as Path
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
 from drevalpy.components.predictors._tensor_data import make_pair_loader

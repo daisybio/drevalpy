@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 from sklearn.base import TransformerMixin, clone
+from upath import UPath as Path
 
 from drevalpy.components.tuning.config import build_experiment_hpo_config
 

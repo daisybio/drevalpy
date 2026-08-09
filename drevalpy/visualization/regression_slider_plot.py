@@ -1,13 +1,13 @@
 """Module for generating regression plots with a slider for Pearson correlation coefficient."""
 
 from io import TextIOWrapper
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from scipy.stats import pearsonr
+from upath import UPath as Path
 
 from .outplot import OutPlot
 

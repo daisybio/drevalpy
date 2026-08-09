@@ -9,11 +9,11 @@ legacy response arrays and feature dicts with a single entry point backed by an
 from __future__ import annotations
 
 import warnings
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from upath import UPath as Path
 
 import mudata as md
 

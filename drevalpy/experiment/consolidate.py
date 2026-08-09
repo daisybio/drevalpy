@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from upath import UPath as Path
 
 from ..models._model_lookup import get_model_class, is_single_drug_model_name
 from ..models.drp_model import DRPModel

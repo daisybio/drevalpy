@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 import shutil
-from pathlib import Path
 
 import numpy as np
+from upath import UPath as Path
 
 from ..datasets.mudataset import MuDataset
 from ..datasets.splitting import MuDataSplitter, SplitMasks
