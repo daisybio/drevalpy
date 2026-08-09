@@ -8,7 +8,7 @@ Usage::
 
     from drevalpy.data import registry
 
-    registry.list_datasets()  # pretty-print table
+    registry  # displays Rich table via __repr__
     registry.dataset_names  # programmatic access
     registry.register_source("my_s3", "s3://bucket/data")
     registry.register_dataset("MyStudy", source="my_s3", file="MyStudy.h5mu")

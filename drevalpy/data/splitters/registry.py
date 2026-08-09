@@ -126,23 +126,44 @@ class SplitterRegistry:
         """
         return self._descriptions.get(mode, "")
 
-    def __repr__(self) -> str:
-        """Return a Rich table of registered splitters."""
-        from rich.console import Console
-        from rich.table import Table
+    def to_dataframe(self) -> "pd.DataFrame":
+        """Return registry contents as a pandas DataFrame."""
+        import pandas as pd
 
-        table = Table(title="Registered Splitters")
-        table.add_column("Mode")
-        table.add_column("Description")
-        table.add_column("Validation")
-
+        rows = []
         for mode in self.modes:
-            table.add_row(mode, self._descriptions.get(mode, ""), self._validations.get(mode, ""))
+            rows.append({
+                "Mode": mode,
+                "Description": self._descriptions.get(mode, ""),
+                "Validation": self._validations.get(mode, ""),
+            })
+        return pd.DataFrame(rows)
 
-        console = Console(width=100, highlight=False)
-        with console.capture() as capture:
-            console.print(table)
-        return capture.get().rstrip()
+    def __repr__(self) -> str:
+        """Return a tabular string representation."""
+        return self.to_dataframe().to_string(index=False)
+
+    def _repr_html_(self) -> str:
+        """HTML table for Jupyter notebooks."""
+        return self.to_dataframe().to_html(index=False)
+
+    def _repr_html_(self) -> str:
+        """HTML table for Jupyter notebooks."""
+        rows = ""
+        for mode in self.modes:
+            rows += (
+                f"<tr><td><b>{mode}</b></td>"
+                f"<td>{self._descriptions.get(mode, '')}</td>"
+                f"<td>{self._validations.get(mode, '')}</td></tr>\n"
+            )
+
+        return (
+            "<h4>Registered Splitters</h4>\n"
+            '<table border="1" style="border-collapse: collapse; width: 100%;">\n'
+            "<thead><tr><th>Mode</th><th>Description</th><th>Validation</th></tr></thead>\n"
+            f"<tbody>{rows}</tbody>\n"
+            "</table>"
+        )
 
 
 splitter_registry = SplitterRegistry()

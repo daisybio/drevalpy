@@ -145,39 +145,24 @@ class Registry(ABC):
         :returns: Metadata dict.
         """
 
+    def to_dataframe(self) -> "pd.DataFrame":
+        """Return registry contents as a pandas DataFrame."""
+        import pandas as pd
+
+        rows = []
+        for name in self.list_names():
+            meta = self.get_metadata(name)
+            rows.append({
+                "Name": name,
+                "Description": meta.get("description", ""),
+                "Tags": ", ".join(sorted(meta.get("tags", frozenset()))),
+            })
+        return pd.DataFrame(rows)
+
     def __repr__(self) -> str:
-        """Return a Rich-rendered table of all registered components."""
-        from rich.console import Console
-        from rich.table import Table
+        """Return a tabular string representation."""
+        return self.to_dataframe().to_string(index=False)
 
-        table = Table(title=f"Registered {self._display_name}")
-        table.add_column("Name")
-        table.add_column("Description")
-        table.add_column("Tags")
-
-        for name in self.list_names():
-            meta = self.get_metadata(name)
-            tags = ", ".join(sorted(meta.get("tags", frozenset())))
-            table.add_row(name, meta.get("description", ""), tags)
-
-        console = Console(width=120, highlight=False)
-        with console.capture() as capture:
-            console.print(table)
-        return capture.get().rstrip()
-
-    def list_table(self) -> None:
-        """Pretty-print the registry as a Rich table to the console."""
-        from rich.console import Console
-        from rich.table import Table
-
-        table = Table(title=f"Registered {self._display_name}")
-        table.add_column("Name")
-        table.add_column("Description")
-        table.add_column("Tags")
-
-        for name in self.list_names():
-            meta = self.get_metadata(name)
-            tags = ", ".join(sorted(meta.get("tags", frozenset())))
-            table.add_row(name, meta.get("description", ""), tags)
-
-        Console().print(table)
+    def _repr_html_(self) -> str:
+        """HTML table for Jupyter notebooks."""
+        return self.to_dataframe().to_html(index=False)

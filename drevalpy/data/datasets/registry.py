@@ -6,9 +6,6 @@ import json
 from importlib import resources
 from typing import Any
 
-from rich.console import Console
-from rich.table import Table
-
 from .io import config_lock, load_config, save_config
 from .models import DatasetEntry, DrevalConfig, SourceEntry
 
@@ -76,67 +73,24 @@ class Registry:
         """Sorted list of all registered source names (built-in + custom)."""
         return sorted(self.sources)
 
-    def list_table(self) -> None:
-        """Pretty-print all registered datasets as a Rich table."""
-        table = Table(title="Registered Datasets")
-        table.add_column("Name")
-        table.add_column("Source")
-        table.add_column("File")
-        table.add_column("Origin")
+    def to_dataframe(self) -> "pd.DataFrame":
+        """Return registry contents as a pandas DataFrame."""
+        import pandas as pd
 
+        rows = []
         for name in sorted(self.datasets):
             entry = self.datasets[name]
             origin = "custom" if name in self._custom.datasets else "built-in"
-            table.add_row(name, entry.source, entry.file, origin)
-
-        Console().print(table)
-
-    list_datasets = list_table
-
-    def list_sources(self) -> None:
-        """Pretty-print all registered sources as a Rich table."""
-        table = Table(title="Registered Sources")
-        table.add_column("Name")
-        table.add_column("URL")
-        table.add_column("Origin")
-
-        for name in sorted(self.sources):
-            entry = self.sources[name]
-            origin = "custom" if name in self._custom.sources else "built-in"
-            table.add_row(name, entry.url, origin)
-
-        Console().print(table)
+            rows.append({"Name": name, "Source": entry.source, "File": entry.file, "Origin": origin})
+        return pd.DataFrame(rows)
 
     def __repr__(self) -> str:
-        """Return a Rich-rendered string summary of the registry."""
-        console = Console(width=120, highlight=False)
+        """Return a tabular string representation."""
+        return self.to_dataframe().to_string(index=False)
 
-        datasets_table = Table(title="Registered Datasets")
-        datasets_table.add_column("Name")
-        datasets_table.add_column("Source")
-        datasets_table.add_column("File")
-        datasets_table.add_column("Origin")
-
-        for name in sorted(self.datasets):
-            entry = self.datasets[name]
-            origin = "custom" if name in self._custom.datasets else "built-in"
-            datasets_table.add_row(name, entry.source, entry.file, origin)
-
-        sources_table = Table(title="Registered Sources")
-        sources_table.add_column("Name")
-        sources_table.add_column("URL")
-        sources_table.add_column("Origin")
-
-        for name in sorted(self.sources):
-            entry = self.sources[name]
-            origin = "custom" if name in self._custom.sources else "built-in"
-            sources_table.add_row(name, entry.url, origin)
-
-        with console.capture() as capture:
-            console.print(datasets_table)
-            console.print()
-            console.print(sources_table)
-        return capture.get().rstrip()
+    def _repr_html_(self) -> str:
+        """HTML table for Jupyter notebooks."""
+        return self.to_dataframe().to_html(index=False)
 
     def is_registered(self, name: str) -> bool:
         """Return whether ``name`` is a registered dataset.
