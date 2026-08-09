@@ -106,6 +106,13 @@ def _mu_evaluate_trial_model(
     if len(predictions) == 0:
         return float("nan")
 
+    # Filter out NaN predictions (from pairs with missing features)
+    valid = ~np.isnan(predictions) & ~np.isnan(ground_truth)
+    if not valid.any():
+        return float("nan")
+    predictions = predictions[valid]
+    ground_truth = ground_truth[valid]
+
     metric_fn = AVAILABLE_METRICS.get(metric)
     if metric_fn is None:
         return float("nan")
