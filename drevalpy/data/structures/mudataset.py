@@ -8,7 +8,6 @@ legacy response arrays and feature dicts with a single entry point backed by an
 
 from __future__ import annotations
 
-import warnings
 from typing import Any
 
 import numpy as np
@@ -16,8 +15,11 @@ import pandas as pd
 from upath import UPath as Path
 
 import mudata as md
+from drevalpy.log import get_logger
 
 from .mudatalike import MuDataLike
+
+logger = get_logger(__name__)
 
 
 def _aligned_fetch(
@@ -48,7 +50,7 @@ def _aligned_fetch(
         msg = f"{n_missing} of {len(ids)} {entity_label} IDs not found (first few: {sample}). Returning NaN rows."
         if strict:
             raise KeyError(msg)
-        warnings.warn(msg, stacklevel=3)
+        logger.warning(msg)
 
     n_features = data.shape[1]
     result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
@@ -290,10 +292,11 @@ class MuDataset(MuDataLike):
                 if prefix not in view_map:
                     view_map[prefix] = key
                 else:
-                    warnings.warn(
-                        f"Drug view prefix {prefix!r} already maps to {view_map[prefix]!r}; "
-                        f"ignoring {key!r}. Use the full key to access it.",
-                        stacklevel=2,
+                    logger.warning(
+                        "Drug view prefix %r already maps to %r; ignoring %r. Use the full key to access it.",
+                        prefix,
+                        view_map[prefix],
+                        key,
                     )
 
         for alias, target in self._DRUG_VIEW_ALIASES.items():
