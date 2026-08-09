@@ -5,8 +5,10 @@ from drevalpy.types import (
     EntityScope,
     MuDataLike,
     ResponseBatch,
+    RunResult,
     SplitMask,
     SplitMasks,
+    TrialResult,
     ViewLocation,
 )
 
@@ -15,7 +17,9 @@ __all__ = [
     "EntityScope",
     "MuDataLike",
     "ResponseBatch",
+    "RunResult",
     "SplitMask",
     "SplitMasks",
+    "TrialResult",
     "ViewLocation",
 ]

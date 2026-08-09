@@ -6,8 +6,10 @@ from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.mudatalike import MuDataLike
 from drevalpy.types.prediction_mode import PredictionMode
 from drevalpy.types.response_batch import ResponseBatch
+from drevalpy.types.run_result import RunResult
 from drevalpy.types.split_mask import SplitMask
 from drevalpy.types.split_masks import SplitMasks
+from drevalpy.types.trial_result import TrialResult
 from drevalpy.types.view_location import ViewLocation
 
 EntityScope = SplitMask
@@ -20,7 +22,9 @@ __all__ = [
     "MuDataLike",
     "PredictionMode",
     "ResponseBatch",
+    "RunResult",
     "SplitMask",
     "SplitMasks",
+    "TrialResult",
     "ViewLocation",
 ]
