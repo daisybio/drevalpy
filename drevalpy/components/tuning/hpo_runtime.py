@@ -16,7 +16,6 @@ from drevalpy.components.tuning.drp_hyperparameters import (
     tuned_config_for_drp_model,
 )
 from drevalpy.components.tuning.search_space import dict_to_ray_space
-from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.mudataset import MuDataset
 from drevalpy.datasets.splitting import EntityScope
 from drevalpy.models.drp_model import DRPModel
@@ -61,31 +60,6 @@ def _construct_trial_model(model_class: type[DRPModel], sampled: dict[str, Any])
     if trial_config is None:
         return model_class(sampled)
     return construct_drp_model_from_config(model_class, trial_config)
-
-
-def _evaluate_trial_model(
-    trial_model: DRPModel,
-    *,
-    metric: str,
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
-    response_transformation: TransformerMixin | None,
-    model_checkpoint_dir: str | Path | None,
-) -> float:
-    from drevalpy import experiment
-
-    trial_dir = trial_checkpoint_dir(model_checkpoint_dir)
-    result = experiment.train_and_evaluate(
-        model=trial_model,
-        train_dataset=train_dataset,
-        validation_dataset=validation_dataset,
-        early_stopping_dataset=early_stopping_dataset,
-        metric=metric,
-        response_transformation=response_transformation,
-        model_checkpoint_dir=trial_dir,
-    )
-    return float(result[metric])
 
 
 def _report_trial_score(metric: str, score: float) -> None:
@@ -150,96 +124,6 @@ def _init_trial_wandb(
     )
 
 
-def build_ray_trainable(
-    *,
-    model_class: type[DRPModel],
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
-    response_transformation: TransformerMixin | None,
-    metric: str,
-    model_checkpoint_dir: str | Path | None,
-    cfg: HPOConfig,
-    wandb_project: str | None,
-    wandb_base_config: dict[str, Any] | None,
-    split_index: int | None,
-    model_name: str,
-) -> Callable[[dict[str, Any]], None]:
-    """Build ray trainable.
-
-    :param model_class: model class.
-    :param train_dataset: train dataset.
-    :param validation_dataset: validation dataset.
-    :param early_stopping_dataset: early stopping dataset.
-    :param response_transformation: response transformation.
-    :param metric: metric.
-    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
-    :param cfg: cfg.
-    :param wandb_project: wandb project.
-    :param wandb_base_config: wandb base config.
-    :param split_index: split index.
-    :param model_name: model name.
-    :returns: Result.
-    """
-
-    def trainable(sampled: dict[str, Any]) -> None:
-        """Trainable.
-
-        :param sampled: sampled.
-        """
-        try:
-            trial_model = _construct_trial_model(model_class, sampled)
-            score = _evaluate_trial_model(
-                trial_model,
-                metric=metric,
-                train_dataset=train_dataset,
-                validation_dataset=validation_dataset,
-                early_stopping_dataset=early_stopping_dataset,
-                response_transformation=response_transformation,
-                model_checkpoint_dir=model_checkpoint_dir,
-            )
-            _report_trial_score(metric, score)
-        except Exception:
-            _report_trial_failure(metric)
-
-    def trainable_with_wandb(sampled: dict[str, Any]) -> None:
-        """Trainable with wandb.
-
-        :param sampled: sampled.
-        """
-        if wandb_project is None:
-            trainable(sampled)
-            return
-        trial_model = _construct_trial_model(model_class, sampled)
-        trial_model._in_hyperparameter_tuning = True
-        _init_trial_wandb(
-            trial_model,
-            wandb_project=wandb_project,
-            wandb_base_config=wandb_base_config,
-            cfg=cfg,
-            model_name=model_name,
-            split_index=split_index,
-        )
-        try:
-            score = _evaluate_trial_model(
-                trial_model,
-                metric=metric,
-                train_dataset=train_dataset,
-                validation_dataset=validation_dataset,
-                early_stopping_dataset=early_stopping_dataset,
-                response_transformation=response_transformation,
-                model_checkpoint_dir=model_checkpoint_dir,
-            )
-            _report_trial_score(metric, score)
-        except Exception:
-            _report_trial_failure(metric)
-        finally:
-            if trial_model.is_wandb_enabled():
-                trial_model.finish_wandb()
-
-    return trainable_with_wandb if wandb_project is not None else trainable
-
-
 def run_ray_tuner(
     *,
     trainable_fn: Callable[[dict[str, Any]], None],
@@ -278,11 +162,6 @@ def run_ray_tuner(
         ),
     )
     return tuner.fit()
-
-
-# ------------------------------------------------------------------
-# MuDataset + EntityScope path (no DrugResponseDataset)
-# ------------------------------------------------------------------
 
 
 def _extract_ground_truth(mudataset: MuDataset, scope: EntityScope) -> np.ndarray:

@@ -1,59 +1,40 @@
-"""test hpam_tune with Ray Tune."""
+"""test mu_hpam_tune with Ray Tune."""
 
 import importlib.util
 
-import numpy as np
+import pytest
 
 from drevalpy import experiment
 from drevalpy.components.tuning.config import HPOConfig
-from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import construct_model
 
 
 def test_hpam_tune(tmp_path, data_dir):
-    """Test hpam_tune with a toy dataset and ElasticNet model.
+    """Test mu_hpam_tune with a toy MuDataset and ElasticNet model.
 
     :param tmp_path: pytest temporary path fixture
     :param data_dir: path to the data directory
     """
     if importlib.util.find_spec("ray") is None:
-        print("Ray is not installed, skipping test_hpam_tune.")
-        return
-    defaults = {
-        "alpha": 1.0,
-        "l1_ratio": 0.0,
-    }
+        pytest.skip("Ray is not installed")
+
+    from drevalpy.datasets import load_mudataset
+    from drevalpy.datasets.splitting import MuDataSplitter
+    from drevalpy.experiment.fold import prepare_mu_fold
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls(defaults)
+    mudataset = load_mudataset("TOYv1")
+    splitter = MuDataSplitter()
+    folds = splitter.split(mudataset, mode="LPO", n_splits=2, validation_ratio=0.4)
+    split = folds[0]
+    fold_data = prepare_mu_fold(mudataset, split, model_cls)
 
-    from tests.conftest import load_features_for_model
-
-    cell_line_input, drug_input = load_features_for_model(model, dataset_name="TOYv1")
-
-    valid_cell_lines = list(cell_line_input.identifiers)[:2]
-    valid_drugs = list(drug_input.identifiers)[:2]
-    responses = np.array([1.0, 2.0, 3.0, 4.0], dtype=float)
-    cell_line_ids = np.array([valid_cell_lines[0], valid_cell_lines[0], valid_cell_lines[1], valid_cell_lines[1]])
-    drug_ids = np.array([valid_drugs[0], valid_drugs[1], valid_drugs[0], valid_drugs[1]])
-    train_dataset = DrugResponseDataset(
-        response=responses,
-        cell_line_ids=cell_line_ids,
-        drug_ids=drug_ids,
-        dataset_name="TOYv1",
-    )
-    val_dataset = DrugResponseDataset(
-        response=responses.copy(),
-        cell_line_ids=cell_line_ids.copy(),
-        drug_ids=drug_ids.copy(),
-        dataset_name="TOYv1",
-    )
-
-    best = experiment.hpam_tune(
+    best = experiment.mu_hpam_tune(
         model_class=model_cls,
-        train_dataset=train_dataset,
-        validation_dataset=val_dataset,
-        early_stopping_dataset=None,
+        mudataset=mudataset,
+        train_scope=fold_data.train_scope,
+        val_scope=fold_data.val_scope,
+        early_stopping_scope=fold_data.early_stopping_scope,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
     )

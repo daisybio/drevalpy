@@ -58,7 +58,7 @@ def mu_experiment(
     """Run the MuData-based drug response prediction experiment.
 
     This is the primary entry point for the experiment pipeline. It uses
-    MuDataset + MuDataSplitter instead of CSV-based DrugResponseDataset loading.
+    MuDataset + MuDataSplitter for drug response prediction.
 
     :param models: DRPModel subclasses to evaluate.
     :param mudataset: Loaded MuDataset with all features.

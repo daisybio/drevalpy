@@ -12,7 +12,7 @@ from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 
@@ -75,7 +75,7 @@ def test_neural_network_configured_is_not_fitted_before_training() -> None:
 
 
 def _matrix_batch() -> ModelInputBatch:
-    response = DrugResponseDataset(
+    response = ResponseBatch(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
         cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),

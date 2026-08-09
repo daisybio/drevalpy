@@ -168,9 +168,9 @@ def evaluate(
     """Compute evaluation metrics from predictions and observed response.
 
     Accepts either (predictions_array, response_array) or a single
-    DrugResponseDataset that carries both .predictions and .response.
+    object that carries both .predictions and .response.
 
-    :param predictions_or_dataset: Predicted values or a DrugResponseDataset.
+    :param predictions_or_dataset: Predicted values or a dataset object.
     :param response: Observed (true) response values (omit if dataset passed).
     :param metric: One metric name or a list of names from ``AVAILABLE_METRICS``.
     :param predictions: Keyword-only alias for predictions_or_dataset.

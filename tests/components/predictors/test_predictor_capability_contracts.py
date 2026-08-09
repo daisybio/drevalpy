@@ -22,7 +22,7 @@ from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.register_builtins import ensure_predictor_registered, register_builtin_components
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig, from_spec
 from tests.models.synthetic_fixtures import (
@@ -53,7 +53,7 @@ def _neural_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
     )
     early_stopping = None
     if with_early_stopping:
-        early_stopping = DrugResponseDataset(
+        early_stopping = ResponseBatch(
             response=np.array([1.5, 2.5]),
             cell_line_ids=np.array(["cl1", "cl2"]),
             drug_ids=np.array(["d1", "d2"]),
@@ -89,7 +89,7 @@ def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
     }
     early_stopping = None
     if with_early_stopping:
-        early_stopping = DrugResponseDataset(
+        early_stopping = ResponseBatch(
             response=np.array([1.5, 2.5]),
             cell_line_ids=np.array(["cl1", "cl2"]),
             drug_ids=np.array(["d1", "d2"]),

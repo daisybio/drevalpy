@@ -18,8 +18,7 @@ from drevalpy.components.tuning.drp_hyperparameters import (
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
-from drevalpy.components.tuning.hpo_runtime import build_ray_trainable, mu_build_ray_trainable, run_ray_tuner
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.components.tuning.hpo_runtime import mu_build_ray_trainable, run_ray_tuner
 from drevalpy.datasets.mudataset import MuDataset
 from drevalpy.datasets.splitting import EntityScope
 from drevalpy.models.drp_model import DRPModel
@@ -83,138 +82,6 @@ def _select_best_result(results: Any, cfg: HPOConfig) -> Any | None:
     return _best_result_from_scan(results, cfg)
 
 
-def tune_fold(
-    model_class: type[DRPModel],
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
-    *,
-    response_transformation: TransformerMixin | None = None,
-    metric: str = "RMSE",
-    model_checkpoint_dir: str | Path | None = None,
-    hpo_config: HPOConfig | None = None,
-    split_index: int | None = None,
-    wandb_project: str | None = None,
-    wandb_base_config: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Tune hyperparameters for one fold and return the best flat public dict.
-
-    :param model_class: model class.
-    :param train_dataset: train dataset.
-    :param validation_dataset: validation dataset.
-    :param early_stopping_dataset: early stopping dataset.
-    :param response_transformation: response transformation.
-    :param metric: metric.
-    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
-    :param hpo_config: hpo config.
-    :param split_index: split index.
-    :param wandb_project: wandb project.
-    :param wandb_base_config: wandb base config.
-    :returns: Result.
-    """
-    return hpam_tune(
-        model_class=model_class,
-        train_dataset=train_dataset,
-        validation_dataset=validation_dataset,
-        early_stopping_dataset=early_stopping_dataset,
-        response_transformation=response_transformation,
-        metric=metric,
-        model_checkpoint_dir=model_checkpoint_dir,
-        hpo_config=hpo_config,
-        split_index=split_index,
-        wandb_project=wandb_project,
-        wandb_base_config=wandb_base_config,
-    )
-
-
-def hpam_tune(
-    *,
-    model_class: type[DRPModel],
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
-    response_transformation: TransformerMixin | None = None,
-    metric: str = "RMSE",
-    model_checkpoint_dir: str | Path | None = None,
-    hpo_config: HPOConfig | None = None,
-    split_index: int | None = None,
-    wandb_project: str | None = None,
-    wandb_base_config: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Tune hyperparameters with Ray Tune and OptunaSearch over structured spaces.
-
-    :param model_class: model class.
-    :param train_dataset: train dataset.
-    :param validation_dataset: validation dataset.
-    :param early_stopping_dataset: early stopping dataset.
-    :param response_transformation: response transformation.
-    :param metric: metric.
-    :param model_checkpoint_dir: Directory for model checkpoints, or ``None`` for a temporary one.
-    :param hpo_config: hpo config.
-    :param split_index: split index.
-    :param wandb_project: wandb project.
-    :param wandb_base_config: wandb base config.
-    :returns: Result.
-    :raises ValueError: Raised on invalid input.
-    :raises ImportError: Raised on invalid input.
-    """
-    validate_hpo_metric(metric)
-    cfg = hpo_config or HPOConfig.from_metric(metric)
-    if cfg.metric != metric:
-        msg = f"HPOConfig.metric ({cfg.metric!r}) must match metric argument ({metric!r})"
-        raise ValueError(msg)
-
-    structured_space = structured_space_for_drp_model(model_class)
-    if not structured_space or not has_tunable_hyperparameters(model_class):
-        return model_class.get_default_hyperparameters()
-    if cfg.n_trials == 0:
-        return model_class.get_default_hyperparameters()
-
-    try:
-        import ray
-    except ImportError as exc:
-        msg = "Ray Tune with Optuna requires ray[tune] and optuna to be installed"
-        raise ImportError(msg) from exc
-
-    ray_initialized_here = not ray.is_initialized()
-    try:
-        if ray_initialized_here:
-            ray.init(ignore_reinit_error=True)
-
-        model_name = model_class.get_model_name()
-        trainable = build_ray_trainable(
-            model_class=model_class,
-            train_dataset=train_dataset,
-            validation_dataset=validation_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            response_transformation=response_transformation,
-            metric=metric,
-            model_checkpoint_dir=model_checkpoint_dir,
-            cfg=cfg,
-            wandb_project=wandb_project,
-            wandb_base_config=wandb_base_config,
-            split_index=split_index,
-            model_name=model_name,
-        )
-        results = run_ray_tuner(trainable_fn=trainable, structured_space=structured_space, cfg=cfg)
-        best_result = _select_best_result(results, cfg)
-        if best_result is None:
-            warnings.warn(
-                "Ray/Optuna tuning did not find a valid configuration; using defaults.",
-                stacklevel=2,
-            )
-            return default_hyperparameters_for_drp_model(model_class)
-
-        best_config = best_result.config or {}
-        best_model_config = tuned_config_for_drp_model(model_class, best_config)
-        if best_model_config is None:
-            return dict(best_config)
-        return public_hyperparameters_from_config(best_model_config)
-    finally:
-        if ray_initialized_here and ray.is_initialized():
-            ray.shutdown()
-
-
 def mu_hpam_tune(
     *,
     model_class: type[DRPModel],
@@ -230,7 +97,7 @@ def mu_hpam_tune(
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Tune hyperparameters using MuDataset + EntityScope (no DrugResponseDataset).
+    """Tune hyperparameters using MuDataset + EntityScope.
 
     :param model_class: Model class to tune.
     :param mudataset: Full dataset with all features.

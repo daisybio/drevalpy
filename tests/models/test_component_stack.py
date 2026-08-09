@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models._component_stack import build_component_stack
 from drevalpy.models.config import from_spec
@@ -30,7 +30,7 @@ def test_sklearn_model_config_builds_runnable_model() -> None:
 def test_build_component_stack_train_predict() -> None:
     config = from_spec("scaledGeneExpression:fingerprints:ridge", hyperparameters={"alpha": 1.0})
     stack = build_component_stack(config)
-    response = DrugResponseDataset(
+    response = ResponseBatch(
         response=np.array([1.0, 2.0]),
         cell_line_ids=np.array(["cl1", "cl2"]),
         drug_ids=np.array(["d1", "d2"]),

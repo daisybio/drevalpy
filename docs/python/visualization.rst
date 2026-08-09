@@ -13,7 +13,7 @@ report with ``create_report``.
 evaluate
 --------
 
-``evaluate`` scores a ``DrugResponseDataset`` that already has
+``evaluate`` scores a prediction result that already has
 ``.predictions`` set:
 
 .. code-block:: python

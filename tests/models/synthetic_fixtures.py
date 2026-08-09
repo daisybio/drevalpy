@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.response_batch import ResponseBatch
 from drevalpy.datasets.splitting import SplitMasks
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from tests.conftest import MockFeatureSource
 
 
-def multi_drug_response() -> DrugResponseDataset:
-    return DrugResponseDataset(
+def multi_drug_response() -> ResponseBatch:
+    return ResponseBatch(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
         cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),

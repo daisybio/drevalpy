@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 
-from ..datasets.dataset import DrugResponseDataset
 from ..models._model_lookup import (
     is_multi_drug_model_name,
     is_single_drug_model_name,
@@ -14,16 +13,16 @@ from ..models._model_lookup import (
 from ..models.drp_model import DRPModel
 
 
-def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDataset) -> dict[str, str]:
+def make_model_list(models: list[type[DRPModel]], drug_ids: np.ndarray) -> dict[str, str]:
     """Build model run keys (including per-drug keys for single-drug models).
 
     :param models: Model classes to include in the run.
-    :param response_data: Dataset used to enumerate single-drug keys.
+    :param drug_ids: Array of drug identifiers to enumerate single-drug keys.
 
     :returns: Mapping from run key to base model name.
     """
     model_list: dict[str, str] = {}
-    unique_drugs = np.unique(response_data.drug_ids)
+    unique_drugs = np.unique(drug_ids)
     for model in models:
         if model.is_single_drug():
             for drug in unique_drugs:

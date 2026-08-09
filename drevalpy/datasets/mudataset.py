@@ -2,8 +2,8 @@
 
 ``MuDataset`` wraps a MuData object and provides typed access to response data,
 cell-line and drug features, metadata, and auxiliary model data. It replaces both
-``DrugResponseDataset`` (response arrays) and ``FeatureDataset`` (feature dicts)
-with a single entry point backed by an .h5mu file.
+legacy response arrays and feature dicts with a single entry point backed by an
+.h5mu file.
 """
 
 from __future__ import annotations
@@ -16,6 +16,43 @@ import numpy as np
 import pandas as pd
 
 import mudata as md
+
+
+def _aligned_fetch(
+    index: pd.Index,
+    ids: np.ndarray,
+    data: np.ndarray,
+    *,
+    strict: bool,
+    entity_label: str,
+) -> np.ndarray:
+    """Fetch rows from *data* aligned to *ids* using *index*, filling NaN for missing.
+
+    Args:
+        index: pd.Index mapping entity names to row positions in *data*.
+        ids: 1-D array of requested entity IDs.
+        data: 2-D source array to fetch rows from.
+        strict: If True, raise KeyError for missing IDs instead of warning.
+        entity_label: Human-readable label for error messages (e.g. "cell line").
+
+    Returns:
+        Float32 array of shape (len(ids), data.shape[1]).
+    """
+    positions = index.get_indexer(ids)
+    missing_mask = positions == -1
+    if missing_mask.any():
+        n_missing = int(missing_mask.sum())
+        sample = ids[missing_mask][:5].tolist()
+        msg = f"{n_missing} of {len(ids)} {entity_label} IDs not found (first few: {sample}). Returning NaN rows."
+        if strict:
+            raise KeyError(msg)
+        warnings.warn(msg, stacklevel=3)
+
+    n_features = data.shape[1]
+    result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
+    valid = positions >= 0
+    result[valid] = np.asarray(data[positions[valid]], dtype=np.float32)
+    return result
 
 
 def _randomize_matrix(data: np.ndarray, rng: np.random.Generator, randomization_type: str) -> np.ndarray:
@@ -201,56 +238,20 @@ class MuDataset:
             raise KeyError(f"Modality '{modality}' not found. Available: {list(self._mdata.mod.keys())}")
 
         adata = self._mdata.mod[modality]
-        idx = pd.Index(adata.obs_names)
-        positions = idx.get_indexer(ids)
-
-        missing_mask = positions == -1
-        if missing_mask.any():
-            n_missing = int(missing_mask.sum())
-            missing_ids = ids[missing_mask][:5].tolist()
-            msg = (
-                f"{n_missing} of {len(ids)} cell line IDs not found in the dataset "
-                f"(first few: {missing_ids}). Returning NaN rows."
-            )
-            if strict:
-                raise KeyError(msg)
-            warnings.warn(msg, stacklevel=2)
-
-        n_features = adata.X.shape[1]
-        result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
-        valid = positions >= 0
         x = adata.X
         if hasattr(x, "toarray"):
             x = x.toarray()
-        result[valid] = np.asarray(x[positions[valid]], dtype=np.float32)
-        return result
+        return _aligned_fetch(pd.Index(adata.obs_names), ids, np.asarray(x), strict=strict, entity_label="cell line")
 
     def _get_obsm_features(self, key: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Retrieve cell-line features stored in response.obsm."""
         if key not in self.response.obsm:
             raise KeyError(f"obsm key '{key}' not found in response modality.")
 
-        obsm_data = self.response.obsm[key]
-        idx = pd.Index(self.response.obs_names)
-        positions = idx.get_indexer(ids)
-
-        missing_mask = positions == -1
-        if missing_mask.any():
-            n_missing = int(missing_mask.sum())
-            missing_ids = ids[missing_mask][:5].tolist()
-            msg = (
-                f"{n_missing} of {len(ids)} cell line IDs not found in the dataset "
-                f"(first few: {missing_ids}). Returning NaN rows."
-            )
-            if strict:
-                raise KeyError(msg)
-            warnings.warn(msg, stacklevel=2)
-
-        n_features = obsm_data.shape[1]
-        result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
-        valid = positions >= 0
-        result[valid] = np.asarray(obsm_data[positions[valid]], dtype=np.float32)
-        return result
+        obsm_data = np.asarray(self.response.obsm[key])
+        return _aligned_fetch(
+            pd.Index(self.response.obs_names), ids, obsm_data, strict=strict, entity_label="cell line"
+        )
 
     def get_cell_line_feature_names(self, view: str) -> tuple[str, ...] | None:
         """Return the feature (column) names for a cell-line view.
@@ -327,27 +328,8 @@ class MuDataset:
             raise KeyError(f"Drug feature '{name}' not found. Available views: {self.available_drug_views}")
 
         ids = np.asarray(ids, dtype=str)
-        varm_data = self.response.varm[resolved]
-        idx = pd.Index(self.response.var_names)
-        positions = idx.get_indexer(ids)
-
-        missing_mask = positions == -1
-        if missing_mask.any():
-            n_missing = int(missing_mask.sum())
-            missing_ids = ids[missing_mask][:5].tolist()
-            msg = (
-                f"{n_missing} of {len(ids)} drug IDs not found in the dataset "
-                f"(first few: {missing_ids}). Returning NaN rows."
-            )
-            if strict:
-                raise KeyError(msg)
-            warnings.warn(msg, stacklevel=2)
-
-        n_features = varm_data.shape[1]
-        result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
-        valid = positions >= 0
-        result[valid] = np.asarray(varm_data[positions[valid]], dtype=np.float32)
-        return result
+        varm_data = np.asarray(self.response.varm[resolved])
+        return _aligned_fetch(pd.Index(self.response.var_names), ids, varm_data, strict=strict, entity_label="drug")
 
     def get_drug_feature_names(self, view: str) -> tuple[str, ...] | None:
         """Return the feature (column) names for a drug view stored in response.varm.

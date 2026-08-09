@@ -15,7 +15,7 @@ from drevalpy.components.tuning.drp_hyperparameters import (
     tuned_config_for_drp_model,
     tuned_flat_hyperparameters,
 )
-from drevalpy.components.tuning.hpo import hpam_tune, tune_fold
+from drevalpy.components.tuning.hpo import mu_hpam_tune
 from drevalpy.components.tuning.search_space import (
     apply_merged_to_model_config,
     defaults_from_merged_space,
@@ -41,8 +41,7 @@ __all__ = [
     "extract_defaults",
     "flat_hyperparameters_from_model_config",
     "has_tunable_hyperparameters",
-    "hpam_tune",
-    "tune_fold",
+    "mu_hpam_tune",
     "merge_model_config_spaces",
     "merge_search_spaces",
     "model_config_for_drp_model",

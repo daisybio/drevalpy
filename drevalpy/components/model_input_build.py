@@ -8,7 +8,7 @@ from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.pair_features import pair_cell_line_indices, pair_drug_indices
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.response_batch import ResponseBatch
 
 
 def _validate_entity_feature_alignment(
@@ -31,7 +31,7 @@ def _validate_entity_feature_alignment(
 
 
 def _cell_line_pair_indices(
-    response: DrugResponseDataset,
+    response: ResponseBatch,
     cell_line_entity_ids: np.ndarray,
     cell_line_features: np.ndarray,
 ) -> np.ndarray:
@@ -46,7 +46,7 @@ def _cell_line_pair_indices(
 
 
 def _drug_pair_indices(
-    response: DrugResponseDataset,
+    response: ResponseBatch,
     drug_entity_ids: np.ndarray,
     drug_features: np.ndarray,
 ) -> np.ndarray | None:
@@ -61,7 +61,7 @@ def _drug_pair_indices(
 
 
 def build_model_input_batch(
-    response: DrugResponseDataset,
+    response: ResponseBatch,
     *,
     cell_line_entity_ids: np.ndarray,
     drug_entity_ids: np.ndarray | None,
@@ -69,7 +69,7 @@ def build_model_input_batch(
     drug_features: np.ndarray | None,
     cell_line_blocks: dict[str, FeatureBlock] | None = None,
     drug_blocks: dict[str, FeatureBlock] | None = None,
-    early_stopping_response: DrugResponseDataset | None = None,
+    early_stopping_response: ResponseBatch | None = None,
     training_context: TrainingContext | None = None,
 ) -> ModelInputBatch:
     """Index entity-level featurizer outputs for each response pair.

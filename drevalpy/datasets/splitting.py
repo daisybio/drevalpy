@@ -2,12 +2,18 @@
 
 Provides ``SplitMasks`` (the per-fold index containers) and ``MuDataSplitter``
 which generates folds for LPO, LCO, LDO, and LTO modes.
+
+Also provides ``SplitParams``, ``ExternalSplitCreator``, and
+``load_external_splitter`` for plugging in custom split logic.
 """
 
 from __future__ import annotations
 
+import importlib.util
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from pathlib import Path
+from typing import Protocol, cast, runtime_checkable
 
 import numpy as np
 from sklearn.model_selection import GroupKFold, train_test_split
@@ -39,6 +45,51 @@ class _MuDataLike(Protocol):
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
         """Return tissue labels for the given cell line IDs."""
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class SplitParams:
+    """Pipeline split settings passed to built-in and external split providers."""
+
+    test_mode: str
+    n_cv_splits: int
+    validation_ratio: float
+    random_state: int
+
+
+ExternalSplitCreator = Callable[[_MuDataLike, SplitParams], "list[SplitMasks]"]
+
+
+def load_external_splitter(path: Path | str) -> ExternalSplitCreator:
+    """Load a module-level ``create_splits`` function from a Python script.
+
+    :param path: Path to a script defining ``create_splits(mudataset, params) -> list[SplitMasks]``.
+    :returns: Callable external split creator.
+    :raises FileNotFoundError: If the script path does not exist.
+    :raises ImportError: If the script cannot be imported.
+    :raises AttributeError: If ``create_splits`` is missing.
+    :raises TypeError: If ``create_splits`` is not callable.
+    """
+    script_path = Path(path).expanduser().resolve()
+    if not script_path.is_file():
+        msg = f"External split script not found: {script_path}"
+        raise FileNotFoundError(msg)
+
+    spec = importlib.util.spec_from_file_location("_drevalpy_external_split_", script_path)
+    if spec is None or spec.loader is None:
+        msg = f"Could not load external split script: {script_path}"
+        raise ImportError(msg)
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    fn = getattr(module, "create_splits", None)
+    if fn is None:
+        msg = f"{script_path} must define a module-level function create_splits(mudataset, params)"
+        raise AttributeError(msg)
+    if not callable(fn):
+        msg = "create_splits must be callable"
+        raise TypeError(msg)
+    return cast(ExternalSplitCreator, fn)
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +134,7 @@ class MuDataSplitter:
         n_splits: int = 5,
         validation_ratio: float = 0.1,
         random_state: int = 42,
+        external_splitter: ExternalSplitCreator | str | Path | None = None,
     ) -> list[SplitMasks]:
         """Return one ``SplitMasks`` per fold.
 
@@ -98,9 +150,23 @@ class MuDataSplitter:
             Fraction of training groups/samples carved for validation.
         random_state:
             Seed for shuffling and validation splitting.
+        external_splitter:
+            Optional callable, path to script, or string path. When provided,
+            splitting is delegated to this external creator.
         """
         if mode not in self._MODES:
             raise ValueError(f"mode must be one of {sorted(self._MODES)}, got {mode!r}")
+
+        if external_splitter is not None:
+            if isinstance(external_splitter, (str, Path)):
+                external_splitter = load_external_splitter(external_splitter)
+            params = SplitParams(
+                test_mode=mode,
+                n_cv_splits=n_splits,
+                validation_ratio=validation_ratio,
+                random_state=random_state,
+            )
+            return external_splitter(mudataset, params)
 
         if mode == "LPO":
             return self._leave_pair_out(mudataset, n_splits, validation_ratio, random_state)

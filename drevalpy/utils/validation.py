@@ -113,7 +113,7 @@ def validate_cross_study_dataset_names(args) -> None:
             raise AssertionError(
                 f"Invalid dataset name in cross_study_datasets. Available datasets are "
                 f"{list_builtin_datasets()}. If you want to use your own dataset, place it under "
-                f"<cache_dir>/<dataset_name>/ (see DREVALPY_CACHE_DIR) and load it with load_dataset."
+                f"<cache_dir>/<dataset_name>/ (see DREVALPY_CACHE_DIR) and load it with load_mudataset."
             )
 
 
@@ -134,9 +134,12 @@ def validate_cv_split_settings(args) -> None:
 
     custom_split_name = getattr(args, "custom_split_name", None)
     if custom_split_name is not None:
-        from drevalpy.datasets.splits import validate_split_label
-
-        validate_split_label(custom_split_name)
+        if not custom_split_name or custom_split_name.strip() != custom_split_name:
+            msg = "split label must be a non-empty string without leading or trailing whitespace"
+            raise ValueError(msg)
+        if "/" in custom_split_name or "\\" in custom_split_name:
+            msg = f"split label must not contain path separators: {custom_split_name!r}"
+            raise ValueError(msg)
 
 
 def validate_randomization_settings(args) -> None:

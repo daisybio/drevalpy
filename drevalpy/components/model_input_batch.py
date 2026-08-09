@@ -9,7 +9,7 @@ import numpy as np
 from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.pair_features import pair_cell_line_indices, pair_drug_indices
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.response_batch import ResponseBatch
 
 
 @dataclass
@@ -27,7 +27,7 @@ class ModelInputBatch:
     drug_pair_idx: np.ndarray | None
     cell_line_blocks: dict[str, FeatureBlock] = field(default_factory=dict)
     drug_blocks: dict[str, FeatureBlock] = field(default_factory=dict)
-    early_stopping_response: DrugResponseDataset | None = None
+    early_stopping_response: ResponseBatch | None = None
     training_context: TrainingContext = field(default_factory=TrainingContext)
 
     def __post_init__(self) -> None:
@@ -62,7 +62,7 @@ class ModelInputBatch:
     @classmethod
     def from_response(
         cls,
-        response: DrugResponseDataset,
+        response: ResponseBatch,
         *,
         cell_line_entity_ids: np.ndarray,
         drug_entity_ids: np.ndarray | None,
@@ -72,7 +72,7 @@ class ModelInputBatch:
         drug_pair_idx: np.ndarray | None,
         cell_line_blocks: dict[str, FeatureBlock] | None = None,
         drug_blocks: dict[str, FeatureBlock] | None = None,
-        early_stopping_response: DrugResponseDataset | None = None,
+        early_stopping_response: ResponseBatch | None = None,
         training_context: TrainingContext | None = None,
     ) -> ModelInputBatch:
         """Build a predictor input batch from a response dataset and featurizer outputs.
@@ -106,7 +106,7 @@ class ModelInputBatch:
             training_context=training_context or TrainingContext(),
         )
 
-    def _pair_indices_for(self, response: DrugResponseDataset) -> tuple[np.ndarray, np.ndarray | None]:
+    def _pair_indices_for(self, response: ResponseBatch) -> tuple[np.ndarray, np.ndarray | None]:
         if self.cell_line_entity_ids.size == 0:
             cell_line_pair_idx = np.zeros(len(response), dtype=np.int64)
         else:
@@ -122,7 +122,7 @@ class ModelInputBatch:
                 drug_pair_idx = pair_drug_indices(response.drug_ids, drug_map)
         return cell_line_pair_idx, drug_pair_idx
 
-    def feature_matrix_for(self, response: DrugResponseDataset) -> np.ndarray:
+    def feature_matrix_for(self, response: ResponseBatch) -> np.ndarray:
         """Return a dense design matrix for an alternate response dataset.
 
         :param response: Pairs whose features should be materialized from stored
@@ -175,7 +175,7 @@ class ModelInputBatch:
         if self.response is None:
             msg = "ModelInputBatch.response is required to build a feature matrix"
             raise ValueError(msg)
-        response = DrugResponseDataset(
+        response = ResponseBatch(
             response=self.response,
             cell_line_ids=self.cell_line_ids,
             drug_ids=self.drug_ids,
@@ -202,9 +202,15 @@ class ModelInputBatch:
             if len(selected_drugs) != 1:
                 msg = "subset_pairs requires a single drug when early_stopping_response is present"
                 raise ValueError(msg)
-            early_stopping = early_stopping.masked(early_stopping.drug_ids == selected_drugs[0])
-            if len(early_stopping) == 0:
+            es_mask = early_stopping.drug_ids == selected_drugs[0]
+            if not np.any(es_mask):
                 early_stopping = None
+            else:
+                early_stopping = ResponseBatch(
+                    response=early_stopping.response[es_mask],
+                    cell_line_ids=early_stopping.cell_line_ids[es_mask],
+                    drug_ids=early_stopping.drug_ids[es_mask],
+                )
 
         drug_pair_idx = self.drug_pair_idx
         return ModelInputBatch(

@@ -289,9 +289,9 @@ class DRPModel(_DRPLoggingMixin):
         :param scope: EntityScope defining train indices for this fold.
         :param split: (compat) SplitMasks; converted to EntityScope internally.
         :param early_stopping_scope: Optional EntityScope for early stopping.
-        :param output: (legacy) DrugResponseDataset for training pairs.
-        :param cell_line_input: (legacy) FeatureDataset for cell lines.
-        :param drug_input: (legacy) FeatureDataset for drugs, or None.
+        :param output: (legacy) ResponseBatch for training pairs.
+        :param cell_line_input: (legacy) FeatureSource for cell lines.
+        :param drug_input: (legacy) FeatureSource for drugs, or None.
         :param output_earlystopping: (legacy) Optional early-stopping dataset.
         :param model_checkpoint_dir: Directory for predictor checkpoints.
         :raises RuntimeError: If the model lacks a component stack.
@@ -337,7 +337,7 @@ class DRPModel(_DRPLoggingMixin):
                 )
             return
 
-        # Legacy DrugResponseDataset + FeatureDataset path
+        # Legacy ResponseBatch + FeatureSource path
         if output is not None and cell_line_input is not None:
             self._empty_training = len(output) == 0
             if not self._empty_training:
@@ -513,8 +513,8 @@ class DRPModel(_DRPLoggingMixin):
         :param drug_view: Drug view name, or ``None`` to omit drug features.
         :param cell_line_ids_output: Cell-line identifiers for the output pairs.
         :param drug_ids_output: Drug identifiers for the output pairs.
-        :param cell_line_input: Cell-line feature source (legacy FeatureDataset), or ``None``.
-        :param drug_input: Drug feature source (legacy FeatureDataset), or ``None``.
+        :param cell_line_input: Cell-line feature source, or ``None``.
+        :param drug_input: Drug feature source, or ``None``.
         :returns: Feature matrix with one row per output pair.
         :raises ValueError: If a requested view is missing from the inputs.
         """
@@ -553,8 +553,8 @@ class DRPModel(_DRPLoggingMixin):
 
         :param cell_line_ids: Cell-line identifiers, one per pair.
         :param drug_ids: Drug identifiers, one per pair.
-        :param cell_line_input: Cell-line feature source (legacy FeatureDataset), or ``None``.
-        :param drug_input: Drug feature source (legacy FeatureDataset), or ``None``.
+        :param cell_line_input: Cell-line feature source, or ``None``.
+        :param drug_input: Drug feature source, or ``None``.
         :returns: Mapping from view name to feature matrix aligned with the ids.
         :raises ValueError: If a required view is missing from the inputs.
         """

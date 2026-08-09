@@ -63,21 +63,19 @@ def run_cv_split(
     :param seed: seed.
     :param custom_splitter_path: custom splitter path.
     """
-    from drevalpy.datasets.splits import create_and_record_splits
+    from drevalpy.datasets.splitting import MuDataSplitter
 
     response_data = load_trusted_pickle(response)
-    create_and_record_splits(
+    splitter = MuDataSplitter()
+    folds = splitter.split(
         response_data,
-        split_path=".",
-        split_label=test_mode,
-        external_splitter=custom_splitter_path,
-        test_mode=test_mode,
-        n_cv_splits=n_cv_splits,
+        mode=test_mode,
+        n_splits=n_cv_splits,
         validation_ratio=validation_ratio,
         random_state=seed,
-        split_early_stopping=True,
+        external_splitter=custom_splitter_path,
     )
-    for split_index, split in enumerate(response_data.cv_splits):
+    for split_index, split in enumerate(folds):
         dump_trusted_pickle(split, f"split_{split_index}.pkl")
 
 

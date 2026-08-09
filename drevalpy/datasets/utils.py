@@ -2,16 +2,12 @@
 
 import zipfile
 from pathlib import Path
-from typing import Any
 
-import networkx as nx
-import numpy as np
 import requests
 from requests import Response
 
 from ._paths import get_default_data_dir
 
-# DRUG_IDENTIFIER, CELL_LINE_IDENTIFIER, and TISSUE_IDENTIFIER are used in pipeline
 DRUG_IDENTIFIER = "pubchem_id"
 CELL_LINE_IDENTIFIER = "cell_line_name"
 TISSUE_IDENTIFIER = "tissue"
@@ -92,61 +88,3 @@ def download_dataset(
         unzip_data(path_to_zip=file_path, response=response, data_path=data_path)
 
         print(f"{dataset_name} data downloaded and extracted to {data_path}")
-
-
-def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
-    """Randomizes the graph by shuffling the edges while preserving the degree sequence.
-
-    :param original_graph: The original graph
-    :return: Randomized graph with the same degree sequence and node attributes
-    """
-    # Get the degree sequence from the original graph
-    degree_sequence = [degree for node, degree in original_graph.degree()]
-
-    # Generate a new graph with the expected degree sequence
-    new_graph = nx.expected_degree_graph(degree_sequence, seed=1234)
-
-    # Remap nodes to the original labels
-    mapping = dict(zip(new_graph.nodes(), original_graph.nodes(), strict=True))
-    new_graph = nx.relabel_nodes(new_graph, mapping)
-
-    # Copy node attributes from the original graph to the new graph
-    for node, data in original_graph.nodes(data=True):
-        new_graph.nodes[node].update(data)
-
-    # Get the edge attributes from the original graph
-    edge_attributes = list(original_graph.edges(data=True))
-
-    # Assign random edge attributes to the new edges
-    for edge in new_graph.edges():
-        random_idx = int(np.random.randint(len(edge_attributes)))
-        _, _, attr = edge_attributes[random_idx]
-        new_graph[edge[0]][edge[1]].update(attr)
-
-    return new_graph
-
-
-def permute_features(
-    features: dict[str, dict[str, Any]],
-    identifiers: np.ndarray,
-    views_to_permute: list[str],
-    all_views: list[str],
-) -> dict:
-    """Permute the specified views for each entity (= cell line or drug).
-
-    E.g. each cell line gets the feature vector/graph/image... of another cell line.
-    Drawn without replacement.
-
-    :param features: dictionary of features
-    :param identifiers: array of identifiers
-    :param views_to_permute: list of views to permute
-    :param all_views: list of all views
-    :return: permuted features
-    """
-    return {
-        entity: {
-            view: (features[entity][view] if view not in views_to_permute else features[other_entity][view])
-            for view in all_views
-        }
-        for entity, other_entity in zip(identifiers, np.random.permutation(identifiers), strict=True)
-    }

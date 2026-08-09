@@ -7,16 +7,20 @@ import pytest
 
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.model_input_build import build_model_input_batch
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.response_batch import ResponseBatch
 
 
 def test_build_model_input_batch_indexes_entities() -> None:
-    response = DrugResponseDataset(
+    response = ResponseBatch(
         response=np.array([1.0, 2.0]),
         cell_line_ids=np.array(["cl1", "cl2"]),
         drug_ids=np.array(["d1", "d2"]),
     )
-    early_stopping = response.copy()
+    early_stopping = ResponseBatch(
+        response=np.array([1.0, 2.0]),
+        cell_line_ids=np.array(["cl1", "cl2"]),
+        drug_ids=np.array(["d1", "d2"]),
+    )
     batch = build_model_input_batch(
         response,
         cell_line_entity_ids=np.array(["cl1", "cl2"]),
@@ -98,7 +102,7 @@ def test_to_feature_matrix_empty_baseline() -> None:
 
 
 def test_build_model_input_batch_rejects_mismatched_entity_rows() -> None:
-    response = DrugResponseDataset(
+    response = ResponseBatch(
         response=np.array([1.0]),
         cell_line_ids=np.array(["cl1"]),
         drug_ids=np.array(["d1"]),
@@ -114,7 +118,7 @@ def test_build_model_input_batch_rejects_mismatched_entity_rows() -> None:
 
 
 def test_build_model_input_batch_rejects_missing_pair_ids() -> None:
-    response = DrugResponseDataset(
+    response = ResponseBatch(
         response=np.array([1.0]),
         cell_line_ids=np.array(["missing"]),
         drug_ids=np.array(["d1"]),
@@ -147,12 +151,12 @@ def test_to_feature_matrix_builds_drug_indices_from_entity_maps() -> None:
 
 
 def test_subset_pairs_filters_pairs_and_early_stopping_by_drug() -> None:
-    response = DrugResponseDataset(
+    response = ResponseBatch(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
         cell_line_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
         drug_ids=np.array(["d1", "d1", "d2", "d2"]),
     )
-    early_stopping = DrugResponseDataset(
+    early_stopping = ResponseBatch(
         response=np.array([0.5, 0.6, 0.7]),
         cell_line_ids=np.array(["cl1", "cl2", "cl1"]),
         drug_ids=np.array(["d1", "d1", "d2"]),

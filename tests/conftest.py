@@ -10,8 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.loader import load_response_dataset
+from drevalpy.datasets.response_batch import ResponseBatch
 
 
 class MockFeatureSource:
@@ -48,7 +47,10 @@ class MockFeatureSource:
 
     def get_entity_view(self, entity_id: str, view: str) -> Any:
         """Return the raw per-entity object for non-numeric views (graphs, etc.)."""
-        return self._features[str(entity_id)][view]
+        entity = self._features.get(str(entity_id))
+        if entity is None:
+            return None
+        return entity.get(view)
 
     def get_metadata(self, key: str) -> Any:
         """Return arbitrary metadata (e.g. ontology structures)."""
@@ -81,13 +83,17 @@ os.environ["DREVALPY_CACHE_DIR"] = str(_DATA_DIR)
 
 
 def _load_toy_datasets() -> bool:
-    """Download TOYv1/TOYv2 once for session fixtures.
+    """Check that TOYv1/TOYv2 CSV files exist for session fixtures.
 
-    :returns: False when dataset download fails
+    :returns: False when datasets are not available
     """
     try:
-        load_response_dataset("TOYv1", measure=_BUILTIN_MEASURE)
-        load_response_dataset("TOYv2", measure=_BUILTIN_MEASURE)
+        for name in _TOY_DATASETS:
+            csv_path = _DATA_DIR / name / f"{name}.csv"
+            if not csv_path.is_file():
+                from drevalpy.datasets.utils import download_dataset
+
+                download_dataset(name, redownload=True)
     except Exception as exc:
         print(f"Warning: could not load TOY datasets: {exc}")
         return False
@@ -159,29 +165,39 @@ def data_dir() -> pathlib.Path:
 
 @pytest.hookimpl(tryfirst=True)
 @pytest.fixture(scope="session")
-def sample_dataset(data_dir) -> DrugResponseDataset:
+def sample_dataset(data_dir) -> ResponseBatch:
     """Sample dataset for testing individual models.
 
     :param data_dir: path to the data directory
-    :returns: drug_response, cell_line_input, drug_input
+    :returns: ResponseBatch with TOYv1 data
     """
     _ = data_dir
-    drug_response = load_response_dataset("TOYv1", measure=_BUILTIN_MEASURE)
-    drug_response.remove_nan_responses()
-    return drug_response
+    csv_path = _DATA_DIR / "TOYv1" / "TOYv1.csv"
+    df = pd.read_csv(csv_path)
+    df = df[df[_BUILTIN_MEASURE].notna()]
+    return ResponseBatch(
+        response=df[_BUILTIN_MEASURE].to_numpy(dtype=np.float64),
+        cell_line_ids=df["cellosaurus_id"].to_numpy(dtype=str),
+        drug_ids=df["pubchem_id"].to_numpy(dtype=str),
+    )
 
 
 @pytest.fixture(scope="session")
-def cross_study_dataset(data_dir) -> DrugResponseDataset:
-    """Sample dataset for testing individual models.
+def cross_study_dataset(data_dir) -> ResponseBatch:
+    """Sample cross-study dataset for testing.
 
     :param data_dir: path to the data directory
-    :returns: drug_response, cell_line_input, drug_input
+    :returns: ResponseBatch with TOYv2 data
     """
     _ = data_dir
-    drug_response = load_response_dataset("TOYv2", measure=_BUILTIN_MEASURE)
-    drug_response.remove_nan_responses()
-    return drug_response
+    csv_path = _DATA_DIR / "TOYv2" / "TOYv2.csv"
+    df = pd.read_csv(csv_path)
+    df = df[df[_BUILTIN_MEASURE].notna()]
+    return ResponseBatch(
+        response=df[_BUILTIN_MEASURE].to_numpy(dtype=np.float64),
+        cell_line_ids=df["cellosaurus_id"].to_numpy(dtype=str),
+        drug_ids=df["pubchem_id"].to_numpy(dtype=str),
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)

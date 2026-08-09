@@ -21,11 +21,11 @@ Minimal call
 
 .. code-block:: python
 
-   from drevalpy.datasets.loader import load_dataset
-   from drevalpy.experiment import drug_response_experiment
+   from drevalpy.datasets import load_mudataset
+   from drevalpy.experiment import mu_experiment
    from drevalpy.models import construct_model
 
-   response_data = load_dataset("TOYv1")
+   mudataset = load_mudataset("TOYv1")
    ElasticNet = construct_model("ElasticNet")
 
    drug_response_experiment(
@@ -55,7 +55,7 @@ Common options
   :doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``).
 - ``randomization_mode`` / ``n_trials_robustness``: optional stress tests
   (see :doc:`/concepts/evaluation`).
-- ``cross_study_datasets``: other ``DrugResponseDataset`` instances for
+- ``cross_study_datasets``: other ``MuDataset`` instances for
   transfer evaluation.
 - ``wandb_project``: enable Weights & Biases logging when set.
 

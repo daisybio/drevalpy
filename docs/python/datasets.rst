@@ -14,16 +14,16 @@ Built-in datasets
 
 Built-in names are listed in the packaged registry. Use
 :func:`~drevalpy.datasets.list_builtin_datasets` to discover them and
-:func:`~drevalpy.datasets.loader.load_dataset` to load:
+:func:`~drevalpy.datasets.loader.load_mudataset` to load:
 
 .. code-block:: python
 
-   from drevalpy.datasets import list_builtin_datasets, load_dataset
+   from drevalpy.datasets import list_builtin_datasets, load_mudataset
 
    print(list_builtin_datasets())
    # BeatAML2, CCLE, CTRPv1, CTRPv2, GDSC1, GDSC2, PDX_Bruna, TOYv1, TOYv2
 
-   response = load_dataset("TOYv1", measure="LN_IC50")
+   mudataset = load_mudataset("TOYv1")
 
 Built-in loaders download into the system cache directory on first use (see
 :doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``). Pass
@@ -34,35 +34,12 @@ names gain a ``_curvecurator`` suffix — see :doc:`/concepts/datasets`.
 Custom raw and prefit tables
 ----------------------------
 
-An unknown ``dataset_name`` is treated as a custom load path under
-``{cache_dir}/{dataset_name}/``.
-
-**Prefit response CSV** at
-``{cache_dir}/{dataset_name}/{dataset_name}.csv`` needs at least
-``cell_line_id``, ``drug_id``, and a measure column. Leave-Tissue-Out also
-needs ``tissue`` (pass ``tissue_column`` when the column name differs):
+An unknown ``dataset_name`` is treated as a custom load path. Point
+``load_mudataset`` at a ``.h5mu`` file directly:
 
 .. code-block:: python
 
-   response = load_dataset(
-       "MyStudy",
-       measure="LN_IC50",
-       tissue_column="tissue",
-   )
-
-**Raw viability** (long format with ``dose``, ``response``, ``sample``,
-``drug``, optional ``replicate``; doses in µM) lives at
-``{cache_dir}/{dataset_name}/{dataset_name}_raw.csv``. Set
-``curve_curator=True`` so CurveCurator fits curves and writes the prefit CSV:
-
-.. code-block:: python
-
-   response = load_dataset(
-       "MyRawStudy",
-       measure="response",
-       curve_curator=True,
-       cores=4,
-   )
+   mudataset = load_mudataset("/path/to/MyStudy.h5mu")
 
 .. _flexible-inputs:
 
@@ -155,16 +132,19 @@ featurizers or predictors, see :doc:`custom_models`.
 Splits
 ------
 
-:func:`~drevalpy.experiment.drug_response_experiment` splits the loaded
-``DrugResponseDataset`` for you (``test_mode`` of ``LPO``, ``LCO``, ``LTO``,
-or ``LDO``). You can also call ``split_dataset`` yourself before a custom
+:func:`~drevalpy.experiment.mu_experiment` splits the loaded
+``MuDataset`` for you (``test_mode`` of ``LPO``, ``LCO``, ``LTO``,
+or ``LDO``). You can also use ``MuDataSplitter`` yourself before a custom
 training loop:
 
 .. code-block:: python
 
-   response = load_dataset("TOYv1")
-   response.split_dataset(n_cv_splits=5, mode="LCO")
+   from drevalpy.datasets import load_mudataset, MuDataSplitter
 
-For external split scripts, pass ``custom_splitter`` to
-``drug_response_experiment`` — see :doc:`experiments`. Split semantics are
+   mudataset = load_mudataset("TOYv1")
+   splitter = MuDataSplitter()
+   folds = splitter.split(mudataset, mode="LCO", n_splits=5)
+
+For external split scripts, pass ``external_splitter`` to
+``MuDataSplitter.split()`` — see :doc:`experiments`. Split semantics are
 documented in :doc:`/concepts/evaluation`.

@@ -2,18 +2,10 @@
 
 import json
 from importlib import resources
-from unittest.mock import patch
 
-import pandas as pd
-import pytest
-
-import drevalpy.datasets.loader as loader_module
 from drevalpy.datasets.loader import (
-    BuiltinDatasetEntry,
-    _load_builtin,
     is_builtin_dataset,
     list_builtin_datasets,
-    load_response_dataset,
 )
 
 _REGISTRY_JSON = "available_datasets.json"
@@ -70,90 +62,3 @@ def test_is_builtin_dataset() -> None:
     assert is_builtin_dataset("TOYv1")
     assert is_builtin_dataset("GDSC1")
     assert not is_builtin_dataset("MyStudy")
-
-
-def test_load_builtin_applies_tissue_override(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    entry = BuiltinDatasetEntry(
-        name="BeatAML2",
-        source="zenodo",
-        response_file="BeatAML2/BeatAML2.csv",
-        tissue_override="Blood",
-    )
-    csv_path = tmp_path / "BeatAML2" / "BeatAML2.csv"
-    csv_path.parent.mkdir(parents=True)
-    pd.DataFrame(
-        {
-            "pubchem_id": ["1"],
-            "cell_line_name": ["A"],
-            "tissue": ["Other"],
-            "LN_IC50_curvecurator": [1.0],
-        }
-    ).to_csv(csv_path, index=False)
-
-    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
-    with patch("drevalpy.datasets.loader._ensure_builtin_artifacts"):
-        dataset = _load_builtin(entry, measure="LN_IC50_curvecurator")
-
-    tissue = dataset.tissue
-    assert tissue is not None
-    assert tissue[0] == "Blood"
-
-
-def test_load_builtin_rejects_unknown_measure(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    entry = BuiltinDatasetEntry(name="TOYv1", source="zenodo", response_file="TOYv1/TOYv1.csv")
-    csv_path = tmp_path / "TOYv1" / "TOYv1.csv"
-    csv_path.parent.mkdir(parents=True)
-    pd.DataFrame(
-        {
-            "pubchem_id": ["1"],
-            "cell_line_name": ["A"],
-            "tissue": ["Lung"],
-            "LN_IC50_curvecurator": [1.0],
-        }
-    ).to_csv(csv_path, index=False)
-
-    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
-    with (
-        patch("drevalpy.datasets.loader._ensure_builtin_artifacts"),
-        pytest.raises(ValueError, match="Measure 'missing_measure'"),
-    ):
-        _load_builtin(entry, measure="missing_measure")
-
-
-def test_load_dataset_alias_matches_load_response_dataset(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    dataset_name = "AliasStudy"
-    csv_path = tmp_path / dataset_name / f"{dataset_name}.csv"
-    csv_path.parent.mkdir(parents=True)
-    pd.DataFrame(
-        {
-            "cell_line_name": ["A"],
-            "pubchem_id": ["D"],
-            "response": [0.5],
-        }
-    ).to_csv(csv_path, index=False)
-
-    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
-    load_dataset_name = "load_dataset"
-    load_dataset_alias = getattr(loader_module, load_dataset_name)
-    via_alias = load_dataset_alias(dataset_name)
-    via_primary = load_response_dataset(dataset_name)
-    assert via_alias.response == via_primary.response
-    assert via_alias.cell_line_ids == via_primary.cell_line_ids
-    assert via_alias.drug_ids == via_primary.drug_ids
-
-
-def test_load_dataset_custom(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    dataset_name = "CustomStudy"
-    csv_path = tmp_path / dataset_name / f"{dataset_name}.csv"
-    csv_path.parent.mkdir(parents=True)
-    pd.DataFrame(
-        {
-            "cell_line_name": ["A"],
-            "pubchem_id": ["D"],
-            "response": [0.5],
-        }
-    ).to_csv(csv_path, index=False)
-
-    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
-    dataset = load_response_dataset(dataset_name)
-    assert len(dataset.response) == 1

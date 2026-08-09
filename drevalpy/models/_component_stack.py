@@ -16,7 +16,7 @@ from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.response_batch import ResponseBatch
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
 from drevalpy.models.config.resolved import ResolvedModelConfig
 
@@ -26,9 +26,9 @@ if TYPE_CHECKING:
 
 
 def _build_fit_context(
-    response: DrugResponseDataset,
+    response: ResponseBatch,
     *,
-    early_stopping: DrugResponseDataset | None,
+    early_stopping: ResponseBatch | None,
     side: Literal["cell_line", "drug"],
 ) -> FeaturizerFitContext:
     if side == "cell_line":
@@ -135,7 +135,7 @@ class _ComponentStack:
 
     def _build_batch(
         self,
-        response: DrugResponseDataset,
+        response: ResponseBatch,
         *,
         cell_line_input: FeatureSource,
         drug_input: FeatureSource | None,
@@ -143,7 +143,7 @@ class _ComponentStack:
         drug_entity_ids: np.ndarray | None,
         cell_line_matrix: np.ndarray,
         drug_matrix: np.ndarray | None,
-        output_earlystopping: DrugResponseDataset | None = None,
+        output_earlystopping: ResponseBatch | None = None,
         training_context: TrainingContext | None = None,
     ) -> ModelInputBatch:
         cell_line_blocks: dict[str, FeatureBlock] = {}
@@ -198,10 +198,10 @@ class _ComponentStack:
 
     def _train_cell_line_side(
         self,
-        output: DrugResponseDataset,
+        output: ResponseBatch,
         cell_line_input: FeatureSource,
         *,
-        output_earlystopping: DrugResponseDataset | None = None,
+        output_earlystopping: ResponseBatch | None = None,
     ) -> None:
         if self._cell_line_featurizer is None:
             self._cell_line_entity_ids = np.array([], dtype=str)
@@ -225,10 +225,10 @@ class _ComponentStack:
 
     def _train_drug_side(
         self,
-        output: DrugResponseDataset,
+        output: ResponseBatch,
         drug_input: FeatureSource | None,
         *,
-        output_earlystopping: DrugResponseDataset | None = None,
+        output_earlystopping: ResponseBatch | None = None,
     ) -> None:
         if self._drug_featurizer is None:
             self._drug_entity_ids = np.array([], dtype=str)
@@ -253,11 +253,11 @@ class _ComponentStack:
 
     def _fit_featurizers_and_predictor(
         self,
-        output: DrugResponseDataset,
+        output: ResponseBatch,
         cell_line_input: FeatureSource,
         drug_input: FeatureSource | None = None,
         *,
-        output_earlystopping: DrugResponseDataset | None = None,
+        output_earlystopping: ResponseBatch | None = None,
         training_context: TrainingContext | None = None,
     ) -> _ComponentStack:
         """Fit featurizers on entity features and train the predictor on the batch.
@@ -357,7 +357,7 @@ class _ComponentStack:
         if len(cell_line_ids) == 0:
             return np.array([])
 
-        response = DrugResponseDataset(
+        response = ResponseBatch(
             response=np.zeros(len(cell_line_ids)),
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -402,7 +402,7 @@ class _ComponentStack:
         drug_ids: np.ndarray,
         cl_idx: np.ndarray,
         dr_idx: np.ndarray,
-    ) -> DrugResponseDataset:
+    ) -> ResponseBatch:
         """Extract response pairs from a cell-line x drug grid (LCO/LTO/LDO group mode).
 
         :param response_matrix: Full response matrix (n_cell_lines x n_drugs).
@@ -410,11 +410,11 @@ class _ComponentStack:
         :param drug_ids: All drug IDs.
         :param cl_idx: Cell-line row indices to include.
         :param dr_idx: Drug column indices to include.
-        :returns: Flat DrugResponseDataset with non-NaN entries from the grid.
+        :returns: Flat ResponseBatch with non-NaN entries from the grid.
         """
         sub_matrix = response_matrix[np.ix_(cl_idx, dr_idx)]
         row_pos, col_pos = np.where(~np.isnan(sub_matrix))
-        return DrugResponseDataset(
+        return ResponseBatch(
             response=sub_matrix[row_pos, col_pos].astype(np.float64),
             cell_line_ids=cl_ids[cl_idx[row_pos]],
             drug_ids=drug_ids[dr_idx[col_pos]],
@@ -427,7 +427,7 @@ class _ComponentStack:
         drug_ids: np.ndarray,
         cl_idx: np.ndarray,
         dr_idx: np.ndarray,
-    ) -> DrugResponseDataset:
+    ) -> ResponseBatch:
         """Extract response pairs from matched positional indices (LPO mode).
 
         :param response_matrix: Full response matrix (n_cell_lines x n_drugs).
@@ -435,11 +435,11 @@ class _ComponentStack:
         :param drug_ids: All drug IDs.
         :param cl_idx: Cell-line indices (paired with dr_idx).
         :param dr_idx: Drug indices (paired with cl_idx).
-        :returns: Flat DrugResponseDataset with non-NaN entries from the pairs.
+        :returns: Flat ResponseBatch with non-NaN entries from the pairs.
         """
         responses = response_matrix[cl_idx, dr_idx]
         valid = ~np.isnan(responses)
-        return DrugResponseDataset(
+        return ResponseBatch(
             response=responses[valid].astype(np.float64),
             cell_line_ids=cl_ids[cl_idx[valid]],
             drug_ids=drug_ids[dr_idx[valid]],
@@ -455,13 +455,13 @@ class _ComponentStack:
         mudataset: MuDataset,
         cl_idx: np.ndarray,
         dr_idx: np.ndarray | None,
-    ) -> DrugResponseDataset:
-        """Build a DrugResponseDataset from the MuDataset for given entity indices.
+    ) -> ResponseBatch:
+        """Build a ResponseBatch from the MuDataset for given entity indices.
 
         :param mudataset: Source of response values.
         :param cl_idx: Cell-line indices to include.
         :param dr_idx: Drug indices to include, or ``None`` for all drugs (LCO/LTO).
-        :returns: Flat DrugResponseDataset of (cell_line, drug, response) triples.
+        :returns: Flat ResponseBatch of (cell_line, drug, response) triples.
         """
         cl_ids = mudataset.cell_line_ids
         drug_ids = mudataset.drug_ids
@@ -516,7 +516,7 @@ class _ComponentStack:
         if len(output) == 0:
             return self
 
-        output_earlystopping: DrugResponseDataset | None = None
+        output_earlystopping: ResponseBatch | None = None
 
         all_cl_ids = unique_entity_ids(
             np.concatenate(

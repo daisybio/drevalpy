@@ -19,7 +19,7 @@ from drevalpy.datasets.mudataset import MuDataset
 class FeatureSource(Protocol):
     """Minimal feature-access interface consumed by featurizers.
 
-    Replaces FeatureDataset as the type accepted by Featurizer.fit/transform.
+    Provides the typed interface accepted by Featurizer.fit/transform.
     Both MuDataset (via a thin wrapper) and test mocks can satisfy this.
     """
 
@@ -72,7 +72,13 @@ class CellLineFeatureSource:
         return self._mu.get_cell_line_feature_names(view)
 
     def get_entity_view(self, entity_id: str, view: str) -> Any:
-        """Return the raw feature vector for a single cell line."""
+        """Return a per-entity value for a single cell line.
+
+        For metadata keys like "tissue", delegates to MuDataset.get_tissue().
+        For omics modalities, returns the feature vector from that modality.
+        """
+        if view == "tissue":
+            return self._mu.get_tissue(np.array([entity_id]))[0]
         return self._mu.get_cell_line_features(view, np.array([entity_id]))[0]
 
     def get_metadata(self, key: str) -> Any:
@@ -107,9 +113,15 @@ class DrugFeatureSource:
         return self._mu.get_drug_feature_names(view)
 
     def get_entity_view(self, entity_id: str, view: str) -> Any:
-        """Return raw per-entity object (e.g. graph) for a single drug."""
-        graphs = self._mu.get_drug_graphs(np.array([entity_id]))
-        return graphs[0] if graphs else None
+        """Return a per-entity value for a single drug.
+
+        For graph views (stored in mdata.uns["drug_graphs"]), returns the graph
+        dict. For other views (varm-backed embeddings), returns the feature vector.
+        """
+        if view == "drug_graph":
+            graphs = self._mu.get_drug_graphs(np.array([entity_id]))
+            return graphs[0] if graphs else None
+        return self._mu.get_drug_features(view, np.array([entity_id]))[0]
 
     def get_metadata(self, key: str) -> Any:
         """Return arbitrary metadata from the underlying MuDataset."""

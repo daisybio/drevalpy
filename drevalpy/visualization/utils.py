@@ -1,5 +1,6 @@
 """Utility functions for the visualization part of the package."""
 
+import json
 import pathlib
 import shutil
 from typing import TextIO
@@ -8,7 +9,6 @@ import importlib_resources
 import pandas as pd
 
 from ..datasets._paths import get_default_data_dir
-from ..datasets.splits import MANIFEST_FILENAME, read_split_manifest
 from ..datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from ..evaluation import AVAILABLE_METRICS, evaluate
 from ..utils._pipeline_function import pipeline_function
@@ -92,12 +92,13 @@ def _resolve_result_test_mode(result_dir: pathlib.Path, dataset: str, split_labe
 
     :returns: Semantic test mode used for evaluation and plotting.
     """
-    manifest_path = result_dir / dataset / split_label / "splits" / MANIFEST_FILENAME
-    manifest = read_split_manifest(manifest_path)
-    if manifest is not None:
-        test_mode = manifest.get("test_mode")
-        if isinstance(test_mode, str) and test_mode.strip():
-            return test_mode.strip()
+    manifest_path = result_dir / dataset / split_label / "splits" / "split_manifest.json"
+    if manifest_path.is_file():
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if isinstance(payload, dict):
+            test_mode = payload.get("test_mode")
+            if isinstance(test_mode, str) and test_mode.strip():
+                return test_mode.strip()
     return split_label
 
 

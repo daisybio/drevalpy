@@ -7,7 +7,7 @@ from typing import Any
 
 from sklearn.base import TransformerMixin
 
-from ..components.tuning.hpo import hpam_tune  # noqa: F401
+from ..components.tuning.hpo import mu_hpam_tune  # noqa: F401
 from ..datasets.mudataset import MuDataset
 from ..datasets.splitting import EntityScope, MuDataSplitter, SplitMasks
 from ..models.drp_model import DRPModel
@@ -47,128 +47,9 @@ __all__ = [
 ]
 
 
-def _cross_study_prediction_legacy(
-    dataset,
-    model: DRPModel,
-    test_mode: str,
-    train_dataset,
-    early_stopping_dataset,
-    response_transformation,
-    path_out: str | Path,
-    split_index: int,
-    single_drug_id: str | None,
-) -> None:
-    """Legacy cross-study prediction using DrugResponseDataset objects."""
-    import warnings
-
-    import numpy as np
-
-    dataset = dataset.copy()
-    out_dir = Path(path_out) / "cross_study"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    if response_transformation:
-        dataset.transform(response_transformation)
-
-    try:
-        from drevalpy.components.feature_source import CellLineFeatureSource, DrugFeatureSource
-        from drevalpy.datasets import load_mudataset
-
-        mudataset = load_mudataset(dataset.dataset_name)
-        all_cl_ids = np.array(mudataset.cell_line_ids)
-        all_drug_ids = np.array(mudataset.drug_ids)
-        cl_features = CellLineFeatureSource(mudataset, all_cl_ids)
-        drug_features = DrugFeatureSource(mudataset, all_drug_ids)
-    except (ValueError, FileNotFoundError) as e:
-        warnings.warn(str(e), stacklevel=2)
-        return
-
-    cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
-    drugs_to_keep = drug_features.identifiers if drug_features is not None else None
-    if single_drug_id is not None:
-        drugs_to_keep = np.array([single_drug_id])
-
-    dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-
-    if early_stopping_dataset is not None:
-        train_dataset = train_dataset.with_rows_added(early_stopping_dataset)
-
-    _remove_train_overlap(test_mode, train_dataset, dataset)
-
-    if len(dataset) == 0:
-        warnings.warn("No samples remaining after overlap removal for cross-study dataset.", stacklevel=2)
-        return
-
-    if not model._stack.is_fitted():
-        warnings.warn("Model was not trained (empty training set); skipping cross-study prediction.", stacklevel=2)
-        return
-
-    dataset.shuffle(random_state=42)
-    drug_input = drug_features.copy() if drug_features is not None else None
-    dataset._predictions = model.predict(
-        cell_line_ids=dataset.cell_line_ids,
-        drug_ids=dataset.drug_ids,
-        cell_line_input=cl_features.copy(),
-        drug_input=drug_input,
-    )
-    if response_transformation:
-        dataset.inverse_transform(response_transformation)
-
-    dataset.to_csv(out_dir / f"cross_study_{dataset.dataset_name}_split_{split_index}.csv")
-
-
-def _remove_train_overlap(
-    test_mode: str,
-    train_dataset,
-    dataset,
-) -> None:
-    """Remove overlap between train and cross-study dataset in place."""
-    import numpy as np
-
-    handlers = {
-        "LPO": _remove_overlap_lpo,
-        "LCO": _remove_overlap_lco,
-        "LDO": _remove_overlap_ldo,
-        "LTO": _remove_overlap_lto,
-    }
-    handler = handlers.get(test_mode)
-    if handler is None:
-        raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO, LTO")
-    handler(train_dataset, dataset, np)
-
-
-def _remove_overlap_lpo(train_dataset, dataset, np) -> None:
-    train_pairs = {f"{cl}_{drug}" for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids, strict=True)}
-    dataset_pairs = [f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids, strict=True)]
-    dataset.remove_rows(np.array([i for i, pair in enumerate(dataset_pairs) if pair in train_pairs]))
-
-
-def _remove_overlap_lco(train_dataset, dataset, np) -> None:
-    dataset.reduce_to(
-        cell_line_ids=np.setdiff1d(dataset.cell_line_ids, train_dataset.cell_line_ids),
-        drug_ids=None,
-    )
-
-
-def _remove_overlap_ldo(train_dataset, dataset, np) -> None:
-    dataset.reduce_to(
-        cell_line_ids=None,
-        drug_ids=np.setdiff1d(dataset.drug_ids, train_dataset.drug_ids),
-    )
-
-
-def _remove_overlap_lto(train_dataset, dataset, np) -> None:
-    if train_dataset.tissue is None or dataset.tissue is None:
-        raise ValueError("Tissue information not available.")
-    train_tissues = set(train_dataset.tissue)
-    indices = np.array([i for i, t in enumerate(dataset.tissue) if t not in train_tissues])
-    cell_lines_to_keep = np.unique(dataset.cell_line_ids[indices]) if len(indices) > 0 else np.array([])
-    dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
-
-
 @pipeline_function
 def cross_study_prediction(
-    target=None,
+    target: MuDataset | None = None,
     model: DRPModel | None = None,
     test_mode: str = "LPO",
     train_masks: SplitMasks | None = None,
@@ -176,34 +57,18 @@ def cross_study_prediction(
     path_out: str | Path = ".",
     split_index: int = 0,
     dataset_name: str = "cross_study",
-    *,
-    dataset=None,
-    train_dataset=None,
-    early_stopping_dataset=None,
-    response_transformation=None,
-    single_drug_id: str | None = None,
 ) -> None:
     """Run cross-study prediction to assess model generalizability.
 
-    Supports both the new MuDataset signature and the legacy DrugResponseDataset
-    signature for backward compatibility.
+    :param target: Target MuDataset to predict on.
+    :param model: Trained model.
+    :param test_mode: Test mode (LPO, LCO, LDO, LTO).
+    :param train_masks: Training split masks for overlap removal.
+    :param source: Source MuDataset the model was trained on.
+    :param path_out: Output directory for prediction files.
+    :param split_index: CV fold index.
+    :param dataset_name: Name to assign to the cross-study dataset.
     """
-    # Legacy DrugResponseDataset path
-    if dataset is not None or (target is not None and not isinstance(target, MuDataset)):
-        _cross_study_prediction_legacy(
-            dataset=dataset if dataset is not None else target,
-            model=model,
-            test_mode=test_mode,
-            train_dataset=train_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            response_transformation=response_transformation,
-            path_out=path_out,
-            split_index=split_index,
-            single_drug_id=single_drug_id,
-        )
-        return
-
-    # New MuDataset path
     cross_study_prediction_impl(
         target=target,
         model=model,
@@ -399,126 +264,3 @@ def get_randomization_test_views(
     from .randomization import build_randomization_test_views
 
     return build_randomization_test_views(model_class, randomization_mode, hyperparameters)
-
-
-def _train_and_predict_on_features(
-    model: DRPModel,
-    train_dataset,
-    validation_dataset,
-    early_stopping_dataset,
-    cl_features,
-    drug_features,
-    model_checkpoint_dir: str | Path | None,
-) -> None:
-    """Train model and populate validation_dataset._predictions in place."""
-    import numpy as np
-
-    from drevalpy.utils.checkpoints import checkpoint_dir_or_temporary
-
-    drug_input = drug_features.copy() if drug_features is not None else None
-    with checkpoint_dir_or_temporary(model_checkpoint_dir) as checkpoint_dir:
-        model.train(
-            output=train_dataset,
-            cell_line_input=cl_features.copy(),
-            drug_input=drug_input,
-            output_earlystopping=early_stopping_dataset,
-            model_checkpoint_dir=checkpoint_dir,
-        )
-
-    if len(validation_dataset) == 0:
-        validation_dataset._predictions = np.array([])
-    elif not model._stack.is_fitted():
-        validation_dataset._predictions = np.full(len(validation_dataset), np.nan)
-    else:
-        drug_input = drug_features.copy() if drug_features is not None else None
-        validation_dataset._predictions = model.predict(
-            cell_line_ids=validation_dataset.cell_line_ids,
-            drug_ids=validation_dataset.drug_ids,
-            cell_line_input=cl_features.copy(),
-            drug_input=drug_input,
-        )
-
-
-def train_and_evaluate(
-    model: DRPModel,
-    train_dataset: Any,
-    validation_dataset: Any,
-    early_stopping_dataset: Any | None = None,
-    response_transformation: TransformerMixin | None = None,
-    metric: str = "RMSE",
-    model_checkpoint_dir: str | Path | None = None,
-) -> dict[str, float]:
-    """Train a model and compute validation metrics (legacy compat for HPO runtime).
-
-    :param model: Model instance to train.
-    :param train_dataset: Training split (DrugResponseDataset).
-    :param validation_dataset: Validation split to score.
-    :param early_stopping_dataset: Optional early-stopping data.
-    :param response_transformation: Optional response transformer.
-    :param metric: Primary metric to optimize and return.
-    :param model_checkpoint_dir: Directory for model checkpoints.
-    :returns: Validation metrics keyed by metric name.
-    """
-    from sklearn.base import clone
-
-    trial_transform = None if response_transformation is None else clone(response_transformation)
-
-    train_dataset = train_dataset.copy()
-    validation_dataset = validation_dataset.copy()
-    early_stopping_dataset = early_stopping_dataset.copy() if early_stopping_dataset is not None else None
-
-    if train_dataset.dataset_name is None:
-        raise ValueError("train_dataset must have a dataset_name")
-
-    import numpy as np
-
-    from drevalpy.components.feature_source import CellLineFeatureSource, DrugFeatureSource
-    from drevalpy.datasets import load_mudataset
-
-    mudataset = load_mudataset(train_dataset.dataset_name)
-    all_cl_ids = np.array(mudataset.cell_line_ids)
-    all_drug_ids = np.array(mudataset.drug_ids)
-    cl_features = CellLineFeatureSource(mudataset, all_cl_ids)
-    drug_features = DrugFeatureSource(mudataset, all_drug_ids)
-
-    cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
-    drugs_to_keep = drug_features.identifiers if drug_features is not None else None
-
-    train_dataset = train_dataset.reduced_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    validation_dataset = validation_dataset.reduced_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    if early_stopping_dataset is not None:
-        early_stopping_dataset = early_stopping_dataset.reduced_to(
-            cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep
-        )
-
-    if trial_transform is not None:
-        train_dataset = train_dataset.fit_transformed(trial_transform)
-        validation_dataset = validation_dataset.transformed(trial_transform)
-        if early_stopping_dataset is not None:
-            early_stopping_dataset = early_stopping_dataset.transformed(trial_transform)
-
-    _train_and_predict_on_features(
-        model,
-        train_dataset,
-        validation_dataset,
-        early_stopping_dataset,
-        cl_features,
-        drug_features,
-        model_checkpoint_dir,
-    )
-
-    if trial_transform is not None:
-        train_dataset.inverse_transform(trial_transform)
-        validation_dataset.inverse_transform(trial_transform)
-        if early_stopping_dataset is not None:
-            early_stopping_dataset.inverse_transform(trial_transform)
-
-    additional_metrics = None
-    if metric not in ["R^2", "Pearson"]:
-        additional_metrics = [metric]
-    return model.compute_and_log_final_metrics(
-        predictions=validation_dataset.predictions,
-        response=validation_dataset.response,
-        additional_metrics=additional_metrics,
-        prefix="val_",
-    )

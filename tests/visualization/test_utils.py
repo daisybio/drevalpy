@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from drevalpy.datasets.splits import SplitParams, write_split_manifest
 from drevalpy.visualization.utils import _discover_result_csv_files, _resolve_result_test_mode
 
 
@@ -61,14 +61,19 @@ def test_resolve_result_test_mode_uses_manifest(tmp_path: Path) -> None:
     :param tmp_path: Temporary path provided by pytest.
     """
     split_dir = tmp_path / "GDSC1" / "scaling-lco" / "splits"
-    params = SplitParams(
-        test_mode="LCO",
-        n_cv_splits=1,
-        validation_ratio=0.1,
-        random_state=42,
-        split_early_stopping=True,
-    )
-    write_split_manifest(split_dir, params=params, split_label="scaling-lco", splits=[{"split_index": 0}])
+    split_dir.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "split_label": "scaling-lco",
+        "test_mode": "LCO",
+        "params": {
+            "test_mode": "LCO",
+            "n_cv_splits": 1,
+            "validation_ratio": 0.1,
+            "random_state": 42,
+        },
+        "splits": [{"split_index": 0}],
+    }
+    (split_dir / "split_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     assert _resolve_result_test_mode(tmp_path, "GDSC1", "scaling-lco") == "LCO"
 
 

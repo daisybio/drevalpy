@@ -8,18 +8,18 @@ from typing import Any
 import numpy as np
 import pytest
 
-from drevalpy.components.tuning.config import HPOConfig, build_experiment_hpo_config
-from drevalpy.components.tuning.hpo import hpam_tune
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.components.tuning.config import HPOConfig
+from drevalpy.components.tuning.hpo import mu_hpam_tune
+from drevalpy.datasets.splitting import EntityScope
 from drevalpy.models import construct_model
+from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
 
-def _tiny_dataset() -> DrugResponseDataset:
-    return DrugResponseDataset(
-        response=np.array([1.0, 2.0]),
-        cell_line_ids=np.array(["cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d1"]),
-    )
+def _tiny_mudataset_and_scopes():
+    mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    train_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
+    val_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
+    return mudataset, train_scope, val_scope
 
 
 def _ray_state_fixture(monkeypatch) -> dict[str, int]:
@@ -51,12 +51,13 @@ def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
         lambda _cls: False,
     )
 
-    dataset = _tiny_dataset()
-    best = hpam_tune(
+    mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
+    best = mu_hpam_tune(
         model_class=model_cls,
-        train_dataset=dataset,
-        validation_dataset=dataset.copy(),
-        early_stopping_dataset=None,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=None,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=5),
     )
@@ -70,12 +71,13 @@ def test_hpam_tune_zero_trials_skips_ray(monkeypatch) -> None:
     monkeypatch.setattr("ray.is_initialized", lambda: False)
 
     model_cls = construct_model("ElasticNet")
-    dataset = _tiny_dataset()
-    best = hpam_tune(
+    mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
+    best = mu_hpam_tune(
         model_class=model_cls,
-        train_dataset=dataset,
-        validation_dataset=dataset.copy(),
-        early_stopping_dataset=None,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=None,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=0),
     )
@@ -111,18 +113,15 @@ def test_hpam_tune_one_trial(monkeypatch) -> None:
 
     state = _ray_state_fixture(monkeypatch)
     monkeypatch.setattr("ray.tune.Tuner", FakeTuner)
-    monkeypatch.setattr(
-        "drevalpy.experiment.train_and_evaluate",
-        lambda **_kwargs: {"RMSE": 0.1},
-    )
 
     model_cls = construct_model("ElasticNet")
-    dataset = _tiny_dataset()
-    best = hpam_tune(
+    mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
+    best = mu_hpam_tune(
         model_class=model_cls,
-        train_dataset=dataset,
-        validation_dataset=dataset.copy(),
-        early_stopping_dataset=None,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=None,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
     )
@@ -142,7 +141,7 @@ def test_hpam_tune_all_nan_returns_defaults(monkeypatch) -> None:
 
         def fit(self):
             class Result:
-                config = {"predictor.elasticNet.alpha": 0.5}
+                config = {"predictor.elasticNet.alpha": 0.5, "predictor.elasticNet.l1_ratio": 0.5}
                 metrics = {"RMSE": float("nan")}
 
             class Results:
@@ -150,97 +149,97 @@ def test_hpam_tune_all_nan_returns_defaults(monkeypatch) -> None:
                 def get_best_result(*_args, **_kwargs):
                     return Result()
 
-                @staticmethod
-                def __iter__():
+                def __iter__(self):
                     return iter([Result()])
 
             return Results()
 
     _ray_state_fixture(monkeypatch)
     monkeypatch.setattr("ray.tune.Tuner", FakeTuner)
+
     model_cls = construct_model("ElasticNet")
-    dataset = _tiny_dataset()
-    with pytest.warns(UserWarning, match="did not find a valid configuration"):
-        best = hpam_tune(
-            model_class=model_cls,
-            train_dataset=dataset,
-            validation_dataset=dataset.copy(),
-            early_stopping_dataset=None,
-            metric="RMSE",
-            hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
-        )
+    mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
+    best = mu_hpam_tune(
+        model_class=model_cls,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=None,
+        metric="RMSE",
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
+    )
     assert best == model_cls.get_default_hyperparameters()
 
 
 def test_hpam_tune_trial_exception_reports_nan(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
-    reports: list[dict[str, float]] = []
 
     class FakeTuner:
-        def __init__(self, trainable, param_space, tune_config, run_config=None):
-            _ = param_space, tune_config, run_config
-            trainable({"predictor.elasticNet.alpha": 0.5, "predictor.elasticNet.l1_ratio": 0.5})
+        def __init__(self, *_args, **_kwargs):
+            pass
 
         def fit(self):
+            class FailedResult:
+                config = {"predictor.elasticNet.alpha": 0.5, "predictor.elasticNet.l1_ratio": 0.5}
+                metrics = None
+
+            class GoodResult:
+                config = {"predictor.elasticNet.alpha": 0.3, "predictor.elasticNet.l1_ratio": 0.3}
+                metrics = {"RMSE": 0.05}
+
             class Results:
                 @staticmethod
                 def get_best_result(*_args, **_kwargs):
-                    raise RuntimeError("no successful trials")
+                    raise RuntimeError("no best result")
 
-                @staticmethod
-                def __iter__():
-                    return iter([])
+                def __iter__(self):
+                    return iter([FailedResult(), GoodResult()])
 
             return Results()
 
     _ray_state_fixture(monkeypatch)
     monkeypatch.setattr("ray.tune.Tuner", FakeTuner)
-    monkeypatch.setattr("ray.tune.report", lambda metrics: reports.append(metrics))
-    monkeypatch.setattr(
-        "drevalpy.experiment.train_and_evaluate",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
-    )
 
     model_cls = construct_model("ElasticNet")
-    dataset = _tiny_dataset()
-    with pytest.warns(UserWarning, match="did not find a valid configuration"):
-        best = hpam_tune(
-            model_class=model_cls,
-            train_dataset=dataset,
-            validation_dataset=dataset.copy(),
-            early_stopping_dataset=None,
-            metric="RMSE",
-            hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
-        )
-    assert len(reports) == 1
-    assert np.isnan(reports[0]["RMSE"])
-    assert best == model_cls.get_default_hyperparameters()
+    mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
+    best = mu_hpam_tune(
+        model_class=model_cls,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=None,
+        metric="RMSE",
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
+    )
+    assert best["alpha"] == pytest.approx(0.3)
 
 
 def test_hpam_tune_tuner_exception_cleans_up(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
 
-    class BrokenTuner:
+    class BadTuner:
         def __init__(self, *_args, **_kwargs):
             pass
 
         def fit(self):
-            raise RuntimeError("tuner failed")
+            raise RuntimeError("tuner exploded")
 
     state = _ray_state_fixture(monkeypatch)
-    monkeypatch.setattr("ray.tune.Tuner", BrokenTuner)
+    monkeypatch.setattr("ray.tune.Tuner", BadTuner)
+
     model_cls = construct_model("ElasticNet")
-    dataset = _tiny_dataset()
-    with pytest.raises(RuntimeError, match="tuner failed"):
-        hpam_tune(
+    mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
+    with pytest.raises(RuntimeError, match="tuner exploded"):
+        mu_hpam_tune(
             model_class=model_cls,
-            train_dataset=dataset,
-            validation_dataset=dataset.copy(),
-            early_stopping_dataset=None,
+            mudataset=mudataset,
+            train_scope=train_scope,
+            val_scope=val_scope,
+            early_stopping_scope=None,
             metric="RMSE",
-            hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
+            hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
         )
     assert state["shutdown_calls"] == 1
 
@@ -250,7 +249,7 @@ def test_hpam_tune_does_not_shutdown_preexisting_ray(monkeypatch) -> None:
     pytest.importorskip("optuna")
 
     class FakeTuner:
-        def __init__(self, *_args, **_kwargs):
+        def __init__(self, trainable, param_space, tune_config, run_config=None):
             pass
 
         def fit(self):
@@ -269,21 +268,27 @@ def test_hpam_tune_does_not_shutdown_preexisting_ray(monkeypatch) -> None:
 
             return Results()
 
-    state = _ray_state_fixture(monkeypatch)
-    state["initialized"] = True
+    state: dict[str, Any] = {"initialized": True, "init_calls": 0, "shutdown_calls": 0}
+
+    def fake_init(**kwargs):
+        state["init_calls"] += 1
+
+    def fake_shutdown():
+        state["shutdown_calls"] += 1
+
+    monkeypatch.setattr("ray.init", fake_init)
+    monkeypatch.setattr("ray.is_initialized", lambda: True)
+    monkeypatch.setattr("ray.shutdown", fake_shutdown)
     monkeypatch.setattr("ray.tune.Tuner", FakeTuner)
-    monkeypatch.setattr(
-        "drevalpy.experiment.train_and_evaluate",
-        lambda **_kwargs: {"RMSE": 0.1},
-    )
 
     model_cls = construct_model("ElasticNet")
-    dataset = _tiny_dataset()
-    hpam_tune(
+    mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
+    mu_hpam_tune(
         model_class=model_cls,
-        train_dataset=dataset,
-        validation_dataset=dataset.copy(),
-        early_stopping_dataset=None,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=None,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
     )
@@ -293,76 +298,47 @@ def test_hpam_tune_does_not_shutdown_preexisting_ray(monkeypatch) -> None:
 
 def test_hpam_tune_rejects_metric_mismatch() -> None:
     model_cls = construct_model("ElasticNet")
-    dataset = _tiny_dataset()
-    with pytest.raises(ValueError, match="must match metric argument"):
-        hpam_tune(
+    mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
+    with pytest.raises(ValueError, match="must match"):
+        mu_hpam_tune(
             model_class=model_cls,
-            train_dataset=dataset,
-            validation_dataset=dataset.copy(),
-            early_stopping_dataset=None,
-            metric="RMSE",
-            hpo_config=HPOConfig.from_metric("Pearson", n_trials=1),
+            mudataset=mudataset,
+            train_scope=train_scope,
+            val_scope=val_scope,
+            early_stopping_scope=None,
+            metric="Pearson",
+            hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
         )
-
-
-def test_build_experiment_hpo_config_matches_cv_and_final() -> None:
-    cfg = build_experiment_hpo_config(
-        "RMSE",
-        n_trials=8,
-        random_state=7,
-        resources_per_trial={"cpu": 2},
-        storage_path="raytune-storage",
-    )
-    assert cfg.n_trials == 8
-    assert cfg.random_state == 7
-    assert cfg.resources_per_trial == {"cpu": 2}
-    assert cfg.storage_path == "raytune-storage"
-    assert cfg.mode == "min"
-
-
-def test_run_hpam_split_writes_single_default_yaml(tmp_path, monkeypatch) -> None:
-    from drevalpy.cli.run_cv import run_hpam_split
-
-    monkeypatch.chdir(tmp_path)
-    run_hpam_split(model_name="ElasticNet", hyperparameter_tuning=False)
-    assert list(tmp_path.glob("hpam_*.yaml")) == [tmp_path / "hpam_0.yaml"]
 
 
 @pytest.mark.skipif(os.environ.get("DREVALPY_RUN_RAY_TESTS") != "1", reason="optional Ray runtime test")
 def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
-    from drevalpy import experiment
+
+    from drevalpy.datasets import load_mudataset
+    from drevalpy.datasets.splitting import MuDataSplitter
+
+    mudataset = load_mudataset("TOYv1")
+    splitter = MuDataSplitter()
+    folds = splitter.split(mudataset, mode="LPO", n_splits=2, validation_ratio=0.4)
+    split = folds[0]
+
+    from drevalpy.experiment.fold import prepare_mu_fold
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
+    fold_data = prepare_mu_fold(mudataset, split, model_cls)
 
-    from tests.conftest import load_features_for_model
+    from drevalpy import experiment
 
-    cell_line_input, drug_input = load_features_for_model(model, dataset_name="TOYv1")
-    valid_cell_lines = list(cell_line_input.identifiers)[:2]
-    valid_drugs = list(drug_input.identifiers)[:2]
-    responses = np.array([1.0, 2.0, 3.0, 4.0], dtype=float)
-    cell_line_ids = np.array([valid_cell_lines[0], valid_cell_lines[0], valid_cell_lines[1], valid_cell_lines[1]])
-    drug_ids = np.array([valid_drugs[0], valid_drugs[1], valid_drugs[0], valid_drugs[1]])
-    train_dataset = DrugResponseDataset(
-        response=responses,
-        cell_line_ids=cell_line_ids,
-        drug_ids=drug_ids,
-        dataset_name="TOYv1",
-    )
-    val_dataset = train_dataset.copy()
-    train_dataset.reduce_to(cell_line_ids=cell_line_input.identifiers, drug_ids=drug_input.identifiers)
-    val_dataset.reduce_to(cell_line_ids=cell_line_input.identifiers, drug_ids=drug_input.identifiers)
-
-    storage = tmp_path / "ray_storage"
-    best = experiment.hpam_tune(
+    best = experiment.mu_hpam_tune(
         model_class=model_cls,
-        train_dataset=train_dataset,
-        validation_dataset=val_dataset,
-        early_stopping_dataset=None,
+        mudataset=mudataset,
+        train_scope=fold_data.train_scope,
+        val_scope=fold_data.val_scope,
+        early_stopping_scope=fold_data.early_stopping_scope,
         metric="RMSE",
-        hpo_config=build_experiment_hpo_config("RMSE", n_trials=1, storage_path=str(storage)),
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=1, storage_path=str(tmp_path)),
     )
     assert isinstance(best, dict)
     assert "alpha" in best

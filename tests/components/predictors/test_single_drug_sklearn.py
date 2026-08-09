@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.response_batch import ResponseBatch
 from drevalpy.models._component_stack import build_component_stack
 from drevalpy.models.config import from_spec
 from tests.conftest import MockFeatureSource
@@ -17,7 +17,7 @@ def test_identity_routes_estimators_without_entering_design_matrix() -> None:
         hyperparameters={"alpha": 0.1, "l1_ratio": 0.5},
     )
     stack = build_component_stack(config)
-    response = DrugResponseDataset(
+    response = ResponseBatch(
         response=np.array([1.0, 1.0, 10.0, 10.0]),
         cell_line_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
         drug_ids=np.array(["d1", "d1", "d2", "d2"]),

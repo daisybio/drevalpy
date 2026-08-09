@@ -5,19 +5,16 @@ from __future__ import annotations
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.components.tuning.hpo import _select_best_result
 from drevalpy.components.tuning.hpo_runtime import (
     _construct_trial_model,
-    _evaluate_trial_model,
     _init_trial_wandb,
     _report_trial_failure,
     _report_trial_score,
     _wandb_trial_run_config,
     _wandb_trial_run_name,
-    build_ray_trainable,
+    mu_build_ray_trainable,
 )
 from drevalpy.models import construct_model
 
@@ -116,37 +113,6 @@ def test_construct_trial_model_with_tuned_config(mock_tuned_config, mock_constru
     assert trial_model is expected_model
 
 
-@patch("drevalpy.components.tuning.hpo_runtime.trial_checkpoint_dir", return_value="/trial")
-@patch("drevalpy.experiment.train_and_evaluate")
-def test_evaluate_trial_model_returns_metric(mock_train_eval, mock_trial_dir) -> None:
-    trial_model = MagicMock()
-    train_dataset = MagicMock()
-    validation_dataset = MagicMock()
-    mock_train_eval.return_value = {"RMSE": 0.42}
-
-    score = _evaluate_trial_model(
-        trial_model,
-        metric="RMSE",
-        train_dataset=train_dataset,
-        validation_dataset=validation_dataset,
-        early_stopping_dataset=None,
-        response_transformation=None,
-        model_checkpoint_dir="checkpoints",
-    )
-
-    assert score == pytest.approx(0.42)
-    mock_trial_dir.assert_called_once_with("checkpoints")
-    mock_train_eval.assert_called_once_with(
-        model=trial_model,
-        train_dataset=train_dataset,
-        validation_dataset=validation_dataset,
-        early_stopping_dataset=None,
-        metric="RMSE",
-        response_transformation=None,
-        model_checkpoint_dir="/trial",
-    )
-
-
 def test_report_trial_score_reports_metric() -> None:
     """Stub ray in sys.modules so the test works when Ray has no Windows/3.13 wheel."""
     fake_tune = MagicMock()
@@ -221,20 +187,21 @@ def test_init_trial_wandb_delegates_to_model(mock_run_config, mock_run_name, moc
 
 
 @patch("drevalpy.components.tuning.hpo_runtime._report_trial_score")
-@patch("drevalpy.components.tuning.hpo_runtime._evaluate_trial_model", return_value=0.33)
+@patch("drevalpy.components.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.33)
 @patch("drevalpy.components.tuning.hpo_runtime._construct_trial_model")
-def test_build_ray_trainable_success_reports_score(
+def test_mu_build_ray_trainable_success_reports_score(
     mock_construct,
     mock_evaluate,
     mock_report_score,
 ) -> None:
     trial_model = MagicMock()
     mock_construct.return_value = trial_model
-    trainable = build_ray_trainable(
+    trainable = mu_build_ray_trainable(
         model_class=construct_model("ElasticNet"),
-        train_dataset=MagicMock(),
-        validation_dataset=MagicMock(),
-        early_stopping_dataset=None,
+        mudataset=MagicMock(),
+        train_scope=MagicMock(),
+        val_scope=MagicMock(),
+        early_stopping_scope=None,
         response_transformation=None,
         metric="RMSE",
         model_checkpoint_dir="checkpoints",
@@ -248,28 +215,21 @@ def test_build_ray_trainable_success_reports_score(
     trainable({"alpha": 0.1})
 
     mock_construct.assert_called_once()
-    mock_evaluate.assert_called_once_with(
-        trial_model,
-        metric="RMSE",
-        train_dataset=mock_evaluate.call_args.kwargs["train_dataset"],
-        validation_dataset=mock_evaluate.call_args.kwargs["validation_dataset"],
-        early_stopping_dataset=None,
-        response_transformation=None,
-        model_checkpoint_dir="checkpoints",
-    )
+    mock_evaluate.assert_called_once()
     mock_report_score.assert_called_once_with("RMSE", 0.33)
 
 
 @patch("drevalpy.components.tuning.hpo_runtime._report_trial_failure")
-@patch("drevalpy.components.tuning.hpo_runtime._evaluate_trial_model", side_effect=RuntimeError("boom"))
+@patch("drevalpy.components.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
 @patch("drevalpy.components.tuning.hpo_runtime._construct_trial_model")
-def test_build_ray_trainable_failure_reports_nan(mock_construct, mock_evaluate, mock_report_failure) -> None:
+def test_mu_build_ray_trainable_failure_reports_nan(mock_construct, mock_evaluate, mock_report_failure) -> None:
     mock_construct.return_value = MagicMock()
-    trainable = build_ray_trainable(
+    trainable = mu_build_ray_trainable(
         model_class=construct_model("ElasticNet"),
-        train_dataset=MagicMock(),
-        validation_dataset=MagicMock(),
-        early_stopping_dataset=None,
+        mudataset=MagicMock(),
+        train_scope=MagicMock(),
+        val_scope=MagicMock(),
+        early_stopping_scope=None,
         response_transformation=None,
         metric="RMSE",
         model_checkpoint_dir="checkpoints",
@@ -286,10 +246,10 @@ def test_build_ray_trainable_failure_reports_nan(mock_construct, mock_evaluate, 
 
 
 @patch("drevalpy.components.tuning.hpo_runtime._report_trial_score")
-@patch("drevalpy.components.tuning.hpo_runtime._evaluate_trial_model", return_value=0.5)
+@patch("drevalpy.components.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.5)
 @patch("drevalpy.components.tuning.hpo_runtime._init_trial_wandb")
 @patch("drevalpy.components.tuning.hpo_runtime._construct_trial_model")
-def test_build_ray_trainable_wandb_finishes_in_finally(
+def test_mu_build_ray_trainable_wandb_finishes_in_finally(
     mock_construct,
     mock_init_wandb,
     mock_evaluate,
@@ -298,11 +258,12 @@ def test_build_ray_trainable_wandb_finishes_in_finally(
     trial_model = MagicMock()
     trial_model.is_wandb_enabled.return_value = True
     mock_construct.return_value = trial_model
-    trainable = build_ray_trainable(
+    trainable = mu_build_ray_trainable(
         model_class=construct_model("ElasticNet"),
-        train_dataset=MagicMock(),
-        validation_dataset=MagicMock(),
-        early_stopping_dataset=None,
+        mudataset=MagicMock(),
+        train_scope=MagicMock(),
+        val_scope=MagicMock(),
+        early_stopping_scope=None,
         response_transformation=None,
         metric="RMSE",
         model_checkpoint_dir="checkpoints",
@@ -321,10 +282,10 @@ def test_build_ray_trainable_wandb_finishes_in_finally(
 
 
 @patch("drevalpy.components.tuning.hpo_runtime._report_trial_failure")
-@patch("drevalpy.components.tuning.hpo_runtime._evaluate_trial_model", side_effect=RuntimeError("boom"))
+@patch("drevalpy.components.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
 @patch("drevalpy.components.tuning.hpo_runtime._init_trial_wandb")
 @patch("drevalpy.components.tuning.hpo_runtime._construct_trial_model")
-def test_build_ray_trainable_wandb_failure_still_finishes(
+def test_mu_build_ray_trainable_wandb_failure_still_finishes(
     mock_construct,
     mock_init_wandb,
     mock_evaluate,
@@ -333,11 +294,12 @@ def test_build_ray_trainable_wandb_failure_still_finishes(
     trial_model = MagicMock()
     trial_model.is_wandb_enabled.return_value = True
     mock_construct.return_value = trial_model
-    trainable = build_ray_trainable(
+    trainable = mu_build_ray_trainable(
         model_class=construct_model("ElasticNet"),
-        train_dataset=MagicMock(),
-        validation_dataset=MagicMock(),
-        early_stopping_dataset=None,
+        mudataset=MagicMock(),
+        train_scope=MagicMock(),
+        val_scope=MagicMock(),
+        early_stopping_scope=None,
         response_transformation=None,
         metric="RMSE",
         model_checkpoint_dir="checkpoints",

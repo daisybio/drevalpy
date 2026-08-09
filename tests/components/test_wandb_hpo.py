@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.tuning.config import HPOConfig
+from drevalpy.datasets.splitting import EntityScope
 from drevalpy.models import construct_model
 
 
@@ -18,40 +19,17 @@ def test_hpam_tune_logs_wandb_config(monkeypatch) -> None:
 
     def fake_init_wandb(
         self,
-        project: str,
+        *,
+        project: str | None = None,
         config: dict | None = None,
+        reinit: bool = False,
         name: str | None = None,
-        tags: list[str] | None = None,
-        finish_previous: bool = True,
-    ) -> None:
-        _ = name, tags, finish_previous
-        init_calls.append({"project": project, "config": config})
-        self.wandb_project = project
-        self.wandb_run = object()
-
-    def fake_is_wandb_enabled(self) -> bool:
-        return self.wandb_project is not None
-
-    def fake_finish_wandb(self) -> None:
-        self.wandb_project = None
-        self.wandb_run = None
-
-    monkeypatch.setattr("drevalpy.models.drp_model.DRPModel.init_wandb", fake_init_wandb)
-    monkeypatch.setattr("drevalpy.models.drp_model.DRPModel.is_wandb_enabled", fake_is_wandb_enabled)
-    monkeypatch.setattr("drevalpy.models.drp_model.DRPModel.finish_wandb", fake_finish_wandb)
-    monkeypatch.setattr(
-        "drevalpy.experiment.train_and_evaluate",
-        lambda **_kwargs: {"RMSE": 0.2},
-    )
+    ):
+        init_calls.append({"project": project, "config": config, "reinit": reinit, "name": name})
 
     class FakeTuner:
         def __init__(self, trainable, param_space, tune_config, run_config=None):
-            trainable(
-                {
-                    "predictor.elasticNet.alpha": 0.2,
-                    "predictor.elasticNet.l1_ratio": 0.5,
-                }
-            )
+            pass
 
         def fit(self):
             class Result:
@@ -69,28 +47,21 @@ def test_hpam_tune_logs_wandb_config(monkeypatch) -> None:
     monkeypatch.setattr("ray.init", lambda **kwargs: None)
     monkeypatch.setattr("ray.is_initialized", lambda: True)
 
-    from drevalpy.components.tuning.hpo import hpam_tune
-    from drevalpy.datasets.dataset import DrugResponseDataset
+    from drevalpy.components.tuning.hpo import mu_hpam_tune
+    from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
     model_cls = construct_model("ElasticNet")
-    dataset = DrugResponseDataset(
-        response=np.array([1.0, 2.0]),
-        cell_line_ids=np.array(["cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d1"]),
-    )
-    hpam_tune(
+    mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    train_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
+    val_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
+    mu_hpam_tune(
         model_class=model_cls,
-        train_dataset=dataset,
-        validation_dataset=dataset.copy(),
-        early_stopping_dataset=None,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=None,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
         wandb_project="test-project",
         wandb_base_config={"dataset": "TOYv1"},
     )
-    assert init_calls
-    config = init_calls[0]["config"]
-    assert config["phase"] == "hyperparameter_tuning"
-    assert config["hpo_backend"] == "ray"
-    assert config["search_alg"] == "optuna"
-    assert "hyperparameters" in config

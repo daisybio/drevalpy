@@ -47,7 +47,8 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
 def test_hpam_tune_uses_optuna(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
-    from drevalpy.components.tuning import hpam_tune
+    from drevalpy.components.tuning.hpo import mu_hpam_tune
+    from drevalpy.datasets.splitting import EntityScope
 
     captured: dict[str, object] = {}
 
@@ -72,20 +73,18 @@ def test_hpam_tune_uses_optuna(monkeypatch) -> None:
     monkeypatch.setattr("ray.tune.Tuner", FakeTuner)
     monkeypatch.setattr("ray.init", lambda **kwargs: None)
 
-    from drevalpy.datasets.dataset import DrugResponseDataset
+    from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
     model_cls = construct_model("ElasticNet")
-    train = DrugResponseDataset(
-        response=np.array([1.0, 2.0]),
-        cell_line_ids=np.array(["cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d1"]),
-    )
-    val = train.copy()
-    best = hpam_tune(
+    mudataset = synthetic_mudataset_gene_expression_fingerprints()
+    train_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
+    val_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
+    best = mu_hpam_tune(
         model_class=model_cls,
-        train_dataset=train,
-        validation_dataset=val,
-        early_stopping_dataset=None,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=None,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=3),
     )
@@ -98,37 +97,25 @@ def test_hpam_tune_uses_optuna(monkeypatch) -> None:
 def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
-    import numpy as np
 
     from drevalpy import experiment
-    from drevalpy.datasets.dataset import DrugResponseDataset
+    from drevalpy.datasets import load_mudataset
+    from drevalpy.datasets.splitting import MuDataSplitter
+    from drevalpy.experiment.fold import prepare_mu_fold
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
+    mudataset = load_mudataset("TOYv1")
+    splitter = MuDataSplitter()
+    folds = splitter.split(mudataset, mode="LPO", n_splits=2, validation_ratio=0.4)
+    split = folds[0]
+    fold_data = prepare_mu_fold(mudataset, split, model_cls)
 
-    from tests.conftest import load_features_for_model
-
-    cell_line_input, drug_input = load_features_for_model(model, dataset_name="TOYv1")
-    valid_cell_lines = list(cell_line_input.identifiers)[:2]
-    valid_drugs = list(drug_input.identifiers)[:2]
-    responses = np.array([1.0, 2.0, 3.0, 4.0], dtype=float)
-    cell_line_ids = np.array([valid_cell_lines[0], valid_cell_lines[0], valid_cell_lines[1], valid_cell_lines[1]])
-    drug_ids = np.array([valid_drugs[0], valid_drugs[1], valid_drugs[0], valid_drugs[1]])
-    train_dataset = DrugResponseDataset(
-        response=responses,
-        cell_line_ids=cell_line_ids,
-        drug_ids=drug_ids,
-        dataset_name="TOYv1",
-    )
-    val_dataset = train_dataset.copy()
-    train_dataset.reduce_to(cell_line_ids=cell_line_input.identifiers, drug_ids=drug_input.identifiers)
-    val_dataset.reduce_to(cell_line_ids=cell_line_input.identifiers, drug_ids=drug_input.identifiers)
-
-    best = experiment.hpam_tune(
+    best = experiment.mu_hpam_tune(
         model_class=model_cls,
-        train_dataset=train_dataset,
-        validation_dataset=val_dataset,
-        early_stopping_dataset=None,
+        mudataset=mudataset,
+        train_scope=fold_data.train_scope,
+        val_scope=fold_data.val_scope,
+        early_stopping_scope=fold_data.early_stopping_scope,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
     )
