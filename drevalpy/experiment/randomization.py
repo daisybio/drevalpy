@@ -22,17 +22,18 @@ def randomization(
     randomization_mode: list[str],
     *,
     random_state: int | None = None,
-) -> list[tuple[str, Dataset]]:
+) -> list[Dataset]:
     """Generate randomized datasets for feature importance testing.
 
     For each randomization test (determined by model views and mode), produces
-    a copy of the dataset with the relevant views shuffled.
+    a copy of the dataset with the relevant views shuffled. Each returned
+    dataset is named ``{original_name}__{mode}_{view}``.
 
     :param model_class: Model class whose config defines available views.
     :param dataset: Original dataset to randomize.
     :param randomization_mode: List of mode codes (e.g. ["SVRC", "SVRD"]).
     :param random_state: Seed for reproducibility.
-    :returns: List of (test_name, randomized_dataset) tuples.
+    :returns: List of randomized datasets.
     """
     config = model_class.model_config()
     cell_line_views = config.cell_line_views()
@@ -50,4 +51,7 @@ def randomization(
         if mode in builders:
             tests.update(builders[mode]())
 
-    return [(name, dataset.with_randomized_views(views, random_state=random_state)) for name, views in tests.items()]
+    return [
+        dataset.with_randomized_views(views, random_state=random_state, name=f"{dataset.name}__{name}")
+        for name, views in tests.items()
+    ]

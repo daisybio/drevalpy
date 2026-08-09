@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import mudata as md
 import numpy as np
 import pandas as pd
 from upath import UPath as Path
 
-import mudata as md
 from drevalpy.log import get_logger
 
 from .mudatalike import MuDataLike
@@ -610,6 +610,8 @@ class Dataset(MuDataLike):
         views: list[str],
         randomization_type: str = "permutation",
         random_state: int | None = None,
+        *,
+        name: str | None = None,
     ) -> Dataset:
         """Return a copy of this Dataset with specified views randomized.
 
@@ -622,6 +624,7 @@ class Dataset(MuDataLike):
             randomization_type: "permutation" shuffles rows; "invariant" replaces
                 each row with a random sample matching its mean and std.
             random_state: Seed for reproducibility.
+            name: Name for the new dataset. Defaults to the original name.
 
         Returns:
             A new Dataset with the specified views randomized.
@@ -653,7 +656,7 @@ class Dataset(MuDataLike):
         new_mdata.obs = self._mdata.obs.copy()
         for key, val in new_uns.items():
             new_mdata.uns[key] = val
-        return Dataset(new_mdata, name=self._name)
+        return Dataset(new_mdata, name=name if name is not None else self._name)
 
     # ------------------------------------------------------------------
     # Dunder methods

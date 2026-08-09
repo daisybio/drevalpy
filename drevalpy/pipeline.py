@@ -43,13 +43,12 @@ def pipeline(
 
     results: list[RunResult] = []
     for model, split_masks in product(models, folds):
-        run_datasets: list[tuple[str | None, Dataset]] = [(None, ds)]
+        run_datasets: list[Dataset] = [ds]
 
         if randomization_modes:
-            # Currently the randomizations are not marked in any way
             run_datasets.extend(randomization(model, ds, randomization_modes))
 
-        for _test_name, run_ds in run_datasets:
+        for run_ds in run_datasets:
             result = run(
                 model,
                 run_ds,
