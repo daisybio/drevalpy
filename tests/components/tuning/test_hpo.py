@@ -8,8 +8,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from drevalpy.components.tuning.config import HPOConfig
-from drevalpy.components.tuning.hpo import mu_hpam_tune
+from drevalpy.components.core.tuning.config import HPOConfig
+from drevalpy.components.core.tuning.hpo import mu_hpam_tune
 from drevalpy.data.structures import EntityScope
 from drevalpy.models import construct_model
 from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
@@ -43,11 +43,11 @@ def _ray_state_fixture(monkeypatch) -> dict[str, int]:
 def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
     model_cls = construct_model("ElasticNet")
     monkeypatch.setattr(
-        "drevalpy.components.tuning.hpo.structured_space_for_drp_model",
+        "drevalpy.components.core.tuning.hpo.structured_space_for_drp_model",
         lambda _cls: {},
     )
     monkeypatch.setattr(
-        "drevalpy.components.tuning.hpo.has_tunable_hyperparameters",
+        "drevalpy.components.core.tuning.hpo.has_tunable_hyperparameters",
         lambda _cls: False,
     )
 

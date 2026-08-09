@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 import drevalpy.components.core.plugins.register_builtins as register_builtins
-from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
+from drevalpy.components.core.tuning.public_flat import apply_public_hyperparameters_to_config
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.zoo import get_zoo_config

@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.base import TransformerMixin, clone
 from upath import UPath as Path
 
-from drevalpy.components.tuning.config import build_experiment_hpo_config
+from drevalpy.components.core.tuning.config import build_experiment_hpo_config
 
 from ..data.structures import EntityScope
 from ..data.structures.mudataset import MuDataset

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import drevalpy.components.core.plugins.register_builtins as register_builtins
-from drevalpy.components.tuning.config_resolution import (
+from drevalpy.components.core.tuning.config_resolution import (
     assert_component_local_hyperparameters,
     default_config_for_drp_model,
     has_tunable_hyperparameters,

@@ -44,11 +44,11 @@ class DRPModel(_DRPLoggingMixin):
         :raises ValueError: If ``hyperparameters`` cannot be applied to this model class.
         """
         self._init_runtime_fields()
-        from drevalpy.components.tuning.drp_hyperparameters import (
+        from drevalpy.components.core.tuning.drp_hyperparameters import (
             config_from_public_hyperparameters,
             default_config_for_drp_model,
         )
-        from drevalpy.components.tuning.search_space import resolve_model_config
+        from drevalpy.components.core.tuning.search_space import resolve_model_config
 
         if hyperparameters is None:
             config = default_config_for_drp_model(type(self))
@@ -90,7 +90,7 @@ class DRPModel(_DRPLoggingMixin):
         :param config: Template or resolved model configuration to bind.
         :returns: Instance with stack materialized from ``config``.
         """
-        from drevalpy.components.tuning.search_space import resolve_model_config
+        from drevalpy.components.core.tuning.search_space import resolve_model_config
 
         instance = cls._unmaterialized()
         resolved = config if isinstance(config, ResolvedModelConfig) else resolve_model_config(config)
@@ -142,7 +142,7 @@ class DRPModel(_DRPLoggingMixin):
 
         :returns: Structured hyperparameter search space for tuning.
         """
-        from drevalpy.components.tuning.drp_hyperparameters import structured_space_for_drp_model
+        from drevalpy.components.core.tuning.drp_hyperparameters import structured_space_for_drp_model
 
         return structured_space_for_drp_model(cls)
 
@@ -153,7 +153,7 @@ class DRPModel(_DRPLoggingMixin):
 
         :returns: Default flat public hyperparameters for a new instance.
         """
-        from drevalpy.components.tuning.drp_hyperparameters import default_hyperparameters_for_drp_model
+        from drevalpy.components.core.tuning.drp_hyperparameters import default_hyperparameters_for_drp_model
 
         return default_hyperparameters_for_drp_model(cls)
 
@@ -222,8 +222,8 @@ class DRPModel(_DRPLoggingMixin):
             wandb.config.update({"hyperparameters": self._hyperparameters})
 
     def _apply_model_config(self, config: ModelConfig | ResolvedModelConfig) -> None:
-        from drevalpy.components.tuning.drp_hyperparameters import public_hyperparameters_from_config
-        from drevalpy.components.tuning.search_space import resolve_model_config
+        from drevalpy.components.core.tuning.drp_hyperparameters import public_hyperparameters_from_config
+        from drevalpy.components.core.tuning.search_space import resolve_model_config
 
         resolved = config if isinstance(config, ResolvedModelConfig) else resolve_model_config(config)
         self._resolved_model_config = ResolvedModelConfig.model_validate(resolved.model_dump(mode="python"))

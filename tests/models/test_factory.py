@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.tuning.drp_hyperparameters import config_from_public_hyperparameters
+from drevalpy.components.core.tuning.drp_hyperparameters import config_from_public_hyperparameters
 from drevalpy.models import construct_model
 from drevalpy.models.config import ResolvedModelConfig
 from drevalpy.models.factory import model_config_for_name

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.tuning.compatibility_keys import LEGACY_FEATURIZER_FLAT_KEYS, PUBLIC_VIEW_KEYS
+from drevalpy.components.core.tuning.compatibility_keys import LEGACY_FEATURIZER_FLAT_KEYS, PUBLIC_VIEW_KEYS
 
 from ._model_config_base import base_model_config_for_drp_model
 from .compatibility_keys import append_featurizer_flat_keys

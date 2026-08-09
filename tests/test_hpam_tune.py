@@ -5,7 +5,7 @@ import importlib.util
 import pytest
 
 from drevalpy import experiment
-from drevalpy.components.tuning.config import HPOConfig
+from drevalpy.components.core.tuning.config import HPOConfig
 from drevalpy.models import construct_model
 
 

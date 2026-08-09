@@ -7,8 +7,8 @@ import os
 import numpy as np
 import pytest
 
-from drevalpy.components.tuning.config import HPOConfig
-from drevalpy.components.tuning.search_space import dict_to_ray_space, merge_model_config_spaces
+from drevalpy.components.core.tuning.config import HPOConfig
+from drevalpy.components.core.tuning.search_space import dict_to_ray_space, merge_model_config_spaces
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig
@@ -47,7 +47,7 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
 def test_hpam_tune_uses_optuna(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
-    from drevalpy.components.tuning.hpo import mu_hpam_tune
+    from drevalpy.components.core.tuning.hpo import mu_hpam_tune
     from drevalpy.data.structures import EntityScope
 
     captured: dict[str, object] = {}

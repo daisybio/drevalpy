@@ -149,7 +149,7 @@ def _resolved_config_from_checkpoint_payload(payload: dict[str, Any]) -> Resolve
             "prediction_mode": legacy.get("prediction_mode", "regression"),
         }
         template = ModelConfig.model_validate(template_payload)
-        from drevalpy.components.tuning.search_space import resolve_model_config
+        from drevalpy.components.core.tuning.search_space import resolve_model_config
 
         return resolve_model_config(template, _legacy_concrete_overrides(legacy, template))
     raise UnsupportedCheckpointFormatError(

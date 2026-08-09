@@ -151,7 +151,7 @@ def run_evaluate_and_find_max(
 
     warnings.warn(
         "evaluate-hpams selects among YAML prediction artifacts and is not Ray/Optuna "
-        "tuning. Prefer drevalpy.components.tuning.hpam_tune or the root experiment CLI.",
+        "tuning. Prefer drevalpy.components.core.tuning.hpam_tune or the root experiment CLI.",
         DeprecationWarning,
         stacklevel=2,
     )

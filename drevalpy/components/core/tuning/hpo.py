@@ -10,15 +10,15 @@ import numpy as np
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
-from drevalpy.components.tuning.config import HPOConfig, validate_hpo_metric
-from drevalpy.components.tuning.drp_hyperparameters import (
+from drevalpy.components.core.tuning.config import HPOConfig, validate_hpo_metric
+from drevalpy.components.core.tuning.drp_hyperparameters import (
     default_hyperparameters_for_drp_model,
     has_tunable_hyperparameters,
     public_hyperparameters_from_config,
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
-from drevalpy.components.tuning.hpo_runtime import mu_build_ray_trainable, run_ray_tuner
+from drevalpy.components.core.tuning.hpo_runtime import mu_build_ray_trainable, run_ray_tuner
 from drevalpy.data.structures import EntityScope
 from drevalpy.data.structures.mudataset import MuDataset
 from drevalpy.models.drp_model import DRPModel

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 import drevalpy.components.core.plugins.register_builtins as register_builtins
-from drevalpy.components.tuning.hyperparameter_keys import (
+from drevalpy.components.core.tuning.hyperparameter_keys import (
     build_ownership_index,
     export_public_mapping,
     resolve_to_qualified_mapping,
@@ -22,7 +22,7 @@ def _register_components() -> None:
 
 def test_elastic_net_alpha_has_single_owner() -> None:
     model_cls = construct_model("ElasticNet")
-    from drevalpy.components.tuning.config_resolution import default_config_for_drp_model
+    from drevalpy.components.core.tuning.config_resolution import default_config_for_drp_model
 
     config = default_config_for_drp_model(model_cls)
     assert config is not None
@@ -60,7 +60,7 @@ def test_ambiguous_short_key_lists_qualified_alternatives() -> None:
 
 def test_duplicate_short_and_qualified_assignments_rejected() -> None:
     model_cls = construct_model("ElasticNet")
-    from drevalpy.components.tuning.config_resolution import default_config_for_drp_model
+    from drevalpy.components.core.tuning.config_resolution import default_config_for_drp_model
 
     config = default_config_for_drp_model(model_cls)
     assert config is not None

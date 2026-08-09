@@ -71,7 +71,7 @@ def build_component_stack(config: ModelConfig | ResolvedModelConfig) -> _Compone
     :param config: Template or resolved model configuration.
     :returns: Component stack ready for training.
     """
-    from drevalpy.components.tuning.search_space import resolve_model_config
+    from drevalpy.components.core.tuning.search_space import resolve_model_config
 
     resolved = config if isinstance(config, ResolvedModelConfig) else resolve_model_config(config)
     template = resolved.template

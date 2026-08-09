@@ -17,9 +17,9 @@ def _dummy_scope() -> EntityScope:
     )
 
 
-@patch("drevalpy.components.tuning.hpo.mu_hpam_tune")
+@patch("drevalpy.components.core.tuning.hpo.mu_hpam_tune")
 @patch(
-    "drevalpy.components.tuning.drp_hyperparameters.has_tunable_hyperparameters",
+    "drevalpy.components.core.tuning.drp_hyperparameters.has_tunable_hyperparameters",
     return_value=True,
 )
 def test_select_fold_hyperparameters_tunes_when_enabled(_has_tunable, mock_tune) -> None:
@@ -45,7 +45,7 @@ def test_select_fold_hyperparameters_tunes_when_enabled(_has_tunable, mock_tune)
 
 
 @patch(
-    "drevalpy.components.tuning.drp_hyperparameters.has_tunable_hyperparameters",
+    "drevalpy.components.core.tuning.drp_hyperparameters.has_tunable_hyperparameters",
     return_value=True,
 )
 def test_select_fold_hyperparameters_defaults_when_tuning_off(_has_tunable) -> None:

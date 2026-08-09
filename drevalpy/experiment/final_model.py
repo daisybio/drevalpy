@@ -43,7 +43,7 @@ def train_final_model_impl(
     :param hpo_resources_per_trial: Ray resource allocation per HPO trial.
     :param hpo_storage_path: Optional Ray Tune storage path for HPO results.
     """
-    from drevalpy.components.tuning.config import build_experiment_hpo_config
+    from drevalpy.components.core.tuning.config import build_experiment_hpo_config
     from drevalpy.data.splitters import splitter_registry
 
     print("Training final model with application-specific validation strategy ...")

@@ -7,7 +7,7 @@ import warnings
 import pytest
 
 from drevalpy._deprecations import reset_deprecation_warnings
-from drevalpy.components.tuning.public_flat import (
+from drevalpy.components.core.tuning.public_flat import (
     apply_public_hyperparameters_to_config,
     public_hyperparameters_from_config,
 )

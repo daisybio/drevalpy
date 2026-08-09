@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import drevalpy.components.core.plugins.register_builtins as register_builtins
-from drevalpy.components.tuning.public_flat import (
+from drevalpy.components.core.tuning.public_flat import (
     config_from_public_hyperparameters,
     model_config_for_drp_model,
     public_hyperparameters_from_config,

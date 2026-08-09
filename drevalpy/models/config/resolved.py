@@ -26,7 +26,7 @@ class ResolvedModelConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate_values(self) -> ResolvedModelConfig:
-        from drevalpy.components.tuning.hyperparameter_keys import validate_merged_mapping
+        from drevalpy.components.core.tuning.hyperparameter_keys import validate_merged_mapping
 
         validate_merged_mapping(self.template, dict(self.values))
         return self

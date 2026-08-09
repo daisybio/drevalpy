@@ -5,9 +5,9 @@ from __future__ import annotations
 import sys
 from unittest.mock import MagicMock, patch
 
-from drevalpy.components.tuning.config import HPOConfig
-from drevalpy.components.tuning.hpo import _select_best_result
-from drevalpy.components.tuning.hpo_runtime import (
+from drevalpy.components.core.tuning.config import HPOConfig
+from drevalpy.components.core.tuning.hpo import _select_best_result
+from drevalpy.components.core.tuning.hpo_runtime import (
     _construct_trial_model,
     _init_trial_wandb,
     _report_trial_failure,
@@ -88,7 +88,7 @@ def test_select_best_result_returns_none_when_all_invalid() -> None:
     assert _select_best_result(results, cfg) is None
 
 
-@patch("drevalpy.components.tuning.hpo_runtime.tuned_config_for_drp_model", return_value=None)
+@patch("drevalpy.components.core.tuning.hpo_runtime.tuned_config_for_drp_model", return_value=None)
 def test_construct_trial_model_without_tuned_config(mock_tuned_config) -> None:
     model_class = construct_model("ElasticNet")
     sampled = {"alpha": 0.5}
@@ -97,8 +97,8 @@ def test_construct_trial_model_without_tuned_config(mock_tuned_config) -> None:
     assert trial_model.hyperparameters["alpha"] == 0.5
 
 
-@patch("drevalpy.components.tuning.hpo_runtime.construct_drp_model_from_config")
-@patch("drevalpy.components.tuning.hpo_runtime.tuned_config_for_drp_model")
+@patch("drevalpy.components.core.tuning.hpo_runtime.construct_drp_model_from_config")
+@patch("drevalpy.components.core.tuning.hpo_runtime.tuned_config_for_drp_model")
 def test_construct_trial_model_with_tuned_config(mock_tuned_config, mock_construct) -> None:
     model_class = construct_model("ElasticNet")
     sampled = {"alpha": 0.5}
@@ -123,7 +123,7 @@ def test_report_trial_score_reports_metric() -> None:
     fake_tune.report.assert_called_once_with({"RMSE": 0.25})
 
 
-@patch("drevalpy.components.tuning.hpo_runtime._report_trial_score")
+@patch("drevalpy.components.core.tuning.hpo_runtime._report_trial_score")
 def test_report_trial_failure_reports_nan(mock_report_score) -> None:
     _report_trial_failure("RMSE")
     mock_report_score.assert_called_once()
@@ -158,9 +158,9 @@ def test_wandb_trial_run_name_includes_split_and_trial() -> None:
     assert _wandb_trial_run_name(model_name="ElasticNet", split_index=None, trial_id="abc") == ("ElasticNet_trial_abc")
 
 
-@patch("drevalpy.components.tuning.hpo_runtime.current_trial_id", return_value="trial-7")
-@patch("drevalpy.components.tuning.hpo_runtime._wandb_trial_run_name", return_value="run-name")
-@patch("drevalpy.components.tuning.hpo_runtime._wandb_trial_run_config", return_value={"trial_id": "trial-7"})
+@patch("drevalpy.components.core.tuning.hpo_runtime.current_trial_id", return_value="trial-7")
+@patch("drevalpy.components.core.tuning.hpo_runtime._wandb_trial_run_name", return_value="run-name")
+@patch("drevalpy.components.core.tuning.hpo_runtime._wandb_trial_run_config", return_value={"trial_id": "trial-7"})
 def test_init_trial_wandb_delegates_to_model(mock_run_config, mock_run_name, mock_trial_id) -> None:
     trial_model = MagicMock()
     cfg = HPOConfig.from_metric("RMSE")
@@ -186,9 +186,9 @@ def test_init_trial_wandb_delegates_to_model(mock_run_config, mock_run_name, moc
     )
 
 
-@patch("drevalpy.components.tuning.hpo_runtime._report_trial_score")
-@patch("drevalpy.components.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.33)
-@patch("drevalpy.components.tuning.hpo_runtime._construct_trial_model")
+@patch("drevalpy.components.core.tuning.hpo_runtime._report_trial_score")
+@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.33)
+@patch("drevalpy.components.core.tuning.hpo_runtime._construct_trial_model")
 def test_mu_build_ray_trainable_success_reports_score(
     mock_construct,
     mock_evaluate,
@@ -219,9 +219,9 @@ def test_mu_build_ray_trainable_success_reports_score(
     mock_report_score.assert_called_once_with("RMSE", 0.33)
 
 
-@patch("drevalpy.components.tuning.hpo_runtime._report_trial_failure")
-@patch("drevalpy.components.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
-@patch("drevalpy.components.tuning.hpo_runtime._construct_trial_model")
+@patch("drevalpy.components.core.tuning.hpo_runtime._report_trial_failure")
+@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
+@patch("drevalpy.components.core.tuning.hpo_runtime._construct_trial_model")
 def test_mu_build_ray_trainable_failure_reports_nan(mock_construct, mock_evaluate, mock_report_failure) -> None:
     mock_construct.return_value = MagicMock()
     trainable = mu_build_ray_trainable(
@@ -245,10 +245,10 @@ def test_mu_build_ray_trainable_failure_reports_nan(mock_construct, mock_evaluat
     mock_report_failure.assert_called_once_with("RMSE")
 
 
-@patch("drevalpy.components.tuning.hpo_runtime._report_trial_score")
-@patch("drevalpy.components.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.5)
-@patch("drevalpy.components.tuning.hpo_runtime._init_trial_wandb")
-@patch("drevalpy.components.tuning.hpo_runtime._construct_trial_model")
+@patch("drevalpy.components.core.tuning.hpo_runtime._report_trial_score")
+@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.5)
+@patch("drevalpy.components.core.tuning.hpo_runtime._init_trial_wandb")
+@patch("drevalpy.components.core.tuning.hpo_runtime._construct_trial_model")
 def test_mu_build_ray_trainable_wandb_finishes_in_finally(
     mock_construct,
     mock_init_wandb,
@@ -281,10 +281,10 @@ def test_mu_build_ray_trainable_wandb_finishes_in_finally(
     trial_model.finish_wandb.assert_called_once()
 
 
-@patch("drevalpy.components.tuning.hpo_runtime._report_trial_failure")
-@patch("drevalpy.components.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
-@patch("drevalpy.components.tuning.hpo_runtime._init_trial_wandb")
-@patch("drevalpy.components.tuning.hpo_runtime._construct_trial_model")
+@patch("drevalpy.components.core.tuning.hpo_runtime._report_trial_failure")
+@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
+@patch("drevalpy.components.core.tuning.hpo_runtime._init_trial_wandb")
+@patch("drevalpy.components.core.tuning.hpo_runtime._construct_trial_model")
 def test_mu_build_ray_trainable_wandb_failure_still_finishes(
     mock_construct,
     mock_init_wandb,

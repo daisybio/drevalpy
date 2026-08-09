@@ -46,10 +46,10 @@ def select_fold_hyperparameters(
 
     :returns: Flat hyperparameter mapping for ``model_class(...)``.
     """
-    from drevalpy.components.tuning.drp_hyperparameters import (
+    from drevalpy.components.core.tuning.drp_hyperparameters import (
         has_tunable_hyperparameters,
     )
-    from drevalpy.components.tuning.hpo import mu_hpam_tune
+    from drevalpy.components.core.tuning.hpo import mu_hpam_tune
 
     if not hyperparameter_tuning or not has_tunable_hyperparameters(model_class):
         return model_class.get_default_hyperparameters()
@@ -100,10 +100,10 @@ def select_final_model_hyperparameters(
 
     :returns: Flat hyperparameter mapping for ``model_class(...)``.
     """
-    from drevalpy.components.tuning.drp_hyperparameters import (
+    from drevalpy.components.core.tuning.drp_hyperparameters import (
         has_tunable_hyperparameters,
     )
-    from drevalpy.components.tuning.hpo import mu_hpam_tune
+    from drevalpy.components.core.tuning.hpo import mu_hpam_tune
 
     default_hpams = model_class.get_default_hyperparameters()
     if not hyperparameter_tuning or not has_tunable_hyperparameters(model_class):

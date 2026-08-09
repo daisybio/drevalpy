@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.tuning.compatibility_keys import append_featurizer_flat_keys
+from drevalpy.components.core.tuning.compatibility_keys import append_featurizer_flat_keys
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
 
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.tuning.compatibility_keys import PUBLIC_VIEW_KEYS
-from drevalpy.components.tuning.hyperparameter_keys import (
+from drevalpy.components.core.tuning.compatibility_keys import PUBLIC_VIEW_KEYS
+from drevalpy.components.core.tuning.hyperparameter_keys import (
     build_ownership_index,
     export_public_mapping,
     export_public_mapping_from_resolved,
