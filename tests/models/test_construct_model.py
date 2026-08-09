@@ -108,7 +108,7 @@ def test_construct_model_train_predict_smoke() -> None:
     )
     response_ad.varm["fingerprints"] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad, "mutations": mutations_ad})
-    mudataset = MuDataset(mdata)
+    mudataset = MuDataset(mdata, name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),

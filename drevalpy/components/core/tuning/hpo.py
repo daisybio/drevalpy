@@ -93,7 +93,11 @@ def mu_hpam_tune(
 
     study = run_optuna_study(objective=objective, cfg=cfg)
 
-    best_trial = study.best_trial if study.best_trial is not None else None
+    try:
+        best_trial = study.best_trial
+    except ValueError:
+        best_trial = None
+
     if best_trial is None or not _is_valid_score(best_trial.value):
         warnings.warn(
             "Optuna tuning did not find a valid configuration; using defaults.",

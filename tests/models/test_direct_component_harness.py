@@ -156,7 +156,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         )
         response_ad.varm["fingerprints"] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
         mdata = md.MuData({"response": response_ad, "gene_expression": ge_ad})
-        mudataset_ge = MuDataset(mdata)
+        mudataset_ge = MuDataset(mdata, name="test")
 
         response_ad2 = ad.AnnData(
             X=response_matrix.copy(),
@@ -164,7 +164,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
             var=pd.DataFrame(index=drug_ids),
         )
         mdata2 = md.MuData({"response": response_ad2})
-        mudataset_id = MuDataset(mdata2)
+        mudataset_id = MuDataset(mdata2, name="test")
 
         split = SplitMasks(
             train=np.array([[0, 0], [0, 1]]),

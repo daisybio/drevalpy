@@ -38,7 +38,7 @@ def _make_mudataset_ge_fingerprints() -> tuple[MuDataset, SplitMasks]:
     )
     response_ad.varm["fingerprints"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
-    mudataset = MuDataset(mdata)
+    mudataset = MuDataset(mdata, name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),
@@ -90,7 +90,7 @@ def _make_mudataset_multiview() -> tuple[MuDataset, SplitMasks]:
             "copy_number_variation_gistic": cnv_ad,
         }
     )
-    mudataset = MuDataset(mdata)
+    mudataset = MuDataset(mdata, name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),

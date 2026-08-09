@@ -455,7 +455,7 @@ class MuDataset(MuDataLike):
         new_mdata.obs = self._mdata.obs.loc[self._mdata.obs.index.isin(kept_cell_lines)].copy()
         for key, val in self._mdata.uns.items():
             new_mdata.uns[key] = val
-        return MuDataset(new_mdata)
+        return MuDataset(new_mdata, name=self._name)
 
     def subset_drugs(self, ids: np.ndarray) -> MuDataset:
         """Return a new MuDataset restricted to the given drugs.
@@ -484,7 +484,7 @@ class MuDataset(MuDataLike):
         new_mdata.obs = self._mdata.obs.copy()
         for key, val in self._mdata.uns.items():
             new_mdata.uns[key] = val
-        return MuDataset(new_mdata)
+        return MuDataset(new_mdata, name=self._name)
 
     # ------------------------------------------------------------------
     # Auxiliary data
@@ -559,7 +559,7 @@ class MuDataset(MuDataLike):
         new_mdata.obs = self._mdata.obs.copy()
         for key, val in self._mdata.uns.items():
             new_mdata.uns[key] = copy.deepcopy(val) if isinstance(val, dict) else val
-        return MuDataset(new_mdata)
+        return MuDataset(new_mdata, name=self._name)
 
     # ------------------------------------------------------------------
     # Dunder methods

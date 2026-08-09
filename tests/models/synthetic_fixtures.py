@@ -86,7 +86,7 @@ def synthetic_mudataset_gene_expression_fingerprints():
     response_ad.varm["fingerprints"] = fingerprints
 
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
-    return MuDataset(mdata)
+    return MuDataset(mdata, name="test")
 
 
 def synthetic_mudataset_identity():
@@ -107,7 +107,7 @@ def synthetic_mudataset_identity():
         var=pd.DataFrame(index=drug_ids),
     )
     mdata = md.MuData({"response": response_ad})
-    return MuDataset(mdata)
+    return MuDataset(mdata, name="test")
 
 
 def lpo_split_masks_all_train() -> SplitMasks:

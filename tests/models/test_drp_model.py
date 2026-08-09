@@ -67,7 +67,7 @@ def test_empty_training_transitions() -> None:
         obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["L", "B"]}, index=cl_ids),
         var=pd.DataFrame(index=drug_ids),
     )
-    empty_mudataset = MuDataset(md.MuData({"response": empty_ad}))
+    empty_mudataset = MuDataset(md.MuData({"response": empty_ad}), name="test")
     empty_split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),

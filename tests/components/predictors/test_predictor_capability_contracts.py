@@ -242,7 +242,7 @@ def test_naive_tissue_round_trip() -> None:
     )
     mdata = md.MuData({"response": response_ad})
     mdata.obs["tissue"] = ["Lung", "Blood"]
-    mudataset = MuDataset(mdata)
+    mudataset = MuDataset(mdata, name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),

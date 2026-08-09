@@ -47,7 +47,7 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     )
     response_ad.varm["fingerprints"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
-    mudataset = MuDataset(mdata)
+    mudataset = MuDataset(mdata, name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),

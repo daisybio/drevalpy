@@ -210,7 +210,7 @@ externalToy:
         obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["L", "B"]}, index=cl_ids),
         var=pd.DataFrame(index=drug_ids),
     )
-    mudataset = MuDataset(md.MuData({"response": response_ad}))
+    mudataset = MuDataset(md.MuData({"response": response_ad}), name="test")
     split = SplitMasks(
         train=np.array([[0, 0], [0, 1]]),
         test=np.array([[1, 0], [1, 1]]),
