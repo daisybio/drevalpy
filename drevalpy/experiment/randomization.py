@@ -10,10 +10,14 @@ import pandas as pd
 from sklearn.base import TransformerMixin, clone
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
+
 from ..data.structures import EntityScope
 from ..data.structures.mudataset import MuDataset
 from ..models.drp_model import DRPModel
 from .training import mu_train_and_predict
+
+logger = get_logger(__name__)
 
 
 def _resolve_cell_line_and_drug_views(
@@ -217,9 +221,9 @@ def randomization_test_impl(
         randomization_test_path.mkdir(parents=True, exist_ok=True)
         randomization_test_file = randomization_test_path / f"randomization_{test_name}_split_{split_index}.csv"
         if randomization_test_file.is_file():
-            print(f"Randomization test {test_name} already exists. Skipping.")
+            logger.info("Randomization test %s already exists. Skipping.", test_name)
             continue
-        print(f"Randomizing views {views} for randomization test {test_name} ...")
+        logger.info("Randomizing views %s for randomization test %s ...", views, test_name)
         randomize_train_predict_impl(
             views=views,
             test_name=test_name,

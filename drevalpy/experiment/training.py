@@ -6,10 +6,14 @@ import numpy as np
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
+
 from ..data.structures import EntityScope
 from ..data.structures.mudataset import MuDataset
 from ..models.drp_model import DRPModel
 from ..utils.checkpoints import checkpoint_dir_or_temporary
+
+logger = get_logger(__name__)
 
 
 def mu_train_and_predict(
@@ -48,7 +52,7 @@ def mu_train_and_predict(
         fold_transform.fit(train_responses[valid_mask].reshape(-1, 1))
 
     with checkpoint_dir_or_temporary(model_checkpoint_dir) as checkpoint_dir:
-        print("Training model ...")
+        logger.info("Training model ...")
         model.train(
             mudataset=mudataset,
             scope=train_scope,
@@ -56,7 +60,7 @@ def mu_train_and_predict(
             model_checkpoint_dir=checkpoint_dir,
         )
 
-    print("Predicting ...")
+    logger.info("Predicting ...")
     predictions = model.predict(
         mudataset=mudataset,
         scope=test_scope,

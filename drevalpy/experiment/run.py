@@ -10,6 +10,7 @@ from sklearn.base import TransformerMixin, clone
 from upath import UPath as Path
 
 from drevalpy.components.core.tuning.config import build_experiment_hpo_config
+from drevalpy.log import get_logger
 
 from ..data.structures import EntityScope
 from ..data.structures.mudataset import MuDataset
@@ -22,6 +23,8 @@ from .paths import experiment_result_path
 from .seed import seed_everything
 from .splits import prepare_splits
 from .training import mu_train_and_predict
+
+logger = get_logger(__name__)
 
 
 def _normalize_baselines(
@@ -99,7 +102,7 @@ def mu_experiment(
     all_models = models + baselines
     for model_class in all_models:
         model_name = model_class.get_model_name()
-        print(f"Running {model_name}")
+        logger.info("Running %s", model_name)
 
         predictions_path = generate_data_saving_path(
             model_name=model_name,
@@ -115,15 +118,13 @@ def mu_experiment(
         )
 
         for split_index, split_masks in enumerate(folds):
-            print()
-            print(f"################# FOLD {split_index + 1}/{len(folds)} #################")
-            print()
+            logger.info("Fold %d/%d", split_index + 1, len(folds))
 
             prediction_file = predictions_path / f"predictions_split_{split_index}.csv"
             hpam_save_path = hpam_path / f"best_hpams_split_{split_index}.json"
 
             if prediction_file.is_file() and not overwrite:
-                print(f"Split {split_index} already exists. Skipping.")
+                logger.info("Split %d already exists. Skipping.", split_index)
                 continue
 
             fold_data = prepare_mu_fold(mudataset, split_masks, model_class)
@@ -150,7 +151,7 @@ def mu_experiment(
                 hpo_config=hpo_cfg,
             )
 
-            print(f"Best hyperparameters: {best_hpams}")
+            logger.info("Best hyperparameters: %s", best_hpams)
             with open(hpam_save_path, "w", encoding="utf-8") as f:
                 json.dump(best_hpams, f)
 
@@ -174,7 +175,7 @@ def mu_experiment(
                 predictions=predictions,
             )
 
-    print("Done!")
+    logger.info("Done!")
 
 
 def _write_mu_predictions(

@@ -12,9 +12,13 @@ import numpy as np
 import pandas as pd
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
+
 from ..data.structures import EntityScope, SplitMasks
 from ..data.structures.mudataset import MuDataset
 from ..models.drp_model import DRPModel
+
+logger = get_logger(__name__)
 
 
 def _all_pairs_indices(mudataset: MuDataset) -> tuple[np.ndarray, np.ndarray]:
@@ -185,7 +189,7 @@ def cross_study_prediction_impl(
         )
         return
 
-    print(f"Cross-study prediction: {len(target_cl_idx)} samples after overlap removal.")
+    logger.info("Cross-study prediction: %d samples after overlap removal.", len(target_cl_idx))
 
     test_pairs = np.column_stack([target_cl_idx, target_dr_idx])
     test_scope = EntityScope(pairs=test_pairs)

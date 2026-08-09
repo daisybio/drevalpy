@@ -7,8 +7,12 @@ import shutil
 
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
+
 from ..data.splitters import Splitter, splitter_registry
 from ..data.structures import MuDataset, SplitMasks
+
+logger = get_logger(__name__)
 
 
 def prepare_splits(
@@ -42,14 +46,14 @@ def prepare_splits(
     manifest_file = splits_dir / "splits_manifest.json"
 
     if result_folder_exists and overwrite:
-        print(f"Overwriting existing results at {results_dir}")
+        logger.info("Overwriting existing results at %s", results_dir)
         shutil.rmtree(results_dir)
 
     if result_folder_exists and manifest_file.is_file() and not overwrite:
-        print(f"Loading existing cv splits from {splits_dir}")
+        logger.info("Loading existing cv splits from %s", splits_dir)
         return _load_splits_from_dir(splits_dir)
 
-    print(f"Creating cv splits at {splits_dir}")
+    logger.info("Creating cv splits at %s", splits_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
     splits_dir.mkdir(parents=True, exist_ok=True)
 

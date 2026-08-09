@@ -5,11 +5,15 @@ from __future__ import annotations
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
+
 from ..data.structures.mudataset import MuDataset
 from ..models.drp_model import DRPModel
 from ..utils.checkpoints import checkpoint_dir_or_temporary
 from .fold import merge_train_val_scopes, prepare_mu_fold
 from .hpo import select_final_model_hyperparameters
+
+logger = get_logger(__name__)
 
 
 def train_final_model_impl(
@@ -46,7 +50,7 @@ def train_final_model_impl(
     from drevalpy.components.core.tuning.config import build_experiment_hpo_config
     from drevalpy.data.splitters import splitter_registry
 
-    print("Training final model with application-specific validation strategy ...")
+    logger.info("Training final model with application-specific validation strategy ...")
 
     splitter = splitter_registry.get(test_mode)
     folds = splitter(
@@ -78,7 +82,7 @@ def train_final_model_impl(
         hpo_config=hpo_cfg,
     )
 
-    print(f"Best hyperparameters for final model: {best_hpams}")
+    logger.info("Best hyperparameters for final model: %s", best_hpams)
     model = model_class(best_hpams)
 
     merged_scope = merge_train_val_scopes(split_masks)

@@ -8,6 +8,10 @@ from contextlib import contextmanager
 
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
+
+logger = get_logger(__name__)
+
 TEMPORARY_CHECKPOINT_DIR = "TEMPORARY"
 
 
@@ -43,9 +47,9 @@ def checkpoint_dir_or_temporary(model_checkpoint_dir: str | Path | None) -> Iter
     resolved = resolve_checkpoint_dir(model_checkpoint_dir)
     if resolved is None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            print(f"Using temporary directory: {temp_dir} for model checkpoints")
+            logger.debug("Using temporary directory: %s for model checkpoints", temp_dir)
             yield Path(temp_dir)
         return
     resolved.mkdir(parents=True, exist_ok=True)
-    print(f"Using directory: {resolved} for model checkpoints")
+    logger.debug("Using directory: %s for model checkpoints", resolved)
     yield resolved

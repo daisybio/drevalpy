@@ -13,10 +13,14 @@ import pandas as pd
 from sklearn.base import TransformerMixin, clone
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
+
 from ..data.structures import EntityScope
 from ..data.structures.mudataset import MuDataset
 from ..models.drp_model import DRPModel
 from .training import mu_train_and_predict
+
+logger = get_logger(__name__)
 
 
 def _shuffle_scope(scope: EntityScope, rng: np.random.Generator) -> EntityScope:
@@ -128,7 +132,7 @@ def robustness_test_impl(
     robustness_test_path = Path(path_out) / "robustness"
     robustness_test_path.mkdir(parents=True, exist_ok=True)
     for trial in range(n_trials):
-        print(f"Running robustness test trial {trial + 1}/{n_trials}")
+        logger.info("Running robustness test trial %d/%d", trial + 1, n_trials)
         trial_file = robustness_test_path / f"robustness_{trial + 1}_split_{split_index}.csv"
         if trial_file.is_file():
             continue
