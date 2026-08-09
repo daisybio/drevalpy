@@ -160,8 +160,13 @@ class Run:
             best_hpams = select_fold_hyperparameters(
                 model_class=self.model_class,
                 mudataset=self.mudataset,
-                fold_data=fold_data,
+                train_scope=fold_data.train_scope,
+                val_scope=fold_data.val_scope,
+                early_stopping_scope=fold_data.early_stopping_scope,
                 response_transformation=self.response_transformation,
+                metric=self.hpo_metric,
+                model_checkpoint_dir=None,
+                hyperparameter_tuning=True,
                 hpo_cfg=hpo_cfg,
             )
         else:
