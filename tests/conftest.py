@@ -91,7 +91,10 @@ def _load_toy_datasets() -> bool:
         for name in _TOY_DATASETS:
             csv_path = _DATA_DIR / name / f"{name}.csv"
             if not csv_path.is_file():
-                from drevalpy.datasets.utils import download_dataset
+                import sys
+
+                sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
+                from download import download_dataset
 
                 download_dataset(name, redownload=True)
     except Exception as exc:

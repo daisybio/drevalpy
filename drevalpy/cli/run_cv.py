@@ -20,7 +20,6 @@ def run_load_response(
     :param cross_study_dataset: cross study dataset.
     :param measure: measure.
     """
-    from drevalpy.datasets.loader import get_builtin_dataset_entry
     from drevalpy.datasets.utils import (
         CELL_LINE_IDENTIFIER,
         DRUG_IDENTIFIER,
@@ -29,11 +28,8 @@ def run_load_response(
 
     input_file = Path(response_dataset)
     dataset_name = input_file.stem
-    entry = get_builtin_dataset_entry(dataset_name)
 
     response_file = pd.read_csv(input_file, dtype={"pubchem_id": str})
-    if entry is not None and entry.tissue_override is not None:
-        response_file[TISSUE_IDENTIFIER] = entry.tissue_override
 
     required_cols = [CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, measure]
     if TISSUE_IDENTIFIER in response_file.columns:

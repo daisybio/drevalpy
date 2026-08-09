@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-from drevalpy.datasets.cellosaurus_parse import parse_cellosaurus
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from cellosaurus_parse import parse_cellosaurus
 
 
 def test_parse_cellosaurus_maps_cvcl_ids(tmp_path: Path) -> None:

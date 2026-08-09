@@ -1,9 +1,13 @@
-"""Test suite for tissue mapping functionality in the drevalpy package."""
+"""Test suite for tissue mapping functionality."""
+
+import sys
+from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from drevalpy.datasets.map_tissues import main
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from map_tissues import main
 
 
 @pytest.fixture

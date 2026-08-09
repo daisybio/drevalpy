@@ -37,10 +37,10 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+from cellosaurus_parse import parse_cellosaurus
+from download import download_dataset
 
-from .cellosaurus_parse import parse_cellosaurus
-from .loader import list_builtin_datasets
-from .utils import download_dataset
+from drevalpy.datasets import list_builtin_datasets
 
 _DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 120
 
