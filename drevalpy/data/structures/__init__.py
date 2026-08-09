@@ -1,13 +1,14 @@
-"""Core data structures for drevalpy."""
+"""Backward-compatible re-exports from drevalpy.types."""
 
-from .dataset import Dataset
-from .mudatalike import MuDataLike
-from .response_batch import ResponseBatch
-from .split_mask import SplitMask
-from .split_masks import SplitMasks
-from .view_location import ViewLocation
-
-EntityScope = SplitMask
+from drevalpy.types import (
+    Dataset,
+    EntityScope,
+    MuDataLike,
+    ResponseBatch,
+    SplitMask,
+    SplitMasks,
+    ViewLocation,
+)
 
 __all__ = [
     "Dataset",

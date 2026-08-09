@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 from sklearn.base import TransformerMixin, clone
 
-from drevalpy.data.structures import SplitMask, SplitMasks
-from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types.dataset import Dataset
 
 from .run_result import RunResult
 from .trial_result import TrialResult
@@ -108,8 +108,7 @@ def run(
     """
     from drevalpy.components.core.tuning.config import build_experiment_hpo_config
     from drevalpy.evaluation import AVAILABLE_METRICS
-
-    from .training import train_and_predict
+    from drevalpy.utils.checkpoints import checkpoint_dir_or_temporary
 
     split_masks = _filter_to_featurizable_pairs(model_class, mudataset, split_masks)
 
@@ -158,14 +157,25 @@ def run(
     model = model_class(best_hpams)
     fold_transform = None if response_transformation is None else clone(response_transformation)
 
-    predictions = train_and_predict(
-        model=model,
-        mudataset=mudataset,
-        train_scope=split_masks.train_val,
-        test_scope=split_masks.test,
-        early_stopping_scope=early_stopping_scope,
-        response_transformation=fold_transform,
-    )
+    train_scope = split_masks.train_val
+    if fold_transform is not None:
+        pairs = train_scope.pairs
+        train_responses = mudataset.response_matrix[pairs[:, 0], pairs[:, 1]]
+        valid_mask = ~np.isnan(train_responses)
+        fold_transform.fit(train_responses[valid_mask].reshape(-1, 1))
+
+    with checkpoint_dir_or_temporary(None) as checkpoint_dir:
+        model.train(
+            mudataset=mudataset,
+            scope=train_scope,
+            early_stopping_scope=early_stopping_scope,
+            model_checkpoint_dir=checkpoint_dir,
+        )
+
+    predictions = model.predict(mudataset=mudataset, scope=split_masks.test)
+
+    if fold_transform is not None:
+        predictions = fold_transform.inverse_transform(predictions.reshape(-1, 1)).ravel()
 
     response_matrix = mudataset.response_matrix
     test_pairs = split_masks.test.pairs

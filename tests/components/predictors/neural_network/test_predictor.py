@@ -12,9 +12,9 @@ from drevalpy.components.core.plugins.register_builtins import register_builtin_
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import get_predictor
-from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
+from drevalpy.types.response_batch import ResponseBatch
 
 
 def test_neural_network_predictor_registry_name() -> None:
@@ -29,7 +29,7 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
 
     import mudata as md
     from drevalpy.data.structures import SplitMask, SplitMasks
-    from drevalpy.data.structures.dataset import Dataset
+    from drevalpy.types.dataset import Dataset
 
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])

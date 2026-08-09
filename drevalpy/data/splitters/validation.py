@@ -6,7 +6,7 @@ from typing import Literal
 
 import numpy as np
 
-from drevalpy.data.structures import MuDataLike, SplitMasks
+from drevalpy.types import MuDataLike, SplitMasks
 
 Validation = Literal["LCO", "LDO", "LPO", "LTO"]
 

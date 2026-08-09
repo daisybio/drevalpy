@@ -16,7 +16,7 @@ from typing import Protocol
 
 import pandas as pd
 
-from drevalpy.data.structures import MuDataLike, SplitMasks
+from drevalpy.types import MuDataLike, SplitMasks
 
 from .validation import Validation, validate_folds
 

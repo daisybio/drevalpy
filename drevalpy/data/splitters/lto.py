@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from sklearn.model_selection import KFold
 
-from drevalpy.data.structures import MuDataLike, SplitMask, SplitMasks
+from drevalpy.types import MuDataLike, SplitMask, SplitMasks
 
 from .registry import splitter_registry
 

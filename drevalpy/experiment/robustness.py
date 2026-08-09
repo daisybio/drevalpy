@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.data.structures import SplitMasks
+from drevalpy.types import SplitMasks
 
 
 def shuffled_splits(split_masks: SplitMasks, n_permutations: int) -> list[SplitMasks]:

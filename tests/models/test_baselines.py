@@ -8,9 +8,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models import construct_model
+from drevalpy.types.response_batch import ResponseBatch
 from tests.conftest import MockFeatureSource
 
 

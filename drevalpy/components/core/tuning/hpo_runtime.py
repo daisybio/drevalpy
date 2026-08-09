@@ -16,10 +16,10 @@ from drevalpy.components.core.tuning.drp_hyperparameters import (
     tuned_config_for_drp_model,
 )
 from drevalpy.components.core.tuning.search_space import sample_from_optuna_trial
-from drevalpy.data.structures import SplitMask
-from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.types import SplitMask
+from drevalpy.types.dataset import Dataset
 from drevalpy.utils.checkpoints import resolve_checkpoint_dir
 
 logger = get_logger(__name__)

@@ -7,11 +7,11 @@ from typing import Any, cast
 import numpy as np
 import pytest
 
-from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.zoo import get_zoo_config
+from drevalpy.types.response_batch import ResponseBatch
 
 
 def _zoo_config_variant(name: str, **updates: Any) -> ModelConfig:

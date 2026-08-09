@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from drevalpy.data.structures.dataset import Dataset
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.types.dataset import Dataset
 
 
 def _single_view_tests(views: list[str], prefix: str) -> dict[str, list[str]]:

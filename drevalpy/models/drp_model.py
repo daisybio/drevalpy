@@ -11,8 +11,6 @@ from upath import UPath as Path
 
 from drevalpy.components.core.contracts.training_context import TrainingContext
 from drevalpy.components.registry import get_predictor
-from drevalpy.data.structures import SplitMask, SplitMasks
-from drevalpy.data.structures.dataset import Dataset
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
 from drevalpy.models._drp_logging import _DRPLoggingMixin
 from drevalpy.models._model_persistence import (
@@ -23,6 +21,8 @@ from drevalpy.models._model_persistence import (
 )
 from drevalpy.models.config import ModelConfig, ModelScope
 from drevalpy.models.config.resolved import ResolvedModelConfig
+from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types.dataset import Dataset
 from drevalpy.utils._pipeline_function import pipeline_function
 
 

@@ -9,7 +9,7 @@ import numpy as np
 from drevalpy.components.core.batch.feature_block import FeatureBlock
 from drevalpy.components.core.batch.pair_features import pair_cell_line_indices, pair_drug_indices
 from drevalpy.components.core.contracts.training_context import TrainingContext
-from drevalpy.data.structures.response_batch import ResponseBatch
+from drevalpy.types.response_batch import ResponseBatch
 
 
 @dataclass

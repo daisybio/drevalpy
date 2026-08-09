@@ -16,13 +16,13 @@ from drevalpy.components.core.fitting.featurizer_label import qualified_featuriz
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
-from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
 from drevalpy.models.config.resolved import ResolvedModelConfig
+from drevalpy.types.response_batch import ResponseBatch
 
 if TYPE_CHECKING:
-    from drevalpy.data.structures import SplitMask
-    from drevalpy.data.structures.dataset import Dataset
+    from drevalpy.types import SplitMask
+    from drevalpy.types.dataset import Dataset
 
 
 def _build_fit_context(

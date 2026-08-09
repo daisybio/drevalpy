@@ -24,7 +24,7 @@ def split(
     :param random_state: Seed for reproducibility.
     :returns: List of SplitMasks, one per fold.
     """
-    from .structures.dataset import Dataset as _MuDataset
+    from drevalpy.types.dataset import Dataset as _MuDataset
 
     mudataset = dataset if isinstance(dataset, _MuDataset) else load(dataset)
     splitter = splitter_registry.get(mode)
@@ -35,7 +35,7 @@ def split(
 
 
 # Lazy import to avoid circular ref
-from .structures.dataset import Dataset as Dataset  # noqa: E402
+from drevalpy.types.dataset import Dataset as Dataset  # noqa: E402
 
 __all__ = [
     "dataset_registry",

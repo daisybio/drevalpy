@@ -5,9 +5,9 @@ import tempfile
 import numpy as np
 import pytest
 
-from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.models import construct_model
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.types.response_batch import ResponseBatch
 
 
 def _resolve_single_drug_model_name(whole_name: str) -> str:

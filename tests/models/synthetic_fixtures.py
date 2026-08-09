@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.data.structures import SplitMask, SplitMasks
-from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.types.response_batch import ResponseBatch
 from tests.conftest import MockFeatureSource
 
 
@@ -62,7 +62,7 @@ def synthetic_mudataset_gene_expression_fingerprints():
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures.dataset import Dataset
+    from drevalpy.types.dataset import Dataset
 
     # Response matrix: 2 cell lines x 2 drugs
     response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
@@ -95,7 +95,7 @@ def synthetic_mudataset_identity():
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures.dataset import Dataset
+    from drevalpy.types.dataset import Dataset
 
     response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
     cl_ids = np.array(["cl1", "cl2"])

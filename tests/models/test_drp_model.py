@@ -53,7 +53,7 @@ def test_empty_training_transitions() -> None:
 
     import mudata as md
     from drevalpy.data.structures import SplitMask, SplitMasks
-    from drevalpy.data.structures.dataset import Dataset
+    from drevalpy.types.dataset import Dataset
 
     naive_drug_mean_cls = construct_model("NaiveDrugMeanPredictor")
     model = naive_drug_mean_cls({})

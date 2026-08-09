@@ -12,8 +12,8 @@ import pytest
 import mudata as md
 from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.data.structures import SplitMask, SplitMasks
-from drevalpy.data.structures.dataset import Dataset
 from drevalpy.models import construct_model
+from drevalpy.types.dataset import Dataset
 
 
 @pytest.fixture(autouse=True)
