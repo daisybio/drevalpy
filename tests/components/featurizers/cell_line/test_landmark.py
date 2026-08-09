@@ -47,7 +47,7 @@ def test_landmark_uses_symbol_column_and_persists_state(tmp_path: Path, monkeypa
 
 def test_landmark_reduced_uses_package_gene_list() -> None:
     featurizer = LandmarkGenesReducedFeaturizer(standardize=False)
-    from drevalpy.data.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
+    from drevalpy.components.featurizers.cell_line.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
 
     symbols = gene_names_from_list_csv(resolve_gene_list_path("landmark_genes_reduced"))[:3]
     features = MockFeatureSource(

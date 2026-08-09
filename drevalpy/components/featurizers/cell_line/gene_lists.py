@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 from upath import UPath as Path
 
-from ._paths import get_default_data_dir
+from drevalpy.data._paths import get_default_data_dir
 
 _GENE_NAME_COLUMNS = ("Symbol", "gene_name", "symbol", "Gene", "gene")
 
