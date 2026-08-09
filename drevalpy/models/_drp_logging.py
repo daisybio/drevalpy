@@ -128,6 +128,9 @@ class _DRPLoggingMixin:
                 metrics = {f"{prefix}{key}": value for key, value in metrics.items()}
             return metrics
         except Exception:
+            from drevalpy.log import get_logger
+
+            get_logger(__name__).debug("Metric computation failed, returning empty metrics.")
             return {}
 
     def compute_and_log_final_metrics(

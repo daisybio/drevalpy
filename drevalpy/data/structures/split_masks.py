@@ -53,3 +53,17 @@ class SplitMasks:
             val=data["val"],
             metadata=metadata,
         )
+
+    def __repr__(self) -> str:
+        """Formatted summary."""
+        lines = [
+            "SplitMask",
+            f"    Train: {len(self.train)} pairs",
+            f"    Test: {len(self.test)} pairs",
+            f"    Val: {len(self.val)} pairs",
+        ]
+        if self.metadata:
+            lines.append("    Metadata:")
+            for k, v in self.metadata.items():
+                lines.append(f"        {k}: {v}")
+        return "\n".join(lines)

@@ -120,11 +120,12 @@ class MuDataset(MuDataLike):
         "fingerprints": "morgan_fingerprint",
     }
 
-    def __init__(self, mdata: md.MuData) -> None:
+    def __init__(self, mdata: md.MuData, *, name: str) -> None:
         """Wrap an existing MuData object.
 
         Args:
             mdata: A MuData object with at least a "response" modality.
+            name: Human-readable dataset name.
 
         Raises:
             KeyError: If the "response" modality is missing.
@@ -132,21 +133,31 @@ class MuDataset(MuDataLike):
         if "response" not in mdata.mod:
             raise KeyError("MuData must contain a 'response' modality.")
         self._mdata = mdata
+        self._name = name
         self._drug_view_map: dict[str, str] = self._build_drug_view_map()
 
     @classmethod
-    def from_file(cls, path: str | Path) -> MuDataset:
+    def from_file(cls, path: str | Path, *, name: str | None = None) -> MuDataset:
         """Read a MuDataset from an .h5mu file on disk.
 
         Args:
             path: Path to the .h5mu file.
+            name: Dataset name. Defaults to the file stem.
 
         Returns:
             A MuDataset wrapping the loaded MuData.
         """
+        from upath import UPath as Path
+
+        resolved = Path(path)
         md.set_options(pull_on_update=False)
-        mdata = md.read_h5mu(path)
-        return cls(mdata)
+        mdata = md.read_h5mu(resolved)
+        return cls(mdata, name=name or resolved.stem)
+
+    @property
+    def name(self) -> str:
+        """Human-readable dataset name."""
+        return self._name
 
     @property
     def mdata(self) -> md.MuData:
@@ -555,8 +566,23 @@ class MuDataset(MuDataLike):
     # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
-        """Return a summary string."""
+        """Return a formatted summary."""
         n_cl = len(self.cell_line_ids)
         n_dr = len(self.drug_ids)
-        mods = list(self._mdata.mod.keys())
-        return f"MuDataset(cell_lines={n_cl}, drugs={n_dr}, modalities={mods})"
+        response = self.response_matrix
+        n_measured = int(np.sum(~np.isnan(response)))
+        mods = [m for m in self._mdata.mod.keys() if m != "response"]
+
+        lines = [
+            "MuDataset",
+            f"    Name: {self._name}",
+            f"    Cell lines: {n_cl}",
+            f"    Drugs: {n_dr}",
+            f"    Measured pairs: {n_measured}",
+            "    Modalities:",
+        ]
+        for mod in mods:
+            shape = self._mdata.mod[mod].X.shape
+            lines.append(f"        {mod}: {shape[0]} × {shape[1]}")
+
+        return "\n".join(lines)

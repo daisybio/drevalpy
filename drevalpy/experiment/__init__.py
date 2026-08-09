@@ -14,12 +14,14 @@ from ..data.structures.mudataset import MuDataset
 from ..models.drp_model import DRPModel
 from ..utils._pipeline_function import pipeline_function
 from .cross_study import cross_study_prediction_impl
+from .experiment import Experiment
 from .fold import MuFoldData, merge_train_val_scopes, prepare_mu_fold
 from .model_paths import generate_data_saving_path as _generate_data_saving_path
 from .model_paths import generate_final_model_checkpoint_path as _generate_final_model_checkpoint_path
 from .model_paths import get_model_name_and_drug_id as _get_model_name_and_drug_id
 from .run import mu_experiment
 from .seed import seed_everything
+from .single_run import Run, RunResult
 from .splits import prepare_splits
 from .training import mu_train_and_predict
 
@@ -27,6 +29,9 @@ _CWD = Path()
 
 __all__ = [
     "EntityScope",
+    "Experiment",
+    "Run",
+    "RunResult",
     "get_splitter",
     "MuDataset",
     "MuFoldData",

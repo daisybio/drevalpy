@@ -28,7 +28,10 @@ def split(
 
     mudataset = dataset if isinstance(dataset, _MuDataset) else load(dataset)
     splitter = splitter_registry.get(mode)
-    return splitter(mudataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state)
+    folds = splitter(mudataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state)
+    for fold in folds:
+        fold.metadata.setdefault("dataset", mudataset.name)
+    return folds
 
 
 # Lazy import to avoid circular ref

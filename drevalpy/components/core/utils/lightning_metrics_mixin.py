@@ -83,7 +83,9 @@ class RegressionMetricsMixin:
 
             return {"R^2": r2, "Pearson": pcc}
         except Exception:
-            # If computation fails (e.g., NaN values, insufficient data), return empty dict
+            from drevalpy.log import get_logger
+
+            get_logger(__name__).debug("Lightning metric computation failed (e.g., NaN or insufficient data).")
             return {}
 
     def on_train_epoch_end(self) -> None:
