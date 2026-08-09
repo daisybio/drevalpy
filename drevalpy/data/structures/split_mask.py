@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -12,10 +12,12 @@ class SplitMask:
     """2D boolean mask defining which (cell_line, drug) pairs to operate on.
 
     The ``mask`` array has shape (n_cell_lines, n_drugs) with True at positions
-    that should be included.
+    that should be included. When ``_pair_seed`` is set, ``.pairs`` returns
+    the indices in a shuffled order (for robustness testing).
     """
 
     mask: np.ndarray
+    _pair_seed: int | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Ensure mask is stored as a boolean numpy array."""
@@ -29,10 +31,25 @@ class SplitMask:
             mask[pairs[:, 0], pairs[:, 1]] = True
         return cls(mask)
 
+    def shuffled(self, seed: int) -> SplitMask:
+        """Return a new SplitMask whose .pairs are in shuffled order.
+
+        :param seed: Random seed for reproducible pair ordering.
+        :returns: SplitMask with same content but shuffled .pairs output.
+        """
+        return SplitMask(mask=self.mask, _pair_seed=seed)
+
     @property
     def pairs(self) -> np.ndarray:
-        """Pair indices as (n_pairs, 2) array — computed from the mask."""
-        return np.argwhere(self.mask)
+        """Pair indices as (n_pairs, 2) array.
+
+        Order is deterministic (row-major) unless a shuffle seed is set.
+        """
+        p = np.argwhere(self.mask)
+        if self._pair_seed is not None:
+            rng = np.random.default_rng(self._pair_seed)
+            p = rng.permutation(p)
+        return p
 
     @property
     def shape(self) -> tuple[int, int]:
