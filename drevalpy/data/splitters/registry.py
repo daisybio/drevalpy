@@ -33,8 +33,8 @@ class Splitter(Protocol):
         ...
 
 
-def _wrap_with_validation(fn: Splitter, validation: Validation) -> Splitter:
-    """Wrap a splitter so validation runs automatically after each call."""
+def _wrap_with_validation(fn: Splitter, mode: str, validation: Validation) -> Splitter:
+    """Wrap a splitter so validation runs and default metadata is injected."""
 
     @wraps(fn)
     def wrapper(
@@ -45,6 +45,12 @@ def _wrap_with_validation(fn: Splitter, validation: Validation) -> Splitter:
     ) -> list[SplitMasks]:
         folds = fn(mudataset, n_splits, validation_ratio, random_state)
         validate_folds(folds, validation, mudataset)
+        for i, fold in enumerate(folds):
+            fold.metadata.setdefault("mode", mode)
+            fold.metadata.setdefault("fold_index", i)
+            fold.metadata.setdefault("n_splits", n_splits)
+            fold.metadata.setdefault("validation_ratio", validation_ratio)
+            fold.metadata.setdefault("random_state", random_state)
         return folds
 
     return wrapper  # type: ignore[return-value]
@@ -83,7 +89,7 @@ class SplitterRegistry:
         """
 
         def decorator(fn: Splitter) -> Splitter:
-            wrapped = _wrap_with_validation(fn, validation)
+            wrapped = _wrap_with_validation(fn, mode, validation)
             self._splitters[mode] = wrapped
             self._descriptions[mode] = description
             self._validations[mode] = validation
