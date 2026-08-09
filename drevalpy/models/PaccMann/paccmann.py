@@ -363,7 +363,7 @@ class PaccMann(DRPModel):
                 batch_gex = batch_gex.to(self.device)
                 batch_y = batch_y.to(self.device)
 
-                predictions, _ = self.model(batch_smiles, batch_gex)
+                predictions = self.model(batch_smiles, batch_gex)
                 total_loss += self.model.loss(predictions, batch_y).item()
 
         return total_loss / len(validation_loader)
@@ -515,7 +515,7 @@ class PaccMann(DRPModel):
 
                 optimizer.zero_grad()
 
-                predictions, _ = self.model(batch_smiles, batch_gex)
+                predictions = self.model(batch_smiles, batch_gex)
                 loss = self.model.loss(predictions, batch_y)
 
                 loss.backward()
@@ -590,7 +590,7 @@ class PaccMann(DRPModel):
             for batch_smiles, batch_gex in predict_loader:
                 batch_smiles = batch_smiles.to(self.device)
                 batch_gex = batch_gex.to(self.device)
-                batch_predictions, _ = self.model(batch_smiles, batch_gex)
+                batch_predictions = self.model(batch_smiles, batch_gex)
                 predictions_list.append(batch_predictions.cpu())
 
         predictions = torch.cat(predictions_list, dim=0)

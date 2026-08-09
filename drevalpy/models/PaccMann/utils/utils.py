@@ -20,17 +20,6 @@ def cuda():
     return torch.cuda.is_available()
 
 
-def get_log_molar(y, ic50_max=None, ic50_min=None):
-    """Converts PaccMann predictions from [0,1] to log(micromolar) range.
-
-    :param y: predicted values in the normalized range
-    :param ic50_max: maximum IC50 value used for scaling
-    :param ic50_min: minimum IC50 value used for scaling
-    :return: predictions transformed to the log-micromolar range
-    """
-    return y * (ic50_max - ic50_min) + ic50_min
-
-
 class Squeeze(nn.Module):
     """Squeeze wrapper for nn.Sequential."""
 

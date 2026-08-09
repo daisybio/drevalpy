@@ -14,7 +14,7 @@ import torch.nn as nn
 
 from .utils.hyperparams import ACTIVATION_FN_FACTORY, LOSS_FN_FACTORY
 from .utils.layers import ContextAttentionLayer, convolutional_layer, dense_layer
-from .utils.utils import get_device, get_log_molar
+from .utils.utils import get_device
 
 
 class PaccMannV2(nn.Module):
@@ -73,15 +73,9 @@ class PaccMannV2(nn.Module):
         # select loss function
         self.loss_fn = LOSS_FN_FACTORY[params.get("loss_fn", "mse")]
 
-        # scaling information
-        self.min_max_scaling = True if params.get("drug_sensitivity_processing_parameters", {}) != {} else False
-        if self.min_max_scaling:
-            self.IC50_max = params["drug_sensitivity_processing_parameters"]["parameters"]["max"]  # yapf: disable
-            self.IC50_min = params["drug_sensitivity_processing_parameters"]["parameters"]["min"]  # yapf: disable
-
         # input sizes
         self.smiles_padding_length = params["smiles_padding_length"]
-        self.number_of_genes = params.get("number_of_genes", 2128)
+        self.number_of_genes = params["number_of_genes"]
 
         # attention settings
         self.smiles_attention_size = params.get("smiles_attention_size", 64)
@@ -175,7 +169,7 @@ class PaccMannV2(nn.Module):
                     for head in range(self.molecule_heads[layer])
                 ]
             )
-        )  # yapf: disable
+        )
 
         # Attention layers: SMILES -> gene expression (focus on relevant genes)
         self.gene_attention_layers = nn.Sequential(
@@ -197,7 +191,7 @@ class PaccMannV2(nn.Module):
                     for head in range(self.gene_heads[layer])
                 ]
             )
-        )  # yapf: disable
+        )
 
         # Batch normalization for the concatenated attention output
         # Only applied if params['batch_norm'] = True
@@ -241,38 +235,32 @@ class PaccMannV2(nn.Module):
 
         :param smiles: tokenized SMILES tensor of shape [bs, smiles_padding_length]
         :param gep: gene expression tensor of shape [bs, number_of_genes]
-        :return:
-            - predictions: tensor of shape [batch_size, 1]
-            - prediction_dict: dictionary with predictions and attention outputs
+        :return: predictions, a tensor of shape [batch_size, 1]
         """
         # reshape gene input
         gep = torch.unsqueeze(gep, dim=-1)
         embedded_smiles = self.smiles_embedding(smiles.to(dtype=torch.int64))
 
-        # SMILES Convolutions. Unsqueeze has shape bs x 1 x T x H.
+        # SMILES convolutions, over an input of shape bs x 1 x T x H
         encoded_smiles = [embedded_smiles] + [
             self.convolutional_layers[ind](torch.unsqueeze(embedded_smiles, 1)).permute(0, 2, 1)
             for ind in range(len(self.convolutional_layers))
         ]
 
         # Molecule context attention
-        encodings, smiles_alphas, gene_alphas = [], [], []
+        encodings = []
         for layer in range(len(self.molecule_heads)):
             for head in range(self.molecule_heads[layer]):
-
                 ind = self.molecule_heads[0] * layer + head
-                e, a = self.molecule_attention_layers[ind](encoded_smiles[layer], gep)
+                e, _ = self.molecule_attention_layers[ind](encoded_smiles[layer], gep)
                 encodings.append(e)
-                smiles_alphas.append(a)
 
         # Gene context attention
         for layer in range(len(self.gene_heads)):
             for head in range(self.gene_heads[layer]):
                 ind = self.gene_heads[0] * layer + head
-
-                e, a = self.gene_attention_layers[ind](gep, encoded_smiles[layer], average_seq=False)
+                e, _ = self.gene_attention_layers[ind](gep, encoded_smiles[layer], average_seq=False)
                 encodings.append(e)
-                gene_alphas.append(a)
 
         # concat features
         encodings = torch.cat(encodings, dim=1)
@@ -284,27 +272,7 @@ class PaccMannV2(nn.Module):
             inputs = dl(inputs)
 
         # prediction
-        predictions = self.final_dense(inputs)
-        prediction_dict = {}
-
-        if not self.training:
-            # The below is to ease postprocessing
-            smiles_attention = torch.cat([torch.unsqueeze(p, -1) for p in smiles_alphas], dim=-1)
-            gene_attention = torch.cat([torch.unsqueeze(p, -1) for p in gene_alphas], dim=-1)
-            prediction_dict.update(
-                {
-                    "gene_attention": gene_attention,
-                    "smiles_attention": smiles_attention,
-                    "IC50": predictions,
-                    "log_micromolar_IC50": (
-                        get_log_molar(predictions, ic50_max=self.IC50_max, ic50_min=self.IC50_min)
-                        if self.min_max_scaling
-                        else predictions
-                    ),
-                }
-            )  # yapf: disable
-
-        return predictions, prediction_dict
+        return self.final_dense(inputs)
 
     def loss(self, yhat, y):
         """Compute the loss between predictions and targets.

@@ -138,7 +138,7 @@ class ContextAttentionLayer(nn.Module):
                     ("act_fn", individual_nonlinearity),
                 ]
             )
-        )  # yapf: disable
+        )
 
         # Project the context into the attention space
         self.context_projection = nn.Sequential(
@@ -151,7 +151,7 @@ class ContextAttentionLayer(nn.Module):
                     ("act_fn", individual_nonlinearity),
                 ]
             )
-        )  # yapf: disable
+        )
 
         # Optionally reduce the hidden size in context
         if context_sequence_length > 1:
@@ -168,7 +168,7 @@ class ContextAttentionLayer(nn.Module):
                         ("act_fn", individual_nonlinearity),
                     ]
                 )
-            )  # yapf: disable
+            )
         else:
             self.context_hidden_projection = nn.Sequential()
 
