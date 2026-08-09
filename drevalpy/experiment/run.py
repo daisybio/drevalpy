@@ -35,215 +35,163 @@ def _available_entity_ids(
     return available
 
 
-class Run:
-    """Single model + single fold execution unit.
+def _filter_to_featurizable_pairs(
+    model_class: type[DRPModel],
+    mudataset: Dataset,
+    split_masks: SplitMasks,
+) -> SplitMasks:
+    """Filter split masks to only include pairs where both entities have features.
 
-    Given a model class and a SplitMasks fold, trains the model (optionally
-    with HPO) and predicts on the test set. Returns a RunResult.
+    Uses the model's declared views to determine which modalities are required,
+    then intersects with available entities in the Dataset.
     """
+    config = model_class.model_config()
+    cl_views = config.cell_line_views()
+    drug_views = config.drug_views()
 
-    def __init__(
-        self,
-        model_class: type[DRPModel],
-        mudataset: Dataset,
-        split_masks: SplitMasks,
-        *,
-        hyperparameter_tuning: bool = True,
-        response_transformation: TransformerMixin | None = None,
-        hpo_metric: str = "RMSE",
-        hpo_num_samples: int = 16,
-        hpo_random_state: int = 42,
-    ) -> None:
-        """Initialize a Run.
+    available_cl = _available_entity_ids(mudataset, cl_views, side="cell_line")
+    available_dr = _available_entity_ids(mudataset, drug_views, side="drug")
 
-        :param model_class: DRPModel subclass to train.
-        :param mudataset: Full dataset with all features.
-        :param split_masks: Single fold's train/test/val pair arrays.
-        :param hyperparameter_tuning: Whether to run HPO.
-        :param response_transformation: Optional sklearn transformer for responses.
-        :param hpo_metric: Metric to optimize during HPO.
-        :param hpo_num_samples: Number of HPO trials.
-        :param hpo_random_state: Random seed for HPO.
-        """
-        self.model_class = model_class
-        self.dataset = mudataset
-        self.hyperparameter_tuning = hyperparameter_tuning
-        self.response_transformation = response_transformation
-        self.hpo_metric = hpo_metric
-        self.hpo_num_samples = hpo_num_samples
-        self.hpo_random_state = hpo_random_state
+    if available_cl is None and available_dr is None:
+        return split_masks
 
-        self.split_masks = self._filter_to_featurizable_pairs(model_class, mudataset, split_masks)
+    all_cl_ids = mudataset.cell_line_ids
+    all_dr_ids = mudataset.drug_ids
 
-    @staticmethod
-    def _filter_to_featurizable_pairs(
-        model_class: type[DRPModel],
-        mudataset: Dataset,
-        split_masks: SplitMasks,
-    ) -> SplitMasks:
-        """Filter split masks to only include pairs where both entities have features.
+    def _filter_pairs(pairs: np.ndarray) -> np.ndarray:
+        if len(pairs) == 0:
+            return pairs
+        mask = np.ones(len(pairs), dtype=bool)
+        if available_cl is not None:
+            mask &= np.array([all_cl_ids[idx] in available_cl for idx in pairs[:, 0]])
+        if available_dr is not None:
+            mask &= np.array([all_dr_ids[idx] in available_dr for idx in pairs[:, 1]])
+        return pairs[mask]
 
-        Uses the model's declared views to determine which modalities are required,
-        then intersects with available entities in the Dataset.
-        """
-        config = model_class.model_config()
-        cl_views = config.cell_line_views()
-        drug_views = config.drug_views()
+    train = _filter_pairs(split_masks.train)
+    test = _filter_pairs(split_masks.test)
+    val = _filter_pairs(split_masks.val)
 
-        available_cl = _available_entity_ids(mudataset, cl_views, side="cell_line")
-        available_dr = _available_entity_ids(mudataset, drug_views, side="drug")
+    n_before = len(split_masks.train) + len(split_masks.test) + len(split_masks.val)
+    n_after = len(train) + len(test) + len(val)
+    if n_before != n_after:
+        logger.info(
+            "Filtered %d pairs to %d featurizable pairs (%.1f%% removed)",
+            n_before,
+            n_after,
+            100.0 * (n_before - n_after) / n_before,
+        )
 
-        if available_cl is None and available_dr is None:
-            return split_masks
+    return SplitMasks(train=train, test=test, val=val, metadata=split_masks.metadata)
 
-        all_cl_ids = mudataset.cell_line_ids
-        all_dr_ids = mudataset.drug_ids
 
-        def _filter_pairs(pairs: np.ndarray) -> np.ndarray:
-            if len(pairs) == 0:
-                return pairs
-            mask = np.ones(len(pairs), dtype=bool)
-            if available_cl is not None:
-                mask &= np.array([all_cl_ids[idx] in available_cl for idx in pairs[:, 0]])
-            if available_dr is not None:
-                mask &= np.array([all_dr_ids[idx] in available_dr for idx in pairs[:, 1]])
-            return pairs[mask]
+def run(
+    model_class: type[DRPModel],
+    mudataset: Dataset,
+    split_masks: SplitMasks,
+    *,
+    hyperparameter_tuning: bool = True,
+    response_transformation: TransformerMixin | None = None,
+    hpo_metric: str = "RMSE",
+    hpo_num_samples: int = 16,
+    hpo_random_state: int = 42,
+) -> RunResult:
+    """Train a single model on a single fold and predict on the test set.
 
-        train = _filter_pairs(split_masks.train)
-        test = _filter_pairs(split_masks.test)
-        val = _filter_pairs(split_masks.val)
+    :param model_class: DRPModel subclass to train.
+    :param mudataset: Full dataset with all features.
+    :param split_masks: Single fold's train/test/val pair arrays.
+    :param hyperparameter_tuning: Whether to run HPO.
+    :param response_transformation: Optional sklearn transformer for responses.
+    :param hpo_metric: Metric to optimize during HPO.
+    :param hpo_num_samples: Number of HPO trials.
+    :param hpo_random_state: Random seed for HPO.
+    :returns: RunResult with predictions, ground truth, and metrics.
+    """
+    from drevalpy.components.core.tuning.config import build_experiment_hpo_config
+    from drevalpy.evaluation import AVAILABLE_METRICS
 
-        n_before = len(split_masks.train) + len(split_masks.test) + len(split_masks.val)
-        n_after = len(train) + len(test) + len(val)
-        if n_before != n_after:
-            logger.info(
-                "Filtered %d pairs to %d featurizable pairs (%.1f%% removed)",
-                n_before,
-                n_after,
-                100.0 * (n_before - n_after) / n_before,
-            )
+    from .fold import merge_train_val_scopes, prepare_mu_fold
+    from .training import train_and_predict
 
-        return SplitMasks(train=train, test=test, val=val, metadata=split_masks.metadata)
+    split_masks = _filter_to_featurizable_pairs(model_class, mudataset, split_masks)
 
-    def __repr__(self) -> str:
-        """Formatted summary of this run configuration."""
-        model_name = self.model_class.get_model_name()
-        lines = [
-            "Run",
-            f"    Model: {model_name}",
-        ]
+    model_name = model_class.get_model_name()
+    logger.info("Run: %s, fold %d", model_name, split_masks.metadata.get("fold_index", 0))
 
-        if self.hyperparameter_tuning:
-            lines.append("    Hyperparameter Tuning: enabled")
-            lines.append(f"        metric: {self.hpo_metric}")
-            lines.append(f"        num_samples: {self.hpo_num_samples}")
-        else:
-            lines.append("    Hyperparameter Tuning: disabled")
-            defaults = self.model_class.get_default_hyperparameters()
-            if defaults:
-                lines.append("    Default Hyperparameters:")
-                for k, v in defaults.items():
-                    lines.append(f"        {k}: {v}")
+    fold_data = prepare_mu_fold(mudataset, split_masks, model_class)
 
-        lines.append("    Fold:")
-        lines.append(f"        index: {self.split_masks.metadata.get('fold_index', 0)}")
-        for k, v in self.split_masks.metadata.items():
-            if k != "fold_index":
-                lines.append(f"        {k}: {v}")
+    trials: list[TrialResult] | None = None
+    if hyperparameter_tuning:
+        from drevalpy.components.core.tuning.hpo import hpam_tune_with_trials
 
-        lines.append(f"    Train pairs: {len(self.split_masks.train)}")
-        lines.append(f"    Test pairs: {len(self.split_masks.test)}")
-        lines.append(f"    Val pairs: {len(self.split_masks.val)}")
-
-        return "\n".join(lines)
-
-    def execute(self) -> RunResult:
-        """Train the model and predict on the test set.
-
-        :returns: RunResult with predictions, ground truth, and metrics.
-        """
-        from drevalpy.components.core.tuning.config import build_experiment_hpo_config
-        from drevalpy.evaluation import AVAILABLE_METRICS
-
-        from .fold import merge_train_val_scopes, prepare_mu_fold
-        from .training import train_and_predict
-
-        model_name = self.model_class.get_model_name()
-        logger.info("Run: %s, fold %d", model_name, self.split_masks.metadata.get("fold_index", 0))
-
-        fold_data = prepare_mu_fold(self.dataset, self.split_masks, self.model_class)
-
-        trials: list[TrialResult] | None = None
-        if self.hyperparameter_tuning:
-            from drevalpy.components.core.tuning.hpo import hpam_tune_with_trials
-
-            hpo_cfg = build_experiment_hpo_config(
-                self.hpo_metric,
-                n_trials=self.hpo_num_samples,
-                random_state=self.hpo_random_state,
-            )
-            best_hpams, raw_trials = hpam_tune_with_trials(
-                model_class=self.model_class,
-                mudataset=self.dataset,
-                train_scope=fold_data.train_scope,
-                val_scope=fold_data.val_scope,
-                early_stopping_scope=fold_data.early_stopping_scope,
-                response_transformation=self.response_transformation,
-                metric=self.hpo_metric,
-                model_checkpoint_dir=None,
-                hpo_config=hpo_cfg,
-            )
-            trials = [
-                TrialResult(
-                    hyperparameters=params,
-                    metrics=trial_metrics,
-                    optimization_metric=self.hpo_metric,
-                    predictions=preds,
-                )
-                for params, trial_metrics, preds in raw_trials
-            ]
-        else:
-            best_hpams = self.model_class.get_default_hyperparameters()
-
-        logger.info("Best hyperparameters: %s", best_hpams)
-
-        merged_scope = merge_train_val_scopes(self.split_masks)
-        model = self.model_class(best_hpams)
-        fold_transform = None if self.response_transformation is None else clone(self.response_transformation)
-
-        predictions = train_and_predict(
-            model=model,
-            mudataset=self.dataset,
-            train_scope=merged_scope,
-            test_scope=fold_data.test_scope,
+        hpo_cfg = build_experiment_hpo_config(
+            hpo_metric,
+            n_trials=hpo_num_samples,
+            random_state=hpo_random_state,
+        )
+        best_hpams, raw_trials = hpam_tune_with_trials(
+            model_class=model_class,
+            mudataset=mudataset,
+            train_scope=fold_data.train_scope,
+            val_scope=fold_data.val_scope,
             early_stopping_scope=fold_data.early_stopping_scope,
-            response_transformation=fold_transform,
+            response_transformation=response_transformation,
+            metric=hpo_metric,
+            model_checkpoint_dir=None,
+            hpo_config=hpo_cfg,
         )
+        trials = [
+            TrialResult(
+                hyperparameters=params,
+                metrics=trial_metrics,
+                optimization_metric=hpo_metric,
+                predictions=preds,
+            )
+            for params, trial_metrics, preds in raw_trials
+        ]
+    else:
+        best_hpams = model_class.get_default_hyperparameters()
 
-        response_matrix = self.dataset.response_matrix
-        test_pairs = self.split_masks.test
-        ground_truth = response_matrix[test_pairs[:, 0], test_pairs[:, 1]]
+    logger.info("Best hyperparameters: %s", best_hpams)
 
-        cl_ids = self.dataset.cell_line_ids[test_pairs[:, 0]]
-        dr_ids = self.dataset.drug_ids[test_pairs[:, 1]]
+    merged_scope = merge_train_val_scopes(split_masks)
+    model = model_class(best_hpams)
+    fold_transform = None if response_transformation is None else clone(response_transformation)
 
-        valid = ~np.isnan(predictions) & ~np.isnan(ground_truth)
-        metrics: dict[str, float] = {}
-        if valid.any():
-            from drevalpy.evaluation import _compute_metric_value
+    predictions = train_and_predict(
+        model=model,
+        mudataset=mudataset,
+        train_scope=merged_scope,
+        test_scope=fold_data.test_scope,
+        early_stopping_scope=fold_data.early_stopping_scope,
+        response_transformation=fold_transform,
+    )
 
-            for metric_name in AVAILABLE_METRICS:
-                metrics[metric_name] = _compute_metric_value(metric_name, predictions[valid], ground_truth[valid])
+    response_matrix = mudataset.response_matrix
+    test_pairs = split_masks.test
+    ground_truth = response_matrix[test_pairs[:, 0], test_pairs[:, 1]]
 
-        return RunResult(
-            model_name=model_name,
-            fold_index=self.split_masks.metadata.get("fold_index", 0),
-            predictions=predictions,
-            ground_truth=ground_truth,
-            cell_line_ids=cl_ids,
-            drug_ids=dr_ids,
-            best_hyperparameters=best_hpams,
-            metrics=metrics,
-            fold_metadata=self.split_masks.metadata,
-            trials=trials,
-        )
+    cl_ids = mudataset.cell_line_ids[test_pairs[:, 0]]
+    dr_ids = mudataset.drug_ids[test_pairs[:, 1]]
+
+    valid = ~np.isnan(predictions) & ~np.isnan(ground_truth)
+    metrics: dict[str, float] = {}
+    if valid.any():
+        from drevalpy.evaluation import _compute_metric_value
+
+        for metric_name in AVAILABLE_METRICS:
+            metrics[metric_name] = _compute_metric_value(metric_name, predictions[valid], ground_truth[valid])
+
+    return RunResult(
+        model_name=model_name,
+        fold_index=split_masks.metadata.get("fold_index", 0),
+        predictions=predictions,
+        ground_truth=ground_truth,
+        cell_line_ids=cl_ids,
+        drug_ids=dr_ids,
+        best_hyperparameters=best_hpams,
+        metrics=metrics,
+        fold_metadata=split_masks.metadata,
+        trials=trials,
+    )

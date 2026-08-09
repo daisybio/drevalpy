@@ -304,7 +304,7 @@ class _ComponentStack:
     ) -> tuple[ResponseBatch, ResponseBatch | None]:
         """Safety net: warn if NaN features remain after upfront filtering.
 
-        In normal operation, Run.__init__ pre-filters pairs to entities with
+        In normal operation, the run() function pre-filters pairs to entities with
         available features, so this should be a no-op. If NaN still appears,
         it indicates a data integrity issue.
         """
