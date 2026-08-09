@@ -132,11 +132,13 @@ class SplitterRegistry:
         """Return registry contents as a pandas DataFrame."""
         rows = []
         for mode in self.modes:
-            rows.append({
-                "Mode": mode,
-                "Description": self._descriptions.get(mode, ""),
-                "Validation": self._validations.get(mode, ""),
-            })
+            rows.append(
+                {
+                    "Mode": mode,
+                    "Description": self._descriptions.get(mode, ""),
+                    "Validation": self._validations.get(mode, ""),
+                }
+            )
         return pd.DataFrame(rows)
 
     def __repr__(self) -> str:

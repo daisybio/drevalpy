@@ -9,15 +9,16 @@ import pytest
 
 from drevalpy.components.core.tuning.config import HPOConfig
 from drevalpy.components.core.tuning.hpo import hpam_tune
-from drevalpy.data.structures import EntityScope
+from drevalpy.data.structures import SplitMask
 from drevalpy.models import construct_model
 from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
 
 def _tiny_mudataset_and_scopes():
     mudataset = synthetic_mudataset_gene_expression_fingerprints()
-    train_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
-    val_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
+    shape = mudataset.response_matrix.shape
+    train_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
+    val_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
     return mudataset, train_scope, val_scope
 
 

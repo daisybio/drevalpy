@@ -37,7 +37,7 @@ def create_splits(
 
     :param mudataset: object exposing cell_line_ids, drug_ids, response_matrix, get_tissue
     :param params: pipeline split settings (seed, validation ratio, fold count, etc.)
-    :returns: list containing one SplitMasks with cell-line index arrays
+    :returns: list containing one SplitMasks with boolean masks
     """
     rng = np.random.default_rng(params.random_state)
     unique_cell_lines = np.unique(mudataset.cell_line_ids)
@@ -52,25 +52,21 @@ def create_splits(
     train_cls = set(shuffled[n_test + n_val :].tolist())
 
     all_cl_ids = mudataset.cell_line_ids
-    all_drug_ids = mudataset.drug_ids
-    n_drugs = len(all_drug_ids)
+    response = mudataset.response_matrix
+    observed = ~np.isnan(response)
 
     train_cl_mask = np.isin(all_cl_ids, list(train_cls))
     val_cl_mask = np.isin(all_cl_ids, list(val_cls))
     test_cl_mask = np.isin(all_cl_ids, list(test_cls))
 
-    train_cl_idx = np.where(train_cl_mask)[0]
-    val_cl_idx = np.where(val_cl_mask)[0]
-    test_cl_idx = np.where(test_cl_mask)[0]
-
-    train_pairs = np.array([[c, d] for c in train_cl_idx for d in range(n_drugs)])
-    val_pairs = np.array([[c, d] for c in val_cl_idx for d in range(n_drugs)]) if len(val_cl_idx) > 0 else np.empty((0, 2), dtype=np.intp)
-    test_pairs = np.array([[c, d] for c in test_cl_idx for d in range(n_drugs)])
+    train = observed & train_cl_mask[:, np.newaxis]
+    val = observed & val_cl_mask[:, np.newaxis]
+    test = observed & test_cl_mask[:, np.newaxis]
 
     return [
         SplitMasks(
-            train=train_pairs,
-            test=test_pairs,
-            val=val_pairs,
+            train=train,
+            test=test,
+            val=val,
         )
     ]

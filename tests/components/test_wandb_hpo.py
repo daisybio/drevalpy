@@ -7,7 +7,7 @@ from unittest.mock import patch
 import numpy as np
 
 from drevalpy.components.core.tuning.config import HPOConfig
-from drevalpy.data.structures import EntityScope
+from drevalpy.data.structures import SplitMask
 from drevalpy.models import construct_model
 
 
@@ -18,8 +18,9 @@ def test_hpam_tune_logs_wandb_config(mock_evaluate) -> None:
 
     model_cls = construct_model("ElasticNet")
     mudataset = synthetic_mudataset_gene_expression_fingerprints()
-    train_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
-    val_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
+    shape = mudataset.response_matrix.shape
+    train_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
+    val_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
 
     init_wandb_calls: list[dict] = []
 

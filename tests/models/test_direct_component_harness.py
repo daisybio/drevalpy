@@ -137,7 +137,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         import pandas as pd
 
         from drevalpy.data.structures.dataset import Dataset
-        from drevalpy.data.structures import SplitMasks
+        from drevalpy.data.structures import SplitMask, SplitMasks
         from drevalpy.models import construct_model
 
         cl_ids = np.array(["cl1", "cl2"])
@@ -167,9 +167,9 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         mudataset_id = Dataset(mdata2, name="test")
 
         split = SplitMasks(
-            train=np.array([[0, 0], [0, 1]]),
-            test=np.array([[1, 0], [1, 1]]),
-            val=np.empty((0, 2), dtype=np.intp),
+            train=SplitMask(np.array([[True, True], [False, False]])),
+            test=SplitMask(np.array([[False, False], [True, True]])),
+            val=SplitMask(np.zeros((2, 2), dtype=bool)),
         )
 
         naive = construct_model("NaivePredictor")({})

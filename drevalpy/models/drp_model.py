@@ -11,7 +11,7 @@ from upath import UPath as Path
 
 from drevalpy.components.core.contracts.training_context import TrainingContext
 from drevalpy.components.registry import get_predictor
-from drevalpy.data.structures import EntityScope, SplitMasks
+from drevalpy.data.structures import SplitMask, SplitMasks
 from drevalpy.data.structures.dataset import Dataset
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
 from drevalpy.models._drp_logging import _DRPLoggingMixin
@@ -239,11 +239,11 @@ class DRPModel(_DRPLoggingMixin):
         *,
         mudataset: Dataset | None,
         split: SplitMasks | None,
-        scope: EntityScope | None,
-        early_stopping_scope: EntityScope | None,
+        scope: SplitMask | None,
+        early_stopping_scope: SplitMask | None,
         output,
         cell_line_input,
-    ) -> tuple[Dataset | None, EntityScope | None, EntityScope | None, Any, Any, Any]:
+    ) -> tuple[Dataset | None, SplitMask | None, SplitMask | None, Any, Any, Any]:
         """Resolve overloaded positional/keyword args for train()."""
         if mudataset is None and mudataset_or_output is not None:
             if isinstance(mudataset_or_output, Dataset):
@@ -251,17 +251,17 @@ class DRPModel(_DRPLoggingMixin):
             else:
                 output = mudataset_or_output
         if scope is None and split_or_cell_line_input is not None:
-            if isinstance(split_or_cell_line_input, EntityScope):
+            if isinstance(split_or_cell_line_input, SplitMask):
                 scope = split_or_cell_line_input
             elif isinstance(split_or_cell_line_input, SplitMasks):
                 split = split_or_cell_line_input
             else:
                 cell_line_input = split_or_cell_line_input
-        # Convert SplitMasks to EntityScope for the new path
+        # Convert SplitMasks to SplitMask for the new path
         if scope is None and split is not None:
-            scope = EntityScope(pairs=split.train)
-            if split.val.size > 0:
-                early_stopping_scope = EntityScope(pairs=split.val)
+            scope = split.train
+            if split.val.any():
+                early_stopping_scope = split.val
         return mudataset, scope, early_stopping_scope, output, cell_line_input, drug_input
 
     @pipeline_function
@@ -273,8 +273,8 @@ class DRPModel(_DRPLoggingMixin):
         *,
         mudataset: Dataset | None = None,
         split: SplitMasks | None = None,
-        scope: EntityScope | None = None,
-        early_stopping_scope: EntityScope | None = None,
+        scope: SplitMask | None = None,
+        early_stopping_scope: SplitMask | None = None,
         output=None,
         cell_line_input=None,
         output_earlystopping=None,
@@ -286,9 +286,9 @@ class DRPModel(_DRPLoggingMixin):
         legacy internal path (output, cell_line_input, drug_input).
 
         :param mudataset: Dataset containing response data and all features.
-        :param scope: EntityScope defining train indices for this fold.
-        :param split: (compat) SplitMasks; converted to EntityScope internally.
-        :param early_stopping_scope: Optional EntityScope for early stopping.
+        :param scope: SplitMask defining train indices for this fold.
+        :param split: (compat) SplitMasks; converted to SplitMask internally.
+        :param early_stopping_scope: Optional SplitMask for early stopping.
         :param output: (legacy) ResponseBatch for training pairs.
         :param cell_line_input: (legacy) FeatureSource for cell lines.
         :param drug_input: (legacy) FeatureSource for drugs, or None.
@@ -363,18 +363,18 @@ class DRPModel(_DRPLoggingMixin):
         drug_input,
         *,
         mudataset: Dataset | None,
-        scope: EntityScope | None,
+        scope: SplitMask | None,
         split: SplitMasks | None,
         cell_line_ids: np.ndarray | None,
         drug_ids: np.ndarray | None,
-    ) -> tuple[Dataset | None, EntityScope | None, np.ndarray | None, np.ndarray | None, Any, Any]:
+    ) -> tuple[Dataset | None, SplitMask | None, np.ndarray | None, np.ndarray | None, Any, Any]:
         """Resolve overloaded positional/keyword args for predict()."""
         mudataset, cell_line_ids, drug_ids = self._resolve_predict_positional(
             mudataset_or_cell_line_ids, scope_or_drug_ids, mudataset, cell_line_ids, drug_ids
         )
         scope, split = self._resolve_predict_scope(scope_or_drug_ids, scope, split)
         if scope is None and split is not None:
-            scope = EntityScope(pairs=split.test)
+            scope = split.test
         return mudataset, scope, cell_line_ids, drug_ids, cell_line_input, drug_input
 
     @staticmethod
@@ -393,7 +393,7 @@ class DRPModel(_DRPLoggingMixin):
     def _resolve_predict_scope(scope_or_drug_ids, scope, split):
         if scope is not None or scope_or_drug_ids is None:
             return scope, split
-        if isinstance(scope_or_drug_ids, EntityScope):
+        if isinstance(scope_or_drug_ids, SplitMask):
             return scope_or_drug_ids, split
         if isinstance(scope_or_drug_ids, SplitMasks):
             return scope, scope_or_drug_ids
@@ -407,7 +407,7 @@ class DRPModel(_DRPLoggingMixin):
         drug_input=None,
         *,
         mudataset: Dataset | None = None,
-        scope: EntityScope | None = None,
+        scope: SplitMask | None = None,
         split: SplitMasks | None = None,
         cell_line_ids: np.ndarray | None = None,
         drug_ids: np.ndarray | None = None,
@@ -418,8 +418,8 @@ class DRPModel(_DRPLoggingMixin):
         legacy internal path (cell_line_ids, drug_ids, cell_line_input, drug_input).
 
         :param mudataset: Dataset containing all features.
-        :param scope: EntityScope with indices to predict on.
-        :param split: (compat) SplitMasks; test indices converted to EntityScope.
+        :param scope: SplitMask with indices to predict on.
+        :param split: (compat) SplitMasks; test indices converted to SplitMask.
         :returns: Predicted response values.
         :raises RuntimeError: If the model is untrained or lacks a component stack.
         """

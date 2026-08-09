@@ -21,7 +21,7 @@ from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
 from drevalpy.models.config.resolved import ResolvedModelConfig
 
 if TYPE_CHECKING:
-    from drevalpy.data.structures import EntityScope
+    from drevalpy.data.structures import SplitMask
     from drevalpy.data.structures.dataset import Dataset
 
 
@@ -528,12 +528,12 @@ class _ComponentStack:
     @staticmethod
     def _extract_response_pairs(
         mudataset: Dataset,
-        scope: EntityScope,
+        scope: SplitMask,
     ) -> ResponseBatch:
         """Build a ResponseBatch from the Dataset for given pair indices.
 
         :param mudataset: Source of response values.
-        :param scope: EntityScope with 2D pair array.
+        :param scope: SplitMask with 2D pair array.
         :returns: Flat ResponseBatch of (cell_line, drug, response) triples.
         """
         pairs = scope.pairs
@@ -579,11 +579,11 @@ class _ComponentStack:
     def train(
         self,
         mudataset: Dataset,
-        scope: EntityScope,
+        scope: SplitMask,
         *,
         training_context: TrainingContext | None = None,
     ) -> _ComponentStack:
-        """Train the component stack using a Dataset and EntityScope.
+        """Train the component stack using a Dataset and SplitMask.
 
         Extracts response pairs and features from the Dataset, then fits
         featurizers and the predictor.
@@ -629,8 +629,8 @@ class _ComponentStack:
     def train_with_early_stopping(
         self,
         mudataset: Dataset,
-        scope: EntityScope,
-        early_stopping_scope: EntityScope,
+        scope: SplitMask,
+        early_stopping_scope: SplitMask,
         *,
         training_context: TrainingContext | None = None,
     ) -> _ComponentStack:
@@ -680,9 +680,9 @@ class _ComponentStack:
     def predict(
         self,
         mudataset: Dataset,
-        scope: EntityScope,
+        scope: SplitMask,
     ) -> np.ndarray:
-        """Predict responses for the entities defined by an EntityScope.
+        """Predict responses for the entities defined by an SplitMask.
 
         Returns one prediction per pair in scope. Pairs with missing features
         get NaN predictions (maintaining alignment with scope.pairs).

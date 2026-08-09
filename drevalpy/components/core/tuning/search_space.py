@@ -313,7 +313,9 @@ def sample_from_optuna_trial(trial: Any, space_dict: dict[str, Any]) -> dict[str
         if kind == "int":
             result[name] = trial.suggest_int(name, int(spec["low"]), int(spec["high"]), log=spec.get("log", False))
         elif kind == "float":
-            result[name] = trial.suggest_float(name, float(spec["low"]), float(spec["high"]), log=spec.get("log", False))
+            result[name] = trial.suggest_float(
+                name, float(spec["low"]), float(spec["high"]), log=spec.get("log", False)
+            )
         elif kind == "categorical":
             result[name] = trial.suggest_categorical(name, list(spec.get("choices", [])))
         else:

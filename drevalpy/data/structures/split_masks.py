@@ -1,4 +1,4 @@
-"""Unified 2D pair arrays for cross-validation folds."""
+"""Unified split masks for cross-validation folds."""
 
 from __future__ import annotations
 
@@ -9,30 +9,36 @@ from typing import Any
 import numpy as np
 from upath import UPath as Path
 
+from .split_mask import SplitMask
+
 
 @dataclass(frozen=True, slots=True)
 class SplitMasks:
-    """2D pair arrays for a single cross-validation fold.
+    """Collection of train/test/val masks for a single cross-validation fold.
 
-    Each array has shape (n_pairs, 2) where column 0 is the cell line index
-    and column 1 is the drug index into the response matrix. This format is
-    uniform across all split modes (LPO, LCO, LDO, LTO).
+    Each field is a ``SplitMask`` with shape (n_cell_lines, n_drugs).
+    This format is uniform across all split modes (LPO, LCO, LDO, LTO).
     """
 
-    train: np.ndarray
-    test: np.ndarray
-    val: np.ndarray
+    train: SplitMask
+    test: SplitMask
+    val: SplitMask
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Shape of the response matrix (n_cell_lines, n_drugs)."""
+        return self.train.shape
+
     def save(self, path: str | Path) -> None:
-        """Save to a .npz file (arrays + JSON-encoded metadata).
+        """Save to a .npz file (compressed bool arrays + JSON-encoded metadata).
 
         :param path: Output file path (should end in .npz).
         """
         arrays: dict[str, np.ndarray] = {
-            "train": self.train,
-            "test": self.test,
-            "val": self.val,
+            "train": self.train.mask,
+            "test": self.test.mask,
+            "val": self.val.mask,
         }
         if self.metadata:
             arrays["_metadata"] = np.array(json.dumps(self.metadata))
@@ -48,9 +54,9 @@ class SplitMasks:
         data = np.load(Path(path), allow_pickle=False)
         metadata = json.loads(str(data["_metadata"])) if "_metadata" in data else {}
         return cls(
-            train=data["train"],
-            test=data["test"],
-            val=data["val"],
+            train=SplitMask(data["train"]),
+            test=SplitMask(data["test"]),
+            val=SplitMask(data["val"]),
             metadata=metadata,
         )
 
@@ -58,6 +64,7 @@ class SplitMasks:
         """Formatted summary."""
         lines = [
             "SplitMasks",
+            f"    Shape: {self.shape}",
             f"    Train: {len(self.train)} pairs",
             f"    Test: {len(self.test)} pairs",
             f"    Val: {len(self.val)} pairs",

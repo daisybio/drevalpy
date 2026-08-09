@@ -18,7 +18,7 @@ from drevalpy.components.core.tuning.drp_hyperparameters import (
     tuned_config_for_drp_model,
 )
 from drevalpy.components.core.tuning.hpo_runtime import build_optuna_objective, run_optuna_study
-from drevalpy.data.structures import EntityScope
+from drevalpy.data.structures import SplitMask
 from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
@@ -34,9 +34,9 @@ def hpam_tune(
     *,
     model_class: type[DRPModel],
     mudataset: Dataset,
-    train_scope: EntityScope,
-    val_scope: EntityScope,
-    early_stopping_scope: EntityScope | None,
+    train_scope: SplitMask,
+    val_scope: SplitMask,
+    early_stopping_scope: SplitMask | None,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     model_checkpoint_dir: str | Path | None = None,
@@ -45,12 +45,12 @@ def hpam_tune(
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Tune hyperparameters using Dataset + EntityScope with Optuna.
+    """Tune hyperparameters using Dataset + SplitMask with Optuna.
 
     :param model_class: Model class to tune.
     :param mudataset: Full dataset with all features.
-    :param train_scope: Training EntityScope.
-    :param val_scope: Validation EntityScope for scoring.
+    :param train_scope: Training SplitMask.
+    :param val_scope: Validation SplitMask for scoring.
     :param early_stopping_scope: Optional early-stopping scope.
     :param response_transformation: Optional response transformer.
     :param metric: Metric to optimize.
@@ -116,9 +116,9 @@ def hpam_tune_with_trials(
     *,
     model_class: type[DRPModel],
     mudataset: Dataset,
-    train_scope: EntityScope,
-    val_scope: EntityScope,
-    early_stopping_scope: EntityScope | None,
+    train_scope: SplitMask,
+    val_scope: SplitMask,
+    early_stopping_scope: SplitMask | None,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     model_checkpoint_dir: str | Path | None = None,

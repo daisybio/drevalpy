@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from drevalpy.experiment.randomization import build_randomization_test_views
+
 from drevalpy.models._model_lookup import get_model_class
 
 

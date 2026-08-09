@@ -16,7 +16,7 @@ from drevalpy.components.core.tuning.drp_hyperparameters import (
     tuned_config_for_drp_model,
 )
 from drevalpy.components.core.tuning.search_space import sample_from_optuna_trial
-from drevalpy.data.structures import EntityScope
+from drevalpy.data.structures import SplitMask
 from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
@@ -47,11 +47,11 @@ def _construct_trial_model(model_class: type[DRPModel], sampled: dict[str, Any])
     return construct_drp_model_from_config(model_class, trial_config)
 
 
-def _extract_ground_truth(mudataset: Dataset, scope: EntityScope) -> np.ndarray:
+def _extract_ground_truth(mudataset: Dataset, scope: SplitMask) -> np.ndarray:
     """Extract ground truth response values from Dataset for the given scope.
 
     :param mudataset: Source of response values.
-    :param scope: EntityScope with 2D pair array.
+    :param scope: SplitMask with 2D pair array.
     :returns: 1-D array of non-NaN ground-truth response values.
     """
     response_matrix = mudataset.response_matrix
@@ -70,14 +70,14 @@ def _mu_evaluate_trial_model(
     *,
     metric: str,
     mudataset: Dataset,
-    train_scope: EntityScope,
-    val_scope: EntityScope,
-    early_stopping_scope: EntityScope | None,
+    train_scope: SplitMask,
+    val_scope: SplitMask,
+    early_stopping_scope: SplitMask | None,
     response_transformation: TransformerMixin | None,
     model_checkpoint_dir: str | Path | None,
     trial_number: int = 0,
 ) -> float:
-    """Train a trial model and compute a validation metric using Dataset + EntityScope."""
+    """Train a trial model and compute a validation metric using Dataset + SplitMask."""
     from drevalpy.evaluation import AVAILABLE_METRICS
 
     trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
@@ -123,9 +123,9 @@ def _mu_evaluate_trial_all_metrics(
     trial_model: DRPModel,
     *,
     mudataset: Dataset,
-    train_scope: EntityScope,
-    val_scope: EntityScope,
-    early_stopping_scope: EntityScope | None,
+    train_scope: SplitMask,
+    val_scope: SplitMask,
+    early_stopping_scope: SplitMask | None,
     response_transformation: TransformerMixin | None,
     model_checkpoint_dir: str | Path | None,
     trial_number: int = 0,
@@ -227,9 +227,9 @@ def _optuna_objective(
     *,
     model_class: type[DRPModel],
     mudataset: Dataset,
-    train_scope: EntityScope,
-    val_scope: EntityScope,
-    early_stopping_scope: EntityScope | None,
+    train_scope: SplitMask,
+    val_scope: SplitMask,
+    early_stopping_scope: SplitMask | None,
     response_transformation: TransformerMixin | None,
     metric: str,
     structured_space: dict[str, Any],
@@ -282,9 +282,9 @@ def build_optuna_objective(
     *,
     model_class: type[DRPModel],
     mudataset: Dataset,
-    train_scope: EntityScope,
-    val_scope: EntityScope,
-    early_stopping_scope: EntityScope | None,
+    train_scope: SplitMask,
+    val_scope: SplitMask,
+    early_stopping_scope: SplitMask | None,
     response_transformation: TransformerMixin | None,
     metric: str,
     structured_space: dict[str, Any],
@@ -299,8 +299,8 @@ def build_optuna_objective(
 
     :param model_class: Model class to tune.
     :param mudataset: Full dataset with all features.
-    :param train_scope: Training EntityScope.
-    :param val_scope: Validation EntityScope for scoring.
+    :param train_scope: Training SplitMask.
+    :param val_scope: Validation SplitMask for scoring.
     :param early_stopping_scope: Optional early-stopping scope.
     :param response_transformation: Optional response transformer.
     :param metric: Metric to optimize.

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import pandas as pd
-
 from drevalpy.experiment.consolidate import (
     consolidate_single_drug_model_predictions_impl,
 )
+
 from drevalpy.models._model_lookup import get_model_class
 
 

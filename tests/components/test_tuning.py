@@ -79,13 +79,14 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
 @patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.1)
 def test_hpam_tune_uses_optuna(mock_evaluate) -> None:
     from drevalpy.components.core.tuning.hpo import hpam_tune
-    from drevalpy.data.structures import EntityScope
+    from drevalpy.data.structures import SplitMask
     from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
     model_cls = construct_model("ElasticNet")
     mudataset = synthetic_mudataset_gene_expression_fingerprints()
-    train_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
-    val_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
+    shape = mudataset.response_matrix.shape
+    train_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
+    val_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
     best = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,

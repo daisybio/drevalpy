@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.data.structures import SplitMasks
+from drevalpy.data.structures import SplitMask, SplitMasks
 from drevalpy.data.structures.response_batch import ResponseBatch
 from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from tests.conftest import MockFeatureSource
@@ -110,19 +110,27 @@ def synthetic_mudataset_identity():
     return Dataset(mdata, name="test")
 
 
+def _mask_2x2(*positions: tuple[int, int]) -> SplitMask:
+    """Build a 2x2 SplitMask with True at the given (row, col) positions."""
+    mask = np.zeros((2, 2), dtype=bool)
+    for r, c in positions:
+        mask[r, c] = True
+    return SplitMask(mask)
+
+
 def lpo_split_masks_all_train() -> SplitMasks:
-    """LPO-style masks: all 4 pairs (cl0,d0),(cl0,d1),(cl1,d0),(cl1,d1) as train, one as test, none as val."""
+    """LPO-style masks: all 4 pairs as train, (0,0) as test, none as val."""
     return SplitMasks(
-        train=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]),
-        test=np.array([[0, 0]]),
-        val=np.empty((0, 2), dtype=np.intp),
+        train=_mask_2x2((0, 0), (0, 1), (1, 0), (1, 1)),
+        test=_mask_2x2((0, 0)),
+        val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
 
 
 def lco_split_masks() -> SplitMasks:
     """LCO-style masks: cl0 pairs in train, cl1 pairs in test, no val."""
     return SplitMasks(
-        train=np.array([[0, 0], [0, 1]]),
-        test=np.array([[1, 0], [1, 1]]),
-        val=np.empty((0, 2), dtype=np.intp),
+        train=_mask_2x2((0, 0), (0, 1)),
+        test=_mask_2x2((1, 0), (1, 1)),
+        val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )

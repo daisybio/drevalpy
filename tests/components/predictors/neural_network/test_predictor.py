@@ -28,7 +28,7 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures import SplitMasks
+    from drevalpy.data.structures import SplitMask, SplitMasks
     from drevalpy.data.structures.dataset import Dataset
 
     cl_ids = np.array(["cl1", "cl2"])
@@ -49,9 +49,9 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
     mudataset = Dataset(mdata, name="test")
     split = SplitMasks(
-        train=np.array([[0, 0], [0, 1]]),
-        test=np.array([[1, 0], [1, 1]]),
-        val=np.empty((0, 2), dtype=np.intp),
+        train=SplitMask(np.array([[True, True], [False, False]])),
+        test=SplitMask(np.array([[False, False], [True, True]])),
+        val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
 
     config = from_spec(

@@ -1,5 +1,6 @@
 """Component registries for cell-line featurizers, drug featurizers, and predictors."""
 
+from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.registry.base import Registry
 from drevalpy.components.registry.featurizer_registration import (
     get_cell_line_featurizer,
@@ -22,8 +23,6 @@ from drevalpy.components.registry.predictor_registration import (
     register_predictor,
 )
 from drevalpy.components.registry.predictor_registry import PredictorRegistry
-
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 
 register_builtin_components()
 

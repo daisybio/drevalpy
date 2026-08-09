@@ -199,7 +199,7 @@ externalToy:
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures import SplitMasks
+    from drevalpy.data.structures import SplitMask, SplitMasks
     from drevalpy.data.structures.dataset import Dataset
 
     cl_ids = np.array(["cl1", "cl2"])
@@ -212,9 +212,9 @@ externalToy:
     )
     mudataset = Dataset(md.MuData({"response": response_ad}), name="test")
     split = SplitMasks(
-        train=np.array([[0, 0], [0, 1]]),
-        test=np.array([[1, 0], [1, 1]]),
-        val=np.empty((0, 2), dtype=np.intp),
+        train=SplitMask(np.array([[True, True], [False, False]])),
+        test=SplitMask(np.array([[False, False], [True, True]])),
+        val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
     model.train(mudataset, split)
     preds = model.predict(mudataset, split)

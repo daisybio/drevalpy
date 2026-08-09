@@ -152,11 +152,13 @@ class Registry(ABC):
         rows = []
         for name in self.list_names():
             meta = self.get_metadata(name)
-            rows.append({
-                "Name": name,
-                "Description": meta.get("description", ""),
-                "Tags": ", ".join(sorted(meta.get("tags", frozenset()))),
-            })
+            rows.append(
+                {
+                    "Name": name,
+                    "Description": meta.get("description", ""),
+                    "Tags": ", ".join(sorted(meta.get("tags", frozenset()))),
+                }
+            )
         return pd.DataFrame(rows)
 
     def __repr__(self) -> str:

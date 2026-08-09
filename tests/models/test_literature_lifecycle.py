@@ -11,7 +11,7 @@ import pytest
 
 import mudata as md
 from drevalpy.components.core.plugins.register_builtins import register_builtin_components
-from drevalpy.data.structures import SplitMasks
+from drevalpy.data.structures import SplitMask, SplitMasks
 from drevalpy.data.structures.dataset import Dataset
 from drevalpy.models import construct_model
 
@@ -40,9 +40,9 @@ def _make_mudataset_ge_fingerprints() -> tuple[Dataset, SplitMasks]:
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
     mudataset = Dataset(mdata, name="test")
     split = SplitMasks(
-        train=np.array([[0, 0], [0, 1]]),
-        test=np.array([[1, 0], [1, 1]]),
-        val=np.empty((0, 2), dtype=np.intp),
+        train=SplitMask(np.array([[True, True], [False, False]])),
+        test=SplitMask(np.array([[False, False], [True, True]])),
+        val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
     return mudataset, split
 
@@ -92,9 +92,9 @@ def _make_mudataset_multiview() -> tuple[Dataset, SplitMasks]:
     )
     mudataset = Dataset(mdata, name="test")
     split = SplitMasks(
-        train=np.array([[0, 0], [0, 1]]),
-        test=np.array([[1, 0], [1, 1]]),
-        val=np.empty((0, 2), dtype=np.intp),
+        train=SplitMask(np.array([[True, True], [False, False]])),
+        test=SplitMask(np.array([[False, False], [True, True]])),
+        val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
     return mudataset, split
 

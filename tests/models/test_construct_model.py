@@ -83,7 +83,7 @@ def test_construct_model_train_predict_smoke() -> None:
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures import SplitMasks
+    from drevalpy.data.structures import SplitMask, SplitMasks
     from drevalpy.data.structures.dataset import Dataset
 
     cl_ids_unique = np.array(["cl1", "cl2"])
@@ -110,9 +110,9 @@ def test_construct_model_train_predict_smoke() -> None:
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad, "mutations": mutations_ad})
     mudataset = Dataset(mdata, name="test")
     split = SplitMasks(
-        train=np.array([[0, 0], [0, 1]]),
-        test=np.array([[1, 0], [1, 1]]),
-        val=np.empty((0, 2), dtype=np.intp),
+        train=SplitMask(np.array([[True, True], [False, False]])),
+        test=SplitMask(np.array([[False, False], [True, True]])),
+        val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
     model.train(mudataset, split)
     preds = model.predict(mudataset, split)

@@ -22,27 +22,27 @@ class TestFullPipeline:
         folds = split(mudataset, "LCO", n_splits=2)
         assert len(folds) == 2
         for fold in folds:
-            assert fold.train.shape[1] == 2
-            assert fold.test.shape[1] == 2
-            assert len(fold.train) > 0
-            assert len(fold.test) > 0
+            assert fold.train.mask.ndim == 2
+            assert fold.test.mask.ndim == 2
+            assert fold.train.mask.dtype == bool
+            assert fold.train.any()
+            assert fold.test.any()
 
     def test_elastic_net_train_predict(self, mudataset):
-        """ElasticNet should train and predict via Run without errors."""
+        """ElasticNet should train and predict via the run() function without errors."""
         from drevalpy.data.splitters import splitter_registry
-        from drevalpy.experiment.single_run import Run
+        from drevalpy.experiment import run
 
         ElasticNet = construct_model("ElasticNet")  # noqa: N806
 
         splitter = splitter_registry.get("LCO")
         folds = splitter(mudataset, n_splits=2, validation_ratio=0.2)
 
-        run = Run(
+        result = run(
             model_class=ElasticNet,
             mudataset=mudataset,
             split_masks=folds[0],
             hyperparameter_tuning=False,
         )
-        result = run.execute()
         assert len(result.predictions) > 0
         assert result.metrics

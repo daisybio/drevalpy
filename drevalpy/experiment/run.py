@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from sklearn.base import TransformerMixin, clone
 
-from drevalpy.data.structures import SplitMasks
+from drevalpy.data.structures import SplitMask, SplitMasks
 from drevalpy.data.structures.dataset import Dataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
@@ -42,8 +42,7 @@ def _filter_to_featurizable_pairs(
 ) -> SplitMasks:
     """Filter split masks to only include pairs where both entities have features.
 
-    Uses the model's declared views to determine which modalities are required,
-    then intersects with available entities in the Dataset.
+    Zeros out rows (cell lines) or columns (drugs) that lack required modalities.
     """
     config = model_class.model_config()
     cl_views = config.cell_line_views()
@@ -58,19 +57,18 @@ def _filter_to_featurizable_pairs(
     all_cl_ids = mudataset.cell_line_ids
     all_dr_ids = mudataset.drug_ids
 
-    def _filter_pairs(pairs: np.ndarray) -> np.ndarray:
-        if len(pairs) == 0:
-            return pairs
-        mask = np.ones(len(pairs), dtype=bool)
-        if available_cl is not None:
-            mask &= np.array([all_cl_ids[idx] in available_cl for idx in pairs[:, 0]])
-        if available_dr is not None:
-            mask &= np.array([all_dr_ids[idx] in available_dr for idx in pairs[:, 1]])
-        return pairs[mask]
+    # Build a keepable mask: True for rows/cols with available features
+    keep = np.ones(split_masks.shape, dtype=bool)
+    if available_cl is not None:
+        cl_keep = np.array([cid in available_cl for cid in all_cl_ids])
+        keep[~cl_keep, :] = False
+    if available_dr is not None:
+        dr_keep = np.array([did in available_dr for did in all_dr_ids])
+        keep[:, ~dr_keep] = False
 
-    train = _filter_pairs(split_masks.train)
-    test = _filter_pairs(split_masks.test)
-    val = _filter_pairs(split_masks.val)
+    train = split_masks.train & SplitMask(keep)
+    test = split_masks.test & SplitMask(keep)
+    val = split_masks.val & SplitMask(keep)
 
     n_before = len(split_masks.train) + len(split_masks.test) + len(split_masks.val)
     n_after = len(train) + len(test) + len(val)
@@ -100,7 +98,7 @@ def run(
 
     :param model_class: DRPModel subclass to train.
     :param mudataset: Full dataset with all features.
-    :param split_masks: Single fold's train/test/val pair arrays.
+    :param split_masks: Single fold's train/test/val boolean masks.
     :param hyperparameter_tuning: Whether to run HPO.
     :param response_transformation: Optional sklearn transformer for responses.
     :param hpo_metric: Metric to optimize during HPO.
@@ -169,7 +167,7 @@ def run(
     )
 
     response_matrix = mudataset.response_matrix
-    test_pairs = split_masks.test
+    test_pairs = split_masks.test.pairs
     ground_truth = response_matrix[test_pairs[:, 0], test_pairs[:, 1]]
 
     cl_ids = mudataset.cell_line_ids[test_pairs[:, 0]]

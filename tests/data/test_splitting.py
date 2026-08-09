@@ -1,4 +1,4 @@
-"""Tests for SplitMasks, EntityScope, and the splitter system."""
+"""Tests for SplitMasks, SplitMask, and the splitter system."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from drevalpy.data.splitters import (
     splitter_registry,
 )
 from drevalpy.data.splitters.validation import validate_folds
-from drevalpy.data.structures import EntityScope, SplitMasks
+from drevalpy.data.structures import SplitMask, SplitMasks
 
 # ------------------------------------------------------------------
 # Mock MuDataLike for testing
@@ -60,67 +60,85 @@ def mock_dataset() -> _MockMuDataset:
 # ------------------------------------------------------------------
 
 
+def _mask(shape: tuple[int, int], *positions: tuple[int, int]) -> SplitMask:
+    """Helper to build a SplitMask with True at given positions."""
+    m = np.zeros(shape, dtype=bool)
+    for r, c in positions:
+        m[r, c] = True
+    return SplitMask(m)
+
+
 class TestSplitMasks:
     def test_creation(self):
+        shape = (4, 3)
         masks = SplitMasks(
-            train=np.array([[0, 0], [1, 1]]),
-            test=np.array([[2, 0]]),
-            val=np.array([[3, 1]]),
+            train=_mask(shape, (0, 0), (1, 1)),
+            test=_mask(shape, (2, 0)),
+            val=_mask(shape, (3, 1)),
         )
-        assert masks.train.shape == (2, 2)
-        assert masks.test.shape == (1, 2)
-        assert masks.val.shape == (1, 2)
+        assert masks.train.shape == shape
+        assert masks.test.shape == shape
+        assert masks.val.shape == shape
+        assert len(masks.train) == 2
+        assert len(masks.test) == 1
+        assert len(masks.val) == 1
 
     def test_metadata_default_empty(self):
+        shape = (2, 2)
         masks = SplitMasks(
-            train=np.array([[0, 0]]),
-            test=np.array([[1, 0]]),
-            val=np.empty((0, 2), dtype=np.intp),
+            train=_mask(shape, (0, 0)),
+            test=_mask(shape, (1, 0)),
+            val=SplitMask(np.zeros(shape, dtype=bool)),
         )
         assert masks.metadata == {}
 
     def test_metadata_mutable(self):
+        shape = (2, 2)
         masks = SplitMasks(
-            train=np.array([[0, 0]]),
-            test=np.array([[1, 0]]),
-            val=np.empty((0, 2), dtype=np.intp),
+            train=_mask(shape, (0, 0)),
+            test=_mask(shape, (1, 0)),
+            val=SplitMask(np.zeros(shape, dtype=bool)),
         )
         masks.metadata["key"] = "value"
         assert masks.metadata["key"] == "value"
 
     def test_save_load_roundtrip(self):
+        shape = (6, 3)
         masks = SplitMasks(
-            train=np.array([[0, 0], [1, 1], [2, 2]]),
-            test=np.array([[3, 0], [4, 1]]),
-            val=np.array([[5, 2]]),
+            train=_mask(shape, (0, 0), (1, 1), (2, 2)),
+            test=_mask(shape, (3, 0), (4, 1)),
+            val=_mask(shape, (5, 2)),
             metadata={"mode": "LCO", "fold_index": 0, "custom": 42},
         )
         with tempfile.NamedTemporaryFile(suffix=".npz") as f:
             masks.save(f.name)
             loaded = SplitMasks.load(f.name)
 
-        np.testing.assert_array_equal(loaded.train, masks.train)
-        np.testing.assert_array_equal(loaded.test, masks.test)
-        np.testing.assert_array_equal(loaded.val, masks.val)
+        np.testing.assert_array_equal(loaded.train.mask, masks.train.mask)
+        np.testing.assert_array_equal(loaded.test.mask, masks.test.mask)
+        np.testing.assert_array_equal(loaded.val.mask, masks.val.mask)
         assert loaded.metadata == masks.metadata
 
     def test_save_load_empty_val(self):
+        shape = (2, 2)
         masks = SplitMasks(
-            train=np.array([[0, 0]]),
-            test=np.array([[1, 0]]),
-            val=np.empty((0, 2), dtype=np.intp),
+            train=_mask(shape, (0, 0)),
+            test=_mask(shape, (1, 0)),
+            val=SplitMask(np.zeros(shape, dtype=bool)),
         )
         with tempfile.NamedTemporaryFile(suffix=".npz") as f:
             masks.save(f.name)
             loaded = SplitMasks.load(f.name)
 
-        assert loaded.val.shape == (0, 2)
+        assert not loaded.val.any()
+        assert loaded.val.shape == shape
 
     def test_save_load_no_metadata(self):
+        shape = (2, 2)
         masks = SplitMasks(
-            train=np.array([[0, 0]]),
-            test=np.array([[1, 0]]),
-            val=np.empty((0, 2), dtype=np.intp),
+            train=_mask(shape, (0, 0)),
+            test=_mask(shape, (1, 0)),
+            val=SplitMask(np.zeros(shape, dtype=bool)),
         )
         with tempfile.NamedTemporaryFile(suffix=".npz") as f:
             masks.save(f.name)
@@ -130,14 +148,30 @@ class TestSplitMasks:
 
 
 # ------------------------------------------------------------------
-# EntityScope tests
+# SplitMask tests
 # ------------------------------------------------------------------
 
 
-class TestEntityScope:
-    def test_creation(self):
-        scope = EntityScope(pairs=np.array([[0, 0], [1, 1]]))
+class TestSplitMask:
+    def test_creation_from_mask(self):
+        mask = np.array([[True, False], [False, True]])
+        scope = SplitMask(mask=mask)
         assert scope.pairs.shape == (2, 2)
+        assert len(scope) == 2
+
+    def test_from_pairs(self):
+        pairs = np.array([[0, 0], [1, 1]])
+        scope = SplitMask.from_pairs(pairs, shape=(2, 2))
+        assert scope.mask[0, 0]
+        assert scope.mask[1, 1]
+        assert not scope.mask[0, 1]
+        assert len(scope) == 2
+
+    def test_pairs_property_matches_mask(self):
+        mask = np.array([[True, False, True], [False, True, False]])
+        scope = SplitMask(mask=mask)
+        expected = np.argwhere(mask)
+        np.testing.assert_array_equal(scope.pairs, expected)
 
 
 # ------------------------------------------------------------------
@@ -190,21 +224,23 @@ class TestLeavePairOut:
         folds = splitter(mock_dataset, n_splits=3)
         assert len(folds) == 3
 
-    def test_all_folds_are_2d(self, mock_dataset):
+    def test_all_folds_are_2d_bool(self, mock_dataset):
         splitter = splitter_registry.get("LPO")
         folds = splitter(mock_dataset, n_splits=3)
+        shape = mock_dataset.response_matrix.shape
         for fold in folds:
-            assert fold.train.ndim == 2 and fold.train.shape[1] == 2
-            assert fold.test.ndim == 2 and fold.test.shape[1] == 2
-            assert fold.val.ndim == 2 and fold.val.shape[1] == 2
+            assert fold.train.shape == shape
+            assert fold.test.shape == shape
+            assert fold.val.shape == shape
+            assert fold.train.mask.dtype == bool
+            assert fold.test.mask.dtype == bool
+            assert fold.val.mask.dtype == bool
 
     def test_no_pair_in_both_train_and_test(self, mock_dataset):
         splitter = splitter_registry.get("LPO")
         folds = splitter(mock_dataset, n_splits=3)
         for fold in folds:
-            train_pairs = set(map(tuple, fold.train.tolist()))
-            test_pairs = set(map(tuple, fold.test.tolist()))
-            assert train_pairs & test_pairs == set()
+            assert not (fold.train & fold.test).any()
 
     def test_metadata_injected(self, mock_dataset):
         splitter = splitter_registry.get("LPO")
@@ -225,19 +261,18 @@ class TestLeaveCellLineOut:
         splitter = splitter_registry.get("LCO")
         folds = splitter(mock_dataset, n_splits=3)
         for fold in folds:
-            train_cls = set(fold.train[:, 0].tolist())
-            test_cls = set(fold.test[:, 0].tolist())
-            assert train_cls & test_cls == set()
+            train_rows = set(np.where(fold.train.mask.any(axis=1))[0].tolist())
+            test_rows = set(np.where(fold.test.mask.any(axis=1))[0].tolist())
+            assert train_rows & test_rows == set()
 
-    def test_all_pairs_reference_valid_indices(self, mock_dataset):
+    def test_all_indices_within_bounds(self, mock_dataset):
         splitter = splitter_registry.get("LCO")
         folds = splitter(mock_dataset, n_splits=3)
-        n_cl = len(mock_dataset.cell_line_ids)
-        n_dr = len(mock_dataset.drug_ids)
+        shape = mock_dataset.response_matrix.shape
         for fold in folds:
-            all_pairs = np.concatenate([fold.train, fold.test, fold.val])
-            assert np.all(all_pairs[:, 0] < n_cl)
-            assert np.all(all_pairs[:, 1] < n_dr)
+            assert fold.train.shape == shape
+            assert fold.test.shape == shape
+            assert fold.val.shape == shape
 
 
 class TestLeaveDrugOut:
@@ -250,9 +285,9 @@ class TestLeaveDrugOut:
         splitter = splitter_registry.get("LDO")
         folds = splitter(mock_dataset, n_splits=3)
         for fold in folds:
-            train_drugs = set(fold.train[:, 1].tolist())
-            test_drugs = set(fold.test[:, 1].tolist())
-            assert train_drugs & test_drugs == set()
+            train_cols = set(np.where(fold.train.mask.any(axis=0))[0].tolist())
+            test_cols = set(np.where(fold.test.mask.any(axis=0))[0].tolist())
+            assert train_cols & test_cols == set()
 
 
 class TestLeaveTissueOut:
@@ -266,8 +301,10 @@ class TestLeaveTissueOut:
         folds = splitter(mock_dataset, n_splits=3)
         tissues = mock_dataset.get_tissue(mock_dataset.cell_line_ids)
         for fold in folds:
-            train_tissues = set(tissues[fold.train[:, 0]].tolist())
-            test_tissues = set(tissues[fold.test[:, 0]].tolist())
+            train_rows = np.where(fold.train.mask.any(axis=1))[0]
+            test_rows = np.where(fold.test.mask.any(axis=1))[0]
+            train_tissues = set(tissues[train_rows].tolist())
+            test_tissues = set(tissues[test_rows].tolist())
             assert train_tissues & test_tissues == set()
 
 
@@ -282,28 +319,31 @@ class TestValidation:
         validate_folds(folds, "LCO", mock_dataset)
 
     def test_lco_invalid_raises(self, mock_dataset):
+        shape = mock_dataset.response_matrix.shape
         bad_fold = SplitMasks(
-            train=np.array([[0, 0], [1, 1]]),
-            test=np.array([[0, 2]]),
-            val=np.empty((0, 2), dtype=np.intp),
+            train=_mask(shape, (0, 0), (1, 1)),
+            test=_mask(shape, (0, 2)),
+            val=SplitMask(np.zeros(shape, dtype=bool)),
         )
         with pytest.raises(SplitValidationError, match="LCO"):
             validate_folds([bad_fold], "LCO", mock_dataset)
 
     def test_ldo_invalid_raises(self, mock_dataset):
+        shape = mock_dataset.response_matrix.shape
         bad_fold = SplitMasks(
-            train=np.array([[0, 0], [1, 0]]),
-            test=np.array([[2, 0]]),
-            val=np.empty((0, 2), dtype=np.intp),
+            train=_mask(shape, (0, 0), (1, 0)),
+            test=_mask(shape, (2, 0)),
+            val=SplitMask(np.zeros(shape, dtype=bool)),
         )
         with pytest.raises(SplitValidationError, match="LDO"):
             validate_folds([bad_fold], "LDO", mock_dataset)
 
     def test_lpo_invalid_raises(self, mock_dataset):
+        shape = mock_dataset.response_matrix.shape
         bad_fold = SplitMasks(
-            train=np.array([[0, 0], [1, 1]]),
-            test=np.array([[0, 0]]),
-            val=np.empty((0, 2), dtype=np.intp),
+            train=_mask(shape, (0, 0), (1, 1)),
+            test=_mask(shape, (0, 0)),
+            val=SplitMask(np.zeros(shape, dtype=bool)),
         )
         with pytest.raises(SplitValidationError, match="LPO"):
             validate_folds([bad_fold], "LPO", mock_dataset)

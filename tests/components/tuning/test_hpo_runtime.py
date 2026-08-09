@@ -9,13 +9,10 @@ import optuna
 from drevalpy.components.core.tuning.config import HPOConfig
 from drevalpy.components.core.tuning.hpo_runtime import (
     _construct_trial_model,
-    _extract_ground_truth,
     _init_trial_wandb,
-    _mu_evaluate_trial_model,
     _optuna_objective,
     _wandb_trial_run_config,
     _wandb_trial_run_name,
-    build_optuna_objective,
     run_optuna_study,
 )
 from drevalpy.models import construct_model
@@ -69,9 +66,7 @@ def test_wandb_trial_run_name_includes_split_and_trial() -> None:
     assert _wandb_trial_run_name(model_name="ElasticNet", split_index=2, trial_number=5) == (
         "ElasticNet_split_2_trial_5"
     )
-    assert _wandb_trial_run_name(model_name="ElasticNet", split_index=None, trial_number=3) == (
-        "ElasticNet_trial_3"
-    )
+    assert _wandb_trial_run_name(model_name="ElasticNet", split_index=None, trial_number=3) == ("ElasticNet_trial_3")
 
 
 @patch("drevalpy.components.core.tuning.hpo_runtime._wandb_trial_run_name", return_value="run-name")
