@@ -7,7 +7,7 @@ from typing import Any
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
-from ..components.tuning.hpo import mu_hpam_tune  # noqa: F401
+from ..components.core.tuning.hpo import mu_hpam_tune  # noqa: F401
 from ..data.splitters import get_splitter
 from ..data.structures import EntityScope, SplitMasks
 from ..data.structures.mudataset import MuDataset
