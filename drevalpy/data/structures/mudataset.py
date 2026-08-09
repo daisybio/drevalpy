@@ -17,6 +17,8 @@ from upath import UPath as Path
 
 import mudata as md
 
+from .mudatalike import MuDataLike
+
 
 def _aligned_fetch(
     index: pd.Index,
@@ -100,7 +102,7 @@ def _randomize_single_view(
         )
 
 
-class MuDataset:
+class MuDataset(MuDataLike):
     """Single entry point for all dataset access in drevalpy.
 
     Wraps a MuData object containing a "response" modality (cell_line x drug
