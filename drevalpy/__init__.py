@@ -2,7 +2,6 @@
 
 from importlib.metadata import version
 
-from . import data as data
 from .components.registry.featurizer_registry import (
     cell_line_featurizer_registry as cell_line_featurizer_registry,
 )
@@ -12,6 +11,11 @@ from .components.registry.featurizer_registry import (
 from .components.registry.predictor_registry import predictor_registry as predictor_registry
 from .data import dataset_registry as dataset_registry
 from .data import splitter_registry as splitter_registry
+from .data.datasets import load as load
+from .data.splitters import split as split
+from .experiment import randomization as randomization
+from .experiment import run as run
+from .experiment import shuffled_splits as shuffled_splits
 from .models import construct_model as construct_model
 from .pipeline import pipeline as pipeline
 
