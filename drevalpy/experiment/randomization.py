@@ -6,14 +6,14 @@ from drevalpy.models.drp_model import DRPModel
 from drevalpy.types.dataset import Dataset
 
 
-def _single_view_tests(views: list[str], prefix: str) -> dict[str, list[str]]:
+def _single_view_tests(views: list[str], prefix: str) -> dict[tuple[str, str], list[str]]:
     """One test per view: randomize that view only."""
-    return {f"{prefix}_{view}": [view] for view in views}
+    return {(prefix, view): [view] for view in views}
 
 
-def _complement_view_tests(views: list[str], prefix: str) -> dict[str, list[str]]:
+def _complement_view_tests(views: list[str], prefix: str) -> dict[tuple[str, str], list[str]]:
     """One test per view: randomize all views except that one."""
-    return {f"{prefix}_{view}": [v for v in views if v != view] for view in views}
+    return {(prefix, view): [v for v in views if v != view] for view in views}
 
 
 def randomization(
@@ -27,7 +27,7 @@ def randomization(
 
     For each randomization test (determined by model views and mode), produces
     a copy of the dataset with the relevant views shuffled. Each returned
-    dataset has its ``randomization`` field set to ``(mode_view, views)``.
+    dataset has its ``randomization`` field set to ``(mode, view)``.
 
     :param model_class: Model class whose config defines available views.
     :param dataset: Original dataset to randomize.
@@ -46,13 +46,13 @@ def randomization(
         "SVCD": lambda: _complement_view_tests(drug_views, "SVCD"),
     }
 
-    tests: dict[str, list[str]] = {}
+    tests: dict[tuple[str, str], list[str]] = {}
     for mode in randomization_mode:
         if mode in builders:
             tests.update(builders[mode]())
 
     results: list[Dataset] = []
-    for name, views in tests.items():
-        ds = dataset.with_randomized_views(views, random_state=random_state, randomization=(name, views))
+    for (mode, view), views in tests.items():
+        ds = dataset.with_randomized_views(views, random_state=random_state, randomization=(mode, view))
         results.append(ds)
     return results

@@ -135,14 +135,14 @@ class Dataset(MuDataLike):
         mdata: md.MuData,
         *,
         name: str,
-        randomization: tuple[str, list[str]] | None = None,
+        randomization: tuple[str, str] | None = None,
     ) -> None:
         """Wrap an existing MuData object.
 
         Args:
             mdata: A MuData object with at least a "response" modality.
             name: Human-readable dataset name.
-            randomization: Optional (mode, views) tuple describing which
+            randomization: Optional (mode, view) tuple describing which
                 randomization was applied.
 
         Raises:
@@ -620,7 +620,7 @@ class Dataset(MuDataLike):
         randomization_type: str = "permutation",
         random_state: int | None = None,
         *,
-        randomization: tuple[str, list[str]] | None = None,
+        randomization: tuple[str, str] | None = None,
     ) -> Dataset:
         """Return a copy of this Dataset with specified views randomized.
 
@@ -633,7 +633,7 @@ class Dataset(MuDataLike):
             randomization_type: "permutation" shuffles rows; "invariant" replaces
                 each row with a random sample matching its mean and std.
             random_state: Seed for reproducibility.
-            randomization: Optional (mode, views) tuple to attach to the new dataset.
+            randomization: Optional (mode, view) tuple to attach to the new dataset.
 
         Returns:
             A new Dataset with the specified views randomized.
@@ -685,7 +685,7 @@ class Dataset(MuDataLike):
             f"    Cell lines: {n_cl}",
             f"    Drugs: {n_dr}",
             f"    Measured pairs: {n_measured}",
-            f"    Randomization: {self.randomization[0]} ({', '.join(self.randomization[1])})"
+            f"    Randomization: {self.randomization[0]} ({self.randomization[1]})"
             if self.randomization
             else "    Randomization: None",
             "    Modalities:",
