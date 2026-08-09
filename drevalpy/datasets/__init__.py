@@ -1,6 +1,14 @@
 """Dataset loading, MuDataset, and splitting utilities."""
 
-from .loader import is_builtin_dataset, list_builtin_datasets, load_mudataset
+from .loader import (
+    is_builtin_dataset,
+    list_builtin_datasets,
+    load_mudataset,
+    register_dataset,
+    register_source,
+    unregister_dataset,
+    unregister_source,
+)
 from .mudataset import MuDataset
 from .response_batch import ResponseBatch
 from .splitting import (
@@ -26,4 +34,8 @@ __all__ = [
     "list_builtin_datasets",
     "load_external_splitter",
     "load_mudataset",
+    "register_dataset",
+    "register_source",
+    "unregister_dataset",
+    "unregister_source",
 ]
