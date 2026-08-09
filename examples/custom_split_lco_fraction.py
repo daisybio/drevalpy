@@ -8,7 +8,7 @@ Usage::
     from drevalpy.data.splitters import get_splitter
 
     splitter = get_splitter(test_mode)
-    folds = splitter.split(
+    folds = splitter(
         my_mudataset,
         mode="LCO",
         n_splits=1,

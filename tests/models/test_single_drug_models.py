@@ -71,7 +71,7 @@ def test_single_drug_models(
 
     mudataset = load("TOYv1")
     splitter = get_splitter(test_mode)
-    folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
+    folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]
 
     model_class = _construct_single_drug_model(whole_name, model_name)

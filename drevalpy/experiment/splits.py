@@ -54,7 +54,7 @@ def prepare_splits(
     splits_dir.mkdir(parents=True, exist_ok=True)
 
     splitter = splitter_registry.resolve(test_mode)
-    folds = splitter.split(
+    folds = splitter(
         mudataset,
         n_splits=n_cv_splits,
         validation_ratio=validation_ratio,

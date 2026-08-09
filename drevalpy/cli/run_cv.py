@@ -62,7 +62,7 @@ def run_cv_split(
 
     response_data = load_trusted_pickle(response)
     splitter = get_splitter(test_mode)
-    folds = splitter.split(
+    folds = splitter(
         response_data,
         mode=test_mode,
         n_splits=n_cv_splits,

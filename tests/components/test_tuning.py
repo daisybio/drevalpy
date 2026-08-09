@@ -106,7 +106,7 @@ def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
     model_cls = construct_model("ElasticNet")
     mudataset = load("TOYv1")
     splitter = get_splitter("LPO")
-    folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
+    folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]
     fold_data = prepare_mu_fold(mudataset, split, model_cls)
 

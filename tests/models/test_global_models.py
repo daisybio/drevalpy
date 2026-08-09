@@ -104,7 +104,7 @@ def test_global_models(
 
     mudataset = load("TOYv1")
     splitter = get_splitter(test_mode)
-    folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
+    folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]
 
     whole_name, model_name = _resolve_global_model_name(model_name)
@@ -172,7 +172,7 @@ def test_multi_view_neural_network_custom_views(sample_dataset: ResponseBatch, t
     try:
         mudataset = load("TOYv1")
         splitter = get_splitter(test_mode)
-        folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
+        folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
         split = folds[0]
 
         model_class = cast(

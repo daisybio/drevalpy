@@ -321,7 +321,7 @@ def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
 
     mudataset = load("TOYv1")
     splitter = get_splitter("LPO")
-    folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
+    folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]
 
     from drevalpy.experiment.fold import prepare_mu_fold
