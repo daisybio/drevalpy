@@ -77,6 +77,25 @@ class Experiment:
         """The generated CV folds."""
         return self._folds
 
+    def __repr__(self) -> str:
+        """Formatted summary."""
+        n_runs = len(self.models) * len(self._folds)
+        lines = [
+            "Experiment",
+            f"    Models: {', '.join(m.get_model_name() for m in self.models)}",
+            f"    Folds: {len(self._folds)}",
+            f"    Total runs: {n_runs}",
+        ]
+
+        if self.hyperparameter_tuning:
+            lines.append("    Hyperparameter Tuning: enabled")
+            lines.append(f"        metric: {self.hpo_metric}")
+            lines.append(f"        num_samples: {self.hpo_num_samples}")
+        else:
+            lines.append("    Hyperparameter Tuning: disabled")
+
+        return "\n".join(lines)
+
     @property
     def runs(self) -> list[Run]:
         """Cartesian product of models × folds as Run instances."""
