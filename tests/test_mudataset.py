@@ -25,7 +25,7 @@ class TestFromFile:
     def test_repr(self, mudataset: MuDataset):
         r = repr(mudataset)
         assert "MuDataset" in r
-        assert "cell_lines=" in r
+        assert "Cell lines:" in r
 
     def test_cell_line_ids(self, mudataset: MuDataset):
         ids = mudataset.cell_line_ids

@@ -203,6 +203,58 @@ class MuDataset(MuDataLike):
         """
         return np.asarray(self.response.var_names)
 
+    def entities_with_modality(self, modality: str, *, side: str = "cell_line") -> frozenset[str]:
+        """Return entity IDs that have actual feature data for a modality.
+
+        Args:
+            modality: Modality or view name (e.g. "gene_expression", "fingerprints").
+            side: Either "cell_line" or "drug".
+
+        Returns:
+            Frozenset of entity IDs that have non-NaN data for the modality.
+
+        Raises:
+            KeyError: If the modality/view is not found.
+        """
+        if side == "cell_line":
+            return self._cell_line_entities_for_modality(modality)
+        return self._drug_entities_for_view(modality)
+
+    def _cell_line_entities_for_modality(self, modality: str) -> frozenset[str]:
+        """Cell line IDs present in a given modality."""
+        if modality == "pathway_features":
+            if "pathway_features" not in self.response.obsm:
+                return frozenset()
+            data = np.asarray(self.response.obsm["pathway_features"])
+            valid = ~np.all(np.isnan(data), axis=1)
+            return frozenset(np.asarray(self.response.obs_names)[valid])
+
+        if modality not in self._mdata.mod:
+            raise KeyError(f"Modality '{modality}' not found. Available: {list(self._mdata.mod.keys())}")
+
+        adata = self._mdata.mod[modality]
+        x = adata.X
+        if hasattr(x, "toarray"):
+            x = x.toarray()
+        x = np.asarray(x)
+        valid = ~np.all(np.isnan(x), axis=1)
+        return frozenset(np.asarray(adata.obs_names)[valid])
+
+    def _drug_entities_for_view(self, name: str) -> frozenset[str]:
+        """Drug IDs present in a given drug feature view."""
+        if name == "drug_graph":
+            if "drug_graphs" not in self._mdata.uns:
+                return frozenset()
+            return frozenset(str(k) for k in self._mdata.uns["drug_graphs"].keys())
+
+        resolved = self._resolve_drug_view(name)
+        if resolved is None:
+            raise KeyError(f"Drug feature '{name}' not found. Available views: {self.available_drug_views}")
+
+        varm_data = np.asarray(self.response.varm[resolved])
+        valid = ~np.all(np.isnan(varm_data), axis=1)
+        return frozenset(np.asarray(self.response.var_names)[valid])
+
     def get_response_layer(self, name: str) -> np.ndarray:
         """Retrieve a named response layer (e.g. "AUC").
 

@@ -53,6 +53,52 @@ def _entity_id_only_featurizer(featurizer: Featurizer | None) -> bool:
     return getattr(featurizer, "entity_id_only", False)
 
 
+def _filter_response_batch(
+    batch: ResponseBatch,
+    valid_cl_ids: set[str] | None,
+    valid_dr_ids: set[str] | None,
+) -> ResponseBatch:
+    """Keep only pairs whose entities are in the valid sets."""
+    mask = np.ones(len(batch), dtype=bool)
+    if valid_cl_ids is not None:
+        mask &= np.array([cl in valid_cl_ids for cl in batch.cell_line_ids])
+    if valid_dr_ids is not None:
+        mask &= np.array([dr in valid_dr_ids for dr in batch.drug_ids])
+    return ResponseBatch(
+        response=batch.response[mask],
+        cell_line_ids=batch.cell_line_ids[mask],
+        drug_ids=batch.drug_ids[mask],
+    )
+
+
+def _filter_nan_entity_features(
+    response: ResponseBatch,
+    entity_ids: np.ndarray | None,
+    matrix: np.ndarray | None,
+    *,
+    side: str,
+) -> tuple[ResponseBatch, np.ndarray | None, np.ndarray | None]:
+    """Remove entities with NaN features and filter response pairs accordingly."""
+    if entity_ids is None or matrix is None or matrix.size == 0:
+        return response, entity_ids, matrix
+    valid = ~np.any(np.isnan(matrix), axis=1)
+    if valid.all():
+        return response, entity_ids, matrix
+    valid_ids = set(entity_ids[valid])
+    entity_ids = entity_ids[valid]
+    matrix = matrix[valid]
+    if side == "cell_line":
+        pair_mask = np.array([cl in valid_ids for cl in response.cell_line_ids])
+    else:
+        pair_mask = np.array([dr in valid_ids for dr in response.drug_ids])
+    response = ResponseBatch(
+        response=response.response[pair_mask],
+        cell_line_ids=response.cell_line_ids[pair_mask],
+        drug_ids=response.drug_ids[pair_mask],
+    )
+    return response, entity_ids, matrix
+
+
 def _instantiate_featurizer(
     config: FeaturizerConfig,
     resolved: ResolvedModelConfig,
@@ -192,7 +238,7 @@ class _ComponentStack:
         if _entity_id_only_featurizer(featurizer):
             entity_ids = np.asarray(entity_id_only_ids, dtype=str)
         else:
-            entity_ids = np.asarray(source.identifiers, dtype=str)
+            entity_ids = np.asarray(train_entity_ids, dtype=str)
         matrix = featurizer.transform(source, entity_ids)
         return entity_ids, matrix
 
@@ -256,60 +302,53 @@ class _ComponentStack:
         output: ResponseBatch,
         output_earlystopping: ResponseBatch | None,
     ) -> tuple[ResponseBatch, ResponseBatch | None]:
-        """Remove pairs whose entities have NaN features after featurization.
+        """Safety net: warn if NaN features remain after upfront filtering.
 
-        Modifies entity_ids/matrix arrays in-place to exclude NaN rows,
-        and returns filtered ResponseBatch instances.
+        In normal operation, Run.__init__ pre-filters pairs to entities with
+        available features, so this should be a no-op. If NaN still appears,
+        it indicates a data integrity issue.
         """
-        from drevalpy.log import get_logger
-
-        logger = get_logger(__name__)
-
-        # Find valid entity IDs (no NaN in any feature column)
-        valid_cl_ids: set[str] | None = None
-        if self._cell_line_matrix is not None and self._cell_line_matrix.size > 0:
-            cl_valid_mask = ~np.any(np.isnan(self._cell_line_matrix), axis=1)
-            if not cl_valid_mask.all():
-                valid_cl_ids = set(self._cell_line_entity_ids[cl_valid_mask])
-                self._cell_line_entity_ids = self._cell_line_entity_ids[cl_valid_mask]
-                self._cell_line_matrix = self._cell_line_matrix[cl_valid_mask]
-
-        valid_dr_ids: set[str] | None = None
-        if self._drug_matrix is not None and self._drug_matrix.size > 0:
-            dr_valid_mask = ~np.any(np.isnan(self._drug_matrix), axis=1)
-            if not dr_valid_mask.all():
-                valid_dr_ids = set(self._drug_entity_ids[dr_valid_mask])
-                self._drug_entity_ids = self._drug_entity_ids[dr_valid_mask]
-                self._drug_matrix = self._drug_matrix[dr_valid_mask]
+        valid_cl_ids = self._purge_nan_rows("cell_line")
+        valid_dr_ids = self._purge_nan_rows("drug")
 
         if valid_cl_ids is None and valid_dr_ids is None:
             return output, output_earlystopping
 
-        # Filter pairs to only those with valid features
-        def _filter_batch(batch: ResponseBatch) -> ResponseBatch:
-            mask = np.ones(len(batch), dtype=bool)
-            if valid_cl_ids is not None:
-                mask &= np.array([cl in valid_cl_ids for cl in batch.cell_line_ids])
-            if valid_dr_ids is not None:
-                mask &= np.array([dr in valid_dr_ids for dr in batch.drug_ids])
-            return ResponseBatch(
-                response=batch.response[mask],
-                cell_line_ids=batch.cell_line_ids[mask],
-                drug_ids=batch.drug_ids[mask],
-            )
+        from drevalpy.log import get_logger
 
-        n_before = len(output)
-        output = _filter_batch(output)
-        n_after = len(output)
-        if n_before != n_after:
-            logger.info("Reduced training dataset from %d to %d, due to missing features", n_before, n_after)
+        get_logger(__name__).warning(
+            "NaN features detected after featurization — this indicates a data integrity issue. "
+            "Filtering affected pairs."
+        )
 
+        output = _filter_response_batch(output, valid_cl_ids, valid_dr_ids)
         if output_earlystopping is not None:
-            output_earlystopping = _filter_batch(output_earlystopping)
+            output_earlystopping = _filter_response_batch(output_earlystopping, valid_cl_ids, valid_dr_ids)
             if len(output_earlystopping) == 0:
                 output_earlystopping = None
 
         return output, output_earlystopping
+
+    def _purge_nan_rows(self, side: str) -> set[str] | None:
+        """Remove NaN rows from entity matrix, return valid IDs or None if clean."""
+        if side == "cell_line":
+            matrix, ids = self._cell_line_matrix, self._cell_line_entity_ids
+        else:
+            matrix, ids = self._drug_matrix, self._drug_entity_ids
+
+        if matrix is None or matrix.size == 0:
+            return None
+        valid_mask = ~np.any(np.isnan(matrix), axis=1)
+        if valid_mask.all():
+            return None
+
+        if side == "cell_line":
+            self._cell_line_entity_ids = ids[valid_mask]
+            self._cell_line_matrix = matrix[valid_mask]
+        else:
+            self._drug_entity_ids = ids[valid_mask]
+            self._drug_matrix = matrix[valid_mask]
+        return set(ids[valid_mask])
 
     def _fit_featurizers_and_predictor(
         self,
@@ -335,7 +374,6 @@ class _ComponentStack:
         self._train_cell_line_side(output, cell_line_input, output_earlystopping=output_earlystopping)
         self._train_drug_side(output, drug_input, output_earlystopping=output_earlystopping)
 
-        # Filter out entities with NaN features and their associated pairs
         output, output_earlystopping = self._filter_nan_features(output, output_earlystopping)
         if len(output) == 0:
             return self
@@ -358,6 +396,7 @@ class _ComponentStack:
             training_context=training_context,
         )
         self._predictor.fit(batch)
+
         return self
 
     def is_fitted(self) -> bool:
@@ -427,50 +466,16 @@ class _ComponentStack:
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
         )
-        cell_line_entity_ids = np.array([], dtype=str)
-        cell_line_matrix = np.empty((0, 0), dtype=np.float32)
-        if self._cell_line_featurizer is not None:
-            cell_line_entity_ids = unique_entity_ids(cell_line_ids)
-            cell_line_matrix = self._cell_line_featurizer.transform(cell_line_input, cell_line_entity_ids)
 
-        drug_entity_ids: np.ndarray | None = None
-        drug_matrix: np.ndarray | None = None
-        if self._drug_featurizer is not None:
-            drug_entity_ids = unique_entity_ids(drug_ids)
-            if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
-                msg = "drug_input is required when a drug featurizer is configured"
-                raise ValueError(msg)
-            if drug_input is not None:
-                drug_matrix = self._drug_featurizer.transform(drug_input, drug_entity_ids)
-            else:
-                drug_matrix = np.empty((0, 0), dtype=np.float32)
+        cell_line_entity_ids, cell_line_matrix = self._transform_cell_line_features(cell_line_ids, cell_line_input)
+        drug_entity_ids, drug_matrix = self._transform_drug_features(drug_ids, drug_input)
 
-        # Filter entities with NaN features before prediction
-        if cell_line_matrix.size > 0:
-            cl_valid = ~np.any(np.isnan(cell_line_matrix), axis=1)
-            if not cl_valid.all():
-                valid_cl = set(cell_line_entity_ids[cl_valid])
-                cell_line_entity_ids = cell_line_entity_ids[cl_valid]
-                cell_line_matrix = cell_line_matrix[cl_valid]
-                pair_mask = np.array([cl in valid_cl for cl in response.cell_line_ids])
-                response = ResponseBatch(
-                    response=response.response[pair_mask],
-                    cell_line_ids=response.cell_line_ids[pair_mask],
-                    drug_ids=response.drug_ids[pair_mask],
-                )
-
-        if drug_matrix is not None and drug_matrix.size > 0:
-            dr_valid = ~np.any(np.isnan(drug_matrix), axis=1)
-            if not dr_valid.all():
-                valid_dr = set(drug_entity_ids[dr_valid])
-                drug_entity_ids = drug_entity_ids[dr_valid]
-                drug_matrix = drug_matrix[dr_valid]
-                pair_mask = np.array([dr in valid_dr for dr in response.drug_ids])
-                response = ResponseBatch(
-                    response=response.response[pair_mask],
-                    cell_line_ids=response.cell_line_ids[pair_mask],
-                    drug_ids=response.drug_ids[pair_mask],
-                )
+        response, cell_line_entity_ids, cell_line_matrix = _filter_nan_entity_features(
+            response, cell_line_entity_ids, cell_line_matrix, side="cell_line"
+        )
+        response, drug_entity_ids, drug_matrix = _filter_nan_entity_features(
+            response, drug_entity_ids, drug_matrix, side="drug"
+        )
 
         if len(response) == 0:
             return np.array([])
@@ -485,6 +490,36 @@ class _ComponentStack:
             drug_matrix=drug_matrix,
         )
         return self._predictor.predict(batch)
+
+    def _transform_cell_line_features(
+        self,
+        cell_line_ids: np.ndarray,
+        cell_line_input: FeatureSource,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Transform cell-line features for prediction."""
+        if self._cell_line_featurizer is None:
+            return np.array([], dtype=str), np.empty((0, 0), dtype=np.float32)
+        entity_ids = unique_entity_ids(cell_line_ids)
+        matrix = self._cell_line_featurizer.transform(cell_line_input, entity_ids)
+        return entity_ids, matrix
+
+    def _transform_drug_features(
+        self,
+        drug_ids: np.ndarray,
+        drug_input: FeatureSource | None,
+    ) -> tuple[np.ndarray | None, np.ndarray | None]:
+        """Transform drug features for prediction."""
+        if self._drug_featurizer is None:
+            return None, None
+        entity_ids = unique_entity_ids(drug_ids)
+        if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
+            msg = "drug_input is required when a drug featurizer is configured"
+            raise ValueError(msg)
+        if drug_input is not None:
+            matrix = self._drug_featurizer.transform(drug_input, entity_ids)
+        else:
+            matrix = np.empty((0, 0), dtype=np.float32)
+        return entity_ids, matrix
 
     # ------------------------------------------------------------------
     # MuDataset-backed API
@@ -684,9 +719,7 @@ class _ComponentStack:
         cl_ids = mudataset.cell_line_ids
         drug_ids = mudataset.drug_ids
         result = np.full(len(scope.pairs), np.nan)
-        predicted_pairs = set(
-            zip(test_response.cell_line_ids.tolist(), test_response.drug_ids.tolist(), strict=True)
-        )
+        predicted_pairs = set(zip(test_response.cell_line_ids.tolist(), test_response.drug_ids.tolist(), strict=True))
 
         pred_idx = 0
         for i, (cl_i, dr_i) in enumerate(scope.pairs):

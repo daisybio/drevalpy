@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 from sklearn.base import TransformerMixin, clone
 
-from drevalpy.data.structures import EntityScope, SplitMasks
+from drevalpy.data.structures import SplitMasks
 from drevalpy.data.structures.mudataset import MuDataset
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
@@ -18,6 +18,25 @@ from .hpo import select_fold_hyperparameters
 from .training import mu_train_and_predict
 
 logger = get_logger(__name__)
+
+
+def _available_entity_ids(
+    mudataset: MuDataset,
+    views: list[str],
+    *,
+    side: str,
+) -> frozenset[str] | None:
+    """Intersect entity availability across all required views.
+
+    Returns None if no views are required (entity_id_only featurizer).
+    """
+    if not views:
+        return None
+    available: frozenset[str] | None = None
+    for view in views:
+        view_entities = mudataset.entities_with_modality(view, side=side)
+        available = view_entities if available is None else available & view_entities
+    return available
 
 
 @dataclass
@@ -39,8 +58,7 @@ class RunResult:
         lines = [
             "RunResult",
             f"    Model: {self.model_name}",
-            "    Fold:",
-            f"        index: {self.split_masks.metadata.get("fold_index", 0)}",
+            f"    Fold: {self.fold_index}",
         ]
 
         for k, v in self.fold_metadata.items():
@@ -95,12 +113,63 @@ class Run:
         """
         self.model_class = model_class
         self.mudataset = mudataset
-        self.split_masks = split_masks
         self.hyperparameter_tuning = hyperparameter_tuning
         self.response_transformation = response_transformation
         self.hpo_metric = hpo_metric
         self.hpo_num_samples = hpo_num_samples
         self.hpo_random_state = hpo_random_state
+
+        self.split_masks = self._filter_to_featurizable_pairs(model_class, mudataset, split_masks)
+
+    @staticmethod
+    def _filter_to_featurizable_pairs(
+        model_class: type[DRPModel],
+        mudataset: MuDataset,
+        split_masks: SplitMasks,
+    ) -> SplitMasks:
+        """Filter split masks to only include pairs where both entities have features.
+
+        Uses the model's declared views to determine which modalities are required,
+        then intersects with available entities in the MuDataset.
+        """
+        config = model_class.model_config()
+        cl_views = config.cell_line_views()
+        drug_views = config.drug_views()
+
+        available_cl = _available_entity_ids(mudataset, cl_views, side="cell_line")
+        available_dr = _available_entity_ids(mudataset, drug_views, side="drug")
+
+        if available_cl is None and available_dr is None:
+            return split_masks
+
+        all_cl_ids = mudataset.cell_line_ids
+        all_dr_ids = mudataset.drug_ids
+
+        def _filter_pairs(pairs: np.ndarray) -> np.ndarray:
+            if len(pairs) == 0:
+                return pairs
+            mask = np.ones(len(pairs), dtype=bool)
+            if available_cl is not None:
+                mask &= np.array([all_cl_ids[idx] in available_cl for idx in pairs[:, 0]])
+            if available_dr is not None:
+                mask &= np.array([all_dr_ids[idx] in available_dr for idx in pairs[:, 1]])
+            return pairs[mask]
+
+        train = _filter_pairs(split_masks.train)
+        test = _filter_pairs(split_masks.test)
+        val = _filter_pairs(split_masks.val)
+
+        n_before = len(split_masks.train) + len(split_masks.test) + len(split_masks.val)
+        n_after = len(train) + len(test) + len(val)
+        if n_before != n_after:
+            logger.info(
+                "Filtered %d pairs to %d featurizable pairs (%.1f%% removed)",
+                n_before,
+                n_after,
+                100.0 * (n_before - n_after) / n_before,
+            )
+
+        return SplitMasks(train=train, test=test, val=val, metadata=split_masks.metadata)
 
     def __repr__(self) -> str:
         """Formatted summary of this run configuration."""
@@ -123,7 +192,7 @@ class Run:
                     lines.append(f"        {k}: {v}")
 
         lines.append("    Fold:")
-        lines.append(f"        index: {self.split_masks.metadata.get("fold_index", 0)}")
+        lines.append(f"        index: {self.split_masks.metadata.get('fold_index', 0)}")
         for k, v in self.split_masks.metadata.items():
             if k != "fold_index":
                 lines.append(f"        {k}: {v}")
