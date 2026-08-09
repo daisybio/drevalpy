@@ -6,6 +6,9 @@ import json
 from importlib import resources
 from typing import Any
 
+from rich.console import Console
+from rich.table import Table
+
 from .io import config_lock, load_config, save_config
 from .models import DatasetEntry, DrevalConfig, SourceEntry
 
@@ -63,12 +66,79 @@ class Registry:
         """Only user-registered datasets."""
         return self._custom.datasets
 
-    def list_datasets(self) -> list[str]:
-        """List all registered dataset names (built-in + custom).
-
-        :returns: Sorted dataset names available for ``load_mudataset``.
-        """
+    @property
+    def dataset_names(self) -> list[str]:
+        """Sorted list of all registered dataset names (built-in + custom)."""
         return sorted(self.datasets)
+
+    @property
+    def source_names(self) -> list[str]:
+        """Sorted list of all registered source names (built-in + custom)."""
+        return sorted(self.sources)
+
+    def list_datasets(self) -> None:
+        """Pretty-print all registered datasets as a Rich table."""
+        table = Table(title="Registered Datasets")
+        table.add_column("Name")
+        table.add_column("Source")
+        table.add_column("File")
+        table.add_column("Origin")
+
+        for name in sorted(self.datasets):
+            entry = self.datasets[name]
+            origin = "custom" if name in self._custom.datasets else "built-in"
+            table.add_row(name, entry.source, entry.file, origin)
+
+        Console().print(table)
+
+    def list_sources(self) -> None:
+        """Pretty-print all registered sources as a Rich table."""
+        table = Table(title="Registered Sources")
+        table.add_column("Name")
+        table.add_column("URL")
+        table.add_column("Origin")
+
+        for name in sorted(self.sources):
+            entry = self.sources[name]
+            origin = "custom" if name in self._custom.sources else "built-in"
+            table.add_row(name, entry.url, origin)
+
+        Console().print(table)
+
+    def __str__(self) -> str:
+        """Return a Rich-rendered string summary of the registry."""
+        console = Console(width=120, highlight=False)
+
+        datasets_table = Table(title="Registered Datasets")
+        datasets_table.add_column("Name")
+        datasets_table.add_column("Source")
+        datasets_table.add_column("File")
+        datasets_table.add_column("Origin")
+
+        for name in sorted(self.datasets):
+            entry = self.datasets[name]
+            origin = "custom" if name in self._custom.datasets else "built-in"
+            datasets_table.add_row(name, entry.source, entry.file, origin)
+
+        sources_table = Table(title="Registered Sources")
+        sources_table.add_column("Name")
+        sources_table.add_column("URL")
+        sources_table.add_column("Origin")
+
+        for name in sorted(self.sources):
+            entry = self.sources[name]
+            origin = "custom" if name in self._custom.sources else "built-in"
+            sources_table.add_row(name, entry.url, origin)
+
+        with console.capture() as capture:
+            console.print(datasets_table)
+            console.print()
+            console.print(sources_table)
+        return capture.get().rstrip()
+
+    def __repr__(self) -> str:
+        """Return a Rich-rendered string summary of the registry."""
+        return self.__str__()
 
     def is_registered(self, name: str) -> bool:
         """Return whether ``name`` is a registered dataset.
@@ -123,6 +193,8 @@ class Registry:
             config = load_config()
             if name not in config.datasets:
                 raise KeyError(f"Dataset '{name}' not in custom registry.")
+            if name in self._builtin.datasets:
+                raise KeyError(f"Dataset '{name}' is built-in and cannot be unregistered.")
             del config.datasets[name]
             save_config(config)
             self._custom = config
@@ -138,6 +210,8 @@ class Registry:
             config = load_config()
             if name not in config.sources:
                 raise KeyError(f"Source '{name}' not in custom registry.")
+            if name in self._builtin.sources:
+                raise KeyError(f"Source '{name}' is built-in and cannot be unregistered.")
 
             referencing = [ds for ds, entry in config.datasets.items() if entry.source == name]
             if referencing:

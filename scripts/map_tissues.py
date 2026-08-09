@@ -308,7 +308,7 @@ def main():
     if dataset != "all":
         datasets = [dataset]
     else:
-        datasets = registry.list_datasets()
+        datasets = registry.dataset_names
 
     cell_lines = []
 

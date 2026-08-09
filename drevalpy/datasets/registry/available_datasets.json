@@ -1,7 +1,6 @@
 {
   "sources": {
-    "zenodo": "https://zenodo.org/records/17611663/files",
-    "nfcore_test": "https://github.com/nf-core/test-datasets/raw/refs/heads/drugresponseeval/test_data"
+    "zenodo": "s3://omics-representation/drevalpy_h5mu/"
   },
   "datasets": {
     "GDSC1": { "source": "zenodo", "file": "GDSC1.h5mu" },
@@ -10,8 +9,6 @@
     "CTRPv1": { "source": "zenodo", "file": "CTRPv1.h5mu" },
     "CTRPv2": { "source": "zenodo", "file": "CTRPv2.h5mu" },
     "BeatAML2": { "source": "zenodo", "file": "BeatAML2.h5mu" },
-    "PDX_Bruna": { "source": "zenodo", "file": "PDX_Bruna.h5mu" },
-    "TOYv1": { "source": "nfcore_test", "file": "TOYv1.h5mu" },
-    "TOYv2": { "source": "nfcore_test", "file": "TOYv2.h5mu" }
+    "PDX_Bruna": { "source": "zenodo", "file": "PDX_Bruna.h5mu" }
   }
 }

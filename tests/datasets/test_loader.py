@@ -51,8 +51,8 @@ def test_available_datasets_json_structure() -> None:
 
 
 def test_list_builtin_datasets_matches_registry() -> None:
-    assert registry.list_datasets() == sorted(_EXPECTED_BUILTIN)
-    assert len(registry.list_datasets()) == 9
+    assert registry.dataset_names == sorted(_EXPECTED_BUILTIN)
+    assert len(registry.dataset_names) == 9
 
 
 def test_is_builtin_dataset() -> None:

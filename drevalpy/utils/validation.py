@@ -112,7 +112,7 @@ def validate_cross_study_dataset_names(args) -> None:
         if not registry.is_registered(dataset):
             raise AssertionError(
                 f"Invalid dataset name in cross_study_datasets. Available datasets are "
-                f"{registry.list_datasets()}. If you want to use your own dataset, place it under "
+                f"{registry.dataset_names}. If you want to use your own dataset, place it under "
                 f"<cache_dir>/<dataset_name>/ (see DREVALPY_CACHE_DIR) and load it with load_mudataset."
             )
 
