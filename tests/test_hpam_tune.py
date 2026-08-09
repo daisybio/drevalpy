@@ -1,7 +1,7 @@
 """Test hpam_tune with Optuna."""
 
-from drevalpy import experiment
 from drevalpy.components.core.tuning.config import HPOConfig
+from drevalpy.components.core.tuning.hpo import hpam_tune
 from drevalpy.models import construct_model
 
 
@@ -22,7 +22,7 @@ def test_hpam_tune(tmp_path, data_dir):
     split = folds[0]
     fold_data = prepare_mu_fold(mudataset, split, model_cls)
 
-    best = experiment.hpam_tune(
+    best = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=fold_data.train_scope,
