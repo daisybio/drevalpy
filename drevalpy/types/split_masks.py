@@ -23,7 +23,7 @@ class SplitMasks:
     train: SplitMask
     test: SplitMask
     val: SplitMask
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict, hash=False)
 
     @property
     def shape(self) -> tuple[int, int]:
