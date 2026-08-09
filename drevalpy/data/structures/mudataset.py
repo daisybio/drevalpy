@@ -546,30 +546,6 @@ class MuDataset:
         return MuDataset(new_mdata)
 
     # ------------------------------------------------------------------
-    # Splitting
-    # ------------------------------------------------------------------
-
-    def split(
-        self,
-        mode: str,
-        n_splits: int = 5,
-        validation_ratio: float = 0.1,
-        random_state: int = 42,
-    ) -> list:
-        """Split this dataset using a registered splitter.
-
-        :param mode: Registered splitter mode (e.g. "LCO", "LPO", "LDO", "LTO").
-        :param n_splits: Number of CV folds.
-        :param validation_ratio: Fraction of training data for validation.
-        :param random_state: Seed for reproducibility.
-        :returns: List of SplitMasks, one per fold.
-        """
-        from drevalpy.data.splitters import splitter_registry
-
-        splitter = splitter_registry.get(mode)
-        return splitter(self, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state)
-
-    # ------------------------------------------------------------------
     # Dunder methods
     # ------------------------------------------------------------------
 

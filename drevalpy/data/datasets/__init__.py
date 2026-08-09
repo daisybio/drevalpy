@@ -15,6 +15,7 @@ Usage::
 """
 
 from .io import config_lock, get_config_path, load_config, save_config
+from .load import load
 from .models import DatasetEntry, DrevalConfig, SourceEntry
 from .registry import Registry
 
@@ -28,6 +29,7 @@ __all__ = [
     "config_lock",
     "get_config_path",
     "load_config",
+    "load",
     "registry",
     "save_config",
 ]

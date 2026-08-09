@@ -60,7 +60,7 @@ def test_single_drug_models(
     :param cross_study_dataset: ResponseBatch from conftest.py
     :param data_dir: path to the data directory
     """
-    from drevalpy.data import load_mudataset
+    from drevalpy.data import load
     from drevalpy.data.splitters import get_splitter
     from drevalpy.experiment import seed_everything
 
@@ -69,7 +69,7 @@ def test_single_drug_models(
     whole_name = model_name
     model_name = _resolve_single_drug_model_name(whole_name)
 
-    mudataset = load_mudataset("TOYv1")
+    mudataset = load("TOYv1")
     splitter = get_splitter(test_mode)
     folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]

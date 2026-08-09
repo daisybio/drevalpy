@@ -99,12 +99,12 @@ def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
     pytest.importorskip("optuna")
 
     from drevalpy import experiment
-    from drevalpy.data import load_mudataset
+    from drevalpy.data import load
     from drevalpy.data.splitters import get_splitter
     from drevalpy.experiment.fold import prepare_mu_fold
 
     model_cls = construct_model("ElasticNet")
-    mudataset = load_mudataset("TOYv1")
+    mudataset = load("TOYv1")
     splitter = get_splitter("LPO")
     folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]

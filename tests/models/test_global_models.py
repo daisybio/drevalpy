@@ -99,10 +99,10 @@ def test_global_models(
     :param data_dir: path to the data directory
     :raises ValueError: if drug input is None
     """
-    from drevalpy.data import load_mudataset
+    from drevalpy.data import load
     from drevalpy.data.splitters import get_splitter
 
-    mudataset = load_mudataset("TOYv1")
+    mudataset = load("TOYv1")
     splitter = get_splitter(test_mode)
     folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]
@@ -152,7 +152,7 @@ def test_multi_view_neural_network_custom_views(sample_dataset: ResponseBatch, t
     """
     import pandas as pd
 
-    from drevalpy.data import load_mudataset
+    from drevalpy.data import load
     from drevalpy.data.splitters import get_splitter
 
     toy_dir = data_dir / "TOYv1"
@@ -170,7 +170,7 @@ def test_multi_view_neural_network_custom_views(sample_dataset: ResponseBatch, t
     custom_df.to_csv(custom_csv_path, index=False)
 
     try:
-        mudataset = load_mudataset("TOYv1")
+        mudataset = load("TOYv1")
         splitter = get_splitter(test_mode)
         folds = splitter.split(mudataset, n_splits=2, validation_ratio=0.4)
         split = folds[0]

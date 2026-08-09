@@ -165,7 +165,7 @@ class Registry:
 
         Atomically reads the config, applies the change, and writes back.
 
-        :param name: Dataset name (used with ``load_mudataset``).
+        :param name: Dataset name (used with ``drevalpy.data.load``).
         :param source: Source name (must be registered).
         :param file: Filename of the .h5mu file at the source URL.
         :raises KeyError: If the source is not registered.

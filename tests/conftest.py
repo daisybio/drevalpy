@@ -479,9 +479,9 @@ def load_features_for_model(model, dataset_name: str = "TOYv1"):
         build_cell_line_features_from_mudataset,
         build_drug_features_from_mudataset,
     )
-    from drevalpy.data import load_mudataset
+    from drevalpy.data import load
 
-    mudataset = load_mudataset(dataset_name)
+    mudataset = load(dataset_name)
     config = model._resolved_model_config or model.model_config()
     cl_ids = np.array(mudataset.cell_line_ids)
     drug_ids = np.array(mudataset.drug_ids)

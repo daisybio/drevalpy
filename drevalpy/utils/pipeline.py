@@ -13,13 +13,13 @@ def main(args) -> None:
     validate_models(args)
     validate_test_modes(args)
 
-    from drevalpy.data.loader import load_mudataset
+    from drevalpy.data import load
     from drevalpy.experiment.run import mu_experiment
     from drevalpy.models._model_lookup import get_model_class
 
     from .response_transform import get_response_transformation
 
-    mudataset = load_mudataset(args.dataset_name)
+    mudataset = load(args.dataset_name)
 
     models = [get_model_class(model) for model in args.models]
     baselines = [get_model_class(b) for b in args.baselines] if args.baselines else []
