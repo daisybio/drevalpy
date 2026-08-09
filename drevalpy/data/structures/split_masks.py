@@ -30,6 +30,29 @@ class SplitMasks:
         """Shape of the response matrix (n_cell_lines, n_drugs)."""
         return self.train.shape
 
+    @property
+    def train_val(self) -> SplitMask:
+        """Merged train | val mask for final retraining."""
+        return self.train | self.val
+
+    def early_stopping_mask(self, fraction: float = 0.25) -> tuple[SplitMask, SplitMask]:
+        """Split the val mask into early-stopping and remaining validation.
+
+        :param fraction: Fraction of val pairs to reserve for early stopping.
+        :returns: Tuple of (early_stopping_mask, remaining_val_mask).
+        """
+        val_pairs = self.val.pairs
+        n_val = len(val_pairs)
+        n_es = max(1, int(n_val * fraction))
+
+        es_arr = np.zeros(self.shape, dtype=bool)
+        es_arr[val_pairs[:n_es, 0], val_pairs[:n_es, 1]] = True
+
+        remaining_arr = np.zeros(self.shape, dtype=bool)
+        remaining_arr[val_pairs[n_es:, 0], val_pairs[n_es:, 1]] = True
+
+        return SplitMask(es_arr), SplitMask(remaining_arr)
+
     def save(self, path: str | Path) -> None:
         """Save to a .npz file (compressed bool arrays + JSON-encoded metadata).
 

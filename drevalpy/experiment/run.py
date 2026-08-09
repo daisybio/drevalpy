@@ -109,7 +109,6 @@ def run(
     from drevalpy.components.core.tuning.config import build_experiment_hpo_config
     from drevalpy.evaluation import AVAILABLE_METRICS
 
-    from .fold import merge_train_val_scopes, prepare_mu_fold
     from .training import train_and_predict
 
     split_masks = _filter_to_featurizable_pairs(model_class, mudataset, split_masks)
@@ -117,7 +116,10 @@ def run(
     model_name = model_class.get_model_name()
     logger.info("Run: %s, fold %d", model_name, split_masks.metadata.get("fold_index", 0))
 
-    fold_data = prepare_mu_fold(mudataset, split_masks, model_class)
+    early_stopping_scope: SplitMask | None = None
+    val_scope = split_masks.val
+    if model_class.supports_early_stopping() and len(split_masks.val) > 1:
+        early_stopping_scope, val_scope = split_masks.early_stopping_mask()
 
     trials: list[TrialResult] | None = None
     if hyperparameter_tuning:
@@ -131,9 +133,9 @@ def run(
         best_hpams, raw_trials = hpam_tune_with_trials(
             model_class=model_class,
             mudataset=mudataset,
-            train_scope=fold_data.train_scope,
-            val_scope=fold_data.val_scope,
-            early_stopping_scope=fold_data.early_stopping_scope,
+            train_scope=split_masks.train,
+            val_scope=val_scope,
+            early_stopping_scope=early_stopping_scope,
             response_transformation=response_transformation,
             metric=hpo_metric,
             model_checkpoint_dir=None,
@@ -153,16 +155,15 @@ def run(
 
     logger.info("Best hyperparameters: %s", best_hpams)
 
-    merged_scope = merge_train_val_scopes(split_masks)
     model = model_class(best_hpams)
     fold_transform = None if response_transformation is None else clone(response_transformation)
 
     predictions = train_and_predict(
         model=model,
         mudataset=mudataset,
-        train_scope=merged_scope,
-        test_scope=fold_data.test_scope,
-        early_stopping_scope=fold_data.early_stopping_scope,
+        train_scope=split_masks.train_val,
+        test_scope=split_masks.test,
+        early_stopping_scope=early_stopping_scope,
         response_transformation=fold_transform,
     )
 
