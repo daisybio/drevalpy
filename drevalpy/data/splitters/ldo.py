@@ -10,7 +10,7 @@ from drevalpy.data.structures import MuDataLike, SplitMasks
 from .registry import splitter_registry
 
 
-@splitter_registry.register("LDO", description="Leave-Drug-Out: test folds contain unseen drugs")
+@splitter_registry.register("LDO", "Leave-Drug-Out: test folds contain unseen drugs", validation="LDO")
 def leave_drug_out(
     mudataset: MuDataLike,
     n_splits: int = 5,

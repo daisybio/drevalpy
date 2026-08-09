@@ -10,7 +10,7 @@ from drevalpy.data.structures import MuDataLike, SplitMasks
 from .registry import splitter_registry
 
 
-@splitter_registry.register("LTO", description="Leave-Tissue-Out: test folds contain unseen tissue types")
+@splitter_registry.register("LTO", "Leave-Tissue-Out: test folds contain unseen tissue types", validation="LTO")
 def leave_tissue_out(
     mudataset: MuDataLike,
     n_splits: int = 5,

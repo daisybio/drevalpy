@@ -10,7 +10,7 @@ from drevalpy.data.structures import MuDataLike, SplitMasks
 from .registry import splitter_registry
 
 
-@splitter_registry.register("LCO", description="Leave-Cell-Line-Out: test folds contain unseen cell lines")
+@splitter_registry.register("LCO", "Leave-Cell-Line-Out: test folds contain unseen cell lines", validation="LCO")
 def leave_cell_line_out(
     mudataset: MuDataLike,
     n_splits: int = 5,

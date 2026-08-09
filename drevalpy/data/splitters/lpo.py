@@ -10,7 +10,7 @@ from drevalpy.data.structures import MuDataLike, SplitMasks
 from .registry import splitter_registry
 
 
-@splitter_registry.register("LPO", description="Leave-Pair-Out: groups by (cell_line, drug) pairs")
+@splitter_registry.register("LPO", "Leave-Pair-Out: groups by (cell_line, drug) pairs", validation="LPO")
 def leave_pair_out(
     mudataset: MuDataLike,
     n_splits: int = 5,
