@@ -6,8 +6,8 @@ import numpy as np
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
-from ..data.structures.mudataset import MuDataset
 from ..data.structures import EntityScope
+from ..data.structures.mudataset import MuDataset
 from ..models.drp_model import DRPModel
 from ..utils.checkpoints import checkpoint_dir_or_temporary
 

@@ -8,8 +8,7 @@ Built-in modes (LPO, LCO, LDO, LTO) are registered via decorator on import.
 Register custom splitters with::
 
     @splitter_registry.register("MY_MODE", "Description", validation="LCO")
-    def my_splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
-        ...
+    def my_splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42): ...
 """
 
 from .lco import leave_cell_line_out as leave_cell_line_out

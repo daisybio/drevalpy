@@ -84,8 +84,7 @@ class SplitterRegistry:
         Example::
 
             @splitter_registry.register("MY_LCO", "Custom LCO with fraction", validation="LCO")
-            def my_lco(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
-                ...
+            def my_lco(mudataset, n_splits=5, validation_ratio=0.1, random_state=42): ...
         """
 
         def decorator(fn: Splitter) -> Splitter:

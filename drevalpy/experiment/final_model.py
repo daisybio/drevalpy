@@ -6,7 +6,6 @@ from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
 from ..data.structures.mudataset import MuDataset
-from ..data.splitters import MuDataSplitter
 from ..models.drp_model import DRPModel
 from ..utils.checkpoints import checkpoint_dir_or_temporary
 from .fold import merge_train_val_scopes, prepare_mu_fold
@@ -45,13 +44,13 @@ def train_final_model_impl(
     :param hpo_storage_path: Optional Ray Tune storage path for HPO results.
     """
     from drevalpy.components.tuning.config import build_experiment_hpo_config
+    from drevalpy.data.splitters import splitter_registry
 
     print("Training final model with application-specific validation strategy ...")
 
-    splitter = get_splitter(test_mode)
-    folds = splitter.split(
+    splitter = splitter_registry.get(test_mode)
+    folds = splitter(
         mudataset,
-        mode=test_mode,
         n_splits=5,
         validation_ratio=val_ratio,
         random_state=hpo_random_state,

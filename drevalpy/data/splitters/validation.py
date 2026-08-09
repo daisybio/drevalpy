@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Literal
 
-import numpy as np
-
 from drevalpy.data.structures import MuDataLike, SplitMasks
 
 Validation = Literal["LCO", "LDO", "LPO", "LTO"]
@@ -51,8 +49,7 @@ def _validate_ldo(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -
     overlap = train_drugs & test_drugs
     if overlap:
         raise SplitValidationError(
-            f"LDO validation failed (fold {fold_index}): "
-            f"{len(overlap)} drug indices appear in both train and test."
+            f"LDO validation failed (fold {fold_index}): {len(overlap)} drug indices appear in both train and test."
         )
 
 

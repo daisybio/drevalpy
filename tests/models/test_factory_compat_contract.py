@@ -158,8 +158,8 @@ def test_empty_training_predicts_nan() -> None:
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures.mudataset import MuDataset
     from drevalpy.data.structures import SplitMasks
+    from drevalpy.data.structures.mudataset import MuDataset
 
     model = construct_model("NaivePredictor")({})
 

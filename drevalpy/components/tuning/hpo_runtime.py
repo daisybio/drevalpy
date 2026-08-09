@@ -16,8 +16,8 @@ from drevalpy.components.tuning.drp_hyperparameters import (
     tuned_config_for_drp_model,
 )
 from drevalpy.components.tuning.search_space import dict_to_ray_space
-from drevalpy.data.structures.mudataset import MuDataset
 from drevalpy.data.structures import EntityScope
+from drevalpy.data.structures.mudataset import MuDataset
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.utils.checkpoints import resolve_checkpoint_dir
 

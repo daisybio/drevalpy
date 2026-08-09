@@ -199,8 +199,8 @@ externalToy:
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures.mudataset import MuDataset
     from drevalpy.data.structures import SplitMasks
+    from drevalpy.data.structures.mudataset import MuDataset
 
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])

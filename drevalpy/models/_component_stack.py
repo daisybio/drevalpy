@@ -21,8 +21,8 @@ from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
 from drevalpy.models.config.resolved import ResolvedModelConfig
 
 if TYPE_CHECKING:
-    from drevalpy.data.structures.mudataset import MuDataset
     from drevalpy.data.structures import EntityScope
+    from drevalpy.data.structures.mudataset import MuDataset
 
 
 def _build_fit_context(

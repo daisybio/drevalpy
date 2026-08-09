@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from upath import UPath as Path
 
-from drevalpy.log import get_logger
-
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
 from drevalpy.data.structures.mudataset import MuDataset
+from drevalpy.log import get_logger
 
 from .registry import Registry
 

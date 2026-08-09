@@ -28,7 +28,7 @@ class TestBuiltinRegistry:
 
     def test_available_datasets_json_structure(self) -> None:
         """Verify the packaged JSON has the expected schema."""
-        registry_path = resources.files("drevalpy.data.registry").joinpath("available_datasets.json")
+        registry_path = resources.files("drevalpy.data.datasets").joinpath("available_datasets.json")
         with registry_path.open(encoding="utf-8") as handle:
             raw = json.load(handle)
 
@@ -36,7 +36,7 @@ class TestBuiltinRegistry:
         assert "datasets" in raw
 
         for _source_name, val in raw["sources"].items():
-            assert isinstance(val, str)
+            assert isinstance(val, (str, dict))
 
         for _ds_name, entry in raw["datasets"].items():
             assert "source" in entry

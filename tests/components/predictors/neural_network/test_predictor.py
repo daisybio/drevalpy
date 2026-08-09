@@ -28,8 +28,8 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     import pandas as pd
 
     import mudata as md
-    from drevalpy.data.structures.mudataset import MuDataset
     from drevalpy.data.structures import SplitMasks
+    from drevalpy.data.structures.mudataset import MuDataset
 
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])
