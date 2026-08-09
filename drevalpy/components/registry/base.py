@@ -8,6 +8,9 @@ from typing import Any, ClassVar
 
 from drevalpy.components.core.contracts.contracts import FeatureContract
 from drevalpy.components.registry._metadata_validate import validate_registered_class
+from drevalpy.log import get_logger
+
+logger = get_logger(__name__)
 
 
 class Registry(ABC):
@@ -123,6 +126,7 @@ class Registry(ABC):
             self._validate_registration(name, cls)
             self._store[name] = cls
             cls.registry_name = name
+            logger.debug("Registered %s: %s", self._label, name)
 
     def _validate_registration(self, name: str, cls: type[Any]) -> None:
         """Run registry-specific class invariants after metadata validation.
@@ -140,3 +144,40 @@ class Registry(ABC):
         :param cls: Registered component class.
         :returns: Metadata dict.
         """
+
+    def __repr__(self) -> str:
+        """Return a Rich-rendered table of all registered components."""
+        from rich.console import Console
+        from rich.table import Table
+
+        table = Table(title=f"Registered {self._display_name}")
+        table.add_column("Name")
+        table.add_column("Description")
+        table.add_column("Tags")
+
+        for name in self.list_names():
+            meta = self.get_metadata(name)
+            tags = ", ".join(sorted(meta.get("tags", frozenset())))
+            table.add_row(name, meta.get("description", ""), tags)
+
+        console = Console(width=120, highlight=False)
+        with console.capture() as capture:
+            console.print(table)
+        return capture.get().rstrip()
+
+    def list_table(self) -> None:
+        """Pretty-print the registry as a Rich table to the console."""
+        from rich.console import Console
+        from rich.table import Table
+
+        table = Table(title=f"Registered {self._display_name}")
+        table.add_column("Name")
+        table.add_column("Description")
+        table.add_column("Tags")
+
+        for name in self.list_names():
+            meta = self.get_metadata(name)
+            tags = ", ".join(sorted(meta.get("tags", frozenset())))
+            table.add_row(name, meta.get("description", ""), tags)
+
+        Console().print(table)

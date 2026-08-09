@@ -12,6 +12,9 @@ from drevalpy.components.registry.featurizer_registry import (
     drug_featurizer_registry,
 )
 from drevalpy.components.registry.predictor_registry import PredictorRegistry, predictor_registry
+from drevalpy.log import get_logger
+
+logger = get_logger(__name__)
 
 _CELL_LINE_MODULES = {
     "scaledGeneExpression": "drevalpy.components.featurizers.cell_line.scaled_gene_expression",
@@ -208,6 +211,8 @@ def register_literature_components() -> None:
 
 def register_builtin_components() -> None:
     """Register every built-in component for discovery and compatibility tests."""
+    logger.debug("Registering built-in components...")
     register_native_components()
     register_optional_components()
     register_literature_components()
+    logger.debug("Built-in registration complete.")

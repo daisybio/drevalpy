@@ -23,6 +23,10 @@ from drevalpy.components.registry.predictor_registration import (
 )
 from drevalpy.components.registry.predictor_registry import PredictorRegistry
 
+from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+
+register_builtin_components()
+
 __all__ = [
     "FeaturizerRegistry",
     "PredictorRegistry",

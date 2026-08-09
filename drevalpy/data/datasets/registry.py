@@ -76,7 +76,7 @@ class Registry:
         """Sorted list of all registered source names (built-in + custom)."""
         return sorted(self.sources)
 
-    def list_datasets(self) -> None:
+    def list_table(self) -> None:
         """Pretty-print all registered datasets as a Rich table."""
         table = Table(title="Registered Datasets")
         table.add_column("Name")
@@ -90,6 +90,8 @@ class Registry:
             table.add_row(name, entry.source, entry.file, origin)
 
         Console().print(table)
+
+    list_datasets = list_table
 
     def list_sources(self) -> None:
         """Pretty-print all registered sources as a Rich table."""
