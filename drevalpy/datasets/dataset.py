@@ -470,18 +470,8 @@ class DrugResponseDataset:
         :param path: path to the directory containing the cv split files
         """
         splits_dir = Path(path)
-        files = sorted(
-            entry.name
-            for entry in splits_dir.iterdir()
-            if entry.name.endswith(".csv") and entry.name.startswith("cv_split")
-        )
-        if not files:
-            raise AssertionError(f"No cv split files found in {splits_dir}")
-        train_files = sorted(f for f in files if "train" in f)
-        test_files = sorted(f for f in files if "test" in f)
-        validation_es_files = sorted(f for f in files if "validation_es" in f)
-        validation_files = sorted(f for f in files if "validation" in f and f not in validation_es_files)
-        es_files = sorted(f for f in files if "early_stopping" in f)
+        categorized = self._categorize_split_files(splits_dir)
+        train_files, test_files = categorized["train"], categorized["test"]
 
         self._cv_splits.clear()
         for split_train, split_test in zip(train_files, test_files, strict=True):
@@ -490,15 +480,30 @@ class DrugResponseDataset:
                 "test": DrugResponseDataset.from_csv(splits_dir / split_test, dataset_name=self.dataset_name),
             }
             self._cv_splits.append(fold)
-        for mode, mode_files in [
-            ("validation", validation_files),
-            ("validation_es", validation_es_files),
-            ("early_stopping", es_files),
-        ]:
-            for i, fname in enumerate(mode_files):
+        for mode in ("validation", "validation_es", "early_stopping"):
+            for i, fname in enumerate(categorized[mode]):
                 self._cv_splits[i][mode] = DrugResponseDataset.from_csv(
                     splits_dir / fname, dataset_name=self.dataset_name
                 )
+
+    @staticmethod
+    def _categorize_split_files(splits_dir: Path) -> dict[str, list[str]]:
+        files = sorted(
+            entry.name
+            for entry in splits_dir.iterdir()
+            if entry.name.endswith(".csv") and entry.name.startswith("cv_split")
+        )
+        if not files:
+            raise AssertionError(f"No cv split files found in {splits_dir}")
+        validation_es = sorted(f for f in files if "validation_es" in f)
+        validation_es_set = set(validation_es)
+        return {
+            "train": sorted(f for f in files if "train" in f),
+            "test": sorted(f for f in files if "test" in f),
+            "validation_es": validation_es,
+            "validation": sorted(f for f in files if "validation" in f and f not in validation_es_set),
+            "early_stopping": sorted(f for f in files if "early_stopping" in f),
+        }
 
     def copy(self):
         """Returns a copy of the drug response dataset.
