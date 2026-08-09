@@ -16,37 +16,6 @@ def _complement_view_tests(views: list[str], prefix: str) -> dict[str, list[str]
     return {f"{prefix}_{view}": [v for v in views if v != view] for view in views}
 
 
-def _build_randomization_test_views(
-    model_class: type[DRPModel],
-    randomization_mode: list[str],
-) -> dict[str, list[str]]:
-    """Build mapping of test name to views that should be randomized.
-
-    Modes:
-        - SVRC: Single View Randomize Cell-line — randomize one CL view at a time
-        - SVCC: Single View Complement Cell-line — randomize all CL views except one
-        - SVRD: Single View Randomize Drug — randomize one drug view at a time
-        - SVCD: Single View Complement Drug — randomize all drug views except one
-    """
-    config = model_class.model_config()
-    cell_line_views = config.cell_line_views()
-    drug_views = config.drug_views()
-
-    builders = {
-        "SVRC": lambda: _single_view_tests(cell_line_views, "SVRC"),
-        "SVCC": lambda: _complement_view_tests(cell_line_views, "SVCC"),
-        "SVRD": lambda: _single_view_tests(drug_views, "SVRD"),
-        "SVCD": lambda: _complement_view_tests(drug_views, "SVCD"),
-    }
-
-    tests: dict[str, list[str]] = {}
-    for mode in randomization_mode:
-        if mode in builders:
-            tests.update(builders[mode]())
-
-    return tests
-
-
 def randomization(
     model_class: type[DRPModel],
     dataset: Dataset,
@@ -65,5 +34,20 @@ def randomization(
     :param random_state: Seed for reproducibility.
     :returns: List of (test_name, randomized_dataset) tuples.
     """
-    tests = _build_randomization_test_views(model_class, randomization_mode)
+    config = model_class.model_config()
+    cell_line_views = config.cell_line_views()
+    drug_views = config.drug_views()
+
+    builders = {
+        "SVRC": lambda: _single_view_tests(cell_line_views, "SVRC"),
+        "SVCC": lambda: _complement_view_tests(cell_line_views, "SVCC"),
+        "SVRD": lambda: _single_view_tests(drug_views, "SVRD"),
+        "SVCD": lambda: _complement_view_tests(drug_views, "SVCD"),
+    }
+
+    tests: dict[str, list[str]] = {}
+    for mode in randomization_mode:
+        if mode in builders:
+            tests.update(builders[mode]())
+
     return [(name, dataset.with_randomized_views(views, random_state=random_state)) for name, views in tests.items()]

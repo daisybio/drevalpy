@@ -46,6 +46,7 @@ def pipeline(
         run_datasets: list[tuple[str | None, Dataset]] = [(None, ds)]
 
         if randomization_modes:
+            # Currently the randomizations are not marked in any way
             run_datasets.extend(randomization(model, ds, randomization_modes))
 
         for _test_name, run_ds in run_datasets:
