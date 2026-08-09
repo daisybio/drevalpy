@@ -17,6 +17,7 @@ class RunResult:
     """Output of a single Run."""
 
     model_name: str
+    dataset_name: str
     fold_index: int
     predictions: np.ndarray
     ground_truth: np.ndarray
@@ -26,14 +27,22 @@ class RunResult:
     metrics: dict[str, float] = field(default_factory=dict)
     fold_metadata: dict[str, Any] = field(default_factory=dict)
     trials: list[TrialResult] | None = None
+    randomization: tuple[str, str] | None = None
 
     def __repr__(self) -> str:
         """Formatted summary."""
         lines = [
             "RunResult",
             f"    Model: {self.model_name}",
-            f"    Fold: {self.fold_index}",
+            f"    Dataset: {self.dataset_name}",
         ]
+
+        if self.randomization:
+            lines.append(f"        Randomization: {self.randomization[0]} ({self.randomization[1]})")
+        else:
+            lines.append("        Randomization: None")
+
+        lines.append(f"    Fold: {self.fold_index}")
 
         for k, v in self.fold_metadata.items():
             if k != "fold_index":
@@ -82,10 +91,12 @@ class RunResult:
                 )
         meta = {
             "model_name": self.model_name,
+            "dataset_name": self.dataset_name,
             "fold_index": self.fold_index,
             "best_hyperparameters": self.best_hyperparameters,
             "metrics": self.metrics,
             "fold_metadata": self.fold_metadata,
+            "randomization": list(self.randomization) if self.randomization else None,
             "trials": trials_meta,
         }
         arrays["_metadata"] = np.array(json.dumps(meta))
@@ -113,6 +124,7 @@ class RunResult:
             ]
         return cls(
             model_name=meta["model_name"],
+            dataset_name=meta["dataset_name"],
             fold_index=meta["fold_index"],
             predictions=np.asarray(data["predictions"]),
             ground_truth=np.asarray(data["ground_truth"]),
@@ -122,4 +134,5 @@ class RunResult:
             metrics=meta.get("metrics", {}),
             fold_metadata=meta.get("fold_metadata", {}),
             trials=trials,
+            randomization=tuple(meta["randomization"]) if meta.get("randomization") else None,
         )

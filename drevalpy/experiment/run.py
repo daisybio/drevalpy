@@ -193,6 +193,7 @@ def run(
 
     return RunResult(
         model_name=model_name,
+        dataset_name=mudataset.name,
         fold_index=split_masks.metadata.get("fold_index", 0),
         predictions=predictions,
         ground_truth=ground_truth,
@@ -202,4 +203,5 @@ def run(
         metrics=metrics,
         fold_metadata=split_masks.metadata,
         trials=trials,
+        randomization=mudataset.randomization,
     )
