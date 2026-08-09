@@ -649,9 +649,12 @@ class _ComponentStack:
     ) -> np.ndarray:
         """Predict responses for the entities defined by an EntityScope.
 
+        Returns one prediction per pair in scope. Pairs with missing features
+        get NaN predictions (maintaining alignment with scope.pairs).
+
         :param mudataset: Source of feature data and entity IDs.
         :param scope: Entity scope with cell-line/drug indices for prediction.
-        :returns: Predicted response values for the test pairs.
+        :returns: Predicted response values aligned to scope.pairs.
         :raises RuntimeError: If the predictor has not been fitted.
         """
         if not self.is_fitted():
@@ -660,16 +663,36 @@ class _ComponentStack:
 
         test_response = self._extract_response_pairs(mudataset, scope)
         if len(test_response) == 0:
-            return np.array([])
+            return np.full(len(scope.pairs), np.nan)
 
         all_cl_ids = unique_entity_ids(test_response.cell_line_ids)
         all_drug_ids = unique_entity_ids(test_response.drug_ids)
 
         cell_line_input, drug_input = self._build_features_from_mudataset(mudataset, all_cl_ids, all_drug_ids)
 
-        return self.predict_from_features(
+        raw_predictions = self.predict_from_features(
             test_response.cell_line_ids,
             test_response.drug_ids,
             cell_line_input,
             drug_input,
         )
+
+        # Align predictions back to scope.pairs (NaN for filtered pairs)
+        if len(raw_predictions) == len(scope.pairs):
+            return raw_predictions
+
+        cl_ids = mudataset.cell_line_ids
+        drug_ids = mudataset.drug_ids
+        result = np.full(len(scope.pairs), np.nan)
+        predicted_pairs = set(
+            zip(test_response.cell_line_ids.tolist(), test_response.drug_ids.tolist(), strict=True)
+        )
+
+        pred_idx = 0
+        for i, (cl_i, dr_i) in enumerate(scope.pairs):
+            pair_key = (cl_ids[cl_i], drug_ids[dr_i])
+            if pair_key in predicted_pairs and pred_idx < len(raw_predictions):
+                result[i] = raw_predictions[pred_idx]
+                pred_idx += 1
+
+        return result
