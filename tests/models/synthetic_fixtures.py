@@ -111,24 +111,18 @@ def synthetic_mudataset_identity():
 
 
 def lpo_split_masks_all_train() -> SplitMasks:
-    """LPO-style masks: all 4 pairs (cl0,d0),(cl0,d1),(cl1,d0),(cl1,d1) as train, none as test/val."""
+    """LPO-style masks: all 4 pairs (cl0,d0),(cl0,d1),(cl1,d0),(cl1,d1) as train, one as test, none as val."""
     return SplitMasks(
-        train_cell_lines=np.array([0, 0, 1, 1]),
-        test_cell_lines=np.array([0]),
-        val_cell_lines=np.array([], dtype=np.intp),
-        train_drugs=np.array([0, 1, 0, 1]),
-        test_drugs=np.array([0]),
-        val_drugs=np.array([], dtype=np.intp),
+        train=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]),
+        test=np.array([[0, 0]]),
+        val=np.empty((0, 2), dtype=np.intp),
     )
 
 
 def lco_split_masks() -> SplitMasks:
-    """LCO-style masks: cl0 in train, cl1 in test, no val."""
+    """LCO-style masks: cl0 pairs in train, cl1 pairs in test, no val."""
     return SplitMasks(
-        train_cell_lines=np.array([0]),
-        test_cell_lines=np.array([1]),
-        val_cell_lines=np.array([], dtype=np.intp),
-        train_drugs=None,
-        test_drugs=None,
-        val_drugs=None,
+        train=np.array([[0, 0], [0, 1]]),
+        test=np.array([[1, 0], [1, 1]]),
+        val=np.empty((0, 2), dtype=np.intp),
     )

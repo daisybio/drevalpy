@@ -39,14 +39,13 @@ def mu_train_and_predict(
     fold_transform = response_transformation
 
     if fold_transform is not None:
-        train_cl = train_scope.cell_lines
-        train_dr = train_scope.drugs
+        pairs = train_scope.pairs
+        train_cl = pairs[:, 0]
+        train_dr = pairs[:, 1]
         response_matrix = mudataset.response_matrix
-        if train_dr is not None:
-            train_responses = response_matrix[train_cl, train_dr]
-        else:
-            train_responses = np.nanmean(response_matrix[train_cl, :], axis=1)
-        fold_transform.fit(train_responses.reshape(-1, 1))
+        train_responses = response_matrix[train_cl, train_dr]
+        valid_mask = ~np.isnan(train_responses)
+        fold_transform.fit(train_responses[valid_mask].reshape(-1, 1))
 
     with checkpoint_dir_or_temporary(model_checkpoint_dir) as checkpoint_dir:
         print("Training model ...")

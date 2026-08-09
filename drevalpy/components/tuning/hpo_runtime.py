@@ -168,24 +168,16 @@ def _extract_ground_truth(mudataset: MuDataset, scope: EntityScope) -> np.ndarra
     """Extract ground truth response values from MuDataset for the given scope.
 
     :param mudataset: Source of response values.
-    :param scope: EntityScope with cell-line/drug indices.
+    :param scope: EntityScope with 2D pair array.
     :returns: 1-D array of non-NaN ground-truth response values.
     """
     response_matrix = mudataset.response_matrix
-    cl_idx = scope.cell_lines
-    dr_idx = scope.drugs
+    pairs = scope.pairs
+    cl_idx = pairs[:, 0]
+    dr_idx = pairs[:, 1]
 
-    if dr_idx is None:
-        sub_matrix = response_matrix[np.ix_(cl_idx, np.arange(response_matrix.shape[1]))]
-        values = sub_matrix[~np.isnan(sub_matrix)]
-    elif len(cl_idx) == response_matrix.shape[0] or (
-        len(cl_idx) > 0 and np.array_equal(cl_idx, np.arange(response_matrix.shape[0]))
-    ):
-        sub_matrix = response_matrix[np.ix_(cl_idx, dr_idx)]
-        values = sub_matrix[~np.isnan(sub_matrix)]
-    else:
-        responses = response_matrix[cl_idx, dr_idx]
-        values = responses[~np.isnan(responses)]
+    responses = response_matrix[cl_idx, dr_idx]
+    values = responses[~np.isnan(responses)]
 
     return values.astype(np.float64)
 

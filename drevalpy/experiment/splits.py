@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import shutil
 
-import numpy as np
 from upath import UPath as Path
 
 from ..data.splitters import Splitter, splitter_registry
@@ -73,18 +72,7 @@ def _save_splits_to_dir(folds: list[SplitMasks], splits_dir: Path, *, test_mode:
         "n_folds": len(folds),
     }
     for i, fold in enumerate(folds):
-        arrays: dict[str, np.ndarray] = {
-            "train_cell_lines": fold.train_cell_lines,
-            "test_cell_lines": fold.test_cell_lines,
-            "val_cell_lines": fold.val_cell_lines,
-        }
-        if fold.train_drugs is not None:
-            arrays["train_drugs"] = fold.train_drugs
-        if fold.test_drugs is not None:
-            arrays["test_drugs"] = fold.test_drugs
-        if fold.val_drugs is not None:
-            arrays["val_drugs"] = fold.val_drugs
-        np.savez(splits_dir / f"fold_{i}.npz", **arrays)
+        fold.save(splits_dir / f"fold_{i}.npz")
 
     with open(splits_dir / "splits_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f)
@@ -97,15 +85,5 @@ def _load_splits_from_dir(splits_dir: Path) -> list[SplitMasks]:
 
     folds: list[SplitMasks] = []
     for i in range(manifest["n_folds"]):
-        data = np.load(splits_dir / f"fold_{i}.npz")
-        folds.append(
-            SplitMasks(
-                train_cell_lines=data["train_cell_lines"],
-                test_cell_lines=data["test_cell_lines"],
-                val_cell_lines=data["val_cell_lines"],
-                train_drugs=data["train_drugs"] if "train_drugs" in data else None,
-                test_drugs=data["test_drugs"] if "test_drugs" in data else None,
-                val_drugs=data["val_drugs"] if "val_drugs" in data else None,
-            )
-        )
+        folds.append(SplitMasks.load(splits_dir / f"fold_{i}.npz"))
     return folds

@@ -189,24 +189,17 @@ def _write_mu_predictions(
     cell_line_ids = mudataset.cell_line_ids
     drug_ids = mudataset.drug_ids
 
-    cl_indices = test_scope.cell_lines
-    dr_indices = test_scope.drugs
-
-    rows: dict[str, Any] = {
-        "cell_line_ids": cell_line_ids[cl_indices],
-    }
-    if dr_indices is not None:
-        rows["drug_ids"] = drug_ids[dr_indices]
-    else:
-        rows["drug_ids"] = np.full(len(cl_indices), "all", dtype=object)
-
-    rows["predictions"] = predictions
+    pairs = test_scope.pairs
+    cl_indices = pairs[:, 0]
+    dr_indices = pairs[:, 1]
 
     response_matrix = mudataset.response_matrix
-    if dr_indices is not None:
-        rows["response"] = response_matrix[cl_indices, dr_indices]
-    else:
-        rows["response"] = np.nanmean(response_matrix[cl_indices, :], axis=1)
+    rows: dict[str, Any] = {
+        "cell_line_ids": cell_line_ids[cl_indices],
+        "drug_ids": drug_ids[dr_indices],
+        "predictions": predictions,
+        "response": response_matrix[cl_indices, dr_indices],
+    }
 
     df = pd.DataFrame(rows)
     Path(prediction_file).parent.mkdir(parents=True, exist_ok=True)

@@ -69,9 +69,9 @@ def test_empty_training_transitions() -> None:
     )
     empty_mudataset = MuDataset(md.MuData({"response": empty_ad}))
     empty_split = SplitMasks(
-        train_cell_lines=np.array([0]),
-        test_cell_lines=np.array([1]),
-        val_cell_lines=np.array([], dtype=np.intp),
+        train=np.array([[0, 0], [0, 1]]),
+        test=np.array([[1, 0], [1, 1]]),
+        val=np.empty((0, 2), dtype=np.intp),
     )
 
     model.train(empty_mudataset, empty_split)

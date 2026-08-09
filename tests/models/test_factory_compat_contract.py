@@ -173,11 +173,10 @@ def test_empty_training_predicts_nan() -> None:
         var=pd.DataFrame(index=drug_ids),
     )
     empty_mudataset = MuDataset(md.MuData({"response": empty_ad}))
-    # test_cell_lines=[1] → cl2 row is all NaN
     empty_split = SplitMasks(
-        train_cell_lines=np.array([0]),
-        test_cell_lines=np.array([1]),
-        val_cell_lines=np.array([], dtype=np.intp),
+        train=np.array([[0, 0], [0, 1]]),
+        test=np.array([[1, 0], [1, 1]]),
+        val=np.empty((0, 2), dtype=np.intp),
     )
 
     model.train(empty_mudataset, empty_split)

@@ -33,14 +33,11 @@ def _remove_lpo_overlap(
     """Remove pairs that appear in both training and target (leave-pair-out)."""
     src_cl_ids = source.cell_line_ids
     src_drug_ids = source.drug_ids
-    train_cl = train_masks.train_cell_lines
-    train_dr = train_masks.train_drugs
+    train_pairs_arr = train_masks.train
+    train_cl = train_pairs_arr[:, 0]
+    train_dr = train_pairs_arr[:, 1]
 
-    if train_dr is not None:
-        train_pairs = {f"{src_cl_ids[c]}_{src_drug_ids[d]}" for c, d in zip(train_cl, train_dr, strict=True)}
-    else:
-        all_drugs = np.arange(len(src_drug_ids))
-        train_pairs = {f"{src_cl_ids[c]}_{src_drug_ids[d]}" for c in train_cl for d in all_drugs}
+    train_pairs = {f"{src_cl_ids[c]}_{src_drug_ids[d]}" for c, d in zip(train_cl, train_dr, strict=True)}
 
     tgt_cl_ids = target.cell_line_ids
     tgt_drug_ids = target.drug_ids
@@ -63,7 +60,8 @@ def _remove_lco_overlap(
     target: MuDataset,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Remove cell lines that appear in training (leave-cell-line-out)."""
-    train_cl_names = set(source.cell_line_ids[train_masks.train_cell_lines])
+    train_cl_indices = train_masks.train[:, 0]
+    train_cl_names = set(source.cell_line_ids[train_cl_indices])
     tgt_cl_ids = target.cell_line_ids
     keep = np.array(
         [i for i in range(len(target_cl_idx)) if tgt_cl_ids[target_cl_idx[i]] not in train_cl_names],
@@ -80,10 +78,8 @@ def _remove_ldo_overlap(
     target: MuDataset,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Remove drugs that appear in training (leave-drug-out)."""
-    if train_masks.train_drugs is not None:
-        train_drug_names = set(source.drug_ids[train_masks.train_drugs])
-    else:
-        train_drug_names = set(source.drug_ids)
+    train_dr_indices = train_masks.train[:, 1]
+    train_drug_names = set(source.drug_ids[train_dr_indices])
     tgt_drug_ids = target.drug_ids
     keep = np.array(
         [i for i in range(len(target_cl_idx)) if tgt_drug_ids[target_dr_idx[i]] not in train_drug_names],
@@ -100,7 +96,7 @@ def _remove_lto_overlap(
     target: MuDataset,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Remove tissues that appear in training (leave-tissue-out)."""
-    train_cl_ids = source.cell_line_ids[train_masks.train_cell_lines]
+    train_cl_ids = source.cell_line_ids[train_masks.train[:, 0]]
     train_tissues = set(source.get_tissue(train_cl_ids))
     tgt_cl_ids = target.cell_line_ids
     tgt_tissues = target.get_tissue(tgt_cl_ids)
@@ -191,7 +187,8 @@ def cross_study_prediction_impl(
 
     print(f"Cross-study prediction: {len(target_cl_idx)} samples after overlap removal.")
 
-    test_scope = EntityScope(cell_lines=target_cl_idx, drugs=target_dr_idx)
+    test_pairs = np.column_stack([target_cl_idx, target_dr_idx])
+    test_scope = EntityScope(pairs=test_pairs)
     predictions = model.predict(mudataset=target, scope=test_scope)
 
     output_dir = Path(path_out) / "cross_study"

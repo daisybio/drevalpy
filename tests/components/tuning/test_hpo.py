@@ -17,8 +17,8 @@ from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_
 
 def _tiny_mudataset_and_scopes():
     mudataset = synthetic_mudataset_gene_expression_fingerprints()
-    train_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
-    val_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
+    train_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
+    val_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
     return mudataset, train_scope, val_scope
 
 

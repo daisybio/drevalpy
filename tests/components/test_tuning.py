@@ -77,8 +77,8 @@ def test_hpam_tune_uses_optuna(monkeypatch) -> None:
 
     model_cls = construct_model("ElasticNet")
     mudataset = synthetic_mudataset_gene_expression_fingerprints()
-    train_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
-    val_scope = EntityScope(cell_lines=np.array([0, 1]), drugs=np.array([0, 1]))
+    train_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
+    val_scope = EntityScope(pairs=np.array([[0, 0], [0, 1], [1, 0], [1, 1]]))
     best = mu_hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,

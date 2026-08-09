@@ -20,10 +20,9 @@ from .training import mu_train_and_predict
 
 
 def _shuffle_scope(scope: EntityScope, rng: np.random.Generator) -> EntityScope:
-    """Return a copy of scope with index arrays shuffled."""
-    cl = rng.permutation(scope.cell_lines)
-    dr = rng.permutation(scope.drugs) if scope.drugs is not None else None
-    return EntityScope(cell_lines=cl, drugs=dr)
+    """Return a copy of scope with pair array shuffled."""
+    shuffled_pairs = rng.permutation(scope.pairs)
+    return EntityScope(pairs=shuffled_pairs)
 
 
 def _write_robustness_predictions(
@@ -37,17 +36,16 @@ def _write_robustness_predictions(
     drug_ids = mudataset.drug_ids
     response_matrix = mudataset.response_matrix
 
-    cl_idx = test_scope.cell_lines
-    dr_idx = test_scope.drugs
+    pairs = test_scope.pairs
+    cl_idx = pairs[:, 0]
+    dr_idx = pairs[:, 1]
 
-    rows: dict[str, Any] = {"cell_line_ids": cl_ids[cl_idx]}
-    if dr_idx is not None:
-        rows["drug_ids"] = drug_ids[dr_idx]
-        rows["response"] = response_matrix[cl_idx, dr_idx]
-    else:
-        rows["drug_ids"] = np.full(len(cl_idx), "all", dtype=object)
-        rows["response"] = np.nanmean(response_matrix[cl_idx, :], axis=1)
-    rows["predictions"] = predictions
+    rows: dict[str, Any] = {
+        "cell_line_ids": cl_ids[cl_idx],
+        "drug_ids": drug_ids[dr_idx],
+        "response": response_matrix[cl_idx, dr_idx],
+        "predictions": predictions,
+    }
 
     df = pd.DataFrame(rows)
     prediction_file.parent.mkdir(parents=True, exist_ok=True)

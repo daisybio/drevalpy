@@ -13,8 +13,7 @@ from drevalpy.models._model_lookup import get_model_class
 
 def _dummy_scope() -> EntityScope:
     return EntityScope(
-        cell_lines=np.arange(5),
-        drugs=None,
+        pairs=np.column_stack([np.arange(5), np.zeros(5, dtype=np.intp)]),
     )
 
 

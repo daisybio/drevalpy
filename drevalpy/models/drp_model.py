@@ -259,9 +259,9 @@ class DRPModel(_DRPLoggingMixin):
                 cell_line_input = split_or_cell_line_input
         # Convert SplitMasks to EntityScope for the new path
         if scope is None and split is not None:
-            scope = EntityScope(cell_lines=split.train_cell_lines, drugs=split.train_drugs)
-            if split.val_cell_lines.size > 0:
-                early_stopping_scope = EntityScope(cell_lines=split.val_cell_lines, drugs=split.val_drugs)
+            scope = EntityScope(pairs=split.train)
+            if split.val.size > 0:
+                early_stopping_scope = EntityScope(pairs=split.val)
         return mudataset, scope, early_stopping_scope, output, cell_line_input, drug_input
 
     @pipeline_function
@@ -313,7 +313,7 @@ class DRPModel(_DRPLoggingMixin):
 
         # New MuDataset path
         if mudataset is not None and scope is not None:
-            train_response = _ComponentStack._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
+            train_response = _ComponentStack._extract_response_pairs(mudataset, scope)
             if len(train_response) == 0:
                 self._empty_training = True
                 return
@@ -374,7 +374,7 @@ class DRPModel(_DRPLoggingMixin):
         )
         scope, split = self._resolve_predict_scope(scope_or_drug_ids, scope, split)
         if scope is None and split is not None:
-            scope = EntityScope(cell_lines=split.test_cell_lines, drugs=split.test_drugs)
+            scope = EntityScope(pairs=split.test)
         return mudataset, scope, cell_line_ids, drug_ids, cell_line_input, drug_input
 
     @staticmethod
@@ -454,7 +454,7 @@ class DRPModel(_DRPLoggingMixin):
         # New MuDataset path
         if mudataset is not None and scope is not None:
             if self._empty_training:
-                test_response = _ComponentStack._extract_response_pairs(mudataset, scope.cell_lines, scope.drugs)
+                test_response = _ComponentStack._extract_response_pairs(mudataset, scope)
                 return np.full(len(test_response), np.nan)
             if not self._stack.is_fitted():
                 raise RuntimeError("Model has not been trained; call train() or load() before predict()")

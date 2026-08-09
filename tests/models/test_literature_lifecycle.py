@@ -40,9 +40,9 @@ def _make_mudataset_ge_fingerprints() -> tuple[MuDataset, SplitMasks]:
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
     mudataset = MuDataset(mdata)
     split = SplitMasks(
-        train_cell_lines=np.array([0]),
-        test_cell_lines=np.array([1]),
-        val_cell_lines=np.array([], dtype=np.intp),
+        train=np.array([[0, 0], [0, 1]]),
+        test=np.array([[1, 0], [1, 1]]),
+        val=np.empty((0, 2), dtype=np.intp),
     )
     return mudataset, split
 
@@ -92,9 +92,9 @@ def _make_mudataset_multiview() -> tuple[MuDataset, SplitMasks]:
     )
     mudataset = MuDataset(mdata)
     split = SplitMasks(
-        train_cell_lines=np.array([0]),
-        test_cell_lines=np.array([1]),
-        val_cell_lines=np.array([], dtype=np.intp),
+        train=np.array([[0, 0], [0, 1]]),
+        test=np.array([[1, 0], [1, 1]]),
+        val=np.empty((0, 2), dtype=np.intp),
     )
     return mudataset, split
 

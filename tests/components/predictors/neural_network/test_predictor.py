@@ -49,9 +49,9 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
     mudataset = MuDataset(mdata)
     split = SplitMasks(
-        train_cell_lines=np.array([0]),
-        test_cell_lines=np.array([1]),
-        val_cell_lines=np.array([], dtype=np.intp),
+        train=np.array([[0, 0], [0, 1]]),
+        test=np.array([[1, 0], [1, 1]]),
+        val=np.empty((0, 2), dtype=np.intp),
     )
 
     config = from_spec(
