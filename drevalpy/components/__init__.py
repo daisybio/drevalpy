@@ -5,6 +5,7 @@ Model orchestration (config, zoo, and DRPModel construction) lives under
 which compose these components.
 """
 
+from drevalpy.components.core.plugins import register_builtins as register_builtins
 from drevalpy.components.core.plugins.extensions import (
     load_extension_dir,
     load_extension_file,

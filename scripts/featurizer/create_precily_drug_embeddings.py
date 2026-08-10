@@ -9,11 +9,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import mudata as md
 import numpy as np
 from gensim.models import KeyedVectors
 from tqdm import tqdm
-
-import mudata as md
 
 
 def _smilesvec(smiles: str, kv: KeyedVectors, k: int = 8, dim: int = 100) -> np.ndarray:

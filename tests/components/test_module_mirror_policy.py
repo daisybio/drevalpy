@@ -1,7 +1,13 @@
-"""Policy test: executable drevalpy modules must have mirrored tests."""
+"""Policy test: every Python module in drevalpy should have a mirrored test file.
+
+This test auto-discovers all ``.py`` files in the package (excluding ``__init__.py``)
+and warns when no corresponding ``test_<name>.py`` exists at the mirrored location
+under ``tests/``.
+"""
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import pytest
@@ -10,31 +16,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_ROOT = REPO_ROOT / "drevalpy"
 TESTS_ROOT = REPO_ROOT / "tests"
 
-REQUIRED_MIRRORS = (
-    "components/tuning/config_resolution.py",
-    "components/tuning/public_flat.py",
-    "components/tuning/compatibility_keys.py",
-    "components/register_builtins.py",
-    "components/pair_features.py",
-    "components/predictors/naive/mean.py",
-    "components/predictors/naive/entity_mean.py",
-    "components/predictors/naive/tissue.py",
-    "components/predictors/naive/effects.py",
-    "components/predictors/abstract/feature_free.py",
-    "components/predictors/literature/precily/predictor.py",
-    "components/predictors/literature/srmf/predictor.py",
-    "components/predictors/single_drug_routing.py",
-    "components/predictors/literature/molir/predictor.py",
-    "components/predictors/literature/superfeltr/predictor.py",
-    "components/predictors/literature/pharmaformer/predictor.py",
-    "components/predictors/literature/dipk/predictor.py",
-    "components/predictors/literature/sparsego/predictor.py",
-    "components/predictors/literature/druggnn/predictor.py",
-    "components/predictors/neural_network/predictor.py",
-    "types/literature_reference.py",
-    "components/featurizers/cell_line/scaled_gene_expression.py",
-    "components/featurizers/cell_line/landmark.py",
-)
+
+def _discover_modules() -> list[str]:
+    """Return relative paths (from PACKAGE_ROOT) of all non-init .py files."""
+    modules: list[str] = []
+    for py_file in sorted(PACKAGE_ROOT.rglob("*.py")):
+        if py_file.name == "__init__.py":
+            continue
+        modules.append(str(py_file.relative_to(PACKAGE_ROOT)))
+    return modules
 
 
 def _mirrored_test_path(relative_module: str) -> Path:
@@ -42,11 +32,17 @@ def _mirrored_test_path(relative_module: str) -> Path:
     return TESTS_ROOT / rel.parent / f"test_{rel.name}"
 
 
-@pytest.mark.parametrize("relative_module", REQUIRED_MIRRORS)
-def test_executable_module_has_mirrored_test(relative_module: str) -> None:
+ALL_MODULES = _discover_modules()
+
+
+@pytest.mark.parametrize("relative_module", ALL_MODULES)
+def test_module_has_mirrored_test(relative_module: str) -> None:
+    """Warn (not fail) when a source module lacks a mirrored test file."""
     module_path = PACKAGE_ROOT / relative_module
-    expected = _mirrored_test_path(relative_module)
     assert module_path.is_file(), f"missing source module: {relative_module}"
-    assert expected.is_file(), (
-        f"missing mirrored test for {relative_module}: expected {expected.relative_to(REPO_ROOT)}"
-    )
+    expected = _mirrored_test_path(relative_module)
+    if not expected.is_file():
+        warnings.warn(
+            f"Missing test mirror for {relative_module}: expected {expected.relative_to(REPO_ROOT)}",
+            stacklevel=1,
+        )

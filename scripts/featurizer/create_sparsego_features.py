@@ -11,11 +11,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import mudata as md
 import networkx as nx
 import numpy as np
 from sparsego_graph import build_pruned_graph, fetch_gene_go_annotations
-
-import mudata as md
 
 
 def _load_gene_list_from_mudata(mdata: md.MuData) -> list[str]:

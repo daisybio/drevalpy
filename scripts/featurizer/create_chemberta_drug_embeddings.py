@@ -8,11 +8,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import mudata as md
 import numpy as np
 import torch
 from tqdm import tqdm
-
-import mudata as md
 
 try:
     from transformers import AutoModel, AutoTokenizer

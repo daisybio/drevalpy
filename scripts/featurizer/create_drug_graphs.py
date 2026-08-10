@@ -8,11 +8,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import mudata as md
 import torch
 from torch_geometric.data import Data
 from tqdm import tqdm
-
-import mudata as md
 
 try:
     from rdkit import Chem

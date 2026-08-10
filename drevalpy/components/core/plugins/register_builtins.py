@@ -103,7 +103,10 @@ def _restore_registry_from_module(registry, module: ModuleType) -> None:
 
 
 def _restore_module_registrations(module_path: str, registry) -> None:
-    module = importlib.import_module(module_path)
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError:
+        return
     _restore_registry_from_module(registry, module)
 
 

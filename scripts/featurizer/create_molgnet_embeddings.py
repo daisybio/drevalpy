@@ -14,6 +14,7 @@ import math
 from pathlib import Path
 from typing import Any
 
+import mudata as md
 import numpy as np
 import torch
 import torch.nn.functional as torch_nn_f
@@ -22,8 +23,6 @@ from torch.nn import Parameter
 from torch_geometric.data import Data
 from torch_geometric.utils import add_self_loops, softmax
 from tqdm import tqdm
-
-import mudata as md
 
 try:
     from rdkit import Chem

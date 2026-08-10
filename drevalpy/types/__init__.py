@@ -12,11 +12,8 @@ from drevalpy.types.split_masks import SplitMasks
 from drevalpy.types.trial_result import TrialResult
 from drevalpy.types.view_location import ViewLocation
 
-EntityScope = SplitMask
-
 __all__ = [
     "Dataset",
-    "EntityScope",
     "LiteratureReference",
     "ModelScope",
     "MuDataLike",

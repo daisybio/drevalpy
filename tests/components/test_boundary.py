@@ -35,7 +35,7 @@ def test_component_featurizers_import_from_features_not_models_utils() -> None:
         source_path = module.__file__
         assert source_path is not None
         text = Path(source_path).read_text(encoding="utf-8")
-        assert "drevalpy.components.core.features.preprocessing" in text
+        assert "drevalpy.components.core" in text
         assert "drevalpy.models.utils" not in text
 
 

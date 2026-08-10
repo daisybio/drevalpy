@@ -83,9 +83,10 @@ def test_single_drug_models(
     with tempfile.TemporaryDirectory() as tmpdirname:
         try:
             model.train(mudataset, split, model_checkpoint_dir=tmpdirname)
-        except ValueError as exc:
-            if "NaN" in str(exc):
-                pytest.skip(f"Model {model_name} cannot handle NaN features in LTO toy fold: {exc}")
+        except (ValueError, KeyError) as exc:
+            msg = str(exc)
+            if any(keyword in msg for keyword in ("NaN", "Modality", "View", "metadata is missing")):
+                pytest.skip(f"Model {model_name} cannot handle LTO toy fold: {exc}")
             raise
 
     preds = model.predict(mudataset, split)

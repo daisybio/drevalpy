@@ -38,8 +38,15 @@ def read_sparsego_ontology_metadata(source: FeatureSource) -> SparseGOOntologyMe
     :param source: Feature source with metadata access.
     :returns: Result.
     """
-    metadata: Any = source.get_metadata("sparsego_ontology")
-    if isinstance(metadata, dict):
+    metadata: Any = None
+    for key in ("sparsego_ontology", "sparsego"):
+        try:
+            metadata = source.get_metadata(key)
+        except (KeyError, AttributeError):
+            continue
+        if metadata is not None:
+            break
+    if isinstance(metadata, dict) and "layer_connections" in metadata:
         return {
             "layer_connections": metadata["layer_connections"],
             "gene2id_mapping_ont": metadata["gene2id_mapping_ont"],

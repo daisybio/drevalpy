@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
+import pathlib
 from importlib.metadata import version as pkg_version
 from typing import Annotated
 
 import typer
 from typer import _click
-from upath import UPath as Path
 
 from drevalpy.cli._helpers import as_list, pipeline_namespace
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.utils import check_arguments, main
 
 # Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
-_DEFAULT_RESULTS_DIR = Path("results")
+_DEFAULT_RESULTS_DIR = pathlib.Path("results")
 
 
 def _version_callback(value: bool) -> None:
@@ -117,7 +117,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             ),
         ] = None,
         path_out: Annotated[
-            Path, typer.Option("--path_out", help="Path to the output directory.")
+            pathlib.Path, typer.Option("--path_out", help="Path to the output directory.")
         ] = _DEFAULT_RESULTS_DIR,
         no_refitting: Annotated[bool, typer.Option("--no_refitting", help=NO_REFITTING_HELP)] = False,
         curve_curator_cores: Annotated[
@@ -186,7 +186,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             typer.Option("--hpo_random_state", help="Random seed for the Optuna search algorithm."),
         ] = 42,
         model_checkpoint_dir: Annotated[
-            Path | None, typer.Option("--model_checkpoint_dir", help="Directory to save model checkpoints.")
+            pathlib.Path | None, typer.Option("--model_checkpoint_dir", help="Directory to save model checkpoints.")
         ] = None,
         final_model_on_full_data: Annotated[
             bool,

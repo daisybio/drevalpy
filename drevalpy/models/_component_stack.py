@@ -204,7 +204,7 @@ class _ComponentStack:
             if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
                 msg = "drug_input is required when a drug featurizer is configured"
                 raise ValueError(msg)
-            if drug_input is not None:
+            if drug_input is not None or _entity_id_only_featurizer(self._drug_featurizer):
                 drug_blocks = self._drug_featurizer.transform_blocks(drug_input, drug_entity_ids)
 
         return build_model_input_batch(
@@ -231,14 +231,11 @@ class _ComponentStack:
         source: FeatureSource | None,
         *,
         train_entity_ids: np.ndarray,
-        entity_id_only_ids: np.ndarray,
+        all_entity_ids: np.ndarray,
         fit_context: FeaturizerFitContext | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         featurizer.fit(source, entity_ids=train_entity_ids, context=fit_context)
-        if _entity_id_only_featurizer(featurizer):
-            entity_ids = np.asarray(entity_id_only_ids, dtype=str)
-        else:
-            entity_ids = np.asarray(train_entity_ids, dtype=str)
+        entity_ids = np.asarray(all_entity_ids, dtype=str)
         matrix = featurizer.transform(source, entity_ids)
         return entity_ids, matrix
 
@@ -254,6 +251,10 @@ class _ComponentStack:
             self._cell_line_matrix = np.empty((0, 0), dtype=np.float32)
             return
         train_cell_lines = unique_entity_ids(output.cell_line_ids)
+        all_cell_lines = train_cell_lines
+        if output_earlystopping is not None:
+            es_cell_lines = unique_entity_ids(output_earlystopping.cell_line_ids)
+            all_cell_lines = np.unique(np.concatenate([train_cell_lines, es_cell_lines]))
         fit_context = _build_fit_context(
             output,
             early_stopping=output_earlystopping,
@@ -263,7 +264,7 @@ class _ComponentStack:
             self._cell_line_featurizer,
             cell_line_input,
             train_entity_ids=train_cell_lines,
-            entity_id_only_ids=train_cell_lines,
+            all_entity_ids=all_cell_lines,
             fit_context=fit_context,
         )
         self._cell_line_entity_ids = entity_ids
@@ -281,6 +282,10 @@ class _ComponentStack:
             self._drug_matrix = np.empty((0, 0), dtype=np.float32)
             return
         train_drugs = unique_entity_ids(output.drug_ids)
+        all_drugs = train_drugs
+        if output_earlystopping is not None:
+            es_drugs = unique_entity_ids(output_earlystopping.drug_ids)
+            all_drugs = np.unique(np.concatenate([train_drugs, es_drugs]))
         drug_source = self._require_drug_input(drug_input)
         fit_context = _build_fit_context(
             output,
@@ -291,7 +296,7 @@ class _ComponentStack:
             self._drug_featurizer,
             drug_source,
             train_entity_ids=train_drugs,
-            entity_id_only_ids=train_drugs,
+            all_entity_ids=all_drugs,
             fit_context=fit_context,
         )
         self._drug_entity_ids = entity_ids

@@ -79,7 +79,7 @@ def validate_dataset_name_and_paths(args) -> None:
 
     :raises FileNotFoundError: If a custom dataset CSV is missing at the expected path.
     """
-    from drevalpy.data import registry
+    from drevalpy.data import dataset_registry as registry
 
     if registry.is_registered(args.dataset_name):
         return
@@ -106,7 +106,7 @@ def validate_cross_study_dataset_names(args) -> None:
 
     :raises AssertionError: If a cross-study name is not a built-in dataset.
     """
-    from drevalpy.data import registry
+    from drevalpy.data import dataset_registry as registry
 
     for dataset in args.cross_study_datasets:
         if not registry.is_registered(dataset):

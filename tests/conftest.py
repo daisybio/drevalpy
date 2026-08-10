@@ -43,7 +43,7 @@ class MockFeatureSource:
     def get_feature_names(self, view: str) -> tuple[str, ...] | None:
         """Return ordered feature/column names for a view, or None."""
         meta = self._meta_info.get(view)
-        return tuple(str(n) for n in meta) if meta else None
+        return tuple(str(n) for n in meta) if meta is not None else None
 
     def get_entity_view(self, entity_id: str, view: str) -> Any:
         """Return the raw per-entity object for non-numeric views (graphs, etc.)."""

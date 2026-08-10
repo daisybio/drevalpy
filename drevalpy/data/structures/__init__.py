@@ -2,7 +2,6 @@
 
 from drevalpy.types import (
     Dataset,
-    EntityScope,
     MuDataLike,
     ResponseBatch,
     RunResult,
@@ -14,7 +13,6 @@ from drevalpy.types import (
 
 __all__ = [
     "Dataset",
-    "EntityScope",
     "MuDataLike",
     "ResponseBatch",
     "RunResult",

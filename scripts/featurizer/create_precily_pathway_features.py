@@ -9,10 +9,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import mudata as md
 import numpy as np
 import pandas as pd
-
-import mudata as md
 
 
 def _run_gsva(

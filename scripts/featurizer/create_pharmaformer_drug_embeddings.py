@@ -18,10 +18,9 @@ import codecs
 import tempfile
 from pathlib import Path
 
+import mudata as md
 import numpy as np
 from tqdm import tqdm
-
-import mudata as md
 
 try:
     from subword_nmt.apply_bpe import BPE

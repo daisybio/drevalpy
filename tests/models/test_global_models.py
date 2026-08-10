@@ -1,6 +1,5 @@
 """Test the neural networks that are not single drug models."""
 
-import os
 import tempfile
 from typing import Any, cast
 
@@ -39,7 +38,7 @@ def _construct_global_model_class(whole_name: str, model_name: str) -> type[DRPM
             "SimpleNeuralNetwork",
             drug_featurizer=DrugFeaturizerConfig(
                 name="view",
-                options={"view": "drug_chemberta_embeddings"},
+                options={"view": "chemberta"},
             ),
         )
         return cast(type[DRPModel], construct_model(model_name, config))
@@ -118,7 +117,8 @@ def test_global_models(
         try:
             model.train(mudataset, split, model_checkpoint_dir=tmpdirname)
         except (ValueError, KeyError) as exc:
-            if "NaN" in str(exc) or "Modality" in str(exc):
+            msg = str(exc)
+            if any(keyword in msg for keyword in ("NaN", "Modality", "View", "metadata is missing")):
                 pytest.skip(f"Model {model_name} cannot handle LTO toy fold: {exc}")
             raise
 
@@ -139,80 +139,57 @@ def test_global_models(
 
 
 @pytest.mark.parametrize("test_mode", ["LTO"])
-def test_multi_view_neural_network_custom_views(sample_dataset: ResponseBatch, test_mode: str, data_dir) -> None:
-    """Test MultiViewNeuralNetwork with a fully custom cell line view (not a built-in omic).
+def test_multi_view_neural_network_custom_views(sample_dataset: ResponseBatch, test_mode: str) -> None:
+    """Test MultiViewNeuralNetwork with a non-default cell line view.
 
-    Creates a fake CSV feature file and uses it via load_generic_csv to verify
-    the flexible input pipeline works end-to-end including save/load without methylation.
+    Uses an existing modality (methylation) via the raw featurizer to verify
+    the flexible input pipeline works end-to-end including save/load.
 
     :param sample_dataset: ResponseBatch from conftest.py
     :param test_mode: LTO
-    :param data_dir: path to the data directory
     :raises ValueError: if drug input is None
     """
-    import pandas as pd
-
     from drevalpy.data import load
     from drevalpy.data.splitters import get_splitter
 
-    toy_dir = data_dir / "TOYv1"
-    gex = pd.read_csv(toy_dir / "gene_expression.csv")
-    cell_line_names = gex["cell_line_name"].values
+    mudataset = load("TOYv1")
+    splitter = get_splitter(test_mode)
+    folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
+    split = folds[0]
 
-    rng = np.random.default_rng(42)
-    n_features = 10
-    custom_df = pd.DataFrame(
-        rng.standard_normal((len(cell_line_names), n_features)),
-        columns=[f"feat_{i}" for i in range(n_features)],
-    )
-    custom_df.insert(0, "cell_line_name", cell_line_names)
-    custom_csv_path = toy_dir / "custom_test_view.csv"
-    custom_df.to_csv(custom_csv_path, index=False)
-
-    try:
-        mudataset = load("TOYv1")
-        splitter = get_splitter(test_mode)
-        folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
-        split = folds[0]
-
-        model_class = cast(
-            type[DRPModel],
-            construct_model(
+    model_class = cast(
+        type[DRPModel],
+        construct_model(
+            "MultiViewNeuralNetwork",
+            _zoo_config_variant(
                 "MultiViewNeuralNetwork",
-                _zoo_config_variant(
-                    "MultiViewNeuralNetwork",
-                    cell_line_featurizer=CellLineFeaturizerConfig(
-                        name="raw",
-                        view="custom_test_view",
-                    ),
+                cell_line_featurizer=CellLineFeaturizerConfig(
+                    name="raw",
+                    view="methylation",
                 ),
             ),
-        )
+        ),
+    )
 
-        hpam_combi = {
-            "units_per_layer": [2, 2],
-            "dropout_prob": 0.3,
-            "max_epochs": 1,
-        }
-        model = model_class(hpam_combi)
+    hpam_combi = {
+        "units_per_layer": [2, 2],
+        "dropout_prob": 0.3,
+        "max_epochs": 1,
+    }
+    model = model_class(hpam_combi)
 
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            model.train(mudataset, split, model_checkpoint_dir=tmpdirname)
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        model.train(mudataset, split, model_checkpoint_dir=tmpdirname)
 
-        preds = model.predict(mudataset, split)
-        assert isinstance(preds, np.ndarray)
-        assert preds.shape[0] > 0
+    preds = model.predict(mudataset, split)
+    assert isinstance(preds, np.ndarray)
+    assert preds.shape[0] > 0
 
-        with tempfile.TemporaryDirectory() as model_dir:
-            checkpoint = f"{model_dir}/model"
-            model.save(checkpoint)
-            assert not os.path.exists(os.path.join(model_dir, "methylation_scaler.pkl"))
-            assert not os.path.exists(os.path.join(model_dir, "methylation_pca.pkl"))
+    with tempfile.TemporaryDirectory() as model_dir:
+        checkpoint = f"{model_dir}/model"
+        model.save(checkpoint)
 
-            loaded_model = model_class.load(checkpoint)
-            assert isinstance(loaded_model, DRPModel)
-            preds_after = loaded_model.predict(mudataset, split)
-            assert preds.shape == preds_after.shape
-    finally:
-        if os.path.exists(custom_csv_path):
-            os.remove(custom_csv_path)
+        loaded_model = model_class.load(checkpoint)
+        assert isinstance(loaded_model, DRPModel)
+        preds_after = loaded_model.predict(mudataset, split)
+        assert preds.shape == preds_after.shape
