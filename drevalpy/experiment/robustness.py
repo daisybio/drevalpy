@@ -5,7 +5,7 @@ from __future__ import annotations
 from drevalpy.types import SplitMasks
 
 
-def shuffled_splits(split_masks: SplitMasks, n_permutations: int) -> list[SplitMasks]:
+def robustness(split_masks: SplitMasks, n_permutations: int) -> list[SplitMasks]:
     """Generate shuffled copies of split_masks for robustness testing.
 
     Each returned SplitMasks has the same mask content but with .pairs in a

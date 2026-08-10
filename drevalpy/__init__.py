@@ -15,7 +15,7 @@ from .data import splitter_registry as splitter_registry
 from .data.datasets import load as load
 from .experiment import randomization as randomization
 from .experiment import run as run
-from .experiment import shuffled_splits as shuffled_splits
+from .experiment import robustness as robustness
 from .models import construct_model as construct_model
 from .pipeline import pipeline as pipeline
 

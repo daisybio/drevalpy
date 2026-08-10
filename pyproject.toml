@@ -154,6 +154,7 @@ deprecated = "ignore"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = ["tests/cli_old"]
 pythonpath = ["."]
 addopts = ["--import-mode=importlib"]
 

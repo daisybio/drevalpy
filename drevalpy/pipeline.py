@@ -5,7 +5,7 @@ from itertools import product
 from drevalpy.data import load, split
 from drevalpy.experiment import run
 from drevalpy.experiment.randomization import randomization
-from drevalpy.experiment.robustness import shuffled_splits
+from drevalpy.experiment.robustness import robustness
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.types import Dataset
 from drevalpy.types.run_result import RunResult
@@ -39,7 +39,7 @@ def pipeline(
     folds = split(ds, split_mode)
 
     if robustness_trials > 0:
-        folds = [s for fold in folds for s in shuffled_splits(fold, robustness_trials)]
+        folds = [s for fold in folds for s in robustness(fold, robustness_trials)]
 
     results: list[RunResult] = []
     for model, split_masks in product(models, folds):

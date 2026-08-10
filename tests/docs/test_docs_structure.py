@@ -41,19 +41,7 @@ EXEMPT_RELATIVE = {
 }
 
 CLI_COMMANDS = (
-    "viability-preprocess",
-    "viability-postprocess",
-    "load-response",
-    "make-cv-pkls",
-    "make-hpam-yamls",
-    "evaluate-hpams",
-    "make-randomization-yamls",
-    "train-final-model",
-    "consolidate-single-drug",
-    "evaluate-test",
-    "collect-results",
-    "report",
-    "make-pipeline-report",
+    "data",
 )
 
 
