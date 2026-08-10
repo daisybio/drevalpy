@@ -28,7 +28,7 @@ def single_cmd(
     out.parent.mkdir(parents=True, exist_ok=True)
 
     model_class = construct_model(model)
-    ds = Dataset.from_file(dataset)
+    ds = Dataset.load(dataset)
     split_masks = SplitMasks.load(split)
 
     result = run_single(

@@ -145,22 +145,45 @@ class Dataset(MuDataLike):
         self.randomization = randomization
 
     @classmethod
-    def from_file(cls, path: str | Path, *, name: str | None = None) -> Dataset:
+    def load(cls, path: str | Path) -> Dataset:
         """Read a Dataset from an .h5mu file on disk.
 
-        Args:
-            path: Path to the .h5mu file.
-            name: Dataset name. Defaults to the file stem.
-
-        Returns:
-            A Dataset wrapping the loaded MuData.
+        :param path: Path to the .h5mu file.
+        :returns: A Dataset wrapping the loaded MuData.
         """
         from upath import UPath as Path
 
         resolved = Path(path)
         md.set_options(pull_on_update=False)
         mdata = md.read_h5mu(resolved)
-        return cls(mdata, name=name or resolved.stem)
+
+        stored_name = mdata.uns.get("dataset_name")
+        name = stored_name if isinstance(stored_name, str) else resolved.stem
+
+        randomization = None
+        stored_rand = mdata.uns.get("randomization")
+        if isinstance(stored_rand, (list, tuple)) and len(stored_rand) == 2:
+            randomization = (str(stored_rand[0]), str(stored_rand[1]))
+
+        return cls(mdata, name=name, randomization=randomization)
+
+    def save(self, path: str | Path) -> None:
+        """Write this Dataset to an .h5mu file, preserving name and randomization.
+
+        :param path: Output file path.
+        """
+        from upath import UPath as Path
+
+        resolved = Path(path)
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+
+        self._mdata.uns["dataset_name"] = self._name
+        if self.randomization is not None:
+            self._mdata.uns["randomization"] = list(self.randomization)
+        elif "randomization" in self._mdata.uns:
+            del self._mdata.uns["randomization"]
+
+        self._mdata.write(str(resolved))
 
     @property
     def name(self) -> str:

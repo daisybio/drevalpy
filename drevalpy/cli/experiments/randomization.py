@@ -34,7 +34,7 @@ def randomization_cmd(
 
     effective_modes = modes if modes else ["SVRC"]
     model_class = construct_model(model)
-    ds = Dataset.from_file(dataset)
+    ds = Dataset.load(dataset)
     randomized = randomization(model_class, ds, effective_modes, random_state=random_state)
 
     with Progress() as progress:

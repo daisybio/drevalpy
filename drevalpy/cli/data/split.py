@@ -26,7 +26,7 @@ def split_dataset(
 
     from drevalpy.data import Dataset, split
 
-    ds = Dataset.from_file(dataset)
+    ds = Dataset.load(dataset)
     out = UPath(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 

@@ -13,7 +13,7 @@ DATA_PATH = "data/TOYv2.h5mu"
 @pytest.fixture()
 def mudataset() -> Dataset:
     """Load the TOYv2 fixture."""
-    return Dataset.from_file(DATA_PATH)
+    return Dataset.load(DATA_PATH)
 
 
 class TestFromFile:

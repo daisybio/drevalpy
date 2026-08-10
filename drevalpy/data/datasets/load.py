@@ -65,7 +65,7 @@ def load(dataset_name: str) -> Dataset:
     h5mu_path = resolve_h5mu_path(dataset_name)
     if h5mu_path.is_file():
         try:
-            return Dataset.from_file(h5mu_path)
+            return Dataset.load(h5mu_path)
         except Exception:
             logger.warning("Corrupted file at %s, removing and re-downloading.", h5mu_path)
             h5mu_path.unlink()
@@ -76,16 +76,16 @@ def load(dataset_name: str) -> Dataset:
         candidate = data_dir / entry.file
         if candidate.is_file():
             try:
-                return Dataset.from_file(candidate)
+                return Dataset.load(candidate)
             except Exception:
                 logger.warning("Corrupted file at %s, removing and re-downloading.", candidate)
                 candidate.unlink()
         downloaded = _download(dataset_name)
-        return Dataset.from_file(downloaded)
+        return Dataset.load(downloaded)
 
     candidate_path = Path(dataset_name)
     if candidate_path.is_file() and candidate_path.suffix == ".h5mu":
-        return Dataset.from_file(candidate_path)
+        return Dataset.load(candidate_path)
 
     raise FileNotFoundError(
         f"Cannot locate .h5mu for dataset '{dataset_name}'. "
