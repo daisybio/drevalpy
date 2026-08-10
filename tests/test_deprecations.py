@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 
-from drevalpy._deprecations import reset_deprecation_warnings, warn_deprecated
+from drevalpy.utils._deprecations import reset_deprecation_warnings, warn_deprecated
 
 
 def test_warn_deprecated_emits_future_warning_once() -> None:

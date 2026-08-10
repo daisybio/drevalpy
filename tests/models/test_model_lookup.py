@@ -6,7 +6,6 @@ import warnings
 
 import pytest
 
-from drevalpy._deprecations import reset_deprecation_warnings
 from drevalpy.models import construct_model
 from drevalpy.models._model_lookup import (
     get_model_class,
@@ -18,6 +17,7 @@ from drevalpy.models._model_lookup import (
 )
 from drevalpy.models.zoo import list_zoo_names
 from drevalpy.types.model_scope import ModelScope
+from drevalpy.utils._deprecations import reset_deprecation_warnings
 
 
 def test_construct_model_one_arg_resolves_zoo_preset() -> None:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy._deprecations import FACTORY_DICT_NAMES, warn_deprecated
+from drevalpy.utils._deprecations import FACTORY_DICT_NAMES, warn_deprecated
 
 from ._construct_model_api import build_builtin_factory_tables, construct_model
 from ._model_persistence import load_model
