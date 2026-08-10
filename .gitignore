@@ -189,3 +189,4 @@ cython_debug/
 .Rproj.user
 .idea/
 test.ipynb
+testing/

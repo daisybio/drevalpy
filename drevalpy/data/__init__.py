@@ -9,7 +9,7 @@ from .structures import SplitMasks
 
 
 def split(
-    dataset: str | Dataset,
+    dataset: Dataset,
     mode: str,
     n_splits: int = 5,
     validation_ratio: float = 0.1,
@@ -17,20 +17,17 @@ def split(
 ) -> list[SplitMasks]:
     """Split a dataset using a registered splitter.
 
-    :param dataset: Dataset instance, registered dataset name, or path to .h5mu file.
+    :param dataset: Dataset instance.
     :param mode: Splitter mode (e.g. "LCO", "LPO", "LDO", "LTO").
     :param n_splits: Number of CV folds.
     :param validation_ratio: Fraction of training data for validation.
     :param random_state: Seed for reproducibility.
     :returns: List of SplitMasks, one per fold.
     """
-    from drevalpy.types.dataset import Dataset as _MuDataset
-
-    mudataset = dataset if isinstance(dataset, _MuDataset) else load(dataset)
     splitter = splitter_registry.get(mode)
-    folds = splitter(mudataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state)
+    folds = splitter(dataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state)
     for fold in folds:
-        fold.metadata.setdefault("dataset", mudataset.name)
+        fold.metadata.setdefault("dataset", dataset.name)
     return folds
 
 
