@@ -162,7 +162,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         )
 
         for registry in (cell_line_featurizer_registry, drug_featurizer_registry):
-            for name in registry.list():
+            for name in registry.list_names():
                 self._precompute_single(registry.get(name), n_variants)
 
     def _precompute_single(self, cls: type, n_variants: int) -> None:
