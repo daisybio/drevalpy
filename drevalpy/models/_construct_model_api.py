@@ -19,22 +19,12 @@ def _as_template(config: ModelConfig | ResolvedModelConfig) -> ModelConfig:
 
 
 def _resolve_base_config(name: str, spec: str | ModelConfig | ResolvedModelConfig | None) -> ModelConfig:
-    if spec is None:
-        # If no spec is provided, it MUST be registered in the zoo
-        if name not in list_zoo_names(include_external=True):
-            msg = (
-                f"Unknown model name {name!r}. Pass a zoo preset name, or provide "
-                "a recipe/config as the second argument: "
-                'construct_model("MyModel", "cellLine:drug:predictor").'
-            )
-            raise ValueError(msg)
-        config = from_spec(name)
-    elif isinstance(spec, ResolvedModelConfig):
+    if isinstance(spec, ResolvedModelConfig):
         config = ModelConfig.model_validate(spec.template.model_dump(mode="python"))
     elif isinstance(spec, ModelConfig):
         config = ModelConfig.model_validate(spec.model_dump(mode="python"))
     else:
-        config = from_spec(spec)
+        config = from_spec(spec or name)
     return _as_template(config)
 
 

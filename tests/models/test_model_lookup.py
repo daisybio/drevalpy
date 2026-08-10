@@ -27,7 +27,7 @@ def test_construct_model_one_arg_resolves_zoo_preset() -> None:
 
 
 def test_construct_model_one_arg_unknown_raises() -> None:
-    with pytest.raises(ValueError, match="Unknown model name"):
+    with pytest.raises(ValueError, match="Unknown model spec"):
         construct_model("NotARealModel")
 
 

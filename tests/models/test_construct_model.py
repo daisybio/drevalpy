@@ -40,7 +40,7 @@ def test_construct_model_invalid_spec_raises() -> None:
 
 
 def test_construct_model_one_arg_unknown_raises() -> None:
-    with pytest.raises(ValueError, match="Unknown model name"):
+    with pytest.raises(ValueError, match="Unknown model spec"):
         construct_model("not-a-valid-spec")
 
 
@@ -80,9 +80,9 @@ def test_construct_model_train_predict_smoke() -> None:
     model = model_cls()
 
     import anndata as ad
+    import mudata as md
     import pandas as pd
 
-    import mudata as md
     from drevalpy.data.structures import SplitMask, SplitMasks
     from drevalpy.types.dataset import Dataset
 
