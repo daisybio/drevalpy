@@ -20,7 +20,11 @@ app.add_typer(experiments_app, name="experiments")
 
 def cli_main() -> None:
     """Console script entry point."""
-    app()
+    try:
+        app()
+    except KeyboardInterrupt:
+        typer.echo("\nInterrupted.", err=True)
+        raise SystemExit(130) from None
 
 
 if __name__ == "__main__":
