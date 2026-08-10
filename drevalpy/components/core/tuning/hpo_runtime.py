@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tempfile
 from collections.abc import Callable
 from typing import Any
 
@@ -20,7 +21,6 @@ from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.types import SplitMask
 from drevalpy.types.dataset import Dataset
-from drevalpy.utils.checkpoints import resolve_checkpoint_dir
 
 logger = get_logger(__name__)
 
@@ -32,10 +32,9 @@ def _trial_checkpoint_dir(base_dir: str | Path | None, trial_number: int) -> Pat
     :param trial_number: Optuna trial number.
     :returns: The trial subdirectory, or ``None`` when a temporary one should be used.
     """
-    resolved = resolve_checkpoint_dir(base_dir)
-    if resolved is None:
+    if base_dir is None:
         return None
-    path = resolved / f"trial_{trial_number}"
+    path = Path(base_dir) / f"trial_{trial_number}"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -81,15 +80,21 @@ def _mu_evaluate_trial_model(
     from drevalpy.evaluation import AVAILABLE_METRICS
 
     trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
-    from drevalpy.utils.checkpoints import checkpoint_dir_or_temporary
-
-    with checkpoint_dir_or_temporary(trial_dir) as checkpoint_dir:
+    if trial_dir is not None:
         trial_model.train(
             mudataset=mudataset,
             scope=train_scope,
             early_stopping_scope=early_stopping_scope,
-            model_checkpoint_dir=checkpoint_dir,
+            model_checkpoint_dir=str(trial_dir),
         )
+    else:
+        with tempfile.TemporaryDirectory() as checkpoint_dir:
+            trial_model.train(
+                mudataset=mudataset,
+                scope=train_scope,
+                early_stopping_scope=early_stopping_scope,
+                model_checkpoint_dir=checkpoint_dir,
+            )
 
     predictions = trial_model.predict(mudataset=mudataset, scope=val_scope)
 
@@ -137,15 +142,21 @@ def _mu_evaluate_trial_all_metrics(
     from drevalpy.evaluation import AVAILABLE_METRICS
 
     trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
-    from drevalpy.utils.checkpoints import checkpoint_dir_or_temporary
-
-    with checkpoint_dir_or_temporary(trial_dir) as checkpoint_dir:
+    if trial_dir is not None:
         trial_model.train(
             mudataset=mudataset,
             scope=train_scope,
             early_stopping_scope=early_stopping_scope,
-            model_checkpoint_dir=checkpoint_dir,
+            model_checkpoint_dir=str(trial_dir),
         )
+    else:
+        with tempfile.TemporaryDirectory() as checkpoint_dir:
+            trial_model.train(
+                mudataset=mudataset,
+                scope=train_scope,
+                early_stopping_scope=early_stopping_scope,
+                model_checkpoint_dir=checkpoint_dir,
+            )
 
     predictions = trial_model.predict(mudataset=mudataset, scope=val_scope)
 

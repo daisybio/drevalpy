@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import tempfile
+
 import numpy as np
 from sklearn.base import TransformerMixin, clone
 
@@ -107,7 +109,6 @@ def single(
     """
     from drevalpy.components.core.tuning.config import build_experiment_hpo_config
     from drevalpy.evaluation import AVAILABLE_METRICS
-    from drevalpy.utils.checkpoints import checkpoint_dir_or_temporary
 
     split_masks = _filter_to_featurizable_pairs(model_class, mudataset, split_masks)
 
@@ -163,7 +164,7 @@ def single(
         valid_mask = ~np.isnan(train_responses)
         fold_transform.fit(train_responses[valid_mask].reshape(-1, 1))
 
-    with checkpoint_dir_or_temporary(None) as checkpoint_dir:
+    with tempfile.TemporaryDirectory() as checkpoint_dir:
         model.train(
             mudataset=mudataset,
             scope=train_scope,
