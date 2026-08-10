@@ -211,11 +211,10 @@ def test_unparsable_one_key_falls_back_to_the_registry_error() -> None:
 
 
 def test_one_key_loose_values_resolve_against_the_drug_registry() -> None:
-    """No drug featurizer declares a space, so a loose value becomes a fixed option."""
+    """Fingerprints declares n_bits in its HP space, so the value overrides the default."""
     payload = normalize_featurizer_config({"fingerprints": {"n_bits": 512}}, default_registry="drug")
     assert payload["registry"] == "drug"
-    assert payload["options"] == {"n_bits": 512}
-    assert "hyperparameter_space" not in payload
+    assert payload["hyperparameter_space"]["n_bits"]["default"] == 512
 
 
 def test_named_mapping_without_a_view_is_rejected() -> None:

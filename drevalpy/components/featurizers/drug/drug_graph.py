@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -26,16 +26,47 @@ class DrugGraphFeaturizer(DrugFeaturizer):
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("drug_graph", FeatureFormat.GRAPH),)
     input_views: ClassVar[tuple[str, ...]] = ("drug_graph",)
+    source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
     precompute: ClassVar[bool] = True
 
-    def __init__(self, *, view: str = "drug_graph") -> None:
+    def __init__(self, *, view: str = "drug_graph", add_hydrogens: bool = False) -> None:
         """Store the graph view name and initialize empty caches.
 
         :param view: Feature view name containing graph payloads.
+        :param add_hydrogens: Whether to add explicit hydrogen atoms to the graph.
         """
         self._view = view
+        self._add_hydrogens = bool(add_hydrogens)
         self._graphs: dict[str, object] = {}
         self._output_dim = 0
+
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return tunable hyperparameter specs.
+
+        :returns: HP space mapping.
+        """
+        return {
+            "add_hydrogens": {"type": "categorical", "choices": [True, False], "default": False},
+        }
+
+    def _compute_from_source(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        """Compute drug graphs from SMILES for all requested entities.
+
+        :param source: Feature source.
+        :param entity_ids: Drug identifiers.
+        :returns: Object array of graph payloads.
+        """
+        graphs: list[object] = []
+        for drug_id in entity_ids:
+            graph = self._compute_graph_from_smiles_for_entity(source, str(drug_id))
+            if graph is not None:
+                graphs.append(graph)
+            else:
+                graphs.append(None)
+        payloads = np.empty(len(graphs), dtype=object)
+        payloads[:] = graphs
+        return payloads
 
     def _fit(
         self,
@@ -140,13 +171,14 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         smi = smiles_series.get(drug_id)
         if not smi or not isinstance(smi, str):
             return None
-        return _smiles_to_graph(smi)
+        return _smiles_to_graph(smi, add_hydrogens=self._add_hydrogens)
 
 
-def _smiles_to_graph(smiles: str):
+def _smiles_to_graph(smiles: str, *, add_hydrogens: bool = False):
     """Convert a SMILES string to a torch_geometric Data graph.
 
     :param smiles: SMILES string.
+    :param add_hydrogens: Whether to add explicit hydrogen atoms.
     :returns: torch_geometric.data.Data or None if parsing fails.
     """
     try:
@@ -164,6 +196,8 @@ def _smiles_to_graph(smiles: str):
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None
+    if add_hydrogens:
+        mol = Chem.AddHs(mol)
 
     atom_feature_defs = {
         "atomic_num": list(range(1, 119)),

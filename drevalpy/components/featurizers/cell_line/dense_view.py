@@ -41,10 +41,19 @@ class DenseViewCellLineFeaturizer(CellLineFeaturizer):
         ids = entity_ids if entity_ids is not None else source.identifiers
         mdata = getattr(source, "mdata", None)
         matrix = self.fetch(mdata, ids) if mdata is not None else None
-        if matrix is None:
+        if matrix is not None:
+            self._output_dim = int(matrix.shape[1])
+            return self
+        try:
             matrix = stack_view_matrix(source, self._view, ids)
-        self._output_dim = int(matrix.shape[1])
-        return self
+            self._output_dim = int(matrix.shape[1])
+            return self
+        except (KeyError, TypeError, ValueError):
+            if self.precompute and hasattr(self, "_compute_from_source"):
+                probe = self._compute_from_source(source, ids[:1])
+                self._output_dim = int(probe.shape[1])
+                return self
+            raise
 
     def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
@@ -57,7 +66,12 @@ class DenseViewCellLineFeaturizer(CellLineFeaturizer):
         matrix = self.fetch(mdata, entity_ids) if mdata is not None else None
         if matrix is not None:
             return matrix.astype(np.float32)
-        return stack_view_matrix(source, self._view, entity_ids).astype(np.float32)
+        try:
+            return stack_view_matrix(source, self._view, entity_ids).astype(np.float32)
+        except (KeyError, TypeError, ValueError):
+            if self.precompute and hasattr(self, "_compute_from_source"):
+                return self._compute_from_source(source, entity_ids).astype(np.float32)
+            raise
 
     def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.

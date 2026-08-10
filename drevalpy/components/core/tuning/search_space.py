@@ -314,6 +314,9 @@ def sample_from_optuna_trial(trial: Any, space_dict: dict[str, Any]) -> dict[str
             )
         elif kind == "categorical":
             result[name] = trial.suggest_categorical(name, list(spec.get("choices", [])))
+        elif kind == "pow2":
+            exp = trial.suggest_int(name, int(spec["low"]), int(spec["high"]))
+            result[name] = 2**exp
         else:
             msg = f"Unknown hyperparameter type {kind!r} for parameter {name!r}"
             raise ValueError(msg)

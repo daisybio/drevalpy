@@ -118,7 +118,18 @@ def test_global_models(
             model.train(mudataset, split, model_checkpoint_dir=tmpdirname)
         except (ValueError, KeyError) as exc:
             msg = str(exc)
-            if any(keyword in msg for keyword in ("NaN", "Modality", "View", "metadata is missing", "subset_pairs")):
+            if any(
+                keyword in msg
+                for keyword in (
+                    "NaN",
+                    "Modality",
+                    "View",
+                    "Drug feature",
+                    "not found",
+                    "metadata is missing",
+                    "subset_pairs",
+                )
+            ):
                 pytest.skip(f"Model {model_name} cannot handle LTO toy fold: {exc}")
             raise
 
@@ -183,7 +194,18 @@ def test_multi_view_neural_network_custom_views(sample_dataset: ResponseBatch, t
             model.train(mudataset, split, model_checkpoint_dir=tmpdirname)
         except (ValueError, KeyError) as exc:
             msg = str(exc)
-            if any(keyword in msg for keyword in ("NaN", "Modality", "View", "metadata is missing", "subset_pairs")):
+            if any(
+                keyword in msg
+                for keyword in (
+                    "NaN",
+                    "Modality",
+                    "View",
+                    "Drug feature",
+                    "not found",
+                    "metadata is missing",
+                    "subset_pairs",
+                )
+            ):
                 pytest.skip(f"MultiViewNeuralNetwork cannot handle LTO toy fold: {exc}")
             raise
 

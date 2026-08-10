@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -30,94 +30,45 @@ class ChemBertaFeaturizer(ViewDrugFeaturizer):
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("chemberta", FeatureFormat.NUMERIC_MATRIX),)
     storage_key: ClassVar[str] = "chemberta"
     input_views: ClassVar[tuple[str, ...]] = ("chemberta",)
+    source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
     precompute: ClassVar[bool] = True
 
-    def __init__(self, *, view: str = "chemberta") -> None:
+    def __init__(self, *, view: str = "chemberta", pooling: str = "mean", max_length: int = 512) -> None:
         """Initialize instance state.
 
         :param view: view.
+        :param pooling: Token aggregation strategy ("mean", "cls", "max").
+        :param max_length: Tokenizer truncation length.
         """
         super().__init__(view=view)
+        self._pooling = pooling
+        self._max_length = int(max_length)
 
-    def _fit(
-        self,
-        source: FeatureSource,
-        *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> ChemBertaFeaturizer:
-        """Fit on training data, falling back to on-the-fly computation.
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return tunable hyperparameter specs.
 
-        :param source: Feature source providing drug views.
-        :param entity_ids: entity ids.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Fitted featurizer instance.
-        """
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
-        matrix = self._get_or_compute(source, ids)
-        self._output_dim = int(matrix.shape[1])
-        return self
-
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into ChemBERTa embeddings.
-
-        :param source: Feature source providing drug views.
-        :param entity_ids: entity ids.
-        :returns: Feature matrix.
-        """
-        return self._get_or_compute(source, entity_ids).astype(np.float32)
-
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Transform blocks.
-
-        :param source: Feature source providing drug views.
-        :param entity_ids: entity ids.
-        :returns: Mapping with one numeric block.
+        :returns: HP space mapping.
         """
         return {
-            "chemberta": numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=source.get_feature_names(self._view),
-            )
+            "pooling": {"type": "categorical", "choices": ["mean", "cls", "max"], "default": "mean"},
+            "max_length": {"type": "categorical", "choices": [64, 128, 256, 512], "default": 512},
         }
 
-    def _get_or_compute(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Try pre-computed fetch, fall back to on-the-fly computation.
+    def _compute_from_source(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        """Compute ChemBERTa embeddings from SMILES via pooled hidden states.
 
         :param source: Feature source.
         :param entity_ids: Drug identifiers.
-        :returns: Embedding matrix.
+        :returns: Embedding matrix of shape (n_drugs, hidden_dim).
         """
-        mdata = getattr(source, "mdata", None)
-        if mdata is not None:
-            precomputed = self.fetch(mdata, entity_ids)
-            if precomputed is not None:
-                return precomputed
-        from drevalpy.components.featurizers._matrix import stack_view_matrix
-
-        try:
-            return stack_view_matrix(source, self._view, entity_ids)
-        except (KeyError, TypeError, ValueError):
-            pass
         from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 
         smiles = get_smiles_for_entities(source, entity_ids)
-        if smiles is not None:
-            _logger.warning("Computing %s on the fly. Consider ds.precompute().", self.storage_key)
-            return self._compute_from_smiles(smiles, entity_ids)
-        msg = f"Cannot obtain {self.storage_key}: no pre-computed data, view, or SMILES available."
-        raise ValueError(msg)
+        if smiles is None:
+            msg = f"Cannot obtain {self.storage_key}: no SMILES available."
+            raise ValueError(msg)
 
-    def _compute_from_smiles(self, smiles_series, entity_ids: np.ndarray) -> np.ndarray:
-        """Compute ChemBERTa embeddings from SMILES via mean-pooled hidden states.
-
-        :param smiles_series: Series of SMILES indexed by entity IDs.
-        :param entity_ids: Drug identifiers.
-        :returns: Embedding matrix of shape (n_drugs, hidden_dim).
-        """
         try:
             import torch
             from transformers import AutoModel, AutoTokenizer
@@ -134,15 +85,41 @@ class ChemBertaFeaturizer(ViewDrugFeaturizer):
 
         embeddings = []
         for drug_id in entity_ids:
-            smi = smiles_series.get(drug_id)
+            smi = smiles.get(drug_id)
             if smi and isinstance(smi, str):
-                inputs = tokenizer(smi, return_tensors="pt", truncation=True)
+                inputs = tokenizer(smi, return_tensors="pt", truncation=True, max_length=self._max_length)
                 with torch.no_grad():
                     outputs = model(**inputs)
                     hidden_states = outputs.last_hidden_state
-                embedding = hidden_states.mean(dim=1).squeeze(0).numpy()
+                embedding = self._pool(hidden_states)
             else:
                 embedding = np.full(model.config.hidden_size, np.nan, dtype=np.float32)
             embeddings.append(embedding)
 
         return np.vstack(embeddings).astype(np.float32)
+
+    def _pool(self, hidden_states) -> np.ndarray:
+        """Apply pooling strategy to hidden states.
+
+        :param hidden_states: Tensor of shape (1, seq_len, hidden_dim).
+        :returns: Pooled embedding vector.
+        """
+        if self._pooling == "cls":
+            return hidden_states[:, 0, :].squeeze(0).numpy()
+        if self._pooling == "max":
+            return hidden_states.max(dim=1).values.squeeze(0).numpy()
+        return hidden_states.mean(dim=1).squeeze(0).numpy()
+
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param source: Feature source providing drug views.
+        :param entity_ids: entity ids.
+        :returns: Mapping with one numeric block.
+        """
+        return {
+            "chemberta": numeric_feature_block(
+                self._transform(source, entity_ids),
+                feature_names=source.get_feature_names(self._view),
+            )
+        }

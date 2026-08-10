@@ -29,6 +29,7 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
     )
     storage_key: ClassVar[str] = "molgnet_features"
     input_views: ClassVar[tuple[str, ...]] = ("molgnet_features",)
+    source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
     precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "molgnet_features") -> None:
@@ -39,6 +40,22 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
         self._view = view
         self._features_by_drug: dict[str, np.ndarray] = {}
         self._output_dim = 0
+
+    def _compute_from_source(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        """Compute MolGNet embeddings from SMILES for all requested entities.
+
+        :param source: Feature source.
+        :param entity_ids: Drug identifiers.
+        :returns: Object array of MolGNet embedding tensors.
+        """
+        rows: list[np.ndarray] = []
+        for drug_id in entity_ids:
+            computed = self._compute_single_embedding(source, str(drug_id))
+            if computed is not None:
+                rows.append(computed)
+            else:
+                rows.append(np.empty((0, 768), dtype=np.float32))
+        return np.array(rows, dtype=object)
 
     def _fit(
         self,
@@ -122,7 +139,7 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
     def _compute_single_embedding(self, source: FeatureSource, drug_id: str) -> np.ndarray | None:
         """Compute MolGNet embedding for a single drug from SMILES.
 
-        Requires a MolGNet checkpoint stored in mdata.uns["molgnet_checkpoint_path"].
+        Auto-downloads the MolGNet checkpoint on first use.
 
         :param source: Feature source.
         :param drug_id: Drug identifier.
@@ -136,14 +153,20 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
         smi = smiles_series.get(drug_id)
         if not smi or not isinstance(smi, str):
             return None
-        return _compute_molgnet_embedding(smi, source)
+        return _compute_molgnet_embedding(smi)
 
 
-def _compute_molgnet_embedding(smiles: str, source: FeatureSource) -> np.ndarray | None:
+def _get_molgnet_checkpoint() -> str:
+    """Return the local path to the MolGNet checkpoint, downloading if needed."""
+    from drevalpy.data.artifacts import get_artifact
+
+    return str(get_artifact("MolGNet.pt"))
+
+
+def _compute_molgnet_embedding(smiles: str) -> np.ndarray | None:
     """Compute MolGNet node embedding for a SMILES using the pre-trained checkpoint.
 
     :param smiles: SMILES string.
-    :param source: Feature source for checkpoint metadata access.
     :returns: Numpy array of shape (n_atoms, 768) or None.
     """
     try:
@@ -161,17 +184,7 @@ def _compute_molgnet_embedding(smiles: str, source: FeatureSource) -> np.ndarray
     if mol is None:
         return None
 
-    mdata = getattr(source, "mdata", None)
-    checkpoint_path = None
-    if mdata is not None and "molgnet_checkpoint_path" in mdata.uns:
-        checkpoint_path = mdata.uns["molgnet_checkpoint_path"]
-
-    if checkpoint_path is None:
-        msg = (
-            "MolGNet requires a pre-trained checkpoint. "
-            "Store the path in mdata.uns['molgnet_checkpoint_path'] or pre-compute the embeddings."
-        )
-        raise ValueError(msg)
+    checkpoint_path = _get_molgnet_checkpoint()
 
     from scripts.featurizer.create_molgnet_embeddings import (
         AddSegId,

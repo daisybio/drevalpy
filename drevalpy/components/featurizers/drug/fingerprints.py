@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -27,45 +27,73 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
     storage_key: ClassVar[str] = "morgan_fingerprint"
     input_views: ClassVar[tuple[str, ...]] = ("morgan_fingerprint",)
+    source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
     precompute: ClassVar[bool] = True
 
-    def __init__(self, *, view: str = "morgan_fingerprint") -> None:
+    def __init__(
+        self,
+        *,
+        view: str = "morgan_fingerprint",
+        radius: int = 2,
+        n_bits: int = 2048,
+        use_chirality: bool = False,
+        use_counts: bool = False,
+    ) -> None:
         """Initialize instance state.
 
         :param view: view.
+        :param radius: Morgan fingerprint radius (neighborhood extent).
+        :param n_bits: Fingerprint bit length.
+        :param use_chirality: Whether to include stereochemistry information.
+        :param use_counts: Whether to use count-based (True) or binary (False) fingerprints.
         """
         super().__init__(view=view)
+        self._radius = int(radius)
+        self._n_bits = int(n_bits)
+        self._use_chirality = bool(use_chirality)
+        self._use_counts = bool(use_counts)
 
-    def _fit(
-        self,
-        source: FeatureSource,
-        *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> FingerprintsFeaturizer:
-        """Fit on training data, falling back to on-the-fly computation.
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return tunable hyperparameter specs.
 
-        :param source: Feature source providing drug views.
-        :param entity_ids: entity ids.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Fitted featurizer instance.
+        :returns: HP space mapping.
         """
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
-        matrix = self._get_or_compute(source, ids)
-        self._output_dim = int(matrix.shape[1])
-        return self
+        return {
+            "radius": {"type": "int", "low": 1, "high": 3, "default": 2},
+            "n_bits": {"type": "pow2", "low": 9, "high": 12, "default": 2048},
+            "use_chirality": {"type": "categorical", "choices": [True, False], "default": False},
+            "use_counts": {"type": "categorical", "choices": [True, False], "default": False},
+        }
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into fingerprint features.
+    def _compute_from_source(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        """Compute Morgan fingerprints from SMILES.
 
-        :param source: Feature source providing drug views.
-        :param entity_ids: entity ids.
-        :returns: Feature matrix.
+        :param source: Feature source.
+        :param entity_ids: Drug identifiers.
+        :returns: Fingerprint matrix of shape (n_drugs, n_bits).
         """
-        return self._get_or_compute(source, entity_ids).astype(np.float32)
+        from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
+
+        smiles = get_smiles_for_entities(source, entity_ids)
+        if smiles is None:
+            msg = f"Cannot obtain {self.storage_key}: no SMILES available."
+            raise ValueError(msg)
+
+        try:
+            from rdkit.Chem import rdFingerprintGenerator
+        except ImportError as err:
+            msg = "rdkit is required for on-the-fly fingerprint computation: pip install rdkit"
+            raise ImportError(msg) from err
+
+        generator = rdFingerprintGenerator.GetMorganGenerator(
+            radius=self._radius, fpSize=self._n_bits, includeChirality=self._use_chirality
+        )
+        results = np.zeros((len(entity_ids), self._n_bits), dtype=np.float32)
+        for i, drug_id in enumerate(entity_ids):
+            smi = smiles.get(drug_id)
+            results[i] = _fingerprint_for_smiles(smi, generator, self._n_bits, self._use_counts)
+        return results
 
     def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
@@ -81,59 +109,16 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
             )
         }
 
-    def _get_or_compute(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Try pre-computed fetch, fall back to on-the-fly computation.
 
-        :param source: Feature source.
-        :param entity_ids: Drug identifiers.
-        :returns: Fingerprint matrix.
-        """
-        mdata = getattr(source, "mdata", None)
-        if mdata is not None:
-            precomputed = self.fetch(mdata, entity_ids)
-            if precomputed is not None:
-                return precomputed
-        from drevalpy.components.featurizers._matrix import stack_view_matrix
+def _fingerprint_for_smiles(smi, generator, n_bits: int, use_counts: bool) -> np.ndarray:
+    """Compute a fingerprint for one SMILES string."""
+    from rdkit import Chem
 
-        try:
-            return stack_view_matrix(source, self._view, entity_ids)
-        except (KeyError, TypeError, ValueError):
-            pass
-        from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-
-        smiles = get_smiles_for_entities(source, entity_ids)
-        if smiles is not None:
-            _logger.warning("Computing %s on the fly. Consider ds.precompute().", self.storage_key)
-            return self._compute_from_smiles(smiles, entity_ids)
-        msg = f"Cannot obtain {self.storage_key}: no pre-computed data, view, or SMILES available."
-        raise ValueError(msg)
-
-    def _compute_from_smiles(self, smiles_series, entity_ids: np.ndarray) -> np.ndarray:
-        """Compute Morgan fingerprints from SMILES.
-
-        :param smiles_series: Series of SMILES indexed by entity IDs.
-        :param entity_ids: Drug identifiers.
-        :returns: Fingerprint bit matrix of shape (n_drugs, 2048).
-        """
-        try:
-            from rdkit import Chem
-            from rdkit.Chem import rdFingerprintGenerator
-        except ImportError as err:
-            msg = "rdkit is required for on-the-fly fingerprint computation: pip install rdkit"
-            raise ImportError(msg) from err
-
-        n_bits = 2048
-        generator = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=n_bits)
-        results = np.zeros((len(entity_ids), n_bits), dtype=np.float32)
-        for i, drug_id in enumerate(entity_ids):
-            smi = smiles_series.get(drug_id)
-            if smi and isinstance(smi, str):
-                mol = Chem.MolFromSmiles(smi)
-                if mol:
-                    fp = generator.GetFingerprintAsNumPy(mol)
-                    results[i] = fp.astype(np.float32)
-                else:
-                    results[i] = np.nan
-            else:
-                results[i] = np.nan
-        return results
+    if not smi or not isinstance(smi, str):
+        return np.full(n_bits, np.nan, dtype=np.float32)
+    mol = Chem.MolFromSmiles(smi)
+    if mol is None:
+        return np.full(n_bits, np.nan, dtype=np.float32)
+    if use_counts:
+        return generator.GetCountFingerprintAsNumPy(mol).astype(np.float32)
+    return generator.GetFingerprintAsNumPy(mol).astype(np.float32)

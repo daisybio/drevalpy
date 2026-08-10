@@ -44,6 +44,7 @@ class Featurizer(ABC):
     requires_view: ClassVar[bool] = False
     entity_id_only: ClassVar[bool] = False
     input_views: ClassVar[tuple[str, ...] | None] = None
+    source_views: ClassVar[tuple[str, ...] | None] = None
     hpo_strategy: ClassVar[HPOStrategy] = HPOStrategy.CONTINUOUS
     nan_threshold: ClassVar[float] = 0.2
 

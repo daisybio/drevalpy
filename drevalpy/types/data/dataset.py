@@ -110,6 +110,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
     ) -> None:
         """Pre-compute and store featurizer representations for given HP configs.
 
+        For independent featurizers (those with ``_compute_from_source``), calls
+        that method directly, bypassing fit/transform. Always includes the
+        default HP config in addition to sampled variants.
+
         :param featurizer_cls: Registered featurizer class (knows its own side).
         :param hyperparameters: Either a list of explicit HP dicts,
             or an int N to sample N configs from the featurizer's HP space.
@@ -121,6 +125,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             configs = _sample_hp_configs(featurizer_cls, hyperparameters)
         else:
             configs = list(hyperparameters)
+
+        default_config = featurizer_cls.get_default_hyperparameters()
+        if default_config not in configs:
+            configs.insert(0, default_config)
 
         side = getattr(featurizer_cls, "side", "cell_line")
         if side == "cell_line":
@@ -140,8 +148,11 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             task = progress.add_task(f"Precomputing {featurizer_cls.storage_key}", total=len(configs))
             for config in configs:
                 featurizer = featurizer_cls(**{**base_kwargs, **config})
-                featurizer.fit(source, entity_ids=entity_ids)
-                matrix = featurizer.transform(source, entity_ids)
+                if hasattr(featurizer, "_compute_from_source"):
+                    matrix = featurizer._compute_from_source(source, entity_ids)
+                else:
+                    featurizer.fit(source, entity_ids=entity_ids)
+                    matrix = featurizer.transform(source, entity_ids)
                 featurizer.store(self._mdata, entity_ids, matrix, hyperparameters=config)
                 progress.advance(task)
 
@@ -173,6 +184,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         if cls.entity_id_only:
             logger.debug("Skipping %s: entity_id_only", name)
             return
+        source_views = getattr(cls, "source_views", None)
+        if source_views and not self._has_source_data(source_views, cls):
+            logger.debug("Skipping %s: required source data not available", name)
+            return
         hp_space = cls.get_hyperparameter_space()
         effective_n = n_variants if hp_space else 1
         view: str | None = None
@@ -185,8 +200,23 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         try:
             logger.info("Precomputing %s (%d variants)", name, effective_n)
             self.precompute(cls, effective_n, view=view)
-        except (ValueError, TypeError, KeyError) as exc:
+        except (ValueError, TypeError, KeyError, ImportError) as exc:
             logger.warning("Failed to precompute %s: %s", name, exc)
+
+    def _has_source_data(self, source_views: tuple[str, ...], cls: type) -> bool:
+        """Check if the dataset has the raw source data needed for a featurizer."""
+        side = getattr(cls, "side", "cell_line")
+        return all(self._has_single_source(view, side) for view in source_views)
+
+    def _has_single_source(self, view: str, side: str) -> bool:
+        """Check availability of a single source view."""
+        if view == "canonical_smiles":
+            response = self._mdata.mod.get("response")
+            return response is not None and "canonical_smiles" in response.var.columns
+        if side == "cell_line":
+            return view in self._mdata.mod
+        response = self._mdata.mod.get("response")
+        return response is not None and response.varm is not None and view in response.varm
 
     def _has_required_views(self, views: tuple[str, ...]) -> bool:
         """Check if all required views are available in this dataset."""

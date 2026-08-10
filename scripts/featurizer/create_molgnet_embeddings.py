@@ -127,7 +127,7 @@ def mol_to_graph_data_obj_complex(mol: RDMol) -> Data:
         ch_idx = ch_list.index(atom.GetChiralTag()) + atom_cumsum[1]
         hyb_idx = hyb_list.index(atom.GetHybridization()) + atom_cumsum[2]
         numh_idx = numh_list.index(atom.GetTotalNumHs()) + atom_cumsum[3]
-        imp_idx = imp_list.index(atom.GetImplicitValence()) + atom_cumsum[4]
+        imp_idx = imp_list.index(atom.GetValence(Chem.ValenceType.IMPLICIT)) + atom_cumsum[4]
         deg_idx = deg_list.index(atom.GetDegree()) + atom_cumsum[5]
         isa_idx = isa_list.index(atom.GetIsAromatic()) + atom_cumsum[6]
         atom_feature = [a_idx, fc_idx, ch_idx, hyb_idx, numh_idx, imp_idx, deg_idx, isa_idx]

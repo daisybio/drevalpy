@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -130,6 +130,19 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
             normalization_downshift=proteomics_normalization_downshift,
         )
         self._output_dim = 0
+
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return tunable hyperparameter specs.
+
+        :returns: HP space mapping.
+        """
+        return {
+            "proteomics_feature_threshold": {"type": "float", "low": 0.3, "high": 0.9, "default": 0.7},
+            "proteomics_n_features": {"type": "int", "low": 500, "high": 2000, "default": 1000},
+            "proteomics_normalization_downshift": {"type": "float", "low": 1.0, "high": 3.0, "default": 1.8},
+            "proteomics_normalization_width": {"type": "float", "low": 0.1, "high": 0.6, "default": 0.3},
+        }
 
     def _fit(
         self,
