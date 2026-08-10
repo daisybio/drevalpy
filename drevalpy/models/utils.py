@@ -78,6 +78,22 @@ def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     )
 
 
+def load_cl_ids_and_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
+    """
+    Load cell line ids and optional tissue annotations from csv file.
+
+    :param path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: FeatureDataset with cell line ids and tissue annotations, if available
+    """
+    cl_ids = load_cl_ids_from_csv(path, dataset_name)
+    try:
+        cl_ids.add_features(load_tissues_from_csv(path, dataset_name))
+    except KeyError:
+        pass
+    return cl_ids
+
+
 def load_and_select_gene_features(
     feature_type: str,
     gene_list: str | None,

@@ -176,6 +176,21 @@ def register_pipeline_callback(app: typer.Typer) -> None:
                 "--no_hyperparameter_tuning", help="Disable hyperparameter tuning and use first hyperparameter set."
             ),
         ] = False,
+        custom_splitter_path: Annotated[
+            str | None,
+            typer.Option(
+                "--custom_splitter_path",
+                help="Path to a Python script defining create_splits(response_data, params). "
+                "When set, built-in CV splitting is skipped and test_mode selects validation checks.",
+            ),
+        ] = None,
+        custom_split_name: Annotated[
+            str | None,
+            typer.Option(
+                "--custom_split_name",
+                help="Optional result-directory label when using an external split script. Defaults to test_mode.",
+            ),
+        ] = None,
     ) -> None:
         """Run the drug response prediction model test suite."""
         if ctx.invoked_subcommand is not None:
@@ -205,6 +220,8 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             model_checkpoint_dir=model_checkpoint_dir,
             final_model_on_full_data=final_model_on_full_data,
             no_hyperparameter_tuning=no_hyperparameter_tuning,
+            custom_splitter_path=custom_splitter_path,
+            custom_split_name=custom_split_name,
         )
         check_arguments(args)
         main(args)

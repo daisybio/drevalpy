@@ -6,6 +6,7 @@ import os
 import shutil
 import tempfile
 import warnings
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -19,6 +20,7 @@ except ImportError:
     wandb = None  # type: ignore[assignment]
 
 from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_stopping_data
+from .datasets.splits import ExternalSplitCreator, create_and_record_splits
 from .evaluation import get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
@@ -52,6 +54,65 @@ else:
     ray = None  # type: ignore[assignment]
 
 
+@pipeline_function
+def prepare_response_splits(
+    response_data: DrugResponseDataset,
+    *,
+    split_path: str,
+    result_path: str,
+    split_label: str,
+    test_mode: str,
+    n_cv_splits: int,
+    overwrite: bool,
+    result_folder_exists: bool,
+    custom_splitter: ExternalSplitCreator | str | Path | None = None,
+    validation_ratio: float = 0.1,
+    random_state: int = 42,
+    split_early_stopping: bool = True,
+) -> int:
+    """
+    Create, load, or reuse CV splits for an experiment run.
+
+    :param response_data: dataset whose splits are created or loaded
+    :param split_path: directory for persisted split CSV files
+    :param result_path: experiment result directory
+    :param split_label: directory label under the dataset results folder
+    :param test_mode: built-in split mode or validation mode for custom splits
+    :param n_cv_splits: number of CV splits for built-in splitting
+    :param overwrite: whether to replace existing results and splits
+    :param result_folder_exists: whether ``result_path`` already exists
+    :param custom_splitter: optional script path or callable for custom splits
+    :param validation_ratio: validation fraction for built-in splitting
+    :param random_state: random seed for built-in splitting
+    :param split_early_stopping: whether to derive early-stopping roles
+    :returns: number of splits available after preparation
+    """
+    if result_folder_exists and overwrite:
+        print(f"Overwriting existing results at {result_path}")
+        shutil.rmtree(result_path)
+
+    if result_folder_exists and os.path.exists(split_path) and not overwrite:
+        print(f"Loading existing cv splits from {split_path}")
+        response_data.load_splits(path=split_path)
+    else:
+        print(f"Creating cv splits at {split_path}")
+        os.makedirs(result_path, exist_ok=True)
+        create_and_record_splits(
+            response_data,
+            split_path=split_path,
+            split_label=split_label,
+            external_splitter=custom_splitter,
+            test_mode=test_mode,
+            n_cv_splits=n_cv_splits,
+            validation_ratio=validation_ratio,
+            random_state=random_state,
+            split_early_stopping=split_early_stopping,
+        )
+        response_data.save_splits(path=split_path)
+
+    return len(response_data.cv_splits)
+
+
 def drug_response_experiment(
     models: list[type[DRPModel]],
     response_data: DrugResponseDataset,
@@ -73,6 +134,8 @@ def drug_response_experiment(
     hyperparameter_tuning=True,
     final_model_on_full_data: bool = False,
     wandb_project: str | None = None,
+    custom_splitter: ExternalSplitCreator | str | Path | None = None,
+    custom_split_name: str | None = None,
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -127,6 +190,10 @@ def drug_response_experiment(
         which was evaluated in the nested cross validation.
     :param wandb_project: if provided, enables wandb logging for all DRPModel instances throughout training.
         All hyperparameters and metrics will be logged to the specified wandb project.
+    :param custom_splitter: optional path to a Python script or callable implementing ``create_splits``.
+        When provided, built-in ``split_dataset`` is skipped and ``test_mode`` selects validation checks.
+    :param custom_split_name: optional result-directory label when using a custom splitter.
+        Defaults to ``test_mode`` when omitted.
     :raises ValueError: if no cv splits are found
     """
     seed_everything(42)
@@ -138,35 +205,21 @@ def drug_response_experiment(
         baselines.append(nme)
 
     cross_study_datasets = cross_study_datasets or []
-    result_path = os.path.join(path_out, run_id, response_data._name, test_mode)
+    split_label = custom_split_name if custom_split_name is not None else test_mode
+    result_path = os.path.join(path_out, run_id, response_data._name, split_label)
     split_path = os.path.join(result_path, "splits")
     result_folder_exists = os.path.exists(result_path)
-    if result_folder_exists and overwrite:
-        # if results exists, delete them if overwrite is True
-        print(f"Overwriting existing results at {result_path}")
-        shutil.rmtree(result_path)
-
-    if result_folder_exists and os.path.exists(split_path):
-        # if the results exist and overwrite is false, load the cv splits.
-        # The models will be trained on the existing cv splits.
-        print(f"Loading existing cv splits from {split_path}")
-        response_data.load_splits(path=split_path)
-    else:
-        # if the results do not exist, create the cv splits
-        print(f"Creating cv splits at {split_path}")
-
-        os.makedirs(result_path, exist_ok=True)
-
-        response_data.remove_nan_responses()
-        # if this line changes, also change it in pipeline: cv_split.py
-        response_data.split_dataset(
-            n_cv_splits=n_cv_splits,
-            mode=test_mode,
-            split_validation=True,
-            validation_ratio=0.1,
-            random_state=42,
-        )
-        response_data.save_splits(path=split_path)
+    actual_n_cv_splits = prepare_response_splits(
+        response_data,
+        split_path=split_path,
+        result_path=result_path,
+        split_label=split_label,
+        test_mode=test_mode,
+        n_cv_splits=n_cv_splits,
+        overwrite=overwrite,
+        result_folder_exists=result_folder_exists,
+        custom_splitter=custom_splitter,
+    )
 
     # Build the list of models to run (done regardless of whether splits were newly created or loaded)
     model_list = make_model_list(models + baselines, response_data)
@@ -228,7 +281,7 @@ def drug_response_experiment(
                 "split_index": split_index,
                 "test_mode": test_mode,
                 "dataset": response_data.dataset_name,
-                "n_cv_splits": n_cv_splits,
+                "n_cv_splits": actual_n_cv_splits,
                 "hyperparameter_tuning": hyperparameter_tuning,
             }
 
@@ -410,7 +463,7 @@ def drug_response_experiment(
 
     consolidate_single_drug_model_predictions(
         models=models,
-        n_cv_splits=n_cv_splits,
+        n_cv_splits=actual_n_cv_splits,
         results_path=result_path,
         cross_study_datasets=[cs.dataset_name for cs in cross_study_datasets],
         randomization_mode=randomization_mode,
