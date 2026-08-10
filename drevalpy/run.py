@@ -13,7 +13,7 @@ from drevalpy.types import Dataset
 from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 
 
-def pipeline(
+def run(
     models: list[type[DRPModel]],
     dataset: Dataset | str,
     split_mode: str,
