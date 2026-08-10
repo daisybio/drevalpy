@@ -12,8 +12,8 @@ from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.config.validation import validate
-from drevalpy.types.model_scope import ModelScope
-from drevalpy.types.prediction_mode import PredictionMode
+from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 __all__ = [
     "CellLineFeaturizerConfig",

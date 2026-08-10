@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.types.literature_reference import LiteratureReference
+from drevalpy.types.enums.literature_reference import LiteratureReference
 
 LITERATURE_INTEGRATION_DEVIATIONS = (
     "Modular drevalpy port; trainable encoders remain in the predictor. "

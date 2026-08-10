@@ -20,7 +20,7 @@ from drevalpy.components.core.tuning.search_space import sample_from_optuna_tria
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.types import SplitMask
-from drevalpy.types.dataset import Dataset
+from drevalpy.types.data.dataset import Dataset
 
 logger = get_logger(__name__)
 

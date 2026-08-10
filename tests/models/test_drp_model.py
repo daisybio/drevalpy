@@ -49,11 +49,11 @@ def test_naive_model_round_trip() -> None:
 
 def test_empty_training_transitions() -> None:
     import anndata as ad
+    import mudata as md
     import pandas as pd
 
-    import mudata as md
     from drevalpy.data.structures import SplitMask, SplitMasks
-    from drevalpy.types.dataset import Dataset
+    from drevalpy.types.data.dataset import Dataset
 
     naive_drug_mean_cls = construct_model("NaiveDrugMeanPredictor")
     model = naive_drug_mean_cls({})

@@ -14,7 +14,7 @@ from drevalpy.components.registry import (
     get_predictor,
 )
 from drevalpy.models.config._block_specs import resolve_output_block_specs
-from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.enums.model_scope import ModelScope
 
 if TYPE_CHECKING:
     from drevalpy.models.config.model import ModelConfig

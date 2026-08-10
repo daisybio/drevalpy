@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.models.config import ModelConfig, ResolvedModelConfig
-from drevalpy.types.prediction_mode import PredictionMode
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
 def model_config_for_name(

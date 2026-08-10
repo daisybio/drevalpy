@@ -11,7 +11,7 @@ from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
 )
-from drevalpy.types.literature_reference import LiteratureReference
+from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
 def register_cell_line_featurizer(

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import drevalpy.models.config as model_config
-import drevalpy.types.prediction_mode as prediction_mode_module
-from drevalpy.types.prediction_mode import PredictionMode
+import drevalpy.types.enums.prediction_mode as prediction_mode_module
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
 def test_prediction_mode_values() -> None:
@@ -22,7 +22,7 @@ def test_predictors_base_imports_prediction_mode_from_types() -> None:
     source_path = base_module.__file__
     assert source_path is not None
     text = open(source_path, encoding="utf-8").read()
-    assert "drevalpy.types.prediction_mode" in text
+    assert "drevalpy.types.enums.prediction_mode" in text
     assert "drevalpy.models.config" not in text
 
 

@@ -9,8 +9,8 @@ import numpy as np
 
 from drevalpy.components.core.contracts.contracts import FeatureContract
 from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
-from drevalpy.types.model_scope import ModelScope
-from drevalpy.types.prediction_mode import PredictionMode
+from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.components.core.batch.model_input_batch import ModelInputBatch

@@ -16,7 +16,7 @@ from drevalpy.models.config.spec import (
     reject_unknown_spec,
     zoo_config,
 )
-from drevalpy.types.prediction_mode import PredictionMode
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 __all__ = ["from_dict", "from_spec", "from_yaml"]
 

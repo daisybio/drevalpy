@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.types.dataset import Dataset
+from drevalpy.types.data.dataset import Dataset
 
 
 def _single_view_tests(views: list[str], prefix: str) -> dict[tuple[str, str], list[str]]:

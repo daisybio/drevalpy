@@ -12,7 +12,7 @@ from drevalpy.components.registry._registration_metadata import (
 )
 from drevalpy.components.registry.featurizer_registry import FeaturizerRegistry
 from drevalpy.components.registry.predictor_registry import PredictorRegistry
-from drevalpy.types.literature_reference import LiteratureReference
+from drevalpy.types.enums.literature_reference import LiteratureReference
 from tests._trusted_subprocess import run_trusted_python
 
 

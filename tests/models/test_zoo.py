@@ -19,7 +19,7 @@ def test_builtin_zoo_lists_passing_models() -> None:
 
 
 def test_list_zoo_names_filters_by_scope() -> None:
-    from drevalpy.types.model_scope import ModelScope
+    from drevalpy.types.enums.model_scope import ModelScope
 
     single = list_zoo_names(include_external=False, scope=ModelScope.SINGLE_DRUG)
     multi = list_zoo_names(include_external=False, scope="multi_drug")
@@ -107,7 +107,7 @@ def test_zoo_model_config_routes_methylation_flat_key_to_pca_child() -> None:
 def test_get_zoo_config_applies_prediction_mode_override(monkeypatch: pytest.MonkeyPatch) -> None:
     from drevalpy.components.registry import get_predictor
     from drevalpy.models.config import ModelConfig
-    from drevalpy.types.prediction_mode import PredictionMode
+    from drevalpy.types.enums.prediction_mode import PredictionMode
 
     monkeypatch.setattr(get_predictor("elasticNet"), "supported_modes", frozenset(PredictionMode))
     assert get_zoo_config("ElasticNet").prediction_mode == PredictionMode.REGRESSION

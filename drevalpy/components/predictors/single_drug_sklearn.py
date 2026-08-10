@@ -15,8 +15,8 @@ from drevalpy.components.predictors.single_drug_routing import (
 )
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.types.model_scope import ModelScope
-from drevalpy.types.prediction_mode import PredictionMode
+from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
 class SingleDrugSklearnPredictor(SklearnTabularPredictor):

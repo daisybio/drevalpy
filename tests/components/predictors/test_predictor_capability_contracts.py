@@ -24,7 +24,7 @@ from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import get_predictor
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig, from_spec
-from drevalpy.types.response_batch import ResponseBatch
+from drevalpy.types.data.response_batch import ResponseBatch
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
     drug_fingerprints,
@@ -226,11 +226,11 @@ def test_sklearn_set_state_raises_when_estimator_missing() -> None:
 
 def test_naive_tissue_round_trip() -> None:
     import anndata as ad
+    import mudata as md
     import pandas as pd
 
-    import mudata as md
     from drevalpy.data.structures import SplitMask, SplitMasks
-    from drevalpy.types.dataset import Dataset
+    from drevalpy.types.data.dataset import Dataset
 
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])

@@ -8,7 +8,7 @@ from typing import Any
 from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.registry.predictor_registry import predictor_registry
-from drevalpy.types.literature_reference import LiteratureReference
+from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
 def register_predictor(

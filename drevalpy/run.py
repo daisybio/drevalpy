@@ -8,7 +8,7 @@ from drevalpy.experiment.robustness import robustness
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.single import single
 from drevalpy.types import Dataset
-from drevalpy.types.run_result import RunResult
+from drevalpy.types.results.run_result import RunResult
 
 
 def pipeline(

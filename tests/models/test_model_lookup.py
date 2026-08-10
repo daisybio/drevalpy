@@ -16,7 +16,7 @@ from drevalpy.models._model_lookup import (
     single_drug_model_names,
 )
 from drevalpy.models.zoo import list_zoo_names
-from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.utils._deprecations import reset_deprecation_warnings
 
 

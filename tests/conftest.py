@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.types.response_batch import ResponseBatch
+from drevalpy.types.data.response_batch import ResponseBatch
 
 
 class MockFeatureSource:

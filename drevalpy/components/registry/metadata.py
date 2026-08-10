@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.core.contracts.contracts import featurizer_contract
-from drevalpy.types.literature_reference import LiteratureReference
+from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
 def _reference_fields(cls: type[Any]) -> dict[str, str]:

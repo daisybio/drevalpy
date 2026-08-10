@@ -27,7 +27,7 @@ def test_model_config_for_name_matches_configure_path_for_predictor_hp() -> None
 
 def test_model_config_for_name_forwards_prediction_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     from drevalpy.components.registry import get_predictor
-    from drevalpy.types.prediction_mode import PredictionMode
+    from drevalpy.types.enums.prediction_mode import PredictionMode
 
     monkeypatch.setattr(get_predictor("elasticNet"), "supported_modes", frozenset(PredictionMode))
     config = model_config_for_name("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION)

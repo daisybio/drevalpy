@@ -84,7 +84,7 @@ def test_construct_model_train_predict_smoke() -> None:
     import pandas as pd
 
     from drevalpy.data.structures import SplitMask, SplitMasks
-    from drevalpy.types.dataset import Dataset
+    from drevalpy.types.data.dataset import Dataset
 
     cl_ids_unique = np.array(["cl1", "cl2"])
     drug_ids_all = np.array(["d1", "d2"])

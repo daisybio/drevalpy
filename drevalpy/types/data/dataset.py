@@ -20,7 +20,7 @@ from drevalpy.log import get_logger
 from .mudatalike import MuDataLike
 
 if TYPE_CHECKING:
-    from .view_location import ViewLocation
+    from drevalpy.types.enums.view_location import ViewLocation
 
 logger = get_logger(__name__)
 
@@ -84,7 +84,7 @@ def _randomize_single_view(
     """Randomize a single view in-place within new_mods/new_uns."""
     import anndata
 
-    from .view_location import ViewLocation
+    from drevalpy.types.enums.view_location import ViewLocation
 
     location = dataset.locate_view(view)
     resolved = dataset._resolve_drug_view(view) or view
@@ -406,7 +406,7 @@ class Dataset(MuDataLike):
         :returns: ViewLocation indicating the storage container.
         :raises KeyError: If the view is not found in any location.
         """
-        from .view_location import ViewLocation
+        from drevalpy.types.enums.view_location import ViewLocation
 
         resolved = self._resolve_drug_view(name) or name
         if resolved in self._mdata.mod and resolved != "response":

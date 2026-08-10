@@ -14,7 +14,7 @@ from drevalpy.components.core.plugins.register_builtins import is_known_builtin_
 from drevalpy.components.registry import list_predictors
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.types.prediction_mode import PredictionMode
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
 def apply_optional_hyperparameters(

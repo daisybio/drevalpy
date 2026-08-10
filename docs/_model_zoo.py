@@ -10,7 +10,7 @@ from drevalpy.components.core.plugins.register_builtins import register_builtin_
 from drevalpy.components.registry import get_predictor, get_predictor_metadata
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names
-from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.enums.model_scope import ModelScope
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_MODEL_ZOO = DOCS_DIR / "concepts" / "_generated_model_zoo.rst"

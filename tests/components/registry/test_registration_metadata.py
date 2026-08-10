@@ -9,7 +9,7 @@ from drevalpy.components.registry._registration_metadata import (
     apply_registration_metadata,
     normalize_registration_metadata,
 )
-from drevalpy.types.literature_reference import LiteratureReference
+from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
 def test_normalize_registration_metadata_strips_tags_and_description() -> None:

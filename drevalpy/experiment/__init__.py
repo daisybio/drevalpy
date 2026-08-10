@@ -1,7 +1,7 @@
 """Experiment sub-module: randomization, robustness, and seeding utilities."""
 
-from drevalpy.types.run_result import RunResult
-from drevalpy.types.trial_result import TrialResult
+from drevalpy.types.results.run_result import RunResult
+from drevalpy.types.results.trial_result import TrialResult
 
 from .randomization import randomization
 from .robustness import robustness

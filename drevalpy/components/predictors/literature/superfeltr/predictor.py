@@ -30,7 +30,7 @@ from drevalpy.components.predictors.single_drug_routing import (
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
-from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.enums.model_scope import ModelScope
 
 from .utils import SuperFELTEncoder, SuperFELTRegressor
 

@@ -12,8 +12,8 @@ from drevalpy.models.config._recipe import format_model_recipe
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
-from drevalpy.types.model_scope import ModelScope
-from drevalpy.types.prediction_mode import PredictionMode
+from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.models.config.resolved import ResolvedModelConfig

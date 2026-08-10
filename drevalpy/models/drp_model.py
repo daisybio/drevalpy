@@ -22,7 +22,7 @@ from drevalpy.models._model_persistence import (
 from drevalpy.models.config import ModelConfig, ModelScope
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.types import SplitMask, SplitMasks
-from drevalpy.types.dataset import Dataset
+from drevalpy.types.data.dataset import Dataset
 from drevalpy.utils._pipeline_function import pipeline_function
 
 

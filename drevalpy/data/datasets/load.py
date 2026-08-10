@@ -6,7 +6,7 @@ from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
 from drevalpy.log import get_logger
-from drevalpy.types.dataset import Dataset
+from drevalpy.types.data.dataset import Dataset
 
 from .registry import Registry
 

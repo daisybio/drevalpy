@@ -12,7 +12,7 @@ from drevalpy.components.registry._registration_metadata import (
 )
 from drevalpy.components.registry.base import Registry
 from drevalpy.components.registry.metadata import featurizer_component_metadata
-from drevalpy.types.literature_reference import LiteratureReference
+from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
 class FeaturizerRegistry(Registry):

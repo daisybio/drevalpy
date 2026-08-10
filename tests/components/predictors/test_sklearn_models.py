@@ -12,7 +12,7 @@ from drevalpy.components.predictors.sklearn_models import (
     SingleDrugElasticNetPredictor,
     SingleDrugRandomForestPredictor,
 )
-from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.enums.model_scope import ModelScope
 
 
 @pytest.mark.parametrize("predictor_class", [ElasticNetPredictor, RandomForestPredictor])

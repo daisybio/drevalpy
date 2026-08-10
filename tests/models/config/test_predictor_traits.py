@@ -10,7 +10,7 @@ from drevalpy.models.config._predictor_traits import (
     needs_identity_drug_routing,
     scope,
 )
-from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.enums.model_scope import ModelScope
 
 
 @pytest.fixture(autouse=True)

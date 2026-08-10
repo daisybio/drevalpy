@@ -16,7 +16,7 @@ from typing import Any
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import get_predictor
 from drevalpy.models.config.predictor import PredictorConfig
-from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.enums.model_scope import ModelScope
 
 
 def scope(name: str) -> ModelScope:

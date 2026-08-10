@@ -14,7 +14,7 @@ from drevalpy.components.registry import register_predictor
 from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry, drug_featurizer_registry
 from drevalpy.components.registry.predictor_registry import predictor_registry
 from drevalpy.models.config._predictor_traits import needs_identity_drug_routing
-from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.enums.model_scope import ModelScope
 
 
 @pytest.fixture(autouse=True)

@@ -22,7 +22,7 @@ def single_cmd(
     from drevalpy.models import construct_model
     from drevalpy.single import single as run_single
     from drevalpy.types import SplitMasks
-    from drevalpy.types.dataset import Dataset
+    from drevalpy.types.data.dataset import Dataset
 
     out = UPath(output)
     out.parent.mkdir(parents=True, exist_ok=True)

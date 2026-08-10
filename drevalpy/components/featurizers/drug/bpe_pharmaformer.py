@@ -8,7 +8,7 @@ from drevalpy.components.core.batch.feature_block import BlockSpec
 from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
-from drevalpy.types.literature_reference import LiteratureReference
+from drevalpy.types.enums.literature_reference import LiteratureReference
 
 _BPE_PHARMAFORMER_REFERENCE = LiteratureReference(
     repo_url="https://github.com/zhouyuru1205/PharmaFormer",

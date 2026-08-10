@@ -14,7 +14,7 @@ from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import get_predictor
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
-from drevalpy.types.response_batch import ResponseBatch
+from drevalpy.types.data.response_batch import ResponseBatch
 
 
 def test_neural_network_predictor_registry_name() -> None:
@@ -25,11 +25,11 @@ def test_neural_network_predictor_registry_name() -> None:
 def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     register_builtin_components()
     import anndata as ad
+    import mudata as md
     import pandas as pd
 
-    import mudata as md
     from drevalpy.data.structures import SplitMask, SplitMasks
-    from drevalpy.types.dataset import Dataset
+    from drevalpy.types.data.dataset import Dataset
 
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])

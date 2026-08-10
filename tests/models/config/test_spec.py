@@ -16,7 +16,7 @@ from drevalpy.components.core.plugins.register_builtins import register_builtin_
 from drevalpy.models.config import from_spec, validate
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.spec import reject_unknown_spec, zoo_config
-from drevalpy.types.prediction_mode import PredictionMode
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
 @pytest.fixture(autouse=True)

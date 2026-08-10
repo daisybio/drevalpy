@@ -5,7 +5,7 @@
 import numpy as np
 import pytest
 
-from drevalpy.types.dataset import Dataset
+from drevalpy.types.data.dataset import Dataset
 
 DATA_PATH = "data/TOYv2.h5mu"
 

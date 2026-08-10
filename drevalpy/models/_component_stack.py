@@ -18,11 +18,11 @@ from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
 from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.types.response_batch import ResponseBatch
+from drevalpy.types.data.response_batch import ResponseBatch
 
 if TYPE_CHECKING:
     from drevalpy.types import SplitMask
-    from drevalpy.types.dataset import Dataset
+    from drevalpy.types.data.dataset import Dataset
 
 
 def _build_fit_context(

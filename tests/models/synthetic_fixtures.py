@@ -6,7 +6,7 @@ import numpy as np
 
 from drevalpy.data.structures import SplitMask, SplitMasks
 from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
-from drevalpy.types.response_batch import ResponseBatch
+from drevalpy.types.data.response_batch import ResponseBatch
 from tests.conftest import MockFeatureSource
 
 
@@ -59,10 +59,10 @@ def identity_drug_features() -> MockFeatureSource:
 def synthetic_mudataset_gene_expression_fingerprints():
     """Build a minimal Dataset with gene_expression + fingerprints for 2 cell lines and 2 drugs."""
     import anndata as ad
+    import mudata as md
     import pandas as pd
 
-    import mudata as md
-    from drevalpy.types.dataset import Dataset
+    from drevalpy.types.data.dataset import Dataset
 
     # Response matrix: 2 cell lines x 2 drugs
     response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
@@ -92,10 +92,10 @@ def synthetic_mudataset_gene_expression_fingerprints():
 def synthetic_mudataset_identity():
     """Build a minimal Dataset for identity (cell_line_id + drug_id) models."""
     import anndata as ad
+    import mudata as md
     import pandas as pd
 
-    import mudata as md
-    from drevalpy.types.dataset import Dataset
+    from drevalpy.types.data.dataset import Dataset
 
     response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
     cl_ids = np.array(["cl1", "cl2"])

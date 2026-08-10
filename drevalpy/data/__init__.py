@@ -32,7 +32,7 @@ def split(
 
 
 # Lazy import to avoid circular ref
-from drevalpy.types.dataset import Dataset as Dataset  # noqa: E402
+from drevalpy.types.data.dataset import Dataset as Dataset  # noqa: E402
 
 __all__ = [
     "dataset_registry",
