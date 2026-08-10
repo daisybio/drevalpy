@@ -149,6 +149,11 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, ids) if mdata is not None else None
+        if precomputed is not None:
+            self._output_dim = int(precomputed.shape[1])
+            return self
         matrix = log10_and_set_na(source.get_view_matrix(self._view, np.unique(ids)))
         self._transformer.fit(matrix)
         self._output_dim = len(self._transformer.protein_indices)
@@ -156,6 +161,10 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
 
     def _transform_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Get log10-transformed matrix and apply the fitted transformer row-by-row."""
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
+        if precomputed is not None:
+            return precomputed.astype(np.float32)
         matrix = log10_and_set_na(source.get_view_matrix(self._view, entity_ids))
         rows = []
         for row in matrix:

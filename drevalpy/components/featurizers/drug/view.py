@@ -50,7 +50,10 @@ class ViewDrugFeaturizer(DrugFeaturizer):
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
-        matrix = stack_view_matrix(source, self._view, ids)
+        mdata = getattr(source, "mdata", None)
+        matrix = self.fetch(mdata, ids) if mdata is not None else None
+        if matrix is None:
+            matrix = stack_view_matrix(source, self._view, ids)
         self._output_dim = int(matrix.shape[1])
         return self
 
@@ -61,6 +64,10 @@ class ViewDrugFeaturizer(DrugFeaturizer):
         :param entity_ids: entity ids.
         :returns: Result.
         """
+        mdata = getattr(source, "mdata", None)
+        matrix = self.fetch(mdata, entity_ids) if mdata is not None else None
+        if matrix is not None:
+            return matrix.astype(np.float32)
         return stack_view_matrix(source, self._view, entity_ids).astype(np.float32)
 
     def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:

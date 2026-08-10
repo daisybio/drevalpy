@@ -57,6 +57,14 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = np.unique(entity_ids if entity_ids is not None else source.identifiers)
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, ids) if mdata is not None else None
+        if precomputed is not None:
+            for view in _VIEWS:
+                names = source.get_feature_names(view)
+                self._masks[view] = np.ones(1, dtype=bool)
+                self._feature_names[view] = tuple(names) if names else ()
+            return self
         for view in _VIEWS:
             matrix = source.get_view_matrix(view, ids)
             variances = np.var(matrix, axis=0)
@@ -78,6 +86,10 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Float matrix of selected gene-expression features.
         """
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
+        if precomputed is not None:
+            return precomputed.astype(np.float32)
         mask = self._masks["gene_expression"]
         return source.get_view_matrix("gene_expression", entity_ids)[:, mask].astype(np.float32)
 
@@ -88,6 +100,15 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Mapping of omics view name to numeric blocks.
         """
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
+        if precomputed is not None:
+            return {
+                "gene_expression": numeric_feature_block(
+                    precomputed.astype(np.float32),
+                    feature_names=self._feature_names.get("gene_expression"),
+                )
+            }
         return {
             view: numeric_feature_block(
                 source.get_view_matrix(view, entity_ids)[:, mask].astype(np.float32),

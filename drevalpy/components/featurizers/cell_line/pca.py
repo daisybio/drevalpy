@@ -60,6 +60,14 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
+        mdata = getattr(source, "mdata", None)
+        precomputed = (
+            self.fetch(mdata, ids, hyperparameters={"n_components": self._n_components}) if mdata is not None else None
+        )
+        if precomputed is not None:
+            self._output_dim = int(precomputed.shape[1])
+            self._feature_names = feature_names_for_view(source, self._view)
+            return self
         matrix = stack_view_matrix(source, self._view, ids)
         n_components = min(self._n_components, matrix.shape[0], matrix.shape[1])
         self._pca.n_components = n_components
@@ -75,6 +83,14 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         :param entity_ids: entity ids.
         :returns: Result.
         """
+        mdata = getattr(source, "mdata", None)
+        precomputed = (
+            self.fetch(mdata, entity_ids, hyperparameters={"n_components": self._n_components})
+            if mdata is not None
+            else None
+        )
+        if precomputed is not None:
+            return precomputed.astype(np.float32)
         matrix = stack_view_matrix(source, self._view, entity_ids)
         names = feature_names_for_view(source, self._view)
         if self._feature_names is not None and names is not None:

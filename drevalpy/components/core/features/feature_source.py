@@ -28,6 +28,11 @@ class FeatureSource(Protocol):
         """All available entity IDs."""
         ...
 
+    @property
+    def mdata(self) -> Any:
+        """Underlying MuData object, or None if unavailable."""
+        ...
+
     def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:
         """Return (len(ids), n_features) float array for a dense numeric view."""
         ...
@@ -62,6 +67,11 @@ class CellLineFeatureSource:
     def identifiers(self) -> np.ndarray:
         """All available cell-line IDs."""
         return self._ids
+
+    @property
+    def mdata(self) -> Any:
+        """Underlying MuData object."""
+        return self._mu.mdata
 
     def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:
         """Return feature matrix for the given cell lines and view."""
@@ -103,6 +113,11 @@ class DrugFeatureSource:
     def identifiers(self) -> np.ndarray:
         """All available drug IDs."""
         return self._ids
+
+    @property
+    def mdata(self) -> Any:
+        """Underlying MuData object."""
+        return self._mu.mdata
 
     def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:
         """Return feature matrix for the given drugs and view."""

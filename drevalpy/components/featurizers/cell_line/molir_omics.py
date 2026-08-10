@@ -60,6 +60,14 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = np.unique(entity_ids if entity_ids is not None else source.identifiers)
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, ids) if mdata is not None else None
+        if precomputed is not None:
+            self._mask = np.ones(precomputed.shape[1], dtype=bool)
+            self._feature_names = {"gene_expression": source.get_feature_names("gene_expression")}
+            for view in _VIEWS[1:]:
+                self._feature_names[view] = source.get_feature_names(view)
+            return self
         matrix = np.arcsinh(source.get_view_matrix("gene_expression", ids))
         self._scaler.fit(matrix)
         scaled = self._scaler.transform(matrix)
@@ -80,6 +88,10 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         return self
 
     def _gene_expression(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
+        if precomputed is not None:
+            return precomputed.astype(np.float32)
         matrix = np.arcsinh(source.get_view_matrix("gene_expression", entity_ids))
         return self._scaler.transform(matrix)[:, self._mask].astype(np.float32)
 

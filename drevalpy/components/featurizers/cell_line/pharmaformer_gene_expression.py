@@ -51,6 +51,14 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         :raises ValueError: If *pair_expanded_ids* is missing.
         """
         _ = entity_ids, pair_expanded_es_ids
+        mdata = getattr(source, "mdata", None)
+        if mdata is not None and pair_expanded_ids is not None:
+            precomputed = self.fetch(mdata, pair_expanded_ids)
+            if precomputed is not None:
+                self._output_dim = int(precomputed.shape[1])
+                self._feature_names = source.get_feature_names("gene_expression")
+                self._is_fitted = True
+                return self
         if pair_expanded_ids is None:
             raise ValueError("pharmaFormerGeneExpression requires pair_expanded_ids")
         matrix = source.get_view_matrix("gene_expression", pair_expanded_ids)
@@ -70,6 +78,10 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         """
         if not self._is_fitted:
             raise RuntimeError("PharmaFormerGeneExpressionFeaturizer must be fit before transform")
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
+        if precomputed is not None:
+            return precomputed.astype(np.float32)
         matrix = source.get_view_matrix("gene_expression", entity_ids)
         return self._minmax.transform(self._scaler.transform(matrix)).astype(np.float32)
 

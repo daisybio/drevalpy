@@ -58,6 +58,12 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         :raises ValueError: If required ID sets are missing or empty.
         """
         _ = entity_ids
+        mdata = getattr(source, "mdata", None)
+        if mdata is not None and pair_expanded_ids is not None:
+            precomputed = self.fetch(mdata, pair_expanded_ids)
+            if precomputed is not None:
+                self._latent_dim = int(precomputed.shape[1])
+                return self
         if pair_expanded_ids is None:
             raise ValueError("dipkGeneExpression requires pair_expanded_ids")
         train_ids = pair_expanded_ids
@@ -79,6 +85,10 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         :returns: Float matrix of latent embeddings.
         :raises RuntimeError: If called before ``fit``.
         """
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
+        if precomputed is not None:
+            return precomputed.astype(np.float32)
         if self._encoder is None:
             raise RuntimeError("DIPKGeneExpressionFeaturizer must be fit before transform")
         return encode_gene_expression(source.get_view_matrix("gene_expression", entity_ids), self._encoder).astype(

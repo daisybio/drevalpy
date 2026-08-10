@@ -113,6 +113,12 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, ids) if mdata is not None else None
+        if precomputed is not None:
+            self._output_dim = int(precomputed.shape[1])
+            self._is_fitted = True
+            return self
         self._gene_indices = _load_gene_indices(
             source,
             self._view,
@@ -149,6 +155,10 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         if not self._is_fitted:
             msg = "LandmarkGenesFeaturizer must be fit before transform"
             raise RuntimeError(msg)
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
+        if precomputed is not None:
+            return precomputed.astype(np.float32)
         return _subset_matrix(
             source,
             entity_ids,

@@ -119,6 +119,10 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         """
         if self._gene_dim_input == 0:
             raise RuntimeError("SparseGOOntologyFeaturizer must be fit before transform")
+        mdata = getattr(source, "mdata", None)
+        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
+        if precomputed is not None:
+            return precomputed.astype(np.float32)
         return source.get_view_matrix(self._view, entity_ids).astype(np.float32)
 
     def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
