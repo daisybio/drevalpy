@@ -43,6 +43,7 @@ dependencies = [
     "filelock>=3.0",
     "typing-extensions>=4.12.0",
     "mudata>=0.3.10",
+    "rdkit>=2026.3.5",
 ]
 
 [project.scripts]
