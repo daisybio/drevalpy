@@ -231,15 +231,6 @@ KNNRegressor:
     - 3
   weights:
     - distance
-  variance:
-    - 0.75
-    - 0.8
-    - 0.85
-    - 0.9
-    - 0.95
-    - 0.7
-    - 0.6
-    - 0.5
 
 MultiViewXGBoost:
   cell_line_views:
