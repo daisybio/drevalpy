@@ -101,7 +101,13 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
                 if source_index is not None:
                     aligned[:, index] = matrix[:, source_index]
             matrix = aligned
-        return self._pca.transform(matrix).astype(np.float32)
+        valid_mask = ~np.all(np.isnan(matrix), axis=1)
+        if valid_mask.all():
+            return self._pca.transform(matrix).astype(np.float32)
+        result = np.full((len(entity_ids), self._output_dim), np.nan, dtype=np.float32)
+        if valid_mask.any():
+            result[valid_mask] = self._pca.transform(matrix[valid_mask]).astype(np.float32)
+        return result
 
     def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
