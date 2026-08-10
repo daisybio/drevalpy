@@ -152,7 +152,7 @@ class MOLIRPredictor(BlockPredictor):
 
         self._models[drug_id] = model
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict drug responses for pairs, routing to per-drug models.
 
         :param batch: Featurized pairs to score.

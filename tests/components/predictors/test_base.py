@@ -21,7 +21,7 @@ class _StubPredictor(Predictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         _ = batch
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.zeros(batch.n_pairs, dtype=np.float64)
 
 

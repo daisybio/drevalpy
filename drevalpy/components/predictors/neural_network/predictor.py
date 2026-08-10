@@ -217,7 +217,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
             checkpoint = load_state_dict(checkpoint_callback.best_model_path)
             self._model.load_state_dict(checkpoint["state_dict"])
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict using lazy pair-level lookup (no full feature expansion).
 
         :param batch: Featurized pairs to score.

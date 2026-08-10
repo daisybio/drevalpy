@@ -58,7 +58,7 @@ class NaiveTissueMeanPredictor(BlockPredictor):
         self._dataset_mean = float(np.mean(y))
         self._effects = additive_effects(design, y, baseline=self._dataset_mean)
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
         :param batch: batch.
@@ -155,7 +155,7 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
         effects = np.where(counts > 0, effects, 0.0)
         self._effects = effects
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
         :param batch: batch.

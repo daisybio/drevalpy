@@ -44,7 +44,7 @@ class NaiveMeanPredictor(FeatureFreePredictor):
             raise RuntimeError("batch.response is required for fit")
         self._dataset_mean = float(np.mean(batch.response))
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
         :param batch: batch.

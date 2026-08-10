@@ -254,7 +254,7 @@ class DIPKPredictor(BlockPredictor):
         self._model.load_state_dict(load_ckpt(checkpoint_path, map_location=self._device))
         self._model.to(self._device)
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Run DIPK inference on the given batch.
 
         :param batch: Featurized pairs to score.

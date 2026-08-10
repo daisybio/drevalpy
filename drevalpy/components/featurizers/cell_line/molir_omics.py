@@ -42,7 +42,7 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         self._selected_feature_names: tuple[str, ...] = ()
         self._feature_names: dict[str, tuple[str, ...] | None] = {}
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

@@ -28,7 +28,7 @@ class BlockPredictor(Predictor):
         """
 
     @abstractmethod
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict on a featurized predictor input batch.
 
         :param batch: Featurized pairs to score.

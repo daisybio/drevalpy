@@ -76,7 +76,7 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
             self._cell_line_effects = additive_effects(cell, y, baseline=self._dataset_mean)
         self._drug_effects = additive_effects(drugs, y, baseline=self._dataset_mean)
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
         :param batch: batch.

@@ -15,7 +15,7 @@ class ConstantFeaturizerMixin:
 
     entity_id_only: ClassVar[bool] = True
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

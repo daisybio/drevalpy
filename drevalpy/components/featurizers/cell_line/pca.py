@@ -42,7 +42,7 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         self._output_dim = 0
         self._feature_names: tuple[str, ...] | None = None
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

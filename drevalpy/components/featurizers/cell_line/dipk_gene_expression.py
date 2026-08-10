@@ -40,7 +40,7 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         self._input_dim = 0
         self._latent_dim = 512
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

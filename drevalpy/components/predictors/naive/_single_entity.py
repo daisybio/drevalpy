@@ -44,7 +44,7 @@ class SingleEntityNaivePredictor(BlockPredictor):
         self._dataset_mean = float(np.mean(y))
         self._effects = additive_effects(design, y, baseline=self._dataset_mean)
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
         :param batch: batch.

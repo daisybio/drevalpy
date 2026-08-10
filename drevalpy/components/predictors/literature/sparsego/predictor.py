@@ -228,7 +228,7 @@ class SparseGOPredictor(BlockPredictor):
                 loss.backward()
                 optimizer.step()
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict drug response for pairs in the batch.
 
         :param batch: Featurized pairs to score.

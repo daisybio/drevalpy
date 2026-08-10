@@ -82,7 +82,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         self._ontology_gene_order: tuple[str, ...] = ()
         self._gene_dim_input = 0
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

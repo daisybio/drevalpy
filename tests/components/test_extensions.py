@@ -165,7 +165,7 @@ class ExternalPredictor(FeatureFreePredictor):
             raise ValueError(msg)
         self._mean = float(np.mean(batch.response))
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.full(batch.n_pairs, self._mean, dtype=np.float64)
 
     def get_state(self) -> dict[str, object]:

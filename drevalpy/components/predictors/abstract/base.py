@@ -9,11 +9,14 @@ import numpy as np
 
 from drevalpy.components.core.contracts.contracts import FeatureContract
 from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.log import get_logger
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+
+_logger = get_logger(__name__)
 
 
 class Predictor(ABC):
@@ -31,6 +34,7 @@ class Predictor(ABC):
     scope: ClassVar[ModelScope] = ModelScope.MULTI_DRUG
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ()
     required_drug_blocks: ClassVar[tuple[str, ...]] = ()
+    nan_threshold: ClassVar[float] = 0.2
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         """Reject class-body contract assignments; registration sets them later.
@@ -75,7 +79,7 @@ class Predictor(ABC):
         return {key: spec["default"] for key, spec in space.items()}
 
     def fit(self, batch: ModelInputBatch) -> None:
-        """Validate the batch and delegate to ``_fit``.
+        """Validate the batch, filter NaN pairs, and delegate to ``_fit``.
 
         :param batch: Featurized cell-line/drug pairs with training responses.
         :raises ValueError: If *batch* has no response values.
@@ -83,7 +87,12 @@ class Predictor(ABC):
         if batch.response is None:
             msg = "Predictors require response values during fit"
             raise ValueError(msg)
-        self._fit(batch)
+        valid_mask = self._valid_pair_mask(batch)
+        self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.fit")
+        if valid_mask.all():
+            self._fit(batch)
+        else:
+            self._fit(batch.subset_pairs(valid_mask))
 
     @abstractmethod
     def _fit(self, batch: ModelInputBatch) -> None:
@@ -92,14 +101,72 @@ class Predictor(ABC):
         :param batch: Featurized cell-line/drug pairs with training responses.
         """
 
-    @abstractmethod
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
-        """Predict response for each pair in the batch.
+        """Predict response, returning NaN for pairs with NaN features.
 
         :param batch: Featurized cell-line/drug pairs to score.
 
         :returns: One predicted response per pair in *batch*.
         """
+        valid_mask = self._valid_pair_mask(batch)
+        if valid_mask.all():
+            return self._predict(batch)
+        result = np.full(batch.n_pairs, np.nan, dtype=np.float64)
+        if valid_mask.any():
+            result[valid_mask] = self._predict(batch.subset_pairs(valid_mask))
+        return result
+
+    @abstractmethod
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Subclass prediction logic on pre-validated (non-NaN) pairs.
+
+        :param batch: Featurized cell-line/drug pairs to score.
+
+        :returns: One predicted response per pair in *batch*.
+        """
+
+    # ------------------------------------------------------------------
+    # NaN detection helpers
+    # ------------------------------------------------------------------
+
+    def _valid_pair_mask(self, batch: ModelInputBatch) -> np.ndarray:
+        """Return boolean mask over pairs where features are non-NaN.
+
+        :param batch: Input batch.
+        :returns: Boolean array of shape ``(batch.n_pairs,)``.
+        """
+        cl_feats = batch.cell_line_features
+        cl_pair_idx = batch.cell_line_pair_idx
+        valid = np.ones(batch.n_pairs, dtype=bool)
+
+        if cl_feats.size > 0 and cl_feats.dtype.kind == "f":
+            pair_cl = cl_feats[cl_pair_idx]
+            valid &= ~np.isnan(pair_cl).any(axis=1)
+
+        if batch.drug_features is not None and batch.drug_features.size > 0 and batch.drug_features.dtype.kind == "f":
+            drug_pair_idx = batch.drug_pair_idx
+            if drug_pair_idx is not None:
+                pair_dr = batch.drug_features[drug_pair_idx]
+                valid &= ~np.isnan(pair_dr).any(axis=1)
+
+        return valid
+
+    def _warn_if_above_threshold(self, valid_mask: np.ndarray, context: str) -> None:
+        """Log a warning when the fraction of invalid pairs exceeds the threshold.
+
+        :param valid_mask: Boolean array (True = valid).
+        :param context: Human-readable label for the warning message.
+        """
+        if len(valid_mask) == 0:
+            return
+        invalid_frac = 1.0 - valid_mask.mean()
+        if invalid_frac > self.nan_threshold:
+            _logger.warning(
+                "%s: %.0f%% of pairs have NaN features (threshold: %.0f%%)",
+                context,
+                invalid_frac * 100,
+                self.nan_threshold * 100,
+            )
 
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state for checkpoint persistence.

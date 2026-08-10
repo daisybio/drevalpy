@@ -11,6 +11,9 @@ import numpy as np
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock
 from drevalpy.components.core.contracts.contracts import FeatureContract, featurizer_contract
 from drevalpy.components.core.features.feature_source import FeatureSource
+from drevalpy.log import get_logger
+
+_logger = get_logger(__name__)
 
 
 class HPOStrategy(Enum):
@@ -41,6 +44,7 @@ class Featurizer(ABC):
     entity_id_only: ClassVar[bool] = False
     input_views: ClassVar[tuple[str, ...] | None] = None
     hpo_strategy: ClassVar[HPOStrategy] = HPOStrategy.CONTINUOUS
+    nan_threshold: ClassVar[float] = 0.2
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         """Reject class-body ``contract`` assignments; registration sets it later.
@@ -56,7 +60,10 @@ class Featurizer(ABC):
             )
             raise TypeError(msg)
 
-    @abstractmethod
+    # ------------------------------------------------------------------
+    # Public fit / transform with NaN tolerance
+    # ------------------------------------------------------------------
+
     def fit(
         self,
         source: FeatureSource,
@@ -65,7 +72,68 @@ class Featurizer(ABC):
         pair_expanded_ids: np.ndarray | None = None,
         pair_expanded_es_ids: np.ndarray | None = None,
     ) -> Featurizer:
-        """Fit on the entities given by *entity_ids* (or all entities when ``None``).
+        """Fit on valid entities, skipping those with all-NaN feature rows.
+
+        :param source: Feature source providing views for the entity type.
+        :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
+        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
+        :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
+
+        :returns: Fitted featurizer instance (usually ``self``).
+        """
+        ids = entity_ids if entity_ids is not None else source.identifiers
+        valid_mask = self._detect_valid(source, ids)
+        self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.fit")
+        valid_ids = ids[valid_mask] if not valid_mask.all() else ids
+
+        self._fit(
+            source,
+            entity_ids=valid_ids,
+            pair_expanded_ids=pair_expanded_ids,
+            pair_expanded_es_ids=pair_expanded_es_ids,
+        )
+        return self
+
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        """Return a flat feature matrix, inserting NaN rows for invalid entities.
+
+        :param source: Feature source providing views for the entity type.
+        :param entity_ids: Entity identifiers to transform.
+
+        :returns: Feature payloads aligned with *entity_ids*.
+        """
+        from drevalpy.components.core.contracts.contracts import FeatureFormat
+
+        valid_mask = self._detect_valid(source, entity_ids)
+        valid_ids = entity_ids[valid_mask] if not valid_mask.all() else entity_ids
+
+        blocks = self.transform_blocks(source, valid_ids)
+        arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
+        if not arrays:
+            return np.empty((len(entity_ids), 0), dtype=np.float32)
+        valid_result = np.concatenate(arrays, axis=1)
+
+        if valid_mask.all():
+            return valid_result
+
+        result = np.full((len(entity_ids), valid_result.shape[1]), np.nan, dtype=np.float32)
+        result[valid_mask] = valid_result
+        return result
+
+    # ------------------------------------------------------------------
+    # Abstract methods for subclasses
+    # ------------------------------------------------------------------
+
+    @abstractmethod
+    def _fit(
+        self,
+        source: FeatureSource,
+        *,
+        entity_ids: np.ndarray | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
+    ) -> Featurizer:
+        """Subclass fitting logic on pre-validated (non-NaN) entity IDs.
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
@@ -91,25 +159,55 @@ class Featurizer(ABC):
         :returns: Mapping of block name to ``FeatureBlock`` payloads aligned with *entity_ids*.
         """
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return a flat feature matrix by concatenating numeric blocks.
+    # ------------------------------------------------------------------
+    # NaN detection helpers
+    # ------------------------------------------------------------------
 
-        Default implementation derives the matrix from transform_blocks.
-        Override for custom flat-matrix behavior (e.g. multi-omics featurizers
-        that return a subset of blocks as the flat matrix).
+    def _detect_valid(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        """Return a boolean mask indicating which entities have non-NaN features.
 
-        :param source: Feature source providing views for the entity type.
-        :param entity_ids: Entity identifiers to transform.
+        Default: entity_id_only featurizers treat all as valid; view-based
+        featurizers check the first input view for all-NaN rows.
 
-        :returns: Feature payloads aligned with *entity_ids*.
+        :param source: Feature source.
+        :param entity_ids: Entity IDs to check.
+        :returns: Boolean array of shape ``(len(entity_ids),)``.
         """
-        from drevalpy.components.core.contracts.contracts import FeatureFormat
+        if self.entity_id_only:
+            return np.ones(len(entity_ids), dtype=bool)
 
-        blocks = self.transform_blocks(source, entity_ids)
-        arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
-        if not arrays:
-            return np.empty((len(entity_ids), 0), dtype=np.float32)
-        return np.concatenate(arrays, axis=1)
+        view = getattr(self, "_view", None)
+        if view is None and self.input_views:
+            view = self.input_views[0]
+        if view is None:
+            return np.ones(len(entity_ids), dtype=bool)
+
+        try:
+            matrix = source.get_view_matrix(view, entity_ids)
+        except (KeyError, TypeError, ValueError):
+            return np.ones(len(entity_ids), dtype=bool)
+
+        if matrix.ndim != 2 or matrix.dtype.kind not in ("f", "i", "u"):
+            return np.ones(len(entity_ids), dtype=bool)
+
+        return ~np.all(np.isnan(matrix), axis=1)
+
+    def _warn_if_above_threshold(self, valid_mask: np.ndarray, context: str) -> None:
+        """Log a warning when the fraction of invalid entities exceeds the threshold.
+
+        :param valid_mask: Boolean array (True = valid).
+        :param context: Human-readable label for the warning message.
+        """
+        if len(valid_mask) == 0:
+            return
+        invalid_frac = 1.0 - valid_mask.mean()
+        if invalid_frac > self.nan_threshold:
+            _logger.warning(
+                "%s: %.0f%% of inputs are invalid (threshold: %.0f%%)",
+                context,
+                invalid_frac * 100,
+                self.nan_threshold * 100,
+            )
 
     @property
     @abstractmethod

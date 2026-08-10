@@ -34,7 +34,7 @@ class DrugIdentityFeaturizer(DrugFeaturizer):
         """Initialize instance state."""
         self._encoder = OneHotCategoryEncoder()
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

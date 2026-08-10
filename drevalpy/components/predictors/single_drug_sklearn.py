@@ -66,7 +66,7 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
             estimator.fit(x[mask], y[mask])
             self._estimators[drug_id] = estimator
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
         :param batch: batch.

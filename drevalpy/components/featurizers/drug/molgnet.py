@@ -35,7 +35,7 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
         self._features_by_drug: dict[str, np.ndarray] = {}
         self._output_dim = 0
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

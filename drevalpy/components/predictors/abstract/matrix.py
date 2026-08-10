@@ -27,7 +27,7 @@ class MatrixPredictor(Predictor):
             raise RuntimeError("batch.response is required for fit")
         self._fit_matrix(x, batch.response)
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict from a dense pair-level design matrix built from *batch*.
 
         :param batch: Featurized pairs to score.

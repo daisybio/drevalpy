@@ -131,7 +131,7 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         )
         self._output_dim = 0
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

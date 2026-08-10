@@ -34,7 +34,7 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         self._output_dim = 0
         self._is_fitted = False
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

@@ -21,7 +21,7 @@ class DenseViewCellLineFeaturizer(CellLineFeaturizer):
         self._view = view or self.resolve_input_views()[0]
         self._output_dim = 0
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

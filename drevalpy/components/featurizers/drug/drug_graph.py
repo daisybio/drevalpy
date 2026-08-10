@@ -33,7 +33,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         self._graphs: dict[str, object] = {}
         self._output_dim = 0
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

@@ -40,7 +40,7 @@ class TissueFeaturizer(CellLineFeaturizer):
         self._encoder = OneHotCategoryEncoder()
         self._allow_missing = bool(allow_missing)
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

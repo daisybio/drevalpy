@@ -39,7 +39,7 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         self._masks: dict[str, np.ndarray] = {}
         self._feature_names: dict[str, tuple[str, ...]] = {}
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

@@ -205,7 +205,7 @@ class SRMFPredictor(BlockPredictor):
     # Predict
     # ------------------------------------------------------------------
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses using learned latent factors.
 
         :param batch: Featurized pairs to score.

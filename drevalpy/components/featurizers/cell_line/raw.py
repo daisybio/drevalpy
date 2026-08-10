@@ -36,7 +36,7 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
         self._view = view
         self._output_dim = 0
 
-    def fit(
+    def _fit(
         self,
         source: FeatureSource,
         *,

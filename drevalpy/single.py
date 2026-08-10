@@ -17,73 +17,6 @@ from drevalpy.types.results.trial import TrialResult
 logger = get_logger(__name__)
 
 
-def _available_entity_ids(
-    mudataset: Dataset,
-    views: list[str],
-    *,
-    side: str,
-) -> frozenset[str] | None:
-    """Intersect entity availability across all required views.
-
-    Returns None if no views are required (entity_id_only featurizer).
-    """
-    if not views:
-        return None
-    available: frozenset[str] | None = None
-    for view in views:
-        view_entities = mudataset.entities_with_modality(view, side=side)
-        available = view_entities if available is None else available & view_entities
-    return available
-
-
-def _filter_to_featurizable_pairs(
-    model_class: type[DRPModel],
-    mudataset: Dataset,
-    split_masks: SplitMasks,
-) -> SplitMasks:
-    """Filter split masks to only include pairs where both entities have features.
-
-    Zeros out rows (cell lines) or columns (drugs) that lack required modalities.
-    """
-    config = model_class.model_config()
-    cl_views = config.cell_line_views()
-    drug_views = config.drug_views()
-
-    available_cl = _available_entity_ids(mudataset, cl_views, side="cell_line")
-    available_dr = _available_entity_ids(mudataset, drug_views, side="drug")
-
-    if available_cl is None and available_dr is None:
-        return split_masks
-
-    all_cl_ids = mudataset.cell_line_ids
-    all_dr_ids = mudataset.drug_ids
-
-    # Build a keepable mask: True for rows/cols with available features
-    keep = np.ones(split_masks.shape, dtype=bool)
-    if available_cl is not None:
-        cl_keep = np.array([cid in available_cl for cid in all_cl_ids])
-        keep[~cl_keep, :] = False
-    if available_dr is not None:
-        dr_keep = np.array([did in available_dr for did in all_dr_ids])
-        keep[:, ~dr_keep] = False
-
-    train = split_masks.train & SplitMask(keep)
-    test = split_masks.test & SplitMask(keep)
-    val = split_masks.val & SplitMask(keep)
-
-    n_before = len(split_masks.train) + len(split_masks.test) + len(split_masks.val)
-    n_after = len(train) + len(test) + len(val)
-    if n_before != n_after:
-        logger.info(
-            "Filtered %d pairs to %d featurizable pairs (%.1f%% removed)",
-            n_before,
-            n_after,
-            100.0 * (n_before - n_after) / n_before,
-        )
-
-    return SplitMasks(train=train, test=test, val=val, metadata=split_masks.metadata)
-
-
 def single(
     model_class: type[DRPModel],
     mudataset: Dataset,
@@ -109,8 +42,6 @@ def single(
     """
     from drevalpy.components.core.tuning.config import build_experiment_hpo_config
     from drevalpy.evaluation import AVAILABLE_METRICS
-
-    split_masks = _filter_to_featurizable_pairs(model_class, mudataset, split_masks)
 
     model_name = model_class.get_model_name()
     logger.info("Run: %s, fold %d", model_name, split_masks.metadata.get("fold_index", 0))

@@ -94,7 +94,7 @@ class ConcatFeaturizersMixin:
                 )
                 raise ValueError(msg)
 
-    def fit(
+    def _fit(
         self,
         features,
         *,
@@ -124,23 +124,6 @@ class ConcatFeaturizersMixin:
         self._output_dim = sum(self._block_dims.values())
         self._is_fitted = True
         return self
-
-    def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into feature payloads.
-
-        :param features: features.
-        :param entity_ids: entity ids.
-        :returns: Result.
-        """
-        blocks = self.transform_blocks(features, entity_ids)
-        numeric_blocks = [
-            block.values.astype(np.float32)
-            for block in blocks.values()
-            if block.entity_aligned and block.format == FeatureFormat.NUMERIC_MATRIX
-        ]
-        if not numeric_blocks:
-            return np.empty((len(entity_ids), 0), dtype=np.float32)
-        return np.concatenate(numeric_blocks, axis=1)
 
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
