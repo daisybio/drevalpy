@@ -106,12 +106,14 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         self,
         featurizer_cls: type,
         hyperparameters: list[dict] | int,
+        view: str | None = None,
     ) -> None:
         """Pre-compute and store featurizer representations for given HP configs.
 
         :param featurizer_cls: Registered featurizer class (knows its own side).
         :param hyperparameters: Either a list of explicit HP dicts,
             or an int N to sample N configs from the featurizer's HP space.
+        :param view: View name for view-parameterized featurizers (e.g., "gene_expression").
         """
         from drevalpy.components.core.features.feature_source import CellLineFeatureSource, DrugFeatureSource
 
@@ -128,12 +130,16 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             entity_ids = self.drug_ids
             source = DrugFeatureSource(self, entity_ids)
 
+        base_kwargs: dict = {}
+        if view is not None:
+            base_kwargs["view"] = view
+
         from rich.progress import Progress
 
         with Progress() as progress:
             task = progress.add_task(f"Precomputing {featurizer_cls.storage_key}", total=len(configs))
             for config in configs:
-                featurizer = featurizer_cls(**config) if config else featurizer_cls()
+                featurizer = featurizer_cls(**{**base_kwargs, **config})
                 featurizer.fit(source, entity_ids=entity_ids)
                 matrix = featurizer.transform(source, entity_ids)
                 featurizer.store(self._mdata, entity_ids, matrix, hyperparameters=config)
