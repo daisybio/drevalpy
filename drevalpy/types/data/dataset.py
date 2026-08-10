@@ -17,119 +17,33 @@ from upath import UPath as Path
 
 from drevalpy.log import get_logger
 
+from .dataset_utils.feature_access import (
+    _get_obsm_features,
+    _resolve_varm_key,
+)
+from .dataset_utils.feature_access import (
+    available_drug_views as _available_drug_views,
+)
+from .dataset_utils.feature_access import (
+    get_cell_line_feature_names as _get_cl_feature_names,
+)
+from .dataset_utils.feature_access import (
+    get_cell_line_features as _get_cl_features,
+)
+from .dataset_utils.feature_access import (
+    get_drug_feature_names as _get_drug_feature_names,
+)
+from .dataset_utils.feature_access import (
+    get_drug_features as _get_drug_features,
+)
+from .dataset_utils.feature_access import (
+    get_drug_graphs as _get_drug_graphs,
+)
+from .dataset_utils.randomization import with_randomized_views as _with_randomized_views
+from .dataset_utils.sampling import _sample_hp_configs
 from .mudatalike import MuDataLike
 
 logger = get_logger(__name__)
-
-
-def _aligned_fetch(
-    index: pd.Index,
-    ids: np.ndarray,
-    data: np.ndarray,
-    *,
-    strict: bool,
-    entity_label: str,
-) -> np.ndarray:
-    """Fetch rows from *data* aligned to *ids* using *index*, filling NaN for missing.
-
-    Args:
-        index: pd.Index mapping entity names to row positions in *data*.
-        ids: 1-D array of requested entity IDs.
-        data: 2-D source array to fetch rows from.
-        strict: If True, raise KeyError for missing IDs instead of warning.
-        entity_label: Human-readable label for error messages (e.g. "cell line").
-
-    Returns:
-        Float32 array of shape (len(ids), data.shape[1]).
-    """
-    positions = index.get_indexer(ids)
-    missing_mask = positions == -1
-    if missing_mask.any():
-        n_missing = int(missing_mask.sum())
-        sample = ids[missing_mask][:5].tolist()
-        msg = f"{n_missing} of {len(ids)} {entity_label} IDs not found (first few: {sample}). Returning NaN rows."
-        if strict:
-            raise KeyError(msg)
-        logger.warning(msg)
-
-    n_features = data.shape[1]
-    result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
-    valid = positions >= 0
-    result[valid] = np.asarray(data[positions[valid]], dtype=np.float32)
-    return result
-
-
-def _randomize_matrix(data: np.ndarray, rng: np.random.Generator, randomization_type: str) -> np.ndarray:
-    """Apply randomization to a 2-D feature matrix."""
-    if randomization_type == "permutation":
-        perm = rng.permutation(data.shape[0])
-        return data[perm]
-    return np.array(
-        [rng.normal(row.mean(), max(row.std(), 1e-8), row.shape) for row in data],
-        dtype=np.float32,
-    )
-
-
-def _randomize_single_view(
-    dataset: Any,
-    view: str,
-    new_mods: dict[str, md.AnnData],
-    new_uns: dict[str, Any],
-    rng: np.random.Generator,
-    randomization_type: str,
-) -> None:
-    """Randomize a single view in-place within new_mods/new_uns."""
-    import anndata
-
-    if view in new_mods and view != "response":
-        adata = new_mods[view]
-        x = adata.X
-        if hasattr(x, "toarray"):
-            x = x.toarray()
-        x = _randomize_matrix(np.asarray(x, dtype=np.float32), rng, randomization_type)
-        new_mods[view] = anndata.AnnData(X=x, obs=adata.obs.copy(), var=adata.var.copy())
-    elif "response" in new_mods and view in (new_mods["response"].varm or {}):
-        resp = new_mods["response"]
-        varm_data = np.asarray(resp.varm[view], dtype=np.float32)
-        resp.varm[view] = _randomize_matrix(varm_data, rng, randomization_type)
-    elif "response" in new_mods and view in (new_mods["response"].obsm or {}):
-        resp = new_mods["response"]
-        obsm_data = np.asarray(resp.obsm[view], dtype=np.float32)
-        resp.obsm[view] = _randomize_matrix(obsm_data, rng, randomization_type)
-    elif view in new_uns:
-        data = new_uns[view]
-        if isinstance(data, dict):
-            keys = list(data.keys())
-            shuffled_keys = rng.permutation(keys).tolist()
-            new_uns[view] = dict(zip(shuffled_keys, data.values(), strict=True))
-        else:
-            logger.warning("Cannot randomize uns key '%s' (not a dict). Skipping.", view)
-    else:
-        logger.warning("View '%s' not found in any storage location. Skipping randomization.", view)
-
-
-def _sample_hp_configs(featurizer_cls: type, n: int) -> list[dict]:
-    """Sample N hyperparameter configs from a featurizer's HP space using Optuna.
-
-    Respects declared distributions (log-uniform, integer, categorical, etc.).
-    """
-    import optuna
-
-    from drevalpy.components.core.tuning.search_space import sample_from_optuna_trial
-
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-    space = featurizer_cls.get_hyperparameter_space()
-    if not space:
-        return [{}] * n
-
-    study = optuna.create_study()
-    configs: list[dict] = []
-    for _ in range(n):
-        trial = study.ask()
-        config = sample_from_optuna_trial(trial, space)
-        study.tell(trial, 0.0)
-        configs.append(config)
-    return configs
 
 
 class Dataset(MuDataLike):
@@ -339,7 +253,7 @@ class Dataset(MuDataLike):
                 return frozenset()
             return frozenset(str(k) for k in self._mdata.uns["drug_graphs"].keys())
 
-        varm_key = self._resolve_varm_key(name)
+        varm_key = _resolve_varm_key(self._mdata, name)
         if varm_key is None:
             raise KeyError(f"Drug feature '{name}' not found. Available varm keys: {self.available_drug_views}")
 
@@ -384,29 +298,11 @@ class Dataset(MuDataLike):
         Raises:
             KeyError: If the modality is not present, or if *strict* and IDs are missing.
         """
-        ids = np.asarray(ids, dtype=str)
-
-        if modality == "pathway_features":
-            return self._get_obsm_features("pathway_features", ids, strict=strict)
-
-        if modality not in self._mdata.mod:
-            raise KeyError(f"Modality '{modality}' not found. Available: {list(self._mdata.mod.keys())}")
-
-        adata = self._mdata.mod[modality]
-        x = adata.X
-        if hasattr(x, "toarray"):
-            x = x.toarray()
-        return _aligned_fetch(pd.Index(adata.obs_names), ids, np.asarray(x), strict=strict, entity_label="cell line")
+        return _get_cl_features(self._mdata, modality, ids, strict=strict)
 
     def _get_obsm_features(self, key: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Retrieve cell-line features stored in response.obsm."""
-        if key not in self.response.obsm:
-            raise KeyError(f"obsm key '{key}' not found in response modality.")
-
-        obsm_data = np.asarray(self.response.obsm[key])
-        return _aligned_fetch(
-            pd.Index(self.response.obs_names), ids, obsm_data, strict=strict, entity_label="cell line"
-        )
+        return _get_obsm_features(self._mdata, key, ids, strict=strict)
 
     def get_cell_line_feature_names(self, view: str) -> tuple[str, ...] | None:
         """Return the feature (column) names for a cell-line view.
@@ -417,11 +313,7 @@ class Dataset(MuDataLike):
         Returns:
             Tuple of feature names, or None if names are unavailable.
         """
-        if view == "pathway_features":
-            return None
-        if view not in self._mdata.mod:
-            return None
-        return tuple(self._mdata.mod[view].var_names)
+        return _get_cl_feature_names(self._mdata, view)
 
     # ------------------------------------------------------------------
     # Drug features
@@ -430,21 +322,7 @@ class Dataset(MuDataLike):
     @property
     def available_drug_views(self) -> list[str]:
         """Sorted list of drug feature varm keys."""
-        if self.response.varm is None:
-            return []
-        return sorted(self.response.varm.keys())
-
-    def _resolve_varm_key(self, name: str) -> str | None:
-        """Resolve a varm key by exact match or prefix match (name:variant)."""
-        varm = self.response.varm
-        if varm is None:
-            return None
-        if name in varm:
-            return name
-        for key in varm.keys():
-            if key.startswith(name + ":"):
-                return key
-        return None
+        return _available_drug_views(self._mdata)
 
     def get_drug_features(self, name: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Get a drug feature matrix from response.varm, aligned to given IDs.
@@ -460,13 +338,7 @@ class Dataset(MuDataLike):
         Raises:
             KeyError: If the varm key does not exist, or if *strict* and IDs are missing.
         """
-        varm_key = self._resolve_varm_key(name)
-        if varm_key is None:
-            raise KeyError(f"Drug feature '{name}' not found. Available varm keys: {self.available_drug_views}")
-
-        ids = np.asarray(ids, dtype=str)
-        varm_data = np.asarray(self.response.varm[varm_key])
-        return _aligned_fetch(pd.Index(self.response.var_names), ids, varm_data, strict=strict, entity_label="drug")
+        return _get_drug_features(self._mdata, name, ids, strict=strict)
 
     def get_drug_feature_names(self, view: str) -> tuple[str, ...] | None:
         """Return the feature (column) names for a drug view stored in response.varm.
@@ -477,13 +349,7 @@ class Dataset(MuDataLike):
         Returns:
             Tuple of column name strings, or None if the view does not exist.
         """
-        varm_key = self._resolve_varm_key(view)
-        if varm_key is None:
-            return None
-        varm_data = self.response.varm[varm_key]
-        if hasattr(varm_data, "columns"):
-            return tuple(varm_data.columns.astype(str))
-        return tuple(str(i) for i in range(varm_data.shape[1]))
+        return _get_drug_feature_names(self._mdata, view)
 
     # ------------------------------------------------------------------
     # Drug graphs
@@ -504,12 +370,7 @@ class Dataset(MuDataLike):
         Raises:
             KeyError: If "drug_graphs" is not in mdata.uns.
         """
-        if "drug_graphs" not in self._mdata.uns:
-            raise KeyError("'drug_graphs' not found in mdata.uns.")
-
-        ids = np.asarray(ids, dtype=str)
-        graphs = self._mdata.uns["drug_graphs"]
-        return [graphs.get(drug_id) for drug_id in ids]
+        return _get_drug_graphs(self._mdata, ids)
 
     # ------------------------------------------------------------------
     # Metadata
@@ -656,30 +517,13 @@ class Dataset(MuDataLike):
             ValueError: If randomization_type is not recognized.
             KeyError: If a view is not found in any storage location.
         """
-        if randomization_type not in ("permutation", "invariant"):
-            raise ValueError(f"Unknown randomization_type {randomization_type!r}. Use 'permutation' or 'invariant'.")
-
-        import copy
-
-        rng = np.random.default_rng(random_state)
-
-        new_mods: dict[str, md.AnnData] = {}
-        for mod_name, mod_adata in self._mdata.mod.items():
-            new_mods[mod_name] = mod_adata.copy()
-
-        new_uns: dict[str, Any] = {
-            key: copy.deepcopy(val) if isinstance(val, dict) else val for key, val in self._mdata.uns.items()
-        }
-
-        for view in views:
-            _randomize_single_view(self, view, new_mods, new_uns, rng, randomization_type)
-
-        md.set_options(pull_on_update=False)
-        new_mdata = md.MuData(new_mods)
-        new_mdata.obs = self._mdata.obs.copy()
-        for key, val in new_uns.items():
-            new_mdata.uns[key] = val
-        return Dataset(new_mdata, name=self._name, randomization=randomization)
+        return _with_randomized_views(
+            self,
+            views,
+            randomization_type=randomization_type,
+            random_state=random_state,
+            randomization=randomization,
+        )
 
     # ------------------------------------------------------------------
     # Dunder methods
