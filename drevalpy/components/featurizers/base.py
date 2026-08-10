@@ -305,7 +305,7 @@ class Featurizer(ABC):
         """
         from drevalpy.components.featurizers.storage import find_variant_key
 
-        key = find_variant_key(mdata, self.storage_key, hyperparameters)
+        key = find_variant_key(mdata, self.storage_key, hyperparameters, side=self.side)
         if key is None:
             return None
         return self._fetch_by_key(mdata, key, entity_ids)
@@ -339,10 +339,10 @@ class Featurizer(ABC):
         """
         from drevalpy.components.featurizers.storage import make_variant_key, next_variant_index, register_variant
 
-        index = next_variant_index(mdata, self.storage_key)
+        index = next_variant_index(mdata, self.storage_key, side=self.side)
         actual_key = make_variant_key(self.storage_key, index)
         self._store_by_key(mdata, actual_key, entity_ids, data)
-        register_variant(mdata, self.storage_key, actual_key, hyperparameters)
+        register_variant(mdata, self.storage_key, actual_key, hyperparameters, side=self.side)
 
     def _store_by_key(self, mdata: Any, key: str, entity_ids: np.ndarray, data: np.ndarray) -> None:
         """Write data to MuData under the given key. Override for custom storage.
@@ -369,4 +369,4 @@ class Featurizer(ABC):
         """
         from drevalpy.components.featurizers.storage import list_variants
 
-        return list_variants(mdata, cls.storage_key)
+        return list_variants(mdata, cls.storage_key, side=cls.side)

@@ -7,15 +7,24 @@ from typing import Any
 
 import numpy as np
 
-VARIANTS_UNS_KEY = "featurizer_variants"
+VARIANTS_UNS_KEY_CELL_LINE = "cell_line_featurizer_variants"
+VARIANTS_UNS_KEY_DRUG = "drug_featurizer_variants"
 
 
-def _variant_registry(mdata) -> dict[str, dict[str, dict[str, Any]]]:
+def _variants_key_for_side(side: str) -> str:
+    """Return the uns key for the given side."""
+    if side == "drug":
+        return VARIANTS_UNS_KEY_DRUG
+    return VARIANTS_UNS_KEY_CELL_LINE
+
+
+def _variant_registry(mdata, side: str) -> dict[str, dict[str, dict[str, Any]]]:
     """Read the featurizer variant registry from mdata.uns.
 
     Format: {storage_key: {mudata_key: params_dict, ...}, ...}
     """
-    raw = mdata.uns.get(VARIANTS_UNS_KEY)
+    uns_key = _variants_key_for_side(side)
+    raw = mdata.uns.get(uns_key)
     if raw is None:
         return {}
     if isinstance(raw, str):
@@ -23,24 +32,28 @@ def _variant_registry(mdata) -> dict[str, dict[str, dict[str, Any]]]:
     return dict(raw)
 
 
-def _write_variant_registry(mdata, registry: dict[str, dict[str, dict[str, Any]]]) -> None:
+def _write_variant_registry(mdata, registry: dict[str, dict[str, dict[str, Any]]], side: str) -> None:
     """Write the featurizer variant registry to mdata.uns."""
-    mdata.uns[VARIANTS_UNS_KEY] = json.dumps(registry)
+    uns_key = _variants_key_for_side(side)
+    mdata.uns[uns_key] = json.dumps(registry)
 
 
 def find_variant_key(
     mdata,
     storage_key: str,
     hyperparameters: dict[str, Any] | None = None,
+    *,
+    side: str = "cell_line",
 ) -> str | None:
     """Find the MuData storage key for a featurizer variant matching the given HPs.
 
     :param mdata: MuData object.
     :param storage_key: Base storage key for the featurizer.
     :param hyperparameters: HP dict to match against stored variants.
+    :param side: Entity side ("cell_line" or "drug").
     :returns: The actual MuData key, or None if not found.
     """
-    registry = _variant_registry(mdata)
+    registry = _variant_registry(mdata, side)
     variants = registry.get(storage_key, {})
 
     target_params = hyperparameters or {}
@@ -50,14 +63,15 @@ def find_variant_key(
     return None
 
 
-def list_variants(mdata, storage_key: str) -> dict[str, dict[str, Any]]:
+def list_variants(mdata, storage_key: str, *, side: str = "cell_line") -> dict[str, dict[str, Any]]:
     """List all stored HP variants for a featurizer.
 
     :param mdata: MuData object.
     :param storage_key: Base storage key for the featurizer.
+    :param side: Entity side ("cell_line" or "drug").
     :returns: Dict of {mudata_key: params_dict}.
     """
-    registry = _variant_registry(mdata)
+    registry = _variant_registry(mdata, side)
     return registry.get(storage_key, {})
 
 
@@ -66,6 +80,8 @@ def register_variant(
     storage_key: str,
     actual_key: str,
     hyperparameters: dict[str, Any] | None = None,
+    *,
+    side: str = "cell_line",
 ) -> None:
     """Register a new variant in the featurizer variant registry.
 
@@ -73,11 +89,12 @@ def register_variant(
     :param storage_key: Base storage key for the featurizer.
     :param actual_key: The actual MuData key where data is stored.
     :param hyperparameters: HP settings for this variant.
+    :param side: Entity side ("cell_line" or "drug").
     """
-    registry = _variant_registry(mdata)
+    registry = _variant_registry(mdata, side)
     variants = registry.setdefault(storage_key, {})
     variants[actual_key] = hyperparameters or {}
-    _write_variant_registry(mdata, registry)
+    _write_variant_registry(mdata, registry, side)
 
 
 def make_variant_key(storage_key: str, index: int) -> str:
@@ -91,9 +108,9 @@ def make_variant_key(storage_key: str, index: int) -> str:
     return f"{safe_key}_{index}"
 
 
-def next_variant_index(mdata, storage_key: str) -> int:
+def next_variant_index(mdata, storage_key: str, *, side: str = "cell_line") -> int:
     """Return the next available variant index."""
-    variants = list_variants(mdata, storage_key)
+    variants = list_variants(mdata, storage_key, side=side)
     return len(variants)
 
 
