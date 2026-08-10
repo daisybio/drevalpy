@@ -9,6 +9,7 @@ from typing import Any
 from drevalpy.models.config import ModelConfig, ModelScope, from_spec
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 
 
 def _as_template(config: ModelConfig | ResolvedModelConfig) -> ModelConfig:
@@ -19,8 +20,7 @@ def _as_template(config: ModelConfig | ResolvedModelConfig) -> ModelConfig:
 
 def _resolve_base_config(name: str, spec: str | ModelConfig | ResolvedModelConfig | None) -> ModelConfig:
     if spec is None:
-        from drevalpy.models.zoo import list_zoo_names
-
+        # If no spec is provided, it MUST be registered in the zoo
         if name not in list_zoo_names(include_external=True):
             msg = (
                 f"Unknown model name {name!r}. Pass a zoo preset name, or provide "
@@ -81,8 +81,6 @@ def build_builtin_factory_tables() -> tuple[
 
     :returns: Tuple of multi-drug, single-drug, and combined factory mappings.
     """
-    from drevalpy.models.zoo import get_zoo_config, list_zoo_names
-
     multi: dict[str, type[DRPModel]] = {}
     single: dict[str, type[DRPModel]] = {}
     for factory_name in list_zoo_names(include_external=False):
