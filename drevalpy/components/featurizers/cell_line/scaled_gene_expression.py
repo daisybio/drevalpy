@@ -22,7 +22,6 @@ from drevalpy.components.registry import register_cell_line_featurizer
 class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
     """Match sklearn baseline gene-expression preprocessing."""
 
-    learned: ClassVar[bool] = True
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 
     def __init__(self, *, view: str = "gene_expression") -> None:

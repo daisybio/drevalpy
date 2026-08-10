@@ -27,6 +27,7 @@ class SmilesVecDrugFeaturizer(ViewDrugFeaturizer):
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("smilesvec", FeatureFormat.NUMERIC_MATRIX),)
     storage_key: ClassVar[str] = "smilesvec"
     input_views: ClassVar[tuple[str, ...]] = ("smilesvec",)
+    precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "smilesvec") -> None:
         """Initialize instance state.

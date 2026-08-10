@@ -29,6 +29,7 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
     )
     storage_key: ClassVar[str] = "molgnet_features"
     input_views: ClassVar[tuple[str, ...]] = ("molgnet_features",)
+    precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "molgnet_features") -> None:
         """Store the MolGNet view name and initialize empty caches.

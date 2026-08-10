@@ -103,7 +103,6 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
 class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
     """Match sklearn baseline proteomics preprocessing."""
 
-    learned: ClassVar[bool] = True
     input_views: ClassVar[tuple[str, ...]] = ("proteomics",)
 
     def __init__(

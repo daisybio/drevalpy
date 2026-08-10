@@ -26,6 +26,7 @@ class PathwaysCellLineFeaturizer(DenseViewCellLineFeaturizer):
     """Pathways cell line featurizer component."""
 
     input_views: ClassVar[tuple[str, ...]] = ("pathways",)
+    precompute: ClassVar[bool] = True
 
     def _compute_from_raw(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Compute GSVA pathway features on-the-fly from gene expression.

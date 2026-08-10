@@ -148,8 +148,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
     def precompute_all(self, n_variants: int = 10) -> None:
         """Pre-compute all fixed featurizers with N HP variants each.
 
-        Iterates all registered featurizers (cell-line + drug), skips learned
-        ones (output depends on training data), and pre-computes N sampled HP
+        Iterates all registered featurizers (cell-line + drug), skips those
+        not marked for precomputation, and pre-computes N sampled HP
         configurations for the rest. Featurizers without any HP space get a
         single default-params variant.
 
@@ -167,7 +167,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
 
     def _precompute_single(self, cls: type, n_variants: int) -> None:
         """Pre-compute one featurizer class if eligible."""
-        if cls.learned:
+        if not cls.precompute:
             return
         if cls.entity_id_only:
             return
@@ -182,7 +182,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         required_views = cls.input_views or ((view,) if view else ())
         if not self._has_required_views(required_views):
             return
-        self.precompute(cls, effective_n, view=view)
+        try:
+            self.precompute(cls, effective_n, view=view)
+        except (ValueError, TypeError, KeyError):
+            pass
 
     def _has_required_views(self, views: tuple[str, ...]) -> bool:
         """Check if all required views are available in this dataset."""

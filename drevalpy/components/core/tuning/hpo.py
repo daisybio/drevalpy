@@ -85,7 +85,7 @@ def hpam_tune(
         return model_class.get_default_hyperparameters(), []
 
     # TODO: When precomputed_only is True, query list_stored_variants(mdata) for each
-    # non-learned featurizer in the model config and restrict its HP params in
+    # precomputable featurizer in the model config and restrict its HP params in
     # structured_space to categorical choices over stored variant values.
     _ = precomputed_only
 

@@ -24,7 +24,6 @@ _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 class MOLIROmicsFeaturizer(CellLineFeaturizer):
     """Arcsinh-scale and select variable gene-expression features for MOLIR."""
 
-    learned: ClassVar[bool] = True
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
         BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),

@@ -24,6 +24,7 @@ class BionicCellLineFeaturizer(DenseViewCellLineFeaturizer):
     """Bionic cell line featurizer component."""
 
     input_views: ClassVar[tuple[str, ...]] = ("bionic_features",)
+    precompute: ClassVar[bool] = True
 
     def _compute_from_raw(
         self, source: FeatureSource, entity_ids: np.ndarray, *, gene_add_num: int = 512

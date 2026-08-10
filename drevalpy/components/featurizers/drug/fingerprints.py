@@ -27,6 +27,7 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
     storage_key: ClassVar[str] = "morgan_fingerprint"
     input_views: ClassVar[tuple[str, ...]] = ("morgan_fingerprint",)
+    precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "morgan_fingerprint") -> None:
         """Initialize instance state.
