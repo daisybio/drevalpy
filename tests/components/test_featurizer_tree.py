@@ -25,7 +25,7 @@ def test_ensure_unique_allows_same_name_different_views() -> None:
 
 
 def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
-    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[expression\\]'"):
+    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[gene_expression\\]'"):
         FeaturizerConfig.model_validate(
             {
                 "name": "concatFeaturizers",

@@ -22,9 +22,9 @@ from drevalpy.components.registry import register_drug_featurizer
 class ViewDrugFeaturizer(DrugFeaturizer):
     """Featurize one drug view without additional transformation."""
 
-    input_views: ClassVar[tuple[str, ...]] = ("fingerprints",)
+    input_views: ClassVar[tuple[str, ...]] = ("morgan_fingerprint",)
 
-    def __init__(self, *, view: str = "fingerprints") -> None:
+    def __init__(self, *, view: str = "morgan_fingerprint") -> None:
         """Initialize instance state.
 
         :param view: view.
@@ -77,8 +77,11 @@ class ViewDrugFeaturizer(DrugFeaturizer):
         :param entity_ids: entity ids.
         :returns: Result.
         """
+        block_name = self._view
+        if hasattr(self, "output_block_specs") and self.output_block_specs:
+            block_name = self.output_block_specs[0].name
         return {
-            self._view: numeric_feature_block(
+            block_name: numeric_feature_block(
                 self.transform(source, entity_ids),
                 feature_names=source.get_feature_names(self._view),
             )

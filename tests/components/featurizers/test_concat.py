@@ -92,7 +92,7 @@ def test_concat_uses_canonical_block_names_for_same_name_different_views() -> No
     featurizer.fit(features, entity_ids=entity_ids)
     blocks = featurizer.transform_blocks(features, entity_ids)
     assert set(blocks) == {"gene_expression", "proteomics"}
-    assert featurizer.block_dims == {"pca[expression]": 1, "pca[proteomics]": 1}
+    assert featurizer.block_dims == {"pca[gene_expression]": 1, "pca[proteomics]": 1}
     matrix = featurizer.transform(features, entity_ids)
     assert matrix.shape == (2, 2)
 
@@ -115,19 +115,19 @@ def _drug_feature_dataset() -> MockFeatureSource:
     return MockFeatureSource(
         features={
             "drug1": {
-                "fingerprints": np.array([1.0, 0.0, 1.0], dtype=np.float32),
+                "morgan_fingerprint": np.array([1.0, 0.0, 1.0], dtype=np.float32),
             },
             "drug2": {
-                "fingerprints": np.array([0.0, 1.0, 0.0], dtype=np.float32),
+                "morgan_fingerprint": np.array([0.0, 1.0, 0.0], dtype=np.float32),
             },
         },
-        meta_info={"fingerprints": ["fp1", "fp2", "fp3"]},
+        meta_info={"morgan_fingerprint": ["fp1", "fp2", "fp3"]},
     )
 
 
 def test_concat_duplicate_same_name_view_raises() -> None:
     register_builtin_components()
-    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[expression\\]'"):
+    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[gene_expression\\]'"):
         ConcatFeaturizersCellLineFeaturizer(
             featurizers=[
                 FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),

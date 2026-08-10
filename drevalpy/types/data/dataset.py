@@ -8,7 +8,7 @@ legacy response arrays and feature dicts with a single entry point backed by an
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import mudata as md
 import numpy as np
@@ -18,9 +18,6 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 
 from .mudatalike import MuDataLike
-
-if TYPE_CHECKING:
-    from drevalpy.types.enums.view_location import ViewLocation
 
 logger = get_logger(__name__)
 
@@ -84,34 +81,31 @@ def _randomize_single_view(
     """Randomize a single view in-place within new_mods/new_uns."""
     import anndata
 
-    from drevalpy.types.enums.view_location import ViewLocation
-
-    location = dataset.locate_view(view)
-    resolved = dataset._resolve_drug_view(view) or view
-
-    if location == ViewLocation.MODALITY:
-        adata = new_mods[resolved]
+    if view in new_mods and view != "response":
+        adata = new_mods[view]
         x = adata.X
         if hasattr(x, "toarray"):
             x = x.toarray()
         x = _randomize_matrix(np.asarray(x, dtype=np.float32), rng, randomization_type)
-        new_mods[resolved] = anndata.AnnData(X=x, obs=adata.obs.copy(), var=adata.var.copy())
-    elif location == ViewLocation.VARM:
+        new_mods[view] = anndata.AnnData(X=x, obs=adata.obs.copy(), var=adata.var.copy())
+    elif "response" in new_mods and view in (new_mods["response"].varm or {}):
         resp = new_mods["response"]
-        varm_data = np.asarray(resp.varm[resolved], dtype=np.float32)
-        resp.varm[resolved] = _randomize_matrix(varm_data, rng, randomization_type)
-    elif location == ViewLocation.OBSM:
+        varm_data = np.asarray(resp.varm[view], dtype=np.float32)
+        resp.varm[view] = _randomize_matrix(varm_data, rng, randomization_type)
+    elif "response" in new_mods and view in (new_mods["response"].obsm or {}):
         resp = new_mods["response"]
-        obsm_data = np.asarray(resp.obsm[resolved], dtype=np.float32)
-        resp.obsm[resolved] = _randomize_matrix(obsm_data, rng, randomization_type)
-    elif location == ViewLocation.UNS:
-        data = new_uns[resolved]
+        obsm_data = np.asarray(resp.obsm[view], dtype=np.float32)
+        resp.obsm[view] = _randomize_matrix(obsm_data, rng, randomization_type)
+    elif view in new_uns:
+        data = new_uns[view]
         if isinstance(data, dict):
             keys = list(data.keys())
             shuffled_keys = rng.permutation(keys).tolist()
-            new_uns[resolved] = dict(zip(shuffled_keys, data.values(), strict=True))
+            new_uns[view] = dict(zip(shuffled_keys, data.values(), strict=True))
         else:
-            logger.warning("Cannot randomize uns key '%s' (not a dict). Skipping.", resolved)
+            logger.warning("Cannot randomize uns key '%s' (not a dict). Skipping.", view)
+    else:
+        logger.warning("View '%s' not found in any storage location. Skipping randomization.", view)
 
 
 class Dataset(MuDataLike):
@@ -125,10 +119,6 @@ class Dataset(MuDataLike):
     ``mdata.uns["drug_graphs"]``, and model-specific auxiliary data in other
     ``mdata.uns`` keys.
     """
-
-    _DRUG_VIEW_ALIASES: dict[str, str] = {
-        "fingerprints": "morgan_fingerprint",
-    }
 
     def __init__(
         self,
@@ -152,7 +142,6 @@ class Dataset(MuDataLike):
             raise KeyError("MuData must contain a 'response' modality.")
         self._mdata = mdata
         self._name = name
-        self._drug_view_map: dict[str, str] = self._build_drug_view_map()
         self.randomization = randomization
 
     @classmethod
@@ -266,11 +255,11 @@ class Dataset(MuDataLike):
                 return frozenset()
             return frozenset(str(k) for k in self._mdata.uns["drug_graphs"].keys())
 
-        resolved = self._resolve_drug_view(name)
-        if resolved is None:
-            raise KeyError(f"Drug feature '{name}' not found. Available views: {self.available_drug_views}")
+        varm_key = self._resolve_varm_key(name)
+        if varm_key is None:
+            raise KeyError(f"Drug feature '{name}' not found. Available varm keys: {self.available_drug_views}")
 
-        varm_data = np.asarray(self.response.varm[resolved])
+        varm_data = np.asarray(self.response.varm[varm_key])
         valid = ~np.all(np.isnan(varm_data), axis=1)
         return frozenset(np.asarray(self.response.var_names)[valid])
 
@@ -300,12 +289,8 @@ class Dataset(MuDataLike):
     def get_cell_line_features(self, modality: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Get a feature matrix for the specified cell lines from a modality.
 
-        For standard omics modalities (gene_expression, proteomics, etc.) the
-        features come from ``mdata.mod[modality].X``. For "pathway_features" the
-        data comes from ``response.obsm["pathway_features"]``.
-
         Args:
-            modality: Name of the modality or obsm key.
+            modality: Name of the modality (e.g. "gene_expression").
             ids: 1-D array of cell line IDs to retrieve.
             strict: If True, raise KeyError for missing IDs instead of warning.
 
@@ -342,12 +327,8 @@ class Dataset(MuDataLike):
     def get_cell_line_feature_names(self, view: str) -> tuple[str, ...] | None:
         """Return the feature (column) names for a cell-line view.
 
-        For standard modalities the names come from ``mdata.mod[view].var_names``.
-        For "pathway_features" stored in ``response.obsm``, returns None (no
-        named columns available).
-
         Args:
-            view: Name of the modality or obsm key.
+            view: Name of the modality.
 
         Returns:
             Tuple of feature names, or None if names are unavailable.
@@ -362,68 +343,24 @@ class Dataset(MuDataLike):
     # Drug features
     # ------------------------------------------------------------------
 
-    def _build_drug_view_map(self) -> dict[str, str]:
-        """Build a mapping from canonical/alias names to actual varm keys."""
-        view_map: dict[str, str] = {}
-        varm_keys = list(self.response.varm.keys()) if self.response.varm else []
-
-        for key in varm_keys:
-            view_map[key] = key
-            if ":" in key:
-                prefix = key.split(":", 1)[0]
-                if prefix not in view_map:
-                    view_map[prefix] = key
-                else:
-                    logger.warning(
-                        "Drug view prefix %r already maps to %r; ignoring %r. Use the full key to access it.",
-                        prefix,
-                        view_map[prefix],
-                        key,
-                    )
-
-        for alias, target in self._DRUG_VIEW_ALIASES.items():
-            if target in view_map and alias not in view_map:
-                view_map[alias] = view_map[target]
-
-        return view_map
-
     @property
     def available_drug_views(self) -> list[str]:
-        """Sorted list of canonical drug view names (keys of the view registry)."""
-        return sorted(self._drug_view_map.keys())
+        """Sorted list of drug feature varm keys."""
+        if self.response.varm is None:
+            return []
+        return sorted(self.response.varm.keys())
 
-    def _resolve_drug_view(self, name: str) -> str | None:
-        """Resolve a drug view name to an actual varm key via the registry."""
-        return self._drug_view_map.get(name)
-
-    def locate_view(self, name: str) -> ViewLocation:
-        """Resolve where a named view is stored, using only presence checks.
-
-        Priority order: modality > varm > obsm > uns.
-        Drug view aliases are resolved before checking.
-
-        :param name: View name (e.g. "gene_expression", "fingerprints", "drug_graphs").
-        :returns: ViewLocation indicating the storage container.
-        :raises KeyError: If the view is not found in any location.
-        """
-        from drevalpy.types.enums.view_location import ViewLocation
-
-        resolved = self._resolve_drug_view(name) or name
-        if resolved in self._mdata.mod and resolved != "response":
-            return ViewLocation.MODALITY
-        if resolved in (self.response.varm or {}):
-            return ViewLocation.VARM
-        if resolved in (self.response.obsm or {}):
-            return ViewLocation.OBSM
-        if resolved in (self._mdata.uns or {}):
-            return ViewLocation.UNS
-        raise KeyError(
-            f"View '{name}' not found in any storage location. "
-            f"Available modalities: {sorted(set(self._mdata.mod.keys()) - {'response'})}, "
-            f"varm: {sorted(self.response.varm.keys()) if self.response.varm else []}, "
-            f"obsm: {sorted(self.response.obsm.keys()) if self.response.obsm else []}, "
-            f"uns: {sorted(self._mdata.uns.keys()) if self._mdata.uns else []}"
-        )
+    def _resolve_varm_key(self, name: str) -> str | None:
+        """Resolve a varm key by exact match or prefix match (name:variant)."""
+        varm = self.response.varm
+        if varm is None:
+            return None
+        if name in varm:
+            return name
+        for key in varm.keys():
+            if key.startswith(name + ":"):
+                return key
+        return None
 
     def get_drug_features(self, name: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Get a drug feature matrix from response.varm, aligned to given IDs.
@@ -439,19 +376,16 @@ class Dataset(MuDataLike):
         Raises:
             KeyError: If the varm key does not exist, or if *strict* and IDs are missing.
         """
-        resolved = self._resolve_drug_view(name)
-        if resolved is None:
-            raise KeyError(f"Drug feature '{name}' not found. Available views: {self.available_drug_views}")
+        varm_key = self._resolve_varm_key(name)
+        if varm_key is None:
+            raise KeyError(f"Drug feature '{name}' not found. Available varm keys: {self.available_drug_views}")
 
         ids = np.asarray(ids, dtype=str)
-        varm_data = np.asarray(self.response.varm[resolved])
+        varm_data = np.asarray(self.response.varm[varm_key])
         return _aligned_fetch(pd.Index(self.response.var_names), ids, varm_data, strict=strict, entity_label="drug")
 
     def get_drug_feature_names(self, view: str) -> tuple[str, ...] | None:
         """Return the feature (column) names for a drug view stored in response.varm.
-
-        Column names are read from ``response.varm`` using a DataFrame-backed
-        varm entry or positional indices when no explicit names exist.
 
         Args:
             view: Drug view name (e.g. "chemberta", "morgan_fingerprint").
@@ -459,10 +393,10 @@ class Dataset(MuDataLike):
         Returns:
             Tuple of column name strings, or None if the view does not exist.
         """
-        resolved = self._resolve_drug_view(view)
-        if resolved is None:
+        varm_key = self._resolve_varm_key(view)
+        if varm_key is None:
             return None
-        varm_data = self.response.varm[resolved]
+        varm_data = self.response.varm[varm_key]
         if hasattr(varm_data, "columns"):
             return tuple(varm_data.columns.astype(str))
         return tuple(str(i) for i in range(varm_data.shape[1]))
@@ -607,10 +541,6 @@ class Dataset(MuDataLike):
         return self._mdata.uns[key]
 
     # ------------------------------------------------------------------
-    # Dunder methods
-    # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
     # Randomization
     # ------------------------------------------------------------------
 
@@ -629,7 +559,7 @@ class Dataset(MuDataLike):
         For uns dict keys, values are reassigned to shuffled keys.
 
         Args:
-            views: View names to randomize (resolved via locate_view).
+            views: View names to randomize.
             randomization_type: "permutation" shuffles rows; "invariant" replaces
                 each row with a random sample matching its mean and std.
             random_state: Seed for reproducibility.

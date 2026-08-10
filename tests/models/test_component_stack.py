@@ -43,8 +43,8 @@ def test_build_component_stack_train_predict() -> None:
     )
     drug_input = MockFeatureSource(
         features={
-            "d1": {"fingerprints": np.array([1.0])},
-            "d2": {"fingerprints": np.array([0.0])},
+            "d1": {"morgan_fingerprint": np.array([1.0])},
+            "d2": {"morgan_fingerprint": np.array([0.0])},
         }
     )
     stack._fit_featurizers_and_predictor(response, cell_line_input, drug_input)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from .align import align_dataset
 from .load import load_dataset
 from .split import split_dataset
 
@@ -13,5 +14,6 @@ data_app = typer.Typer(
     no_args_is_help=True,
 )
 
+data_app.command("align")(align_dataset)
 data_app.command("load")(load_dataset)
 data_app.command("split")(split_dataset)

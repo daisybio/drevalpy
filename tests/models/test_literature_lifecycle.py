@@ -36,7 +36,7 @@ def _make_mudataset_ge_fingerprints() -> tuple[Dataset, SplitMasks]:
         obs=pd.DataFrame(index=cl_ids),
         var=pd.DataFrame(index=[f"gene{i}" for i in range(4)]),
     )
-    response_ad.varm["fingerprints"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
+    response_ad.varm["morgan_fingerprint"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
     mudataset = Dataset(mdata, name="test")
     split = SplitMasks(
@@ -80,7 +80,7 @@ def _make_mudataset_multiview() -> tuple[Dataset, SplitMasks]:
         obs=pd.DataFrame(index=cl_ids),
         var=pd.DataFrame(index=[f"cnv{i}" for i in range(4)]),
     )
-    response_ad.varm["fingerprints"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
+    response_ad.varm["morgan_fingerprint"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
     mdata = md.MuData(
         {
             "response": response_ad,
@@ -170,7 +170,7 @@ def test_literature_model_lifecycle(
 def test_untrained_component_model_raises() -> None:
     from drevalpy.models import construct_model
 
-    model_cls = construct_model("elasticNet", "raw[expression]:fingerprints:elasticNet")
+    model_cls = construct_model("elasticNet", "raw[gene_expression]:fingerprints:elasticNet")
     model = model_cls({})
     mudataset, split = _make_mudataset_ge_fingerprints()
     with pytest.raises(RuntimeError, match="not been trained"):

@@ -26,7 +26,7 @@ _PARITY_CASES = (
 
 def _model_class(model_name: str, entrypoint: str):
     if entrypoint == "construct_model":
-        return construct_model(model_name, "pca[expression]:identity:randomForest")
+        return construct_model(model_name, "pca[gene_expression]:identity:randomForest")
     return construct_model(model_name)
 
 
@@ -55,7 +55,7 @@ def test_construct_model_matches_from_resolved_config(model_name: str, entrypoin
     split = lco_split_masks()
 
     config = (
-        from_spec("pca[expression]:identity:randomForest", hyperparameters=hp)
+        from_spec("pca[gene_expression]:identity:randomForest", hyperparameters=hp)
         if entrypoint == "construct_model"
         else from_spec(model_name, hyperparameters=hp)
     )

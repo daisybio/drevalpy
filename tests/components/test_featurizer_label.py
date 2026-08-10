@@ -10,7 +10,7 @@ from drevalpy.components.core.fitting.featurizer_label import (
 
 
 def test_qualified_selector_uses_view_brackets() -> None:
-    assert qualified_featurizer_selector("pca", "gene_expression") == "pca[expression]"
+    assert qualified_featurizer_selector("pca", "gene_expression") == "pca[gene_expression]"
     assert qualified_featurizer_selector("raw", "mutations") == "raw[mutations]"
     assert qualified_featurizer_selector("landmarkGenes") == "landmarkGenes"
 

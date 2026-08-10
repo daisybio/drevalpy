@@ -154,7 +154,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
             obs=pd.DataFrame(index=cl_ids),
             var=pd.DataFrame(index=["g0", "g1", "g2"]),
         )
-        response_ad.varm["fingerprints"] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+        response_ad.varm["morgan_fingerprint"] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
         mdata = md.MuData({"response": response_ad, "gene_expression": ge_ad})
         mudataset_ge = Dataset(mdata, name="test")
 

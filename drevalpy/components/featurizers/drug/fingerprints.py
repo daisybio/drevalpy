@@ -19,9 +19,10 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
     """Alias for the standard fingerprints view."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
-    input_views: ClassVar[tuple[str, ...]] = ("fingerprints",)
+    storage_key: ClassVar[str] = "morgan_fingerprint"
+    input_views: ClassVar[tuple[str, ...]] = ("morgan_fingerprint",)
 
-    def __init__(self, *, view: str = "fingerprints") -> None:
+    def __init__(self, *, view: str = "morgan_fingerprint") -> None:
         """Initialize instance state.
 
         :param view: view.

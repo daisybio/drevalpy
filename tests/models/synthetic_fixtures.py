@@ -83,7 +83,7 @@ def synthetic_mudataset_gene_expression_fingerprints():
     )
     # Fingerprints in response.varm
     fingerprints = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
-    response_ad.varm["fingerprints"] = fingerprints
+    response_ad.varm["morgan_fingerprint"] = fingerprints
 
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
     return Dataset(mdata, name="test")

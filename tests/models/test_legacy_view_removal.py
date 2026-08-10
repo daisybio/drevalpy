@@ -31,7 +31,7 @@ def test_public_hyperparameters_omit_view_keys_by_default() -> None:
 
     legacy = public_hyperparameters_from_config(config, include_view_keys=True)
     assert legacy["cell_line_views"] == ["gene_expression"]
-    assert legacy["drug_views"] == ["fingerprints"]
+    assert legacy["drug_views"] == ["morgan_fingerprint"]
 
 
 def test_structured_model_config_path_does_not_warn() -> None:

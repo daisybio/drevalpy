@@ -3,6 +3,6 @@ cell_line_featurizer:
   - pca[methylation]:
       n_components: 100
   - raw[mutations]
-  - raw[cnv]
+  - raw[copy_number_variation_gistic]
 drug_featurizer: fingerprints
 predictor: randomForest

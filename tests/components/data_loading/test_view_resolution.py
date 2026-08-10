@@ -112,7 +112,7 @@ def test_fingerprint_featurizer_still_resolves_fingerprints_view() -> None:
         drug_featurizer=DrugFeaturizerConfig.model_validate("fingerprints"),
     )
     assert not config.drug_entity_id_only()
-    assert config.drug_views() == ["fingerprints"]
+    assert config.drug_views() == ["morgan_fingerprint"]
 
 
 def test_view_featurizer_resolves_options_view() -> None:

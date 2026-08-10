@@ -85,7 +85,7 @@ def test_a_recipe_and_the_equivalent_yaml_normalize_alike() -> None:
         default_registry="cell_line",
     )
     assert from_recipe == from_yaml
-    assert [child["view"] for child in from_recipe["featurizers"]] == ["gene_expression", "methylation"]
+    assert [child["view"] for child in from_recipe["featurizers"]] == ["expression", "methylation"]
 
 
 def test_normalize_rejects_invalid_shape() -> None:
@@ -101,11 +101,11 @@ def test_normalize_records_the_registry_on_every_child() -> None:
 
 
 def test_normalize_resolves_a_view_alias_written_out_in_full() -> None:
-    """A spelled-out view is resolved just like a bracketed one, so both notations agree."""
+    """A spelled-out view is passed through unchanged (alias resolution removed)."""
     payload = normalize_featurizer_config({"name": "raw", "view": "expression"}, default_registry="cell_line")
     assert payload == {
         "name": "raw",
-        "view": "gene_expression",
+        "view": "expression",
         "registry": "cell_line",
     }
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from drevalpy.components.core.features.view_aliases import format_view_alias
-
 
 def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
     """Return the canonical selector for a featurizer leaf.
@@ -16,7 +14,7 @@ def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
     :returns: Canonical selector string for HPO keys and concat blocks.
     """
     if view is not None:
-        return f"{name}[{format_view_alias(view)}]"
+        return f"{name}[{view}]"
     return name
 
 

@@ -121,7 +121,7 @@ def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
     drug_children = config.drug_featurizer.featurizers
     assert cell_children is not None and drug_children is not None
     assert [child.name for child in cell_children] == ["raw", "raw"]
-    assert cell_children[0].view == "gene_expression"
+    assert cell_children[0].view == "expression"
     assert cell_children[1].view == "mutations"
     assert [child.name for child in drug_children] == ["fingerprints", "identity"]
     assert config.model_id == "concatFeaturizers:concatFeaturizers:randomForest"
@@ -138,7 +138,7 @@ def test_build_model_config_from_recipe_triple_with_bracket_views() -> None:
     cell_children = config.cell_line_featurizer.featurizers
     assert cell_children is not None
     assert cell_children[0].name == "raw"
-    assert cell_children[0].view == "gene_expression"
+    assert cell_children[0].view == "expression"
     assert cell_children[1].name == "pca"
     assert cell_children[1].view == "proteomics"
 

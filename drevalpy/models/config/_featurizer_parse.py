@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.core.features.view_aliases import canonicalize_omics_view
 from drevalpy.components.core.fitting.featurizer_label import requires_explicit_view
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config._recipe import CONCAT_FEATURIZER_NAME, expand_featurizer_recipe
@@ -38,10 +37,7 @@ def _finalize_view(config: dict[str, Any]) -> None:
     single place an alias is resolved. Doing it here rather than while reading a recipe is what
     makes ``raw[expression]`` and a spelled-out ``view: expression`` mean the same thing.
 
-    Only featurizers that are parametric in a view are touched, and only known aliases are
-    rewritten: a view may also name a custom matrix shipped with a dataset, which is no alias
-    and must survive untouched. Elsewhere ``view`` names an output block rather than an omics
-    matrix, and those names are not omics aliases either.
+    Only featurizers that are parametric in a view are touched.
 
     :param config: Normalized featurizer mapping, updated in place.
     :raises ValueError: If *config* names a view-parametric featurizer but sets no usable view.
@@ -53,8 +49,6 @@ def _finalize_view(config: dict[str, Any]) -> None:
     if view is None or (isinstance(view, str) and not view.strip()):
         msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[expression]"
         raise ValueError(msg)
-    if config.get("registry") == "cell_line" and isinstance(view, str):
-        config["view"] = canonicalize_omics_view(view)
 
 
 def _featurizer_class(name: str, registry: str) -> type[Any]:

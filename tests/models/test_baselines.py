@@ -121,8 +121,8 @@ def test_random_forest_respects_max_depth() -> None:
     )
     drug_input = MockFeatureSource(
         features={
-            "d1": {"fingerprints": np.array([1.0, 0.0, 0.5])},
-            "d2": {"fingerprints": np.array([0.0, 1.0, 0.25])},
+            "d1": {"morgan_fingerprint": np.array([1.0, 0.0, 0.5])},
+            "d2": {"morgan_fingerprint": np.array([0.0, 1.0, 0.25])},
         }
     )
     shallow = construct_model("RandomForest")({"n_estimators": 5, "max_depth": 1, "n_jobs": 1, "max_samples": 0.9})
@@ -166,8 +166,8 @@ def test_baseline_train_predict_roundtrip(model_name: str) -> None:
     )
     drug_input = MockFeatureSource(
         features={
-            "d1": {"fingerprints": np.array([1.0, 0.0])},
-            "d2": {"fingerprints": np.array([0.0, 1.0])},
+            "d1": {"morgan_fingerprint": np.array([1.0, 0.0])},
+            "d2": {"morgan_fingerprint": np.array([0.0, 1.0])},
         }
     )
 

@@ -76,7 +76,7 @@ def test_construct_model_train_predict_smoke() -> None:
 
     register_builtins.register_builtin_components()
 
-    model_cls = construct_model("ComboRF", "raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
+    model_cls = construct_model("ComboRF", "raw[gene_expression]+raw[mutations]:fingerprints+identity:randomForest")
     model = model_cls()
 
     import anndata as ad
@@ -106,7 +106,7 @@ def test_construct_model_train_predict_smoke() -> None:
         obs=pd.DataFrame(index=cl_ids_unique),
         var=pd.DataFrame(index=["mut0", "mut1"]),
     )
-    response_ad.varm["fingerprints"] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+    response_ad.varm["morgan_fingerprint"] = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
     mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad, "mutations": mutations_ad})
     mudataset = Dataset(mdata, name="test")
     split = SplitMasks(
