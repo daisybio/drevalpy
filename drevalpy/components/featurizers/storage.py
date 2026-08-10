@@ -10,8 +10,11 @@ import numpy as np
 VARIANTS_UNS_KEY = "featurizer_variants"
 
 
-def _variant_registry(mdata) -> dict[str, list[dict[str, Any]]]:
-    """Read the featurizer variant registry from mdata.uns."""
+def _variant_registry(mdata) -> dict[str, dict[str, dict[str, Any]]]:
+    """Read the featurizer variant registry from mdata.uns.
+
+    Format: {storage_key: {mudata_key: params_dict, ...}, ...}
+    """
     raw = mdata.uns.get(VARIANTS_UNS_KEY)
     if raw is None:
         return {}
@@ -20,7 +23,7 @@ def _variant_registry(mdata) -> dict[str, list[dict[str, Any]]]:
     return dict(raw)
 
 
-def _write_variant_registry(mdata, registry: dict[str, list[dict[str, Any]]]) -> None:
+def _write_variant_registry(mdata, registry: dict[str, dict[str, dict[str, Any]]]) -> None:
     """Write the featurizer variant registry to mdata.uns."""
     mdata.uns[VARIANTS_UNS_KEY] = json.dumps(registry)
 
@@ -38,27 +41,24 @@ def find_variant_key(
     :returns: The actual MuData key, or None if not found.
     """
     registry = _variant_registry(mdata)
-    variants = registry.get(storage_key, [])
-
-    if not variants:
-        return None
+    variants = registry.get(storage_key, {})
 
     target_params = hyperparameters or {}
-    for variant in variants:
-        if variant.get("params", {}) == target_params:
-            return variant["key"]
+    for key, params in variants.items():
+        if params == target_params:
+            return key
     return None
 
 
-def list_variants(mdata, storage_key: str) -> list[dict[str, Any]]:
+def list_variants(mdata, storage_key: str) -> dict[str, dict[str, Any]]:
     """List all stored HP variants for a featurizer.
 
     :param mdata: MuData object.
     :param storage_key: Base storage key for the featurizer.
-    :returns: List of variant dicts with "params" and "key".
+    :returns: Dict of {mudata_key: params_dict}.
     """
     registry = _variant_registry(mdata)
-    return registry.get(storage_key, [])
+    return registry.get(storage_key, {})
 
 
 def register_variant(
@@ -75,13 +75,8 @@ def register_variant(
     :param hyperparameters: HP settings for this variant.
     """
     registry = _variant_registry(mdata)
-    variants = registry.setdefault(storage_key, [])
-    variants.append(
-        {
-            "params": hyperparameters or {},
-            "key": actual_key,
-        }
-    )
+    variants = registry.setdefault(storage_key, {})
+    variants[actual_key] = hyperparameters or {}
     _write_variant_registry(mdata, registry)
 
 
@@ -90,7 +85,7 @@ def make_variant_key(storage_key: str, index: int) -> str:
 
     :param storage_key: Base featurizer storage key.
     :param index: Variant index.
-    :returns: Key like "pca_expression_0".
+    :returns: Key like "pca_0".
     """
     safe_key = storage_key.replace("[", "_").replace("]", "").replace(":", "_")
     return f"{safe_key}_{index}"

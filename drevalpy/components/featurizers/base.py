@@ -361,11 +361,11 @@ class Featurizer(ABC):
             response.obsm[key] = data
 
     @classmethod
-    def list_stored_variants(cls, mdata: Any) -> list[dict[str, Any]]:
+    def list_stored_variants(cls, mdata: Any) -> dict[str, dict[str, Any]]:
         """Return available pre-computed HP settings for this featurizer.
 
         :param mdata: MuData object.
-        :returns: List of variant dicts with "index", "params", "key".
+        :returns: Dict of {mudata_key: params_dict}.
         """
         from drevalpy.components.featurizers.storage import list_variants
 
