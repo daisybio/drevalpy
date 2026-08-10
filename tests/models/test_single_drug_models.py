@@ -62,7 +62,7 @@ def test_single_drug_models(
     """
     from drevalpy.data import load
     from drevalpy.data.splitters import get_splitter
-    from drevalpy.experiment import seed_everything
+    from drevalpy.utils.seed import seed_everything
 
     seed_everything(42)
 
