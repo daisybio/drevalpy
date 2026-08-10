@@ -25,3 +25,13 @@ uv run pytest
 ```bash
 uv run --group docs sphinx-build -W docs docs/_build
 ```
+
+## Path handling
+
+Use `universal_pathlib` (`UPath`) instead of `pathlib.Path` throughout the codebase. This enables transparent access to remote filesystems (S3, GCS, etc.). Import as:
+
+```python
+from upath import UPath
+```
+
+Note: Typer does not support `UPath` in CLI parameter annotations. Use `str` for path parameters and convert to `UPath` inside the function body.
