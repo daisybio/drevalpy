@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from itertools import product
 
 from drevalpy.data import load, split
@@ -44,13 +43,15 @@ def pipeline(
     if robustness_trials > 0:
         folds = [s for fold in folds for s in robustness(fold, robustness_trials)]
 
-    runs_by_model: defaultdict[str, list[RunResult]] = defaultdict(list)
+    model_results: list[ModelResult] = []
 
     for model, split_masks in product(models, folds):
         run_datasets: list[Dataset] = [ds]
 
         if randomization_modes:
             run_datasets.extend(randomization(model, ds, randomization_modes))
+
+        run_results: list[RunResult] = []
 
         for run_ds in run_datasets:
             result = single(
@@ -62,11 +63,9 @@ def pipeline(
                 hpo_num_samples=hpo_num_samples,
                 hpo_random_state=hpo_random_state,
             )
-            runs_by_model[model.get_model_name()].append(result)
+            run_results.append(result)
 
-    model_results = [
-        ModelResult(model_name=name, dataset_name=ds.name, runs=runs) for name, runs in runs_by_model.items()
-    ]
+        model_results.append(ModelResult(model_name=model.get_model_name(), dataset_name=ds.name, runs=run_results))
 
     return ExperimentResult(
         dataset_name=ds.name,
