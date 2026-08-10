@@ -57,7 +57,7 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
         self._output_dim = int(matrix.shape[1])
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into fingerprint features.
 
         :param source: Feature source providing drug views.
@@ -66,7 +66,7 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
         """
         return self._get_or_compute(source, entity_ids).astype(np.float32)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
         :param source: Feature source providing drug views.
@@ -75,7 +75,7 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
         """
         return {
             "fingerprints": numeric_feature_block(
-                self.transform(source, entity_ids),
+                self._transform(source, entity_ids),
                 feature_names=source.get_feature_names(self._view),
             )
         }

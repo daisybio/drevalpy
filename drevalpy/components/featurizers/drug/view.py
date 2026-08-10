@@ -57,7 +57,7 @@ class ViewDrugFeaturizer(DrugFeaturizer):
         self._output_dim = int(matrix.shape[1])
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source providing drug views.
@@ -70,7 +70,7 @@ class ViewDrugFeaturizer(DrugFeaturizer):
             return matrix.astype(np.float32)
         return stack_view_matrix(source, self._view, entity_ids).astype(np.float32)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
         :param source: Feature source providing drug views.
@@ -82,7 +82,7 @@ class ViewDrugFeaturizer(DrugFeaturizer):
             block_name = self.output_block_specs[0].name
         return {
             block_name: numeric_feature_block(
-                self.transform(source, entity_ids),
+                self._transform(source, entity_ids),
                 feature_names=source.get_feature_names(self._view),
             )
         }

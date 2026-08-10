@@ -55,7 +55,7 @@ class DrugIdentityFeaturizer(DrugFeaturizer):
         self._encoder.fit_categories(ids)
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source (unused).
@@ -65,7 +65,7 @@ class DrugIdentityFeaturizer(DrugFeaturizer):
         _ = source
         return self._encoder.transform(entity_ids)
 
-    def transform_blocks(
+    def _transform_blocks(
         self,
         source: FeatureSource,
         entity_ids: np.ndarray,
@@ -77,7 +77,7 @@ class DrugIdentityFeaturizer(DrugFeaturizer):
         :returns: Result.
         """
         return {
-            "identity": numeric_feature_block(self.transform(source, entity_ids)),
+            "identity": numeric_feature_block(self._transform(source, entity_ids)),
             "identity_categories": metadata_feature_block(
                 np.asarray(self._encoder.categories, dtype=str),
             ),

@@ -171,14 +171,7 @@ class _ComponentStack:
             pair_expanded_es_ids=pair_expanded_es_ids,
         )
         entity_ids = np.asarray(all_entity_ids, dtype=str)
-        valid_mask = featurizer._detect_valid(source, entity_ids)
-        if valid_mask.all():
-            matrix = featurizer.transform(source, entity_ids)
-        else:
-            valid_ids = entity_ids[valid_mask]
-            valid_matrix = featurizer.transform(source, valid_ids)
-            matrix = np.full((len(entity_ids), valid_matrix.shape[1]), np.nan, dtype=np.float32)
-            matrix[valid_mask] = valid_matrix
+        matrix = featurizer.transform(source, entity_ids)
         return entity_ids, matrix
 
     def _train_cell_line_side(

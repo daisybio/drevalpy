@@ -109,7 +109,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         self._gene_dim_input = int(metadata["gene_dim_input"])
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return ontology-aligned omics matrix rows.
 
         :param source: Feature source providing view matrices.
@@ -125,7 +125,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
             return precomputed.astype(np.float32)
         return source.get_view_matrix(self._view, entity_ids).astype(np.float32)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return an omics block with SparseGO ontology metadata attached.
 
         :param source: Feature source providing view matrices.

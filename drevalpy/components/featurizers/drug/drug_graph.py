@@ -72,7 +72,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
             self._output_dim = int(getattr(first, "num_node_features", 0))
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return one graph payload per drug id.
 
         :param source: Feature source providing drug graph views.
@@ -99,14 +99,14 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         payloads[:] = graphs
         return payloads
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return a single ``drug_graph`` graph block.
 
         :param source: Feature source providing drug graph views.
         :param entity_ids: Drug identifiers to transform.
         :returns: Mapping with one graph block.
         """
-        return {"drug_graph": graph_feature_block(self.transform(source, entity_ids))}
+        return {"drug_graph": graph_feature_block(self._transform(source, entity_ids))}
 
     @property
     def output_dim(self) -> int:

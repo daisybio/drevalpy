@@ -79,7 +79,7 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
                 self._feature_names[view] = ()
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return variance-selected gene-expression features only.
 
         :param source: Feature source providing view matrices.
@@ -93,7 +93,7 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         mask = self._masks["gene_expression"]
         return source.get_view_matrix("gene_expression", entity_ids)[:, mask].astype(np.float32)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return per-omics numeric blocks with variance-selected columns.
 
         :param source: Feature source providing view matrices.

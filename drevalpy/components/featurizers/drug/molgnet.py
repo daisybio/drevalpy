@@ -76,7 +76,7 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
             self._output_dim = int(first.shape[1]) if first.ndim == 2 else int(first.size)
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return one MolGNet tensor per drug id.
 
         :param source: Feature source providing MolGNet views.
@@ -101,14 +101,14 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
                     raise KeyError(msg)
         return np.array(rows, dtype=object)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return a single ``molgnet_features`` ragged block.
 
         :param source: Feature source providing MolGNet views.
         :param entity_ids: Drug identifiers to transform.
         :returns: Mapping with one ragged block.
         """
-        return {"molgnet_features": ragged_feature_block(self.transform(source, entity_ids))}
+        return {"molgnet_features": ragged_feature_block(self._transform(source, entity_ids))}
 
     @property
     def output_dim(self) -> int:

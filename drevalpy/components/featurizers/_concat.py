@@ -125,7 +125,7 @@ class ConcatFeaturizersMixin:
         self._is_fitted = True
         return self
 
-    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
         :param features: features.

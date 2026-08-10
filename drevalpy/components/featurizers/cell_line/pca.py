@@ -76,7 +76,7 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         self._feature_names = feature_names_for_view(source, self._view)
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs through fitted PCA.
 
         :param source: Feature source providing views for the entity type.
@@ -101,15 +101,9 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
                 if source_index is not None:
                     aligned[:, index] = matrix[:, source_index]
             matrix = aligned
-        valid_mask = ~np.all(np.isnan(matrix), axis=1)
-        if valid_mask.all():
-            return self._pca.transform(matrix).astype(np.float32)
-        result = np.full((len(entity_ids), self._output_dim), np.nan, dtype=np.float32)
-        if valid_mask.any():
-            result[valid_mask] = self._pca.transform(matrix[valid_mask]).astype(np.float32)
-        return result
+        return self._pca.transform(matrix).astype(np.float32)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
         :param source: Feature source providing views for the entity type.
@@ -118,7 +112,7 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         """
         return {
             self._view: numeric_feature_block(
-                self.transform(source, entity_ids),
+                self._transform(source, entity_ids),
                 feature_names=feature_names_for_view(source, self._view),
             )
         }

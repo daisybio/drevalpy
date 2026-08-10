@@ -171,7 +171,7 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
             rows.append(self._transformer.transform(row[None, :])[0])
         return np.vstack(rows).astype(np.float32)
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source providing view matrices.
@@ -180,7 +180,7 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         """
         return self._transform_matrix(source, entity_ids)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
         :param source: Feature source providing view matrices.
@@ -189,7 +189,7 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         """
         return {
             self._view: numeric_feature_block(
-                self.transform(source, entity_ids),
+                self._transform(source, entity_ids),
                 feature_names=source.get_feature_names(self._view),
             )
         }

@@ -77,7 +77,7 @@ class TissueFeaturizer(CellLineFeaturizer):
         self._encoder.fit_categories(np.asarray(available, dtype=str))
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source providing views for the entity type.
@@ -99,7 +99,7 @@ class TissueFeaturizer(CellLineFeaturizer):
                 categories.append(label)
         return self._encoder.transform(np.asarray(categories, dtype=str))
 
-    def transform_blocks(
+    def _transform_blocks(
         self,
         source: FeatureSource,
         entity_ids: np.ndarray,
@@ -111,7 +111,7 @@ class TissueFeaturizer(CellLineFeaturizer):
         :returns: Result.
         """
         return {
-            "tissue": numeric_feature_block(self.transform(source, entity_ids)),
+            "tissue": numeric_feature_block(self._transform(source, entity_ids)),
             "tissue_categories": metadata_feature_block(
                 np.asarray(self._encoder.categories, dtype=str),
             ),

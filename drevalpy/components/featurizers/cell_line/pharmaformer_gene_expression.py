@@ -68,7 +68,7 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         self._is_fitted = True
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Apply fitted scalers to gene-expression rows.
 
         :param source: Feature source providing view matrices.
@@ -85,7 +85,7 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         matrix = source.get_view_matrix("gene_expression", entity_ids)
         return self._minmax.transform(self._scaler.transform(matrix)).astype(np.float32)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return a single ``gene_expression`` numeric block.
 
         :param source: Feature source providing view matrices.
@@ -94,7 +94,7 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         """
         return {
             "gene_expression": numeric_feature_block(
-                self.transform(source, entity_ids),
+                self._transform(source, entity_ids),
                 feature_names=self._feature_names,
             )
         }

@@ -144,7 +144,7 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         self._is_fitted = True
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source providing view matrices.
@@ -169,7 +169,7 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             arcsinh=self._arcsinh,
         )
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
         :param source: Feature source providing view matrices.
@@ -186,7 +186,7 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             selected_names = tuple(str(names[index]) for index in self._gene_indices)
         return {
             "gene_expression": numeric_feature_block(
-                self.transform(source, entity_ids),
+                self._transform(source, entity_ids),
                 feature_names=selected_names,
             )
         }

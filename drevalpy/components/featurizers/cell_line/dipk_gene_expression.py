@@ -77,7 +77,7 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         self._latent_dim = int(self._encoder.latent_dim)
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Encode gene expression into DIPK latent vectors.
 
         :param source: Feature source providing view matrices.
@@ -95,14 +95,14 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
             np.float32
         )
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return a single ``gene_expression`` numeric block.
 
         :param source: Feature source providing view matrices.
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Mapping with one numeric ``gene_expression`` block.
         """
-        return {"gene_expression": numeric_feature_block(self.transform(source, entity_ids))}
+        return {"gene_expression": numeric_feature_block(self._transform(source, entity_ids))}
 
     @property
     def output_dim(self) -> int:

@@ -141,14 +141,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             for config in configs:
                 featurizer = featurizer_cls(**{**base_kwargs, **config})
                 featurizer.fit(source, entity_ids=entity_ids)
-                valid_mask = featurizer._detect_valid(source, entity_ids)
-                if valid_mask.all():
-                    matrix = featurizer.transform(source, entity_ids)
-                else:
-                    valid_ids = entity_ids[valid_mask]
-                    valid_matrix = featurizer.transform(source, valid_ids)
-                    matrix = np.full((len(entity_ids), valid_matrix.shape[1]), np.nan, dtype=np.float32)
-                    matrix[valid_mask] = valid_matrix
+                matrix = featurizer.transform(source, entity_ids)
                 featurizer.store(self._mdata, entity_ids, matrix, hyperparameters=config)
                 progress.advance(task)
 

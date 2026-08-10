@@ -61,7 +61,7 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
         self._output_dim = int(matrix.shape[1])
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source providing views for the entity type.
@@ -74,7 +74,7 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
             return matrix.astype(np.float32)
         return stack_view_matrix(source, self._view, entity_ids).astype(np.float32)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
         :param source: Feature source providing views for the entity type.
@@ -83,7 +83,7 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
         """
         return {
             self._view: numeric_feature_block(
-                self.transform(source, entity_ids),
+                self._transform(source, entity_ids),
                 feature_names=feature_names_for_view(source, self._view),
             )
         }

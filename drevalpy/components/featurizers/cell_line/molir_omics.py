@@ -95,7 +95,7 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         matrix = np.arcsinh(source.get_view_matrix("gene_expression", entity_ids))
         return self._scaler.transform(matrix)[:, self._mask].astype(np.float32)
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return scaled, variance-selected gene-expression features.
 
         :param source: Feature source providing view matrices.
@@ -104,7 +104,7 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         """
         return self._gene_expression(source, entity_ids)
 
-    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return per-omics numeric blocks for MOLIR.
 
         :param source: Feature source providing view matrices.

@@ -34,7 +34,7 @@ class ConstantFeaturizerMixin:
         _ = source, entity_ids, pair_expanded_ids, pair_expanded_es_ids
         return self
 
-    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source providing views for the entity type.
@@ -44,7 +44,7 @@ class ConstantFeaturizerMixin:
         _ = source
         return np.ones((len(entity_ids), 1), dtype=np.float32)
 
-    def transform_blocks(
+    def _transform_blocks(
         self,
         source: FeatureSource,
         entity_ids: np.ndarray,
@@ -55,7 +55,7 @@ class ConstantFeaturizerMixin:
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        return {"constant": numeric_feature_block(self.transform(source, entity_ids))}
+        return {"constant": numeric_feature_block(self._transform(source, entity_ids))}
 
     @property
     def output_dim(self) -> int:
