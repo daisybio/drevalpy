@@ -169,6 +169,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         """Pre-compute one featurizer class if eligible."""
         if cls.learned:
             return
+        if cls.entity_id_only:
+            return
         hp_space = cls.get_hyperparameter_space()
         effective_n = n_variants if hp_space else 1
         view: str | None = None
@@ -177,7 +179,19 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
                 view = cls.input_views[0]
             else:
                 return
+        required_views = cls.input_views or ((view,) if view else ())
+        if not self._has_required_views(required_views):
+            return
         self.precompute(cls, effective_n, view=view)
+
+    def _has_required_views(self, views: tuple[str, ...]) -> bool:
+        """Check if all required views are available in this dataset."""
+        available_mods = set(self._mdata.mod.keys()) - {"response"}
+        response = self._mdata.mod.get("response")
+        available_varm = set(response.varm.keys()) if response is not None and response.varm is not None else set()
+        available_obsm = set(response.obsm.keys()) if response is not None and response.obsm is not None else set()
+        available = available_mods | available_varm | available_obsm
+        return all(v in available for v in views)
 
     @property
     def name(self) -> str:
