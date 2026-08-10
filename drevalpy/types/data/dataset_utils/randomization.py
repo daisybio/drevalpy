@@ -1,4 +1,4 @@
-"""Randomization utilities for Dataset views."""
+"""Mixin providing view randomization for Dataset."""
 
 from __future__ import annotations
 
@@ -64,54 +64,66 @@ def _randomize_single_view(
         logger.warning("View '%s' not found in any storage location. Skipping randomization.", view)
 
 
-def with_randomized_views(
-    dataset: Dataset,
-    views: list[str],
-    randomization_type: str = "permutation",
-    random_state: int | None = None,
-    *,
-    randomization: tuple[str, str] | None = None,
-) -> Dataset:
-    """Return a copy of a Dataset with specified views randomized.
+class RandomizationMixin:
+    """Mixin that provides view randomization for Dataset.
 
-    For cell-line views (modalities or obsm keys), rows are permuted across
-    cell lines. For drug views (varm keys), rows are permuted across drugs.
-    For uns dict keys, values are reassigned to shuffled keys.
-
-    Args:
-        dataset: Source Dataset to copy and randomize.
-        views: View names to randomize.
-        randomization_type: "permutation" shuffles rows; "invariant" replaces
-            each row with a random sample matching its mean and std.
-        random_state: Seed for reproducibility.
-        randomization: Optional (mode, view) tuple to attach to the new dataset.
-
-    Returns:
-        A new Dataset with the specified views randomized.
+    Expects ``self._mdata`` to be a MuData object and ``self._name`` to be the dataset name.
     """
-    import copy
 
-    from drevalpy.types.data.dataset import Dataset as DatasetCls
+    _mdata: md.MuData
+    _name: str
 
-    if randomization_type not in ("permutation", "invariant"):
-        raise ValueError(f"Unknown randomization_type {randomization_type!r}. Use 'permutation' or 'invariant'.")
+    def with_randomized_views(
+        self,
+        views: list[str],
+        randomization_type: str = "permutation",
+        random_state: int | None = None,
+        *,
+        randomization: tuple[str, str] | None = None,
+    ) -> Dataset:
+        """Return a copy of this Dataset with specified views randomized.
 
-    rng = np.random.default_rng(random_state)
+        For cell-line views (modalities or obsm keys), rows are permuted across
+        cell lines. For drug views (varm keys), rows are permuted across drugs.
+        For uns dict keys, values are reassigned to shuffled keys.
 
-    new_mods: dict[str, md.AnnData] = {}
-    for mod_name, mod_adata in dataset._mdata.mod.items():
-        new_mods[mod_name] = mod_adata.copy()
+        Args:
+            views: View names to randomize.
+            randomization_type: "permutation" shuffles rows; "invariant" replaces
+                each row with a random sample matching its mean and std.
+            random_state: Seed for reproducibility.
+            randomization: Optional (mode, view) tuple to attach to the new dataset.
 
-    new_uns: dict[str, Any] = {
-        key: copy.deepcopy(val) if isinstance(val, dict) else val for key, val in dataset._mdata.uns.items()
-    }
+        Returns:
+            A new Dataset with the specified views randomized.
 
-    for view in views:
-        _randomize_single_view(dataset, view, new_mods, new_uns, rng, randomization_type)
+        Raises:
+            ValueError: If randomization_type is not recognized.
+            KeyError: If a view is not found in any storage location.
+        """
+        import copy
 
-    md.set_options(pull_on_update=False)
-    new_mdata = md.MuData(new_mods)
-    new_mdata.obs = dataset._mdata.obs.copy()
-    for key, val in new_uns.items():
-        new_mdata.uns[key] = val
-    return DatasetCls(new_mdata, name=dataset._name, randomization=randomization)
+        from drevalpy.types.data.dataset import Dataset as DatasetCls
+
+        if randomization_type not in ("permutation", "invariant"):
+            raise ValueError(f"Unknown randomization_type {randomization_type!r}. Use 'permutation' or 'invariant'.")
+
+        rng = np.random.default_rng(random_state)
+
+        new_mods: dict[str, md.AnnData] = {}
+        for mod_name, mod_adata in self._mdata.mod.items():
+            new_mods[mod_name] = mod_adata.copy()
+
+        new_uns: dict[str, Any] = {
+            key: copy.deepcopy(val) if isinstance(val, dict) else val for key, val in self._mdata.uns.items()
+        }
+
+        for view in views:
+            _randomize_single_view(self, view, new_mods, new_uns, rng, randomization_type)
+
+        md.set_options(pull_on_update=False)
+        new_mdata = md.MuData(new_mods)
+        new_mdata.obs = self._mdata.obs.copy()
+        for key, val in new_uns.items():
+            new_mdata.uns[key] = val
+        return DatasetCls(new_mdata, name=self._name, randomization=randomization)

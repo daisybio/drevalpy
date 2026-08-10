@@ -17,36 +17,15 @@ from upath import UPath as Path
 
 from drevalpy.log import get_logger
 
-from .dataset_utils.feature_access import (
-    _get_obsm_features,
-    _resolve_varm_key,
-)
-from .dataset_utils.feature_access import (
-    available_drug_views as _available_drug_views,
-)
-from .dataset_utils.feature_access import (
-    get_cell_line_feature_names as _get_cl_feature_names,
-)
-from .dataset_utils.feature_access import (
-    get_cell_line_features as _get_cl_features,
-)
-from .dataset_utils.feature_access import (
-    get_drug_feature_names as _get_drug_feature_names,
-)
-from .dataset_utils.feature_access import (
-    get_drug_features as _get_drug_features,
-)
-from .dataset_utils.feature_access import (
-    get_drug_graphs as _get_drug_graphs,
-)
-from .dataset_utils.randomization import with_randomized_views as _with_randomized_views
+from .dataset_utils.feature_access import FeatureAccessMixin
+from .dataset_utils.randomization import RandomizationMixin
 from .dataset_utils.sampling import _sample_hp_configs
 from .mudatalike import MuDataLike
 
 logger = get_logger(__name__)
 
 
-class Dataset(MuDataLike):
+class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
     """Single entry point for all dataset access in drevalpy.
 
     Wraps a MuData object containing a "response" modality (cell_line x drug
@@ -209,58 +188,6 @@ class Dataset(MuDataLike):
         """
         return np.asarray(self.response.var_names)
 
-    def entities_with_modality(self, modality: str, *, side: str = "cell_line") -> frozenset[str]:
-        """Return entity IDs that have actual feature data for a modality.
-
-        Args:
-            modality: Modality or view name (e.g. "gene_expression", "fingerprints").
-            side: Either "cell_line" or "drug".
-
-        Returns:
-            Frozenset of entity IDs that have non-NaN data for the modality.
-
-        Raises:
-            KeyError: If the modality/view is not found.
-        """
-        if side == "cell_line":
-            return self._cell_line_entities_for_modality(modality)
-        return self._drug_entities_for_view(modality)
-
-    def _cell_line_entities_for_modality(self, modality: str) -> frozenset[str]:
-        """Cell line IDs present in a given modality."""
-        if modality == "pathway_features":
-            if "pathway_features" not in self.response.obsm:
-                return frozenset()
-            data = np.asarray(self.response.obsm["pathway_features"])
-            valid = ~np.all(np.isnan(data), axis=1)
-            return frozenset(np.asarray(self.response.obs_names)[valid])
-
-        if modality not in self._mdata.mod:
-            raise KeyError(f"Modality '{modality}' not found. Available: {list(self._mdata.mod.keys())}")
-
-        adata = self._mdata.mod[modality]
-        x = adata.X
-        if hasattr(x, "toarray"):
-            x = x.toarray()
-        x = np.asarray(x)
-        valid = ~np.all(np.isnan(x), axis=1)
-        return frozenset(np.asarray(adata.obs_names)[valid])
-
-    def _drug_entities_for_view(self, name: str) -> frozenset[str]:
-        """Drug IDs present in a given drug feature view."""
-        if name == "drug_graph":
-            if "drug_graphs" not in self._mdata.uns:
-                return frozenset()
-            return frozenset(str(k) for k in self._mdata.uns["drug_graphs"].keys())
-
-        varm_key = _resolve_varm_key(self._mdata, name)
-        if varm_key is None:
-            raise KeyError(f"Drug feature '{name}' not found. Available varm keys: {self.available_drug_views}")
-
-        varm_data = np.asarray(self.response.varm[varm_key])
-        valid = ~np.all(np.isnan(varm_data), axis=1)
-        return frozenset(np.asarray(self.response.var_names)[valid])
-
     def get_response_layer(self, name: str) -> np.ndarray:
         """Retrieve a named response layer (e.g. "AUC").
 
@@ -279,98 +206,6 @@ class Dataset(MuDataLike):
         if hasattr(layer, "toarray"):
             return np.asarray(layer.toarray(), dtype=np.float32)
         return np.asarray(layer, dtype=np.float32)
-
-    # ------------------------------------------------------------------
-    # Cell-line features
-    # ------------------------------------------------------------------
-
-    def get_cell_line_features(self, modality: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
-        """Get a feature matrix for the specified cell lines from a modality.
-
-        Args:
-            modality: Name of the modality (e.g. "gene_expression").
-            ids: 1-D array of cell line IDs to retrieve.
-            strict: If True, raise KeyError for missing IDs instead of warning.
-
-        Returns:
-            Float32 array of shape (len(ids), n_features), rows aligned to *ids*.
-
-        Raises:
-            KeyError: If the modality is not present, or if *strict* and IDs are missing.
-        """
-        return _get_cl_features(self._mdata, modality, ids, strict=strict)
-
-    def _get_obsm_features(self, key: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
-        """Retrieve cell-line features stored in response.obsm."""
-        return _get_obsm_features(self._mdata, key, ids, strict=strict)
-
-    def get_cell_line_feature_names(self, view: str) -> tuple[str, ...] | None:
-        """Return the feature (column) names for a cell-line view.
-
-        Args:
-            view: Name of the modality.
-
-        Returns:
-            Tuple of feature names, or None if names are unavailable.
-        """
-        return _get_cl_feature_names(self._mdata, view)
-
-    # ------------------------------------------------------------------
-    # Drug features
-    # ------------------------------------------------------------------
-
-    @property
-    def available_drug_views(self) -> list[str]:
-        """Sorted list of drug feature varm keys."""
-        return _available_drug_views(self._mdata)
-
-    def get_drug_features(self, name: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
-        """Get a drug feature matrix from response.varm, aligned to given IDs.
-
-        Args:
-            name: Key in ``response.varm`` (e.g. "chemberta", "morgan_fingerprint").
-            ids: 1-D array of drug (PubChem) IDs.
-            strict: If True, raise KeyError for missing IDs instead of warning.
-
-        Returns:
-            Float32 array of shape (len(ids), n_features), rows aligned to *ids*.
-
-        Raises:
-            KeyError: If the varm key does not exist, or if *strict* and IDs are missing.
-        """
-        return _get_drug_features(self._mdata, name, ids, strict=strict)
-
-    def get_drug_feature_names(self, view: str) -> tuple[str, ...] | None:
-        """Return the feature (column) names for a drug view stored in response.varm.
-
-        Args:
-            view: Drug view name (e.g. "chemberta", "morgan_fingerprint").
-
-        Returns:
-            Tuple of column name strings, or None if the view does not exist.
-        """
-        return _get_drug_feature_names(self._mdata, view)
-
-    # ------------------------------------------------------------------
-    # Drug graphs
-    # ------------------------------------------------------------------
-
-    def get_drug_graphs(self, ids: np.ndarray) -> list[dict[str, np.ndarray] | None]:
-        """Get PyTorch Geometric graph data for the specified drugs.
-
-        Each graph dict has keys "x", "edge_index", "edge_attr" with numpy arrays.
-        Returns None for drugs without a stored graph.
-
-        Args:
-            ids: 1-D array of drug (PubChem) IDs.
-
-        Returns:
-            List of graph dicts (or None) aligned to *ids*.
-
-        Raises:
-            KeyError: If "drug_graphs" is not in mdata.uns.
-        """
-        return _get_drug_graphs(self._mdata, ids)
 
     # ------------------------------------------------------------------
     # Metadata
@@ -484,46 +319,6 @@ class Dataset(MuDataLike):
         if key not in self._mdata.uns:
             raise KeyError(f"uns key '{key}' not found. Available: {list(self._mdata.uns.keys())}")
         return self._mdata.uns[key]
-
-    # ------------------------------------------------------------------
-    # Randomization
-    # ------------------------------------------------------------------
-
-    def with_randomized_views(
-        self,
-        views: list[str],
-        randomization_type: str = "permutation",
-        random_state: int | None = None,
-        *,
-        randomization: tuple[str, str] | None = None,
-    ) -> Dataset:
-        """Return a copy of this Dataset with specified views randomized.
-
-        For cell-line views (modalities or obsm keys), rows are permuted across
-        cell lines. For drug views (varm keys), rows are permuted across drugs.
-        For uns dict keys, values are reassigned to shuffled keys.
-
-        Args:
-            views: View names to randomize.
-            randomization_type: "permutation" shuffles rows; "invariant" replaces
-                each row with a random sample matching its mean and std.
-            random_state: Seed for reproducibility.
-            randomization: Optional (mode, view) tuple to attach to the new dataset.
-
-        Returns:
-            A new Dataset with the specified views randomized.
-
-        Raises:
-            ValueError: If randomization_type is not recognized.
-            KeyError: If a view is not found in any storage location.
-        """
-        return _with_randomized_views(
-            self,
-            views,
-            randomization_type=randomization_type,
-            random_state=random_state,
-            randomization=randomization,
-        )
 
     # ------------------------------------------------------------------
     # Dunder methods
