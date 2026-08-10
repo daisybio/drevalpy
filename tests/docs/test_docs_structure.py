@@ -42,6 +42,7 @@ EXEMPT_RELATIVE = {
 
 CLI_COMMANDS = (
     "data",
+    "experiments",
 )
 
 

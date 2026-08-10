@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 
 from drevalpy.cli.data import data_app
+from drevalpy.cli.experiments import experiments_app
 
 app = typer.Typer(
     name="drevalpy",
@@ -14,6 +15,7 @@ app = typer.Typer(
 )
 
 app.add_typer(data_app, name="data")
+app.add_typer(experiments_app, name="experiments")
 
 
 def cli_main() -> None:
