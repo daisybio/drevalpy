@@ -167,9 +167,11 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
 
     def _precompute_single(self, cls: type, n_variants: int) -> None:
         """Pre-compute one featurizer class if eligible."""
+        name = getattr(cls, "registry_name", cls.__name__)
         if not cls.precompute:
             return
         if cls.entity_id_only:
+            logger.debug("Skipping %s: entity_id_only", name)
             return
         hp_space = cls.get_hyperparameter_space()
         effective_n = n_variants if hp_space else 1
@@ -178,14 +180,17 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             if cls.input_views:
                 view = cls.input_views[0]
             else:
+                logger.debug("Skipping %s: requires_view but no input_views declared", name)
                 return
         required_views = cls.input_views or ((view,) if view else ())
         if not self._has_required_views(required_views):
+            logger.info("Skipping %s: required views %s not available in dataset", name, required_views)
             return
         try:
+            logger.info("Precomputing %s (%d variants)", name, effective_n)
             self.precompute(cls, effective_n, view=view)
-        except (ValueError, TypeError, KeyError):
-            pass
+        except (ValueError, TypeError, KeyError) as exc:
+            logger.warning("Failed to precompute %s: %s", name, exc)
 
     def _has_required_views(self, views: tuple[str, ...]) -> bool:
         """Check if all required views are available in this dataset."""
