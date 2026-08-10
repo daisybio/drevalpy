@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from upath import UPath as Path
 
-from .trial_result import TrialResult
+from .trial import TrialResult
 
 
 @dataclass

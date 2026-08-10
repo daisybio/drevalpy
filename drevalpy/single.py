@@ -11,8 +11,8 @@ from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.results.run_result import RunResult
-from drevalpy.types.results.trial_result import TrialResult
+from drevalpy.types.results.run import RunResult
+from drevalpy.types.results.trial import TrialResult
 
 logger = get_logger(__name__)
 
