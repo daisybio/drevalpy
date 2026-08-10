@@ -182,10 +182,6 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             else:
                 logger.debug("Skipping %s: requires_view but no input_views declared", name)
                 return
-        required_views = cls.input_views or ((view,) if view else ())
-        if not self._has_required_views(required_views):
-            logger.info("Skipping %s: required views %s not available in dataset", name, required_views)
-            return
         try:
             logger.info("Precomputing %s (%d variants)", name, effective_n)
             self.precompute(cls, effective_n, view=view)
