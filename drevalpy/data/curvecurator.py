@@ -21,8 +21,6 @@ from upath import UPath as Path
 
 from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
-from ..utils._pipeline_function import pipeline_function
-
 
 def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""):
     if "replicate" in curve_df.columns:
@@ -163,7 +161,7 @@ def _exec_curvecurator(output_dir: Path, batched: bool = True):
         command = ["CurveCurator", str(config_path), "--mad", "--batch"]
     else:
         command = ["CurveCurator", str(config_path), "--mad"]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)  # noqa: S603
     stdout, stderr = process.communicate()
 
     if process.returncode != 0:
@@ -200,7 +198,6 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     model_params_df["LN_IC50_curvecurator"] = np.log(model_params_df["IC50_curvecurator"].values)
 
 
-@pipeline_function
 def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int, normalize: bool = False):
     """Preprocess raw viability data and create required input files for CurveCurator.
 
@@ -279,7 +276,6 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
         f.writelines(configs)
 
 
-@pipeline_function
 def postprocess(output_folder: str | Path, dataset_name: str):
     """Postprocess CurveCurator output files.
 

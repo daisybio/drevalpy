@@ -23,7 +23,6 @@ from drevalpy.models.config import ModelConfig, ModelScope
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.utils._pipeline_function import pipeline_function
 
 
 class DRPModel(_DRPLoggingMixin):
@@ -98,7 +97,6 @@ class DRPModel(_DRPLoggingMixin):
         return instance
 
     @classmethod
-    @pipeline_function
     def get_model_name(cls) -> str:
         """Return the model identity for this class.
 
@@ -136,7 +134,6 @@ class DRPModel(_DRPLoggingMixin):
         return cls.model_config().scope == ModelScope.SINGLE_DRUG
 
     @classmethod
-    @pipeline_function
     def get_structured_hyperparameter_space(cls) -> dict[str, Any]:
         """Return the merged structured hyperparameter space for this model.
 
@@ -147,7 +144,6 @@ class DRPModel(_DRPLoggingMixin):
         return structured_space_for_drp_model(cls)
 
     @classmethod
-    @pipeline_function
     def get_default_hyperparameters(cls) -> dict[str, Any]:
         """Return default hyperparameters used by ``cls()``.
 
@@ -158,7 +154,6 @@ class DRPModel(_DRPLoggingMixin):
         return default_hyperparameters_for_drp_model(cls)
 
     @classmethod
-    @pipeline_function
     def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
         """Return the default hyperparameter configuration for this model.
 
@@ -264,7 +259,6 @@ class DRPModel(_DRPLoggingMixin):
                 early_stopping_scope = split.val
         return mudataset, scope, early_stopping_scope, output, cell_line_input, drug_input
 
-    @pipeline_function
     def train(
         self,
         mudataset_or_output=None,
@@ -462,7 +456,6 @@ class DRPModel(_DRPLoggingMixin):
 
         raise TypeError("predict() requires either (mudataset, scope) or (cell_line_ids, drug_ids, ...)")
 
-    @pipeline_function
     def save(self, path: str | Path) -> None:
         """Persist model identity, config, and fitted component state.
 

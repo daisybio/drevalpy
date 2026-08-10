@@ -7,8 +7,6 @@ import pandas as pd
 from scipy.stats import kendalltau, pearsonr, spearmanr
 from sklearn import metrics
 
-from .utils._pipeline_function import pipeline_function
-
 warning_shown = False
 constant_prediction_warning_shown = False
 
@@ -157,7 +155,6 @@ def _compute_metric_value(metric_name: str, predictions: np.ndarray, response: n
     return float(AVAILABLE_METRICS[metric_name](y_pred=y_pred, y_true=y_true))
 
 
-@pipeline_function
 def evaluate(
     predictions_or_dataset=None,
     response: np.ndarray | pd.Series | None = None,

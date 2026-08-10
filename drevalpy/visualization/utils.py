@@ -11,7 +11,6 @@ import pandas as pd
 from ..data._paths import get_default_data_dir
 from ..data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from ..evaluation import AVAILABLE_METRICS, evaluate
-from ..utils._pipeline_function import pipeline_function
 from . import (
     ComparisonScatter,
     CriticalDifferencePlot,
@@ -165,7 +164,6 @@ def parse_results(
     )
 
 
-@pipeline_function
 def evaluate_file(
     pred_file: pathlib.Path, test_mode: str, model_name: str, dataset_name: str = "NO_DATASET_NAME"
 ) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame, str]:
@@ -229,7 +227,6 @@ def evaluate_file(
     )
 
 
-@pipeline_function
 def prep_results(
     eval_results: pd.DataFrame,
     eval_results_per_drug: pd.DataFrame,
@@ -343,7 +340,6 @@ def compute_evaluation(df: pd.DataFrame, return_df: pd.DataFrame | None, group_b
     return return_df
 
 
-@pipeline_function
 def write_results(
     path_out: str | pathlib.Path,
     eval_results: pd.DataFrame,
@@ -368,7 +364,6 @@ def write_results(
     t_vs_p.to_csv(out_dir / "true_vs_pred.csv", index=True)
 
 
-@pipeline_function
 def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str | pathlib.Path) -> None:
     """Create the report index HTML page.
 

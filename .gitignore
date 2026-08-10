@@ -2,7 +2,7 @@
 /data/
 
 # Results directory is created when running the demo notebook
-results/
+/results/
 
 # Wandb directory is created when running the benchmark with wandb
 wandb/

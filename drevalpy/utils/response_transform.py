@@ -3,10 +3,7 @@
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from ._pipeline_function import pipeline_function
 
-
-@pipeline_function
 def get_response_transformation(
     response_transformation: str | None,
 ) -> TransformerMixin | None:
