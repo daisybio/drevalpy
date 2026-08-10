@@ -5,15 +5,7 @@ Model orchestration (config, zoo, and DRPModel construction) lives under
 which compose these components.
 """
 
-from drevalpy.components.core.plugins import register_builtins as register_builtins
-from drevalpy.components.core.plugins.extensions import (
-    load_extension_dir,
-    load_extension_file,
-    load_extension_module,
-    load_extensions,
-)
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
-from drevalpy.components.registry import (
+from .registry import (
     get_cell_line_featurizer,
     get_drug_featurizer,
     get_predictor,
@@ -27,6 +19,14 @@ from drevalpy.components.registry import (
     register_drug_featurizer,
     register_predictor,
 )
+from .registry import register_builtins as register_builtins
+from .registry.extensions import (
+    load_extension_dir,
+    load_extension_file,
+    load_extension_module,
+    load_extensions,
+)
+from .registry.register_builtins import register_builtin_components
 
 __all__ = [
     "get_cell_line_featurizer",

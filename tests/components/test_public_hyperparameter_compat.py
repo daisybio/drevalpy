@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-import drevalpy.components.core.plugins.register_builtins as register_builtins
+import drevalpy.components.registry.register_builtins as register_builtins
 from drevalpy.components.core.tuning.drp_hyperparameters import (
     assert_component_local_hyperparameters,
     config_from_public_hyperparameters,

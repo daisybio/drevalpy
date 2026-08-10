@@ -24,7 +24,7 @@ def _clear_registries() -> Iterator[None]:
     drug_featurizer_registry.clear()
     predictor_registry.clear()
     yield
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
 
@@ -89,7 +89,7 @@ def test_nested_concat_flattens_child_blocks() -> None:
 
 
 def test_sparsego_expression_and_mutations_block_names() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     expression = FeaturizerConfig(

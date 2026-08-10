@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from drevalpy.components.core.fitting.featurizer_tree import ensure_unique_qualified_featurizers
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, from_spec
 
 

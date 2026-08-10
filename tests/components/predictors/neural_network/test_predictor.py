@@ -5,13 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import drevalpy.components.core.plugins.register_builtins as register_builtins
 from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.core.contracts.training_context import TrainingContext
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.components.registry import get_predictor
+from drevalpy.components.registry import get_predictor, register_builtins
+from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from drevalpy.types.data.response_batch import ResponseBatch

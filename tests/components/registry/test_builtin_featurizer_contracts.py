@@ -7,7 +7,6 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.core.contracts.contracts import FeatureContract
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.registry import (
     get_cell_line_featurizer,
     get_drug_featurizer,
@@ -18,6 +17,7 @@ from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
 )
+from drevalpy.components.registry.register_builtins import register_builtin_components
 
 
 @pytest.fixture(autouse=True)

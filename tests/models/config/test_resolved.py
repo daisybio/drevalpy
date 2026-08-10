@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.core.tuning.search_space import resolve_model_config
+from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import ModelConfig, ResolvedModelConfig, from_spec
 from drevalpy.models.zoo import zoo_model_config
 

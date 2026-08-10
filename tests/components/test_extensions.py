@@ -10,21 +10,21 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.components.core.plugins.extensions import (
-    _extension_module_name,
-    load_extension_dir,
-    load_extension_file,
-    load_extensions,
-)
-from drevalpy.components.core.plugins.register_builtins import is_known_builtin_predictor
 from drevalpy.components.registry import (
     get_cell_line_featurizer,
     get_predictor,
     list_cell_line_featurizers,
     list_predictors,
 )
+from drevalpy.components.registry.extensions import (
+    _extension_module_name,
+    load_extension_dir,
+    load_extension_file,
+    load_extensions,
+)
 from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry
 from drevalpy.components.registry.predictor_registry import predictor_registry
+from drevalpy.components.registry.register_builtins import is_known_builtin_predictor
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
@@ -353,7 +353,7 @@ class IsolatedPredictor(FeatureFreePredictor):
 
         sys.meta_path.insert(0, BlockFinder())
 
-        from drevalpy.components.core.plugins.extensions import load_extension_file
+        from drevalpy.components.registry.extensions import load_extension_file
         from drevalpy.components.registry import get_predictor
 
         load_extension_file({str(ext_file)!r})
@@ -409,7 +409,7 @@ def test_unknown_builtin_predictor_raises_value_error() -> None:
         with pytest.raises(ValueError, match="Unknown Predictor"):
             get_predictor("notRegisteredAnywhere")
     finally:
-        from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+        from drevalpy.components.registry.register_builtins import register_builtin_components
 
         predictor_registry.clear()
         register_builtin_components()
@@ -421,7 +421,7 @@ def test_unknown_builtin_featurizer_raises_value_error() -> None:
         with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
             get_cell_line_featurizer("notRegisteredAnywhere")
     finally:
-        from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+        from drevalpy.components.registry.register_builtins import register_builtin_components
 
         cell_line_featurizer_registry.clear()
         register_builtin_components()

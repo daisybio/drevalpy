@@ -2,7 +2,6 @@
 
 import pytest
 
-import drevalpy.components.core.plugins.register_builtins as register_builtins
 from drevalpy.components.core.tuning.search_space import (
     apply_merged_to_model_config,
     defaults_from_merged_space,
@@ -11,6 +10,7 @@ from drevalpy.components.core.tuning.search_space import (
     merge_search_spaces,
     split_hyperparameters,
 )
+from drevalpy.components.registry import register_builtins
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig
 

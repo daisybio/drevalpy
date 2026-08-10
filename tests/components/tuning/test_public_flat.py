@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import drevalpy.components.core.plugins.register_builtins as register_builtins
 from drevalpy.components.core.tuning.public_flat import (
     config_from_public_hyperparameters,
     public_hyperparameters_from_config,
 )
+from drevalpy.components.registry import register_builtins
 from drevalpy.models import construct_model
 from drevalpy.models.config.model import ModelConfig
 

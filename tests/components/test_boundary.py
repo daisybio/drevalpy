@@ -11,7 +11,7 @@ def test_native_component_registration_does_not_import_literature_models() -> No
 
     predictor_registry.clear()
     try:
-        from drevalpy.components.core.plugins.register_builtins import register_native_components
+        from drevalpy.components.registry.register_builtins import register_native_components
 
         register_native_components()
         names = predictor_registry.list_names()
@@ -21,7 +21,7 @@ def test_native_component_registration_does_not_import_literature_models() -> No
         assert "precily" not in names
     finally:
         predictor_registry.clear()
-        from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+        from drevalpy.components.registry.register_builtins import register_builtin_components
 
         register_builtin_components()
 

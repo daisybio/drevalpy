@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.components.registry import (
     get_cell_line_featurizer,
@@ -12,6 +11,7 @@ from drevalpy.components.registry import (
     list_cell_line_featurizers,
     list_drug_featurizers,
 )
+from drevalpy.components.registry.register_builtins import register_builtin_components
 
 _PROBE_VIEW = "gene_expression"
 

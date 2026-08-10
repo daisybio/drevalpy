@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import drevalpy.components.core.plugins.register_builtins as register_builtins
 from drevalpy.components.core.tuning.config_resolution import (
     assert_component_local_hyperparameters,
     default_config_for_drp_model,
     has_tunable_hyperparameters,
     structured_space_for_drp_model,
 )
+from drevalpy.components.registry import register_builtins
 from drevalpy.models import construct_model
 
 

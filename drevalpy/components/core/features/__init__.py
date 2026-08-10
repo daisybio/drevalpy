@@ -1,15 +1,15 @@
 """Feature sources, preprocessing, and view aliases."""
 
-from drevalpy.components.core.features.feature_source import (
+from .feature_source import (
     CellLineFeatureSource,
     DrugFeatureSource,
     FeatureSource,
 )
-from drevalpy.components.core.features.preprocessing import (
+from .preprocessing import (
     ProteomicsMedianCenterAndImputeTransformer,
     log10_and_set_na,
 )
-from drevalpy.components.core.features.view_aliases import (
+from .view_aliases import (
     CANONICAL_OMICS_VIEWS,
     canonicalize_omics_view,
     format_view_alias,

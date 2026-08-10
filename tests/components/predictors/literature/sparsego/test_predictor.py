@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import drevalpy.components.core.plugins.register_builtins as register_builtins
 from drevalpy.components.predictors.literature.sparsego.predictor import SparseGOPredictor
-from drevalpy.components.registry import get_predictor
+from drevalpy.components.registry import get_predictor, register_builtins
 
 
 def test_sparsego_predictor_registry_name() -> None:

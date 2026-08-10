@@ -6,8 +6,8 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.registry.predictor_registry import predictor_registry
+from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
@@ -52,7 +52,7 @@ def get_predictor(name: str) -> type[Any]:
     :raises ImportError: If the predictor's optional dependency is unavailable.
     """
     if name not in predictor_registry.list_names():
-        from drevalpy.components.core.plugins.register_builtins import (
+        from drevalpy.components.registry.register_builtins import (
             ensure_predictor_registered,
             is_known_builtin_predictor,
         )

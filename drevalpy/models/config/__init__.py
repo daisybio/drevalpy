@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-from drevalpy.models.config.featurizer import (
+from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums.prediction_mode import PredictionMode
+
+from .featurizer import (
     CellLineFeaturizerConfig,
     DrugFeaturizerConfig,
     FeaturizerConfig,
 )
-from drevalpy.models.config.io import from_dict, from_spec, from_yaml
-from drevalpy.models.config.model import ModelConfig
-from drevalpy.models.config.predictor import PredictorConfig
-from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.models.config.validation import validate
-from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from .io import from_dict, from_spec, from_yaml
+from .model import ModelConfig
+from .predictor import PredictorConfig
+from .resolved import ResolvedModelConfig
+from .validation import validate
 
 __all__ = [
     "CellLineFeaturizerConfig",

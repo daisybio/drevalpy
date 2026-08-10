@@ -13,9 +13,9 @@ from drevalpy.components.core.batch.feature_block import (
     numeric_feature_block,
 )
 from drevalpy.components.core.contracts.contracts import FeatureFormat
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.components.registry import list_cell_line_featurizers, list_drug_featurizers, list_predictors
+from drevalpy.components.registry.register_builtins import register_builtin_components
 
 REPO = Path(__file__).resolve().parents[2]
 DREVALPY = REPO / "drevalpy"

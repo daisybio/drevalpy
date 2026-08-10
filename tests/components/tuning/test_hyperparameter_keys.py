@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-import drevalpy.components.core.plugins.register_builtins as register_builtins
 from drevalpy.components.core.tuning.hyperparameter_keys import (
     build_ownership_index,
     export_public_mapping,
     resolve_to_qualified_mapping,
 )
+from drevalpy.components.registry import register_builtins
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig

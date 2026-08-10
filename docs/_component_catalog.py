@@ -9,16 +9,16 @@ from typing import TypedDict, TypeVar, cast
 
 from _generated_io import write_text_if_changed
 
-from drevalpy.components.core.plugins.register_builtins import (
-    BUILTIN_CELL_LINE_FEATURIZER_NAMES,
-    BUILTIN_DRUG_FEATURIZER_NAMES,
-    BUILTIN_PREDICTOR_NAMES,
-    register_builtin_components,
-)
 from drevalpy.components.registry import (
     list_cell_line_featurizer_metadata,
     list_drug_featurizer_metadata,
     list_predictor_metadata,
+)
+from drevalpy.components.registry.register_builtins import (
+    BUILTIN_CELL_LINE_FEATURIZER_NAMES,
+    BUILTIN_DRUG_FEATURIZER_NAMES,
+    BUILTIN_PREDICTOR_NAMES,
+    register_builtin_components,
 )
 
 DOCS_DIR = Path(__file__).resolve().parent

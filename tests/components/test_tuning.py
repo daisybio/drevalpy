@@ -64,7 +64,7 @@ def test_sample_from_optuna_trial_passthrough_non_mapping() -> None:
 
 
 def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
-    import drevalpy.components.core.plugins.register_builtins as register_builtins
+    from drevalpy.components.registry import register_builtins
 
     register_builtins.register_builtin_components()
     model_cls = construct_model("ComboRF", "pca[expression]+landmarkGenes:fingerprints:randomForest")

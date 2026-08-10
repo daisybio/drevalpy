@@ -43,7 +43,7 @@ def test_slot_subclasses_override_mismatched_registry() -> None:
 
 
 def test_featurizer_config_compact_one_key_mapping() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = FeaturizerConfig.model_validate(
@@ -58,7 +58,7 @@ def test_featurizer_config_compact_one_key_mapping() -> None:
 
 
 def test_featurizer_config_preserves_view_fields() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     cell_line = CellLineFeaturizerConfig(
@@ -70,7 +70,7 @@ def test_featurizer_config_preserves_view_fields() -> None:
 
 
 def test_model_id_for_full_triple() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = ModelConfig(
@@ -82,7 +82,7 @@ def test_model_id_for_full_triple() -> None:
 
 
 def test_model_id_for_predictor_only_baseline() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = ModelConfig(
@@ -94,7 +94,7 @@ def test_model_id_for_predictor_only_baseline() -> None:
 
 
 def test_model_id_none_for_partial_multi_drug_config() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     with pytest.raises(ValidationError, match="requires.*drug_featurizer|requires featurizers"):
@@ -106,7 +106,7 @@ def test_model_id_none_for_partial_multi_drug_config() -> None:
 
 
 def test_model_id_for_implicit_identity_single_drug() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = ModelConfig(
@@ -120,7 +120,7 @@ def test_model_id_for_implicit_identity_single_drug() -> None:
 
 
 def test_single_drug_does_not_override_explicit_drug_featurizer() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     with pytest.raises(ValidationError, match="requires drug_featurizer='identity'"):
@@ -132,7 +132,7 @@ def test_single_drug_does_not_override_explicit_drug_featurizer() -> None:
 
 
 def test_multi_drug_scope_does_not_inject_identity() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     with pytest.raises(ValidationError, match="requires.*drug_featurizer|requires featurizers"):
@@ -145,7 +145,7 @@ def test_multi_drug_scope_does_not_inject_identity() -> None:
 
 def test_scope_is_derived_from_the_predictor() -> None:
     """A config never states a scope; naming a per-drug predictor is enough."""
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = ModelConfig.model_validate(
@@ -161,7 +161,7 @@ def test_scope_is_derived_from_the_predictor() -> None:
 
 
 def test_explicit_scope_key_is_rejected() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
@@ -175,7 +175,7 @@ def test_explicit_scope_key_is_rejected() -> None:
 
 
 def test_model_config_parses_compact_featurizer_sections() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = ModelConfig.model_validate(
@@ -199,7 +199,7 @@ def test_model_config_parses_compact_featurizer_sections() -> None:
 
 
 def test_model_config_parses_predictor_one_key_hyperparameters() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = ModelConfig.model_validate(
@@ -226,7 +226,7 @@ def test_model_config_rejects_base_featurizer_config_in_slots() -> None:
 
 
 def test_config_is_serializable() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = ModelConfig(
@@ -245,7 +245,7 @@ def test_config_is_serializable() -> None:
 
 
 def test_from_spec_classmethod() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = from_spec("NaivePredictor")

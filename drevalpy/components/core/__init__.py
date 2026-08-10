@@ -1,6 +1,6 @@
 """Core component infrastructure: batch construction, contracts, features, fitting, plugins, and utilities."""
 
-from drevalpy.components.core.batch import (
+from .batch import (
     BlockSpec,
     FeatureBlock,
     ModelInputBatch,
@@ -13,7 +13,7 @@ from drevalpy.components.core.batch import (
     pair_drug_indices,
     ragged_feature_block,
 )
-from drevalpy.components.core.contracts import (
+from .contracts import (
     FeatureContract,
     FeatureFormat,
     TrainingContext,
@@ -24,7 +24,7 @@ from drevalpy.components.core.contracts import (
     validate_component_hyperparameter_space,
     validate_hyperparameter_space,
 )
-from drevalpy.components.core.features import (
+from .features import (
     CANONICAL_OMICS_VIEWS,
     CellLineFeatureSource,
     DrugFeatureSource,
@@ -35,7 +35,7 @@ from drevalpy.components.core.features import (
     log10_and_set_na,
     resolve_omics_view,
 )
-from drevalpy.components.core.fitting import (
+from .fitting import (
     FeaturizerFitContext,
     ensure_unique_qualified_featurizers,
     featurizer_config_block_label,
@@ -43,14 +43,7 @@ from drevalpy.components.core.fitting import (
     qualified_featurizer_selector,
     requires_explicit_view,
 )
-from drevalpy.components.core.plugins import (
-    load_extension_dir,
-    load_extension_file,
-    load_extension_module,
-    load_extensions,
-    register_builtin_components,
-)
-from drevalpy.components.core.utils import (
+from .utils import (
     RegressionMetricsMixin,
     state_float,
     state_int,
@@ -82,10 +75,6 @@ __all__ = [
     "format_view_alias",
     "graph_feature_block",
     "iter_featurizer_leaves",
-    "load_extension_dir",
-    "load_extension_file",
-    "load_extension_module",
-    "load_extensions",
     "log10_and_set_na",
     "merge_feature_blocks",
     "metadata_feature_block",
@@ -96,7 +85,6 @@ __all__ = [
     "predictor_contracts",
     "qualified_featurizer_selector",
     "ragged_feature_block",
-    "register_builtin_components",
     "requires_explicit_view",
     "resolve_omics_view",
     "state_float",

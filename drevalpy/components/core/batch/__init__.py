@@ -1,6 +1,6 @@
 """Batch construction: ModelInputBatch, feature blocks, and pair indexing."""
 
-from drevalpy.components.core.batch.feature_block import (
+from .feature_block import (
     BlockSpec,
     FeatureBlock,
     graph_feature_block,
@@ -9,9 +9,9 @@ from drevalpy.components.core.batch.feature_block import (
     numeric_feature_block,
     ragged_feature_block,
 )
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
-from drevalpy.components.core.batch.model_input_build import build_model_input_batch
-from drevalpy.components.core.batch.pair_features import pair_cell_line_indices, pair_drug_indices
+from .model_input_batch import ModelInputBatch
+from .model_input_build import build_model_input_batch
+from .pair_features import pair_cell_line_indices, pair_drug_indices
 
 __all__ = [
     "BlockSpec",

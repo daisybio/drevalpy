@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.registry import get_predictor
+from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig, from_spec, validate
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names

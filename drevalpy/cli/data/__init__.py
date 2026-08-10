@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import typer
 
-from drevalpy.cli.data.load import load_dataset
-from drevalpy.cli.data.split import split_dataset
+from .load import load_dataset
+from .split import split_dataset
 
 data_app = typer.Typer(
     name="data",

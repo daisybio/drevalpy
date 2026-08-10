@@ -26,7 +26,7 @@ def test_non_empty_view_is_accepted() -> None:
 
 @pytest.mark.parametrize("cls", [FeaturizerConfig, CellLineFeaturizerConfig])
 def test_one_key_shorthand_is_accepted_by_base_and_pinned(cls: type[FeaturizerConfig]) -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = cls.model_validate({"pca[methylation]": {"n_components": 42}})
@@ -37,7 +37,7 @@ def test_one_key_shorthand_is_accepted_by_base_and_pinned(cls: type[FeaturizerCo
 
 def test_list_sequence_fields_are_stored_as_tuples() -> None:
     """Pydantic coerces incoming lists to tuples, so no hand-written validator is needed."""
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = CellLineFeaturizerConfig.model_validate(
@@ -49,7 +49,7 @@ def test_list_sequence_fields_are_stored_as_tuples() -> None:
 
 def test_json_dump_renders_sequences_as_lists() -> None:
     """``mode="json"`` must yield plain lists so exported YAML stays hand-editable."""
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = CellLineFeaturizerConfig.model_validate(

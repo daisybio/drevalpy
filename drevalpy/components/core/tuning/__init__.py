@@ -1,7 +1,7 @@
 """Internal hyperparameter helpers for modular composition."""
 
-from drevalpy.components.core.tuning.config import HPOConfig, build_experiment_hpo_config, validate_hpo_metric
-from drevalpy.components.core.tuning.drp_hyperparameters import (
+from .config import HPOConfig, build_experiment_hpo_config, validate_hpo_metric
+from .drp_hyperparameters import (
     assert_component_local_hyperparameters,
     config_from_public_hyperparameters,
     construct_drp_model_from_config,
@@ -12,8 +12,8 @@ from drevalpy.components.core.tuning.drp_hyperparameters import (
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
-from drevalpy.components.core.tuning.hpo import hpam_tune
-from drevalpy.components.core.tuning.search_space import (
+from .hpo import hpam_tune
+from .search_space import (
     apply_merged_to_model_config,
     defaults_from_merged_space,
     extract_defaults,

@@ -8,12 +8,13 @@ from upath import UPath as Path
 
 from drevalpy.models.config import ModelConfig, ResolvedModelConfig
 from drevalpy.models.config.io import from_yaml
-from drevalpy.models.zoo._external_load import (
+from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums.prediction_mode import PredictionMode
+
+from ._external_load import (
     _collect_zoo_entries_from_yaml,
     _load_zoo_yaml_mapping,
 )
-from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
 _EXTERNAL_ZOO: dict[str, ModelConfig] = {}

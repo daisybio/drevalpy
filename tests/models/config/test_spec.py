@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.components.core.plugins.extensions import load_extensions
-from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+from drevalpy.components.registry.extensions import load_extensions
+from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import from_spec, validate
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.spec import reject_unknown_spec, zoo_config

@@ -1,7 +1,7 @@
 """Utility mixins and state restoration helpers."""
 
-from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin
-from drevalpy.components.core.utils.state_helpers import (
+from .lightning_metrics_mixin import RegressionMetricsMixin
+from .state_helpers import (
     state_float,
     state_int,
     state_mapping,

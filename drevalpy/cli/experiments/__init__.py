@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import typer
 
-from drevalpy.cli.experiments.randomization import randomization_cmd
-from drevalpy.cli.experiments.robustness import robustness_cmd
+from .randomization import randomization_cmd
+from .robustness import robustness_cmd
 
 experiments_app = typer.Typer(
     name="experiments",

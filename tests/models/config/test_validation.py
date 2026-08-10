@@ -38,7 +38,7 @@ def _clear_registries() -> Iterator[None]:
     drug_featurizer_registry.clear()
     predictor_registry.clear()
     yield
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
 
@@ -252,7 +252,7 @@ def test_feature_using_predictor_without_featurizers_fails() -> None:
 
 
 def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     with pytest.raises((ValueError, ValidationError), match="requires featurizers"):
@@ -264,7 +264,7 @@ def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
 
 
 def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     with pytest.raises((ValueError, ValidationError), match="requires drug_featurizer='identity'"):
@@ -276,7 +276,7 @@ def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
 
 
 def test_single_drug_scope_accepts_identity_routing_featurizer() -> None:
-    from drevalpy.components.core.plugins.register_builtins import register_builtin_components
+    from drevalpy.components.registry.register_builtins import register_builtin_components
 
     register_builtin_components()
     config = ModelConfig(

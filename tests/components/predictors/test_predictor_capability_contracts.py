@@ -15,13 +15,13 @@ from torch_geometric.data import Data
 from drevalpy.components.core.batch.feature_block import graph_feature_block, numeric_feature_block
 from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.core.contracts.training_context import TrainingContext
-from drevalpy.components.core.plugins.register_builtins import ensure_predictor_registered, register_builtin_components
 from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
 from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredictor
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.sklearn_models import AdaBoostPredictor, RidgePredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import get_predictor
+from drevalpy.components.registry.register_builtins import ensure_predictor_registered, register_builtin_components
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig, from_spec
 from drevalpy.types.data.response_batch import ResponseBatch
