@@ -36,6 +36,7 @@ class Featurizer(ABC):
 
     contract: ClassVar[FeatureContract]
     storage_key: ClassVar[str] = ""
+    side: ClassVar[str] = ""
     requires_view: ClassVar[bool] = False
     entity_id_only: ClassVar[bool] = False
     input_views: ClassVar[tuple[str, ...] | None] = None

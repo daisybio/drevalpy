@@ -108,6 +108,30 @@ def _randomize_single_view(
         logger.warning("View '%s' not found in any storage location. Skipping randomization.", view)
 
 
+def _sample_hp_configs(featurizer_cls: type, n: int) -> list[dict]:
+    """Sample N hyperparameter configs from a featurizer's HP space using Optuna.
+
+    Respects declared distributions (log-uniform, integer, categorical, etc.).
+    """
+    import optuna
+
+    from drevalpy.components.core.tuning.search_space import sample_from_optuna_trial
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    space = featurizer_cls.get_hyperparameter_space()
+    if not space:
+        return [{}] * n
+
+    study = optuna.create_study()
+    configs: list[dict] = []
+    for _ in range(n):
+        trial = study.ask()
+        config = sample_from_optuna_trial(trial, space)
+        study.tell(trial, 0.0)
+        configs.append(config)
+    return configs
+
+
 class Dataset(MuDataLike):
     """Single entry point for all dataset access in drevalpy.
 
@@ -184,6 +208,43 @@ class Dataset(MuDataLike):
             del self._mdata.uns["randomization"]
 
         self._mdata.write(str(resolved))
+
+    def precompute(
+        self,
+        featurizer_cls: type,
+        hyperparameters: list[dict] | int,
+    ) -> None:
+        """Pre-compute and store featurizer representations for given HP configs.
+
+        :param featurizer_cls: Registered featurizer class (knows its own side).
+        :param hyperparameters: Either a list of explicit HP dicts,
+            or an int N to sample N configs from the featurizer's HP space.
+        """
+        from drevalpy.components.core.features.feature_source import CellLineFeatureSource, DrugFeatureSource
+
+        if isinstance(hyperparameters, int):
+            configs = _sample_hp_configs(featurizer_cls, hyperparameters)
+        else:
+            configs = list(hyperparameters)
+
+        side = getattr(featurizer_cls, "side", "cell_line")
+        if side == "cell_line":
+            entity_ids = self.cell_line_ids
+            source = CellLineFeatureSource(self, entity_ids)
+        else:
+            entity_ids = self.drug_ids
+            source = DrugFeatureSource(self, entity_ids)
+
+        from rich.progress import Progress
+
+        with Progress() as progress:
+            task = progress.add_task(f"Precomputing {featurizer_cls.storage_key}", total=len(configs))
+            for config in configs:
+                featurizer = featurizer_cls(**config) if config else featurizer_cls()
+                featurizer.fit(source, entity_ids=entity_ids)
+                matrix = featurizer.transform(source, entity_ids)
+                featurizer.store(self._mdata, entity_ids, matrix, hyperparameters=config)
+                progress.advance(task)
 
     @property
     def name(self) -> str:

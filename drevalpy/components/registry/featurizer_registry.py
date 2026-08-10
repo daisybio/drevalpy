@@ -19,6 +19,18 @@ class FeaturizerRegistry(Registry):
     """Registry for featurizers that emit one feature contract."""
 
     _required_fields: ClassVar[tuple[str, ...]] = ("description", "contract")
+    _side: str = ""
+
+    def __init__(self, registry_id: str, label: str, display_name: str, *, side: str = "") -> None:
+        """Initialize with an optional side designation.
+
+        :param registry_id: Stable identifier.
+        :param label: Human-readable label.
+        :param display_name: Catalog name.
+        :param side: Entity side ("cell_line" or "drug").
+        """
+        super().__init__(registry_id, label, display_name)
+        self._side = side
 
     def register(
         self,
@@ -54,6 +66,8 @@ class FeaturizerRegistry(Registry):
                 cls.registry_name = name
                 if not getattr(cls, "storage_key", ""):
                     cls.storage_key = name
+                if self._side:
+                    cls.side = self._side
             return cls
 
         return decorator
@@ -78,9 +92,11 @@ cell_line_featurizer_registry = FeaturizerRegistry(
     "cell_line_featurizer",
     "Cell line featurizer",
     "cell_line_featurizers",
+    side="cell_line",
 )
 drug_featurizer_registry = FeaturizerRegistry(
     "drug_featurizer",
     "Drug featurizer",
     "drug_featurizers",
+    side="drug",
 )
