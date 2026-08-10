@@ -122,14 +122,14 @@ def single(
 
     trials: list[TrialResult] | None = None
     if hyperparameter_tuning:
-        from drevalpy.components.core.tuning.hpo import hpam_tune_with_trials
+        from drevalpy.components.core.tuning.hpo import hpam_tune
 
         hpo_cfg = build_experiment_hpo_config(
             hpo_metric,
             n_trials=hpo_num_samples,
             random_state=hpo_random_state,
         )
-        best_hpams, raw_trials = hpam_tune_with_trials(
+        best_hpams, raw_trials = hpam_tune(
             model_class=model_class,
             mudataset=mudataset,
             train_scope=split_masks.train,

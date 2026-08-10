@@ -54,13 +54,6 @@ def test_component_predictors_avoid_models_utils() -> None:
         assert "drevalpy.models.lightning_metrics_mixin" not in text
 
 
-def test_models_lightning_metrics_mixin_reexports_component_mixin() -> None:
-    from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin as ComponentMixin
-    from drevalpy.models.lightning_metrics_mixin import RegressionMetricsMixin as ModelsMixin
-
-    assert ComponentMixin is ModelsMixin
-
-
 def test_orchestration_lives_in_models_layer() -> None:
     import drevalpy.components as components_pkg
     import drevalpy.models._component_stack as component_stack

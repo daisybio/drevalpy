@@ -76,7 +76,10 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
     assert model_cls.get_structured_hyperparameter_space() == merged
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.1)
+@patch(
+    "drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_all_metrics",
+    return_value=({"RMSE": 0.1}, np.zeros(4)),
+)
 def test_hpam_tune_uses_optuna(mock_evaluate) -> None:
     from drevalpy.components.core.tuning.hpo import hpam_tune
     from drevalpy.data.structures import SplitMask
@@ -87,7 +90,7 @@ def test_hpam_tune_uses_optuna(mock_evaluate) -> None:
     shape = mudataset.response_matrix.shape
     train_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
     val_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
-    best = hpam_tune(
+    best, _ = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -117,7 +120,7 @@ def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
     if model_cls.supports_early_stopping() and len(split.val) > 1:
         early_stopping_scope, val_scope = split.early_stopping_mask()
 
-    best = hpam_tune(
+    best, _ = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=split.train,

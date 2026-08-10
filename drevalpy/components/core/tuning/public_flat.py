@@ -5,13 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.core.tuning.compatibility_keys import PUBLIC_VIEW_KEYS
-from drevalpy.components.core.tuning.hyperparameter_keys import (
-    build_ownership_index,
+from drevalpy.components.core.tuning.hyperparameter_export import (
     export_public_mapping,
     export_public_mapping_from_resolved,
+)
+from drevalpy.components.core.tuning.hyperparameter_keys import (
+    build_ownership_index,
     resolve_to_qualified_mapping,
 )
-from drevalpy.models.config import ModelConfig, validate
+from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 
 from ._model_config_base import base_model_config_for_drp_model
@@ -87,7 +89,3 @@ def config_from_public_hyperparameters(
     if not hyperparameters:
         return resolve_model_config(config)
     return apply_public_hyperparameters_to_config(config, hyperparameters)
-
-
-# Keep validate import used by older call sites that monkeypatch this module.
-_ = validate

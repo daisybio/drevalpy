@@ -42,10 +42,6 @@ def _featurizer_prefix(registry: str, selector: str, param: str) -> str:
     return f"{slot}.{selector}.{param}"
 
 
-def _featurizer_slot_prefix(registry: str) -> str:
-    return f"{_REGISTRY_TO_SLOT[registry]}."
-
-
 def _is_featurizer_slot_key(key: str) -> bool:
     return any(key.startswith(f"{slot}.") for slot in _FEATURIZER_SLOT_PREFIXES)
 

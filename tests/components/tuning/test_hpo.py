@@ -34,7 +34,7 @@ def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
     )
 
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = hpam_tune(
+    best, _ = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -49,7 +49,7 @@ def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
 def test_hpam_tune_zero_trials_returns_defaults() -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = hpam_tune(
+    best, _ = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -61,11 +61,14 @@ def test_hpam_tune_zero_trials_returns_defaults() -> None:
     assert best == model_cls.get_default_hyperparameters()
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.1)
+@patch(
+    "drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_all_metrics",
+    return_value=({"RMSE": 0.1}, np.zeros(4)),
+)
 def test_hpam_tune_one_trial(mock_evaluate) -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = hpam_tune(
+    best, _ = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -79,11 +82,14 @@ def test_hpam_tune_one_trial(mock_evaluate) -> None:
     mock_evaluate.assert_called_once()
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=float("nan"))
+@patch(
+    "drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_all_metrics",
+    return_value=({"RMSE": float("nan")}, np.zeros(4)),
+)
 def test_hpam_tune_all_nan_returns_defaults(mock_evaluate) -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = hpam_tune(
+    best, _ = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -95,11 +101,11 @@ def test_hpam_tune_all_nan_returns_defaults(mock_evaluate) -> None:
     assert best == model_cls.get_default_hyperparameters()
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
+@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_all_metrics", side_effect=RuntimeError("boom"))
 def test_hpam_tune_trial_exception_returns_defaults(mock_evaluate) -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = hpam_tune(
+    best, _ = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,
@@ -126,14 +132,14 @@ def test_hpam_tune_rejects_metric_mismatch() -> None:
         )
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model")
+@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_all_metrics")
 def test_hpam_tune_multiple_trials_picks_best(mock_evaluate) -> None:
     scores = iter([0.8, 0.3, 0.5])
-    mock_evaluate.side_effect = lambda *args, **kwargs: next(scores)
+    mock_evaluate.side_effect = lambda *args, **kwargs: ({"RMSE": next(scores)}, np.zeros(4))
 
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best = hpam_tune(
+    best, _ = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=train_scope,

@@ -57,7 +57,7 @@ def views_from_featurizer_config(
     :param resolved: Optional resolved values that can affect view selection.
     :returns: Raw view names required by the featurizer tree.
     """
-    from drevalpy.components.core.data_loading.leaf_kwargs import featurizer_leaf_kwargs
+    from drevalpy.components.core.fitting.leaf_kwargs import featurizer_leaf_kwargs
 
     if config.name == "concatFeaturizers":
         return _concat_child_views(config, registry=registry, resolved=resolved)

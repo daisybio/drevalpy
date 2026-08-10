@@ -9,7 +9,6 @@ from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 from upath import UPath as Path
 
-from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin
 from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.literature.molir.utils import (
     generate_triplets_indices,
@@ -170,7 +169,7 @@ class SuperFELTEncoder(pl.LightningModule):
         return triplet_loss
 
 
-class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
+class SuperFELTRegressor(pl.LightningModule):
     """SuperFELT regressor definition.
 
     Very similar to SuperFELT classifier, but with a regression loss and without the last sigmoid layer.
@@ -208,9 +207,6 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         for encoder in self.encoders:
             encoder.eval()
         self.regression_loss = nn.MSELoss()
-
-        # Initialize metrics storage for epoch-end R^2 and PCC computation
-        self._init_metrics_storage()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass of the SuperFELTRegressor.
@@ -277,9 +273,6 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         loss = self.regression_loss(pred.squeeze(), response)
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
-        # Store predictions and targets for epoch-end metrics via mixin
-        self._store_predictions(pred.squeeze(), response, is_training=True)
-
         return loss
 
     def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
@@ -296,9 +289,6 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         pred = self.regressor(encoded)
         loss = self.regression_loss(pred.squeeze(), response)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-
-        # Store predictions and targets for epoch-end metrics via mixin
-        self._store_predictions(pred.squeeze(), response, is_training=False)
 
         return loss
 

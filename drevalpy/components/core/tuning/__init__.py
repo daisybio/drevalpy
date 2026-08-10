@@ -1,18 +1,20 @@
 """Internal hyperparameter helpers for modular composition."""
 
 from .config import HPOConfig, build_experiment_hpo_config, validate_hpo_metric
-from .drp_hyperparameters import (
+from .config_resolution import (
     assert_component_local_hyperparameters,
-    config_from_public_hyperparameters,
     construct_drp_model_from_config,
     default_config_for_drp_model,
     default_hyperparameters_for_drp_model,
     has_tunable_hyperparameters,
-    public_hyperparameters_from_config,
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
 from .hpo import hpam_tune
+from .public_flat import (
+    config_from_public_hyperparameters,
+    public_hyperparameters_from_config,
+)
 from .search_space import (
     apply_merged_to_model_config,
     defaults_from_merged_space,

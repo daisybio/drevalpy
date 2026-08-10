@@ -25,7 +25,7 @@ def test_hpam_tune(tmp_path, data_dir):
     if model_cls.supports_early_stopping() and len(split.val) > 1:
         early_stopping_scope, val_scope = split.early_stopping_mask()
 
-    best = hpam_tune(
+    best, _ = hpam_tune(
         model_class=model_cls,
         mudataset=mudataset,
         train_scope=split.train,

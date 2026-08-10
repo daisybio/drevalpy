@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
-from drevalpy.models.config import ModelConfig
+from drevalpy.components.core.fitting.featurizer_tree import iter_featurizer_leaves
+from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 
-from ._featurizer_walk import iter_featurizer_configs
 from ._model_config_base import base_model_config_for_drp_model
 from .search_space import (
     merge_model_config_spaces,
     resolve_model_config,
 )
+
+
+def iter_featurizer_configs(config: ModelConfig) -> Iterator[FeaturizerConfig]:
+    """Yield every leaf featurizer config in a model config."""
+    for featurizer in (config.cell_line_featurizer, config.drug_featurizer):
+        if featurizer is None:
+            continue
+        yield from iter_featurizer_leaves(featurizer, str(featurizer.registry))
 
 
 def default_config_for_drp_model(model_class: type[Any]) -> ResolvedModelConfig | None:

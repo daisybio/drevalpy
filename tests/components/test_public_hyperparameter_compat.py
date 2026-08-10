@@ -5,12 +5,14 @@ from __future__ import annotations
 import pytest
 
 import drevalpy.components.registry.register_builtins as register_builtins
-from drevalpy.components.core.tuning.drp_hyperparameters import (
+from drevalpy.components.core.tuning.config_resolution import (
     assert_component_local_hyperparameters,
-    config_from_public_hyperparameters,
     default_config_for_drp_model,
-    public_hyperparameters_from_config,
     tuned_config_for_drp_model,
+)
+from drevalpy.components.core.tuning.public_flat import (
+    config_from_public_hyperparameters,
+    public_hyperparameters_from_config,
 )
 from drevalpy.components.core.tuning.search_space import (
     apply_merged_to_model_config,

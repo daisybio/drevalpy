@@ -9,10 +9,8 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin
 
-
-class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
+class FeedForwardNetwork(pl.LightningModule):
     """Feed-forward regression network with batch normalization and dropout."""
 
     def __init__(self, hyperparameters: dict[str, Any], input_dim: int) -> None:
@@ -50,7 +48,6 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
             self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[index]))
         self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))
         self.dropout_layer = nn.Dropout(p=self.dropout_prob)
-        self._init_metrics_storage()
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         """Predict responses from a batch of concatenated feature rows.
@@ -72,7 +69,6 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
         predictions = self(features)
         loss = self.loss(predictions, response)
         self.log(name, loss, on_step=True, on_epoch=True, prog_bar=True)
-        self._store_predictions(predictions, response, is_training=name == "train_loss")
         return loss
 
     @staticmethod

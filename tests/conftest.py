@@ -463,28 +463,3 @@ def ensure_model_drug_embeddings(
     for dataset_name in _TOY_DATASETS:
         _ensure_bpe_smiles_features(path_data, dataset_name)
         _ensure_smilesvec_features(path_data, dataset_name)
-
-
-def load_features_for_model(model, dataset_name: str = "TOYv1"):
-    """Load cell-line and drug features for a model via Dataset.
-
-    Replaces the removed ``model.load_cell_line_features()`` / ``model.load_drug_features()``
-    pattern with the Dataset-based approach.
-
-    :param model: DRPModel instance.
-    :param dataset_name: Dataset name to load.
-    :returns: Tuple of (cell_line_features, drug_features).
-    """
-    from drevalpy.components.core.data_loading import (
-        build_cell_line_features_from_mudataset,
-        build_drug_features_from_mudataset,
-    )
-    from drevalpy.data import load
-
-    mudataset = load(dataset_name)
-    config = model._resolved_model_config or model.model_config()
-    cl_ids = np.array(mudataset.cell_line_ids)
-    drug_ids = np.array(mudataset.drug_ids)
-    cl_features = build_cell_line_features_from_mudataset(mudataset, config, cl_ids)
-    drug_features = build_drug_features_from_mudataset(mudataset, config, drug_ids)
-    return cl_features, drug_features

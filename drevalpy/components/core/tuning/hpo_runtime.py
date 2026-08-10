@@ -12,7 +12,7 @@ from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
 from drevalpy.components.core.tuning.config import HPOConfig
-from drevalpy.components.core.tuning.drp_hyperparameters import (
+from drevalpy.components.core.tuning.config_resolution import (
     construct_drp_model_from_config,
     tuned_config_for_drp_model,
 )

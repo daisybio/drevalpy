@@ -6,8 +6,6 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch_geometric.nn import GCNConv, global_mean_pool
 
-from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin
-
 
 class DrugGraphNet(nn.Module):
     """Neural network for DrugGNN."""
@@ -78,7 +76,7 @@ class DrugGraphNet(nn.Module):
         return out.view(-1)
 
 
-class DrugGNNModule(RegressionMetricsMixin, pl.LightningModule):
+class DrugGNNModule(pl.LightningModule):
     """The LightningModule for the DrugGNN model."""
 
     def __init__(
@@ -107,9 +105,6 @@ class DrugGNNModule(RegressionMetricsMixin, pl.LightningModule):
         )
         self.criterion = nn.MSELoss()
 
-        # Initialize metrics storage for epoch-end R^2 and PCC computation
-        self._init_metrics_storage()
-
     def forward(self, batch):
         """Forward pass of the module.
 
@@ -133,9 +128,6 @@ class DrugGNNModule(RegressionMetricsMixin, pl.LightningModule):
         loss = self.criterion(outputs, responses)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
-        # Store predictions and targets for epoch-end metrics via mixin
-        self._store_predictions(outputs, responses, is_training=True)
-
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -148,9 +140,6 @@ class DrugGNNModule(RegressionMetricsMixin, pl.LightningModule):
         outputs = self.model(drug_graph, cell_features)
         loss = self.criterion(outputs, responses)
         self.log("val_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
-
-        # Store predictions and targets for epoch-end metrics via mixin
-        self._store_predictions(outputs, responses, is_training=False)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """A single prediction step.

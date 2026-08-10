@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import pytest
 
+from drevalpy.components.core.tuning.hyperparameter_export import (
+    export_public_mapping,
+)
 from drevalpy.components.core.tuning.hyperparameter_keys import (
     build_ownership_index,
-    export_public_mapping,
     resolve_to_qualified_mapping,
 )
 from drevalpy.components.registry import register_builtins

@@ -16,7 +16,6 @@ from torch import nn
 from torch.utils.data import DataLoader
 from upath import UPath as Path
 
-from drevalpy.components.core.utils.lightning_metrics_mixin import RegressionMetricsMixin
 from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.utils.torch_io import load_state_dict
 
@@ -236,7 +235,7 @@ class MOLIRegressor(nn.Module):
         return self.regressor(x)
 
 
-class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
+class MOLIModel(pl.LightningModule):
     """PyTorch Lightning module for the MOLIR model.
 
     The architecture of the MOLIR model is identical to the MOLI model, except for the omission of the final sigmoid
@@ -283,9 +282,6 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         self.mutation_encoder = MOLIEncoder(input_dim_mut, self.h_dim2, self.dropout_rate)
         self.cna_encoder = MOLIEncoder(input_dim_cnv, self.h_dim3, self.dropout_rate)
         self.regressor = MOLIRegressor(self.h_dim1 + self.h_dim2 + self.h_dim3, self.dropout_rate)
-
-        # Initialize metrics storage for epoch-end R^2 and PCC computation
-        self._init_metrics_storage()
 
     def fit(
         self,
@@ -482,9 +478,6 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         loss = self._compute_loss(z, preds, response)
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
-        # Store predictions and targets for epoch-end metrics via mixin
-        self._store_predictions(preds, response, is_training=True)
-
         return loss
 
     def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
@@ -507,9 +500,6 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         # Compute loss
         val_loss = self._compute_loss(z, preds, response)
         self.log("val_loss", val_loss, on_step=False, on_epoch=True, prog_bar=True)
-
-        # Store predictions and targets for epoch-end metrics via mixin
-        self._store_predictions(preds, response, is_training=False)
 
         return val_loss
 

@@ -10,14 +10,14 @@ from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
 from drevalpy.components.core.tuning.config import HPOConfig, validate_hpo_metric
-from drevalpy.components.core.tuning.drp_hyperparameters import (
+from drevalpy.components.core.tuning.config_resolution import (
     default_hyperparameters_for_drp_model,
     has_tunable_hyperparameters,
-    public_hyperparameters_from_config,
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
-from drevalpy.components.core.tuning.hpo_runtime import build_optuna_objective, run_optuna_study
+from drevalpy.components.core.tuning.hpo_runtime import run_optuna_study
+from drevalpy.components.core.tuning.public_flat import public_hyperparameters_from_config
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.types import SplitMask
@@ -44,8 +44,10 @@ def hpam_tune(
     split_index: int | None = None,
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], list[tuple[dict[str, Any], dict[str, float], np.ndarray]]]:
     """Tune hyperparameters using Dataset + SplitMask with Optuna.
+
+    Returns the best hyperparameter mapping and per-trial results with all metrics.
 
     :param model_class: Model class to tune.
     :param mudataset: Full dataset with all features.
@@ -59,73 +61,6 @@ def hpam_tune(
     :param split_index: CV fold index for W&B logging.
     :param wandb_project: W&B project name.
     :param wandb_base_config: Base W&B config merged per trial.
-    :returns: Best flat hyperparameter mapping.
-    """
-    validate_hpo_metric(metric)
-    cfg = hpo_config or HPOConfig.from_metric(metric)
-    if cfg.metric != metric:
-        msg = f"HPOConfig.metric ({cfg.metric!r}) must match metric argument ({metric!r})"
-        raise ValueError(msg)
-
-    structured_space = structured_space_for_drp_model(model_class)
-    if not structured_space or not has_tunable_hyperparameters(model_class):
-        return model_class.get_default_hyperparameters()
-    if cfg.n_trials == 0:
-        return model_class.get_default_hyperparameters()
-
-    model_name = model_class.get_model_name()
-    objective = build_optuna_objective(
-        model_class=model_class,
-        mudataset=mudataset,
-        train_scope=train_scope,
-        val_scope=val_scope,
-        early_stopping_scope=early_stopping_scope,
-        response_transformation=response_transformation,
-        metric=metric,
-        structured_space=structured_space,
-        model_checkpoint_dir=model_checkpoint_dir,
-        cfg=cfg,
-        wandb_project=wandb_project,
-        wandb_base_config=wandb_base_config,
-        split_index=split_index,
-        model_name=model_name,
-    )
-
-    study = run_optuna_study(objective=objective, cfg=cfg)
-
-    try:
-        best_trial = study.best_trial
-    except ValueError:
-        best_trial = None
-
-    if best_trial is None or not _is_valid_score(best_trial.value):
-        warnings.warn(
-            "Optuna tuning did not find a valid configuration; using defaults.",
-            stacklevel=2,
-        )
-        return default_hyperparameters_for_drp_model(model_class)
-
-    best_config = best_trial.params
-    best_model_config = tuned_config_for_drp_model(model_class, best_config)
-    if best_model_config is None:
-        return dict(best_config)
-    return public_hyperparameters_from_config(best_model_config)
-
-
-def hpam_tune_with_trials(
-    *,
-    model_class: type[DRPModel],
-    mudataset: Dataset,
-    train_scope: SplitMask,
-    val_scope: SplitMask,
-    early_stopping_scope: SplitMask | None,
-    response_transformation: TransformerMixin | None = None,
-    metric: str = "RMSE",
-    model_checkpoint_dir: str | Path | None = None,
-    hpo_config: HPOConfig | None = None,
-) -> tuple[dict[str, Any], list[tuple[dict[str, Any], dict[str, float], np.ndarray]]]:
-    """Tune hyperparameters and return per-trial results with all metrics.
-
     :returns: Tuple of (best_params, trial_results) where trial_results is a
         list of (hyperparameters, metrics_dict, predictions) tuples for each completed trial.
     """
@@ -146,6 +81,7 @@ def hpam_tune_with_trials(
     if cfg.n_trials == 0:
         return model_class.get_default_hyperparameters(), []
 
+    model_name = model_class.get_model_name()
     all_trial_data: list[tuple[dict[str, Any], dict[str, float], np.ndarray]] = []
 
     def objective_with_metrics(trial: Any) -> float:
@@ -154,35 +90,92 @@ def hpam_tune_with_trials(
         sampled = sample_from_optuna_trial(trial, structured_space)
         trial_model = _construct_trial_model(model_class, sampled)
 
-        metrics, predictions = _mu_evaluate_trial_all_metrics(
-            trial_model,
-            mudataset=mudataset,
-            train_scope=train_scope,
-            val_scope=val_scope,
-            early_stopping_scope=early_stopping_scope,
-            response_transformation=response_transformation,
-            model_checkpoint_dir=model_checkpoint_dir,
-            trial_number=trial.number,
-        )
+        try:
+            metrics, predictions = _mu_evaluate_trial_all_metrics(
+                trial_model,
+                mudataset=mudataset,
+                train_scope=train_scope,
+                val_scope=val_scope,
+                early_stopping_scope=early_stopping_scope,
+                response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
+                trial_number=trial.number,
+            )
+        except Exception:
+            logger.exception("Optuna trial %d failed", trial.number)
+            return float("nan")
 
         if metrics:
             all_trial_data.append((sampled, metrics, predictions))
+
+        if wandb_project:
+            _log_trial_to_wandb(
+                wandb_project=wandb_project,
+                wandb_base_config=wandb_base_config,
+                model_name=model_name,
+                split_index=split_index,
+                trial_number=trial.number,
+                sampled=sampled,
+                metrics=metrics,
+                metric=metric,
+            )
 
         target = metrics.get(metric, float("nan"))
         return target if _is_valid_score(target) else float("nan")
 
     study = run_optuna_study(objective=objective_with_metrics, cfg=cfg)
+    best_params = _resolve_best_params(study, model_class)
+    return best_params, all_trial_data
 
+
+def _resolve_best_params(study, model_class: type[DRPModel]) -> dict[str, Any]:
+    """Extract best hyperparameters from a completed Optuna study."""
     try:
         best_trial = study.best_trial
     except ValueError:
         best_trial = None
 
     if best_trial is None or not _is_valid_score(best_trial.value):
-        return default_hyperparameters_for_drp_model(model_class), all_trial_data
+        warnings.warn(
+            "Optuna tuning did not find a valid configuration; using defaults.",
+            stacklevel=2,
+        )
+        return default_hyperparameters_for_drp_model(model_class)
 
     best_config = best_trial.params
     best_model_config = tuned_config_for_drp_model(model_class, best_config)
     if best_model_config is None:
-        return dict(best_config), all_trial_data
-    return public_hyperparameters_from_config(best_model_config), all_trial_data
+        return dict(best_config)
+    return public_hyperparameters_from_config(best_model_config)
+
+
+def _log_trial_to_wandb(
+    *,
+    wandb_project: str,
+    wandb_base_config: dict[str, Any] | None,
+    model_name: str,
+    split_index: int | None,
+    trial_number: int,
+    sampled: dict[str, Any],
+    metrics: dict[str, float],
+    metric: str,
+) -> None:
+    """Log a single HPO trial to W&B."""
+    try:
+        import wandb
+    except ImportError:
+        return
+
+    run_name = f"{model_name}_split{split_index}_trial{trial_number}"
+    run_config = dict(wandb_base_config or {})
+    run_config.update(sampled)
+    run = wandb.init(
+        project=wandb_project,
+        name=run_name,
+        config=run_config,
+        reinit=True,
+    )
+    if run is not None:
+        target_value = metrics.get(metric, float("nan"))
+        wandb.log({"hpo_metric": target_value, **metrics})
+        run.finish()
