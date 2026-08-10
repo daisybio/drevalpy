@@ -25,3 +25,12 @@ repos:
       - id: complexipy
         types_or: [python, pyi]
         files: ^drevalpy/
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
