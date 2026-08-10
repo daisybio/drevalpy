@@ -318,12 +318,14 @@ class Featurizer(ABC):
         :param entity_ids: Entity IDs to align to.
         :returns: Feature matrix or None.
         """
-        from drevalpy.components.featurizers.storage import fetch_from_modality, fetch_from_varm
+        from drevalpy.components.featurizers.storage import fetch_from_modality, fetch_from_obsm, fetch_from_varm
 
         result = fetch_from_modality(mdata, key, entity_ids)
         if result is not None:
             return result
-        return fetch_from_varm(mdata, key, entity_ids)
+        if self.side == "drug":
+            return fetch_from_varm(mdata, key, entity_ids)
+        return fetch_from_obsm(mdata, key, entity_ids)
 
     def store(
         self, mdata: Any, entity_ids: np.ndarray, data: np.ndarray, hyperparameters: dict[str, Any] | None = None
@@ -345,7 +347,7 @@ class Featurizer(ABC):
     def _store_by_key(self, mdata: Any, key: str, entity_ids: np.ndarray, data: np.ndarray) -> None:
         """Write data to MuData under the given key. Override for custom storage.
 
-        Default stores in response.varm for drug-side, obsm for cell-line-side.
+        Default stores in response.obsm for cell-line-side, varm for drug-side.
 
         :param mdata: MuData object.
         :param key: Storage key.
@@ -353,7 +355,10 @@ class Featurizer(ABC):
         :param data: Data matrix.
         """
         response = mdata.mod["response"]
-        response.varm[key] = data
+        if self.side == "drug":
+            response.varm[key] = data
+        else:
+            response.obsm[key] = data
 
     @classmethod
     def list_stored_variants(cls, mdata: Any) -> list[dict[str, Any]]:

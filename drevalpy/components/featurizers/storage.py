@@ -143,3 +143,24 @@ def fetch_from_varm(mdata, key: str, entity_ids: np.ndarray) -> np.ndarray | Non
         result[found] = varm_data[positions[found]].astype(np.float32)
         return result
     return varm_data[positions].astype(np.float32)
+
+
+def fetch_from_obsm(mdata, key: str, entity_ids: np.ndarray) -> np.ndarray | None:
+    """Fetch a matrix from response.obsm, aligned to entity_ids.
+
+    :returns: Float array or None if key doesn't exist.
+    """
+    response = mdata.mod.get("response")
+    if response is None or response.obsm is None or key not in response.obsm:
+        return None
+    import pandas as pd
+
+    obsm_data = np.asarray(response.obsm[key])
+    idx = pd.Index(response.obs_names)
+    positions = idx.get_indexer(entity_ids)
+    found = positions >= 0
+    if not found.all():
+        result = np.full((len(entity_ids), obsm_data.shape[1]), np.nan, dtype=np.float32)
+        result[found] = obsm_data[positions[found]].astype(np.float32)
+        return result
+    return obsm_data[positions].astype(np.float32)
