@@ -52,6 +52,8 @@ class FeaturizerRegistry(Registry):
                 self._validate_registration(name, cls)
                 self._store[name] = cls
                 cls.registry_name = name
+                if not getattr(cls, "storage_key", ""):
+                    cls.storage_key = name
             return cls
 
         return decorator
