@@ -82,7 +82,7 @@ def _filter_to_featurizable_pairs(
     return SplitMasks(train=train, test=test, val=val, metadata=split_masks.metadata)
 
 
-def run(
+def single(
     model_class: type[DRPModel],
     mudataset: Dataset,
     split_masks: SplitMasks,

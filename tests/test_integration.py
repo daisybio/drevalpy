@@ -31,14 +31,14 @@ class TestFullPipeline:
     def test_elastic_net_train_predict(self, mudataset):
         """ElasticNet should train and predict via the run() function without errors."""
         from drevalpy.data.splitters import splitter_registry
-        from drevalpy.experiment import run
+        from drevalpy.single import single
 
         ElasticNet = construct_model("ElasticNet")  # noqa: N806
 
         splitter = splitter_registry.get("LCO")
         folds = splitter(mudataset, n_splits=2, validation_ratio=0.2)
 
-        result = run(
+        result = single(
             model_class=ElasticNet,
             mudataset=mudataset,
             split_masks=folds[0],

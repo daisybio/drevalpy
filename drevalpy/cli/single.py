@@ -19,8 +19,8 @@ def single_cmd(
     hpo_random_state: Annotated[int, typer.Option("--hpo-random-state", help="HPO random seed.")] = 42,
 ) -> None:
     """Train a model on one fold, predict on test set, and save results."""
-    from drevalpy.experiment.run import run
     from drevalpy.models import construct_model
+    from drevalpy.single import single as run_single
     from drevalpy.types import SplitMasks
     from drevalpy.types.dataset import Dataset
 
@@ -31,7 +31,7 @@ def single_cmd(
     ds = Dataset.from_file(dataset)
     split_masks = SplitMasks.load(split)
 
-    result = run(
+    result = run_single(
         model_class,
         ds,
         split_masks,

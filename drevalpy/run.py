@@ -3,10 +3,10 @@
 from itertools import product
 
 from drevalpy.data import load, split
-from drevalpy.experiment import run
 from drevalpy.experiment.randomization import randomization
 from drevalpy.experiment.robustness import robustness
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.single import single
 from drevalpy.types import Dataset
 from drevalpy.types.run_result import RunResult
 
@@ -49,7 +49,7 @@ def pipeline(
             run_datasets.extend(randomization(model, ds, randomization_modes))
 
         for run_ds in run_datasets:
-            result = run(
+            result = single(
                 model,
                 run_ds,
                 split_masks,

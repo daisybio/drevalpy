@@ -14,9 +14,9 @@ from .data import split as split
 from .data import splitter_registry as splitter_registry
 from .data.datasets import load as load
 from .experiment import randomization as randomization
-from .experiment import run as run
 from .experiment import robustness as robustness
 from .models import construct_model as construct_model
-from .pipeline import pipeline as pipeline
+from .run import pipeline as pipeline
+from .single import single as single
 
 __version__ = version("drevalpy")

@@ -27,7 +27,7 @@ def run_cmd(
 ) -> None:
     """Run the full evaluation pipeline."""
     from drevalpy.models import construct_model
-    from drevalpy.pipeline import pipeline
+    from drevalpy.run import pipeline
 
     model_classes = [construct_model(m) for m in models]
     out = UPath(output_dir)
