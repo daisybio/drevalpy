@@ -116,20 +116,21 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
         """
         try:
             from rdkit import Chem
-            from rdkit.Chem import AllChem
+            from rdkit.Chem import rdFingerprintGenerator
         except ImportError as err:
             msg = "rdkit is required for on-the-fly fingerprint computation: pip install rdkit"
             raise ImportError(msg) from err
 
         n_bits = 2048
+        generator = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=n_bits)
         results = np.zeros((len(entity_ids), n_bits), dtype=np.float32)
         for i, drug_id in enumerate(entity_ids):
             smi = smiles_series.get(drug_id)
             if smi and isinstance(smi, str):
                 mol = Chem.MolFromSmiles(smi)
                 if mol:
-                    fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=n_bits)
-                    results[i] = np.array(fp, dtype=np.float32)
+                    fp = generator.GetFingerprintAsNumPy(mol)
+                    results[i] = fp.astype(np.float32)
                 else:
                     results[i] = np.nan
             else:
