@@ -1,5 +1,8 @@
 """Top-level pipeline orchestrating models x folds x randomization."""
 
+from __future__ import annotations
+
+from collections import defaultdict
 from itertools import product
 
 from drevalpy.data import load, split
@@ -8,7 +11,7 @@ from drevalpy.experiment.robustness import robustness
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.single import single
 from drevalpy.types import Dataset
-from drevalpy.types.results.run import RunResult
+from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 
 
 def pipeline(
@@ -21,7 +24,7 @@ def pipeline(
     hpo_num_samples: int = 16,
     hpo_random_state: int = 42,
     robustness_trials: int = 0,
-) -> list[RunResult]:
+) -> ExperimentResult:
     """Run the full experiment pipeline.
 
     :param models: Model classes to evaluate.
@@ -33,7 +36,7 @@ def pipeline(
     :param hpo_num_samples: Number of HPO trials.
     :param hpo_random_state: Random seed for HPO.
     :param robustness_trials: Number of robustness permutations (0 = disabled).
-    :returns: List of RunResult objects.
+    :returns: ExperimentResult grouping all model results.
     """
     ds = load(dataset) if isinstance(dataset, str) else dataset
     folds = split(ds, split_mode)
@@ -41,7 +44,8 @@ def pipeline(
     if robustness_trials > 0:
         folds = [s for fold in folds for s in robustness(fold, robustness_trials)]
 
-    results: list[RunResult] = []
+    runs_by_model: defaultdict[str, list[RunResult]] = defaultdict(list)
+
     for model, split_masks in product(models, folds):
         run_datasets: list[Dataset] = [ds]
 
@@ -58,6 +62,14 @@ def pipeline(
                 hpo_num_samples=hpo_num_samples,
                 hpo_random_state=hpo_random_state,
             )
-            results.append(result)
+            runs_by_model[model.get_model_name()].append(result)
 
-    return results
+    model_results = [
+        ModelResult(model_name=name, dataset_name=ds.name, runs=runs) for name, runs in runs_by_model.items()
+    ]
+
+    return ExperimentResult(
+        dataset_name=ds.name,
+        split_mode=split_mode,
+        models=model_results,
+    )

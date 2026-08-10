@@ -33,7 +33,7 @@ def run_cmd(
     out = UPath(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    results = pipeline(
+    result = pipeline(
         models=model_classes,
         dataset=dataset,
         split_mode=split_mode,
@@ -45,10 +45,6 @@ def run_cmd(
         robustness_trials=robustness_trials,
     )
 
-    for result in results:
-        tag = f"{result.model_name}_fold{result.fold_index}"
-        if result.randomization:
-            tag += f"_{result.randomization[0]}:{result.randomization[1]}"
-        result.save(str(out / f"{tag}.npz"))
-
-    typer.echo(f"Wrote {len(results)} results to {out}")
+    result.save(str(out))
+    typer.echo(f"Wrote experiment results to {out}")
+    typer.echo(repr(result))
