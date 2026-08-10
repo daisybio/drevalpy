@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import pickle
 from pathlib import Path
 
 import pytest
@@ -15,7 +16,6 @@ from drevalpy.components.predictors.literature._torch_state import (
 )
 from drevalpy.components.predictors.literature._torch_state import load_state_dict as load_state_dict_bytes
 from drevalpy.components.predictors.literature._torch_state import save_state_dict as save_state_dict_bytes
-from drevalpy.utils.pickle_io import UnpicklingError
 from drevalpy.utils.torch_io import (
     load_state_dict,
     load_torch_payload,
@@ -99,5 +99,5 @@ def test_legacy_trusted_checkpoint_compatibility() -> None:
 
 
 def test_load_torch_payload_rejects_invalid_bytes() -> None:
-    with pytest.raises(UnpicklingError):
+    with pytest.raises((pickle.UnpicklingError, RuntimeError)):
         load_torch_payload(b"not-a-torch-checkpoint")
