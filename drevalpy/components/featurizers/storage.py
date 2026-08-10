@@ -55,7 +55,7 @@ def list_variants(mdata, storage_key: str) -> list[dict[str, Any]]:
 
     :param mdata: MuData object.
     :param storage_key: Base storage key for the featurizer.
-    :returns: List of variant dicts with "index", "params", "key".
+    :returns: List of variant dicts with "params" and "key".
     """
     registry = _variant_registry(mdata)
     return registry.get(storage_key, [])
@@ -76,10 +76,8 @@ def register_variant(
     """
     registry = _variant_registry(mdata)
     variants = registry.setdefault(storage_key, [])
-    index = len(variants)
     variants.append(
         {
-            "index": index,
             "params": hyperparameters or {},
             "key": actual_key,
         }
