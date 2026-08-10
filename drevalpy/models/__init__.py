@@ -7,9 +7,8 @@ Every built-in factory name has a zoo YAML under ``drevalpy/models/zoo/``.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
-
-from drevalpy.utils._deprecations import FACTORY_DICT_NAMES, warn_deprecated
 
 from ._construct_model_api import build_builtin_factory_tables, construct_model
 from ._model_persistence import load_model
@@ -23,6 +22,8 @@ __all__ = [
     "construct_model",
     "load_model",
 ]
+
+_FACTORY_DICT_NAMES = {"MODEL_FACTORY", "MULTI_DRUG_MODEL_FACTORY", "SINGLE_DRUG_MODEL_FACTORY"}
 
 _FACTORY_PUBLIC_TO_PRIVATE = {
     "MULTI_DRUG_MODEL_FACTORY": "_FACTORY_MULTI",
@@ -44,10 +45,11 @@ def _ensure_factory_tables() -> None:
 
 
 def __getattr__(name: str) -> Any:
-    if name in FACTORY_DICT_NAMES:
-        warn_deprecated(
-            what=name,
-            replacement=('construct_model("ModelName"), config.from_spec("ModelName"), or list_zoo_names(scope=...)'),
+    if name in _FACTORY_DICT_NAMES:
+        warnings.warn(
+            f'{name} is deprecated; use construct_model("ModelName"), '
+            'config.from_spec("ModelName"), or list_zoo_names(scope=...) instead.',
+            FutureWarning,
             stacklevel=2,
         )
         _ensure_factory_tables()

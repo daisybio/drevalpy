@@ -12,7 +12,6 @@ from drevalpy.components.core.tuning.public_flat import (
 )
 from drevalpy.models import construct_model
 from drevalpy.models.zoo import get_zoo_config, zoo_model_config
-from drevalpy.utils._deprecations import reset_deprecation_warnings
 
 
 def test_apply_public_flat_rejects_view_keys() -> None:
@@ -36,7 +35,6 @@ def test_public_hyperparameters_omit_view_keys_by_default() -> None:
 
 
 def test_structured_model_config_path_does_not_warn() -> None:
-    reset_deprecation_warnings()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         model = construct_model("ElasticNet")()

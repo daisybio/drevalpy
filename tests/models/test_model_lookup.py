@@ -17,7 +17,6 @@ from drevalpy.models._model_lookup import (
 )
 from drevalpy.models.zoo import list_zoo_names
 from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.utils._deprecations import reset_deprecation_warnings
 
 
 def test_construct_model_one_arg_resolves_zoo_preset() -> None:
@@ -54,7 +53,6 @@ def test_model_lookup_helpers_match_scope() -> None:
 
 
 def test_factory_dict_import_emits_future_warning() -> None:
-    reset_deprecation_warnings()
     import drevalpy.models as models
 
     # Ensure lazy __getattr__ runs again even if an earlier test already bound the dict.
@@ -69,7 +67,6 @@ def test_factory_dict_import_emits_future_warning() -> None:
 
 
 def test_construct_model_does_not_warn() -> None:
-    reset_deprecation_warnings()
     import drevalpy.models as models
 
     with warnings.catch_warnings(record=True) as caught:
