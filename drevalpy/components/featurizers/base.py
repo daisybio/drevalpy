@@ -95,7 +95,10 @@ class Featurizer(ABC):
         return self
 
     def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return a flat feature matrix, inserting NaN rows for invalid entities.
+        """Return a flat feature matrix by concatenating numeric blocks.
+
+        Subclasses that work directly on matrices can override this.
+        Default implementation derives the matrix from transform_blocks.
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: Entity identifiers to transform.
@@ -104,21 +107,11 @@ class Featurizer(ABC):
         """
         from drevalpy.components.core.contracts.contracts import FeatureFormat
 
-        valid_mask = self._detect_valid(source, entity_ids)
-        valid_ids = entity_ids[valid_mask] if not valid_mask.all() else entity_ids
-
-        blocks = self.transform_blocks(source, valid_ids)
+        blocks = self.transform_blocks(source, entity_ids)
         arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
         if not arrays:
             return np.empty((len(entity_ids), 0), dtype=np.float32)
-        valid_result = np.concatenate(arrays, axis=1)
-
-        if valid_mask.all():
-            return valid_result
-
-        result = np.full((len(entity_ids), valid_result.shape[1]), np.nan, dtype=np.float32)
-        result[valid_mask] = valid_result
-        return result
+        return np.concatenate(arrays, axis=1)
 
     # ------------------------------------------------------------------
     # Abstract methods for subclasses

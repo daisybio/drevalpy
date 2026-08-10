@@ -77,11 +77,11 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into feature payloads.
+        """Transform inputs through fitted PCA.
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: entity ids.
-        :returns: Result.
+        :returns: PCA-reduced feature matrix.
         """
         mdata = getattr(source, "mdata", None)
         precomputed = (
