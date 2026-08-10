@@ -25,11 +25,6 @@ def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any
         split, model_class, model_name, drug_id
     )
 
-    if model_class.early_stopping:
-        validation_dataset = split["validation_es"]
-        es_dataset = split["early_stopping"]
-    else:
-        es_dataset = None
     train_dataset.add_rows(validation_dataset)
     train_dataset.shuffle(random_state=42)
     with open(arguments.hyperparameters_path) as f:

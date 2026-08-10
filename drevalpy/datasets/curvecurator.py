@@ -33,14 +33,16 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""
         n_replicates = 1
         pivot_columns = ["dose"]
 
-    if curve_df.duplicated(subset=["sample", "drug", "dose", "replicate"]).any():
+    # "replicate" is optional, so build the duplicate-key subset from the columns we actually pivot on.
+    dup_subset = ["sample", "drug"] + pivot_columns
+    if curve_df.duplicated(subset=dup_subset).any():
         warnings.warn(
-            "CurveCurator Raw Data Processing: Duplicate entries found for some (sample, drug, dose, replicate)"
+            f"CurveCurator Raw Data Processing: Duplicate entries found for some {tuple(dup_subset)}"
             " combinations. Aggregating using mean of the 'response'.",
             UserWarning,
             stacklevel=1,
         )
-        curve_df = curve_df.groupby(["sample", "drug", "dose", "replicate"], as_index=False)["response"].mean()
+        curve_df = curve_df.groupby(dup_subset, as_index=False)["response"].mean()
 
     df = curve_df.pivot(index=["sample", "drug"], columns=pivot_columns, values="response")
 
