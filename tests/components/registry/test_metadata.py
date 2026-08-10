@@ -137,7 +137,7 @@ from drevalpy.components.registry import (
     list_predictor_metadata,
 )
 assert len(list_cell_line_featurizer_metadata()) == 17
-assert len(list_drug_featurizer_metadata()) == 9
+assert len(list_drug_featurizer_metadata()) == 10
 assert len(list_predictor_metadata()) == 27
 print("ok")
 """

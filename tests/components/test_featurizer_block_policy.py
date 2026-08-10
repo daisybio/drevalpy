@@ -28,7 +28,7 @@ def _register() -> None:
 
 def test_registry_discovery_counts() -> None:
     assert len(list_cell_line_featurizers()) == 17
-    assert len(list_drug_featurizers()) == 9
+    assert len(list_drug_featurizers()) == 10
     assert len(list_predictors()) == 27
 
 

@@ -6,6 +6,7 @@ import importlib
 
 _SUBMODULES = (
     "bpe_pharmaformer",
+    "chemberta",
     "concat",
     "drug_graph",
     "fingerprints",

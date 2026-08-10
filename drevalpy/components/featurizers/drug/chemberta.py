@@ -1,9 +1,7 @@
-"""BPE PharmaFormer drug featurizer with on-the-fly computation fallback."""
+"""ChemBERTa drug featurizer with on-the-fly computation fallback."""
 
 from __future__ import annotations
 
-import codecs
-import tempfile
 from typing import ClassVar
 
 import numpy as np
@@ -14,35 +12,26 @@ from drevalpy.components.core.features.feature_source import FeatureSource
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.log import get_logger
-from drevalpy.types.enums.literature_reference import LiteratureReference
 
 _logger = get_logger(__name__)
 
-_BPE_PHARMAFORMER_REFERENCE = LiteratureReference(
-    repo_url="https://github.com/zhouyuru1205/PharmaFormer",
-    citation_doi="10.1038/s41698-025-01082-6",
-    deviations=(
-        "Consumes precomputed BPE token rows from the bpe_smiles view; "
-        "offline embedding generation is implemented in "
-        "drevalpy.data.featurizer.create_pharmaformer_drug_embeddings."
-    ),
-)
+_CHEMBERTA_MODEL = "seyonec/ChemBERTa-zinc-base-v1"
+_CHEMBERTA_REVISION = "761d6a1"
 
 
 @register_drug_featurizer(
-    "bpePharmaformer",
-    description="BPE PharmaFormer token rows loaded from pre-computed view or computed on the fly.",
-    reference=_BPE_PHARMAFORMER_REFERENCE,
+    "chemberta",
+    description="ChemBERTa embeddings loaded from pre-computed view or computed on the fly via transformers.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
-    """BPE PharmaFormer drug featurizer with on-the-fly fallback."""
+class ChemBertaFeaturizer(ViewDrugFeaturizer):
+    """ChemBERTa drug featurizer with on-the-fly fallback."""
 
-    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX),)
-    storage_key: ClassVar[str] = "bpe_smiles"
-    input_views: ClassVar[tuple[str, ...]] = ("bpe_smiles",)
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("chemberta", FeatureFormat.NUMERIC_MATRIX),)
+    storage_key: ClassVar[str] = "chemberta"
+    input_views: ClassVar[tuple[str, ...]] = ("chemberta",)
 
-    def __init__(self, *, view: str = "bpe_smiles") -> None:
+    def __init__(self, *, view: str = "chemberta") -> None:
         """Initialize instance state.
 
         :param view: view.
@@ -56,7 +45,7 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
         entity_ids: np.ndarray | None = None,
         pair_expanded_ids: np.ndarray | None = None,
         pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> BpePharmaformerDrugFeaturizer:
+    ) -> ChemBertaFeaturizer:
         """Fit on training data, falling back to on-the-fly computation.
 
         :param source: Feature source providing drug views.
@@ -72,7 +61,7 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
         return self
 
     def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into BPE-encoded SMILES.
+        """Transform inputs into ChemBERTa embeddings.
 
         :param source: Feature source providing drug views.
         :param entity_ids: entity ids.
@@ -88,7 +77,7 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
         :returns: Mapping with one numeric block.
         """
         return {
-            "bpe_smiles": numeric_feature_block(
+            "chemberta": numeric_feature_block(
                 self.transform(source, entity_ids),
                 feature_names=source.get_feature_names(self._view),
             )
@@ -99,7 +88,7 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
 
         :param source: Feature source.
         :param entity_ids: Drug identifiers.
-        :returns: BPE token matrix.
+        :returns: Embedding matrix.
         """
         mdata = getattr(source, "mdata", None)
         if mdata is not None:
@@ -117,72 +106,42 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
         smiles = get_smiles_for_entities(source, entity_ids)
         if smiles is not None:
             _logger.warning("Computing %s on the fly. Consider ds.precompute().", self.storage_key)
-            return self._compute_from_smiles(smiles, entity_ids, source)
+            return self._compute_from_smiles(smiles, entity_ids)
         msg = f"Cannot obtain {self.storage_key}: no pre-computed data, view, or SMILES available."
         raise ValueError(msg)
 
-    def _compute_from_smiles(self, smiles_series, entity_ids: np.ndarray, source: FeatureSource) -> np.ndarray:
-        """Compute BPE-encoded SMILES on the fly.
-
-        Learns BPE codes from all available SMILES in the dataset, then encodes the
-        requested entities.
+    def _compute_from_smiles(self, smiles_series, entity_ids: np.ndarray) -> np.ndarray:
+        """Compute ChemBERTa embeddings from SMILES via mean-pooled hidden states.
 
         :param smiles_series: Series of SMILES indexed by entity IDs.
         :param entity_ids: Drug identifiers.
-        :param source: Feature source for access to all SMILES.
-        :returns: BPE token matrix of shape (n_drugs, max_length).
+        :returns: Embedding matrix of shape (n_drugs, hidden_dim).
         """
         try:
-            from subword_nmt.apply_bpe import BPE
-            from subword_nmt.learn_bpe import learn_bpe
+            import torch
+            from transformers import AutoModel, AutoTokenizer
         except ImportError as err:
-            msg = "subword-nmt is required for on-the-fly BPE computation: pip install subword-nmt"
+            msg = (
+                "transformers and torch are required for on-the-fly ChemBERTa computation: "
+                "pip install transformers torch"
+            )
             raise ImportError(msg) from err
 
-        num_symbols = 10000
-        max_length = 128
+        tokenizer = AutoTokenizer.from_pretrained(_CHEMBERTA_MODEL, revision=_CHEMBERTA_REVISION)
+        model = AutoModel.from_pretrained(_CHEMBERTA_MODEL, revision=_CHEMBERTA_REVISION)
+        model.eval()
 
-        mdata = getattr(source, "mdata", None)
-        if mdata is not None:
-            all_smiles = mdata.mod["response"].var["canonical_smiles"].dropna()
-        else:
-            all_smiles = smiles_series.dropna()
-
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, suffix=".txt") as tmp_file:
-            tmp_path = tmp_file.name
-            for smi in all_smiles:
-                tmp_file.write(f"{smi}\n")
-
-        bpe_codes_file = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, suffix=".codes")
-        bpe_codes_path = bpe_codes_file.name
-        bpe_codes_file.close()
-
-        try:
-            with codecs.open(tmp_path, encoding="utf-8") as f_in:
-                with codecs.open(bpe_codes_path, "w", encoding="utf-8") as f_out:
-                    learn_bpe(f_in, f_out, num_symbols=num_symbols)
-        finally:
-            import os
-
-            os.unlink(tmp_path)
-
-        with codecs.open(bpe_codes_path, encoding="utf-8") as f_in:
-            bpe = BPE(f_in)
-
-        import os
-
-        os.unlink(bpe_codes_path)
-
-        results = np.zeros((len(entity_ids), max_length), dtype=np.int32)
-        for i, drug_id in enumerate(entity_ids):
+        embeddings = []
+        for drug_id in entity_ids:
             smi = smiles_series.get(drug_id)
             if smi and isinstance(smi, str):
-                bpe_processed = bpe.process_line(smi)
-                encoded = [ord(char) for char in bpe_processed]
-                if len(encoded) > max_length:
-                    encoded = encoded[:max_length]
-                else:
-                    encoded = list(np.pad(encoded, (0, max_length - len(encoded)), "constant"))
-                results[i] = encoded
+                inputs = tokenizer(smi, return_tensors="pt", truncation=True)
+                with torch.no_grad():
+                    outputs = model(**inputs)
+                    hidden_states = outputs.last_hidden_state
+                embedding = hidden_states.mean(dim=1).squeeze(0).numpy()
+            else:
+                embedding = np.full(model.config.hidden_size, np.nan, dtype=np.float32)
+            embeddings.append(embedding)
 
-        return results.astype(np.float32)
+        return np.vstack(embeddings).astype(np.float32)
