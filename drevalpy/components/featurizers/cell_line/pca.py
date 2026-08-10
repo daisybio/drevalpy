@@ -22,6 +22,7 @@ from drevalpy.components.registry import register_cell_line_featurizer
 class PCACellLineFeaturizer(CellLineFeaturizer):
     """Reduce one cell-line view with PCA."""
 
+    learned: ClassVar[bool] = True
     requires_view: ClassVar[bool] = True
 
     def __init__(self, *, view: str, n_components: int = 128) -> None:

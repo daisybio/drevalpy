@@ -145,6 +145,40 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
                 featurizer.store(self._mdata, entity_ids, matrix, hyperparameters=config)
                 progress.advance(task)
 
+    def precompute_all(self, n_variants: int = 10) -> None:
+        """Pre-compute all fixed featurizers with N HP variants each.
+
+        Iterates all registered featurizers (cell-line + drug), skips learned
+        ones (output depends on training data), and pre-computes N sampled HP
+        configurations for the rest. Featurizers without any HP space get a
+        single default-params variant.
+
+        :param n_variants: Number of HP configurations to sample for featurizers
+            that have a tunable HP space.
+        """
+        from drevalpy.components.registry.featurizer_registry import (
+            cell_line_featurizer_registry,
+            drug_featurizer_registry,
+        )
+
+        for registry in (cell_line_featurizer_registry, drug_featurizer_registry):
+            for name in registry.list():
+                self._precompute_single(registry.get(name), n_variants)
+
+    def _precompute_single(self, cls: type, n_variants: int) -> None:
+        """Pre-compute one featurizer class if eligible."""
+        if cls.learned:
+            return
+        hp_space = cls.get_hyperparameter_space()
+        effective_n = n_variants if hp_space else 1
+        view: str | None = None
+        if cls.requires_view:
+            if cls.input_views:
+                view = cls.input_views[0]
+            else:
+                return
+        self.precompute(cls, effective_n, view=view)
+
     @property
     def name(self) -> str:
         """Human-readable dataset name."""

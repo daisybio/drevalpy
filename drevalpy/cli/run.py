@@ -24,6 +24,9 @@ def run_cmd(
     robustness_trials: Annotated[
         int, typer.Option("--robustness-trials", help="Number of robustness permutations (0=disabled).")
     ] = 0,
+    precomputed_only: Annotated[
+        bool, typer.Option("--precomputed-only", help="Restrict HPO to pre-computed featurizer variants.")
+    ] = False,
 ) -> None:
     """Run the full evaluation pipeline."""
     from drevalpy.models import construct_model
@@ -43,6 +46,7 @@ def run_cmd(
         hpo_num_samples=hpo_num_samples,
         hpo_random_state=hpo_random_state,
         robustness_trials=robustness_trials,
+        precomputed_only=precomputed_only,
     )
 
     result.save(str(out))

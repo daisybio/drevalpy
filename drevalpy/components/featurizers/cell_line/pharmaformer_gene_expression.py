@@ -22,6 +22,7 @@ from drevalpy.components.registry import register_cell_line_featurizer
 class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
     """Apply the PharmaFormer StandardScaler then MinMaxScaler sequence."""
 
+    learned: ClassVar[bool] = True
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 

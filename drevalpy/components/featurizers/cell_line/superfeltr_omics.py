@@ -23,6 +23,7 @@ _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
     """Select high-variance features independently in each SuperFELTR view."""
 
+    learned: ClassVar[bool] = True
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
         BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),

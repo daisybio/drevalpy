@@ -23,6 +23,7 @@ def run(
     hpo_num_samples: int = 16,
     hpo_random_state: int = 42,
     robustness_trials: int = 0,
+    precomputed_only: bool = False,
 ) -> ExperimentResult:
     """Run the full experiment pipeline.
 
@@ -35,6 +36,7 @@ def run(
     :param hpo_num_samples: Number of HPO trials.
     :param hpo_random_state: Random seed for HPO.
     :param robustness_trials: Number of robustness permutations (0 = disabled).
+    :param precomputed_only: Restrict HPO to pre-computed featurizer variants.
     :returns: ExperimentResult grouping all model results.
     """
     ds = load(dataset) if isinstance(dataset, str) else dataset
@@ -62,6 +64,7 @@ def run(
                 hpo_metric=hpo_metric,
                 hpo_num_samples=hpo_num_samples,
                 hpo_random_state=hpo_random_state,
+                precomputed_only=precomputed_only,
             )
             run_results.append(result)
 

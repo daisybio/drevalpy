@@ -27,6 +27,7 @@ def single(
     hpo_metric: str = "RMSE",
     hpo_num_samples: int = 16,
     hpo_random_state: int = 42,
+    precomputed_only: bool = False,
 ) -> RunResult:
     """Train a single model on a single fold and predict on the test set.
 
@@ -38,6 +39,7 @@ def single(
     :param hpo_metric: Metric to optimize during HPO.
     :param hpo_num_samples: Number of HPO trials.
     :param hpo_random_state: Random seed for HPO.
+    :param precomputed_only: Restrict HPO to pre-computed featurizer variants.
     :returns: RunResult with predictions, ground truth, and metrics.
     """
     from drevalpy.components.core.tuning.config import build_experiment_hpo_config
@@ -70,6 +72,7 @@ def single(
             metric=hpo_metric,
             model_checkpoint_dir=None,
             hpo_config=hpo_cfg,
+            precomputed_only=precomputed_only,
         )
         trials = [
             TrialResult(
