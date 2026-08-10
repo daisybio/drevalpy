@@ -7,10 +7,10 @@ import warnings
 from typing import Protocol, cast
 
 import pytest
-from typer.testing import CliRunner
-
 from drevalpy.cli._helpers import normalize_list_argv
 from drevalpy.cli.legacy import load_response
+from typer.testing import CliRunner
+
 from drevalpy.cli.main import app
 
 runner = CliRunner()

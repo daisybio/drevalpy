@@ -10,7 +10,6 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.core.features.feature_source import FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.featurizers.cell_line.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
@@ -101,16 +100,18 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ) -> LandmarkGenesFeaturizer:
         """Fit on training data.
 
         :param source: Feature source providing view matrices.
         :param entity_ids: entity ids.
-        :param context: context.
+        :param pair_expanded_ids: Unused training IDs with duplicates.
+        :param pair_expanded_es_ids: Unused early-stopping IDs.
         :returns: Result.
         """
-        _ = context
+        _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
         self._gene_indices = _load_gene_indices(
             source,

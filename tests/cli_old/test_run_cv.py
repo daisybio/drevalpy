@@ -7,10 +7,10 @@ import tempfile
 from pathlib import Path
 
 import pandas as pd
-
 from drevalpy.cli.run_cv import run_load_response
-from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.utils.pickle_io import load_trusted_pickle
+
+from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 
 def test_run_load_response_uses_provided_path() -> None:

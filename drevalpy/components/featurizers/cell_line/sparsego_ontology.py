@@ -9,7 +9,6 @@ import numpy as np
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.core.features.feature_source import FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.cell_line._sparsego_metadata import (
     read_sparsego_ontology_metadata,
 )
@@ -88,17 +87,19 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ) -> SparseGOOntologyFeaturizer:
         """Copy ontology metadata produced by ``load_features`` into fitted state.
 
         :param source: Feature source with ``sparsego_ontology`` metadata.
         :param entity_ids: Unused.
-        :param context: Unused featurizer fit context.
+        :param pair_expanded_ids: Unused training IDs with duplicates.
+        :param pair_expanded_es_ids: Unused early-stopping IDs.
         :returns: Fitted featurizer instance.
         :raises ValueError: If ontology metadata is missing on *source*.
         """
-        _ = entity_ids, context
+        _ = entity_ids, pair_expanded_ids, pair_expanded_es_ids
         metadata = read_sparsego_ontology_metadata(source)
         if metadata is None:
             raise ValueError("SparseGO ontology metadata is missing; load features through sparsegoOntology")

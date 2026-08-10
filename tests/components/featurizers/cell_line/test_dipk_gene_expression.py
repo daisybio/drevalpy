@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.cell_line.dipk_gene_expression import (
     DIPKGeneExpressionFeaturizer,
     GeneExpressionEncoder,
@@ -21,14 +20,11 @@ def test_dipk_gene_expression_round_trips_state(monkeypatch) -> None:
         "drevalpy.components.featurizers.cell_line.dipk_gene_expression.train_gene_expession_autoencoder",
         lambda train, validation, epochs: GeneExpressionEncoder(train.shape[1]),
     )
-    context = FeaturizerFitContext(
-        unique_train_ids=np.array(["cl0", "cl1"]),
-        pair_expanded_train_ids=np.array(["cl0", "cl1", "cl0"]),
-        unique_early_stopping_ids=np.array(["cl2"]),
-        pair_expanded_early_stopping_ids=np.array(["cl2", "cl2"]),
-        side="cell_line",
+    pair_expanded_ids = np.array(["cl0", "cl1", "cl0"])
+    pair_expanded_es_ids = np.array(["cl2", "cl2"])
+    featurizer = DIPKGeneExpressionFeaturizer(epochs_autoencoder=1).fit(
+        features, pair_expanded_ids=pair_expanded_ids, pair_expanded_es_ids=pair_expanded_es_ids
     )
-    featurizer = DIPKGeneExpressionFeaturizer(epochs_autoencoder=1).fit(features, context=context)
     matrix = featurizer.transform(features, np.array(["cl0", "cl2"]))
     assert matrix.shape == (2, 512)
     restored = DIPKGeneExpressionFeaturizer()

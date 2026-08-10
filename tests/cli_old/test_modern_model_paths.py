@@ -5,10 +5,11 @@ from __future__ import annotations
 import pathlib
 import warnings
 
+from drevalpy.utils._deprecations import reset_deprecation_warnings
+
 from drevalpy.models import construct_model
 from drevalpy.models._model_lookup import get_model_class, known_model_names
 from drevalpy.utils import check_arguments
-from drevalpy.utils._deprecations import reset_deprecation_warnings
 
 
 def _dreval_future_warnings(caught: list[warnings.WarningMessage]) -> list[warnings.WarningMessage]:

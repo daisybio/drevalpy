@@ -10,7 +10,6 @@ import numpy as np
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock
 from drevalpy.components.core.contracts.contracts import FeatureContract, featurizer_contract
 from drevalpy.components.core.features.feature_source import FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 
 
 class Featurizer(ABC):
@@ -52,13 +51,15 @@ class Featurizer(ABC):
         source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ) -> Featurizer:
         """Fit on the entities given by *entity_ids* (or all entities when ``None``).
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
-        :param context: Optional training context shared across featurizers.
+        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
+        :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
 
         :returns: Fitted featurizer instance (usually ``self``).
         """

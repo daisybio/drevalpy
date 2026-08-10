@@ -8,7 +8,6 @@ import numpy as np
 
 from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.core.features.feature_source import FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 
 
 class ConstantFeaturizerMixin:
@@ -21,16 +20,18 @@ class ConstantFeaturizerMixin:
         source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ):
         """Fit on training data.
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: entity ids.
-        :param context: context.
+        :param pair_expanded_ids: Unused training IDs with duplicates.
+        :param pair_expanded_es_ids: Unused early-stopping IDs.
         :returns: Result.
         """
-        _ = source, entity_ids, context
+        _ = source, entity_ids, pair_expanded_ids, pair_expanded_es_ids
         return self
 
     def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:

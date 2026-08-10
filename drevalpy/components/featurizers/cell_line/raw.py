@@ -9,7 +9,6 @@ import numpy as np
 from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.core.features.feature_source import FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -42,16 +41,18 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
         source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ) -> RawCellLineFeaturizer:
         """Fit on training data.
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: entity ids.
-        :param context: context.
+        :param pair_expanded_ids: Unused training IDs with duplicates.
+        :param pair_expanded_es_ids: Unused early-stopping IDs.
         :returns: Result.
         """
-        _ = context
+        _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
         matrix = stack_view_matrix(source, self._view, ids)
         self._output_dim = int(matrix.shape[1])

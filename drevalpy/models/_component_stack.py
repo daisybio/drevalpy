@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -11,7 +11,6 @@ from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.core.batch.model_input_build import build_model_input_batch
 from drevalpy.components.core.contracts.training_context import TrainingContext
 from drevalpy.components.core.features.feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.core.fitting.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
@@ -23,30 +22,6 @@ from drevalpy.types.data.response_batch import ResponseBatch
 if TYPE_CHECKING:
     from drevalpy.types import SplitMask
     from drevalpy.types.data.dataset import Dataset
-
-
-def _build_fit_context(
-    response: ResponseBatch,
-    *,
-    early_stopping: ResponseBatch | None,
-    side: Literal["cell_line", "drug"],
-) -> FeaturizerFitContext:
-    if side == "cell_line":
-        train_ids = response.cell_line_ids
-        es_ids = early_stopping.cell_line_ids if early_stopping is not None else np.array([], dtype=str)
-    elif side == "drug":
-        train_ids = response.drug_ids
-        es_ids = early_stopping.drug_ids if early_stopping is not None else np.array([], dtype=str)
-    else:
-        msg = f"Unknown featurizer side {side!r}"
-        raise ValueError(msg)
-    return FeaturizerFitContext(
-        unique_train_ids=unique_entity_ids(train_ids),
-        pair_expanded_train_ids=np.asarray(train_ids, dtype=str),
-        unique_early_stopping_ids=unique_entity_ids(es_ids) if es_ids.size else np.array([], dtype=str),
-        pair_expanded_early_stopping_ids=np.asarray(es_ids, dtype=str) if es_ids.size else np.array([], dtype=str),
-        side=side,
-    )
 
 
 def _entity_id_only_featurizer(featurizer: Featurizer | None) -> bool:
@@ -232,9 +207,15 @@ class _ComponentStack:
         *,
         train_entity_ids: np.ndarray,
         all_entity_ids: np.ndarray,
-        fit_context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        featurizer.fit(source, entity_ids=train_entity_ids, context=fit_context)
+        featurizer.fit(
+            source,
+            entity_ids=train_entity_ids,
+            pair_expanded_ids=pair_expanded_ids,
+            pair_expanded_es_ids=pair_expanded_es_ids,
+        )
         entity_ids = np.asarray(all_entity_ids, dtype=str)
         matrix = featurizer.transform(source, entity_ids)
         return entity_ids, matrix
@@ -255,17 +236,17 @@ class _ComponentStack:
         if output_earlystopping is not None:
             es_cell_lines = unique_entity_ids(output_earlystopping.cell_line_ids)
             all_cell_lines = np.unique(np.concatenate([train_cell_lines, es_cell_lines]))
-        fit_context = _build_fit_context(
-            output,
-            early_stopping=output_earlystopping,
-            side="cell_line",
+        pair_expanded_ids = np.asarray(output.cell_line_ids, dtype=str)
+        pair_expanded_es_ids = (
+            np.asarray(output_earlystopping.cell_line_ids, dtype=str) if output_earlystopping is not None else None
         )
         entity_ids, matrix = self._fit_transform_featurizer(
             self._cell_line_featurizer,
             cell_line_input,
             train_entity_ids=train_cell_lines,
             all_entity_ids=all_cell_lines,
-            fit_context=fit_context,
+            pair_expanded_ids=pair_expanded_ids,
+            pair_expanded_es_ids=pair_expanded_es_ids,
         )
         self._cell_line_entity_ids = entity_ids
         self._cell_line_matrix = matrix
@@ -287,17 +268,17 @@ class _ComponentStack:
             es_drugs = unique_entity_ids(output_earlystopping.drug_ids)
             all_drugs = np.unique(np.concatenate([train_drugs, es_drugs]))
         drug_source = self._require_drug_input(drug_input)
-        fit_context = _build_fit_context(
-            output,
-            early_stopping=output_earlystopping,
-            side="drug",
+        pair_expanded_ids = np.asarray(output.drug_ids, dtype=str)
+        pair_expanded_es_ids = (
+            np.asarray(output_earlystopping.drug_ids, dtype=str) if output_earlystopping is not None else None
         )
         entity_ids, matrix = self._fit_transform_featurizer(
             self._drug_featurizer,
             drug_source,
             train_entity_ids=train_drugs,
             all_entity_ids=all_drugs,
-            fit_context=fit_context,
+            pair_expanded_ids=pair_expanded_ids,
+            pair_expanded_es_ids=pair_expanded_es_ids,
         )
         self._drug_entity_ids = entity_ids
         self._drug_matrix = matrix

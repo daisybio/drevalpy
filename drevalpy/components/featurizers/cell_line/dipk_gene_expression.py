@@ -9,7 +9,6 @@ import numpy as np
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.core.features.feature_source import FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.predictors.literature._torch_state import load_state_dict, save_state_dict
 from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
@@ -46,22 +45,24 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ) -> DIPKGeneExpressionFeaturizer:
         """Train the DIPK autoencoder on pair-expanded train and validation IDs.
 
         :param source: Feature source providing view matrices.
-        :param entity_ids: Unused; IDs come from *context*.
-        :param context: Fit context with train and early-stopping cell-line IDs.
+        :param entity_ids: Unused; IDs come from *pair_expanded_ids*.
+        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
+        :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
         :returns: Fitted featurizer instance.
-        :raises ValueError: If *context* or required ID sets are missing or empty.
+        :raises ValueError: If required ID sets are missing or empty.
         """
         _ = entity_ids
-        if context is None:
-            raise ValueError("dipkGeneExpression requires FeaturizerFitContext")
-        train_ids = context.pair_expanded_train_ids
-        validation_ids = context.pair_expanded_early_stopping_ids
-        if len(train_ids) == 0 or len(validation_ids) == 0:
+        if pair_expanded_ids is None:
+            raise ValueError("dipkGeneExpression requires pair_expanded_ids")
+        train_ids = pair_expanded_ids
+        validation_ids = pair_expanded_es_ids
+        if validation_ids is None or len(train_ids) == 0 or len(validation_ids) == 0:
             raise ValueError("dipkGeneExpression requires non-empty train and early-stopping IDs")
         train = source.get_view_matrix("gene_expression", train_ids)
         validation = source.get_view_matrix("gene_expression", validation_ids)

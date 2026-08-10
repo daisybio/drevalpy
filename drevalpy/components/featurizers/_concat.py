@@ -8,7 +8,6 @@ import numpy as np
 
 from drevalpy.components.core.batch.feature_block import FeatureBlock, merge_feature_blocks
 from drevalpy.components.core.contracts.contracts import FeatureFormat
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.core.fitting.featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
 
@@ -100,20 +99,27 @@ class ConcatFeaturizersMixin:
         features,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ):
         """Fit on training data.
 
         :param features: features.
         :param entity_ids: entity ids.
-        :param context: context.
+        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
+        :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
         :returns: Result.
         """
         self._materialize_children()
         self._reject_non_numeric_children(self._children)
         self._block_dims = {}
         for name, child in self._children:
-            child.fit(features, entity_ids=entity_ids, context=context)
+            child.fit(
+                features,
+                entity_ids=entity_ids,
+                pair_expanded_ids=pair_expanded_ids,
+                pair_expanded_es_ids=pair_expanded_es_ids,
+            )
             self._block_dims[name] = child.output_dim
         self._output_dim = sum(self._block_dims.values())
         self._is_fitted = True

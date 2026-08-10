@@ -10,7 +10,6 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.core.features.feature_source import FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 
@@ -48,18 +47,19 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ) -> MOLIROmicsFeaturizer:
         """Arcsinh-scale gene expression and fit variance selection on training ids.
 
         :param source: Feature source providing view matrices.
-        :param entity_ids: Optional explicit fit ids; otherwise derived from *context*.
-        :param context: Optional fit context supplying unique training ids.
+        :param entity_ids: Optional explicit fit ids.
+        :param pair_expanded_ids: Unused training IDs with duplicates.
+        :param pair_expanded_es_ids: Unused early-stopping IDs.
         :returns: Fitted featurizer instance.
         """
-        ids = np.unique(
-            entity_ids if entity_ids is not None else context.unique_train_ids if context else source.identifiers
-        )
+        _ = pair_expanded_ids, pair_expanded_es_ids
+        ids = np.unique(entity_ids if entity_ids is not None else source.identifiers)
         matrix = np.arcsinh(source.get_view_matrix("gene_expression", ids))
         self._scaler.fit(matrix)
         scaled = self._scaler.transform(matrix)

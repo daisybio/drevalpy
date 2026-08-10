@@ -9,7 +9,6 @@ import numpy as np
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock, graph_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.core.features.feature_source import FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
@@ -39,16 +38,18 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ) -> DrugGraphFeaturizer:
         """Cache graph payloads and infer node feature width from the first graph.
 
         :param source: Feature source providing drug graph views.
         :param entity_ids: Drug identifiers to fit on; all entities when ``None``.
-        :param context: Unused featurizer fit context.
+        :param pair_expanded_ids: Unused training IDs with duplicates.
+        :param pair_expanded_es_ids: Unused early-stopping IDs.
         :returns: Fitted featurizer instance.
         """
-        _ = context
+        _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
         self._graphs = {}
         for drug_id in ids:

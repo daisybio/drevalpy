@@ -10,7 +10,6 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.core.features.feature_source import FeatureSource
-from drevalpy.components.core.fitting.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 
@@ -39,20 +38,22 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         source: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
-        context: FeaturizerFitContext | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
     ) -> PharmaFormerGeneExpressionFeaturizer:
         """Fit StandardScaler and MinMaxScaler on pair-expanded training ids.
 
         :param source: Feature source providing view matrices.
-        :param entity_ids: Unused; training ids come from *context*.
-        :param context: Fit context with pair-expanded training cell-line ids.
+        :param entity_ids: Unused; training ids come from *pair_expanded_ids*.
+        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
+        :param pair_expanded_es_ids: Unused early-stopping IDs.
         :returns: Fitted featurizer instance.
-        :raises ValueError: If *context* is missing.
+        :raises ValueError: If *pair_expanded_ids* is missing.
         """
-        _ = entity_ids
-        if context is None:
-            raise ValueError("pharmaFormerGeneExpression requires FeaturizerFitContext")
-        matrix = source.get_view_matrix("gene_expression", context.pair_expanded_train_ids)
+        _ = entity_ids, pair_expanded_es_ids
+        if pair_expanded_ids is None:
+            raise ValueError("pharmaFormerGeneExpression requires pair_expanded_ids")
+        matrix = source.get_view_matrix("gene_expression", pair_expanded_ids)
         self._minmax.fit(self._scaler.fit_transform(matrix))
         self._feature_names = source.get_feature_names("gene_expression")
         self._output_dim = int(matrix.shape[1])
