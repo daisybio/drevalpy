@@ -56,8 +56,7 @@ See `docs/python/custom_models.rst` for a complete external extension walkthroug
   `construct_model("ElasticNet")`
 - `ModelConfig.create_model()` — use `construct_model(...)()` instead
 - Deep imports such as `drevalpy.models.baselines.*` or `drevalpy.models.DIPK.*`
-- Legacy checkpoint formats (including `composed_model.joblib`) — retrain and
-  save via `model.save` / `ModelClass.load` (`*.zip` archives, format
+- Checkpoints use `model.save` / `ModelClass.load` (`*.zip` archives, format
   `drevalpy-model`)
 - Iterating `get_hyperparameter_set()` as a full grid — use
   `hyperparameter_tuning=True` or `get_structured_hyperparameter_space()`
@@ -68,4 +67,4 @@ See `docs/python/custom_models.rst` for a complete external extension walkthroug
 ## Unsupported
 
 - Direct `DRPModel` subclass authoring as the documented extension path
-- Fitted-state introspection on legacy attributes (`.model`, private scalers, naive means)
+- Direct fitted-state introspection (use `model.save`/`ModelClass.load` instead)

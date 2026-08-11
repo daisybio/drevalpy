@@ -240,7 +240,7 @@ def test_model_recipe_rejects_blank_specs(spec: str) -> None:
 
 
 def test_colon_inside_a_view_is_not_a_slot_separator() -> None:
-    """The old ``str.split(':')`` was bracket-unaware; the grammar is not."""
+    """A colon inside brackets is not treated as a slot separator."""
     with pytest.raises(ValueError, match="Malformed model recipe"):
         parse_model_recipe("raw[a:b]:fingerprints:randomForest")
 

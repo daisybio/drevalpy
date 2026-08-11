@@ -296,7 +296,7 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
         :param standardize: Whether to z-score features after loading.
         :param minmax_scale: Whether to min-max scale features after loading.
         :param arcsinh: Whether to apply ``arcsinh`` transform after loading.
-        :param kwargs: Ignored legacy keyword arguments.
+        :param kwargs: Ignored keyword arguments.
         """
         super().__init__(
             view=view,

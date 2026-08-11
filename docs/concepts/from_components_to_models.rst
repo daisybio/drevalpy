@@ -469,7 +469,7 @@ selector in one slot is rejected.
 At construction time, DrEvalPy accepts the same qualified keys. When a local
 parameter name is unique in the stack (for example ``alpha`` on a single
 predictor), you may also pass the short name. When the same local name appears
-on more than one component, use qualified keys or a documented legacy alias.
+on more than one component, use qualified keys or a documented alias.
 DrEvalPy rejects ambiguous short names instead of broadcasting one value to
 every matching component.
 

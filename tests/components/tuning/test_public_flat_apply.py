@@ -16,15 +16,6 @@ def _register_components() -> None:
     register_builtins.register_builtin_components()
 
 
-def test_view_keys_rejected() -> None:
-    config = get_zoo_config("MultiViewRandomForest")
-    with pytest.raises(ValueError, match=r"Legacy view keys|no longer supported"):
-        apply_public_hyperparameters_to_config(
-            config,
-            {"cell_line_views": ["gene_expression"], "n_estimators": 12},
-        )
-
-
 def test_methylation_pca_components_alias() -> None:
     config = get_zoo_config("MultiViewRandomForest")
     updated = apply_public_hyperparameters_to_config(config, {"methylation_pca_components": 7})

@@ -32,7 +32,7 @@ class MockFeatureSource:
 
     @property
     def features(self) -> dict[str, dict[str, Any]]:
-        """Direct access to the backing features dict (for legacy test code)."""
+        """Direct access to the backing features dict."""
         return self._features
 
     def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:

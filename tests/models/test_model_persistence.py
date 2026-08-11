@@ -21,7 +21,7 @@ from drevalpy.models._model_persistence import (
     resolve_checkpoint_path,
     save_model,
 )
-from drevalpy.models.config import ModelScope, from_spec
+from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
     lco_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,
@@ -97,54 +97,6 @@ def test_load_model_supports_custom_model_names() -> None:
     assert loaded._stack.is_fitted()
 
 
-def _legacy_v1_payload(stored_scope: str) -> dict[str, object]:
-    return {
-        "format": FORMAT_NAME,
-        "version": 1,
-        "model_name": "SingleDrugElasticNet",
-        "config": {
-            "cell_line_featurizer": {
-                "name": "scaledGeneExpression",
-                "registry": "cell_line",
-                "view": None,
-                "hyperparameters": {},
-            },
-            "drug_featurizer": {
-                "name": "identity",
-                "registry": "drug",
-                "view": None,
-                "hyperparameters": {},
-            },
-            "predictor": {
-                "name": "singleDrugElasticNet",
-                "hyperparameters": {"alpha": 0.1, "l1_ratio": 0.5},
-            },
-            "prediction_mode": "regression",
-            "scope": stored_scope,
-        },
-        "state": {},
-    }
-
-
-@pytest.mark.parametrize("stored_scope", ["single_drug", "multi_drug"])
-def test_legacy_v1_checkpoint_ignores_the_recorded_scope(stored_scope: str) -> None:
-    """Version-1 checkpoints recorded a scope; it is now read off the predictor instead.
-
-    Both an agreeing and a stale recorded value must load, and both must come back
-    single-drug, because ``singleDrugElasticNet`` is a per-drug predictor.
-
-    :param stored_scope: Value the old checkpoint wrote under its ``scope`` key.
-    """
-    with tempfile.TemporaryDirectory() as directory:
-        archive = _write_archive(Path(directory) / "legacy.zip", _legacy_v1_payload(stored_scope))
-        model_name, config, state = load_model_payload(str(archive))
-    assert model_name == "SingleDrugElasticNet"
-    assert config.template.scope is ModelScope.SINGLE_DRUG
-    assert config.template.model_id == "scaledGeneExpression:singleDrugElasticNet"
-    assert config.predictor_values()["alpha"] == 0.1
-    assert state == {}
-
-
 def test_load_missing_checkpoint_raises_file_not_found() -> None:
     with tempfile.TemporaryDirectory() as directory:
         with pytest.raises(FileNotFoundError, match="Missing model checkpoint"):
@@ -194,7 +146,12 @@ def test_resolve_checkpoint_path_appends_zip() -> None:
     [
         ("not-a-mapping", CorruptedCheckpointError, "not a mapping"),
         (
-            {"format": "legacy", "version": 0, "model_name": "ElasticNet", "config": {}, "state": {}},
+            {"format": "unknown-format", "version": 0, "model_name": "ElasticNet", "config": {}, "state": {}},
+            UnsupportedCheckpointFormatError,
+            "unsupported checkpoint format/version",
+        ),
+        (
+            {"format": FORMAT_NAME, "version": 1, "model_name": "ElasticNet", "config": {}, "state": {}},
             UnsupportedCheckpointFormatError,
             "unsupported checkpoint format/version",
         ),

@@ -9,7 +9,6 @@ from typing import Any
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
-from drevalpy.models.tuning.compatibility_keys import LEGACY_FEATURIZER_FLAT_KEYS
 
 from .search_space import (
     _featurizer_prefix,
@@ -48,7 +47,7 @@ class HyperparameterTarget:
 
 @dataclass(frozen=True, slots=True)
 class HyperparameterOwnershipIndex:
-    """Maps short, qualified, and legacy alias keys to component targets."""
+    """Maps short, qualified, and alias keys to component targets."""
 
     targets: tuple[HyperparameterTarget, ...]
     qualified_to_target: dict[str, HyperparameterTarget]
@@ -90,7 +89,7 @@ def _append_featurizer_targets(
         targets.append(HyperparameterTarget(slot=slot, selector=selector, param=param))
 
 
-def _legacy_alias_targets(targets: tuple[HyperparameterTarget, ...]) -> dict[str, str]:
+def _alias_targets(targets: tuple[HyperparameterTarget, ...]) -> dict[str, str]:
     aliases: dict[str, str] = {}
     qualified_set = {target.qualified_key for target in targets}
 
@@ -99,14 +98,6 @@ def _legacy_alias_targets(targets: tuple[HyperparameterTarget, ...]) -> dict[str
         aliases["methylation_n_components"] = methylation_key
         aliases["methylation_pca_components"] = methylation_key
 
-    for target in targets:
-        if target.slot not in {_CELL_LINE_SLOT, _DRUG_SLOT}:
-            continue
-        registry = "cell_line" if target.slot == _CELL_LINE_SLOT else "drug"
-        legacy = LEGACY_FEATURIZER_FLAT_KEYS.get((registry, target.selector), {})
-        for component_key, flat_key in legacy.items():
-            if target.param == component_key:
-                aliases[flat_key] = target.qualified_key
     return aliases
 
 
@@ -156,7 +147,7 @@ def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
         targets=target_tuple,
         qualified_to_target=qualified_to_target,
         short_to_targets={key: tuple(group) for key, group in short_groups.items()},
-        alias_to_qualified=_legacy_alias_targets(target_tuple),
+        alias_to_qualified=_alias_targets(target_tuple),
     )
 
 

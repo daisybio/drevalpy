@@ -125,7 +125,7 @@ Build the HTML report:
 drevalpy report --run_id my_first_run --dataset_name TOYv1
 ```
 
-Open `index.html` under the run’s results folder in your browser. The legacy entry point `drevalpy-report` is equivalent.
+Open `index.html` under the run’s results folder in your browser. The entry point `drevalpy-report` is equivalent.
 
 More CLI options: [CLI quickstart](https://drevalpy.readthedocs.io/en/latest/cli/quickstart.html).
 

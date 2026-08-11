@@ -6,7 +6,6 @@ from typing import Any
 
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.models.tuning.compatibility_keys import PUBLIC_VIEW_KEYS
 from drevalpy.models.tuning.hyperparameter_export import (
     export_public_mapping,
     export_public_mapping_from_resolved,
@@ -28,19 +27,9 @@ def apply_public_hyperparameters_to_config(
     :param config: Immutable ``ModelConfig`` template.
     :param mapping: Public flat hyperparameter mapping.
     :returns: Resolved instance configuration.
-    :raises ValueError: If legacy view keys are present in *mapping*.
     """
     if not mapping:
         return resolve_model_config(config)
-
-    present = sorted(PUBLIC_VIEW_KEYS & mapping.keys())
-    if present:
-        msg = (
-            f"Legacy view keys {present!r} are no longer supported. "
-            "Use explicit cell_line_featurizer/drug_featurizer blocks, recipe strings "
-            "(e.g. raw[view]:fingerprints:randomForest), or dotted HPO keys instead."
-        )
-        raise ValueError(msg)
 
     normalized = dict(mapping)
     if "methylation_n_components" not in normalized and "methylation_pca_components" in normalized:
@@ -58,18 +47,15 @@ def apply_public_hyperparameters_to_config(
 
 def public_hyperparameters_from_config(
     config: ModelConfig | ResolvedModelConfig,
-    *,
-    include_view_keys: bool = False,
 ) -> dict[str, Any]:
     """Export a model config into a collision-aware public hyperparameter mapping.
 
     :param config: Template or resolved configuration.
-    :param include_view_keys: include view keys.
     :returns: Result.
     """
     if isinstance(config, ResolvedModelConfig):
-        return export_public_mapping_from_resolved(config, include_view_keys=include_view_keys)
-    return export_public_mapping(config, include_view_keys=include_view_keys)
+        return export_public_mapping_from_resolved(config)
+    return export_public_mapping(config)
 
 
 def config_from_public_hyperparameters(

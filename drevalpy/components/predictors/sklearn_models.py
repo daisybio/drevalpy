@@ -222,12 +222,6 @@ class SVRPredictor(SklearnTabularPredictor):
 class GradientBoostingPredictor(SklearnTabularPredictor):
     """Gradient boosting predictor component."""
 
-    # Legacy public keys accepted for compatibility with older experiment YAMLs/tests.
-    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
-        "n_estimators": 100,
-        "subsample": 1.0,
-    }
-
     def _make_estimator(self):
         max_iter = int(self._h.get("max_iter", self._h.get("n_estimators", 100)))
         return HistGradientBoostingRegressor(
@@ -291,11 +285,6 @@ class AdaBoostPredictor(SklearnTabularPredictor):
 )
 class KNNPredictor(SklearnTabularPredictor):
     """Knnpredictor component."""
-
-    # Legacy variance-threshold key accepted but unused by the estimator itself.
-    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
-        "variance": 0.0,
-    }
 
     def _make_estimator(self):
         return KNeighborsRegressor(

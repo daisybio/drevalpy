@@ -88,7 +88,7 @@ def test_zoo_model_config_merges_hyperparameters() -> None:
 
 
 def test_zoo_model_config_rejects_view_keys() -> None:
-    with pytest.raises(ValueError, match=r"Legacy view keys|no longer supported"):
+    with pytest.raises(ValueError, match=r"Unknown hyperparameter"):
         zoo_model_config(
             "ElasticNet",
             {"cell_line_views": ["gene_expression"], "alpha": 0.1},

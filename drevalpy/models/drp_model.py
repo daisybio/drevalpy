@@ -248,16 +248,16 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin):
         """Train the component stack.
 
         Supports the Dataset path (positional: mudataset, scope/split) and the
-        legacy internal path (output, cell_line_input, drug_input).
+        internal path (output, cell_line_input, drug_input).
 
         :param mudataset: Dataset containing response data and all features.
         :param scope: SplitMask defining train indices for this fold.
         :param split: (compat) SplitMasks; converted to SplitMask internally.
         :param early_stopping_scope: Optional SplitMask for early stopping.
-        :param output: (legacy) ResponseBatch for training pairs.
-        :param cell_line_input: (legacy) FeatureSource for cell lines.
-        :param drug_input: (legacy) FeatureSource for drugs, or None.
-        :param output_earlystopping: (legacy) Optional early-stopping dataset.
+        :param output: ResponseBatch for training pairs.
+        :param cell_line_input: FeatureSource for cell lines.
+        :param drug_input: FeatureSource for drugs, or None.
+        :param output_earlystopping: Optional early-stopping dataset.
         :param model_checkpoint_dir: Directory for predictor checkpoints.
         :raises RuntimeError: If the model lacks a component stack.
         """
@@ -302,7 +302,7 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin):
                 )
             return
 
-        # Legacy ResponseBatch + FeatureSource path
+        # ResponseBatch + FeatureSource path
         if output is not None and cell_line_input is not None:
             self._empty_training = len(output) == 0
             if not self._empty_training:

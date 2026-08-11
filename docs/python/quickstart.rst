@@ -76,6 +76,5 @@ but emit ``FutureWarning`` and may be removed in a future release. Prefer
 
    ElasticNet = MODEL_FACTORY["ElasticNet"]
 
-The old ``MODEL_FACTORY`` cannot resolve custom recipe strings or externally
-registered zoo entries. ``construct_model`` covers those paths. Further
-migration notes live on :doc:`models`.
+``MODEL_FACTORY`` cannot resolve custom recipe strings or externally
+registered zoo entries. Use ``construct_model`` instead.

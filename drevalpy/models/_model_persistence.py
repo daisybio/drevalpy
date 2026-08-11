@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any
 import joblib
 from upath import UPath as Path
 
-from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 
 if TYPE_CHECKING:
@@ -138,20 +137,6 @@ def _resolved_config_from_checkpoint_payload(payload: dict[str, Any]) -> Resolve
     version = payload.get("version")
     if version == 2:
         return ResolvedModelConfig.model_validate(payload["config"])
-    if version == 1:
-        legacy = payload["config"]
-        if not isinstance(legacy, dict):
-            raise CorruptedCheckpointError("legacy config is not a mapping")
-        template_payload = {
-            "cell_line_featurizer": _strip_legacy_hyperparameters(legacy.get("cell_line_featurizer")),
-            "drug_featurizer": _strip_legacy_hyperparameters(legacy.get("drug_featurizer")),
-            "predictor": _strip_legacy_hyperparameters(legacy.get("predictor")),
-            "prediction_mode": legacy.get("prediction_mode", "regression"),
-        }
-        template = ModelConfig.model_validate(template_payload)
-        from drevalpy.models.tuning.search_space import resolve_model_config
-
-        return resolve_model_config(template, _legacy_concrete_overrides(legacy, template))
     raise UnsupportedCheckpointFormatError(
         f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}"
     )
@@ -192,81 +177,6 @@ def load_model_payload(path: str | Path) -> tuple[str, ResolvedModelConfig, dict
     if not isinstance(state, dict):
         raise CorruptedCheckpointError("checkpoint state is not a mapping")
     return model_name, config, state
-
-
-def _strip_legacy_hyperparameters(node: Any) -> Any:
-    if not isinstance(node, dict):
-        return node
-    payload = dict(node)
-    hyperparameters = payload.pop("hyperparameters", None)
-    if isinstance(hyperparameters, dict) and "featurizers" in hyperparameters:
-        payload["featurizers"] = [
-            _strip_legacy_hyperparameters(child) for child in hyperparameters.get("featurizers", [])
-        ]
-    if "featurizers" in payload and isinstance(payload["featurizers"], list):
-        payload["featurizers"] = [_strip_legacy_hyperparameters(child) for child in payload["featurizers"]]
-    return payload
-
-
-def _legacy_featurizer_slot(registry: str) -> str:
-    return "cell_line_featurizer" if registry == "cell_line" else "drug_featurizer"
-
-
-def _collect_legacy_featurizer_overrides(
-    node: Any,
-    registry: str,
-    overrides: dict[str, Any],
-) -> None:
-    from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
-
-    if not isinstance(node, dict):
-        return
-    hyperparameters = node.get("hyperparameters") or {}
-    if not isinstance(hyperparameters, dict):
-        return
-    name = str(node.get("name", ""))
-    if name == "concatFeaturizers":
-        for child in hyperparameters.get("featurizers", []):
-            _collect_legacy_featurizer_overrides(child, registry, overrides)
-        return
-    view = node.get("view")
-    selector = qualified_featurizer_selector(name, view if isinstance(view, str) else None)
-    slot = _legacy_featurizer_slot(registry)
-    for key, value in hyperparameters.items():
-        if key in {"featurizers", "view", "views"}:
-            continue
-        overrides[f"{slot}.{selector}.{key}"] = value
-
-
-def _collect_legacy_predictor_overrides(
-    legacy: dict[str, Any],
-    template: ModelConfig,
-    overrides: dict[str, Any],
-) -> None:
-    predictor = legacy.get("predictor")
-    if not isinstance(predictor, dict):
-        return
-    name = str(predictor.get("name", template.predictor.name))
-    for key, value in (predictor.get("hyperparameters") or {}).items():
-        overrides[f"predictor.{name}.{key}"] = value
-
-
-def _touch_template_featurizer_leaves(template: ModelConfig) -> None:
-    from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
-
-    if template.cell_line_featurizer is not None:
-        list(iter_featurizer_leaves(template.cell_line_featurizer, "cell_line"))
-    if template.drug_featurizer is not None:
-        list(iter_featurizer_leaves(template.drug_featurizer, "drug"))
-
-
-def _legacy_concrete_overrides(legacy: dict[str, Any], template: ModelConfig) -> dict[str, Any]:
-    overrides: dict[str, Any] = {}
-    _collect_legacy_featurizer_overrides(legacy.get("cell_line_featurizer"), "cell_line", overrides)
-    _collect_legacy_featurizer_overrides(legacy.get("drug_featurizer"), "drug", overrides)
-    _collect_legacy_predictor_overrides(legacy, template, overrides)
-    _touch_template_featurizer_leaves(template)
-    return overrides
 
 
 def load_model(path: str | Path) -> DRPModel:

@@ -159,48 +159,27 @@ def _compact_export_entries(
 def export_public_mapping(
     config: ModelConfig,
     *,
-    include_view_keys: bool = False,
     values: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Export a deterministic collision-aware public hyperparameter mapping.
 
     :param config: Template model configuration.
-    :param include_view_keys: include view keys.
     :param values: Optional concrete qualified values from a resolved config.
     :returns: Result.
     """
     index = build_ownership_index(config)
-    exported = _compact_export_entries(_collect_export_entries(config, index, values=values))
-    if include_view_keys:
-        cell_line_views = config.cell_line_views()
-        drug_views = config.drug_views()
-        if cell_line_views:
-            exported["cell_line_views"] = cell_line_views
-        if drug_views:
-            exported["drug_views"] = drug_views
-    return exported
+    return _compact_export_entries(_collect_export_entries(config, index, values=values))
 
 
 def export_public_mapping_from_resolved(
     resolved: Any,
-    *,
-    include_view_keys: bool = False,
 ) -> dict[str, Any]:
     """Export public hyperparameters from a resolved instance config.
 
     :param resolved: ``ResolvedModelConfig`` instance.
-    :param include_view_keys: Whether to include view keys.
     :returns: Compact public hyperparameter mapping.
     """
-    exported = export_public_mapping(
+    return export_public_mapping(
         resolved.template,
         values=dict(resolved.values),
     )
-    if include_view_keys:
-        cell_line_views = resolved.cell_line_views()
-        drug_views = resolved.drug_views()
-        if cell_line_views:
-            exported["cell_line_views"] = cell_line_views
-        if drug_views:
-            exported["drug_views"] = drug_views
-    return exported

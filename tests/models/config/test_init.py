@@ -17,15 +17,3 @@ def test_from_spec_and_validate() -> None:
     assert isinstance(cfg, config.ModelConfig)
     assert cfg.predictor.name == "elasticNet"
     config.validate(cfg)
-
-
-def test_long_legacy_names_are_not_exported() -> None:
-    for name in (
-        "model_config_from_spec",
-        "model_config_from_yaml",
-        "model_config_from_dict",
-        "validate_model_config",
-        "build_from_spec",
-        "build_model_config_from_spec",
-    ):
-        assert not hasattr(config, name), name

@@ -172,7 +172,7 @@ error and lists the accepted **qualified** keys. Target one slot explicitly:
        }
    )
 
-Legacy aliases such as ``methylation_n_components`` remain accepted on input.
+Aliases such as ``methylation_n_components`` remain accepted on input.
 Hyperparameters are fixed after construction; create a new instance to change
 them.
 
@@ -224,13 +224,11 @@ Named root exports (``ElasticNetModel``, ``DIPKModel``, …) are removed. Use
 ``construct_model(name_or_recipe)()`` or ``construct_model(name, config)()``.
 
 Deep imports such as ``drevalpy.models.DIPK.dipk`` or
-``drevalpy.models.baselines.*`` no longer resolve. Resolve models with
+``drevalpy.models.baselines.*`` are not supported. Resolve models with
 ``construct_model`` from ``drevalpy.models``.
 
-Flat ``cell_line_views`` / ``drug_views`` in constructor or hpam YAML are
-removed. Set ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or
-a recipe string instead (see :doc:`datasets`).
+Configure ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or
+a recipe string (see :doc:`datasets`).
 
-Legacy checkpoint formats (including pickled ``.model`` attributes, standalone
-scalers, and ``composed_model.joblib``) are not loadable. Retrain and persist
-via ``model.save`` / ``ModelClass.load`` (``*.zip`` archives).
+Only ``*.zip`` archives created by ``model.save`` / ``ModelClass.load`` are
+supported as checkpoint format.

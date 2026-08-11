@@ -22,7 +22,6 @@ from drevalpy.utils.torch_io import (
     load_trusted_mapping,
     load_trusted_payload,
     save_torch_payload,
-    save_trusted_mapping,
 )
 
 
@@ -84,18 +83,6 @@ def test_load_trusted_payload_restores_graph_objects(tmp_path: Path) -> None:
     assert isinstance(loaded, Data)
     assert torch.equal(loaded.x, graph.x)
     assert torch.equal(loaded.edge_index, graph.edge_index)
-
-
-def test_legacy_trusted_checkpoint_compatibility() -> None:
-    payload = {
-        "hyperparameters": {"max_epochs": 1},
-        "input_dim": 4,
-        "state_dict": {"net.weight": torch.randn(2, 4)},
-    }
-    restored = load_trusted_mapping(save_trusted_mapping(payload))
-    assert restored["input_dim"] == 4
-    assert restored["hyperparameters"] == {"max_epochs": 1}
-    assert "net.weight" in restored["state_dict"]
 
 
 def test_load_torch_payload_rejects_invalid_bytes() -> None:

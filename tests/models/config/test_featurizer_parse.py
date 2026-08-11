@@ -183,21 +183,6 @@ def test_one_key_body_folds_loose_values(
         assert payload["options"] == expected_options
 
 
-def test_legacy_hyperparameters_mapping_points_at_the_replacement() -> None:
-    """The removed notation reports the one-key form that replaces it."""
-    with pytest.raises(ValueError, match="no longer accept a nested 'hyperparameters' mapping"):
-        normalize_featurizer_config(
-            {"name": "pca", "view": "methylation", "hyperparameters": {"n_components": 8}},
-            default_registry="cell_line",
-        )
-
-
-def test_legacy_hyperparameters_without_a_name_still_reports_the_replacement() -> None:
-    """``hyperparameters`` is reserved, so it cannot be mistaken for a one-key shorthand."""
-    with pytest.raises(ValueError, match="no longer accept a nested 'hyperparameters' mapping"):
-        normalize_featurizer_config({"hyperparameters": {"n_components": 8}}, default_registry="cell_line")
-
-
 def test_non_atom_one_key_falls_back_to_the_registry_error() -> None:
     """A key that is not a single atom is looked up verbatim, so the registry reports it."""
     with pytest.raises(ValueError, match="Unknown Cell line featurizer: 'a\\+b'"):

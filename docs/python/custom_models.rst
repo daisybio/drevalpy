@@ -263,7 +263,7 @@ built a ``ModelInputBatch``. Prefer the three interfaces above:
      - ``batch.cell_line_blocks`` / ``drug_blocks``
    * - Per-drug dense estimators
      - ``SingleDrugSklearnPredictor`` pattern
-     - ``ModelInputBatch`` (not the legacy bridge)
+     - ``ModelInputBatch``
 
 ``FeatureSource`` is the correct type for loading raw entity views into
 ``DRPModel`` / featurizers. Only rebuilding features *inside* a

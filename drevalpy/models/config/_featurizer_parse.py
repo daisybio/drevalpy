@@ -252,27 +252,6 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
     )
 
 
-def _reject_legacy_hyperparameters(data: dict[str, Any]) -> None:
-    """Report the removed ``hyperparameters:`` mapping in terms of its replacement.
-
-    The notation used to nest parameter values one level deeper. Writing them directly under
-    the featurizer name means the same thing, so the fix is mechanical.
-
-    :param data: Featurizer mapping to inspect.
-    :raises ValueError: If *data* carries a ``hyperparameters`` key.
-    """
-    if "hyperparameters" not in data:
-        return
-    name = data.get("name")
-    example = f"{name}:" if isinstance(name, str) and name else "<featurizer>:"
-    msg = (
-        "Featurizer configs no longer accept a nested 'hyperparameters' mapping. Write the "
-        f"values directly under the featurizer name instead, as in '{example}' with the "
-        "parameters below it, or set 'hyperparameter_space' / 'options' explicitly."
-    )
-    raise ValueError(msg)
-
-
 def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line") -> dict[str, Any]:
     """Normalize a featurizer mapping into a canonical field mapping.
 
@@ -294,8 +273,6 @@ def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line
     if not isinstance(data, dict):
         msg = f"Featurizer config must be a list or mapping, got {type(data)!r}"
         raise TypeError(msg)
-
-    _reject_legacy_hyperparameters(data)
 
     if "name" in data:
         return _normalize_named_featurizer_dict(data, default_registry=default_registry)

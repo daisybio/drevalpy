@@ -101,7 +101,7 @@ def test_pca_methylation_pca_components_alias_round_trip() -> None:
 
 
 def test_cell_line_views_override_on_configure_path_rejected() -> None:
-    with pytest.raises(ValueError, match=r"Legacy view keys|no longer supported"):
+    with pytest.raises(ValueError, match=r"Unknown hyperparameter"):
         config_from_public_hyperparameters(
             construct_model("MultiViewRandomForest"),
             {"cell_line_views": ["gene_expression"]},

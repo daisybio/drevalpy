@@ -368,7 +368,7 @@ class Featurizer(ABC):
         return {key: spec["default"] for key, spec in space.items()}
 
     def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state for legacy save/load bridges.
+        """Return serializable fitted state for checkpoint persistence.
 
         :returns: JSON-serializable mapping of fitted attributes.
         """

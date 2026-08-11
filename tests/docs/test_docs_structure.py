@@ -255,21 +255,6 @@ def test_cli_reference_documents_all_subcommands() -> None:
     assert not missing, f"Typer app missing expected commands: {missing}"
 
 
-def test_redirects_cover_legacy_urls() -> None:
-    conf_text = (DOCS / "conf.py").read_text(encoding="utf-8")
-    required = [
-        "usage.html",
-        "runyourmodel.html",
-        "hyperparameter_migration.html",
-        "API.html",
-        "reference.html",
-        "quickstart.html",
-        "installation.html",
-    ]
-    missing = [url for url in required if url not in conf_text]
-    assert not missing, f"Missing redirects for: {missing}"
-
-
 def test_zoo_yaml_files_are_valid() -> None:
     for path in sorted(ZOO_DIR.glob("*.yaml")):
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))

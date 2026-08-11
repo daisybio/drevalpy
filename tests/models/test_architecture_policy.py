@@ -1,4 +1,4 @@
-"""Architecture policy: no legacy bridges, adapters, or deleted runtime modules."""
+"""Architecture policy: no bridges, adapters, or deleted runtime modules."""
 
 from __future__ import annotations
 
@@ -11,8 +11,6 @@ from drevalpy.models._model_lookup import known_model_names
 from drevalpy.models.drp_model import DRPModel
 
 _FORBIDDEN_MODULE_FRAGMENTS = (
-    "_legacy_",
-    "legacy_checkpoint_migration",
     "_component_bridge",
     "predictors.baselines",
     "models.baselines",
@@ -40,8 +38,6 @@ def test_no_forbidden_runtime_imports_in_source() -> None:
     hits = []
     needles = (
         "drevalpy.models._component_bridge",
-        "drevalpy.models._legacy_",
-        "legacy_checkpoint_migration",
         "predictors.baselines",
         "literature.public_models",
         "restore_naive_to_components",

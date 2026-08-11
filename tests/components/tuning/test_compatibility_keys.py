@@ -1,4 +1,4 @@
-"""Tests for legacy flat-key compatibility helpers."""
+"""Tests for flat-key compatibility helpers."""
 
 from __future__ import annotations
 

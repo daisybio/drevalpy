@@ -1,8 +1,7 @@
 """MuData-backed dataset class for drevalpy.
 
 ``Dataset`` wraps a MuData object and provides typed access to response data,
-cell-line and drug features, metadata, and auxiliary model data. It replaces both
-legacy response arrays and feature dicts with a single entry point backed by an
+cell-line and drug features, metadata, and auxiliary model data backed by an
 .h5mu file.
 """
 
