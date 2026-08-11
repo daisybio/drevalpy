@@ -9,9 +9,8 @@ from .feature_block import (
     numeric_feature_block,
     ragged_feature_block,
 )
-from .model_input_batch import ModelInputBatch
+from .model_input_batch import ModelInputBatch, pair_cell_line_indices, pair_drug_indices
 from .model_input_build import build_model_input_batch
-from .pair_features import pair_cell_line_indices, pair_drug_indices
 
 __all__ = [
     "BlockSpec",

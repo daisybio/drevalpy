@@ -24,6 +24,10 @@ class _StubSource(FeatureSource):
     def identifiers(self) -> np.ndarray:
         return self._identifiers
 
+    @property
+    def mdata(self) -> None:
+        return None
+
     def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:
         idx_map = {eid: i for i, eid in enumerate(self._identifiers)}
         indices = [idx_map[eid] for eid in entity_ids]

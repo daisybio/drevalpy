@@ -26,8 +26,8 @@ def attach_sparsego_ontology_metadata(source: FeatureSource, metadata: SparseGOO
     """
     if hasattr(source, "_meta_info"):
         source._meta_info["sparsego_ontology"] = metadata
-    elif hasattr(source, "_mu"):
-        source._mu._mdata.uns["sparsego_ontology"] = metadata
+    elif hasattr(source, "_dataset"):
+        source._dataset._mdata.uns["sparsego_ontology"] = metadata
     else:
         raise TypeError(f"Cannot attach metadata to {type(source).__name__}")
 

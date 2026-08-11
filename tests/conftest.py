@@ -11,10 +11,11 @@ import pandas as pd
 import pytest
 
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_source import FeatureSource
 
 
-class MockFeatureSource:
-    """Test helper satisfying the FeatureSource protocol."""
+class MockFeatureSource(FeatureSource):
+    """Test helper implementing the FeatureSource ABC."""
 
     def __init__(self, features: dict[str, dict[str, Any]], meta_info: dict[str, Any] | None = None):
         """Initialize with features dict and optional metadata.
@@ -29,6 +30,11 @@ class MockFeatureSource:
     def identifiers(self) -> np.ndarray:
         """All available entity IDs."""
         return np.array(list(self._features.keys()))
+
+    @property
+    def mdata(self) -> Any:
+        """No MuData backing for mocks."""
+        return None
 
     @property
     def features(self) -> dict[str, dict[str, Any]]:

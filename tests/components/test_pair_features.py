@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.types.data.batch.pair_features import pair_cell_line_indices, pair_drug_indices
+from drevalpy.types.data.batch.model_input_batch import pair_cell_line_indices, pair_drug_indices
 
 
 def test_pair_cell_line_indices_maps_ids() -> None:
