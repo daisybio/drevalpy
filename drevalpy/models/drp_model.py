@@ -320,112 +320,44 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin):
 
         raise TypeError("train() requires either (mudataset, scope) or (output, cell_line_input)")
 
-    def _resolve_predict_args(
-        self,
-        mudataset_or_cell_line_ids,
-        scope_or_drug_ids,
-        cell_line_input,
-        drug_input,
-        *,
-        mudataset: Dataset | None,
-        scope: SplitMask | None,
-        split: SplitMasks | None,
-        cell_line_ids: np.ndarray | None,
-        drug_ids: np.ndarray | None,
-    ) -> tuple[Dataset | None, SplitMask | None, np.ndarray | None, np.ndarray | None, Any, Any]:
-        """Resolve overloaded positional/keyword args for predict()."""
-        mudataset, cell_line_ids, drug_ids = self._resolve_predict_positional(
-            mudataset_or_cell_line_ids, scope_or_drug_ids, mudataset, cell_line_ids, drug_ids
-        )
-        scope, split = self._resolve_predict_scope(scope_or_drug_ids, scope, split)
-        if scope is None and split is not None:
-            scope = split.test
-        return mudataset, scope, cell_line_ids, drug_ids, cell_line_input, drug_input
-
-    @staticmethod
-    def _resolve_predict_positional(mudataset_or_cell_line_ids, scope_or_drug_ids, mudataset, cell_line_ids, drug_ids):
-        if mudataset is not None or mudataset_or_cell_line_ids is None:
-            return mudataset, cell_line_ids, drug_ids
-        if isinstance(mudataset_or_cell_line_ids, Dataset):
-            return mudataset_or_cell_line_ids, cell_line_ids, drug_ids
-        if cell_line_ids is None:
-            cell_line_ids = mudataset_or_cell_line_ids
-        if drug_ids is None:
-            drug_ids = scope_or_drug_ids
-        return mudataset, cell_line_ids, drug_ids
-
-    @staticmethod
-    def _resolve_predict_scope(scope_or_drug_ids, scope, split):
-        if scope is not None or scope_or_drug_ids is None:
-            return scope, split
-        if isinstance(scope_or_drug_ids, SplitMask):
-            return scope_or_drug_ids, split
-        if isinstance(scope_or_drug_ids, SplitMasks):
-            return scope, scope_or_drug_ids
-        return scope, split
-
     def predict(
         self,
-        mudataset_or_cell_line_ids=None,
-        scope_or_drug_ids=None,
-        cell_line_input=None,
-        drug_input=None,
-        *,
         mudataset: Dataset | None = None,
+        scope_or_split=None,
+        *,
         scope: SplitMask | None = None,
         split: SplitMasks | None = None,
-        cell_line_ids: np.ndarray | None = None,
-        drug_ids: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Predict responses.
-
-        Supports the Dataset path (positional: mudataset, scope/split) and the
-        legacy internal path (cell_line_ids, drug_ids, cell_line_input, drug_input).
+        """Predict responses for the test pairs in a split.
 
         :param mudataset: Dataset containing all features.
+        :param scope_or_split: Positional SplitMask or SplitMasks (compat).
         :param scope: SplitMask with indices to predict on.
-        :param split: (compat) SplitMasks; test indices converted to SplitMask.
+        :param split: SplitMasks; test indices used as scope.
         :returns: Predicted response values.
         :raises RuntimeError: If the model is untrained or lacks a component stack.
+        :raises TypeError: If required arguments are missing.
         """
         if self._stack is None:
             raise RuntimeError("Model has not been constructed with a component stack")
 
-        mudataset, scope, cell_line_ids, drug_ids, cell_line_input, drug_input = self._resolve_predict_args(
-            mudataset_or_cell_line_ids,
-            scope_or_drug_ids,
-            cell_line_input,
-            drug_input,
-            mudataset=mudataset,
-            scope=scope,
-            split=split,
-            cell_line_ids=cell_line_ids,
-            drug_ids=drug_ids,
-        )
+        if scope is None:
+            if isinstance(scope_or_split, SplitMask):
+                scope = scope_or_split
+            elif isinstance(scope_or_split, SplitMasks):
+                scope = scope_or_split.test
+            elif split is not None:
+                scope = split.test
 
-        # Legacy path: cell_line_ids, drug_ids, cell_line_input, drug_input
-        if cell_line_ids is not None and drug_ids is not None:
-            if self._empty_training:
-                return np.full(len(cell_line_ids), np.nan)
-            if not self._stack.is_fitted():
-                raise RuntimeError("Model has not been trained; call train() or load() before predict()")
-            return self._stack.predict_from_features(
-                cell_line_ids=cell_line_ids,
-                drug_ids=drug_ids,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-            )
+        if mudataset is None or scope is None:
+            raise TypeError("predict() requires (mudataset, scope) or (mudataset, split)")
 
-        # New Dataset path
-        if mudataset is not None and scope is not None:
-            if self._empty_training:
-                test_response = _ComponentStack._extract_response_pairs(mudataset, scope)
-                return np.full(len(test_response), np.nan)
-            if not self._stack.is_fitted():
-                raise RuntimeError("Model has not been trained; call train() or load() before predict()")
-            return self._stack.predict(mudataset, scope)
-
-        raise TypeError("predict() requires either (mudataset, scope) or (cell_line_ids, drug_ids, ...)")
+        if self._empty_training:
+            test_response = _ComponentStack._extract_response_pairs(mudataset, scope)
+            return np.full(len(test_response), np.nan)
+        if not self._stack.is_fitted():
+            raise RuntimeError("Model has not been trained; call train() or load() before predict()")
+        return self._stack.predict(mudataset, scope)
 
     def save(self, path: str | Path) -> None:
         """Persist model identity, config, and fitted component state.

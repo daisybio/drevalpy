@@ -8,8 +8,6 @@ import pytest
 from drevalpy.models import construct_model
 from drevalpy.models._component_stack import build_component_stack
 from drevalpy.models.config import from_spec
-from drevalpy.types.data.batch.response_batch import ResponseBatch
-from tests.conftest import MockFeatureSource
 from tests.models.synthetic_fixtures import (
     lco_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,
@@ -25,31 +23,6 @@ def test_sklearn_model_config_builds_runnable_model() -> None:
     preds = model.predict(mudataset, split)
     assert preds.shape == (2,)
     assert np.isfinite(preds).all()
-
-
-def test_build_component_stack_train_predict() -> None:
-    config = from_spec("scaledGeneExpression:fingerprints:ridge", hyperparameters={"alpha": 1.0})
-    stack = build_component_stack(config)
-    response = ResponseBatch(
-        response=np.array([1.0, 2.0]),
-        cell_line_ids=np.array(["cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d2"]),
-    )
-    cell_line_input = MockFeatureSource(
-        features={
-            "cl1": {"gene_expression": np.array([0.1, 0.2])},
-            "cl2": {"gene_expression": np.array([0.3, 0.4])},
-        }
-    )
-    drug_input = MockFeatureSource(
-        features={
-            "d1": {"morgan_fingerprint": np.array([1.0])},
-            "d2": {"morgan_fingerprint": np.array([0.0])},
-        }
-    )
-    stack._fit_featurizers_and_predictor(response, cell_line_input, drug_input)
-    preds = stack.predict_from_features(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
-    assert preds.shape == (2,)
 
 
 def test_naive_model_train_predict_on_synthetic_data() -> None:
