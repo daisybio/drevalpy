@@ -51,19 +51,6 @@ dependencies = [
 
 [project.scripts]
 drevalpy = "drevalpy.cli.main:cli_main"
-drevalpy-report = "drevalpy.cli.legacy:main"
-drevalpy-viability-preprocess = "drevalpy.cli.legacy:preprocess_raw_viability"
-drevalpy-viability-postprocess = "drevalpy.cli.legacy:postprocess_viability"
-drevalpy-load-response = "drevalpy.cli.legacy:load_response"
-drevalpy-make-cv-pkls = "drevalpy.cli.legacy:cv_split"
-drevalpy-make-hpam-yamls = "drevalpy.cli.legacy:hpam_split"
-drevalpy-evaluate-hpams = "drevalpy.cli.legacy:evaluate_and_find_max"
-drevalpy-make-randomization-yamls = "drevalpy.cli.legacy:randomization_split"
-drevalpy-train-final-model = "drevalpy.cli.legacy:train_final_model"
-drevalpy-consolidate-single-drug = "drevalpy.cli.legacy:consolidate_results"
-drevalpy-evaluate-test = "drevalpy.cli.legacy:evaluate_test_results"
-drevalpy-collect-results = "drevalpy.cli.legacy:collect_results"
-drevalpy-make-pipeline-report = "drevalpy.cli.legacy:pipeline_report"
 
 [dependency-groups]
 dev = [
