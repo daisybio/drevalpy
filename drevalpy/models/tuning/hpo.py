@@ -13,9 +13,7 @@ from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.tuning.config import HPOConfig, validate_hpo_metric
 from drevalpy.models.tuning.config_resolution import (
-    default_hyperparameters_for_drp_model,
     has_tunable_hyperparameters,
-    structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
 from drevalpy.models.tuning.hpo_runtime import run_optuna_study
@@ -78,7 +76,7 @@ def hpam_tune(
         msg = f"HPOConfig.metric ({cfg.metric!r}) must match metric argument ({metric!r})"
         raise ValueError(msg)
 
-    structured_space = structured_space_for_drp_model(model_class)
+    structured_space = model_class.get_structured_hyperparameter_space()
     if not structured_space or not has_tunable_hyperparameters(model_class):
         return model_class.get_default_hyperparameters(), []
     if cfg.n_trials == 0:
@@ -148,7 +146,7 @@ def _resolve_best_params(study, model_class: type[DRPModel]) -> dict[str, Any]:
             "Optuna tuning did not find a valid configuration; using defaults.",
             stacklevel=2,
         )
-        return default_hyperparameters_for_drp_model(model_class)
+        return model_class.get_default_hyperparameters()
 
     best_config = best_trial.params
     best_model_config = tuned_config_for_drp_model(model_class, best_config)

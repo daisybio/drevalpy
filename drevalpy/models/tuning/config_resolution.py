@@ -9,9 +9,7 @@ from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_lea
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 
-from ._model_config_base import base_model_config_for_drp_model
 from .search_space import (
-    merge_model_config_spaces,
     resolve_model_config,
 )
 
@@ -31,7 +29,7 @@ def default_config_for_drp_model(model_class: type[Any]) -> ResolvedModelConfig 
 
     :returns: Resolved config with component defaults, or ``None`` when the model has no modular config.
     """
-    config = base_model_config_for_drp_model(model_class)
+    config = model_class._resolve_base_config()
     if config is None:
         return None
     return resolve_model_config(config)
@@ -48,7 +46,7 @@ def tuned_config_for_drp_model(
 
     :returns: Resolved ``ResolvedModelConfig``, or ``None`` when the model has no modular config.
     """
-    config = base_model_config_for_drp_model(model_class)
+    config = model_class._resolve_base_config()
     if config is None:
         return None
     return resolve_model_config(config, merged_sample)
@@ -79,10 +77,7 @@ def structured_space_for_drp_model(model_class: type[Any]) -> dict[str, Any]:
 
     :returns: Flat search-space dict with prefixed component keys.
     """
-    config = base_model_config_for_drp_model(model_class)
-    if config is None:
-        return {}
-    return merge_model_config_spaces(config)
+    return model_class.get_structured_hyperparameter_space()
 
 
 def default_hyperparameters_for_drp_model(model_class: type[Any]) -> dict[str, Any]:
@@ -92,12 +87,7 @@ def default_hyperparameters_for_drp_model(model_class: type[Any]) -> dict[str, A
 
     :returns: Public flat hyperparameter mapping for the model's default config.
     """
-    from .public_flat import public_hyperparameters_from_config
-
-    config = default_config_for_drp_model(model_class)
-    if config is None:
-        return {}
-    return public_hyperparameters_from_config(config)
+    return model_class.get_default_hyperparameters()
 
 
 def has_tunable_hyperparameters(model_class: type[Any]) -> bool:
@@ -107,7 +97,7 @@ def has_tunable_hyperparameters(model_class: type[Any]) -> bool:
 
     :returns: ``True`` when at least one tunable parameter is declared.
     """
-    return bool(structured_space_for_drp_model(model_class))
+    return bool(model_class.get_structured_hyperparameter_space())
 
 
 def assert_component_local_hyperparameters(config: ModelConfig | ResolvedModelConfig) -> None:

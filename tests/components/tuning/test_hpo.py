@@ -24,10 +24,7 @@ def _tiny_mudataset_and_scopes():
 
 def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
     model_cls = construct_model("ElasticNet")
-    monkeypatch.setattr(
-        "drevalpy.models.tuning.hpo.structured_space_for_drp_model",
-        lambda _cls: {},
-    )
+    monkeypatch.setattr(model_cls, "get_structured_hyperparameter_space", classmethod(lambda cls: {}))
     monkeypatch.setattr(
         "drevalpy.models.tuning.hpo.has_tunable_hyperparameters",
         lambda _cls: False,

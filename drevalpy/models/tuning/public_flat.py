@@ -16,7 +16,6 @@ from drevalpy.models.tuning.hyperparameter_keys import (
     resolve_to_qualified_mapping,
 )
 
-from ._model_config_base import base_model_config_for_drp_model
 from .search_space import resolve_model_config
 
 
@@ -83,7 +82,7 @@ def config_from_public_hyperparameters(
     :param hyperparameters: hyperparameters.
     :returns: Result.
     """
-    config = base_model_config_for_drp_model(model_class)
+    config = model_class._resolve_base_config()
     if config is None:
         return None
     if not hyperparameters:
