@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset as Dataset
 
@@ -28,10 +30,24 @@ def split(
     """
     splitter = splitter_registry.get(mode)
     folds = splitter(dataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state)
+
+    fold_ids: list[str] = []
     for i, fold in enumerate(folds):
+        hasher = hashlib.sha256()
+        hasher.update(fold.train.mask.tobytes())
+        hasher.update(fold.test.mask.tobytes())
+        hasher.update(fold.val.mask.tobytes())
+        fold_id = hasher.hexdigest()[:12]
+        fold_ids.append(fold_id)
+
         fold.metadata.setdefault("dataset", dataset.name)
         fold.metadata.setdefault("split_mode", mode)
         fold.metadata.setdefault("fold_index", i)
+        fold.metadata.setdefault("fold_id", fold_id)
+
+    if len(set(fold_ids)) != len(fold_ids):
+        raise ValueError(f"Duplicate fold_ids generated: {fold_ids}")
+
     return folds
 
 

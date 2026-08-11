@@ -6,10 +6,13 @@ import json
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 from upath import UPath as Path
 
+from drevalpy.evaluation import AVAILABLE_METRICS, _compute_metric_value
 from drevalpy.types.results.model import ModelResult
 from drevalpy.types.results.run import RunResult
+from drevalpy.types.results.trial import TrialResult
 
 if TYPE_CHECKING:
     from drevalpy.visualization.requirements import PlotRequirement
@@ -37,6 +40,7 @@ class ExperimentResult:
 
         self.dataset_name: str = dataset_names.pop()
         self.split_mode: str = split_modes.pop() if split_modes else ""
+        self.normalized_by: str | None = None
 
         grouped: dict[str, list[RunResult]] = defaultdict(list)
         for r in run_results:
@@ -98,6 +102,40 @@ class ExperimentResult:
         """
         return {m.model_name: {k: v["mean"] for k, v in m.aggregate_metrics.items()} for m in self.models}
 
+    def normalize(self, reference_model: str = "NaiveMeanEffectsPredictor") -> ExperimentResult:
+        """Return a new ExperimentResult with metrics normalized against a reference model.
+
+        :param reference_model: Name of the model to normalize against.
+        :returns: A new ExperimentResult containing only non-reference runs with recomputed metrics.
+        :raises ValueError: If already normalized or reference model not found.
+        """
+        if self.normalized_by is not None:
+            raise ValueError(f"Already normalized by {self.normalized_by!r}")
+
+        ref_runs_by_fold: dict[str, RunResult] = {}
+        other_runs: list[RunResult] = []
+
+        for model in self.models:
+            if model.model_name == reference_model:
+                for run in model.runs:
+                    ref_runs_by_fold[run.fold_id] = run
+            else:
+                other_runs.extend(model.runs)
+
+        if not ref_runs_by_fold:
+            raise ValueError(f"Reference model {reference_model!r} not found. Available: {self.model_names}")
+
+        normalized_runs: list[RunResult] = []
+        for run in other_runs:
+            if run.fold_id not in ref_runs_by_fold:
+                raise ValueError(f"No reference run found for fold_id {run.fold_id!r}")
+            ref_run = ref_runs_by_fold[run.fold_id]
+            normalized_runs.append(_normalize_run(run, ref_run))
+
+        result = ExperimentResult(normalized_runs)
+        result.normalized_by = reference_model
+        return result
+
     def save(self, directory: str | Path) -> None:
         """Save to a directory tree.
 
@@ -109,6 +147,7 @@ class ExperimentResult:
         meta: dict[str, Any] = {
             "dataset_name": self.dataset_name,
             "split_mode": self.split_mode,
+            "normalized_by": self.normalized_by,
             "models": self.model_names,
         }
         (out / "metadata.json").write_text(json.dumps(meta, indent=2))
@@ -135,7 +174,9 @@ class ExperimentResult:
                     r.split_mode = meta.get("split_mode", "")
                 all_runs.append(r)
 
-        return cls(all_runs)
+        experiment = cls(all_runs)
+        experiment.normalized_by = meta.get("normalized_by")
+        return experiment
 
     def __repr__(self) -> str:
         """Formatted summary."""
@@ -143,6 +184,7 @@ class ExperimentResult:
             "ExperimentResult",
             f"    Dataset: {self.dataset_name}",
             f"    Split mode: {self.split_mode}",
+            f"    Normalized by: {self.normalized_by}",
             f"    Models: {len(self.models)}",
         ]
         for m in self.models:
@@ -150,3 +192,61 @@ class ExperimentResult:
             metric_str = ", ".join(f"{k}={v['mean']:.4f}" for k, v in agg.items()) if agg else "no metrics"
             lines.append(f"        {m.model_name} ({m.n_folds} folds): {metric_str}")
         return "\n".join(lines)
+
+
+def _normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
+    """Normalize a single RunResult against a reference RunResult."""
+    ref_lookup: dict[tuple, float] = {}
+    for cl, dr, pred in zip(ref_run.cell_line_ids, ref_run.drug_ids, ref_run.predictions, strict=True):
+        ref_lookup[(cl, dr)] = pred
+
+    ref_preds = np.array(
+        [ref_lookup.get((cl, dr), 0.0) for cl, dr in zip(run.cell_line_ids, run.drug_ids, strict=True)]
+    )
+
+    norm_gt = run.ground_truth - ref_preds
+    norm_pred = run.predictions - ref_preds
+
+    valid = ~np.isnan(norm_pred) & ~np.isnan(norm_gt)
+    metrics: dict[str, float] = {}
+    if valid.any():
+        for metric_name in AVAILABLE_METRICS:
+            metrics[metric_name] = _compute_metric_value(metric_name, norm_pred[valid], norm_gt[valid])
+
+    normalized_trials = None
+    if run.trials:
+        normalized_trials = []
+        for trial in run.trials:
+            norm_trial_pred = trial.predictions - ref_preds
+            trial_metrics: dict[str, float] = {}
+            trial_valid = ~np.isnan(norm_trial_pred) & ~np.isnan(norm_gt)
+            if trial_valid.any():
+                for metric_name in AVAILABLE_METRICS:
+                    trial_metrics[metric_name] = _compute_metric_value(
+                        metric_name, norm_trial_pred[trial_valid], norm_gt[trial_valid]
+                    )
+            normalized_trials.append(
+                TrialResult(
+                    hyperparameters=trial.hyperparameters,
+                    metrics=trial_metrics,
+                    optimization_metric=trial.optimization_metric,
+                    predictions=norm_trial_pred,
+                )
+            )
+
+    return RunResult(
+        model_name=run.model_name,
+        dataset_name=run.dataset_name,
+        split_mode=run.split_mode,
+        fold_index=run.fold_index,
+        fold_id=run.fold_id,
+        predictions=norm_pred,
+        ground_truth=norm_gt,
+        cell_line_ids=run.cell_line_ids,
+        drug_ids=run.drug_ids,
+        best_hyperparameters=run.best_hyperparameters,
+        metrics=metrics,
+        fold_metadata=run.fold_metadata,
+        trials=normalized_trials,
+        randomization=run.randomization,
+    )

@@ -61,12 +61,14 @@ def create_report(
     output_dir: str | Path,
     *,
     title: str = "Drug Response Evaluation",
+    reference_model: str | None = None,
 ) -> None:
     """Generate a MultiQC report for the given result.
 
     :param result: Experiment, model, or run result.
     :param output_dir: Output directory for the report.
     :param title: Report title.
+    :param reference_model: If set, normalize metrics against this model.
     """
     try:
         import multiqc
@@ -79,6 +81,9 @@ def create_report(
     from drevalpy.visualization.registry import visualization_registry
 
     experiment = _ensure_experiment(result)
+    if reference_model:
+        experiment = experiment.normalize(reference_model)
+
     multiqc.reset()
 
     for viz_cls in visualization_registry.applicable(experiment):
@@ -94,16 +99,22 @@ def create_report(
 def save_all_png(
     result: ExperimentResult | ModelResult | RunResult,
     output_dir: str | Path,
+    *,
+    reference_model: str | None = None,
 ) -> None:
     """Save all applicable plots as PNG files.
 
     :param result: Experiment, model, or run result.
     :param output_dir: Output directory for the PNG files.
+    :param reference_model: If set, normalize metrics against this model.
     """
     import drevalpy.visualization.plots  # noqa: F401
     from drevalpy.visualization.registry import visualization_registry
 
     experiment = _ensure_experiment(result)
+    if reference_model:
+        experiment = experiment.normalize(reference_model)
+
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 

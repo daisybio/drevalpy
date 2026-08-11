@@ -127,6 +127,7 @@ def single(
         dataset_name=mudataset.name,
         split_mode=split_masks.metadata.get("split_mode", ""),
         fold_index=split_masks.metadata.get("fold_index", 0),
+        fold_id=split_masks.metadata.get("fold_id", ""),
         predictions=predictions,
         ground_truth=ground_truth,
         cell_line_ids=cl_ids,

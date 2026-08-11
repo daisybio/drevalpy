@@ -12,6 +12,9 @@ def report_cmd(
     experiment_dir: Annotated[str, typer.Argument(help="Path to a saved ExperimentResult directory.")],
     output_dir: Annotated[str, typer.Option("--output-dir", "-o", help="Output directory for the report.")] = "report",
     title: Annotated[str, typer.Option("--title", "-t", help="Report title.")] = "Drug Response Evaluation",
+    reference_model: Annotated[
+        str | None, typer.Option("--reference-model", "-r", help="Normalize metrics against this model.")
+    ] = None,
 ) -> None:
     """Generate a MultiQC report from an ExperimentResult."""
     from drevalpy.types.results import ExperimentResult
@@ -19,5 +22,5 @@ def report_cmd(
 
     exp_path = UPath(experiment_dir)
     experiment = ExperimentResult.load(str(exp_path))
-    create_report(experiment, output_dir, title=title)
+    create_report(experiment, output_dir, title=title, reference_model=reference_model)
     typer.echo(f"Report generated at {output_dir}")
