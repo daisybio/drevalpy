@@ -9,15 +9,16 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY drevalpy ./drevalpy
 COPY README.md ./
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-editable
 
 FROM python:3.13-slim-bookworm AS runtime
+
+RUN apt-get update && apt-get install -y procps unzip && rm -rf /var/lib/apt/lists/*
 
 LABEL image.author.name="Judith Bernett"
 LABEL image.author.email="judith.bernett@tum.de"
 
 COPY --from=builder /root/.venv /root/.venv
 ENV PATH="/root/.venv/bin:$PATH"
-COPY drevalpy ./drevalpy
 
-RUN apt-get update && apt-get install -y procps unzip && rm -rf /var/lib/apt/lists/*
+ENTRYPOINT ["bash"]
