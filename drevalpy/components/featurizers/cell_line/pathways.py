@@ -10,7 +10,7 @@ import pandas as pd
 
 from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureFormat
-from drevalpy.components.core.features.feature_source import FeatureSource
+from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.log import get_logger

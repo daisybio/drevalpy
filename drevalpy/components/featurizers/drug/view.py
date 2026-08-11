@@ -8,7 +8,7 @@ import numpy as np
 
 from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureFormat
-from drevalpy.components.core.features.feature_source import FeatureSource
+from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from drevalpy.components.core.features.feature_source import FeatureSource
+from drevalpy.components.featurizers._feature_source import FeatureSource
 
 
 def get_smiles_for_entities(source: FeatureSource, entity_ids: np.ndarray) -> pd.Series | None:

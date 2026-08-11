@@ -7,7 +7,7 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
-from drevalpy.components.core.features.feature_source import FeatureSource
+from drevalpy.components.featurizers._feature_source import FeatureSource
 
 
 class ConstantFeaturizerMixin:

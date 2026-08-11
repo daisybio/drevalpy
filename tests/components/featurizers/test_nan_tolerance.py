@@ -9,7 +9,7 @@ import pytest
 
 from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.core.features.feature_source import FeatureSource
+from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.base import Featurizer
 
 

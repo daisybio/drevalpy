@@ -119,7 +119,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             or an int N to sample N configs from the featurizer's HP space.
         :param view: View name for view-parameterized featurizers (e.g., "gene_expression").
         """
-        from drevalpy.components.core.features.feature_source import CellLineFeatureSource, DrugFeatureSource
+        from drevalpy.components.featurizers._feature_source import CellLineFeatureSource, DrugFeatureSource
 
         if isinstance(hyperparameters, int):
             configs = _sample_hp_configs(featurizer_cls, hyperparameters)

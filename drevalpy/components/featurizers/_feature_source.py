@@ -53,14 +53,14 @@ class FeatureSource(Protocol):
 class CellLineFeatureSource:
     """Adapts Dataset for cell-line featurizers."""
 
-    def __init__(self, mudataset: Dataset, cell_line_ids: np.ndarray) -> None:
+    def __init__(self, dataset: Dataset, cell_line_ids: np.ndarray) -> None:
         """Wrap a Dataset for cell-line feature access.
 
         Args:
-            mudataset: The backing dataset.
+            dataset: The backing dataset.
             cell_line_ids: Cell-line IDs this source exposes.
         """
-        self._mu = mudataset
+        self._dataset = dataset
         self._ids = np.asarray(cell_line_ids, dtype=str)
 
     @property
@@ -71,15 +71,15 @@ class CellLineFeatureSource:
     @property
     def mdata(self) -> Any:
         """Underlying MuData object."""
-        return self._mu.mdata
+        return self._dataset.mdata
 
     def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:
         """Return feature matrix for the given cell lines and view."""
-        return self._mu.get_cell_line_features(view, entity_ids)
+        return self._dataset.get_cell_line_features(view, entity_ids)
 
     def get_feature_names(self, view: str) -> tuple[str, ...] | None:
         """Return feature names for a cell-line view."""
-        return self._mu.get_cell_line_feature_names(view)
+        return self._dataset.get_cell_line_feature_names(view)
 
     def get_entity_view(self, entity_id: str, view: str) -> Any:
         """Return a per-entity value for a single cell line.
@@ -88,12 +88,12 @@ class CellLineFeatureSource:
         For omics modalities, returns the feature vector from that modality.
         """
         if view == "tissue":
-            return self._mu.get_tissue(np.array([entity_id]))[0]
-        return self._mu.get_cell_line_features(view, np.array([entity_id]))[0]
+            return self._dataset.get_tissue(np.array([entity_id]))[0]
+        return self._dataset.get_cell_line_features(view, np.array([entity_id]))[0]
 
     def get_metadata(self, key: str) -> Any:
         """Return arbitrary metadata from the underlying Dataset."""
-        return self._mu.get_uns(key)
+        return self._dataset.get_uns(key)
 
 
 class DrugFeatureSource:
