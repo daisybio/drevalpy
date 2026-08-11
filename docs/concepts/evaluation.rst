@@ -9,19 +9,19 @@ Cross-validation settings
 
 Four leave-out modes control what is held out at validation and test time:
 
-.. image:: ../../drevalpy/visualization/style_utils/LPO.png
+.. image:: /_static/img/LPO.png
     :width: 24%
     :alt: Leave-Pair-Out setting
 
-.. image:: ../../drevalpy/visualization/style_utils/LCO.png
+.. image:: /_static/img/LCO.png
     :width: 24%
     :alt: Leave-Cell-Line-Out setting
 
-.. image:: ../../drevalpy/visualization/style_utils/LTO.png
+.. image:: /_static/img/LTO.png
     :width: 24%
     :alt: Leave-Tissue-Out setting
 
-.. image:: ../../drevalpy/visualization/style_utils/LDO.png
+.. image:: /_static/img/LDO.png
     :width: 24%
     :alt: Leave-Drug-Out setting
 
