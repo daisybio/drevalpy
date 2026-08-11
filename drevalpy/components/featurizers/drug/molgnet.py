@@ -186,7 +186,7 @@ def _compute_molgnet_embedding(smiles: str) -> np.ndarray | None:
 
     checkpoint_path = _get_molgnet_checkpoint()
 
-    from scripts.featurizer.create_molgnet_embeddings import (
+    from drevalpy.components.featurizers.drug._molgnet_network import (
         AddSegId,
         MolGNet,
         SelfLoop,

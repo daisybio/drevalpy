@@ -1,20 +1,15 @@
-"""MolGNet feature extraction utilities (needed for DIPK and adapted from the DIPK github).
+"""MolGNet model and graph conversion utilities (adapted from DIPK).
 
-Reads SMILES from a .h5mu file, computes MolGNet node embeddings, and writes
-the result to response.varm["molgnet"].
-
-Usage:
-    python scripts/featurizer/create_molgnet_embeddings.py path/to/data.h5mu --checkpoint meta/MolGNet.pt
+These classes were originally in ``scripts/featurizer/create_molgnet_embeddings.py``
+and are used at runtime by :class:`MolGNetDrugFeaturizer` to compute embeddings
+on the fly when precomputed views are missing.
 """
 
 from __future__ import annotations
 
-import argparse
 import math
-from pathlib import Path
 from typing import Any
 
-import mudata as md
 import numpy as np
 import torch
 import torch.nn.functional as torch_nn_f
@@ -22,7 +17,6 @@ from torch import nn
 from torch.nn import Parameter
 from torch_geometric.data import Data
 from torch_geometric.utils import add_self_loops, softmax
-from tqdm import tqdm
 
 try:
     from rdkit import Chem
@@ -206,11 +200,11 @@ class BertLayerNorm(nn.Module):
         return self.weight * x + self.bias
 
 
-def gelu(x: torch.Tensor) -> torch.Tensor:
+def _gelu(x: torch.Tensor) -> torch.Tensor:
     return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2)))
 
 
-def bias_gelu(bias: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+def _bias_gelu(bias: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     x = bias + y
     return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2)))
 
@@ -219,9 +213,9 @@ class LinearActivation(nn.Module):
     def __init__(self, in_features: int, out_features: int, bias: bool = True) -> None:
         super().__init__()
         if bias:
-            self.biased_act_fn = bias_gelu
+            self.biased_act_fn = _bias_gelu
         else:
-            self.act_fn = gelu
+            self.act_fn = _gelu
         self.weight = Parameter(torch.Tensor(out_features, in_features))
         if bias:
             self.bias = Parameter(torch.Tensor(out_features))
@@ -277,7 +271,7 @@ class GTOut(nn.Module):
         return self.LayerNorm(hidden_states + input_tensor)
 
 
-class MessagePassing(nn.Module):
+class _MessagePassing(nn.Module):
     """Minimal MessagePassing base for MolGNet layers."""
 
     def __init__(self, aggr: str = "add", flow: str = "source_to_target", node_dim: int = 0) -> None:
@@ -314,7 +308,7 @@ class MessagePassing(nn.Module):
         return inputs
 
 
-class GraphAttentionConv(MessagePassing):
+class GraphAttentionConv(_MessagePassing):
     def __init__(self, hidden: int, heads: int = 3, dropout: float = 0.0) -> None:
         super().__init__()
         self.hidden = hidden
@@ -406,67 +400,3 @@ class MolGNet(torch.nn.Module):
         for gnn in self.gnns:
             x = gnn(x, edge_index, edge_attr)
         return x
-
-
-def main(h5mu_path: Path, *, checkpoint: Path, device: str | None = None) -> None:
-    """Compute MolGNet embeddings and write to response.varm['molgnet'].
-
-    :param h5mu_path: Path to the .h5mu file.
-    :param checkpoint: Path to MolGNet checkpoint.
-    :param device: Torch device string.
-    """
-    mdata = md.read(str(h5mu_path))
-    response = mdata.mod["response"]
-
-    smiles_col = "canonical_smiles"
-    if smiles_col not in response.var.columns:
-        msg = f"Column {smiles_col!r} not found in response.var."
-        raise ValueError(msg)
-
-    torch_device = torch.device(device) if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    model = MolGNet(num_layer=5, emb_dim=768, heads=12, num_message_passing=3, drop_ratio=0.0)
-    ckpt = torch.load(checkpoint, map_location=torch_device, weights_only=True)
-    if isinstance(ckpt, dict) and "state_dict" in ckpt:
-        model.load_state_dict(ckpt["state_dict"])
-    else:
-        model.load_state_dict(ckpt)
-    model.to(torch_device)
-    model.eval()
-
-    self_loop = SelfLoop()
-    add_seg = AddSegId()
-
-    embeddings = {}
-    print(f"Processing {len(response.var_names)} drugs...")
-    for drug_id in tqdm(response.var_names):
-        smiles = response.var.loc[drug_id, smiles_col]
-        if not isinstance(smiles, str) or not smiles:
-            continue
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            continue
-        graph = mol_to_graph_data_obj_complex(mol)
-        prepared = add_seg(self_loop(graph)).to(torch_device)
-        with torch.no_grad():
-            emb = model(prepared)
-        embeddings[drug_id] = emb.mean(dim=0).cpu().numpy()
-
-    emb_dim = 768
-    result = np.zeros((len(response.var_names), emb_dim), dtype=np.float32)
-    for i, drug_id in enumerate(response.var_names):
-        if drug_id in embeddings:
-            result[i] = embeddings[drug_id]
-
-    response.varm["molgnet"] = result
-    mdata.write(str(h5mu_path))
-    print(f"Wrote MolGNet embeddings ({result.shape}) to response.varm['molgnet'] in {h5mu_path}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Compute MolGNet drug embeddings and store in .h5mu.")
-    parser.add_argument("h5mu_path", type=Path, help="Path to the .h5mu file")
-    parser.add_argument("--checkpoint", type=Path, required=True, help="Path to MolGNet checkpoint (.pt)")
-    parser.add_argument("--device", default=None, help="Torch device (e.g. cpu, cuda:0)")
-    args = parser.parse_args()
-    main(args.h5mu_path, checkpoint=args.checkpoint, device=args.device)
