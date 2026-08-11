@@ -52,7 +52,7 @@ class RegressionScatterVisualization(Visualization):
         self._result: ModelResult | None = None
         self._group_by: str = "drug_name"
 
-    def compute(self, result: ModelResult, group_by: str = "drug_name") -> None:
+    def compute(self, result: ModelResult, dataset=None, group_by: str = "drug_name") -> None:
         """Build Plotly scatter figure showing ground truth vs predictions per group.
 
         :param result: Model result containing predictions and ground truth.

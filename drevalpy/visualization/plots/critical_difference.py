@@ -184,7 +184,7 @@ class CriticalDifferenceVisualization(ImageVisualization):
         self._metric: str = "MSE"
         self._fig: plt.Figure | None = None
 
-    def compute(self, result: ExperimentResult, metric: str = "MSE") -> None:
+    def compute(self, result: ExperimentResult, dataset=None, metric: str = "MSE") -> None:
         """Compute rankings and Friedman test, then create the CD figure.
 
         :param result: Experiment result with multiple models and folds.

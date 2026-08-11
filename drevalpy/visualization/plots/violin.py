@@ -64,7 +64,7 @@ class ViolinVisualization(Visualization):
         self._fig: go.Figure | None = None
         self._data: dict[str, dict[str, float]] | None = None
 
-    def compute(self, result: ExperimentResult) -> None:
+    def compute(self, result: ExperimentResult, dataset=None) -> None:
         """Build violin plot figure from per-fold metrics.
 
         :param result: Experiment result with multiple folds.

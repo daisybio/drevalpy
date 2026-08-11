@@ -102,7 +102,7 @@ class HeatmapVisualization(Visualization):
         self._fig: go.Figure | None = None
         self._result: ExperimentResult | None = None
 
-    def compute(self, result: ExperimentResult) -> None:
+    def compute(self, result: ExperimentResult, dataset=None) -> None:
         """Build the Plotly heatmap figure with mean metrics and SSMD panels.
 
         :param result: Experiment result with multiple folds.

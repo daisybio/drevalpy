@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import matplotlib.figure
 
+    from drevalpy.types.data.dataset import Dataset
     from drevalpy.types.results import ExperimentResult, ModelResult
 
 
@@ -32,10 +33,11 @@ class Visualization(ABC):
     registry_name: str = ""
 
     @abstractmethod
-    def compute(self, result: ExperimentResult | ModelResult) -> None:
+    def compute(self, result: ExperimentResult | ModelResult, dataset: Dataset | None = None) -> None:
         """Compute the visualization data from the result (store internally).
 
         :param result: An ExperimentResult or ModelResult to visualize.
+        :param dataset: Optional dataset for looking up drug/cell-line metadata.
         """
         ...
 

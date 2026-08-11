@@ -65,7 +65,7 @@ class CrossStudyTableVisualization(Visualization):
         self._std_metrics: list[pd.DataFrame] = []
         self._cross_study_datasets: list[str] = []
 
-    def compute(self, result: ExperimentResult) -> None:
+    def compute(self, result: ExperimentResult, dataset=None) -> None:
         """Build data for cross-study evaluation tables.
 
         :param result: Experiment result to summarize.

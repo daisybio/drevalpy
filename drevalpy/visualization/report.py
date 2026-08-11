@@ -9,6 +9,7 @@ from upath import UPath as Path
 from drevalpy.visualization.base import Visualization
 
 if TYPE_CHECKING:
+    from drevalpy.types.data.dataset import Dataset
     from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 
 
@@ -39,18 +40,18 @@ def _ensure_experiment(result):
     return result
 
 
-def _run_visualization(viz: Visualization, experiment, result_type: str) -> None:
+def _run_visualization(viz: Visualization, experiment, result_type: str, dataset=None) -> None:
     """Compute a visualization and add its sections to the report."""
     if result_type == "ModelResult":
         for model in experiment.models:
-            viz.compute(model)
+            viz.compute(model, dataset=dataset)
             sections = viz.to_multiqc()
             if sections:
                 name = f"{viz.registry_name} ({model.model_name})"
                 anchor = f"{viz.registry_name}_{model.model_name}"
                 _add_module(sections, name, anchor)
     else:
-        viz.compute(experiment)
+        viz.compute(experiment, dataset=dataset)
         sections = viz.to_multiqc()
         if sections:
             _add_module(sections, viz.registry_name, viz.registry_name)
@@ -62,6 +63,7 @@ def create_report(
     *,
     title: str = "Drug Response Evaluation",
     reference_model: str | None = None,
+    dataset: Dataset | None = None,
 ) -> None:
     """Generate a MultiQC report for the given result.
 
@@ -69,6 +71,7 @@ def create_report(
     :param output_dir: Output directory for the report.
     :param title: Report title.
     :param reference_model: If set, normalize metrics against this model.
+    :param dataset: Optional dataset for drug/cell-line metadata in plots.
     """
     try:
         import multiqc
@@ -89,7 +92,7 @@ def create_report(
     for viz_cls in visualization_registry.applicable(experiment):
         result_type = visualization_registry._result_types.get(viz_cls.registry_name, "ExperimentResult")
         viz = viz_cls()
-        _run_visualization(viz, experiment, result_type)
+        _run_visualization(viz, experiment, result_type, dataset=dataset)
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -101,12 +104,14 @@ def save_all_png(
     output_dir: str | Path,
     *,
     reference_model: str | None = None,
+    dataset: Dataset | None = None,
 ) -> None:
     """Save all applicable plots as PNG files.
 
     :param result: Experiment, model, or run result.
     :param output_dir: Output directory for the PNG files.
     :param reference_model: If set, normalize metrics against this model.
+    :param dataset: Optional dataset for drug/cell-line metadata in plots.
     """
     import drevalpy.visualization.plots  # noqa: F401
     from drevalpy.visualization.registry import visualization_registry
@@ -123,8 +128,8 @@ def save_all_png(
         viz = viz_cls()
         if result_type == "ModelResult":
             for model in experiment.models:
-                viz.compute(model)
+                viz.compute(model, dataset=dataset)
                 viz.to_png(out / f"{viz.registry_name}_{model.model_name}.png")
         else:
-            viz.compute(experiment)
+            viz.compute(experiment, dataset=dataset)
             viz.to_png(out / f"{viz.registry_name}.png")

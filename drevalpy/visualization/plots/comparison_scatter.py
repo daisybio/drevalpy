@@ -65,7 +65,7 @@ class ComparisonScatterVisualization(Visualization):
         self._result: ExperimentResult | None = None
         self._pair_data: list[tuple[str, str, list[dict[str, float]]]] = []
 
-    def compute(self, result: ExperimentResult) -> None:
+    def compute(self, result: ExperimentResult, dataset=None) -> None:
         """Build pairwise scatter figure comparing model predictions.
 
         :param result: Experiment result with at least two models.

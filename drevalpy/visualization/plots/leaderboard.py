@@ -243,7 +243,7 @@ class LeaderboardVisualization(ImageVisualization):
         self._result: ExperimentResult | None = None
         self._fig: plt.Figure | None = None
 
-    def compute(self, result: ExperimentResult) -> None:
+    def compute(self, result: ExperimentResult, dataset=None) -> None:
         """Compute leaderboard rankings and create figure.
 
         :param result: Experiment result with multiple models and folds.
