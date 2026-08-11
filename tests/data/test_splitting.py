@@ -13,7 +13,7 @@ from drevalpy.data.splitters import (
     splitter_registry,
 )
 from drevalpy.data.splitters.validation import validate_folds
-from drevalpy.data.structures import SplitMask, SplitMasks
+from drevalpy.types import SplitMask, SplitMasks
 
 # ------------------------------------------------------------------
 # Mock MuDataLike for testing

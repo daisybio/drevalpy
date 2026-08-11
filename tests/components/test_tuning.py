@@ -81,8 +81,8 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
     return_value=({"RMSE": 0.1}, np.zeros(4)),
 )
 def test_hpam_tune_uses_optuna(mock_evaluate) -> None:
-    from drevalpy.data.structures import SplitMask
     from drevalpy.models.tuning.hpo import hpam_tune
+    from drevalpy.types import SplitMask
     from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
     model_cls = construct_model("ElasticNet")

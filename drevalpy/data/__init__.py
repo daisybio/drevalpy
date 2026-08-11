@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from drevalpy.types import SplitMasks
+
 from .datasets import registry as dataset_registry
 from .datasets.load import load
 from .splitters import splitter_registry
-from .structures import SplitMasks
 
 
 def split(

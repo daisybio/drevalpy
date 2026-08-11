@@ -7,10 +7,10 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from drevalpy.data.structures import SplitMask
 from drevalpy.models import construct_model
 from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo import hpam_tune
+from drevalpy.types import SplitMask
 from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
 

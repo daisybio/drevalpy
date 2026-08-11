@@ -27,7 +27,7 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     import mudata as md
     import pandas as pd
 
-    from drevalpy.data.structures import SplitMask, SplitMasks
+    from drevalpy.types import SplitMask, SplitMasks
     from drevalpy.types.data.dataset import Dataset
 
     cl_ids = np.array(["cl1", "cl2"])

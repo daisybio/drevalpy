@@ -13,13 +13,13 @@ from pytorch_lightning.callbacks import EarlyStopping
 from upath import UPath as Path
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.tensor_data import make_pair_loader
 from drevalpy.utils.torch_io import load_state_dict, load_trusted_mapping, save_torch_payload
 
 

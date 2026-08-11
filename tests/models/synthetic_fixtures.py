@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.data.structures import SplitMask, SplitMasks
 from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.conftest import MockFeatureSource
 

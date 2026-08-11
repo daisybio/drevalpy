@@ -6,9 +6,9 @@ from unittest.mock import patch
 
 import numpy as np
 
-from drevalpy.data.structures import SplitMask
 from drevalpy.models import construct_model
 from drevalpy.models.tuning.config import HPOConfig
+from drevalpy.types import SplitMask
 
 
 @patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.2)

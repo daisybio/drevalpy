@@ -9,10 +9,10 @@ from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 from upath import UPath as Path
 
-from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.literature.molir.utils import (
     generate_triplets_indices,
 )
+from drevalpy.types.data.tensor_data import make_pair_loader
 
 
 class SuperFELTEncoder(pl.LightningModule):

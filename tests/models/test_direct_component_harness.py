@@ -137,7 +137,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         import pandas as pd
 
         from drevalpy.types.data.dataset import Dataset
-        from drevalpy.data.structures import SplitMask, SplitMasks
+        from drevalpy.types import SplitMask, SplitMasks
         from drevalpy.models import construct_model
 
         cl_ids = np.array(["cl1", "cl2"])

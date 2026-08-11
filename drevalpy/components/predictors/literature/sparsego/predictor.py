@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
 from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork
@@ -19,6 +18,7 @@ from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.tensor_data import make_pair_loader
 from drevalpy.utils.torch_io import load_trusted_mapping, save_trusted_mapping
 
 
