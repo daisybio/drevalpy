@@ -120,8 +120,3 @@ def save_trusted_mapping(payload: dict[str, Any]) -> bytes:
     buffer = io.BytesIO()
     save_torch_payload(payload, buffer)
     return buffer.getvalue()
-
-
-# Backward-compatible aliases used by literature predictor state modules.
-load_object_mapping = load_trusted_mapping
-save_object_mapping = save_trusted_mapping

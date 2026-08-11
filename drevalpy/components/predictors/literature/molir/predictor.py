@@ -13,12 +13,12 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
-from drevalpy.components.predictors.literature._torch_state import (
-    load_object_mapping,
-    save_object_mapping,
-    save_state_dict,
-)
 from drevalpy.components.predictors.literature._torch_state import load_state_dict as _load_torch_state_dict
+from drevalpy.components.predictors.literature._torch_state import (
+    load_trusted_mapping,
+    save_state_dict,
+    save_trusted_mapping,
+)
 from drevalpy.components.predictors.literature.molir.utils import MOLIModel, _realign_omic_matrix
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
@@ -266,7 +266,7 @@ class MOLIRPredictor(BlockPredictor):
                     "cnv": model.cna_encoder.encode[0].in_features,
                 },
             }
-            algorithms[drug_id] = save_object_mapping(payload)
+            algorithms[drug_id] = save_trusted_mapping(payload)
         return {
             "algorithms": algorithms,
             "predictor_hyperparameters": dict(self._hyperparameters),
@@ -292,7 +292,7 @@ class MOLIRPredictor(BlockPredictor):
             if not isinstance(blob, (bytes, bytearray)):
                 msg = f"MOLIRPredictor algorithm payload for {drug_id!r} must be bytes"
                 raise PredictorStateError(msg)
-            payload = load_object_mapping(bytes(blob))
+            payload = load_trusted_mapping(bytes(blob))
             fn = _OmicFeatureNames(
                 gene_expression=(
                     tuple(payload["gene_expression_features"]) if payload.get("gene_expression_features") else None

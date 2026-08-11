@@ -13,12 +13,12 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
-from drevalpy.components.predictors.literature._torch_state import (
-    load_object_mapping,
-    save_object_mapping,
-    save_state_dict,
-)
 from drevalpy.components.predictors.literature._torch_state import load_state_dict as _load_torch_state_dict
+from drevalpy.components.predictors.literature._torch_state import (
+    load_trusted_mapping,
+    save_state_dict,
+    save_trusted_mapping,
+)
 from drevalpy.components.predictors.literature.molir.utils import _realign_omic_matrix
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
@@ -401,7 +401,7 @@ class SuperFELTRPredictor(BlockPredictor):
             if module is not None and hasattr(module, "state_dict"):
                 payload[f"{attr}_state"] = save_state_dict(module.state_dict())
 
-        return save_object_mapping(payload)
+        return save_trusted_mapping(payload)
 
     @staticmethod
     def _compute_input_dims(fn: _OmicFeatureNames | None) -> dict[str, int | None]:
@@ -439,7 +439,7 @@ class SuperFELTRPredictor(BlockPredictor):
             if not isinstance(blob, (bytes, bytearray)):
                 msg = f"SuperFELTRPredictor payload for {drug_id!r} must be bytes"
                 raise PredictorStateError(msg)
-            payload = load_object_mapping(bytes(blob))
+            payload = load_trusted_mapping(bytes(blob))
             fn = self._deserialize_feature_names(payload)
             self._feature_names[str(drug_id)] = fn
             dm = self._deserialize_drug_model(payload)

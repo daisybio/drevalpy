@@ -10,16 +10,15 @@ import pytest
 import torch
 from torch_geometric.data import Data
 
-from drevalpy.components.predictors.literature._torch_state import (
-    load_object_mapping,
-    save_object_mapping,
-)
 from drevalpy.components.predictors.literature._torch_state import load_state_dict as load_state_dict_bytes
+from drevalpy.components.predictors.literature._torch_state import (
+    load_trusted_mapping,
+    save_trusted_mapping,
+)
 from drevalpy.components.predictors.literature._torch_state import save_state_dict as save_state_dict_bytes
 from drevalpy.utils.torch_io import (
     load_state_dict,
     load_torch_payload,
-    load_trusted_mapping,
     load_trusted_payload,
     save_torch_payload,
 )
@@ -33,7 +32,7 @@ def test_state_dict_bytes_round_trip() -> None:
 
 def test_trusted_mapping_bytes_round_trip() -> None:
     payload = {"hyperparameters": {"epochs": 3}, "value": torch.tensor(4.0)}
-    loaded = load_object_mapping(save_object_mapping(payload))
+    loaded = load_trusted_mapping(save_trusted_mapping(payload))
     assert loaded["hyperparameters"] == {"epochs": 3}
     value = loaded["value"]
     expected = payload["value"]

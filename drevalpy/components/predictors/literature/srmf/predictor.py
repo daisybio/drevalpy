@@ -17,7 +17,7 @@ from scipy.spatial.distance import jaccard
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
-from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
+from drevalpy.components.predictors.literature._torch_state import load_trusted_mapping, save_trusted_mapping
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
@@ -252,7 +252,7 @@ class SRMFPredictor(BlockPredictor):
             "training_mean": self._training_mean,
             "predictor_hyperparameters": dict(self._hyperparameters),
         }
-        return {"payload": save_object_mapping(payload)}
+        return {"payload": save_trusted_mapping(payload)}
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore predictor from get_state output.
@@ -265,7 +265,7 @@ class SRMFPredictor(BlockPredictor):
             msg = f"{self.__class__.__name__} state requires a payload byte blob"
             raise PredictorStateError(msg)
         try:
-            payload = load_object_mapping(bytes(blob))
+            payload = load_trusted_mapping(bytes(blob))
         except Exception as exc:
             msg = f"{self.__class__.__name__} payload could not be deserialized"
             raise PredictorStateError(msg) from exc

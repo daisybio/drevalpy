@@ -17,10 +17,10 @@ from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import (
-    load_object_mapping,
     load_state_dict,
-    save_object_mapping,
+    load_trusted_mapping,
     save_state_dict,
+    save_trusted_mapping,
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
@@ -293,7 +293,7 @@ class PharmaFormerPredictor(BlockPredictor):
             "gene_input_size": self._gene_input_size,
             "model_state": save_state_dict(self._model.state_dict()),
         }
-        return {"payload": save_object_mapping(payload)}
+        return {"payload": save_trusted_mapping(payload)}
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore predictor from get_state output.
@@ -306,7 +306,7 @@ class PharmaFormerPredictor(BlockPredictor):
             msg = "PharmaFormerPredictor state requires a payload byte blob"
             raise PredictorStateError(msg)
         try:
-            payload = load_object_mapping(bytes(blob))
+            payload = load_trusted_mapping(bytes(blob))
         except Exception as exc:
             msg = "PharmaFormerPredictor payload could not be deserialized"
             raise PredictorStateError(msg) from exc
