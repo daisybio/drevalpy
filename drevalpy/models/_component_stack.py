@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.core.batch.feature_block import FeatureBlock
 from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.core.batch.model_input_build import build_model_input_batch
-from drevalpy.components.core.contracts.training_context import TrainingContext
 from drevalpy.components.core.fitting.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
 from drevalpy.components.featurizers._matrix import unique_entity_ids

@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.core.contracts.contracts import FeatureContract
-from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.contracts.contracts import FeatureContract
+from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.log import get_logger
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode

@@ -6,8 +6,8 @@ from collections.abc import Iterator
 
 import pytest
 
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.core.batch.feature_block import BlockSpec
-from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.registry import register_cell_line_featurizer, register_drug_featurizer
 from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,

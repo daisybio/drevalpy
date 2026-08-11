@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.naive._single_entity import SingleEntityNaivePredictor
 from drevalpy.components.registry import register_predictor
 

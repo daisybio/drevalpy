@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer

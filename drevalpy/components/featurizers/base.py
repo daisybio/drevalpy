@@ -8,8 +8,8 @@ from typing import Any, ClassVar
 
 import numpy as np
 
+from drevalpy.components.contracts.contracts import FeatureContract, featurizer_contract
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock
-from drevalpy.components.core.contracts.contracts import FeatureContract, featurizer_contract
 from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.log import get_logger
 
@@ -187,7 +187,7 @@ class Featurizer(ABC):
         :param entity_ids: Entity identifiers to transform (only valid ones).
         :returns: Feature matrix aligned with *entity_ids*.
         """
-        from drevalpy.components.core.contracts.contracts import FeatureFormat
+        from drevalpy.components.contracts.contracts import FeatureFormat
 
         blocks = self._transform_blocks(source, entity_ids)
         arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
@@ -214,7 +214,7 @@ class Featurizer(ABC):
         :param n_total: Total number of entities (valid + invalid).
         :returns: Blocks aligned to the full set of entity IDs.
         """
-        from drevalpy.components.core.contracts.contracts import FeatureFormat
+        from drevalpy.components.contracts.contracts import FeatureFormat
 
         expanded: dict[str, FeatureBlock] = {}
         for name, block in valid_blocks.items():
@@ -361,7 +361,7 @@ class Featurizer(ABC):
 
         :returns: Parameter names mapped to their declared ``default`` values.
         """
-        from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
+        from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 
         space = cls.get_hyperparameter_space()
         validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")

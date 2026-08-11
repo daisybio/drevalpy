@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.registry._metadata_validate import validate_registered_class
 from drevalpy.components.registry._registration_metadata import (
     apply_registration_metadata,

@@ -9,10 +9,10 @@ from typing import Any, ClassVar
 import numpy as np
 from upath import UPath as Path
 
+from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.core.batch.feature_block import BlockSpec
 from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
-from drevalpy.components.core.contracts.contracts import FeatureFormat
-from drevalpy.components.core.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import (

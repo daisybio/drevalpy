@@ -7,7 +7,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.core.fitting.featurizer_label import requires_explicit_view
 from drevalpy.components.core.fitting.featurizer_tree import ensure_unique_qualified_featurizers
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,

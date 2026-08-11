@@ -7,8 +7,8 @@ from collections.abc import Iterator
 import pytest
 from pydantic import ValidationError
 
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.core.batch.feature_block import BlockSpec
-from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor

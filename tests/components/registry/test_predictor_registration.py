@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import get_predictor_metadata, register_predictor
 from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry, drug_featurizer_registry

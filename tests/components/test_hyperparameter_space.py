@@ -7,8 +7,8 @@ from collections.abc import Iterator
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.core.contracts.contracts import FeatureFormat
-from drevalpy.components.core.contracts.hyperparameter_space import (
+from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.contracts.hyperparameter_space import (
     validate_component_hyperparameter_space,
     validate_hyperparameter_space,
 )

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.registry.predictor_registry import predictor_registry
 from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.types.enums.literature_reference import LiteratureReference

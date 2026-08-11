@@ -4,7 +4,7 @@ from typing import Any, cast
 
 import pytest
 
-from drevalpy.components.core.contracts.contracts import (
+from drevalpy.components.contracts.contracts import (
     FeatureContract,
     FeatureFormat,
     contracts_compatible,

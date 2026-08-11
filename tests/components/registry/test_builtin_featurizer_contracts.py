@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from drevalpy.components.core.contracts.contracts import FeatureContract
+from drevalpy.components.contracts.contracts import FeatureContract
 from drevalpy.components.registry import (
     get_cell_line_featurizer,
     get_drug_featurizer,

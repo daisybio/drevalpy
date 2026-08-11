@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat, featurizer_contract
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, featurizer_contract
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.components.registry.register_builtins import register_builtin_components
 

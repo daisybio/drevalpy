@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any, ClassVar
 
-from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
 from drevalpy.components.registry._registration_metadata import (
     apply_registration_metadata,
     normalize_registration_metadata,

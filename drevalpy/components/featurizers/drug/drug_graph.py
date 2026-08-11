@@ -6,8 +6,8 @@ from typing import Any, ClassVar
 
 import numpy as np
 
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock, graph_feature_block
-from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer

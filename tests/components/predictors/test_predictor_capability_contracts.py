@@ -12,9 +12,9 @@ import pytest
 import torch
 from torch_geometric.data import Data
 
+from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.core.batch.feature_block import graph_feature_block, numeric_feature_block
 from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
-from drevalpy.components.core.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
 from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredictor
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor

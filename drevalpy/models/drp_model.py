@@ -9,7 +9,7 @@ import numpy as np
 import wandb
 from upath import UPath as Path
 
-from drevalpy.components.core.contracts.training_context import TrainingContext
+from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.registry import get_predictor
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
 from drevalpy.models._drp_logging import _DRPLoggingMixin

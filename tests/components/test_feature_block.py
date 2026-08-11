@@ -8,6 +8,7 @@ from typing import Any, cast
 import numpy as np
 import pytest
 
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.core.batch.feature_block import (
     FeatureBlock,
     graph_feature_block,
@@ -16,7 +17,6 @@ from drevalpy.components.core.batch.feature_block import (
     numeric_feature_block,
     ragged_feature_block,
 )
-from drevalpy.components.core.contracts.contracts import FeatureFormat
 
 
 def test_numeric_feature_block_stores_values_and_format() -> None:

@@ -264,7 +264,7 @@ def extract_defaults(
     defaults: dict[str, Any] = {}
 
     def _pull(space: dict[str, Any], prefix: str) -> None:
-        from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
+        from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 
         validate_hyperparameter_space(space, context=f"hyperparameter space under {prefix!r}")
         for name, spec in space.items():
@@ -285,7 +285,7 @@ def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
     :param space: space.
     :returns: Result.
     """
-    from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
+    from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 
     validate_hyperparameter_space(space, context="merged hyperparameter space")
     return {key: spec["default"] for key, spec in space.items()}

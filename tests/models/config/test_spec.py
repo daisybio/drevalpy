@@ -245,7 +245,7 @@ def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
     (ext_dir / "components.py").write_text(
         """
 import numpy as np
-from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor

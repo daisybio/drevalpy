@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor

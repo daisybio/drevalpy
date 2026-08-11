@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.core.contracts.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.featurizers.base import Featurizer
 
 

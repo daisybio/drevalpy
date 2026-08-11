@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.core.contracts.contracts import FeatureFormat
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.registry import get_predictor

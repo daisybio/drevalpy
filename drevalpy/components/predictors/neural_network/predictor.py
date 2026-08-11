@@ -12,8 +12,8 @@ import torch
 from pytorch_lightning.callbacks import EarlyStopping
 from upath import UPath as Path
 
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
-from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork

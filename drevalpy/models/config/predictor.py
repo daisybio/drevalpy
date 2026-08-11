@@ -46,7 +46,7 @@ class PredictorConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_hyperparameter_space(self) -> PredictorConfig:
         if self.hyperparameter_space is not None:
-            from drevalpy.components.core.contracts.hyperparameter_space import validate_hyperparameter_space
+            from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 
             validate_hyperparameter_space(
                 self.hyperparameter_space,

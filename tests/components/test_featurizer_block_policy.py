@@ -7,12 +7,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.core.batch.feature_block import (
     graph_feature_block,
     merge_feature_blocks,
     numeric_feature_block,
 )
-from drevalpy.components.core.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.components.registry import list_cell_line_featurizers, list_drug_featurizers, list_predictors
 from drevalpy.components.registry.register_builtins import register_builtin_components
@@ -62,7 +62,7 @@ def test_concat_and_materialization_preserve_graph_and_ragged_payloads() -> None
 
 
 def test_concat_rejects_non_numeric_children() -> None:
-    from drevalpy.components.core.contracts.contracts import FeatureContract
+    from drevalpy.components.contracts.contracts import FeatureContract
     from drevalpy.components.featurizers.drug.drug_graph import DrugGraphFeaturizer
 
     mixin = ConcatFeaturizersMixin.__new__(ConcatFeaturizersMixin)
