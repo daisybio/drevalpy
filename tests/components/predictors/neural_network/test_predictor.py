@@ -13,7 +13,7 @@ from drevalpy.components.registry.register_builtins import register_builtin_comp
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.response_batch import ResponseBatch
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 
 
 def test_neural_network_predictor_registry_name() -> None:

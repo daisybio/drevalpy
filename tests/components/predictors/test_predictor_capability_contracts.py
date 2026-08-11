@@ -24,7 +24,7 @@ from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig, from_spec
 from drevalpy.types.data.batch.feature_block import graph_feature_block, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.response_batch import ResponseBatch
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
     drug_fingerprints,

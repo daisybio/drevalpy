@@ -8,7 +8,7 @@ import pytest
 from drevalpy.models import construct_model
 from drevalpy.models._component_stack import build_component_stack
 from drevalpy.models.config import from_spec
-from drevalpy.types.data.response_batch import ResponseBatch
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.conftest import MockFeatureSource
 from tests.models.synthetic_fixtures import (
     lco_split_masks,

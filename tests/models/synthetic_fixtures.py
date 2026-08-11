@@ -6,7 +6,7 @@ import numpy as np
 
 from drevalpy.data.structures import SplitMask, SplitMasks
 from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
-from drevalpy.types.data.response_batch import ResponseBatch
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.conftest import MockFeatureSource
 
 

@@ -10,7 +10,7 @@ from drevalpy.models import construct_model
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.zoo import get_zoo_config
-from drevalpy.types.data.response_batch import ResponseBatch
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 
 
 def _zoo_config_variant(name: str, **updates: Any) -> ModelConfig:

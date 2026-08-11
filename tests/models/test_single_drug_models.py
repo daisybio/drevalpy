@@ -7,7 +7,7 @@ import pytest
 
 from drevalpy.models import construct_model
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.types.data.response_batch import ResponseBatch
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 
 
 def _resolve_single_drug_model_name(whole_name: str) -> str:

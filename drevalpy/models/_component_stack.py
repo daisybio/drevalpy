@@ -17,7 +17,7 @@ from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.types.data.batch.feature_block import FeatureBlock
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.model_input_build import build_model_input_batch
-from drevalpy.types.data.response_batch import ResponseBatch
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 
 if TYPE_CHECKING:
     from drevalpy.types import SplitMask
