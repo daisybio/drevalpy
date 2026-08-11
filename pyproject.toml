@@ -66,6 +66,7 @@ dev = [
     "types-PyYAML",
     "types-toml",
     "jupyter>=1.1.1",
+    "vulture>=2.16",
 ]
 docs = [
     "sphinx>=4.0.2",

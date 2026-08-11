@@ -5,11 +5,7 @@ from __future__ import annotations
 from contextlib import suppress
 from typing import Any
 
-import numpy as np
 import wandb
-from pytorch_lightning.loggers import WandbLogger
-
-from drevalpy.evaluation import AVAILABLE_METRICS, evaluate
 
 
 class _DRPLoggingMixin:
@@ -85,81 +81,6 @@ class _DRPLoggingMixin:
         :returns: ``True`` when a wandb project and run are active.
         """
         return self.wandb_project is not None and (self.wandb_run is not None or wandb.run is not None)
-
-    def get_wandb_logger(self) -> Any | None:
-        """Return a Lightning WandbLogger for the active run, if any.
-
-        :returns: ``WandbLogger`` instance, or ``None`` when wandb is disabled.
-        """
-        if not self.is_wandb_enabled() or self.wandb_project is None:
-            return None
-
-        return WandbLogger(project=self.wandb_project, log_model=False)
-
-    def log_metrics(self, metrics: dict[str, float], step: int | None = None) -> None:
-        """Log metrics to wandb.
-
-        :param metrics: Scalar metrics to log.
-        :param step: Optional global step for the logged values.
-        """
-        if not self.is_wandb_enabled():
-            return
-        if step is not None:
-            wandb.log(metrics, step=step)
-        else:
-            wandb.log(metrics)
-
-    def compute_performance_metrics(
-        self, predictions: np.ndarray, targets: np.ndarray, prefix: str = ""
-    ) -> dict[str, float]:
-        """Compute R^2 and Pearson metrics with an optional key prefix.
-
-        :param predictions: Model predictions aligned with ``targets``.
-        :param targets: Ground-truth response values.
-        :param prefix: Optional prefix prepended to metric keys.
-        :returns: Mapping of metric names to scalar scores, or an empty dict on failure.
-        """
-        try:
-            metrics = {
-                "R^2": AVAILABLE_METRICS["R^2"](y_pred=predictions, y_true=targets),
-                "Pearson": AVAILABLE_METRICS["Pearson"](y_pred=predictions, y_true=targets),
-            }
-            if prefix:
-                metrics = {f"{prefix}{key}": value for key, value in metrics.items()}
-            return metrics
-        except Exception:
-            from drevalpy.log import get_logger
-
-            get_logger(__name__).debug("Metric computation failed, returning empty metrics.")
-            return {}
-
-    def compute_and_log_final_metrics(
-        self,
-        predictions: np.ndarray,
-        response: np.ndarray,
-        additional_metrics: list[str] | None = None,
-        prefix: str = "val_",
-    ) -> dict[str, float]:
-        """Compute final metrics and store them in wandb summary.
-
-        :param predictions: Predicted response values.
-        :param response: Observed (true) response values.
-        :param additional_metrics: Extra metric names beyond R² and Pearson.
-        :param prefix: Key prefix for logged metric names.
-        :returns: Mapping from metric name to scalar score.
-        """
-        if predictions is None or len(predictions) == 0:
-            return {}
-
-        metrics_to_compute = ["R^2", "Pearson"]
-        if additional_metrics:
-            metrics_to_compute.extend(additional_metrics)
-
-        results = evaluate(predictions=predictions, response=response, metric=metrics_to_compute)
-        if self.is_wandb_enabled() and wandb.run is not None:
-            wandb_metrics = {f"{prefix}{key}": value for key, value in results.items()}
-            self.log_final_metrics(wandb_metrics)
-        return results
 
     def log_final_metrics(self, metrics: dict[str, float]) -> None:
         """Store final metrics in the wandb run summary.

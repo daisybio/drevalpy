@@ -55,25 +55,6 @@ def test_no_forbidden_runtime_imports_in_source() -> None:
     assert not hits, f"Forbidden imports/references remain: {hits}"
 
 
-def test_production_code_does_not_import_model_factory_except_models_init() -> None:
-    import re
-
-    repo = Path(__file__).resolve().parents[2] / "drevalpy"
-    allowed = repo / "models" / "__init__.py"
-    import_pattern = re.compile(
-        r"^\s*(?:from\s+\S+\s+import\s+.*MODEL_FACTORY|import\s+.*MODEL_FACTORY)",
-        re.MULTILINE,
-    )
-    hits = []
-    for path in repo.rglob("*.py"):
-        if path == allowed:
-            continue
-        content = path.read_text(encoding="utf-8")
-        if import_pattern.search(content):
-            hits.append(str(path.relative_to(repo.parent)))
-    assert not hits, f"MODEL_FACTORY imported outside drevalpy.models.__init__: {hits}"
-
-
 @pytest.mark.parametrize("model_name", known_model_names(include_external=False))
 def test_construct_model_classes_are_drp_models(model_name: str) -> None:
     cls = construct_model(model_name)

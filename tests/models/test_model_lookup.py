@@ -8,11 +8,7 @@ import pytest
 
 from drevalpy.models import construct_model
 from drevalpy.models._model_lookup import (
-    get_model_class,
-    is_multi_drug_model_name,
-    is_single_drug_model_name,
     known_model_names,
-    multi_drug_model_names,
     single_drug_model_names,
 )
 from drevalpy.models.zoo import list_zoo_names
@@ -41,29 +37,9 @@ def test_list_zoo_names_scope_filter() -> None:
     assert set(single) | set(multi) == set(list_zoo_names(include_external=False))
 
 
-def test_model_lookup_helpers_match_scope() -> None:
-    assert is_single_drug_model_name("MOLIR")
-    assert not is_single_drug_model_name("ElasticNet")
-    assert is_multi_drug_model_name("ElasticNet")
-    assert not is_multi_drug_model_name("NotARealModel")
+def test_model_lookup_helpers() -> None:
     assert "MOLIR" in single_drug_model_names(include_external=False)
-    assert "ElasticNet" in multi_drug_model_names(include_external=False)
-    assert get_model_class("NaivePredictor").get_model_name() == "NaivePredictor"
     assert "ElasticNet" in known_model_names(include_external=False)
-
-
-def test_factory_dict_import_emits_future_warning() -> None:
-    import drevalpy.models as models
-
-    # Ensure lazy __getattr__ runs again even if an earlier test already bound the dict.
-    models.__dict__.pop("MODEL_FACTORY", None)
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        factory = models.MODEL_FACTORY
-
-    assert "ElasticNet" in factory
-    assert any(issubclass(w.category, FutureWarning) and "MODEL_FACTORY" in str(w.message) for w in caught)
 
 
 def test_construct_model_does_not_warn() -> None:

@@ -38,7 +38,6 @@ from drevalpy.types.data.dataset import Dataset as Dataset  # noqa: E402
 __all__ = [
     "dataset_registry",
     "load",
-    "load",
     "split",
     "splitter_registry",
 ]

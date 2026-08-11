@@ -2,40 +2,28 @@
 
 from __future__ import annotations
 
-import warnings
-
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelScope
-from drevalpy.models.zoo import get_zoo_config
+from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 
 
-def _factory_tables():
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", FutureWarning)
-        from drevalpy.models import MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
-
-        return MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
-
-
-def test_single_drug_factory_membership() -> None:
-    model_factory, single_drug_factory = _factory_tables()
-    assert set(single_drug_factory) == {
+def test_single_drug_zoo_membership() -> None:
+    single_names = list_zoo_names(include_external=False, scope=ModelScope.SINGLE_DRUG)
+    assert set(single_names) == {
         "SingleDrugElasticNet",
         "SingleDrugRandomForest",
         "MOLIR",
         "SuperFELTR",
     }
-    for name, model_class in single_drug_factory.items():
+    for name in single_names:
+        model_class = construct_model(name)
         assert model_class.is_single_drug() is True
-        assert model_factory[name] is model_class
-        assert construct_model(name) is model_class
         assert get_zoo_config(name).scope == ModelScope.SINGLE_DRUG
 
 
-def test_multi_drug_factory_excludes_single_drug_scope() -> None:
-    model_factory, single_drug_factory = _factory_tables()
-    for name in model_factory:
-        if name in single_drug_factory:
-            continue
-        assert model_factory[name].is_single_drug() is False
+def test_multi_drug_zoo_excludes_single_drug_scope() -> None:
+    multi_names = list_zoo_names(include_external=False, scope=ModelScope.MULTI_DRUG)
+    for name in multi_names:
+        model_class = construct_model(name)
+        assert model_class.is_single_drug() is False
         assert get_zoo_config(name).scope == ModelScope.MULTI_DRUG

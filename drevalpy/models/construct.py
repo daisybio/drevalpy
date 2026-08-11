@@ -6,10 +6,9 @@ import functools
 import json
 from typing import Any
 
-from drevalpy.models.config import ModelConfig, ModelScope, from_spec
+from drevalpy.models.config import ModelConfig, from_spec
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 
 
 def _as_template(config: ModelConfig | ResolvedModelConfig) -> ModelConfig:
@@ -60,24 +59,3 @@ def construct_model(name: str, spec: str | ModelConfig | ResolvedModelConfig | N
     config = _resolve_base_config(name, spec)
     config_json = json.dumps(config.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
     return _generate_model_class(name, config_json)
-
-
-def build_builtin_factory_tables() -> tuple[
-    dict[str, type[DRPModel]],
-    dict[str, type[DRPModel]],
-    dict[str, type[DRPModel]],
-]:
-    """Build multi/single/all factory mappings for built-in zoo names only.
-
-    :returns: Tuple of multi-drug, single-drug, and combined factory mappings.
-    """
-    multi: dict[str, type[DRPModel]] = {}
-    single: dict[str, type[DRPModel]] = {}
-    for factory_name in list_zoo_names(include_external=False):
-        config = get_zoo_config(factory_name)
-        cls = construct_model(factory_name)
-        if config.scope == ModelScope.SINGLE_DRUG:
-            single[factory_name] = cls
-        else:
-            multi[factory_name] = cls
-    return multi, single, {**multi, **single}
