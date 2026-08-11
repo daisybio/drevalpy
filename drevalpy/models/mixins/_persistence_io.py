@@ -1,4 +1,4 @@
-"""Versioned persistence for concrete DRPModel instances.
+"""Low-level versioned checkpoint I/O for DRPModel instances.
 
 Checkpoints are a single ZIP archive written atomically to an archive file path.
 Callers must only load artifacts they created with ``save_model`` in the same
@@ -193,7 +193,7 @@ def load_model(path: str | Path) -> DRPModel:
     :param path: Archive file path; ``.zip`` is appended when missing.
     :returns: Fitted ``DRPModel`` instance.
     """
-    from drevalpy.models._construct_model_api import construct_model
+    from drevalpy.models.construct import construct_model
 
     model_name, config, _state = load_model_payload(path)
     return construct_model(model_name, config).load(path)

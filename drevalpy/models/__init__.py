@@ -10,9 +10,9 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
-from ._construct_model_api import build_builtin_factory_tables, construct_model
-from ._model_persistence import load_model
+from .construct import build_builtin_factory_tables, construct_model
 from .drp_model import DRPModel
+from .mixins._persistence_io import load_model
 
 __all__ = [
     "DRPModel",

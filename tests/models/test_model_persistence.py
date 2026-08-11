@@ -11,7 +11,8 @@ import joblib
 import pytest
 
 from drevalpy.models import construct_model, load_model
-from drevalpy.models._model_persistence import (
+from drevalpy.models.config import from_spec
+from drevalpy.models.mixins._persistence_io import (
     FORMAT_NAME,
     FORMAT_VERSION,
     PAYLOAD_MEMBER,
@@ -21,7 +22,6 @@ from drevalpy.models._model_persistence import (
     resolve_checkpoint_path,
     save_model,
 )
-from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
     lco_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,

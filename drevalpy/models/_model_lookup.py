@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.models._construct_model_api import construct_model
+from drevalpy.models.construct import construct_model
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 from drevalpy.types.enums.model_scope import ModelScope

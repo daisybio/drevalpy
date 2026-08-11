@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from drevalpy.models import construct_model
-from drevalpy.models._component_stack import build_component_stack
+from drevalpy.models.component_stack import build_component_stack
 from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
     lco_split_masks,
