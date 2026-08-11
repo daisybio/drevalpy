@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
 
 
 class DenseViewCellLineFeaturizer(CellLineFeaturizer):

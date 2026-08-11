@@ -6,7 +6,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors._state_helpers import state_mapping
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
@@ -15,6 +14,7 @@ from drevalpy.components.predictors.single_drug_routing import (
 )
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 

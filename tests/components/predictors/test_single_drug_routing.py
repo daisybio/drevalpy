@@ -6,13 +6,13 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import FeatureBlock
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
     require_known_training_keys,
     routing_keys,
 )
+from drevalpy.types.data.batch.feature_block import FeatureBlock
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
 def _identity_batch() -> ModelInputBatch:

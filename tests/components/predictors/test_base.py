@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
 from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import PredictorConfig
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
 class _StubPredictor(Predictor):

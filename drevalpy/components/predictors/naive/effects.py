@@ -7,7 +7,6 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors._state_helpers import state_float
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.naive._matrix_means import (
@@ -18,6 +17,7 @@ from drevalpy.components.predictors.naive._matrix_means import (
     state_float_vector,
 )
 from drevalpy.components.registry import register_predictor
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
 @register_predictor(

@@ -8,10 +8,10 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
 
 
 @register_cell_line_featurizer(

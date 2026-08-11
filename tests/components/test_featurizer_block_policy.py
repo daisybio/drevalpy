@@ -8,14 +8,14 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import (
+from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
+from drevalpy.components.registry import list_cell_line_featurizers, list_drug_featurizers, list_predictors
+from drevalpy.components.registry.register_builtins import register_builtin_components
+from drevalpy.types.data.batch.feature_block import (
     graph_feature_block,
     merge_feature_blocks,
     numeric_feature_block,
 )
-from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
-from drevalpy.components.registry import list_cell_line_featurizers, list_drug_featurizers, list_predictors
-from drevalpy.components.registry.register_builtins import register_builtin_components
 
 REPO = Path(__file__).resolve().parents[2]
 DREVALPY = REPO / "drevalpy"

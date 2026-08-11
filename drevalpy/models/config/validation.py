@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from drevalpy.components.contracts.contracts import contracts_compatible, featurizer_contract, predictor_contracts
-from drevalpy.components.core.batch.feature_block import BlockSpec
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.single_drug_routing import ROUTING_DRUG_FEATURIZER
 from drevalpy.components.registry import (
@@ -14,6 +13,7 @@ from drevalpy.components.registry import (
     get_predictor,
 )
 from drevalpy.models.config._block_specs import resolve_output_block_specs
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.enums.model_scope import ModelScope
 
 if TYPE_CHECKING:

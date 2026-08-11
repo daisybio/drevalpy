@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.core.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.base import Featurizer
+from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
 
 
 class _StubSource(FeatureSource):

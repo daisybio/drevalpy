@@ -7,16 +7,16 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import (
+from drevalpy.components.featurizers._feature_source import FeatureSource
+from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
+from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.types.data.batch.feature_block import (
     BlockSpec,
     FeatureBlock,
     metadata_feature_block,
     numeric_feature_block,
 )
-from drevalpy.components.featurizers._feature_source import FeatureSource
-from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.registry import register_cell_line_featurizer
 
 
 @register_cell_line_featurizer(

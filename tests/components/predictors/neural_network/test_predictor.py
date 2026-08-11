@@ -6,13 +6,13 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import get_predictor, register_builtins
 from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.response_batch import ResponseBatch
 
 

@@ -9,8 +9,6 @@ import torch
 import torch.nn as nn
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import BlockSpec
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors._tensor_data import make_pair_loader
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
@@ -20,6 +18,8 @@ from drevalpy.components.predictors.literature.sparsego.utils import load_ontolo
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
+from drevalpy.types.data.batch.feature_block import BlockSpec
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
 def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarray], dict[str, int], list[str]]:

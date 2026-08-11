@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
 def _ids(n: int) -> np.ndarray:

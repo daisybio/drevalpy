@@ -8,7 +8,6 @@ import pytest
 from pydantic import ValidationError
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import BlockSpec
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
@@ -30,6 +29,7 @@ from drevalpy.models.config import (
     PredictorConfig,
     validate,
 )
+from drevalpy.types.data.batch.feature_block import BlockSpec
 
 
 @pytest.fixture(autouse=True)

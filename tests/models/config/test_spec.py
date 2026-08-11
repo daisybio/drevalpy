@@ -247,7 +247,7 @@ def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
 import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 

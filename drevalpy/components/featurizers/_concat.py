@@ -7,9 +7,9 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import FeatureBlock, merge_feature_blocks
 from drevalpy.components.featurizers._featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
+from drevalpy.types.data.batch.feature_block import FeatureBlock, merge_feature_blocks
 
 
 class ConcatFeaturizersMixin:
@@ -27,7 +27,7 @@ class ConcatFeaturizersMixin:
         _ = kwargs
         msg = (
             f"{cls.__name__} has no input views of its own; resolve them from the child configs "
-            "via drevalpy.components.core.data_loading.view_resolution.views_from_featurizer_config"
+            "via drevalpy.models.config.view_resolution.views_from_featurizer_config"
         )
         raise TypeError(msg)
 

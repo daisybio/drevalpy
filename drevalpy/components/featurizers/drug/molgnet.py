@@ -7,11 +7,11 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock, ragged_feature_block
 from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.log import get_logger
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, ragged_feature_block
 
 _logger = get_logger(__name__)
 

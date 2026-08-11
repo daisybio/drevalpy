@@ -7,13 +7,13 @@ from typing import Any
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.cell_line._sparsego_metadata import (
     read_sparsego_ontology_metadata,
 )
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 
 _INPUT_TYPES = frozenset({"expression", "mutations"})
 

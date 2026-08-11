@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import (
+from drevalpy.types.data.batch.feature_block import (
     FeatureBlock,
     graph_feature_block,
     merge_feature_blocks,

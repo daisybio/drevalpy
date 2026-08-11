@@ -13,14 +13,14 @@ from torch.utils.data import DataLoader, Dataset
 from upath import UPath as Path
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import BlockSpec
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import DIPK_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import load_state_dict, save_state_dict
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
+from drevalpy.types.data.batch.feature_block import BlockSpec
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 from .model_utils import Predictor as DIPKNetwork
 

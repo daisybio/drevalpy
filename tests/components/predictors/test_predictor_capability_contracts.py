@@ -13,8 +13,6 @@ import torch
 from torch_geometric.data import Data
 
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.components.core.batch.feature_block import graph_feature_block, numeric_feature_block
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
 from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredictor
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
@@ -24,6 +22,8 @@ from drevalpy.components.registry import get_predictor
 from drevalpy.components.registry.register_builtins import ensure_predictor_registered, register_builtin_components
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig, from_spec
+from drevalpy.types.data.batch.feature_block import graph_feature_block, numeric_feature_block
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.response_batch import ResponseBatch
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,

@@ -7,7 +7,6 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.feature_block import BlockSpec
 from drevalpy.components.registry import register_cell_line_featurizer, register_drug_featurizer
 from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,
@@ -16,6 +15,7 @@ from drevalpy.components.registry.featurizer_registry import (
 from drevalpy.components.registry.predictor_registry import predictor_registry
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, FeaturizerConfig
 from drevalpy.models.config._block_specs import resolve_output_block_specs
+from drevalpy.types.data.batch.feature_block import BlockSpec
 
 
 @pytest.fixture(autouse=True)

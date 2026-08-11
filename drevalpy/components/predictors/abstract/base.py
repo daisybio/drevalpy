@@ -14,7 +14,7 @@ from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
-    from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
+    from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 _logger = get_logger(__name__)
 

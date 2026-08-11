@@ -15,13 +15,13 @@ import pandas as pd
 from scipy.spatial.distance import jaccard
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
 from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
 @register_predictor(
