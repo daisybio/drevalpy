@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
-from drevalpy.visualization.test_mode_plots import draw_test_mode_plots
+from drevalpy.visualization._legacy.test_mode_plots import draw_test_mode_plots
 
 
 def test_draw_test_mode_plots_returns_algorithms(tmp_path: Path) -> None:
@@ -20,13 +20,13 @@ def test_draw_test_mode_plots_returns_algorithms(tmp_path: Path) -> None:
             "CV_split": [0, 0],
         }
     )
-    with patch("drevalpy.visualization.test_mode_plots.CriticalDifferencePlot") as cd_mock:
+    with patch("drevalpy.visualization._legacy.test_mode_plots.CriticalDifferencePlot") as cd_mock:
         cd_mock.return_value.draw_and_save = MagicMock()
-        with patch("drevalpy.visualization.test_mode_plots.Violin") as violin_mock:
+        with patch("drevalpy.visualization._legacy.test_mode_plots.Violin") as violin_mock:
             violin_mock.return_value.draw_and_save = MagicMock()
-            with patch("drevalpy.visualization.test_mode_plots.Heatmap") as heat_mock:
+            with patch("drevalpy.visualization._legacy.test_mode_plots.Heatmap") as heat_mock:
                 heat_mock.return_value.draw_and_save = MagicMock()
-                with patch("drevalpy.visualization.test_mode_plots.CrossStudyTables") as cs_mock:
+                with patch("drevalpy.visualization._legacy.test_mode_plots.CrossStudyTables") as cs_mock:
                     cs_mock.return_value.draw_and_save = MagicMock()
                     algos = draw_test_mode_plots(
                         "LPO",

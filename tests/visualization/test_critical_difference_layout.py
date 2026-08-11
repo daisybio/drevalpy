@@ -5,7 +5,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from drevalpy.visualization.critical_difference_layout import critical_difference_diagram
+from drevalpy.visualization._legacy.critical_difference_layout import critical_difference_diagram
 
 
 def test_critical_difference_diagram_three_algorithms() -> None:

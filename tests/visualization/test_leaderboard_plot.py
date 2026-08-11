@@ -5,7 +5,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from drevalpy.visualization.leaderboard_plot import draw_leaderboard_panels
+from drevalpy.visualization._legacy.leaderboard_plot import draw_leaderboard_panels
 
 
 def test_draw_leaderboard_panels_smoke() -> None:

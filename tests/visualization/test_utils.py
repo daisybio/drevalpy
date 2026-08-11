@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from drevalpy.visualization.utils import _discover_result_csv_files, _resolve_result_test_mode
+from drevalpy.visualization._legacy.utils import _discover_result_csv_files, _resolve_result_test_mode
 
 
 def test_discover_result_csv_files_finds_custom_split_label_results(tmp_path: Path) -> None:

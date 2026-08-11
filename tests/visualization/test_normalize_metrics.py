@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from drevalpy.visualization.normalize_metrics import normalize_metrics_by_mean_effects
+from drevalpy.visualization._legacy.normalize_metrics import normalize_metrics_by_mean_effects
 
 
 def test_normalize_metrics_adds_normalized_columns() -> None:

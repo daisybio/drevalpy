@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from upath import UPath as Path
 
+from drevalpy.visualization._legacy.test_mode_plots import draw_test_mode_plots
 from drevalpy.visualization._legacy.utils import (
     create_html,
     create_index_html,
@@ -15,7 +16,6 @@ from drevalpy.visualization._legacy.utils import (
     prep_results,
     write_results,
 )
-from drevalpy.visualization.test_mode_plots import draw_test_mode_plots
 
 
 def generate_reports_for_test_mode(

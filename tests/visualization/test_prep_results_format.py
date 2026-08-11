@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from drevalpy.visualization.prep_results_format import add_index_columns_from_model
+from drevalpy.visualization._legacy.prep_results_format import add_index_columns_from_model
 
 
 def test_add_index_columns_from_model_splits_index() -> None:
