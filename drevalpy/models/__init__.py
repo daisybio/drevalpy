@@ -30,6 +30,10 @@ __all__ = [
     "AdaBoostDecisionTree",
     "LassoModel",
     "MultiViewXGBoost",
+    "GCMF",
+    "PGCMF",
+    "RGCMF",
+    "PRGCMF",
     "MultiViewLightGBM",
     "SparseGO",
 ]
@@ -58,6 +62,7 @@ from .baselines.sklearn_models import (
 from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
 from .DrugGNN import DrugGNN
+from .GCMF import GCMF, PGCMF, PRGCMF, RGCMF
 from .MOLIR.molir import MOLIR
 from .PharmaFormer.pharmaformer import PharmaFormerModel
 from .Precily import PrecilyModel
@@ -104,6 +109,10 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "PharmaFormer": PharmaFormerModel,
     "SRMF": SRMF,
     "Precily": PrecilyModel,
+    "GCMF": GCMF,
+    "PGCMF": PGCMF,
+    "RGCMF": RGCMF,
+    "PRGCMF": PRGCMF,
     "SparseGO": SparseGOModel,
 }
 
