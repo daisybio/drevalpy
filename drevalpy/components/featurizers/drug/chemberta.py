@@ -9,8 +9,8 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
-from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.log import get_logger
+from drevalpy.registry.drug_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
@@ -20,7 +20,7 @@ _CHEMBERTA_MODEL = "seyonec/ChemBERTa-zinc-base-v1"
 _CHEMBERTA_REVISION = "761d6a1"
 
 
-@register_drug_featurizer(
+@register(
     "chemberta",
     description="ChemBERTa embeddings loaded from pre-computed view or computed on the fly via transformers.",
     contract=FeatureFormat.NUMERIC_MATRIX,

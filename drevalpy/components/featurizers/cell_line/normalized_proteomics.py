@@ -9,7 +9,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
@@ -95,7 +95,7 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         return [proteomics_vector]
 
 
-@register_cell_line_featurizer(
+@register(
     "normalizedProteomics",
     description="Proteomics view with log10 transform, median centering, and imputation.",
     contract=FeatureFormat.NUMERIC_MATRIX,

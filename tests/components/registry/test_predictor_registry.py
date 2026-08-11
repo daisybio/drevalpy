@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.registry.predictor_registry import PredictorRegistry, predictor_registry
+from drevalpy.registry.predictor import PredictorRegistry, predictor_registry
 
 
 def test_predictor_registry_uses_fixed_identity() -> None:

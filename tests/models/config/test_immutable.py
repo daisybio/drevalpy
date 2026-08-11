@@ -7,7 +7,6 @@ from types import MappingProxyType
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import (
     CellLineFeaturizerConfig,
     DrugFeaturizerConfig,
@@ -17,6 +16,7 @@ from drevalpy.models.config import (
     ResolvedModelConfig,
 )
 from drevalpy.models.zoo import get_zoo_config
+from drevalpy.registry._builtins import register_builtin_components
 
 
 def test_model_config_rejects_field_assignment() -> None:

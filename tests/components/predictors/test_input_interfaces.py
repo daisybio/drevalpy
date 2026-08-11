@@ -7,8 +7,9 @@ import pytest
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-from drevalpy.components.registry import get_predictor, list_predictors
-from drevalpy.components.registry.register_builtins import register_builtin_components
+from drevalpy.registry._builtins import register_builtin_components
+from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.registry.predictor import list as list_predictors
 
 EXPECTED = {
     "feature_free": {"naiveMean"},

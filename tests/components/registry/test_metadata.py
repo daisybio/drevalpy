@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.registry._metadata_validate import validate_registered_class
-from drevalpy.components.registry._registration_metadata import (
+from drevalpy.registry.components._metadata_validate import validate_registered_class
+from drevalpy.registry.components._registration_metadata import (
     apply_registration_metadata,
     normalize_registration_metadata,
 )
-from drevalpy.components.registry.featurizer_registry import FeaturizerRegistry
-from drevalpy.components.registry.predictor_registry import PredictorRegistry
+from drevalpy.registry.featurizer import FeaturizerRegistry
+from drevalpy.registry.predictor import PredictorRegistry
 from drevalpy.types.enums.literature_reference import LiteratureReference
 from tests._trusted_subprocess import run_trusted_python
 
@@ -131,14 +131,12 @@ def test_register_rejects_bad_contract_before_class_body() -> None:
 
 def test_fresh_process_discovery_returns_all_builtins() -> None:
     script = """
-from drevalpy.components.registry import (
-    list_cell_line_featurizer_metadata,
-    list_drug_featurizer_metadata,
-    list_predictor_metadata,
-)
-assert len(list_cell_line_featurizer_metadata()) == 17
-assert len(list_drug_featurizer_metadata()) == 10
-assert len(list_predictor_metadata()) == 27
+from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+from drevalpy.registry.predictor import predictor_registry
+assert len(cell_line_featurizer_registry.list_metadata()) == 17
+assert len(drug_featurizer_registry.list_metadata()) == 10
+assert len(predictor_registry.list_metadata()) == 27
 print("ok")
 """
     completed = run_trusted_python(script)

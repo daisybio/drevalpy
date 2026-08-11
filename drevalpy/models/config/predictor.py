@@ -8,9 +8,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-from drevalpy.components.registry import get_predictor
 from drevalpy.models.config._predictor_parse import normalize_predictor_config
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
+from drevalpy.registry.predictor import get as get_predictor
 
 
 class PredictorConfig(BaseModel):

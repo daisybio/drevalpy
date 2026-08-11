@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.components.registry.extensions import load_extensions
-from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import from_spec, validate
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.factory import reject_unknown_spec, zoo_config
+from drevalpy.registry._builtins import register_builtin_components
+from drevalpy.registry._extensions import load_extensions
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
@@ -52,8 +52,8 @@ def test_zoo_name_prediction_mode_is_threaded_but_ignored_with_hyperparameters(
 
     :param monkeypatch: Pytest fixture used to widen the predictor's supported modes.
     """
-    from drevalpy.components.registry import get_predictor
     from drevalpy.models.config import ResolvedModelConfig
+    from drevalpy.registry.predictor import get as get_predictor
 
     monkeypatch.setattr(get_predictor("elasticNet"), "supported_modes", frozenset(PredictionMode))
 
@@ -249,7 +249,8 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
+from drevalpy.registry.predictor import register as register_predictor
+from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
 
 @register_cell_line_featurizer(
     "resolverCellLine",

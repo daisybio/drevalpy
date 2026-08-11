@@ -16,8 +16,8 @@ from scikit_posthocs import sign_array
 from scipy import stats
 
 from drevalpy.evaluation import MINIMIZATION_METRICS
+from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import ImageVisualization
-from drevalpy.visualization.registry import visualization_registry
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -170,7 +170,7 @@ def _critical_difference_diagram(
         )
 
 
-@visualization_registry.register(
+@register(
     "critical_difference",
     "Critical difference diagram with Friedman test and model rankings",
     requirements=frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS}),

@@ -9,12 +9,12 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors._state_helpers import state_float
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
+from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
-@register_predictor(
+@register(
     "naiveMean",
     tags=("baseline",),
     description="Predict the global mean response.",

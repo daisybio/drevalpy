@@ -11,8 +11,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from scipy.stats import pearsonr
 
+from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
-from drevalpy.visualization.registry import visualization_registry
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ModelResult
@@ -38,7 +38,7 @@ def _build_regression_df(result: ModelResult) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-@visualization_registry.register(
+@register(
     "regression_scatter",
     "Scatter plot of predicted vs. actual drug response values",
     result_type="ModelResult",

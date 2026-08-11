@@ -23,7 +23,7 @@ class Predictor(ABC):
     """Train and predict drug response from a ``ModelInputBatch``.
 
     Predictors take featurizer outputs and predict a response for each drug/cell-line pair in the batch.
-    Subclasses must be registered to the predictor registry using ``@register_predictor``,
+    Subclasses must be registered to the predictor registry using ``@register``,
     so that they can be discovered and used in models.
     """
 
@@ -45,9 +45,7 @@ class Predictor(ABC):
         super().__init_subclass__(**kwargs)
         forbidden = [name for name in ("cell_line_contract", "drug_contract") if name in cls.__dict__]
         if forbidden:
-            msg = (
-                f"{cls.__name__}: do not set {', '.join(forbidden)} on the class body; pass them to @register_predictor"
-            )
+            msg = f"{cls.__name__}: do not set {', '.join(forbidden)} on the class body; pass them to @register"
             raise TypeError(msg)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:

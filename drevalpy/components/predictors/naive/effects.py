@@ -16,11 +16,11 @@ from drevalpy.components.predictors.naive._matrix_means import (
     require_pair_matrix,
     state_float_vector,
 )
-from drevalpy.components.registry import register_predictor
+from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
-@register_predictor(
+@register(
     "naiveMeanEffects",
     tags=("baseline",),
     description="Predict mean plus cell-line and drug effects.",

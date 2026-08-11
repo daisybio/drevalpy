@@ -99,7 +99,7 @@ def test_global_models(
     :raises ValueError: if drug input is None
     """
     from drevalpy.data import load
-    from drevalpy.data.splitters import get_splitter
+    from drevalpy.registry.splitter import get as get_splitter
 
     mudataset = load("TOYv1")
     splitter = get_splitter(test_mode)
@@ -161,7 +161,7 @@ def test_multi_view_neural_network_custom_views(sample_dataset: ResponseBatch, t
     :raises ValueError: if drug input is None
     """
     from drevalpy.data import load
-    from drevalpy.data.splitters import get_splitter
+    from drevalpy.registry.splitter import get as get_splitter
 
     mudataset = load("TOYv1")
     splitter = get_splitter(test_mode)

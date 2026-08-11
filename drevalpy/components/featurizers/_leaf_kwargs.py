@@ -6,8 +6,9 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
-from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config.featurizer import FeaturizerConfig
+from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 
 if TYPE_CHECKING:
     from drevalpy.models.config.resolved import ResolvedModelConfig

@@ -14,22 +14,58 @@ Usage::
     registry.register_dataset("MyStudy", source="my_s3", file="MyStudy.h5mu")
 """
 
-from .io import config_lock, get_config_path, load_config, save_config
-from .load import load
-from .models import DatasetEntry, DrevalConfig, SourceEntry
-from .registry import Registry
+from __future__ import annotations
 
-registry = Registry()
+from .load import load
+
+
+def __getattr__(name: str):
+    """Lazy imports from drevalpy.registry.dataset to avoid circular imports."""
+    from drevalpy.registry.dataset import (
+        DatasetEntry,
+        DatasetRegistry,
+        DrevalConfig,
+        SourceEntry,
+        config_lock,
+        dataset_registry,
+        get_config_path,
+        load_config,
+        register_dataset,
+        register_source,
+        save_config,
+    )
+
+    _lazy = {
+        "DatasetEntry": DatasetEntry,
+        "DatasetRegistry": DatasetRegistry,
+        "DrevalConfig": DrevalConfig,
+        "SourceEntry": SourceEntry,
+        "config_lock": config_lock,
+        "dataset_registry": dataset_registry,
+        "get_config_path": get_config_path,
+        "load_config": load_config,
+        "register_dataset": register_dataset,
+        "register_source": register_source,
+        "registry": dataset_registry,
+        "save_config": save_config,
+    }
+    if name in _lazy:
+        return _lazy[name]
+    raise AttributeError(f"module 'drevalpy.data.datasets' has no attribute {name!r}")
+
 
 __all__ = [
     "DatasetEntry",
+    "DatasetRegistry",
     "DrevalConfig",
-    "Registry",
     "SourceEntry",
     "config_lock",
+    "dataset_registry",
     "get_config_path",
-    "load_config",
     "load",
+    "load_config",
+    "register_dataset",
+    "register_source",
     "registry",
     "save_config",
 ]

@@ -105,8 +105,8 @@ def test_zoo_model_config_routes_methylation_flat_key_to_pca_child() -> None:
 
 
 def test_get_zoo_config_applies_prediction_mode_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    from drevalpy.components.registry import get_predictor
     from drevalpy.models.config import ModelConfig
+    from drevalpy.registry.predictor import get as get_predictor
     from drevalpy.types.enums.prediction_mode import PredictionMode
 
     monkeypatch.setattr(get_predictor("elasticNet"), "supported_modes", frozenset(PredictionMode))

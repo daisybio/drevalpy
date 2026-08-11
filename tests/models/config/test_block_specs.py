@@ -7,14 +7,13 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.registry import register_cell_line_featurizer, register_drug_featurizer
-from drevalpy.components.registry.featurizer_registry import (
-    cell_line_featurizer_registry,
-    drug_featurizer_registry,
-)
-from drevalpy.components.registry.predictor_registry import predictor_registry
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, FeaturizerConfig
 from drevalpy.models.config._block_specs import resolve_output_block_specs
+from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
+from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+from drevalpy.registry.drug_featurizer import register as register_drug_featurizer
+from drevalpy.registry.predictor import predictor_registry
 from drevalpy.types.data.batch.feature_block import BlockSpec
 
 
@@ -24,7 +23,7 @@ def _clear_registries() -> Iterator[None]:
     drug_featurizer_registry.clear()
     predictor_registry.clear()
     yield
-    from drevalpy.components.registry.register_builtins import register_builtin_components
+    from drevalpy.registry._builtins import register_builtin_components
 
     register_builtin_components()
 
@@ -89,7 +88,7 @@ def test_nested_concat_flattens_child_blocks() -> None:
 
 
 def test_sparsego_expression_and_mutations_block_names() -> None:
-    from drevalpy.components.registry.register_builtins import register_builtin_components
+    from drevalpy.registry._builtins import register_builtin_components
 
     register_builtin_components()
     expression = FeaturizerConfig(

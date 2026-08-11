@@ -9,12 +9,12 @@ from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 
-@register_cell_line_featurizer(
+@register(
     "scaledGeneExpression",
     description="Landmark gene expression with arcsinh transform and scaling.",
     contract=FeatureFormat.NUMERIC_MATRIX,

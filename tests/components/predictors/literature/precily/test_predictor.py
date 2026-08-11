@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from drevalpy.components.predictors.literature.precily.predictor import PrecilyPredictor
-from drevalpy.components.registry import get_predictor, register_builtins
+from drevalpy.registry._builtins import ensure_predictor_registered
+from drevalpy.registry.predictor import get as get_predictor
 
 
 def test_precily_predictor_registry_name() -> None:
-    register_builtins.ensure_predictor_registered("precily")
+    ensure_predictor_registered("precily")
     assert get_predictor("precily") is PrecilyPredictor

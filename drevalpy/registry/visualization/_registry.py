@@ -6,13 +6,10 @@ Register custom visualizations with the ``@visualization_registry.register`` dec
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
-
-from drevalpy.visualization.base import Visualization
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult
-    from drevalpy.visualization.requirements import PlotRequirement
 
 
 class VisualizationRegistry:
@@ -20,9 +17,9 @@ class VisualizationRegistry:
 
     def __init__(self) -> None:
         """Initialize with an empty registry."""
-        self._store: dict[str, type[Visualization]] = {}
+        self._store: dict[str, type[Any]] = {}
         self._descriptions: dict[str, str] = {}
-        self._requirements: dict[str, frozenset[PlotRequirement]] = {}
+        self._requirements: dict[str, frozenset[Any]] = {}
         self._result_types: dict[str, str] = {}
 
     @property
@@ -30,14 +27,18 @@ class VisualizationRegistry:
         """Sorted list of registered visualization names."""
         return sorted(self._store)
 
+    def list_names(self) -> list[str]:
+        """Alias for names property, for API consistency with other registries."""
+        return self.names
+
     def register(
         self,
         name: str,
         description: str = "",
         *,
         result_type: str = "ExperimentResult",
-        requirements: frozenset[PlotRequirement] = frozenset(),
-    ) -> Callable[[type[Visualization]], type[Visualization]]:
+        requirements: frozenset[Any] = frozenset(),
+    ) -> Callable[[type[Any]], type[Any]]:
         """Decorator to register a visualization class.
 
         :param name: Unique name for this visualization.
@@ -47,7 +48,7 @@ class VisualizationRegistry:
         :returns: Class decorator.
         """
 
-        def decorator(cls: type[Visualization]) -> type[Visualization]:
+        def decorator(cls: type[Any]) -> type[Any]:
             if name in self._store:
                 raise ValueError(f"Visualization {name!r} already registered")
             cls.registry_name = name
@@ -59,7 +60,7 @@ class VisualizationRegistry:
 
         return decorator
 
-    def get(self, name: str) -> type[Visualization]:
+    def get(self, name: str) -> type[Any]:
         """Return the visualization class registered under name.
 
         :raises ValueError: If name is not registered.
@@ -68,7 +69,7 @@ class VisualizationRegistry:
             raise ValueError(f"Unknown visualization {name!r}. Registered: {self.names}")
         return self._store[name]
 
-    def applicable(self, experiment: ExperimentResult) -> list[type[Visualization]]:
+    def applicable(self, experiment: ExperimentResult) -> list[type[Any]]:
         """Return all visualization classes whose requirements are satisfied.
 
         :param experiment: The experiment result to check against.
@@ -84,6 +85,18 @@ class VisualizationRegistry:
     def describe(self, name: str) -> str:
         """Return the description for a registered visualization."""
         return self._descriptions.get(name, "")
+
+    def retain_only(self, names: frozenset[str]) -> None:
+        """Remove all entries not in the given set (for rollback support).
+
+        :param names: Set of visualization names to keep.
+        """
+        for name in list(self._store):
+            if name not in names:
+                del self._store[name]
+                self._descriptions.pop(name, None)
+                self._requirements.pop(name, None)
+                self._result_types.pop(name, None)
 
     def __repr__(self) -> str:
         """Return a readable string representation."""

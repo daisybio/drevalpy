@@ -10,7 +10,8 @@ __all__ = [
     "visualization_registry",
 ]
 
+from drevalpy.registry.visualization import visualization_registry
+
 from .base import ImageVisualization, Section, Visualization
-from .registry import visualization_registry
 from .report import create_report, save_all_png
 from .requirements import PlotRequirement

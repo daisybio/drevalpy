@@ -161,10 +161,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         :param n_variants: Number of HP configurations to sample for featurizers
             that have a tunable HP space.
         """
-        from drevalpy.components.registry.featurizer_registry import (
-            cell_line_featurizer_registry,
-            drug_featurizer_registry,
-        )
+        from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+        from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 
         for registry in (cell_line_featurizer_registry, drug_featurizer_registry):
             for name in registry.list_names():

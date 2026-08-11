@@ -112,12 +112,10 @@ def test_zoo_presets_documented_in_model_zoo() -> None:
 
 
 def test_component_catalog_is_registry_driven_and_synchronized() -> None:
-    from drevalpy.components import register_builtins as rb
-    from drevalpy.components.registry import (
-        list_cell_line_featurizer_metadata,
-        list_drug_featurizer_metadata,
-        list_predictor_metadata,
-    )
+    from drevalpy.registry import _builtins as rb
+    from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+    from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+    from drevalpy.registry.predictor import predictor_registry
 
     catalog = (DOCS / "concepts" / "component_catalog.rst").read_text(encoding="utf-8")
     for include in (
@@ -143,12 +141,12 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     expected_featurizers = {
         "cell_line": {
             row["name"]: (row["output_format"], " ".join(row["description"].split()))
-            for row in list_cell_line_featurizer_metadata()
+            for row in cell_line_featurizer_registry.list_metadata()
             if row["name"] in rb.BUILTIN_CELL_LINE_FEATURIZER_NAMES
         },
         "drug": {
             row["name"]: (row["output_format"], " ".join(row["description"].split()))
-            for row in list_drug_featurizer_metadata()
+            for row in drug_featurizer_registry.list_metadata()
             if row["name"] in rb.BUILTIN_DRUG_FEATURIZER_NAMES
         },
     }
@@ -157,7 +155,7 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
             row["input_interface"].replace("_", "-").capitalize(),
             " ".join(row["description"].split()),
         )
-        for row in list_predictor_metadata()
+        for row in predictor_registry.list_metadata()
         if row["name"] in rb.BUILTIN_PREDICTOR_NAMES
     }
     for registry_name, expected in expected_featurizers.items():
@@ -176,7 +174,7 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     )
     observed_predictors = {name: (interface, description) for name, interface, description in predictor_matches}
     assert len(expected_featurizers["cell_line"]) == len(rb.BUILTIN_CELL_LINE_FEATURIZER_NAMES) == 17
-    assert len(expected_featurizers["drug"]) == len(rb.BUILTIN_DRUG_FEATURIZER_NAMES) == 9
+    assert len(expected_featurizers["drug"]) == len(rb.BUILTIN_DRUG_FEATURIZER_NAMES) == 10
     assert len(expected_predictors) == len(rb.BUILTIN_PREDICTOR_NAMES) == 27
     assert observed_predictors == expected_predictors
 

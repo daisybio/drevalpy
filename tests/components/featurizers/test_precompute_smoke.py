@@ -5,7 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry, drug_featurizer_registry
+from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource
 
 

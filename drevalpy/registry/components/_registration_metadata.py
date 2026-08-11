@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from drevalpy.components.registry._metadata_validate import validate_literature_reference
+from drevalpy.registry.components._metadata_validate import validate_literature_reference
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
 

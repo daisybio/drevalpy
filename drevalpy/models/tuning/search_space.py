@@ -9,10 +9,12 @@ from typing import Any
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
-from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
 from drevalpy.models.config._hp_key_validation import validate_merged_mapping
 from drevalpy.models.config.resolved import ResolvedModelConfig
+from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.predictor import get as get_predictor
 
 _CELL_LINE_FEATURIZER_SLOT = "cell_line_featurizer"
 _DRUG_FEATURIZER_SLOT = "drug_featurizer"

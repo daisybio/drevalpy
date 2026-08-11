@@ -40,7 +40,7 @@ class Featurizer(ABC):
     Cell-line featurizers consume cell-line features; drug featurizers consume
     drug features. Subclasses must be registered
     to the cell-line or drug featurizer registry using
-    ``@register_cell_line_featurizer`` or ``@register_drug_featurizer``, so that
+    ``@register`` (from the cell_line_featurizer or drug_featurizer registry), so that
     they can be discovered and used in models.
 
     Each subclass declares which raw feature views it reads via ``input_views``
@@ -69,7 +69,7 @@ class Featurizer(ABC):
         if "contract" in cls.__dict__:
             msg = (
                 f"{cls.__name__}: do not set contract on the class body; "
-                "pass contract= to @register_cell_line_featurizer / @register_drug_featurizer"
+                "pass contract= to @register from the appropriate featurizer registry"
             )
             raise TypeError(msg)
 

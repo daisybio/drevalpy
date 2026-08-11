@@ -10,10 +10,11 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.components.featurizers._featurizer_tree import ensure_unique_qualified_featurizers
-from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 from drevalpy.models.config._recipe import expand_featurizer_recipe
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
+from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 
 
 class FeaturizerConfig(BaseModel):

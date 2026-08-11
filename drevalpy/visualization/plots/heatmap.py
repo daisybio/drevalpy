@@ -10,8 +10,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
-from drevalpy.visualization.registry import visualization_registry
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -89,7 +89,7 @@ def _compute_ssmd(df: pd.DataFrame, metric: str) -> pd.DataFrame:
     return ssmd_matrix.astype(float)
 
 
-@visualization_registry.register(
+@register(
     "heatmap",
     "Heatmap of mean metrics per model",
     requirements=frozenset({PlotRequirement.MULTIPLE_FOLDS}),

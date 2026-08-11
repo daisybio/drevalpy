@@ -6,10 +6,11 @@ from pathlib import Path
 
 from _generated_io import write_text_if_changed
 
-from drevalpy.components.registry import get_predictor, get_predictor_metadata
-from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names
+from drevalpy.registry._builtins import register_builtin_components
+from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.registry.predictor import metadata as get_predictor_metadata
 from drevalpy.types.enums.model_scope import ModelScope
 
 DOCS_DIR = Path(__file__).resolve().parent

@@ -9,8 +9,8 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.data.utils import TISSUE_IDENTIFIER
+from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import FeatureBlock, metadata_feature_block, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
@@ -22,7 +22,7 @@ def _tissue_label(source: FeatureSource, entity_id: str) -> str | None:
     return str(np.asarray(raw).reshape(-1)[0])
 
 
-@register_cell_line_featurizer(
+@register(
     "tissue",
     description="One-hot encoding of tissue or lineage labels for cell-line entities.",
     contract=FeatureFormat.NUMERIC_MATRIX,

@@ -18,10 +18,10 @@ from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredict
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.sklearn_models import AdaBoostPredictor, RidgePredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.components.registry import get_predictor
-from drevalpy.components.registry.register_builtins import ensure_predictor_registered, register_builtin_components
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig, from_spec
+from drevalpy.registry._builtins import ensure_predictor_registered, register_builtin_components
+from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import graph_feature_block, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch

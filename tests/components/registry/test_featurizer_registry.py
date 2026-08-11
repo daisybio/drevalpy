@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.registry.featurizer_registry import (
-    FeaturizerRegistry,
+from drevalpy.registry.cell_line_featurizer import (
     cell_line_featurizer_registry,
-    drug_featurizer_registry,
 )
+from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+from drevalpy.registry.featurizer import FeaturizerRegistry
 
 
 def test_module_featurizer_singletons_use_fixed_identity() -> None:

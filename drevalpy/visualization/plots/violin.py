@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import plotly.graph_objects as go
 
+from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
-from drevalpy.visualization.registry import visualization_registry
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -51,7 +51,7 @@ def _build_df_from_experiment(result: ExperimentResult) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-@visualization_registry.register(
+@register(
     "violin",
     "Violin plots of evaluation metrics across CV folds",
     requirements=frozenset({PlotRequirement.MULTIPLE_FOLDS}),

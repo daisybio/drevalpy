@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.registry import get_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 
 
 def qualified_featurizer_selector(name: str, view: str | None = None) -> str:

@@ -9,7 +9,7 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import (
     BlockSpec,
     FeatureBlock,
@@ -19,7 +19,7 @@ from drevalpy.types.data.batch.feature_block import (
 from drevalpy.types.data.feature_source import FeatureSource
 
 
-@register_cell_line_featurizer(
+@register(
     "identity",
     description="One-hot encoding of cell-line entity identifiers.",
     contract=FeatureFormat.NUMERIC_MATRIX,

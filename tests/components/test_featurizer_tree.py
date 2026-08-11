@@ -6,8 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from drevalpy.components.featurizers._featurizer_tree import ensure_unique_qualified_featurizers
-from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, from_spec
+from drevalpy.registry._builtins import register_builtin_components
 
 
 def test_ensure_unique_allows_same_name_different_views() -> None:

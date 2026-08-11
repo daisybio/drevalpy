@@ -9,17 +9,15 @@ from typing import TypedDict, TypeVar, cast
 
 from _generated_io import write_text_if_changed
 
-from drevalpy.components.registry import (
-    list_cell_line_featurizer_metadata,
-    list_drug_featurizer_metadata,
-    list_predictor_metadata,
-)
-from drevalpy.components.registry.register_builtins import (
+from drevalpy.registry._builtins import (
     BUILTIN_CELL_LINE_FEATURIZER_NAMES,
     BUILTIN_DRUG_FEATURIZER_NAMES,
     BUILTIN_PREDICTOR_NAMES,
     register_builtin_components,
 )
+from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+from drevalpy.registry.predictor import predictor_registry
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_CATALOGS = {
@@ -27,7 +25,7 @@ GENERATED_CATALOGS = {
     "drug": DOCS_DIR / "concepts" / "_generated_drug_featurizers.rst",
     "predictor": DOCS_DIR / "concepts" / "_generated_predictors.rst",
 }
-EXPECTED_BUILTIN_COMPONENT_COUNTS = {"cell_line": 17, "drug": 9, "predictor": 27}
+EXPECTED_BUILTIN_COMPONENT_COUNTS = {"cell_line": 17, "drug": 10, "predictor": 27}
 EXPECTED_PREDICTOR_INTERFACE_COUNTS = {"feature_free": 1, "matrix": 13, "block": 13}
 
 
@@ -166,17 +164,17 @@ def generate_component_catalog_rsts() -> dict[str, str]:
     """
     register_builtin_components()
     cell_line_rows = _builtin_rows(
-        cast(list[FeaturizerCatalogMetadata], list_cell_line_featurizer_metadata()),
+        cast(list[FeaturizerCatalogMetadata], cell_line_featurizer_registry.list_metadata()),
         BUILTIN_CELL_LINE_FEATURIZER_NAMES,
         "cell-line featurizers",
     )
     drug_rows = _builtin_rows(
-        cast(list[FeaturizerCatalogMetadata], list_drug_featurizer_metadata()),
+        cast(list[FeaturizerCatalogMetadata], drug_featurizer_registry.list_metadata()),
         BUILTIN_DRUG_FEATURIZER_NAMES,
         "drug featurizers",
     )
     predictor_rows = _builtin_rows(
-        cast(list[PredictorCatalogMetadata], list_predictor_metadata()),
+        cast(list[PredictorCatalogMetadata], predictor_registry.list_metadata()),
         BUILTIN_PREDICTOR_NAMES,
         "predictors",
     )

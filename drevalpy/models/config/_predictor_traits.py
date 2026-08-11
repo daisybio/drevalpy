@@ -14,8 +14,8 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.registry import get_predictor
 from drevalpy.models.config.predictor import PredictorConfig
+from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.enums.model_scope import ModelScope
 
 

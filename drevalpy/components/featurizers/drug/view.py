@@ -9,12 +9,12 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
-from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.registry.drug_featurizer import register
 from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 
-@register_drug_featurizer(
+@register(
     "view",
     description="Pass through one dense drug view from a FeatureSource.",
     contract=FeatureFormat.NUMERIC_MATRIX,

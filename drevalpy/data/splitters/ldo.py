@@ -5,12 +5,11 @@ from __future__ import annotations
 import numpy as np
 from sklearn.model_selection import KFold
 
+from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMask, SplitMasks
 
-from .registry import splitter_registry
 
-
-@splitter_registry.register("LDO", "Leave-Drug-Out: test folds contain unseen drugs", validation="LDO")
+@register("LDO", "Leave-Drug-Out: test folds contain unseen drugs", validation="LDO")
 def leave_drug_out(
     mudataset: MuDataLike,
     n_splits: int = 5,

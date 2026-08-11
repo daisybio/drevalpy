@@ -5,12 +5,11 @@ from __future__ import annotations
 import numpy as np
 from sklearn.model_selection import KFold
 
+from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMask, SplitMasks
 
-from .registry import splitter_registry
 
-
-@splitter_registry.register("LCO", "Leave-Cell-Line-Out: test folds contain unseen cell lines", validation="LCO")
+@register("LCO", "Leave-Cell-Line-Out: test folds contain unseen cell lines", validation="LCO")
 def leave_cell_line_out(
     mudataset: MuDataLike,
     n_splits: int = 5,

@@ -5,8 +5,9 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, featurizer_contract
-from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
-from drevalpy.components.registry.register_builtins import register_builtin_components
+from drevalpy.registry._builtins import register_builtin_components
+from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 
 
 @pytest.fixture(autouse=True)

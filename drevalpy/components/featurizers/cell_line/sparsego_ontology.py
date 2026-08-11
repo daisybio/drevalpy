@@ -12,7 +12,7 @@ from drevalpy.components.featurizers.cell_line._sparsego_metadata import (
     read_sparsego_ontology_metadata,
 )
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
@@ -28,7 +28,7 @@ def _view_for_input_type(input_type: str) -> str:
     return "mutations" if input_type == "mutations" else "gene_expression"
 
 
-@register_cell_line_featurizer(
+@register(
     "sparsegoOntology",
     description="SparseGO ontology-aligned expression or mutation inputs.",
     contract=FeatureFormat.NUMERIC_MATRIX,

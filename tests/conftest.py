@@ -10,8 +10,21 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import drevalpy.registry  # noqa: F401  -- triggers register_builtin_components() + discover_plugins()
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.feature_source import FeatureSource
+
+
+@pytest.fixture(autouse=True)
+def _ensure_registries_populated():
+    """Ensure built-in components are registered before each test.
+
+    Some tests call registry.clear() for isolation. This fixture guarantees
+    the next test always starts with populated registries.
+    """
+    from drevalpy.registry._builtins import register_builtin_components
+
+    register_builtin_components()
 
 
 class MockFeatureSource(FeatureSource):

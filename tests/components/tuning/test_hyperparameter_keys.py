@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.registry import register_builtins
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig
@@ -15,11 +14,12 @@ from drevalpy.models.tuning.hyperparameter_keys import (
     build_ownership_index,
     resolve_to_qualified_mapping,
 )
+from drevalpy.registry._builtins import register_builtin_components
 
 
 @pytest.fixture(autouse=True)
 def _register_components() -> None:
-    register_builtins.register_builtin_components()
+    register_builtin_components()
 
 
 def test_elastic_net_alpha_has_single_owner() -> None:

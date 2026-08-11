@@ -9,16 +9,16 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
-from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
+from drevalpy.registry.drug_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, ragged_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 _logger = get_logger(__name__)
 
 
-@register_drug_featurizer(
+@register(
     "molgnet",
     description="MolGNet drug embeddings loaded from pre-computed view or computed on the fly.",
     contract=FeatureFormat.RAGGED_SEQUENCE,

@@ -12,8 +12,8 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
-from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.log import get_logger
+from drevalpy.registry.drug_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 from drevalpy.types.enums.literature_reference import LiteratureReference
@@ -30,7 +30,7 @@ _BPE_PHARMAFORMER_REFERENCE = LiteratureReference(
 )
 
 
-@register_drug_featurizer(
+@register(
     "bpePharmaformer",
     description="BPE PharmaFormer token rows computed via fit/transform (set-dependent).",
     reference=_BPE_PHARMAFORMER_REFERENCE,

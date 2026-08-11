@@ -9,15 +9,15 @@ import pandas as pd
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
-from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
+from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.feature_source import FeatureSource
 
 logger = get_logger(__name__)
 
 
-@register_cell_line_featurizer(
+@register(
     "bionic",
     description="BIONIC PPI-based cell-line features for DIPK.",
     contract=FeatureFormat.NUMERIC_MATRIX,

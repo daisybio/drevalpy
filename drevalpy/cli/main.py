@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import typer
 
 from drevalpy.cli.aggregate import aggregate_cmd
@@ -17,6 +19,27 @@ app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
+
+
+@app.callback()
+def main_callback(
+    extensions_dir: Annotated[
+        list[str] | None,
+        typer.Option("--extensions-dir", "-e", help="Directory with .py/.yaml extension files."),
+    ] = None,
+) -> None:
+    """Global options applied before any subcommand."""
+    import os
+
+    from drevalpy.registry import load_extension_dir
+
+    env_dir = os.environ.get("DREVALPY_EXTENSIONS_DIR")
+    if env_dir:
+        load_extension_dir(env_dir)
+
+    for d in extensions_dir or []:
+        load_extension_dir(d)
+
 
 app.add_typer(data_app, name="data")
 app.add_typer(experiments_app, name="experiments")

@@ -8,13 +8,13 @@ from pathlib import Path
 import pytest
 import yaml
 
-from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config.io import (
     from_dict,
     from_spec,
     from_yaml,
 )
 from drevalpy.models.config.model import ModelConfig
+from drevalpy.registry._builtins import register_builtin_components
 
 
 @pytest.fixture(autouse=True)

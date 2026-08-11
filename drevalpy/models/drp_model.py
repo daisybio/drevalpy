@@ -10,7 +10,6 @@ import wandb
 from upath import UPath as Path
 
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.components.registry import get_predictor
 from drevalpy.models.component_stack import _ComponentStack, build_component_stack
 from drevalpy.models.config import ModelConfig, ModelScope
 from drevalpy.models.config.resolved import ResolvedModelConfig
@@ -20,6 +19,7 @@ from drevalpy.models.mixins._persistence import DRPPersistenceMixin
 from drevalpy.models.tuning.config_resolution import default_config_for_drp_model
 from drevalpy.models.tuning.public_flat import config_from_public_hyperparameters, public_hyperparameters_from_config
 from drevalpy.models.tuning.search_space import resolve_model_config
+from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
 

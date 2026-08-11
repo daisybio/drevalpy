@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import ModelConfig, ResolvedModelConfig, from_spec
 from drevalpy.models.tuning.search_space import resolve_model_config
 from drevalpy.models.zoo import zoo_model_config
+from drevalpy.registry._builtins import register_builtin_components
 
 
 def test_resolve_model_config_separates_template_and_values() -> None:

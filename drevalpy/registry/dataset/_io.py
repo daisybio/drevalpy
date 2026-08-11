@@ -9,9 +9,7 @@ from contextlib import contextmanager
 from filelock import FileLock
 from upath import UPath as Path
 
-from drevalpy.data._paths import get_config_dir
-
-from .models import DrevalConfig
+from ._models import DrevalConfig
 
 _LOCK_TIMEOUT = 10
 
@@ -21,6 +19,8 @@ def get_config_path() -> Path:
 
     :returns: Path to ``datasets.json`` in the config directory.
     """
+    from drevalpy.data._paths import get_config_dir
+
     return get_config_dir() / "datasets.json"
 
 

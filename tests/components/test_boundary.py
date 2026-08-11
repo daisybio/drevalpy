@@ -7,11 +7,11 @@ from pathlib import Path
 
 
 def test_native_component_registration_does_not_import_literature_models() -> None:
-    from drevalpy.components.registry.predictor_registry import predictor_registry
+    from drevalpy.registry.predictor import predictor_registry
 
     predictor_registry.clear()
     try:
-        from drevalpy.components.registry.register_builtins import register_native_components
+        from drevalpy.registry._builtins import register_native_components
 
         register_native_components()
         names = predictor_registry.list_names()
@@ -21,7 +21,7 @@ def test_native_component_registration_does_not_import_literature_models() -> No
         assert "precily" not in names
     finally:
         predictor_registry.clear()
-        from drevalpy.components.registry.register_builtins import register_builtin_components
+        from drevalpy.registry._builtins import register_builtin_components
 
         register_builtin_components()
 

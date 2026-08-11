@@ -11,7 +11,7 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.featurizers.cell_line.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
-from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
@@ -57,7 +57,7 @@ def _subset_matrix(
     return matrix.astype(np.float32)
 
 
-@register_cell_line_featurizer(
+@register(
     "landmarkGenes",
     description="L1000 landmark genes with arcsinh and optional scaling.",
     contract=FeatureFormat.NUMERIC_MATRIX,
@@ -271,7 +271,7 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         self._restore_landmark_fit_state(state)
 
 
-@register_cell_line_featurizer(
+@register(
     "landmarkGenesReduced",
     description="Reduced landmark gene set used by DrugGNN and PharmaFormer.",
     contract=FeatureFormat.NUMERIC_MATRIX,

@@ -12,7 +12,7 @@ def test_hpam_tune(tmp_path, data_dir):
     :param data_dir: path to the data directory
     """
     from drevalpy.data import load
-    from drevalpy.data.splitters import get_splitter
+    from drevalpy.registry.splitter import get as get_splitter
 
     model_cls = construct_model("ElasticNet")
     mudataset = load("TOYv1")

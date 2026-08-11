@@ -7,23 +7,33 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.registry import (
-    get_cell_line_featurizer,
-    get_cell_line_featurizer_metadata,
-    get_drug_featurizer,
-    get_drug_featurizer_metadata,
-    list_cell_line_featurizer_metadata,
-    list_cell_line_featurizers,
-    list_drug_featurizer_metadata,
-    list_drug_featurizers,
-    register_cell_line_featurizer,
-    register_drug_featurizer,
+from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry.cell_line_featurizer import (
+    get as get_cell_line_featurizer,
 )
-from drevalpy.components.registry.featurizer_registry import (
-    cell_line_featurizer_registry,
-    drug_featurizer_registry,
+from drevalpy.registry.cell_line_featurizer import (
+    list as list_cell_line_featurizers,
 )
-from drevalpy.components.registry.predictor_registry import predictor_registry
+from drevalpy.registry.cell_line_featurizer import (
+    metadata as get_cell_line_featurizer_metadata,
+)
+from drevalpy.registry.cell_line_featurizer import (
+    register as register_cell_line_featurizer,
+)
+from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+from drevalpy.registry.drug_featurizer import (
+    get as get_drug_featurizer,
+)
+from drevalpy.registry.drug_featurizer import (
+    list as list_drug_featurizers,
+)
+from drevalpy.registry.drug_featurizer import (
+    metadata as get_drug_featurizer_metadata,
+)
+from drevalpy.registry.drug_featurizer import (
+    register as register_drug_featurizer,
+)
+from drevalpy.registry.predictor import predictor_registry
 
 
 @pytest.fixture(autouse=True)
@@ -32,7 +42,7 @@ def _clear_registries() -> Iterator[None]:
     drug_featurizer_registry.clear()
     predictor_registry.clear()
     yield
-    from drevalpy.components.registry.register_builtins import register_builtin_components
+    from drevalpy.registry._builtins import register_builtin_components
 
     register_builtin_components()
 
@@ -113,12 +123,12 @@ def test_drug_metadata_listing_and_tag_filter() -> None:
     class BaselineDrug:
         pass
 
-    all_rows = list_drug_featurizer_metadata()
+    all_rows = drug_featurizer_registry.list_metadata()
     assert {row["name"] for row in all_rows if row["name"] in {"coreDrug", "baselineDrug"}} == {
         "coreDrug",
         "baselineDrug",
     }
-    baseline_rows = list_drug_featurizer_metadata(tag="baseline")
+    baseline_rows = drug_featurizer_registry.list_metadata(tag="baseline")
     assert {row["name"] for row in baseline_rows} == {"baselineDrug"}
     assert baseline_rows[0]["tags"] == frozenset({"baseline"})
 
@@ -141,12 +151,12 @@ def test_metadata_listing_and_tag_filter() -> None:
     class BaselineFeat:
         pass
 
-    all_rows = list_cell_line_featurizer_metadata()
+    all_rows = cell_line_featurizer_registry.list_metadata()
     assert {row["name"] for row in all_rows if row["name"] in {"coreFeat", "baselineFeat"}} == {
         "coreFeat",
         "baselineFeat",
     }
-    baseline_rows = list_cell_line_featurizer_metadata(tag="baseline")
+    baseline_rows = cell_line_featurizer_registry.list_metadata(tag="baseline")
     assert {row["name"] for row in baseline_rows} == {"baselineFeat"}
 
 

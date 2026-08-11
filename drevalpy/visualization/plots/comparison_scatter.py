@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import plotly.graph_objects as go
 
+from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
-from drevalpy.visualization.registry import visualization_registry
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -51,7 +51,7 @@ def _compute_pair_points(
     return points
 
 
-@visualization_registry.register(
+@register(
     "comparison_scatter",
     "Pairwise scatter comparing predictions between models",
     requirements=frozenset({PlotRequirement.MULTIPLE_MODELS}),

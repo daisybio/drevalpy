@@ -9,8 +9,10 @@ import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
-from drevalpy.components.registry import list_cell_line_featurizers, list_drug_featurizers, list_predictors
-from drevalpy.components.registry.register_builtins import register_builtin_components
+from drevalpy.registry._builtins import register_builtin_components
+from drevalpy.registry.cell_line_featurizer import list as list_cell_line_featurizers
+from drevalpy.registry.drug_featurizer import list as list_drug_featurizers
+from drevalpy.registry.predictor import list as list_predictors
 from drevalpy.types.data.batch.feature_block import (
     graph_feature_block,
     merge_feature_blocks,

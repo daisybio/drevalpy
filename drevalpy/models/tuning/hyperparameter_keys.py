@@ -7,8 +7,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
-from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
+from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.predictor import get as get_predictor
 
 from .search_space import (
     _featurizer_prefix,

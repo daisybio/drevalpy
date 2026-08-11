@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
-from drevalpy.components.registry import get_predictor, register_builtins
+from drevalpy.registry._builtins import ensure_predictor_registered
+from drevalpy.registry.predictor import get as get_predictor
 
 
 def test_druggnn_predictor_registry_name() -> None:
-    register_builtins.ensure_predictor_registered("drugGNN")
+    ensure_predictor_registered("drugGNN")
     assert get_predictor("drugGNN") is DrugGNNPredictor

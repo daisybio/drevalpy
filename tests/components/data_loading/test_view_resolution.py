@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
+from drevalpy.registry._builtins import register_builtin_components
 
 
 @pytest.fixture(autouse=True)

@@ -5,12 +5,11 @@ from __future__ import annotations
 import numpy as np
 from sklearn.model_selection import KFold
 
+from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMask, SplitMasks
 
-from .registry import splitter_registry
 
-
-@splitter_registry.register("LPO", "Leave-Pair-Out: groups by (cell_line, drug) pairs", validation="LPO")
+@register("LPO", "Leave-Pair-Out: groups by (cell_line, drug) pairs", validation="LPO")
 def leave_pair_out(
     mudataset: MuDataLike,
     n_splits: int = 5,

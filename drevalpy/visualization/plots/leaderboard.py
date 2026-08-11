@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 from matplotlib.patches import FancyBboxPatch
 
+from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import ImageVisualization
-from drevalpy.visualization.registry import visualization_registry
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -230,7 +230,7 @@ def _build_leaderboard_df(result: ExperimentResult) -> pd.DataFrame:
     return df_agg.sort_values("PCC", ascending=False).reset_index(drop=True)
 
 
-@visualization_registry.register(
+@register(
     "leaderboard",
     "Leaderboard visualization of normalized PCC and RMSE rankings",
     requirements=frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS}),

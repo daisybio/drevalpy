@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import plotly.graph_objects as go
 
+from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
-from drevalpy.visualization.registry import visualization_registry
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult
@@ -49,7 +49,7 @@ def _build_cross_study_df(result: ExperimentResult) -> pd.DataFrame:
     return df
 
 
-@visualization_registry.register(
+@register(
     "cross_study_table",
     "Summary table of model metrics for cross-study evaluation",
 )

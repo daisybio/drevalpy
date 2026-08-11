@@ -7,9 +7,7 @@ import hashlib
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset as Dataset
 
-from .datasets import registry as dataset_registry
 from .datasets.load import load
-from .splitters import splitter_registry
 
 
 def split(
@@ -28,6 +26,8 @@ def split(
     :param random_state: Seed for reproducibility.
     :returns: List of SplitMasks, one per fold.
     """
+    from drevalpy.registry.splitter import splitter_registry
+
     splitter = splitter_registry.get(mode)
     folds = splitter(dataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state)
 
@@ -49,6 +49,19 @@ def split(
         raise ValueError(f"Duplicate fold_ids generated: {fold_ids}")
 
     return folds
+
+
+def __getattr__(name: str):
+    """Lazy access to registry singletons to avoid circular imports."""
+    if name == "dataset_registry":
+        from drevalpy.registry.dataset import dataset_registry
+
+        return dataset_registry
+    if name == "splitter_registry":
+        from drevalpy.registry.splitter import splitter_registry
+
+        return splitter_registry
+    raise AttributeError(f"module 'drevalpy.data' has no attribute {name!r}")
 
 
 __all__ = [

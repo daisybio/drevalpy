@@ -44,7 +44,7 @@ and the format vocabulary are listed in
 
    from drevalpy.components.core.contracts.contracts import FeatureFormat
    from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-   from drevalpy.components.registry import register_cell_line_featurizer
+   from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
 
 
    @register_cell_line_featurizer(
@@ -95,7 +95,7 @@ The details about what the input for each predictor type looks like are explaine
          from drevalpy.components.core.contracts.contracts import FeatureFormat
          from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
          from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-         from drevalpy.components.registry import register_predictor
+         from drevalpy.registry.predictor import register as register_predictor
 
 
          @register_predictor(
@@ -139,7 +139,7 @@ The details about what the input for each predictor type looks like are explaine
 
          from drevalpy.components.core.contracts.contracts import FeatureFormat
          from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-         from drevalpy.components.registry import register_predictor
+         from drevalpy.registry.predictor import register as register_predictor
 
 
          @register_predictor(
@@ -199,7 +199,7 @@ The details about what the input for each predictor type looks like are explaine
          from drevalpy.components.core.contracts.contracts import FeatureFormat
          from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
          from drevalpy.components.predictors.abstract.block import BlockPredictor
-         from drevalpy.components.registry import register_predictor
+         from drevalpy.registry.predictor import register as register_predictor
 
 
          @register_predictor(

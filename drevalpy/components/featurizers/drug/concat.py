@@ -7,10 +7,10 @@ from typing import Any
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
-from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.registry.drug_featurizer import register
 
 
-@register_drug_featurizer(
+@register(
     "concatFeaturizers",
     description="Concatenate dense outputs from multiple drug featurizers.",
     contract=FeatureFormat.NUMERIC_MATRIX,

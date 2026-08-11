@@ -9,7 +9,7 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
-from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.registry.drug_featurizer import register
 from drevalpy.types.data.batch.feature_block import (
     BlockSpec,
     FeatureBlock,
@@ -19,7 +19,7 @@ from drevalpy.types.data.batch.feature_block import (
 from drevalpy.types.data.feature_source import FeatureSource
 
 
-@register_drug_featurizer(
+@register(
     "identity",
     description="One-hot encoding of drug entity identifiers.",
     contract=FeatureFormat.NUMERIC_MATRIX,

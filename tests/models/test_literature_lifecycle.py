@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models import construct_model
+from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
 

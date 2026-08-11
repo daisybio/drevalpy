@@ -5,10 +5,10 @@ from __future__ import annotations
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._constant import ConstantFeaturizerMixin
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import register
 
 
-@register_cell_line_featurizer(
+@register(
     "constant",
     description="Constant one-column intercept features with no cell-line identity.",
     contract=FeatureFormat.NUMERIC_MATRIX,

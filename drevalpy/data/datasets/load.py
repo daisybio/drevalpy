@@ -7,11 +7,8 @@ from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
 from drevalpy.log import get_logger
+from drevalpy.registry.dataset._registry import dataset_registry
 from drevalpy.types.data.dataset import Dataset
-
-from .registry import Registry
-
-_registry = Registry()
 
 logger = get_logger(__name__)
 
@@ -22,8 +19,8 @@ def _download(name: str) -> Path:
     :param name: Dataset name from the registry.
     :returns: Local path to the downloaded file.
     """
-    entry = _registry.datasets[name]
-    source = _registry.sources[entry.source]
+    entry = dataset_registry.datasets[name]
+    source = dataset_registry.sources[entry.source]
     remote = Path(source.url, **source.storage_options) / entry.file
     local_path = get_default_data_dir() / entry.file
     local_path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,8 +66,8 @@ def load(dataset_name: str) -> Dataset:
             logger.warning("Corrupted file at %s, removing and re-downloading.", h5mu_path)
             h5mu_path.unlink()
 
-    if _registry.is_registered(dataset_name):
-        entry = _registry.datasets[dataset_name]
+    if dataset_registry.is_registered(dataset_name):
+        entry = dataset_registry.datasets[dataset_name]
         data_dir = get_default_data_dir()
         candidate = data_dir / entry.file
         if candidate.is_file():
@@ -88,5 +85,5 @@ def load(dataset_name: str) -> Dataset:
 
     raise FileNotFoundError(
         f"Cannot locate .h5mu for dataset '{dataset_name}'. "
-        f"Checked: {h5mu_path}, registry ({_registry.dataset_names}), and direct path."
+        f"Checked: {h5mu_path}, registry ({dataset_registry.dataset_names}), and direct path."
     )

@@ -20,8 +20,8 @@ from drevalpy.components.predictors.single_drug_routing import (
     routing_keys,
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
+from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.enums.model_scope import ModelScope
@@ -99,7 +99,7 @@ class _DrugModel:
         self.best_checkpoint = best_checkpoint
 
 
-@register_predictor(
+@register(
     "superfeltr",
     description="SuperFELTR single-drug multi-omics model.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,

@@ -7,10 +7,10 @@ from typing import Any
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import register
 
 
-@register_cell_line_featurizer(
+@register(
     "concatFeaturizers",
     description="Concatenate dense outputs from multiple cell-line featurizers.",
     contract=FeatureFormat.NUMERIC_MATRIX,

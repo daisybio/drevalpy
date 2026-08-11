@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-import drevalpy.components.registry.register_builtins as register_builtins
+import drevalpy.registry._builtins as _builtins_mod
 from drevalpy.models import construct_model
 from drevalpy.models.tuning.config_resolution import (
     assert_component_local_hyperparameters,
@@ -24,7 +24,7 @@ from drevalpy.models.tuning.search_space import (
 
 @pytest.fixture(autouse=True)
 def _register_components() -> None:
-    register_builtins.register_builtin_components()
+    _builtins_mod.register_builtin_components()
 
 
 @pytest.mark.parametrize(

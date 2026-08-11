@@ -13,10 +13,10 @@ from sklearn.tree import DecisionTreeRegressor
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
-from drevalpy.components.registry import register_predictor
+from drevalpy.registry.predictor import register
 
 
-@register_predictor(
+@register(
     "elasticNet",
     description="Elastic Net regression on concatenated dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -58,7 +58,7 @@ class ElasticNetPredictor(SklearnTabularPredictor):
         }
 
 
-@register_predictor(
+@register(
     "singleDrugElasticNet",
     description="ElasticNet fitted independently per drug on dense cell-line features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -68,7 +68,7 @@ class SingleDrugElasticNetPredictor(SingleDrugSklearnPredictor, ElasticNetPredic
     """Single-drug ElasticNet predictor component."""
 
 
-@register_predictor(
+@register(
     "lasso",
     description="Lasso regression on dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -102,7 +102,7 @@ class LassoPredictor(SklearnTabularPredictor):
         }
 
 
-@register_predictor(
+@register(
     "ridge",
     description="Ridge regression on dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -125,7 +125,7 @@ class RidgePredictor(SklearnTabularPredictor):
         }
 
 
-@register_predictor(
+@register(
     "randomForest",
     description="Random forest on concatenated dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -169,7 +169,7 @@ class RandomForestPredictor(SklearnTabularPredictor):
         }
 
 
-@register_predictor(
+@register(
     "singleDrugRandomForest",
     description="Random forest fitted independently per drug on dense cell-line features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -179,7 +179,7 @@ class SingleDrugRandomForestPredictor(SingleDrugSklearnPredictor, RandomForestPr
     """Single-drug random-forest predictor component."""
 
 
-@register_predictor(
+@register(
     "svr",
     description="Support vector regression on dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -213,7 +213,7 @@ class SVRPredictor(SklearnTabularPredictor):
         }
 
 
-@register_predictor(
+@register(
     "gradientBoosting",
     description="Histogram gradient boosting on dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -243,7 +243,7 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
         }
 
 
-@register_predictor(
+@register(
     "adaboost",
     description="AdaBoost decision tree regressor on dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -277,7 +277,7 @@ class AdaBoostPredictor(SklearnTabularPredictor):
         }
 
 
-@register_predictor(
+@register(
     "knn",
     description="K-nearest neighbors on dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,

@@ -10,24 +10,30 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.components.registry import (
-    get_cell_line_featurizer,
-    get_predictor,
-    list_cell_line_featurizers,
-    list_predictors,
-)
-from drevalpy.components.registry.extensions import (
+from drevalpy.models import construct_model
+from drevalpy.models.config import ModelConfig
+from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
+from drevalpy.registry._builtins import is_known_builtin_predictor
+from drevalpy.registry._extensions import (
     _extension_module_name,
     load_extension_dir,
     load_extension_file,
     load_extensions,
 )
-from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry
-from drevalpy.components.registry.predictor_registry import predictor_registry
-from drevalpy.components.registry.register_builtins import is_known_builtin_predictor
-from drevalpy.models import construct_model
-from drevalpy.models.config import ModelConfig
-from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
+from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry.cell_line_featurizer import (
+    get as get_cell_line_featurizer,
+)
+from drevalpy.registry.cell_line_featurizer import (
+    list as list_cell_line_featurizers,
+)
+from drevalpy.registry.predictor import (
+    get as get_predictor,
+)
+from drevalpy.registry.predictor import (
+    list as list_predictors,
+)
+from drevalpy.registry.predictor import predictor_registry
 from tests._trusted_subprocess import run_trusted_python
 
 
@@ -43,7 +49,8 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
+from drevalpy.registry.predictor import register
+from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
 
 
 @register_cell_line_featurizer(
@@ -66,7 +73,7 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
         return self._output_dim
 
 
-@register_predictor(
+@register(
     "toyPredictor",
     description="Toy predictor",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
@@ -91,7 +98,7 @@ class ToyPredictor(FeatureFreePredictor):
 
 def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
     (tmp_path / "b_ext.py").write_text(
-        "from drevalpy.components.registry import register_predictor\n"
+        "from drevalpy.registry.predictor import register as register_predictor\n"
         "from drevalpy.components.contracts.contracts import FeatureFormat\n"
         "from drevalpy.types.data.batch.model_input_batch import ModelInputBatch\n"
         "from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor\n"
@@ -105,7 +112,7 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     (tmp_path / "a_ext.py").write_text(
-        "from drevalpy.components.registry import register_predictor\n"
+        "from drevalpy.registry.predictor import register as register_predictor\n"
         "from drevalpy.components.contracts.contracts import FeatureFormat\n"
         "from drevalpy.types.data.batch.model_input_batch import ModelInputBatch\n"
         "from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor\n"
@@ -133,7 +140,8 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
+from drevalpy.registry.predictor import register as register_predictor
+from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
 
 @register_cell_line_featurizer(
     "externalCellLine",
@@ -263,7 +271,7 @@ def test_failed_extension_file_does_not_leave_sys_modules_or_registry_mutation(t
     ext_file = tmp_path / "broken_extension.py"
     ext_file.write_text(
         """
-from drevalpy.components.registry import register_predictor
+from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
@@ -303,7 +311,7 @@ def test_subprocess_extension_load_does_not_import_optional_families(tmp_path: P
     ext_file = tmp_path / "isolated_extension.py"
     ext_file.write_text(
         """
-from drevalpy.components.registry import register_predictor
+from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
@@ -353,8 +361,8 @@ class IsolatedPredictor(FeatureFreePredictor):
 
         sys.meta_path.insert(0, BlockFinder())
 
-        from drevalpy.components.registry.extensions import load_extension_file
-        from drevalpy.components.registry import get_predictor
+        from drevalpy.registry._extensions import load_extension_file
+        from drevalpy.registry.predictor import get as get_predictor
 
         load_extension_file({str(ext_file)!r})
         cls = get_predictor("isolatedPredictor")
@@ -394,7 +402,8 @@ def test_subprocess_native_lookup_does_not_import_optional_families() -> None:
 
         sys.meta_path.insert(0, BlockFinder())
 
-        from drevalpy.components.registry import get_cell_line_featurizer, get_predictor
+        from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+        from drevalpy.registry.predictor import get as get_predictor
 
         get_cell_line_featurizer("identity")
         get_predictor("elasticNet")
@@ -409,7 +418,7 @@ def test_unknown_builtin_predictor_raises_value_error() -> None:
         with pytest.raises(ValueError, match="Unknown Predictor"):
             get_predictor("notRegisteredAnywhere")
     finally:
-        from drevalpy.components.registry.register_builtins import register_builtin_components
+        from drevalpy.registry._builtins import register_builtin_components
 
         predictor_registry.clear()
         register_builtin_components()
@@ -421,7 +430,7 @@ def test_unknown_builtin_featurizer_raises_value_error() -> None:
         with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
             get_cell_line_featurizer("notRegisteredAnywhere")
     finally:
-        from drevalpy.components.registry.register_builtins import register_builtin_components
+        from drevalpy.registry._builtins import register_builtin_components
 
         cell_line_featurizer_registry.clear()
         register_builtin_components()

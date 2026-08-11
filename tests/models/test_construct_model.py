@@ -45,13 +45,13 @@ def test_construct_model_one_arg_unknown_raises() -> None:
 
 
 def test_default_hyperparameters_for_constructed_pca_model() -> None:
-    import drevalpy.components.registry.register_builtins as register_builtins
     from drevalpy.models.tuning.config_resolution import (
         assert_component_local_hyperparameters,
         default_config_for_drp_model,
     )
+    from drevalpy.registry._builtins import register_builtin_components
 
-    register_builtins.register_builtin_components()
+    register_builtin_components()
 
     model_cls = construct_model("PcaOneHotRF", "pca[expression]:identity:randomForest")
     hp = model_cls.get_default_hyperparameters()
@@ -72,9 +72,9 @@ def test_default_hyperparameters_for_constructed_pca_model() -> None:
 
 
 def test_construct_model_train_predict_smoke() -> None:
-    import drevalpy.components.registry.register_builtins as register_builtins
+    from drevalpy.registry._builtins import register_builtin_components
 
-    register_builtins.register_builtin_components()
+    register_builtin_components()
 
     model_cls = construct_model("ComboRF", "raw[gene_expression]+raw[mutations]:fingerprints+identity:randomForest")
     model = model_cls()

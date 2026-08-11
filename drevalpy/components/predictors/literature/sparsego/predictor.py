@@ -19,8 +19,8 @@ from drevalpy.components.predictors.literature.sparsego.utils import (
     sort_pairs,
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
+from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.tensor_data import make_pair_loader
@@ -82,7 +82,7 @@ def _resolve_active_view(batch: ModelInputBatch) -> str:
     return active[0]
 
 
-@register_predictor(
+@register(
     "sparsego",
     description="SparseGO GO-structured visible neural network.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,

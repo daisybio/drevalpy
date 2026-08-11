@@ -64,9 +64,9 @@ def test_sample_from_optuna_trial_passthrough_non_mapping() -> None:
 
 
 def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
-    from drevalpy.components.registry import register_builtins
+    from drevalpy.registry._builtins import register_builtin_components
 
-    register_builtins.register_builtin_components()
+    register_builtin_components()
     model_cls = construct_model("ComboRF", "pca[expression]+landmarkGenes:fingerprints:randomForest")
     config = from_spec("pca[expression]+landmarkGenes:fingerprints:randomForest")
     assert isinstance(config, ModelConfig)
@@ -106,8 +106,8 @@ def test_hpam_tune_uses_optuna(mock_evaluate) -> None:
 @pytest.mark.skipif(os.environ.get("DREVALPY_RUN_HPO_TESTS") != "1", reason="optional HPO runtime test")
 def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
     from drevalpy.data import load
-    from drevalpy.data.splitters import get_splitter
     from drevalpy.models.tuning.hpo import hpam_tune
+    from drevalpy.registry.splitter import get as get_splitter
 
     model_cls = construct_model("ElasticNet")
     mudataset = load("TOYv1")

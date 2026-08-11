@@ -7,17 +7,21 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract
-from drevalpy.components.registry import (
-    get_cell_line_featurizer,
-    get_drug_featurizer,
-    list_cell_line_featurizers,
-    list_drug_featurizers,
+from drevalpy.registry._builtins import register_builtin_components
+from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry.cell_line_featurizer import (
+    get as get_cell_line_featurizer,
 )
-from drevalpy.components.registry.featurizer_registry import (
-    cell_line_featurizer_registry,
-    drug_featurizer_registry,
+from drevalpy.registry.cell_line_featurizer import (
+    list as list_cell_line_featurizers,
 )
-from drevalpy.components.registry.register_builtins import register_builtin_components
+from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+from drevalpy.registry.drug_featurizer import (
+    get as get_drug_featurizer,
+)
+from drevalpy.registry.drug_featurizer import (
+    list as list_drug_featurizers,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -46,7 +50,7 @@ def test_builtin_drug_featurizers_declare_contract() -> None:
 
 
 def test_bpe_pharmaformer_has_literature_reference() -> None:
-    from drevalpy.components.registry import get_drug_featurizer_metadata
+    from drevalpy.registry.drug_featurizer import metadata as get_drug_featurizer_metadata
 
     meta = get_drug_featurizer_metadata("bpePharmaformer")
     assert meta["repo_url"] == "https://github.com/zhouyuru1205/PharmaFormer"

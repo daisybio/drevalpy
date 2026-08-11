@@ -16,11 +16,11 @@ from drevalpy.components.predictors.naive._matrix_means import (
     state_float_matrix,
     state_float_vector,
 )
-from drevalpy.components.registry import register_predictor
+from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
-@register_predictor(
+@register(
     "naiveTissueMean",
     tags=("baseline",),
     description="Predict per-tissue mean response with global fallback.",
@@ -107,7 +107,7 @@ class NaiveTissueMeanPredictor(BlockPredictor):
         return self._dataset_mean is not None and self._effects is not None
 
 
-@register_predictor(
+@register(
     "naiveTissueDrugMean",
     tags=("baseline",),
     description="Predict per tissue-drug combination mean response.",

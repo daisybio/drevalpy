@@ -13,13 +13,13 @@ from drevalpy.components.predictors.literature.dipk.gene_expression_encoder impo
     encode_gene_expression,
     train_gene_expession_autoencoder,
 )
-from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 from drevalpy.utils.torch_io import load_state_dict, save_state_dict
 
 
-@register_cell_line_featurizer(
+@register(
     "dipkGeneExpression",
     description="DIPK gene-expression autoencoder embeddings.",
     contract=FeatureFormat.NUMERIC_MATRIX,

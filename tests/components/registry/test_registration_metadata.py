@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.registry._registration_metadata import (
+from drevalpy.registry.components._registration_metadata import (
     RegistrationMetadata,
     apply_registration_metadata,
     normalize_registration_metadata,

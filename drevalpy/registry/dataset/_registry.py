@@ -8,13 +8,13 @@ from typing import Any
 
 import pandas as pd
 
-from .io import config_lock, load_config, save_config
-from .models import DatasetEntry, DrevalConfig, SourceEntry
+from ._io import config_lock, load_config, save_config
+from ._models import DatasetEntry, DrevalConfig, SourceEntry
 
 _REGISTRY_JSON = "available_datasets.json"
 
 
-class Registry:
+class DatasetRegistry:
     """Dataset registry merging built-in and user-registered datasets.
 
     Built-in and custom entries are stored separately. The combined view
@@ -23,47 +23,55 @@ class Registry:
     """
 
     def __init__(self) -> None:
-        """Initialize by loading built-in and custom registries."""
-        self._builtin = self._load_builtin()
-        self._custom = load_config()
+        """Initialize with lazy loading of built-in and custom registries."""
+        self._builtin: DrevalConfig | None = None
+        self._custom: DrevalConfig | None = None
 
-    @staticmethod
-    def _load_builtin() -> DrevalConfig:
-        """Load the built-in sources and datasets from the packaged JSON."""
-        registry_path = resources.files(__package__).joinpath(_REGISTRY_JSON)
-        with registry_path.open(encoding="utf-8") as handle:
-            raw = json.load(handle)
-        return DrevalConfig.from_raw(raw)
+    def _ensure_loaded(self) -> None:
+        """Load registries on first access."""
+        if self._builtin is None:
+            registry_path = resources.files("drevalpy.data.datasets").joinpath(_REGISTRY_JSON)
+            with registry_path.open(encoding="utf-8") as handle:
+                raw = json.load(handle)
+            self._builtin = DrevalConfig.from_raw(raw)
+        if self._custom is None:
+            self._custom = load_config()
 
     @property
     def sources(self) -> dict[str, SourceEntry]:
         """All sources (custom overrides built-in)."""
-        return {**self._builtin.sources, **self._custom.sources}
+        self._ensure_loaded()
+        return {**self._builtin.sources, **self._custom.sources}  # type: ignore[union-attr]
 
     @property
     def datasets(self) -> dict[str, DatasetEntry]:
         """All datasets (custom overrides built-in)."""
-        return {**self._builtin.datasets, **self._custom.datasets}
+        self._ensure_loaded()
+        return {**self._builtin.datasets, **self._custom.datasets}  # type: ignore[union-attr]
 
     @property
     def builtin_sources(self) -> dict[str, SourceEntry]:
         """Only built-in sources (read-only)."""
-        return self._builtin.sources
+        self._ensure_loaded()
+        return self._builtin.sources  # type: ignore[union-attr]
 
     @property
     def builtin_datasets(self) -> dict[str, DatasetEntry]:
         """Only built-in datasets (read-only)."""
-        return self._builtin.datasets
+        self._ensure_loaded()
+        return self._builtin.datasets  # type: ignore[union-attr]
 
     @property
     def custom_sources(self) -> dict[str, SourceEntry]:
         """Only user-registered sources."""
-        return self._custom.sources
+        self._ensure_loaded()
+        return self._custom.sources  # type: ignore[union-attr]
 
     @property
     def custom_datasets(self) -> dict[str, DatasetEntry]:
         """Only user-registered datasets."""
-        return self._custom.datasets
+        self._ensure_loaded()
+        return self._custom.datasets  # type: ignore[union-attr]
 
     @property
     def dataset_names(self) -> list[str]:
@@ -141,11 +149,12 @@ class Registry:
         :param name: Dataset name to remove.
         :raises KeyError: If the dataset is not in the custom registry.
         """
+        self._ensure_loaded()
         with config_lock():
             config = load_config()
             if name not in config.datasets:
                 raise KeyError(f"Dataset '{name}' not in custom registry.")
-            if name in self._builtin.datasets:
+            if name in self._builtin.datasets:  # type: ignore[union-attr]
                 raise KeyError(f"Dataset '{name}' is built-in and cannot be unregistered.")
             del config.datasets[name]
             save_config(config)
@@ -158,11 +167,12 @@ class Registry:
         :raises KeyError: If the source is not in the custom registry.
         :raises ValueError: If datasets still reference this source.
         """
+        self._ensure_loaded()
         with config_lock():
             config = load_config()
             if name not in config.sources:
                 raise KeyError(f"Source '{name}' not in custom registry.")
-            if name in self._builtin.sources:
+            if name in self._builtin.sources:  # type: ignore[union-attr]
                 raise KeyError(f"Source '{name}' is built-in and cannot be unregistered.")
 
             referencing = [ds for ds, entry in config.datasets.items() if entry.source == name]
@@ -178,4 +188,8 @@ class Registry:
 
         Useful after external modifications to the config file.
         """
+        self._ensure_loaded()
         self._custom = load_config()
+
+
+dataset_registry = DatasetRegistry()

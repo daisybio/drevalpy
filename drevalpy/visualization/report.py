@@ -81,7 +81,7 @@ def create_report(
         ) from e
 
     import drevalpy.visualization.plots  # noqa: F401
-    from drevalpy.visualization.registry import visualization_registry
+    from drevalpy.registry.visualization import visualization_registry
 
     experiment = _ensure_experiment(result)
     if reference_model:
@@ -114,7 +114,7 @@ def save_all_png(
     :param dataset: Optional dataset for drug/cell-line metadata in plots.
     """
     import drevalpy.visualization.plots  # noqa: F401
-    from drevalpy.visualization.registry import visualization_registry
+    from drevalpy.registry.visualization import visualization_registry
 
     experiment = _ensure_experiment(result)
     if reference_model:

@@ -6,17 +6,13 @@ from collections.abc import Callable, Iterable
 from typing import Any, ClassVar
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
-from drevalpy.components.registry._predictor_validate import validate_predictor_registration
-from drevalpy.components.registry._registration_metadata import (
-    apply_registration_metadata,
-    normalize_registration_metadata,
-)
-from drevalpy.components.registry.base import Registry
-from drevalpy.components.registry.metadata import predictor_component_metadata
+from drevalpy.registry.components._base import ComponentRegistry
+from drevalpy.registry.predictor._metadata import predictor_component_metadata
+from drevalpy.registry.predictor._validate import validate_predictor_registration
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
-class PredictorRegistry(Registry):
+class PredictorRegistry(ComponentRegistry):
     """Registry for predictors that declare cell-line and drug input contracts."""
 
     _required_fields: ClassVar[tuple[str, ...]] = (
@@ -47,10 +43,9 @@ class PredictorRegistry(Registry):
         :param drug_contract: Expected drug feature format.
         :param tags: Optional discovery tags.
         :param reference: Optional literature citation metadata.
-
         :returns: Class decorator that registers and returns the decorated class.
         """
-        metadata = normalize_registration_metadata(description, tags, reference)
+        metadata = self._normalize_metadata(description, tags, reference)
         normalized_cell_line_contract = normalize_feature_contract(cell_line_contract)
         normalized_drug_contract = normalize_feature_contract(drug_contract)
 
@@ -61,7 +56,7 @@ class PredictorRegistry(Registry):
                     raise ValueError(msg)
                 self._apply_contract(cls, "cell_line_contract", normalized_cell_line_contract)
                 self._apply_contract(cls, "drug_contract", normalized_drug_contract)
-                apply_registration_metadata(cls, metadata)
+                self._apply_metadata(cls, metadata)
                 self._validate_registration(name, cls)
                 self._store[name] = cls
                 cls.registry_name = name

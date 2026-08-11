@@ -6,10 +6,10 @@ from typing import ClassVar
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.naive._single_entity import SingleEntityNaivePredictor
-from drevalpy.components.registry import register_predictor
+from drevalpy.registry.predictor import register
 
 
-@register_predictor(
+@register(
     "naiveDrugMean",
     tags=("baseline",),
     description="Predict per-drug mean response with global fallback.",
@@ -22,7 +22,7 @@ class NaiveDrugMeanPredictor(SingleEntityNaivePredictor):
     _feature_side: ClassVar[str] = "drug"
 
 
-@register_predictor(
+@register(
     "naiveCellLineMean",
     tags=("baseline",),
     description="Predict per-cell-line mean response with global fallback.",

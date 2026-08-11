@@ -18,7 +18,7 @@ import pandas as pd
 
 from drevalpy.types import MuDataLike, SplitMasks
 
-from .validation import Validation, validate_folds
+from ._validation import Validation, validate_folds
 
 
 class Splitter(Protocol):
@@ -140,6 +140,17 @@ class SplitterRegistry:
                 }
             )
         return pd.DataFrame(rows)
+
+    def retain_only(self, modes: frozenset[str]) -> None:
+        """Remove all entries not in the given set (for rollback support).
+
+        :param modes: Set of mode names to keep.
+        """
+        for mode in list(self._splitters):
+            if mode not in modes:
+                del self._splitters[mode]
+                self._descriptions.pop(mode, None)
+                self._validations.pop(mode, None)
 
     def __repr__(self) -> str:
         """Return a tabular string representation."""

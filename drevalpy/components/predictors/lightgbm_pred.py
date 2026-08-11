@@ -8,10 +8,10 @@ import lightgbm as lgb
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
-from drevalpy.components.registry import register_predictor
+from drevalpy.registry.predictor import register
 
 
-@register_predictor(
+@register(
     "lightgbm",
     description="LightGBM regressor on concatenated dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,

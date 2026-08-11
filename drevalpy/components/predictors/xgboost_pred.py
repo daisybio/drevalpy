@@ -8,7 +8,7 @@ from typing import Any
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.components.registry import register_predictor
+from drevalpy.registry.predictor import register
 
 _XGBOOST_THREAD_ENV_DEFAULTS = {
     "OMP_NUM_THREADS": "1",
@@ -37,7 +37,7 @@ _set_xgboost_thread_defaults()
 from xgboost import XGBRegressor  # noqa: E402
 
 
-@register_predictor(
+@register(
     "xgboost",
     description="XGBoost regressor on concatenated dense features.",
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,

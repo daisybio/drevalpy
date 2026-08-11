@@ -5,7 +5,8 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.featurizers.cell_line.constant import CellLineConstantFeaturizer
-from drevalpy.components.registry import get_cell_line_featurizer, get_cell_line_featurizer_metadata
+from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+from drevalpy.registry.cell_line_featurizer import metadata as get_cell_line_featurizer_metadata
 from tests.conftest import MockFeatureSource
 
 

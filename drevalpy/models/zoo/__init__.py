@@ -24,13 +24,25 @@ _EXTERNAL_ZOO: dict[str, ModelConfig] = {}
 def _load_builtin_entries() -> dict[str, ModelConfig]:
     entries: dict[str, ModelConfig] = {}
     for path in sorted(_BUILTIN_ZOO_DIR.glob("*.yaml")):
-        config = from_yaml(path)
+        try:
+            config = from_yaml(path)
+        except ValueError:
+            continue
         entries[path.stem] = config
     return entries
 
 
-_BUILTIN_ZOO = _load_builtin_entries()
-_BUILTIN_ZOO_NAMES = frozenset(_BUILTIN_ZOO)
+_BUILTIN_ZOO: dict[str, ModelConfig] | None = None
+_BUILTIN_ZOO_NAMES: frozenset[str] = frozenset()
+
+
+def _get_builtin_zoo() -> dict[str, ModelConfig]:
+    """Return built-in zoo entries, loading lazily on first access."""
+    global _BUILTIN_ZOO, _BUILTIN_ZOO_NAMES  # noqa: PLW0603
+    if _BUILTIN_ZOO is None:
+        _BUILTIN_ZOO = _load_builtin_entries()
+        _BUILTIN_ZOO_NAMES = frozenset(_BUILTIN_ZOO)
+    return _BUILTIN_ZOO
 
 
 def _coerce_scope(scope: ModelScope | str | None) -> ModelScope | None:
@@ -52,7 +64,7 @@ def list_zoo_names(
     :param scope: Optional ``ModelScope`` (or its string value) filter for multi-drug vs single-drug presets.
     :returns: Sorted list of zoo preset names matching the filters.
     """
-    names = set(_BUILTIN_ZOO)
+    names = set(_get_builtin_zoo())
     if include_external:
         names.update(_EXTERNAL_ZOO)
     resolved_scope = _coerce_scope(scope)
@@ -72,10 +84,10 @@ def get_zoo_config(name: str, *, prediction_mode: PredictionMode | None = None) 
     """
     if name in _EXTERNAL_ZOO:
         return _clone_model_config(_EXTERNAL_ZOO[name], prediction_mode=prediction_mode)
-    if name not in _BUILTIN_ZOO:
+    if name not in _get_builtin_zoo():
         msg = f"Unknown zoo entry: {name}"
         raise KeyError(msg)
-    return _clone_model_config(_BUILTIN_ZOO[name], prediction_mode=prediction_mode)
+    return _clone_model_config(_get_builtin_zoo()[name], prediction_mode=prediction_mode)
 
 
 def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool = True) -> None:
@@ -89,7 +101,7 @@ def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool
     :param replace: Allow replacing an existing external entry with the same name.
     :raises ValueError: If ``name`` collides with a built-in preset.
     """
-    if name in _BUILTIN_ZOO_NAMES:
+    if name in frozenset(_get_builtin_zoo()):
         msg = f"External zoo entry {name!r} collides with a built-in preset"
         raise ValueError(msg)
     if name in _EXTERNAL_ZOO and not replace:
@@ -113,7 +125,7 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
     """
     yaml_path = Path(path)
     data = _load_zoo_yaml_mapping(yaml_path)
-    parsed = _collect_zoo_entries_from_yaml(data, source=yaml_path, builtin_names=_BUILTIN_ZOO_NAMES)
+    parsed = _collect_zoo_entries_from_yaml(data, source=yaml_path, builtin_names=frozenset(_get_builtin_zoo()))
     for entry_name, config in parsed:
         _EXTERNAL_ZOO[entry_name] = _clone_model_config(config)
     return [entry_name for entry_name, _ in parsed]

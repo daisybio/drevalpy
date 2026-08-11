@@ -1,4 +1,4 @@
-"""Featurizer registry class and module singletons."""
+"""Shared FeaturizerRegistry class for cell-line and drug featurizer registries."""
 
 from __future__ import annotations
 
@@ -7,17 +7,13 @@ from typing import Any, ClassVar
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
 from drevalpy.components.contracts.hyperparameter_space import validate_component_hyperparameter_space
-from drevalpy.components.registry._featurizer_validate import validate_featurizer_input_views
-from drevalpy.components.registry._registration_metadata import (
-    apply_registration_metadata,
-    normalize_registration_metadata,
-)
-from drevalpy.components.registry.base import Registry
-from drevalpy.components.registry.metadata import featurizer_component_metadata
+from drevalpy.registry.components._base import ComponentRegistry
+from drevalpy.registry.components._metadata import featurizer_component_metadata
+from drevalpy.registry.featurizer._validate import validate_featurizer_input_views
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
-class FeaturizerRegistry(Registry):
+class FeaturizerRegistry(ComponentRegistry):
     """Registry for featurizers that emit one feature contract."""
 
     _required_fields: ClassVar[tuple[str, ...]] = ("description", "contract")
@@ -50,10 +46,9 @@ class FeaturizerRegistry(Registry):
         :param contract: Feature format contract for predictor matching.
         :param tags: Optional discovery tags.
         :param reference: Optional literature citation metadata.
-
         :returns: Class decorator that registers and returns the decorated class.
         """
-        metadata = normalize_registration_metadata(description, tags, reference)
+        metadata = self._normalize_metadata(description, tags, reference)
         normalized_contract = normalize_feature_contract(contract)
 
         def decorator(cls: type[Any]) -> type[Any]:
@@ -62,7 +57,7 @@ class FeaturizerRegistry(Registry):
                     msg = f"{self._label} {name!r} already registered"
                     raise ValueError(msg)
                 self._apply_contract(cls, "contract", normalized_contract)
-                apply_registration_metadata(cls, metadata)
+                self._apply_metadata(cls, metadata)
                 self._validate_registration(name, cls)
                 self._store[name] = cls
                 cls.registry_name = name
@@ -85,17 +80,3 @@ class FeaturizerRegistry(Registry):
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return featurizer_component_metadata(self._display_name, name, cls)
-
-
-cell_line_featurizer_registry = FeaturizerRegistry(
-    "cell_line_featurizer",
-    "Cell line featurizer",
-    "cell_line_featurizers",
-    side="cell_line",
-)
-drug_featurizer_registry = FeaturizerRegistry(
-    "drug_featurizer",
-    "Drug featurizer",
-    "drug_featurizers",
-    side="drug",
-)

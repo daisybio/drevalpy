@@ -13,9 +13,10 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
-from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config._recipe import CONCAT_FEATURIZER_NAME, expand_featurizer_recipe
 from drevalpy.models.config._space_defaults import split_space_and_options
+from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 
 _RESERVED_FEATURIZER_KEYS = frozenset(
     {

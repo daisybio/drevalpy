@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.registry import get_predictor
 from drevalpy.models.config._space_defaults import split_space_and_options
+from drevalpy.registry.predictor import get as get_predictor
 
 _RESERVED_PREDICTOR_KEYS = frozenset({"name", "hyperparameters", "hyperparameter_space"})
 

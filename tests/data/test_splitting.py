@@ -7,12 +7,12 @@ import tempfile
 import numpy as np
 import pytest
 
-from drevalpy.data.splitters import (
+from drevalpy.registry.splitter import (
     SplitValidationError,
-    get_splitter,
     splitter_registry,
 )
-from drevalpy.data.splitters.validation import validate_folds
+from drevalpy.registry.splitter import get as get_splitter
+from drevalpy.registry.splitter._validation import validate_folds
 from drevalpy.types import SplitMask, SplitMasks
 
 # ------------------------------------------------------------------

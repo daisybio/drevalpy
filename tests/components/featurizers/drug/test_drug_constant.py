@@ -5,7 +5,8 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.featurizers.drug.constant import DrugConstantFeaturizer
-from drevalpy.components.registry import get_drug_featurizer, get_drug_featurizer_metadata
+from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.drug_featurizer import metadata as get_drug_featurizer_metadata
 from tests.conftest import MockFeatureSource
 
 

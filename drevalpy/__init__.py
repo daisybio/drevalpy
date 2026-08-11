@@ -2,16 +2,8 @@
 
 from importlib.metadata import version
 
-from .components.registry.featurizer_registry import (
-    cell_line_featurizer_registry as cell_line_featurizer_registry,
-)
-from .components.registry.featurizer_registry import (
-    drug_featurizer_registry as drug_featurizer_registry,
-)
-from .components.registry.predictor_registry import predictor_registry as predictor_registry
-from .data import dataset_registry as dataset_registry
+from . import registry as registry
 from .data import split as split
-from .data import splitter_registry as splitter_registry
 from .data.datasets import load as load
 from .experiment import randomization as randomization
 from .experiment import robustness as robustness
