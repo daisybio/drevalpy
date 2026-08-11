@@ -13,7 +13,7 @@ import torch
 from torch.utils.data import Dataset
 from upath import UPath as Path
 
-from drevalpy.components.featurizers._feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource
 
 
 def load_bionic_features(data_path: str | Path, dataset_name: str, gene_add_num: int = 512) -> dict[str, np.ndarray]:

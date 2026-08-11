@@ -9,11 +9,11 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.log import get_logger
 from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.types.data.feature_source import FeatureSource
 
 logger = get_logger(__name__)
 

@@ -9,11 +9,11 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.log import get_logger
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.feature_source import FeatureSource
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
 _logger = get_logger(__name__)

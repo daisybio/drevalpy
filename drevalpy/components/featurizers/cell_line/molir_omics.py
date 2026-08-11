@@ -8,10 +8,10 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.feature_source import FeatureSource
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 

@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.components.featurizers._feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
@@ -18,6 +17,7 @@ from drevalpy.types.data.batch.feature_block import FeatureBlock
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.model_input_build import build_model_input_batch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
 
 if TYPE_CHECKING:
     from drevalpy.types import SplitMask

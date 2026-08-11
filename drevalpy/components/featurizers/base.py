@@ -9,9 +9,9 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureContract, featurizer_contract
-from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.log import get_logger
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock
+from drevalpy.types.data.feature_source import FeatureSource
 
 _logger = get_logger(__name__)
 

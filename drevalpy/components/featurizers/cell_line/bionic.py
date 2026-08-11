@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.log import get_logger
+from drevalpy.types.data.feature_source import FeatureSource
 
 logger = get_logger(__name__)
 
