@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def test_experiment_tuning_does_not_use_parameter_grid() -> None:
-    from drevalpy.components.core.tuning.hpo import hpam_tune
+    from drevalpy.models.tuning.hpo import hpam_tune
 
     source = inspect.getsource(hpam_tune)
     assert "ParameterGrid" not in source

@@ -5,21 +5,21 @@ from __future__ import annotations
 import pytest
 
 import drevalpy.components.registry.register_builtins as register_builtins
-from drevalpy.components.core.tuning.config_resolution import (
+from drevalpy.models import construct_model
+from drevalpy.models.tuning.config_resolution import (
     assert_component_local_hyperparameters,
     default_config_for_drp_model,
     tuned_config_for_drp_model,
 )
-from drevalpy.components.core.tuning.public_flat import (
+from drevalpy.models.tuning.public_flat import (
     config_from_public_hyperparameters,
     public_hyperparameters_from_config,
 )
-from drevalpy.components.core.tuning.search_space import (
+from drevalpy.models.tuning.search_space import (
     apply_merged_to_model_config,
     defaults_from_merged_space,
     merge_model_config_spaces,
 )
-from drevalpy.models import construct_model
 
 
 @pytest.fixture(autouse=True)
@@ -109,8 +109,8 @@ def test_cell_line_views_override_on_configure_path_rejected() -> None:
 
 
 def test_pca_methylation_flat_key_round_trip() -> None:
-    from drevalpy.components.core.tuning.search_space import resolve_model_config
     from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
+    from drevalpy.models.tuning.search_space import resolve_model_config
 
     template = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate(

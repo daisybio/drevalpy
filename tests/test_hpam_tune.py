@@ -1,8 +1,8 @@
 """Test hpam_tune with Optuna."""
 
-from drevalpy.components.core.tuning.config import HPOConfig
-from drevalpy.components.core.tuning.hpo import hpam_tune
 from drevalpy.models import construct_model
+from drevalpy.models.tuning.config import HPOConfig
+from drevalpy.models.tuning.hpo import hpam_tune
 
 
 def test_hpam_tune(tmp_path, data_dir):

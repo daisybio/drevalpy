@@ -10,7 +10,7 @@ def _sample_hp_configs(featurizer_cls: type, n: int) -> list[dict]:
     """
     import optuna
 
-    from drevalpy.components.core.tuning.search_space import sample_from_optuna_trial
+    from drevalpy.models.tuning.search_space import sample_from_optuna_trial
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     space = featurizer_cls.get_hyperparameter_space()

@@ -222,8 +222,8 @@ def resolve_model_config(
     :param include_defaults: When ``True``, fill omitted keys from effective spaces.
     :returns: Validated ``ResolvedModelConfig``.
     """
-    from drevalpy.components.core.tuning.hyperparameter_keys import validate_merged_mapping
     from drevalpy.models.config.resolved import ResolvedModelConfig
+    from drevalpy.models.tuning.hyperparameter_keys import validate_merged_mapping
 
     qualified = dict(overrides or {})
     if include_defaults:

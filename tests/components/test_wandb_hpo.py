@@ -6,15 +6,15 @@ from unittest.mock import patch
 
 import numpy as np
 
-from drevalpy.components.core.tuning.config import HPOConfig
 from drevalpy.data.structures import SplitMask
 from drevalpy.models import construct_model
+from drevalpy.models.tuning.config import HPOConfig
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.2)
-@patch("drevalpy.components.core.tuning.hpo._log_trial_to_wandb")
+@patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.2)
+@patch("drevalpy.models.tuning.hpo._log_trial_to_wandb")
 def test_hpam_tune_logs_wandb_config(mock_wandb_log, mock_evaluate) -> None:
-    from drevalpy.components.core.tuning.hpo import hpam_tune
+    from drevalpy.models.tuning.hpo import hpam_tune
     from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
     model_cls = construct_model("ElasticNet")

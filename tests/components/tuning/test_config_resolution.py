@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from drevalpy.components.core.tuning.config_resolution import (
+from drevalpy.components.registry import register_builtins
+from drevalpy.models import construct_model
+from drevalpy.models.tuning.config_resolution import (
     assert_component_local_hyperparameters,
     default_config_for_drp_model,
     has_tunable_hyperparameters,
     structured_space_for_drp_model,
 )
-from drevalpy.components.registry import register_builtins
-from drevalpy.models import construct_model
 
 
 def test_default_config_for_elastic_net_is_component_local() -> None:

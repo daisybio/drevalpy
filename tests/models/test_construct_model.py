@@ -46,7 +46,7 @@ def test_construct_model_one_arg_unknown_raises() -> None:
 
 def test_default_hyperparameters_for_constructed_pca_model() -> None:
     import drevalpy.components.registry.register_builtins as register_builtins
-    from drevalpy.components.core.tuning.config_resolution import (
+    from drevalpy.models.tuning.config_resolution import (
         assert_component_local_hyperparameters,
         default_config_for_drp_model,
     )

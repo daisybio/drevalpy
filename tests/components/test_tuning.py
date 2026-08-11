@@ -9,11 +9,11 @@ import numpy as np
 import optuna
 import pytest
 
-from drevalpy.components.core.tuning.config import HPOConfig
-from drevalpy.components.core.tuning.search_space import merge_model_config_spaces, sample_from_optuna_trial
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig
+from drevalpy.models.tuning.config import HPOConfig
+from drevalpy.models.tuning.search_space import merge_model_config_spaces, sample_from_optuna_trial
 
 
 def test_sample_from_optuna_trial_converts_structured_specs() -> None:
@@ -77,12 +77,12 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
 
 
 @patch(
-    "drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_all_metrics",
+    "drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_all_metrics",
     return_value=({"RMSE": 0.1}, np.zeros(4)),
 )
 def test_hpam_tune_uses_optuna(mock_evaluate) -> None:
-    from drevalpy.components.core.tuning.hpo import hpam_tune
     from drevalpy.data.structures import SplitMask
+    from drevalpy.models.tuning.hpo import hpam_tune
     from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
     model_cls = construct_model("ElasticNet")
@@ -105,9 +105,9 @@ def test_hpam_tune_uses_optuna(mock_evaluate) -> None:
 
 @pytest.mark.skipif(os.environ.get("DREVALPY_RUN_HPO_TESTS") != "1", reason="optional HPO runtime test")
 def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
-    from drevalpy.components.core.tuning.hpo import hpam_tune
     from drevalpy.data import load
     from drevalpy.data.splitters import get_splitter
+    from drevalpy.models.tuning.hpo import hpam_tune
 
     model_cls = construct_model("ElasticNet")
     mudataset = load("TOYv1")

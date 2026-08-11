@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.core.tuning.public_flat import config_from_public_hyperparameters
 from drevalpy.models import construct_model
 from drevalpy.models.config import ResolvedModelConfig
 from drevalpy.models.factory import model_config_for_name
+from drevalpy.models.tuning.public_flat import config_from_public_hyperparameters
 
 
 def test_model_config_for_name_matches_configure_path_for_predictor_hp() -> None:

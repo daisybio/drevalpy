@@ -6,11 +6,11 @@ import warnings
 
 import pytest
 
-from drevalpy.components.core.tuning.public_flat import (
+from drevalpy.models import construct_model
+from drevalpy.models.tuning.public_flat import (
     apply_public_hyperparameters_to_config,
     public_hyperparameters_from_config,
 )
-from drevalpy.models import construct_model
 from drevalpy.models.zoo import get_zoo_config, zoo_model_config
 
 

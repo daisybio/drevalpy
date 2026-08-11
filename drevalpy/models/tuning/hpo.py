@@ -9,17 +9,17 @@ import numpy as np
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
-from drevalpy.components.core.tuning.config import HPOConfig, validate_hpo_metric
-from drevalpy.components.core.tuning.config_resolution import (
+from drevalpy.log import get_logger
+from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.tuning.config import HPOConfig, validate_hpo_metric
+from drevalpy.models.tuning.config_resolution import (
     default_hyperparameters_for_drp_model,
     has_tunable_hyperparameters,
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
-from drevalpy.components.core.tuning.hpo_runtime import run_optuna_study
-from drevalpy.components.core.tuning.public_flat import public_hyperparameters_from_config
-from drevalpy.log import get_logger
-from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.tuning.hpo_runtime import run_optuna_study
+from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
 from drevalpy.types import SplitMask
 from drevalpy.types.data.dataset import Dataset
 
@@ -67,7 +67,7 @@ def hpam_tune(
     :returns: Tuple of (best_params, trial_results) where trial_results is a
         list of (hyperparameters, metrics_dict, predictions) tuples for each completed trial.
     """
-    from drevalpy.components.core.tuning.hpo_runtime import (
+    from drevalpy.models.tuning.hpo_runtime import (
         _construct_trial_model,
         _mu_evaluate_trial_all_metrics,
     )
@@ -93,7 +93,7 @@ def hpam_tune(
     all_trial_data: list[tuple[dict[str, Any], dict[str, float], np.ndarray]] = []
 
     def objective_with_metrics(trial: Any) -> float:
-        from drevalpy.components.core.tuning.search_space import sample_from_optuna_trial
+        from drevalpy.models.tuning.search_space import sample_from_optuna_trial
 
         sampled = sample_from_optuna_trial(trial, structured_space)
         trial_model = _construct_trial_model(model_class, sampled)

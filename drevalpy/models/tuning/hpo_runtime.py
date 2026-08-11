@@ -11,14 +11,14 @@ import optuna
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
-from drevalpy.components.core.tuning.config import HPOConfig
-from drevalpy.components.core.tuning.config_resolution import (
+from drevalpy.log import get_logger
+from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.tuning.config import HPOConfig
+from drevalpy.models.tuning.config_resolution import (
     construct_drp_model_from_config,
     tuned_config_for_drp_model,
 )
-from drevalpy.components.core.tuning.search_space import sample_from_optuna_trial
-from drevalpy.log import get_logger
-from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.tuning.search_space import sample_from_optuna_trial
 from drevalpy.types import SplitMask
 from drevalpy.types.data.dataset import Dataset
 

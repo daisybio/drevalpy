@@ -136,7 +136,7 @@ def zoo_model_config(
     config = get_zoo_config(name, prediction_mode=prediction_mode)
     if not hyperparameters:
         return config
-    from drevalpy.components.core.tuning.public_flat import apply_public_hyperparameters_to_config
+    from drevalpy.models.tuning.public_flat import apply_public_hyperparameters_to_config
 
     return apply_public_hyperparameters_to_config(config, hyperparameters)
 

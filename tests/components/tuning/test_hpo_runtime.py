@@ -6,8 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import optuna
 
-from drevalpy.components.core.tuning.config import HPOConfig
-from drevalpy.components.core.tuning.hpo_runtime import (
+from drevalpy.models import construct_model
+from drevalpy.models.tuning.config import HPOConfig
+from drevalpy.models.tuning.hpo_runtime import (
     _construct_trial_model,
     _init_trial_wandb,
     _optuna_objective,
@@ -15,10 +16,9 @@ from drevalpy.components.core.tuning.hpo_runtime import (
     _wandb_trial_run_name,
     run_optuna_study,
 )
-from drevalpy.models import construct_model
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime.tuned_config_for_drp_model", return_value=None)
+@patch("drevalpy.models.tuning.hpo_runtime.tuned_config_for_drp_model", return_value=None)
 def test_construct_trial_model_without_tuned_config(mock_tuned_config) -> None:
     model_class = construct_model("ElasticNet")
     sampled = {"alpha": 0.5}
@@ -27,8 +27,8 @@ def test_construct_trial_model_without_tuned_config(mock_tuned_config) -> None:
     assert trial_model.hyperparameters["alpha"] == 0.5
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime.construct_drp_model_from_config")
-@patch("drevalpy.components.core.tuning.hpo_runtime.tuned_config_for_drp_model")
+@patch("drevalpy.models.tuning.hpo_runtime.construct_drp_model_from_config")
+@patch("drevalpy.models.tuning.hpo_runtime.tuned_config_for_drp_model")
 def test_construct_trial_model_with_tuned_config(mock_tuned_config, mock_construct) -> None:
     model_class = construct_model("ElasticNet")
     sampled = {"alpha": 0.5}
@@ -69,8 +69,8 @@ def test_wandb_trial_run_name_includes_split_and_trial() -> None:
     assert _wandb_trial_run_name(model_name="ElasticNet", split_index=None, trial_number=3) == ("ElasticNet_trial_3")
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._wandb_trial_run_name", return_value="run-name")
-@patch("drevalpy.components.core.tuning.hpo_runtime._wandb_trial_run_config", return_value={"trial_number": 7})
+@patch("drevalpy.models.tuning.hpo_runtime._wandb_trial_run_name", return_value="run-name")
+@patch("drevalpy.models.tuning.hpo_runtime._wandb_trial_run_config", return_value={"trial_number": 7})
 def test_init_trial_wandb_delegates_to_model(mock_run_config, mock_run_name) -> None:
     trial_model = MagicMock()
     cfg = HPOConfig.from_metric("RMSE")
@@ -96,9 +96,9 @@ def test_init_trial_wandb_delegates_to_model(mock_run_config, mock_run_name) -> 
     )
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.33)
-@patch("drevalpy.components.core.tuning.hpo_runtime._construct_trial_model")
-@patch("drevalpy.components.core.tuning.hpo_runtime.sample_from_optuna_trial")
+@patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.33)
+@patch("drevalpy.models.tuning.hpo_runtime._construct_trial_model")
+@patch("drevalpy.models.tuning.hpo_runtime.sample_from_optuna_trial")
 def test_optuna_objective_returns_score(
     mock_sample,
     mock_construct,
@@ -134,9 +134,9 @@ def test_optuna_objective_returns_score(
     mock_evaluate.assert_called_once()
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
-@patch("drevalpy.components.core.tuning.hpo_runtime._construct_trial_model")
-@patch("drevalpy.components.core.tuning.hpo_runtime.sample_from_optuna_trial")
+@patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
+@patch("drevalpy.models.tuning.hpo_runtime._construct_trial_model")
+@patch("drevalpy.models.tuning.hpo_runtime.sample_from_optuna_trial")
 def test_optuna_objective_failure_returns_nan(mock_sample, mock_construct, mock_evaluate) -> None:
     mock_construct.return_value = MagicMock()
     mock_sample.return_value = {"alpha": 0.1}
@@ -165,10 +165,10 @@ def test_optuna_objective_failure_returns_nan(mock_sample, mock_construct, mock_
     assert score != score  # NaN
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.5)
-@patch("drevalpy.components.core.tuning.hpo_runtime._init_trial_wandb")
-@patch("drevalpy.components.core.tuning.hpo_runtime._construct_trial_model")
-@patch("drevalpy.components.core.tuning.hpo_runtime.sample_from_optuna_trial")
+@patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.5)
+@patch("drevalpy.models.tuning.hpo_runtime._init_trial_wandb")
+@patch("drevalpy.models.tuning.hpo_runtime._construct_trial_model")
+@patch("drevalpy.models.tuning.hpo_runtime.sample_from_optuna_trial")
 def test_optuna_objective_wandb_finishes_in_finally(
     mock_sample,
     mock_construct,
@@ -206,10 +206,10 @@ def test_optuna_objective_wandb_finishes_in_finally(
     trial_model.finish_wandb.assert_called_once()
 
 
-@patch("drevalpy.components.core.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
-@patch("drevalpy.components.core.tuning.hpo_runtime._init_trial_wandb")
-@patch("drevalpy.components.core.tuning.hpo_runtime._construct_trial_model")
-@patch("drevalpy.components.core.tuning.hpo_runtime.sample_from_optuna_trial")
+@patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
+@patch("drevalpy.models.tuning.hpo_runtime._init_trial_wandb")
+@patch("drevalpy.models.tuning.hpo_runtime._construct_trial_model")
+@patch("drevalpy.models.tuning.hpo_runtime.sample_from_optuna_trial")
 def test_optuna_objective_wandb_failure_still_finishes(
     mock_sample,
     mock_construct,

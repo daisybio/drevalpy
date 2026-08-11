@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.core.tuning.hyperparameter_export import (
-    export_public_mapping,
-)
-from drevalpy.components.core.tuning.hyperparameter_keys import (
-    build_ownership_index,
-    resolve_to_qualified_mapping,
-)
 from drevalpy.components.registry import register_builtins
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig
+from drevalpy.models.tuning.hyperparameter_export import (
+    export_public_mapping,
+)
+from drevalpy.models.tuning.hyperparameter_keys import (
+    build_ownership_index,
+    resolve_to_qualified_mapping,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +24,7 @@ def _register_components() -> None:
 
 def test_elastic_net_alpha_has_single_owner() -> None:
     model_cls = construct_model("ElasticNet")
-    from drevalpy.components.core.tuning.config_resolution import default_config_for_drp_model
+    from drevalpy.models.tuning.config_resolution import default_config_for_drp_model
 
     config = default_config_for_drp_model(model_cls)
     assert config is not None
@@ -62,7 +62,7 @@ def test_ambiguous_short_key_lists_qualified_alternatives() -> None:
 
 def test_duplicate_short_and_qualified_assignments_rejected() -> None:
     model_cls = construct_model("ElasticNet")
-    from drevalpy.components.core.tuning.config_resolution import default_config_for_drp_model
+    from drevalpy.models.tuning.config_resolution import default_config_for_drp_model
 
     config = default_config_for_drp_model(model_cls)
     assert config is not None

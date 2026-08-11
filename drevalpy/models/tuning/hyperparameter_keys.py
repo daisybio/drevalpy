@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from drevalpy.components.core.fitting.featurizer_tree import iter_featurizer_leaves
-from drevalpy.components.core.tuning.compatibility_keys import LEGACY_FEATURIZER_FLAT_KEYS
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
+from drevalpy.models.tuning.compatibility_keys import LEGACY_FEATURIZER_FLAT_KEYS
 
 from .search_space import (
     _featurizer_prefix,
