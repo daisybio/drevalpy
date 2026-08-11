@@ -20,6 +20,7 @@ except ImportError:
     wandb = None  # type: ignore[assignment]
 
 from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_stopping_data
+from .datasets.loader import DERIVED_DATASETS
 from .datasets.splits import ExternalSplitCreator, create_and_record_splits
 from .evaluation import get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
@@ -197,6 +198,15 @@ def drug_response_experiment(
     :raises ValueError: if no cv splits are found
     """
     seed_everything(42)
+    if test_mode == "LDO" and response_data.dataset_name in DERIVED_DATASETS:
+        base = DERIVED_DATASETS[response_data.dataset_name][0]
+        warnings.warn(
+            f"{response_data.dataset_name} removes inactive drugs, so leave-drug-out (LDO) "
+            "evaluation on it is optimistic: real screens contain inactive compounds that a "
+            f"model would still have to handle. For drug generalization, evaluate on the "
+            f"unfiltered {base}, or read these LDO metrics as an upper bound.",
+            stacklevel=2,
+        )
     # Default baseline model, needed for normalization
     nme = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
     if baselines is None:
