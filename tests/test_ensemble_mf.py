@@ -6,6 +6,7 @@ import numpy as np
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import MODEL_FACTORY
+from drevalpy.models.EnsembleMF import EnsembleMF
 
 
 def _tiny_hpams() -> dict:
@@ -14,7 +15,7 @@ def _tiny_hpams() -> dict:
 
     :returns: the shrunken hyperparameter dictionary
     """
-    hp = dict(MODEL_FACTORY["EnsembleMF"].get_hyperparameter_set()[0])
+    hp = dict(EnsembleMF.get_hyperparameter_set()[0])
     hp.update(
         n_ensemble=2,
         max_epochs=3,
@@ -41,7 +42,7 @@ def test_ensemble_mf_train_predict_save_load(data_dir, sample_dataset) -> None:
     :param data_dir: path to the test data directory (session fixture from conftest)
     :param sample_dataset: measured TOYv1 responses (session fixture from conftest)
     """
-    model = MODEL_FACTORY["EnsembleMF"]()
+    model = EnsembleMF()
     model.build_model(_tiny_hpams())
     cell_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
@@ -75,7 +76,7 @@ def test_unknown_ids_fall_back_to_the_training_mean(data_dir, sample_dataset) ->
     :param data_dir: path to the test data directory (session fixture from conftest)
     :param sample_dataset: measured TOYv1 responses (session fixture from conftest)
     """
-    model = MODEL_FACTORY["EnsembleMF"]()
+    model = EnsembleMF()
     model.build_model(_tiny_hpams())
     cell_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
