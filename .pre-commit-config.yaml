@@ -9,7 +9,7 @@ repos:
     rev: v5.0.0
     hooks:
       - id: check-added-large-files
-        exclude: ^dreval_demo\.ipynb$
+        exclude: ^(dreval_demo\.ipynb|uv\.lock)$
       - id: check-toml
       - id: check-yaml
       - id: end-of-file-fixer
