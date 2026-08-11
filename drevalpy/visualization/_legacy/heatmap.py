@@ -9,7 +9,7 @@ import pandas as pd
 from plotly.subplots import make_subplots
 from upath import UPath as Path
 
-from .plot_requirements import PlotRequirement
+from ..requirements import PlotRequirement
 from .vioheat import VioHeat
 
 if TYPE_CHECKING:

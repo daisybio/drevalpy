@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from drevalpy.visualization.result_csv_discovery import discover_result_csv_files
+from drevalpy.visualization._legacy.result_csv_discovery import discover_result_csv_files
 
 
 def test_discover_result_csv_files_delegates_layout(tmp_path: Path) -> None:

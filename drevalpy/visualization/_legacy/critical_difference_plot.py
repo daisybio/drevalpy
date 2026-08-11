@@ -38,10 +38,10 @@ import scikit_posthocs as sp
 from scipy import stats
 from upath import UPath as Path
 
-from ..evaluation import MINIMIZATION_METRICS
+from ...evaluation import MINIMIZATION_METRICS
+from ..requirements import PlotRequirement
 from .critical_difference_layout import critical_difference_diagram as _critical_difference_diagram
 from .outplot import OutPlot
-from .plot_requirements import PlotRequirement
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult

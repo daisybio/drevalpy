@@ -3,21 +3,30 @@
 __all__ = [
     "ComparisonScatter",
     "CriticalDifferencePlot",
+    "CrossStudyTables",
     "Heatmap",
     "PlotRequirement",
     "RegressionSliderPlot",
+    "Section",
     "VioHeat",
     "Violin",
-    "CrossStudyTables",
+    "Visualization",
+    "create_report",
     "create_visualizations",
+    "visualization_registry",
 ]
 
-from .comp_scatter import ComparisonScatter
-from .create_visualizations import create_visualizations
-from .critical_difference_plot import CriticalDifferencePlot
-from .cross_study_tables import CrossStudyTables
-from .heatmap import Heatmap
-from .plot_requirements import PlotRequirement
-from .regression_slider_plot import RegressionSliderPlot
-from .vioheat import VioHeat
-from .violin import Violin
+from ._legacy import (  # noqa: E402 — backward compatibility re-exports
+    ComparisonScatter,
+    CriticalDifferencePlot,
+    CrossStudyTables,
+    Heatmap,
+    RegressionSliderPlot,
+    VioHeat,
+    Violin,
+    create_visualizations,
+)
+from .base import Section, Visualization
+from .registry import visualization_registry
+from .report import create_report
+from .requirements import PlotRequirement

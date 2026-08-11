@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from upath import UPath as Path
 
-from .plot_requirements import PlotRequirement
+from ..requirements import PlotRequirement
 from .vioheat import VioHeat
 
 if TYPE_CHECKING:

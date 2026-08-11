@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 from upath import UPath as Path
 
-from . import ComparisonScatter, CrossStudyTables, Heatmap, Violin
-from .critical_difference_plot import CriticalDifferencePlot
+from drevalpy.visualization._legacy import ComparisonScatter, CrossStudyTables, Heatmap, Violin
+from drevalpy.visualization._legacy.critical_difference_plot import CriticalDifferencePlot
 
 
 def _require_prediction_subset(ev_res: pd.DataFrame, test_mode: str) -> pd.DataFrame:

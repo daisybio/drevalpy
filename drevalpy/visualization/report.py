@@ -1,0 +1,91 @@
+"""Report orchestrator using MultiQC Python API."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from upath import UPath as Path
+
+from drevalpy.visualization.base import Section
+
+if TYPE_CHECKING:
+    from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
+
+
+def _add_module(sections: list[Section], name: str, anchor: str) -> None:
+    """Create a MultiQC module from sections and append to the report."""
+    import multiqc
+
+    module = multiqc.BaseMultiqcModule(name=name, anchor=anchor)
+    for section in sections:
+        module.add_section(
+            plot=section.plot,
+            content=section.content,
+            name=section.name,
+            anchor=section.anchor,
+            description=section.description,
+        )
+    multiqc.report.modules.append(module)
+
+
+def _ensure_experiment(result: ExperimentResult | ModelResult | RunResult) -> ExperimentResult:
+    """Wrap a ModelResult or RunResult into an ExperimentResult."""
+    from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
+
+    if isinstance(result, RunResult):
+        return ExperimentResult([result])
+    if isinstance(result, ModelResult):
+        return ExperimentResult(list(result.runs))
+    return result
+
+
+def _run_visualization(viz_cls: type, experiment: ExperimentResult, result_type: str) -> None:
+    """Instantiate a visualization and add its sections to the report."""
+    viz = viz_cls()
+    if result_type == "ModelResult":
+        for model in experiment.models:
+            sections = viz.generate(model)
+            if sections:
+                _add_module(
+                    sections,
+                    f"{viz_cls.registry_name} ({model.model_name})",
+                    f"{viz_cls.registry_name}_{model.model_name}",
+                )
+    else:
+        sections = viz.generate(experiment)
+        if sections:
+            _add_module(sections, viz_cls.registry_name, viz_cls.registry_name)
+
+
+def create_report(
+    result: ExperimentResult | ModelResult | RunResult,
+    output_dir: str | Path,
+    *,
+    title: str = "Drug Response Evaluation",
+) -> None:
+    """Generate a MultiQC report for the given result.
+
+    :param result: Experiment, model, or run result.
+    :param output_dir: Output directory for the report.
+    :param title: Report title.
+    """
+    try:
+        import multiqc
+    except ImportError as e:
+        raise ImportError(
+            "multiqc is required for report generation. Install it with: pip install drevalpy[report]"
+        ) from e
+
+    import drevalpy.visualization.plots  # noqa: F401
+    from drevalpy.visualization.registry import visualization_registry
+
+    experiment = _ensure_experiment(result)
+    multiqc.reset()
+
+    for viz_cls in visualization_registry.applicable(experiment):
+        result_type = visualization_registry._result_types.get(viz_cls.registry_name, "ExperimentResult")
+        _run_visualization(viz_cls, experiment, result_type)
+
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    multiqc.write_report(output_dir=str(out), title=title, force=True)

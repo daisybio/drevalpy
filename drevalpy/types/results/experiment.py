@@ -12,7 +12,7 @@ from drevalpy.types.results.model import ModelResult
 from drevalpy.types.results.run import RunResult
 
 if TYPE_CHECKING:
-    from drevalpy.visualization.plot_requirements import PlotRequirement
+    from drevalpy.visualization.requirements import PlotRequirement
 
 
 class ExperimentResult:
@@ -77,7 +77,7 @@ class ExperimentResult:
         :param requirements: Set of requirements to check.
         :returns: True if all requirements are satisfied.
         """
-        from drevalpy.visualization.plot_requirements import PlotRequirement
+        from drevalpy.visualization.requirements import PlotRequirement
 
         for req in requirements:
             if req == PlotRequirement.MULTIPLE_MODELS and self.n_models < 2:

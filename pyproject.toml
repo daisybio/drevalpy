@@ -47,6 +47,7 @@ dependencies = [
     "rdkit>=2026.3.5",
     "transformers>=5.15.0",
     "gensim>=4.4.0",
+    "multiqc>=1.35",
 ]
 
 [project.scripts]

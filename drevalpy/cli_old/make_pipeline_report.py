@@ -8,7 +8,7 @@ import typer
 
 from drevalpy.cli._helpers import as_list
 from drevalpy.data._paths import get_default_data_dir
-from drevalpy.visualization.create_report import run_pipeline_report
+from drevalpy.visualization._legacy.create_report import run_pipeline_report
 
 
 def register(app: typer.Typer) -> None:

@@ -9,9 +9,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from upath import UPath as Path
 
-from ..models._model_lookup import single_drug_model_names
+from ...models._model_lookup import single_drug_model_names
+from ..requirements import PlotRequirement
 from .outplot import OutPlot
-from .plot_requirements import PlotRequirement
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult

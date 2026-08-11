@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from upath import UPath as Path
 
-from drevalpy.visualization.outplot import OutPlot
-from drevalpy.visualization.plot_requirements import PlotRequirement
+from drevalpy.visualization._legacy.outplot import OutPlot
+from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult

@@ -53,12 +53,12 @@ def _get_plot_registry() -> list[type]:
     Each class declares ``result_type`` and ``requirements`` to support
     automatic selection via :func:`create_visualizations`.
     """
-    from drevalpy.visualization.comp_scatter import ComparisonScatter
-    from drevalpy.visualization.critical_difference_plot import CriticalDifferencePlot
-    from drevalpy.visualization.cross_study_tables import CrossStudyTables
-    from drevalpy.visualization.heatmap import Heatmap
-    from drevalpy.visualization.regression_slider_plot import RegressionSliderPlot
-    from drevalpy.visualization.violin import Violin
+    from drevalpy.visualization._legacy.comp_scatter import ComparisonScatter
+    from drevalpy.visualization._legacy.critical_difference_plot import CriticalDifferencePlot
+    from drevalpy.visualization._legacy.cross_study_tables import CrossStudyTables
+    from drevalpy.visualization._legacy.heatmap import Heatmap
+    from drevalpy.visualization._legacy.regression_slider_plot import RegressionSliderPlot
+    from drevalpy.visualization._legacy.violin import Violin
 
     return [
         Violin,

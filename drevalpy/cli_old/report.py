@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 
 from drevalpy.data._paths import get_default_data_dir
-from drevalpy.visualization.create_report import run_report
+from drevalpy.visualization._legacy.create_report import run_report
 
 # Module-level constants so the Typer defaults are not fresh calls (flake8 B008).
 _DEFAULT_RESULTS_DIR = pathlib.Path("results")
