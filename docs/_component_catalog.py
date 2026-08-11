@@ -40,6 +40,7 @@ class FeaturizerCatalogMetadata(ComponentCatalogMetadata):
     """Registry fields rendered for a featurizer."""
 
     output_format: str
+    precompute: bool
 
 
 class PredictorCatalogMetadata(ComponentCatalogMetadata):
@@ -82,19 +83,22 @@ def _render_featurizers(rows: list[FeaturizerCatalogMetadata]) -> str:
     lines = [
         ".. list-table::",
         "   :header-rows: 1",
-        "   :widths: 24 20 56",
+        "   :widths: 22 16 12 50",
         "",
         "   * - Name",
         "     - Output format",
-        "     - Role",
+        "     - Precomputable",
+        "     - Description",
     ]
     for row in rows:
         if not row["output_format"]:
             raise RuntimeError(f"Featurizer {row['name']!r} is missing an output format")
+        precompute_marker = "\u2705" if row["precompute"] else "\u274c"
         lines.extend(
             [
                 f"   * - ``{row['name']}``",
                 f"     - ``{row['output_format']}``",
+                f"     - {precompute_marker}",
                 f"     - {_description(row)}",
             ]
         )
@@ -109,7 +113,7 @@ def _render_predictors(rows: list[PredictorCatalogMetadata]) -> str:
         "",
         "   * - Name",
         "     - Interface",
-        "     - Role",
+        "     - Description",
     ]
     for row in rows:
         interface = row["input_interface"]

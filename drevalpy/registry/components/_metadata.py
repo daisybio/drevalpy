@@ -59,6 +59,7 @@ def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any])
     """
     meta = base_component_metadata(registry_name, name, cls)
     meta["output_format"] = featurizer_contract(cls).format.value
+    meta["precompute"] = getattr(cls, "precompute", False)
     return meta
 
 

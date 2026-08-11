@@ -13,10 +13,13 @@ from components with three distinct roles:
    flowchart LR
       cellLineData["Cell line"]
       drugData["Drug"]
-      cellLineFeaturizer["Cell-line featurizer"]
-      drugFeaturizer["Drug featurizer"]
-      predictor["Predictor"]
       responseEstimate["Drug response estimate"]
+
+      subgraph model [Model]
+         cellLineFeaturizer["Cell-line featurizer"]
+         drugFeaturizer["Drug featurizer"]
+         predictor["Predictor"]
+      end
 
       cellLineData --> cellLineFeaturizer
       drugData --> drugFeaturizer
@@ -48,6 +51,35 @@ In DrEvalPy, we try to make sure that featurizers can be elegantly combined with
 Examples of encoders are the per-omics encoders inside SuperFELTR or the transformer stack inside PharmaFormer.
 As these components are tightly coupled to the prediction head and the weights of both are optimized jointly, they are not considered featurizers.
 In DrEvalPy, encoders are baked into the predictors and cannot be combined with other predictors.
+
+Precomputable featurizers
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some featurizers produce representations that depend only on the entity itself
+(the cell line or the drug) and not on any training labels. Their output is
+deterministic and identical regardless of which predictor consumes it or which
+CV fold is active. These featurizers are marked as **precomputable**.
+
+Precomputable featurizers are typically computationally expensive (model-based
+embeddings, graph construction, BPE tokenization). Their results can be stored
+inside the dataset ahead of time, so the experiment loop never has to
+recompute them. Lightweight featurizers such as ``landmarkGenes`` or
+``scaledGeneExpression`` are fast enough that precomputation is unnecessary --
+they run inline and are *not* marked as precomputable.
+
+Precomputation and hyperparameter optimization are not mutually exclusive.
+A precomputable featurizer can still have hyperparameters (for example, the
+fingerprint radius). Because each hyperparameter configuration yields a
+different cached output, multiple variants can be stored side by side in the
+same dataset. At experiment time, users choose one of two strategies:
+
+- **Precomputed-only mode** -- the optimizer treats the stored variants as
+  categorical choices and selects among them. This is fast because no
+  featurizer computation happens at all during the search.
+- **Standard HPO mode** -- the optimizer ignores stored variants and explores
+  the featurizer's continuous hyperparameter space normally, recomputing
+  features for each trial. This is slower but can find configurations that
+  were never precomputed.
 
 Featurizer types
 ~~~~~~~~~~~~~~~~

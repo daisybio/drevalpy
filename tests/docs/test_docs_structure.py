@@ -140,12 +140,20 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     rb.register_builtin_components()
     expected_featurizers = {
         "cell_line": {
-            row["name"]: (row["output_format"], " ".join(row["description"].split()))
+            row["name"]: (
+                row["output_format"],
+                "\u2705" if row["precompute"] else "\u274c",
+                " ".join(row["description"].split()),
+            )
             for row in cell_line_featurizer_registry.list_metadata()
             if row["name"] in rb.BUILTIN_CELL_LINE_FEATURIZER_NAMES
         },
         "drug": {
-            row["name"]: (row["output_format"], " ".join(row["description"].split()))
+            row["name"]: (
+                row["output_format"],
+                "\u2705" if row["precompute"] else "\u274c",
+                " ".join(row["description"].split()),
+            )
             for row in drug_featurizer_registry.list_metadata()
             if row["name"] in rb.BUILTIN_DRUG_FEATURIZER_NAMES
         },
@@ -160,11 +168,13 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     }
     for registry_name, expected in expected_featurizers.items():
         matches = re.findall(
-            r"^   \* - ``([^`]+)``\n     - ``([^`]+)``\n     - ([^\n]+)$",
+            r"^   \* - ``([^`]+)``\n     - ``([^`]+)``\n     - ([^\n]*)\n     - ([^\n]+)$",
             generated[registry_name],
             flags=re.MULTILINE,
         )
-        observed = {name: (output_format, description) for name, output_format, description in matches}
+        observed = {
+            name: (output_format, precompute, description) for name, output_format, precompute, description in matches
+        }
         assert observed == expected
 
     predictor_matches = re.findall(

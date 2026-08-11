@@ -44,6 +44,7 @@ For demanding or highly reproducible runs, use the Nextflow pipeline
    concepts/component_catalog
    concepts/from_components_to_models
    concepts/model_zoo
+   concepts/registries
 
 .. toctree::
    :maxdepth: 2
