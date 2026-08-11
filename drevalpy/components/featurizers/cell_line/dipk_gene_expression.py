@@ -9,7 +9,6 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._feature_source import FeatureSource
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.predictors.literature._torch_state import load_state_dict, save_state_dict
 from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
     GeneExpressionEncoder,
     encode_gene_expression,
@@ -17,6 +16,7 @@ from drevalpy.components.predictors.literature.dipk.gene_expression_encoder impo
 )
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.utils.torch_io import load_state_dict, save_state_dict
 
 
 @register_cell_line_featurizer(

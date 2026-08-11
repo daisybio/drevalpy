@@ -13,13 +13,13 @@ from torch_geometric.loader import DataLoader
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_REFERENCE
-from drevalpy.components.predictors.literature._torch_state import load_state_dict, save_state_dict
 from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.utils.torch_io import load_state_dict, save_state_dict
 
 
 class _DrugGNNDataset(PytorchDataset):

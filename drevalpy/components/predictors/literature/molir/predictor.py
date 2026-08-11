@@ -13,12 +13,6 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
-from drevalpy.components.predictors.literature._torch_state import load_state_dict as _load_torch_state_dict
-from drevalpy.components.predictors.literature._torch_state import (
-    load_trusted_mapping,
-    save_state_dict,
-    save_trusted_mapping,
-)
 from drevalpy.components.predictors.literature.molir.utils import MOLIModel, _realign_omic_matrix
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
@@ -31,6 +25,12 @@ from drevalpy.models.config import PredictionMode
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.utils.torch_io import load_state_dict as _load_torch_state_dict
+from drevalpy.utils.torch_io import (
+    load_trusted_mapping,
+    save_state_dict,
+    save_trusted_mapping,
+)
 
 
 def _checkpoint_dir_for_drug(base_dir: Path, drug_id: str) -> Path:

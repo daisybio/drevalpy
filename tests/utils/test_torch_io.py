@@ -10,17 +10,19 @@ import pytest
 import torch
 from torch_geometric.data import Data
 
-from drevalpy.components.predictors.literature._torch_state import load_state_dict as load_state_dict_bytes
-from drevalpy.components.predictors.literature._torch_state import (
-    load_trusted_mapping,
-    save_trusted_mapping,
-)
-from drevalpy.components.predictors.literature._torch_state import save_state_dict as save_state_dict_bytes
 from drevalpy.utils.torch_io import (
     load_state_dict,
     load_torch_payload,
+    load_trusted_mapping,
     load_trusted_payload,
     save_torch_payload,
+    save_trusted_mapping,
+)
+from drevalpy.utils.torch_io import (
+    load_state_dict as load_state_dict_bytes,
+)
+from drevalpy.utils.torch_io import (
+    save_state_dict as save_state_dict_bytes,
 )
 
 

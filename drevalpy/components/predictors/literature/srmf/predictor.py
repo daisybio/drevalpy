@@ -17,11 +17,11 @@ from scipy.spatial.distance import jaccard
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
-from drevalpy.components.predictors.literature._torch_state import load_trusted_mapping, save_trusted_mapping
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.utils.torch_io import load_trusted_mapping, save_trusted_mapping
 
 
 @register_predictor(
