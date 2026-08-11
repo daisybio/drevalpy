@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 
 from upath import UPath as Path
 
-from drevalpy.visualization.base import Section
+from drevalpy.visualization.base import Visualization
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 
 
-def _add_module(sections: list[Section], name: str, anchor: str) -> None:
+def _add_module(sections, name: str, anchor: str) -> None:
     """Create a MultiQC module from sections and append to the report."""
     import multiqc
 
@@ -28,7 +28,7 @@ def _add_module(sections: list[Section], name: str, anchor: str) -> None:
     multiqc.report.modules.append(module)
 
 
-def _ensure_experiment(result: ExperimentResult | ModelResult | RunResult) -> ExperimentResult:
+def _ensure_experiment(result):
     """Wrap a ModelResult or RunResult into an ExperimentResult."""
     from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 
@@ -39,22 +39,21 @@ def _ensure_experiment(result: ExperimentResult | ModelResult | RunResult) -> Ex
     return result
 
 
-def _run_visualization(viz_cls: type, experiment: ExperimentResult, result_type: str) -> None:
-    """Instantiate a visualization and add its sections to the report."""
-    viz = viz_cls()
+def _run_visualization(viz: Visualization, experiment, result_type: str) -> None:
+    """Compute a visualization and add its sections to the report."""
     if result_type == "ModelResult":
         for model in experiment.models:
-            sections = viz.generate(model)
+            viz.compute(model)
+            sections = viz.to_multiqc()
             if sections:
-                _add_module(
-                    sections,
-                    f"{viz_cls.registry_name} ({model.model_name})",
-                    f"{viz_cls.registry_name}_{model.model_name}",
-                )
+                name = f"{viz.registry_name} ({model.model_name})"
+                anchor = f"{viz.registry_name}_{model.model_name}"
+                _add_module(sections, name, anchor)
     else:
-        sections = viz.generate(experiment)
+        viz.compute(experiment)
+        sections = viz.to_multiqc()
         if sections:
-            _add_module(sections, viz_cls.registry_name, viz_cls.registry_name)
+            _add_module(sections, viz.registry_name, viz.registry_name)
 
 
 def create_report(
@@ -84,8 +83,37 @@ def create_report(
 
     for viz_cls in visualization_registry.applicable(experiment):
         result_type = visualization_registry._result_types.get(viz_cls.registry_name, "ExperimentResult")
-        _run_visualization(viz_cls, experiment, result_type)
+        viz = viz_cls()
+        _run_visualization(viz, experiment, result_type)
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     multiqc.write_report(output_dir=str(out), title=title, force=True)
+
+
+def save_all_png(
+    result: ExperimentResult | ModelResult | RunResult,
+    output_dir: str | Path,
+) -> None:
+    """Save all applicable plots as PNG files.
+
+    :param result: Experiment, model, or run result.
+    :param output_dir: Output directory for the PNG files.
+    """
+    import drevalpy.visualization.plots  # noqa: F401
+    from drevalpy.visualization.registry import visualization_registry
+
+    experiment = _ensure_experiment(result)
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    for viz_cls in visualization_registry.applicable(experiment):
+        result_type = visualization_registry._result_types.get(viz_cls.registry_name, "ExperimentResult")
+        viz = viz_cls()
+        if result_type == "ModelResult":
+            for model in experiment.models:
+                viz.compute(model)
+                viz.to_png(out / f"{viz.registry_name}_{model.model_name}.png")
+        else:
+            viz.compute(experiment)
+            viz.to_png(out / f"{viz.registry_name}.png")

@@ -5,6 +5,7 @@ from drevalpy.visualization.plots import (
     critical_difference,
     cross_study_table,
     heatmap,
+    leaderboard,
     regression_scatter,
     violin,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "critical_difference",
     "cross_study_table",
     "heatmap",
+    "leaderboard",
     "regression_scatter",
     "violin",
 ]

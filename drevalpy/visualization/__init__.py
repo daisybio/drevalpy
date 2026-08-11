@@ -5,6 +5,7 @@ __all__ = [
     "CriticalDifferencePlot",
     "CrossStudyTables",
     "Heatmap",
+    "ImageVisualization",
     "PlotRequirement",
     "RegressionSliderPlot",
     "Section",
@@ -13,6 +14,7 @@ __all__ = [
     "Visualization",
     "create_report",
     "create_visualizations",
+    "save_all_png",
     "visualization_registry",
 ]
 
@@ -26,7 +28,7 @@ from ._legacy import (  # noqa: E402 — backward compatibility re-exports
     Violin,
     create_visualizations,
 )
-from .base import Section, Visualization
+from .base import ImageVisualization, Section, Visualization
 from .registry import visualization_registry
-from .report import create_report
+from .report import create_report, save_all_png
 from .requirements import PlotRequirement
