@@ -7,8 +7,10 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, ragged_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
@@ -145,8 +147,6 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
         :param drug_id: Drug identifier.
         :returns: Embedding array or None.
         """
-        from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-
         smiles_series = get_smiles_for_entities(source, np.array([drug_id]))
         if smiles_series is None:
             return None
@@ -158,8 +158,6 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
 
 def _get_molgnet_checkpoint() -> str:
     """Return the local path to the MolGNet checkpoint, downloading if needed."""
-    from drevalpy.data.artifacts import get_artifact
-
     return str(get_artifact("MolGNet.pt"))
 
 

@@ -6,6 +6,13 @@ from typing import TYPE_CHECKING, Any
 
 from upath import UPath as Path
 
+from drevalpy.models.mixins._persistence_io import (
+    CorruptedCheckpointError,
+    IncompatibleModelCheckpointError,
+    load_model_payload,
+    save_model,
+)
+
 if TYPE_CHECKING:
     from drevalpy.models.drp_model import DRPModel
 
@@ -21,8 +28,6 @@ class DRPPersistenceMixin:
 
         :param path: Archive file path; ``.zip`` is appended when missing.
         """
-        from drevalpy.models.mixins._persistence_io import save_model
-
         save_model(self, path)  # type: ignore[arg-type]
 
     @classmethod
@@ -34,12 +39,6 @@ class DRPPersistenceMixin:
         :raises IncompatibleModelCheckpointError: If the stored model name does not match this class.
         :raises CorruptedCheckpointError: If the archive payload is invalid or incomplete.
         """
-        from drevalpy.models.mixins._persistence_io import (
-            CorruptedCheckpointError,
-            IncompatibleModelCheckpointError,
-            load_model_payload,
-        )
-
         model_name, config, state = load_model_payload(path)
         if model_name != cls.get_model_name():  # type: ignore[attr-defined]
             raise IncompatibleModelCheckpointError(

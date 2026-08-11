@@ -8,7 +8,18 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.contracts import FeatureContract, featurizer_contract
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, featurizer_contract
+from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.featurizers.storage import (
+    fetch_from_modality,
+    fetch_from_obsm,
+    fetch_from_varm,
+    find_variant_key,
+    list_variants,
+    make_variant_key,
+    next_variant_index,
+    register_variant,
+)
 from drevalpy.log import get_logger
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock
 from drevalpy.types.data.feature_source import FeatureSource
@@ -187,8 +198,6 @@ class Featurizer(ABC):
         :param entity_ids: Entity identifiers to transform (only valid ones).
         :returns: Feature matrix aligned with *entity_ids*.
         """
-        from drevalpy.components.contracts.contracts import FeatureFormat
-
         blocks = self._transform_blocks(source, entity_ids)
         arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
         if not arrays:
@@ -214,8 +223,6 @@ class Featurizer(ABC):
         :param n_total: Total number of entities (valid + invalid).
         :returns: Blocks aligned to the full set of entity IDs.
         """
-        from drevalpy.components.contracts.contracts import FeatureFormat
-
         expanded: dict[str, FeatureBlock] = {}
         for name, block in valid_blocks.items():
             if not block.entity_aligned:
@@ -361,8 +368,6 @@ class Featurizer(ABC):
 
         :returns: Parameter names mapped to their declared ``default`` values.
         """
-        from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-
         space = cls.get_hyperparameter_space()
         validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")
         return {key: spec["default"] for key, spec in space.items()}
@@ -391,8 +396,6 @@ class Featurizer(ABC):
         :param hyperparameters: HP setting to match. None matches default (empty params).
         :returns: Feature matrix or None if not pre-computed for these HPs.
         """
-        from drevalpy.components.featurizers.storage import find_variant_key
-
         key = find_variant_key(mdata, self.storage_key, hyperparameters, side=self.side)
         if key is None:
             return None
@@ -406,8 +409,6 @@ class Featurizer(ABC):
         :param entity_ids: Entity IDs to align to.
         :returns: Feature matrix or None.
         """
-        from drevalpy.components.featurizers.storage import fetch_from_modality, fetch_from_obsm, fetch_from_varm
-
         result = fetch_from_modality(mdata, key, entity_ids)
         if result is not None:
             return result
@@ -425,8 +426,6 @@ class Featurizer(ABC):
         :param data: Feature matrix to store.
         :param hyperparameters: HP settings this data was computed with.
         """
-        from drevalpy.components.featurizers.storage import make_variant_key, next_variant_index, register_variant
-
         index = next_variant_index(mdata, self.storage_key, side=self.side)
         actual_key = make_variant_key(self.storage_key, index)
         self._store_by_key(mdata, actual_key, entity_ids, data)
@@ -455,6 +454,4 @@ class Featurizer(ABC):
         :param mdata: MuData object.
         :returns: Dict of {mudata_key: params_dict}.
         """
-        from drevalpy.components.featurizers.storage import list_variants
-
         return list_variants(mdata, cls.storage_key, side=cls.side)

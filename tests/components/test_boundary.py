@@ -57,7 +57,6 @@ def test_orchestration_lives_in_models_layer() -> None:
     import drevalpy.components as components_pkg
     import drevalpy.models.component_stack as component_stack
     import drevalpy.models.config.io as models_config_io
-    import drevalpy.models.config.spec as models_spec
     import drevalpy.models.factory as models_factory
     import drevalpy.models.zoo as models_zoo
 
@@ -68,5 +67,5 @@ def test_orchestration_lives_in_models_layer() -> None:
     assert component_stack.build_component_stack.__module__ == "drevalpy.models.component_stack"
     assert models_config_io.from_yaml.__module__ == "drevalpy.models.config.io"
     assert models_config_io.from_spec.__module__ == "drevalpy.models.config.io"
-    assert models_spec.zoo_config.__module__ == "drevalpy.models.config.spec"
+    assert models_factory.zoo_config.__module__ == "drevalpy.models.factory"
     assert models_zoo.get_zoo_config.__module__ == "drevalpy.models.zoo"

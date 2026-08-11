@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import tempfile
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import optuna
 from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
+from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.log import get_logger
-from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.config_resolution import (
     construct_drp_model_from_config,
@@ -21,6 +21,9 @@ from drevalpy.models.tuning.config_resolution import (
 from drevalpy.models.tuning.search_space import sample_from_optuna_trial
 from drevalpy.types import SplitMask
 from drevalpy.types.data.dataset import Dataset
+
+if TYPE_CHECKING:
+    from drevalpy.models.drp_model import DRPModel
 
 logger = get_logger(__name__)
 
@@ -77,8 +80,6 @@ def _mu_evaluate_trial_model(
     trial_number: int = 0,
 ) -> float:
     """Train a trial model and compute a validation metric using Dataset + SplitMask."""
-    from drevalpy.evaluation import AVAILABLE_METRICS
-
     trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
     if trial_dir is not None:
         trial_model.train(
@@ -139,8 +140,6 @@ def _mu_evaluate_trial_all_metrics(
 
     :returns: Tuple of (metrics_dict, predictions_array).
     """
-    from drevalpy.evaluation import AVAILABLE_METRICS
-
     trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
     if trial_dir is not None:
         trial_model.train(

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import ModelConfig
+from drevalpy.models.factory import model_config_for_name
+from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
+from drevalpy.models.tuning.search_space import merge_model_config_spaces, resolve_model_config
 
 
 class DRPHyperparametersMixin:
@@ -26,8 +28,6 @@ class DRPHyperparametersMixin:
 
         :returns: A fresh ModelConfig template, or None if unresolvable.
         """
-        from drevalpy.models.config import ModelConfig
-
         base = getattr(cls, "_base_model_config", None)
         if isinstance(base, ModelConfig):
             return ModelConfig.model_validate(base.model_dump(mode="python"))
@@ -45,7 +45,6 @@ class DRPHyperparametersMixin:
         if not callable(get_model_name):
             return None
         model_name = get_model_name()
-        from drevalpy.models.factory import model_config_for_name
 
         try:
             config = model_config_for_name(model_name, None)
@@ -59,8 +58,6 @@ class DRPHyperparametersMixin:
 
         :returns: Structured hyperparameter search space for tuning.
         """
-        from drevalpy.models.tuning.search_space import merge_model_config_spaces
-
         config = cls._resolve_base_config()
         if config is None:
             return {}
@@ -72,9 +69,6 @@ class DRPHyperparametersMixin:
 
         :returns: Default flat public hyperparameters for a new instance.
         """
-        from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
-        from drevalpy.models.tuning.search_space import resolve_model_config
-
         config = cls._resolve_base_config()
         if config is None:
             return {}

@@ -7,8 +7,11 @@ import tempfile
 import numpy as np
 from sklearn.base import TransformerMixin, clone
 
+from drevalpy.evaluation import AVAILABLE_METRICS, _compute_metric_value
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.tuning.config import build_experiment_hpo_config
+from drevalpy.models.tuning.hpo import hpam_tune
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.results.run import RunResult
@@ -42,9 +45,6 @@ def single(
     :param precomputed_only: Restrict HPO to pre-computed featurizer variants.
     :returns: RunResult with predictions, ground truth, and metrics.
     """
-    from drevalpy.evaluation import AVAILABLE_METRICS
-    from drevalpy.models.tuning.config import build_experiment_hpo_config
-
     model_name = model_class.get_model_name()
     logger.info("Run: %s, fold %d", model_name, split_masks.metadata.get("fold_index", 0))
 
@@ -55,8 +55,6 @@ def single(
 
     trials: list[TrialResult] | None = None
     if hyperparameter_tuning:
-        from drevalpy.models.tuning.hpo import hpam_tune
-
         hpo_cfg = build_experiment_hpo_config(
             hpo_metric,
             n_trials=hpo_num_samples,
@@ -121,8 +119,6 @@ def single(
     valid = ~np.isnan(predictions) & ~np.isnan(ground_truth)
     metrics: dict[str, float] = {}
     if valid.any():
-        from drevalpy.evaluation import _compute_metric_value
-
         for metric_name in AVAILABLE_METRICS:
             metrics[metric_name] = _compute_metric_value(metric_name, predictions[valid], ground_truth[valid])
 

@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.log import get_logger
@@ -73,8 +74,6 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
         :param entity_ids: Drug identifiers.
         :returns: Fingerprint matrix of shape (n_drugs, n_bits).
         """
-        from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-
         smiles = get_smiles_for_entities(source, entity_ids)
         if smiles is None:
             msg = f"Cannot obtain {self.storage_key}: no SMILES available."

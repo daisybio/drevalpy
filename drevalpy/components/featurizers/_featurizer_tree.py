@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
+from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
+
 if TYPE_CHECKING:
     from drevalpy.models.config.featurizer import FeaturizerConfig
 
@@ -41,8 +43,6 @@ def ensure_unique_qualified_featurizers(featurizer: FeaturizerConfig, registry: 
         return
     seen: set[str] = set()
     for leaf in iter_featurizer_leaves(featurizer, registry):
-        from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
-
         selector = qualified_featurizer_selector(leaf.name, leaf.view)
         if selector in seen:
             msg = (

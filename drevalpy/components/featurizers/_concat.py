@@ -9,6 +9,7 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
+from drevalpy.models.config.featurizer import FeaturizerConfig
 from drevalpy.types.data.batch.feature_block import FeatureBlock, merge_feature_blocks
 
 
@@ -37,9 +38,6 @@ class ConcatFeaturizersMixin:
         featurizers: list[Any] | None,
         registry: str,
     ) -> None:
-        # Local import avoids models↔featurizer package cycles during module import.
-        from drevalpy.models.config.featurizer import FeaturizerConfig
-
         if not featurizers:
             msg = "featurizers must be a non-empty list"
             raise ValueError(msg)

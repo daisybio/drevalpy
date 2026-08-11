@@ -7,8 +7,10 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
@@ -60,8 +62,6 @@ class SmilesVecDrugFeaturizer(ViewDrugFeaturizer):
         :param entity_ids: Drug identifiers.
         :returns: Embedding matrix of shape (n_drugs, dim).
         """
-        from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-
         smiles = get_smiles_for_entities(source, entity_ids)
         if smiles is None:
             msg = f"Cannot obtain {self.storage_key}: no SMILES available."
@@ -72,8 +72,6 @@ class SmilesVecDrugFeaturizer(ViewDrugFeaturizer):
         except ImportError as err:
             msg = "gensim is required for SMILESVec computation: pip install gensim"
             raise ImportError(msg) from err
-
-        from drevalpy.data.artifacts import get_artifact
 
         model_path = get_artifact(_SMILESVEC_MODEL_FILE)
         kv = KeyedVectors.load_word2vec_format(str(model_path), binary=False)

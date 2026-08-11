@@ -12,14 +12,19 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
 from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork
-from drevalpy.components.predictors.literature.sparsego.utils import load_ontology, pairs_in_layers, sort_pairs
+from drevalpy.components.predictors.literature.sparsego.utils import (
+    load_mapping,
+    load_ontology,
+    pairs_in_layers,
+    sort_pairs,
+)
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.tensor_data import make_pair_loader
-from drevalpy.utils.torch_io import load_trusted_mapping, save_trusted_mapping
+from drevalpy.utils.torch_io import load_state_dict, load_trusted_mapping, save_state_dict, save_trusted_mapping
 
 
 def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarray], dict[str, int], list[str]]:
@@ -41,8 +46,6 @@ def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarr
     gene_order = metadata.get("ontology_gene_order")
 
     if layer_connections is None or gene2id_mapping is None:
-        from drevalpy.components.predictors.literature.sparsego.utils import load_mapping
-
         ontology_file = metadata.get("ontology_file")
         gene2ind_file = metadata.get("gene2ind_file")
         if ontology_file is None or gene2ind_file is None:
@@ -280,7 +283,6 @@ class SparseGOPredictor(BlockPredictor):
         """
         if self._model is None:
             return {}
-        from drevalpy.utils.torch_io import save_state_dict
 
         payload: dict[str, Any] = {
             "predictor_hyperparameters": dict(self._hyperparameters),
@@ -325,6 +327,4 @@ class SparseGOPredictor(BlockPredictor):
 
         model_state = payload.get("model_state")
         if isinstance(model_state, (bytes, bytearray)) and self._model is not None:
-            from drevalpy.utils.torch_io import load_state_dict
-
             self._model.load_state_dict(load_state_dict(bytes(model_state)))

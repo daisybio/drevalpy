@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from drevalpy.types import SplitMasks
+from drevalpy.types.data.dataset import Dataset as Dataset
 
 from .datasets import registry as dataset_registry
 from .datasets.load import load
@@ -31,9 +32,6 @@ def split(
         fold.metadata.setdefault("dataset", dataset.name)
     return folds
 
-
-# Lazy import to avoid circular ref
-from drevalpy.types.data.dataset import Dataset as Dataset  # noqa: E402
 
 __all__ = [
     "dataset_registry",

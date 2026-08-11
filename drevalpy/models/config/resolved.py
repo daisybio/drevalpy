@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from drevalpy.models.config._hp_key_validation import validate_merged_mapping
 from drevalpy.models.config.immutable import FrozenMapping
 from drevalpy.models.config.model import ModelConfig
 
@@ -26,8 +27,6 @@ class ResolvedModelConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate_values(self) -> ResolvedModelConfig:
-        from drevalpy.models.tuning.hyperparameter_keys import validate_merged_mapping
-
         validate_merged_mapping(self.template, dict(self.values))
         return self
 

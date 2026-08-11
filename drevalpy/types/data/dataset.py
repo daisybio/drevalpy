@@ -12,6 +12,7 @@ from typing import Any
 import mudata as md
 import numpy as np
 import pandas as pd
+from rich.progress import Progress
 from upath import UPath as Path
 
 from drevalpy.log import get_logger
@@ -67,8 +68,6 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         :param path: Path to the .h5mu file.
         :returns: A Dataset wrapping the loaded MuData.
         """
-        from upath import UPath as Path
-
         resolved = Path(path)
         md.set_options(pull_on_update=False)
         mdata = md.read_h5mu(resolved)
@@ -88,8 +87,6 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
 
         :param path: Output file path.
         """
-        from upath import UPath as Path
-
         resolved = Path(path)
         resolved.parent.mkdir(parents=True, exist_ok=True)
 
@@ -140,8 +137,6 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         base_kwargs: dict = {}
         if view is not None:
             base_kwargs["view"] = view
-
-        from rich.progress import Progress
 
         with Progress() as progress:
             task = progress.add_task(f"Precomputing {featurizer_cls.storage_key}", total=len(configs))

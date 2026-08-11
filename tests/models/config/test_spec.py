@@ -1,4 +1,4 @@
-"""Tests for drevalpy.models.config.spec.
+"""Tests for drevalpy.models.factory (spec helpers).
 
 Recipe and zoo resolution is what this module supports, so most cases drive it through
 ``from_spec``, which composes it. Tests naming ``reject_unknown_spec`` or ``zoo_config`` pin the
@@ -15,7 +15,7 @@ from drevalpy.components.registry.extensions import load_extensions
 from drevalpy.components.registry.register_builtins import register_builtin_components
 from drevalpy.models.config import from_spec, validate
 from drevalpy.models.config.model import ModelConfig
-from drevalpy.models.config.spec import reject_unknown_spec, zoo_config
+from drevalpy.models.factory import reject_unknown_spec, zoo_config
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
@@ -185,7 +185,7 @@ def test_reject_unknown_spec_passes_an_unregistered_builtin_through(monkeypatch:
 
     :param monkeypatch: Pytest fixture used to empty the registered-predictor list.
     """
-    monkeypatch.setattr("drevalpy.models.config.spec.list_predictors", lambda: [])
+    monkeypatch.setattr("drevalpy.models.factory.list_predictors", lambda: [])
     reject_unknown_spec("dipk")  # should not raise
 
 
@@ -194,7 +194,7 @@ def test_reject_unknown_spec_passes_a_registered_non_builtin_through(monkeypatch
 
     :param monkeypatch: Pytest fixture used to deny that the name is a built-in.
     """
-    monkeypatch.setattr("drevalpy.models.config.spec.is_known_builtin_predictor", lambda name: False)
+    monkeypatch.setattr("drevalpy.models.factory.is_known_builtin_predictor", lambda name: False)
     reject_unknown_spec("randomForest")  # should not raise
 
 

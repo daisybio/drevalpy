@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
-
-if TYPE_CHECKING:
-    from drevalpy.models.config.resolved import ResolvedModelConfig
+from drevalpy.models.config._hp_key_validation import validate_merged_mapping
+from drevalpy.models.config.resolved import ResolvedModelConfig
 
 _CELL_LINE_FEATURIZER_SLOT = "cell_line_featurizer"
 _DRUG_FEATURIZER_SLOT = "drug_featurizer"
@@ -222,9 +222,6 @@ def resolve_model_config(
     :param include_defaults: When ``True``, fill omitted keys from effective spaces.
     :returns: Validated ``ResolvedModelConfig``.
     """
-    from drevalpy.models.config.resolved import ResolvedModelConfig
-    from drevalpy.models.tuning.hyperparameter_keys import validate_merged_mapping
-
     qualified = dict(overrides or {})
     if include_defaults:
         defaults = defaults_from_merged_space(merge_model_config_spaces(template))
@@ -264,8 +261,6 @@ def extract_defaults(
     defaults: dict[str, Any] = {}
 
     def _pull(space: dict[str, Any], prefix: str) -> None:
-        from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-
         validate_hyperparameter_space(space, context=f"hyperparameter space under {prefix!r}")
         for name, spec in space.items():
             defaults[f"{prefix}.{name}"] = spec["default"]
@@ -285,8 +280,6 @@ def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
     :param space: space.
     :returns: Result.
     """
-    from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-
     validate_hyperparameter_space(space, context="merged hyperparameter space")
     return {key: spec["default"] for key, spec in space.items()}
 

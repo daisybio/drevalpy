@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
@@ -44,8 +45,6 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         :param config: Featurizer template; uses space default when unresolved.
         :returns: Single metadata-bearing numeric block for the active omics view.
         """
-        from collections.abc import Mapping
-
         raw_space = getattr(config, "hyperparameter_space", None) or {}
         space = dict(raw_space) if isinstance(raw_space, Mapping) else {}
         if not space:

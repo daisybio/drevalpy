@@ -244,11 +244,6 @@ def validate_merged_mapping(config: ModelConfig, merged: dict[str, Any]) -> None
     :param merged: merged.
     :raises ValueError: Raised on invalid input.
     """
-    from .search_space import _reject_indexed_featurizer_key
+    from drevalpy.models.config._hp_key_validation import validate_merged_mapping as _validate
 
-    index = build_ownership_index(config)
-    for key in merged:
-        _reject_indexed_featurizer_key(key)
-        if key not in index.qualified_to_target:
-            msg = f"Unknown hyperparameter {key!r} for this model stack."
-            raise ValueError(msg)
+    _validate(config, merged)

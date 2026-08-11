@@ -12,6 +12,10 @@ from drevalpy.models.config._recipe import format_model_recipe
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
+from drevalpy.models.config.view_resolution import (
+    entity_id_only_from_featurizer_config,
+    views_from_featurizer_config,
+)
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
@@ -98,8 +102,6 @@ class ModelConfig(BaseModel):
         :param resolved: Optional resolved instance values that can affect view selection.
         :returns: View names required by the cell-line featurizer tree.
         """
-        from drevalpy.models.config.view_resolution import views_from_featurizer_config
-
         if self.cell_line_featurizer is None:
             return []
         return views_from_featurizer_config(self.cell_line_featurizer, registry="cell_line", resolved=resolved)
@@ -110,8 +112,6 @@ class ModelConfig(BaseModel):
         :param resolved: Optional resolved instance values that can affect view selection.
         :returns: View names required by the drug featurizer tree.
         """
-        from drevalpy.models.config.view_resolution import views_from_featurizer_config
-
         if self.drug_featurizer is None:
             return []
         return views_from_featurizer_config(self.drug_featurizer, registry="drug", resolved=resolved)
@@ -121,8 +121,6 @@ class ModelConfig(BaseModel):
 
         :returns: ``True`` when no cell-line omics views are required.
         """
-        from drevalpy.models.config.view_resolution import entity_id_only_from_featurizer_config
-
         if self.cell_line_featurizer is None:
             return False
         return entity_id_only_from_featurizer_config(self.cell_line_featurizer, registry="cell_line")
@@ -132,8 +130,6 @@ class ModelConfig(BaseModel):
 
         :returns: ``True`` when no drug feature views are required.
         """
-        from drevalpy.models.config.view_resolution import entity_id_only_from_featurizer_config
-
         if self.drug_featurizer is None:
             return False
         return entity_id_only_from_featurizer_config(self.drug_featurizer, registry="drug")

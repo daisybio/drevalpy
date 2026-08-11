@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from typing import ClassVar
 
@@ -153,8 +154,6 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
             outdir=None,
             verbose=False,
         )
-
-        import os
 
         os.unlink(gmt_path)
 

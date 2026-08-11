@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import codecs
+import os
 import tempfile
 from typing import Any, ClassVar
 
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.log import get_logger
@@ -89,7 +91,6 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
-        from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 
         smiles = get_smiles_for_entities(source, ids)
         if smiles is None:
@@ -110,7 +111,6 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
         if self._bpe is None:
             msg = "BpePharmaformerDrugFeaturizer must be fit before transform"
             raise RuntimeError(msg)
-        from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 
         smiles = get_smiles_for_entities(source, entity_ids)
         if smiles is None:
@@ -164,7 +164,6 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
         bpe_codes_path = bpe_codes_file.name
         bpe_codes_file.close()
 
-        import os
         from unittest.mock import patch
 
         try:

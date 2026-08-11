@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable
 from typing import Any, ClassVar
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
+from drevalpy.components.registry._predictor_validate import validate_predictor_registration
 from drevalpy.components.registry._registration_metadata import (
     apply_registration_metadata,
     normalize_registration_metadata,
@@ -74,8 +75,6 @@ class PredictorRegistry(Registry):
         :param name: Registry name under which *cls* is being registered.
         :param cls: Predictor class with contracts already attached.
         """
-        from drevalpy.components.registry._predictor_validate import validate_predictor_registration
-
         validate_predictor_registration(name, cls)
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:

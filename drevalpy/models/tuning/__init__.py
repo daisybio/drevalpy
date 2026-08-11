@@ -10,7 +10,6 @@ from .config_resolution import (
     structured_space_for_drp_model,
     tuned_config_for_drp_model,
 )
-from .hpo import hpam_tune
 from .public_flat import (
     config_from_public_hyperparameters,
     public_hyperparameters_from_config,
@@ -37,7 +36,6 @@ __all__ = [
     "defaults_from_merged_space",
     "extract_defaults",
     "has_tunable_hyperparameters",
-    "hpam_tune",
     "merge_model_config_spaces",
     "merge_search_spaces",
     "public_hyperparameters_from_config",

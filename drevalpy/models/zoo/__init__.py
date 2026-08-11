@@ -8,6 +8,7 @@ from upath import UPath as Path
 
 from drevalpy.models.config import ModelConfig, ResolvedModelConfig
 from drevalpy.models.config.io import from_yaml
+from drevalpy.models.tuning.public_flat import apply_public_hyperparameters_to_config
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
@@ -136,8 +137,6 @@ def zoo_model_config(
     config = get_zoo_config(name, prediction_mode=prediction_mode)
     if not hyperparameters:
         return config
-    from drevalpy.models.tuning.public_flat import apply_public_hyperparameters_to_config
-
     return apply_public_hyperparameters_to_config(config, hyperparameters)
 
 

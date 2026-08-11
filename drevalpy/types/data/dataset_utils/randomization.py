@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING, Any
 
 import mudata as md
@@ -101,8 +102,6 @@ class RandomizationMixin:
             ValueError: If randomization_type is not recognized.
             KeyError: If a view is not found in any storage location.
         """
-        import copy
-
         from drevalpy.types.data.dataset import Dataset as DatasetCls
 
         if randomization_type not in ("permutation", "invariant"):

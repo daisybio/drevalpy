@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
+from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.registry import get_predictor
 from drevalpy.models.config._predictor_parse import normalize_predictor_config
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 
@@ -46,8 +48,6 @@ class PredictorConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_hyperparameter_space(self) -> PredictorConfig:
         if self.hyperparameter_space is not None:
-            from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-
             validate_hyperparameter_space(
                 self.hyperparameter_space,
                 context=f"PredictorConfig({self.name!r}).hyperparameter_space",
@@ -60,8 +60,6 @@ class PredictorConfig(BaseModel):
         :param hyperparameters: Concrete constructor values for this predictor.
         :returns: Predictor instance for this config.
         """
-        from drevalpy.components.registry import get_predictor
-
         cls = get_predictor(self.name)
         hp = thaw_value(dict(hyperparameters or {}))
         return cls(hyperparameters=hp)

@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 VARIANTS_UNS_KEY_CELL_LINE = "cell_line_featurizer_variants"
 VARIANTS_UNS_KEY_DRUG = "drug_featurizer_variants"
@@ -122,7 +123,6 @@ def fetch_from_modality(mdata, modality: str, entity_ids: np.ndarray) -> np.ndar
     if modality not in mdata.mod:
         return None
     mod = mdata.mod[modality]
-    import pandas as pd
 
     idx = pd.Index(mod.obs_names)
     positions = idx.get_indexer(entity_ids)
@@ -142,7 +142,6 @@ def fetch_from_varm(mdata, key: str, entity_ids: np.ndarray) -> np.ndarray | Non
     response = mdata.mod.get("response")
     if response is None or response.varm is None or key not in response.varm:
         return None
-    import pandas as pd
 
     varm_data = np.asarray(response.varm[key])
     idx = pd.Index(response.var_names)
@@ -163,7 +162,6 @@ def fetch_from_obsm(mdata, key: str, entity_ids: np.ndarray) -> np.ndarray | Non
     response = mdata.mod.get("response")
     if response is None or response.obsm is None or key not in response.obsm:
         return None
-    import pandas as pd
 
     obsm_data = np.asarray(response.obsm[key])
     idx = pd.Index(response.obs_names)

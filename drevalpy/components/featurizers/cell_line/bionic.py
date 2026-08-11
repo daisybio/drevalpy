@@ -10,6 +10,7 @@ import pandas as pd
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
 from drevalpy.types.data.feature_source import FeatureSource
 
@@ -93,8 +94,6 @@ def _load_ppi_data() -> tuple[np.ndarray, list[str], set[str]]:
 
     :returns: Tuple of (ppi_features array, gene_names list, gene_list_sel set).
     """
-    from drevalpy.data.artifacts import get_artifact
-
     ppi_path = get_artifact("human_ppi_features.tsv")
     gene_list_path = get_artifact("gene_list_sel.txt")
 

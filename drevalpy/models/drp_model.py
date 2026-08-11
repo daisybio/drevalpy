@@ -17,6 +17,9 @@ from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.mixins._hyperparameters import DRPHyperparametersMixin
 from drevalpy.models.mixins._logging import _DRPLoggingMixin
 from drevalpy.models.mixins._persistence import DRPPersistenceMixin
+from drevalpy.models.tuning.config_resolution import default_config_for_drp_model
+from drevalpy.models.tuning.public_flat import config_from_public_hyperparameters, public_hyperparameters_from_config
+from drevalpy.models.tuning.search_space import resolve_model_config
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
 
@@ -39,9 +42,6 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin, DRPPersistenceMixin):
         :raises ValueError: If ``hyperparameters`` cannot be applied to this model class.
         """
         self._init_runtime_fields()
-        from drevalpy.models.tuning.config_resolution import default_config_for_drp_model
-        from drevalpy.models.tuning.public_flat import config_from_public_hyperparameters
-        from drevalpy.models.tuning.search_space import resolve_model_config
 
         if hyperparameters is None:
             config = default_config_for_drp_model(type(self))
@@ -83,8 +83,6 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin, DRPPersistenceMixin):
         :param config: Template or resolved model configuration to bind.
         :returns: Instance with stack materialized from ``config``.
         """
-        from drevalpy.models.tuning.search_space import resolve_model_config
-
         instance = cls._unmaterialized()
         resolved = config if isinstance(config, ResolvedModelConfig) else resolve_model_config(config)
         instance._apply_model_config(resolved)
@@ -183,9 +181,6 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin, DRPPersistenceMixin):
             wandb.config.update({"hyperparameters": self._hyperparameters})
 
     def _apply_model_config(self, config: ModelConfig | ResolvedModelConfig) -> None:
-        from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
-        from drevalpy.models.tuning.search_space import resolve_model_config
-
         resolved = config if isinstance(config, ResolvedModelConfig) else resolve_model_config(config)
         self._resolved_model_config = ResolvedModelConfig.model_validate(resolved.model_dump(mode="python"))
         self.log_hyperparameters(public_hyperparameters_from_config(self._resolved_model_config))

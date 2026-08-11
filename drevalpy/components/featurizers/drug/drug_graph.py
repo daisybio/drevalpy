@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.log import get_logger
@@ -163,8 +164,6 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         :param drug_id: Drug identifier.
         :returns: torch_geometric Data or None.
         """
-        from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-
         smiles_series = get_smiles_for_entities(source, np.array([drug_id]))
         if smiles_series is None:
             return None

@@ -77,7 +77,7 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
 
 
 @patch(
-    "drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_all_metrics",
+    "drevalpy.models.tuning.hpo._mu_evaluate_trial_all_metrics",
     return_value=({"RMSE": 0.1}, np.zeros(4)),
 )
 def test_hpam_tune_uses_optuna(mock_evaluate) -> None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
@@ -13,15 +13,14 @@ from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
 from drevalpy.models.config.resolved import ResolvedModelConfig
+from drevalpy.models.tuning.search_space import resolve_model_config
+from drevalpy.types import SplitMask
 from drevalpy.types.data.batch.feature_block import FeatureBlock
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.model_input_build import build_model_input_batch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
-
-if TYPE_CHECKING:
-    from drevalpy.types import SplitMask
-    from drevalpy.types.data.dataset import Dataset
 
 
 def _entity_id_only_featurizer(featurizer: Featurizer | None) -> bool:
@@ -46,8 +45,6 @@ def build_component_stack(config: ModelConfig | ResolvedModelConfig) -> _Compone
     :param config: Template or resolved model configuration.
     :returns: Component stack ready for training.
     """
-    from drevalpy.models.tuning.search_space import resolve_model_config
-
     resolved = config if isinstance(config, ResolvedModelConfig) else resolve_model_config(config)
     template = resolved.template
     cell_line = (

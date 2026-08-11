@@ -11,7 +11,7 @@ from upath import UPath as Path
 from drevalpy.models.config._recipe import parse_model_recipe
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.models.config.spec import (
+from drevalpy.models.factory import (
     apply_optional_hyperparameters,
     reject_unknown_spec,
     zoo_config,

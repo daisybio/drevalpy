@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from drevalpy.evaluation import AVAILABLE_METRICS, get_mode
+
 
 def validate_hpo_metric(metric: str) -> None:
     """Raise ``ValueError`` when *metric* is not a supported HPO objective.
@@ -12,8 +14,6 @@ def validate_hpo_metric(metric: str) -> None:
     :param metric: Evaluation metric name, for example ``"RMSE"``.
     :raises ValueError: If *metric* is not registered in ``AVAILABLE_METRICS``.
     """
-    from drevalpy.evaluation import AVAILABLE_METRICS
-
     if metric not in AVAILABLE_METRICS:
         msg = f"Invalid HPO metric {metric!r}. Choose from {list(AVAILABLE_METRICS.keys())}"
         raise ValueError(msg)
@@ -38,8 +38,6 @@ class HPOConfig:
         :returns: Configured ``HPOConfig`` instance.
         :raises ValueError: If *metric* is invalid or *n_trials* is negative.
         """
-        from drevalpy.evaluation import get_mode
-
         validate_hpo_metric(metric)
         if n_trials < 0:
             msg = f"n_trials must be >= 0 (got {n_trials}); use 0 for default-only tuning"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from rich.progress import DownloadColumn, Progress, TimeRemainingColumn, TransferSpeedColumn
 from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
@@ -21,8 +22,6 @@ def _download(name: str) -> Path:
     :param name: Dataset name from the registry.
     :returns: Local path to the downloaded file.
     """
-    from rich.progress import DownloadColumn, Progress, TimeRemainingColumn, TransferSpeedColumn
-
     entry = _registry.datasets[name]
     source = _registry.sources[entry.source]
     remote = Path(source.url, **source.storage_options) / entry.file

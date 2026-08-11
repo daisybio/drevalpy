@@ -20,7 +20,7 @@ from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.utils.torch_io import load_state_dict, save_state_dict
+from drevalpy.utils.torch_io import load_state_dict, save_state_dict, save_torch_payload
 
 from .model_utils import Predictor as DIPKNetwork
 
@@ -240,8 +240,6 @@ class DIPKPredictor(BlockPredictor):
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 epochs_without_improvement = 0
-                from drevalpy.utils.torch_io import save_torch_payload
-
                 save_torch_payload(self._model.state_dict(), checkpoint_path)
             else:
                 epochs_without_improvement += 1
@@ -249,9 +247,7 @@ class DIPKPredictor(BlockPredictor):
                     break
 
         # Reload best model
-        from drevalpy.utils.torch_io import load_state_dict as load_ckpt
-
-        self._model.load_state_dict(load_ckpt(checkpoint_path, map_location=self._device))
+        self._model.load_state_dict(load_state_dict(checkpoint_path, map_location=self._device))
         self._model.to(self._device)
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:

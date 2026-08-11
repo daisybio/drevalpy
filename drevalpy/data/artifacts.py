@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from rich.progress import DownloadColumn, Progress, TimeRemainingColumn, TransferSpeedColumn
 from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir
@@ -34,8 +35,6 @@ def get_artifact(name: str) -> Path:
 
 def _download_artifact(remote: Path, local_path: Path, name: str) -> None:
     """Download an artifact from S3 with a progress bar."""
-    from rich.progress import DownloadColumn, Progress, TimeRemainingColumn, TransferSpeedColumn
-
     local_path.parent.mkdir(parents=True, exist_ok=True)
 
     fs = remote.fs

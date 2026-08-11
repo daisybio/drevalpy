@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from drevalpy.components.registry import get_cell_line_featurizer
+
 
 def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
     """Return the canonical selector for a featurizer leaf.
@@ -34,8 +36,6 @@ def requires_explicit_view(name: str) -> bool:
     :param name: name.
     :returns: Result.
     """
-    from drevalpy.components.registry import get_cell_line_featurizer
-
     try:
         cls = get_cell_line_featurizer(name)
     except (ValueError, ImportError):
