@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from drevalpy.models._drp_logging import _DRPLoggingMixin
+from drevalpy.models.mixins._logging import _DRPLoggingMixin
 
 _EXPECTED_DEFINE_METRICS: list[tuple[str, str]] = [
     ("epoch", "max"),
@@ -38,7 +38,7 @@ def test_init_wandb_define_metrics_on_success() -> None:
     stub = _Stub()
     mock_run = MagicMock()
 
-    with patch("drevalpy.models._drp_logging.wandb") as mock_wandb:
+    with patch("drevalpy.models.mixins._logging.wandb") as mock_wandb:
         mock_wandb.run = mock_run
         stub.init_wandb("proj")
 
@@ -59,7 +59,7 @@ def test_init_wandb_swallows_define_metric_exceptions() -> None:
     stub = _Stub()
     mock_run = MagicMock()
 
-    with patch("drevalpy.models._drp_logging.wandb") as mock_wandb:
+    with patch("drevalpy.models.mixins._logging.wandb") as mock_wandb:
         mock_wandb.run = mock_run
         mock_wandb.define_metric.side_effect = RuntimeError("define_metric failed")
         stub.init_wandb("proj")

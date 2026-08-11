@@ -12,8 +12,6 @@ from upath import UPath as Path
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.registry import get_predictor
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
-from drevalpy.models._drp_hyperparameters import DRPHyperparametersMixin
-from drevalpy.models._drp_logging import _DRPLoggingMixin
 from drevalpy.models._model_persistence import (
     CorruptedCheckpointError,
     IncompatibleModelCheckpointError,
@@ -22,6 +20,8 @@ from drevalpy.models._model_persistence import (
 )
 from drevalpy.models.config import ModelConfig, ModelScope
 from drevalpy.models.config.resolved import ResolvedModelConfig
+from drevalpy.models.mixins._hyperparameters import DRPHyperparametersMixin
+from drevalpy.models.mixins._logging import _DRPLoggingMixin
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
 
