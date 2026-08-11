@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from drevalpy.components.core.fitting.featurizer_tree import iter_featurizer_leaves
+from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 

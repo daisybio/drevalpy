@@ -6,8 +6,8 @@ import re
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-from drevalpy.components.core.fitting.featurizer_label import qualified_featurizer_selector
-from drevalpy.components.core.fitting.featurizer_tree import iter_featurizer_leaves
+from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
+from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
 

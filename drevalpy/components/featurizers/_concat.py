@@ -8,7 +8,7 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.core.batch.feature_block import FeatureBlock, merge_feature_blocks
-from drevalpy.components.core.fitting.featurizer_label import featurizer_config_block_label
+from drevalpy.components.featurizers._featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
 
 
