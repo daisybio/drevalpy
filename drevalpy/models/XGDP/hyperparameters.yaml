@@ -1,0 +1,25 @@
+XGDP:
+  model_type:
+    - "GATNet"
+    - "GCNNet"
+    - "GATv2Net"
+    - "GATNetE"
+    - "SAGENet"
+    - "GINNet"
+    - "GINENet"
+    - "RGCNNet"
+    - "WIRGATNet"
+    - "ARGATNet"
+    - "FiLMNet"
+  learning_rate:
+    - 0.001
+  epochs:
+    - 100
+  batch_size:
+    - 64
+    - 128
+  weight_decay:
+    - 0.0001
+  dropout_rate:
+    - 0.2
+    - 0.3

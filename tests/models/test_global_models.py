@@ -26,6 +26,7 @@ from drevalpy.models.drp_model import DRPModel
         "MultiViewNeuralNetwork",
         "PharmaFormer",
         "Precily",
+        "XGDP",
         "SparseGO",
     ],
 )
@@ -80,6 +81,8 @@ def test_global_models(
     elif model_name == "Precily":
         hpam_combi["epochs"] = 1
         hpam_combi["batch_size"] = 32
+    elif model_name == "XGDP":
+        hpam_combi["epochs"] = 1
     elif model_name == "SparseGO":
         hpam_combi["epochs"] = 1
         hpam_combi["batch_size"] = 32

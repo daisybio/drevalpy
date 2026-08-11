@@ -25,6 +25,7 @@ __all__ = [
     "DIPKModel",
     "DrugGNN",
     "PharmaFormerModel",
+    "XGDP",
     "PrecilyModel",
     "KNNRegressor",
     "AdaBoostDecisionTree",
@@ -66,6 +67,7 @@ from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
 from .SparseGO.sparsego import SparseGOModel
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
+from .XGDP.xgdp import XGDP
 
 # SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!
 SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
@@ -104,6 +106,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "PharmaFormer": PharmaFormerModel,
     "SRMF": SRMF,
     "Precily": PrecilyModel,
+    "XGDP": XGDP,
     "SparseGO": SparseGOModel,
 }
 

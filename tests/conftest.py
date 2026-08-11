@@ -253,6 +253,42 @@ def ensure_precily_drug_features(data_dir) -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
+def ensure_drug_graphs(data_dir) -> None:
+    """Ensure drug graphs exist for TOYv1 and TOYv2 before tests run.
+
+    :param data_dir: path to the data directory
+    """
+    try:
+        from drevalpy.datasets.featurizer.create_drug_graphs import main as create_graphs
+    except ImportError:
+        return
+
+    import sys
+
+    try:
+        load_toyv1(str(data_dir))
+        load_toyv2(str(data_dir))
+    except Exception as e:
+        print(f"Warning: could not load datasets for drug graph creation: {e}")
+        return
+
+    for dataset_name in ["TOYv1", "TOYv2"]:
+        graph_dir = data_dir / dataset_name / "drug_graphs"
+        smiles_file = data_dir / dataset_name / "drug_smiles.csv"
+        if graph_dir.exists() and any(graph_dir.glob("*.pt")):
+            continue
+        if not smiles_file.exists():
+            print(f"Warning: drug_smiles.csv not found for {dataset_name}, skipping")
+            continue
+        try:
+            print(f"Creating drug graphs for {dataset_name}...")
+            sys.argv = ["create_drug_graphs.py", dataset_name, "--data_path", str(data_dir)]
+            create_graphs()
+        except Exception as e:
+            print(f"Warning: could not create drug graphs for {dataset_name}: {e}")
+
+
+@pytest.fixture(scope="session", autouse=True)
 def ensure_sparsego_ontology_features(data_dir) -> None:
     """
     Ensure SparseGO ontology features exist for TOYv1 and TOYv2 before tests run.
