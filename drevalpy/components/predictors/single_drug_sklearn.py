@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
-from drevalpy.components.core.utils.state_helpers import state_mapping
+from drevalpy.components.predictors._state_helpers import state_mapping
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
     require_known_training_keys,

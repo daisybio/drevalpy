@@ -8,7 +8,7 @@ import numpy as np
 
 from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.core.contracts.contracts import FeatureFormat
-from drevalpy.components.core.utils.state_helpers import state_float
+from drevalpy.components.predictors._state_helpers import state_float
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
