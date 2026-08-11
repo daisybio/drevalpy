@@ -1,22 +1,22 @@
 """Functions for evaluating model performance."""
 
+from __future__ import annotations
+
 import numpy as np
+import pandas as pd
 from scipy.stats import kendalltau, pearsonr, spearmanr
 from sklearn import metrics
-
-from .datasets.dataset import DrugResponseDataset
-from .pipeline_function import pipeline_function
 
 warning_shown = False
 constant_prediction_warning_shown = False
 
 
 def _check_constant_prediction(y_pred: np.ndarray) -> bool:
-    """
-    Check if predictions are constant.
+    """Check if predictions are constant.
 
-    :param y_pred: predictions
-    :return: bool whether predictions are constant
+    :param y_pred: Predicted values.
+
+    :returns: Whether all predictions are equal within tolerance.
     """
     tol = 1e-6
     # no variation in predictions
@@ -24,11 +24,11 @@ def _check_constant_prediction(y_pred: np.ndarray) -> bool:
 
 
 def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
-    """
-    Check if target is constant or sample size is too small.
+    """Check if target is constant or sample size is too small.
 
-    :param y_true: true response
-    :returns: bool whether target is constant or sample size is too small
+    :param y_true: Observed response values.
+
+    :returns: Whether the sample is too small or the target has no variation.
     """
     tol = 1e-6
     # Check for insufficient sample size or no variation in target
@@ -36,13 +36,14 @@ def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
 
 
 def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
-    """
-    Computes the pearson correlation between predictions and response.
+    """Compute Pearson correlation between predictions and response.
 
-    :param y_pred: predictions
-    :param y_true: response
-    :return: pearson correlation float
-    :raises AssertionError: if predictions and response do not have the same length
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
+
+    :returns: Pearson correlation, or ``0.0`` / ``nan`` for degenerate inputs.
+
+    :raises AssertionError: If ``y_pred`` and ``y_true`` differ in length.
     """
     if len(y_pred) != len(y_true):
         raise AssertionError("predictions, response  must have the same length")
@@ -56,13 +57,14 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 
 
 def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
-    """
-    Computes the spearman correlation between predictions and response.
+    """Compute Spearman correlation between predictions and response.
 
-    :param y_pred: predictions
-    :param y_true: response
-    :return: spearman correlation float
-    :raises AssertionError: if predictions and response do not have the same length
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
+
+    :returns: Spearman correlation, or ``0.0`` / ``nan`` for degenerate inputs.
+
+    :raises AssertionError: If ``y_pred`` and ``y_true`` differ in length.
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
@@ -76,13 +78,14 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 
 
 def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
-    """
-    Computes the kendall tau correlation between predictions and response.
+    """Compute Kendall tau correlation between predictions and response.
 
-    :param y_pred: predictions
-    :param y_true: response
-    :return: kendall tau correlation float
-    :raises AssertionError: if predictions and response do not have the same length
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
+
+    :returns: Kendall tau, or ``0.0`` / ``nan`` for degenerate inputs.
+
+    :raises AssertionError: If ``y_pred`` and ``y_true`` differ in length.
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
@@ -110,12 +113,13 @@ MAXIMIZATION_METRICS = ["R^2", "Pearson", "Spearman", "Kendall"]
 
 
 def get_mode(metric: str):
-    """
-    Get whether the optimum value of the metric is the minimum or maximum.
+    """Return whether lower or higher metric values are better.
 
-    :param metric: metric, e.g., RMSE
-    :returns: whether the optimum value of the metric is the minimum or maximum
-    :raises ValueError: if the metric is not in MINIMIZATION_METRICS or MAXIMIZATION_METRICS
+    :param metric: Metric name (for example ``"RMSE"`` or ``"Pearson"``).
+
+    :returns: ``"min"`` for error metrics or ``"max"`` for correlation metrics.
+
+    :raises ValueError: If ``metric`` is not a known minimization or maximization metric.
     """
     if metric in MINIMIZATION_METRICS:
         mode = "min"
@@ -123,46 +127,72 @@ def get_mode(metric: str):
         mode = "max"
     else:
         raise ValueError(
-            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or " f"MAXIMIZATION_METRICS?"
+            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or MAXIMIZATION_METRICS?"
         )
     return mode
 
 
-@pipeline_function
-def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
-    """
-    Evaluates the model on the given dataset.
+def _should_return_nan_global(response: np.ndarray, predictions: np.ndarray) -> bool:
+    return bool(len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions)))
 
-    :param dataset: dataset to evaluate on
-    :param metric: evaluation metric(s) (one or a list of "MSE", "RMSE", "MAE", "R^2", "Pearson",
-        "spearman", "kendall")
-    :return: evaluation metric
-    :raises AssertionError: if metric is not in AVAILABLE
+
+def _masked_metric_inputs(predictions: np.ndarray, response: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:
+    if not np.any(np.isnan(predictions)):
+        return predictions, response
+    if np.all(np.isnan(predictions)):
+        return None
+    mask = ~np.isnan(predictions)
+    return predictions[mask], response[mask]
+
+
+def _compute_metric_value(metric_name: str, predictions: np.ndarray, response: np.ndarray) -> float:
+    if _should_return_nan_global(response, predictions):
+        return float(np.nan)
+    masked = _masked_metric_inputs(predictions, response)
+    if masked is None:
+        return float(np.nan)
+    y_pred, y_true = masked
+    return float(AVAILABLE_METRICS[metric_name](y_pred=y_pred, y_true=y_true))
+
+
+def evaluate(
+    predictions_or_dataset=None,
+    response: np.ndarray | pd.Series | None = None,
+    metric: list[str] | str = "Pearson",
+    *,
+    predictions: np.ndarray | pd.Series | None = None,
+) -> dict[str, float]:
+    """Compute evaluation metrics from predictions and observed response.
+
+    Accepts either (predictions_array, response_array) or a single
+    object that carries both .predictions and .response.
+
+    :param predictions_or_dataset: Predicted values or a dataset object.
+    :param response: Observed (true) response values (omit if dataset passed).
+    :param metric: One metric name or a list of names from ``AVAILABLE_METRICS``.
+    :param predictions: Keyword-only alias for predictions_or_dataset.
+    :returns: Mapping from metric name to scalar score.
+    :raises AssertionError: If predictions are missing or a metric name is unknown.
     """
     if isinstance(metric, str):
         metric = [metric]
-    predictions = dataset.predictions
-    if predictions is None:
-        raise AssertionError("No predictions found in the dataset")
-    response = dataset.response
+
+    # Handle keyword-only predictions= argument
+    if predictions is not None:
+        preds_arr = np.asarray(predictions)
+        response_arr = np.asarray(response)
+    elif response is None and predictions_or_dataset is not None:
+        dataset = predictions_or_dataset
+        preds_arr = np.asarray(dataset.predictions)
+        response_arr = np.asarray(dataset.response)
+    else:
+        preds_arr = np.asarray(predictions_or_dataset)
+        response_arr = np.asarray(response)
 
     results = {}
     for m in metric:
         if m not in AVAILABLE_METRICS:
             raise AssertionError(f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}")
-        if len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions)):
-            results[m] = float(np.nan)
-        else:
-            # check whether the predictions contain NaNs
-            if np.any(np.isnan(predictions)):
-                # if there are only NaNs in the predictions, the metric is NaN
-                if np.all(np.isnan(predictions)):
-                    results[m] = float(np.nan)
-                else:
-                    # remove the rows with NaNs in the predictions and response
-                    mask = ~np.isnan(predictions)
-                    results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions[mask], y_true=response[mask]))
-            else:
-                results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
+        results[m] = _compute_metric_value(m, preds_arr, response_arr)
 
     return results

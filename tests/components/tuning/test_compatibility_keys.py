@@ -1,0 +1,36 @@
+"""Tests for flat-key compatibility helpers."""
+
+from __future__ import annotations
+
+from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
+from drevalpy.models.tuning.compatibility_keys import append_featurizer_flat_keys
+
+
+def test_append_featurizer_flat_keys_exports_methylation_alias() -> None:
+    config = ModelConfig(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate({"pca[methylation]": {"n_components": 42}}),
+        drug_featurizer=DrugFeaturizerConfig.model_validate("fingerprints"),
+        predictor=PredictorConfig(name="randomForest"),
+    )
+    flat: dict = {}
+    append_featurizer_flat_keys(flat, config.cell_line_featurizer, "cell_line")
+    assert flat["methylation_n_components"] == 42
+    assert flat["methylation_pca_components"] == 42
+
+
+def test_append_featurizer_flat_keys_skips_architecture_only_kwargs() -> None:
+    config = ModelConfig(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
+            [{"name": "identity"}, {"name": "tissue", "options": {"allow_missing": True}}],
+        ),
+        drug_featurizer=DrugFeaturizerConfig.model_validate("identity"),
+        predictor=PredictorConfig(name="naiveMeanEffects"),
+    )
+    flat: dict = {}
+    append_featurizer_flat_keys(flat, config.cell_line_featurizer, "cell_line")
+    assert "allow_missing" not in flat
+    assert config.cell_line_featurizer is not None
+    children = config.cell_line_featurizer.featurizers
+    assert children is not None
+    assert children[1].options is not None
+    assert children[1].options["allow_missing"] is True

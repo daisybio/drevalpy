@@ -1,0 +1,3 @@
+cell_line_featurizer: sparsegoOntology
+drug_featurizer: fingerprints
+predictor: sparsego

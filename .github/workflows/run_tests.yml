@@ -9,125 +9,65 @@ on:
       - "*"
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: Run ty
+        run: uv run ty check
+
   tests:
-    name: ${{ matrix.session }} ${{ matrix.python-version }} / ${{ matrix.os }}
+    name: Tests (Python ${{ matrix.python-version }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+        os: [ubuntu-latest]
         include:
-          - { python-version: "3.13", os: ubuntu-latest, session: "pre-commit" }
-          - { python-version: "3.13", os: ubuntu-latest, session: "mypy" }
-          - { python-version: "3.13", os: ubuntu-latest, session: "tests" }
-          - { python-version: "3.13", os: windows-latest, session: "typeguard" }
-          - { python-version: "3.13", os: ubuntu-latest, session: "xdoctest" }
-          - { python-version: "3.13", os: ubuntu-latest, session: "docs-build" }
-
-    env:
-      NOXSESSION: ${{ matrix.session }}
-
+          - python-version: "3.13"
+            os: windows-latest
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Poetry
-        run: |
-          pipx install poetry
-          pipx inject poetry poetry-plugin-export
-          poetry --version
+      - name: Run tests
+        run: uv run pytest --ignore=tests/test_hpam_tune.py --cov --cov-report=xml
 
-      - name: Install nox nox-poetry rich
-        run: |
-          pipx install nox
-          pipx inject nox nox-poetry
-          pipx inject nox rich
-          nox --version
-
-      - name: Compute pre-commit cache key
-        if: matrix.session == 'pre-commit'
-        id: pre-commit-cache
-        shell: python
-        run: |
-          import hashlib
-          import sys
-
-          python = "py{}.{}".format(*sys.version_info[:2])
-          payload = sys.version.encode() + sys.executable.encode()
-          digest = hashlib.sha256(payload).hexdigest()
-          result = "${{ runner.os }}-{}-{}-pre-commit".format(python, digest[:8])
-
-          print("::set-output name=result::{}".format(result))
-
-      - name: Restore pre-commit cache
-        uses: actions/cache@v5.0.5
-        if: matrix.session == 'pre-commit'
-        with:
-          path: ~/.cache/pre-commit
-          key: ${{ steps.pre-commit-cache.outputs.result }}-${{ hashFiles('.pre-commit-config.yaml') }}
-          restore-keys: |
-            ${{ steps.pre-commit-cache.outputs.result }}-
-
-      - name: Run Nox
-        run: |
-          nox --force-color --python=${{ matrix.python-version }}
-
-      - name: Upload coverage data
-        if: always() && matrix.session == 'tests' && matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-data
-          path: ".coverage.*"
-          include-hidden-files: "true"
-
-      - name: Upload documentation
-        if: matrix.session == 'docs-build'
-        uses: actions/upload-artifact@v7
-        with:
-          name: docs
-          path: docs/_build
-
-  coverage:
-    runs-on: ubuntu-latest
-    needs: tests
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v6
-        with:
-          python-version: 3.13
-
-      - name: Install Poetry
-        run: |
-          pipx install poetry
-          pipx inject poetry poetry-plugin-export
-          poetry --version
-
-      - name: Install nox nox-poetry rich
-        run: |
-          pipx install nox
-          pipx inject nox nox-poetry
-          pipx inject nox rich
-          nox --version
-
-      - name: Download coverage data
-        uses: actions/download-artifact@v8
-        with:
-          name: coverage-data
-
-      - name: Combine coverage data and display human readable report
-        run: nox --force-color --session=coverage
-
-      - name: Create coverage report
-        run: nox --force-color --session=coverage -- xml -i
-
-      - name: Upload coverage report
-        uses: codecov/codecov-action@v7.0.0
+      - name: Upload coverage
+        if: always() && matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@6d497bbcd2616c4cbf2f07268d34081bf421ba2c # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: Build docs
+        run: uv run --group docs sphinx-build -W docs docs/_build

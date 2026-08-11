@@ -1,75 +1,38 @@
-"""test hpam tune."""
+"""Test hpam_tune with Optuna."""
 
-import numpy as np
-
-from drevalpy import experiment
-from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
+from drevalpy.models.tuning.config import HPOConfig
+from drevalpy.models.tuning.hpo import hpam_tune
 
 
 def test_hpam_tune(tmp_path, data_dir):
-    """
-    Test hpam_tune with a toy dataset and ElasticNet model.
+    """Test hpam_tune with a toy Dataset and ElasticNet model.
 
     :param tmp_path: pytest temporary path fixture
     :param data_dir: path to the data directory
     """
-    hpam_set = [
-        {"alpha": 1.0, "l1_ratio": 0.2, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
-        {"alpha": 2.0, "l1_ratio": 0.8, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
-    ]
+    from drevalpy.data import load
+    from drevalpy.registry.splitter import get as get_splitter
 
-    model = MODEL_FACTORY["ElasticNet"]()
-    model.build_model(hyperparameters=hpam_set[0])
-    cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
-    drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
+    model_cls = construct_model("ElasticNet")
+    mudataset = load("TOYv1")
+    splitter = get_splitter("LPO")
+    folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
+    split = folds[0]
 
-    valid_cell_lines = list(cell_line_input.identifiers)[:2]
-    valid_drugs = list(drug_input.identifiers)[:2]
-    responses = np.array([1.0, 2.0, 3.0, 4.0], dtype=float)
-    cell_line_ids = np.array([valid_cell_lines[0], valid_cell_lines[0], valid_cell_lines[1], valid_cell_lines[1]])
-    drug_ids = np.array([valid_drugs[0], valid_drugs[1], valid_drugs[0], valid_drugs[1]])
-    train_dataset = DrugResponseDataset(
-        response=responses,
-        cell_line_ids=cell_line_ids,
-        drug_ids=drug_ids,
-        dataset_name="TOYv1",
-    )
-    val_dataset = DrugResponseDataset(
-        response=responses.copy(),
-        cell_line_ids=cell_line_ids.copy(),
-        drug_ids=drug_ids.copy(),
-        dataset_name="TOYv1",
-    )
+    early_stopping_scope = None
+    val_scope = split.val
+    if model_cls.supports_early_stopping() and len(split.val) > 1:
+        early_stopping_scope, val_scope = split.early_stopping_mask()
 
-    model = MODEL_FACTORY["ElasticNet"]()
-    model.build_model(hyperparameters=hpam_set[0])
-    cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
-    drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
-
-    cell_lines_to_keep = cell_line_input.identifiers
-    drugs_to_keep = drug_input.identifiers
-
-    len_train_before = len(train_dataset)
-    len_val_before = len(val_dataset)
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
-    print(f"Reduced val dataset from {len_val_before} to {len(val_dataset)}")
-
-    best = experiment.hpam_tune(
-        model=model,
-        train_dataset=train_dataset,
-        validation_dataset=val_dataset,
-        early_stopping_dataset=None,
-        hpam_set=hpam_set,
-        response_transformation=None,
+    best, _ = hpam_tune(
+        model_class=model_cls,
+        mudataset=mudataset,
+        train_scope=split.train,
+        val_scope=val_scope,
+        early_stopping_scope=early_stopping_scope,
         metric="RMSE",
-        path_data=str(data_dir),
-        model_checkpoint_dir="TEMPORARY",
-        split_index=None,
-        wandb_project=None,
-        wandb_base_config=None,
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
     )
-
-    assert best in hpam_set
+    assert isinstance(best, dict)
+    assert "alpha" in best

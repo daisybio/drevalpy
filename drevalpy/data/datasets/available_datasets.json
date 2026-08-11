@@ -1,0 +1,19 @@
+{
+  "sources": {
+    "zenodo": {
+      "url": "s3://omics-representation/drevalpy_h5mu/",
+      "storage_options": {
+        "profile": "orakl"
+      }
+    }
+  },
+  "datasets": {
+    "GDSC1": { "source": "zenodo", "file": "GDSC1.h5mu" },
+    "GDSC2": { "source": "zenodo", "file": "GDSC2.h5mu" },
+    "CCLE": { "source": "zenodo", "file": "CCLE.h5mu" },
+    "CTRPv1": { "source": "zenodo", "file": "CTRPv1.h5mu" },
+    "CTRPv2": { "source": "zenodo", "file": "CTRPv2.h5mu" },
+    "BeatAML2": { "source": "zenodo", "file": "BeatAML2.h5mu" },
+    "PDX_Bruna": { "source": "zenodo", "file": "PDX_Bruna.h5mu" }
+  }
+}

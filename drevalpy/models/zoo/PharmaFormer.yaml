@@ -1,0 +1,3 @@
+cell_line_featurizer: pharmaFormerGeneExpression
+drug_featurizer: bpePharmaformer
+predictor: pharmaFormer

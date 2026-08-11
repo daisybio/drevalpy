@@ -1,8 +1,8 @@
 # Data
-data/
+/data/
 
 # Results directory is created when running the demo notebook
-results/
+/results/
 
 # Wandb directory is created when running the benchmark with wandb
 wandb/
@@ -86,6 +86,13 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/python/api/_autosummary/
+docs/cli/_generated_reference.rst
+docs/concepts/_generated_cell_line_featurizers.rst
+docs/concepts/_generated_drug_featurizers.rst
+docs/concepts/_generated_model_zoo.rst
+docs/concepts/_generated_predictors.rst
+
 
 # PyBuilder
 .pybuilder/
@@ -156,6 +163,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+.complexipy_cache/
 .dmypy.json
 dmypy.json
 
@@ -177,3 +185,5 @@ cython_debug/
 /data/GDSC/
 .Rproj.user
 .idea/
+test.ipynb
+testing/

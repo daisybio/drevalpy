@@ -1,0 +1,94 @@
+"""Shared helpers for scikit-learn tabular predictors."""
+
+from __future__ import annotations
+
+from abc import abstractmethod
+from typing import Any, ClassVar
+
+import numpy as np
+
+from drevalpy.components.predictors._state_helpers import state_mapping
+from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.types.enums.prediction_mode import PredictionMode
+
+
+class SklearnTabularPredictor(MatrixPredictor):
+    """Fit a scikit-learn estimator on available cell-line and drug features."""
+
+    # Estimators are regressors only until classifier implementations exist.
+    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
+
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize instance state.
+
+        :param hyperparameters: hyperparameters.
+        """
+        super().__init__(hyperparameters)
+        merged = dict(self._hyperparameters)
+        non_tunable = getattr(self, "non_tunable_hyperparameters", None)
+        if isinstance(non_tunable, dict):
+            merged = {**non_tunable, **merged}
+        self._h = merged
+        self._mode = PredictionMode(merged.get("prediction_mode", PredictionMode.REGRESSION))
+        self._estimator: Any = None
+
+    @abstractmethod
+    def _make_estimator(self) -> Any:
+        """Return an unfitted sklearn-compatible estimator."""
+
+    def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
+        if len(x) == 0:
+            self._estimator = None
+            return
+        self._estimator = self._make_estimator()
+        self._estimator.fit(x, y)
+
+    def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
+        if self._estimator is None:
+            return np.full(len(x), np.nan, dtype=np.float64)
+        return np.asarray(self._estimator.predict(x), dtype=np.float64)
+
+    def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
+        return {
+            "estimator": self._estimator,
+            "hyperparameters": dict(self._h),
+            "mode": self._mode.value,
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        :raises PredictorStateError: Raised on invalid input.
+        """
+        estimator = state.get("estimator")
+        if estimator is None:
+            msg = f"{self.__class__.__name__} state is missing a fitted estimator"
+            raise PredictorStateError(msg)
+        hyperparameters = state_mapping(state, "hyperparameters")
+        if not hyperparameters:
+            msg = f"{self.__class__.__name__} state is missing hyperparameters"
+            raise PredictorStateError(msg)
+        self._estimator = estimator
+        self._h = {str(key): value for key, value in hyperparameters.items()}
+        self._hyperparameters = dict(self._h)
+        mode = state.get("mode", PredictionMode.REGRESSION)
+        if isinstance(mode, str):
+            self._mode = PredictionMode(mode)
+        elif isinstance(mode, PredictionMode):
+            self._mode = mode
+        else:
+            msg = f"{self.__class__.__name__} state has an invalid prediction mode"
+            raise PredictorStateError(msg)
+
+    def is_fitted(self) -> bool:
+        """Return whether the component has been fit.
+
+        :returns: Result.
+        """
+        return self._estimator is not None

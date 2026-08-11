@@ -1,0 +1,3 @@
+cell_line_featurizer: raw[gene_expression]
+drug_featurizer: fingerprints
+predictor: srmf

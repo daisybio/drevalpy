@@ -2,62 +2,60 @@
 
 from __future__ import annotations
 
-import sys
+from typing import Annotated
 
 import typer
 
-from drevalpy.cli import (
-    collect_results,
-    consolidate_single_drug,
-    evaluate_hpams,
-    evaluate_test,
-    load_response,
-    make_cv_pkls,
-    make_final_split_pkls,
-    make_hpam_yamls,
-    make_pipeline_report,
-    make_randomization_yamls,
-    pipeline,
-    report,
-    test_cv,
-    train_cv,
-    train_final_model_cmd,
-    tune_final_model,
-    viability_postprocess,
-    viability_preprocess,
-)
-from drevalpy.cli._helpers import normalize_list_argv
+from drevalpy.cli.aggregate import aggregate_cmd
+from drevalpy.cli.data import data_app
+from drevalpy.cli.experiments import experiments_app
+from drevalpy.cli.report import report_cmd
+from drevalpy.cli.run import run_cmd
+from drevalpy.cli.single import single_cmd
 
 app = typer.Typer(
     name="drevalpy",
-    help="Drug response evaluation of cancer cell line drug response models in a fair setting.",
-    no_args_is_help=False,
+    help="Drug response evaluation framework.",
+    no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
-pipeline.register_pipeline_callback(app)
-viability_preprocess.register(app)
-viability_postprocess.register(app)
-load_response.register(app)
-make_cv_pkls.register(app)
-make_hpam_yamls.register(app)
-train_cv.register(app)
-evaluate_hpams.register(app)
-test_cv.register(app)
-make_randomization_yamls.register(app)
-make_final_split_pkls.register(app)
-tune_final_model.register(app)
-train_final_model_cmd.register(app)
-consolidate_single_drug.register(app)
-evaluate_test.register(app)
-collect_results.register(app)
-report.register(app)
-make_pipeline_report.register(app)
+
+@app.callback()
+def main_callback(
+    extensions_dir: Annotated[
+        list[str] | None,
+        typer.Option("--extensions-dir", "-e", help="Directory with .py/.yaml extension files."),
+    ] = None,
+) -> None:
+    """Global options applied before any subcommand."""
+    import os
+
+    from drevalpy.registry import load_extension_dir
+
+    env_dir = os.environ.get("DREVALPY_EXTENSIONS_DIR")
+    if env_dir:
+        load_extension_dir(env_dir)
+
+    for d in extensions_dir or []:
+        load_extension_dir(d)
+
+
+app.add_typer(data_app, name="data")
+app.add_typer(experiments_app, name="experiments")
+app.command("run")(run_cmd)
+app.command("single")(single_cmd)
+app.command("aggregate")(aggregate_cmd)
+app.command("report")(report_cmd)
 
 
 def cli_main() -> None:
-    """Poetry console script entry point."""
-    app(normalize_list_argv(sys.argv[1:]))
+    """Console script entry point."""
+    try:
+        app()
+    except KeyboardInterrupt:
+        typer.echo("\nInterrupted.", err=True)
+        raise SystemExit(130) from None
 
 
 if __name__ == "__main__":

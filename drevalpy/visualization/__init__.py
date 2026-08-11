@@ -1,19 +1,17 @@
-"""Module containing the drevalpy plotly visualizations."""
+"""Visualization registry, base classes, and plot implementations."""
 
 __all__ = [
-    "ComparisonScatter",
-    "CriticalDifferencePlot",
-    "Heatmap",
-    "RegressionSliderPlot",
-    "VioHeat",
-    "Violin",
-    "CrossStudyTables",
+    "ImageVisualization",
+    "PlotRequirement",
+    "Section",
+    "Visualization",
+    "create_report",
+    "save_all_png",
+    "visualization_registry",
 ]
 
-from .comp_scatter import ComparisonScatter
-from .critical_difference_plot import CriticalDifferencePlot
-from .cross_study_tables import CrossStudyTables
-from .heatmap import Heatmap
-from .regression_slider_plot import RegressionSliderPlot
-from .vioheat import VioHeat
-from .violin import Violin
+from drevalpy.registry.visualization import visualization_registry
+
+from .base import ImageVisualization, Section, Visualization
+from .report import create_report, save_all_png
+from .requirements import PlotRequirement

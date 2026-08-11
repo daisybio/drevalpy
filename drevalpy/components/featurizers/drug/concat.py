@@ -1,0 +1,32 @@
+"""Concatenate outputs from multiple drug featurizers."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
+from drevalpy.components.featurizers.drug.base import DrugFeaturizer
+from drevalpy.registry.drug_featurizer import register
+
+
+@register(
+    "concatFeaturizers",
+    description="Concatenate dense outputs from multiple drug featurizers.",
+    contract=FeatureFormat.NUMERIC_MATRIX,
+)
+class ConcatFeaturizersDrugFeaturizer(ConcatFeaturizersMixin, DrugFeaturizer):
+    """Fit child featurizers independently and concatenate their dense outputs."""
+
+    _not_fitted_msg = "ConcatFeaturizersDrugFeaturizer must be fit before transform"
+
+    def __init__(
+        self,
+        *,
+        featurizers: list[Any] | None = None,
+    ) -> None:
+        """Initialize instance state.
+
+        :param featurizers: featurizers.
+        """
+        self._init_concat(featurizers=featurizers, registry="drug")

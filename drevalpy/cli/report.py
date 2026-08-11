@@ -5,19 +5,32 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
+from upath import UPath
 
-from drevalpy.visualization.create_report import run_report
 
+def report_cmd(
+    experiment_dir: Annotated[str, typer.Argument(help="Path to a saved ExperimentResult directory.")],
+    output_dir: Annotated[str, typer.Option("--output-dir", "-o", help="Output directory for the report.")] = "report",
+    title: Annotated[str, typer.Option("--title", "-t", help="Report title.")] = "Drug Response Evaluation",
+    reference_model: Annotated[
+        str | None, typer.Option("--reference-model", "-r", help="Normalize metrics against this model.")
+    ] = None,
+    dataset_path: Annotated[
+        str | None, typer.Option("--dataset", "-d", help="Path to dataset .h5mu for metadata enrichment.")
+    ] = None,
+) -> None:
+    """Generate a MultiQC report from an ExperimentResult."""
+    from drevalpy.types.results import ExperimentResult
+    from drevalpy.visualization.report import create_report
 
-def register(app: typer.Typer) -> None:
-    @app.command("report")
-    def report(
-        run_id: Annotated[str, typer.Option("--run_id", help="Run ID for the current execution")],
-        dataset_name: Annotated[
-            str, typer.Option("--dataset_name", help="Name of the dataset for which to render the result file")
-        ],
-        path_data: Annotated[str, typer.Option("--path_data", help="Path to the data")] = "data",
-        result_path: Annotated[str, typer.Option("--result_path", help="Path to the results")] = "results",
-    ) -> None:
-        """Generate reports from evaluation results."""
-        run_report(run_id=run_id, dataset=dataset_name, path_data=path_data, result_path=result_path)
+    exp_path = UPath(experiment_dir)
+    experiment = ExperimentResult.load(str(exp_path))
+
+    ds = None
+    if dataset_path:
+        from drevalpy.types.data.dataset import Dataset
+
+        ds = Dataset.load(dataset_path)
+
+    create_report(experiment, output_dir, title=title, reference_model=reference_model, dataset=ds)
+    typer.echo(f"Report generated at {output_dir}")

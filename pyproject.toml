@@ -1,128 +1,156 @@
-[tool.poetry]
+[project]
 name = "drevalpy"
 version = "1.5.1"
 description = "Drug response evaluation of cancer cell line drug response models in a fair setting"
-authors = ["DrEvalPy development team"]
+authors = [{ name = "DrEvalPy development team" }]
 license = "GPL-3.0"
 readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "numpy>=1.20",
+    "scipy",
+    "scikit-learn>=1.4",
+    "pandas",
+    "networkx",
+    "pyyaml",
+    "pytorch-lightning>=2.5",
+    "torch>=2.1",
+    "torch-geometric",
+    "torch-scatter",
+    "flaky",
+    "requests",
+    "plotly",
+    "matplotlib",
+    "importlib-resources",
+    "scikit-posthocs",
+    "curve-curator",
+    "subword-nmt>=0.3.8",
+    "toml>=0.10.2",
+    "starlette>=0.49.1",
+    "pydantic>=2.5",
+    "pyparsing>=3",
+    "wandb>=0.24.0",
+    "xgboost>=3.2.0",
+    "lightgbm>=4.0.0",
+    "typer>=0.26,<0.27",
+    "rich>=15.0.0",
+    "gseapy>=1.1.0",
+    "mygene",
+    "obonet",
+    "optuna",
+    "platformdirs>=4.0",
+    "fsspec[full]",
+    "universal-pathlib",
+    "filelock>=3.0",
+    "typing-extensions>=4.12.0",
+    "mudata>=0.3.10",
+    "rdkit>=2026.3.5",
+    "transformers>=5.15.0",
+    "gensim>=4.4.0",
+    "multiqc>=1.35",
+]
 
-[tool.poetry.scripts]
-drevalpy                            = "drevalpy.cli.main:cli_main"
-drevalpy-report                     = "drevalpy.cli.legacy:main"
-drevalpy-viability-preprocess       = "drevalpy.cli.legacy:preprocess_raw_viability"
-drevalpy-viability-postprocess      = "drevalpy.cli.legacy:postprocess_viability"
-drevalpy-load-response              = "drevalpy.cli.legacy:load_response"
-drevalpy-make-cv-pkls               = "drevalpy.cli.legacy:cv_split"
-drevalpy-make-hpam-yamls            = "drevalpy.cli.legacy:hpam_split"
-drevalpy-train-cv                   = "drevalpy.cli.legacy:train_and_predict_cv"
-drevalpy-evaluate-hpams             = "drevalpy.cli.legacy:evaluate_and_find_max"
-drevalpy-test-cv                    = "drevalpy.cli.legacy:train_and_predict_final"
-drevalpy-make-randomization-yamls   = "drevalpy.cli.legacy:randomization_split"
-drevalpy-make-final-split-pkls      = "drevalpy.cli.legacy:final_split"
-drevalpy-tune-final-model           = "drevalpy.cli.legacy:tune_final_model"
-drevalpy-train-final-model          = "drevalpy.cli.legacy:train_final_model"
-drevalpy-consolidate-single-drug    = "drevalpy.cli.legacy:consolidate_results"
-drevalpy-evaluate-test              = "drevalpy.cli.legacy:evaluate_test_results"
-drevalpy-collect-results            = "drevalpy.cli.legacy:collect_results"
-drevalpy-make-pipeline-report       = "drevalpy.cli.legacy:pipeline_report"
+[project.scripts]
+drevalpy = "drevalpy.cli.main:cli_main"
 
-[tool.poetry.dependencies]
-python = ">=3.11,<3.14"
-numpy = ">=1.20"
-scipy = "*"
-scikit-learn = ">=1.4"
-pandas = "*"
-networkx = "*"
-pyyaml = "*"
-pytorch-lightning = ">=2.5"
-torch = ">=2.1"
-torch-geometric = "*"
-flaky = "*"
-requests = "*"
-plotly = "*"
-matplotlib = "*"
-importlib-resources = "*"
-scikit-posthocs = "*"
-curve-curator = "*"
-subword-nmt = ">=0.3.8"
-toml = {version = ">=0.10.2"}
-poetry = ">=2.0.1"
-starlette = ">=0.49.1"
-pydantic = { version = ">=2.5", optional = true }
-wandb = ">=0.24.0"
-xgboost = { version = ">=3.2.0", optional = true }
-typer = ">=0.26,<0.27"
-rich = ">=15.0.0"
-gseapy = { version = ">=1.1.0", optional = true }
-mygene = { version = "*", optional = true }
-obonet = { version = "*", optional = true }
+[dependency-groups]
+dev = [
+    "ruff>=0.15.8",
+    "ty",
+    "prek",
+    "pytest",
+    "pytest-cov",
+    "coverage",
+    "complexipy",
+    "pygments",
+    "xdoctest",
+    "types-PyYAML",
+    "types-toml",
+    "jupyter>=1.1.1",
+    "vulture>=2.16",
+]
+docs = [
+    "sphinx>=4.0.2",
+    "sphinx-autobuild>=2021.3.14",
+    "sphinx-autodoc-typehints",
+    "sphinx-rtd-theme>=1.0.0,<3.0.3",
+    "sphinx-design>=0.7.0",
+    "sphinxcontrib-mermaid>=2.1.0",
+]
 
-[tool.poetry.requires-plugins]
-poetry-plugin-export = ">=1.8"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry.extras]
-multiprocessing = ["ray", "pydantic"]
-xgboost = ["xgboost"]
-precily = ["gseapy"]
-sparsego = ["mygene", "obonet"]
+[tool.uv]
+extra-build-dependencies = { torch-scatter = ["torch"] }
 
-[tool.poetry.dependencies.ray]
-extras = ["tune"]
-version = "*"
-
-[tool.poetry.group.development.dependencies]
-sphinx-autodoc-typehints = "*"
-sphinx = ">=4.0.2"
-sphinx-autobuild = ">=2021.3.14"
-sphinx-rtd-theme = ">=1.0.0,<3.0.3"
-sphinx-click = ">=3.0.0"
-pytest = "*"
-nox = "*"
-nox-poetry = "*"
-black = "*"
-isort = "*"
-flake8 = "*"
-flake8-bandit = "*"
-flake8-bugbear = "*"
-flake8-docstrings = "*"
-flake8-rst-docstrings = "*"
-darglint = "*"
-pre-commit = "*"
-pre-commit-hooks = "*"
-pyupgrade = "*"
-pep8-naming = "*"
-
-[tool.poetry.group.torch-cuda]
-optional = true
-dependencies = { torch = ">=2.1", torch-geometric = "*" }
-
-[tool.poetry.group.dev.dependencies]
-mypy = "^1.19.1"
-ruff = "^0.15.8"
-
-[tool.black]
+[tool.ruff]
+target-version = "py311"
 line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",
+    "I",
+    "UP",
+    "B",
+    "S",
+    "D",
+    "N",
+    "C90",
+]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "D101", "D102", "D103"]
+"drevalpy/datasets/curvecurator.py" = ["S404", "S603"]
+"*.ipynb" = ["E402", "E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ty]
+
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.rules]
+# Optional dependencies not installed in dev venv (rdkit, transformers, gensim, etc.)
+unresolved-import = "ignore"
+# Incomplete third-party stubs (pandas, matplotlib, torch)
+invalid-argument-type = "ignore"
+no-matching-overload = "ignore"
+# ty beta: does not support type[Any] in return annotations (featurizer registry pattern)
+invalid-type-form = "ignore"
+# Standard PyTorch Dataset.__getitem__ override pattern
+invalid-method-override = "ignore"
+# ty beta: false positive on pytest.skip(reason)
+too-many-positional-arguments = "ignore"
+# Tests intentionally violate types to test immutability (all have # type: ignore)
+invalid-assignment = "ignore"
+# Complex return type narrowing ty cannot yet handle
+invalid-return-type = "ignore"
+# scikit-learn TransformerMixin stub does not declare .fit/.transform
+unresolved-attribute = "ignore"
+# Tests intentionally pass wrong args (all have # type: ignore)
+missing-argument = "ignore"
+unknown-argument = "ignore"
+# Informational only
+redundant-cast = "ignore"
+deprecated = "ignore"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = ["tests/cli_old"]
+pythonpath = ["."]
+addopts = ["--import-mode=importlib"]
 
-[tool.mypy]
-strict = false
-pretty = true
-show_column_numbers = true
-show_error_codes = true
-show_error_context = true
-ignore_missing_imports = true
-
-[tool.isort]
-multi_line_output=3
-include_trailing_comma=true
-balanced_wrapping=true
-line_length=120
-profile = "black"
-known_first_party = ["drevalpy"]
-known_third_party = ["wandb"]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.complexipy]
+max-complexity-allowed = 15

@@ -1,0 +1,53 @@
+"""Tests for featurizer tree uniqueness helpers."""
+
+from __future__ import annotations
+
+import pytest
+from pydantic import ValidationError
+
+from drevalpy.components.featurizers._featurizer_tree import ensure_unique_qualified_featurizers
+from drevalpy.models.config import FeaturizerConfig, ModelConfig, from_spec
+from drevalpy.registry._builtins import register_builtin_components
+
+
+def test_ensure_unique_allows_same_name_different_views() -> None:
+    config = FeaturizerConfig.model_validate(
+        {
+            "name": "concatFeaturizers",
+            "registry": "cell_line",
+            "featurizers": [
+                {"name": "raw", "view": "gene_expression"},
+                {"name": "raw", "view": "mutations"},
+            ],
+        },
+    )
+    ensure_unique_qualified_featurizers(config, "cell_line")
+
+
+def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
+    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[gene_expression\\]'"):
+        FeaturizerConfig.model_validate(
+            {
+                "name": "concatFeaturizers",
+                "registry": "cell_line",
+                "featurizers": [
+                    {"name": "raw", "view": "gene_expression"},
+                    {"name": "raw", "view": "gene_expression"},
+                ],
+            },
+        )
+
+
+def test_recipe_string_rejects_duplicate_qualified_selector() -> None:
+    """``from_spec`` reports the duplicate as a config error naming the offending recipe."""
+    register_builtin_components()
+    with pytest.raises(ValueError, match="Duplicate featurizer selector"):
+        from_spec("raw[expression]+raw[expression]:fingerprints:randomForest")
+
+
+def test_recipe_string_allows_same_name_different_views() -> None:
+    register_builtin_components()
+    config = from_spec("raw[expression]+raw[mutations]:fingerprints:randomForest")
+    assert isinstance(config, ModelConfig)
+    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer.name == "concatFeaturizers"

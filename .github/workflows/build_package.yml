@@ -12,25 +12,15 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         name: Check out source-code repository
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Install Poetry
-        run: |
-          pipx install poetry
-          pipx inject poetry poetry-plugin-export
-          poetry --version
-
       - name: Build package
-        run: poetry build --ansi
+        run: uv build
 
-      - name: Install required twine packaging dependencies
-        run: pip install setuptools wheel twine
-
-      - name: Check twine package
-        run: twine check dist/*
+      - name: Check package with twine
+        run: uvx twine check dist/*

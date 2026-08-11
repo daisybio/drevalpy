@@ -1,0 +1,3 @@
+cell_line_featurizer: constant
+drug_featurizer: identity
+predictor: naiveDrugMean
