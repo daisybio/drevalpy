@@ -105,7 +105,6 @@ ignore = []
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "D101", "D102", "D103"]
 "drevalpy/datasets/curvecurator.py" = ["S404", "S603"]
-"scripts/*" = ["D100", "D101", "D102", "D103", "D107"]
 "*.ipynb" = ["E402", "E501"]
 
 [tool.ruff.lint.pydocstyle]
