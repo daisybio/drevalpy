@@ -1,10 +1,8 @@
 Model zoo
 =========
 
-The previous two pages established the vocabulary and grammar of building models:
-
-- :doc:`component_catalog` lists the available building blocks.
-- :doc:`from_components_to_models` shows how they form a recipe.
+The :doc:`component_catalog` lists the available building blocks, and
+:doc:`from_components_to_models` shows how they form a recipe.
 
 While these interfaces allow building models in a flexible way, we are aware that certain featurizer-predictor combinations are used frequently.
 In order to make it easier to use these frequently used combinations, we provide a so-called 'model zoo' which is a collection of curated model configurations.

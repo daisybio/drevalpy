@@ -36,7 +36,6 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosectionlabel",
     "sphinx_design",
-    "sphinx_reredirects",
     "sphinxcontrib.mermaid",
 ]
 
@@ -298,39 +297,3 @@ DEFAULT_FILTERS["modurl"] = modurl
 
 # -- Options for autosectionlabel mappings -----------------------------
 autosectionlabel_prefix_document = True
-
-# -- Redirects from pre-restructure URLs -------------------------------
-redirects = {
-    "installation.html": "getting_started/installation.html",
-    "quickstart.html": "cli/quickstart.html",
-    "usage.html": "cli/experiment.html",
-    "example_wandb.html": "cli/wandb.html",
-    "example_flexible_inputs.html": "python/datasets.html",
-    "hyperparameter_migration.html": "python/experiments.html",
-    "python/hyperparameter_tuning.html": "python/experiments.html",
-    "model_architecture.html": "python/models.html",
-    "python/architecture.html": "python/models.html",
-    "python/model_inputs.html": "python/datasets.html",
-    "python/component_catalog.html": "concepts/component_catalog.html",
-    "python/persistence.html": "python/models.html",
-    "runyourmodel.html": "python/custom_models.html",
-    "API.html": "python/api/index.html",
-    "drevalpy.data.html": "python/api/_autosummary/drevalpy.data.html",
-    "drevalpy.models.html": "python/api/_autosummary/drevalpy.models.html",
-    "drevalpy.components.html": "python/api/_autosummary/drevalpy.components.html",
-    "drevalpy.visualization.html": "python/api/_autosummary/drevalpy.visualization.html",
-    "python/api/datasets.html": "python/api/_autosummary/drevalpy.data.html",
-    "python/api/data.html": "python/api/_autosummary/drevalpy.data.html",
-    "drevalpy.data.html": "python/api/_autosummary/drevalpy.data.html",
-    "python/api/types.html": "python/api/_autosummary/drevalpy.types.html",
-    "python/api/experiment.html": "python/api/_autosummary/drevalpy.experiment.html",
-    "python/api/evaluation.html": "python/api/_autosummary/drevalpy.evaluation.html",
-    "python/api/models.html": "python/api/_autosummary/drevalpy.models.html",
-    "python/api/components.html": "python/api/_autosummary/drevalpy.components.html",
-    "python/api/utils.html": "python/api/_autosummary/drevalpy.utils.html",
-    "python/api/visualization.html": "python/api/_autosummary/drevalpy.visualization.html",
-    "contributing.html": "project/contributing.html",
-    "reference.html": "project/citing.html",
-    "news.html": "project/news.html",
-    "memes.html": "project/memes.html",
-}

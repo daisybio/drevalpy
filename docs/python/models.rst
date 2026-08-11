@@ -205,30 +205,3 @@ It first constructs the model class from the stored checkpoint and then loads th
 
    loaded = ElasticNet.load("checkpoints/elastic_net")
    loaded = load_model("checkpoints/elastic_net.zip")
-
-Migration notes
----------------
-
-Before 1.6.0, ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, and
-``SINGLE_DRUG_MODEL_FACTORY`` were the usual lookup. They remain as **lazy,
-built-in-only** compatibility views equivalent to ``construct_model(name)`` for
-zoo preset names, but emit ``FutureWarning`` and may be removed in a future
-release. Prefer ``construct_model``, ``config.from_spec``, and
-``list_zoo_names(scope=...)``. See :doc:`quickstart` for a short side-by-side
-example.
-
-Named root exports (``ElasticNetModel``, ``DIPKModel``, …) are removed. Use
-``construct_model("ElasticNet")`` (or the zoo preset string) instead.
-
-``ModelConfig.create_model()`` is removed. Use
-``construct_model(name_or_recipe)()`` or ``construct_model(name, config)()``.
-
-Deep imports such as ``drevalpy.models.DIPK.dipk`` or
-``drevalpy.models.baselines.*`` are not supported. Resolve models with
-``construct_model`` from ``drevalpy.models``.
-
-Configure ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or
-a recipe string (see :doc:`datasets`).
-
-Only ``*.zip`` archives created by ``model.save`` / ``ModelClass.load`` are
-supported as checkpoint format.

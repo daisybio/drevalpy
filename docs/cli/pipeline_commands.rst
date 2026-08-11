@@ -22,7 +22,6 @@ Typical CV evaluation path:
 6. ``drevalpy train-cv`` — train and predict on CV folds for one hyperparameter
    file
 7. ``drevalpy evaluate-hpams`` — select among YAML prediction artifacts
-   (deprecated for HPO; use Ray/Optuna via the root experiment)
 8. ``drevalpy test-cv`` — train on train+val and evaluate on the test fold
 9. ``drevalpy make-randomization-yamls`` — prepare randomization configs
 10. ``drevalpy consolidate-single-drug`` — consolidate single-drug model outputs

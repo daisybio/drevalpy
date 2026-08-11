@@ -38,32 +38,6 @@ loaded = load_model("checkpoints/my_model")  # reads checkpoints/my_model.zip
 
 See `docs/python/custom_models.rst` for a complete external extension walkthrough.
 
-## Breaking changes
-
-**Preferred:** `construct_model`, declarative `ModelConfig`, zoo discovery via
-`list_zoo_names(scope=...)`, experiment/CLI model-name strings.
-
-**Deprecated (still functional, emits `FutureWarning`):**
-
-- `MODEL_FACTORY`, `MULTI_DRUG_MODEL_FACTORY`, `SINGLE_DRUG_MODEL_FACTORY`
-  — lazy built-in-only views equal to `construct_model(name)` for zoo names
-
-**Removed:**
-
-- Flat `cell_line_views` / `drug_views` in constructor / hpam YAML — use
-  explicit `cell_line_featurizer` / `drug_featurizer` blocks or recipe strings
-- Named root exports (`ElasticNetModel`, `DIPKModel`, …) — use
-  `construct_model("ElasticNet")`
-- `ModelConfig.create_model()` — use `construct_model(...)()` instead
-- Deep imports such as `drevalpy.models.baselines.*` or `drevalpy.models.DIPK.*`
-- Checkpoints use `model.save` / `ModelClass.load` (`*.zip` archives, format
-  `drevalpy-model`)
-- Iterating `get_hyperparameter_set()` as a full grid — use
-  `hyperparameter_tuning=True` or `get_structured_hyperparameter_space()`
-
-**Core dependencies:** `pydantic`, `optuna`, `xgboost`, `lightgbm`,
-`gseapy`, `mygene`, and `obonet` ship with the default install.
-
 ## Unsupported
 
 - Direct `DRPModel` subclass authoring as the documented extension path

@@ -84,12 +84,6 @@ required and how features are consumed:
 - **Matrix** — the predictor receives a single numeric matrix (can be concatenated from multiple featurizers). This is the case for predictors like ``randomForest``, where it does not matter which omics layer the features originate from.
 - **Block** — the predictor receives a dictionary of named featurizer outputs. This is useful for predictors that treat different omics layers separately, e.g. ``molir``, which consumes ``gene_expression``, ``mutations``, and ``copy_number_variation`` as separate blocks. It also allows for predictors to specify that they require certain featurizers to be present in their input data, otherwise they can't work.
 
-``SingleDrugBlockPredictor`` is a **deprecated** adapter for literature
-cores that still speak ``FeatureSource`` after batch assembly. New
-predictors should not use it;
-use ``FeatureFreePredictor``, ``MatrixPredictor``, or ``BlockPredictor``
-instead. See :doc:`/python/custom_models`.
-
 .. include:: _generated_predictors.rst
 
 Extensions

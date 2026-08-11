@@ -55,7 +55,7 @@ def _generate_discrete_palette(n_colors: int) -> list[str]:
     return [matplotlib.colors.to_hex(c) for c in interpolated_rgb]
 
 
-# --- CD layout logic (self-contained from legacy) ---
+# --- CD layout logic ---
 
 
 def _nonsignificant_adjacency(sig_matrix: pd.DataFrame) -> pd.DataFrame:

@@ -237,38 +237,6 @@ Feature-free predictors need only a predictor token in ``construct_model``.
 Matrix and block predictors pair with featurizers whose ``contract`` matches
 the predictor's ``cell_line_contract`` / ``drug_contract`` (see below).
 
-Deprecated: FeatureSource predictor bridge
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Do **not** subclass ``SingleDrugBlockPredictor`` for new components. That base is a
-**deprecated** adapter for literature (and similar) cores that still call
-``train`` / ``predict`` with raw feature sources after the stack has already
-built a ``ModelInputBatch``. Prefer the three interfaces above:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 40 30 30
-
-   * - Need
-     - Use
-     - Input
-   * - Response / ids only
-     - ``FeatureFreePredictor``
-     - ``ModelInputBatch``
-   * - Flattened dense pair features
-     - ``MatrixPredictor`` (or sklearn tabular bases)
-     - ``ModelInputBatch``
-   * - Named / typed blocks (graphs, multi-view, …)
-     - ``BlockPredictor`` directly
-     - ``batch.cell_line_blocks`` / ``drug_blocks``
-   * - Per-drug dense estimators
-     - ``SingleDrugSklearnPredictor`` pattern
-     - ``ModelInputBatch``
-
-``FeatureSource`` is the correct type for loading raw entity views into
-``DRPModel`` / featurizers. Only rebuilding features *inside* a
-predictor is deprecated.
-
 Literature references
 ~~~~~~~~~~~~~~~~~~~~~
 

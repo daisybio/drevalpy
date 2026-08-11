@@ -1,4 +1,4 @@
-"""Internal model-name resolution that does not use deprecated factory dicts."""
+"""Internal model-name resolution."""
 
 from __future__ import annotations
 
