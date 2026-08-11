@@ -125,6 +125,7 @@ def single(
     return RunResult(
         model_name=model_name,
         dataset_name=mudataset.name,
+        split_mode=split_masks.metadata.get("split_mode", ""),
         fold_index=split_masks.metadata.get("fold_index", 0),
         predictions=predictions,
         ground_truth=ground_truth,

@@ -17,6 +17,7 @@ def single_cmd(
     hpo_metric: Annotated[str, typer.Option("--hpo-metric", help="Metric to optimize.")] = "RMSE",
     hpo_num_samples: Annotated[int, typer.Option("--hpo-num-samples", help="Number of HPO trials.")] = 16,
     hpo_random_state: Annotated[int, typer.Option("--hpo-random-state", help="HPO random seed.")] = 42,
+    split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LCO, LDO).")] = "LPO",
 ) -> None:
     """Train a model on one fold, predict on test set, and save results."""
     from drevalpy.models import construct_model
@@ -30,6 +31,8 @@ def single_cmd(
     model_class = construct_model(model)
     ds = Dataset.load(dataset)
     split_masks = SplitMasks.load(split)
+    if "split_mode" not in split_masks.metadata:
+        split_masks.metadata["split_mode"] = split_mode
 
     result = run_single(
         model_class,

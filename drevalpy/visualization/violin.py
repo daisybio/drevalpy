@@ -1,25 +1,42 @@
 """Plots a violin plot of the evaluation metrics."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pandas as pd
 import plotly.graph_objects as go
 from upath import UPath as Path
 
+from .plot_requirements import PlotRequirement
 from .vioheat import VioHeat
+
+if TYPE_CHECKING:
+    from drevalpy.types.results import ExperimentResult
 
 
 class Violin(VioHeat):
     """Plots a violin plot of the evaluation metrics."""
 
-    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
+    requirements: frozenset = frozenset({PlotRequirement.MULTIPLE_FOLDS})
+
+    def __init__(
+        self,
+        result: ExperimentResult | None = None,
+        *,
+        df: pd.DataFrame | None = None,
+        normalized_metrics: bool = False,
+        whole_name: bool = False,
+    ):
         """Initialize violin plot from evaluation results.
 
-        :param df: Predictions for all algorithms or all tests for one algorithm.
+        :param result: Typed experiment result (preferred path).
+        :param df: Legacy predictions DataFrame.
         :param normalized_metrics: Whether to show only normalized metric columns.
         :param whole_name: Whether to display full algorithm setting labels.
         """
-        super().__init__(df, normalized_metrics, whole_name)
+        super().__init__(result=result, df=df, normalized_metrics=normalized_metrics, whole_name=whole_name)
         self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["test_mode"]
-        # remove columns with only NaN values
         self.df = self.df.dropna(axis=1, how="all")
         self.fig = go.Figure()
         self.occurring_metrics = [metric for metric in self.all_metrics if metric in self.df.columns]

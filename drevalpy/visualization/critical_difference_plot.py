@@ -22,9 +22,12 @@ displays the significant differences between the algorithms. A horizontal line g
 not significantly different. The critical difference is determined based on the post-hoc test results.
 """
 
+from __future__ import annotations
+
 import pathlib
 import warnings
 from io import TextIOWrapper
+from typing import TYPE_CHECKING
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -38,11 +41,35 @@ from upath import UPath as Path
 from ..evaluation import MINIMIZATION_METRICS
 from .critical_difference_layout import critical_difference_diagram as _critical_difference_diagram
 from .outplot import OutPlot
+from .plot_requirements import PlotRequirement
+
+if TYPE_CHECKING:
+    from drevalpy.types.results import ExperimentResult
 
 matplotlib.use("agg")
 matplotlib.rcParams["font.family"] = "sans-serif"
 matplotlib.rcParams["font.sans-serif"] = "Helvetica Neue"
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*swapaxes.*")
+
+
+def _build_cd_df_from_experiment(result: ExperimentResult, metric: str) -> pd.DataFrame:
+    """Build the DataFrame expected by the CD plot from an ExperimentResult.
+
+    Columns: algorithm, CV_split, <metric>.
+    """
+    rows: list[dict] = []
+    for model in result.models:
+        for run in model.runs:
+            if run.randomization is not None:
+                continue
+            rows.append(
+                {
+                    "algorithm": run.model_name,
+                    "CV_split": run.fold_index,
+                    metric: run.metrics.get(metric, float("nan")),
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 class CriticalDifferencePlot(OutPlot):
@@ -52,15 +79,31 @@ class CriticalDifferencePlot(OutPlot):
     testing at the default 0.05 threshold.
     """
 
-    def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
+    result_type: str = "ExperimentResult"
+    requirements: frozenset = frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS})
+
+    def __init__(
+        self,
+        result: ExperimentResult | None = None,
+        *,
+        eval_results_preds: pd.DataFrame | None = None,
+        metric: str = "MSE",
+    ):
         """Initialize critical difference plot.
 
-        :param eval_results_preds: Evaluation results restricted to prediction runs.
+        :param result: Typed experiment result (preferred path).
+        :param eval_results_preds: Legacy evaluation results restricted to prediction runs.
         :param metric: Metric used for ranking (for example ``"MSE"``).
 
         :raises ValueError: If ``eval_results_preds`` is empty or lacks ``metric``.
         """
-        eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]]
+        if result is not None:
+            eval_results_preds = _build_cd_df_from_experiment(result, metric)
+        elif eval_results_preds is not None:
+            eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]]
+        else:
+            raise ValueError("Either 'result' or 'eval_results_preds' must be provided")
+
         if eval_results_preds.empty:
             raise ValueError(
                 "Critical Difference Plot: The DataFrame is empty. Please provide a valid DataFrame with predictions."

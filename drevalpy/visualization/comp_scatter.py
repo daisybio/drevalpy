@@ -1,6 +1,9 @@
 """Contains the code needed to draw the correlation comparison scatter plot."""
 
+from __future__ import annotations
+
 from io import TextIOWrapper
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -8,6 +11,34 @@ from upath import UPath as Path
 
 from ..models._model_lookup import single_drug_model_names
 from .outplot import OutPlot
+from .plot_requirements import PlotRequirement
+
+if TYPE_CHECKING:
+    from drevalpy.types.results import ExperimentResult
+
+
+def _build_comp_scatter_df_from_experiment(result: ExperimentResult, color_by: str) -> pd.DataFrame:
+    """Build a DataFrame from an ExperimentResult suitable for ComparisonScatter.
+
+    Columns: algorithm, rand_setting, test_mode, model, <color_by>, R^2, Pearson, etc.
+    Each row represents a per-group (drug or cell line) aggregate metric.
+    """
+    rows: list[dict] = []
+    for model in result.models:
+        for run in model.runs:
+            rand = f"{run.randomization[0]}_{run.randomization[1]}" if run.randomization else "predictions"
+            for i in range(len(run.predictions)):
+                row: dict = {
+                    "algorithm": run.model_name,
+                    "rand_setting": rand,
+                    "test_mode": run.split_mode,
+                    "model": f"{run.model_name}_predictions_{run.split_mode}_split_{run.fold_index}",
+                    "drug_name": str(run.drug_ids[i]),
+                    "cell_line_name": str(run.cell_line_ids[i]),
+                }
+                row.update(run.metrics)
+                rows.append(row)
+    return pd.DataFrame(rows)
 
 
 class ComparisonScatter(OutPlot):
@@ -18,22 +49,35 @@ class ComparisonScatter(OutPlot):
     between models on the y- versus x-axis.
     """
 
+    result_type: str = "ExperimentResult"
+    requirements: frozenset = frozenset({PlotRequirement.MULTIPLE_MODELS})
+
     def __init__(
         self,
-        df: pd.DataFrame,
-        color_by: str,
-        test_mode: str,
+        result: ExperimentResult | None = None,
+        *,
+        df: pd.DataFrame | None = None,
+        color_by: str = "drug_name",
+        test_mode: str = "",
         metric: str = "R^2",
         algorithm: str = "all",
     ):
         """Initialize comparison scatter plots.
 
-        :param df: Evaluation results per group (drug or cell line).
+        :param result: Typed experiment result (preferred path).
+        :param df: Legacy evaluation results per group (drug or cell line).
         :param color_by: Grouping column, for example ``"drug_name"`` or ``"cell_line_name"``.
         :param test_mode: Evaluation test mode (for example ``"LCO"``).
         :param metric: Correlation metric to compare.
         :param algorithm: Model name for per-algorithm plots, or ``"all"`` for all models.
         """
+        if result is not None:
+            df = _build_comp_scatter_df_from_experiment(result, color_by)
+            test_mode = result.split_mode
+
+        if df is None:
+            raise ValueError("Either 'result' or 'df' must be provided")
+
         exclude_models = (
             {"NaiveDrugMeanPredictor"}.union(set(single_drug_model_names(include_external=False)))
             if color_by == "drug"

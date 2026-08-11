@@ -1,39 +1,88 @@
 """Module for generating evaluation tables for cross-study drug response prediction."""
 
+from __future__ import annotations
+
 import pathlib
 from io import TextIOWrapper
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import plotly.graph_objects as go
 from upath import UPath as Path
 
+from .outplot import OutPlot
 
-class CrossStudyTables:
+if TYPE_CHECKING:
+    from drevalpy.types.results import ExperimentResult
+
+
+def _build_cross_study_df_from_experiment(result: ExperimentResult) -> pd.DataFrame:
+    """Build a DataFrame from an ExperimentResult for cross-study tables.
+
+    Columns: algorithm, rand_setting, test_mode, CV_split, and metric columns.
+    The index encodes model/setting/split for grouping.
+    """
+    rows: list[dict] = []
+    for model in result.models:
+        for run in model.runs:
+            rand = f"{run.randomization[0]}_{run.randomization[1]}" if run.randomization else "predictions"
+            row: dict = {
+                "algorithm": run.model_name,
+                "rand_setting": rand,
+                "test_mode": result.split_mode,
+                "CV_split": run.fold_index,
+            }
+            row.update(run.metrics)
+            idx = f"{run.model_name}_{rand}_{result.split_mode}_split_{run.fold_index}"
+            row["_index"] = idx
+            rows.append(row)
+    df = pd.DataFrame(rows)
+    if "_index" in df.columns:
+        df = df.set_index("_index")
+        df.index.name = None
+    return df
+
+
+class CrossStudyTables(OutPlot):
     """Generate evaluation tables for cross-study drug response prediction."""
 
-    def __init__(self, evaluation_metrics: pd.DataFrame, path_data: pathlib.Path):
+    result_type: str = "ExperimentResult"
+    requirements: frozenset = frozenset()
+
+    def __init__(
+        self,
+        result: ExperimentResult | None = None,
+        *,
+        evaluation_metrics: pd.DataFrame | None = None,
+        path_data: pathlib.Path | None = None,
+    ):
         """Initialize cross-study evaluation tables.
 
-        :param evaluation_metrics: Aggregated evaluation metrics dataframe.
+        :param result: Typed experiment result (preferred path).
+        :param evaluation_metrics: Legacy aggregated evaluation metrics dataframe.
         :param path_data: Dataset root directory (reserved for extensions).
         """
-        self.evaluation_metrics = evaluation_metrics
-        self.path_data = path_data
+        if result is not None:
+            self.evaluation_metrics = _build_cross_study_df_from_experiment(result)
+            self.path_data = None
+        elif evaluation_metrics is not None:
+            self.evaluation_metrics = evaluation_metrics
+            self.path_data = path_data
+        else:
+            raise ValueError("Either 'result' or 'evaluation_metrics' must be provided")
 
         self.figures: dict[str, go.Figure] = {}
-        cross_study_settings = evaluation_metrics[
-            evaluation_metrics.rand_setting.str.contains("cross-study-")
+        cross_study_settings = self.evaluation_metrics[
+            self.evaluation_metrics.rand_setting.str.contains("cross-study-")
         ].rand_setting.unique()
         self.cross_study_datasets = [setting.split("cross-study-")[1] for setting in cross_study_settings]
 
-        evaluation_metrics = evaluation_metrics[evaluation_metrics.rand_setting.isin(cross_study_settings)]
+        filtered = self.evaluation_metrics[self.evaluation_metrics.rand_setting.isin(cross_study_settings)]
 
         self.mean_metrics = []
         self.std_metrics = []
         for dataset in self.cross_study_datasets:
-            evaluation_metrics_dataset = evaluation_metrics[
-                evaluation_metrics.rand_setting.str.contains(f"cross-study-{dataset}")
-            ]
+            evaluation_metrics_dataset = filtered[filtered.rand_setting.str.contains(f"cross-study-{dataset}")]
             evaluation_metrics_group = [s.split("_split_")[0] for s in evaluation_metrics_dataset.index]
             metrics = [
                 "MSE",
@@ -51,7 +100,6 @@ class CrossStudyTables:
             grouped = evaluation_metrics_dataset[metrics].groupby(evaluation_metrics_group)
             mean = grouped.mean()
             std = grouped.std()
-            # sort by lowest MSE
             mean = mean.sort_values(by="MSE")
             std = std.loc[mean.index]
 
@@ -59,6 +107,10 @@ class CrossStudyTables:
             std.index = mean.index
             self.mean_metrics.append(mean)
             self.std_metrics.append(std)
+
+    def _draw(self) -> None:
+        """Create and store Plotly table figures sorted by MSE."""
+        self.draw()
 
     def draw(self):
         """Create and store Plotly table figures sorted by MSE."""

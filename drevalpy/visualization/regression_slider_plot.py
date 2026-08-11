@@ -1,6 +1,9 @@
 """Module for generating regression plots with a slider for Pearson correlation coefficient."""
 
+from __future__ import annotations
+
 from io import TextIOWrapper
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -11,26 +14,71 @@ from upath import UPath as Path
 
 from .outplot import OutPlot
 
+if TYPE_CHECKING:
+    from drevalpy.types.results import ModelResult
+
+
+def _build_regression_df_from_model(result: ModelResult) -> pd.DataFrame:
+    """Build a flat DataFrame from a ModelResult for scatter regression plots.
+
+    Columns: y_true, y_pred, algorithm, test_mode, rand_setting, CV_split, drug_ids, cell_line_ids.
+    """
+    rows: list[dict] = []
+    for run in result.runs:
+        if run.randomization is not None:
+            continue
+        for i in range(len(run.predictions)):
+            rows.append(
+                {
+                    "y_true": float(run.ground_truth[i]),
+                    "y_pred": float(run.predictions[i]),
+                    "algorithm": run.model_name,
+                    "test_mode": run.split_mode,
+                    "rand_setting": "predictions",
+                    "CV_split": run.fold_index,
+                    "drug_name": str(run.drug_ids[i]),
+                    "cell_line_name": str(run.cell_line_ids[i]),
+                }
+            )
+    return pd.DataFrame(rows)
+
 
 class RegressionSliderPlot(OutPlot):
     """Generates regression plots with a slider for the Pearson correlation coefficient."""
 
+    result_type: str = "ModelResult"
+    requirements: frozenset = frozenset()
+
     def __init__(
         self,
-        df: pd.DataFrame,
-        test_mode: str,
-        model: str,
+        result: ModelResult | None = None,
+        *,
+        df: pd.DataFrame | None = None,
+        test_mode: str = "",
+        model: str = "",
         group_by: str = "drug_name",
-        normalize=False,
+        normalize: bool = False,
     ):
         """Initialize regression slider plot.
 
-        :param df: True versus predicted values table.
+        :param result: Typed model result (preferred path).
+        :param df: Legacy true-vs-predicted values table.
         :param test_mode: Evaluation test mode (for example ``"LPO"``).
         :param model: Model name to plot.
         :param group_by: Grouping column (``"drug_name"`` or ``"cell_line_name"``).
         :param normalize: Subtract NaiveMeanEffectsPredictor predictions per pair.
         """
+        if result is not None:
+            self.df = _build_regression_df_from_model(result)
+            self.model = result.model_name
+            self.group_by = group_by
+            self.normalize = normalize
+            self.fig = go.Figure()
+            return
+
+        if df is None:
+            raise ValueError("Either 'result' or 'df' must be provided")
+
         self.df = df[(df["test_mode"] == test_mode) & (df["rand_setting"] == "predictions")]
         model_df = self.df[(self.df["algorithm"] == model)]
         self.df = model_df

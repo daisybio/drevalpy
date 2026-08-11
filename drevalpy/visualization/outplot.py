@@ -9,6 +9,9 @@ from upath import UPath as Path
 class OutPlot(ABC):
     """Abstract base for report plot classes."""
 
+    result_type: str = "ExperimentResult"
+    requirements: frozenset = frozenset()
+
     @abstractmethod
     def draw_and_save(self, out_prefix: str | Path, out_suffix: str) -> None:
         """Draw the plot and write it to disk.

@@ -10,7 +10,7 @@ from drevalpy.experiment.robustness import robustness
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.single import single
 from drevalpy.types import Dataset
-from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
+from drevalpy.types.results import ExperimentResult, RunResult
 
 
 def run(
@@ -45,15 +45,13 @@ def run(
     if robustness_trials > 0:
         folds = [s for fold in folds for s in robustness(fold, robustness_trials)]
 
-    model_results: list[ModelResult] = []
+    run_results: list[RunResult] = []
 
     for model, split_masks in product(models, folds):
         run_datasets: list[Dataset] = [ds]
 
         if randomization_modes:
             run_datasets.extend(randomization(model, ds, randomization_modes))
-
-        run_results: list[RunResult] = []
 
         for run_ds in run_datasets:
             result = single(
@@ -68,10 +66,4 @@ def run(
             )
             run_results.append(result)
 
-        model_results.append(ModelResult(model_name=model.get_model_name(), dataset_name=ds.name, runs=run_results))
-
-    return ExperimentResult(
-        dataset_name=ds.name,
-        split_mode=split_mode,
-        models=model_results,
-    )
+    return ExperimentResult(run_results)

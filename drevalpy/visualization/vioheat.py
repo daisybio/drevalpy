@@ -1,37 +1,84 @@
 """Parent class for Violin and Heatmap plots of performance measures over CV runs."""
 
+from __future__ import annotations
+
 from io import TextIOWrapper
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from upath import UPath as Path
 
 from drevalpy.visualization.outplot import OutPlot
+from drevalpy.visualization.plot_requirements import PlotRequirement
+
+if TYPE_CHECKING:
+    from drevalpy.types.results import ExperimentResult
+
+_ALL_METRICS = [
+    "R^2",
+    "R^2: normalized",
+    "Pearson",
+    "Pearson: normalized",
+    "Spearman",
+    "Spearman: normalized",
+    "Kendall",
+    "Kendall: normalized",
+    "MSE",
+    "RMSE",
+    "MAE",
+]
+
+
+def _build_df_from_experiment(result: ExperimentResult) -> pd.DataFrame:
+    """Build a flat DataFrame from an ExperimentResult matching the legacy column layout.
+
+    Columns: algorithm, rand_setting, test_mode, CV_split, and one column per metric.
+    """
+    rows: list[dict] = []
+    for model in result.models:
+        for run in model.runs:
+            row: dict = {
+                "algorithm": run.model_name,
+                "rand_setting": (
+                    f"{run.randomization[0]}_{run.randomization[1]}" if run.randomization else "predictions"
+                ),
+                "test_mode": result.split_mode,
+                "CV_split": run.fold_index,
+            }
+            row.update(run.metrics)
+            rows.append(row)
+    return pd.DataFrame(rows)
 
 
 class VioHeat(OutPlot):
     """Parent class for violin and heatmap plots over CV runs."""
 
-    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
+    result_type: str = "ExperimentResult"
+    requirements: frozenset = frozenset({PlotRequirement.MULTIPLE_FOLDS})
+
+    def __init__(
+        self,
+        result: ExperimentResult | None = None,
+        *,
+        df: pd.DataFrame | None = None,
+        normalized_metrics: bool = False,
+        whole_name: bool = False,
+    ):
         """Initialize shared violin/heatmap state.
 
-        :param df: Evaluation results (overall or per algorithm).
+        :param result: Typed experiment result (preferred path).
+        :param df: Legacy evaluation results DataFrame.
         :param normalized_metrics: Whether to show only normalized metric columns.
         :param whole_name: Whether to display full algorithm setting labels.
         """
-        self.df = df.sort_index()
-        self.all_metrics = [
-            "R^2",
-            "R^2: normalized",
-            "Pearson",
-            "Pearson: normalized",
-            "Spearman",
-            "Spearman: normalized",
-            "Kendall",
-            "Kendall: normalized",
-            "MSE",
-            "RMSE",
-            "MAE",
-        ]
+        if result is not None:
+            self.df = _build_df_from_experiment(result).sort_index()
+        elif df is not None:
+            self.df = df.sort_index()
+        else:
+            raise ValueError("Either 'result' or 'df' must be provided")
+
+        self.all_metrics = list(_ALL_METRICS)
         self.normalized_metrics = normalized_metrics
         self.whole_name = whole_name
         if self.normalized_metrics:

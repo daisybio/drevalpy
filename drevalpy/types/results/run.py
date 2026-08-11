@@ -23,6 +23,7 @@ class RunResult:
     ground_truth: np.ndarray
     cell_line_ids: np.ndarray
     drug_ids: np.ndarray
+    split_mode: str = ""
     best_hyperparameters: dict[str, Any] = field(default_factory=dict)
     metrics: dict[str, float] = field(default_factory=dict)
     fold_metadata: dict[str, Any] = field(default_factory=dict)
@@ -92,6 +93,7 @@ class RunResult:
         meta = {
             "model_name": self.model_name,
             "dataset_name": self.dataset_name,
+            "split_mode": self.split_mode,
             "fold_index": self.fold_index,
             "best_hyperparameters": self.best_hyperparameters,
             "metrics": self.metrics,
@@ -125,6 +127,7 @@ class RunResult:
         return cls(
             model_name=meta["model_name"],
             dataset_name=meta["dataset_name"],
+            split_mode=meta.get("split_mode", ""),
             fold_index=meta["fold_index"],
             predictions=np.asarray(data["predictions"]),
             ground_truth=np.asarray(data["ground_truth"]),

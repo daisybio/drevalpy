@@ -28,8 +28,10 @@ def split(
     """
     splitter = splitter_registry.get(mode)
     folds = splitter(dataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state)
-    for fold in folds:
+    for i, fold in enumerate(folds):
         fold.metadata.setdefault("dataset", dataset.name)
+        fold.metadata.setdefault("split_mode", mode)
+        fold.metadata.setdefault("fold_index", i)
     return folds
 
 
