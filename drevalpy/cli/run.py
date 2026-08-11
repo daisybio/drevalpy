@@ -21,6 +21,9 @@ def run_cmd(
         list[str] | None,
         typer.Option("--randomization-mode", "-r", help="Randomization mode(s): SVRC, SVCC, SVRD, SVCD."),
     ] = None,
+    randomization_type: Annotated[
+        str, typer.Option("--randomization-type", help="Randomization type: permutation or invariant.")
+    ] = "permutation",
     robustness_trials: Annotated[
         int, typer.Option("--robustness-trials", help="Number of robustness permutations (0=disabled).")
     ] = 0,
@@ -41,6 +44,7 @@ def run_cmd(
         dataset=dataset,
         split_mode=split_mode,
         randomization_modes=randomization_mode,
+        randomization_type=randomization_type,
         hyperparameter_tuning=hpo,
         hpo_metric=hpo_metric,
         hpo_num_samples=hpo_num_samples,

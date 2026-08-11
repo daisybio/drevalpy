@@ -27,6 +27,101 @@ def _randomize_matrix(data: np.ndarray, rng: np.random.Generator, randomization_
     )
 
 
+def _degree_preserving_rewire(
+    edge_index: np.ndarray, rng: np.random.Generator, n_swaps: int | None = None
+) -> np.ndarray:
+    """Rewire edges while preserving each node's degree.
+
+    Uses pairwise edge swaps: pick two edges (u,v) and (x,y), replace with
+    (u,y) and (x,v) if neither already exists (avoiding self-loops and
+    multi-edges).
+
+    Args:
+        edge_index: (2, E) array of edge endpoints.
+        rng: Numpy random generator.
+        n_swaps: Number of swap attempts. Defaults to 10 * num_edges.
+
+    Returns:
+        Rewired (2, E) edge_index with identical degree sequence.
+    """
+    edges = edge_index.T.copy()
+    num_edges = edges.shape[0]
+    if num_edges < 2:
+        return edge_index.copy()
+
+    if n_swaps is None:
+        n_swaps = 10 * num_edges
+
+    edge_set: set[tuple[int, int]] = {(int(edges[i, 0]), int(edges[i, 1])) for i in range(num_edges)}
+
+    for _ in range(n_swaps):
+        i, j = rng.integers(0, num_edges, size=2)
+        if i == j:
+            continue
+        u, v = int(edges[i, 0]), int(edges[i, 1])
+        x, y = int(edges[j, 0]), int(edges[j, 1])
+
+        if u == y or x == v:
+            continue
+        if (u, y) in edge_set or (x, v) in edge_set:
+            continue
+
+        edge_set.discard((u, v))
+        edge_set.discard((x, y))
+        edge_set.add((u, y))
+        edge_set.add((x, v))
+        edges[i] = [u, y]
+        edges[j] = [x, v]
+
+    return edges.T
+
+
+def _randomize_graph(graph: dict[str, np.ndarray], rng: np.random.Generator) -> dict[str, np.ndarray]:
+    """Apply invariant randomization to a single drug graph.
+
+    Preserves degree distribution (edge_index), and replaces node/edge
+    features with Gaussian samples matching per-row mean and std.
+    """
+    result: dict[str, np.ndarray] = {}
+    for key, val in graph.items():
+        arr = np.asarray(val)
+        if key == "edge_index":
+            result[key] = _degree_preserving_rewire(arr, rng)
+        elif arr.ndim == 2:
+            result[key] = _randomize_matrix(arr, rng, "invariant")
+        else:
+            result[key] = arr.copy()
+    return result
+
+
+def _is_graph_dict(data: dict[str, Any]) -> bool:
+    """Check if a dict-of-dicts looks like a collection of graph dicts.
+
+    Heuristic: at least one value is itself a dict containing an "edge_index" key.
+    """
+    return any(isinstance(v, dict) and "edge_index" in v for v in data.values())
+
+
+def _randomize_uns_view(
+    data: Any,
+    view: str,
+    new_uns: dict[str, Any],
+    rng: np.random.Generator,
+    randomization_type: str,
+) -> None:
+    """Randomize a view stored in uns (dict of dicts or plain dict)."""
+    if not isinstance(data, dict):
+        logger.warning("Cannot randomize uns key '%s' (not a dict). Skipping.", view)
+        return
+
+    if randomization_type == "invariant" and _is_graph_dict(data):
+        new_uns[view] = {key: _randomize_graph(val, rng) if isinstance(val, dict) else val for key, val in data.items()}
+    else:
+        keys = list(data.keys())
+        shuffled_keys = rng.permutation(keys).tolist()
+        new_uns[view] = dict(zip(shuffled_keys, data.values(), strict=True))
+
+
 def _randomize_single_view(
     dataset: Any,
     view: str,
@@ -54,13 +149,7 @@ def _randomize_single_view(
         obsm_data = np.asarray(resp.obsm[view], dtype=np.float32)
         resp.obsm[view] = _randomize_matrix(obsm_data, rng, randomization_type)
     elif view in new_uns:
-        data = new_uns[view]
-        if isinstance(data, dict):
-            keys = list(data.keys())
-            shuffled_keys = rng.permutation(keys).tolist()
-            new_uns[view] = dict(zip(shuffled_keys, data.values(), strict=True))
-        else:
-            logger.warning("Cannot randomize uns key '%s' (not a dict). Skipping.", view)
+        _randomize_uns_view(new_uns[view], view, new_uns, rng, randomization_type)
     else:
         logger.warning("View '%s' not found in any storage location. Skipping randomization.", view)
 

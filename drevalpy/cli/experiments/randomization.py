@@ -16,6 +16,9 @@ def randomization_cmd(
         list[str] | None,
         typer.Option("--mode", "-m", help="Randomization mode(s): SVRC, SVCC, SVRD, SVCD."),
     ] = None,
+    randomization_type: Annotated[
+        str, typer.Option("--randomization-type", "-t", help="Randomization type: permutation or invariant.")
+    ] = "permutation",
     random_state: Annotated[int, typer.Option("--random-state", help="Random seed.")] = 42,
 ) -> None:
     """Generate randomized datasets for feature importance testing.
@@ -35,7 +38,9 @@ def randomization_cmd(
     effective_modes = modes if modes else ["SVRC"]
     model_class = construct_model(model)
     ds = Dataset.load(dataset)
-    randomized = randomization(model_class, ds, effective_modes, random_state=random_state)
+    randomized = randomization(
+        model_class, ds, effective_modes, randomization_type=randomization_type, random_state=random_state
+    )
 
     with Progress() as progress:
         task = progress.add_task("Writing randomized datasets", total=len(randomized))

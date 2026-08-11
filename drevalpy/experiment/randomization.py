@@ -21,6 +21,7 @@ def randomization(
     dataset: Dataset,
     randomization_mode: list[str],
     *,
+    randomization_type: str = "permutation",
     random_state: int | None = None,
 ) -> list[Dataset]:
     """Generate randomized datasets for feature importance testing.
@@ -32,6 +33,7 @@ def randomization(
     :param model_class: Model class whose config defines available views.
     :param dataset: Original dataset to randomize.
     :param randomization_mode: List of mode codes (e.g. ["SVRC", "SVRD"]).
+    :param randomization_type: "permutation" or "invariant".
     :param random_state: Seed for reproducibility.
     :returns: List of randomized datasets.
     """
@@ -53,6 +55,8 @@ def randomization(
 
     results: list[Dataset] = []
     for (mode, view), views in tests.items():
-        ds = dataset.with_randomized_views(views, random_state=random_state, randomization=(mode, view))
+        ds = dataset.with_randomized_views(
+            views, randomization_type=randomization_type, random_state=random_state, randomization=(mode, view)
+        )
         results.append(ds)
     return results

@@ -18,6 +18,7 @@ def run(
     dataset: Dataset | str,
     split_mode: str,
     randomization_modes: list[str] | None = None,
+    randomization_type: str = "permutation",
     hyperparameter_tuning: bool = True,
     hpo_metric: str = "RMSE",
     hpo_num_samples: int = 16,
@@ -31,6 +32,7 @@ def run(
     :param dataset: Dataset object or name to load.
     :param split_mode: Split mode (LPO, LCO, LDO, LTO).
     :param randomization_modes: Optional randomization modes (SVRC, SVCC, SVRD, SVCD).
+    :param randomization_type: "permutation" or "invariant".
     :param hyperparameter_tuning: Whether to run HPO.
     :param hpo_metric: Metric to optimize during HPO.
     :param hpo_num_samples: Number of HPO trials.
@@ -51,7 +53,7 @@ def run(
         run_datasets: list[Dataset] = [ds]
 
         if randomization_modes:
-            run_datasets.extend(randomization(model, ds, randomization_modes))
+            run_datasets.extend(randomization(model, ds, randomization_modes, randomization_type=randomization_type))
 
         for run_ds in run_datasets:
             result = single(
