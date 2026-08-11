@@ -91,6 +91,36 @@ two shapes:
 Custom names are not restricted to the built-in list; the library treats an
 unknown dataset name as a custom load path.
 
+On-disk format: MuData
+-----------------------
+
+Datasets are stored as `MuData <https://mudata.readthedocs.io/>`_ objects
+(``.h5mu`` files). MuData is a multimodal extension of
+`AnnData <https://anndata.readthedocs.io/>`_ — the standard data structure in
+the single-cell genomics ecosystem. While DrEvalPy works with bulk data (cell
+lines, not single cells), the underlying data layout is identical: an
+observation-by-variable matrix with metadata on both axes.
+
+A single MuData object bundles all modalities of a dataset:
+
+.. code-block:: text
+
+   MuData
+   ├── response        # AnnData: cell_lines × drugs (X = IC50/AUC/...)
+   ├── expression      # AnnData: cell_lines × genes
+   ├── methylation     # AnnData: cell_lines × CpG regions
+   ├── mutations       # AnnData: cell_lines × genes
+   ├── copy_number     # AnnData: cell_lines × genes
+   ├── proteomics      # AnnData: cell_lines × proteins
+   └── fingerprints    # AnnData: drugs × fingerprint bits
+
+Each modality is an AnnData with:
+
+- ``X`` — the data matrix (e.g. expression counts, response values)
+- ``obs`` — observation (cell line / drug) metadata (tissue, name, ...)
+- ``var`` — variable (gene / drug) metadata
+- ``layers`` — alternative representations (e.g. raw vs normalized counts)
+
 Feature provenance
 ------------------
 
