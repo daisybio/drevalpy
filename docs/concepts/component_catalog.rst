@@ -124,5 +124,5 @@ Extensions
 DrEvalPy provides a convenient interface to register external components.
 This is useful if you want to evaluate a new predictor or featurizer that is not yet part of the catalog.
 Details on how to register external components can be found in
-:doc:`/python/custom_models` for the Python API and :doc:`/cli/experiment`
+:doc:`/python/extensions` for the Python API and :doc:`/cli/extensions`
 for the CLI workflow.

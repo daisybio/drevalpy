@@ -7,61 +7,129 @@ concepts:
 - :doc:`/concepts/evaluation`
 - :doc:`/concepts/from_components_to_models`
 
-:func:`~drevalpy.experiment.mu_experiment` runs nested
-cross-validation, optional hyperparameter tuning, baselines, and optional
-randomization or robustness tests. Results are written under ``path_out`` /
-``run_id`` / dataset / split label.
+The experiment pipeline
+-----------------------
 
-For day-to-day benchmarking, prefer this runner over a hand-rolled
-train/predict loop on individual models (see :doc:`models` for the
-low-level lifecycle).
+DrEvalPy provides two levels of experiment execution:
+
+- :func:`~drevalpy.run.run` — orchestrates models × folds × randomization in
+  one call. Returns an :class:`~drevalpy.types.results.ExperimentResult`.
+- :func:`~drevalpy.single.single` — trains a single model on a single fold.
+  Returns a :class:`~drevalpy.types.results.RunResult`. Used when you need
+  per-fold control (or parallelism via the CLI).
+
+For day-to-day benchmarking, prefer ``run`` over a hand-rolled train/predict
+loop on individual models (see :doc:`models` for the low-level lifecycle).
 
 Minimal call
 ------------
 
 .. code-block:: python
 
-   from drevalpy.data import load_mudataset
-   from drevalpy.experiment import mu_experiment
+   from drevalpy.data import load
    from drevalpy.models import construct_model
+   from drevalpy.run import run
 
-   mudataset = load_mudataset("TOYv1")
+   dataset = load("TOYv1")
    ElasticNet = construct_model("ElasticNet")
 
-   mu_experiment(
+   result = run(
        models=[ElasticNet],
-       mudataset=mudataset,
-       dataset_name="TOYv1",
-       run_id="en_toy",
-       test_mode="LCO",
-       n_cv_splits=5,
-       path_out="results/",
+       dataset=dataset,
+       split_mode="LCO",
        hyperparameter_tuning=False,
    )
 
 Pass model **classes** from :func:`~drevalpy.models.construct_model`, not
-instances. ``NaiveMeanEffectsPredictor`` is always included among baselines
-when missing — it is required for normalized metrics.
+instances. The result is an
+:class:`~drevalpy.types.results.ExperimentResult` containing all fold
+predictions and metrics.
 
-Common options
---------------
+``run`` parameters
+------------------
 
-- ``test_mode``: ``LPO``, ``LCO``, ``LTO``, or ``LDO`` (see
-  :doc:`/concepts/evaluation`).
-- ``baselines``: extra baseline classes; randomization and robustness apply
-  only to ``models``.
-- ``n_cv_splits``: number of outer CV folds (default ``5``).
-- ``path_out`` / ``run_id``: where predictions are written. Built-in
-  datasets and features are cached in the system cache directory (see
-  :doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``).
-- ``randomization_mode`` / ``n_trials_robustness``: optional stress tests
-  (see :doc:`/concepts/evaluation`).
-- ``cross_study_datasets``: other ``MuDataset`` instances for
-  transfer evaluation.
-- ``wandb_project``: enable Weights & Biases logging when set.
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
 
-Hyperparameter options are covered below. See :doc:`visualization` for
-reports over the written predictions.
+   * - Parameter
+     - Default
+     - Description
+   * - ``models``
+     -
+     - List of ``DRPModel`` subclasses to evaluate.
+   * - ``dataset``
+     -
+     - ``Dataset`` object or name string (auto-loaded).
+   * - ``split_mode``
+     -
+     - Split mode: ``"LPO"``, ``"LCO"``, ``"LDO"``, or ``"LTO"`` (see :doc:`/concepts/evaluation`).
+   * - ``hyperparameter_tuning``
+     - ``True``
+     - Whether to run HPO on each model.
+   * - ``hpo_metric``
+     - ``"RMSE"``
+     - Metric to optimize (also ``MSE``, ``MAE``, ``R^2``, ``Pearson``, ``Spearman``, ``Kendall``).
+   * - ``hpo_num_samples``
+     - ``16``
+     - Number of Optuna trials per fold.
+   * - ``hpo_random_state``
+     - ``42``
+     - Seed for the Optuna sampler.
+   * - ``randomization_modes``
+     - ``None``
+     - Optional list of feature-shuffle modes: ``"SVCC"``, ``"SVRC"``, ``"SVCD"``, ``"SVRD"``.
+   * - ``randomization_type``
+     - ``"permutation"``
+     - ``"permutation"`` or ``"invariant"``.
+   * - ``robustness_trials``
+     - ``0``
+     - Number of shuffled robustness repetitions (0 = disabled).
+   * - ``precomputed_only``
+     - ``False``
+     - Restrict HPO to pre-computed featurizer variants.
+
+Per-fold execution: ``single``
+------------------------------
+
+For parallel or custom workflows, split first and execute folds individually:
+
+.. code-block:: python
+
+   from drevalpy.data import load, split
+   from drevalpy.models import construct_model
+   from drevalpy.single import single
+
+   dataset = load("TOYv1")
+   folds = split(dataset, mode="LCO", n_splits=5)
+   ElasticNet = construct_model("ElasticNet")
+
+   results = []
+   for fold in folds:
+       result = single(
+           ElasticNet,
+           dataset,
+           fold,
+           hyperparameter_tuning=True,
+           hpo_metric="RMSE",
+           hpo_num_samples=16,
+       )
+       results.append(result)
+
+Aggregate into an :class:`~drevalpy.types.results.ExperimentResult`:
+
+.. code-block:: python
+
+   from drevalpy.types.results import ExperimentResult
+
+   experiment = ExperimentResult(results)
+   experiment.save("results/")
+
+``single`` additionally supports:
+
+- ``response_transformation`` — an sklearn ``TransformerMixin`` (``standard``,
+  ``minmax``, ``robust``) applied to target values during training and inverted
+  for final predictions.
 
 Hyperparameter tuning
 ---------------------
@@ -69,41 +137,17 @@ Hyperparameter tuning
 Tuning is **on by default**. When ``hyperparameter_tuning=True``, each model
 with a search space is tuned with Ray Tune and Optuna before final fold
 evaluation. Set ``hyperparameter_tuning=False`` to skip search and use each
-model's ``get_default_hyperparameters()`` only (as in the minimal example
-above).
-
-Configure the search with:
-
-- ``hpam_optimization_metric`` — metric Optuna optimizes (default ``RMSE``;
-  also ``MSE``, ``MAE``, ``R^2``, ``Pearson``, ``Spearman``, ``Kendall``)
-- ``hpo_num_samples`` — number of Optuna trials per fold (default ``16``)
-- ``hpo_random_state`` — seed for the Optuna sampler (default ``42``)
-- ``hpo_resources_per_trial`` — optional Ray resource dict (for example
-  ``{"cpu": 2, "gpu": 0.5}``); GPU defaults apply when CUDA is available
-
-.. code-block:: python
-
-   mu_experiment(
-       models=[ElasticNet],
-       mudataset=mudataset,
-       dataset_name="TOYv1",
-       run_id="en_toy_hpo",
-       test_mode="LCO",
-       hyperparameter_tuning=True,
-       hpo_num_samples=16,
-       hpo_random_state=42,
-       hpam_optimization_metric="RMSE",
-   )
+model's ``get_default_hyperparameters()`` only.
 
 Ray and Optuna
 ~~~~~~~~~~~~~~
 
 Ray and Optuna fulfill different roles in the hyperparameter tuning process:
 
-- **Ray Tune** runs and schedules trials (parallelism,
-  ``hpo_resources_per_trial``, trial storage under the run directory).
+- **Ray Tune** runs and schedules trials (parallelism, resource allocation,
+  trial storage under the run directory).
 - **Optuna** (via Ray's ``OptunaSearch``) chooses which hyperparameter values
-  to try next and optimizes ``hpam_optimization_metric``.
+  to try next and optimizes ``hpo_metric``.
 
 .. note::
 
@@ -211,8 +255,21 @@ Whether you can customize the space depends on how you construct the class:
          MyEN = construct_model("MyElasticNet", cfg)
 
 Specs use local parameter names (``alpha``, ``n_components``, …). During
-search, Ray Tune / Optuna see dotted qualified keys to prevent name collisions, for example
-``predictor.elasticNet.alpha`` and
+search, Ray Tune / Optuna see dotted qualified keys to prevent name
+collisions, for example ``predictor.elasticNet.alpha`` and
 ``cell_line_featurizer.pca[expression].n_components``. See
 :doc:`/concepts/from_components_to_models` for the full key rules and
 :doc:`models` for how to construct classes from YAML or ``ModelConfig``.
+
+Randomization and robustness
+-----------------------------
+
+Pass ``randomization_modes`` to ``run`` for feature-shuffle tests
+(``"SVCC"``, ``"SVRC"``, ``"SVCD"``, ``"SVRD"``; ``None`` disables).
+``randomization_type`` is ``"permutation"`` (default) or ``"invariant"``.
+``robustness_trials`` repeats training with shuffled fold orderings;
+``0`` (default) disables the robustness test.
+
+These extras apply to all ``models`` in the run. See
+:doc:`/concepts/evaluation` for the interpretation of randomization and
+robustness results.

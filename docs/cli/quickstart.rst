@@ -4,40 +4,29 @@ Quickstart
 Install DrEvalPy and its dependencies first — see
 :doc:`/getting_started/installation`.
 
-Run a small LCO experiment on TOYv1 with naive predictors:
+Run a small LCO experiment on TOYv1 with ElasticNet:
 
 .. code-block:: bash
 
-   drevalpy \
-       --run_id my_first_run \
-       --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor \
-       --baselines NaiveMeanEffectsPredictor \
-       --dataset_name TOYv1 \
-       --test_mode LCO
+   drevalpy run ElasticNet --dataset TOYv1 --split-mode LCO --no-hpo
 
-This trains the models to predict LN_IC50 on the TOYv1 subset of CTRPv2,
-using leave-cell-line-out splits (LCO; see :doc:`/concepts/evaluation`) and
-the default seven-fold CV. Results land
-under:
-
-.. code-block:: bash
-
-   results/my_first_run/TOYv1/LCO
+This trains ElasticNet to predict drug response on the TOYv1 subset of CTRPv2,
+using leave-cell-line-out splits (LCO; see :doc:`/concepts/evaluation`).
+Results are written under the output directory (default ``results/``).
 
 Build the HTML report:
 
 .. code-block:: bash
 
-   drevalpy report --run_id my_first_run --dataset_name TOYv1
+   drevalpy report results/ --output-dir report
 
-Open ``index.html`` in that run’s results folder in your browser.
+Open ``report/multiqc_report.html`` in your browser.
 
 For large or highly reproducible runs, prefer the Nextflow pipeline
 `nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_
 (`GitHub <https://github.com/nf-core/drugresponseeval.git>`_). No Nextflow
 knowledge is required to use it.
 
-Next steps: :doc:`experiment` for more options, :doc:`reporting` for the
+Next steps: :doc:`experiments` for more options, :doc:`visualization` for the
 report command, and :doc:`/concepts/datasets` / :doc:`/concepts/evaluation`
-for datasets and evaluation
-settings.
+for datasets and evaluation settings.

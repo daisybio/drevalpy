@@ -134,6 +134,6 @@ repository.
 How to load and run
 -------------------
 
-- :doc:`/cli/experiment` — CLI experiment options for dataset and measure
-- :doc:`/python/datasets` — ``load_mudataset`` and custom tables
+- :doc:`/cli/datasets` — CLI dataset loading and splitting
+- :doc:`/python/datasets` — loading and splitting in Python
 - :doc:`/python/quickstart` — end-to-end Python track map after concepts

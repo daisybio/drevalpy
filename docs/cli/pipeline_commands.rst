@@ -58,5 +58,5 @@ When to use the root command instead
 ------------------------------------
 
 For interactive local runs, prefer the root ``drevalpy`` command
-(:doc:`experiment`). Use these subcommands when you need the same steps the
+(:doc:`experiments`). Use these subcommands when you need the same steps the
 Nextflow pipeline runs, or when you are debugging a single stage.

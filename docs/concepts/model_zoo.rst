@@ -21,7 +21,7 @@ In the table below, you can find the currently available zoo models.
 Continue from here
 ------------------
 
-- :doc:`/cli/experiment` — selecting zoo names in CLI experiments
+- :doc:`/cli/models` — selecting zoo names in CLI experiments
 - :doc:`/python/models` — ``construct_model``, class vs instance, lifecycle
 - :doc:`/python/experiments` — tuning a fixed preset architecture
 - :doc:`from_components_to_models` — revisit recipes and custom composition

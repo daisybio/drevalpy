@@ -123,4 +123,4 @@ declarations. An environment variable (``DREVALPY_EXTENSIONS_DIR``) provides
 the same mechanism without requiring a CLI flag.
 
 For code examples of how to interact with each registry, see
-:doc:`/python/custom_models` (Python) and :doc:`/cli/experiment` (CLI).
+:doc:`/python/extensions` (Python) and :doc:`/cli/experiments` (CLI).

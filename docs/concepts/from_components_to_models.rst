@@ -480,7 +480,7 @@ Continue the story
 - **Previous:** :doc:`component_catalog` — look up a registered component name
 - :doc:`/python/models` — ``construct_model``, lifecycle, and scope rules
   (recipe grammar stays on this page)
-- :doc:`/python/custom_models` — registering components, ``ModelInputBatch``,
+- :doc:`/python/extensions` — registering components, ``ModelInputBatch``,
   and predictor interfaces
 - :doc:`/python/datasets` — applied recipes for custom CSVs / alternate views
 - :doc:`/python/experiments` — running search on a fixed stack

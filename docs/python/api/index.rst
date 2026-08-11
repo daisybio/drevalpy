@@ -38,7 +38,7 @@ APIs from the subpackages in the table.
      - :doc:`/concepts/model_zoo`
    * - ``drevalpy.components``
      - Featurizers, predictors, registries, tuning
-     - :doc:`/python/custom_models`
+     - :doc:`/python/extensions`
      - :doc:`/concepts/component_catalog`
    * - ``drevalpy.utils``
      - Shared helpers

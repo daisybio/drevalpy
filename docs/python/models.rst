@@ -177,7 +177,7 @@ Hyperparameters are fixed after construction; create a new instance to change
 them.
 
 Implementing predictors (``ModelInputBatch``, input interfaces, and
-``FeatureFormat`` contracts) is covered in :doc:`custom_models`.
+``FeatureFormat`` contracts) is covered in :doc:`extensions`.
 
 Training and persistence
 ------------------------

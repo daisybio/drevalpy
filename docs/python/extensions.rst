@@ -1,40 +1,32 @@
-Custom Components and Models
-============================
+Extensions
+==========
 
 If you are reading this, we assume you are already familiar with:
 
 - :doc:`models` — ``construct_model``, recipes, ``ModelConfig``, and lifecycle
 - :doc:`/concepts/component_catalog`
 - :doc:`/concepts/from_components_to_models`
+- :doc:`/concepts/registries`
 
-Built-in models are stacks of registered **featurizers** and **predictors**.
-To add something new, register custom components first, then compose them
-the same way as any zoo preset or recipe. Do not subclass ``DRPModel``
-directly.
-
-Registering custom components
------------------------------
-
-Components live under ``drevalpy.components``. Decorators register a class by
-name and attach metadata (description, optional ``tags``, optional
-``LiteratureReference``, and role-specific ``FeatureFormat`` contracts).
-Fitted components must implement ``get_state`` / ``set_state`` so ``*.zip``
-checkpoints round-trip.
+Every extensible concept in DrEvalPy — predictors, featurizers, splitters,
+datasets, and visualizations — is managed by a registry that maps
+human-readable names to implementations. This page shows how to register
+custom implementations for each extension point and make them available to the
+pipeline.
 
 Custom featurizers
-~~~~~~~~~~~~~~~~~~
+------------------
 
 Subclass ``CellLineFeaturizer`` or ``DrugFeaturizer`` and register with
-``@register_cell_line_featurizer`` or ``@register_drug_featurizer``.
+``@drevalpy.registry.cell_line_featurizer.register`` or
+``@drevalpy.registry.drug_featurizer.register``.
 
 Declare a ``FeatureFormat`` **contract** on registration
 (``numeric_matrix``, ``graph``, or ``ragged_sequence``). That is the payload
 format this featurizer produces. Composition validation compares it to the
 predictor's ``cell_line_contract`` / ``drug_contract`` and rejects stacks
-where the formats disagree (for example a ``graph`` drug featurizer with a
-predictor that expects ``numeric_matrix`` on the drug side). Registry names
-and the format vocabulary are listed in
-:doc:`/concepts/component_catalog`.
+where the formats disagree. Registry names and the format vocabulary are listed
+in :doc:`/concepts/component_catalog`.
 
 .. code-block:: python
 
@@ -72,13 +64,15 @@ and the format vocabulary are listed in
            if isinstance(output_dim, int):
                self._output_dim = output_dim
 
+Fitted featurizers must implement ``get_state`` / ``set_state`` so ``*.zip``
+checkpoints round-trip.
+
 Custom predictors
-~~~~~~~~~~~~~~~~~
+-----------------
 
 Every predictor must inherit exactly one input interface and register with
-``@register_predictor``. The available types were already introduced in
-:doc:`/concepts/component_catalog`.
-The details about what the input for each predictor type looks like are explained in the tab switcher below.
+``@drevalpy.registry.predictor.register``. The available types were already
+introduced in :doc:`/concepts/component_catalog`.
 
 .. tab-set::
 
@@ -128,8 +122,6 @@ The details about what the input for each predictor type looks like are explaine
       ``MatrixPredictor`` flattens the batch with ``batch.to_feature_matrix()``.
       Implement ``_fit_matrix`` / ``_predict_matrix`` on the dense pair-level
       design matrix (the pattern used by ElasticNet, RandomForest, …).
-      Dense tabular models declare ``numeric_matrix`` on both sides, so they
-      pair with featurizers such as ``toyCellLine`` and ``fingerprints``.
 
       .. code-block:: python
 
@@ -187,8 +179,7 @@ The details about what the input for each predictor type looks like are explaine
       or named featurizer blocks from ``batch.cell_line_blocks`` /
       ``batch.drug_blocks``. Contracts still constrain the **format** of each
       side; ``required_cell_line_blocks`` / ``required_drug_blocks`` further
-      require named views in the stack (for example an ``expression`` block
-      from ``raw[expression]``).
+      require named views in the stack.
 
       .. code-block:: python
 
@@ -233,24 +224,113 @@ The details about what the input for each predictor type looks like are explaine
              def is_fitted(self) -> bool:
                  return getattr(self, "_estimator", None) is not None
 
-Feature-free predictors need only a predictor token in ``construct_model``.
-Matrix and block predictors pair with featurizers whose ``contract`` matches
-the predictor's ``cell_line_contract`` / ``drug_contract`` (see below).
+Custom splitters
+----------------
+
+Register a splitter function under a mode name with
+``@drevalpy.registry.splitter.register``. The function must accept the
+splitter protocol signature and return a list of
+:class:`~drevalpy.types.SplitMasks`:
+
+.. code-block:: python
+
+   from drevalpy.registry.splitter import register as register_splitter
+   from drevalpy.types import MuDataLike, SplitMasks
+
+
+   @register_splitter("MY_LCO", "Custom LCO with 80/20 fraction", validation="LCO")
+   def my_lco(
+       mudataset: MuDataLike,
+       n_splits: int = 5,
+       validation_ratio: float = 0.1,
+       random_state: int = 42,
+   ) -> list[SplitMasks]:
+       # ... custom splitting logic ...
+       return folds
+
+The ``validation`` parameter specifies which leakage constraint to enforce
+automatically after every split (``"LCO"``, ``"LDO"``, ``"LPO"``, or
+``"LTO"``). If validation fails, a ``SplitValidationError`` is raised.
+
+Once registered, your mode can be used anywhere a mode string is accepted:
+
+.. code-block:: python
+
+   from drevalpy.data import split
+
+   folds = split(dataset, mode="MY_LCO", n_splits=5)
+
+Custom visualizations
+---------------------
+
+Register a visualization class with
+``@drevalpy.registry.visualization.register``. The class must implement the
+``Visualization`` base interface (``compute`` and ``to_multiqc`` methods):
+
+.. code-block:: python
+
+   from drevalpy.registry.visualization import register as register_visualization
+   from drevalpy.visualization.base import Visualization
+
+
+   @register_visualization(
+       "my_scatter",
+       "Custom scatter plot of predictions vs response.",
+       result_type="ExperimentResult",
+       requirements=frozenset(),
+   )
+   class MyScatterPlot(Visualization):
+       def compute(self, result, *, dataset=None):
+           # Extract data from ExperimentResult or ModelResult
+           ...
+
+       def to_multiqc(self):
+           # Return list of MultiQC section objects
+           ...
+
+The ``result_type`` declares whether this visualization operates on an
+``ExperimentResult`` (aggregated across models) or a ``ModelResult``
+(single model). The ``requirements`` frozenset specifies conditions that must
+be met for the report system to select this visualization automatically (for
+example: multiple CV folds, multiple models, or a reference model).
+
+Custom dataset sources
+----------------------
+
+Register remote or local storage locations as **sources**, then point named
+datasets at files under those sources:
+
+.. code-block:: python
+
+   from drevalpy.registry.dataset import register_source, register_dataset
+
+   register_source(
+       "my_s3_bucket",
+       "s3://my-bucket/datasets/",
+       storage_options={"key": "...", "secret": "..."},
+   )
+
+   register_dataset("MyScreen", source="my_s3_bucket", file="MyScreen.h5mu")
+
+The two-level design means you register a source once and then add as many
+dataset entries under it as needed. Any protocol that
+`fsspec <https://filesystem-spec.readthedocs.io/>`_ supports works: HTTPS,
+S3, GCS, Azure Blob Storage, or local file paths. Once registered, load by
+name as usual:
+
+.. code-block:: python
+
+   from drevalpy.data import load
+
+   dataset = load("MyScreen")
 
 Literature references
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 ``LiteratureReference`` is optional **provenance metadata** for components
 ported from a paper or external repository. Pass it as ``reference=...`` on
 the register decorator. It does **not** change training, composition checks,
-or checkpoints — it only documents where the idea came from and how the
-DrEvalPy port differs from the upstream code. When you set a reference, all
-of these fields are required and validated:
-
-- ``repo_url`` — upstream implementation (``http://`` or ``https://``)
-- ``citation_text`` and/or ``citation_doi`` — how to cite the method
-- ``deviations`` — intentional differences from the reference (preprocessing,
-  packaging, defaults, missing pieces, …)
+or checkpoints — it only documents where the idea came from.
 
 .. code-block:: python
 
@@ -275,43 +355,8 @@ of these fields are required and validated:
    class ToyRidgePredictor(MatrixPredictor):
        ...
 
-Built-in literature models (DIPK, SparseGO, …) attach references the same way;
-see their entries in the component catalog.
-
-Discovery
-~~~~~~~~~
-
-Inspect what is registered with the role-specific listing helpers (also
-exported from ``drevalpy.components``):
-
-- :func:`~drevalpy.components.list_cell_line_featurizer_metadata`
-- :func:`~drevalpy.components.list_drug_featurizer_metadata`
-- :func:`~drevalpy.components.list_predictor_metadata`
-
-Each returns a list of dicts with name, description, tags, literature reference
-fields (for example ``repo_url``, ``citation``, ``citation_doi``), and either
-``output_format`` (featurizers) or ``input_interface`` (predictors). Pass
-``tag=...`` to keep only matching
-entries (for example ``tag="baseline"``). Tags are discovery filters only and
-never change validation. The generated
-:doc:`/concepts/component_catalog` is built from the same metadata.
-
-.. code-block:: python
-
-   from drevalpy.components import (
-       list_cell_line_featurizer_metadata,
-       list_predictor_metadata,
-   )
-
-   predictors = list_predictor_metadata()
-   baselines = list_predictor_metadata(tag="baseline")
-   cell_line = list_cell_line_featurizer_metadata()
-
-Composing models from custom components
----------------------------------------
-
-Once components are registered, compose them exactly as on :doc:`models`: a
-recipe string, zoo YAML, or ``ModelConfig``, then ``construct_model``.
+Loading extensions
+------------------
 
 Import your components
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -332,19 +377,10 @@ installable (or otherwise on ``PYTHONPATH``), a normal import is enough:
    )
    model = ToyRidge()
 
-Feature-free predictors need only a predictor token
-(``construct_model("ToyMean", "toyMean")``). Block predictors follow the same
-recipe form with the views they require (for example
-``raw[expression]:fingerprints:toyBlockRidge``).
-
-You can also put named presets in a zoo YAML file and load them (see below),
-but recipes and ``ModelConfig`` work immediately after import — no extra
-loader step.
-
 Other sources: ``load_extensions``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Use :func:`~drevalpy.components.load_extensions` when components are not a
+Use :func:`~drevalpy.registry.load_extensions` when components are not a
 normal importable package, or when you also want to register external zoo
 YAML in one call:
 
@@ -355,17 +391,9 @@ YAML in one call:
 - ``zoo_files`` — YAML presets that map a **name** to an already-registered
   stack (not Python classes, not experiment hpam YAML)
 
-.. code-block:: text
-
-   my_components/          # -> directories=[...]  (or import as a package)
-     toy_featurizer.py
-     toy_predictors.py
-   my_zoo/
-     toy.yaml              # -> zoo_files=[...]
-
 .. code-block:: python
 
-   from drevalpy.components import load_extensions
+   from drevalpy.registry import load_extensions
    from drevalpy.models import construct_model
 
    load_extensions(
@@ -374,20 +402,30 @@ YAML in one call:
    )
    ToyMean = construct_model("toyMean")  # zoo preset name
 
-Example zoo YAML:
+Plugin discovery
+~~~~~~~~~~~~~~~~
 
-.. code-block:: yaml
+When the package is imported, it scans for installed Python packages that
+advertise the ``drevalpy.plugins`` entry point group. Importing the advertised
+module triggers registration decorators, making a plugin's components
+available without any explicit user action beyond installation.
 
-   toyMean:
-     predictor: toyMean
+In your plugin's ``pyproject.toml``:
 
-   toyRidge:
-     cell_line_featurizer: toyCellLine
-     drug_featurizer: fingerprints
-     predictor: toyRidge
+.. code-block:: toml
 
-Run the resulting class through :doc:`experiments` the same way as any zoo
-preset.
+   [project.entry-points."drevalpy.plugins"]
+   my_plugin = "my_plugin.components"
+
+Extension directories
+~~~~~~~~~~~~~~~~~~~~~
+
+Both the CLI and the Python API accept an **extensions directory** containing
+``.py`` and ``.yaml`` files. All Python files in the directory are imported
+(triggering registration decorators for any registry), and all YAML files are
+loaded as model-zoo presets or dataset declarations. An environment variable
+(``DREVALPY_EXTENSIONS_DIR``) provides the same mechanism without requiring a
+CLI flag.
 
 Saving and loading with custom components
 -----------------------------------------
@@ -410,5 +448,4 @@ Import the same modules (or call ``load_extensions``) before loading:
    model = load_model("checkpoints/toy_ridge.zip")
 
 Built-in zoo models need no extra step; only custom component names require
-this. See :doc:`models` for the general save/load lifecycle (``.zip`` is
-appended automatically when the path does not already end with it).
+this. See :doc:`models` for the general save/load lifecycle.

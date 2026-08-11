@@ -107,7 +107,7 @@ This means, if you are using Windows and a Python version outside of that range,
 
 1. Installation of DrEvalPy will succeed, but ``ray`` won't be installed.
 2. Running a workflow with hyperparameter tuning (which is enabled by default) will fail with ``ImportError: Ray Tune with Optuna requires ray[tune] and optuna to be installed``.
-3. Running a workflow without hyperparameter tuning (``--no_hyperparameter_tuning``) will succeed
+3. Running a workflow without hyperparameter tuning (``--no-hpo``) will succeed
 
 To run HPO from Windows make sure to use a supported Python version (3.10-3.12), use
 `WSL <https://learn.microsoft.com/en-us/windows/wsl/install>`_, or the

@@ -21,8 +21,8 @@ Suggested path
    :doc:`concepts/from_components_to_models` and :doc:`concepts/model_zoo` —
    registered atoms, how they compose, and named zoo presets.
 5. Go deeper on your track. For Python: :doc:`python/datasets` →
-   :doc:`python/models` → :doc:`python/custom_models` →
-   :doc:`python/experiments` (then visualization). For CLI: :doc:`cli/experiment`.
+   :doc:`python/models` → :doc:`python/extensions` →
+   :doc:`python/experiments` (then visualization). For CLI: :doc:`cli/experiments`.
 
 For demanding or highly reproducible runs, use the Nextflow pipeline
 `nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_ (see
@@ -53,7 +53,7 @@ For demanding or highly reproducible runs, use the Nextflow pipeline
    python/quickstart
    python/datasets
    python/models
-   python/custom_models
+   python/extensions
    python/experiments
    python/visualization
    python/api/index
@@ -63,11 +63,11 @@ For demanding or highly reproducible runs, use the Nextflow pipeline
    :caption: CLI guide
 
    cli/quickstart
-   cli/experiment
-   cli/hyperparameter_tuning
-   cli/reporting
-   cli/wandb
-   cli/custom_splits
+   cli/datasets
+   cli/models
+   cli/experiments
+   cli/visualization
+   cli/extensions
    cli/pipeline_commands
    cli/reference
 

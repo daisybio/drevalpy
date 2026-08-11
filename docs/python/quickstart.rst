@@ -4,43 +4,50 @@ Quickstart
 Install DrEvalPy and its dependencies first — see
 :doc:`/getting_started/installation`.
 
-Load the TOYv1 dataset, resolve ElasticNet from the model zoo, and hand
-the model class to :func:`~drevalpy.experiment.mu_experiment`:
+Load the TOYv1 dataset, resolve ElasticNet from the model zoo, and run the
+evaluation pipeline:
 
 .. code-block:: python
 
-   from drevalpy.data import load_mudataset
-   from drevalpy.experiment import mu_experiment
+   from drevalpy.data import load
    from drevalpy.models import construct_model
+   from drevalpy.run import run
 
-   mudataset = load_mudataset("TOYv1")
+   dataset = load("TOYv1")
 
    ElasticNet = construct_model("ElasticNet")
 
-   mu_experiment(
+   result = run(
        models=[ElasticNet],
-       mudataset=mudataset,
-       dataset_name="TOYv1",
-       run_id="my_first_run",
-       test_mode="LCO",
-       path_out="results/",
+       dataset=dataset,
+       split_mode="LCO",
        hyperparameter_tuning=False,
    )
 
-:func:`~drevalpy.models.construct_model` returns a **class**. The experiment
-call expects the class (or a list of classes) so each CV fold can construct a
-fresh configured instance (``Model()`` or ``Model(best_hpams)``) and call
-``train``. For a single-model script outside the experiment runner:
+:func:`~drevalpy.models.construct_model` returns a **class**. The pipeline
+expects classes (or a list of classes) so each CV fold can construct a
+fresh configured instance and call ``train``. For a single-model script
+outside the experiment runner:
 
 .. code-block:: python
 
    model = ElasticNet()  # or ElasticNet({"alpha": 0.1})
    model.train(...)
 
-Results land under ``results/my_first_run/TOYv1/LCO``. See
-:doc:`visualization` for ``create_report``, :doc:`datasets` for other screens
-and custom tables, and :doc:`experiments` for baselines, tuning, and
-stress-test options.
+:func:`~drevalpy.run.run` returns an
+:class:`~drevalpy.types.results.ExperimentResult` that groups predictions,
+metrics, and metadata for all folds. Save it and generate a report:
+
+.. code-block:: python
+
+   result.save("results/")
+
+   from drevalpy.visualization.report import create_report
+
+   create_report(result, "report/")
+
+See :doc:`visualization` for report options, :doc:`datasets` for loading and
+splitting, and :doc:`experiments` for tuning and stress-test options.
 
 After concepts
 --------------
@@ -50,7 +57,8 @@ concepts track for Python:
 
 - :doc:`/concepts/datasets` → :doc:`datasets`
 - :doc:`/concepts/evaluation` → :doc:`experiments` and :doc:`visualization`
-- :doc:`/concepts/component_catalog` → :doc:`custom_models`
+- :doc:`/concepts/component_catalog` → :doc:`extensions`
 - :doc:`/concepts/from_components_to_models` → :doc:`models` and
   :doc:`experiments`
 - :doc:`/concepts/model_zoo` → :doc:`models`
+- :doc:`/concepts/registries` → :doc:`extensions`

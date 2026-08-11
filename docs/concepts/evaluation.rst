@@ -136,7 +136,7 @@ so the response definition itself is aligned across studies.
 How to run experiments
 ----------------------
 
-- :doc:`/cli/experiment` — CLI experiment settings
-- :doc:`/cli/reporting` — HTML report after a run
-- :doc:`/python/experiments` — ``mu_experiment`` options and results
+- :doc:`/cli/experiments` — CLI experiment settings
+- :doc:`/cli/visualization` — HTML report after a run
+- :doc:`/python/experiments` — experiment pipeline options and results
 - :doc:`/python/visualization` — ``evaluate``, plots, and ``create_report``
