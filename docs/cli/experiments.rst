@@ -19,7 +19,7 @@ trains, predicts, and writes results:
 .. code-block:: bash
 
    drevalpy run ElasticNet RandomForest \
-       --dataset TOYv1 \
+       --dataset GDSC1 \
        --split-mode LCO \
        --output-dir results
 
@@ -70,7 +70,7 @@ Example with tuning disabled:
 
 .. code-block:: bash
 
-   drevalpy run ElasticNet --dataset TOYv1 --split-mode LCO --no-hpo
+   drevalpy run ElasticNet --dataset GDSC1 --split-mode LCO --no-hpo
 
 Example with custom HPO settings:
 
@@ -90,7 +90,7 @@ For parallel or distributed workflows, run individual folds separately:
 
 .. code-block:: bash
 
-   drevalpy single ElasticNet data/TOYv1.h5mu splits/fold_0.npz results/fold_0.npz \
+   drevalpy single ElasticNet data/GDSC1.h5mu splits/fold_0.npz results/fold_0.npz \
        --hpo-metric RMSE \
        --hpo-num-samples 16
 
@@ -147,24 +147,22 @@ For standalone randomization and robustness:
 
 .. code-block:: bash
 
-   drevalpy experiments randomization ElasticNet TOYv1 randomized/ --mode SVRC
+   drevalpy experiments randomization ElasticNet GDSC1 randomized/ --mode SVRC
    drevalpy experiments robustness splits/ robustness_splits/ --n-permutations 5
 
 Weights & Biases
 ----------------
 
-If ``drevalpy run`` supports a ``--wandb-project`` flag in your build, pass
-it to enable wandb logging. Each model run logs config (model name, dataset,
-split mode, fold index, hyperparameters) and test metrics with a ``test_``
-prefix.
-
-Auth follows wandb's usual mechanisms: ``WANDB_API_KEY`` environment variable,
-stored credentials from ``wandb login``, or interactive login.
+Hyperparameter search can log each trial to `Weights & Biases
+<https://wandb.ai/>`_, but only from Python: ``hpam_tune`` accepts a
+``wandb_project`` argument, and no CLI command forwards it. Call the tuning
+API directly if you need W&B logging.
 
 Nextflow for large runs
 -----------------------
 
 For demanding or highly reproducible workloads, use
 `nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_. The
-pipeline calls the stepwise ``drevalpy`` subcommands documented in
-:doc:`pipeline_commands`.
+pipeline pins the ``drevalpy`` version it runs and is driven by its own
+`pipeline parameters <https://nf-co.re/drugresponseeval/dev/parameters/>`_,
+which are distinct from the CLI options above.

@@ -1,4 +1,8 @@
-"""Gene-list CSVs shipped with drevalpy, plus helpers to resolve and parse them."""
+"""Gene-list CSVs shipped with drevalpy, plus helpers to resolve and parse them.
+
+See the maintenance script ``_make_gene_lists.py`` in this directory for how each CSV
+was produced.
+"""
 
 from __future__ import annotations
 

@@ -57,7 +57,7 @@ With a reference model for normalized metrics:
    drevalpy report results/ \
        --output-dir report \
        --reference-model NaiveMeanEffectsPredictor \
-       --dataset data/TOYv1.h5mu
+       --dataset data/GDSC1.h5mu
 
 The report uses `MultiQC <https://multiqc.info/>`_ internally and includes
 critical-difference diagrams, metric tables, violin plots, heatmaps, and

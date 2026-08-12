@@ -32,27 +32,34 @@ How to set up your development environment
 ------------------------------------------
 
 1. Fork the repository on GitHub.
-2. Make a new conda environment with Python 3.11, 3.12, or 3.13.
-3. ``pip install poetry`` : we use poetry to manage dependencies
-4. ``pip install poetry-plugin-export``
-5. ``poetry install`` : this will install all dependencies
-6. Test whether the installation was successful by running the following command:
+2. Install `uv <https://docs.astral.sh/uv/>`_, which manages both the Python
+   interpreter and the dependencies.
+3. ``uv sync`` : this creates the virtual environment and installs the project
+   with its ``dev`` dependency group. The ``docs`` group is pulled in on demand
+   with ``--group docs``.
+4. Test whether the installation was successful by running a small experiment:
 
    .. code:: console
 
-      $ drevalpy --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset_name TOYv1 --test_mode LCO
+      $ uv run drevalpy run NaiveDrugMeanPredictor ElasticNet --dataset GDSC1 --split-mode LCO --no-hpo
 
-6. Visualize the results by running the following command:
+5. Visualize the results by running the following command:
 
    .. code:: console
 
-      $ drevalpy report --run_id my_first_run --dataset_name TOYv1
+      $ uv run drevalpy report results/ --output-dir report
+
+   Then open ``report/multiqc_report.html`` in your browser.
 
 How to test the project
 -----------------------
 
 Unit tests are located in the ``tests`` directory,
 and are written using the pytest_ testing framework.
+
+.. code:: console
+
+   $ uv run pytest
 
 .. _pytest: https://pytest.readthedocs.io/
 
@@ -67,12 +74,18 @@ Your pull request needs to meet the following guidelines for acceptance:
 - Include unit tests. This project maintains a high code coverage.
 - If your changes add functionality, update the documentation accordingly.
 
-To run linting and code formatting checks before committing your change, you can install pre-commit as a
-Git hook by running the following command:
+Linting and formatting run through `prek <https://github.com/j178/prek>`_, a
+drop-in replacement for pre-commit. Run every hook against the whole tree:
 
 .. code:: console
 
-   $ nox --session=pre-commit -- install
+   $ uv run prek run --all-files
+
+To run the same checks automatically on each commit, install the Git hook:
+
+.. code:: console
+
+   $ uv run prek install
 
 It is recommended to open an issue before starting work on anything.
 
@@ -82,15 +95,13 @@ How to build and view the documentation
 ---------------------------------------
 
 This project uses Sphinx_ together with several extensions to build the documentation.
-To build the documentation, change into the ``docs/`` directory and run:
+Build it from the repository root with warnings treated as errors, exactly as CI does:
 
 .. code:: console
 
-    $ make html
+    $ uv run --group docs sphinx-build -W docs docs/_build
 
-The generated static HTML files can be found in ``docs/_build/html``.
+The generated static HTML files can be found in ``docs/_build``.
 Simply open them with your favorite browser.
-For a first run after cloning, ensure the docs dependencies from Poetry are installed
-(for example via ``poetry install``), then build from ``docs/`` as above.
 
 .. _sphinx: https://www.sphinx-doc.org/en/master/

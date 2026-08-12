@@ -4,14 +4,14 @@ Quickstart
 Install DrEvalPy and its dependencies first — see
 :doc:`/getting_started/installation`.
 
-Run a small LCO experiment on TOYv1 with ElasticNet:
+Run an LCO experiment on GDSC1 with ElasticNet:
 
 .. code-block:: bash
 
-   drevalpy run ElasticNet --dataset TOYv1 --split-mode LCO --no-hpo
+   drevalpy run ElasticNet --dataset GDSC1 --split-mode LCO --no-hpo
 
-This trains ElasticNet to predict drug response on the TOYv1 subset of CTRPv2,
-using leave-cell-line-out splits (LCO; see :doc:`/concepts/evaluation`).
+This trains ElasticNet to predict drug response on the GDSC1 screen, using
+leave-cell-line-out splits (LCO; see :doc:`/concepts/evaluation`).
 Results are written under the output directory (default ``results/``).
 
 Build the HTML report:

@@ -5,8 +5,10 @@ Guides first — this page is symbol lookup. Prefer the
 :doc:`/python/quickstart` track map and the task pages above when learning
 workflows; use the packages below when you need signatures and member lists.
 
-The root ``drevalpy`` package exports ``__version__`` mainly. Import public
-APIs from the subpackages in the table.
+The root ``drevalpy`` package re-exports a few conveniences alongside
+``__version__`` — ``load``, ``split``, ``run``, ``single``,
+``construct_model``, ``randomization``, ``robustness``, and ``registry``. For
+everything else, import from the subpackages in the table.
 
 .. list-table::
    :header-rows: 1
@@ -25,7 +27,7 @@ APIs from the subpackages in the table.
      - :doc:`/python/models`
      - :doc:`/concepts/from_components_to_models`
    * - ``drevalpy.experiment``
-     - ``mu_experiment`` and related runners
+     - ``randomization`` and ``robustness`` stress tests
      - :doc:`/python/experiments`
      - :doc:`/concepts/evaluation`
    * - ``drevalpy.evaluation``

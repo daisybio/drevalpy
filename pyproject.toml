@@ -94,9 +94,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["drevalpy"]
-# Gene-list CSVs next to the featurizers ship as package data; the notebook documenting how
-# they were generated is repo-only.
-exclude = ["*.ipynb"]
 
 [tool.uv]
 exclude-newer = "3 weeks"
@@ -163,7 +160,6 @@ ignore = []
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "D101", "D102", "D103"]
 "drevalpy/datasets/curvecurator.py" = ["S404", "S603"]
-"*.ipynb" = ["E402", "E501"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -180,7 +176,11 @@ docstring-code-format = true
 python-version = "3.11"
 
 [tool.ty.rules]
-# Optional dependencies not installed in dev venv (rdkit, transformers, gensim, etc.)
+# Not about third-party packages: rdkit/transformers/gensim are core
+# [project.dependencies] and resolve fine. The remaining diagnostics are
+# tests/docs/ importing the docs/ generators (`_model_zoo`, `_cli_click`,
+# `_generated_io`), which live outside the package and are put on sys.path at
+# runtime. Once ty supports it, this can be narrowed to a per-file ignore.
 unresolved-import = "ignore"
 # Incomplete third-party stubs (pandas, matplotlib, torch)
 invalid-argument-type = "ignore"
@@ -209,6 +209,7 @@ testpaths = ["tests"]
 norecursedirs = ["tests/cli_old"]
 pythonpath = ["."]
 addopts = ["--import-mode=importlib"]
+markers = ["network: requires downloading pretrained weights or remote annotations"]
 
 [tool.complexipy]
 max-complexity-allowed = 15

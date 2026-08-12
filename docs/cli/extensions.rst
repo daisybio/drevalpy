@@ -20,7 +20,7 @@ before any subcommand runs:
 .. code-block:: bash
 
    drevalpy --extensions-dir my_components/ run ToyRidge \
-       --dataset TOYv1 --split-mode LCO
+       --dataset GDSC1 --split-mode LCO
 
 All ``.py`` files in the directory are imported (triggering any ``@register``
 decorators inside them). All ``.yaml`` files are loaded as model-zoo presets
@@ -30,7 +30,7 @@ You can pass the flag multiple times to load several directories:
 
 .. code-block:: bash
 
-   drevalpy -e my_featurizers/ -e my_zoo/ run MyModel --dataset TOYv1 --split-mode LCO
+   drevalpy -e my_featurizers/ -e my_zoo/ run MyModel --dataset GDSC1 --split-mode LCO
 
 ``DREVALPY_EXTENSIONS_DIR``
 ---------------------------
@@ -41,7 +41,7 @@ flag:
 .. code-block:: bash
 
    export DREVALPY_EXTENSIONS_DIR=my_components/
-   drevalpy run ToyRidge --dataset TOYv1 --split-mode LCO
+   drevalpy run ToyRidge --dataset GDSC1 --split-mode LCO
 
 Both the environment variable and the CLI flag can be used together — the CLI
 flag directories are loaded after the environment variable directory.

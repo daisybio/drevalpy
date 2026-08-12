@@ -50,16 +50,6 @@ Use DrEval to build drug response models that have an impact
 This project is a collaboration of the Technical University of Munich (TUM, Germany)
 and the Freie Universität Berlin (FU, Germany).
 
-## Demo
-
-Check out our demo notebook in Colab:
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daisybio/drevalpy/blob/development/dreval_colab_demo.ipynb)
-
-Expected runtime on a normal machine:
-
-- Standalone demo: 38 minutes
-- Nextflow demo: 5 minutes
-
 ## Installation
 
 Using pip:
@@ -87,9 +77,7 @@ From source:
 ```bash
 git clone https://github.com/daisybio/drevalpy.git
 cd drevalpy
-pip install poetry
-pip install poetry-plugin-export
-poetry install
+uv sync
 ```
 
 Check your installation:
@@ -102,69 +90,62 @@ Full install options (Conda, Docker, Windows HPO): [Installation](https://dreval
 
 ## Quickstart
 
-DrEvalPy exposes the same evaluation workflow through the **CLI** and the **Python API**. Pick one track below; both write predictions under `results/<run_id>/<dataset>/<test_mode>/`.
+DrEvalPy exposes the same evaluation workflow through the **CLI** and the **Python API**. Pick one track below; both write results into an output directory (default `results/`) that holds one subdirectory per model and one `.npz` file per cross-validation fold.
 
 ### CLI (smallest runnable example)
 
-After installation, run naive baselines on the small TOYv1 screen with leave-cell-line-out (LCO) splits:
+After installation, run naive baselines on the GDSC1 screen with leave-cell-line-out (LCO) splits:
 
 ```bash
-drevalpy \
-  --run_id my_first_run \
-  --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor \
-  --baselines NaiveMeanEffectsPredictor \
-  --dataset_name TOYv1 \
-  --test_mode LCO
+drevalpy run NaiveTissueMeanPredictor NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+  --dataset GDSC1 \
+  --split-mode LCO \
+  --no-hpo
 ```
 
-This downloads TOYv1 into the system cache directory (override with the `DREVALPY_CACHE_DIR` environment variable), trains the listed models, and evaluates with the default seven-fold CV. Outputs go to `results/my_first_run/TOYv1/LCO`.
+Models are positional arguments. This downloads GDSC1 into the system cache directory (override with the `DREVALPY_CACHE_DIR` environment variable), trains the listed models, and evaluates with the default five-fold CV. Outputs go to `results/`; use `--output-dir` to change that. Hyperparameter tuning is on by default — `--no-hpo` above keeps this first run fast.
 
 Build the HTML report:
 
 ```bash
-drevalpy report --run_id my_first_run --dataset_name TOYv1
+drevalpy report results/ --output-dir report
 ```
 
-Open `index.html` under the run’s results folder in your browser. The entry point `drevalpy-report` is equivalent.
+Open `report/multiqc_report.html` in your browser.
 
 More CLI options: [CLI quickstart](https://drevalpy.readthedocs.io/en/latest/cli/quickstart.html).
 
 ### Python API
 
-Load the dataset, resolve zoo presets with `construct_model` (returns a **class**), and pass that class to `mu_experiment`:
+Load the dataset, resolve zoo presets with `construct_model` (returns a **class**), and pass those classes to `run`:
 
 ```python
-from drevalpy.data import load_mudataset
-from drevalpy.experiment import mu_experiment
+from drevalpy.data import load
 from drevalpy.models import construct_model
+from drevalpy.run import run
 
-mudataset = load_mudataset("TOYv1")
+dataset = load("GDSC1")
 
 ElasticNet = construct_model("ElasticNet")
 
-mu_experiment(
+result = run(
     models=[ElasticNet],
-    mudataset=mudataset,
-    dataset_name="TOYv1",
-    run_id="my_first_run",
-    test_mode="LCO",
-    path_out="results/",
+    dataset=dataset,
+    split_mode="LCO",
     hyperparameter_tuning=False,
 )
 ```
 
 With `hyperparameter_tuning=True` (the default), Ray Tune and Optuna search each model’s structured hyperparameter space. Set `hyperparameter_tuning=False` for a fast defaults-only run.
 
-Score predictions and render the same style of HTML report from Python:
+`run` returns an `ExperimentResult` holding the predictions and metrics of every fold. Save it and render the same style of HTML report from Python:
 
 ```python
-from drevalpy.visualization.create_report import create_report
+from drevalpy.visualization.report import create_report
 
-create_report(
-    run_id="my_first_run",
-    dataset="TOYv1",
-    result_path="results",
-)
+result.save("results/")
+
+create_report(result, "report/")
 ```
 
 Concepts (datasets, splits, metrics): [documentation index](https://drevalpy.readthedocs.io/en/latest/index.html). Python walkthrough: [Python quickstart](https://drevalpy.readthedocs.io/en/latest/python/quickstart.html).
@@ -176,91 +157,108 @@ For demanding workloads, prefer the Nextflow pipeline [nf-core/drugresponseeval]
 ## Example Report
 
 [Browse our benchmark results here.](https://dilis-lab.github.io/drevalpy-report/)
-You can reproduce the whole analysis by running the following commands:
+
+The published benchmark was produced with the Nextflow pipeline
+[nf-core/drugresponseeval](https://nf-co.re/drugresponseeval/dev/), which has its own
+[parameter schema](https://nf-co.re/drugresponseeval/dev/parameters/) and pins the `drevalpy`
+version it runs. The keys below are _pipeline_ parameters, not flags of the `drevalpy` CLI shown
+above. Write each parameter set to a YAML file and hand it to Nextflow with `-params-file`:
 
 ```bash
-# Main run
-nextflow run nf-core/drugresponseeval \
-    -profile docker \
-    --run_id main_results \
-    --dataset_name CTRPv2 \
-    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2 \
-    --models DIPK,MultiViewRandomForest \
-    --baselines SimpleNeuralNetwork,RandomForest,MultiViewNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveCellLineMeanPredictor,NaiveDrugMeanPredictor \
-    --test_mode LPO,LCO,LTO,LDO \
-    --randomization_mode SVRC,SVRD \
-    --randomization_type permutation \
-    --measure LN_IC50
+for params in params/*.yaml; do
+    nextflow run nf-core/drugresponseeval -profile docker -params-file "$params"
+done
+```
 
-# EC50 run
-nextflow run nf-core/drugresponseeval \
-    -profile docker \
-    --run_id ec50_run \
-    --dataset_name CTRPv2 \
-    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2 \
-    --models RandomForest \
-    --baselines NaiveMeanEffectsPredictor \
-    --test_mode LCO \
-    --measure pEC50
+Main run:
 
-# AUC run
-nextflow run nf-core/drugresponseeval \
-    -profile docker \
-    --run_id auc_run \
-    --dataset_name CTRPv2 \
-    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2 \
-    --models RandomForest \
-    --baselines NaiveMeanEffectsPredictor \
-    --test_mode LCO \
-    --measure AUC
+```yaml
+# params/main_results.yaml
+run_id: main_results
+dataset_name: CTRPv2
+cross_study_datasets: CTRPv1,CCLE,GDSC1,GDSC2
+models: DIPK,MultiViewRandomForest
+baselines: SimpleNeuralNetwork,RandomForest,MultiViewNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveCellLineMeanPredictor,NaiveDrugMeanPredictor
+test_mode: LPO,LCO,LTO,LDO
+randomization_mode: SVRC,SVRD
+randomization_type: permutation
+measure: LN_IC50
+```
 
-# Invariant ablation run
-# Run this on CPU
-nextflow run nf-core/drugresponseeval \
-    -profile docker \
-    --run_id invariant-rf \
-    --dataset_name CTRPv2 \
-    --models MultiViewRandomForest \
-    --baselines NaiveMeanEffectsPredictor \
-    --test_mode LPO,LCO,LDO \
-    --randomization_mode SVRC,SVRD \
-    --randomization_type invariant \
-    --measure LN_IC50
+EC50 and AUC runs:
 
-# modify the profile to run this on GPU, if possible
-nextflow run nf-core/drugresponseeval \
-    -profile docker \
-    --run_id invariant-dipk \
-    --dataset_name CTRPv2 \
-    --models DIPK \
-    --baselines NaiveMeanEffectsPredictor \
-    --test_mode LPO,LCO,LDO \
-    --randomization_mode SVRC,SVRD \
-    --randomization_type invariant \
-    --measure LN_IC50
+```yaml
+# params/ec50_run.yaml
+run_id: ec50_run
+dataset_name: CTRPv2
+cross_study_datasets: CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2
+models: RandomForest
+baselines: NaiveMeanEffectsPredictor
+test_mode: LCO
+measure: pEC50
+```
 
-## Inference on BeatAMl2, PDX_Bruna
-# run this on CPU
-nextflow run nf-core/drugresponseeval \
-    -profile docker \
-    --run_id infer_pdx_beat \
-    --dataset_name CTRPv2 \
-    --cross_study_datasets PDX_Bruna,BeatAML2 \
-    --models RandomForest,SimpleNeuralNetwork,GradientBoosting,SRMF,ElasticNet,NaivePredictor,NaiveDrugMeanPredictor,NaiveCellLineMeanPredictor \
-    --baselines NaiveMeanEffectsPredictor \
-    --test_mode LPO,LCO,LDO \
-    --measure LN_IC50
+```yaml
+# params/auc_run.yaml
+run_id: auc_run
+dataset_name: CTRPv2
+cross_study_datasets: CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2
+models: RandomForest
+baselines: NaiveMeanEffectsPredictor
+test_mode: LCO
+measure: AUC
+```
 
-# modify profile to run this on GPU, if possible
-nextflow run nf-core/drugresponseeval \
-    -profile docker \
-    --run_id dipk_pdx_beat \
-    --dataset_name CTRPv2 \
-    --cross_study_datasets PDX_Bruna,BeatAML2 \
-    --models DIPK \
-    --baselines NaiveMeanEffectsPredictor \
-    --test_mode LPO,LCO,LDO \
-    --measure LN_IC50
+Invariant ablation runs — run the first on CPU, and adjust the profile to use a GPU for the
+second one if you can:
+
+```yaml
+# params/invariant-rf.yaml
+run_id: invariant-rf
+dataset_name: CTRPv2
+models: MultiViewRandomForest
+baselines: NaiveMeanEffectsPredictor
+test_mode: LPO,LCO,LDO
+randomization_mode: SVRC,SVRD
+randomization_type: invariant
+measure: LN_IC50
+```
+
+```yaml
+# params/invariant-dipk.yaml
+run_id: invariant-dipk
+dataset_name: CTRPv2
+models: DIPK
+baselines: NaiveMeanEffectsPredictor
+test_mode: LPO,LCO,LDO
+randomization_mode: SVRC,SVRD
+randomization_type: invariant
+measure: LN_IC50
+```
+
+Inference on BeatAML2 and PDX_Bruna — again CPU for the first, GPU for the second where
+available:
+
+```yaml
+# params/infer_pdx_beat.yaml
+run_id: infer_pdx_beat
+dataset_name: CTRPv2
+cross_study_datasets: PDX_Bruna,BeatAML2
+models: RandomForest,SimpleNeuralNetwork,GradientBoosting,SRMF,ElasticNet,NaivePredictor,NaiveDrugMeanPredictor,NaiveCellLineMeanPredictor
+baselines: NaiveMeanEffectsPredictor
+test_mode: LPO,LCO,LDO
+measure: LN_IC50
+```
+
+```yaml
+# params/dipk_pdx_beat.yaml
+run_id: dipk_pdx_beat
+dataset_name: CTRPv2
+cross_study_datasets: PDX_Bruna,BeatAML2
+models: DIPK
+baselines: NaiveMeanEffectsPredictor
+test_mode: LPO,LCO,LDO
+measure: LN_IC50
 ```
 
 ## Development

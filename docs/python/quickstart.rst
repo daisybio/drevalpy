@@ -4,7 +4,7 @@ Quickstart
 Install DrEvalPy and its dependencies first — see
 :doc:`/getting_started/installation`.
 
-Load the TOYv1 dataset, resolve ElasticNet from the model zoo, and run the
+Load the GDSC1 dataset, resolve ElasticNet from the model zoo, and run the
 evaluation pipeline:
 
 .. code-block:: python
@@ -13,7 +13,7 @@ evaluation pipeline:
    from drevalpy.models import construct_model
    from drevalpy.run import run
 
-   dataset = load("TOYv1")
+   dataset = load("GDSC1")
 
    ElasticNet = construct_model("ElasticNet")
 

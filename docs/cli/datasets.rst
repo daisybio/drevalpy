@@ -16,15 +16,16 @@ path) and writes it as a ``.h5mu`` file:
 
 .. code-block:: bash
 
-   drevalpy data load TOYv1 data/TOYv1.h5mu
+   drevalpy data load GDSC1 data/GDSC1.h5mu
 
 The first positional argument is the dataset name (or path to an existing
 ``.h5mu`` file). The second is the output file path. Built-in datasets are
 downloaded into the system cache on first use (see
 :doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``).
 
-Built-in dataset names include: ``BeatAML2``, ``CCLE``, ``CTRPv1``,
-``CTRPv2``, ``GDSC1``, ``GDSC2``, ``PDX_Bruna``, ``TOYv1``, ``TOYv2``.
+Built-in dataset names are: ``BeatAML2``, ``CCLE``, ``CTRPv1``, ``CTRPv2``,
+``GDSC1``, ``GDSC2``, ``PDX_Bruna``. Sizes and provenance for each are in
+:doc:`/concepts/datasets`.
 
 Splitting datasets
 ------------------
@@ -33,7 +34,7 @@ Splitting datasets
 
 .. code-block:: bash
 
-   drevalpy data split TOYv1 splits/ --mode LCO --n-splits 5
+   drevalpy data split GDSC1 splits/ --mode LCO --n-splits 5
 
 Options:
 
@@ -59,6 +60,6 @@ The ``drevalpy run`` command handles loading and splitting automatically. Pass
 
 .. code-block:: bash
 
-   drevalpy run ElasticNet --dataset TOYv1 --split-mode LCO
+   drevalpy run ElasticNet --dataset GDSC1 --split-mode LCO
 
 For more on the ``run`` command, see :doc:`experiments`.

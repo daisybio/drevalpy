@@ -25,8 +25,7 @@ Suggested path
    :doc:`python/experiments` (then visualization). For CLI: :doc:`cli/experiments`.
 
 For demanding or highly reproducible runs, use the Nextflow pipeline
-`nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_ (see
-:doc:`cli/pipeline_commands`).
+`nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_.
 
 .. toctree::
    :maxdepth: 1
@@ -68,7 +67,6 @@ For demanding or highly reproducible runs, use the Nextflow pipeline
    cli/experiments
    cli/visualization
    cli/extensions
-   cli/pipeline_commands
    cli/reference
 
 .. toctree::

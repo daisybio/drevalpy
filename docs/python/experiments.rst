@@ -30,7 +30,7 @@ Minimal call
    from drevalpy.models import construct_model
    from drevalpy.run import run
 
-   dataset = load("TOYv1")
+   dataset = load("GDSC1")
    ElasticNet = construct_model("ElasticNet")
 
    result = run(
@@ -100,7 +100,7 @@ For parallel or custom workflows, split first and execute folds individually:
    from drevalpy.models import construct_model
    from drevalpy.single import single
 
-   dataset = load("TOYv1")
+   dataset = load("GDSC1")
    folds = split(dataset, mode="LCO", n_splits=5)
    ElasticNet = construct_model("ElasticNet")
 

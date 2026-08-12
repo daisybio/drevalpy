@@ -72,31 +72,30 @@ Run the image:
 From Source
 -----------
 
-To install DrEvalPy from source, clone the repository and install the package using Poetry
-(ensure that Poetry is  >=1.2.0 because otherwise, the group dependencies will not work, e.g., 2.4.1 works):
+To install DrEvalPy from source, clone the repository and let
+`uv <https://docs.astral.sh/uv/>`_ create the environment. ``uv sync`` installs
+the project together with the locked ``dev`` dependency group:
 
 .. code-block:: bash
 
     git clone https://github.com/daisybio/drevalpy.git
     cd drevalpy
-    mamba create -y -n drevalpy python==3.13 poetry==2.4.1
-    poetry --version
-    pip install poetry-plugin-export
-    poetry install
+    uv sync
 
 Verify the console script:
 
 .. code-block:: bash
 
-   drevalpy --help
+   uv run drevalpy --help
 
 Then :doc:`choose the CLI or Python API </getting_started/run_first_experiment>`
 for your first experiment. Built-in datasets download on first use into a
 system cache directory (``platformdirs.user_cache_dir("drevalpy")``, for
 example ``~/.cache/drevalpy`` on Linux or ``~/Library/Caches/drevalpy`` on
 macOS). Set the ``DREVALPY_CACHE_DIR`` environment variable to use a
-different location. Predictions and reports go under ``--path_out`` /
-``run_id`` (default ``results``).
+different location. Predictions and reports go under the output directory you
+pass to the command (``--output-dir`` / ``-o``, default ``results`` for
+``drevalpy run`` and ``report`` for ``drevalpy report``).
 
 Pre-trained model artifacts (ChemBERTa weights, MolGNet checkpoint, PPI
 embeddings, ...) are fetched on first use from an object-storage location and

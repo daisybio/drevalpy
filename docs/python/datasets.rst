@@ -20,7 +20,7 @@ to discover them and :func:`~drevalpy.data.datasets.load.load` to load:
 
    from drevalpy.data import load
 
-   dataset = load("TOYv1")
+   dataset = load("GDSC1")
 
 Built-in loaders download into the system cache directory on first use (see
 :doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``). The response
@@ -51,7 +51,7 @@ of ``LPO``, ``LCO``, ``LTO``, or ``LDO``). You can also use
 
    from drevalpy.data import load, split
 
-   dataset = load("TOYv1")
+   dataset = load("GDSC1")
    folds = split(dataset, mode="LCO", n_splits=5)
 
 Each fold is a :class:`~drevalpy.types.SplitMasks` object containing boolean

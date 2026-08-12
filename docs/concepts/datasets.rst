@@ -1,9 +1,9 @@
 Datasets and response data
 ==========================
 
-DrEvalPy ships commonly used drug-response screens plus small toy subsets for
-fast local checks. Each built-in name resolves to a response table and the
-matching cell-line and drug feature views used by the model zoo.
+DrEvalPy ships commonly used drug-response screens. Each built-in name resolves
+to a response table and the matching cell-line and drug feature views used by
+the model zoo.
 
 Built-in datasets
 -----------------
@@ -42,16 +42,6 @@ Built-in datasets
      - 546
      - 886 cell lines
      - Cancer Therapeutics Response Portal v2
-   * - TOYv1
-     - 2711
-     - 36
-     - 90 cell lines
-     - Small CTRPv2 subset for testing
-   * - TOYv2
-     - 2784
-     - 36
-     - 90 cell lines
-     - Second toy set for cross-study checks
    * - BeatAML2
      - 62487
      - 166

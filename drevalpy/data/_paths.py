@@ -46,7 +46,7 @@ def get_config_dir() -> Path:
 def resolve_h5mu_path(dataset_name: str) -> Path:
     """Return the expected .h5mu path for a given dataset name.
 
-    :param dataset_name: Name of the dataset (e.g. "TOYv2", "GDSC1").
+    :param dataset_name: Name of the dataset (e.g. "GDSC1", "CTRPv2").
     :returns: Full path to the .h5mu file within the cache directory.
     """
     return get_default_data_dir() / f"{dataset_name}.h5mu"

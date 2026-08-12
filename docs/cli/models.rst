@@ -17,7 +17,7 @@ Model names are passed as positional arguments to ``drevalpy run``:
 
 .. code-block:: bash
 
-   drevalpy run ElasticNet RandomForest --dataset TOYv1 --split-mode LCO
+   drevalpy run ElasticNet RandomForest --dataset GDSC1 --split-mode LCO
 
 Names correspond to **zoo presets** — the same names you would pass to
 ``construct_model("ElasticNet")`` in Python. The full list of built-in presets
@@ -44,7 +44,7 @@ a ``.py`` file), make it available with ``--extensions-dir`` or the
 
 .. code-block:: bash
 
-   drevalpy --extensions-dir my_components/ run ToyRidge --dataset TOYv1 --split-mode LCO
+   drevalpy --extensions-dir my_components/ run ToyRidge --dataset GDSC1 --split-mode LCO
 
 The ``--extensions-dir`` flag is a **global option** that must appear before
 the subcommand. It loads all ``.py`` files in the directory (triggering
@@ -73,7 +73,7 @@ Then reference by name:
 
 .. code-block:: bash
 
-   drevalpy --extensions-dir my_zoo/ run MyCustomEN --dataset TOYv1 --split-mode LCO
+   drevalpy --extensions-dir my_zoo/ run MyCustomEN --dataset GDSC1 --split-mode LCO
 
 Composition concepts (recipe grammar, YAML fields, contracts) are documented
 in :doc:`/concepts/from_components_to_models`.
