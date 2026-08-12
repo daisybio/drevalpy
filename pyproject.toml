@@ -14,7 +14,6 @@ dependencies = [
     "networkx",
     "pyyaml",
     "pytorch-lightning>=2.5",
-    "torch>=2.1",
     "torch-geometric",
     "torch-scatter",
     "flaky",
@@ -48,6 +47,17 @@ dependencies = [
     "transformers>=5.14.0",
     "gensim>=4.4.0",
     "multiqc>=1.35",
+]
+
+[project.optional-dependencies]
+cpu = [
+    "torch>=2.1",
+]
+cu126 = [
+    "torch>=2.1",
+]
+cu130 = [
+    "torch>=2.1",
 ]
 
 [project.scripts]
@@ -85,6 +95,35 @@ build-backend = "hatchling.build"
 [tool.uv]
 exclude-newer = "3 weeks"
 extra-build-dependencies = { torch-scatter = ["torch"] }
+conflicts = [
+    [
+        { extra = "cpu" },
+        { extra = "cu126" },
+        { extra = "cu130" },
+    ],
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "cu126" },
+    { index = "pytorch-cu130", extra = "cu130" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [tool.ruff]
 target-version = "py311"
