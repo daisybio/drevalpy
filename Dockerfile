@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y procps unzip && rm -rf /var/lib/apt/lis
 LABEL image.author.name="Judith Bernett"
 LABEL image.author.email="judith.bernett@tum.de"
 
-COPY --from=builder /opt/venv /opt/venv
+COPY --link --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 CMD ["/bin/bash"]
