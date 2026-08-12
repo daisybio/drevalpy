@@ -74,8 +74,7 @@ def _prepare_wide(
     dup_subset = ["cell_line", "drug"] + pivot_columns
     if curve_df.duplicated(subset=dup_subset).any():
         warnings.warn(
-            f"Duplicate entries found for {tuple(dup_subset)} combinations. "
-            "Aggregating using mean of 'intensity'.",
+            f"Duplicate entries found for {tuple(dup_subset)} combinations. Aggregating using mean of 'intensity'.",
             UserWarning,
             stacklevel=2,
         )

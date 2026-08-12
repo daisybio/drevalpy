@@ -13,6 +13,7 @@ from drevalpy.registry._builtins import (
     BUILTIN_CELL_LINE_FEATURIZER_NAMES,
     BUILTIN_DRUG_FEATURIZER_NAMES,
     BUILTIN_PREDICTOR_NAMES,
+    get_skipped_builtin_modules,
     register_builtin_components,
 )
 from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
@@ -129,6 +130,19 @@ def _render_predictors(rows: list[PredictorCatalogMetadata]) -> str:
     return "\n".join([*lines, ""])
 
 
+def _skipped_module_report() -> str:
+    """Return a human-readable report of built-in modules that failed to import.
+
+    :returns: report text, or the empty string when every module imported cleanly
+    """
+    skipped = get_skipped_builtin_modules()
+    if not skipped:
+        return ""
+    sections = [f"{name}:\n{tb.rstrip()}" for name, tb in sorted(skipped.items())]
+    header = "The following built-in component modules failed to import, so their components are missing:"
+    return "\n\n" + header + "\n\n" + "\n\n".join(sections)
+
+
 def _validate_builtin_catalog(
     *,
     cell_line_rows: list[FeaturizerCatalogMetadata],
@@ -151,6 +165,7 @@ def _validate_builtin_catalog(
         raise RuntimeError(
             "Built-in component catalog counts do not match the supported set: "
             f"expected {EXPECTED_BUILTIN_COMPONENT_COUNTS}, got {observed_counts}"
+            f"{_skipped_module_report()}"
         )
 
     interface_counts = dict(Counter(row["input_interface"] for row in predictor_rows))

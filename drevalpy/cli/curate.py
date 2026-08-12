@@ -8,14 +8,10 @@ import typer
 
 
 def curate_cmd(
-    input_path: Annotated[
-        str, typer.Argument(help="Path to a CSV or Parquet file with dose-response data.")
-    ],
+    input_path: Annotated[str, typer.Argument(help="Path to a CSV or Parquet file with dose-response data.")],
     output: Annotated[str, typer.Argument(help="Output .h5ad file path.")],
     cores: Annotated[int, typer.Option("--cores", "-c", help="Number of CPU cores.")] = 4,
-    normalize: Annotated[
-        bool, typer.Option("--normalize", help="Apply normalization before fitting.")
-    ] = False,
+    normalize: Annotated[bool, typer.Option("--normalize", help="Apply normalization before fitting.")] = False,
     fit_type: Annotated[str, typer.Option("--fit-type", help="OLS or MLE.")] = "OLS",
     fit_speed: Annotated[
         str, typer.Option("--fit-speed", help="fast/standard/exhaustive/basinhopping.")

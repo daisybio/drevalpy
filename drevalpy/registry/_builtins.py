@@ -7,10 +7,22 @@ convention (any .py file without a leading underscore in the component dirs).
 from __future__ import annotations
 
 import importlib
+import traceback
 
 from drevalpy.log import get_logger
 
 logger = get_logger(__name__)
+
+_SKIPPED_MODULES: dict[str, str] = {}
+
+
+def get_skipped_builtin_modules() -> dict[str, str]:
+    """Return modules that could not be imported during built-in registration.
+
+    :returns: Mapping of dotted module name to the formatted traceback of the
+        import failure. Empty when every built-in module imported cleanly.
+    """
+    return dict(_SKIPPED_MODULES)
 
 
 def _discover_modules(package_path: str, package_name: str) -> list[str]:
@@ -37,7 +49,10 @@ def _import_modules(module_names: list[str]) -> None:
 
     If a module is already imported, scan it for registered classes and
     re-register them (handles the case where clear() was called).
-    Modules that fail on first attempt are retried at the end.
+    Modules that fail on first attempt are retried at the end; modules that
+    still fail are recorded in :func:`get_skipped_builtin_modules` and reported
+    at WARNING level, because a silently skipped module means a component
+    silently disappears from the registries.
     """
     import sys
 
@@ -51,6 +66,8 @@ def _import_modules(module_names: list[str]) -> None:
         except (ImportError, AttributeError):
             deferred.append(module_name)
             logger.debug("Deferring %s (import failed on first pass)", module_name)
+        else:
+            _SKIPPED_MODULES.pop(module_name, None)
 
     for module_name in deferred:
         if module_name in sys.modules:
@@ -58,8 +75,16 @@ def _import_modules(module_names: list[str]) -> None:
             continue
         try:
             importlib.import_module(module_name)
-        except (ImportError, AttributeError):
-            logger.debug("Skipping %s (import failed on retry)", module_name)
+        except (ImportError, AttributeError) as exc:
+            _SKIPPED_MODULES[module_name] = traceback.format_exc()
+            logger.warning(
+                "Skipping built-in component module %s: its components will be unavailable (%s: %s)",
+                module_name,
+                type(exc).__name__,
+                exc,
+            )
+        else:
+            _SKIPPED_MODULES.pop(module_name, None)
 
 
 def _reregister_from_module(module) -> None:
