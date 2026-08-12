@@ -215,24 +215,15 @@ def _normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
 
     normalized_trials = None
     if run.trials:
-        normalized_trials = []
-        for trial in run.trials:
-            norm_trial_pred = trial.predictions - ref_preds
-            trial_metrics: dict[str, float] = {}
-            trial_valid = ~np.isnan(norm_trial_pred) & ~np.isnan(norm_gt)
-            if trial_valid.any():
-                for metric_name in AVAILABLE_METRICS:
-                    trial_metrics[metric_name] = _compute_metric_value(
-                        metric_name, norm_trial_pred[trial_valid], norm_gt[trial_valid]
-                    )
-            normalized_trials.append(
-                TrialResult(
-                    hyperparameters=trial.hyperparameters,
-                    metrics=trial_metrics,
-                    optimization_metric=trial.optimization_metric,
-                    predictions=norm_trial_pred,
-                )
+        normalized_trials = [
+            TrialResult(
+                hyperparameters=trial.hyperparameters,
+                metrics=trial.metrics,
+                optimization_metric=trial.optimization_metric,
+                predictions=trial.predictions,
             )
+            for trial in run.trials
+        ]
 
     return RunResult(
         model_name=run.model_name,
