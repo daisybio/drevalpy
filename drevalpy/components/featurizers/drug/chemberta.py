@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, ClassVar
 
 import numpy as np
@@ -18,6 +19,57 @@ _logger = get_logger(__name__)
 
 _CHEMBERTA_MODEL = "seyonec/ChemBERTa-zinc-base-v1"
 _CHEMBERTA_REVISION = "761d6a1"
+
+# Weights are mirrored to the drevalpy artifacts bucket rather than pulled from the
+# HuggingFace Hub: Hub downloads are rate-limited per source IP, which fails en masse
+# when hundreds of pipeline workers behind one NAT gateway start with a cold cache.
+_CHEMBERTA_ARTIFACT = "chemberta_zinc_base_v1_761d6a1"
+_CHEMBERTA_ARTIFACT_FILES = (
+    "config.json",
+    "merges.txt",
+    "pytorch_model.bin",
+    "special_tokens_map.json",
+    "tokenizer_config.json",
+    "vocab.json",
+)
+
+
+@lru_cache(maxsize=1)
+def load_chemberta() -> tuple[Any, Any]:
+    """Return the cached ChemBERTa tokenizer and model.
+
+    The weights are fetched once from the artifacts location and then reused for
+    the lifetime of the process, so repeated HPO trials do not reload them.
+
+    :returns: Tuple of (tokenizer, model) with the model in eval mode.
+    :raises ImportError: If transformers or torch are unavailable.
+    :raises RuntimeError: If the weights cannot be fetched or loaded.
+    """
+    try:
+        from transformers import AutoModel, AutoTokenizer
+    except ImportError as err:
+        msg = "transformers and torch are required for on-the-fly ChemBERTa computation: pip install transformers torch"
+        raise ImportError(msg) from err
+
+    from drevalpy.data.artifacts import get_artifact_dir, get_artifacts_uri
+
+    try:
+        model_dir = str(get_artifact_dir(_CHEMBERTA_ARTIFACT, _CHEMBERTA_ARTIFACT_FILES))
+        tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
+        model = AutoModel.from_pretrained(model_dir, local_files_only=True)
+    except (ImportError, RuntimeError):
+        raise
+    except Exception as err:
+        msg = (
+            f"Could not load ChemBERTa weights ({_CHEMBERTA_MODEL} @ {_CHEMBERTA_REVISION}) "
+            f"from artifact {_CHEMBERTA_ARTIFACT!r} at {get_artifacts_uri()!r}: {err}. "
+            "Check credentials and connectivity for that location, or point "
+            "DREVALPY_ARTIFACTS_URI at a reachable mirror."
+        )
+        raise RuntimeError(msg) from err
+
+    model.eval()
+    return tokenizer, model
 
 
 @register(
@@ -68,19 +120,9 @@ class ChemBertaFeaturizer(ViewDrugFeaturizer):
             msg = f"Cannot obtain {self.storage_key}: no SMILES available."
             raise ValueError(msg)
 
-        try:
-            import torch
-            from transformers import AutoModel, AutoTokenizer
-        except ImportError as err:
-            msg = (
-                "transformers and torch are required for on-the-fly ChemBERTa computation: "
-                "pip install transformers torch"
-            )
-            raise ImportError(msg) from err
+        import torch
 
-        tokenizer = AutoTokenizer.from_pretrained(_CHEMBERTA_MODEL, revision=_CHEMBERTA_REVISION)
-        model = AutoModel.from_pretrained(_CHEMBERTA_MODEL, revision=_CHEMBERTA_REVISION)
-        model.eval()
+        tokenizer, model = load_chemberta()
 
         embeddings = []
         for drug_id in entity_ids:

@@ -98,6 +98,20 @@ macOS). Set the ``DREVALPY_CACHE_DIR`` environment variable to use a
 different location. Predictions and reports go under ``--path_out`` /
 ``run_id`` (default ``results``).
 
+Pre-trained model artifacts (ChemBERTa weights, MolGNet checkpoint, PPI
+embeddings, ...) are fetched on first use from an object-storage location and
+cached under ``<cache dir>/artifacts``. Two environment variables control this:
+
+``DREVALPY_ARTIFACTS_URI``
+   Base URI to fetch artifacts from. Any fsspec-supported protocol works, so
+   this can point at a mirror bucket or a local directory (useful for offline
+   or air-gapped runs).
+
+``DREVALPY_ARTIFACTS_STORAGE_OPTIONS``
+   JSON object passed to fsspec, for example ``{"profile": "my-aws-profile"}``
+   or ``{"anon": true}``. Unset by default, so the ambient credential chain
+   (environment variables, shared AWS config, instance roles) applies.
+
 Hyperparameter tuning on Windows
 --------------------------------
 

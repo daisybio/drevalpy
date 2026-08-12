@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from rich.progress import DownloadColumn, Progress, TimeRemainingColumn, TransferSpeedColumn
 from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
+from drevalpy.data._transfer import download_file
 from drevalpy.log import get_logger
 from drevalpy.registry.dataset._registry import dataset_registry
 from drevalpy.types.data.dataset import Dataset
@@ -22,27 +22,7 @@ def _download(name: str) -> Path:
     entry = dataset_registry.datasets[name]
     source = dataset_registry.sources[entry.source]
     remote = Path(source.url, **source.storage_options) / entry.file
-    local_path = get_default_data_dir() / entry.file
-    local_path.parent.mkdir(parents=True, exist_ok=True)
-
-    fs = remote.fs
-    remote_key = remote.path
-    size = fs.size(remote_key)
-
-    with Progress(
-        *Progress.get_default_columns(),
-        DownloadColumn(),
-        TransferSpeedColumn(),
-        TimeRemainingColumn(),
-    ) as progress:
-        task = progress.add_task(f"Downloading {name}", total=size)
-
-        with fs.open(remote_key, "rb", block_size=0) as src, open(local_path, "wb") as dst:
-            while chunk := src.read(1024 * 256):
-                dst.write(chunk)
-                progress.advance(task, len(chunk))
-
-    return local_path
+    return download_file(remote, get_default_data_dir() / entry.file, name)
 
 
 def load(dataset_name: str) -> Dataset:
