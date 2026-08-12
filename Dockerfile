@@ -7,9 +7,8 @@ COPY pyproject.toml uv.lock ./
 RUN touch README.md
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY drevalpy ./drevalpy
 COPY README.md ./
-COPY pyproject.toml uv.lock ./
+COPY drevalpy ./drevalpy
 RUN uv sync --frozen --no-dev --no-editable
 
 FROM python:3.13-slim-bookworm AS runtime
