@@ -81,7 +81,7 @@ class XGBoostPredictor(SklearnTabularPredictor):
         :returns: Ray Tune-style specs for XGBoost regressor parameters.
         """
         return {
-            "n_estimators": {"type": "int", "low": 50, "high": 500, "default": 100},
-            "max_depth": {"type": "int", "low": 3, "high": 12, "default": 6},
+            "n_estimators": {"type": "int", "low": 50, "high": 300, "default": 100},
+            "max_depth": {"type": "int", "low": 3, "high": 8, "default": 6},
             "learning_rate": {"type": "float", "low": 0.01, "high": 0.3, "default": 0.1},
         }

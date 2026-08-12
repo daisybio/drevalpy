@@ -46,7 +46,7 @@ class LightGBMPredictor(SklearnTabularPredictor):
         :returns: Ray Tune-style specs for LightGBM regressor parameters.
         """
         return {
-            "n_estimators": {"type": "int", "low": 50, "high": 500, "default": 100},
+            "n_estimators": {"type": "int", "low": 50, "high": 300, "default": 100},
             "learning_rate": {"type": "float", "low": 0.01, "high": 0.3, "log": True, "default": 0.1},
             "max_depth": {"type": "int", "low": 3, "high": 12, "default": 6},
             "num_leaves": {"type": "int", "low": 15, "high": 255, "default": 63},

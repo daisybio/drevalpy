@@ -86,7 +86,7 @@ class ChemBertaFeaturizer(ViewDrugFeaturizer):
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
     precompute: ClassVar[bool] = True
 
-    def __init__(self, *, view: str = "chemberta", pooling: str = "mean", max_length: int = 512) -> None:
+    def __init__(self, *, view: str = "chemberta", pooling: str = "mean", max_length: int = 256) -> None:
         """Initialize instance state.
 
         :param view: view.
@@ -105,7 +105,7 @@ class ChemBertaFeaturizer(ViewDrugFeaturizer):
         """
         return {
             "pooling": {"type": "categorical", "choices": ["mean", "cls", "max"], "default": "mean"},
-            "max_length": {"type": "categorical", "choices": [64, 128, 256, 512], "default": 512},
+            "max_length": {"type": "categorical", "choices": [64, 128, 256], "default": 256},
         }
 
     def _compute_from_source(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:

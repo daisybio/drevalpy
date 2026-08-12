@@ -62,7 +62,7 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
         """
         return {
             "radius": {"type": "int", "low": 1, "high": 3, "default": 2},
-            "n_bits": {"type": "pow2", "low": 9, "high": 12, "default": 2048},
+            "n_bits": {"type": "pow2", "low": 9, "high": 11, "default": 2048},
             "use_chirality": {"type": "categorical", "choices": [True, False], "default": False},
             "use_counts": {"type": "categorical", "choices": [True, False], "default": False},
         }

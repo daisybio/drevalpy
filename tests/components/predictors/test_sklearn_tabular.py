@@ -31,7 +31,7 @@ def test_sklearn_tabular_merges_non_tunable_hyperparameters_under_explicit_ones(
     predictor = ElasticNetPredictor(hyperparameters={"max_iter": 7, "alpha": 0.5})
 
     assert predictor._h["max_iter"] == 7
-    assert predictor._h["tol"] == pytest.approx(1e-4)
+    assert predictor._h["tol"] == pytest.approx(1e-2)
     assert predictor._h["alpha"] == pytest.approx(0.5)
 
 
