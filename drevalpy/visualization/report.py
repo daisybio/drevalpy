@@ -21,7 +21,7 @@ def _add_module(sections, name: str, anchor: str) -> None:
     for section in sections:
         module.add_section(
             plot=section.plot,
-            content=section.content,
+            content=section.content or "",
             name=section.name,
             anchor=section.anchor,
             description=section.description,
