@@ -76,8 +76,8 @@ class RunResult:
         arrays: dict[str, np.ndarray] = {
             "predictions": self.predictions,
             "ground_truth": self.ground_truth,
-            "cell_line_ids": self.cell_line_ids,
-            "drug_ids": self.drug_ids,
+            "cell_line_ids": np.asarray(self.cell_line_ids, dtype=str),
+            "drug_ids": np.asarray(self.drug_ids, dtype=str),
         }
         trials_meta = None
         if self.trials:
