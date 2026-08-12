@@ -1,7 +1,8 @@
 FROM python:3.13-bookworm AS builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-WORKDIR /root
+WORKDIR /opt/build
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 COPY pyproject.toml uv.lock ./
 RUN touch README.md
 RUN uv sync --frozen --no-dev --no-install-project
@@ -18,7 +19,7 @@ RUN apt-get update && apt-get install -y procps unzip && rm -rf /var/lib/apt/lis
 LABEL image.author.name="Judith Bernett"
 LABEL image.author.email="judith.bernett@tum.de"
 
-COPY --from=builder /root/.venv /root/.venv
-ENV PATH="/root/.venv/bin:$PATH"
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-ENTRYPOINT ["bash"]
+CMD ["/bin/bash"]
