@@ -30,6 +30,7 @@ from tests.synthetic import (
     OMICS_MODALITIES,
     build_synthetic_dataset,
 )
+from tests.types.data._helpers import stub_featurizer, stub_fit_transform_featurizer
 
 
 @pytest.fixture(scope="module")
@@ -238,3 +239,149 @@ class TestUns:
     def test_get_uns_missing(self, mudataset: Dataset):
         with pytest.raises(KeyError, match="nonexistent"):
             mudataset.get_uns("nonexistent")
+
+
+@pytest.fixture()
+def records() -> list[dict]:
+    """Collect the ``store`` calls a precompute run makes."""
+    return []
+
+
+class TestPrecompute:
+    """Test explicit pre-computation of featurizer representations."""
+
+    def test_default_config_is_prepended_to_explicit_configs(self, mudataset: Dataset, records: list[dict]):
+        mudataset.precompute(stub_featurizer(records), [{"n_components": 2}])
+
+        assert [call["hyperparameters"] for call in records] == [{}, {"n_components": 2}]
+
+    def test_cell_line_side_precomputes_every_cell_line(self, mudataset: Dataset, records: list[dict]):
+        mudataset.precompute(stub_featurizer(records), [])
+
+        assert records[0]["n_entities"] == N_CELL_LINES
+
+    def test_drug_side_precomputes_every_drug(self, mudataset: Dataset, records: list[dict]):
+        mudataset.precompute(stub_featurizer(records, side="drug"), [])
+
+        assert records[0]["n_entities"] == N_DRUGS
+
+    def test_featurizer_without_compute_from_source_is_fitted_first(self, mudataset: Dataset, records: list[dict]):
+        mudataset.precompute(stub_fit_transform_featurizer(records), [])
+
+        assert records[0] == {"call": "fit"}
+        assert records[1]["shape"] == (N_CELL_LINES, 3)
+
+    def test_view_is_forwarded_to_the_featurizer_constructor(self, mudataset: Dataset, records: list[dict]):
+        seen: list[dict] = []
+        featurizer_cls = stub_featurizer(records)
+        original_init = featurizer_cls.__init__
+
+        def spy_init(self, **kwargs):
+            seen.append(kwargs)
+            original_init(self, **kwargs)
+
+        featurizer_cls.__init__ = spy_init
+        mudataset.precompute(featurizer_cls, [], view="methylation")
+
+        assert seen == [{"view": "methylation"}]
+
+    def test_int_hyperparameters_are_sampled(self, mudataset: Dataset, records: list[dict]):
+        """An int asks for N sampled configs; the empty HP space short-circuits Optuna."""
+        mudataset.precompute(stub_featurizer(records), 2)
+
+        assert len(records) == 2
+
+
+class TestPrecomputeSingle:
+    """Test the eligibility branches ``precompute_all`` funnels every featurizer through."""
+
+    def test_featurizer_not_marked_for_precomputation_is_skipped(self, mudataset: Dataset, records: list[dict]):
+        mudataset._precompute_single(stub_featurizer(records, precompute=False), 1)
+
+        assert records == []
+
+    def test_entity_id_only_featurizer_is_skipped(self, mudataset: Dataset, records: list[dict]):
+        mudataset._precompute_single(stub_featurizer(records, entity_id_only=True), 1)
+
+        assert records == []
+
+    def test_featurizer_with_missing_source_data_is_skipped(self, mudataset: Dataset, records: list[dict]):
+        mudataset._precompute_single(stub_featurizer(records, source_views=("absent_modality",)), 1)
+
+        assert records == []
+
+    def test_view_featurizer_without_declared_input_views_is_skipped(self, mudataset: Dataset, records: list[dict]):
+        featurizer_cls = stub_featurizer(records, requires_view=True, input_views=None)
+
+        mudataset._precompute_single(featurizer_cls, 1)
+
+        assert records == []
+
+    def test_eligible_featurizer_is_precomputed(self, mudataset: Dataset, records: list[dict]):
+        mudataset._precompute_single(stub_featurizer(records, source_views=("gene_expression",)), 1)
+
+        assert len(records) == 1
+
+    def test_featurizer_errors_are_swallowed(self, mudataset: Dataset, records: list[dict]):
+        def raise_value_error(source, entity_ids):
+            raise ValueError("no features")
+
+        mudataset._precompute_single(stub_featurizer(records, compute=raise_value_error), 1)
+
+        assert records == []
+
+    def test_precompute_all_visits_every_registered_featurizer(self, mudataset: Dataset, monkeypatch):
+        from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+        from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+
+        visited: list[str] = []
+        monkeypatch.setattr(
+            Dataset,
+            "_precompute_single",
+            lambda self, cls, n_variants: visited.append(cls.__name__),
+        )
+
+        mudataset.precompute_all(n_variants=1)
+
+        expected = len(cell_line_featurizer_registry.list_names()) + len(drug_featurizer_registry.list_names())
+        assert len(visited) == expected
+
+
+class TestSourceAvailability:
+    """Test the raw-source checks that gate precomputation and model applicability."""
+
+    def test_canonical_smiles_is_found_on_the_response_var(self, mudataset: Dataset, records: list[dict]):
+        drug_cls = stub_featurizer(records, side="drug")
+
+        assert mudataset._has_source_data(("canonical_smiles",), drug_cls) is True
+
+    def test_cell_line_modality_is_resolved_through_the_accessor_map(self, mudataset: Dataset, records: list[dict]):
+        cell_line_cls = stub_featurizer(records)
+
+        assert mudataset._has_source_data(("copy_number_variation_gistic",), cell_line_cls) is True
+
+    def test_missing_cell_line_modality_is_reported_absent(self, mudataset: Dataset, records: list[dict]):
+        assert mudataset._has_source_data(("absent_modality",), stub_featurizer(records)) is False
+
+    def test_drug_view_is_looked_up_in_response_varm(self, mudataset: Dataset, records: list[dict]):
+        drug_cls = stub_featurizer(records, side="drug")
+
+        assert mudataset._has_source_data(("morgan_fingerprint",), drug_cls) is True
+
+    def test_missing_drug_view_is_reported_absent(self, mudataset: Dataset, records: list[dict]):
+        drug_cls = stub_featurizer(records, side="drug")
+
+        assert mudataset._has_source_data(("absent_view",), drug_cls) is False
+
+    @pytest.mark.parametrize(
+        ("views", "available"),
+        [
+            pytest.param(("gene_expression",), True, id="modality"),
+            pytest.param(("morgan_fingerprint",), True, id="varm-drug-view"),
+            pytest.param(("pathway_features",), True, id="obsm-view"),
+            pytest.param(("gene_expression", "chemberta"), True, id="both-sides"),
+            pytest.param(("gene_expression", "absent"), False, id="one-missing"),
+        ],
+    )
+    def test_required_views_span_modalities_varm_and_obsm(self, mudataset: Dataset, views, available):
+        assert mudataset._has_required_views(views) is available

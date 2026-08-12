@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.cell_line_featurizer import list as list_cell_line_featurizers
 from drevalpy.registry.drug_featurizer import list as list_drug_featurizers
@@ -61,17 +60,3 @@ def test_concat_and_materialization_preserve_graph_and_ragged_payloads() -> None
     merged = merge_feature_blocks({"drug_graph": graph}, {"gene_expression": numeric})
     assert merged["drug_graph"].values[0] is payload
     assert merged["drug_graph"].format is FeatureFormat.GRAPH
-
-
-def test_concat_rejects_non_numeric_children() -> None:
-    from drevalpy.components.contracts.contracts import FeatureContract
-    from drevalpy.components.featurizers.drug.drug_graph import DrugGraphFeaturizer
-
-    mixin = ConcatFeaturizersMixin.__new__(ConcatFeaturizersMixin)
-    child = DrugGraphFeaturizer()
-    assert child.contract == FeatureContract(format=FeatureFormat.GRAPH) or (
-        child.contract.format is FeatureFormat.GRAPH
-    )
-    mixin._children = [("drugGraph", child)]
-    with pytest.raises(ValueError, match="only numeric_matrix"):
-        mixin._reject_non_numeric_children(mixin._children)

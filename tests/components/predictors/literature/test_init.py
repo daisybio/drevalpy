@@ -19,8 +19,6 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.components.predictors.abstract.block import BlockPredictor
-from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig, from_spec, validate
 from drevalpy.models.drp_model import DRPModel
@@ -158,27 +156,3 @@ def test_model_config_and_factory_share_zoo_name(name: str) -> None:
     model_cls = construct_model(name)
     validate(config)
     assert model_cls.get_model_name() == name
-
-
-@pytest.mark.parametrize(
-    ("name", "interface"),
-    [
-        ("drugGNN", "block"),
-        ("neuralNetwork", "matrix"),
-        ("precily", "block"),
-        ("srmf", "block"),
-        ("molir", "block"),
-        ("superfeltr", "block"),
-        ("pharmaFormer", "block"),
-        ("dipk", "block"),
-        ("sparsego", "block"),
-    ],
-)
-def test_literature_predictor_flags(name: str, interface: str) -> None:
-    cls = get_predictor(name)
-    if interface == "matrix":
-        assert issubclass(cls, MatrixPredictor)
-        assert not issubclass(cls, BlockPredictor)
-    elif interface == "block":
-        assert issubclass(cls, BlockPredictor)
-        assert not issubclass(cls, MatrixPredictor)

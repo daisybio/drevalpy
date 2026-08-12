@@ -38,6 +38,12 @@ def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
         )
 
 
+def test_ensure_unique_ignores_a_non_concat_node() -> None:
+    config = FeaturizerConfig.model_validate({"name": "raw", "registry": "cell_line", "view": "gene_expression"})
+
+    ensure_unique_qualified_featurizers(config, "cell_line")
+
+
 def test_recipe_string_rejects_duplicate_qualified_selector() -> None:
     """``from_spec`` reports the duplicate as a config error naming the offending recipe."""
     register_builtin_components()

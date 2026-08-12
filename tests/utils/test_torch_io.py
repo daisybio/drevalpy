@@ -65,6 +65,14 @@ def test_load_state_dict_from_path(tmp_path: Path) -> None:
     assert torch.equal(loaded["layer.bias"], state["layer.bias"])
 
 
+def test_load_state_dict_from_string_path(tmp_path: Path) -> None:
+    checkpoint_path = tmp_path / "model.pt"
+    state = {"layer.bias": torch.tensor([0.5])}
+    save_torch_payload(state, checkpoint_path)
+    loaded = load_state_dict(str(checkpoint_path))
+    assert torch.equal(loaded["layer.bias"], state["layer.bias"])
+
+
 def test_load_state_dict_honors_map_location(tmp_path: Path) -> None:
     checkpoint_path = tmp_path / "model.pt"
     state = {"layer.weight": torch.tensor([1.0], device="cpu")}

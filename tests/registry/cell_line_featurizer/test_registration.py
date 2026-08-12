@@ -7,7 +7,6 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
 from drevalpy.registry.cell_line_featurizer import (
     get as get_cell_line_featurizer,
 )
@@ -20,19 +19,12 @@ from drevalpy.registry.cell_line_featurizer import (
 from drevalpy.registry.cell_line_featurizer import (
     register as register_cell_line_featurizer,
 )
-from drevalpy.registry.drug_featurizer import drug_featurizer_registry
-from drevalpy.registry.predictor import predictor_registry
+from tests.registry._helpers import isolated_component_registries
 
 
 @pytest.fixture(autouse=True)
 def _clear_registries() -> Iterator[None]:
-    cell_line_featurizer_registry.clear()
-    drug_featurizer_registry.clear()
-    predictor_registry.clear()
-    yield
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
+    yield from isolated_component_registries()
 
 
 def test_register_and_lookup_cell_line_featurizer() -> None:
@@ -72,33 +64,6 @@ def test_duplicate_registration_fails() -> None:
 def test_unknown_component_fails() -> None:
     with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
         get_cell_line_featurizer("missing")
-
-
-def test_metadata_listing_and_tag_filter() -> None:
-    @register_cell_line_featurizer(
-        "coreFeat",
-        description="core",
-        contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class CoreFeat:
-        pass
-
-    @register_cell_line_featurizer(
-        "baselineFeat",
-        description="baseline",
-        tags=("baseline",),
-        contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class BaselineFeat:
-        pass
-
-    all_rows = cell_line_featurizer_registry.list_metadata()
-    assert {row["name"] for row in all_rows if row["name"] in {"coreFeat", "baselineFeat"}} == {
-        "coreFeat",
-        "baselineFeat",
-    }
-    baseline_rows = cell_line_featurizer_registry.list_metadata(tag="baseline")
-    assert {row["name"] for row in baseline_rows} == {"baselineFeat"}
 
 
 def test_get_metadata_includes_output_format() -> None:

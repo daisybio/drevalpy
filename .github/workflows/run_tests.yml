@@ -59,7 +59,11 @@ jobs:
       - name: Run tests
         # -m "not network" matches how the suite is verified locally: it skips
         # tests that download pretrained weights or remote annotations.
-        run: uv run pytest -m "not network" --cov --cov-report=xml
+        run: uv run pytest -m "not network" --cov --cov-report=xml --cov-report=json
+
+      - name: Coverage floor per module
+        # Not bypassable with `git commit --no-verify`, unlike the pre-commit hook.
+        run: uv run python tools/coverage_gate.py
 
       - name: Upload coverage
         if: always() && matrix.os == 'ubuntu-latest'

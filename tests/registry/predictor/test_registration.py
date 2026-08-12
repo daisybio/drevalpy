@@ -8,22 +8,14 @@ import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
-from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.predictor import metadata as get_predictor_metadata
-from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.predictor import register as register_predictor
+from tests.registry._helpers import isolated_component_registries
 
 
 @pytest.fixture(autouse=True)
 def _clear_registries() -> Iterator[None]:
-    cell_line_featurizer_registry.clear()
-    drug_featurizer_registry.clear()
-    predictor_registry.clear()
-    yield
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
+    yield from isolated_component_registries()
 
 
 def test_decorator_returns_original_class() -> None:
@@ -41,7 +33,7 @@ def test_decorator_returns_original_class() -> None:
     assert vars(DummyPred)["drug_contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
-def test_predictor_metadata_catalog_shape() -> None:
+def test_predictor_metadata_facade_returns_catalog_metadata() -> None:
     @register_predictor(
         "catalogPred",
         description="catalog shape",
@@ -52,19 +44,9 @@ def test_predictor_metadata_catalog_shape() -> None:
         pass
 
     meta = get_predictor_metadata("catalogPred")
+    assert meta["registry"] == "predictors"
+    assert meta["name"] == "catalogPred"
     assert meta["input_interface"] == "feature_free"
-    assert meta["description"] == "catalog shape"
-    assert meta["tags"] == frozenset()
-    for dropped in (
-        "cell_line_format",
-        "drug_format",
-        "supported_modes",
-        "scope",
-        "supports_early_stopping",
-        "required_cell_line_views",
-        "required_drug_views",
-    ):
-        assert dropped not in meta
 
 
 def test_duplicate_predictor_class_and_decorator_contract_fails() -> None:

@@ -28,10 +28,18 @@ repos:
   - repo: local
     hooks:
       - id: pytest
-        name: pytest
+        name: pytest (with coverage)
         # Deselect network-marked tests, matching CI. They need pretrained weights
         # from the artifacts bucket, which is not readable without credentials.
-        entry: uv run pytest -m "not network"
+        entry: uv run pytest -m "not network" --cov --cov-report=json --cov-report=term-missing
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+      - id: coverage-gate
+        name: coverage floor per module
+        # Consumes the coverage.json the pytest hook above writes.
+        entry: uv run python tools/coverage_gate.py
         language: system
         pass_filenames: false
         always_run: true

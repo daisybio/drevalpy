@@ -206,10 +206,76 @@ deprecated = "ignore"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-norecursedirs = ["tests/cli_old"]
 pythonpath = ["."]
 addopts = ["--import-mode=importlib"]
 markers = ["network: requires downloading pretrained weights or remote annotations"]
+
+[tool.coverage.run]
+source = ["drevalpy"]
+relative_files = true
+omit = ["*/gene_lists/_make_gene_lists.py"] # maintenance script, not shipped logic
+
+[tool.coverage.report]
+# Measured 89.5% for `pytest -m "not network"`. Kept a point and a half of
+# headroom so an unrelated refactor does not redden CI, and no more: the point of
+# the number is that it only ever moves up.
+fail_under = 88
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+    "@overload",
+]
+
+# Per-module coverage floor, enforced by tools/coverage_gate.py because
+# coverage.py can only fail on the aggregate percentage, which lets one untested
+# module hide behind a well-tested package.
+[tool.drevalpy.coverage_gate]
+min_file_coverage = 60
+
+# Every entry below records a module that cannot currently reach
+# min_file_coverage, together with the reason. An exemption is debt, not a policy
+# decision: delete it (do not lower it) once tests bring the module up, and the
+# gate prints which entries have become redundant on every run.
+#
+# Deliberately *not* exempted, so their floors are enforced: the network-gated
+# artifact featurizers. Their download paths carry `@pytest.mark.network` and are
+# deselected in the measured run, but their offline logic is tested directly and
+# clears 60% anyway (chemberta 66%, smilesvec 81%, molgnet 84%, bionic 88%).
+[tool.drevalpy.coverage_gate.exemptions]
+# SparseGO is in tests/synthetic/variants.py::EXCLUDED_MODELS: its ontology
+# featurizer always raises because attach_sparsego_ontology_metadata has no
+# production caller, so the predictor and its algorithm cannot be trained end to
+# end until that source defect is fixed.
+"drevalpy/components/predictors/literature/sparsego/algorithm.py" = 33
+"drevalpy/components/predictors/literature/sparsego/predictor.py" = 30
+"drevalpy/components/predictors/literature/sparsego/utils.py" = 51
+
+# DIPK is in EXCLUDED_MODELS too: it needs BIONIC's human_ppi_features.tsv, which
+# the artifacts bucket refuses to serve anonymously (403), so the predictor's
+# train/predict path is unreachable in an offline run. Its pure torch helpers are
+# tested directly and are at 96-100%.
+"drevalpy/components/predictors/literature/dipk/predictor.py" = 26
+
+# Resolving a registered dataset means downloading a multi-GB .h5mu from a
+# credentialed S3 bucket; only the not-found and cache-hit branches are
+# reachable offline. The lazy __getattr__ re-export block in the package
+# __init__ is only entered by callers that use the deprecated import path.
+#
+# load.py's floor is the value CI measures. A developer whose local cache holds a
+# real dataset measures ~38% instead, because tests/test_integration.py stops
+# skipping, and the gate then offers to ratchet this entry down - do not take it,
+# or CI reddens on the next clean checkout.
+"drevalpy/data/datasets/__init__.py" = 44
+"drevalpy/data/datasets/load.py" = 27
+
+# Defensive resolution fallbacks for hand-rolled DRPModel subclasses. Every model
+# construct_model() produces sets _base_model_config, so the zoo-lookup and
+# model_config()-RuntimeError branches are dead for all shipped models.
+"drevalpy/models/mixins/_hyperparameters.py" = 57
 
 [tool.complexipy]
 max-complexity-allowed = 15

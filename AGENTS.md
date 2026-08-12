@@ -20,6 +20,10 @@ uv run prek install
 uv run pytest
 ```
 
+CI and the `prek` hook both run `-m "not network"` (network-marked tests need
+credentialed artifact downloads) and produce a coverage report; see the coverage
+gate section below for the exact invocation.
+
 ## Building docs
 
 ```bash
@@ -78,45 +82,74 @@ dataset builders, so it needs one. Shared helpers are plain modules
 `tests/components/predictors/_helpers.py`) and are imported by their full dotted
 path without any marker file.
 
-### Coverage backlog
+### The mirror is enforced
 
-The mirroring is not complete yet. As of this writing **76 of 148 public
-non-`__init__` modules have no mirrored test file** (down from 104 of 147).
-Regenerate the live list rather than reading a copy - `tests/test_module_mirror_policy.py`
-already computes it and warns per module:
+`tests/test_module_mirror_policy.py` **fails** the run when a source module has no
+mirrored test file. It walks every non-`__init__` module under `drevalpy/` and
+accepts either spelling for a private module (`_foo.py` is satisfied by
+`test__foo.py` or by the house-style `test_foo.py`), so rules 3 and 4 above are
+both honoured.
 
 ```bash
-uv run pytest tests/test_module_mirror_policy.py -q -rw
+uv run pytest tests/test_module_mirror_policy.py -q
 ```
 
-That guard is intentionally **warn-only**. Note it walks every module including
-private ones and expects the underscore to be preserved (`test__foo.py`), so it
-over-reports relative to rules 3 and 4 above.
-
-Priority areas, largest and most user-facing first:
-
-| Area                                                  | Missing / total |
-| ----------------------------------------------------- | --------------- |
-| `drevalpy/cli/` (+ `cli/data/`, `cli/experiments/`)   | 10 / 10         |
-| `drevalpy/visualization/` (+ `plots/`)                | 10 / 10         |
-| `drevalpy/types/data/` (+ `batch/`, `dataset_utils/`) | 11 / 15         |
-| `drevalpy/components/featurizers/drug/`               | 7 / 11          |
-| `drevalpy/components/predictors/literature/`          | 7 / 18          |
-| `drevalpy/components/featurizers/cell_line/`          | 5 / 18          |
-| `drevalpy/data/splitters/`                            | 4 / 4           |
-| `drevalpy/types/results/`                             | 4 / 4           |
-
-`drevalpy/cli/` is the single largest gap: there is no `tests/cli/` directory at
-all and none of the 10 CLI modules are tested, while the CLI is the primary user
-entry point. Other named gaps worth closing early are
-`components/predictors/lightgbm_pred.py`, `components/predictors/sklearn_tabular.py`,
-`components/predictors/state_errors.py` and `models/tuning/config.py`.
+One module is exempt, listed in `EXEMPT_MODULES` in that file with its reason:
+`components/featurizers/cell_line/gene_lists/_make_gene_lists.py`, a maintenance
+script that regenerates the packaged gene-list CSVs, is imported by no shipped
+code path and is also excluded from coverage measurement. Adding to that list is a
+last resort - keep it as short as it is.
 
 Do **not** create stub test files, or directories holding nothing but an
-`__init__.py`, to close the numbers - an empty mirror manufactures the appearance
-of coverage. Once the backlog is closed, tighten
-`tests/test_module_mirror_policy.py` to the convention above and make it fail
-rather than warn; enabling that while the backlog is open would just red CI.
+`__init__.py`, to satisfy the guard. An empty mirror manufactures the appearance
+of coverage, and the per-module coverage floor below will catch it anyway.
+
+## Coverage gate
+
+Coverage is enforced at two levels, both wired into `prek` and CI so neither is
+bypassable with `--no-verify`:
+
+1. **Aggregate.** `[tool.coverage.report].fail_under` in `pyproject.toml`. Note
+   `[tool.coverage.run].source = ["drevalpy"]` is load-bearing: it keeps
+   never-imported modules in the denominator at 0% instead of letting them vanish
+   from the report, and drops `tests/` from the numerator.
+2. **Per module.** `tools/coverage_gate.py`, because `coverage.py` can only fail
+   on the aggregate, which lets one untested module hide behind a well-tested
+   package. It reads `coverage.json` (not `.coverage`), so it is unit-testable -
+   see `tests/tools/test_coverage_gate.py`.
+
+Reproduce what the hooks do:
+
+```bash
+uv run pytest -m "not network" --cov --cov-report=json --cov-report=term-missing
+uv run python tools/coverage_gate.py
+```
+
+Every module must reach `[tool.drevalpy.coverage_gate].min_file_coverage` unless
+it appears in the `exemptions` table, which maps a module path to its own lower
+floor.
+
+**An exemption is debt, not a policy decision.** Each one carries a comment
+saying why the module cannot reach the floor; if you cannot write that sentence
+honestly, write tests instead. To retire one:
+
+- The gate prints an "exemptions that can be lowered or deleted" list on every
+  run, naming exempted modules that now clear the global floor or that sit at
+  least three points above their recorded floor. Work from that list.
+- Once a module reaches `min_file_coverage`, **delete** its entry rather than
+  raising it.
+- If it improves but not that far, lower the recorded floor to the newly measured
+  value. Never raise a floor to make a regression pass.
+- When the table empties out, raise `min_file_coverage` itself and re-measure.
+
+Both numbers ratchet in one direction. Raise `fail_under` when the measured total
+moves up, leaving a point or two of headroom and no more; never lower it to make a
+change fit.
+
+The network-gated artifact featurizers (`chemberta`, `smilesvec`, `molgnet`,
+`bionic`) are deliberately **not** exempted. Their download paths carry
+`@pytest.mark.network` and are deselected in the measured run, but their offline
+logic is tested directly and clears the floor regardless.
 
 ## Path handling
 

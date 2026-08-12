@@ -7,15 +7,13 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract
-from drevalpy.registry._builtins import ensure_predictor_registered, register_builtin_components
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.cell_line_featurizer import (
     get as get_cell_line_featurizer,
 )
 from drevalpy.registry.cell_line_featurizer import (
     list as list_cell_line_featurizers,
 )
-from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.drug_featurizer import (
     get as get_drug_featurizer,
 )
@@ -24,17 +22,14 @@ from drevalpy.registry.drug_featurizer import (
 )
 from drevalpy.registry.predictor import get as get_predictor
 from tests._trusted_subprocess import run_trusted_python
+from tests.registry._helpers import restore_component_registries
 
 
 @pytest.fixture(autouse=True)
 def _register_components() -> Iterator[None]:
-    cell_line_featurizer_registry.clear()
-    drug_featurizer_registry.clear()
-    register_builtin_components()
+    restore_component_registries()
     yield
-    cell_line_featurizer_registry.clear()
-    drug_featurizer_registry.clear()
-    register_builtin_components()
+    restore_component_registries()
 
 
 def test_builtin_cell_line_featurizers_declare_contract() -> None:

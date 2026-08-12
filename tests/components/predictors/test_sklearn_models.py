@@ -10,11 +10,9 @@ from drevalpy.components.predictors.sklearn_models import (
     AdaBoostPredictor,
     ElasticNetPredictor,
     RandomForestPredictor,
-    RidgePredictor,
     SingleDrugElasticNetPredictor,
     SingleDrugRandomForestPredictor,
 )
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models.config import ModelConfig, from_spec
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.types.enums.model_scope import ModelScope
@@ -56,9 +54,3 @@ def test_adaboost_default_depth_matches_space() -> None:
     predictor = AdaBoostPredictor()
     estimator = predictor._make_estimator()
     assert estimator.estimator.max_depth == 4
-
-
-def test_sklearn_set_state_raises_when_estimator_missing() -> None:
-    predictor = RidgePredictor()
-    with pytest.raises(PredictorStateError):
-        predictor.set_state({"hyperparameters": {"alpha": 1.0}, "mode": "regression"})

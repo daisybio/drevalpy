@@ -1,4 +1,7 @@
-"""Tests for SplitMask and SplitMasks."""
+"""Tests for the three-way ``SplitMasks`` container.
+
+The single-mask behaviour of :class:`SplitMask` lives in ``test_split_mask.py``.
+"""
 
 from __future__ import annotations
 
@@ -94,25 +97,3 @@ class TestSplitMasks:
             loaded = SplitMasks.load(f.name)
 
         assert loaded.metadata == {}
-
-
-class TestSplitMask:
-    def test_creation_from_mask(self):
-        mask = np.array([[True, False], [False, True]])
-        scope = SplitMask(mask=mask)
-        assert scope.pairs.shape == (2, 2)
-        assert len(scope) == 2
-
-    def test_from_pairs(self):
-        pairs = np.array([[0, 0], [1, 1]])
-        scope = SplitMask.from_pairs(pairs, shape=(2, 2))
-        assert scope.mask[0, 0]
-        assert scope.mask[1, 1]
-        assert not scope.mask[0, 1]
-        assert len(scope) == 2
-
-    def test_pairs_property_matches_mask(self):
-        mask = np.array([[True, False, True], [False, True, False]])
-        scope = SplitMask(mask=mask)
-        expected = np.argwhere(mask)
-        np.testing.assert_array_equal(scope.pairs, expected)

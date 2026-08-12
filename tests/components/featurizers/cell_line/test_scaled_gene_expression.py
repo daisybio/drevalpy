@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from drevalpy.components.featurizers.cell_line.scaled_gene_expression import ScaledGeneExpressionFeaturizer
+from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
 from tests.conftest import MockFeatureSource
 
 
@@ -26,3 +28,48 @@ def test_scaled_gene_expression_output_dim_round_trips() -> None:
     restored.set_state(featurizer.get_state())
     assert restored.output_dim == 3
     np.testing.assert_allclose(restored.transform(features, ids), matrix)
+
+
+def test_scaled_gene_expression_prefers_a_precomputed_variant() -> None:
+    source = precomputed_source(ScaledGeneExpressionFeaturizer)
+    ids = source.identifiers
+    featurizer = ScaledGeneExpressionFeaturizer()
+
+    featurizer.fit(source, entity_ids=ids)
+
+    assert featurizer.output_dim == PRECOMPUTED.shape[1]
+    np.testing.assert_allclose(featurizer.transform(source, ids), PRECOMPUTED)
+
+
+def test_scaled_gene_expression_blocks_use_the_precomputed_variant() -> None:
+    source = precomputed_source(ScaledGeneExpressionFeaturizer)
+    ids = source.identifiers
+    featurizer = ScaledGeneExpressionFeaturizer().fit(source, entity_ids=ids)
+
+    blocks = featurizer.transform_blocks(source, ids)
+
+    assert set(blocks) == {"gene_expression"}
+    np.testing.assert_allclose(blocks["gene_expression"].values, PRECOMPUTED)
+
+
+def test_scaled_gene_expression_transform_before_fit_raises() -> None:
+    with pytest.raises(RuntimeError, match="must be fit before transform"):
+        ScaledGeneExpressionFeaturizer()._transform(MockFeatureSource(features={}), np.array(["cl1"]))
+
+
+def test_scaled_gene_expression_transform_blocks_before_fit_raises() -> None:
+    with pytest.raises(RuntimeError, match="must be fit before transform"):
+        ScaledGeneExpressionFeaturizer()._transform_blocks(MockFeatureSource(features={}), np.array(["cl1"]))
+
+
+def test_scaled_gene_expression_state_is_empty_before_fit() -> None:
+    assert ScaledGeneExpressionFeaturizer().get_state() == {}
+
+
+def test_scaled_gene_expression_set_state_ignores_unrelated_keys() -> None:
+    featurizer = ScaledGeneExpressionFeaturizer()
+
+    featurizer.set_state({"gene_expression_scaler": None, "view": 3, "output_dim": "many"})
+
+    assert featurizer.output_dim == 0
+    assert featurizer._view == "gene_expression"
