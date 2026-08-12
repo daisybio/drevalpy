@@ -1,23 +1,21 @@
-"""Test hpam_tune with Optuna."""
+"""Test hpam_tune with Optuna against the synthetic dataset."""
 
 from drevalpy.models import construct_model
 from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo import hpam_tune
+from drevalpy.types.data.dataset import Dataset
 
 
-def test_hpam_tune(tmp_path, data_dir):
-    """Test hpam_tune with a toy Dataset and ElasticNet model.
+def test_hpam_tune(synthetic_dataset: Dataset):
+    """Tune ElasticNet over a Leave-Pairs-Out fold of the synthetic dataset.
 
-    :param tmp_path: pytest temporary path fixture
-    :param data_dir: path to the data directory
+    :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
     """
-    from drevalpy.data import load
     from drevalpy.registry.splitter import get as get_splitter
 
     model_cls = construct_model("ElasticNet")
-    mudataset = load("TOYv1")
     splitter = get_splitter("LPO")
-    folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
+    folds = splitter(synthetic_dataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]
 
     early_stopping_scope = None
@@ -27,7 +25,7 @@ def test_hpam_tune(tmp_path, data_dir):
 
     best, _ = hpam_tune(
         model_class=model_cls,
-        mudataset=mudataset,
+        mudataset=synthetic_dataset,
         train_scope=split.train,
         val_scope=val_scope,
         early_stopping_scope=early_stopping_scope,

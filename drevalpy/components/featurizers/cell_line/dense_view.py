@@ -49,8 +49,9 @@ class DenseViewCellLineFeaturizer(CellLineFeaturizer):
             self._output_dim = int(matrix.shape[1])
             return self
         except (KeyError, TypeError, ValueError):
-            if self.precompute and hasattr(self, "_compute_from_source"):
-                probe = self._compute_from_source(source, ids[:1])
+            compute = getattr(self, "_compute_from_source", None)
+            if self.precompute and callable(compute):
+                probe = compute(source, ids[:1])
                 self._output_dim = int(probe.shape[1])
                 return self
             raise
@@ -69,8 +70,9 @@ class DenseViewCellLineFeaturizer(CellLineFeaturizer):
         try:
             return stack_view_matrix(source, self._view, entity_ids).astype(np.float32)
         except (KeyError, TypeError, ValueError):
-            if self.precompute and hasattr(self, "_compute_from_source"):
-                return self._compute_from_source(source, entity_ids).astype(np.float32)
+            compute = getattr(self, "_compute_from_source", None)
+            if self.precompute and callable(compute):
+                return compute(source, entity_ids).astype(np.float32)
             raise
 
     def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:

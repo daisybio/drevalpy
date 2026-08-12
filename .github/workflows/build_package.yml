@@ -1,6 +1,16 @@
 name: Build DrEvalPy Package
 
-on: [push, pull_request]
+on:
+  # Same-repo PR branches were building twice (push + pull_request = 18 jobs).
+  # Keep the pull_request build and limit push builds to the branches that are
+  # not covered by a PR: the default branches and release branches, which
+  # feed python-publish.yml.
+  push:
+    branches:
+      - main
+      - master
+      - "release/*"
+  pull_request:
 
 jobs:
   build:

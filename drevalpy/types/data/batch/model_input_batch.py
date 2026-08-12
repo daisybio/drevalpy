@@ -241,11 +241,17 @@ class ModelInputBatch:
     def subset_pairs(self, mask: np.ndarray) -> ModelInputBatch:
         """Return a batch containing only the selected response pairs.
 
+        Early-stopping pairs are narrowed to the set of drugs that survive
+        *mask*, so a multi-drug subset keeps a multi-drug validation set. A
+        single-drug subset is the one-element case of that same rule, which is
+        what the single-drug predictors rely on. ``PredictorBase.fit`` needs the
+        multi-drug case because it filters NaN pairs across the whole batch.
+
         :param mask: One-dimensional boolean array with length ``n_pairs``.
 
         :returns: New batch referencing the same entity-level features.
 
-        :raises ValueError: If *mask* is invalid or spans multiple drugs while early-stopping pairs are present.
+        :raises ValueError: If *mask* is not a one-dimensional boolean array of length ``n_pairs``.
         """
         mask = np.asarray(mask, dtype=bool)
         if mask.ndim != 1 or mask.shape[0] != self.n_pairs:
@@ -255,10 +261,7 @@ class ModelInputBatch:
         early_stopping = self.early_stopping_response
         if early_stopping is not None and np.any(mask):
             selected_drugs = np.unique(self.drug_ids[mask])
-            if len(selected_drugs) != 1:
-                msg = "subset_pairs requires a single drug when early_stopping_response is present"
-                raise ValueError(msg)
-            es_mask = early_stopping.drug_ids == selected_drugs[0]
+            es_mask = np.isin(early_stopping.drug_ids, selected_drugs)
             if not np.any(es_mask):
                 early_stopping = None
             else:

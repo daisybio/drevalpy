@@ -171,19 +171,19 @@ class TestTransformBlocksNaNTolerance:
 class TestNaNWarning:
     """Tests for the warning threshold logic."""
 
-    def test_warning_above_threshold(self, mixed_source, caplog):
+    def test_warning_above_threshold(self, mixed_source, caplog, monkeypatch):
         source, ids = mixed_source
+        monkeypatch.setattr(_DoublingFeaturizer, "nan_threshold", 0.2)
         feat = _DoublingFeaturizer()
-        feat.nan_threshold = 0.2
         feat.fit(source, entity_ids=ids)
         with caplog.at_level(logging.WARNING, logger="drevalpy.components.featurizers.base"):
             feat.transform(source, ids)
         assert any("invalid" in record.message.lower() for record in caplog.records)
 
-    def test_no_warning_below_threshold(self, mixed_source, caplog):
+    def test_no_warning_below_threshold(self, mixed_source, caplog, monkeypatch):
         source, ids = mixed_source
+        monkeypatch.setattr(_DoublingFeaturizer, "nan_threshold", 0.5)
         feat = _DoublingFeaturizer()
-        feat.nan_threshold = 0.5
         feat.fit(source, entity_ids=ids)
         with caplog.at_level(logging.WARNING, logger="drevalpy.components.featurizers.base"):
             feat.transform(source, ids)

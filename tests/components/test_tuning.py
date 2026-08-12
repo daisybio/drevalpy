@@ -104,15 +104,13 @@ def test_hpam_tune_uses_optuna(mock_evaluate) -> None:
 
 
 @pytest.mark.skipif(os.environ.get("DREVALPY_RUN_HPO_TESTS") != "1", reason="optional HPO runtime test")
-def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
-    from drevalpy.data import load
+def test_hpam_tune_smoke(synthetic_dataset) -> None:
     from drevalpy.models.tuning.hpo import hpam_tune
     from drevalpy.registry.splitter import get as get_splitter
 
     model_cls = construct_model("ElasticNet")
-    mudataset = load("TOYv1")
     splitter = get_splitter("LPO")
-    folds = splitter(mudataset, n_splits=2, validation_ratio=0.4)
+    folds = splitter(synthetic_dataset, n_splits=2, validation_ratio=0.4)
     split = folds[0]
 
     early_stopping_scope = None
@@ -122,7 +120,7 @@ def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
 
     best, _ = hpam_tune(
         model_class=model_cls,
-        mudataset=mudataset,
+        mudataset=synthetic_dataset,
         train_scope=split.train,
         val_scope=val_scope,
         early_stopping_scope=early_stopping_scope,

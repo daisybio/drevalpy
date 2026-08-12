@@ -178,9 +178,14 @@ class AddSegId:
 
         :param data: torch_geometric.data.Data to modify.
         :return: The modified Data object.
+        :raises ValueError: If the graph does not report a node count.
         """
+        num_nodes = data.num_nodes
+        if num_nodes is None:
+            msg = "Cannot add segment ids: graph reports no node count (data.num_nodes is None)."
+            raise ValueError(msg)
         data.edge_seg = torch.LongTensor([0] * data.num_edges)
-        data.node_seg = torch.LongTensor([0] * data.num_nodes)
+        data.node_seg = torch.LongTensor([0] * num_nodes)
         return data
 
 

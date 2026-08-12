@@ -7,6 +7,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from drevalpy.types.data.modalities import backing_modality, public_omics_name
+
+from ._dense import to_dense
 from .aligned_fetch import _aligned_fetch
 
 if TYPE_CHECKING:
@@ -17,15 +20,41 @@ class FeatureAccessMixin:
     """Mixin that provides cell-line and drug feature access methods.
 
     Expects ``self._mdata`` to be a MuData object with a "response" modality.
+
+    Cell-line omics are addressed by their **public** name (the name configs,
+    recipes and predictors use). Published ``.h5mu`` files do not necessarily
+    store them under that name, so every lookup of ``self._mdata.mod`` by a
+    caller-supplied name goes through
+    :func:`~drevalpy.types.data.modalities.backing_modality`. This is the
+    boundary at which a public name becomes a physical modality key; above it
+    everything stays public.
     """
 
     _mdata: md.MuData
+
+    def _omics_modality(self, name: str) -> str:
+        """Resolve a public omics name to a stored modality key, or raise.
+
+        Args:
+            name: Public omics name as written in a config or predictor.
+
+        Returns:
+            The modality key present in ``self._mdata.mod``.
+
+        Raises:
+            KeyError: If no modality backs *name*.
+        """
+        modality = backing_modality(name, self._mdata.mod)
+        if modality is None:
+            available = sorted(public_omics_name(key) for key in self._mdata.mod)
+            raise KeyError(f"Modality '{name}' not found. Available: {available}")
+        return modality
 
     def get_cell_line_features(self, modality: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Get a feature matrix for the specified cell lines from a modality.
 
         Args:
-            modality: Name of the modality (e.g. "gene_expression").
+            modality: Public name of the modality (e.g. "gene_expression").
             ids: 1-D array of cell line IDs to retrieve.
             strict: If True, raise KeyError for missing IDs instead of warning.
 
@@ -40,14 +69,9 @@ class FeatureAccessMixin:
         if modality == "pathway_features":
             return self._get_obsm_features("pathway_features", ids, strict=strict)
 
-        if modality not in self._mdata.mod:
-            raise KeyError(f"Modality '{modality}' not found. Available: {list(self._mdata.mod.keys())}")
-
-        adata = self._mdata.mod[modality]
-        x = adata.X
-        if hasattr(x, "toarray"):
-            x = x.toarray()
-        return _aligned_fetch(pd.Index(adata.obs_names), ids, np.asarray(x), strict=strict, entity_label="cell line")
+        adata = self._mdata.mod[self._omics_modality(modality)]
+        x = np.asarray(to_dense(adata.X))
+        return _aligned_fetch(pd.Index(adata.obs_names), ids, x, strict=strict, entity_label="cell line")
 
     def _get_obsm_features(self, key: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Retrieve cell-line features stored in response.obsm."""
@@ -62,16 +86,17 @@ class FeatureAccessMixin:
         """Return the feature (column) names for a cell-line view.
 
         Args:
-            view: Name of the modality.
+            view: Public name of the modality.
 
         Returns:
             Tuple of feature names, or None if names are unavailable.
         """
         if view == "pathway_features":
             return None
-        if view not in self._mdata.mod:
+        modality = backing_modality(view, self._mdata.mod)
+        if modality is None:
             return None
-        return tuple(self._mdata.mod[view].var_names)
+        return tuple(self._mdata.mod[modality].var_names)
 
     def _resolve_varm_key(self, name: str) -> str | None:
         """Resolve a varm key by exact match or prefix match (name:variant)."""
@@ -182,14 +207,8 @@ class FeatureAccessMixin:
             valid = ~np.all(np.isnan(data), axis=1)
             return frozenset(np.asarray(response.obs_names)[valid])
 
-        if modality not in self._mdata.mod:
-            raise KeyError(f"Modality '{modality}' not found. Available: {list(self._mdata.mod.keys())}")
-
-        adata = self._mdata.mod[modality]
-        x = adata.X
-        if hasattr(x, "toarray"):
-            x = x.toarray()
-        x = np.asarray(x)
+        adata = self._mdata.mod[self._omics_modality(modality)]
+        x = np.asarray(to_dense(adata.X))
         valid = ~np.all(np.isnan(x), axis=1)
         return frozenset(np.asarray(adata.obs_names)[valid])
 

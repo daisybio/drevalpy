@@ -9,6 +9,9 @@ import mudata as md
 import numpy as np
 
 from drevalpy.log import get_logger
+from drevalpy.types.data.modalities import backing_modality
+
+from ._dense import to_dense
 
 if TYPE_CHECKING:
     from drevalpy.types.data.dataset import Dataset
@@ -130,16 +133,18 @@ def _randomize_single_view(
     rng: np.random.Generator,
     randomization_type: str,
 ) -> None:
-    """Randomize a single view in-place within new_mods/new_uns."""
+    """Randomize a single view in-place within new_mods/new_uns.
+
+    *view* is a public name, so the omics modalities are looked up through the
+    accessor map; varm, obsm and uns keys are not omics and stay verbatim.
+    """
     import anndata
 
-    if view in new_mods and view != "response":
-        adata = new_mods[view]
-        x = adata.X
-        if hasattr(x, "toarray"):
-            x = x.toarray()
-        x = _randomize_matrix(np.asarray(x, dtype=np.float32), rng, randomization_type)
-        new_mods[view] = anndata.AnnData(X=x, obs=adata.obs.copy(), var=adata.var.copy())
+    modality = backing_modality(view, new_mods)
+    if modality is not None and modality != "response":
+        adata = new_mods[modality]
+        x = _randomize_matrix(np.asarray(to_dense(adata.X), dtype=np.float32), rng, randomization_type)
+        new_mods[modality] = anndata.AnnData(X=x, obs=adata.obs.copy(), var=adata.var.copy())
     elif "response" in new_mods and view in (new_mods["response"].varm or {}):
         resp = new_mods["response"]
         varm_data = np.asarray(resp.varm[view], dtype=np.float32)

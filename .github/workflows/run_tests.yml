@@ -23,6 +23,9 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check .
 
+      - name: Check lockfile is up to date
+        run: uv lock --check
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
@@ -38,7 +41,8 @@ jobs:
     name: Tests (Python ${{ matrix.python-version }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      # Keep the Linux 3.11/3.12/3.13 signal alive when the Windows job fails.
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
         os: [ubuntu-latest]
@@ -53,7 +57,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Run tests
-        run: uv run pytest --ignore=tests/test_hpam_tune.py --cov --cov-report=xml
+        # -m "not network" matches how the suite is verified locally: it skips
+        # tests that download pretrained weights or remote annotations.
+        run: uv run pytest -m "not network" --cov --cov-report=xml
 
       - name: Upload coverage
         if: always() && matrix.os == 'ubuntu-latest'

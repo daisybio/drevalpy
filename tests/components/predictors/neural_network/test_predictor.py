@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
+from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
@@ -14,11 +17,23 @@ from drevalpy.registry._builtins import ensure_predictor_registered, register_bu
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from tests.components.predictors._helpers import neural_batch
+
+
+@pytest.fixture(autouse=True)
+def _register_components() -> None:
+    register_builtin_components()
 
 
 def test_neural_network_predictor_registry_name() -> None:
     ensure_predictor_registered("neuralNetwork")
     assert get_predictor("neuralNetwork") is NeuralNetworkPredictor
+
+
+def test_neural_network_requires_numeric_contracts() -> None:
+    cls = get_predictor("neuralNetwork")
+    assert cls.cell_line_contract.format == FeatureFormat.NUMERIC_MATRIX
+    assert cls.drug_contract.format == FeatureFormat.NUMERIC_MATRIX
 
 
 def test_neural_network_zoo_trains_on_synthetic_data() -> None:
@@ -73,6 +88,14 @@ def test_neural_network_configured_is_not_fitted_before_training() -> None:
     assert predictor.is_fitted() is False
 
 
+def test_neural_network_configured_is_not_fitted() -> None:
+    predictor = NeuralNetworkPredictor(
+        hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]},
+    )
+    assert predictor._model is None
+    assert predictor.is_fitted() is False
+
+
 def _matrix_batch() -> ModelInputBatch:
     response = ResponseBatch(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
@@ -116,3 +139,41 @@ def test_neural_network_set_state_rejects_invalid_checkpoint() -> None:
     predictor = NeuralNetworkPredictor()
     with pytest.raises(PredictorStateError):
         predictor.set_state({"checkpoint": b"invalid"})
+
+
+def test_neural_network_early_stopping_wires_validation_loader() -> None:
+    predictor = NeuralNetworkPredictor(
+        hyperparameters={"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]},
+    )
+    batch = neural_batch(with_early_stopping=True)
+    captured: dict[str, object] = {}
+
+    def _capture_fit(self, model, train_dataloaders, val_dataloaders=None):
+        captured["val_loader"] = val_dataloaders
+        return None
+
+    with patch("pytorch_lightning.Trainer.fit", _capture_fit):
+        predictor.fit(batch)
+    assert captured["val_loader"] is not None
+
+
+def test_neural_network_round_trip_state() -> None:
+    predictor = NeuralNetworkPredictor(
+        hyperparameters={"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]},
+    )
+    predictor.fit(neural_batch())
+    preds = predictor.predict(neural_batch())
+    assert preds.shape == (4,)
+    assert np.isfinite(preds).all()
+
+    restored = NeuralNetworkPredictor()
+    restored.set_state(predictor.get_state())
+    assert restored.is_fitted()
+    restored_preds = restored.predict(neural_batch())
+    assert np.allclose(preds, restored_preds)
+
+
+def test_neural_network_set_state_raises_on_invalid_payload() -> None:
+    predictor = NeuralNetworkPredictor()
+    with pytest.raises(PredictorStateError):
+        predictor.set_state({"checkpoint": b"not-a-torch-checkpoint"})

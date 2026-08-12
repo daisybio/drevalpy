@@ -17,9 +17,11 @@ from upath import UPath as Path
 
 from drevalpy.log import get_logger
 
+from .dataset_utils._dense import to_dense
 from .dataset_utils.feature_access import FeatureAccessMixin
 from .dataset_utils.randomization import RandomizationMixin
 from .dataset_utils.sampling import _sample_hp_configs
+from .modalities import backing_modality
 from .mudatalike import MuDataLike
 
 logger = get_logger(__name__)
@@ -206,7 +208,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             response = self._mdata.mod.get("response")
             return response is not None and "canonical_smiles" in response.var.columns
         if side == "cell_line":
-            return view in self._mdata.mod
+            return backing_modality(view, self._mdata.mod) is not None
         response = self._mdata.mod.get("response")
         return response is not None and response.varm is not None and view in response.varm
 
@@ -217,7 +219,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         available_varm = set(response.varm.keys()) if response is not None and response.varm is not None else set()
         available_obsm = set(response.obsm.keys()) if response is not None and response.obsm is not None else set()
         available = available_mods | available_varm | available_obsm
-        return all(v in available for v in views)
+        return all(backing_modality(v, available) is not None for v in views)
 
     @property
     def name(self) -> str:
@@ -245,10 +247,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         Returns:
             Dense float32 array of shape (n_cell_lines, n_drugs).
         """
-        x = self.response.X
-        if hasattr(x, "toarray"):
-            return np.asarray(x.toarray(), dtype=np.float32)
-        return np.asarray(x, dtype=np.float32)
+        return np.asarray(to_dense(self.response.X), dtype=np.float32)
 
     @property
     def cell_line_ids(self) -> np.ndarray:
@@ -282,10 +281,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         """
         if name not in self.response.layers:
             raise KeyError(f"Response layer '{name}' not found. Available: {list(self.response.layers.keys())}")
-        layer = self.response.layers[name]
-        if hasattr(layer, "toarray"):
-            return np.asarray(layer.toarray(), dtype=np.float32)
-        return np.asarray(layer, dtype=np.float32)
+        return np.asarray(to_dense(self.response.layers[name]), dtype=np.float32)
 
     # ------------------------------------------------------------------
     # Metadata

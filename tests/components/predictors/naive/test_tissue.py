@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import tempfile
+
 import numpy as np
 import pytest
 
@@ -9,7 +11,14 @@ from drevalpy.components.predictors.naive.tissue import (
     NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
 )
+from drevalpy.models import construct_model
+from drevalpy.registry._builtins import register_builtin_components
 from tests.components.predictors.naive._helpers import naive_batch, one_hot
+
+
+@pytest.fixture(autouse=True)
+def _register_components() -> None:
+    register_builtin_components()
 
 
 def test_naive_tissue_mean_requires_tissue_features() -> None:
@@ -86,3 +95,39 @@ def test_naive_tissue_mean_state_roundtrip() -> None:
     restored = NaiveTissueMeanPredictor()
     restored.set_state(predictor.get_state())
     np.testing.assert_allclose(restored.predict(batch), [2.0, 8.0])
+
+
+def test_naive_tissue_round_trip() -> None:
+    import anndata as ad
+    import mudata as md
+    import pandas as pd
+
+    from drevalpy.types import SplitMask, SplitMasks
+    from drevalpy.types.data.dataset import Dataset
+
+    cl_ids = np.array(["cl1", "cl2"])
+    drug_ids = np.array(["d1", "d2"])
+    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    response_ad = ad.AnnData(
+        X=response_matrix,
+        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
+        var=pd.DataFrame(index=drug_ids),
+    )
+    mdata = md.MuData({"response": response_ad})
+    mdata.obs["tissue"] = ["Lung", "Blood"]
+    mudataset = Dataset(mdata, name="test")
+    split = SplitMasks(
+        train=SplitMask(np.array([[True, True], [False, False]])),
+        test=SplitMask(np.array([[False, False], [True, True]])),
+        val=SplitMask(np.zeros((2, 2), dtype=bool)),
+    )
+    model = construct_model("NaiveTissueMeanPredictor")()
+    model.train(mudataset, split)
+    preds = model.predict(mudataset, split)
+    assert np.isfinite(preds).all()
+    with tempfile.TemporaryDirectory() as tmp:
+        checkpoint = f"{tmp}/model"
+        model.save(checkpoint)
+        loaded = type(model).load(checkpoint)
+        loaded_preds = loaded.predict(mudataset, split)
+    assert np.allclose(preds, loaded_preds)

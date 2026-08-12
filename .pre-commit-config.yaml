@@ -9,7 +9,7 @@ repos:
     rev: v5.0.0
     hooks:
       - id: check-added-large-files
-        exclude: ^(dreval_demo\.ipynb|uv\.lock)$
+        exclude: ^uv\.lock$
       - id: check-toml
       - id: check-yaml
       - id: end-of-file-fixer
@@ -29,7 +29,9 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: uv run pytest
+        # Deselect network-marked tests, matching CI. They need pretrained weights
+        # from the artifacts bucket, which is not readable without credentials.
+        entry: uv run pytest -m "not network"
         language: system
         pass_filenames: false
         always_run: true

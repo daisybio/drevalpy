@@ -114,6 +114,8 @@ class ChemBertaFeaturizer(ViewDrugFeaturizer):
         :param source: Feature source.
         :param entity_ids: Drug identifiers.
         :returns: Embedding matrix of shape (n_drugs, hidden_dim).
+        :raises ValueError: If no SMILES are available.
+        :raises ImportError: If transformers or torch are not installed.
         """
         smiles = get_smiles_for_entities(source, entity_ids)
         if smiles is None:

@@ -5,7 +5,7 @@ import pytest
 from flaky import flaky
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from drevalpy.evaluation import evaluate, kendall, pearson, spearman
+from drevalpy.evaluation import _compute_metric_value, evaluate, kendall, pearson, spearman
 
 
 def test_evaluate() -> None:
@@ -211,3 +211,9 @@ def test_correlations_constant_prediction(
     assert np.isclose(pc, 0.0, atol=1e-3)
     assert np.isclose(sp, 0.0, atol=1e-3)
     assert np.isclose(kd, 0.0, atol=1e-3)
+
+
+def test_compute_metric_value_all_nan_predictions() -> None:
+    response = np.array([1.0, 2.0])
+    predictions = np.array([np.nan, np.nan])
+    assert np.isnan(_compute_metric_value("RMSE", predictions, response))
