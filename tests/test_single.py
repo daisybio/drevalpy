@@ -76,6 +76,7 @@ class _StubModel:
         scope: SplitMask,
         early_stopping_scope: SplitMask | None,
         model_checkpoint_dir: str,
+        response_transformation: Any = None,
     ) -> None:
         self.train_calls.append(
             {
@@ -83,6 +84,7 @@ class _StubModel:
                 "scope": scope,
                 "early_stopping_scope": early_stopping_scope,
                 "model_checkpoint_dir": model_checkpoint_dir,
+                "response_transformation": response_transformation,
             }
         )
 
@@ -330,6 +332,33 @@ class TestResponseTransformation:
         single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False, response_transformation=scaler)
 
         assert not hasattr(scaler, "mean_")
+
+    def test_the_model_is_trained_on_the_transformed_target_space(
+        self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
+    ) -> None:
+        """The original bug: predictions were inverse-transformed but training stayed raw.
+
+        ``single`` therefore has to hand the model a *fitted* transformer, whose
+        statistics come from the train_val scope it also inverts with.
+        """
+        single(
+            stub_model,
+            synthetic_dataset,
+            folds[0],
+            hyperparameter_tuning=False,
+            response_transformation=StandardScaler(),
+        )
+
+        handed = stub_model.instances[0].train_calls[0]["response_transformation"]
+        expected_mean = float(self._train_responses(synthetic_dataset, folds[0]).mean())
+        assert float(handed.mean_[0]) == pytest.approx(expected_mean)
+
+    def test_no_transformation_hands_the_model_nothing(
+        self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
+    ) -> None:
+        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+
+        assert stub_model.instances[0].train_calls[0]["response_transformation"] is None
 
     def test_predictions_are_mapped_back_to_the_response_scale(
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]

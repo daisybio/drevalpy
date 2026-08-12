@@ -127,9 +127,11 @@ Aggregate into an :class:`~drevalpy.types.results.ExperimentResult`:
 
 ``single`` additionally supports:
 
-- ``response_transformation`` — an sklearn ``TransformerMixin`` (``standard``,
-  ``minmax``, ``robust``) applied to target values during training and inverted
-  for final predictions.
+- ``response_transformation`` — an unfitted sklearn ``TransformerMixin``
+  (``StandardScaler``, ``MinMaxScaler``, ``RobustScaler``). A clone is fitted on
+  the fold's training scope only, the training targets are transformed, and
+  predictions are inverted before scoring, so metrics stay in the dataset's
+  original response units and the caller's instance is left unfitted.
 
 Hyperparameter tuning
 ---------------------

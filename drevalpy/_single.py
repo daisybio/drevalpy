@@ -5,7 +5,7 @@ from __future__ import annotations
 import tempfile
 
 import numpy as np
-from sklearn.base import TransformerMixin, clone
+from sklearn.base import TransformerMixin
 
 from drevalpy.evaluation import AVAILABLE_METRICS, _compute_metric_value
 from drevalpy.log import get_logger
@@ -16,6 +16,7 @@ from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.results.run import RunResult
 from drevalpy.types.results.trial import TrialResult
+from drevalpy.utils.response_transform import fit_response_transformation
 
 logger = get_logger(__name__)
 
@@ -38,7 +39,8 @@ def single(
     :param mudataset: Full dataset with all features.
     :param split_masks: Single fold's train/test/val boolean masks.
     :param hyperparameter_tuning: Whether to run HPO.
-    :param response_transformation: Optional sklearn transformer for responses.
+    :param response_transformation: Optional unfitted sklearn transformer prototype; a clone is
+        fitted per scope and the caller's instance is left untouched.
     :param hpo_metric: Metric to optimize during HPO.
     :param hpo_num_samples: Number of HPO trials.
     :param hpo_random_state: Random seed for HPO.
@@ -87,14 +89,9 @@ def single(
     logger.info("Best hyperparameters: %s", best_hpams)
 
     model = model_class(best_hpams)
-    fold_transform = None if response_transformation is None else clone(response_transformation)
 
     train_scope = split_masks.train_val
-    if fold_transform is not None:
-        pairs = train_scope.pairs
-        train_responses = mudataset.response_matrix[pairs[:, 0], pairs[:, 1]]
-        valid_mask = ~np.isnan(train_responses)
-        fold_transform.fit(train_responses[valid_mask].reshape(-1, 1))
+    fold_transform = fit_response_transformation(response_transformation, mudataset, train_scope)
 
     with tempfile.TemporaryDirectory() as checkpoint_dir:
         model.train(
@@ -102,6 +99,7 @@ def single(
             scope=train_scope,
             early_stopping_scope=early_stopping_scope,
             model_checkpoint_dir=checkpoint_dir,
+            response_transformation=fold_transform,
         )
 
     predictions = model.predict(mudataset=mudataset, scope=split_masks.test)

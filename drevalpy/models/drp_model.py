@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 import wandb
+from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
 from drevalpy.components.contracts.training_context import TrainingContext
@@ -234,6 +235,7 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin, DRPPersistenceMixin):
         cell_line_input=None,
         output_earlystopping=None,
         model_checkpoint_dir: str | Path = "checkpoints",
+        response_transformation: TransformerMixin | None = None,
     ) -> None:
         """Train the component stack.
 
@@ -249,6 +251,9 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin, DRPPersistenceMixin):
         :param drug_input: FeatureSource for drugs, or None.
         :param output_earlystopping: Optional early-stopping dataset.
         :param model_checkpoint_dir: Directory for predictor checkpoints.
+        :param response_transformation: Optional fitted transformer applied to the
+            training targets. Predictions therefore live in the transformed space and the
+            caller is responsible for inverse-transforming them.
         :raises RuntimeError: If the model lacks a component stack.
         """
         if self._stack is None:
@@ -268,7 +273,7 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin, DRPPersistenceMixin):
 
         # New Dataset path
         if mudataset is not None and scope is not None:
-            train_response = _ComponentStack._extract_response_pairs(mudataset, scope)
+            train_response = _ComponentStack._extract_response_pairs(mudataset, scope, response_transformation)
             if len(train_response) == 0:
                 self._empty_training = True
                 return
@@ -283,12 +288,14 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin, DRPPersistenceMixin):
                     scope,
                     early_stopping_scope,
                     training_context=ctx,
+                    response_transformation=response_transformation,
                 )
             else:
                 self._stack.train(
                     mudataset,
                     scope,
                     training_context=ctx,
+                    response_transformation=response_transformation,
                 )
             return
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from sklearn.base import TransformerMixin
 
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
@@ -402,11 +403,15 @@ class _ComponentStack:
     def _extract_response_pairs(
         mudataset: Dataset,
         scope: SplitMask,
+        response_transformation: TransformerMixin | None = None,
     ) -> ResponseBatch:
         """Build a ResponseBatch from the Dataset for given pair indices.
 
         :param mudataset: Source of response values.
         :param scope: SplitMask with 2D pair array.
+        :param response_transformation: Optional *already fitted* transformer applied to
+            the extracted responses. Pass it only for training-time extractions; the
+            prediction and evaluation paths must read the raw matrix.
         :returns: Flat ResponseBatch of (cell_line, drug, response) triples.
         """
         pairs = scope.pairs
@@ -426,8 +431,11 @@ class _ComponentStack:
         responses = response_matrix[cl_idx, dr_idx]
 
         valid = ~np.isnan(responses)
+        values = responses[valid].astype(np.float64)
+        if response_transformation is not None:
+            values = response_transformation.transform(values.reshape(-1, 1)).ravel()
         return ResponseBatch(
-            response=responses[valid].astype(np.float64),
+            response=values,
             cell_line_ids=cl_ids[cl_idx[valid]],
             drug_ids=drug_ids[dr_idx[valid]],
         )
@@ -455,6 +463,7 @@ class _ComponentStack:
         scope: SplitMask,
         *,
         training_context: TrainingContext | None = None,
+        response_transformation: TransformerMixin | None = None,
     ) -> _ComponentStack:
         """Train the component stack using a Dataset and SplitMask.
 
@@ -464,9 +473,11 @@ class _ComponentStack:
         :param mudataset: Source of response values and features.
         :param scope: Entity scope defining cell-line/drug indices to train on.
         :param training_context: Optional runtime metadata.
+        :param response_transformation: Optional fitted transformer applied to the
+            training targets.
         :returns: Self after training.
         """
-        output = self._extract_response_pairs(mudataset, scope)
+        output = self._extract_response_pairs(mudataset, scope, response_transformation)
         if len(output) == 0:
             return self
 
@@ -506,6 +517,7 @@ class _ComponentStack:
         early_stopping_scope: SplitMask,
         *,
         training_context: TrainingContext | None = None,
+        response_transformation: TransformerMixin | None = None,
     ) -> _ComponentStack:
         """Train with an explicit early-stopping scope.
 
@@ -513,13 +525,16 @@ class _ComponentStack:
         :param scope: Entity scope defining cell-line/drug indices to train on.
         :param early_stopping_scope: Entity scope for early-stopping samples.
         :param training_context: Optional runtime metadata.
+        :param response_transformation: Optional fitted transformer applied to the
+            training targets and to the early-stopping targets, which are training-time
+            supervision and must live in the same space.
         :returns: Self after training.
         """
-        output = self._extract_response_pairs(mudataset, scope)
+        output = self._extract_response_pairs(mudataset, scope, response_transformation)
         if len(output) == 0:
             return self
 
-        output_earlystopping = self._extract_response_pairs(mudataset, early_stopping_scope)
+        output_earlystopping = self._extract_response_pairs(mudataset, early_stopping_scope, response_transformation)
         if len(output_earlystopping) == 0:
             output_earlystopping = None
 

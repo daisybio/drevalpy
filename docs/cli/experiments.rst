@@ -101,7 +101,21 @@ Arguments:
 3. Split path (``.npz`` fold file from ``drevalpy data split``)
 4. Output path (``.npz`` result file)
 
-Options are the same HPO flags as ``drevalpy run``.
+Options are the same HPO flags as ``drevalpy run``, plus one that is specific to
+per-fold execution:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
+
+   * - Option
+     - Default
+     - Description
+   * - ``--response-transformation``
+     - ``standard``
+     - Target scaling fitted on the training scope only: ``None``, ``standard``,
+       ``minmax``, or ``robust``. Predictions are inverse-transformed before
+       scoring, so metrics stay in the dataset's original response units.
 
 ``drevalpy aggregate`` — combine results
 -----------------------------------------

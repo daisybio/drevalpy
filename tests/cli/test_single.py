@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from upath import UPath
 
 from drevalpy.cli.main import app
@@ -129,9 +130,17 @@ class TestForwarding:
         assert isinstance(split_masks, SplitMasks)
 
     def test_forwards_hpo_defaults(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        """Exhaustive on the keyword set, so a newly forwarded option cannot slip in unnoticed.
+
+        ``response_transformation`` is popped rather than compared because sklearn
+        transformers have no value equality; :class:`TestResponseTransformation`
+        pins the instance it must be.
+        """
         _invoke(split_file, tmp_path)
 
-        assert worker.kwargs == {
+        forwarded = dict(worker.kwargs)
+        forwarded.pop("response_transformation")
+        assert forwarded == {
             "hyperparameter_tuning": True,
             "hpo_metric": "RMSE",
             "hpo_num_samples": 16,
@@ -155,6 +164,47 @@ class TestForwarding:
         _invoke(split_file, tmp_path, "--split-mode", "LCO")
 
         assert "split_mode" not in worker.kwargs
+
+
+class TestResponseTransformation:
+    """``--response-transformation`` resolves to the sklearn transformer prototype."""
+
+    def test_the_default_standardizes_the_response(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        _invoke(split_file, tmp_path)
+
+        assert isinstance(worker.kwargs["response_transformation"], StandardScaler)
+
+    def test_the_prototype_is_handed_over_unfitted(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        """``single`` fits a clone per scope, so the CLI must not fit anything itself."""
+        _invoke(split_file, tmp_path)
+
+        assert not hasattr(worker.kwargs["response_transformation"], "mean_")
+
+    @pytest.mark.parametrize(
+        ("option", "expected"),
+        [
+            pytest.param("standard", StandardScaler, id="standard"),
+            pytest.param("minmax", MinMaxScaler, id="minmax"),
+            pytest.param("robust", RobustScaler, id="robust"),
+        ],
+    )
+    def test_each_option_selects_its_transformer(
+        self, worker: Recorder, split_file: UPath, tmp_path: UPath, option: str, expected: type
+    ) -> None:
+        _invoke(split_file, tmp_path, "--response-transformation", option)
+
+        assert isinstance(worker.kwargs["response_transformation"], expected)
+
+    def test_none_disables_the_transformation(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        _invoke(split_file, tmp_path, "--response-transformation", "None")
+
+        assert worker.kwargs["response_transformation"] is None
+
+    def test_an_unknown_option_is_rejected(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        result = _invoke(split_file, tmp_path, "--response-transformation", "logarithmic")
+
+        assert result.exit_code != 0
+        assert worker.call_count == 0
 
 
 class TestSplitModeInjection:

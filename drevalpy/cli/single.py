@@ -17,6 +17,13 @@ def single_cmd(
     hpo_metric: Annotated[str, typer.Option("--hpo-metric", help="Metric to optimize.")] = "RMSE",
     hpo_num_samples: Annotated[int, typer.Option("--hpo-num-samples", help="Number of HPO trials.")] = 16,
     hpo_random_state: Annotated[int, typer.Option("--hpo-random-state", help="HPO random seed.")] = 42,
+    response_transformation: Annotated[
+        str,
+        typer.Option(
+            "--response-transformation",
+            help="Response scaling fitted on the training scope: None, standard, minmax, or robust.",
+        ),
+    ] = "standard",
     split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LCO, LDO).")] = "LPO",
 ) -> None:
     """Train a model on one fold, predict on test set, and save results."""
@@ -24,6 +31,7 @@ def single_cmd(
     from drevalpy.models import construct_model
     from drevalpy.types import SplitMasks
     from drevalpy.types.data.dataset import Dataset
+    from drevalpy.utils import get_response_transformation
 
     out = UPath(output)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -39,6 +47,7 @@ def single_cmd(
         ds,
         split_masks,
         hyperparameter_tuning=hpo,
+        response_transformation=get_response_transformation(response_transformation),
         hpo_metric=hpo_metric,
         hpo_num_samples=hpo_num_samples,
         hpo_random_state=hpo_random_state,

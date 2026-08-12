@@ -21,6 +21,7 @@ from drevalpy.models.tuning.config_resolution import (
 from drevalpy.models.tuning.search_space import sample_from_optuna_trial
 from drevalpy.types import SplitMask
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.utils.response_transform import fit_response_transformation
 
 if TYPE_CHECKING:
     from drevalpy.models.drp_model import DRPModel
@@ -80,6 +81,7 @@ def _mu_evaluate_trial_model(
     trial_number: int = 0,
 ) -> float:
     """Train a trial model and compute a validation metric using Dataset + SplitMask."""
+    fitted_transform = fit_response_transformation(response_transformation, mudataset, train_scope)
     trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
     if trial_dir is not None:
         trial_model.train(
@@ -87,6 +89,7 @@ def _mu_evaluate_trial_model(
             scope=train_scope,
             early_stopping_scope=early_stopping_scope,
             model_checkpoint_dir=str(trial_dir),
+            response_transformation=fitted_transform,
         )
     else:
         with tempfile.TemporaryDirectory() as checkpoint_dir:
@@ -95,12 +98,13 @@ def _mu_evaluate_trial_model(
                 scope=train_scope,
                 early_stopping_scope=early_stopping_scope,
                 model_checkpoint_dir=checkpoint_dir,
+                response_transformation=fitted_transform,
             )
 
     predictions = trial_model.predict(mudataset=mudataset, scope=val_scope)
 
-    if response_transformation is not None:
-        predictions = response_transformation.inverse_transform(predictions.reshape(-1, 1)).ravel()
+    if fitted_transform is not None:
+        predictions = fitted_transform.inverse_transform(predictions.reshape(-1, 1)).ravel()
 
     ground_truth = _extract_ground_truth(mudataset, val_scope)
 
@@ -140,6 +144,7 @@ def _mu_evaluate_trial_all_metrics(
 
     :returns: Tuple of (metrics_dict, predictions_array).
     """
+    fitted_transform = fit_response_transformation(response_transformation, mudataset, train_scope)
     trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
     if trial_dir is not None:
         trial_model.train(
@@ -147,6 +152,7 @@ def _mu_evaluate_trial_all_metrics(
             scope=train_scope,
             early_stopping_scope=early_stopping_scope,
             model_checkpoint_dir=str(trial_dir),
+            response_transformation=fitted_transform,
         )
     else:
         with tempfile.TemporaryDirectory() as checkpoint_dir:
@@ -155,12 +161,13 @@ def _mu_evaluate_trial_all_metrics(
                 scope=train_scope,
                 early_stopping_scope=early_stopping_scope,
                 model_checkpoint_dir=checkpoint_dir,
+                response_transformation=fitted_transform,
             )
 
     predictions = trial_model.predict(mudataset=mudataset, scope=val_scope)
 
-    if response_transformation is not None:
-        predictions = response_transformation.inverse_transform(predictions.reshape(-1, 1)).ravel()
+    if fitted_transform is not None:
+        predictions = fitted_transform.inverse_transform(predictions.reshape(-1, 1)).ravel()
 
     ground_truth = _extract_ground_truth(mudataset, val_scope)
 
