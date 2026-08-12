@@ -7,7 +7,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from drevalpy.components.featurizers.cell_line.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
+from drevalpy.components.featurizers.cell_line.gene_lists import (
+    GENE_LISTS_DIR,
+    gene_names_from_list_csv,
+    resolve_gene_list_path,
+)
 
 
 def test_gene_names_from_symbol_column(tmp_path: Path) -> None:
@@ -29,10 +33,20 @@ def test_gene_names_rejects_unknown_columns(tmp_path: Path) -> None:
         gene_names_from_list_csv(path)
 
 
-def test_resolve_gene_list_path_uses_data_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_gene_list_path_uses_packaged_csv() -> None:
+    path = resolve_gene_list_path("landmark_genes")
+    assert path.is_file()
+    assert path == GENE_LISTS_DIR / "landmark_genes.csv"
+
+
+def test_resolve_gene_list_path_ignores_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     gene_dir = tmp_path / "meta" / "gene_lists"
     gene_dir.mkdir(parents=True)
-    path = gene_dir / "custom_genes.csv"
-    pd.DataFrame({"Symbol": ["G1"]}).to_csv(path, index=False)
+    pd.DataFrame({"Symbol": ["G1"]}).to_csv(gene_dir / "landmark_genes.csv", index=False)
     monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
-    assert resolve_gene_list_path("custom_genes") == path
+    assert resolve_gene_list_path("landmark_genes") == GENE_LISTS_DIR / "landmark_genes.csv"
+
+
+def test_resolve_gene_list_path_lists_available_lists_when_missing() -> None:
+    with pytest.raises(FileNotFoundError, match="Available gene lists: .*landmark_genes"):
+        resolve_gene_list_path("not_a_gene_list")
