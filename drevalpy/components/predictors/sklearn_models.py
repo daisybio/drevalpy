@@ -158,14 +158,9 @@ class RandomForestPredictor(SklearnTabularPredictor):
         :returns: Result.
         """
         return {
-            "n_estimators": {"type": "int", "low": 20, "high": 300, "default": 100},
-            "criterion": {
-                "type": "categorical",
-                "choices": ["squared_error", "absolute_error"],
-                "default": "squared_error",
-            },
+            "n_estimators": {"type": "int", "low": 50, "high": 200, "default": 100},
             "max_samples": {"type": "float", "low": 0.1, "high": 0.9, "default": 0.2},
-            "max_depth": {"type": "int", "low": 3, "high": 50, "default": 20},
+            "max_depth": {"type": "int", "low": 5, "high": 25, "default": 15},
         }
 
 
