@@ -14,7 +14,7 @@ Built-in datasets
 -----------------
 
 Built-in names are listed in the packaged registry. Use the dataset registry
-to discover them and :func:`~drevalpy.data.datasets.load.load` to load:
+to discover them and :func:`~drevalpy.data.load` to load:
 
 .. code-block:: python
 
@@ -31,7 +31,7 @@ workflow, measure names gain a ``_curvecurator`` suffix — see
 Custom .h5mu files
 ------------------
 
-Point :func:`~drevalpy.data.datasets.load.load` at a ``.h5mu`` file path
+Point :func:`~drevalpy.data.load` at a ``.h5mu`` file path
 directly:
 
 .. code-block:: python
@@ -43,7 +43,7 @@ Any path that is not a recognized built-in name is treated as a file path.
 Splits
 ------
 
-:func:`~drevalpy.run.run` splits the loaded dataset for you (``split_mode``
+:func:`~drevalpy.run` splits the loaded dataset for you (``split_mode``
 of ``LPO``, ``LCO``, ``LTO``, or ``LDO``). You can also use
 :func:`~drevalpy.data.split` yourself before a custom training loop:
 
@@ -56,12 +56,12 @@ of ``LPO``, ``LCO``, ``LTO``, or ``LDO``). You can also use
 
 Each fold is a :class:`~drevalpy.types.SplitMasks` object containing boolean
 masks for train, validation, and test sets. Pass a fold directly to
-:func:`~drevalpy.single.single` for per-fold execution:
+:func:`~drevalpy.single` for per-fold execution:
 
 .. code-block:: python
 
    from drevalpy.models import construct_model
-   from drevalpy.single import single
+   from drevalpy import single
 
    ElasticNet = construct_model("ElasticNet")
    result = single(ElasticNet, dataset, folds[0], hyperparameter_tuning=False)

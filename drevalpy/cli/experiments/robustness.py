@@ -22,7 +22,7 @@ def robustness_cmd(
     """
     from rich.progress import Progress
 
-    from drevalpy.experiment.robustness import robustness
+    from drevalpy.experiment._robustness import robustness
     from drevalpy.types import SplitMasks
 
     inp = UPath(splits_dir)

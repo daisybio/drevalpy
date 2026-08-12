@@ -2,7 +2,7 @@
 
 Every CLI command body imports its heavy dependencies lazily, so the testing
 lever throughout ``tests/cli`` is to monkeypatch the worker in its *source*
-module (``drevalpy.run.run``, ``drevalpy.data.split``, ...) and assert on the
+module (``drevalpy._run.run``, ``drevalpy.data.split``, ...) and assert on the
 kwargs the command forwarded. The stubs below stand in for the objects those
 workers return.
 
@@ -53,12 +53,12 @@ def plain(text: str) -> str:
 def patch_worker(monkeypatch: pytest.MonkeyPatch, module_name: str, attribute: str, value: Any) -> None:
     """Replace ``module_name.attribute`` given the module object, not a dotted string.
 
-    ``drevalpy/__init__.py`` re-exports ``run``, ``single``, ``split`` and
-    ``randomization`` as *functions*, which shadows the same-named submodules on
-    the package object. ``monkeypatch.setattr("drevalpy.run.run", ...)``
-    therefore walks into the function and fails; resolving the module through
-    :func:`importlib.import_module` sidesteps the shadowing, and matches what
-    ``from drevalpy.run import run`` inside a command body actually reads.
+    The worker modules are private (``drevalpy._run``, ``drevalpy._single``,
+    ``drevalpy.experiment._randomization``, ...) precisely so that the public
+    ``drevalpy.run`` / ``drevalpy.single`` names can be the re-exported
+    *functions* without shadowing a module. Resolving the private module through
+    :func:`importlib.import_module` patches the object that a command body's
+    ``from drevalpy._run import run`` actually reads.
 
     Args:
         monkeypatch: Fixture performing the (reverted) assignment.

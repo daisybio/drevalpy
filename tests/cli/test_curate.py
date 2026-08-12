@@ -173,13 +173,13 @@ class TestFitOptions:
                 "2",
                 "--normalize",
                 "--fit-type",
-                "MLE",
+                "OLS",
                 "--fit-speed",
                 "fast",
             ],
         )
 
-        assert worker.kwargs == {"cores": 2, "normalize": True, "fit_type": "MLE", "fit_speed": "fast"}
+        assert worker.kwargs == {"cores": 2, "normalize": True, "fit_type": "OLS", "fit_speed": "fast"}
 
     def test_cores_short_option(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
         runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "-c", "1"])

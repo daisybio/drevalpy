@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from drevalpy.experiment.randomization import (
+from drevalpy.experiment._randomization import (
     _complement_view_tests,
     _single_view_tests,
     randomization,

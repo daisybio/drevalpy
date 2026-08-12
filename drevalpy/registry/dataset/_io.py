@@ -33,9 +33,14 @@ def _lock_path() -> Path:
 def config_lock() -> Generator[None, None, None]:
     """Acquire an exclusive file lock for config read-modify-write operations.
 
+    ``is_singleton=True`` makes the lock reentrant: nesting two ``config_lock()``
+    blocks in the same process reuses one underlying lock and its recursion
+    counter, instead of deadlocking a second independent ``FileLock`` until the
+    timeout expires.
+
     :yields: Nothing; the lock is held for the duration of the context.
     """
-    lock = FileLock(_lock_path(), timeout=_LOCK_TIMEOUT)
+    lock = FileLock(_lock_path(), timeout=_LOCK_TIMEOUT, is_singleton=True)
     with lock:
         yield
 

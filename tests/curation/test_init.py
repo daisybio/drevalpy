@@ -10,8 +10,24 @@ from __future__ import annotations
 import anndata
 import numpy as np
 import pandas as pd
+import pytest
 
-from drevalpy.curation import curate
+from drevalpy.curation import SUPPORTED_FIT_TYPES, curate
+
+
+class TestFitTypeValidation:
+    """``curate`` rejects fit types it cannot actually run."""
+
+    def test_only_ols_is_advertised(self) -> None:
+        assert SUPPORTED_FIT_TYPES == ("OLS",)
+
+    def test_mle_is_rejected_before_any_fitting(self, dose_response_df: pd.DataFrame) -> None:
+        with pytest.raises(ValueError, match="fit_mle"):
+            curate(dose_response_df, cores=1, fit_type="MLE", fit_speed="fast")
+
+    def test_unknown_fit_type_names_the_supported_ones(self, dose_response_df: pd.DataFrame) -> None:
+        with pytest.raises(ValueError, match=r"expected one of \['OLS'\]"):
+            curate(dose_response_df, cores=1, fit_type="nonsense", fit_speed="fast")
 
 
 class TestEndToEnd:

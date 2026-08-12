@@ -68,7 +68,7 @@ layout.
 create_report
 -------------
 
-After :func:`~drevalpy.run.run` finishes, build the HTML report from the
+After :func:`~drevalpy.run` finishes, build the HTML report from the
 result object:
 
 .. code-block:: python

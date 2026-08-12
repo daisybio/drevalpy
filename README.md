@@ -122,7 +122,7 @@ Load the dataset, resolve zoo presets with `construct_model` (returns a **class*
 ```python
 from drevalpy.data import load
 from drevalpy.models import construct_model
-from drevalpy.run import run
+from drevalpy import run
 
 dataset = load("GDSC1")
 

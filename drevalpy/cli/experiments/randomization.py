@@ -29,7 +29,7 @@ def randomization_cmd(
     from rich.progress import Progress
 
     from drevalpy.data import Dataset
-    from drevalpy.experiment.randomization import randomization
+    from drevalpy.experiment._randomization import randomization
     from drevalpy.models import construct_model
 
     out = UPath(output_dir)

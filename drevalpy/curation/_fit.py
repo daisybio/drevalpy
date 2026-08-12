@@ -92,7 +92,7 @@ def _build_work_items(
     :param groups: (wide_df, group_info) tuples from preprocess.
     :param chunk_size: Target number of curves per chunk.
     :param normalize: Whether to apply median-centric normalization.
-    :param fit_type: Fitting method: "OLS" or "MLE".
+    :param fit_type: Fitting method. Only "OLS" is currently supported.
     :param fit_speed: Fitting thoroughness.
     :returns: (work items as (chunk_df, config, group_idx), one config per group).
     """
@@ -152,7 +152,7 @@ def fit_groups(
     normalize
         Whether to apply median-centric normalization.
     fit_type
-        Fitting method: "OLS" or "MLE".
+        Fitting method. Only "OLS" is currently supported.
     fit_speed
         Fitting thoroughness: "fast", "standard", "exhaustive", or "basinhopping".
 

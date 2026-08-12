@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.experiment.robustness import robustness
+from drevalpy.experiment import robustness
 from drevalpy.types import SplitMask, SplitMasks
 
 

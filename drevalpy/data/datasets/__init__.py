@@ -16,7 +16,7 @@ Usage::
 
 from __future__ import annotations
 
-from .load import load
+from ._load import load
 
 
 def __getattr__(name: str):

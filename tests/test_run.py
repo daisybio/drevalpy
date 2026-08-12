@@ -3,7 +3,7 @@
 ``drevalpy/run.py`` contains no numerical logic of its own: it loads or accepts a
 dataset, expands it into folds, optionally multiplies those folds by robustness
 trials, optionally adds randomized copies of the dataset, and hands every
-combination to :func:`drevalpy.single.single`. These tests therefore replace
+combination to :func:`drevalpy.single`. These tests therefore replace
 ``single`` with a recorder and assert the fan-out arithmetic and the kwargs it
 forwards, so nothing here trains a model.
 
@@ -20,17 +20,15 @@ from typing import Any
 import numpy as np
 import pytest
 
-from drevalpy.run import run
+from drevalpy import run
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results import ExperimentResult
 from tests.synthetic.results import DEFAULT_DATASET_NAME, make_run_result
 
-#: ``drevalpy/__init__.py`` re-exports ``run`` as a *function*, which shadows the
-#: same-named submodule on the package object, so ``monkeypatch.setattr`` with a
-#: dotted string walks into the function and raises ``AttributeError``. Resolving
-#: the module through ``importlib`` sidesteps the shadowing; the same trick is
-#: used by ``tests/cli/_helpers.py::patch_worker``.
-RUN_MODULE = importlib.import_module("drevalpy.run")
+#: The orchestrator lives in the private ``drevalpy._run`` module so that the
+#: public ``drevalpy.run`` name can be the re-exported function. Patching the
+#: private module is what ``run``'s own top-level imports actually read.
+RUN_MODULE = importlib.import_module("drevalpy._run")
 
 
 class _FakeDataset:

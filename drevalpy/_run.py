@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from itertools import product
 
+from drevalpy._single import single
 from drevalpy.data import load, split
-from drevalpy.experiment.randomization import randomization
-from drevalpy.experiment.robustness import robustness
+from drevalpy.experiment._randomization import randomization
+from drevalpy.experiment._robustness import robustness
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.single import single
 from drevalpy.types import Dataset
 from drevalpy.types.results import ExperimentResult, RunResult
 

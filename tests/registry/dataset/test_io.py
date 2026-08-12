@@ -61,6 +61,25 @@ def test_config_lock_is_exclusive_while_held(config_dir: UPath) -> None:
         contender.acquire()
 
 
+def test_config_lock_is_reentrant_within_one_process(config_dir: UPath) -> None:
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    with _io.config_lock(), _io.config_lock():
+        assert _io._lock_path().is_file()
+
+
+def test_config_lock_stays_held_until_the_outermost_block_exits(config_dir: UPath) -> None:
+    config_dir.mkdir(parents=True, exist_ok=True)
+    contender = FileLock(_io._lock_path(), timeout=0)
+
+    with _io.config_lock():
+        with _io.config_lock():
+            pass
+        # The inner block exiting must not release the lock for everyone else.
+        with pytest.raises(Timeout):
+            contender.acquire()
+
+
 def test_load_config_returns_defaults_when_the_file_is_missing(config_dir: UPath) -> None:
     assert _io.load_config() == DrevalConfig()
 

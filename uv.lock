@@ -1450,7 +1450,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "curve-curator", git = "https://github.com/nictru/curve_curator.git" },
-    { name = "filelock", specifier = ">=3.0" },
+    { name = "filelock", specifier = ">=3.15.2" },
     { name = "flaky" },
     { name = "fsspec", extras = ["full"] },
     { name = "gensim", specifier = ">=4.4.0" },

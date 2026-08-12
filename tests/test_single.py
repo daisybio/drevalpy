@@ -1,6 +1,6 @@
 """Tests for the single model + single fold execution unit.
 
-:func:`drevalpy.single.single` is the seam every entry point funnels through, but
+:func:`drevalpy.single` is the seam every entry point funnels through, but
 it was effectively untested on CI: ``tests/test_integration.py`` only exercises it
 when a real ``CTRPv1`` ``.h5mu`` happens to be cached, so a clean checkout skipped
 it entirely. This module replaces that path with the in-memory
@@ -26,17 +26,16 @@ import numpy as np
 import pytest
 from sklearn.preprocessing import StandardScaler
 
+from drevalpy import single
 from drevalpy.data import split
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.models import construct_model
-from drevalpy.single import single
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results.run import RunResult
 
-#: ``drevalpy/__init__.py`` re-exports ``single`` as a function, shadowing the
-#: submodule of the same name, so a dotted-string ``monkeypatch.setattr`` target
-#: resolves to the function and fails. See ``tests/cli/_helpers.py::patch_worker``.
-SINGLE_MODULE = importlib.import_module("drevalpy.single")
+#: ``single`` lives in the private ``drevalpy._single`` module so that the public
+#: ``drevalpy.single`` name can be the re-exported function.
+SINGLE_MODULE = importlib.import_module("drevalpy._single")
 
 
 class _StubModel:
@@ -183,6 +182,15 @@ class TestFoldMetadata:
         assert result.fold_index == folds[1].metadata["fold_index"]
         assert result.fold_id == folds[1].metadata["fold_id"]
         assert result.fold_metadata == folds[1].metadata
+
+    def test_fold_metadata_does_not_alias_the_split_masks(
+        self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
+    ) -> None:
+        result = single(stub_model, synthetic_dataset, folds[1], hyperparameter_tuning=False)
+
+        result.fold_metadata["injected"] = "value"
+
+        assert "injected" not in folds[1].metadata
 
     def test_absent_metadata_falls_back_to_defaults(self, synthetic_dataset, stub_model: type[_StubModel]) -> None:
         shape = synthetic_dataset.response_matrix.shape

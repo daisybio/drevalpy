@@ -1,6 +1,7 @@
 """Utility functions for the SuperFELTR model."""
 
 import secrets
+from typing import cast
 
 import numpy as np
 import pytorch_lightning as pl
@@ -202,11 +203,30 @@ class SuperFELTRegressor(pl.LightningModule):
         self.regressor = nn.Sequential(nn.Linear(input_size, 1), nn.Dropout(hpams["dropout_rate"]))
         self.lr = float(hpams["learning_rate"])
         self.weight_decay = float(hpams["weight_decay"])
-        self.encoders = encoders
-        # put the encoders in eval mode
+        # Registered as a ModuleList so Lightning's device placement reaches the
+        # encoders too; a plain tuple left them behind on CPU while the regressor
+        # moved to the accelerator.
+        self.encoders = nn.ModuleList(encoders)
+        # The encoders were fitted beforehand, so freeze them and keep them in
+        # eval mode: their BatchNorm running stats and Dropout must stay fixed.
         for encoder in self.encoders:
             encoder.eval()
+            encoder.requires_grad_(False)
         self.regression_loss = nn.MSELoss()
+
+    def train(self, mode: bool = True) -> "SuperFELTRegressor":
+        """Set training mode on the regressor while keeping the encoders in eval mode.
+
+        Lightning calls ``train()`` when the fit loop starts, which would otherwise
+        reactivate the frozen encoders' BatchNorm updates and Dropout.
+
+        :param mode: Whether to put the regressor into training mode.
+        :returns: self
+        """
+        super().train(mode)
+        for encoder in self.encoders:
+            encoder.eval()
+        return self
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass of the SuperFELTRegressor.
@@ -238,9 +258,22 @@ class SuperFELTRegressor(pl.LightningModule):
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Override the configure_optimizers method to use the Adagrad optimizer.
 
+        Only the regressor head is optimized; the encoders are frozen.
+
         :returns: Adagrad optimizer
         """
-        return torch.optim.Adagrad(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        return torch.optim.Adagrad(self.regressor.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+
+    def _encoder(self, index: int) -> "SuperFELTEncoder":
+        """Return the registered encoder at ``index`` with its concrete type.
+
+        ``nn.ModuleList.__getitem__`` is typed as ``Tensor | Module``, so the cast
+        keeps the ``encode`` calls below statically checkable.
+
+        :param index: Position of the encoder in the registered list.
+        :returns: The encoder at that position.
+        """
+        return cast("SuperFELTEncoder", self.encoders[index])
 
     def _encode_and_concatenate(
         self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor
@@ -253,9 +286,9 @@ class SuperFELTRegressor(pl.LightningModule):
 
         :returns: concatenated encoded tensor
         """
-        encoded_expr = self.encoders[0].encode(data_expr)
-        encoded_mut = self.encoders[1].encode(data_mut)
-        encoded_cnv = self.encoders[2].encode(data_cnv)
+        encoded_expr = self._encoder(0).encode(data_expr)
+        encoded_mut = self._encoder(1).encode(data_mut)
+        encoded_cnv = self._encoder(2).encode(data_cnv)
         return torch.cat((encoded_expr, encoded_mut, encoded_cnv), dim=1)
 
     def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:

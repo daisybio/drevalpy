@@ -55,6 +55,9 @@ class TestBuildConfig:
     """The curve_curator config assembled from a preprocess group_info."""
 
     def test_forwards_fit_type_and_speed(self) -> None:
+        # "MLE" is rejected by the public curate() entry point, but the private
+        # plumbing still forwards it so re-enabling is a one-line change once the
+        # curve_curator fork accepts the 'weights' argument again.
         config = _build_config(6, _DOSES, 1, fit_type="MLE", fit_speed="fast")
 
         assert config["Curve Fit"]["type"] == "MLE"

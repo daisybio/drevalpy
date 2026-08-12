@@ -146,7 +146,7 @@ class TestOrchestratorPassesType:
     def test_orchestrator_passes_type(self, monkeypatch):
         from unittest.mock import MagicMock
 
-        from drevalpy.experiment.randomization import randomization
+        from drevalpy.experiment import randomization
 
         mock_config = MagicMock()
         mock_config.cell_line_views.return_value = ["gene_expression"]

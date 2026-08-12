@@ -29,7 +29,7 @@ def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str]) -> Recorder:
 
     Returns:
         Recorder standing in for
-        :func:`drevalpy.experiment.randomization.randomization`, returning two
+        :func:`drevalpy.experiment.randomization`, returning two
         datasets whose ``randomization`` tags drive the output filenames.
     """
 
@@ -40,7 +40,7 @@ def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str]) -> Recorder:
     recorder = Recorder(return_value=[FakeDataset(randomization=tag) for tag in RANDOMIZED])
     monkeypatch.setattr("drevalpy.models.construct_model", fake_construct_model)
     monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: FakeDataset()))
-    patch_worker(monkeypatch, "drevalpy.experiment.randomization", "randomization", recorder)
+    patch_worker(monkeypatch, "drevalpy.experiment._randomization", "randomization", recorder)
     return recorder
 
 
@@ -142,7 +142,7 @@ class TestOutput:
         monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: FakeDataset()))
         patch_worker(
             monkeypatch,
-            "drevalpy.experiment.randomization",
+            "drevalpy.experiment._randomization",
             "randomization",
             Recorder(return_value=[FakeDataset(randomization=None)]),
         )
@@ -160,7 +160,7 @@ class TestOutput:
     def test_empty_result_still_reports_zero(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
         monkeypatch.setattr("drevalpy.models.construct_model", lambda name: type("Stub", (), {}))
         monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: FakeDataset()))
-        patch_worker(monkeypatch, "drevalpy.experiment.randomization", "randomization", Recorder(return_value=[]))
+        patch_worker(monkeypatch, "drevalpy.experiment._randomization", "randomization", Recorder(return_value=[]))
 
         result = _invoke(tmp_path)
 

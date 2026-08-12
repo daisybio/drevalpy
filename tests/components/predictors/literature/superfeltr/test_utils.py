@@ -47,21 +47,14 @@ RANGES = (0.1, 1.0)
 
 
 @pytest.fixture(autouse=True)
-def _cpu_trainer_in_tmp_path(monkeypatch, tmp_path) -> None:
-    """Pin Lightning to CPU and keep its run logs inside ``tmp_path``.
+def _trainer_logs_in_tmp_path(monkeypatch, tmp_path) -> None:
+    """Keep Lightning's run logs inside ``tmp_path``.
 
-    ``SuperFELTRegressor`` holds its encoders in a plain tuple, so Lightning's
-    device placement never reaches them; on an accelerator-equipped host the
-    regressor weights and the encoder weights would land on different devices.
+    The trainer is deliberately *not* pinned to CPU: ``SuperFELTRegressor``
+    registers its encoders in an ``nn.ModuleList``, so Lightning moves them along
+    with the regressor and the fit works on whatever accelerator is present.
     """
     monkeypatch.chdir(tmp_path)
-    original_init = pl.Trainer.__init__
-
-    def _cpu_init(self, *args: object, **kwargs: object) -> None:
-        kwargs.setdefault("accelerator", "cpu")
-        original_init(self, *args, **kwargs)
-
-    monkeypatch.setattr(pl.Trainer, "__init__", _cpu_init)
 
 
 def _hpams(**overrides: object) -> dict[str, int | float | dict]:
@@ -221,6 +214,47 @@ def test_regressor_puts_its_encoders_in_eval_mode() -> None:
     regressor = _regressor()
 
     assert all(not encoder.training for encoder in regressor.encoders)
+
+
+def test_regressor_registers_its_encoders_as_submodules() -> None:
+    regressor = _regressor()
+
+    assert isinstance(regressor.encoders, nn.ModuleList)
+    assert [name for name, _ in regressor.named_children() if name == "encoders"] == ["encoders"]
+
+
+def test_regressor_moves_its_encoders_with_the_rest_of_the_model() -> None:
+    regressor = _regressor()
+
+    regressor.to(torch.float64)
+
+    encoder_dtypes = {parameter.dtype for encoder in regressor.encoders for parameter in encoder.parameters()}
+    assert encoder_dtypes == {torch.float64}
+    assert next(regressor.regressor.parameters()).dtype == torch.float64
+
+
+def test_regressor_keeps_encoders_in_eval_mode_when_switched_to_train() -> None:
+    regressor = _regressor()
+
+    regressor.train()
+
+    assert regressor.training
+    assert all(not encoder.training for encoder in regressor.encoders)
+
+
+def test_regressor_freezes_its_encoders() -> None:
+    regressor = _regressor()
+
+    assert all(not parameter.requires_grad for encoder in regressor.encoders for parameter in encoder.parameters())
+
+
+def test_regressor_optimizes_only_the_regression_head() -> None:
+    regressor = _regressor()
+
+    optimizer = regressor.configure_optimizers()
+
+    optimized = {id(parameter) for group in optimizer.param_groups for parameter in group["params"]}
+    assert optimized == {id(parameter) for parameter in regressor.regressor.parameters()}
 
 
 def test_regressor_forward_returns_one_scalar_per_row() -> None:

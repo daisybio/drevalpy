@@ -48,7 +48,7 @@ def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str]) -> Recorder:
         constructed: List that receives every requested model name.
 
     Returns:
-        Recorder standing in for :func:`drevalpy.run.run`.
+        Recorder standing in for :func:`drevalpy.run`.
     """
 
     def fake_construct_model(name: str) -> type:
@@ -57,7 +57,7 @@ def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str]) -> Recorder:
 
     recorder = Recorder(return_value=StubExperiment())
     monkeypatch.setattr("drevalpy.models.construct_model", fake_construct_model)
-    patch_worker(monkeypatch, "drevalpy.run", "run", recorder)
+    patch_worker(monkeypatch, "drevalpy._run", "run", recorder)
     return recorder
 
 
@@ -131,7 +131,7 @@ class TestModelArgument:
 
 
 class TestOptionForwarding:
-    """Every option maps onto a keyword of :func:`drevalpy.run.run`."""
+    """Every option maps onto a keyword of :func:`drevalpy.run`."""
 
     def test_no_hpo_disables_tuning(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path, "--no-hpo")

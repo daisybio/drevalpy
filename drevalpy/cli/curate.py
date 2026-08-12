@@ -12,7 +12,7 @@ def curate_cmd(
     output: Annotated[str, typer.Argument(help="Output .h5ad file path.")],
     cores: Annotated[int, typer.Option("--cores", "-c", help="Number of CPU cores.")] = 4,
     normalize: Annotated[bool, typer.Option("--normalize", help="Apply normalization before fitting.")] = False,
-    fit_type: Annotated[str, typer.Option("--fit-type", help="OLS or MLE.")] = "OLS",
+    fit_type: Annotated[str, typer.Option("--fit-type", help="Curve fitting method (OLS only).")] = "OLS",
     fit_speed: Annotated[
         str, typer.Option("--fit-speed", help="fast/standard/exhaustive/basinhopping.")
     ] = "exhaustive",

@@ -1,6 +1,6 @@
 """Tests for :mod:`drevalpy.cli.data.load`, the ``drevalpy data load`` command.
 
-:func:`drevalpy.data.datasets.load.load` resolves registered dataset names by
+:func:`drevalpy.data.load` resolves registered dataset names by
 downloading them, so it is patched in every test here; the download path itself
 belongs to ``tests/data/datasets``.
 """
@@ -24,7 +24,7 @@ def dataset() -> FakeDataset:
 
 @pytest.fixture()
 def loader(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Recorder:
-    """Patch :func:`drevalpy.data.datasets.load.load`.
+    """Patch :func:`drevalpy.data.load`.
 
     Args:
         monkeypatch: Fixture used to replace the source-module worker.
@@ -34,7 +34,7 @@ def loader(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Recorder:
         Recorder standing in for the dataset loader.
     """
     recorder = Recorder(return_value=dataset)
-    patch_worker(monkeypatch, "drevalpy.data.datasets.load", "load", recorder)
+    patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", recorder)
     patch_worker(monkeypatch, "drevalpy.data", "load", recorder)
     return recorder
 
@@ -107,7 +107,7 @@ class TestLoaderFailure:
         def boom(name: str) -> FakeDataset:
             raise KeyError(name)
 
-        patch_worker(monkeypatch, "drevalpy.data.datasets.load", "load", boom)
+        patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", boom)
         patch_worker(monkeypatch, "drevalpy.data", "load", boom)
 
         result = runner.invoke(app, ["data", "load", "NoSuchDataset", str(tmp_path / "out.h5mu")])
@@ -118,7 +118,7 @@ class TestLoaderFailure:
         def boom(name: str) -> FakeDataset:
             raise KeyError(name)
 
-        patch_worker(monkeypatch, "drevalpy.data.datasets.load", "load", boom)
+        patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", boom)
         patch_worker(monkeypatch, "drevalpy.data", "load", boom)
         out = tmp_path / "out.h5mu"
 

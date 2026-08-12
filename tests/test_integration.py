@@ -60,8 +60,8 @@ class TestFullPipeline:
 
     def test_elastic_net_train_predict(self, mudataset):
         """ElasticNet should train and predict via the run() function without errors."""
+        from drevalpy import single
         from drevalpy.registry.splitter import splitter_registry
-        from drevalpy.single import single
 
         ElasticNet = construct_model("ElasticNet")  # noqa: N806
 

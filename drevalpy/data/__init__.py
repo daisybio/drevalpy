@@ -7,7 +7,7 @@ import hashlib
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset as Dataset
 
-from .datasets.load import load
+from .datasets._load import load
 
 
 def split(

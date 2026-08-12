@@ -1,6 +1,6 @@
 """Tests for :mod:`drevalpy.cli.experiments.robustness`.
 
-:func:`drevalpy.experiment.robustness.robustness` is pure ``SplitMasks``
+:func:`drevalpy.experiment.robustness` is pure ``SplitMasks``
 shuffling, so it runs unpatched here and only the empty-directory guard needs
 special setup.
 """

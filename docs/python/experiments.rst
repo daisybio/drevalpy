@@ -12,9 +12,9 @@ The experiment pipeline
 
 DrEvalPy provides two levels of experiment execution:
 
-- :func:`~drevalpy.run.run` — orchestrates models × folds × randomization in
+- :func:`~drevalpy.run` — orchestrates models × folds × randomization in
   one call. Returns an :class:`~drevalpy.types.results.ExperimentResult`.
-- :func:`~drevalpy.single.single` — trains a single model on a single fold.
+- :func:`~drevalpy.single` — trains a single model on a single fold.
   Returns a :class:`~drevalpy.types.results.RunResult`. Used when you need
   per-fold control (or parallelism via the CLI).
 
@@ -28,7 +28,7 @@ Minimal call
 
    from drevalpy.data import load
    from drevalpy.models import construct_model
-   from drevalpy.run import run
+   from drevalpy import run
 
    dataset = load("GDSC1")
    ElasticNet = construct_model("ElasticNet")
@@ -98,7 +98,7 @@ For parallel or custom workflows, split first and execute folds individually:
 
    from drevalpy.data import load, split
    from drevalpy.models import construct_model
-   from drevalpy.single import single
+   from drevalpy import single
 
    dataset = load("GDSC1")
    folds = split(dataset, mode="LCO", n_splits=5)

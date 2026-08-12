@@ -11,7 +11,7 @@ evaluation pipeline:
 
    from drevalpy.data import load
    from drevalpy.models import construct_model
-   from drevalpy.run import run
+   from drevalpy import run
 
    dataset = load("GDSC1")
 
@@ -34,7 +34,7 @@ outside the experiment runner:
    model = ElasticNet()  # or ElasticNet({"alpha": 0.1})
    model.train(...)
 
-:func:`~drevalpy.run.run` returns an
+:func:`~drevalpy.run` returns an
 :class:`~drevalpy.types.results.ExperimentResult` that groups predictions,
 metrics, and metadata for all folds. Save it and generate a report:
 

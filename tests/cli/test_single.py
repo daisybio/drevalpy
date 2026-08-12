@@ -14,7 +14,7 @@ runner = make_runner()
 
 
 class StubRunResult:
-    """Stand-in for the ``RunResult`` that :func:`drevalpy.single.single` returns."""
+    """Stand-in for the ``RunResult`` that :func:`drevalpy.single` returns."""
 
     model_name = "StubElasticNet"
     dataset_name = "StubDataset"
@@ -75,12 +75,12 @@ def worker(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Recorder:
         dataset: Stub returned by the patched ``Dataset.load``.
 
     Returns:
-        Recorder standing in for :func:`drevalpy.single.single`.
+        Recorder standing in for :func:`drevalpy.single`.
     """
     recorder = Recorder(return_value=StubRunResult())
     monkeypatch.setattr("drevalpy.models.construct_model", lambda name: type(f"Stub{name}", (), {}))
     monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: dataset))
-    patch_worker(monkeypatch, "drevalpy.single", "single", recorder)
+    patch_worker(monkeypatch, "drevalpy._single", "single", recorder)
     return recorder
 
 
@@ -111,7 +111,7 @@ class TestArguments:
 
 
 class TestForwarding:
-    """Options map onto :func:`drevalpy.single.single` keywords."""
+    """Options map onto :func:`drevalpy.single` keywords."""
 
     def test_exits_cleanly(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         result = _invoke(split_file, tmp_path)

@@ -20,8 +20,8 @@ def single_cmd(
     split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LCO, LDO).")] = "LPO",
 ) -> None:
     """Train a model on one fold, predict on test set, and save results."""
+    from drevalpy._single import single as run_single
     from drevalpy.models import construct_model
-    from drevalpy.single import single as run_single
     from drevalpy.types import SplitMasks
     from drevalpy.types.data.dataset import Dataset
 

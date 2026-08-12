@@ -134,7 +134,9 @@ def single(
         drug_ids=dr_ids,
         best_hyperparameters=best_hpams,
         metrics=metrics,
-        fold_metadata=split_masks.metadata,
+        # Copied: the caller's SplitMasks.metadata is reused across models and
+        # folds by run(), so the result must not alias it.
+        fold_metadata=dict(split_masks.metadata),
         trials=trials,
         randomization=mudataset.randomization,
     )

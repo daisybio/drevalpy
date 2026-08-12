@@ -40,7 +40,7 @@ dependencies = [
     "platformdirs>=4.0",
     "fsspec[full]",
     "universal-pathlib",
-    "filelock>=3.0",
+    "filelock>=3.15.2",
     "typing-extensions>=4.12.0",
     "mudata>=0.3.10",
     "rdkit>=2026.3.4",
@@ -265,12 +265,12 @@ min_file_coverage = 60
 # reachable offline. The lazy __getattr__ re-export block in the package
 # __init__ is only entered by callers that use the deprecated import path.
 #
-# load.py's floor is the value CI measures. A developer whose local cache holds a
+# _load.py's floor is the value CI measures. A developer whose local cache holds a
 # real dataset measures ~38% instead, because tests/test_integration.py stops
 # skipping, and the gate then offers to ratchet this entry down - do not take it,
 # or CI reddens on the next clean checkout.
 "drevalpy/data/datasets/__init__.py" = 44
-"drevalpy/data/datasets/load.py" = 27
+"drevalpy/data/datasets/_load.py" = 27
 
 # Defensive resolution fallbacks for hand-rolled DRPModel subclasses. Every model
 # construct_model() produces sets _base_model_config, so the zoo-lookup and
