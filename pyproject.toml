@@ -44,8 +44,8 @@ dependencies = [
     "filelock>=3.0",
     "typing-extensions>=4.12.0",
     "mudata>=0.3.10",
-    "rdkit>=2026.3.5",
-    "transformers>=5.15.0",
+    "rdkit>=2026.3.4",
+    "transformers>=5.14.0",
     "gensim>=4.4.0",
     "multiqc>=1.35",
 ]
