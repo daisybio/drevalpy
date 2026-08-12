@@ -1234,7 +1234,7 @@ nvtx = [
 [[package]]
 name = "curve-curator"
 version = "0.6.0"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/nictru/curve_curator.git#ffa2007219a85374e55c0cd416d7d6d6183ff24a" }
 dependencies = [
     { name = "bokeh" },
     { name = "numpy" },
@@ -1244,10 +1244,6 @@ dependencies = [
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "statsmodels" },
     { name = "tqdm" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ed/5e/bbc77aace79cfc50f246ca829f949ead30bc3b2ddca528fb48c5653cb473/curve_curator-0.6.0.tar.gz", hash = "sha256:d323dbf900a2c390de7e4ee744a74268d328f917decb277216043ffabccd1a92", size = 75802, upload-time = "2025-11-25T10:27:42.085Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/02/70ca5de02a71cb24557197f1a93053bf2954e357a649d4bba5206bec6214/curve_curator-0.6.0-py3-none-any.whl", hash = "sha256:c4345ff856e6de68826fd80536731989e88d9910ba81b00a8ffb5665e318f7e2", size = 73839, upload-time = "2025-05-23T18:00:57.485Z" },
 ]
 
 [[package]]
@@ -1450,7 +1446,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "curve-curator" },
+    { name = "curve-curator", git = "https://github.com/nictru/curve_curator.git" },
     { name = "filelock", specifier = ">=3.0" },
     { name = "flaky" },
     { name = "fsspec", extras = ["full"] },

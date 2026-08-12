@@ -109,6 +109,7 @@ torch = [
     { index = "pytorch-cu126", extra = "cu126" },
     { index = "pytorch-cu130", extra = "cu130" },
 ]
+curve-curator = { git = "https://github.com/nictru/curve_curator.git" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

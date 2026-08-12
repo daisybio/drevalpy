@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from drevalpy.cli.aggregate import aggregate_cmd
+from drevalpy.cli.curate import curate_cmd
 from drevalpy.cli.data import data_app
 from drevalpy.cli.experiments import experiments_app
 from drevalpy.cli.report import report_cmd
@@ -46,6 +47,7 @@ app.add_typer(experiments_app, name="experiments")
 app.command("run")(run_cmd)
 app.command("single")(single_cmd)
 app.command("aggregate")(aggregate_cmd)
+app.command("curate")(curate_cmd)
 app.command("report")(report_cmd)
 
 
