@@ -40,6 +40,9 @@ conflicts = [[
 exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P3W"
 
+[manifest]
+overrides = [{ name = "nvidia-nccl-cu12", marker = "sys_platform == 'linux'", specifier = ">=2.30.7" }]
+
 [[package]]
 name = "adlfs"
 version = "2026.5.0"
@@ -3714,33 +3717,8 @@ wheels = [
 
 [[package]]
 name = "nvidia-nccl-cu12"
-version = "2.29.3"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version < '3.12' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/cf/bcf8bb0c0030b1b9a345331f6281c37d2a8669758521eb93c382f6f87c8f/nvidia_nccl_cu12-2.29.3-py3-none-manylinux_2_18_aarch64.whl", hash = "sha256:6351b79dc7d2cc3d654ea1523616b9eeded71fe9c8da66b71eef9a5d1b2adad4", size = 289708535, upload-time = "2026-02-03T21:10:58.804Z" },
-    { url = "https://files.pythonhosted.org/packages/31/5a/cac7d231f322b66caa16fd4b136ebc8e4b18b2805811c2d58dc47210cdea/nvidia_nccl_cu12-2.29.3-py3-none-manylinux_2_18_x86_64.whl", hash = "sha256:35ad42e7d5d722a83c36a3a478e281c20a5646383deaf1b9ed1a9ab7d61bed53", size = 289760316, upload-time = "2026-02-03T21:11:37.899Z" },
-]
-
-[[package]]
-name = "nvidia-nccl-cu12"
 version = "2.30.7"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.12' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version < '3.12' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version < '3.12' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/8c/554bb020501d6c04ad8127d83f728137f8f9123f991666efbdcf9095a221/nvidia_nccl_cu12-2.30.7-py3-none-manylinux_2_18_aarch64.whl", hash = "sha256:03ecd776fd1d58fd2c9a0a687dcf8db9ecd0057382dba646fa3d65786d4a9ea1", size = 303277471, upload-time = "2026-06-09T03:24:16.327Z" },
     { url = "https://files.pythonhosted.org/packages/50/32/e7ffa9c324ae260e5dbb4af2cd557bf7a8d155c8ac7b79a785fe1796fb92/nvidia_nccl_cu12-2.30.7-py3-none-manylinux_2_18_x86_64.whl", hash = "sha256:8ce1b8213f61f2bfac132e6df890af6450b77cbd140c6ce4e98cb0c2d8e678c9", size = 303361239, upload-time = "2026-06-09T03:24:53.816Z" },
@@ -6196,7 +6174,7 @@ dependencies = [
     { name = "networkx", marker = "extra == 'extra-8-drevalpy-cu126' or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "nvidia-cudnn-cu12", marker = "(sys_platform == 'linux' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "nvidia-cusparselt-cu12", marker = "(sys_platform == 'linux' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130')" },
-    { name = "nvidia-nccl-cu12", version = "2.29.3", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'linux' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130')" },
+    { name = "nvidia-nccl-cu12", marker = "(sys_platform == 'linux' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "nvidia-nvshmem-cu12", marker = "(sys_platform == 'linux' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "setuptools", marker = "extra == 'extra-8-drevalpy-cu126' or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "sympy", marker = "extra == 'extra-8-drevalpy-cu126' or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130')" },
@@ -6807,8 +6785,7 @@ version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
-    { name = "nvidia-nccl-cu12", version = "2.29.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.12' and sys_platform == 'linux') or (python_full_version < '3.12' and extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (python_full_version < '3.12' and extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (sys_platform != 'linux' and extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (sys_platform != 'linux' and extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (sys_platform != 'linux' and extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130') or (sys_platform == 'linux' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126')" },
-    { name = "nvidia-nccl-cu12", version = "2.30.7", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.12' and sys_platform == 'linux' and extra == 'extra-8-drevalpy-cpu') or (python_full_version < '3.12' and sys_platform == 'linux' and extra != 'extra-8-drevalpy-cu126') or (python_full_version >= '3.12' and extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (python_full_version >= '3.12' and extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (sys_platform != 'linux' and extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (sys_platform != 'linux' and extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (sys_platform != 'linux' and extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130') or (extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130')" },
+    { name = "nvidia-nccl-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130')" },
 ]

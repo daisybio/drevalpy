@@ -95,6 +95,17 @@ build-backend = "hatchling.build"
 [tool.uv]
 exclude-newer = "3 weeks"
 extra-build-dependencies = { torch-scatter = ["torch"] }
+# nvidia-nccl-cu12 (pulled in by xgboost on Linux) and nvidia-nccl-cu13 (required by
+# the CUDA 13 torch wheel that a plain `uv sync` resolves) both ship
+# nvidia/nccl/lib/libnccl.so.2, so whichever is unpacked last owns that file. The
+# cu126 extra pins nvidia-nccl-cu12==2.29.3, which the resolver also applied to the
+# no-extra environment; that build predates ncclCommResume, so whenever it won the
+# race `import torch` failed with
+# "libtorch_cuda.so: undefined symbol: ncclCommResume" and every torch-based
+# component silently dropped out of the registries. Keeping nvidia-nccl-cu12 at the
+# NCCL release that torch's cu13 build expects makes the shared library compatible
+# regardless of unpack order.
+override-dependencies = ["nvidia-nccl-cu12>=2.30.7; sys_platform == 'linux'"]
 conflicts = [
     [
         { extra = "cpu" },
