@@ -60,18 +60,37 @@ def test_get_drug_metadata_includes_output_format() -> None:
     assert meta["description"] == "graph"
 
 
-def test_duplicate_drug_class_and_decorator_contract_fails() -> None:
-    with pytest.raises(ValueError, match="do not set contract on the class body"):
+def test_the_decorator_contract_overrides_the_class_body() -> None:
+    @register_drug_featurizer(
+        "drugOverridden",
+        description="decorator wins",
+        contract=FeatureFormat.NUMERIC_MATRIX,
+    )
+    class DrugOverridden:
+        contract = FeatureContract(format=FeatureFormat.GRAPH)
 
-        @register_drug_featurizer(
-            "drugConflict",
-            description="conflict",
-            contract=FeatureFormat.NUMERIC_MATRIX,
-        )
-        class DrugConflict:
-            contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert vars(DrugOverridden)["contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
-def test_featurizer_registration_requires_explicit_contract() -> None:
-    with pytest.raises(TypeError, match="contract"):
-        register_drug_featurizer("noContractDrug", description="missing contract")  # type: ignore[call-arg]
+def test_a_class_body_contract_is_a_valid_declaration() -> None:
+    @register_drug_featurizer("drugBodyContract", description="declares on the class body")
+    class DrugBodyContract:
+        contract = FeatureContract(format=FeatureFormat.GRAPH)
+
+    assert get_drug_featurizer_metadata("drugBodyContract")["output_format"] == "graph"
+
+
+def test_a_featurizer_declaring_no_contract_anywhere_is_rejected() -> None:
+    with pytest.raises(ValueError, match="no contract declared"):
+
+        @register_drug_featurizer("noContractDrug", description="missing contract")
+        class NoContractDrug:
+            pass
+
+
+def test_an_invalid_class_body_contract_is_rejected() -> None:
+    with pytest.raises(ValueError, match="class-body contract is invalid"):
+
+        @register_drug_featurizer("badContractDrug", description="wrong type")
+        class BadContractDrug:
+            contract = "numeric_matrix_but_a_plain_string"

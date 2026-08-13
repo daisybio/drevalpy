@@ -35,7 +35,7 @@ class FeaturizerRegistry(ComponentRegistry):
         name: str,
         *,
         description: str,
-        contract: FeatureContract | FeatureFormat,
+        contract: FeatureContract | FeatureFormat | None = None,
         tags: Iterable[str] | None = None,
         reference: LiteratureReference | None = None,
     ) -> Callable[[type[Any]], type[Any]]:
@@ -43,13 +43,14 @@ class FeaturizerRegistry(ComponentRegistry):
 
         :param name: Registry name used in model configs and discovery listings.
         :param description: Short human-readable summary.
-        :param contract: Feature format contract for predictor matching.
+        :param contract: Feature format contract for predictor matching. When
+            omitted, the ``contract`` declared on the class body is used.
         :param tags: Optional discovery tags.
         :param reference: Optional literature citation metadata.
         :returns: Class decorator that registers and returns the decorated class.
         """
         metadata = self._normalize_metadata(description, tags, reference)
-        normalized_contract = normalize_feature_contract(contract)
+        normalized_contract = None if contract is None else normalize_feature_contract(contract)
 
         def decorator(cls: type[Any]) -> type[Any]:
             with self._lock:
@@ -75,6 +76,7 @@ class FeaturizerRegistry(ComponentRegistry):
         :param name: Registry name under which *cls* is being registered.
         :param cls: Featurizer class with contract metadata already attached.
         """
+        super()._validate_registration(name, cls)
         validate_component_hyperparameter_space(name, cls)
         validate_featurizer_input_views(self._registry_id, name, cls)
 

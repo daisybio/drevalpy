@@ -30,8 +30,8 @@ class PredictorRegistry(ComponentRegistry):
         name: str,
         *,
         description: str,
-        cell_line_contract: FeatureContract | FeatureFormat,
-        drug_contract: FeatureContract | FeatureFormat,
+        cell_line_contract: FeatureContract | FeatureFormat | None = None,
+        drug_contract: FeatureContract | FeatureFormat | None = None,
         tags: Iterable[str] | None = None,
         reference: LiteratureReference | None = None,
     ) -> Callable[[type[Any]], type[Any]]:
@@ -39,15 +39,19 @@ class PredictorRegistry(ComponentRegistry):
 
         :param name: Registry name used in model configs and discovery listings.
         :param description: Short human-readable summary.
-        :param cell_line_contract: Expected cell-line feature format.
-        :param drug_contract: Expected drug feature format.
+        :param cell_line_contract: Expected cell-line feature format. When omitted,
+            the ``cell_line_contract`` declared on the class body is used.
+        :param drug_contract: Expected drug feature format. When omitted, the
+            ``drug_contract`` declared on the class body is used.
         :param tags: Optional discovery tags.
         :param reference: Optional literature citation metadata.
         :returns: Class decorator that registers and returns the decorated class.
         """
         metadata = self._normalize_metadata(description, tags, reference)
-        normalized_cell_line_contract = normalize_feature_contract(cell_line_contract)
-        normalized_drug_contract = normalize_feature_contract(drug_contract)
+        normalized_cell_line_contract = (
+            None if cell_line_contract is None else normalize_feature_contract(cell_line_contract)
+        )
+        normalized_drug_contract = None if drug_contract is None else normalize_feature_contract(drug_contract)
 
         def decorator(cls: type[Any]) -> type[Any]:
             with self._lock:
@@ -70,6 +74,7 @@ class PredictorRegistry(ComponentRegistry):
         :param name: Registry name under which *cls* is being registered.
         :param cls: Predictor class with contracts already attached.
         """
+        super()._validate_registration(name, cls)
         validate_predictor_registration(name, cls)
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:

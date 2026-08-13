@@ -181,9 +181,12 @@ def _register_builtin_splitters() -> None:
         "drevalpy.data.splitters.lpo",
         "drevalpy.data.splitters.lto",
     ]
+    # Evict every module before importing any of them: importing the first one runs
+    # the package __init__, which imports all four. Interleaving eviction and import
+    # would re-execute the later modules and register their modes twice.
     for mod_name in splitter_modules:
-        if mod_name in sys.modules:
-            del sys.modules[mod_name]
+        sys.modules.pop(mod_name, None)
+    for mod_name in splitter_modules:
         importlib.import_module(mod_name)
 
 

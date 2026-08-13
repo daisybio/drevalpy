@@ -1,4 +1,14 @@
-"""Critical difference diagram visualization (Matplotlib via ImageVisualization)."""
+"""Critical difference diagram visualization (Matplotlib via ImageVisualization).
+
+This module deliberately does **not** call :func:`matplotlib.use`. It used to
+select the ``agg`` backend at import time, but ``drevalpy.registry`` imports
+every builtin visualization on ``import drevalpy``, so that one line switched the
+backend for the whole process and silently disabled inline plotting in any
+notebook that merely imported the library. Matplotlib already falls back to
+``agg`` when no display is available, so headless rendering needs no help, and
+:meth:`ImageVisualization.to_png` writes through ``Figure.savefig``, which is
+backend-independent.
+"""
 
 from __future__ import annotations
 
@@ -27,7 +37,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-matplotlib.use("agg")
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*swapaxes.*")
 
 

@@ -66,6 +66,12 @@ def test_predictor_registration_rejects_space_without_default() -> None:
             def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
                 return {"alpha": {"type": "float", "low": 0.1, "high": 1.0}}
 
+            def _fit_matrix(self, x, y) -> None:
+                return None
+
+            def _predict_matrix(self, x):
+                return x[:, 0]
+
 
 def test_featurizer_registration_rejects_space_without_default() -> None:
     with pytest.raises(ValueError, match="missing 'default'"):

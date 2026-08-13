@@ -10,7 +10,7 @@ from tests.cli._helpers import HELP_ENV, Recorder, make_runner, plain
 
 runner = make_runner()
 
-EXPECTED_COMMANDS = ("run", "single", "aggregate", "curate", "report", "data", "experiments")
+EXPECTED_COMMANDS = ("run", "single", "aggregate", "curate", "report", "data", "experiments", "list")
 
 
 class TestHelp:
@@ -62,7 +62,7 @@ class TestRegistration:
     def test_registered_group_names(self) -> None:
         registered = {group.name for group in app.registered_groups}
 
-        assert registered == {"data", "experiments"}
+        assert registered == {"data", "experiments", "list"}
 
 
 class TestExtensionLoading:

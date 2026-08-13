@@ -1368,6 +1368,7 @@ version = "1.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "curve-curator" },
+    { name = "editables" },
     { name = "filelock" },
     { name = "flaky" },
     { name = "fsspec", extra = ["full"] },
@@ -1450,6 +1451,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "curve-curator", git = "https://github.com/nictru/curve_curator.git" },
+    { name = "editables", specifier = ">=0.3" },
     { name = "filelock", specifier = ">=3.15.2" },
     { name = "flaky" },
     { name = "fsspec", extras = ["full"] },
@@ -1543,6 +1545,15 @@ dependencies = [
     { name = "requests" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/97/15/6d8f4c3033ad2bc364b8bb613c52c96653f2268f32ecff4f3ab5f1d7c19b/dropboxdrivefs-1.4.1.tar.gz", hash = "sha256:6f3c6061d045813553ce91ed0e2b682f1d70bec74011943c92b3181faacefd34", size = 7413, upload-time = "2024-05-27T14:04:37.648Z" }
+
+[[package]]
+name = "editables"
+version = "0.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/f8/02a4e9a0cb961b0feeb431ac96b231c157ecdcbbeacafe9e2fdb4b1dde39/editables-0.6.tar.gz", hash = "sha256:1163834902381c4613787951c5914800fdf155ae08848a373b8ea5006780977c", size = 16763, upload-time = "2026-04-14T10:39:04.677Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cc/0e/d095533037fc9468f947b19f2da53f869804632b508808de41e86e801797/editables-0.6-py3-none-any.whl", hash = "sha256:d70e4698078a1d033e7786d9c64e5be070d058a67c21417024d38a58ac20aa43", size = 5438, upload-time = "2026-04-14T10:39:03.663Z" },
+]
 
 [[package]]
 name = "executing"

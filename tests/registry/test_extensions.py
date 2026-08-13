@@ -47,6 +47,7 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register
@@ -61,12 +62,13 @@ from drevalpy.registry.cell_line_featurizer import register as register_cell_lin
 class ToyCellLineFeaturizer(CellLineFeaturizer):
     entity_id_only = True
 
-    def fit(self, features, *, entity_ids=None):
+    def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
         self._output_dim = 1
         return self
 
-    def transform(self, features, entity_ids):
-        return np.ones((len(entity_ids), 1), dtype=np.float32)
+    def _transform_blocks(self, source, entity_ids):
+        values = np.ones((len(entity_ids), 1), dtype=np.float32)
+        return {"toy": numeric_feature_block(values)}
 
     @property
     def output_dim(self):
@@ -80,10 +82,10 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ToyPredictor(FeatureFreePredictor):
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         return None
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.zeros(batch.n_pairs, dtype=np.float64)
 """,
         encoding="utf-8",
@@ -107,8 +109,8 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
         "    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,\n"
         "    drug_contract=FeatureFormat.NUMERIC_MATRIX)\n"
         "class ToyB(FeatureFreePredictor):\n"
-        "    def fit(self, batch: ModelInputBatch): return None\n"
-        "    def predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
+        "    def _fit(self, batch: ModelInputBatch): return None\n"
+        "    def _predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
         encoding="utf-8",
     )
     (tmp_path / "a_ext.py").write_text(
@@ -121,8 +123,8 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
         "    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,\n"
         "    drug_contract=FeatureFormat.NUMERIC_MATRIX)\n"
         "class ToyA(FeatureFreePredictor):\n"
-        "    def fit(self, batch: ModelInputBatch): return None\n"
-        "    def predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
+        "    def _fit(self, batch: ModelInputBatch): return None\n"
+        "    def _predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
         encoding="utf-8",
     )
     load_extension_dir(tmp_path)
@@ -138,6 +140,7 @@ def test_external_zoo_references_extension_components(tmp_path: Path) -> None:
 import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register as register_predictor
@@ -151,11 +154,11 @@ from drevalpy.registry.cell_line_featurizer import register as register_cell_lin
 class ExternalCellLineFeaturizer(CellLineFeaturizer):
     entity_id_only = True
 
-    def fit(self, features, *, entity_ids=None):
+    def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
         self._output_dim = 1
         return self
-    def transform(self, features, entity_ids):
-        return np.ones((len(entity_ids), 1), dtype=np.float32)
+    def _transform_blocks(self, source, entity_ids):
+        return {"ext": numeric_feature_block(np.ones((len(entity_ids), 1), dtype=np.float32))}
     @property
     def output_dim(self):
         return self._output_dim
@@ -284,10 +287,10 @@ import numpy as np
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class BrokenPartial(FeatureFreePredictor):
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         return None
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.zeros(batch.n_pairs)
 
 raise RuntimeError("fail after partial registration")
@@ -324,10 +327,10 @@ import numpy as np
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class IsolatedPredictor(FeatureFreePredictor):
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         return None
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.zeros(batch.n_pairs, dtype=np.float64)
 """,
         encoding="utf-8",

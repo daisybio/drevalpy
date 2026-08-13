@@ -125,11 +125,51 @@ def test_get_rejects_an_unknown_mode(registry: SplitterRegistry) -> None:
         registry.get("nope")
 
 
-def test_re_registering_a_mode_replaces_it(registry: SplitterRegistry, register_valid: Callable[..., Any]) -> None:
+def test_re_registering_a_mode_is_rejected(registry: SplitterRegistry, register_valid: Callable[..., Any]) -> None:
     register_valid(description="first")
-    register_valid(description="second")
+
+    with pytest.raises(ValueError, match="Splitter mode 'MY_LCO' already registered"):
+        register_valid(description="second")
+
+
+def test_the_rejected_re_registration_leaves_the_original(
+    registry: SplitterRegistry, register_valid: Callable[..., Any]
+) -> None:
+    register_valid(description="first")
+
+    with pytest.raises(ValueError):
+        register_valid(description="second")
+
+    assert registry.describe("MY_LCO") == "first"
+
+
+def test_override_replaces_an_existing_mode(registry: SplitterRegistry) -> None:
+    @registry.register("MY_LCO", "first", validation="LCO")
+    def first(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+        """Return a single leakage-free fold."""
+        return [_lco_fold()]
+
+    @registry.register("MY_LCO", "second", validation="LCO", override=True)
+    def second(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+        """Return a single leakage-free fold."""
+        return [_lco_fold()]
 
     assert registry.describe("MY_LCO") == "second"
+    assert registry.get("MY_LCO") is second
+
+
+def test_the_module_facade_forwards_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_register(mode, description, validation, *, override=False):
+        recorded.update(mode=mode, description=description, validation=validation, override=override)
+        return lambda fn: fn
+
+    monkeypatch.setattr(splitter_registry, "register", fake_register)
+
+    splitter_facade.register("X", "d", "LCO", override=True)
+
+    assert recorded == {"mode": "X", "description": "d", "validation": "LCO", "override": True}
 
 
 def test_describe_returns_the_registered_description(
@@ -255,3 +295,32 @@ def test_module_get_delegates_to_the_singleton() -> None:
 
 def test_module_table_delegates_to_the_singleton() -> None:
     assert list(splitter_facade.table().columns) == ["Mode", "Description", "Validation"]
+
+
+def test_get_metadata_reports_the_registry_fields(
+    registry: SplitterRegistry, register_valid: Callable[..., Any]
+) -> None:
+    register_valid()
+
+    assert registry.get_metadata("MY_LCO") == {
+        "registry": "splitters",
+        "name": "MY_LCO",
+        "description": "one clean fold",
+        "validation": "LCO",
+    }
+
+
+def test_get_metadata_rejects_an_unknown_mode(registry: SplitterRegistry) -> None:
+    with pytest.raises(ValueError, match="Unknown split mode 'nope'"):
+        registry.get_metadata("nope")
+
+
+def test_list_metadata_covers_every_mode(registry: SplitterRegistry, register_valid: Callable[..., Any]) -> None:
+    register_valid(mode="ZZZ")
+    register_valid(mode="AAA")
+
+    assert [row["name"] for row in registry.list_metadata()] == ["AAA", "ZZZ"]
+
+
+def test_module_metadata_delegates_to_the_singleton() -> None:
+    assert splitter_facade.metadata("LPO") == splitter_registry.get_metadata("LPO")

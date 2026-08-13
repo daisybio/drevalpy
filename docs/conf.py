@@ -40,16 +40,20 @@ extensions = [
 ]
 
 # Generate registry- and application-driven tables before sources are read.
+# `verify_documented_examples` runs last: it imports docs/examples/, which
+# registers components, and the generators above assert on registry contents.
 
 
 def _write_generated_references() -> None:
     from _cli_click import write_generated_cli_reference
     from _component_catalog import write_generated_component_catalogs
+    from _examples import verify_documented_examples
     from _model_zoo import write_generated_model_zoo
 
     write_generated_cli_reference()
     write_generated_component_catalogs()
     write_generated_model_zoo()
+    verify_documented_examples()
 
 
 _write_generated_references()
@@ -90,13 +94,16 @@ exclude_patterns = [
     ".DS_Store",
     "_cli_click.py",
     "_component_catalog.py",
+    "_examples.py",
     "_generated_io.py",
     "_model_zoo.py",
+    "examples",
     "cli/_generated_reference.rst",
     "concepts/_generated_cell_line_featurizers.rst",
     "concepts/_generated_drug_featurizers.rst",
     "concepts/_generated_model_zoo.rst",
     "concepts/_generated_predictors.rst",
+    "python/_generated_examples.rst",
 ]
 
 

@@ -27,8 +27,15 @@ Every registry exposes the same core operations:
      - Retrieve a sorted list of all registered names
    * - ``get``
      - Look up an implementation by name
+   * - ``metadata``
+     - Return one entry's record as a dict
    * - ``table``
-     - Display a summary table (useful in notebooks)
+     - Return a summary ``DataFrame`` (useful in notebooks)
+
+Registering a name that is already taken **raises** in every registry. Each
+``register`` takes an ``override=True`` escape hatch for the cases where
+replacing an entry is the intent; the point of the default is that one package
+cannot quietly change another package's semantics.
 
 All registries are populated automatically when the package is imported.
 Third-party plugins installed via pip are discovered at the same time
@@ -111,6 +118,13 @@ When the package is imported, it scans for installed Python packages that
 advertise the ``drevalpy.plugins`` entry point group. Importing the advertised
 module triggers registration decorators, making a plugin's components
 available without any explicit user action beyond installation.
+
+A plugin that raises while importing would otherwise remove every component it
+declares without a trace, so the failure is recorded rather than swallowed and
+can be read back afterwards. The default stays non-fatal, so one broken
+third-party package cannot take the CLI down with it; an environment variable
+makes it fatal for the plugin's own CI, where a plugin that does not load is a
+failure rather than a degraded experience.
 
 Extension directories
 ---------------------

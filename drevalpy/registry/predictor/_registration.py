@@ -16,8 +16,8 @@ def register(
     name: str,
     *,
     description: str,
-    cell_line_contract: FeatureContract | FeatureFormat,
-    drug_contract: FeatureContract | FeatureFormat,
+    cell_line_contract: FeatureContract | FeatureFormat | None = None,
+    drug_contract: FeatureContract | FeatureFormat | None = None,
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
@@ -25,8 +25,10 @@ def register(
 
     :param name: Registry name used in ``ModelConfig`` and recipes.
     :param description: Short human-readable summary for catalog listings.
-    :param cell_line_contract: Expected cell-line feature format.
-    :param drug_contract: Expected drug feature format.
+    :param cell_line_contract: Expected cell-line feature format. Falls back to the
+        ``cell_line_contract`` declared on the class body when omitted.
+    :param drug_contract: Expected drug feature format. Falls back to the
+        ``drug_contract`` declared on the class body when omitted.
     :param tags: Optional discovery tags.
     :param reference: Optional literature citation metadata.
 

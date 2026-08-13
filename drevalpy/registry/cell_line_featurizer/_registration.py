@@ -17,7 +17,7 @@ def register(
     name: str,
     *,
     description: str,
-    contract: FeatureContract | FeatureFormat,
+    contract: FeatureContract | FeatureFormat | None = None,
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
@@ -26,6 +26,7 @@ def register(
     :param name: Registry name used in ``ModelConfig`` and recipes.
     :param description: Short human-readable summary for catalog listings.
     :param contract: Feature format contract for predictor compatibility checks.
+        Falls back to the ``contract`` declared on the class body when omitted.
     :param tags: Optional discovery tags (for example ``"omics"``).
     :param reference: Optional literature citation metadata.
     :returns: Class decorator that registers the decorated featurizer under *name*.

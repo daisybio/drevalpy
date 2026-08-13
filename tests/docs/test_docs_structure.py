@@ -32,6 +32,7 @@ EXEMPT_SUFFIXES = {
     "_generated_reference.rst",
     "_generated_cell_line_featurizers.rst",
     "_generated_drug_featurizers.rst",
+    "_generated_examples.rst",
     "_generated_model_zoo.rst",
     "_generated_predictors.rst",
 }
@@ -40,10 +41,25 @@ EXEMPT_RELATIVE = {
     "python/api",
 }
 
-CLI_COMMANDS = (
-    "data",
-    "experiments",
-)
+#: Sub-apps that must exist. Kept explicit so removing one fails, while the
+#: docs-coverage and shell-example checks derive the real list from the live app
+#: and therefore cannot go stale when a sub-app is added.
+REQUIRED_CLI_GROUPS = {"data", "experiments", "list"}
+
+
+def _cli_command_groups() -> tuple[str, ...]:
+    """Return the names of the CLI's sub-apps, read from the live Typer app.
+
+    Derived rather than hand-listed: an allowlist here silently stops matching
+    when a new sub-app lands, which is exactly what happened to the ``list``
+    group. Imported lazily so collecting this module does not pull in the CLI.
+
+    Returns:
+        Every registered sub-app name, e.g. ``("data", "experiments", "list")``.
+    """
+    from drevalpy.cli.main import app
+
+    return tuple(sorted(group.name for group in app.registered_groups if group.name))
 
 
 def _rst_files(root: Path) -> list[Path]:
@@ -200,16 +216,17 @@ def test_cli_pages_have_no_python_code_blocks() -> None:
 
 def test_python_guide_pages_have_no_shell_cli_blocks() -> None:
     offenders: list[str] = []
+    cli_commands = _cli_command_groups()
+    cli_invocation = re.compile(
+        r"^\s*drevalpy\s+(?:--|" + "|".join(re.escape(cmd) for cmd in cli_commands) + r")\b",
+        flags=re.MULTILINE,
+    )
     for path in _rst_files(DOCS / "python"):
         if path.relative_to(DOCS).as_posix().startswith("python/api"):
             continue
         text = path.read_text(encoding="utf-8")
         if "code-block:: bash" in text or "code-block:: shell" in text:
             offenders.append(path.relative_to(DOCS).as_posix())
-        cli_invocation = re.compile(
-            r"^\s*drevalpy\s+(?:--|" + "|".join(re.escape(cmd) for cmd in CLI_COMMANDS) + r")\b",
-            flags=re.MULTILINE,
-        )
         if cli_invocation.search(text):
             offenders.append(path.relative_to(DOCS).as_posix())
     assert not offenders, f"Python guides must not contain CLI shell examples: {offenders}"
@@ -254,12 +271,15 @@ def test_cli_reference_documents_all_subcommands() -> None:
     assert "_generated_reference.rst" in reference
 
     generated = generate_cli_reference_rst()
-    missing_in_docs = [cmd for cmd in CLI_COMMANDS if f"drevalpy {cmd}" not in generated]
+    missing_in_docs = [cmd for cmd in _cli_command_groups() if f"drevalpy {cmd}" not in generated]
     assert not missing_in_docs, f"Generated CLI reference missing commands: {missing_in_docs}"
 
     click_app = get_command(app)
     names = set(getattr(click_app, "commands", {}))
-    missing = sorted(set(CLI_COMMANDS) - names)
+    # A floor, not a mirror of the app: deriving both sides would make this
+    # vacuous. It catches a group being dropped, while the docs check above
+    # catches one being added without documentation.
+    missing = sorted(REQUIRED_CLI_GROUPS - names)
     assert not missing, f"Typer app missing expected commands: {missing}"
 
 

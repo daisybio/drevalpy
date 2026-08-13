@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.contracts import FeatureContract
+from drevalpy.components.contracts.contracts import FeatureContract, normalize_feature_contract
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.log import get_logger
 from drevalpy.types.enums.model_scope import ModelScope
@@ -25,6 +25,9 @@ class Predictor(ABC):
     Predictors take featurizer outputs and predict a response for each drug/cell-line pair in the batch.
     Subclasses must be registered to the predictor registry using ``@register``,
     so that they can be discovered and used in models.
+
+    ``cell_line_contract`` and ``drug_contract`` may be declared on the class body or
+    passed to ``@register``. When both are given the decorator argument wins.
     """
 
     cell_line_contract: ClassVar[FeatureContract]
@@ -37,16 +40,26 @@ class Predictor(ABC):
     nan_threshold: ClassVar[float] = 0.2
 
     def __init_subclass__(cls, **kwargs: object) -> None:
-        """Reject class-body contract assignments; registration sets them later.
+        """Normalize class-body contract declarations, if there are any.
+
+        A ``FeatureFormat`` shorthand is widened to a ``FeatureContract`` so the
+        class body and the ``@register`` arguments accept the same spellings.
+        Subclasses that declare nothing are registered with the decorator's
+        ``cell_line_contract=`` / ``drug_contract=`` instead.
 
         :param kwargs: Forwarded to ``ABC.__init_subclass__``.
-        :raises TypeError: If a contract is assigned on the subclass body.
+        :raises TypeError: If a class-body contract is neither a ``FeatureContract``
+            nor a ``FeatureFormat``.
         """
         super().__init_subclass__(**kwargs)
-        forbidden = [name for name in ("cell_line_contract", "drug_contract") if name in cls.__dict__]
-        if forbidden:
-            msg = f"{cls.__name__}: do not set {', '.join(forbidden)} on the class body; pass them to @register"
-            raise TypeError(msg)
+        for attr_name in ("cell_line_contract", "drug_contract"):
+            if attr_name not in cls.__dict__:
+                continue
+            try:
+                setattr(cls, attr_name, normalize_feature_contract(cls.__dict__[attr_name]))
+            except TypeError as exc:
+                msg = f"{cls.__name__}: class-body {attr_name} is invalid: {exc}"
+                raise TypeError(msg) from exc
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Store hyperparameters merged with class defaults.

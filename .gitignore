@@ -93,6 +93,7 @@ docs/concepts/_generated_cell_line_featurizers.rst
 docs/concepts/_generated_drug_featurizers.rst
 docs/concepts/_generated_model_zoo.rst
 docs/concepts/_generated_predictors.rst
+docs/python/_generated_examples.rst
 
 
 # PyBuilder
@@ -187,7 +188,10 @@ cython_debug/
 .Rproj.user
 .idea/
 test.ipynb
-testing/
+# Scratch directory at the repository root only. Anchored with a leading slash
+# because the unanchored pattern also swallowed the shipped drevalpy/testing
+# package, which then silently vanished from the wheel.
+/testing/
 
 # macOS Finder metadata
 .DS_Store

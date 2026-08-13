@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import wraps
-from typing import Protocol
+from typing import Any, Protocol
 
 import pandas as pd
 
@@ -72,16 +72,30 @@ class SplitterRegistry:
         """Sorted list of registered mode names."""
         return sorted(self._splitters)
 
-    def register(self, mode: str, description: str, validation: Validation) -> Callable[[Splitter], Splitter]:
+    def register(
+        self,
+        mode: str,
+        description: str,
+        validation: Validation,
+        *,
+        override: bool = False,
+    ) -> Callable[[Splitter], Splitter]:
         """Decorator to register a splitter function under a mode name.
 
-        All three parameters are required. The splitter is automatically wrapped
-        so that validation runs after every call.
+        The first three parameters are required. The splitter is automatically
+        wrapped so that validation runs after every call.
+
+        Registering a mode name that is already taken raises, matching the
+        visualization registry: a silent overwrite means one package quietly
+        changes another package's split semantics. Pass ``override=True`` when
+        replacing a mode is the intent.
 
         :param mode: Mode name (e.g. "LPO", "LCO", or a custom name).
         :param description: Human-readable description of the splitting approach.
         :param validation: Which leakage constraint to enforce ("LCO", "LDO", "LPO", "LTO").
+        :param override: Replace an already-registered mode instead of raising.
         :returns: Decorator that registers and returns the wrapped function.
+        :raises ValueError: If *mode* is already registered and *override* is false.
 
         Example::
 
@@ -90,6 +104,9 @@ class SplitterRegistry:
         """
 
         def decorator(fn: Splitter) -> Splitter:
+            if mode in self._splitters and not override:
+                msg = f"Splitter mode {mode!r} already registered"
+                raise ValueError(msg)
             wrapped = _wrap_with_validation(fn, mode, validation)
             self._splitters[mode] = wrapped
             self._descriptions[mode] = description
@@ -127,6 +144,31 @@ class SplitterRegistry:
         :returns: Description string.
         """
         return self._descriptions.get(mode, "")
+
+    def get_metadata(self, mode: str) -> dict[str, Any]:
+        """Return the metadata record for the splitter registered under *mode*.
+
+        Mirrors ``get_metadata`` on the component registries so every registry can
+        be introspected the same way.
+
+        :param mode: Registered mode name.
+        :returns: Metadata dict for catalog listings.
+        :raises ValueError: If *mode* is not registered.
+        """
+        self.get(mode)
+        return {
+            "registry": "splitters",
+            "name": mode,
+            "description": self._descriptions.get(mode, ""),
+            "validation": self._validations.get(mode, ""),
+        }
+
+    def list_metadata(self) -> list[dict[str, Any]]:
+        """Return metadata for every registered mode.
+
+        :returns: List of metadata dicts, ordered by mode name.
+        """
+        return [self.get_metadata(mode) for mode in self.modes]
 
     def to_dataframe(self) -> pd.DataFrame:
         """Return registry contents as a pandas DataFrame."""

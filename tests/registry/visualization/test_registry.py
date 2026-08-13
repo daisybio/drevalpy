@@ -88,6 +88,35 @@ def test_duplicate_registration_is_rejected(registry: VisualizationRegistry, vio
             pass
 
 
+def test_override_replaces_an_existing_name(registry: VisualizationRegistry, violin: type[Any]) -> None:
+    @registry.register("violin", "replacement", override=True)
+    class ReplacementViolin:
+        pass
+
+    assert registry.get("violin") is ReplacementViolin
+    assert registry.describe("violin") == "replacement"
+
+
+def test_the_module_facade_forwards_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_register(name, description, *, result_type, requirements, override):
+        recorded.update(
+            name=name,
+            description=description,
+            result_type=result_type,
+            requirements=requirements,
+            override=override,
+        )
+        return lambda cls: cls
+
+    monkeypatch.setattr(visualization_registry, "register", fake_register)
+
+    visualization_facade.register("x", "d", override=True)
+
+    assert recorded["override"] is True
+
+
 def test_get_returns_the_registered_class(registry: VisualizationRegistry, violin: type[Any]) -> None:
     assert registry.get("violin") is violin
 
@@ -166,12 +195,62 @@ def test_retain_only_frees_the_name_for_re_registration(registry: VisualizationR
     assert registry.get("violin") is ReplacementViolin
 
 
-def test_repr_lists_names_with_descriptions(registry: VisualizationRegistry, violin: type[Any]) -> None:
-    assert repr(registry) == "VisualizationRegistry:\n  violin: distribution per model"
+def test_repr_renders_without_an_index(registry: VisualizationRegistry, violin: type[Any]) -> None:
+    rendered = repr(registry)
+
+    assert "violin" in rendered
+    assert "distribution per model" in rendered
+    assert not rendered.startswith("0")
 
 
 def test_repr_of_an_empty_registry_is_just_the_header(registry: VisualizationRegistry) -> None:
-    assert repr(registry) == "VisualizationRegistry:"
+    assert repr(registry) == "Empty DataFrame\nColumns: []\nIndex: []"
+
+
+def test_repr_html_emits_a_table(registry: VisualizationRegistry, violin: type[Any]) -> None:
+    assert "<table" in registry._repr_html_()
+
+
+def test_to_dataframe_lists_the_registry_columns(registry: VisualizationRegistry, violin: type[Any]) -> None:
+    frame = registry.to_dataframe()
+
+    assert list(frame.columns) == ["Name", "Description", "Result type", "Requirements"]
+    assert frame.iloc[0].tolist() == ["violin", "distribution per model", "ExperimentResult", ""]
+
+
+def test_to_dataframe_renders_requirements(registry: VisualizationRegistry) -> None:
+    registry.register("folds", requirements=frozenset({PlotRequirement.MULTIPLE_FOLDS}))(type("Folds", (), {}))
+
+    assert str(PlotRequirement.MULTIPLE_FOLDS) in registry.to_dataframe().iloc[0]["Requirements"]
+
+
+def test_get_metadata_reports_the_registry_fields(registry: VisualizationRegistry, violin: type[Any]) -> None:
+    assert registry.get_metadata("violin") == {
+        "registry": "visualizations",
+        "name": "violin",
+        "class_name": "Violin",
+        "description": "distribution per model",
+        "result_type": "ExperimentResult",
+        "requirements": frozenset(),
+    }
+
+
+def test_get_metadata_rejects_an_unknown_name(registry: VisualizationRegistry) -> None:
+    with pytest.raises(ValueError, match="Unknown visualization 'heatmap'"):
+        registry.get_metadata("heatmap")
+
+
+def test_get_metadata_carries_the_result_type(registry: VisualizationRegistry) -> None:
+    registry.register("per_model", result_type="ModelResult")(type("PerModel", (), {}))
+
+    assert registry.get_metadata("per_model")["result_type"] == "ModelResult"
+
+
+def test_list_metadata_covers_every_name(registry: VisualizationRegistry) -> None:
+    registry.register("zebra")(type("Zebra", (), {}))
+    registry.register("aardvark")(type("Aardvark", (), {}))
+
+    assert [row["name"] for row in registry.list_metadata()] == ["aardvark", "zebra"]
 
 
 def test_the_singleton_is_populated_by_builtin_registration() -> None:
@@ -204,8 +283,17 @@ def test_module_get_delegates_to_the_singleton() -> None:
     assert visualization_facade.get(name) is visualization_registry.get(name)
 
 
-def test_module_table_renders_the_singleton_repr() -> None:
-    assert visualization_facade.table() == repr(visualization_registry)
+def test_module_table_returns_a_dataframe() -> None:
+    frame = visualization_facade.table()
+
+    assert list(frame.columns) == ["Name", "Description", "Result type", "Requirements"]
+    assert frame["Name"].tolist() == visualization_registry.names
+
+
+def test_module_metadata_delegates_to_the_singleton() -> None:
+    name = visualization_registry.names[0]
+
+    assert visualization_facade.metadata(name) == visualization_registry.get_metadata(name)
 
 
 def test_module_applicable_delegates_to_the_singleton() -> None:

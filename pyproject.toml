@@ -47,6 +47,24 @@ dependencies = [
     "transformers>=5.14.0",
     "gensim>=4.4.0",
     "multiqc>=1.35",
+    # No drevalpy module imports this; it is a real requirement of the
+    # `dev-mode-exact` editable install configured under [tool.hatch.build]. That
+    # mode replaces the .pth full of the project root with a generated
+    # _editable_impl_drevalpy.py that does `from editables.redirector import
+    # RedirectingFinder`, so the interpreter needs `editables` importable or
+    # `import drevalpy` fails outright.
+    #
+    # It has to sit here rather than in the dev group: hatchling records it as a
+    # Requires-Dist of the *editable wheel*, but uv reads static metadata straight
+    # from this file for path dependencies and never sees that, and dev groups do
+    # not propagate to consumers. A repo that path-installs drevalpy as an
+    # editable (both plugin repos do) therefore got `ModuleNotFoundError: No
+    # module named 'editables'` on every import.
+    #
+    # The cost is that non-editable installs carry a 5 KB pypa utility they never
+    # execute. Moving the package under `src/` removes both this entry and
+    # `dev-mode-exact` - see the comment on [tool.hatch.build].
+    "editables>=0.3",
 ]
 
 [project.optional-dependencies]
@@ -92,8 +110,28 @@ docs = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# The default editable install writes a .pth holding the bare project root, which
+# puts drevalpy's own `tests`, `tools` and `docs` on sys.path for every consumer
+# of the environment - so a plugin repo's `import tests.conftest` resolved to
+# drevalpy's tests. `dev-mode-exact` emits a __editable__ finder that maps only
+# the `drevalpy` package instead, leaking nothing.
+#
+# Two documented costs: some IDEs cannot follow the import hook for
+# autocompletion, and the generated finder needs `editables` at run time, which is
+# why that package is pinned into [project.dependencies] despite no module
+# importing it.
+#
+# A `src/` layout fixes the leak structurally and pays neither cost. It is the
+# better long-term answer, deferred here only because moving the package is a
+# repo-wide change (nine test modules reach for `<repo>/drevalpy` by path).
+[tool.hatch.build]
+dev-mode-exact = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["drevalpy"]
+# py.typed is not a .py file, so it needs to be named explicitly for PEP 561 to
+# take effect in the built wheel; tests/plugin/test_init.py asserts it ships.
+artifacts = ["drevalpy/py.typed"]
 
 [tool.uv]
 exclude-newer = "3 weeks"
@@ -216,10 +254,11 @@ relative_files = true
 omit = ["*/gene_lists/_make_gene_lists.py"] # maintenance script, not shipped logic
 
 [tool.coverage.report]
-# Measured 89.5% for `pytest -m "not network"`. Kept a point and a half of
+# Measured 90.1% for `pytest -m "not network"`, up from 89.5% as the plugin
+# facade, test kit and CLI list app landed with tests. Kept about a point of
 # headroom so an unrelated refactor does not redden CI, and no more: the point of
 # the number is that it only ever moves up.
-fail_under = 88
+fail_under = 89
 show_missing = true
 skip_covered = true
 exclude_also = [

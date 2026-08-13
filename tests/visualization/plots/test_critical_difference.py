@@ -10,13 +10,16 @@ from __future__ import annotations
 
 import logging
 
+import matplotlib
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.colors as pc
 import pytest
+from upath import UPath
 
 from drevalpy.types.results.experiment import ExperimentResult
+from drevalpy.visualization.plots import critical_difference
 from drevalpy.visualization.plots.critical_difference import (
     CriticalDifferenceVisualization,
     _build_cd_df,
@@ -25,6 +28,7 @@ from drevalpy.visualization.plots.critical_difference import (
     _generate_discrete_palette,
     _nonsignificant_adjacency,
 )
+from tests._trusted_subprocess import run_trusted_python
 from tests.synthetic import NORMALIZED_METRIC, make_experiment_result, make_run_result
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -341,3 +345,46 @@ class TestGuardsBeforeCompute:
 
     def test_metric_defaults_to_mse(self):
         assert CriticalDifferenceVisualization()._metric == "MSE"
+
+
+class TestNoGlobalBackendSwitch:
+    """``import drevalpy`` must not reach into the process-wide Matplotlib state.
+
+    Registering the builtins imports this module, so a module-scope
+    ``matplotlib.use("agg")`` here disabled inline plotting in every notebook
+    that imported the library at all.
+    """
+
+    def test_the_module_does_not_call_matplotlib_use(self):
+        source = UPath(critical_difference.__file__).read_text(encoding="utf-8")
+
+        assert "matplotlib.use(" not in source
+
+    def test_importing_drevalpy_leaves_the_backend_alone(self):
+        """Asserted in a fresh interpreter: an in-process reload cannot see this."""
+        script = (
+            "import matplotlib\n"
+            "before = matplotlib.get_backend()\n"
+            "import drevalpy  # noqa: F401\n"
+            "print(before, matplotlib.get_backend())\n"
+        )
+
+        result = run_trusted_python(script)
+
+        assert result.returncode == 0, result.stderr
+        before, after = result.stdout.split()
+        assert before == after
+
+    def test_the_figure_renders_under_the_agg_backend(self, experiment, tmp_path):
+        """Forcing ``agg`` proves the plot is still headless-safe without the global call."""
+        original = matplotlib.get_backend()
+        matplotlib.use("agg")
+        try:
+            plot = CriticalDifferenceVisualization()
+            plot.compute(experiment)
+            out = tmp_path / "headless.png"
+            plot.to_png(out)
+        finally:
+            matplotlib.use(original)
+
+        assert out.read_bytes().startswith(PNG_MAGIC)

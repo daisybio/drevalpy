@@ -42,6 +42,14 @@ everything else, import from the subpackages in the table.
      - Featurizers, predictors, registries, tuning
      - :doc:`/python/extensions`
      - :doc:`/concepts/component_catalog`
+   * - ``drevalpy.plugin``
+     - The single supported import surface for third-party plugins
+     - :doc:`/python/extensions`
+     - :doc:`/concepts/registries`
+   * - ``drevalpy.testing``
+     - Synthetic fixtures and conformance checks for plugin test suites
+     - :doc:`/python/extensions`
+     - —
    * - ``drevalpy.utils``
      - Shared helpers
      - —
@@ -65,5 +73,18 @@ tree.
    drevalpy.evaluation
    drevalpy.models
    drevalpy.components
+   drevalpy.testing
    drevalpy.utils
    drevalpy.visualization
+
+``drevalpy.plugin`` defines nothing of its own — every name on it is an alias for
+a symbol documented above. Its page is therefore generated without index
+entries, so a cross-reference to ``Dataset`` resolves to the class rather than to
+one of two equally valid spellings of it.
+
+.. autosummary::
+   :toctree: _autosummary
+   :recursive:
+   :template: facade.rst
+
+   drevalpy.plugin

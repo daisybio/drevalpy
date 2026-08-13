@@ -81,13 +81,37 @@ def test_get_metadata_includes_output_format() -> None:
     assert meta["tags"] == frozenset()
 
 
-def test_duplicate_class_and_decorator_contract_fails() -> None:
-    with pytest.raises(ValueError, match="do not set contract on the class body"):
+def test_duplicate_class_and_decorator_contract_prefers_the_decorator() -> None:
+    @register_cell_line_featurizer(
+        "conflict",
+        description="conflict",
+        contract=FeatureFormat.NUMERIC_MATRIX,
+    )
+    class Conflict:
+        contract = FeatureContract(format=FeatureFormat.GRAPH)
 
-        @register_cell_line_featurizer(
-            "conflict",
-            description="conflict",
-            contract=FeatureFormat.NUMERIC_MATRIX,
-        )
-        class Conflict:
-            contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert vars(Conflict)["contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+
+
+def test_a_class_body_contract_is_a_valid_declaration() -> None:
+    @register_cell_line_featurizer("bodyContract", description="declares on the class body")
+    class BodyContract:
+        contract = FeatureContract(format=FeatureFormat.GRAPH)
+
+    assert get_cell_line_featurizer_metadata("bodyContract")["output_format"] == "graph"
+
+
+def test_a_class_body_format_shorthand_is_normalized() -> None:
+    @register_cell_line_featurizer("shorthandContract", description="format shorthand")
+    class ShorthandContract:
+        contract = FeatureFormat.RAGGED_SEQUENCE
+
+    assert vars(ShorthandContract)["contract"] == FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
+
+
+def test_a_featurizer_declaring_no_contract_anywhere_is_rejected() -> None:
+    with pytest.raises(ValueError, match="no contract declared"):
+
+        @register_cell_line_featurizer("noContract", description="missing contract")
+        class NoContract:
+            pass

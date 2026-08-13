@@ -8,7 +8,12 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, featurizer_contract
+from drevalpy.components.contracts.contracts import (
+    FeatureContract,
+    FeatureFormat,
+    featurizer_contract,
+    normalize_feature_contract,
+)
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.featurizers.storage import (
     fetch_from_modality,
@@ -46,6 +51,9 @@ class Featurizer(ABC):
     Each subclass declares which raw feature views it reads via ``input_views``
     (or ``requires_view`` / ``entity_id_only`` / a ``resolve_input_views``
     override); registration rejects featurizers that declare nothing.
+
+    ``contract`` may be declared on the class body or passed to ``@register``. When
+    both are given the decorator argument wins.
     """
 
     contract: ClassVar[FeatureContract]
@@ -60,18 +68,25 @@ class Featurizer(ABC):
     nan_threshold: ClassVar[float] = 0.2
 
     def __init_subclass__(cls, **kwargs: object) -> None:
-        """Reject class-body ``contract`` assignments; registration sets it later.
+        """Normalize a class-body ``contract`` declaration, if there is one.
+
+        A ``FeatureFormat`` shorthand is widened to a ``FeatureContract`` so the
+        class body and the ``@register`` argument accept the same spellings.
+        Subclasses that declare nothing are registered with the decorator's
+        ``contract=`` instead.
 
         :param kwargs: Forwarded to ``ABC.__init_subclass__``.
-        :raises TypeError: If ``contract`` is assigned on the subclass body.
+        :raises TypeError: If a class-body ``contract`` is neither a
+            ``FeatureContract`` nor a ``FeatureFormat``.
         """
         super().__init_subclass__(**kwargs)
-        if "contract" in cls.__dict__:
-            msg = (
-                f"{cls.__name__}: do not set contract on the class body; "
-                "pass contract= to @register from the appropriate featurizer registry"
-            )
-            raise TypeError(msg)
+        if "contract" not in cls.__dict__:
+            return
+        try:
+            cls.contract = normalize_feature_contract(cls.__dict__["contract"])
+        except TypeError as exc:
+            msg = f"{cls.__name__}: class-body contract is invalid: {exc}"
+            raise TypeError(msg) from exc
 
     # ------------------------------------------------------------------
     # Public fit / transform with NaN tolerance

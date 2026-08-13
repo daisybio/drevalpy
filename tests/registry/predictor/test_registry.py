@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import PredictorRegistry, predictor_registry
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
 def test_predictor_registry_uses_fixed_identity() -> None:
@@ -23,7 +26,11 @@ def test_isolated_predictor_registry_registers_with_contracts() -> None:
         drug_contract=FeatureFormat.GRAPH,
     )
     class LocalPred(FeatureFreePredictor):
-        pass
+        def _fit(self, batch: ModelInputBatch) -> None:
+            return None
+
+        def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+            return np.zeros(batch.n_pairs, dtype=np.float64)
 
     assert registry.get("localPred") is LocalPred
     assert vars(LocalPred)["cell_line_contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)

@@ -247,6 +247,7 @@ def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
 import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register as register_predictor
@@ -260,11 +261,11 @@ from drevalpy.registry.cell_line_featurizer import register as register_cell_lin
 class ResolverCellLineFeaturizer(CellLineFeaturizer):
     entity_id_only = True
 
-    def fit(self, features, *, entity_ids=None):
+    def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
         self._output_dim = 1
         return self
-    def transform(self, features, entity_ids):
-        return np.ones((len(entity_ids), 1), dtype=np.float32)
+    def _transform_blocks(self, source, entity_ids):
+        return {"ext": numeric_feature_block(np.ones((len(entity_ids), 1), dtype=np.float32))}
     @property
     def output_dim(self):
         return self._output_dim
@@ -276,13 +277,13 @@ class ResolverCellLineFeaturizer(CellLineFeaturizer):
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ResolverPredictor(FeatureFreePredictor):
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "response required"
             raise ValueError(msg)
         self._mean = float(np.mean(batch.response))
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.full(batch.n_pairs, self._mean, dtype=np.float64)
 """,
         encoding="utf-8",

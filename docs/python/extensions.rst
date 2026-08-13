@@ -14,285 +14,288 @@ human-readable names to implementations. This page shows how to register
 custom implementations for each extension point and make them available to the
 pipeline.
 
+One import surface: ``drevalpy.plugin``
+---------------------------------------
+
+Import everything you need from :mod:`drevalpy.plugin`. It re-exports every
+base class, value type, and registration decorator a component needs:
+
+.. code-block:: python
+
+   from drevalpy.plugin import CellLineFeaturizer, FeatureFormat, register_cell_line_featurizer
+
+Nothing is defined there — each name is an alias for a symbol that lives deeper
+in the package. That indirection is the point: **only the aliases are a
+compatibility promise.** The deep paths still import, but they are private in
+the sense that matters, and a refactor may rename them without a deprecation
+cycle. The five ``register_*`` aliases point at the per-registry ``register``
+decorators, which are all spelled ``register`` in their own modules; naming them
+apart is what makes several registrations in one module readable.
+
+DrEvalPy also ships a ``py.typed`` marker, so the annotations on those aliases
+are visible to a type checker running over your plugin.
+
+The examples on this page are executed
+--------------------------------------
+
+Every snippet below is ``literalinclude``\ d from a real module under
+``docs/examples/``. The documentation build imports each of them, runs
+DrEvalPy's shipped conformance checks over the result, and compares what landed
+in the registries against a pinned list. An example that stops working fails the
+build rather than misleading you, and these are the components it registers:
+
+.. include:: _generated_examples.rst
+
+Nothing in the shipped package imports ``docs/examples/``, and the build rolls
+the registrations back once it has checked them, so the toy names above are not
+present in a normal session.
+
 Custom featurizers
 ------------------
 
 Subclass ``CellLineFeaturizer`` or ``DrugFeaturizer`` and register with
-``@drevalpy.registry.cell_line_featurizer.register`` or
-``@drevalpy.registry.drug_featurizer.register``.
+``@register_cell_line_featurizer`` or ``@register_drug_featurizer``.
 
-Declare a ``FeatureFormat`` **contract** on registration
-(``numeric_matrix``, ``graph``, or ``ragged_sequence``). That is the payload
-format this featurizer produces. Composition validation compares it to the
-predictor's ``cell_line_contract`` / ``drug_contract`` and rejects stacks
-where the formats disagree. Registry names and the format vocabulary are listed
-in :doc:`/concepts/component_catalog`.
+What a featurizer must provide
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: python
+The public ``fit`` / ``transform`` / ``transform_blocks`` methods are
+**implemented for you** on the base class: they detect entities whose feature
+rows are entirely NaN, run your code on the rest, and splice NaN rows back into
+the result. You override the hooks underneath them:
 
-   from __future__ import annotations
+.. list-table::
+   :header-rows: 1
+   :widths: 34 66
 
-   import numpy as np
+   * - Member
+     - Responsibility
+   * - ``_fit(source, *, entity_ids=None, ...)``
+     - Learn whatever ``_transform_blocks`` needs, on pre-validated entity ids.
+       Return ``self``.
+   * - ``_transform_blocks(source, entity_ids)``
+     - Return a ``dict[str, FeatureBlock]``, one row per entity id.
+   * - ``output_dim`` (property)
+     - Feature width after fitting.
+   * - ``get_state`` / ``set_state``
+     - Optional, but required for a fitted featurizer to survive a ``*.zip``
+       checkpoint: those store the state mapping, not the object.
 
-   from drevalpy.components.core.contracts.contracts import FeatureFormat
-   from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-   from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
+``_transform(source, entity_ids)`` returning a flat matrix is optional; the base
+class derives it by concatenating your numeric blocks.
 
+Two declarations are mandatory, and registration is **rejected** without them:
 
-   @register_cell_line_featurizer(
-       "toyCellLine",
-       description="Constant cell-line features for demos.",
-       contract=FeatureFormat.NUMERIC_MATRIX,
-   )
-   class ToyCellLineFeaturizer(CellLineFeaturizer):
-       def fit(self, features, *, entity_ids=None):
-           self._output_dim = 1
-           return self
+**The feature contract.** A ``FeatureFormat`` (``numeric_matrix``, ``graph``, or
+``ragged_sequence``) describing the payload format this featurizer produces.
+Composition validation compares it to the predictor's ``cell_line_contract`` /
+``drug_contract`` and rejects stacks whose formats disagree. Declare it either
+as ``contract`` on the class body or as ``contract=`` on the decorator; when
+both are present the decorator argument wins.
 
-       def transform(self, features, entity_ids):
-           return np.ones((len(entity_ids), 1), dtype=np.float32)
+**The input views.** Which raw feature views the featurizer reads, so the
+data-loading layer never needs a name-to-view lookup table. Any one of these
+satisfies it:
 
-       @property
-       def output_dim(self):
-           return self._output_dim
+- ``input_views = ("gene_expression",)`` — a fixed set of views.
+- ``entity_id_only = True`` — no view at all, just the identifiers.
+- ``requires_view = True`` — the view comes from the config, as a ``view=``
+  construction kwarg.
+- overriding ``resolve_input_views`` — the views depend on other
+  hyperparameters.
 
-       def get_state(self) -> dict[str, object]:
-           return {"output_dim": self._output_dim}
+Registration also rejects a class that still has unimplemented abstract
+methods, naming the members it is missing. That check runs at registration
+rather than at instantiation, so a missing ``_fit`` fails next to its cause.
 
-       def set_state(self, state: dict[str, object]) -> None:
-           output_dim = state.get("output_dim")
-           if isinstance(output_dim, int):
-               self._output_dim = output_dim
+A view-reading cell-line featurizer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Fitted featurizers must implement ``get_state`` / ``set_state`` so ``*.zip``
-checkpoints round-trip.
+.. literalinclude:: /examples/toy_cell_line_featurizer.py
+   :language: python
+   :caption: docs/examples/toy_cell_line_featurizer.py
+
+An identifier-only drug featurizer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This one declares its contract on the class body instead, and uses
+``entity_id_only`` in place of ``input_views``:
+
+.. literalinclude:: /examples/toy_drug_featurizer.py
+   :language: python
+   :caption: docs/examples/toy_drug_featurizer.py
 
 Custom predictors
 -----------------
 
-Every predictor must inherit exactly one input interface and register with
-``@drevalpy.registry.predictor.register``. The available types were already
-introduced in :doc:`/concepts/component_catalog`.
+Every predictor must inherit **exactly one** input interface and register with
+``@register_predictor``. The three interfaces were introduced in
+:doc:`/concepts/component_catalog`.
+
+As with featurizers, the public ``fit`` / ``predict`` are implemented on the
+base class — they reject a batch with no responses, drop pairs whose features
+are NaN, and return NaN for those pairs on predict. Contracts may be declared on
+the class body or passed to the decorator, and the decorator wins.
 
 .. tab-set::
 
    .. tab-item:: Feature-free
 
-      ``FeatureFreePredictor`` uses pair identifiers and/or response values
-      only. Composition forbids cell-line and drug featurizers for it, since it
-      would consume neither. Registration still requires explicit
-      ``cell_line_contract`` / ``drug_contract`` (typically
-      ``FeatureFormat.NUMERIC_MATRIX``).
+      ``FeatureFreePredictor`` sees pair identifiers and response values only.
+      Composition forbids cell-line and drug featurizers for it, since it would
+      consume neither, but registration still wants both contracts because the
+      composition checker compares them before it knows the interface.
+      Implement ``_fit`` and ``_predict``.
 
-      .. code-block:: python
-
-         from drevalpy.components.core.contracts.contracts import FeatureFormat
-         from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
-         from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-         from drevalpy.registry.predictor import register as register_predictor
-
-
-         @register_predictor(
-             "toyMean",
-             description="Predict the training mean response.",
-             cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
-             drug_contract=FeatureFormat.NUMERIC_MATRIX,
-         )
-         class ToyMeanPredictor(FeatureFreePredictor):
-             def fit(self, batch: ModelInputBatch) -> None:
-                 if batch.response is None:
-                     raise ValueError("response required")
-                 self._mean = float(np.mean(batch.response))
-
-             def predict(self, batch: ModelInputBatch) -> np.ndarray:
-                 return np.full(batch.n_pairs, self._mean, dtype=np.float64)
-
-             def get_state(self) -> dict[str, object]:
-                 return {"mean": self._mean} if hasattr(self, "_mean") else {}
-
-             def set_state(self, state: dict[str, object]) -> None:
-                 if "mean" in state:
-                     self._mean = float(state["mean"])
-
-             def is_fitted(self) -> bool:
-                 return hasattr(self, "_mean")
+      .. literalinclude:: /examples/toy_mean_predictor.py
+         :language: python
+         :caption: docs/examples/toy_mean_predictor.py
 
    .. tab-item:: Matrix
 
-      ``MatrixPredictor`` flattens the batch with ``batch.to_feature_matrix()``.
-      Implement ``_fit_matrix`` / ``_predict_matrix`` on the dense pair-level
-      design matrix (the pattern used by ElasticNet, RandomForest, …).
+      ``MatrixPredictor`` implements ``_fit`` / ``_predict`` for you by calling
+      ``batch.to_feature_matrix()``, so you implement ``_fit_matrix`` /
+      ``_predict_matrix`` on the dense pair-level design matrix — the pattern
+      ElasticNet, RandomForest and friends use. Both contracts must be
+      ``numeric_matrix``; registration rejects anything else for this interface.
 
-      .. code-block:: python
-
-         from typing import Any
-
-         from sklearn.linear_model import Ridge
-
-         from drevalpy.components.core.contracts.contracts import FeatureFormat
-         from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-         from drevalpy.registry.predictor import register as register_predictor
-
-
-         @register_predictor(
-             "toyRidge",
-             description="Ridge on concatenated dense cell-line and drug features.",
-             cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
-             drug_contract=FeatureFormat.NUMERIC_MATRIX,
-         )
-         class ToyRidgePredictor(MatrixPredictor):
-             @classmethod
-             def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-                 return {
-                     "alpha": {
-                         "type": "float",
-                         "low": 1e-4,
-                         "high": 10.0,
-                         "log": True,
-                         "default": 1.0,
-                     },
-                 }
-
-             def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
-                 self._estimator = Ridge(alpha=float(self._hyperparameters["alpha"]))
-                 self._estimator.fit(x, y)
-
-             def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
-                 return np.asarray(self._estimator.predict(x), dtype=np.float64)
-
-             def get_state(self) -> dict[str, object]:
-                 return {
-                     "estimator": getattr(self, "_estimator", None),
-                     "hyperparameters": dict(self._hyperparameters),
-                 }
-
-             def set_state(self, state: dict[str, object]) -> None:
-                 self._estimator = state["estimator"]
-                 self._hyperparameters = dict(state["hyperparameters"])
-
-             def is_fitted(self) -> bool:
-                 return getattr(self, "_estimator", None) is not None
+      .. literalinclude:: /examples/toy_ridge_predictor.py
+         :language: python
+         :caption: docs/examples/toy_ridge_predictor.py
 
    .. tab-item:: Block
 
-      ``BlockPredictor`` reads side-specific
-      or named featurizer blocks from ``batch.cell_line_blocks`` /
-      ``batch.drug_blocks``. Contracts still constrain the **format** of each
-      side; ``required_cell_line_blocks`` / ``required_drug_blocks`` further
-      require named views in the stack.
+      ``BlockPredictor`` reads named featurizer blocks from
+      ``batch.cell_line_blocks`` / ``batch.drug_blocks`` instead of one
+      flattened matrix. Contracts still constrain the **format** of each side;
+      ``required_cell_line_blocks`` / ``required_drug_blocks`` additionally
+      require named blocks to be present in the stack. Implement ``_fit`` and
+      ``_predict``.
 
-      .. code-block:: python
-
-         from typing import ClassVar
-
-         from sklearn.linear_model import Ridge
-
-         from drevalpy.components.core.contracts.contracts import FeatureFormat
-         from drevalpy.components.core.batch.model_input_batch import ModelInputBatch
-         from drevalpy.components.predictors.abstract.block import BlockPredictor
-         from drevalpy.registry.predictor import register as register_predictor
-
-
-         @register_predictor(
-             "toyBlockRidge",
-             description="Ridge on a named expression block plus drug features.",
-             cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
-             drug_contract=FeatureFormat.NUMERIC_MATRIX,
-         )
-         class ToyBlockRidgePredictor(BlockPredictor):
-             required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("expression",)
-
-             def _fit(self, batch: ModelInputBatch) -> None:
-                 x = batch.cell_line_blocks["expression"].values[batch.cell_line_pair_idx]
-                 if batch.drug_features is not None and batch.drug_pair_idx is not None:
-                     x = np.hstack([x, batch.drug_features[batch.drug_pair_idx]])
-                 self._estimator = Ridge(alpha=1.0)
-                 self._estimator.fit(x, batch.response)
-
-             def predict(self, batch: ModelInputBatch) -> np.ndarray:
-                 x = batch.cell_line_blocks["expression"].values[batch.cell_line_pair_idx]
-                 if batch.drug_features is not None and batch.drug_pair_idx is not None:
-                     x = np.hstack([x, batch.drug_features[batch.drug_pair_idx]])
-                 return np.asarray(self._estimator.predict(x), dtype=np.float64)
-
-             def get_state(self) -> dict[str, object]:
-                 return {"estimator": getattr(self, "_estimator", None)}
-
-             def set_state(self, state: dict[str, object]) -> None:
-                 self._estimator = state["estimator"]
-
-             def is_fitted(self) -> bool:
-                 return getattr(self, "_estimator", None) is not None
+      .. literalinclude:: /examples/toy_block_predictor.py
+         :language: python
+         :caption: docs/examples/toy_block_predictor.py
 
 Custom splitters
 ----------------
 
-Register a splitter function under a mode name with
-``@drevalpy.registry.splitter.register``. The function must accept the
-splitter protocol signature and return a list of
-:class:`~drevalpy.types.SplitMasks`:
+A splitter is a function, not a class. Register it under a mode name with
+``@register_splitter``; it must accept the splitter protocol signature and
+return a list of :class:`~drevalpy.types.SplitMasks`.
 
-.. code-block:: python
+.. literalinclude:: /examples/toy_splitter.py
+   :language: python
+   :caption: docs/examples/toy_splitter.py
 
-   from drevalpy.registry.splitter import register as register_splitter
-   from drevalpy.types import MuDataLike, SplitMasks
+The ``validation`` argument names the leakage constraint the registry enforces
+automatically after every split (``"LCO"``, ``"LDO"``, ``"LPO"``, or ``"LTO"``).
+The registry wraps your function, so the check cannot be bypassed by calling the
+registered splitter directly; a violation raises ``SplitValidationError``.
 
+Registering a mode name that is already taken **raises**. Pass
+``override=True`` when replacing an existing mode is the intent — a silent
+overwrite would let one package quietly change another's split semantics.
 
-   @register_splitter("MY_LCO", "Custom LCO with 80/20 fraction", validation="LCO")
-   def my_lco(
-       mudataset: MuDataLike,
-       n_splits: int = 5,
-       validation_ratio: float = 0.1,
-       random_state: int = 42,
-   ) -> list[SplitMasks]:
-       # ... custom splitting logic ...
-       return folds
-
-The ``validation`` parameter specifies which leakage constraint to enforce
-automatically after every split (``"LCO"``, ``"LDO"``, ``"LPO"``, or
-``"LTO"``). If validation fails, a ``SplitValidationError`` is raised.
-
-Once registered, your mode can be used anywhere a mode string is accepted:
+Once registered, the mode works anywhere a mode string is accepted:
 
 .. code-block:: python
 
    from drevalpy.data import split
 
-   folds = split(dataset, mode="MY_LCO", n_splits=5)
+   folds = split(dataset, mode="TOY_LCO", n_splits=5)
 
 Custom visualizations
 ---------------------
 
-Register a visualization class with
-``@drevalpy.registry.visualization.register``. The class must implement the
-``Visualization`` base interface (``compute`` and ``to_multiqc`` methods):
+Register a visualization class with ``@register_visualization``.
+``Visualization`` declares **four** abstract methods:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 74
+
+   * - Method
+     - Responsibility
+   * - ``compute(result, dataset=None)``
+     - Derive the plot data from the result and store it on the instance.
+   * - ``to_png(path)``
+     - Write a static image.
+   * - ``to_multiqc()``
+     - Return ``Section`` objects for the report.
+   * - ``show()``
+     - Display interactively in a notebook.
+
+For a static Matplotlib plot, subclass ``ImageVisualization`` instead: it
+implements the last three in terms of a figure, leaving you ``compute`` — which
+must assign the figure to ``self._fig`` — and ``_create_figure``.
+
+.. literalinclude:: /examples/toy_visualization.py
+   :language: python
+   :caption: docs/examples/toy_visualization.py
+
+``result_type`` declares whether the visualization operates on an
+``ExperimentResult`` (aggregated across models) or a ``ModelResult`` (a single
+model). ``requirements`` is a frozenset of ``PlotRequirement`` values naming
+conditions the report system checks before selecting the plot automatically —
+multiple CV folds, multiple models, randomization, or robustness data.
+
+As with splitters, a name that is already registered raises unless you pass
+``override=True``.
+
+Testing your components
+-----------------------
+
+:mod:`drevalpy.testing` ships in the wheel precisely so a plugin's own test
+suite can import it. It removes the two things that otherwise block an offline
+plugin CI: every registered dataset lives in a credentialed bucket, and a
+predictor needs a fully featurized batch.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 66
+
+   * - Helper
+     - What it gives you
+   * - ``build_synthetic_dataset(...)``
+     - An in-memory ``Dataset``. Response-only by default; pass ``omics=[...]``
+       to add the cell-line modalities your featurizer reads.
+   * - ``build_synthetic_batch(dataset, ...)``
+     - A ``ModelInputBatch`` with drawn features and a learnable response, so a
+       predictor is testable without composing a model.
+   * - ``observed_pairs(dataset)``
+     - Every measured cell-line/drug pair, as a ``ResponseBatch``.
+   * - ``FEATURIZER_CHECKS`` / ``PREDICTOR_CHECKS``
+     - Every conformance check, as a tuple to parametrize over.
+   * - ``check_plugin(name)``
+     - Assert an installed plugin's entry point is declared, loaded, and that
+       its components resolve through the registries.
+
+Each check takes ``(cls, fixture, **kwargs)`` — the fixture being a dataset for
+featurizers and a batch for predictors, and optional in both cases — so a suite
+parametrizes over a whole family at once:
 
 .. code-block:: python
 
-   from drevalpy.registry.visualization import register as register_visualization
-   from drevalpy.visualization.base import Visualization
+   import pytest
+
+   from drevalpy.testing import FEATURIZER_CHECKS, build_synthetic_dataset
+
+   from my_plugin.featurizers import MyFeaturizer
 
 
-   @register_visualization(
-       "my_scatter",
-       "Custom scatter plot of predictions vs response.",
-       result_type="ExperimentResult",
-       requirements=frozenset(),
-   )
-   class MyScatterPlot(Visualization):
-       def compute(self, result, *, dataset=None):
-           # Extract data from ExperimentResult or ModelResult
-           ...
+   @pytest.mark.parametrize("check", FEATURIZER_CHECKS)
+   def test_my_featurizer_conforms(check):
+       check(MyFeaturizer, build_synthetic_dataset(omics=["gene_expression"]))
 
-       def to_multiqc(self):
-           # Return list of MultiQC section objects
-           ...
+The checks catch what registration cannot: that the component instantiates,
+that ``output_dim`` agrees with the width ``transform`` actually produced, and
+that a fresh instance restored from ``get_state`` reproduces the original's
+output. The last one is the expensive bug — a fitted attribute left out of
+``get_state`` makes a reloaded checkpoint silently predict something else. A
+failing check raises ``ConformanceError``, which subclasses ``AssertionError``.
 
-The ``result_type`` declares whether this visualization operates on an
-``ExperimentResult`` (aggregated across models) or a ``ModelResult``
-(single model). The ``requirements`` frozenset specifies conditions that must
-be met for the report system to select this visualization automatically (for
-example: multiple CV folds, multiple models, or a reference model).
+This page's own examples are verified exactly this way; see
+``docs/examples/toy_conformance.py`` in the repository.
 
 Custom dataset sources
 ----------------------
@@ -302,7 +305,7 @@ datasets at files under those sources:
 
 .. code-block:: python
 
-   from drevalpy.registry.dataset import register_source, register_dataset
+   from drevalpy.registry.dataset import register_dataset, register_source
 
    register_source(
        "my_s3_bucket",
@@ -315,8 +318,9 @@ datasets at files under those sources:
 The two-level design means you register a source once and then add as many
 dataset entries under it as needed. Any protocol that
 `fsspec <https://filesystem-spec.readthedocs.io/>`_ supports works: HTTPS,
-S3, GCS, Azure Blob Storage, or local file paths. Once registered, load by
-name as usual:
+S3, GCS, Azure Blob Storage, or local file paths. Unlike the other registries,
+dataset entries are persisted to a local configuration file, so they survive
+across sessions. Once registered, load by name as usual:
 
 .. code-block:: python
 
@@ -328,32 +332,11 @@ Literature references
 ---------------------
 
 ``LiteratureReference`` is optional **provenance metadata** for components
-ported from a paper or external repository. Pass it as ``reference=...`` on
-the register decorator. It does **not** change training, composition checks,
-or checkpoints — it only documents where the idea came from.
-
-.. code-block:: python
-
-   from drevalpy.types import LiteratureReference
-
-   TOY_RIDGE_REFERENCE = LiteratureReference(
-       repo_url="https://github.com/example/toy-ridge",
-       citation_doi="10.1234/example",
-       citation_text="Example ridge baseline for documentation.",
-       deviations=(
-           "Uses sklearn Ridge on flattened features; "
-           "hyperparameter defaults differ from the upstream script."
-       ),
-   )
-
-
-   @register_predictor(
-       "toyRidge",
-       description="Ridge on concatenated dense features.",
-       reference=TOY_RIDGE_REFERENCE,
-   )
-   class ToyRidgePredictor(MatrixPredictor):
-       ...
+ported from a paper or external repository. Pass it as ``reference=...`` on the
+register decorator, as ``toyRidge`` above does. It does **not** change training,
+composition checks, or checkpoints — it only documents where the idea came from.
+``repo_url`` is required; ``citation_text``, ``citation_doi`` and ``deviations``
+are optional strings.
 
 Loading extensions
 ------------------
@@ -373,7 +356,7 @@ installable (or otherwise on ``PYTHONPATH``), a normal import is enough:
 
    ToyRidge = construct_model(
        "ToyRidge",
-       "toyCellLine:fingerprints:toyRidge",
+       "toyCellLine:toyDrugHash:toyRidge",
    )
    model = ToyRidge()
 
@@ -393,14 +376,17 @@ YAML in one call:
 
 .. code-block:: python
 
-   from drevalpy.registry import load_extensions
    from drevalpy.models import construct_model
+   from drevalpy.registry import load_extensions
 
    load_extensions(
        directories=["my_components"],
        zoo_files=["my_zoo/toy.yaml"],
    )
    ToyMean = construct_model("toyMean")  # zoo preset name
+
+Every entry point rolls the registries back if loading fails part-way, so a
+module that registers two components and then raises leaves neither behind.
 
 Plugin discovery
 ~~~~~~~~~~~~~~~~
@@ -417,14 +403,34 @@ In your plugin's ``pyproject.toml``:
    [project.entry-points."drevalpy.plugins"]
    my_plugin = "my_plugin.components"
 
+When a plugin fails to load
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A plugin that raises on import silently removes every component it would have
+registered, which surfaces much later as an unknown-predictor error far from the
+cause. DrEvalPy therefore records the failure instead of swallowing it:
+
+.. code-block:: python
+
+   from drevalpy.registry import get_failed_plugins, get_loaded_plugins
+
+   get_loaded_plugins()  # {entry point name: declared object reference}
+   get_failed_plugins()  # {entry point name: formatted traceback}
+
+The default is non-fatal, so one broken third-party package cannot brick the
+CLI for everyone else. Setting the environment variable
+``DREVALPY_STRICT_PLUGINS=1`` re-raises instead — which is what a plugin's own
+CI wants, since a plugin that does not load is a failure there rather than a
+degraded experience.
+
 Extension directories
 ~~~~~~~~~~~~~~~~~~~~~
 
 Both the CLI and the Python API accept an **extensions directory** containing
 ``.py`` and ``.yaml`` files. All Python files in the directory are imported
 (triggering registration decorators for any registry), and all YAML files are
-loaded as model-zoo presets or dataset declarations. An environment variable
-(``DREVALPY_EXTENSIONS_DIR``) provides the same mechanism without requiring a
+loaded as model-zoo presets or dataset declarations. The environment variable
+``DREVALPY_EXTENSIONS_DIR`` provides the same mechanism without requiring a
 CLI flag.
 
 Saving and loading with custom components

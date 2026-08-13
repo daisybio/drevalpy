@@ -8,6 +8,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+import pandas as pd
+
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult
 
@@ -38,6 +40,7 @@ class VisualizationRegistry:
         *,
         result_type: str = "ExperimentResult",
         requirements: frozenset[Any] = frozenset(),
+        override: bool = False,
     ) -> Callable[[type[Any]], type[Any]]:
         """Decorator to register a visualization class.
 
@@ -45,11 +48,13 @@ class VisualizationRegistry:
         :param description: Human-readable description.
         :param result_type: "ExperimentResult" or "ModelResult".
         :param requirements: frozenset of PlotRequirement values.
+        :param override: Replace an already-registered name instead of raising.
         :returns: Class decorator.
+        :raises ValueError: If *name* is already registered and *override* is false.
         """
 
         def decorator(cls: type[Any]) -> type[Any]:
-            if name in self._store:
+            if name in self._store and not override:
                 raise ValueError(f"Visualization {name!r} already registered")
             cls.registry_name = name
             self._store[name] = cls
@@ -86,6 +91,52 @@ class VisualizationRegistry:
         """Return the description for a registered visualization."""
         return self._descriptions.get(name, "")
 
+    def get_metadata(self, name: str) -> dict[str, Any]:
+        """Return the metadata record for the visualization registered under *name*.
+
+        Mirrors ``get_metadata`` on the component registries so every registry can
+        be introspected the same way.
+
+        :param name: Registered visualization name.
+        :returns: Metadata dict for catalog listings.
+        :raises ValueError: If *name* is not registered.
+        """
+        cls = self.get(name)
+        return {
+            "registry": "visualizations",
+            "name": name,
+            "class_name": cls.__name__,
+            "description": self._descriptions.get(name, ""),
+            "result_type": self._result_types.get(name, ""),
+            "requirements": frozenset(self._requirements.get(name, frozenset())),
+        }
+
+    def list_metadata(self) -> list[dict[str, Any]]:
+        """Return metadata for every registered visualization.
+
+        :returns: List of metadata dicts, ordered by visualization name.
+        """
+        return [self.get_metadata(name) for name in self.names]
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """Return registry contents as a pandas DataFrame.
+
+        :returns: One row per visualization, with Name, Description, Result type
+            and Requirements columns.
+        """
+        rows = []
+        for name in self.names:
+            meta = self.get_metadata(name)
+            rows.append(
+                {
+                    "Name": name,
+                    "Description": meta["description"],
+                    "Result type": meta["result_type"],
+                    "Requirements": ", ".join(sorted(str(req) for req in meta["requirements"])),
+                }
+            )
+        return pd.DataFrame(rows)
+
     def retain_only(self, names: frozenset[str]) -> None:
         """Remove all entries not in the given set (for rollback support).
 
@@ -99,11 +150,12 @@ class VisualizationRegistry:
                 self._result_types.pop(name, None)
 
     def __repr__(self) -> str:
-        """Return a readable string representation."""
-        lines = ["VisualizationRegistry:"]
-        for name in self.names:
-            lines.append(f"  {name}: {self._descriptions.get(name, '')}")
-        return "\n".join(lines)
+        """Return a tabular string representation."""
+        return self.to_dataframe().to_string(index=False)
+
+    def _repr_html_(self) -> str:
+        """HTML table for Jupyter notebooks."""
+        return self.to_dataframe().to_html(index=False)
 
 
 visualization_registry = VisualizationRegistry()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
+import numpy as np
 import pytest
 from pydantic import ValidationError
 
@@ -178,6 +179,12 @@ def test_graph_format_match_passes_for_block_predictor() -> None:
     class GraphPred(BlockPredictor):
         supported_modes = frozenset({PredictionMode.REGRESSION})
 
+        def _fit(self, batch) -> None:
+            return None
+
+        def _predict(self, batch):
+            return np.zeros(batch.n_pairs, dtype=np.float64)
+
     config = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"),
         drug_featurizer=DrugFeaturizerConfig(name="graphDrug"),
@@ -205,6 +212,12 @@ def test_block_schema_reports_missing_named_block() -> None:
         required_cell_line_block_specs = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
         required_drug_block_specs = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
 
+        def _fit(self, batch) -> None:
+            return None
+
+        def _predict(self, batch):
+            return np.zeros(batch.n_pairs, dtype=np.float64)
+
     with pytest.raises((ValueError, ValidationError), match="blockPred.*gene_expression.*numeric_matrix.*wrong_name"):
         ModelConfig(
             cell_line_featurizer=CellLineFeaturizerConfig(name="cellBlocks"),
@@ -227,7 +240,11 @@ def test_feature_free_predictor_without_featurizers_passes() -> None:
         drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class NaiveMean(FeatureFreePredictor):
-        pass
+        def _fit(self, batch) -> None:
+            return None
+
+        def _predict(self, batch):
+            return np.zeros(batch.n_pairs, dtype=np.float64)
 
     config = ModelConfig(
         cell_line_featurizer=None,

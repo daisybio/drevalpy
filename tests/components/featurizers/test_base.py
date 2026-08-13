@@ -58,11 +58,25 @@ def _featurizer_names(registry: str) -> list[str]:
     return list_cell_line_featurizers() if registry == "cell_line" else list_drug_featurizers()
 
 
-def test_featurizer_rejects_class_body_contract() -> None:
-    with pytest.raises(TypeError, match="do not set contract on the class body"):
+def test_featurizer_accepts_class_body_contract() -> None:
+    class BodyContractFeaturizer(Featurizer):  # noqa: B903
+        contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+
+    assert BodyContractFeaturizer.contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+
+
+def test_featurizer_normalizes_a_class_body_format_shorthand() -> None:
+    class ShorthandFeaturizer(Featurizer):  # noqa: B903
+        contract = FeatureFormat.GRAPH
+
+    assert ShorthandFeaturizer.contract == FeatureContract(format=FeatureFormat.GRAPH)
+
+
+def test_featurizer_rejects_an_invalid_class_body_contract() -> None:
+    with pytest.raises(TypeError, match="class-body contract is invalid"):
 
         class BadFeaturizer(Featurizer):  # noqa: B903
-            contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+            contract = "graph_but_a_plain_string"
 
 
 @pytest.mark.parametrize("registry", ["cell_line", "drug"])
