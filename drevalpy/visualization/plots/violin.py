@@ -6,7 +6,6 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pandas as pd
 import plotly.graph_objects as go
 
 from drevalpy.log import get_logger
@@ -15,6 +14,8 @@ from drevalpy.visualization.base import Section, Visualization
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from drevalpy.types.results import ExperimentResult
 
 logger = get_logger(__name__)
@@ -47,6 +48,8 @@ def _is_finite(value: float) -> bool:
 
 
 def _build_df_from_experiment(result: ExperimentResult) -> pd.DataFrame:
+    import pandas as pd
+
     """Build a flat DataFrame from an ExperimentResult.
 
     Columns: algorithm, rand_setting, test_mode, CV_split, and one column per metric.

@@ -3,9 +3,17 @@
 Every test pins ``cores=1`` (or a single work item) so the fitting stays in the
 calling process: the parallel path spawns a ``ProcessPoolExecutor``, which would
 re-import curve_curator per worker for no additional coverage.
+
+A real CurveCurator fit costs ~0.5s, so the tests that only *read* a fitted frame
+share one session-scoped fit (:class:`_Fitted` below) instead of repeating it.
+Two kinds of test deliberately keep their own fit and are marked as such in place:
+those asserting a mutation or lifecycle side effect of the call, and those where
+the call itself - not its result - is the subject.
 """
 
 from __future__ import annotations
+
+from typing import NamedTuple
 
 import pandas as pd
 import pytest
@@ -36,19 +44,81 @@ def _curve_rows(concentrations: list[float], cell_lines: list[str], drug: str) -
     ]
 
 
-@pytest.fixture()
-def single_group() -> list[tuple[pd.DataFrame, dict]]:
+def _build_single_group() -> list[tuple[pd.DataFrame, dict]]:
     """One dose-range group holding three curves."""
     rows = _curve_rows([0.001, 0.01, 0.1, 1.0, 10.0], ["CL_A", "CL_B", "CL_C"], "DrugX")
     return preprocess(pd.DataFrame(rows))
 
 
-@pytest.fixture()
-def two_groups() -> list[tuple[pd.DataFrame, dict]]:
+def _build_two_groups() -> list[tuple[pd.DataFrame, dict]]:
     """Two dose-range groups: DrugY tops out two decades above DrugX."""
     rows = _curve_rows([0.001, 0.01, 0.1, 1.0, 10.0], ["CL_A", "CL_B"], "DrugX")
     rows += _curve_rows([0.001, 0.01, 0.1, 1.0, 100.0], ["CL_A", "CL_B"], "DrugY")
     return preprocess(pd.DataFrame(rows))
+
+
+class _Fitted(NamedTuple):
+    """A completed ``fit_groups`` run together with the groups it was given.
+
+    Both halves come from the same session-scoped build, so a test may compare the
+    results against ``groups`` without rebuilding either.
+    """
+
+    groups: list[tuple[pd.DataFrame, dict]]
+    results: list[tuple[pd.DataFrame, dict]]
+
+
+@pytest.fixture()
+def single_group() -> list[tuple[pd.DataFrame, dict]]:
+    """One dose-range group holding three curves, private to the requesting test."""
+    return _build_single_group()
+
+
+@pytest.fixture()
+def two_groups() -> list[tuple[pd.DataFrame, dict]]:
+    """Two dose-range groups, private to the requesting test."""
+    return _build_two_groups()
+
+
+@pytest.fixture(scope="session")
+def fitted_single_group() -> _Fitted:
+    """``fit_groups`` over one group, fitted once and shared read-only."""
+    groups = _build_single_group()
+    return _Fitted(groups, fit_groups(groups, cores=1, fit_speed="fast"))
+
+
+@pytest.fixture(scope="session")
+def fitted_two_groups() -> _Fitted:
+    """``fit_groups`` over two dose-range groups, fitted once and shared read-only."""
+    groups = _build_two_groups()
+    return _Fitted(groups, fit_groups(groups, cores=1, fit_speed="fast"))
+
+
+@pytest.fixture(scope="session")
+def fitted_chunk() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """One ``_fit_chunk`` call, as ``(input wide_df, fitted frame)``."""
+    wide_df, group_info = _build_single_group()[0]
+    config = _build_config(group_info["n_experiments"], group_info["doses"], 1, fit_speed="fast")
+    return wide_df, _fit_chunk(wide_df, config)
+
+
+@pytest.fixture()
+def recorded_chunk_fits(monkeypatch: pytest.MonkeyPatch) -> list[pd.DataFrame]:
+    """Replace ``_fit_chunk`` with a pass-through that records the chunks it saw.
+
+    ``_run_work_items`` only dispatches and re-labels; substituting the fit keeps
+    the real dispatch under test - the returned results still come from this stub,
+    so a missed work item still shows up as a length mismatch - while dropping a
+    CurveCurator fit per chunk that no assertion here inspects.
+    """
+    seen: list[pd.DataFrame] = []
+
+    def _record(chunk_df: pd.DataFrame, config: dict) -> pd.DataFrame:
+        seen.append(chunk_df)
+        return chunk_df
+
+    monkeypatch.setattr("drevalpy.curation._fit._fit_chunk", _record)
+    return seen
 
 
 class TestBuildConfig:
@@ -128,9 +198,16 @@ class TestBuildWorkItems:
 
 
 class TestFitChunk:
-    """Single-chunk fitting."""
+    """Single-chunk fitting.
+
+    Extended tier: both tests run a real CurveCurator fit, ~1s together.
+    """
+
+    pytestmark = pytest.mark.slow
 
     def test_does_not_mutate_the_shared_config(self, single_group: list[tuple[pd.DataFrame, dict]]) -> None:
+        # Keeps its own fit on purpose: the assertion is about what the call did to
+        # the config it was handed, which a shared fitted result cannot show.
         wide_df, group_info = single_group[0]
         config = _build_config(group_info["n_experiments"], group_info["doses"], 1, fit_speed="fast")
         config["Processing"]["available_cores"] = 8
@@ -139,11 +216,8 @@ class TestFitChunk:
 
         assert config["Processing"]["available_cores"] == 8
 
-    def test_returns_one_row_per_curve(self, single_group: list[tuple[pd.DataFrame, dict]]) -> None:
-        wide_df, group_info = single_group[0]
-        config = _build_config(group_info["n_experiments"], group_info["doses"], 1, fit_speed="fast")
-
-        fitted = _fit_chunk(wide_df, config)
+    def test_returns_one_row_per_curve(self, fitted_chunk: tuple[pd.DataFrame, pd.DataFrame]) -> None:
+        wide_df, fitted = fitted_chunk
 
         assert len(fitted) == len(wide_df)
 
@@ -162,6 +236,7 @@ class TestRunWorkItems:
         self,
         single_group: list[tuple[pd.DataFrame, dict]],
         monkeypatch: pytest.MonkeyPatch,
+        recorded_chunk_fits: list[pd.DataFrame],
         chunk_size: int,
         cores: int,
     ) -> None:
@@ -177,54 +252,65 @@ class TestRunWorkItems:
 
         assert len(results) == len(work_items)
 
-    def test_preserves_group_index_per_chunk(self, two_groups: list[tuple[pd.DataFrame, dict]]) -> None:
+    def test_preserves_group_index_per_chunk(
+        self, two_groups: list[tuple[pd.DataFrame, dict]], recorded_chunk_fits: list[pd.DataFrame]
+    ) -> None:
         work_items, _ = _build_work_items(two_groups, chunk_size=1, normalize=False, fit_type="OLS", fit_speed="fast")
 
         results = _run_work_items(work_items, cores=1)
 
         assert [group_idx for _, group_idx in results] == [group_idx for _, _, group_idx in work_items]
 
+    def test_fits_every_chunk_exactly_once(
+        self, two_groups: list[tuple[pd.DataFrame, dict]], recorded_chunk_fits: list[pd.DataFrame]
+    ) -> None:
+        """Guards the stub above: a dropped work item must not look like a pass."""
+        work_items, _ = _build_work_items(two_groups, chunk_size=1, normalize=False, fit_type="OLS", fit_speed="fast")
+
+        _run_work_items(work_items, cores=1)
+
+        assert [chunk["Name"].tolist() for chunk in recorded_chunk_fits] == [
+            chunk["Name"].tolist() for chunk, _, _ in work_items
+        ]
+
 
 class TestFitGroups:
-    """The public entry point."""
+    """The public entry point.
 
-    def test_returns_one_result_per_group(self, two_groups: list[tuple[pd.DataFrame, dict]]) -> None:
-        results = fit_groups(two_groups, cores=1, fit_speed="fast")
+    Extended tier: the session-scoped ``fitted_*`` fixtures behind these are real
+    CurveCurator fits (~1.5s). Because the fits are shared, the cost only goes away
+    when the whole class is deselected - hence a class-level marker.
+    """
 
-        assert len(results) == 2
+    pytestmark = pytest.mark.slow
 
-    def test_keeps_every_curve(self, single_group: list[tuple[pd.DataFrame, dict]]) -> None:
-        results = fit_groups(single_group, cores=1, fit_speed="fast")
+    def test_returns_one_result_per_group(self, fitted_two_groups: _Fitted) -> None:
+        assert len(fitted_two_groups.results) == 2
 
-        fitted_df, _ = results[0]
-        assert fitted_df["Name"].tolist() == single_group[0][0]["Name"].tolist()
+    def test_keeps_every_curve(self, fitted_single_group: _Fitted) -> None:
+        fitted_df, _ = fitted_single_group.results[0]
 
-    def test_routes_curves_back_to_their_own_group(self, two_groups: list[tuple[pd.DataFrame, dict]]) -> None:
-        results = fit_groups(two_groups, cores=1, fit_speed="fast")
+        assert fitted_df["Name"].tolist() == fitted_single_group.groups[0][0]["Name"].tolist()
 
-        assert [sorted(df["Name"]) for df, _ in results] == [
+    def test_routes_curves_back_to_their_own_group(self, fitted_two_groups: _Fitted) -> None:
+        assert [sorted(df["Name"]) for df, _ in fitted_two_groups.results] == [
             ["CL_A|DrugX", "CL_B|DrugX"],
             ["CL_A|DrugY", "CL_B|DrugY"],
         ]
 
-    def test_adds_the_curve_parameters_postprocess_consumes(
-        self, single_group: list[tuple[pd.DataFrame, dict]]
-    ) -> None:
-        results = fit_groups(single_group, cores=1, fit_speed="fast")
+    def test_adds_the_curve_parameters_postprocess_consumes(self, fitted_single_group: _Fitted) -> None:
+        fitted_df, _ = fitted_single_group.results[0]
 
-        fitted_df, _ = results[0]
         assert {"pEC50", "Curve Slope", "Curve Front", "Curve Back", "Curve AUC"} <= set(fitted_df.columns)
 
-    def test_applies_significance_thresholds(self, single_group: list[tuple[pd.DataFrame, dict]]) -> None:
+    def test_applies_significance_thresholds(self, fitted_single_group: _Fitted) -> None:
         """Only ``thresholding.apply_significance_thresholds`` adds these columns."""
-        results = fit_groups(single_group, cores=1, fit_speed="fast")
+        fitted_df, _ = fitted_single_group.results[0]
 
-        fitted_df, _ = results[0]
         assert {"Curve Relevance Score", "Curve Regulation"} <= set(fitted_df.columns)
 
-    def test_returns_the_config_each_group_was_fitted_with(self, single_group: list[tuple[pd.DataFrame, dict]]) -> None:
-        results = fit_groups(single_group, cores=1, fit_speed="fast")
+    def test_returns_the_config_each_group_was_fitted_with(self, fitted_single_group: _Fitted) -> None:
+        _, config = fitted_single_group.results[0]
 
-        _, config = results[0]
         assert config["Curve Fit"]["speed"] == "fast"
-        assert config["Experiment"]["doses"].tolist() == single_group[0][1]["doses"]
+        assert config["Experiment"]["doses"].tolist() == fitted_single_group.groups[0][1]["doses"]

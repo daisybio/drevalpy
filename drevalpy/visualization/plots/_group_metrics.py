@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, Literal
 
 import numpy as np
-import pandas as pd
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
@@ -250,6 +249,8 @@ def model_group_correlations(
     :returns: A :class:`GroupCorrelationMatrix` over every model in ``result``.
     """
     groups = _shared_group_axis(result, grouping)
+    import pandas as pd
+
     group_index = pd.Index(groups)
     n_groups = len(groups)
 

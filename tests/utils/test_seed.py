@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import random
+import sys
 from collections.abc import Iterator
 
 import numpy as np
@@ -124,7 +125,10 @@ def test_seeds_every_backend_in_one_call() -> None:
 
 def test_cuda_is_seeded_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_torch = _FakeTorch(cuda_available=True)
-    monkeypatch.setattr("drevalpy.utils.seed.torch", fake_torch)
+    # ``seed_everything`` imports ``torch`` inside the function (to keep it off the
+    # ``import drevalpy`` path), so the fake has to be installed in ``sys.modules``
+    # rather than as a module attribute.
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
 
     seed_everything(5)
 
@@ -133,7 +137,7 @@ def test_cuda_is_seeded_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_cuda_is_skipped_when_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_torch = _FakeTorch(cuda_available=False)
-    monkeypatch.setattr("drevalpy.utils.seed.torch", fake_torch)
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
 
     seed_everything(5)
 

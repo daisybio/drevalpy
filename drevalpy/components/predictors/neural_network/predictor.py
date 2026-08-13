@@ -4,23 +4,27 @@ from __future__ import annotations
 
 import io
 import secrets
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-import pytorch_lightning as pl
-import torch
-from pytorch_lightning.callbacks import EarlyStopping
 from upath import UPath as Path
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.tensor_data import make_pair_loader
 from drevalpy.utils.torch_io import load_state_dict, load_trusted_mapping, save_torch_payload
+
+# torch, pytorch_lightning and .network (which imports lightning) are imported
+# inside the methods that need them. This module is imported eagerly by
+# register_builtin_components(), so a module-scope import would put ~1.2s of
+# lightning on the critical path of every `import drevalpy`. Guarded by
+# tests/test_import_cost_policy.py.
+if TYPE_CHECKING:
+    from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 
 
 @register(
@@ -76,6 +80,8 @@ class NeuralNetworkPredictor(MatrixPredictor):
 
         :param input_dim: Flattened feature width for one response pair.
         """
+        from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
+
         self._input_dim = input_dim
         self._model = FeedForwardNetwork(
             hyperparameters={
@@ -152,6 +158,9 @@ class NeuralNetworkPredictor(MatrixPredictor):
         )
 
     def _train_with_optional_early_stopping(self, batch: ModelInputBatch) -> None:
+        import pytorch_lightning as pl
+        from pytorch_lightning.callbacks import EarlyStopping
+
         if self._model is None:
             msg = "Neural network predictor must be materialized before training"
             raise RuntimeError(msg)
@@ -223,6 +232,8 @@ class NeuralNetworkPredictor(MatrixPredictor):
         :param batch: Featurized pairs to score.
         :returns: Predicted responses.
         """
+        import torch
+
         if not self._is_fitted or self._model is None or batch.n_pairs == 0:
             return np.full(batch.n_pairs, np.nan, dtype=np.float64)
 
@@ -249,6 +260,8 @@ class NeuralNetworkPredictor(MatrixPredictor):
         _ = x, y
 
     def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
+        import torch
+
         if not self._is_fitted or self._model is None or len(x) == 0:
             return np.full(len(x), np.nan, dtype=np.float64)
         self._model.eval()

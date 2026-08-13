@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
 from ._registry import cell_line_featurizer_registry
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def register(

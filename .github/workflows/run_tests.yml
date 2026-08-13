@@ -57,12 +57,19 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Run tests
-        # -m "not network" matches how the suite is verified locally: it skips
-        # tests that download pretrained weights or remote annotations.
+        # The explicit `-m` is load-bearing: `addopts` in pyproject.toml defaults
+        # to the fast tier (`-m "not slow and not network"`), and a command-line
+        # `-m` *replaces* it rather than adding to it. Without this the job would
+        # silently run only the fast tier and the coverage gate would fail.
+        # `not network` (rather than no marker at all) deselects the tests that
+        # download pretrained weights from the artifacts bucket, which is not
+        # readable without credentials; run_network_tests.yml covers those.
         run: uv run pytest -m "not network" --cov --cov-report=xml --cov-report=json
 
       - name: Coverage floor per module
-        # Not bypassable with `git commit --no-verify`, unlike the pre-commit hook.
+        # The only place coverage is enforced: the pre-commit hook runs the fast
+        # tier without `--cov`, so this job is the gate for both the aggregate
+        # `fail_under` and the per-module floors.
         run: uv run python tools/coverage_gate.py
 
       - name: Upload coverage

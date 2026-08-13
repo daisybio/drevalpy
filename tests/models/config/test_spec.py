@@ -7,6 +7,7 @@ individual steps.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -14,14 +15,32 @@ import pytest
 from drevalpy.models.config import from_spec, validate
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.factory import reject_unknown_spec, zoo_config
+from drevalpy.models.zoo import clear_external_zoo
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry._extensions import load_extensions
 from drevalpy.types.enums.prediction_mode import PredictionMode
+from tests.registry._helpers import restore_component_registries
 
 
 @pytest.fixture(autouse=True)
-def _register_components() -> None:
+def _register_components() -> Iterator[None]:
+    """Populate the registries before each test, and evict whatever a test added.
+
+    ``test_external_extension_resolved_through_spec`` loads an extension, which
+    registers into the process-global component registries and the external zoo.
+    ``register_builtin_components`` only ever *adds*, so without an explicit
+    eviction that extension outlives its test - and
+    ``BUILTIN_CELL_LINE_FEATURIZER_NAMES`` and friends in
+    :mod:`drevalpy.registry._builtins` are lazy singletons that cache on first
+    access, so whichever test resolves them next counts the extension as a
+    built-in. That is how a leak here fails
+    ``tests/docs/test_docs_structure.py`` whenever it happens to run after this
+    file rather than before it.
+    """
     register_builtin_components()
+    yield
+    restore_component_registries()
+    clear_external_zoo()
 
 
 def test_build_model_config_from_zoo_name() -> None:

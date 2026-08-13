@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import ClassVar
 
 import numpy as np
-from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
@@ -29,6 +28,8 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
 
         :param view: view.
         """
+        from sklearn.preprocessing import StandardScaler
+
         self._view = view
         self._scaler = StandardScaler()
         self._output_dim = 0
@@ -127,6 +128,8 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
 
         :param state: state.
         """
+        from sklearn.preprocessing import StandardScaler
+
         scaler = state.get("gene_expression_scaler")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler

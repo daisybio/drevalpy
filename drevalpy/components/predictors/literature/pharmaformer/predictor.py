@@ -1,15 +1,17 @@
-"""PharmaFormer block literature predictor."""
+"""PharmaFormer block literature predictor.
+
+``torch`` and ``.model_utils`` are imported inside the functions that need them.
+``drevalpy.registry`` imports this module to register the ``pharmaFormer``
+predictor on ``import drevalpy``, so a module-scope ``import torch`` put ~0.35s on
+the startup path of every CLI invocation. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
 import secrets
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
 from upath import UPath as Path
 
 from drevalpy.components.contracts.contracts import FeatureFormat
@@ -29,10 +31,17 @@ from drevalpy.utils.torch_io import (
     save_trusted_mapping,
 )
 
-from .model_utils import CombinedModel
+if TYPE_CHECKING:
+    import torch
+    from torch import nn, optim
+    from torch.utils.data import DataLoader
+
+    from .model_utils import CombinedModel
 
 
 def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any], device: torch.device) -> CombinedModel:
+    from .model_utils import CombinedModel
+
     return CombinedModel(
         gene_input_size=gene_input_size,
         gene_hidden_size=hyperparameters["gene_hidden_size"],
@@ -61,6 +70,8 @@ def _run_epoch(
     :param device: Torch device.
     :returns: Mean epoch loss.
     """
+    import torch
+
     is_training = optimizer is not None
     if is_training:
         model.train()
@@ -119,6 +130,8 @@ class PharmaFormerPredictor(BlockPredictor):
 
         :param hyperparameters: Optional hyperparameter overrides.
         """
+        import torch
+
         super().__init__(hyperparameters)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._model: CombinedModel | None = None
@@ -159,6 +172,9 @@ class PharmaFormerPredictor(BlockPredictor):
         :raises ValueError: If early stopping data is not provided.
         :raises RuntimeError: If drug_pair_idx is None.
         """
+        import torch.nn as nn
+        import torch.optim as optim
+
         if batch.early_stopping_response is None:
             msg = "PharmaFormer model requires early stopping data."
             raise ValueError(msg)
@@ -243,6 +259,8 @@ class PharmaFormerPredictor(BlockPredictor):
         :raises ValueError: If the model has not been trained yet.
         :raises RuntimeError: If drug_pair_idx is None.
         """
+        import torch
+
         if self._model is None:
             msg = "PharmaFormer model not initialized."
             raise ValueError(msg)

@@ -1,11 +1,16 @@
-"""Trusted PyTorch serialization boundary for drevalpy."""
+"""Trusted PyTorch serialization boundary for drevalpy.
+
+``torch`` is imported inside the two functions that call it. Predictor modules
+reach this module while ``drevalpy.registry`` registers builtins, so a
+module-scope ``import torch`` would put ~0.33s on the startup path of every CLI
+invocation. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
 import io
 from typing import Any, BinaryIO
 
-import torch
 from upath import UPath as Path
 
 TorchSource = bytes | bytearray | Path | str | BinaryIO
@@ -32,6 +37,8 @@ def load_torch_payload(
     :param weights_only: When ``True``, restrict deserialization to tensor payloads.
     :returns: Deserialized checkpoint object.
     """
+    import torch
+
     coerced = _coerce_source(source)
     kwargs: dict[str, Any] = {"weights_only": weights_only}
     if map_location is not None:
@@ -45,6 +52,8 @@ def save_torch_payload(payload: Any, destination: Path | str | BinaryIO) -> None
     :param payload: Object to serialize.
     :param destination: Output path or binary stream.
     """
+    import torch
+
     torch.save(payload, destination)
 
 

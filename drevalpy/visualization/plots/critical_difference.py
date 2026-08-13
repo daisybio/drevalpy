@@ -15,15 +15,8 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING
 
-import matplotlib
 import numpy as np
-import pandas as pd
 import plotly.colors as pc
-import scikit_posthocs as sp
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from scikit_posthocs import sign_array
-from scipy import stats
 
 from drevalpy.evaluation import MINIMIZATION_METRICS
 from drevalpy.log import get_logger
@@ -33,6 +26,10 @@ from drevalpy.visualization.base import ImageVisualization
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
+    import pandas as pd
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
+
     from drevalpy.types.results import ExperimentResult
 
 logger = get_logger(__name__)
@@ -51,6 +48,8 @@ def _build_cd_df(result: ExperimentResult, metric: str) -> pd.DataFrame:
     :param metric: Plain metric name to rank by.
     :returns: One row per non-randomized run, with NaN rows dropped.
     """
+    import pandas as pd
+
     key = resolve_metric_key(metric_keys(result), metric)
     rows: list[dict] = []
     for model in result.models:
@@ -68,6 +67,8 @@ def _build_cd_df(result: ExperimentResult, metric: str) -> pd.DataFrame:
 
 
 def _generate_discrete_palette(n_colors: int) -> list[str]:
+    import matplotlib
+
     base_palette = pc.qualitative.D3
     base_n = len(base_palette)
     if n_colors <= base_n:
@@ -82,6 +83,9 @@ def _generate_discrete_palette(n_colors: int) -> list[str]:
 
 
 def _nonsignificant_adjacency(sig_matrix: pd.DataFrame) -> pd.DataFrame:
+    import pandas as pd
+    from scikit_posthocs import sign_array
+
     return pd.DataFrame(
         1 - sign_array(sig_matrix),
         index=sig_matrix.index,
@@ -145,6 +149,8 @@ def _critical_difference_diagram(
     ax: Axes | None = None,
 ) -> None:
     """Draw the critical difference diagram on the given axes."""
+    from matplotlib.figure import Figure
+
     elbow_props: dict = {}
     marker_props = {"zorder": 3}
     label_props = {"va": "center", "fontsize": 16, "weight": "heavy"}
@@ -219,6 +225,11 @@ class CriticalDifferenceVisualization(ImageVisualization):
 
     def _create_figure(self) -> Figure:
         """Create the critical difference diagram figure."""
+        import pandas as pd
+        import scikit_posthocs as sp
+        from matplotlib.figure import Figure
+        from scipy import stats
+
         result = self._result
         metric = self._metric
 

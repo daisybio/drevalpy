@@ -45,6 +45,34 @@ def stub() -> _StubImagePlot:
     return _StubImagePlot()
 
 
+@pytest.fixture
+def displayed(monkeypatch: pytest.MonkeyPatch) -> list:
+    """Install a recording ``IPython.display.display`` and return what it was handed.
+
+    The stub replaces every real ``IPython*`` entry rather than only filling gaps:
+    IPython 9 is a real dependency of the dev environment, so leaving it reachable
+    would make the result depend on whether an earlier test imported it.
+
+    It also has to look enough like IPython for matplotlib, which reads
+    ``sys.modules["IPython"].version_info`` (and ``get_ipython()``) once per process
+    the first time a canvas is created. A bare ``ModuleType`` made that one-off probe
+    raise ``AttributeError`` whenever this test happened to draw the first figure in
+    the process - which is why it passed serially and failed under ``-n auto``.
+    """
+    recorded: list = []
+    ipython = types.ModuleType("IPython")
+    display_mod = types.ModuleType("IPython.display")
+    display_mod.display = recorded.append  # type: ignore[attr-defined]
+    ipython.display = display_mod  # type: ignore[attr-defined]
+    ipython.version_info = (9, 15, 0, "")  # type: ignore[attr-defined]
+    ipython.get_ipython = lambda: None  # type: ignore[attr-defined]
+    for name in [n for n in sys.modules if n == "IPython" or n.startswith("IPython.")]:
+        monkeypatch.delitem(sys.modules, name)
+    monkeypatch.setitem(sys.modules, "IPython", ipython)
+    monkeypatch.setitem(sys.modules, "IPython.display", display_mod)
+    return recorded
+
+
 class TestSection:
     def test_optional_fields_default_to_empty(self):
         section = Section(name="Some plot", anchor="some_plot")
@@ -129,14 +157,7 @@ class TestImageVisualizationRendering:
 
         assert stub.to_multiqc()[0].plot is None
 
-    def test_show_delegates_to_ipython_display(self, stub, monkeypatch):
-        displayed = []
-        ipython = types.ModuleType("IPython")
-        display_mod = types.ModuleType("IPython.display")
-        display_mod.display = displayed.append  # type: ignore[attr-defined]
-        ipython.display = display_mod  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "IPython", ipython)
-        monkeypatch.setitem(sys.modules, "IPython.display", display_mod)
+    def test_show_delegates_to_ipython_display(self, stub, displayed):
         stub.compute()
 
         stub.show()

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 from importlib import resources
-from typing import Any
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any
 
 from ._io import config_lock, load_config, save_config
 from ._models import DatasetEntry, DrevalConfig, SourceEntry
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 _REGISTRY_JSON = "available_datasets.json"
 
@@ -85,6 +86,8 @@ class DatasetRegistry:
 
     def to_dataframe(self) -> pd.DataFrame:
         """Return registry contents as a pandas DataFrame."""
+        import pandas as pd
+
         rows = []
         for name in sorted(self.datasets):
             entry = self.datasets[name]

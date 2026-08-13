@@ -1,15 +1,16 @@
-"""Leaderboard visualization (Matplotlib via ImageVisualization)."""
+"""Leaderboard visualization (Matplotlib via ImageVisualization).
+
+``matplotlib`` is imported inside the drawing helpers rather than at module
+scope: ``drevalpy.registry`` imports every builtin visualization on
+``import drevalpy``, so a module-scope import would put the whole pyplot stack on
+the startup path of every CLI invocation. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import matplotlib
-import matplotlib.patches as mpatches
 import numpy as np
-import pandas as pd
-from matplotlib.figure import Figure
-from matplotlib.patches import FancyBboxPatch
 
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
@@ -18,6 +19,9 @@ from drevalpy.visualization.base import ImageVisualization
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
+    import pandas as pd
+    from matplotlib.figure import Figure
+
     from drevalpy.types.results import ExperimentResult
 
 logger = get_logger(__name__)
@@ -44,6 +48,8 @@ def _get_bar_color(rank: int, is_baseline: bool) -> dict[str, Any]:
 
 
 def _draw_bar(ax, x: float, y: float, width: float, height: float, color: str, alpha: float = 1.0):
+    from matplotlib.patches import FancyBboxPatch
+
     bar = FancyBboxPatch(
         (x, y - height / 2),
         width,
@@ -206,6 +212,8 @@ def _draw_subtitle(
 
 
 def _draw_legend(fig, font_adder: int, colors: dict, y: float = 0.02) -> None:
+    import matplotlib.patches as mpatches
+
     legend_elements = [
         mpatches.Patch(facecolor="#F4D03F", label="#1 Champion", edgecolor="none"),
         mpatches.Patch(facecolor="#BDC3C7", label="#2 Runner-up", edgecolor="none"),
@@ -248,6 +256,8 @@ def _build_leaderboard_df(result: ExperimentResult) -> pd.DataFrame:
     :param result: Experiment to rank.
     :returns: One row per model with ``PCC``/``RMSE`` means and standard deviations.
     """
+    import pandas as pd
+
     available = metric_keys(result)
     pcc_key = resolve_metric_key(available, "Pearson")
     rmse_key = resolve_metric_key(available, "RMSE")
@@ -324,6 +334,9 @@ class LeaderboardVisualization(ImageVisualization):
 
     def _create_figure(self) -> Figure:
         """Create the leaderboard panels figure."""
+        import matplotlib
+        from matplotlib.figure import Figure
+
         result = self._result
         colors = DARK_THEME
 

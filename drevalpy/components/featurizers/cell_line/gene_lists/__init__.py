@@ -6,7 +6,6 @@ was produced.
 
 from __future__ import annotations
 
-import pandas as pd
 from upath import UPath as Path
 
 __all__ = ["GENE_LISTS_DIR", "gene_names_from_list_csv", "resolve_gene_list_path"]
@@ -44,6 +43,8 @@ def gene_names_from_list_csv(path: Path | str) -> list[str]:
     :returns: Ordered gene symbol strings.
     :raises ValueError: If the CSV has no recognized gene-name column.
     """
+    import pandas as pd
+
     gene_info = pd.read_csv(path)
     for column in _GENE_NAME_COLUMNS:
         if column in gene_info.columns:

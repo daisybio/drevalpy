@@ -1,18 +1,32 @@
-"""Shared DataLoader factory with lazy pair-level index lookup."""
+"""Shared DataLoader factory with lazy pair-level index lookup.
+
+``torch`` is imported inside the two entry points. Six predictor modules import
+``make_pair_loader``, and all six are imported by ``drevalpy.registry`` when it
+registers builtins, so a module-scope ``import torch`` would put ~0.35s on the
+startup path of every CLI invocation. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
-import numpy as np
-import torch
-from torch.utils.data import DataLoader, Dataset
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+    import torch
+    from torch.utils.data import DataLoader
 
 
-class IndexedPairDataset(Dataset):
+class IndexedPairDataset:
     """Looks up entity-level features by pair index on each access.
 
     Instead of materializing a full pair-level feature matrix upfront, this
     dataset stores compact entity-level matrices and performs the lookup
     per-sample in ``__getitem__``.
+
+    Deliberately not a ``torch.utils.data.Dataset`` subclass: that base class
+    contributes only ``__add__``, which nothing here uses, and inheriting from it
+    would require ``torch`` at class-definition time. ``DataLoader`` accepts any
+    object with ``__getitem__`` and ``__len__`` as a map-style dataset.
     """
 
     def __init__(
@@ -27,6 +41,8 @@ class IndexedPairDataset(Dataset):
             ``[n_entities, d]`` and pair_index_array has shape ``[n_pairs]``.
         :param response: Optional pair-level response array of shape ``[n_pairs]``.
         """
+        import torch
+
         self._matrices = [torch.as_tensor(m, dtype=torch.float32) for m, _ in feature_specs]
         self._indices = [torch.as_tensor(i, dtype=torch.long) for _, i in feature_specs]
         self._response = torch.as_tensor(response, dtype=torch.float32) if response is not None else None
@@ -67,5 +83,7 @@ def make_pair_loader(
     :param drop_last: Whether to drop the last incomplete batch.
     :returns: A DataLoader yielding tuples of tensors.
     """
+    from torch.utils.data import DataLoader
+
     ds = IndexedPairDataset(*feature_specs, response=response)
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)

@@ -8,9 +8,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 if TYPE_CHECKING:
+    import pandas as pd
+
     from drevalpy.types.results import ExperimentResult
 
 
@@ -124,6 +124,8 @@ class VisualizationRegistry:
         :returns: One row per visualization, with Name, Description, Result type
             and Requirements columns.
         """
+        import pandas as pd
+
         rows = []
         for name in self.names:
             meta = self.get_metadata(name)

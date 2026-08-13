@@ -7,7 +7,6 @@ import tempfile
 from typing import ClassVar
 
 import numpy as np
-import pandas as pd
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
@@ -126,6 +125,8 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
         if mdata is None or "pathways_gmt" not in mdata.uns:
             msg = "Pathway features require pathways_gmt in mdata.uns"
             raise ValueError(msg)
+
+        import pandas as pd
 
         expr_matrix = source.get_view_matrix("gene_expression", entity_ids)
         gene_names = source.get_feature_names("gene_expression")

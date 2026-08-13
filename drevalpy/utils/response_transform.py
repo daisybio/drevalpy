@@ -1,14 +1,20 @@
-"""Sklearn response-value transformations for the evaluation pipeline."""
+"""Sklearn response-value transformations for the evaluation pipeline.
+
+``sklearn`` is imported inside the two functions rather than at module scope:
+``drevalpy.models.drp_model`` reaches this module on the registration path of
+``import drevalpy``, and importing ``sklearn.base`` alone costs ~0.35s because it
+pulls in ``scipy.stats``. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 import numpy as np
-from sklearn.base import TransformerMixin, clone
-from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
 if TYPE_CHECKING:
+    from sklearn.base import TransformerMixin
+
     from drevalpy.types.data.mudatalike import MuDataLike
     from drevalpy.types.data.split_mask import SplitMask
 
@@ -27,6 +33,8 @@ def get_response_transformation(
     :param response_transformation: response transformation.
     :returns: Result of the operation.
     """
+    from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
+
     if (response_transformation == "None") or (response_transformation is None):
         return None
     if response_transformation == "standard":
@@ -63,6 +71,9 @@ def fit_response_transformation(
     """
     if prototype is None:
         return None
+
+    from sklearn.base import clone
+
     fitted = clone(prototype)
     pairs = scope.pairs
     responses = mudataset.response_matrix[pairs[:, 0], pairs[:, 1]]

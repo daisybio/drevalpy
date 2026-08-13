@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 
 from drevalpy.types.data.modalities import backing_modality, public_omics_name
 
@@ -64,6 +63,8 @@ class FeatureAccessMixin:
         Raises:
             KeyError: If the modality is not present, or if *strict* and IDs are missing.
         """
+        import pandas as pd
+
         ids = np.asarray(ids, dtype=str)
 
         if modality == "pathway_features":
@@ -75,6 +76,8 @@ class FeatureAccessMixin:
 
     def _get_obsm_features(self, key: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Retrieve cell-line features stored in response.obsm."""
+        import pandas as pd
+
         response = self._mdata.mod["response"]
         if key not in response.obsm:
             raise KeyError(f"obsm key '{key}' not found in response modality.")
@@ -132,6 +135,8 @@ class FeatureAccessMixin:
         Raises:
             KeyError: If the varm key does not exist, or if *strict* and IDs are missing.
         """
+        import pandas as pd
+
         varm_key = self._resolve_varm_key(name)
         if varm_key is None:
             raise KeyError(f"Drug feature '{name}' not found. Available varm keys: {self.available_drug_views}")

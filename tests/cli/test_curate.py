@@ -193,7 +193,14 @@ class TestFitOptions:
 
 
 class TestRoundTrip:
-    """End-to-end CSV -> .h5ad with the real fitter, kept cheap and serial."""
+    """End-to-end CSV -> .h5ad with the real fitter, kept cheap and serial.
+
+    Extended tier: the class-scoped ``curated`` fixture runs the real CurveCurator
+    fitter (~0.7s). Shared across the three tests, so only deselecting all of them
+    saves it; the argument-parsing tests above stay in the fast tier.
+    """
+
+    pytestmark = pytest.mark.slow
 
     @pytest.fixture(scope="class")
     def curated(self, tmp_path_factory: pytest.TempPathFactory) -> UPath:

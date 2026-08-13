@@ -3,15 +3,21 @@
 ``Dataset`` wraps a MuData object and provides typed access to response data,
 cell-line and drug features, metadata, and auxiliary model data backed by an
 .h5mu file.
+
+``mudata`` and ``pandas`` are imported lazily. This module is on the critical
+path of ``import drevalpy`` (the registration path reaches it through
+:mod:`drevalpy.types`), and ``mudata`` costs ~0.3s because it pulls in
+``anndata``, ``dask.array``, ``zarr`` and ``scipy.stats``. Every annotation
+referring to them is a string thanks to ``from __future__ import annotations``,
+so only the handful of runtime uses need a function-local import. See
+``tests/test_import_cost_policy.py``.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import mudata as md
 import numpy as np
-import pandas as pd
 from rich.progress import Progress
 from upath import UPath as Path
 
@@ -23,6 +29,10 @@ from .dataset_utils.randomization import RandomizationMixin
 from .dataset_utils.sampling import _sample_hp_configs
 from .modalities import backing_modality
 from .mudatalike import MuDataLike
+
+if TYPE_CHECKING:
+    import mudata as md
+    import pandas as pd
 
 logger = get_logger(__name__)
 
@@ -70,6 +80,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         :param path: Path to the .h5mu file.
         :returns: A Dataset wrapping the loaded MuData.
         """
+        import mudata as md
+
         resolved = Path(path)
         md.set_options(pull_on_update=False)
         mdata = md.read_h5mu(resolved)
@@ -305,6 +317,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         Returns:
             1-D string array of tissue labels (NaN for unknown IDs).
         """
+        import pandas as pd
+
         ids = np.asarray(ids, dtype=str)
         idx = pd.Index(self._mdata.obs.index)
         positions = idx.get_indexer(ids)
@@ -331,6 +345,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         Returns:
             New Dataset backed by a view of the underlying MuData.
         """
+        import mudata as md
+
         ids = np.asarray(ids, dtype=str)
         response_mask = np.isin(self.response.obs_names, ids)
         kept_cell_lines = self.response.obs_names[response_mask]
@@ -359,6 +375,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         Returns:
             New Dataset backed by a view of the underlying MuData.
         """
+        import mudata as md
+
         ids = np.asarray(ids, dtype=str)
         drug_mask = np.isin(self.response.var_names, ids)
 

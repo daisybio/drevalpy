@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import ClassVar
 
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
@@ -27,6 +26,8 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
 
     def __init__(self) -> None:
         """Initialize StandardScaler and MinMaxScaler pipelines."""
+        from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
         self._scaler = StandardScaler()
         self._minmax = MinMaxScaler()
         self._feature_names: tuple[str, ...] | None = None
@@ -127,6 +128,8 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
 
         :param state: Mapping previously returned by ``get_state``.
         """
+        from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
         scaler, minmax = state.get("scaler"), state.get("minmax")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler

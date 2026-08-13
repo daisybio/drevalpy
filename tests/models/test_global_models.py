@@ -21,6 +21,11 @@ from tests.synthetic.variants import (
     model_param,
 )
 
+#: Extended tier: every test here trains a real model. PharmaFormer alone is 2.1s
+#: and the file is ~2.6s. The dependency-light models keep their fast-tier
+#: coverage in ``test_direct_component_harness.py``.
+pytestmark = pytest.mark.slow
+
 
 def _zoo_config_variant(name: str, **updates: Any) -> ModelConfig:
     """Build a variant of a zoo preset by re-validating an updated dump.

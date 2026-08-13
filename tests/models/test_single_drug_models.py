@@ -13,6 +13,9 @@ from drevalpy.models.drp_model import DRPModel
 from drevalpy.types.data.dataset import Dataset
 from tests.synthetic.variants import SUPPORTED_SINGLE_DRUG_MODELS, model_param
 
+#: Extended tier: trains a separate model per drug, ~2.6s for six parametrizations.
+pytestmark = pytest.mark.slow
+
 
 def _resolve_single_drug_model_name(whole_name: str) -> str:
     if whole_name.startswith("SingleDrugRandomForest"):

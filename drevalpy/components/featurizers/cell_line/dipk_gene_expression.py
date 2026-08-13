@@ -1,22 +1,46 @@
-"""DIPK gene-expression autoencoder featurizer."""
+"""DIPK gene-expression autoencoder featurizer.
+
+The autoencoder in
+``drevalpy.components.predictors.literature.dipk.gene_expression_encoder``
+defines ``torch.nn.Module`` subclasses, so importing it costs ~0.32s of ``torch``.
+``drevalpy.registry`` imports this module to register the
+``dipkGeneExpression`` featurizer on ``import drevalpy``, so the three symbols are
+pulled in inside the methods that use them and re-exported lazily below for the
+historical import path. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
-    GeneExpressionEncoder,
-    encode_gene_expression,
-    train_gene_expession_autoencoder,
-)
 from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 from drevalpy.utils.torch_io import load_state_dict, save_state_dict
+
+if TYPE_CHECKING:
+    from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
+
+_RE_EXPORTED = frozenset({"GeneExpressionEncoder", "encode_gene_expression", "train_gene_expession_autoencoder"})
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve the lazily re-exported autoencoder symbols on first access.
+
+    :param name: Attribute being looked up on this module.
+    :returns: The requested attribute, imported on demand.
+    :raises AttributeError: If *name* is not one of the re-exported symbols.
+    """
+    if name in _RE_EXPORTED:
+        from drevalpy.components.predictors.literature.dipk import gene_expression_encoder
+
+        return getattr(gene_expression_encoder, name)
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
 
 
 @register(
@@ -57,6 +81,10 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         :returns: Fitted featurizer instance.
         :raises ValueError: If required ID sets are missing or empty.
         """
+        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
+            train_gene_expession_autoencoder,
+        )
+
         _ = entity_ids
         mdata = getattr(source, "mdata", None)
         if mdata is not None and pair_expanded_ids is not None:
@@ -85,6 +113,8 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         :returns: Float matrix of latent embeddings.
         :raises RuntimeError: If called before ``fit``.
         """
+        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import encode_gene_expression
+
         mdata = getattr(source, "mdata", None)
         precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
         if precomputed is not None:
@@ -140,6 +170,8 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
 
         :param state: Mapping previously returned by ``get_state``.
         """
+        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
+
         blob = state.get("encoder_state")
         input_dim = state.get("input_dim")
         latent_dim = state.get("latent_dim", 512)

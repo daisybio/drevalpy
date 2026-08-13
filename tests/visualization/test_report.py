@@ -3,6 +3,12 @@
 One end-to-end ``create_report`` run is enough to cover the MultiQC wiring; the
 remaining orchestration branches are driven with a stub visualization so the
 suite does not pay for seven real plots per assertion.
+
+A ``create_report`` call costs ~0.25s with a stub plot and ~0.7s with the real
+ones, so the tests that only *read* what a build produced share one build through
+a module-scoped fixture. Tests whose subject is the call itself - a different
+argument, a log line ordering, or a lifecycle side effect - keep their own run and
+say so in place.
 """
 
 from __future__ import annotations
@@ -10,7 +16,8 @@ from __future__ import annotations
 import gc
 import logging
 import weakref
-from typing import Any
+from collections.abc import Iterator
+from typing import Any, NamedTuple
 
 import multiqc
 import pytest
@@ -63,14 +70,30 @@ class _SilentViz(_StubViz):
     sections: list[Section] = []
 
 
-@pytest.fixture(autouse=True)
-def _reset_multiqc():
-    """Isolate MultiQC report state and contain the leaderboard's rcParams edits."""
+@pytest.fixture(scope="module", autouse=True)
+def _isolate_multiqc_config() -> Iterator[None]:
+    """Contain MultiQC's global config to this module.
+
+    ``multiqc.reset()`` is ``config.reset()`` plus ``report.reset()``, and only the
+    first is expensive (~40ms, it re-reads MultiQC's packaged YAML defaults). Doing
+    it per test was a third of this file's runtime while no assertion here reads the
+    config, and ``create_report`` resets it itself before every build. So the config
+    is reset once at each end of the module and the per-test fixture below clears
+    only the report state the assertions actually read.
+    """
     multiqc.reset()
+    yield
+    multiqc.reset()
+
+
+@pytest.fixture(autouse=True)
+def _reset_multiqc() -> Iterator[None]:
+    """Isolate MultiQC report state and contain the leaderboard's rcParams edits."""
+    multiqc.report.reset()
     with plt.rc_context():
         yield
     plt.close("all")
-    multiqc.reset()
+    multiqc.report.reset()
 
 
 @pytest.fixture(scope="module")
@@ -83,6 +106,72 @@ def only_stub_is_applicable(monkeypatch) -> type[_StubViz]:
     """Restrict the report to a single cheap visualization."""
     monkeypatch.setattr(visualization_registry, "applicable", lambda experiment: [_StubViz])
     return _StubViz
+
+
+class _BuiltReport(NamedTuple):
+    """What a shared ``create_report`` build left behind.
+
+    ``modules`` is a snapshot taken while the build was still current, because the
+    per-test fixture clears ``multiqc.report`` before the tests that read it run.
+    """
+
+    out: UPath
+    modules: list[Any]
+    records: list[logging.LogRecord]
+
+
+def _build_report(out: UPath, result, **kwargs) -> _BuiltReport:
+    """Run ``create_report`` once, capturing its MultiQC modules and log records.
+
+    Repeats the containment the per-test fixtures provide - a fresh MultiQC state, an
+    ``rc_context`` around the leaderboard's rcParams edits, and closing the figures -
+    because a module-scoped fixture is set up before any of them.
+
+    MultiQC re-initialises root logging inside ``write_report``, so the records are
+    collected from the module logger directly rather than through ``caplog``.
+    """
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = records.append  # type: ignore[method-assign]
+    logger = logging.getLogger("drevalpy.visualization.report")
+    logger.addHandler(handler)
+    previous_level = logger.level
+    logger.setLevel(logging.INFO)
+    multiqc.reset()
+    try:
+        with plt.rc_context():
+            create_report(result, out, **kwargs)
+            modules = list(multiqc.report.modules)
+    finally:
+        logger.setLevel(previous_level)
+        logger.removeHandler(handler)
+        plt.close("all")
+    return _BuiltReport(out, modules, records)
+
+
+@pytest.fixture(scope="module")
+def normalized_real_report(tmp_path_factory) -> _BuiltReport:
+    """One normalized report built from the real plots, shared read-only.
+
+    ``normalize()`` recomputes metrics under their plain names, which the
+    leaderboard did not read; its PCC column came out all-NaN and matplotlib raised
+    ``Axis limits cannot be NaN or Inf`` before MultiQC ever ran. The pipeline always
+    passes ``--reference-model``, so a build failure here fails both readers below.
+    """
+    return _build_report(
+        tmp_path_factory.mktemp("normalized_report"),
+        make_experiment_result(n_models=4, n_folds=3),
+        title="Normalized",
+        reference_model=REFERENCE_MODEL,
+    )
+
+
+@pytest.fixture(scope="module")
+def logged_stub_report(experiment: ExperimentResult, tmp_path_factory) -> _BuiltReport:
+    """One stub-plot report build, shared by the tests that only read its log."""
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(visualization_registry, "applicable", lambda experiment: [_StubViz])
+        return _build_report(tmp_path_factory.mktemp("logged"), experiment)
 
 
 class TestEnsureExperiment:
@@ -164,6 +253,11 @@ class TestRunVisualization:
 
 
 class TestCreateReport:
+    #: Extended tier: nine real ``create_report`` builds, ~3.2s. The shared
+    #: module-scoped build below means the cost only disappears when the whole
+    #: class goes, which is why the marker is here rather than on single tests.
+    pytestmark = pytest.mark.slow
+
     def test_writes_a_multiqc_html_report_for_every_applicable_plot(self, experiment, tmp_path):
         out = tmp_path / "report"
 
@@ -220,48 +314,32 @@ class TestCreateReport:
 
         assert sentinel[0]() is None
 
-    def test_every_real_plot_survives_normalization(self, tmp_path):
-        """The pipeline always passes ``--reference-model``, and this path used to crash.
+    def test_every_real_plot_survives_normalization(self, normalized_real_report: _BuiltReport) -> None:
+        assert [p.name for p in normalized_real_report.out.glob("*.html")] == ["Normalized_multiqc_report.html"]
 
-        ``normalize()`` recomputes metrics under their plain names, which the
-        leaderboard did not read; its PCC column came out all-NaN and matplotlib
-        raised ``Axis limits cannot be NaN or Inf`` before MultiQC ever ran.
-        """
-        out = tmp_path / "normalized_report"
-
-        create_report(
-            make_experiment_result(n_models=4, n_folds=3),
-            out,
-            title="Normalized",
-            reference_model=REFERENCE_MODEL,
-        )
-
-        assert [p.name for p in out.glob("*.html")] == ["Normalized_multiqc_report.html"]
-
-    def test_the_normalized_leaderboard_renders_with_real_values(self, tmp_path):
+    def test_the_normalized_leaderboard_renders_with_real_values(self, normalized_real_report: _BuiltReport) -> None:
         """A section is worthless if it is present but blank."""
-        create_report(
-            make_experiment_result(n_models=4, n_folds=3),
-            tmp_path / "leaderboard_values",
-            reference_model=REFERENCE_MODEL,
-        )
-
-        leaderboard = next(m for m in multiqc.report.modules if m.name == "leaderboard")
+        leaderboard = next(m for m in normalized_real_report.modules if m.name == "leaderboard")
         assert "No data available" not in leaderboard.sections[0].content
         assert "data:image/png;base64," in leaderboard.sections[0].content
 
 
 class TestLogging:
-    """The report used to die with an empty ``Command output``; these lines are the fix."""
+    """The report used to die with an empty ``Command output``; these lines are the fix.
 
-    def test_logs_the_model_count_and_the_pair_count(self, experiment, tmp_path, only_stub_is_applicable, caplog):
-        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
-            create_report(experiment, tmp_path / "logged")
+    Extended tier: several tests here keep their own ``create_report`` build because
+    the call itself is the subject, so the class costs ~0.6s beyond the shared build
+    in ``TestCreateReport``.
+    """
 
-        messages = [r.getMessage() for r in caplog.records]
+    pytestmark = pytest.mark.slow
+
+    def test_logs_the_model_count_and_the_pair_count(self, logged_stub_report: _BuiltReport) -> None:
+        messages = [r.getMessage() for r in logged_stub_report.records]
         assert any("3 models (3 model pairs)" in m for m in messages)
 
     def test_logs_the_reference_model_before_normalizing(self, experiment, tmp_path, only_stub_is_applicable, caplog):
+        # Keeps its own build: it is the ``reference_model`` argument that is on trial.
         with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
             create_report(experiment, tmp_path / "logged_ref", reference_model=REFERENCE_MODEL)
 
@@ -288,29 +366,12 @@ class TestLogging:
 
         assert "plot stub_viz: done in" in caplog.records[-1].getMessage()
 
-    def test_logs_the_module_and_section_counts_before_writing(
-        self, experiment, tmp_path, only_stub_is_applicable, caplog
-    ):
-        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
-            create_report(experiment, tmp_path / "counted")
-
-        messages = [r.getMessage() for r in caplog.records]
+    def test_logs_the_module_and_section_counts_before_writing(self, logged_stub_report: _BuiltReport) -> None:
+        messages = [r.getMessage() for r in logged_stub_report.records]
         assert any("report: writing 1 modules / 1 sections" in m for m in messages)
 
-    def test_confirms_the_report_was_written(self, experiment, tmp_path, only_stub_is_applicable):
-        # MultiQC re-initialises root logging inside write_report, so caplog's root handler
-        # misses anything logged afterwards; listen on the module logger directly.
-        records: list[logging.LogRecord] = []
-        handler = logging.Handler()
-        handler.emit = records.append  # type: ignore[method-assign]
-        logger = logging.getLogger("drevalpy.visualization.report")
-        logger.addHandler(handler)
-        try:
-            create_report(experiment, tmp_path / "confirmed")
-        finally:
-            logger.removeHandler(handler)
-
-        assert records[-1].getMessage().startswith("report: written | rss=")
+    def test_confirms_the_report_was_written(self, logged_stub_report: _BuiltReport) -> None:
+        assert logged_stub_report.records[-1].getMessage().startswith("report: written | rss=")
 
 
 class TestSaveAllPng:

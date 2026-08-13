@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-import pandas as pd
 
 from drevalpy.types.data.feature_source import FeatureSource
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def get_smiles_for_entities(source: FeatureSource, entity_ids: np.ndarray) -> pd.Series | None:

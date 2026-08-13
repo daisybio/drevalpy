@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING, Any
 
-import mudata as md
 import numpy as np
 
 from drevalpy.log import get_logger
@@ -14,6 +13,8 @@ from drevalpy.types.data.modalities import backing_modality
 from ._dense import to_dense
 
 if TYPE_CHECKING:
+    import mudata as md
+
     from drevalpy.types.data.dataset import Dataset
 
 logger = get_logger(__name__)
@@ -196,6 +197,8 @@ class RandomizationMixin:
             ValueError: If randomization_type is not recognized.
             KeyError: If a view is not found in any storage location.
         """
+        import mudata as md
+
         from drevalpy.types.data.dataset import Dataset as DatasetCls
 
         if randomization_type not in ("permutation", "invariant"):

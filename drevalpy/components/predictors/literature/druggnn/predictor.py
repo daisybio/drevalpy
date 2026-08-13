@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-import pytorch_lightning as pl
-import torch
-from torch.utils.data import Dataset as PytorchDataset
-from torch_geometric.loader import DataLoader
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_REFERENCE
-from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
@@ -21,11 +16,25 @@ from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.utils.torch_io import load_state_dict, save_state_dict
 
+# torch, pytorch_lightning and torch_geometric are imported inside the methods
+# that need them, not at module scope: this module is imported eagerly by
+# register_builtin_components(), so a module-scope import would put ~2s of the
+# training stack on the critical path of every `import drevalpy`. Guarded by
+# tests/test_import_cost_policy.py.
+if TYPE_CHECKING:
+    from torch_geometric.loader import DataLoader
 
-class _DrugGNNDataset(PytorchDataset):
-    """PyTorch Dataset that yields (drug_graph, cell_features, response) tuples.
+    from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
+
+
+class _DrugGNNDataset:
+    """Map-style dataset that yields (drug_graph, cell_features, response) tuples.
 
     Accepts pre-built index arrays mapping each pair to entity-level features.
+
+    Deliberately not a ``torch.utils.data.Dataset`` subclass: that base class
+    contributes only ``__add__``, which nothing here uses, and inheriting from it
+    would require ``torch`` at class-definition time.
     """
 
     def __init__(
@@ -44,6 +53,8 @@ class _DrugGNNDataset(PytorchDataset):
         :param drug_graphs: Array of PyG Data objects for drugs.
         :param response: Response values for each pair.
         """
+        import torch
+
         self._cl_pair_idx = cell_line_pair_idx
         self._drug_pair_idx = drug_pair_idx
         self._cl_tensors = torch.as_tensor(cell_line_matrix, dtype=torch.float32)
@@ -152,6 +163,11 @@ class DrugGNNPredictor(BlockPredictor):
         :param batch: Training batch with gene_expression and drug_graph blocks.
         :raises ValueError: If response data or drug features are missing.
         """
+        import pytorch_lightning as pl
+        from torch_geometric.loader import DataLoader
+
+        from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
+
         cell_line_matrix = batch.cell_line_blocks["gene_expression"].values
         drug_graphs = batch.drug_blocks["drug_graph"].values
         if batch.response is None:
@@ -218,6 +234,8 @@ class DrugGNNPredictor(BlockPredictor):
         :param drug_graphs: Array of drug graph objects.
         :returns: Validation DataLoader or None if no early-stopping data.
         """
+        from torch_geometric.loader import DataLoader
+
         es = batch.early_stopping_response
         if es is None or len(es) == 0:
             return None
@@ -255,6 +273,10 @@ class DrugGNNPredictor(BlockPredictor):
         :returns: One predicted response per pair.
         :raises RuntimeError: If the model has not been trained yet.
         """
+        import pytorch_lightning as pl
+        import torch
+        from torch_geometric.loader import DataLoader
+
         if self._model is None:
             raise RuntimeError("Model has not been trained yet.")
         if batch.n_pairs == 0:
@@ -328,6 +350,8 @@ class DrugGNNPredictor(BlockPredictor):
         :param state: Serialized state previously returned by get_state.
         :raises PredictorStateError: If payload is missing or invalid.
         """
+        from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
+
         model_state_blob = state.get("model_state")
         if not isinstance(model_state_blob, (bytes, bytearray)):
             msg = f"{self.__class__.__name__} state requires model_state bytes"

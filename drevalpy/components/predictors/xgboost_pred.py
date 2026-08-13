@@ -1,4 +1,14 @@
-"""XGBoost tabular predictor."""
+"""XGBoost tabular predictor.
+
+``xgboost`` itself is imported inside ``_make_estimator``: ``drevalpy.registry``
+imports this module to register the ``xgboost`` predictor on ``import drevalpy``,
+and ``xgboost.compat`` pulls in ``sklearn`` (and through it ``scipy.stats``), which
+costs ~0.4s. ``_set_xgboost_thread_defaults()`` still runs at *module* scope,
+because the environment has to be prepared before anything anywhere imports
+``xgboost`` - including a test's own ``importorskip`` - not merely before this
+module's own deferred import. Setting four environment variables is free.
+See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
@@ -32,9 +42,9 @@ def _set_xgboost_thread_defaults() -> None:
         os.environ.setdefault(name, value)
 
 
+# Runs at import time, i.e. while `drevalpy.registry` registers builtins, so the
+# defaults are in place before any caller reaches `import xgboost`.
 _set_xgboost_thread_defaults()
-
-from xgboost import XGBRegressor  # noqa: E402
 
 
 @register(
@@ -51,6 +61,10 @@ class XGBoostPredictor(SklearnTabularPredictor):
 
         :returns: Unfitted ``XGBRegressor`` configured from hyperparameters.
         """
+        _set_xgboost_thread_defaults()
+
+        from xgboost import XGBRegressor
+
         return XGBRegressor(
             n_estimators=int(self._h.get("n_estimators", 100)),
             max_depth=int(self._h.get("max_depth", 6)),

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from ._registry import VisualizationRegistry, visualization_registry
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from drevalpy.types.results import ExperimentResult
     from drevalpy.visualization.base import Visualization
 

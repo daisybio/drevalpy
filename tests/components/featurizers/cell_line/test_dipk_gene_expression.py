@@ -22,8 +22,11 @@ def _features() -> MockFeatureSource:
 
 def test_dipk_gene_expression_round_trips_state(monkeypatch) -> None:
     features = _features()
+    # The featurizer imports the trainer from its defining module inside ``_fit``
+    # (to keep ``torch`` off the ``import drevalpy`` path), so the patch has to
+    # land there rather than on the featurizer module's re-export.
     monkeypatch.setattr(
-        "drevalpy.components.featurizers.cell_line.dipk_gene_expression.train_gene_expession_autoencoder",
+        "drevalpy.components.predictors.literature.dipk.gene_expression_encoder.train_gene_expession_autoencoder",
         lambda train, validation, epochs: GeneExpressionEncoder(train.shape[1]),
     )
     pair_expanded_ids = np.array(["cl0", "cl1", "cl0"])

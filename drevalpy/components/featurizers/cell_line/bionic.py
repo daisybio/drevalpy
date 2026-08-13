@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 import numpy as np
-import pandas as pd
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
@@ -94,6 +93,8 @@ def _load_ppi_data() -> tuple[np.ndarray, list[str], set[str]]:
 
     :returns: Tuple of (ppi_features array, gene_names list, gene_list_sel set).
     """
+    import pandas as pd
+
     ppi_path = get_artifact("human_ppi_features.tsv")
     gene_list_path = get_artifact("gene_list_sel.txt")
 

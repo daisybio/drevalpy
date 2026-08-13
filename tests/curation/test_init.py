@@ -31,22 +31,27 @@ class TestFitTypeValidation:
 
 
 class TestEndToEnd:
-    """Integration test for drevalpy.curation.curate."""
+    """Integration test for drevalpy.curation.curate.
 
-    def test_curate_returns_anndata(self, dose_response_df: pd.DataFrame) -> None:
-        adata = curate(dose_response_df, cores=1, fit_speed="fast")
+    These share one session-scoped ``curated_adata`` (see ``conftest.py``) because
+    they only read from it; each assertion checks a different property of the same
+    run, so re-fitting per test bought nothing.
 
-        assert isinstance(adata, anndata.AnnData)
-        assert adata.shape == (3, 2)
+    Extended tier: that shared run is six real CurveCurator fits (~0.5s). Marked at
+    class level because deselecting only part of the class still pays for the
+    fixture.
+    """
 
-    def test_curate_x_not_all_nan(self, dose_response_df: pd.DataFrame) -> None:
-        adata = curate(dose_response_df, cores=1, fit_speed="fast")
+    pytestmark = pytest.mark.slow
 
-        assert not np.all(np.isnan(adata.X))
+    def test_curate_returns_anndata(self, curated_adata: anndata.AnnData) -> None:
+        assert isinstance(curated_adata, anndata.AnnData)
+        assert curated_adata.shape == (3, 2)
 
-    def test_curate_layers_exist(self, dose_response_df: pd.DataFrame) -> None:
-        adata = curate(dose_response_df, cores=1, fit_speed="fast")
+    def test_curate_x_not_all_nan(self, curated_adata: anndata.AnnData) -> None:
+        assert not np.all(np.isnan(curated_adata.X))
 
-        assert len(adata.layers) > 0
-        assert "EC50" in adata.layers
-        assert "AUC" in adata.layers
+    def test_curate_layers_exist(self, curated_adata: anndata.AnnData) -> None:
+        assert len(curated_adata.layers) > 0
+        assert "EC50" in curated_adata.layers
+        assert "AUC" in curated_adata.layers

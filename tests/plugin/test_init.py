@@ -19,7 +19,6 @@ import importlib
 import shutil
 import sys
 import tomllib
-import zipfile
 
 import pytest
 from upath import UPath
@@ -145,22 +144,29 @@ class TestPyTypedMarker:
         assert "drevalpy/py.typed" in wheel["artifacts"]
 
     @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
-    def test_the_marker_ships_in_the_built_wheel(self, tmp_path):
-        """Built for real: a marker missing from the wheel does nothing for consumers."""
-        result = run_trusted_python(
-            "import subprocess, sys; "
-            "sys.exit(subprocess.run(['uv', 'build', '--wheel', '--out-dir', sys.argv[1]]).returncode)",
-            cwd=str(REPO_ROOT),
-            extra_args=[str(tmp_path)],
-        )
-        assert result.returncode == 0, result.stderr
+    def test_the_marker_ships_in_the_built_wheel(self, built_wheel_contents):
+        """Built for real: a marker missing from the wheel does nothing for consumers.
 
-        wheels = list(tmp_path.glob("*.whl"))
-        assert wheels, "no wheel was produced"
-        with zipfile.ZipFile(wheels[0]) as archive:
-            names = archive.namelist()
-        assert "drevalpy/py.typed" in names
-        assert not [name for name in names if name.startswith(("tests/", "tools/", "docs/"))]
+        The wheel comes from the session-scoped ``built_wheel_contents`` fixture
+        in ``tests/conftest.py``, which is shared with
+        ``tests/testing/test_init.py`` so the repository is only built once.
+        """
+        assert "drevalpy/py.typed" in built_wheel_contents
+
+
+class TestTheWheelShipsThePackageOnly:
+    """Its own repository layout is drevalpy's business, not a consumer's.
+
+    Asserted apart from the ``py.typed`` check above because it is a different
+    packaging promise; both read the same session-shared build, so there is no
+    longer a reason to bundle them into one test.
+    """
+
+    @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
+    def test_no_repo_only_directory_is_in_the_wheel(self, built_wheel_contents):
+        leaked = sorted(name for name in built_wheel_contents if name.startswith(("tests/", "tools/", "docs/")))
+
+        assert leaked == []
 
 
 class TestEditableInstallDoesNotLeak:
@@ -217,6 +223,10 @@ class TestEditableInstallDoesNotLeak:
 
 
 class TestFacadeIsSelfContained:
+    #: Extended tier: spawns an interpreter (~2.4s) to prove the facade needs no
+    #: other drevalpy import. Sharing a process with another test would defeat it.
+    pytestmark = pytest.mark.slow
+
     def test_importing_only_the_facade_is_enough_to_subclass(self):
         """A plugin importing nothing but the facade must be able to declare a component."""
         script = (

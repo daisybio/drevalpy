@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from sklearn.base import TransformerMixin
 
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
@@ -22,6 +21,9 @@ from drevalpy.types.data.batch.model_input_build import build_model_input_batch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
+
+if TYPE_CHECKING:
+    from sklearn.base import TransformerMixin
 
 
 def _entity_id_only_featurizer(featurizer: Featurizer | None) -> bool:

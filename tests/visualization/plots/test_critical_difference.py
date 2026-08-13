@@ -353,7 +353,13 @@ class TestNoGlobalBackendSwitch:
     Registering the builtins imports this module, so a module-scope
     ``matplotlib.use("agg")`` here disabled inline plotting in every notebook
     that imported the library at all.
+
+    Extended tier: ``test_importing_drevalpy_leaves_the_backend_alone`` can only be
+    asserted in a pristine interpreter, so it spawns one (~2.3s). Its two siblings
+    are cheap but belong to the same concern, so the marker sits on the class.
     """
+
+    pytestmark = pytest.mark.slow
 
     def test_the_module_does_not_call_matplotlib_use(self):
         source = UPath(critical_difference.__file__).read_text(encoding="utf-8")

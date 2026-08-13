@@ -14,12 +14,13 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 
 import numpy as np
-from matplotlib.figure import Figure
 
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import ImageVisualization, Section
 
 if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
     from drevalpy.types.results import ModelResult
 
 #: Hexagons per axis. 40 keeps the bins visible at report width without
@@ -95,6 +96,8 @@ class RegressionScatterVisualization(ImageVisualization):
 
         :returns: The rendered figure.
         """
+        from matplotlib.figure import Figure
+
         fig = Figure(figsize=(7, 6.5), layout="constrained")
         ax = fig.add_subplot()
         model_name = self._result.model_name if self._result is not None else ""

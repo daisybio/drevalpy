@@ -1,13 +1,16 @@
-"""Precily block literature predictor."""
+"""Precily block literature predictor.
+
+``torch`` and ``.model_utils`` are imported inside the methods that need them.
+``drevalpy.registry`` imports this module to register the ``precily`` predictor on
+``import drevalpy``, so a module-scope ``import torch`` put ~0.35s on the startup
+path of every CLI invocation. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
@@ -24,7 +27,8 @@ from drevalpy.utils.torch_io import (
     save_trusted_mapping,
 )
 
-from .model_utils import PrecilyNetwork
+if TYPE_CHECKING:
+    from .model_utils import PrecilyNetwork
 
 
 @register(
@@ -47,6 +51,8 @@ class PrecilyPredictor(BlockPredictor):
 
         :param hyperparameters: Optional hyperparameter overrides.
         """
+        import torch
+
         super().__init__(hyperparameters)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._model: PrecilyNetwork | None = None
@@ -71,6 +77,12 @@ class PrecilyPredictor(BlockPredictor):
         :param batch: Training batch with pathways and smilesvec blocks.
         :raises RuntimeError: If drug_pair_idx is None.
         """
+        import torch
+        import torch.nn as nn
+        import torch.optim as optim
+
+        from .model_utils import PrecilyNetwork
+
         pathway_entity = batch.cell_line_blocks["pathways"].values
         drug_entity = batch.drug_blocks["smilesvec"].values
         cell_pair_idx = batch.cell_line_pair_idx
@@ -130,6 +142,8 @@ class PrecilyPredictor(BlockPredictor):
         :raises ValueError: If the model has not been trained yet.
         :raises RuntimeError: If drug_pair_idx is None.
         """
+        import torch
+
         if self._model is None:
             msg = "Precily model not initialized."
             raise ValueError(msg)
@@ -175,6 +189,8 @@ class PrecilyPredictor(BlockPredictor):
         :returns: Mapping with binary payload blob when fitted, else empty.
         :raises TypeError: If the network architecture is unexpected.
         """
+        import torch.nn as nn
+
         if self._model is None:
             return {}
         first_layer = self._model.net[0]
@@ -194,6 +210,8 @@ class PrecilyPredictor(BlockPredictor):
         :param state: Serialized state containing a payload byte blob.
         :raises PredictorStateError: If payload is missing or invalid.
         """
+        from .model_utils import PrecilyNetwork
+
         blob = state.get("payload")
         if not isinstance(blob, (bytes, bytearray)):
             msg = "PrecilyPredictor state requires a payload byte blob"

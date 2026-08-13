@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import replace
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 from upath import UPath as Path
@@ -13,7 +13,7 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
-from drevalpy.components.predictors.literature.molir.utils import MOLIModel, _realign_omic_matrix
+from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
     require_known_training_keys,
@@ -31,6 +31,13 @@ from drevalpy.utils.torch_io import (
     save_state_dict,
     save_trusted_mapping,
 )
+
+# MOLIModel lives in .utils, which imports pytorch_lightning at module scope. This
+# module is imported eagerly by register_builtin_components(), so the import is
+# deferred to the methods that construct a model - keeping the training stack off
+# the critical path of `import drevalpy`. Guarded by tests/test_import_cost_policy.py.
+if TYPE_CHECKING:
+    from drevalpy.components.predictors.literature.molir.utils import MOLIModel
 
 
 def _checkpoint_dir_for_drug(base_dir: Path, drug_id: str) -> Path:
@@ -122,6 +129,9 @@ class MOLIRPredictor(BlockPredictor):
         dim_gex = gex_block.values.shape[1]
         dim_mut = mut_block.values.shape[1]
         dim_cnv = cnv_block.values.shape[1]
+
+        from drevalpy.components.predictors.literature.molir.utils import MOLIModel
+
         model = MOLIModel(
             hpams=dict(self._hyperparameters),
             input_dim_expr=dim_gex,
@@ -285,6 +295,8 @@ class MOLIRPredictor(BlockPredictor):
         hyperparameters = state.get("predictor_hyperparameters")
         if isinstance(hyperparameters, dict):
             self._hyperparameters = dict(hyperparameters)
+
+        from drevalpy.components.predictors.literature.molir.utils import MOLIModel
 
         self._models = {}
         self._feature_names = {}

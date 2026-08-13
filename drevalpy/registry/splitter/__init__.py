@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any
 
 from ._registry import Splitter, SplitterRegistry, splitter_registry
 from ._validation import SplitValidationError, Validation
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 __all__ = [
     "SplitValidationError",

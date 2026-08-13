@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-from sklearn.model_selection import KFold
 
 from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMask, SplitMasks
@@ -20,6 +19,8 @@ def leave_cell_line_out(
     response = mudataset.response_matrix
     observed = ~np.isnan(response)
     n_cl = response.shape[0]
+
+    from sklearn.model_selection import KFold
 
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     folds: list[SplitMasks] = []

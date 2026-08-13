@@ -11,6 +11,11 @@ Importing the examples registers components, which would break the exact-count
 assertions in ``tests/test_featurizer_block_policy.py``. The verification
 therefore runs in a subprocess; only the RST cross-checks happen in-process,
 where they touch no registry.
+
+Both facts the subprocess establishes - what the examples register, and that the
+registries look the same afterwards - start from the same pristine interpreter,
+so one child process reports both and the two tests assert on their own half of
+its output.
 """
 
 from __future__ import annotations
@@ -19,6 +24,9 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 from tests._trusted_subprocess import run_trusted_python
 
@@ -30,12 +38,32 @@ EXTENSIONS_PAGE = DOCS / "python" / "extensions.rst"
 if str(DOCS) not in sys.path:
     sys.path.insert(0, str(DOCS))
 
+#: Runs the docs build's own verification in a fresh interpreter and reports the
+#: registry sizes on either side of it along with what the examples registered.
+#: The registry imports come before ``_examples`` so ``before`` is a genuine
+#: pre-verification reading.
 _VERIFY_SCRIPT = (
     "import json, sys\n"
     f"sys.path.insert(0, {str(DOCS)!r})\n"
+    "from drevalpy.registry import cell_line_featurizer, drug_featurizer, predictor\n"
+    "before = [len(cell_line_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
     "from _examples import verify_documented_examples\n"
-    "sys.stdout.write(json.dumps({k: list(v) for k, v in verify_documented_examples().items()}))\n"
+    "registered = {k: list(v) for k, v in verify_documented_examples().items()}\n"
+    "after = [len(cell_line_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
+    "sys.stdout.write(json.dumps({'registered': registered, 'before': before, 'after': after}))\n"
 )
+
+
+@pytest.fixture(scope="module")
+def verification() -> dict[str, Any]:
+    """Report of one pristine-interpreter run of ``verify_documented_examples``.
+
+    :returns: ``{"registered": ..., "before": ..., "after": ...}`` as reported by
+        the child process.
+    """
+    completed = run_trusted_python(_VERIFY_SCRIPT, cwd=str(REPO_ROOT))
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout)
 
 
 def _literalincluded_paths() -> list[str]:
@@ -44,38 +72,30 @@ def _literalincluded_paths() -> list[str]:
     return re.findall(r"^\s*\.\. literalinclude:: /(examples/\S+)$", text, flags=re.MULTILINE)
 
 
-def test_examples_import_register_and_conform() -> None:
-    """The examples import, register what is expected, and pass every check."""
-    completed = run_trusted_python(_VERIFY_SCRIPT, cwd=str(REPO_ROOT))
-    assert completed.returncode == 0, completed.stderr
+class TestVerificationInAPristineInterpreter:
+    """Extended tier: the shared ``verification`` fixture spawns an interpreter.
 
-    from _examples import EXPECTED_REGISTRATIONS
-
-    observed = {key: tuple(value) for key, value in json.loads(completed.stdout).items()}
-    assert observed == EXPECTED_REGISTRATIONS
-
-
-def test_verifying_the_examples_leaves_the_registries_alone() -> None:
-    """The verification must not be observable afterwards.
-
-    ``tests/test_featurizer_block_policy.py`` asserts exact registry counts, and
-    the docs build's generated component catalogs do the same, so an example that
-    stayed registered would break both.
+    Both tests read the same child-process report, so the ~2.4s is only saved when
+    both are deselected - hence a class-level marker rather than two per-test ones.
     """
-    script = (
-        "import json, sys\n"
-        f"sys.path.insert(0, {str(DOCS)!r})\n"
-        "from drevalpy.registry import cell_line_featurizer, drug_featurizer, predictor\n"
-        "before = [len(cell_line_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
-        "from _examples import verify_documented_examples\n"
-        "verify_documented_examples()\n"
-        "after = [len(cell_line_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
-        "sys.stdout.write(json.dumps({'before': before, 'after': after}))\n"
-    )
-    completed = run_trusted_python(script, cwd=str(REPO_ROOT))
-    assert completed.returncode == 0, completed.stderr
-    counts = json.loads(completed.stdout)
-    assert counts["after"] == counts["before"]
+
+    pytestmark = pytest.mark.slow
+
+    def test_examples_import_register_and_conform(self, verification: dict[str, Any]) -> None:
+        """The examples import, register what is expected, and pass every check."""
+        from _examples import EXPECTED_REGISTRATIONS
+
+        observed = {key: tuple(value) for key, value in verification["registered"].items()}
+        assert observed == EXPECTED_REGISTRATIONS
+
+    def test_verifying_the_examples_leaves_the_registries_alone(self, verification: dict[str, Any]) -> None:
+        """The verification must not be observable afterwards.
+
+        ``tests/test_featurizer_block_policy.py`` asserts exact registry counts, and
+        the docs build's generated component catalogs do the same, so an example that
+        stayed registered would break both.
+        """
+        assert verification["after"] == verification["before"]
 
 
 def test_every_example_module_is_shown_on_the_page() -> None:

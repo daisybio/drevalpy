@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 import numpy as np
-from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
@@ -36,6 +35,8 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
 
         :param n_gene_expression_features: Number of gene-expression features to keep.
         """
+        from sklearn.preprocessing import StandardScaler
+
         self._n_features = int(n_gene_expression_features)
         self._scaler = StandardScaler()
         self._mask: np.ndarray = np.array([], dtype=bool)
@@ -158,6 +159,8 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
 
         :param state: Mapping previously returned by ``get_state``.
         """
+        from sklearn.preprocessing import StandardScaler
+
         scaler = state.get("scaler")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler

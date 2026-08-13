@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-from sklearn.model_selection import KFold
 
 from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMask, SplitMasks
@@ -23,6 +22,8 @@ def leave_pair_out(
     observed = ~np.isnan(response)
     obs_rows, obs_cols = np.where(observed)
     n_observed = len(obs_rows)
+
+    from sklearn.model_selection import KFold
 
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     folds: list[SplitMasks] = []

@@ -20,24 +20,16 @@ from drevalpy.models.config import (
     PredictorConfig,
     validate,
 )
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
 from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
-from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.drug_featurizer import register as register_drug_featurizer
-from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.types.data.batch.feature_block import BlockSpec
+from tests.registry._helpers import isolated_component_registries
 
 
 @pytest.fixture(autouse=True)
 def _clear_registries() -> Iterator[None]:
-    cell_line_featurizer_registry.clear()
-    drug_featurizer_registry.clear()
-    predictor_registry.clear()
-    yield
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
+    yield from isolated_component_registries()
 
 
 def _register_dense_pair() -> None:

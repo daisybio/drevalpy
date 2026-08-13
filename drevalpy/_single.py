@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import tempfile
+from typing import TYPE_CHECKING
 
 import numpy as np
-from sklearn.base import TransformerMixin
 
 from drevalpy.evaluation import AVAILABLE_METRICS, _compute_metric_value
 from drevalpy.log import get_logger
@@ -17,6 +17,9 @@ from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.results.run import RunResult
 from drevalpy.types.results.trial import TrialResult
 from drevalpy.utils.response_transform import fit_response_transformation
+
+if TYPE_CHECKING:
+    from sklearn.base import TransformerMixin
 
 logger = get_logger(__name__)
 

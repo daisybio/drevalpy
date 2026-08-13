@@ -8,11 +8,9 @@ Matlab code adapted from https://github.com/linwang1982/SRMF.
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-import pandas as pd
-from scipy.spatial.distance import jaccard
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
@@ -22,6 +20,9 @@ from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.utils.torch_io import load_trusted_mapping, save_trusted_mapping
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @register(
@@ -44,6 +45,8 @@ class SRMFPredictor(BlockPredictor):
 
         :param hyperparameters: Optional hyperparameter overrides.
         """
+        import pandas as pd
+
         super().__init__(hyperparameters)
         self._best_u: pd.DataFrame = pd.DataFrame()
         self._best_v: pd.DataFrame = pd.DataFrame()
@@ -107,6 +110,9 @@ class SRMFPredictor(BlockPredictor):
         :param batch: Training batch with gene_expression and fingerprints blocks.
         :raises ValueError: If drug features or response data is missing.
         """
+        import pandas as pd
+        from scipy.spatial.distance import jaccard
+
         cell_lines = batch.cell_line_entity_ids
         drugs = batch.drug_entity_ids
         if drugs is None:
@@ -273,6 +279,8 @@ class SRMFPredictor(BlockPredictor):
         if not isinstance(hyperparameters, dict):
             msg = f"{self.__class__.__name__} payload is missing predictor_hyperparameters"
             raise PredictorStateError(msg)
+        import pandas as pd
+
         self._hyperparameters = dict(hyperparameters)
         self._best_u = pd.DataFrame(**payload["best_u"])
         self._best_v = pd.DataFrame(**payload["best_v"])

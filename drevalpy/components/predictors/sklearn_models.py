@@ -1,14 +1,14 @@
-"""Scikit-learn tabular predictors."""
+"""Scikit-learn tabular predictors.
+
+The estimator imports live inside each ``_make_estimator`` rather than at module
+scope. ``drevalpy.registry`` imports this module to register its nine predictors
+on ``import drevalpy``, and importing any part of ``sklearn`` costs ~0.4s because
+``sklearn.utils`` pulls in ``scipy.stats``. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
 from typing import Any, ClassVar
-
-from sklearn.ensemble import AdaBoostRegressor, HistGradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import ElasticNet, Lasso, Ridge
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.svm import SVR
-from sklearn.tree import DecisionTreeRegressor
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor
@@ -44,6 +44,8 @@ class ElasticNetPredictor(SklearnTabularPredictor):
     }
 
     def _make_estimator(self):
+        from sklearn.linear_model import ElasticNet, Lasso, Ridge
+
         l1_ratio = float(self._h.get("l1_ratio", 0.5))
         alpha = float(self._h.get("alpha", 1.0))
         max_iter = int(self._h.get("max_iter", 2000))
@@ -109,6 +111,8 @@ class LassoPredictor(SklearnTabularPredictor):
     }
 
     def _make_estimator(self):
+        from sklearn.linear_model import Lasso
+
         return Lasso(
             alpha=float(self._h.get("alpha", 1.0)),
             max_iter=int(self._h.get("max_iter", 2000)),
@@ -138,6 +142,8 @@ class RidgePredictor(SklearnTabularPredictor):
     """Ridge predictor component."""
 
     def _make_estimator(self):
+        from sklearn.linear_model import Ridge
+
         return Ridge(alpha=float(self._h.get("alpha", 1.0)))
 
     @classmethod
@@ -166,6 +172,8 @@ class RandomForestPredictor(SklearnTabularPredictor):
     }
 
     def _make_estimator(self):
+        from sklearn.ensemble import RandomForestRegressor
+
         max_depth_raw = self._h.get("max_depth", 20)
         max_depth = None if max_depth_raw is None else int(max_depth_raw)
         return RandomForestRegressor(
@@ -214,6 +222,8 @@ class SVRPredictor(SklearnTabularPredictor):
     }
 
     def _make_estimator(self):
+        from sklearn.svm import SVR
+
         return SVR(
             C=float(self._h.get("C", 1.0)),
             epsilon=float(self._h.get("epsilon", 0.1)),
@@ -244,6 +254,8 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
     """Gradient boosting predictor component."""
 
     def _make_estimator(self):
+        from sklearn.ensemble import HistGradientBoostingRegressor
+
         max_iter = int(self._h.get("max_iter", self._h.get("n_estimators", 100)))
         return HistGradientBoostingRegressor(
             max_depth=int(self._h.get("max_depth", 6)),
@@ -282,6 +294,9 @@ class AdaBoostPredictor(SklearnTabularPredictor):
     }
 
     def _make_estimator(self):
+        from sklearn.ensemble import AdaBoostRegressor
+        from sklearn.tree import DecisionTreeRegressor
+
         return AdaBoostRegressor(
             estimator=DecisionTreeRegressor(
                 max_depth=int(self._h.get("max_depth", 4)),
@@ -314,6 +329,8 @@ class KNNPredictor(SklearnTabularPredictor):
     """Knnpredictor component."""
 
     def _make_estimator(self):
+        from sklearn.neighbors import KNeighborsRegressor
+
         return KNeighborsRegressor(
             n_neighbors=int(self._h.get("n_neighbors", 5)),
             weights=str(self._h.get("weights", "distance")),

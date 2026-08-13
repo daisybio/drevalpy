@@ -28,18 +28,18 @@ repos:
   - repo: local
     hooks:
       - id: pytest
-        name: pytest (with coverage)
-        # Deselect network-marked tests, matching CI. They need pretrained weights
-        # from the artifacts bucket, which is not readable without credentials.
-        entry: uv run pytest -m "not network" --cov --cov-report=json --cov-report=term-missing
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-commit]
-      - id: coverage-gate
-        name: coverage floor per module
-        # Consumes the coverage.json the pytest hook above writes.
-        entry: uv run python tools/coverage_gate.py
+        name: pytest (fast tier)
+        # No arguments on purpose: `addopts` in pyproject.toml defaults to
+        # `-m "not slow and not network"`, which is the fast tier. Coverage and
+        # the per-module coverage gate run in CI on the full suite
+        # (`.github/workflows/run_tests.yml`), not here: the floors are only
+        # meaningful on the full suite, and measuring coverage roughly doubles
+        # the run on top of that.
+        #
+        # Tier definitions, timings and the commands to run each tier live in
+        # the "Running tests" section of AGENTS.md - the single source for those
+        # numbers. Do not restate them here.
+        entry: uv run pytest
         language: system
         pass_filenames: false
         always_run: true

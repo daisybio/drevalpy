@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Any
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any
 
 from drevalpy.log import get_logger
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = get_logger(__name__)
 
@@ -97,6 +98,8 @@ class Registry(ABC):
 
     def to_dataframe(self) -> pd.DataFrame:
         """Return registry contents as a pandas DataFrame."""
+        import pandas as pd
+
         rows = []
         for name in self.list_names():
             meta = self.get_metadata(name)

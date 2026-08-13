@@ -1,15 +1,18 @@
-"""DIPK predictor consuming ModelInputBatch directly."""
+"""DIPK predictor consuming ModelInputBatch directly.
+
+``torch`` is imported inside the methods that use it, and the DIPK network comes
+from ``.model_utils`` only when a model is actually built. ``drevalpy.registry``
+imports this module to register the ``dipk`` predictor on ``import drevalpy``, so
+a module-scope ``import torch`` put ~0.35s on the startup path of every CLI
+invocation. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
 import secrets
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-import torch
-import torch.optim as optim
-from torch import nn
-from torch.utils.data import DataLoader, Dataset
 from upath import UPath as Path
 
 from drevalpy.components.contracts.contracts import FeatureFormat
@@ -22,7 +25,10 @@ from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.utils.torch_io import load_state_dict, save_state_dict, save_torch_payload
 
-from .model_utils import Predictor as DIPKNetwork
+if TYPE_CHECKING:
+    import torch
+
+    from .model_utils import Predictor as DIPKNetwork
 
 
 @register(
@@ -53,6 +59,8 @@ class DIPKPredictor(BlockPredictor):
 
         :param hyperparameters: Optional hyperparameter overrides.
         """
+        import torch
+
         super().__init__(hyperparameters)
         self._model: DIPKNetwork | None = None
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,6 +87,8 @@ class DIPKPredictor(BlockPredictor):
 
         :returns: Initialized DIPKNetwork placed on the target device.
         """
+        from .model_utils import Predictor as DIPKNetwork
+
         hp = self._hyperparameters
         return DIPKNetwork(
             heads=hp["heads"],
@@ -102,6 +112,8 @@ class DIPKPredictor(BlockPredictor):
         :param response: Optional response values per pair.
         :returns: List of sample dictionaries with tensor values.
         """
+        import torch
+
         gene_block = batch.cell_line_blocks["gene_expression"].values
         bionic_block = batch.cell_line_blocks["bionic_features"].values
         drug_block = batch.drug_blocks["molgnet_features"].values
@@ -127,6 +139,10 @@ class DIPKPredictor(BlockPredictor):
         :param batch: Featurized batch with gene_expression, bionic_features, molgnet_features blocks.
         :raises ValueError: If drug features or early stopping data is missing.
         """
+        import torch
+        from torch import nn, optim
+        from torch.utils.data import DataLoader
+
         if batch.drug_pair_idx is None:
             msg = "DIPK requires drug features"
             raise ValueError(msg)
@@ -257,6 +273,9 @@ class DIPKPredictor(BlockPredictor):
         :returns: One predicted response per pair.
         :raises ValueError: If drug pair indices are missing.
         """
+        import torch
+        from torch.utils.data import DataLoader
+
         if self._model is None:
             return np.full(batch.n_pairs, np.nan, dtype=np.float64)
         if batch.drug_pair_idx is None:
@@ -354,6 +373,8 @@ class _CollateFn:
         :param batch: List of per-sample dictionaries.
         :returns: Collated batch dictionary.
         """
+        import torch
+
         max_atoms = max(sample["molgnet_features"].size(0) for sample in batch)
 
         padded_molgnet: list[torch.Tensor] = []
@@ -384,8 +405,15 @@ class _CollateFn:
         return result
 
 
-class _DIPKDataset(Dataset):
-    """Simple list-backed dataset for DIPK samples."""
+class _DIPKDataset:
+    """Simple list-backed dataset for DIPK samples.
+
+    Deliberately not a ``torch.utils.data.Dataset`` subclass: that base class
+    contributes only ``__add__``, which nothing here uses, and inheriting from it
+    would force ``import torch`` at module scope - which is exactly what keeps
+    this predictor off the ``import drevalpy`` critical path. ``DataLoader``
+    treats any object with ``__getitem__`` and ``__len__`` as a map-style dataset.
+    """
 
     def __init__(self, samples: list[dict[str, torch.Tensor]]) -> None:
         """Initialize dataset from a list of sample dicts.

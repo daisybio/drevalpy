@@ -1,0 +1,59 @@
+name: Network Tests
+
+# The `network`-marked tests download pretrained weights and remote annotations
+# from the drevalpy artifacts bucket, so they are deselected everywhere else:
+# the pre-commit hook runs the fast tier and run_tests.yml runs
+# `-m "not network"`. Without this workflow they would never run at all.
+on:
+  schedule:
+    # Mondays 05:00 UTC. Weekly is enough: these tests guard artifact
+    # availability and loader wiring, neither of which changes per commit.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: network-tests
+  cancel-in-progress: false
+
+jobs:
+  network-tests:
+    name: Network tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      # The bucket refuses anonymous reads (403), so without credentials every
+      # one of these tests fails for a reason that has nothing to do with the
+      # code. Detect that up front and skip instead, so a fork or a repo with no
+      # secrets configured does not carry a permanently red weekly badge.
+      - name: Check for artifact credentials
+        id: creds
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        run: |
+          if [ -n "$AWS_ACCESS_KEY_ID" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Network tests skipped::AWS_ACCESS_KEY_ID is not configured, so the artifacts bucket is unreachable. Add the AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY secrets to enable the network tests."
+          fi
+
+      - name: Run network tests
+        if: steps.creds.outputs.available == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+          # Optional mirror. Empty is fine: get_artifacts_uri() strips blanks and
+          # falls back to the bundled default bucket.
+          DREVALPY_ARTIFACTS_URI: ${{ vars.DREVALPY_ARTIFACTS_URI }}
+        # The explicit `-m network` replaces the `addopts` marker expression
+        # rather than adding to it, so this selects exactly the 8 network tests.
+        # No coverage: run_tests.yml owns the coverage gate.
+        run: uv run pytest -m network

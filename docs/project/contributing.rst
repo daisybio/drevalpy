@@ -57,9 +57,56 @@ How to test the project
 Unit tests are located in the ``tests`` directory,
 and are written using the pytest_ testing framework.
 
+The suite is tiered. The bare command runs the **fast tier** — 3844 tests plus 7
+skipped, about 98% of the suite, in roughly 14 seconds — which is also what the
+commit hook runs:
+
 .. code:: console
 
    $ uv run pytest
+
+The remaining tests carry markers and are deselected by default:
+
+``slow``
+   The extended tier: tests that spawn a fresh interpreter, fit dose-response
+   curves, or train models. A test belongs here if it costs 0.2s or more. 65
+   tests, about 27 seconds.
+
+``network``
+   Tests that download pretrained weights or remote annotations from the
+   artifacts bucket, which is not readable without credentials. These run on a
+   weekly schedule in CI. 8 tests.
+
+A ``-m`` on the command line replaces the default marker expression rather than
+adding to it, so run the extended tier — or both tiers, which is what CI does on
+every pull request — like this:
+
+.. code:: console
+
+   $ uv run pytest -m slow
+   $ uv run pytest -m "not network"
+
+The full run is 3909 passed and 7 skipped.
+
+Coverage is measured and enforced in CI on the full ``-m "not network"`` run,
+both as an aggregate floor (currently 91% against a floor of 89) and per module
+across 276 modules. The commit hook does not measure it, because the floors are
+only meaningful on the full suite. To reproduce the CI check locally:
+
+.. code:: console
+
+   $ uv run pytest -m "not network" --cov --cov-report=json --cov-report=term-missing
+   $ uv run python tools/coverage_gate.py
+
+Run the suite serially. ``pytest-xdist`` is deliberately not a dependency: it was
+measured at best ~11% faster on the full coverage run and 9–70% *slower* on the
+fast tier, because a cheap ``import drevalpy`` (0.21s, down from 3.59s) left
+parallelism nothing to hide. More importantly, ``--dist loadfile``,
+``--dist loadscope`` and random ordering are **not** safe yet: the component
+registries are process-global, so a test that registers a component without
+evicting it again changes what a later test sees. If you introduce parallelism or
+shuffling, audit every test that loads an extension or registers a component for
+cleanup first.
 
 .. _pytest: https://pytest.readthedocs.io/
 
@@ -75,7 +122,8 @@ Your pull request needs to meet the following guidelines for acceptance:
 - If your changes add functionality, update the documentation accordingly.
 
 Linting and formatting run through `prek <https://github.com/j178/prek>`_, a
-drop-in replacement for pre-commit. Run every hook against the whole tree:
+drop-in replacement for pre-commit. Run every hook against the whole tree — all
+ten take about 22 seconds, most of it the fast test tier:
 
 .. code:: console
 

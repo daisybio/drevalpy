@@ -1,17 +1,52 @@
-"""Normalized proteomics featurizer for cell lines."""
+"""Normalized proteomics featurizer for cell lines.
+
+``ProteomicsMedianCenterAndImputeTransformer`` lives in
+``_proteomics_transformer`` because it subclasses ``sklearn.base.BaseEstimator``,
+which cannot be deferred past the ``class`` statement. It is re-exported here
+through ``__getattr__`` so the historical import path - and any checkpoint
+pickled against it - keeps resolving without importing ``sklearn`` at
+registration time. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
+
+if TYPE_CHECKING:
+    from drevalpy.components.featurizers.cell_line._proteomics_transformer import (
+        ProteomicsMedianCenterAndImputeTransformer,
+    )
+
+__all__ = [
+    "NormalizedProteomicsCellLineFeaturizer",
+    "ProteomicsMedianCenterAndImputeTransformer",
+    "log10_and_set_na",
+]
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve the re-exported transformer on first access.
+
+    :param name: Attribute being looked up on this module.
+    :returns: The requested attribute.
+    :raises AttributeError: If *name* is not re-exported here.
+    """
+    if name == "ProteomicsMedianCenterAndImputeTransformer":
+        from drevalpy.components.featurizers.cell_line._proteomics_transformer import (
+            ProteomicsMedianCenterAndImputeTransformer as _Transformer,
+        )
+
+        return _Transformer
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
 
 
 def log10_and_set_na(x: np.ndarray) -> np.ndarray:
@@ -23,76 +58,6 @@ def log10_and_set_na(x: np.ndarray) -> np.ndarray:
     x = np.log10(x)
     x[np.isinf(x)] = np.nan
     return x
-
-
-class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin):
-    """Performs median centering and imputation of proteomics data."""
-
-    def __init__(
-        self,
-        feature_threshold=0.7,
-        n_features=1000,
-        normalization_downshift=1.8,
-        normalization_width=0.3,
-        imputation_seed=100,
-    ):
-        """Hyperparameters for the normalization.
-
-        :param feature_threshold: Minimum fraction of non-missing protein values per feature.
-        :param n_features: Fallback feature count when thresholding leaves too few features.
-        :param normalization_downshift: Downshift factor for the mean.
-        :param normalization_width: Width factor for the standard deviation.
-        :param imputation_seed: Seed for per-call missing-value imputation without touching the
-            global NumPy RNG state.
-        """
-        self.feature_threshold = feature_threshold
-        self.n_features = n_features
-        self.normalization_downshift = normalization_downshift
-        self.normalization_width = normalization_width
-        self.imputation_seed = imputation_seed
-        self.protein_indices = np.array([])
-        self.mean_median = 0
-
-    def fit(self, X, y=None):  # noqa: N803  # sklearn API
-        """Learn top n_feature complete proteins and calculate the mean median of train cell lines.
-
-        :param X: input proteomics data
-        :param y: not used
-        :returns: self
-        """
-        required_proteins = int(X.shape[0] * self.feature_threshold)
-        completeness = np.sum(~np.isnan(X), axis=0)
-        n_complete_features = np.count_nonzero(completeness >= required_proteins)
-        if n_complete_features < self.n_features:
-            sorted_indices = np.argsort(completeness)[::-1]
-            self.protein_indices = sorted_indices[: self.n_features]
-        else:
-            self.protein_indices = np.where(completeness >= required_proteins)[0]
-        selected_proteins = X[:, self.protein_indices]
-        medians = np.nanmedian(selected_proteins, axis=1)
-        self.mean_median = np.nanmean(medians)
-        return self
-
-    def transform(self, X):  # noqa: N803  # sklearn API
-        """Median center the data and impute missing values with downshifted normal distribution.
-
-        :param X: input proteomics data
-        :returns: transformed proteomics data
-        """
-        proteomics_vector = X[0][self.protein_indices]
-
-        correction_factor = self.mean_median / np.nanmedian(proteomics_vector)
-        proteomics_vector = proteomics_vector * correction_factor
-        cell_line_mean = np.nanmean(proteomics_vector)
-        cell_line_sd = np.nanstd(proteomics_vector)
-        downshifted_mean = cell_line_mean - (self.normalization_downshift * cell_line_sd)
-        shrinked_sd = self.normalization_width * cell_line_sd
-        n_missing = np.count_nonzero(np.isnan(proteomics_vector))
-        rng = np.random.default_rng(self.imputation_seed)
-        proteomics_vector[np.isnan(proteomics_vector)] = rng.normal(
-            loc=downshifted_mean, scale=shrinked_sd, size=n_missing
-        )
-        return [proteomics_vector]
 
 
 @register(
@@ -122,6 +87,10 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         :param proteomics_normalization_width: proteomics normalization width.
         :param proteomics_normalization_downshift: proteomics normalization downshift.
         """
+        from drevalpy.components.featurizers.cell_line._proteomics_transformer import (
+            ProteomicsMedianCenterAndImputeTransformer,
+        )
+
         self._view = view
         self._transformer = ProteomicsMedianCenterAndImputeTransformer(
             feature_threshold=proteomics_feature_threshold,
@@ -231,6 +200,10 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
 
         :param state: state.
         """
+        from drevalpy.components.featurizers.cell_line._proteomics_transformer import (
+            ProteomicsMedianCenterAndImputeTransformer,
+        )
+
         transformer = state.get("proteomics_transformer")
         if isinstance(transformer, ProteomicsMedianCenterAndImputeTransformer):
             self._transformer = transformer

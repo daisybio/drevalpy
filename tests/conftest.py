@@ -8,15 +8,27 @@ suite needs is built in memory by
 
 from __future__ import annotations
 
+import shutil
+import zipfile
 from typing import Any
 
 import numpy as np
 import pytest
+from upath import UPath
 
 import drevalpy.registry  # noqa: F401  -- triggers register_builtin_components() + discover_plugins()
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource
+from tests._trusted_subprocess import run_trusted_python
 from tests.synthetic import build_synthetic_dataset
+
+REPO_ROOT = UPath(__file__).resolve().parents[1]
+
+#: Builds the wheel for :func:`built_wheel_contents` in a fresh interpreter.
+#: ``sys.argv[1]`` is the output directory.
+_BUILD_WHEEL_SCRIPT = (
+    "import subprocess, sys; sys.exit(subprocess.run(['uv', 'build', '--wheel', '--out-dir', sys.argv[1]]).returncode)"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -43,6 +55,36 @@ def synthetic_dataset() -> Dataset:
         :mod:`tests.synthetic.builders` for its exact shape.
     """
     return build_synthetic_dataset()
+
+
+@pytest.fixture(scope="session")
+def built_wheel_contents(tmp_path_factory: pytest.TempPathFactory) -> frozenset[str]:
+    """Namelist of a real ``uv build --wheel`` of this repository, built once.
+
+    Two packaging tests assert against the wheel that consumers actually get:
+    ``tests/plugin/test_init.py`` for the PEP 561 marker and
+    ``tests/testing/test_init.py`` for the shipped ``drevalpy.testing``
+    submodules. The build is identical for both, so it runs once per session and
+    the namelist is shared read-only rather than paying for a second hatchling
+    run. Skips when ``uv`` is unavailable, which is what makes the tests that
+    request it skip too.
+
+    :param tmp_path_factory: Session-scoped temporary directory factory.
+    :returns: Every archive member name in the built wheel.
+    """
+    if shutil.which("uv") is None:
+        pytest.skip("needs uv to build a wheel")
+
+    out_dir = UPath(tmp_path_factory.mktemp("built_wheel"))
+    result = run_trusted_python(_BUILD_WHEEL_SCRIPT, cwd=str(REPO_ROOT), extra_args=[str(out_dir)])
+    if result.returncode != 0:
+        pytest.fail(f"uv build --wheel failed:\n{result.stderr}")
+
+    wheels = list(out_dir.glob("*.whl"))
+    if not wheels:
+        pytest.fail("uv build --wheel produced no wheel")
+    with zipfile.ZipFile(str(wheels[0])) as archive:
+        return frozenset(archive.namelist())
 
 
 class MockFeatureSource(FeatureSource):

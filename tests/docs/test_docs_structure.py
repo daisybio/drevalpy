@@ -127,7 +127,13 @@ def test_zoo_presets_documented_in_model_zoo() -> None:
     assert "``superfeltrOmics:superfeltr``" in generated
 
 
+@pytest.mark.slow
 def test_component_catalog_is_registry_driven_and_synchronized() -> None:
+    """Extended tier: regenerates the catalog in a fresh interpreter (~2.2s).
+
+    The child process is the point - the generator must produce the committed RST
+    from a clean registry, not from whatever this session has registered.
+    """
     from drevalpy.registry import _builtins as rb
     from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
     from drevalpy.registry.drug_featurizer import drug_featurizer_registry

@@ -245,8 +245,14 @@ deprecated = "ignore"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = ["--import-mode=importlib"]
-markers = ["network: requires downloading pretrained weights or remote annotations"]
+# The default run is the fast tier: everything except the extended tier and the
+# network tests. A `-m` on the command line replaces this one rather than adding
+# to it, so CI's `-m "not network"` still selects the whole suite.
+addopts = ["--import-mode=importlib", "-m", "not slow and not network"]
+markers = [
+    "network: requires downloading pretrained weights or remote annotations",
+    "slow: extended tier - spawns interpreters, fits curves, or trains models; CI only",
+]
 
 [tool.coverage.run]
 source = ["drevalpy"]
@@ -290,24 +296,31 @@ min_file_coverage = 60
 # production caller, so the predictor and its algorithm cannot be trained end to
 # end until that source defect is fixed.
 "drevalpy/components/predictors/literature/sparsego/algorithm.py" = 33
-"drevalpy/components/predictors/literature/sparsego/predictor.py" = 30
+"drevalpy/components/predictors/literature/sparsego/predictor.py" = 53
 "drevalpy/components/predictors/literature/sparsego/utils.py" = 51
 
 # DIPK is in EXCLUDED_MODELS too: it needs BIONIC's human_ppi_features.tsv, which
 # the artifacts bucket refuses to serve anonymously (403), so the predictor's
 # train/predict path is unreachable in an offline run. Its pure torch helpers are
 # tested directly and are at 96-100%.
-"drevalpy/components/predictors/literature/dipk/predictor.py" = 26
+"drevalpy/components/predictors/literature/dipk/predictor.py" = 52
 
 # Resolving a registered dataset means downloading a multi-GB .h5mu from a
 # credentialed S3 bucket; only the not-found and cache-hit branches are
 # reachable offline. The lazy __getattr__ re-export block in the package
 # __init__ is only entered by callers that use the deprecated import path.
 #
-# _load.py's floor is the value CI measures. A developer whose local cache holds a
-# real dataset measures ~38% instead, because tests/test_integration.py stops
-# skipping, and the gate then offers to ratchet this entry down - do not take it,
-# or CI reddens on the next clean checkout.
+# DO NOT CHANGE THE 27 BELOW. It is not a stale measurement, and it is not debt
+# that has since been paid down - it is the number *CI* measures on a clean
+# checkout with no credentials and an empty dataset cache. On a developer machine
+# whose cache already holds a real dataset, tests/test_integration.py stops
+# skipping and the same module measures ~38%, so `tools/coverage_gate.py` lists
+# this entry under "exemptions that can be lowered or deleted" on every local run.
+# That suggestion is wrong here and only here: the AGENTS.md ratchet rule assumes
+# the local number is reproducible in CI, and for this module it is not. Editing
+# 27 up towards the local figure (or deleting the entry) turns CI red on the next
+# clean checkout, which is exactly what it is meant to protect. Raise it only
+# together with a measurement taken by CI itself.
 "drevalpy/data/datasets/__init__.py" = 44
 "drevalpy/data/datasets/_load.py" = 27
 

@@ -100,7 +100,13 @@ def test_feature_free_naive_accepts_no_featurizers() -> None:
     validate(config)
 
 
+@pytest.mark.slow
 def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
+    """Extended tier: proves the sklearn baselines train without the heavy engines.
+
+    Spawns an interpreter (~2.2s) because the pristine import graph is the
+    assertion, so it cannot share this session's process.
+    """
     script = textwrap.dedent("""
         import importlib.abc
         import importlib.machinery

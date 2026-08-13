@@ -7,8 +7,6 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import optuna
-from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
 from drevalpy.evaluation import AVAILABLE_METRICS
@@ -24,6 +22,9 @@ from drevalpy.types.data.dataset import Dataset
 from drevalpy.utils.response_transform import fit_response_transformation
 
 if TYPE_CHECKING:
+    import optuna
+    from sklearn.base import TransformerMixin
+
     from drevalpy.models.drp_model import DRPModel
 
 logger = get_logger(__name__)
@@ -364,6 +365,8 @@ def run_optuna_study(
     :param cfg: HPO configuration.
     :returns: Completed Optuna study.
     """
+    import optuna
+
     direction = "minimize" if cfg.mode == "min" else "maximize"
     sampler = optuna.samplers.TPESampler(seed=cfg.random_state)
     study = optuna.create_study(direction=direction, sampler=sampler)

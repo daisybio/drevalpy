@@ -1,23 +1,20 @@
-"""SparseGO literature predictor -- direct BlockPredictor implementation."""
+"""SparseGO literature predictor -- direct BlockPredictor implementation.
+
+``torch``, the ``SparseGONetwork`` and the ontology helpers in ``.utils`` (which
+pull in ``networkx``) are imported inside the methods that need them.
+``drevalpy.registry`` imports this module to register the ``sparsego`` predictor on
+``import drevalpy``. See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-import torch
-import torch.nn as nn
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
-from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork
-from drevalpy.components.predictors.literature.sparsego.utils import (
-    load_mapping,
-    load_ontology,
-    pairs_in_layers,
-    sort_pairs,
-)
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
@@ -25,6 +22,9 @@ from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.tensor_data import make_pair_loader
 from drevalpy.utils.torch_io import load_state_dict, load_trusted_mapping, save_state_dict, save_trusted_mapping
+
+if TYPE_CHECKING:
+    from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork
 
 
 def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarray], dict[str, int], list[str]]:
@@ -46,6 +46,13 @@ def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarr
     gene_order = metadata.get("ontology_gene_order")
 
     if layer_connections is None or gene2id_mapping is None:
+        from drevalpy.components.predictors.literature.sparsego.utils import (
+            load_mapping,
+            load_ontology,
+            pairs_in_layers,
+            sort_pairs,
+        )
+
         ontology_file = metadata.get("ontology_file")
         gene2ind_file = metadata.get("gene2ind_file")
         if ontology_file is None or gene2ind_file is None:
@@ -110,6 +117,8 @@ class SparseGOPredictor(BlockPredictor):
 
         :param hyperparameters: Optional overrides for algorithm defaults.
         """
+        import torch
+
         super().__init__(hyperparameters)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._model: SparseGONetwork | None = None
@@ -153,6 +162,8 @@ class SparseGOPredictor(BlockPredictor):
 
         :raises ValueError: If ontology metadata is not available.
         """
+        from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork
+
         if self._layer_connections is None or self._gene2id_mapping_ont is None:
             raise ValueError("SparseGO ontology metadata must be provided before building the network.")
         self._model = SparseGONetwork(
@@ -176,6 +187,9 @@ class SparseGOPredictor(BlockPredictor):
         :raises ValueError: If ontology metadata is missing or network build fails.
         :raises RuntimeError: If drug_pair_idx is None.
         """
+        import torch
+        import torch.nn as nn
+
         active_view = _resolve_active_view(batch)
         block = batch.cell_line_blocks[active_view]
         if block.metadata is None:
@@ -239,6 +253,8 @@ class SparseGOPredictor(BlockPredictor):
         :raises ValueError: If the model is not fitted.
         :raises RuntimeError: If drug_pair_idx is None.
         """
+        import torch
+
         if self._model is None:
             raise ValueError("SparseGOPredictor must be fitted before predict().")
 

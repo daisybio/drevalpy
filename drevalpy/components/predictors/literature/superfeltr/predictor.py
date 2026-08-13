@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import replace
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 from upath import UPath as Path
@@ -13,7 +13,7 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
-from drevalpy.components.predictors.literature.molir.utils import _realign_omic_matrix
+from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
     require_known_training_keys,
@@ -32,7 +32,12 @@ from drevalpy.utils.torch_io import (
     save_trusted_mapping,
 )
 
-from .utils import SuperFELTEncoder, SuperFELTRegressor
+# .utils imports pytorch_lightning at module scope, and this module is imported
+# eagerly by register_builtin_components(), so the encoder/regressor imports are
+# deferred to the methods that construct them. Guarded by
+# tests/test_import_cost_policy.py.
+if TYPE_CHECKING:
+    from .utils import SuperFELTEncoder, SuperFELTRegressor
 
 
 def _checkpoint_dir_for_drug(base_dir: Path, drug_id: str) -> Path:
@@ -189,7 +194,7 @@ class SuperFELTRPredictor(BlockPredictor):
         mut_entity = np.asarray(mut_block.values, dtype=np.float32)
         cnv_entity = np.asarray(cnv_block.values, dtype=np.float32)
 
-        from .utils import train_superfeltr_model
+        from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
         encoder_dims = {
             "expression": dim_gex,
@@ -506,6 +511,8 @@ class SuperFELTRPredictor(BlockPredictor):
         :param cnv_dim: CNV encoder input size.
         :param payload: Deserialized payload with state blobs.
         """
+        from .utils import SuperFELTEncoder, SuperFELTRegressor
+
         dm.expr_encoder = SuperFELTEncoder(input_size=expr_dim, hpams=hpams, omic_type="expression", ranges=ranges)
         dm.mut_encoder = SuperFELTEncoder(input_size=mut_dim, hpams=hpams, omic_type="mutation", ranges=ranges)
         dm.cnv_encoder = SuperFELTEncoder(

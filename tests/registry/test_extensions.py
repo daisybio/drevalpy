@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import sys
 import textwrap
+from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +13,7 @@ import pytest
 
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
-from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
+from drevalpy.models.zoo import clear_external_zoo, get_zoo_config, list_zoo_names, load_external_zoo_file
 from drevalpy.registry._builtins import is_known_builtin_predictor
 from drevalpy.registry._extensions import (
     _extension_module_name,
@@ -35,6 +36,28 @@ from drevalpy.registry.predictor import (
 )
 from drevalpy.registry.predictor import predictor_registry
 from tests._trusted_subprocess import run_trusted_python
+from tests.registry._helpers import restore_component_registries
+
+
+@pytest.fixture(autouse=True)
+def _restore_registries() -> Iterator[None]:
+    """Evict whatever a test in this file registered into the process-global state.
+
+    Nearly every test here loads an extension, and loading an extension registers
+    into the component registries and the external zoo for the whole process.
+    ``tests/conftest.py`` repopulates the built-ins before each test but
+    ``register_builtin_components`` only ever *adds* - it does not evict - so
+    without this teardown the extensions outlive their tests. The
+    ``BUILTIN_*_NAMES`` sets in :mod:`drevalpy.registry._builtins` are lazy
+    singletons that cache on first access, so whichever test resolves them next
+    counts a leaked extension as a built-in, and
+    ``tests/docs/test_docs_structure.py`` fails whenever it happens to run after
+    this file rather than before it. Mirrors the fixture in
+    ``tests/models/config/test_spec.py``.
+    """
+    yield
+    restore_component_registries()
+    clear_external_zoo()
 
 
 def test_load_extension_file_registers_components(tmp_path: Path) -> None:
@@ -310,10 +333,61 @@ def test_is_known_builtin_predictor_public_query() -> None:
     assert not is_known_builtin_predictor("notARealPredictor")
 
 
-def test_subprocess_extension_load_does_not_import_optional_families(tmp_path: Path) -> None:
-    ext_file = tmp_path / "isolated_extension.py"
-    ext_file.write_text(
-        """
+#: Installs a meta-path finder that turns any import of an optional predictor
+#: family into an ``ImportError``, so a code path that reaches for one fails
+#: loudly instead of silently pulling in xgboost, lightgbm or dipk.
+#:
+#: The two tests below share this preamble but deliberately **not** a process.
+#: Each asserts that a particular pristine entry point - loading a user extension
+#: file, and looking up a native component - stays clear of the optional
+#: families, and a shared interpreter would let the first one's import graph
+#: answer for the second. That is why both are in the extended tier rather than
+#: merged into one child: two interpreter spawns are the test.
+_BLOCK_OPTIONAL_FAMILIES = textwrap.dedent("""
+    import importlib.abc
+    import importlib.machinery
+    import sys
+
+    blocked = {
+        "xgboost": "blocked xgboost",
+        "lightgbm": "blocked lightgbm",
+        "drevalpy.components.predictors.literature.dipk.predictor": "blocked dipk",
+    }
+
+    class BlockLoader(importlib.abc.Loader):
+        def __init__(self, message: str) -> None:
+            self.message = message
+
+        def create_module(self, spec):
+            raise ImportError(self.message)
+
+        def exec_module(self, module):
+            raise ImportError(self.message)
+
+    class BlockFinder(importlib.abc.MetaPathFinder):
+        def find_spec(self, fullname, path, target=None):
+            if fullname in blocked:
+                return importlib.machinery.ModuleSpec(fullname, BlockLoader(blocked[fullname]))
+            return None
+
+    sys.meta_path.insert(0, BlockFinder())
+    """)
+
+
+class TestSubprocessImportIsolation:
+    """Extended tier: each test spawns a fresh interpreter (~2s each).
+
+    They are not merged into one child process on purpose - see the comment on
+    ``_BLOCK_OPTIONAL_FAMILIES`` above. The class exists so the marker applies at
+    class level while the other tests in this file stay in the fast tier.
+    """
+
+    pytestmark = pytest.mark.slow
+
+    def test_subprocess_extension_load_does_not_import_optional_families(self, tmp_path: Path) -> None:
+        ext_file = tmp_path / "isolated_extension.py"
+        ext_file.write_text(
+            """
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -333,107 +407,38 @@ class IsolatedPredictor(FeatureFreePredictor):
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.zeros(batch.n_pairs, dtype=np.float64)
 """,
-        encoding="utf-8",
-    )
-    script = textwrap.dedent(f"""
-        import importlib.abc
-        import importlib.machinery
-        import sys
+            encoding="utf-8",
+        )
+        script = _BLOCK_OPTIONAL_FAMILIES + textwrap.dedent(f"""
+            from drevalpy.registry._extensions import load_extension_file
+            from drevalpy.registry.predictor import get as get_predictor
 
-        blocked = {{
-            "xgboost": "blocked xgboost",
-            "lightgbm": "blocked lightgbm",
-            "drevalpy.components.predictors.literature.dipk.predictor": "blocked dipk",
-        }}
+            load_extension_file({str(ext_file)!r})
+            cls = get_predictor("isolatedPredictor")
+            assert cls.__name__ == "IsolatedPredictor"
+            """)
+        completed = run_trusted_python(script)
+        assert completed.returncode == 0, completed.stdout + completed.stderr
 
-        class BlockLoader(importlib.abc.Loader):
-            def __init__(self, message: str) -> None:
-                self.message = message
+    def test_subprocess_native_lookup_does_not_import_optional_families(self) -> None:
+        script = _BLOCK_OPTIONAL_FAMILIES + textwrap.dedent("""
+            from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+            from drevalpy.registry.predictor import get as get_predictor
 
-            def create_module(self, spec):
-                raise ImportError(self.message)
-
-            def exec_module(self, module):
-                raise ImportError(self.message)
-
-        class BlockFinder(importlib.abc.MetaPathFinder):
-            def find_spec(self, fullname, path, target=None):
-                if fullname in blocked:
-                    return importlib.machinery.ModuleSpec(fullname, BlockLoader(blocked[fullname]))
-                return None
-
-        sys.meta_path.insert(0, BlockFinder())
-
-        from drevalpy.registry._extensions import load_extension_file
-        from drevalpy.registry.predictor import get as get_predictor
-
-        load_extension_file({str(ext_file)!r})
-        cls = get_predictor("isolatedPredictor")
-        assert cls.__name__ == "IsolatedPredictor"
-        """)
-    completed = run_trusted_python(script)
-    assert completed.returncode == 0, completed.stdout + completed.stderr
-
-
-def test_subprocess_native_lookup_does_not_import_optional_families() -> None:
-    script = textwrap.dedent("""
-        import importlib.abc
-        import importlib.machinery
-        import sys
-
-        blocked = {
-            "xgboost": "blocked xgboost",
-            "lightgbm": "blocked lightgbm",
-            "drevalpy.components.predictors.literature.dipk.predictor": "blocked dipk",
-        }
-
-        class BlockLoader(importlib.abc.Loader):
-            def __init__(self, message: str) -> None:
-                self.message = message
-
-            def create_module(self, spec):
-                raise ImportError(self.message)
-
-            def exec_module(self, module):
-                raise ImportError(self.message)
-
-        class BlockFinder(importlib.abc.MetaPathFinder):
-            def find_spec(self, fullname, path, target=None):
-                if fullname in blocked:
-                    return importlib.machinery.ModuleSpec(fullname, BlockLoader(blocked[fullname]))
-                return None
-
-        sys.meta_path.insert(0, BlockFinder())
-
-        from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
-        from drevalpy.registry.predictor import get as get_predictor
-
-        get_cell_line_featurizer("identity")
-        get_predictor("elasticNet")
-        """)
-    completed = run_trusted_python(script)
-    assert completed.returncode == 0, completed.stdout + completed.stderr
+            get_cell_line_featurizer("identity")
+            get_predictor("elasticNet")
+            """)
+        completed = run_trusted_python(script)
+        assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 def test_unknown_builtin_predictor_raises_value_error() -> None:
     predictor_registry.clear()
-    try:
-        with pytest.raises(ValueError, match="Unknown Predictor"):
-            get_predictor("notRegisteredAnywhere")
-    finally:
-        from drevalpy.registry._builtins import register_builtin_components
-
-        predictor_registry.clear()
-        register_builtin_components()
+    with pytest.raises(ValueError, match="Unknown Predictor"):
+        get_predictor("notRegisteredAnywhere")
 
 
 def test_unknown_builtin_featurizer_raises_value_error() -> None:
     cell_line_featurizer_registry.clear()
-    try:
-        with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
-            get_cell_line_featurizer("notRegisteredAnywhere")
-    finally:
-        from drevalpy.registry._builtins import register_builtin_components
-
-        cell_line_featurizer_registry.clear()
-        register_builtin_components()
+    with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
+        get_cell_line_featurizer("notRegisteredAnywhere")

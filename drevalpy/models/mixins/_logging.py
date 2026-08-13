@@ -1,11 +1,32 @@
-"""Weights & Biases and metric helpers mixed into DRPModel."""
+"""Weights & Biases and metric helpers mixed into DRPModel.
+
+``wandb`` is imported inside the methods that use it. ``DRPModel`` is on the
+registration path of ``import drevalpy``, and importing ``wandb`` costs ~0.11s
+even for the overwhelming majority of runs that never enable it. See
+``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
 from contextlib import suppress
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import wandb
+if TYPE_CHECKING:
+    from types import ModuleType
+
+
+def _wandb() -> ModuleType:
+    """Import and return the ``wandb`` module.
+
+    Every ``wandb`` reference in this file goes through here, so the dependency
+    is paid for on first use rather than at ``import drevalpy`` time, and so
+    tests have a single seam to patch.
+
+    :returns: The imported ``wandb`` module.
+    """
+    import wandb
+
+    return wandb
 
 
 class _DRPLoggingMixin:
@@ -54,6 +75,7 @@ class _DRPLoggingMixin:
             run_config["hyperparameters"] = self.hyperparameters
         self.wandb_config = run_config
 
+        wandb = _wandb()
         if finish_previous:
             wandb.finish()
 
@@ -80,13 +102,14 @@ class _DRPLoggingMixin:
 
         :returns: ``True`` when a wandb project and run are active.
         """
-        return self.wandb_project is not None and (self.wandb_run is not None or wandb.run is not None)
+        return self.wandb_project is not None and (self.wandb_run is not None or _wandb().run is not None)
 
     def log_final_metrics(self, metrics: dict[str, float]) -> None:
         """Store final metrics in the wandb run summary.
 
         :param metrics: Final scalar metrics to persist in the run summary.
         """
+        wandb = _wandb()
         if not self.is_wandb_enabled() or wandb.run is None:
             return
         for key, value in metrics.items():
@@ -96,5 +119,5 @@ class _DRPLoggingMixin:
         """Finish the wandb run for this model instance."""
         if not self.is_wandb_enabled():
             return
-        wandb.finish()
+        _wandb().finish()
         self.wandb_run = None

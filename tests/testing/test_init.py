@@ -9,15 +9,11 @@ from __future__ import annotations
 
 import importlib
 import shutil
-import zipfile
 
 import pytest
-from upath import UPath
 
 from drevalpy import testing
 from tests._trusted_subprocess import run_trusted_python
-
-REPO_ROOT = UPath(__file__).resolve().parents[2]
 
 #: ``alias -> (submodule, attribute)`` for every re-export.
 EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
@@ -65,23 +61,22 @@ class TestItShipsInTheWheel:
 
     A plugin author cannot import an unshipped module, which is why every
     consumer so far had to hand-roll a synthetic dataset.
+
+    Extended tier: ``test_it_is_importable_without_pytest`` spawns an interpreter,
+    measured at 0.67s, and that is the *only* cost this marker saves. Its sibling is
+    free: the ``uv build --wheel`` behind ``built_wheel_contents`` is already paid by
+    ``tests/plugin/test_init.py::TestPyTypedMarker``, which is in the fast tier, so
+    the build happens on every commit either way - warm or on a cold CI cache. The
+    marker stays at class level because both facts are about the *built artifact*
+    rather than the code under test, and the fast tier keeps equivalent wheel
+    assertions in ``tests/plugin/test_init.py``.
     """
 
+    pytestmark = pytest.mark.slow
+
     @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
-    def test_every_submodule_is_in_the_built_wheel(self, tmp_path):
-        result = run_trusted_python(
-            "import subprocess, sys; "
-            "sys.exit(subprocess.run(['uv', 'build', '--wheel', '--out-dir', sys.argv[1]]).returncode)",
-            cwd=str(REPO_ROOT),
-            extra_args=[str(tmp_path)],
-        )
-        assert result.returncode == 0, result.stderr
-
-        wheels = list(tmp_path.glob("*.whl"))
-        assert wheels, "no wheel was produced"
-        with zipfile.ZipFile(wheels[0]) as archive:
-            shipped = set(archive.namelist())
-
+    def test_every_submodule_is_in_the_built_wheel(self, built_wheel_contents):
+        """Asserted against the session-shared wheel built in ``tests/conftest.py``."""
         expected = {
             "drevalpy/testing/__init__.py",
             "drevalpy/testing/batch.py",
@@ -89,7 +84,7 @@ class TestItShipsInTheWheel:
             "drevalpy/testing/plugins.py",
             "drevalpy/testing/synthetic.py",
         }
-        assert expected <= shipped
+        assert expected <= built_wheel_contents
 
     def test_it_is_importable_without_pytest(self):
         """A plugin may run the checks from a plain script, so nothing here needs pytest."""

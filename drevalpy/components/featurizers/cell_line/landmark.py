@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._matrix import stack_view_matrix
@@ -14,6 +13,9 @@ from drevalpy.components.featurizers.cell_line.gene_lists import gene_names_from
 from drevalpy.registry.cell_line_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
+
+if TYPE_CHECKING:
+    from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 def _load_gene_indices(
@@ -130,6 +132,8 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         if self._arcsinh:
             matrix = np.arcsinh(matrix)
         if self._standardize:
+            from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
             self._scaler = StandardScaler()
             self._scaler.fit(matrix)
             if self._minmax_scale:
@@ -245,6 +249,8 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             self._arcsinh = bool(state["arcsinh"])
 
     def _restore_landmark_fit_state(self, state: dict[str, object]) -> None:
+        from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
         gene_indices = state.get("gene_indices")
         if isinstance(gene_indices, list):
             self._gene_indices = [int(index) for index in gene_indices]

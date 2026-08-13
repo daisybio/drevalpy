@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-import wandb
-from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
 from drevalpy.components.contracts.training_context import TrainingContext
@@ -15,7 +13,7 @@ from drevalpy.models.component_stack import _ComponentStack, build_component_sta
 from drevalpy.models.config import ModelConfig, ModelScope
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.mixins._hyperparameters import DRPHyperparametersMixin
-from drevalpy.models.mixins._logging import _DRPLoggingMixin
+from drevalpy.models.mixins._logging import _DRPLoggingMixin, _wandb
 from drevalpy.models.mixins._persistence import DRPPersistenceMixin
 from drevalpy.models.tuning.config_resolution import default_config_for_drp_model
 from drevalpy.models.tuning.public_flat import config_from_public_hyperparameters, public_hyperparameters_from_config
@@ -23,6 +21,9 @@ from drevalpy.models.tuning.search_space import resolve_model_config
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
+
+if TYPE_CHECKING:
+    from sklearn.base import TransformerMixin
 
 
 class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin, DRPPersistenceMixin):
@@ -179,7 +180,7 @@ class DRPModel(DRPHyperparametersMixin, _DRPLoggingMixin, DRPPersistenceMixin):
         if not self.is_wandb_enabled():
             return
         if not self._in_hyperparameter_tuning:
-            wandb.config.update({"hyperparameters": self._hyperparameters})
+            _wandb().config.update({"hyperparameters": self._hyperparameters})
 
     def _apply_model_config(self, config: ModelConfig | ResolvedModelConfig) -> None:
         resolved = config if isinstance(config, ResolvedModelConfig) else resolve_model_config(config)

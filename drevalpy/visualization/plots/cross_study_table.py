@@ -5,13 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pandas as pd
 import plotly.graph_objects as go
 
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from drevalpy.types.results import ExperimentResult
 
 _METRICS = [
@@ -30,6 +31,8 @@ _METRICS = [
 
 
 def _build_cross_study_df(result: ExperimentResult) -> pd.DataFrame:
+    import pandas as pd
+
     """Build DataFrame from ExperimentResult for cross-study tables."""
     rows: list[dict] = []
     indices: list[str] = []

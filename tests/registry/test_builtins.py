@@ -56,8 +56,17 @@ def test_bpe_pharmaformer_has_literature_reference() -> None:
     assert meta["deviations"]
 
 
-def test_fresh_process_discovery_returns_all_builtins() -> None:
-    script = """
+class TestDiscoveryInAFreshProcess:
+    """Extended tier: spawns an interpreter to prove registration needs no test setup.
+
+    A class so the marker sits at class level; the in-process registration tests in
+    this file stay in the fast tier.
+    """
+
+    pytestmark = pytest.mark.slow
+
+    def test_fresh_process_discovery_returns_all_builtins(self) -> None:
+        script = """
 from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
 from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.predictor import predictor_registry
@@ -66,9 +75,9 @@ assert len(drug_featurizer_registry.list_metadata()) == 10
 assert len(predictor_registry.list_metadata()) == 27
 print("ok")
 """
-    completed = run_trusted_python(script)
-    assert completed.returncode == 0, completed.stderr
-    assert "ok" in completed.stdout
+        completed = run_trusted_python(script)
+        assert completed.returncode == 0, completed.stderr
+        assert "ok" in completed.stdout
 
 
 def test_literature_predictors_register_from_split_modules() -> None:

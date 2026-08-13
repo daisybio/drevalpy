@@ -37,8 +37,9 @@ class _Stub(_DRPLoggingMixin):
 def test_init_wandb_define_metrics_on_success() -> None:
     stub = _Stub()
     mock_run = MagicMock()
+    mock_wandb = MagicMock()
 
-    with patch("drevalpy.models.mixins._logging.wandb") as mock_wandb:
+    with patch("drevalpy.models.mixins._logging._wandb", return_value=mock_wandb):
         mock_wandb.run = mock_run
         stub.init_wandb("proj")
 
@@ -58,8 +59,9 @@ def test_init_wandb_define_metrics_on_success() -> None:
 def test_init_wandb_swallows_define_metric_exceptions() -> None:
     stub = _Stub()
     mock_run = MagicMock()
+    mock_wandb = MagicMock()
 
-    with patch("drevalpy.models.mixins._logging.wandb") as mock_wandb:
+    with patch("drevalpy.models.mixins._logging._wandb", return_value=mock_wandb):
         mock_wandb.run = mock_run
         mock_wandb.define_metric.side_effect = RuntimeError("define_metric failed")
         stub.init_wandb("proj")

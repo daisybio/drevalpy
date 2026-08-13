@@ -10,6 +10,10 @@ from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
 from drevalpy.models import construct_model
 from drevalpy.registry.dataset._registry import dataset_registry
 
+#: Extended tier: the two tests here train ElasticNet and split a real dataset,
+#: costing ~6.3s of the suite between them - by far the largest single group.
+pytestmark = pytest.mark.slow
+
 DATASET_NAME = "CTRPv1"
 
 

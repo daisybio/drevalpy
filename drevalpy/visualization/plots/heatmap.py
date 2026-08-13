@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -17,6 +16,8 @@ from drevalpy.visualization.base import Section, Visualization
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from drevalpy.types.results import ExperimentResult
 
 logger = get_logger(__name__)
@@ -34,6 +35,8 @@ _ALL_METRICS = [
 
 def _build_df_from_experiment(result: ExperimentResult) -> pd.DataFrame:
     """Build a flat DataFrame from an ExperimentResult with an index encoding model/setting/split."""
+    import pandas as pd
+
     rows: list[dict] = []
     indices: list[str] = []
     for model in result.models:
@@ -58,6 +61,8 @@ def _setting_groups(df: pd.DataFrame) -> pd.Series:
 
 
 def _calc_summary_metric(x: pd.DataFrame, std_error: bool = False) -> pd.Series:
+    import pandas as pd
+
     results = pd.Series(index=x.columns, dtype=float)
     for col in x.columns:
         if np.count_nonzero(np.isnan(x[col].values.astype(float))) == len(x[col]):
@@ -70,6 +75,8 @@ def _calc_summary_metric(x: pd.DataFrame, std_error: bool = False) -> pd.Series:
 
 
 def _compute_ssmd(df: pd.DataFrame, metric: str) -> pd.DataFrame:
+    import pandas as pd
+
     if metric not in df.columns:
         return pd.DataFrame()
 

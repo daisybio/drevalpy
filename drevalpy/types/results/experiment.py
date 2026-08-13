@@ -8,7 +8,6 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 from upath import UPath as Path
 
 from drevalpy.evaluation import AVAILABLE_METRICS, _compute_metric_value
@@ -238,6 +237,8 @@ def _log_load_summary(experiment: ExperimentResult, runs: list[RunResult], *, wi
 
 def _normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
     """Normalize a single RunResult against a reference RunResult."""
+    import pandas as pd
+
     ref_index = pd.MultiIndex.from_arrays(
         [np.asarray(ref_run.cell_line_ids, dtype=object), np.asarray(ref_run.drug_ids, dtype=object)]
     )

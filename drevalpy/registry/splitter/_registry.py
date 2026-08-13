@@ -12,13 +12,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Protocol
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any, Protocol
 
 from drevalpy.types import MuDataLike, SplitMasks
 
 from ._validation import Validation, validate_folds
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 class Splitter(Protocol):
@@ -172,6 +173,8 @@ class SplitterRegistry:
 
     def to_dataframe(self) -> pd.DataFrame:
         """Return registry contents as a pandas DataFrame."""
+        import pandas as pd
+
         rows = []
         for mode in self.modes:
             rows.append(

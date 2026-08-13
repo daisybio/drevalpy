@@ -1,11 +1,21 @@
-"""Functions for evaluating model performance."""
+"""Functions for evaluating model performance.
+
+``scipy.stats`` and ``sklearn.metrics`` are imported inside the metric functions
+rather than at module scope. This module is on the critical path of
+``import drevalpy`` - :mod:`drevalpy.types.results.experiment` needs
+:data:`AVAILABLE_METRICS` - and those two libraries cost ~0.3s between them,
+which every CLI invocation would otherwise pay before computing a single metric.
+See ``tests/test_import_cost_policy.py``.
+"""
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-import pandas as pd
-from scipy.stats import kendalltau, pearsonr, spearmanr
-from sklearn import metrics
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 warning_shown = False
 constant_prediction_warning_shown = False
@@ -53,6 +63,8 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     if _check_constant_target_or_small_sample(y_true):
         return np.nan
 
+    from scipy.stats import pearsonr
+
     return pearsonr(y_pred, y_true)[0]
 
 
@@ -73,6 +85,8 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
         return 0.0
     if _check_constant_target_or_small_sample(y_true):
         return np.nan
+
+    from scipy.stats import spearmanr
 
     return spearmanr(y_pred, y_true)[0]
 
@@ -95,14 +109,64 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     if _check_constant_target_or_small_sample(y_true):
         return np.nan
 
+    from scipy.stats import kendalltau
+
     return kendalltau(y_pred, y_true)[0]
 
 
+def _mean_squared_error(y_pred: np.ndarray, y_true: np.ndarray) -> float:
+    """Mean squared error, deferring the ``sklearn`` import to call time.
+
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
+    :returns: Mean squared error.
+    """
+    from sklearn.metrics import mean_squared_error
+
+    return float(mean_squared_error(y_true=y_true, y_pred=y_pred))
+
+
+def _root_mean_squared_error(y_pred: np.ndarray, y_true: np.ndarray) -> float:
+    """Root mean squared error, deferring the ``sklearn`` import to call time.
+
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
+    :returns: Root mean squared error.
+    """
+    from sklearn.metrics import root_mean_squared_error
+
+    return float(root_mean_squared_error(y_true=y_true, y_pred=y_pred))
+
+
+def _mean_absolute_error(y_pred: np.ndarray, y_true: np.ndarray) -> float:
+    """Mean absolute error, deferring the ``sklearn`` import to call time.
+
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
+    :returns: Mean absolute error.
+    """
+    from sklearn.metrics import mean_absolute_error
+
+    return float(mean_absolute_error(y_true=y_true, y_pred=y_pred))
+
+
+def _r2_score(y_pred: np.ndarray, y_true: np.ndarray) -> float:
+    """Coefficient of determination, deferring the ``sklearn`` import to call time.
+
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
+    :returns: R^2 score.
+    """
+    from sklearn.metrics import r2_score
+
+    return float(r2_score(y_true=y_true, y_pred=y_pred))
+
+
 AVAILABLE_METRICS = {
-    "MSE": metrics.mean_squared_error,
-    "RMSE": metrics.root_mean_squared_error,
-    "MAE": metrics.mean_absolute_error,
-    "R^2": metrics.r2_score,
+    "MSE": _mean_squared_error,
+    "RMSE": _root_mean_squared_error,
+    "MAE": _mean_absolute_error,
+    "R^2": _r2_score,
     "Pearson": pearson,
     "Spearman": spearman,
     "Kendall": kendall,

@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from sklearn.base import TransformerMixin
 from upath import UPath as Path
 
 from drevalpy.log import get_logger
@@ -25,6 +24,9 @@ from drevalpy.models.tuning.public_flat import public_hyperparameters_from_confi
 from drevalpy.models.tuning.search_space import sample_from_optuna_trial
 from drevalpy.types import SplitMask
 from drevalpy.types.data.dataset import Dataset
+
+if TYPE_CHECKING:
+    from sklearn.base import TransformerMixin
 
 logger = get_logger(__name__)
 
