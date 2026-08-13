@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import numpy as np
 import pytest
 from upath import UPath
 
 from drevalpy.evaluation import AVAILABLE_METRICS
-from drevalpy.types.results.experiment import ExperimentResult
+from drevalpy.types.results.experiment import ExperimentResult, _run_array_bytes
+from drevalpy.types.results.run import intern_ids
 from drevalpy.types.results.trial import TrialResult
 from drevalpy.visualization.requirements import PlotRequirement
 from tests.synthetic import NORMALIZED_METRIC, REFERENCE_MODEL, make_experiment_result, make_run_result
@@ -244,6 +246,61 @@ class TestNormalize:
         assert normalized.normalized_by == "ElasticNet"
         assert "ElasticNet" not in normalized.model_names
 
+    def test_normalizes_interned_id_arrays(self) -> None:
+        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=8)
+        other = make_run_result(model_name="ElasticNet", n_pairs=8)
+        for run in (reference, other):
+            run.cell_line_ids = intern_ids(run.cell_line_ids)
+            run.drug_ids = intern_ids(run.drug_ids)
+
+        normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
+
+        np.testing.assert_allclose(normalized_run.predictions, other.predictions - reference.predictions)
+
+    def test_normalizes_only_the_pairs_the_reference_covers(self) -> None:
+        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4, n_cell_lines=2, n_drugs=2)
+        other = make_run_result(model_name="ElasticNet", n_pairs=4, n_cell_lines=2, n_drugs=2)
+        other.cell_line_ids = np.array(["CL_0", "CL_9", "CL_0", "CL_9"])
+        other.drug_ids = np.array(["D_0", "D_0", "D_1", "D_1"])
+
+        normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
+
+        ref_by_pair = dict(
+            zip(
+                zip(reference.cell_line_ids, reference.drug_ids, strict=True),
+                reference.predictions,
+                strict=True,
+            )
+        )
+        expected = other.predictions - np.array(
+            [ref_by_pair.get((cl, dr), 0.0) for cl, dr in zip(other.cell_line_ids, other.drug_ids, strict=True)]
+        )
+        np.testing.assert_allclose(normalized_run.predictions, expected)
+
+    def test_a_duplicated_reference_pair_resolves_to_its_last_prediction(self) -> None:
+        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=2)
+        reference.cell_line_ids = np.array(["CL_0", "CL_0"])
+        reference.drug_ids = np.array(["D_0", "D_0"])
+        reference.predictions = np.array([1.0, 5.0])
+        other = make_run_result(model_name="ElasticNet", n_pairs=1)
+        other.cell_line_ids = np.array(["CL_0"])
+        other.drug_ids = np.array(["D_0"])
+        other.predictions = np.array([7.0])
+        other.ground_truth = np.array([7.0])
+
+        normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
+
+        np.testing.assert_allclose(normalized_run.predictions, np.array([2.0]))
+
+    def test_normalizes_ground_truth_by_the_same_offset(self) -> None:
+        experiment = make_experiment_result(n_models=2, n_folds=1)
+        reference, other = experiment.models
+
+        normalized_run = experiment.normalize().models[0].runs[0]
+
+        expected = other.runs[0].ground_truth - reference.runs[0].predictions
+        np.testing.assert_allclose(normalized_run.ground_truth, expected)
+
 
 class TestPersistence:
     def test_save_writes_one_directory_per_model(self, tmp_path) -> None:
@@ -301,6 +358,106 @@ class TestPersistence:
         make_experiment_result(n_models=1, n_folds=1).save(directory)
 
         assert ExperimentResult.load(directory).n_models == 1
+
+
+class TestTrialSkipping:
+    """The report path loads without trials; every other caller keeps the default."""
+
+    @staticmethod
+    def _saved_with_trials(directory: UPath) -> None:
+        experiment = make_experiment_result(n_models=2, n_folds=1)
+        for model in experiment.models:
+            for run in model.runs:
+                run.trials = [
+                    TrialResult(
+                        hyperparameters={"alpha": 0.1},
+                        metrics={"MSE": 0.3},
+                        optimization_metric="MSE",
+                        predictions=np.zeros(4),
+                    )
+                ]
+        experiment.save(directory)
+
+    def test_trials_are_loaded_by_default(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        self._saved_with_trials(directory)
+
+        loaded = ExperimentResult.load(directory)
+
+        assert all(run.trials for model in loaded.models for run in model.runs)
+
+    def test_trials_can_be_skipped(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        self._saved_with_trials(directory)
+
+        loaded = ExperimentResult.load(directory, with_trials=False)
+
+        assert all(run.trials is None for model in loaded.models for run in model.runs)
+
+    def test_skipping_trials_preserves_the_structure(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        self._saved_with_trials(directory)
+
+        loaded = ExperimentResult.load(directory, with_trials=False)
+
+        assert loaded.model_names == [REFERENCE_MODEL, "ElasticNet"]
+        assert loaded.max_folds == 1
+
+
+class TestLoadLogging:
+    """The load summary is the line that establishes the scale of a run."""
+
+    def test_reports_models_runs_rows_and_bytes(self, tmp_path, caplog) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        make_experiment_result(n_models=2, n_folds=2, n_pairs=20).save(directory)
+
+        with caplog.at_level(logging.INFO, logger="drevalpy.types.results.experiment"):
+            ExperimentResult.load(directory)
+
+        message = caplog.records[-1].getMessage()
+        assert "2 models" in message
+        assert "4 runs" in message
+        assert "80 prediction rows" in message
+        assert "GB of arrays" in message
+
+    def test_records_whether_trials_were_skipped(self, tmp_path, caplog) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        make_experiment_result(n_models=1, n_folds=1).save(directory)
+
+        with caplog.at_level(logging.INFO, logger="drevalpy.types.results.experiment"):
+            ExperimentResult.load(directory, with_trials=False)
+
+        assert "trials skipped" in caplog.records[-1].getMessage()
+
+    def test_records_when_trials_were_loaded(self, tmp_path, caplog) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        make_experiment_result(n_models=1, n_folds=1).save(directory)
+
+        with caplog.at_level(logging.INFO, logger="drevalpy.types.results.experiment"):
+            ExperimentResult.load(directory)
+
+        assert "trials loaded" in caplog.records[-1].getMessage()
+
+    def test_counts_trial_predictions_in_the_byte_total(self, tmp_path) -> None:
+        run = make_run_result(n_pairs=8)
+        without = _run_array_bytes(run)
+        run.trials = [
+            TrialResult(
+                hyperparameters={},
+                metrics={},
+                optimization_metric="MSE",
+                predictions=np.zeros(1000),
+            )
+        ]
+
+        assert _run_array_bytes(run) > without
+
+    def test_interned_ids_count_their_shared_strings(self) -> None:
+        run = make_run_result(n_pairs=8)
+        run.cell_line_ids = intern_ids(run.cell_line_ids)
+        run.drug_ids = intern_ids(run.drug_ids)
+
+        assert _run_array_bytes(run) > run.predictions.nbytes + run.ground_truth.nbytes
 
 
 class TestRepr:

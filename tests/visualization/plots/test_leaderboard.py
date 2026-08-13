@@ -4,11 +4,19 @@
 never restores it. That is asserted as current behaviour, and every test in this
 module runs inside an ``rc_context`` so the mutation cannot leak into the rest
 of the suite.
+
+The PCC panel is the plot that broke when it hard-coded ``"Pearson: normalized"``
+while ``normalize()`` emits ``"Pearson"``: the column came out all-NaN and
+``set_xlim`` raised ``ValueError: Axis limits cannot be NaN or Inf``. Both halves
+of that failure are pinned - the metric-name resolution and the NaN-safe axis.
 """
 
 from __future__ import annotations
 
+import logging
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 
 from drevalpy.types.results.experiment import ExperimentResult
@@ -16,12 +24,14 @@ from drevalpy.visualization.plots.leaderboard import (
     COMPETITOR_COLOR,
     DARK_THEME,
     LeaderboardVisualization,
+    _axis_bounds,
     _build_leaderboard_df,
+    _figure_geometry,
     _get_bar_color,
     _get_test_mode_name,
     _gradient_char_colors,
 )
-from tests.synthetic import make_experiment_result, make_run_result
+from tests.synthetic import NORMALIZED_METRIC, REFERENCE_MODEL, make_experiment_result, make_run_result
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -152,12 +162,116 @@ class TestBuildLeaderboardDf:
         assert list(df.columns) == ["algorithm", "PCC", "PCC_std", "RMSE", "RMSE_std", "is_baseline"]
 
 
+class TestMetricNameContract:
+    """``normalize()`` emits plain metric names; the panel must read those."""
+
+    def test_a_normalized_experiment_yields_finite_pcc_values(self):
+        normalized = make_experiment_result(n_models=4, n_folds=3).normalize(REFERENCE_MODEL)
+
+        df = _build_leaderboard_df(normalized)
+
+        assert df["PCC"].notna().all()
+
+    def test_the_reference_model_is_gone_from_the_ranking(self):
+        normalized = make_experiment_result(n_models=4, n_folds=3).normalize(REFERENCE_MODEL)
+
+        df = _build_leaderboard_df(normalized)
+
+        assert REFERENCE_MODEL not in df["algorithm"].tolist()
+
+    def test_the_legacy_suffixed_spelling_is_still_read(self):
+        """Results serialized by older releases only carry the suffixed key."""
+        result = ExperimentResult(
+            [make_run_result(fold_index=i, metrics={NORMALIZED_METRIC: 0.4 + 0.1 * i, "RMSE": 1.0}) for i in range(2)]
+        )
+
+        df = _build_leaderboard_df(result)
+
+        assert df["PCC"].tolist() == [pytest.approx(0.45)]
+
+    def test_the_plain_name_wins_when_both_are_present(self):
+        result = ExperimentResult([make_run_result(metrics={"Pearson": 0.9, NORMALIZED_METRIC: 0.1, "RMSE": 1.0})])
+
+        df = _build_leaderboard_df(result)
+
+        assert df["PCC"].tolist() == [pytest.approx(0.9)]
+
+    def test_a_metric_no_run_reports_becomes_nan_rather_than_raising(self):
+        result = ExperimentResult([make_run_result(metrics={"MSE": 0.5})])
+
+        df = _build_leaderboard_df(result)
+
+        assert df["PCC"].isna().all()
+
+
+class TestFigureGeometry:
+    """The 96-model production report overlapped every tick label at a fixed height."""
+
+    def test_a_small_experiment_keeps_the_original_canvas(self):
+        height, font_adder, _ = _figure_geometry(12)
+
+        assert (height, font_adder) == (12.0, 6)
+
+    def test_height_grows_with_the_model_count(self):
+        assert _figure_geometry(96)[0] > _figure_geometry(20)[0] > 12.0 - 1e-9
+
+    def test_every_model_gets_at_least_a_quarter_inch_of_height(self):
+        height, _, _ = _figure_geometry(96)
+
+        assert height / 96 > 0.25
+
+    def test_the_font_shrinks_as_the_list_gets_long(self):
+        assert _figure_geometry(96)[1] < _figure_geometry(40)[1] < _figure_geometry(10)[1]
+
+    def test_height_is_capped_so_the_png_stays_writable(self):
+        assert _figure_geometry(10_000)[0] == 60.0
+
+
+class TestAxisBounds:
+    """An all-NaN metric column used to take the whole report down."""
+
+    def test_bounds_stay_finite_when_every_value_is_nan(self):
+        left, right = _axis_bounds(np.array([np.nan, np.nan]), np.array([np.nan, np.nan]))
+
+        assert np.isfinite([left, right]).all()
+        assert left < right
+
+    def test_a_nan_standard_deviation_is_treated_as_zero(self):
+        assert _axis_bounds(np.array([1.0]), np.array([np.nan])) == _axis_bounds(np.array([1.0]), np.array([0.0]))
+
+    def test_the_upper_bound_clears_the_tallest_bar(self):
+        _, right = _axis_bounds(np.array([0.2, 0.8]), np.array([0.0, 0.1]))
+
+        assert right > 0.9
+
+    def test_negative_values_are_inside_the_axis(self):
+        """A normalized correlation below the reference model is negative."""
+        left, right = _axis_bounds(np.array([-0.4, 0.3]), np.array([0.0, 0.0]))
+
+        assert left < -0.4
+        assert right > 0.3
+
+    def test_a_single_zero_value_still_yields_an_ordered_axis(self):
+        left, right = _axis_bounds(np.array([0.0]), np.array([0.0]))
+
+        assert left < right
+
+
 class TestCompute:
     def test_builds_two_ranked_panels(self, computed):
         assert len(computed._fig.axes) == 2
 
-    def test_left_panel_ranks_by_normalized_pearson(self, computed):
-        assert computed._fig.axes[0].get_xlabel() == "Normalized PCC"
+    def test_left_panel_ranks_by_pearson(self, computed):
+        """The experiment is not normalized, so the label must not claim it is."""
+        assert computed._fig.axes[0].get_xlabel() == "PCC"
+
+    def test_left_panel_says_normalized_once_it_is(self, experiment):
+        plot = LeaderboardVisualization()
+
+        plot.compute(experiment.normalize(REFERENCE_MODEL))
+
+        assert plot._fig.axes[0].get_xlabel() == "Normalized PCC"
+        assert "Normalized Pearson" in plot._fig.axes[0].get_title()
 
     def test_right_panel_ranks_by_rmse(self, computed):
         assert computed._fig.axes[1].get_xlabel() == "Root Mean Square Error"
@@ -193,6 +307,51 @@ class TestCompute:
 
         assert len(plot._fig.axes) == 1
         assert plot._fig.axes[0].texts[0].get_text() == "No data available for leaderboard"
+
+    def test_a_normalized_experiment_renders_both_panels(self, experiment):
+        """The regression: this used to raise ``Axis limits cannot be NaN or Inf``."""
+        plot = LeaderboardVisualization()
+
+        plot.compute(experiment.normalize(REFERENCE_MODEL))
+
+        assert len(plot._fig.axes) == 2
+
+    def test_models_without_a_pcc_value_are_dropped_from_that_panel_only(self):
+        result = ExperimentResult(
+            [
+                make_run_result(model_name="WithPcc", fold_index=i, metrics={"Pearson": 0.5, "RMSE": 1.0})
+                for i in range(2)
+            ]
+            + [make_run_result(model_name="NoPcc", fold_index=i, metrics={"RMSE": 2.0}) for i in range(2)]
+        )
+        plot = LeaderboardVisualization()
+
+        plot.compute(result)
+
+        pcc_labels = {label.get_text() for label in plot._fig.axes[0].get_yticklabels()}
+        rmse_labels = {label.get_text() for label in plot._fig.axes[1].get_yticklabels()}
+        assert pcc_labels == {"WithPcc"}
+        assert rmse_labels == {"WithPcc", "NoPcc"}
+
+    def test_skips_with_a_warning_when_no_metric_has_a_finite_value(self, caplog):
+        result = ExperimentResult(
+            [make_run_result(model_name="A", fold_index=i, metrics={"MSE": 0.5}) for i in range(2)]
+        )
+        plot = LeaderboardVisualization()
+
+        with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.leaderboard"):
+            plot.compute(result)
+
+        assert plot._fig.axes[0].texts[0].get_text() == "No data available for leaderboard"
+        assert any("no finite Pearson/RMSE values" in r.getMessage() for r in caplog.records)
+
+    def test_a_large_experiment_gets_a_taller_canvas(self):
+        """The 96-model report is the case a fixed 12-inch figure could not render."""
+        plot = LeaderboardVisualization()
+
+        plot.compute(make_experiment_result(n_models=40, n_folds=2))
+
+        assert plot._fig.get_size_inches()[1] > 12.0
 
     def test_dataset_argument_is_accepted_and_ignored(self, experiment):
         plot = LeaderboardVisualization()

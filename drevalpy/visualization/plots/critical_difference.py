@@ -6,29 +6,43 @@ import warnings
 from typing import TYPE_CHECKING
 
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.colors as pc
 import scikit_posthocs as sp
 from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from scikit_posthocs import sign_array
 from scipy import stats
 
 from drevalpy.evaluation import MINIMIZATION_METRICS
+from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
+from drevalpy.visualization._metric_names import metric_keys, resolve_metric_key
 from drevalpy.visualization.base import ImageVisualization
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult
 
+logger = get_logger(__name__)
+
 matplotlib.use("agg")
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*swapaxes.*")
 
 
 def _build_cd_df(result: ExperimentResult, metric: str) -> pd.DataFrame:
-    """Build DataFrame for CD plot: columns algorithm, CV_split, <metric>."""
+    """Build DataFrame for CD plot: columns algorithm, CV_split, <metric>.
+
+    The metric is looked up through :func:`resolve_metric_key`, so a result that
+    stores its normalized metrics under the legacy ``": normalized"`` spelling
+    still yields values instead of a silently all-NaN column.
+
+    :param result: Experiment to rank.
+    :param metric: Plain metric name to rank by.
+    :returns: One row per non-randomized run, with NaN rows dropped.
+    """
+    key = resolve_metric_key(metric_keys(result), metric)
     rows: list[dict] = []
     for model in result.models:
         for run in model.runs:
@@ -38,10 +52,10 @@ def _build_cd_df(result: ExperimentResult, metric: str) -> pd.DataFrame:
                 {
                     "algorithm": run.model_name,
                     "CV_split": run.fold_index,
-                    metric: run.metrics.get(metric, float("nan")),
+                    metric: run.metrics.get(key, float("nan")) if key else float("nan"),
                 }
             )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=["algorithm", "CV_split", metric]).dropna(subset=[metric])
 
 
 def _generate_discrete_palette(n_colors: int) -> list[str]:
@@ -128,7 +142,7 @@ def _critical_difference_diagram(
     crossbar_props = {"color": "k", "zorder": 3, "linewidth": 4}
     text_h_margin = 0.01
 
-    ax = ax or plt.gca()
+    ax = ax if ax is not None else Figure().add_subplot()
     ax.yaxis.set_visible(False)
     for spine in ("right", "left", "bottom"):
         ax.spines[spine].set_visible(False)
@@ -182,7 +196,7 @@ class CriticalDifferenceVisualization(ImageVisualization):
         """Initialize with empty state."""
         self._result: ExperimentResult | None = None
         self._metric: str = "MSE"
-        self._fig: plt.Figure | None = None
+        self._fig: Figure | None = None
 
     def compute(self, result: ExperimentResult, dataset=None, metric: str = "MSE") -> None:
         """Compute rankings and Friedman test, then create the CD figure.
@@ -194,14 +208,18 @@ class CriticalDifferenceVisualization(ImageVisualization):
         self._metric = metric
         self._fig = self._create_figure()
 
-    def _create_figure(self) -> plt.Figure:
+    def _create_figure(self) -> Figure:
         """Create the critical difference diagram figure."""
         result = self._result
         metric = self._metric
 
         eval_df = _build_cd_df(result, metric)
         if eval_df.empty:
-            fig, ax = plt.subplots(figsize=(10, 4))
+            logger.warning(
+                "critical_difference: no finite %s values across folds; emitting a placeholder panel", metric
+            )
+            fig = Figure(figsize=(10, 4))
+            ax = fig.add_subplot()
             ax.text(0.5, 0.5, "No data available", ha="center", va="center")
             return fig
 
@@ -214,6 +232,19 @@ class CriticalDifferenceVisualization(ImageVisualization):
         input_friedman = input_friedman[table_lengths == most_common_length]
         algorithms_included = set(input_friedman.index)
 
+        # scipy's Friedman test needs at least three comparable groups.
+        if len(algorithms_included) < 3:
+            logger.warning(
+                "critical_difference: only %d models share %d folds of %s; skipping the Friedman test",
+                len(algorithms_included),
+                most_common_length,
+                metric,
+            )
+            fig = Figure(figsize=(10, 4))
+            ax = fig.add_subplot()
+            ax.text(0.5, 0.5, "Not enough comparable models", ha="center", va="center")
+            return fig
+
         friedman_p_value = stats.friedmanchisquare(*input_friedman).pvalue
 
         eval_df = eval_df[eval_df["algorithm"].isin(algorithms_included)]
@@ -221,9 +252,9 @@ class CriticalDifferenceVisualization(ImageVisualization):
         test_results = pd.DataFrame(sp.posthoc_conover_friedman(input_conover, p_adjust="fdr_bh"))
         average_ranks = input_conover.rank(ascending=False, axis=1).mean(axis=0)
 
-        fig, ax = plt.subplots(figsize=(12, max(4, len(algorithms_included) * 0.8)))
-        plt.sca(ax)
-        plt.title(
+        fig = Figure(figsize=(12, max(4, len(algorithms_included) * 0.8)))
+        ax = fig.add_subplot()
+        ax.set_title(
             f"Critical Difference Diagram: Metric: {metric}.\nOverall Friedman-Chi2 p-value: {friedman_p_value:.2e}",
             fontsize=20,
         )

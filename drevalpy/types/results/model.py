@@ -61,17 +61,19 @@ class ModelResult:
             run.save(str(out / f"fold_{i}.npz"))
 
     @classmethod
-    def load(cls, directory: str | Path) -> ModelResult:
+    def load(cls, directory: str | Path, *, with_trials: bool = True) -> ModelResult:
         """Load from a directory saved by ``save()``.
 
         :param directory: Path to the model result directory.
+        :param with_trials: Forwarded to :meth:`RunResult.load`; pass ``False`` to skip
+            reading the HPO trial predictions.
         :returns: Reconstructed ModelResult.
         """
         path = Path(directory)
         meta = json.loads((path / "metadata.json").read_text())
 
         fold_files = sorted(path.glob("fold_*.npz"))
-        runs = [RunResult.load(str(f)) for f in fold_files]
+        runs = [RunResult.load(str(f), with_trials=with_trials) for f in fold_files]
 
         return cls(
             model_name=meta["model_name"],

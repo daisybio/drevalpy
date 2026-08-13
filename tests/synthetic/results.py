@@ -34,8 +34,10 @@ DEFAULT_MODEL_NAMES: Final = (REFERENCE_MODEL, "ElasticNet", "RandomForest")
 DEFAULT_DATASET_NAME: Final = "SyntheticDataset"
 DEFAULT_SPLIT_MODE: Final = "LPO"
 
-#: ``"Pearson: normalized"`` is only produced by ``normalize()`` in production,
-#: but the leaderboard plot requires it, so builders emit it unconditionally.
+#: Suffix older drevalpy releases appended to the normalized copy of a metric.
+#: ``normalize()`` no longer emits it - it recomputes every metric under its
+#: plain name - so the builders below do not either; the constant stays for the
+#: tests that pin the plots' tolerance of results written by those releases.
 NORMALIZED_METRIC: Final = "Pearson: normalized"
 
 
@@ -47,13 +49,11 @@ def make_metrics(*, seed: int = 0) -> dict[str, float]:
 
     Returns:
         Mapping of metric name to score, holding every key in
-        :data:`drevalpy.evaluation.AVAILABLE_METRICS` plus
-        :data:`NORMALIZED_METRIC`.
+        :data:`drevalpy.evaluation.AVAILABLE_METRICS` - the same key set a run
+        carries in production, before and after normalization.
     """
     rng = np.random.default_rng(seed)
-    metrics = {name: float(rng.uniform(0.1, 0.9)) for name in AVAILABLE_METRICS}
-    metrics[NORMALIZED_METRIC] = float(rng.uniform(0.1, 0.9))
-    return metrics
+    return {name: float(rng.uniform(0.1, 0.9)) for name in AVAILABLE_METRICS}
 
 
 def make_run_result(

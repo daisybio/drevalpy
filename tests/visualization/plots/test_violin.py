@@ -7,13 +7,15 @@ than worked around.
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pytest
 from plotly.basedatatypes import BaseFigure
 
 from drevalpy.types.results.experiment import ExperimentResult
 from drevalpy.visualization.plots.violin import ViolinVisualization, _build_df_from_experiment
-from tests.synthetic import make_experiment_result, make_run_result
+from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 #: Metrics the plot draws: the seven base metrics, normalized variants excluded.
 N_PLOTTED_METRICS = 7
@@ -112,6 +114,26 @@ class TestCompute:
         plot.compute(experiment, dataset=object())
 
         assert plot._fig is not None
+
+    def test_skips_cleanly_with_a_warning_when_no_metric_survives(self, caplog):
+        """A plot with nothing to show must warn and skip, not emit an empty figure."""
+        result = ExperimentResult([make_run_result(fold_index=i, metrics={"Pearson": np.nan}) for i in range(2)])
+        plot = ViolinVisualization()
+
+        with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.violin"):
+            plot.compute(result)
+
+        assert plot._fig.data == ()
+        assert plot.to_multiqc() == []
+        assert any("no metric has a finite value" in r.getMessage() for r in caplog.records)
+
+    def test_a_normalized_experiment_still_draws_every_base_metric(self):
+        normalized = make_experiment_result(n_models=3, n_folds=2).normalize(REFERENCE_MODEL)
+        plot = ViolinVisualization()
+
+        plot.compute(normalized)
+
+        assert len(plot._fig.data) == len(normalized.models) * N_PLOTTED_METRICS
 
 
 class TestToMultiqc:

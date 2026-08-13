@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from upath import UPath
 
-from drevalpy.types.results.run import RunResult
+from drevalpy.types.results.run import RunResult, intern_ids
 from drevalpy.types.results.trial import TrialResult
 from tests.synthetic import make_metrics, make_run_result
 
@@ -222,3 +222,85 @@ class TestPersistence:
 
         assert meta["split_mode"] == "LDO"
         assert meta["fold_id"] == "fold_0"
+
+
+class TestTrialSkipping:
+    """``with_trials=False`` lets the report path avoid the largest arrays in the file."""
+
+    def test_trials_are_loaded_by_default(self, tmp_path) -> None:
+        run = make_run_result()
+        run.trials = [_trial(0), _trial(1)]
+        path = UPath(tmp_path) / "fold.npz"
+        run.save(path)
+
+        assert RunResult.load(path).trials is not None
+
+    def test_trials_can_be_skipped(self, tmp_path) -> None:
+        run = make_run_result()
+        run.trials = [_trial(0), _trial(1)]
+        path = UPath(tmp_path) / "fold.npz"
+        run.save(path)
+
+        assert RunResult.load(path, with_trials=False).trials is None
+
+    def test_skipping_trials_leaves_the_fold_arrays_intact(self, tmp_path) -> None:
+        run = make_run_result(n_pairs=6)
+        run.trials = [_trial(0)]
+        path = UPath(tmp_path) / "fold.npz"
+        run.save(path)
+
+        loaded = RunResult.load(path, with_trials=False)
+
+        np.testing.assert_allclose(loaded.predictions, run.predictions)
+        np.testing.assert_array_equal(loaded.drug_ids, run.drug_ids)
+
+
+class TestInternIds:
+    """Entity ids are deduplicated at load; ``<U40`` costs 160 B per element otherwise."""
+
+    def test_values_are_preserved(self) -> None:
+        ids = np.array(["CL_0", "CL_1", "CL_0"], dtype="<U40")
+
+        np.testing.assert_array_equal(intern_ids(ids), ids)
+
+    def test_the_result_is_an_object_array(self) -> None:
+        assert intern_ids(np.array(["CL_0", "CL_1"])).dtype == object
+
+    def test_indexing_still_yields_a_str(self) -> None:
+        assert intern_ids(np.array(["CL_0"]))[0] == "CL_0"
+        assert isinstance(intern_ids(np.array(["CL_0"]))[0], str)
+
+    def test_repeated_ids_share_one_string_object(self) -> None:
+        interned = intern_ids(np.array(["CL_0"] * 5))
+
+        assert len({id(value) for value in interned.tolist()}) == 1
+
+    def test_an_empty_array_stays_empty(self) -> None:
+        assert intern_ids(np.array([], dtype="<U40")).shape == (0,)
+
+    def test_the_pointer_table_is_smaller_than_fixed_width_storage(self) -> None:
+        ids = np.array([f"BRD-K{i:035d}" for i in range(4)] * 250, dtype="<U40")
+
+        assert intern_ids(ids).nbytes < ids.nbytes
+
+    def test_load_interns_both_id_arrays(self, tmp_path) -> None:
+        path = UPath(tmp_path) / "fold.npz"
+        make_run_result(n_pairs=6).save(path)
+
+        loaded = RunResult.load(path)
+
+        assert loaded.cell_line_ids.dtype == object
+        assert loaded.drug_ids.dtype == object
+
+    def test_the_save_load_round_trip_stays_lossless_through_interning(self, tmp_path) -> None:
+        run = make_run_result(n_pairs=8, n_cell_lines=3, n_drugs=2)
+        first = UPath(tmp_path) / "a.npz"
+        second = UPath(tmp_path) / "b.npz"
+
+        run.save(first)
+        once = RunResult.load(first)
+        once.save(second)
+        twice = RunResult.load(second)
+
+        np.testing.assert_array_equal(once.cell_line_ids, run.cell_line_ids)
+        np.testing.assert_array_equal(twice.drug_ids, run.drug_ids)

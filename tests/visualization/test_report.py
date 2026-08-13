@@ -7,6 +7,9 @@ suite does not pay for seven real plots per assertion.
 
 from __future__ import annotations
 
+import gc
+import logging
+import weakref
 from typing import Any
 
 import multiqc
@@ -202,6 +205,112 @@ class TestCreateReport:
         create_report(experiment, tmp_path / "with_dataset", dataset=dataset)
 
         assert only_stub_is_applicable.last.computed[0][1] is dataset
+
+    def test_releases_the_unnormalized_experiment(self, tmp_path, only_stub_is_applicable):
+        """The pre-normalization copy must not stay reachable through the argument."""
+        sentinel: list[weakref.ref] = []
+
+        def built_inline() -> ExperimentResult:
+            experiment = make_experiment_result(n_models=2, n_folds=1)
+            sentinel.append(weakref.ref(experiment))
+            return experiment
+
+        create_report(built_inline(), tmp_path / "released", reference_model=REFERENCE_MODEL)
+        gc.collect()
+
+        assert sentinel[0]() is None
+
+    def test_every_real_plot_survives_normalization(self, tmp_path):
+        """The pipeline always passes ``--reference-model``, and this path used to crash.
+
+        ``normalize()`` recomputes metrics under their plain names, which the
+        leaderboard did not read; its PCC column came out all-NaN and matplotlib
+        raised ``Axis limits cannot be NaN or Inf`` before MultiQC ever ran.
+        """
+        out = tmp_path / "normalized_report"
+
+        create_report(
+            make_experiment_result(n_models=4, n_folds=3),
+            out,
+            title="Normalized",
+            reference_model=REFERENCE_MODEL,
+        )
+
+        assert [p.name for p in out.glob("*.html")] == ["Normalized_multiqc_report.html"]
+
+    def test_the_normalized_leaderboard_renders_with_real_values(self, tmp_path):
+        """A section is worthless if it is present but blank."""
+        create_report(
+            make_experiment_result(n_models=4, n_folds=3),
+            tmp_path / "leaderboard_values",
+            reference_model=REFERENCE_MODEL,
+        )
+
+        leaderboard = next(m for m in multiqc.report.modules if m.name == "leaderboard")
+        assert "No data available" not in leaderboard.sections[0].content
+        assert "data:image/png;base64," in leaderboard.sections[0].content
+
+
+class TestLogging:
+    """The report used to die with an empty ``Command output``; these lines are the fix."""
+
+    def test_logs_the_model_count_and_the_pair_count(self, experiment, tmp_path, only_stub_is_applicable, caplog):
+        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
+            create_report(experiment, tmp_path / "logged")
+
+        messages = [r.getMessage() for r in caplog.records]
+        assert any("3 models (3 model pairs)" in m for m in messages)
+
+    def test_logs_the_reference_model_before_normalizing(self, experiment, tmp_path, only_stub_is_applicable, caplog):
+        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
+            create_report(experiment, tmp_path / "logged_ref", reference_model=REFERENCE_MODEL)
+
+        messages = [r.getMessage() for r in caplog.records]
+        assert any(f"Normalizing against reference model '{REFERENCE_MODEL}'" in m for m in messages)
+
+    def test_names_each_plot_before_computing_it(self, experiment, only_stub_is_applicable, caplog):
+        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
+            _run_visualization(_StubViz(), experiment, "ExperimentResult")
+
+        assert caplog.records[0].getMessage().startswith("plot stub_viz: computing | rss=")
+
+    def test_reports_per_model_progress(self, experiment, caplog):
+        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
+            _run_visualization(_StubViz(), experiment, "ModelResult")
+
+        messages = [r.getMessage() for r in caplog.records]
+        assert any("model 1/3" in m for m in messages)
+        assert any("model 3/3" in m for m in messages)
+
+    def test_reports_elapsed_time_and_memory_delta_after_each_plot(self, experiment, caplog):
+        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
+            _run_visualization(_StubViz(), experiment, "ExperimentResult")
+
+        assert "plot stub_viz: done in" in caplog.records[-1].getMessage()
+
+    def test_logs_the_module_and_section_counts_before_writing(
+        self, experiment, tmp_path, only_stub_is_applicable, caplog
+    ):
+        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
+            create_report(experiment, tmp_path / "counted")
+
+        messages = [r.getMessage() for r in caplog.records]
+        assert any("report: writing 1 modules / 1 sections" in m for m in messages)
+
+    def test_confirms_the_report_was_written(self, experiment, tmp_path, only_stub_is_applicable):
+        # MultiQC re-initialises root logging inside write_report, so caplog's root handler
+        # misses anything logged afterwards; listen on the module logger directly.
+        records: list[logging.LogRecord] = []
+        handler = logging.Handler()
+        handler.emit = records.append  # type: ignore[method-assign]
+        logger = logging.getLogger("drevalpy.visualization.report")
+        logger.addHandler(handler)
+        try:
+            create_report(experiment, tmp_path / "confirmed")
+        finally:
+            logger.removeHandler(handler)
+
+        assert records[-1].getMessage().startswith("report: written | rss=")
 
 
 class TestSaveAllPng:

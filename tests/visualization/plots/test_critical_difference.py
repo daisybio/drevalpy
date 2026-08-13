@@ -1,11 +1,14 @@
 """Tests for :mod:`drevalpy.visualization.plots.critical_difference`.
 
 The Friedman test underpinning this plot needs at least three models with equal
-fold counts, so the minimum-input behaviour (a ``ValueError`` from SciPy) and
-the modal-fold-count filtering in ``_create_figure`` are asserted explicitly.
+fold counts. ``MULTIPLE_MODELS`` only demands two, so the plot skips with a
+warning rather than letting SciPy raise; that and the modal-fold-count filtering
+in ``_create_figure`` are asserted explicitly.
 """
 
 from __future__ import annotations
+
+import logging
 
 import matplotlib.colors
 import matplotlib.pyplot as plt
@@ -22,7 +25,7 @@ from drevalpy.visualization.plots.critical_difference import (
     _generate_discrete_palette,
     _nonsignificant_adjacency,
 )
-from tests.synthetic import make_experiment_result, make_run_result
+from tests.synthetic import NORMALIZED_METRIC, make_experiment_result, make_run_result
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -83,10 +86,26 @@ class TestBuildCdDf:
 
         assert df["algorithm"].tolist() == ["ElasticNet"]
 
-    def test_missing_metrics_become_nan(self, experiment):
+    def test_missing_metrics_leave_no_rows_to_rank(self, experiment):
+        """NaN rows are dropped, so an absent metric yields an empty frame."""
         df = _build_cd_df(experiment, "NotAMetric")
 
-        assert df["NotAMetric"].isna().all()
+        assert df.empty
+        assert list(df.columns) == ["algorithm", "CV_split", "NotAMetric"]
+
+    def test_the_legacy_normalized_spelling_is_resolved(self):
+        result = ExperimentResult([make_run_result(metrics={NORMALIZED_METRIC: 0.42})])
+
+        df = _build_cd_df(result, "Pearson")
+
+        assert df["Pearson"].tolist() == [0.42]
+
+    def test_the_plain_name_wins_over_the_suffixed_one(self):
+        result = ExperimentResult([make_run_result(metrics={"Pearson": 0.9, NORMALIZED_METRIC: 0.1})])
+
+        df = _build_cd_df(result, "Pearson")
+
+        assert df["Pearson"].tolist() == [0.9]
 
     def test_is_empty_when_every_run_is_randomized(self):
         result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
@@ -246,11 +265,41 @@ class TestCompute:
 
         assert plot._fig.axes[0].texts[0].get_text() == "No data available"
 
-    def test_fewer_than_three_models_is_rejected_by_the_friedman_test(self):
+    def test_fewer_than_three_models_is_skipped_instead_of_raising(self, caplog):
+        """``MULTIPLE_MODELS`` admits a two-model experiment, which Friedman cannot rank."""
         plot = CriticalDifferenceVisualization()
 
-        with pytest.raises(ValueError, match="At least 3 samples"):
+        with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.critical_difference"):
             plot.compute(make_experiment_result(n_models=2))
+
+        assert plot._fig.axes[0].texts[0].get_text() == "Not enough comparable models"
+        assert any("only 2 models share" in r.getMessage() for r in caplog.records)
+
+    def test_a_metric_absent_from_every_run_is_skipped_with_a_warning(self, experiment, caplog):
+        plot = CriticalDifferenceVisualization()
+
+        with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.critical_difference"):
+            plot.compute(experiment, metric="NotAMetric")
+
+        assert plot._fig.axes[0].texts[0].get_text() == "No data available"
+        assert any("no finite NotAMetric values" in r.getMessage() for r in caplog.records)
+
+    def test_the_legacy_normalized_spelling_is_still_ranked(self):
+        """Results written before ``normalize()`` used plain names keep working."""
+        runs = [
+            make_run_result(
+                model_name=name,
+                fold_index=fold,
+                metrics={NORMALIZED_METRIC: 0.5 + 0.1 * index + 0.01 * fold},
+            )
+            for index, name in enumerate(("A", "B", "C"))
+            for fold in range(3)
+        ]
+        plot = CriticalDifferenceVisualization()
+
+        plot.compute(ExperimentResult(runs), metric="Pearson")
+
+        assert len(plot._fig.axes[0].collections) == 3
 
     def test_dataset_argument_is_accepted_and_ignored(self, experiment):
         plot = CriticalDifferenceVisualization()

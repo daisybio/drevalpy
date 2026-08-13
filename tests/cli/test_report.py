@@ -2,11 +2,13 @@
 
 ``create_report`` drives MultiQC, which is far too heavy for a CLI plumbing
 test, so the worker is patched and the assertions cover argument forwarding, the
-optional dataset enrichment and the echoed confirmation. Report rendering itself
-belongs to the ``tests/visualization`` mirror.
+deliberately-unused ``--dataset`` flag and the echoed confirmation. Report
+rendering itself belongs to the ``tests/visualization`` mirror.
 """
 
 from __future__ import annotations
+
+import logging
 
 import pytest
 from upath import UPath
@@ -106,24 +108,27 @@ class TestForwarding:
 
 
 class TestDatasetEnrichment:
-    """``--dataset`` is optional and only then is ``Dataset.load`` reached."""
+    """``--dataset`` stays accepted but is deliberately never read.
+
+    Every visualization takes ``dataset`` and ignores it, and the .h5mu is large enough
+    that loading it was a meaningful slice of the report container's memory, so the CLI
+    accepts the flag for pipeline compatibility and logs that it is unused.
+    """
 
     def test_dataset_is_none_by_default(self, worker: Recorder, experiment_dir: UPath) -> None:
         runner.invoke(app, ["report", str(experiment_dir)])
 
         assert worker.kwargs["dataset"] is None
 
-    def test_dataset_is_loaded_and_forwarded(
-        self, worker: Recorder, experiment_dir: UPath, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
+    def test_dataset_is_still_none_when_a_path_is_given(
+        self, worker: Recorder, experiment_dir: UPath, tmp_path: UPath
     ) -> None:
-        dataset = FakeDataset()
-        monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: dataset))
+        result = runner.invoke(app, ["report", str(experiment_dir), "-d", str(tmp_path / "ds.h5mu")])
 
-        runner.invoke(app, ["report", str(experiment_dir), "-d", str(tmp_path / "ds.h5mu")])
+        assert result.exit_code == 0, result.output
+        assert worker.kwargs["dataset"] is None
 
-        assert worker.kwargs["dataset"] is dataset
-
-    def test_dataset_path_is_passed_through_to_the_loader(
+    def test_the_dataset_file_is_never_opened(
         self, worker: Recorder, experiment_dir: UPath, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
     ) -> None:
         seen: list[str] = []
@@ -131,8 +136,37 @@ class TestDatasetEnrichment:
             "drevalpy.types.data.dataset.Dataset.load",
             classmethod(lambda cls, path: seen.append(path) or FakeDataset()),
         )
+
+        runner.invoke(app, ["report", str(experiment_dir), "--dataset", str(tmp_path / "ds.h5mu")])
+
+        assert seen == []
+
+    def test_the_ignored_dataset_is_logged(
+        self, worker: Recorder, experiment_dir: UPath, tmp_path: UPath, caplog: pytest.LogCaptureFixture
+    ) -> None:
         dataset_path = tmp_path / "ds.h5mu"
 
-        runner.invoke(app, ["report", str(experiment_dir), "--dataset", str(dataset_path)])
+        with caplog.at_level(logging.INFO, logger="drevalpy.cli.report"):
+            runner.invoke(app, ["report", str(experiment_dir), "--dataset", str(dataset_path)])
 
-        assert seen == [str(dataset_path)]
+        assert any(str(dataset_path) in record.getMessage() for record in caplog.records)
+
+
+class TestTrialSkipping:
+    """The report never reads HPO trial predictions, which dwarf the fold predictions."""
+
+    def test_the_experiment_is_loaded_without_trials(
+        self, worker: Recorder, experiment_dir: UPath, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen: list[bool] = []
+        original = ExperimentResult.load
+
+        def spy(directory, *, with_trials=True):
+            seen.append(with_trials)
+            return original(directory, with_trials=with_trials)
+
+        monkeypatch.setattr(ExperimentResult, "load", staticmethod(spy))
+
+        runner.invoke(app, ["report", str(experiment_dir)])
+
+        assert seen == [False]

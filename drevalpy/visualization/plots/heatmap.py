@@ -10,12 +10,16 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
+from drevalpy.visualization._metric_names import resolve_metric_key
 from drevalpy.visualization.base import Section, Visualization
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult
+
+logger = get_logger(__name__)
 
 _ALL_METRICS = [
     "R^2",
@@ -89,6 +93,32 @@ def _compute_ssmd(df: pd.DataFrame, metric: str) -> pd.DataFrame:
     return ssmd_matrix.astype(float)
 
 
+def _resolve_metric_columns(result: ExperimentResult, df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """Select one column per base metric, accepting the legacy suffixed spelling.
+
+    ``normalize()`` emits plain metric names, but results serialized by older
+    releases carry the normalized copy under ``"<metric>: normalized"``. Both are
+    surfaced here under the plain name so the panels are never silently blank.
+
+    :param result: Experiment the frame was built from.
+    :param df: Flat per-run frame including the metric columns.
+    :returns: ``(frame, columns)`` where the frame has base-named metric columns.
+    """
+    available = set(df.columns)
+    renames: dict[str, str] = {}
+    columns: list[str] = []
+    for base in _ALL_METRICS:
+        key = resolve_metric_key(available, base)
+        if key is None:
+            continue
+        if key != base:
+            renames[key] = base
+        columns.append(base)
+    if renames:
+        df = df.rename(columns=renames)
+    return df, columns
+
+
 @register(
     "heatmap",
     "Heatmap of mean metrics per model",
@@ -109,7 +139,9 @@ class HeatmapVisualization(Visualization):
         """
         self._result = result
         df = _build_df_from_experiment(result)
-        metric_cols = [m for m in _ALL_METRICS if m in df.columns]
+        df, metric_cols = _resolve_metric_columns(result, df)
+        if not metric_cols:
+            logger.warning("heatmap: none of the expected metrics are present; the panels will be empty")
         df_metrics = df[metric_cols]
 
         setting = _setting_groups(df)

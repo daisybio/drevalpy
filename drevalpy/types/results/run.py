@@ -9,7 +9,11 @@ from typing import Any
 import numpy as np
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
+
 from .trial import TrialResult
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -107,16 +111,21 @@ class RunResult:
         np.savez_compressed(Path(path), **arrays)
 
     @classmethod
-    def load(cls, path: str | Path) -> RunResult:
+    def load(cls, path: str | Path, *, with_trials: bool = True) -> RunResult:
         """Load from a .npz file saved by ``save()``.
 
         :param path: Path to the .npz file.
-        :returns: Reconstructed RunResult with trial data.
+        :param with_trials: Whether to read the ``trial_*_predictions`` arrays. These are
+            typically an order of magnitude larger than the fold's own predictions and no
+            visualization reads them, so the report path opts out. ``np.load`` is lazy, so
+            skipping them means they are never read off disk.
+        :returns: Reconstructed RunResult.
         """
+        logger.debug("Loading run %s (with_trials=%s)", path, with_trials)
         data = np.load(Path(path), allow_pickle=False)
         meta = json.loads(str(data["_metadata"]))
         trials = None
-        if meta.get("trials"):
+        if with_trials and meta.get("trials"):
             trials = [
                 TrialResult(
                     hyperparameters=t["hyperparameters"],
@@ -134,11 +143,29 @@ class RunResult:
             fold_id=meta.get("fold_id", ""),
             predictions=np.asarray(data["predictions"]),
             ground_truth=np.asarray(data["ground_truth"]),
-            cell_line_ids=np.asarray(data["cell_line_ids"]),
-            drug_ids=np.asarray(data["drug_ids"]),
+            cell_line_ids=intern_ids(data["cell_line_ids"]),
+            drug_ids=intern_ids(data["drug_ids"]),
             best_hyperparameters=meta.get("best_hyperparameters", {}),
             metrics=meta.get("metrics", {}),
             fold_metadata=meta.get("fold_metadata", {}),
             trials=trials,
             randomization=tuple(meta["randomization"]) if meta.get("randomization") else None,
         )
+
+
+def intern_ids(ids: np.ndarray) -> np.ndarray:
+    """Re-express a fixed-width unicode id array as an object array of shared strings.
+
+    NumPy stores ``<U40`` at 160 bytes per element regardless of the actual id length, and
+    since the ids repeat heavily across a fold this dominates the on-heap size of a loaded
+    experiment. An object array of deduplicated Python ``str`` costs one pointer per element
+    plus one string per distinct id. Indexing still yields a ``str``, and ``save()``
+    normalises with ``dtype=str``, so the round-trip is unchanged.
+
+    :param ids: Array of entity ids, typically ``<U*`` as read from an npz.
+    :returns: Object-dtype array of the same shape holding shared ``str`` objects.
+    """
+    unique, inverse = np.unique(ids, return_inverse=True)
+    shared = np.empty(len(unique), dtype=object)
+    shared[:] = [str(value) for value in unique]
+    return shared[inverse.reshape(ids.shape)]

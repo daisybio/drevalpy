@@ -3,19 +3,24 @@
 from __future__ import annotations
 
 import json
+import sys
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 from upath import UPath as Path
 
 from drevalpy.evaluation import AVAILABLE_METRICS, _compute_metric_value
+from drevalpy.log import get_logger
 from drevalpy.types.results.model import ModelResult
 from drevalpy.types.results.run import RunResult
 from drevalpy.types.results.trial import TrialResult
 
 if TYPE_CHECKING:
     from drevalpy.visualization.requirements import PlotRequirement
+
+logger = get_logger(__name__)
 
 
 class ExperimentResult:
@@ -156,16 +161,18 @@ class ExperimentResult:
             model_result.save(out / model_result.model_name)
 
     @classmethod
-    def load(cls, directory: str | Path) -> ExperimentResult:
+    def load(cls, directory: str | Path, *, with_trials: bool = True) -> ExperimentResult:
         """Load from a directory tree saved by ``save()``.
 
         :param directory: Root experiment directory.
+        :param with_trials: Forwarded to :meth:`ModelResult.load`; pass ``False`` to skip
+            reading the HPO trial predictions, which no visualization consumes.
         :returns: Reconstructed ExperimentResult.
         """
         path = Path(directory)
         meta = json.loads((path / "metadata.json").read_text())
 
-        model_results = [ModelResult.load(path / name) for name in meta["models"]]
+        model_results = [ModelResult.load(path / name, with_trials=with_trials) for name in meta["models"]]
 
         all_runs: list[RunResult] = []
         for mr in model_results:
@@ -176,6 +183,7 @@ class ExperimentResult:
 
         experiment = cls(all_runs)
         experiment.normalized_by = meta.get("normalized_by")
+        _log_load_summary(experiment, all_runs, with_trials=with_trials)
         return experiment
 
     def __repr__(self) -> str:
@@ -194,15 +202,57 @@ class ExperimentResult:
         return "\n".join(lines)
 
 
+def _run_array_bytes(run: RunResult) -> int:
+    """Approximate the heap cost of one run's arrays.
+
+    Object-dtype id arrays only report their pointer table via ``nbytes``, so the shared
+    strings behind them are added once each - which is the whole point of interning them.
+
+    :param run: Run to measure.
+    :returns: Approximate number of bytes retained by the run's arrays.
+    """
+    total = run.predictions.nbytes + run.ground_truth.nbytes
+    for ids in (run.cell_line_ids, run.drug_ids):
+        total += ids.nbytes
+        if ids.dtype == object:
+            total += sum(sys.getsizeof(value) for value in set(ids.tolist()))
+    if run.trials:
+        total += sum(trial.predictions.nbytes for trial in run.trials)
+    return total
+
+
+def _log_load_summary(experiment: ExperimentResult, runs: list[RunResult], *, with_trials: bool) -> None:
+    """Emit the single line that establishes the scale of a loaded experiment."""
+    rows = sum(len(r.predictions) for r in runs)
+    total_bytes = sum(_run_array_bytes(r) for r in runs)
+    logger.info(
+        "Loaded ExperimentResult %r: %d models, %d runs, %d prediction rows, %.2f GB of arrays (trials %s)",
+        experiment.dataset_name,
+        experiment.n_models,
+        len(runs),
+        rows,
+        total_bytes / 1024**3,
+        "loaded" if with_trials else "skipped",
+    )
+
+
 def _normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
     """Normalize a single RunResult against a reference RunResult."""
-    ref_lookup: dict[tuple, float] = {}
-    for cl, dr, pred in zip(ref_run.cell_line_ids, ref_run.drug_ids, ref_run.predictions, strict=True):
-        ref_lookup[(cl, dr)] = pred
-
-    ref_preds = np.array(
-        [ref_lookup.get((cl, dr), 0.0) for cl, dr in zip(run.cell_line_ids, run.drug_ids, strict=True)]
+    ref_index = pd.MultiIndex.from_arrays(
+        [np.asarray(ref_run.cell_line_ids, dtype=object), np.asarray(ref_run.drug_ids, dtype=object)]
     )
+    ref_predictions = np.asarray(ref_run.predictions)
+    if ref_index.has_duplicates:
+        # The dict lookup this replaced let the last occurrence of a pair win.
+        keep = ~ref_index.duplicated(keep="last")
+        ref_index = ref_index[keep]
+        ref_predictions = ref_predictions[keep]
+    positions = ref_index.get_indexer(
+        pd.MultiIndex.from_arrays([np.asarray(run.cell_line_ids, dtype=object), np.asarray(run.drug_ids, dtype=object)])
+    )
+    # get_indexer yields -1 for pairs the reference never predicted; those normalize
+    # against 0.0, matching the dict-lookup default this replaced.
+    ref_preds = np.where(positions >= 0, ref_predictions[positions.clip(min=0)], 0.0)
 
     norm_gt = run.ground_truth - ref_preds
     norm_pred = run.predictions - ref_preds

@@ -9,6 +9,7 @@ import pytest
 from upath import UPath
 
 from drevalpy.types.results.model import ModelResult
+from drevalpy.types.results.trial import TrialResult
 from tests.synthetic import make_model_result, make_run_result
 
 
@@ -131,6 +132,42 @@ class TestPersistence:
         make_model_result(n_folds=1).save(directory)
 
         assert ModelResult.load(directory).n_folds == 1
+
+
+class TestTrialSkipping:
+    """``with_trials`` is forwarded to every fold so the report can skip trial arrays."""
+
+    @staticmethod
+    def _with_trials(directory: UPath) -> None:
+        result = make_model_result(n_folds=2)
+        for run in result.runs:
+            run.trials = [
+                TrialResult(
+                    hyperparameters={"alpha": 0.1},
+                    metrics={"MSE": 0.3},
+                    optimization_metric="MSE",
+                    predictions=np.zeros(4),
+                )
+            ]
+        result.save(directory)
+
+    def test_trials_are_loaded_by_default(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "ElasticNet"
+        self._with_trials(directory)
+
+        assert all(run.trials for run in ModelResult.load(directory).runs)
+
+    def test_trials_can_be_skipped_for_every_fold(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "ElasticNet"
+        self._with_trials(directory)
+
+        assert all(run.trials is None for run in ModelResult.load(directory, with_trials=False).runs)
+
+    def test_skipping_trials_keeps_the_fold_count(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "ElasticNet"
+        self._with_trials(directory)
+
+        assert ModelResult.load(directory, with_trials=False).n_folds == 2
 
 
 class TestRepr:

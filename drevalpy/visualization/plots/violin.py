@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 import plotly.graph_objects as go
 
+from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult
+
+logger = get_logger(__name__)
 
 _ALL_METRICS = [
     "R^2",
@@ -28,6 +32,18 @@ _ALL_METRICS = [
     "RMSE",
     "MAE",
 ]
+
+
+def _is_finite(value: float) -> bool:
+    """Whether *value* is a real number MultiQC can plot.
+
+    :param value: Metric value, possibly NaN or non-numeric.
+    :returns: True if the value is finite.
+    """
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
 
 
 def _build_df_from_experiment(result: ExperimentResult) -> pd.DataFrame:
@@ -74,6 +90,8 @@ class ViolinVisualization(Visualization):
         df = df.dropna(axis=1, how="all")
 
         metrics = [m for m in _ALL_METRICS if "normalized" not in m and m in df.columns]
+        if not metrics:
+            logger.warning("violin: no metric has a finite value in any fold; the section will be skipped")
 
         self._fig = go.Figure()
         for metric in metrics:
@@ -116,7 +134,10 @@ class ViolinVisualization(Visualization):
         except ImportError as e:
             raise ImportError("multiqc is required for to_multiqc(). Install with: pip install drevalpy[report]") from e
 
-        metric_names = sorted({m for metrics in self._data.values() for m in metrics})
+        metric_names = sorted({m for metrics in self._data.values() for m in metrics if _is_finite(metrics[m])})
+        if not metric_names:
+            logger.warning("violin: no metric has a finite value in any fold; skipping the section")
+            return []
         headers: dict[str, dict[str, str]] = {m: {"title": m, "description": f"Metric: {m}"} for m in metric_names}
         plot = mqc_violin.plot(self._data, headers, pconfig={"id": "dreval_violin"})
 

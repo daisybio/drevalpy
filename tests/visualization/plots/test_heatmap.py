@@ -7,6 +7,7 @@ seconds, which is not worth it for a hook that runs on every commit.
 
 from __future__ import annotations
 
+import logging
 import math
 
 import numpy as np
@@ -21,9 +22,10 @@ from drevalpy.visualization.plots.heatmap import (
     _calc_summary_metric,
     _columns_for_setting,
     _compute_ssmd,
+    _resolve_metric_columns,
     _setting_groups,
 )
-from tests.synthetic import make_experiment_result, make_run_result
+from tests.synthetic import NORMALIZED_METRIC, REFERENCE_MODEL, make_experiment_result, make_run_result
 
 
 def _ssmd_frame() -> pd.DataFrame:
@@ -232,6 +234,50 @@ class TestCompute:
         plot.compute(experiment, dataset=object())
 
         assert plot._fig is not None
+
+
+class TestMetricNameResolution:
+    """``normalize()`` emits plain names; older results carry suffixed ones."""
+
+    def test_a_normalized_experiment_populates_every_panel(self):
+        normalized = make_experiment_result(n_models=3, n_folds=2).normalize(REFERENCE_MODEL)
+        plot = HeatmapVisualization()
+
+        plot.compute(normalized)
+
+        assert len(plot._fig.data) == 5
+
+    def test_the_legacy_suffixed_spelling_is_folded_onto_the_base_name(self):
+        result = ExperimentResult(
+            [
+                make_run_result(model_name=name, fold_index=i, metrics={NORMALIZED_METRIC: 0.4 + i + offset})
+                for offset, name in enumerate("AB")
+                for i in range(2)
+            ]
+        )
+        plot = HeatmapVisualization()
+
+        plot.compute(result)
+
+        assert [list(trace.x) for trace in plot._fig.data][0] == ["Pearson"]
+
+    def test_resolve_metric_columns_prefers_the_plain_name(self):
+        result = ExperimentResult([make_run_result(metrics={"Pearson": 0.9, NORMALIZED_METRIC: 0.1})])
+        df = _build_df_from_experiment(result)
+
+        renamed, columns = _resolve_metric_columns(result, df)
+
+        assert columns == ["Pearson"]
+        assert renamed["Pearson"].tolist() == [0.9]
+
+    def test_warns_when_no_expected_metric_is_present(self, caplog):
+        result = ExperimentResult([make_run_result(metrics={"NotAMetric": 1.0})])
+        plot = HeatmapVisualization()
+
+        with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.heatmap"):
+            plot.compute(result)
+
+        assert any("none of the expected metrics" in r.getMessage() for r in caplog.records)
 
 
 class TestToMultiqc:
