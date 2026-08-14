@@ -16,7 +16,7 @@ import torch.nn.functional as torch_nn_f
 from torch import nn
 from torch.nn import Parameter
 from torch_geometric.data import Data
-from torch_geometric.utils import add_self_loops, softmax
+from torch_geometric.utils import add_self_loops, scatter, softmax
 
 try:
     from rdkit import Chem
@@ -305,8 +305,6 @@ class _MessagePassing(nn.Module):
         return x_j
 
     def aggregate(self, inputs: torch.Tensor, index: torch.Tensor, dim_size: int | None = None) -> torch.Tensor:
-        from torch_scatter import scatter
-
         return scatter(inputs, index, dim=0, dim_size=dim_size, reduce=self.aggr)
 
     def update(self, inputs: torch.Tensor) -> torch.Tensor:

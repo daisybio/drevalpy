@@ -11,21 +11,20 @@ dependencies = [
     "scipy",
     "scikit-learn>=1.4",
     "pandas",
+    # `drevalpy.cli.curate` reads .parquet/.pq inputs with pandas.read_parquet,
+    # which needs an engine. It used to arrive via `fsspec[full]`.
+    "pyarrow",
+    "anndata",
+    "joblib",
     "networkx",
     "pyyaml",
     "pytorch-lightning>=2.5",
     "torch-geometric",
-    "torch-scatter",
-    "flaky",
-    "requests",
     "plotly",
     "matplotlib",
-    "importlib-resources",
     "scikit-posthocs",
     "curve-curator",
     "subword-nmt>=0.3.8",
-    "toml>=0.10.2",
-    "starlette>=0.49.1",
     "pydantic>=2.5",
     "pyparsing>=3",
     "wandb>=0.24.0",
@@ -34,14 +33,17 @@ dependencies = [
     "typer>=0.26,<0.27",
     "rich>=15.0.0",
     "gseapy>=1.1.0",
-    "mygene",
-    "obonet",
     "optuna",
     "platformdirs>=4.0",
-    "fsspec[full]",
+    # Only s3:// (the default artifacts URI), http(s):// and file:// (fsspec core)
+    # are reachable from shipped code, so the backends are named rather than
+    # pulled via `full`, which added 18 packages - dask, distributed, panel,
+    # paramiko, pygit2, dropbox, adlfs, gcsfs, ocifs and friends - to serve
+    # protocols nothing here can reach. A user registering another protocol with
+    # `register_source` installs that backend themselves.
+    "fsspec[s3,http]",
     "universal-pathlib",
     "filelock>=3.15.2",
-    "typing-extensions>=4.12.0",
     "mudata>=0.3.10",
     "rdkit>=2026.3.4",
     "transformers>=5.14.0",
@@ -90,10 +92,9 @@ dev = [
     "pytest-cov",
     "coverage",
     "complexipy",
-    "pygments",
+    "flaky",
     "xdoctest",
     "types-PyYAML",
-    "types-toml",
     "jupyter>=1.1.1",
     "vulture>=2.16",
 ]
@@ -135,7 +136,6 @@ artifacts = ["drevalpy/py.typed"]
 
 [tool.uv]
 exclude-newer = "3 weeks"
-extra-build-dependencies = { torch-scatter = ["torch"] }
 # nvidia-nccl-cu12 (pulled in by xgboost on Linux) and nvidia-nccl-cu13 (required by
 # the CUDA 13 torch wheel that a plain `uv sync` resolves) both ship
 # nvidia/nccl/lib/libnccl.so.2, so whichever is unpacked last owns that file. The
