@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import warnings
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -29,6 +30,32 @@ if TYPE_CHECKING:
     from sklearn.base import TransformerMixin
 
 logger = get_logger(__name__)
+
+
+class HPOTrialsFailedError(RuntimeError):
+    """Every hyperparameter trial raised, so tuning produced no information.
+
+    Falling back to defaults here would report a tuning result for a run where
+    nothing was tuned, and bury the real cause - a missing native library, a bad
+    search space, a bug in the model - behind a later, unrelated traceback.
+    """
+
+
+@dataclass
+class _TrialFailures:
+    """Count of trials that raised, plus the first exception, for reporting."""
+
+    count: int = 0
+    first: BaseException | None = None
+
+    def record(self, exc: BaseException) -> None:
+        """Record a raising trial, keeping the first exception as the cause.
+
+        :param exc: Exception raised by the trial.
+        """
+        self.count += 1
+        if self.first is None:
+            self.first = exc
 
 
 def _is_valid_score(value: float) -> bool:
@@ -71,6 +98,9 @@ def hpam_tune(
         stored variants. (Search space restriction is a TODO; plumbing is in place.)
     :returns: Tuple of (best_params, trial_results) where trial_results is a
         list of (hyperparameters, metrics_dict, predictions) tuples for each completed trial.
+    :raises ValueError: Raised when ``hpo_config.metric`` disagrees with ``metric``.
+    :raises HPOTrialsFailedError: Raised when every trial raised an exception, so no
+        tuning information was produced.
     """
     validate_hpo_metric(metric)
     cfg = hpo_config or HPOConfig.from_metric(metric)
@@ -91,6 +121,7 @@ def hpam_tune(
 
     model_name = model_class.get_model_name()
     all_trial_data: list[tuple[dict[str, Any], dict[str, float], np.ndarray]] = []
+    failures = _TrialFailures()
 
     def objective_with_metrics(trial: Any) -> float:
         sampled = sample_from_optuna_trial(trial, structured_space)
@@ -107,7 +138,11 @@ def hpam_tune(
                 model_checkpoint_dir=model_checkpoint_dir,
                 trial_number=trial.number,
             )
-        except Exception:
+        except Exception as exc:
+            # Returning NaN rather than re-raising keeps the study running, so a
+            # search space with a few invalid corners still tunes. Whether the
+            # whole run was a fault is decided once, in _report_trial_failures.
+            failures.record(exc)
             logger.exception("Optuna trial %d failed", trial.number)
             return float("nan")
 
@@ -130,8 +165,34 @@ def hpam_tune(
         return target if _is_valid_score(target) else float("nan")
 
     study = run_optuna_study(objective=objective_with_metrics, cfg=cfg)
+    _report_trial_failures(study, failures)
     best_params = _resolve_best_params(study, model_class)
     return best_params, all_trial_data
+
+
+def _report_trial_failures(study, failures: _TrialFailures) -> None:
+    """Raise when no trial survived; warn when only some did.
+
+    :param study: Completed Optuna study, used for the number of trials actually run.
+    :param failures: Recorded trial failures.
+    :raises HPOTrialsFailedError: Raised when every trial raised, chaining the first
+        exception so the original cause heads the traceback.
+    """
+    if failures.count == 0:
+        return
+
+    total = len(study.trials)
+    if failures.count < total:
+        logger.warning(
+            "%d of %d hyperparameter trials failed; tuning used the %d that survived",
+            failures.count,
+            total,
+            total - failures.count,
+        )
+        return
+
+    msg = f"All {total} hyperparameter trials failed with {type(failures.first).__name__}: {failures.first}"
+    raise HPOTrialsFailedError(msg) from failures.first
 
 
 def _resolve_best_params(study, model_class: type[DRPModel]) -> dict[str, Any]:

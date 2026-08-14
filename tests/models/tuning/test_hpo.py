@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import patch
 
 import numpy as np
@@ -9,7 +10,7 @@ import pytest
 
 from drevalpy.models import construct_model
 from drevalpy.models.tuning.config import HPOConfig
-from drevalpy.models.tuning.hpo import hpam_tune
+from drevalpy.models.tuning.hpo import HPOTrialsFailedError, hpam_tune
 from drevalpy.types import SplitMask
 from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
@@ -99,19 +100,58 @@ def test_hpam_tune_all_nan_returns_defaults(mock_evaluate) -> None:
 
 
 @patch("drevalpy.models.tuning.hpo._mu_evaluate_trial_all_metrics", side_effect=RuntimeError("boom"))
-def test_hpam_tune_trial_exception_returns_defaults(mock_evaluate) -> None:
+def test_hpam_tune_raises_when_every_trial_fails(mock_evaluate) -> None:
+    """Every trial raised, so the study produced no tuning information.
+
+    Reporting defaults as a result would hide the real cause behind a later traceback.
+    """
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
-    best, _ = hpam_tune(
-        model_class=model_cls,
-        mudataset=mudataset,
-        train_scope=train_scope,
-        val_scope=val_scope,
-        early_stopping_scope=None,
-        metric="RMSE",
-        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
-    )
-    assert best == model_cls.get_default_hyperparameters()
+    with pytest.raises(HPOTrialsFailedError, match="All 2 hyperparameter trials failed") as excinfo:
+        hpam_tune(
+            model_class=model_cls,
+            mudataset=mudataset,
+            train_scope=train_scope,
+            val_scope=val_scope,
+            early_stopping_scope=None,
+            metric="RMSE",
+            hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
+        )
+
+    cause = excinfo.value.__cause__
+    assert isinstance(cause, RuntimeError)
+    assert str(cause) == "boom"
+
+
+@patch("drevalpy.models.tuning.hpo._mu_evaluate_trial_all_metrics")
+def test_hpam_tune_warns_when_some_trials_fail(mock_evaluate, caplog) -> None:
+    """A partly failing study still tuned, so it warns and returns the survivors' best."""
+    calls = {"n": 0}
+
+    def evaluate(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("boom")
+        return {"RMSE": 0.1}, np.zeros(4)
+
+    mock_evaluate.side_effect = evaluate
+
+    model_cls = construct_model("ElasticNet")
+    mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
+    with caplog.at_level(logging.WARNING):
+        best, _ = hpam_tune(
+            model_class=model_cls,
+            mudataset=mudataset,
+            train_scope=train_scope,
+            val_scope=val_scope,
+            early_stopping_scope=None,
+            metric="RMSE",
+            hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
+        )
+
+    assert isinstance(best, dict)
+    assert "alpha" in best
+    assert "1 of 2 hyperparameter trials failed" in caplog.text
 
 
 def test_hpam_tune_rejects_metric_mismatch() -> None:
