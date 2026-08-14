@@ -1,27 +1,16 @@
 {
   "sources": {
-    "orakl_s3": {
-      "url": "s3://orakl-open-source-data/drevalpy_h5mu/"
-    },
     "orakl_v2": {
       "url": "s3://orakl-open-source-data/drevalpy_h5mu/gen2"
     }
   },
   "datasets": {
-    "GDSC1": { "source": "orakl_s3", "file": "GDSC1.h5mu" },
-    "GDSC2": { "source": "orakl_s3", "file": "GDSC2.h5mu" },
-    "CCLE": { "source": "orakl_s3", "file": "CCLE.h5mu" },
-    "CTRPv1": { "source": "orakl_s3", "file": "CTRPv1.h5mu" },
-    "CTRPv2": { "source": "orakl_s3", "file": "CTRPv2.h5mu" },
-    "BeatAML2": { "source": "orakl_s3", "file": "BeatAML2.h5mu" },
-    "PDX_Bruna": { "source": "orakl_s3", "file": "PDX_Bruna.h5mu" },
-    "GDSC1_v2": { "source": "orakl_v2", "file": "GDSC1.h5mu" },
-    "GDSC2_v2": { "source": "orakl_v2", "file": "GDSC2.h5mu" },
-    "CCLE_v2": { "source": "orakl_v2", "file": "CCLE.h5mu" },
-    "CTRPv1_v2": { "source": "orakl_v2", "file": "CTRPv1.h5mu" },
-    "CTRPv2_v2": { "source": "orakl_v2", "file": "CTRPv2.h5mu" },
-    "BeatAML2_v2": { "source": "orakl_v2", "file": "BeatAML2.h5mu" },
-    "PDX_Bruna_v2": { "source": "orakl_v2", "file": "PDX_Bruna.h5mu" },
+    "GDSC1": { "source": "orakl_v2", "file": "GDSC1.h5mu" },
+    "GDSC2": { "source": "orakl_v2", "file": "GDSC2.h5mu" },
+    "CTRPv1": { "source": "orakl_v2", "file": "CTRPv1.h5mu" },
+    "CTRPv2": { "source": "orakl_v2", "file": "CTRPv2.h5mu" },
+    "BeatAML2": { "source": "orakl_v2", "file": "BeatAML2.h5mu" },
+    "PDX_Bruna": { "source": "orakl_v2", "file": "PDX_Bruna.h5mu" },
     "TOYv1": { "source": "orakl_v2", "file": "TOYv1.h5mu" }
   }
 }

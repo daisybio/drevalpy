@@ -4,6 +4,11 @@ A splitter is a plain function, not a class. ``validation=`` picks the leakage
 constraint the registry enforces after every call, so a splitter that leaks a
 cell line into both train and test raises ``SplitValidationError`` rather than
 silently producing an optimistic score.
+
+It also shows the curve-quality step every built-in splitter performs:
+:func:`~drevalpy.plugin.curve_quality_mask` marks the pairs whose fitted
+dose-response curve is trustworthy, and blanking the rest keeps them out of
+every fold.
 """
 
 from __future__ import annotations
@@ -11,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 from sklearn.model_selection import KFold
 
-from drevalpy.plugin import MuDataLike, SplitMask, SplitMasks, register_splitter
+from drevalpy.plugin import MuDataLike, SplitMask, SplitMasks, curve_quality_mask, register_splitter
 
 
 @register_splitter(
@@ -40,7 +45,13 @@ def toy_leave_cell_line_out(
         train/test/validation masks shaped like the response matrix.
     """
     _ = validation_ratio
-    observed = ~np.isnan(mudataset.response_matrix)
+    # Blank the pairs whose dose-response fit fails the quality thresholds, so
+    # the folds only ever contain curves worth training on. The two default
+    # thresholds are the ones the built-in splitters use; ``min_r2`` is an extra
+    # this splitter opts into.
+    response = mudataset.response_matrix.copy()
+    response[~curve_quality_mask(mudataset, min_r2=0.5)] = np.nan
+    observed = ~np.isnan(response)
     folds: list[SplitMasks] = []
     rng = np.random.default_rng(random_state)
 

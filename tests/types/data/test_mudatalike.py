@@ -35,9 +35,17 @@ class _MinimalDataset:
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
         return np.array(["Lung"] * len(ids))
 
+    def response_layer_names(self) -> list[str]:
+        return ["relevance_score"]
+
+    def get_response_layer(self, name: str) -> np.ndarray:
+        if name != "relevance_score":
+            raise KeyError(name)
+        return np.array([[9.0], [np.nan]])
+
 
 class _MissingGetTissue:
-    """Satisfies the three properties but not the single method."""
+    """Satisfies every member but the tissue lookup."""
 
     @property
     def cell_line_ids(self) -> np.ndarray:
@@ -50,6 +58,34 @@ class _MissingGetTissue:
     @property
     def response_matrix(self) -> np.ndarray:
         return np.array([[1.0]])
+
+    def response_layer_names(self) -> list[str]:
+        return []
+
+    def get_response_layer(self, name: str) -> np.ndarray:
+        raise KeyError(name)
+
+
+class _MissingGetResponseLayer:
+    """Satisfies every member but the layer accessor the quality filter needs."""
+
+    @property
+    def cell_line_ids(self) -> np.ndarray:
+        return np.array(["cl1"])
+
+    @property
+    def drug_ids(self) -> np.ndarray:
+        return np.array(["d1"])
+
+    @property
+    def response_matrix(self) -> np.ndarray:
+        return np.array([[1.0]])
+
+    def get_tissue(self, ids: np.ndarray) -> np.ndarray:
+        return np.array(["Lung"] * len(ids))
+
+    def response_layer_names(self) -> list[str]:
+        return []
 
 
 class TestProtocolConformance:
@@ -66,6 +102,9 @@ class TestProtocolConformance:
 
     def test_an_object_missing_a_member_does_not_satisfy_the_protocol(self):
         assert not isinstance(_MissingGetTissue(), MuDataLike)
+
+    def test_an_object_missing_the_layer_accessor_does_not_satisfy_the_protocol(self):
+        assert not isinstance(_MissingGetResponseLayer(), MuDataLike)
 
     def test_an_unrelated_object_does_not_satisfy_the_protocol(self):
         assert not isinstance(object(), MuDataLike)
@@ -90,8 +129,12 @@ class TestProtocolLimits:
             cell_line_ids = "not an array"
             drug_ids = "not an array"
             response_matrix = "not an array"
+            response_layer_names = "not a method"
 
             def get_tissue(self) -> None:
+                return None
+
+            def get_response_layer(self) -> None:
                 return None
 
         assert isinstance(WrongSignatures(), MuDataLike)

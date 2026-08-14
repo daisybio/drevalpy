@@ -183,6 +183,19 @@ A splitter is a function, not a class. Register it under a mode name with
 ``@register_splitter``; it must accept the splitter protocol signature and
 return a list of :class:`~drevalpy.types.SplitMasks`.
 
+The dataset argument is typed as :class:`~drevalpy.plugin.MuDataLike`, a
+``runtime_checkable`` protocol with six members: the ``cell_line_ids``,
+``drug_ids`` and ``response_matrix`` properties, plus ``get_tissue(ids)``,
+``response_layer_names()`` and ``get_response_layer(name)``.
+
+.. note::
+
+   The last two members are **new**. Code that implements ``MuDataLike`` by hand
+   — a test double, say — rather than passing a real
+   :class:`~drevalpy.plugin.Dataset` must add them, or ``isinstance`` checks
+   against the protocol will start failing. They exist so a splitter can reach
+   the curve-quality metrics; see below.
+
 .. literalinclude:: /examples/toy_splitter.py
    :language: python
    :caption: docs/examples/toy_splitter.py
@@ -203,6 +216,56 @@ Once registered, the mode works anywhere a mode string is accepted:
    from drevalpy.data import split
 
    folds = split(dataset, mode="TOY_LCO", n_splits=5)
+
+Filtering on curve quality
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The datasets ship every fitted dose-response curve, including the meaningless
+ones, so a splitter that treats "not NaN" as "usable" trains on junk. The
+built-in splitters blank the failing pairs first, and
+``curve_quality_mask`` is that step:
+
+.. code-block:: python
+
+   from drevalpy.plugin import curve_quality_mask
+
+   response = mudataset.response_matrix.copy()
+   response[~curve_quality_mask(mudataset)] = np.nan
+   observed = ~np.isnan(response)
+
+Called bare it applies the same rule the built-ins use —
+``relevance_score >= -log10(0.05)`` and ``abs(fold_change) >= 0.45``. Every other
+quality metric the datasets carry is a keyword option, defaulting to ``None``,
+i.e. not checked:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 66
+
+   * - Option
+     - Effect
+   * - ``min_relevance_score``, ``min_abs_fold_change``
+     - The default rule. Pass ``None`` to switch a half of it off.
+   * - ``max_p_value``, ``min_log_p_value``
+     - Raw, **uncorrected** significance. ``min_relevance_score`` is the
+       corrected equivalent and is why these are off by default.
+   * - ``min_f_value``, ``min_f_value_sam``
+     - F statistic, raw and s0-corrected.
+   * - ``min_r2``, ``max_rmse``, ``min_signal_quality``
+     - Goodness of fit.
+   * - ``min_abs_slope``, ``max_abs_slope``
+     - Hill slope bounds. The upper bound excludes step-like fits.
+   * - ``min_front``, ``max_back``
+     - Plateau bounds of a well-formed descending curve.
+   * - ``min_pec50``, ``max_pec50``
+     - Inflection point range, read from the response matrix.
+   * - ``regulation``
+     - Keep only CurveCurator's own labels, from ``"up"``, ``"down"``, ``"not"``.
+
+A metric that is NaN always fails: a curve CurveCurator could not score is not
+worth training on. A requested metric whose layer is absent raises ``KeyError``
+rather than being skipped silently. See :ref:`curve-quality` for the measured
+range and direction of each metric.
 
 Custom visualizations
 ---------------------

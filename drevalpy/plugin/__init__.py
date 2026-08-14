@@ -31,6 +31,7 @@ from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.data.quality import curve_quality_mask
 from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import register as register_drug_featurizer
 from drevalpy.registry.predictor import register as register_predictor
@@ -104,6 +105,7 @@ __all__ = [
     "TrainingContext",
     "Validation",
     "Visualization",
+    "curve_quality_mask",
     "graph_feature_block",
     "merge_feature_blocks",
     "metadata_feature_block",

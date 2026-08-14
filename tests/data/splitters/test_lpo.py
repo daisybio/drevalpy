@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from drevalpy.registry.splitter import splitter_registry
-from tests.data.splitters._helpers import MockMuDataset
+from tests.data.splitters._helpers import MockMuDataset, covered_pairs, first_measured_pairs
 
 
 class TestLeavePairOut:
@@ -37,3 +37,17 @@ class TestLeavePairOut:
             assert fold.metadata["mode"] == "LPO"
             assert fold.metadata["fold_index"] == i
             assert fold.metadata["n_splits"] == 3
+
+    def test_low_quality_pairs_appear_in_no_fold(self, mock_dataset: MockMuDataset) -> None:
+        """Measured pairs whose curve fails the thresholds are never split into."""
+        failing = first_measured_pairs(mock_dataset, 3)
+        splitter = splitter_registry.get("LPO")
+
+        without_filtering = covered_pairs(splitter(mock_dataset, n_splits=3))
+        with_filtering = covered_pairs(splitter(MockMuDataset(failing_pairs=failing), n_splits=3))
+
+        for row, column in failing:
+            # Present when every curve passes, gone once it does not: the
+            # absence is the filter's doing, not an artefact of the fixture.
+            assert without_filtering[row, column]
+            assert not with_filtering[row, column]

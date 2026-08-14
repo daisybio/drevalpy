@@ -36,3 +36,11 @@ class MuDataLike(Protocol):
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
         """Return tissue labels for the given cell line IDs."""
         ...
+
+    def response_layer_names(self) -> list[str]:
+        """Names of the available response layers."""
+        ...
+
+    def get_response_layer(self, name: str) -> np.ndarray:
+        """2-D float array (n_cell_lines x n_drugs) for a named response layer."""
+        ...

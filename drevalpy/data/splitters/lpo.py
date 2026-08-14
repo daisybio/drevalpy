@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.data.quality import curve_quality_mask
 from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMask, SplitMasks
 
@@ -16,7 +17,8 @@ def leave_pair_out(
     random_state: int = 42,
 ) -> list[SplitMasks]:
     """Generate LPO folds where each (cell_line, drug) pair appears in exactly one test set."""
-    response = mudataset.response_matrix
+    response = mudataset.response_matrix.copy()
+    response[~curve_quality_mask(mudataset)] = np.nan
     shape = response.shape
 
     observed = ~np.isnan(response)

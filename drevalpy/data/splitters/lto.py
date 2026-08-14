@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.data.quality import curve_quality_mask
 from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMask, SplitMasks
 
@@ -16,7 +17,8 @@ def leave_tissue_out(
     random_state: int = 42,
 ) -> list[SplitMasks]:
     """Generate LTO folds where each tissue appears in exactly one test set."""
-    response = mudataset.response_matrix
+    response = mudataset.response_matrix.copy()
+    response[~curve_quality_mask(mudataset)] = np.nan
     observed = ~np.isnan(response)
     cl_ids = mudataset.cell_line_ids
     tissues = mudataset.get_tissue(cl_ids)

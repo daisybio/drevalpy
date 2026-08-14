@@ -23,8 +23,8 @@ The first positional argument is the dataset name (or path to an existing
 downloaded into the system cache on first use (see
 :doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``).
 
-Built-in dataset names are: ``BeatAML2``, ``CCLE``, ``CTRPv1``, ``CTRPv2``,
-``GDSC1``, ``GDSC2``, ``PDX_Bruna``. Sizes and provenance for each are in
+Built-in dataset names are: ``BeatAML2``, ``CTRPv1``, ``CTRPv2``, ``GDSC1``,
+``GDSC2``, ``PDX_Bruna``. Sizes and provenance for each are in
 :doc:`/concepts/datasets`.
 
 Splitting datasets

@@ -41,8 +41,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
     """Single entry point for all dataset access in drevalpy.
 
     Wraps a MuData object containing a "response" modality (cell_line x drug
-    matrix with LN_IC50 as X) plus any number of cell-line feature modalities
-    (gene_expression, proteomics, etc.).
+    matrix with pEC50 as X) plus any number of cell-line feature modalities
+    (gene_expression, proteomics, etc.). Every other curve metric - ``LN_IC50``,
+    ``AUC``, ``IC50``, the goodness-of-fit columns - is a named layer; see
+    :func:`drevalpy.curation.curate`.
 
     Drug features are stored as ``response.varm`` entries, drug graphs in
     ``mdata.uns["drug_graphs"]``, and model-specific auxiliary data in other
@@ -254,7 +256,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
 
     @property
     def response_matrix(self) -> np.ndarray:
-        """LN_IC50 response matrix (n_cell_lines x n_drugs).
+        """pEC50 response matrix (n_cell_lines x n_drugs).
+
+        ``X`` holds pEC50. Use :meth:`get_response_layer` for any other measure,
+        for example ``get_response_layer("LN_IC50")``.
 
         Returns:
             Dense float32 array of shape (n_cell_lines, n_drugs).
@@ -292,8 +297,19 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             KeyError: If the layer does not exist.
         """
         if name not in self.response.layers:
-            raise KeyError(f"Response layer '{name}' not found. Available: {list(self.response.layers.keys())}")
+            raise KeyError(f"Response layer '{name}' not found. Available: {self.response_layer_names()}")
         return np.asarray(to_dense(self.response.layers[name]), dtype=np.float32)
+
+    def response_layer_names(self) -> list[str]:
+        """Names of the available response layers.
+
+        Returns:
+            Layer names of the response modality, in insertion order.
+        """
+        # anndata 0.13 yields a spurious ``None`` from ``layers.keys()``, even for
+        # a freshly constructed AnnData with a single layer, so filter to the real
+        # names rather than leaking a non-``str`` into a ``list[str]``.
+        return [name for name in self.response.layers.keys() if isinstance(name, str)]
 
     # ------------------------------------------------------------------
     # Metadata

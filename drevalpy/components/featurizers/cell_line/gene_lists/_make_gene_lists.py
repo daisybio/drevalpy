@@ -8,9 +8,14 @@ It exists so the origin of every shipped CSV stays reproducible.
 It replaces the ``make_gene_lists.ipynb`` notebook that used to live here. That notebook
 also intersected the retired v1 toy datasets, which were synthetic subsets of the real
 screens and no longer exist, so only registered datasets are used now (see
-``drevalpy/data/datasets/available_datasets.json``). Dropping them leaves ``CCLE`` as the
-sole proteomics source and leaves every other intersection over the real screens it
-already covered, so the shipped CSVs stay reproducible.
+``drevalpy/data/datasets/available_datasets.json``).
+
+``CCLE`` was the sole proteomics source, and it is currently **not registered**: the
+CurveCurator-refit generation of the screens has no ``CCLE.h5mu`` yet. The shipped
+``proteomics``-derived CSVs were generated while it still was, and they are kept as they
+are. :data:`OMIC_DATASETS` therefore lists no dataset for ``proteomics``, which makes
+re-running this script raise rather than silently write an empty intersection - see
+:func:`gene_intersection`. Put ``CCLE`` back in both places once the file is uploaded.
 
 Inputs
 ------
@@ -58,17 +63,19 @@ import pandas as pd
 from upath import UPath
 
 #: Every registered dataset, in the order the notebook listed them.
-ALL_DATASETS: tuple[str, ...] = ("BeatAML2", "CCLE", "CTRPv1", "CTRPv2", "GDSC1", "GDSC2", "PDX_Bruna")
+ALL_DATASETS: tuple[str, ...] = ("BeatAML2", "CTRPv1", "CTRPv2", "GDSC1", "GDSC2", "PDX_Bruna")
 
 #: Datasets that carry each omic. Only these are intersected for that omic, because a
 #: dataset without the measurement would empty the intersection.
 OMIC_DATASETS: dict[str, tuple[str, ...]] = {
-    "copy_number_variation_gistic": ("CCLE", "CTRPv1", "CTRPv2", "GDSC1", "GDSC2", "PDX_Bruna"),
+    "copy_number_variation_gistic": ("CTRPv1", "CTRPv2", "GDSC1", "GDSC2", "PDX_Bruna"),
     "gene_expression": ALL_DATASETS,
-    "methylation": ("CCLE", "CTRPv1", "CTRPv2", "GDSC1", "GDSC2"),
-    "mutations": ("CCLE", "CTRPv1", "CTRPv2", "GDSC1", "GDSC2"),
-    # Proteomics is CCLE-only for now; add datasets here once more ship the measurement.
-    "proteomics": ("CCLE",),
+    "methylation": ("CTRPv1", "CTRPv2", "GDSC1", "GDSC2"),
+    "mutations": ("CTRPv1", "CTRPv2", "GDSC1", "GDSC2"),
+    # Proteomics was CCLE-only, and CCLE is not registered right now (see the module
+    # docstring). Left empty on purpose so a re-run fails loudly instead of writing an
+    # empty intersection over the shipped CSV.
+    "proteomics": (),
 }
 
 #: Curated input list -> (proteomics-restricted output stem, reduced output stem). The

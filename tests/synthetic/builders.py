@@ -58,8 +58,9 @@ CHEMBERTA_DIM: Final = 768
 BPE_LENGTH: Final = 128
 SMILESVEC_DIM: Final = 100
 
-#: The measure ``response.X`` holds, matching the published datasets.
-BUILTIN_MEASURE: Final = "LN_IC50_curvecurator"
+#: A curve-metric layer name curation really emits. ``response.X`` holds pEC50 -
+#: curation does not duplicate it as a layer - so this one is derived from ``X``.
+BUILTIN_MEASURE: Final = "LN_IC50"
 RESPONSE_LAYERS: Final = (BUILTIN_MEASURE, "AUC", "IC50")
 
 DATASET_NAME: Final = "SYNTH"
@@ -173,10 +174,47 @@ def _response_anndata(rng: np.random.Generator, cell_line_ids: np.ndarray) -> ad
             index=pd.Index(drug_ids, name="pubchem_id"),
         ),
     )
-    response.layers[BUILTIN_MEASURE] = matrix.copy()
+    response.layers[BUILTIN_MEASURE] = ((6.0 - matrix) * np.log(10.0)).astype(np.float32)
     response.layers["AUC"] = rng.uniform(0.0, 1.0, size=matrix.shape).astype(np.float32)
-    response.layers["IC50"] = np.exp(matrix).astype(np.float32)
+    response.layers["IC50"] = np.power(10.0, 6.0 - matrix).astype(np.float32)
+    # The built-in splitters filter on the CurveCurator quality layers, so a
+    # dataset without them cannot be split. Every curve passes here, keeping the
+    # folds determined by _UNMEASURED_PAIRS alone.
+    for name, layer in _quality_layers(matrix.shape).items():
+        response.layers[name] = layer
     return response
+
+
+def _quality_layers(shape: tuple[int, int]) -> dict[str, np.ndarray]:
+    """Quality layers on which every synthetic curve passes comfortably.
+
+    Values sit far from the thresholds in
+    :func:`drevalpy.data.quality.curve_quality_mask`, so a boundary change there
+    cannot silently reclassify a synthetic pair.
+    """
+    passing = {
+        "relevance_score": 9.0,
+        "fold_change": -2.0,
+        "p_value": 1e-9,
+        "log_p_value": 9.0,
+        "f_value": 400.0,
+        "f_value_sam": 80.0,
+        "R2": 0.99,
+        "RMSE": 0.02,
+        "signal_quality": 1.0,
+        "slope": 3.0,
+        "front": 1.0,
+        "back": 0.05,
+        "regulation": -1.0,
+        # Not filter options, but layers every curated dataset carries: the
+        # per-parameter standard errors CurveCurator derives from the fit's
+        # Jacobian.
+        "pec50_error": 0.05,
+        "slope_error": 0.1,
+        "front_error": 0.01,
+        "back_error": 0.01,
+    }
+    return {name: np.full(shape, value, dtype=np.float32) for name, value in passing.items()}
 
 
 def _omics_anndata(

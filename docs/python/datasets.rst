@@ -23,9 +23,8 @@ to discover them and :func:`~drevalpy.data.load` to load:
    dataset = load("GDSC1")
 
 Built-in loaders download into the system cache directory on first use (see
-:doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``). The response
-measure depends on the dataset; when CurveCurator refitting is enabled for a
-workflow, measure names gain a ``_curvecurator`` suffix — see
+:doc:`/getting_started/installation` for ``DREVALPY_CACHE_DIR``). ``X`` holds
+``pEC50``; other measures are ``response.layers`` entries — see
 :doc:`/concepts/datasets`.
 
 Custom .h5mu files
@@ -65,6 +64,32 @@ masks for train, validation, and test sets. Pass a fold directly to
 
    ElasticNet = construct_model("ElasticNet")
    result = single(ElasticNet, dataset, folds[0], hyperparameter_tuning=False)
+
+Curve quality
+~~~~~~~~~~~~~
+
+Every built-in splitter first drops the pairs whose fitted dose-response curve
+fails ``relevance_score >= -log10(0.05)`` and ``abs(fold_change) >= 0.45``, so a
+fold never contains a curve the fit itself calls meaningless. There is no knob
+for this on :func:`~drevalpy.data.split`: a comparison between models is only
+meaningful over the same pairs.
+
+To see how many pairs a mode dropped, compare the fold masks against the
+measured pairs:
+
+.. code-block:: python
+
+   import numpy as np
+
+   measured = ~np.isnan(dataset.response_matrix)
+   used = np.zeros_like(measured)
+   for fold in folds:
+       used |= fold.train.mask | fold.test.mask | fold.val.mask
+   dropped = int((measured & ~used).sum())
+
+See :ref:`curve-quality` for what the metrics mean, and
+:func:`~drevalpy.plugin.curve_quality_mask` to filter on the others from a
+custom splitter.
 
 Split semantics (leakage constraints per mode) are documented in
 :doc:`/concepts/evaluation`.

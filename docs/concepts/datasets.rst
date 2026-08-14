@@ -27,11 +27,6 @@ Built-in datasets
      - 287
      - 969 cell lines
      - Genomics of Drug Sensitivity in Cancer v2
-   * - CCLE
-     - 11670
-     - 24
-     - 503 cell lines
-     - Cancer Cell Line Encyclopedia
    * - CTRPv1
      - 60758
      - 354
@@ -56,14 +51,14 @@ Built-in datasets
 Response measures
 -----------------
 
-Built-in screens expose the usual dose–response summaries: ``LN_IC50``,
-``EC50``, ``IC50``, ``pEC50``, ``AUC``, and ``response``.
+``response.X`` holds ``pEC50``. Every other dose–response summary the fit
+produces is a named ``response.layers`` entry: ``LN_IC50``, ``EC50``, ``IC50``,
+``AUC``, plus the quality metrics below. Published, non-refit values from the
+original study are carried alongside with a ``_published`` suffix where the
+source provides them.
 
-When CurveCurator refitting is enabled (the default for built-in data), the
-target column name gains a ``_curvecurator`` suffix (for example
-``LN_IC50_curvecurator``). Those refit measures use one shared fitting
-procedure across studies and are preferred for cross-study comparability.
-Original published values remain available when you opt out of refitting.
+All built-in screens are refit with one shared CurveCurator procedure, which is
+what makes numbers comparable across studies.
 
 Custom data concepts
 --------------------
@@ -74,7 +69,7 @@ two shapes:
 * **Raw viability (long format).** Columns ``dose``, ``response``, ``sample``,
   and ``drug``, plus an optional ``replicate``. Dosages must be in µM.
   DrEvalPy fits curves with the same CurveCurator procedure used for built-in
-  refits and then exposes the usual ``*_curvecurator`` measures.
+  refits, so the same measures become available.
 * **Prefit response CSV.** At least ``cell_line_id``, ``drug_id``, and a
   measure column. Leave-Tissue-Out also needs a ``tissue`` column.
 
@@ -110,6 +105,74 @@ Each modality is an AnnData with:
 - ``obs`` — observation (cell line / drug) metadata (tissue, name, ...)
 - ``var`` — variable (gene / drug) metadata
 - ``layers`` — alternative representations (e.g. raw vs normalized counts)
+
+.. _curve-quality:
+
+Curve quality metrics
+---------------------
+
+The built-in screens are refit with CurveCurator, and the ``response`` modality
+ships **every** fitted curve — including the ones the fit itself says are
+meaningless. Because ``X`` holds ``pEC50``, which exists for every curve that
+converged, "not NaN" does not mean "trustworthy": the quality metrics stored
+alongside as ``response.layers`` are what separate the two.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 14 64
+
+   * - Layer
+     - Better
+     - Meaning
+   * - ``relevance_score``
+     - higher
+     - SAM-corrected significance. This is the multiple-testing-corrected
+       statistic, so prefer it over ``p_value``.
+   * - ``fold_change``
+     - larger ``abs``
+     - Curve fold change, already log2. The magnitude is the effect size.
+   * - ``p_value``
+     - lower
+     - Raw F-test p-value, **uncorrected**.
+   * - ``log_p_value``
+     - higher
+     - ``-log10(p_value)``, also uncorrected.
+   * - ``f_value`` / ``f_value_sam``
+     - higher
+     - F statistic of the fit, and its s0-corrected counterpart.
+   * - ``R2`` / ``RMSE``
+     - higher / lower
+     - Goodness of fit.
+   * - ``signal_quality``
+     - higher
+     - Signal quality of the underlying measurements.
+   * - ``slope``, ``front``, ``back``
+     - see note
+     - Curve shape. A slope pinned at the fitting bound describes a step, which
+       is usually an artefact; ``front`` and ``back`` are the fitted plateaus.
+   * - ``regulation``
+     - —
+     - CurveCurator's own verdict, encoded ``up = 1``, ``down = -1``,
+       ``not = 0``, and NaN where it reached none.
+   * - ``pec50_error``, ``slope_error``, ``front_error``, ``back_error``
+     - lower
+     - Standard error of each fitted parameter, from a Moore-Penrose
+       pseudo-inverse of the fit's Jacobian. ``pec50_error`` is the uncertainty
+       on ``X`` itself, and these are the only per-curve uncertainty estimates
+       the pipeline produces.
+
+Every built-in splitter drops the pairs that fail
+
+.. code-block:: text
+
+   relevance_score >= -log10(0.05)   and   abs(fold_change) >= 0.45
+
+which are the ``alpha`` and ``fc_lim`` that DrEvalPy passes to CurveCurator, so
+the rule reproduces ``regulation != 0`` exactly. This is not configurable per
+split — a comparison between models is only meaningful over the same pairs.
+
+Filtering on any other metric, or on other thresholds, is available through
+:func:`~drevalpy.plugin.curve_quality_mask`; see :doc:`/python/extensions`.
 
 Feature provenance
 ------------------

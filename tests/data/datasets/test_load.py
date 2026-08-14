@@ -7,14 +7,16 @@ from importlib import resources
 from pathlib import Path
 
 import pytest
+from upath import UPath
 
+from drevalpy.data.datasets._load import _carries_curve_quality, _load_from_cache
 from drevalpy.registry.dataset import DatasetRegistry as Registry
 from drevalpy.registry.dataset import DrevalConfig, SourceEntry, get_config_path
 from drevalpy.registry.dataset import dataset_registry as registry
+from drevalpy.testing.synthetic import build_synthetic_dataset
 
 _CORE_DATASETS = [
     "BeatAML2",
-    "CCLE",
     "CTRPv1",
     "CTRPv2",
     "GDSC1",
@@ -58,7 +60,7 @@ class TestBuiltinRegistry:
         assert set(_CORE_DATASETS) <= set(registry.dataset_names)
 
     def test_source_names(self) -> None:
-        assert "orakl_s3" in registry.source_names
+        assert "orakl_v2" in registry.source_names
 
     def test_is_registered(self) -> None:
         assert registry.is_registered("GDSC1")
@@ -133,8 +135,8 @@ class TestRegistration:
             self.reg.unregister_source("NonExistent")
 
     def test_custom_overrides_builtin(self) -> None:
-        self.reg.register_source("orakl_s3", "s3://my-mirror/data")
-        assert self.reg.sources["orakl_s3"].url == "s3://my-mirror/data"
+        self.reg.register_source("orakl_v2", "s3://my-mirror/data")
+        assert self.reg.sources["orakl_v2"].url == "s3://my-mirror/data"
 
 
 class TestPersistence:
@@ -230,7 +232,54 @@ class TestStrRepr:
 
     def test_str_contains_source_names(self) -> None:
         output = str(registry)
-        assert "orakl_s3" in output
+        assert "orakl_v2" in output
 
     def test_repr_equals_str(self) -> None:
         assert str(registry) == repr(registry)
+
+
+class TestCachedFileIsRejectedWhenTooOld:
+    """The CurveCurator refit reused the file names of the generation before it.
+
+    A cache filled by an older drevalpy therefore holds a file that parses
+    perfectly but has none of the quality layers the splitters read. Serving it
+    would surface as a ``KeyError`` from deep inside a split, so ``load`` has to
+    treat it as stale.
+    """
+
+    def test_a_dataset_without_the_quality_layers_is_rejected(self) -> None:
+        dataset = build_synthetic_dataset(n_cell_lines=4, n_drugs=3)
+        del dataset.response.layers["relevance_score"]
+
+        assert not _carries_curve_quality(dataset)
+
+    def test_a_dataset_with_the_quality_layers_is_accepted(self) -> None:
+        assert _carries_curve_quality(build_synthetic_dataset(n_cell_lines=4, n_drugs=3))
+
+    def test_a_stale_cached_file_is_deleted_and_reported(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        dataset = build_synthetic_dataset(n_cell_lines=4, n_drugs=3)
+        del dataset.response.layers["relevance_score"]
+        path = UPath(tmp_path) / "stale.h5mu"
+        dataset.save(path)
+
+        with caplog.at_level("WARNING"):
+            assert _load_from_cache(path) is None
+
+        assert not path.is_file()
+        assert "curve-quality" in caplog.text
+
+    def test_a_usable_cached_file_is_returned_and_kept(self, tmp_path: Path) -> None:
+        path = UPath(tmp_path) / "fresh.h5mu"
+        build_synthetic_dataset(n_cell_lines=4, n_drugs=3).save(path)
+
+        assert _load_from_cache(path) is not None
+        assert path.is_file()
+
+    def test_an_unparseable_cached_file_is_deleted(self, tmp_path: Path) -> None:
+        path = UPath(tmp_path) / "corrupt.h5mu"
+        path.write_bytes(b"not an h5mu file")
+
+        assert _load_from_cache(path) is None
+        assert not path.is_file()

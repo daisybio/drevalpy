@@ -41,6 +41,15 @@ class _FakeMuDataset:
         """Return the tissue label per requested cell-line id."""
         return self._tissues
 
+    def response_layer_names(self) -> list[str]:
+        """Names of the available response layers."""
+        return ["relevance_score", "fold_change"]
+
+    def get_response_layer(self, name: str) -> np.ndarray:
+        """Quality layers on which every curve passes the default thresholds."""
+        shape = (len(self._tissues), _SHAPE[1])
+        return np.full(shape, 9.0 if name == "relevance_score" else -2.0)
+
 
 def _mask(rows: tuple[int, ...], cols: tuple[int, ...]) -> SplitMask:
     array = np.zeros(_SHAPE, dtype=bool)

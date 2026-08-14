@@ -8,6 +8,7 @@ from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset as Dataset
 
 from .datasets._load import load
+from .quality import curve_quality_mask
 
 
 def split(
@@ -65,6 +66,7 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    "curve_quality_mask",
     "dataset_registry",
     "load",
     "split",

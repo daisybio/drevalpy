@@ -5,10 +5,12 @@ from __future__ import annotations
 import pytest
 from upath import UPath
 
-from drevalpy.data import load, split
+from drevalpy.data import split
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
+from drevalpy.data.quality import curve_quality_mask
 from drevalpy.models import construct_model
 from drevalpy.registry.dataset._registry import dataset_registry
+from drevalpy.types.data.dataset import Dataset
 
 #: Extended tier: the two tests here train ElasticNet and split a real dataset,
 #: costing ~6.3s of the suite between them - by far the largest single group.
@@ -34,21 +36,33 @@ def _cached_h5mu() -> UPath | None:
 def mudataset():
     """Load the real dataset from the local cache, skipping when it is absent.
 
-    Deliberately checks the cache before calling ``load``, so an uncached run
-    skips without attempting a download. The only source registered for this
-    dataset is a credentialed ``s3://`` bucket, and a download attempt without
-    those credentials raises ``botocore`` errors such as
+    Deliberately reads the cached file directly instead of calling ``load``, so
+    an uncached run skips without attempting a download. The only source
+    registered for this dataset is a credentialed ``s3://`` bucket, and a
+    download attempt without those credentials raises ``botocore`` errors such as
     ``UnauthorizedSSOTokenError``. Those are not ``OSError`` subclasses, so they
     used to surface as test *errors* rather than skips and broke any run on a
     machine without the dataset.
+
+    Bypassing ``load`` matters for a second reason now: a cache filled before the
+    CurveCurator refit holds a file of the same name without the curve-quality
+    layers, and ``load`` deliberately deletes and re-downloads such a file. That
+    is right in production and wrong in a test, which must not pull hundreds of
+    megabytes, so a stale cache is a skip here.
     """
     path = _cached_h5mu()
     if path is None:
         pytest.skip(f"{DATASET_NAME} is not in the local cache; not downloading it here")
     try:
-        return load(DATASET_NAME)
+        dataset = Dataset.load(path)
     except Exception as exc:  # noqa: BLE001 - any failure to obtain the data is a skip, not a failure
         pytest.skip(f"cached {DATASET_NAME} at {path} could not be loaded: {exc!r}")
+
+    try:
+        curve_quality_mask(dataset)
+    except KeyError:
+        pytest.skip(f"cached {DATASET_NAME} at {path} predates the curve-quality layers")
+    return dataset
 
 
 class TestFullPipeline:

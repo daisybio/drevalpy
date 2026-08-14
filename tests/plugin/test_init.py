@@ -68,6 +68,7 @@ EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
     "TrainingContext": ("drevalpy.components.contracts.training_context", "TrainingContext"),
     "Validation": ("drevalpy.registry.splitter", "Validation"),
     "Visualization": ("drevalpy.visualization.base", "Visualization"),
+    "curve_quality_mask": ("drevalpy.data.quality", "curve_quality_mask"),
     "graph_feature_block": ("drevalpy.types.data.batch.feature_block", "graph_feature_block"),
     "merge_feature_blocks": ("drevalpy.types.data.batch.feature_block", "merge_feature_blocks"),
     "metadata_feature_block": ("drevalpy.types.data.batch.feature_block", "metadata_feature_block"),

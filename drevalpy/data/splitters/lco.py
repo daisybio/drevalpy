@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.data.quality import curve_quality_mask
 from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMask, SplitMasks
 
@@ -16,7 +17,8 @@ def leave_cell_line_out(
     random_state: int = 42,
 ) -> list[SplitMasks]:
     """Generate LCO folds where each cell line appears in exactly one test set."""
-    response = mudataset.response_matrix
+    response = mudataset.response_matrix.copy()
+    response[~curve_quality_mask(mudataset)] = np.nan
     observed = ~np.isnan(response)
     n_cl = response.shape[0]
 

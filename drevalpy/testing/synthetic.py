@@ -32,8 +32,11 @@ N_DRUGS: Final = 8
 N_TISSUES: Final = 6
 N_FEATURES: Final = 16
 
-#: Response measure name matching the published datasets.
-MEASURE: Final = "LN_IC50_curvecurator"
+#: A curve-metric layer name the curation pipeline really emits. ``response.X``
+#: holds pEC50, which curation does not duplicate as a layer, so the fixture
+#: derives this one from ``X`` the way a real fit would - see
+#: :func:`drevalpy.curation.curate`.
+MEASURE: Final = "LN_IC50"
 
 DATASET_NAME: Final = "SYNTHETIC"
 SEED: Final = 20260813
@@ -79,6 +82,7 @@ def _response_anndata(
     n_drugs: int,
     n_tissues: int,
     missing_fraction: float,
+    low_quality_fraction: float,
 ) -> ad.AnnData:
     """Build the ``response`` modality: the pair matrix plus entity metadata."""
     cell_line_ids = [f"CVCL_S{index:03d}" for index in range(n_cell_lines)]
@@ -102,8 +106,25 @@ def _response_anndata(
             index=pd.Index(drug_ids, name="pubchem_id"),
         ),
     )
-    response.layers[MEASURE] = matrix.copy()
+    response.layers[MEASURE] = _ln_ic50_from_pec50(matrix)
+    for name, layer in _quality_layers(rng, matrix, low_quality_fraction=low_quality_fraction).items():
+        response.layers[name] = layer
     return response
+
+
+def _ln_ic50_from_pec50(pec50: np.ndarray) -> np.ndarray:
+    """Derive an ``LN_IC50`` layer from a pEC50 matrix.
+
+    Uses the ideal-curve identity ``EC50 [uM] = 10 ** (6 - pEC50)``, i.e. the
+    ``IC50 == EC50`` case of the closed-form solution
+    :func:`drevalpy.curation._postprocess._compute_ic50` inverts. That keeps the
+    layer monotone in ``X`` and on a plausible scale without pretending the
+    fixture has curve plateaus it never fitted.
+
+    :param pec50: pEC50 matrix, possibly containing NaN.
+    :returns: Matching ``LN_IC50`` matrix, NaN preserved.
+    """
+    return ((6.0 - pec50) * np.log(10.0)).astype(np.float32)
 
 
 def _omics_coverage(omics: Sequence[str] | Mapping[str, int] | None, n_cell_lines: int) -> dict[str, int]:
@@ -113,6 +134,66 @@ def _omics_coverage(omics: Sequence[str] | Mapping[str, int] | None, n_cell_line
     if isinstance(omics, Mapping):
         return {name: int(count) for name, count in omics.items()}
     return dict.fromkeys(omics, n_cell_lines)
+
+
+def _quality_layers(
+    rng: np.random.Generator,
+    matrix: np.ndarray,
+    *,
+    low_quality_fraction: float,
+) -> dict[str, np.ndarray]:
+    """Build the CurveCurator quality layers the splitters filter on.
+
+    Every metric is derived from a single per-pair "is this curve good" draw, so
+    the layers agree with each other: a pair that fails ``relevance_score`` does
+    not also claim ``R2 = 0.99``. Filtering on any one option therefore selects
+    the same pairs, which is what makes a non-default option testable.
+
+    Args:
+        rng: Source of randomness.
+        matrix: Response matrix, used only for its shape.
+        low_quality_fraction: Share of pairs to mark as failing the default
+            thresholds. The failing pairs are chosen with the same per-row and
+            per-column guarantee ``_punch_holes`` uses, because a quality filter
+            that empties a cell line breaks the leave-one-out splitters exactly
+            as an unmeasured one does.
+
+    Returns:
+        Layer name to matrix, ready to assign into ``response.layers``.
+    """
+    good = np.ones(matrix.shape, dtype=bool)
+    if low_quality_fraction > 0:
+        holes = np.zeros(matrix.shape, dtype=np.float32)
+        _punch_holes(holes, rng, low_quality_fraction)
+        good = ~np.isnan(holes)
+
+    def _pick(good_value: float, bad_value: float) -> np.ndarray:
+        return np.where(good, good_value, bad_value).astype(np.float32)
+
+    # Values sit far from the thresholds on both sides, so a boundary change in
+    # curve_quality_mask cannot silently reclassify a synthetic pair.
+    return {
+        "relevance_score": _pick(9.0, 0.01),
+        "fold_change": _pick(-2.0, -0.01),
+        "p_value": _pick(1e-9, 0.9),
+        "log_p_value": _pick(9.0, 0.05),
+        "f_value": _pick(400.0, 0.5),
+        "f_value_sam": _pick(80.0, 0.001),
+        "R2": _pick(0.99, 0.02),
+        "RMSE": _pick(0.02, 0.8),
+        "signal_quality": _pick(1.0, 0.0),
+        "slope": _pick(3.0, 0.05),
+        "front": _pick(1.0, 0.1),
+        "back": _pick(0.05, 5.0),
+        "regulation": _pick(-1.0, 0.0),
+        # Not filter options, but layers every curated dataset carries: the
+        # per-parameter standard errors CurveCurator derives from the fit's
+        # Jacobian. A bad curve gets a wide error, matching the draw above.
+        "pec50_error": _pick(0.05, 20.0),
+        "slope_error": _pick(0.1, 50.0),
+        "front_error": _pick(0.01, 5.0),
+        "back_error": _pick(0.01, 5.0),
+    }
 
 
 def _omics_anndata(
@@ -141,6 +222,7 @@ def build_synthetic_dataset(
     feature_names: Sequence[str] | None = None,
     n_features: int = N_FEATURES,
     missing_fraction: float = 0.05,
+    low_quality_fraction: float = 0.0,
     seed: int = SEED,
 ) -> Dataset:
     """Build a deterministic in-memory dataset for tests.
@@ -160,11 +242,17 @@ def build_synthetic_dataset(
             ``None``.
         missing_fraction: Share of response pairs left unmeasured. Every cell
             line and drug keeps at least one measurement regardless.
+        low_quality_fraction: Share of response pairs whose curve-quality
+            metrics fail the thresholds
+            :func:`~drevalpy.data.quality.curve_quality_mask` applies, so the
+            built-in splitters drop them. Defaults to ``0.0``, i.e. every curve
+            passes and a split is determined by *missing_fraction* alone.
         seed: Seed for every drawn matrix, making the dataset reproducible.
 
     Returns:
         A dataset carrying a ``response`` modality with cell-line metadata,
-        tissue labels and drug identifiers, plus any requested omics modality.
+        tissue labels, drug identifiers and the CurveCurator quality layers,
+        plus any requested omics modality.
     """
     rng = np.random.default_rng(seed)
     response = _response_anndata(
@@ -173,6 +261,7 @@ def build_synthetic_dataset(
         n_drugs=n_drugs,
         n_tissues=n_tissues,
         missing_fraction=missing_fraction,
+        low_quality_fraction=low_quality_fraction,
     )
     columns = feature_names if feature_names is not None else [f"FEATURE{index:04d}" for index in range(n_features)]
 

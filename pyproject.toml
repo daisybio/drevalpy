@@ -310,19 +310,17 @@ min_file_coverage = 60
 # reachable offline. The lazy __getattr__ re-export block in the package
 # __init__ is only entered by callers that use the deprecated import path.
 #
-# DO NOT CHANGE THE 27 BELOW. It is not a stale measurement, and it is not debt
-# that has since been paid down - it is the number *CI* measures on a clean
-# checkout with no credentials and an empty dataset cache. On a developer machine
-# whose cache already holds a real dataset, tests/test_integration.py stops
-# skipping and the same module measures ~38%, so `tools/coverage_gate.py` lists
-# this entry under "exemptions that can be lowered or deleted" on every local run.
-# That suggestion is wrong here and only here: the AGENTS.md ratchet rule assumes
-# the local number is reproducible in CI, and for this module it is not. Editing
-# 27 up towards the local figure (or deleting the entry) turns CI red on the next
-# clean checkout, which is exactly what it is meant to protect. Raise it only
-# together with a measurement taken by CI itself.
+# The 55 below IS reproducible on a clean checkout: the cache-eviction helpers
+# (_load_from_cache / _carries_curve_quality) are unit-tested against synthetic
+# .h5mu files in tmp_path, so they need neither credentials nor a populated
+# cache. Verified at 56.9% with DREVALPY_CACHE_DIR pointed at an empty directory,
+# i.e. the shape CI runs.
+#
+# What remains uncovered is only the download itself: _download and the
+# registered-but-not-cached branch of load(). Do not raise this entry towards
+# 60% by exercising those - it would mean pulling hundreds of megabytes in CI.
 "drevalpy/data/datasets/__init__.py" = 44
-"drevalpy/data/datasets/_load.py" = 27
+"drevalpy/data/datasets/_load.py" = 55
 
 # Defensive resolution fallbacks for hand-rolled DRPModel subclasses. Every model
 # construct_model() produces sets _base_model_config, so the zoo-lookup and

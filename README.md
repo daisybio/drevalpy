@@ -176,7 +176,7 @@ Main run:
 # params/main_results.yaml
 run_id: main_results
 dataset_name: CTRPv2
-cross_study_datasets: CTRPv1,CCLE,GDSC1,GDSC2
+cross_study_datasets: CTRPv1,GDSC1,GDSC2
 models: DIPK,MultiViewRandomForest
 baselines: SimpleNeuralNetwork,RandomForest,MultiViewNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveCellLineMeanPredictor,NaiveDrugMeanPredictor
 test_mode: LPO,LCO,LTO,LDO
@@ -191,7 +191,7 @@ EC50 and AUC runs:
 # params/ec50_run.yaml
 run_id: ec50_run
 dataset_name: CTRPv2
-cross_study_datasets: CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2
+cross_study_datasets: CTRPv1,GDSC1,GDSC2,PDX_Bruna,BeatAML2
 models: RandomForest
 baselines: NaiveMeanEffectsPredictor
 test_mode: LCO
@@ -202,7 +202,7 @@ measure: pEC50
 # params/auc_run.yaml
 run_id: auc_run
 dataset_name: CTRPv2
-cross_study_datasets: CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2
+cross_study_datasets: CTRPv1,GDSC1,GDSC2,PDX_Bruna,BeatAML2
 models: RandomForest
 baselines: NaiveMeanEffectsPredictor
 test_mode: LCO
