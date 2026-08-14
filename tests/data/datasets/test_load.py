@@ -12,7 +12,7 @@ from drevalpy.registry.dataset import DatasetRegistry as Registry
 from drevalpy.registry.dataset import DrevalConfig, SourceEntry, get_config_path
 from drevalpy.registry.dataset import dataset_registry as registry
 
-_EXPECTED_BUILTIN = [
+_CORE_DATASETS = [
     "BeatAML2",
     "CCLE",
     "CTRPv1",
@@ -23,14 +23,19 @@ _EXPECTED_BUILTIN = [
 ]
 
 
+def _packaged_registry() -> dict:
+    """Read the packaged ``available_datasets.json``."""
+    registry_path = resources.files("drevalpy.data.datasets").joinpath("available_datasets.json")
+    with registry_path.open(encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 class TestBuiltinRegistry:
     """Tests for the built-in dataset registry (packaged JSON)."""
 
     def test_available_datasets_json_structure(self) -> None:
         """Verify the packaged JSON has the expected schema."""
-        registry_path = resources.files("drevalpy.data.datasets").joinpath("available_datasets.json")
-        with registry_path.open(encoding="utf-8") as handle:
-            raw = json.load(handle)
+        raw = _packaged_registry()
 
         assert "sources" in raw
         assert "datasets" in raw
@@ -45,7 +50,12 @@ class TestBuiltinRegistry:
             assert entry["file"].endswith(".h5mu")
 
     def test_dataset_names(self) -> None:
-        assert registry.dataset_names == sorted(_EXPECTED_BUILTIN)
+        """Every packaged dataset is exposed, in sorted order."""
+        assert registry.dataset_names == sorted(registry.dataset_names)
+        assert set(_packaged_registry()["datasets"]) <= set(registry.dataset_names)
+
+    def test_core_datasets_are_registered(self) -> None:
+        assert set(_CORE_DATASETS) <= set(registry.dataset_names)
 
     def test_source_names(self) -> None:
         assert "orakl_s3" in registry.source_names
@@ -56,12 +66,13 @@ class TestBuiltinRegistry:
         assert not registry.is_registered("NonExistent")
 
     def test_builtin_vs_custom_separation(self) -> None:
-        assert len(registry.builtin_datasets) == len(_EXPECTED_BUILTIN)
-        assert len(registry.builtin_sources) >= 1
+        assert set(registry.builtin_datasets) == set(_packaged_registry()["datasets"])
+        assert set(registry.builtin_sources) == set(_packaged_registry()["sources"])
+        assert registry.custom_datasets.keys() <= registry.datasets.keys()
 
     def test_datasets_property_returns_merged(self) -> None:
         datasets = registry.datasets
-        assert all(name in datasets for name in _EXPECTED_BUILTIN)
+        assert all(name in datasets for name in _CORE_DATASETS)
 
     def test_sources_have_urls(self) -> None:
         for source in registry.sources.values():
