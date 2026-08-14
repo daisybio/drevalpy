@@ -168,6 +168,9 @@ venv.bak/
 .complexipy_cache/
 .dmypy.json
 dmypy.json
+.repowise/
+.vscode/
+.mcp.json
 
 # Pyre type checker
 .pyre/
