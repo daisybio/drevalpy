@@ -170,7 +170,9 @@ venv.bak/
 dmypy.json
 .repowise/
 .vscode/
-.mcp.json
+# Repowise generates .cursor/mcp.json and .cursor/rules/repowise.mdc. Ignored
+# because the MCP entry embeds an absolute path to this checkout.
+.cursor/
 
 # Pyre type checker
 .pyre/
