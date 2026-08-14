@@ -411,7 +411,9 @@ class LeaderboardVisualization(ImageVisualization):
         _draw_subtitle(
             fig,
             result.dataset_name if hasattr(result, "dataset_name") else "Dataset",
-            "LN_IC50",
+            # Every run trains on ``Dataset.response_matrix``, i.e. the response
+            # modality's X, which curation fills with pEC50.
+            "pEC50",
             _get_test_mode_name(result.split_mode if hasattr(result, "split_mode") else "LCO"),
             font_adder,
             colors,
