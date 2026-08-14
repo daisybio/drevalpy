@@ -15,9 +15,12 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
+import anndata
+import numpy as np
 import pandas as pd
 import pytest
 
+from drevalpy.curation import curate
 from drevalpy.curation._fit import (
     _build_config,
     _build_work_items,
@@ -26,6 +29,7 @@ from drevalpy.curation._fit import (
     fit_groups,
 )
 from drevalpy.curation._preprocess import preprocess
+from tests.curation.test_normalize import build_normalizable_df
 
 _DOSES = [0.0, 0.001, 0.01, 0.1, 1.0, 10.0]
 
@@ -303,6 +307,12 @@ class TestFitGroups:
 
         assert {"pEC50", "Curve Slope", "Curve Front", "Curve Back", "Curve AUC"} <= set(fitted_df.columns)
 
+    def test_emits_the_per_curve_parameter_errors(self, fitted_single_group: _Fitted) -> None:
+        """CurveCurator computes these on every fit; ``_postprocess`` keeps them."""
+        fitted_df, _ = fitted_single_group.results[0]
+
+        assert {"pEC50 Error", "Curve Slope Error", "Curve Front Error", "Curve Back Error"} <= set(fitted_df.columns)
+
     def test_applies_significance_thresholds(self, fitted_single_group: _Fitted) -> None:
         """Only ``thresholding.apply_significance_thresholds`` adds these columns."""
         fitted_df, _ = fitted_single_group.results[0]
@@ -314,3 +324,61 @@ class TestFitGroups:
 
         assert config["Curve Fit"]["speed"] == "fast"
         assert config["Experiment"]["doses"].tolist() == fitted_single_group.groups[0][1]["doses"]
+
+
+class TestNormalizedFitIsCoreCountIndependent:
+    """The regression guard for the per-chunk normalization bug.
+
+    ``normalize=True`` used to run inside every parallel chunk, so a dataset got
+    one set of median-derived normalization factors per chunk and its output
+    depended on ``cores``. ``cores=1`` and ``cores=4`` chunk the same group into
+    one and four pieces respectively, so agreeing here is exactly the property
+    that used to fail.
+
+    Driven through :func:`drevalpy.curation.curate` because that is the only
+    public entry point; the AnnData it returns is indexed by cell line and drug,
+    so ``X`` and the layers line up pair-for-pair without any sorting.
+
+    Extended tier: two real multi-curve CurveCurator fits, one of them across a
+    process pool.
+    """
+
+    pytestmark = pytest.mark.slow
+
+    @staticmethod
+    def _curate(*, cores: int, normalize: bool) -> anndata.AnnData:
+        """Curate the normalizable dataset at a given core count."""
+        return curate(build_normalizable_df(), cores=cores, normalize=normalize, fit_speed="fast")
+
+    @pytest.fixture(scope="class")
+    def normalized_fits(self) -> tuple[anndata.AnnData, anndata.AnnData]:
+        """The same normalized dataset curated at ``cores=1`` and ``cores=4``."""
+        return self._curate(cores=1, normalize=True), self._curate(cores=4, normalize=True)
+
+    def test_the_same_curves_come_back(self, normalized_fits: tuple[anndata.AnnData, anndata.AnnData]) -> None:
+        serial, pooled = normalized_fits
+
+        assert serial.obs_names.tolist() == pooled.obs_names.tolist()
+        assert serial.var_names.tolist() == pooled.var_names.tolist()
+
+    def test_every_metric_is_identical(self, normalized_fits: tuple[anndata.AnnData, anndata.AnnData]) -> None:
+        serial, pooled = normalized_fits
+
+        np.testing.assert_array_equal(serial.X, pooled.X)
+        assert set(serial.layers) == set(pooled.layers)
+        for name in serial.layers:
+            np.testing.assert_array_equal(serial.layers[name], pooled.layers[name], err_msg=name)
+
+    def test_normalization_actually_changed_the_result(self) -> None:
+        """Otherwise the equality above would hold for a no-op implementation."""
+        normalized = self._curate(cores=1, normalize=True)
+        plain = self._curate(cores=1, normalize=False)
+
+        assert not np.allclose(normalized.X, plain.X, equal_nan=True)
+
+    def test_signal_quality_reflects_the_raw_controls(self) -> None:
+        """Normalization overwrites the raw columns, so this is restored explicitly."""
+        normalized = self._curate(cores=1, normalize=True)
+        plain = self._curate(cores=1, normalize=False)
+
+        np.testing.assert_allclose(normalized.layers["signal_quality"], plain.layers["signal_quality"])

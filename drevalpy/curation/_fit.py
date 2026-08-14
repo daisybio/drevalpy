@@ -75,9 +75,11 @@ def _fit_chunk(chunk_df: pd.DataFrame, config: dict) -> pd.DataFrame:
     """Fit a single chunk using run_pipeline (single-core)."""
     from curve_curator import quantification
 
+    from drevalpy.curation._normalize import restore_signal_quality
+
     cfg = copy.deepcopy(config)
     cfg["Processing"]["available_cores"] = 1
-    return quantification.run_pipeline(chunk_df, cfg)
+    return restore_signal_quality(quantification.run_pipeline(chunk_df, cfg))
 
 
 def _build_work_items(
@@ -89,6 +91,11 @@ def _build_work_items(
 ) -> tuple[list[tuple[pd.DataFrame, dict, int]], list[dict]]:
     """Split every group into chunks and build the matching curve_curator configs.
 
+    When *normalize* is set, the group is normalized here - once, over all of its
+    rows - and the config handed to each chunk has normalization switched off, so
+    curve_curator cannot recompute per-chunk factors. See
+    :mod:`drevalpy.curation._normalize`.
+
     :param groups: (wide_df, group_info) tuples from preprocess.
     :param chunk_size: Target number of curves per chunk.
     :param normalize: Whether to apply median-centric normalization.
@@ -96,6 +103,8 @@ def _build_work_items(
     :param fit_speed: Fitting thoroughness.
     :returns: (work items as (chunk_df, config, group_idx), one config per group).
     """
+    from drevalpy.curation._normalize import normalize_group
+
     work_items: list[tuple[pd.DataFrame, dict, int]] = []
     configs: list[dict] = []
 
@@ -110,9 +119,15 @@ def _build_work_items(
         )
         configs.append(config)
 
-        n_chunks = math.ceil(len(df) / chunk_size)
-        for chunk_df in np.array_split(df, n_chunks):
-            work_items.append((chunk_df.reset_index(drop=True), config, group_idx))
+        chunk_df_source, chunk_config = df, config
+        if normalize:
+            chunk_df_source = normalize_group(df, config)
+            chunk_config = copy.deepcopy(config)
+            chunk_config["Processing"]["normalization"] = False
+
+        n_chunks = max(1, math.ceil(len(chunk_df_source) / chunk_size))
+        for chunk_df in np.array_split(chunk_df_source, n_chunks):
+            work_items.append((chunk_df.reset_index(drop=True), chunk_config, group_idx))
 
     return work_items, configs
 

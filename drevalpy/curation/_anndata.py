@@ -8,6 +8,9 @@ import pandas as pd
 
 _REGULATION_ENCODING = {"up": 1, "down": -1, "not": 0}
 
+#: Measure ``X`` holds. Not duplicated as a layer.
+X_MEASURE = "pEC50"
+
 _LAYER_METRICS = [
     "EC50",
     "IC50",
@@ -26,6 +29,12 @@ _LAYER_METRICS = [
     "relevance_score",
     "signal_quality",
     "regulation",
+    # Per-parameter standard errors from the fit's Jacobian. ``pec50_error`` is
+    # the uncertainty on X itself, so it belongs next to it.
+    "pec50_error",
+    "slope_error",
+    "front_error",
+    "back_error",
 ]
 
 
@@ -50,7 +59,7 @@ def build_anndata(df: pd.DataFrame) -> anndata.AnnData:
     cell_lines = pd.Index(sorted(df["cell_line"].unique()))
     drugs = pd.Index(sorted(df["drug"].unique()))
 
-    x_matrix = _pivot_metric(df, "pEC50", cell_lines, drugs)
+    x_matrix = _pivot_metric(df, X_MEASURE, cell_lines, drugs)
 
     work_df = df.copy()
     work_df["regulation"] = work_df["regulation"].map(_REGULATION_ENCODING).astype(float)
