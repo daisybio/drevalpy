@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 import math
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import Executor, ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -132,19 +132,36 @@ def _build_work_items(
     return work_items, configs
 
 
-def _run_work_items(work_items: list[tuple[pd.DataFrame, dict, int]], cores: int) -> list[tuple[pd.DataFrame, int]]:
+def _run_work_items(
+    work_items: list[tuple[pd.DataFrame, dict, int]],
+    cores: int,
+    executor: Executor | None = None,
+) -> list[tuple[pd.DataFrame, int]]:
     """Fit all chunks, in parallel when more than one core and chunk are available.
 
     :param work_items: (chunk_df, config, group_idx) tuples to fit.
-    :param cores: Number of CPU cores for parallel fitting.
+    :param cores: Number of CPU cores for parallel fitting (used only when no
+        external *executor* is provided).
+    :param executor: Optional :class:`~concurrent.futures.Executor` instance. When
+        provided, all chunks are submitted to this executor instead of creating an
+        internal :class:`~concurrent.futures.ProcessPoolExecutor`. This allows
+        callers to supply a ``submitit`` SLURM executor or any other
+        ``concurrent.futures``-compatible executor. The executor is **not** shut
+        down by this function — the caller retains ownership.
     :returns: (fitted_df, group_idx) tuples in submission order.
     """
-    if cores <= 1 or len(work_items) == 1:
+    if executor is None and (cores <= 1 or len(work_items) == 1):
         return [(_fit_chunk(chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items]
 
-    with ProcessPoolExecutor(max_workers=cores) as executor:
+    if executor is not None:
         futures = [
             (executor.submit(_fit_chunk, chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items
+        ]
+        return [(future.result(), group_idx) for future, group_idx in futures]
+
+    with ProcessPoolExecutor(max_workers=cores) as pool:
+        futures = [
+            (pool.submit(_fit_chunk, chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items
         ]
         return [(future.result(), group_idx) for future, group_idx in futures]
 
@@ -155,6 +172,7 @@ def fit_groups(
     normalize: bool = False,
     fit_type: str = "OLS",
     fit_speed: str = "exhaustive",
+    executor: Executor | None = None,
 ) -> list[tuple[pd.DataFrame, dict]]:
     """Fit all groups with chunk-level parallelism.
 
@@ -163,13 +181,21 @@ def fit_groups(
     groups
         List of (wide_df, group_info) from preprocess.
     cores
-        Number of CPU cores for parallel fitting.
+        Number of CPU cores for parallel fitting. When an external *executor* is
+        provided this still controls the chunk size (total_curves // cores) but
+        does not create a local process pool.
     normalize
         Whether to apply median-centric normalization.
     fit_type
         Fitting method. Only "OLS" is currently supported.
     fit_speed
         Fitting thoroughness: "fast", "standard", "exhaustive", or "basinhopping".
+    executor
+        Optional :class:`~concurrent.futures.Executor` instance (e.g. a
+        ``submitit.AutoExecutor``). When supplied, chunk fitting is dispatched
+        through this executor instead of an internal
+        :class:`~concurrent.futures.ProcessPoolExecutor`. The caller is responsible
+        for configuring and shutting down the executor.
 
     Returns:
     -------
@@ -179,7 +205,7 @@ def fit_groups(
     chunk_size = max(1, total_curves // cores)
 
     work_items, configs = _build_work_items(groups, chunk_size, normalize, fit_type, fit_speed)
-    fitted_chunks = _run_work_items(work_items, cores)
+    fitted_chunks = _run_work_items(work_items, cores, executor=executor)
 
     group_results: list[list[pd.DataFrame]] = [[] for _ in groups]
     for fitted_df, group_idx in fitted_chunks:

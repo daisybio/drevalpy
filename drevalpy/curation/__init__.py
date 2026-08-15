@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING
 from drevalpy.curation._anndata import build_anndata
 
 if TYPE_CHECKING:
+    from concurrent.futures import Executor
+
     import anndata
     import pandas as pd
 
@@ -48,6 +50,7 @@ def curate(
     normalize: bool = False,
     fit_type: str = "OLS",
     fit_speed: str = DEFAULT_FIT_SPEED,
+    executor: Executor | None = None,
 ) -> anndata.AnnData:
     """Fit dose-response curves and return an AnnData of curve metrics.
 
@@ -59,8 +62,9 @@ def curate(
         values are treated as opaque labels, so native identifiers are fine -
         they become the ``var_names``/``obs_names`` of the result.
     cores
-        Number of CPU cores for parallel fitting. The result does not depend on
-        this, including when *normalize* is set.
+        Number of CPU cores for parallel fitting. Controls both the chunk size
+        and (when no *executor* is supplied) the local process pool width. The
+        result does not depend on this, including when *normalize* is set.
     normalize
         Whether to apply median-centric normalization before fitting. Factors are
         computed once per dose-range group, not per parallel chunk.
@@ -68,6 +72,13 @@ def curate(
         Fitting method. Only "OLS" is currently supported.
     fit_speed
         Fitting thoroughness, one of :data:`FIT_SPEEDS`.
+    executor
+        Optional :class:`~concurrent.futures.Executor` instance. When provided,
+        chunk fitting is dispatched through this executor instead of an internal
+        :class:`~concurrent.futures.ProcessPoolExecutor`. This enables callers to
+        supply e.g. a ``submitit.AutoExecutor`` configured for SLURM, or any other
+        ``concurrent.futures``-compatible executor. The caller retains ownership
+        and is responsible for shutting down the executor.
 
     Returns:
     -------
@@ -95,6 +106,7 @@ def curate(
         normalize=normalize,
         fit_type=fit_type,
         fit_speed=fit_speed,
+        executor=executor,
     )
     return build_anndata(postprocess(fitted_groups))
 
