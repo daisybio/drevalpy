@@ -60,6 +60,8 @@ from tests._trusted_subprocess import run_trusted_python
 #: ``torch`` ~0.33s, ``sklearn`` ~0.39s (it reaches ``scipy.stats`` through
 #: ``sklearn.utils``), ``xgboost``/``lightgbm`` ~0.4s each (both via ``sklearn``),
 #: ``mudata`` ~0.30s (``anndata`` -> ``dask.array`` + ``zarr``), ``pandas`` ~0.14s,
+#: ``plotly`` ~0.13s for the surface the plots use (``graph_objects``, ``colors``,
+#: ``subplots`` and ``utils``, most of it ``_plotly_utils.basevalidators``),
 #: ``scikit_posthocs`` ~0.21s (``seaborn`` -> ``ipywidgets`` -> ``IPython``),
 #: ``matplotlib`` ~0.08s, ``wandb`` ~0.11s and ``optuna`` ~0.07s.
 FORBIDDEN_STARTUP_IMPORTS = (
@@ -70,6 +72,7 @@ FORBIDDEN_STARTUP_IMPORTS = (
     "mudata",
     "optuna",
     "pandas",
+    "plotly",
     "pytorch_lightning",
     "scikit_posthocs",
     "scipy",

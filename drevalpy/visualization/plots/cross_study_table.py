@@ -5,13 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import plotly.graph_objects as go
-
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
 
 if TYPE_CHECKING:
     import pandas as pd
+    import plotly.graph_objects as go
 
     from drevalpy.types.results import ExperimentResult
 
@@ -73,6 +72,8 @@ class CrossStudyTableVisualization(Visualization):
 
         :param result: Experiment result to summarize.
         """
+        import plotly.graph_objects as go
+
         self._result = result
         df = _build_cross_study_df(result)
 
@@ -194,6 +195,8 @@ class CrossStudyTableVisualization(Visualization):
 
 def _build_simple_table(result: ExperimentResult) -> go.Figure:
     """Build a simple Plotly table from aggregate metrics when no cross-study data is present."""
+    import plotly.graph_objects as go
+
     metric_names = sorted({m for model in result.models for m in model.aggregate_metrics})
     model_names = [m.model_name for m in result.models]
 

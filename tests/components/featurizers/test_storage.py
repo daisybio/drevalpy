@@ -15,9 +15,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.featurizers.storage import (
     VARIANTS_UNS_KEY_CELL_LINE,
     VARIANTS_UNS_KEY_DRUG,
+    FeaturizerStorageMixin,
     fetch_from_modality,
     fetch_from_obsm,
     fetch_from_varm,
@@ -190,3 +192,100 @@ def test_fetchers_return_none_without_a_response_modality() -> None:
 
     assert fetch_from_varm(only_omics, "anything", _DRUGS) is None
     assert fetch_from_obsm(only_omics, "anything", _CELL_LINES) is None
+
+
+class _CellLineStore(FeaturizerStorageMixin):
+    """Cell-line-side storage user, standing in for a real featurizer."""
+
+    storage_key = "probe"
+    side = "cell_line"
+
+
+class _DrugStore(FeaturizerStorageMixin):
+    """Drug-side storage user, standing in for a real featurizer."""
+
+    storage_key = "probe"
+    side = "drug"
+
+
+def test_featurizer_inherits_the_storage_mixin() -> None:
+    """The mixin was extracted off ``Featurizer``; it has to still be mixed back in."""
+    assert issubclass(Featurizer, FeaturizerStorageMixin)
+    for name in ("fetch", "_fetch_by_key", "store", "_store_by_key", "list_stored_variants"):
+        assert name not in vars(Featurizer), f"{name} should live only on the mixin"
+
+
+def test_storage_mixin_fetch_returns_none_without_a_registered_variant(mdata: md.MuData) -> None:
+    assert _CellLineStore().fetch(mdata, _CELL_LINES) is None
+
+
+def test_storage_mixin_store_then_fetch_round_trips_on_the_cell_line_side(mdata: md.MuData) -> None:
+    values = np.array([[1.5, 2.5], [3.5, 4.5]], dtype=np.float32)
+    store = _CellLineStore()
+
+    store.store(mdata, _CELL_LINES, values, {"n": 3})
+    fetched = store.fetch(mdata, _CELL_LINES, {"n": 3})
+
+    assert fetched is not None
+    np.testing.assert_allclose(fetched, values)
+
+
+def test_storage_mixin_store_writes_the_drug_side_to_varm(mdata: md.MuData) -> None:
+    values = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+
+    _DrugStore().store(mdata, _DRUGS, values)
+
+    assert "probe_0" in mdata.mod["response"].varm
+    assert "probe_0" not in mdata.mod["response"].obsm
+
+
+def test_storage_mixin_store_indexes_successive_variants(mdata: md.MuData) -> None:
+    store = _CellLineStore()
+    values = np.zeros((2, 2), dtype=np.float32)
+
+    store.store(mdata, _CELL_LINES, values, {"n": 1})
+    store.store(mdata, _CELL_LINES, values, {"n": 2})
+
+    assert set(store.list_stored_variants(mdata)) == {"probe_0", "probe_1"}
+
+
+def test_storage_mixin_list_stored_variants_is_a_classmethod(mdata: md.MuData) -> None:
+    """``list_stored_variants`` reads ``cls.side``, so it must work off the class."""
+    _CellLineStore().store(mdata, _CELL_LINES, np.zeros((2, 2), dtype=np.float32), {"n": 1})
+
+    assert _CellLineStore.list_stored_variants(mdata) == {"probe_0": {"n": 1}}
+    assert _DrugStore.list_stored_variants(mdata) == {}
+
+
+def test_storage_mixin_fetch_precomputed_tolerates_a_source_without_mdata() -> None:
+    class _NoMdata:
+        mdata = None
+
+    assert _CellLineStore().fetch_precomputed(_NoMdata(), _CELL_LINES) is None
+
+
+def test_storage_mixin_fetch_precomputed_reads_through_a_backed_source(mdata: md.MuData) -> None:
+    values = np.array([[7.0, 8.0], [9.0, 10.0]], dtype=np.float32)
+    store = _CellLineStore()
+    store.store(mdata, _CELL_LINES, values)
+
+    class _Backed:
+        pass
+
+    source = _Backed()
+    source.mdata = mdata
+
+    fetched = store.fetch_precomputed(source, _CELL_LINES)
+
+    assert fetched is not None
+    np.testing.assert_allclose(fetched, values)
+
+
+def test_storage_mixin_prefers_a_modality_over_obsm(mdata: md.MuData) -> None:
+    """``_fetch_by_key`` tries modalities first; ``Dataset.precompute`` can write either."""
+    register_variant(mdata, "probe", "gene_expression", None, side="cell_line")
+
+    fetched = _CellLineStore().fetch(mdata, _CELL_LINES)
+
+    assert fetched is not None
+    assert fetched.shape == (2, 3)

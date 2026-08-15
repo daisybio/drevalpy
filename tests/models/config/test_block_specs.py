@@ -48,7 +48,7 @@ def test_declared_output_block_specs_win() -> None:
 
 
 def test_nested_concat_flattens_child_blocks() -> None:
-    from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
+    from drevalpy.components.featurizers.shared.concat import CellLineConcatFeaturizer
 
     @register_cell_line_featurizer(
         "denseCellLine",
@@ -58,7 +58,7 @@ def test_nested_concat_flattens_child_blocks() -> None:
     class DenseCellLine:
         pass
 
-    cell_line_featurizer_registry.register_existing("concatFeaturizers", ConcatFeaturizersCellLineFeaturizer)
+    cell_line_featurizer_registry.register_existing("concatFeaturizers", CellLineConcatFeaturizer)
 
     config = CellLineFeaturizerConfig.model_validate(
         {

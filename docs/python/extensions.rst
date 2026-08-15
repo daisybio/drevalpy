@@ -54,7 +54,9 @@ Custom featurizers
 ------------------
 
 Subclass ``CellLineFeaturizer`` or ``DrugFeaturizer`` and register with
-``@register_cell_line_featurizer`` or ``@register_drug_featurizer``.
+``@register_cell_line_featurizer`` or ``@register_drug_featurizer``. Before
+writing a base of your own, check :ref:`featurizer-reuse` below — the shipped
+featurizers are built on three reusable pieces that ``drevalpy.plugin`` exports.
 
 What a featurizer must provide
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,6 +126,87 @@ This one declares its contract on the class body instead, and uses
 .. literalinclude:: /examples/toy_drug_featurizer.py
    :language: python
    :caption: docs/examples/toy_drug_featurizer.py
+
+.. _featurizer-reuse:
+
+Reusing the shipped featurizer machinery
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**One implementation, both sides.** A featurizer whose logic does not depend on
+the entity side is written **once** and bound to both sides with
+``register_for_sides``, which registers it under the same name in both
+featurizer registries. Do not write a cell-line copy and a drug copy: the side
+is a class-level fact the registry stamps on, so a second registration would
+overwrite the first one's side, and the decorator derives one subclass per side
+precisely so each registry gets its own class to stamp. The built-in
+``identity``, ``constant`` and ``concat`` featurizers are each a single class
+this way.
+
+.. code-block:: python
+
+   from typing import ClassVar
+
+   import numpy as np
+
+   from drevalpy.plugin import (
+       BlockSpec,
+       FeatureFormat,
+       Featurizer,
+       numeric_feature_block,
+       register_for_sides,
+   )
+
+
+   @register_for_sides(
+       "myOnes",
+       description={
+           "cell_line": "A constant column per cell line.",
+           "drug": "A constant column per drug.",
+       },
+       contract=FeatureFormat.NUMERIC_MATRIX,
+   )
+   class SharedOnesFeaturizer(Featurizer):
+       """Emit one column of ones per entity."""
+
+       entity_id_only: ClassVar[bool] = True
+       output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+           BlockSpec("ones", FeatureFormat.NUMERIC_MATRIX),
+       )
+
+       def _fit(self, source, **kwargs):
+           return self
+
+       def _transform_blocks(self, source, entity_ids):
+           ones = np.ones((len(entity_ids), 1), dtype=np.float32)
+           return {"ones": numeric_feature_block(ones)}
+
+       @property
+       def output_dim(self):
+           return 1
+
+``description`` also accepts a plain string used for every side, and
+``sides=("cell_line",)`` binds one side only. The decorated class is returned
+**unregistered**, so it stays importable as the shared logic it is; what lands in
+the registries are the derived ``CellLineOnesFeaturizer`` and
+``DrugOnesFeaturizer``, named by stripping a leading ``Shared`` and prefixing the
+side. Both are injected into your module's namespace, which is what keeps them
+findable when the registries are rebuilt.
+
+**One dense matrix from one view.** ``DenseViewFeaturizer`` implements ``_fit``,
+``_transform`` and ``_transform_blocks`` for the shape every dense featurizer
+shares — ask the storage layer whether the matrix is already pre-computed,
+otherwise compute it from the view, then emit one numeric block. A subclass
+overrides only its distinct step: usually ``_compute_matrix``, plus ``_fit_state``
+when there is state to learn. For a one-sided featurizer subclass the side-bound
+``DenseViewCellLineFeaturizer`` or ``DenseViewDrugFeaturizer``, as the built-in
+``pca``, ``landmark`` and ``scaled_gene_expression`` featurizers do; subclass
+bare ``DenseViewFeaturizer`` when the implementation is side-agnostic and you
+bind it with ``register_for_sides``.
+
+**Pre-computed variants.** ``fetch``, ``store`` and ``list_stored_variants`` live
+on ``FeaturizerStorageMixin``, which ``Featurizer`` already mixes in — so every
+featurizer has them, and you name the mixin only to annotate against it or to
+override ``_fetch_by_key`` / ``_store_by_key`` for storage of your own.
 
 Custom predictors
 -----------------

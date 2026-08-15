@@ -15,9 +15,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.featurizers.cell_line.base import DenseViewCellLineFeaturizer
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 if TYPE_CHECKING:
@@ -65,10 +64,11 @@ def log10_and_set_na(x: np.ndarray) -> np.ndarray:
     description="Proteomics view with log10 transform, median centering, and imputation.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
+class NormalizedProteomicsCellLineFeaturizer(DenseViewCellLineFeaturizer):
     """Match sklearn baseline proteomics preprocessing."""
 
     input_views: ClassVar[tuple[str, ...]] = ("proteomics",)
+    fit_on_unique_ids: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -91,14 +91,13 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
             ProteomicsMedianCenterAndImputeTransformer,
         )
 
-        self._view = view
+        super().__init__(view=view)
         self._transformer = ProteomicsMedianCenterAndImputeTransformer(
             feature_threshold=proteomics_feature_threshold,
             n_features=proteomics_n_features,
             normalization_width=proteomics_normalization_width,
             normalization_downshift=proteomics_normalization_downshift,
         )
-        self._output_dim = 0
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -113,76 +112,26 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
             "proteomics_normalization_width": {"type": "float", "low": 0.1, "high": 0.6, "default": 0.3},
         }
 
-    def _fit(
-        self,
-        source: FeatureSource,
-        *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> NormalizedProteomicsCellLineFeaturizer:
-        """Fit on training data.
+    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
+        """Fit the median-centering transformer on log10 training rows.
 
         :param source: Feature source providing view matrices.
-        :param entity_ids: entity ids.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Result.
+        :param entity_ids: Deduplicated cell-line identifiers to fit on.
+        :returns: Number of retained proteins.
         """
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, ids) if mdata is not None else None
-        if precomputed is not None:
-            self._output_dim = int(precomputed.shape[1])
-            return self
-        matrix = log10_and_set_na(source.get_view_matrix(self._view, np.unique(ids)))
-        self._transformer.fit(matrix)
-        self._output_dim = len(self._transformer.protein_indices)
-        return self
+        self._transformer.fit(log10_and_set_na(self._raw_matrix(source, entity_ids)))
+        return len(self._transformer.protein_indices)
 
-    def _transform_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Get log10-transformed matrix and apply the fitted transformer row-by-row."""
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
-        if precomputed is not None:
-            return precomputed.astype(np.float32)
-        matrix = log10_and_set_na(source.get_view_matrix(self._view, entity_ids))
-        rows = []
-        for row in matrix:
-            rows.append(self._transformer.transform(row[None, :])[0])
-        return np.vstack(rows).astype(np.float32)
+    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
+        """Log10-transform *matrix* and apply the fitted transformer row by row.
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into feature payloads.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: entity ids.
-        :returns: Result.
+        :param source: Feature source the matrix came from.
+        :param matrix: Raw view matrix for the requested entity IDs.
+        :returns: Normalized feature matrix.
         """
-        return self._transform_matrix(source, entity_ids)
-
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Transform blocks.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: entity ids.
-        :returns: Result.
-        """
-        return {
-            self._view: numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=source.get_feature_names(self._view),
-            )
-        }
-
-    @property
-    def output_dim(self) -> int:
-        """Return output feature dimension after fitting.
-
-        :returns: Result.
-        """
-        return self._output_dim
+        _ = source
+        rows = [self._transformer.transform(row[None, :])[0] for row in log10_and_set_na(matrix)]
+        return np.vstack(rows)
 
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state.

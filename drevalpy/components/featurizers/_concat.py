@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 import numpy as np
 
@@ -15,8 +15,6 @@ from drevalpy.types.data.batch.feature_block import FeatureBlock, merge_feature_
 
 class ConcatFeaturizersMixin:
     """Fit child featurizers independently and concatenate their dense outputs."""
-
-    _not_fitted_msg: ClassVar[str] = "ConcatFeaturizers must be fit before transform"
 
     @classmethod
     def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
@@ -132,7 +130,8 @@ class ConcatFeaturizersMixin:
         :raises RuntimeError: Raised on invalid input.
         """
         if not self._is_fitted:
-            raise RuntimeError(self._not_fitted_msg)
+            msg = f"{type(self).__name__} must be fit before transform"
+            raise RuntimeError(msg)
         child_blocks = [child.transform_blocks(features, entity_ids) for _, child in self._children]
         return merge_feature_blocks(*child_blocks)
 

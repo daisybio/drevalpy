@@ -15,16 +15,7 @@ from drevalpy.components.contracts.contracts import (
     normalize_feature_contract,
 )
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-from drevalpy.components.featurizers.storage import (
-    fetch_from_modality,
-    fetch_from_obsm,
-    fetch_from_varm,
-    find_variant_key,
-    list_variants,
-    make_variant_key,
-    next_variant_index,
-    register_variant,
-)
+from drevalpy.components.featurizers.storage import FeaturizerStorageMixin
 from drevalpy.log import get_logger
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock
 from drevalpy.types.data.feature_source import FeatureSource
@@ -39,7 +30,7 @@ class HPOStrategy(Enum):
     PRECOMPUTED = "precomputed"
 
 
-class Featurizer(ABC):
+class Featurizer(FeaturizerStorageMixin, ABC):
     """Transform feature tables into per-entity representation payloads.
 
     Cell-line featurizers consume cell-line features; drug featurizers consume
@@ -57,8 +48,6 @@ class Featurizer(ABC):
     """
 
     contract: ClassVar[FeatureContract]
-    storage_key: ClassVar[str] = ""
-    side: ClassVar[str] = ""
     precompute: ClassVar[bool] = False
     requires_view: ClassVar[bool] = False
     entity_id_only: ClassVar[bool] = False
@@ -400,73 +389,3 @@ class Featurizer(ABC):
         :param state: Mapping previously returned by ``get_state``.
         """
         _ = state
-
-    def fetch(
-        self, mdata: Any, entity_ids: np.ndarray, hyperparameters: dict[str, Any] | None = None
-    ) -> np.ndarray | None:
-        """Fetch pre-computed representations from MuData for the given HPs.
-
-        :param mdata: MuData object.
-        :param entity_ids: Entity IDs to fetch for.
-        :param hyperparameters: HP setting to match. None matches default (empty params).
-        :returns: Feature matrix or None if not pre-computed for these HPs.
-        """
-        key = find_variant_key(mdata, self.storage_key, hyperparameters, side=self.side)
-        if key is None:
-            return None
-        return self._fetch_by_key(mdata, key, entity_ids)
-
-    def _fetch_by_key(self, mdata: Any, key: str, entity_ids: np.ndarray) -> np.ndarray | None:
-        """Fetch data from MuData by resolved key. Override for custom storage.
-
-        :param mdata: MuData object.
-        :param key: Resolved storage key (e.g., "pca_expression_0").
-        :param entity_ids: Entity IDs to align to.
-        :returns: Feature matrix or None.
-        """
-        result = fetch_from_modality(mdata, key, entity_ids)
-        if result is not None:
-            return result
-        if self.side == "drug":
-            return fetch_from_varm(mdata, key, entity_ids)
-        return fetch_from_obsm(mdata, key, entity_ids)
-
-    def store(
-        self, mdata: Any, entity_ids: np.ndarray, data: np.ndarray, hyperparameters: dict[str, Any] | None = None
-    ) -> None:
-        """Store computed representations into MuData with HP metadata.
-
-        :param mdata: MuData object.
-        :param entity_ids: Entity IDs the data is aligned to.
-        :param data: Feature matrix to store.
-        :param hyperparameters: HP settings this data was computed with.
-        """
-        index = next_variant_index(mdata, self.storage_key, side=self.side)
-        actual_key = make_variant_key(self.storage_key, index)
-        self._store_by_key(mdata, actual_key, entity_ids, data)
-        register_variant(mdata, self.storage_key, actual_key, hyperparameters, side=self.side)
-
-    def _store_by_key(self, mdata: Any, key: str, entity_ids: np.ndarray, data: np.ndarray) -> None:
-        """Write data to MuData under the given key. Override for custom storage.
-
-        Default stores in response.obsm for cell-line-side, varm for drug-side.
-
-        :param mdata: MuData object.
-        :param key: Storage key.
-        :param entity_ids: Entity IDs.
-        :param data: Data matrix.
-        """
-        response = mdata.mod["response"]
-        if self.side == "drug":
-            response.varm[key] = data
-        else:
-            response.obsm[key] = data
-
-    @classmethod
-    def list_stored_variants(cls, mdata: Any) -> dict[str, dict[str, Any]]:
-        """Return available pre-computed HP settings for this featurizer.
-
-        :param mdata: MuData object.
-        :returns: Dict of {mudata_key: params_dict}.
-        """
-        return list_variants(mdata, cls.storage_key, side=cls.side)

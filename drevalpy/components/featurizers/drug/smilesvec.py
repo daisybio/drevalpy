@@ -8,11 +8,11 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
+from drevalpy.components.featurizers.drug.base import DenseViewDrugFeaturizer
 from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
 from drevalpy.registry.drug_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
 
 _logger = get_logger(__name__)
@@ -25,7 +25,7 @@ _SMILESVEC_MODEL_FILE = "drug.pubchem.canon.l8.ws20.txt"
     description="SMILESVec drug embeddings computed on the fly via a pre-trained Word2Vec model.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class SmilesVecDrugFeaturizer(ViewDrugFeaturizer):
+class SmilesVecDrugFeaturizer(DenseViewDrugFeaturizer):
     """SMILESVec featurizer using Word2Vec k-mer embeddings from PubChem corpus."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("smilesvec", FeatureFormat.NUMERIC_MATRIX),)
@@ -86,20 +86,6 @@ class SmilesVecDrugFeaturizer(ViewDrugFeaturizer):
             else:
                 results[i] = np.nan
         return results
-
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Transform blocks.
-
-        :param source: Feature source providing drug views.
-        :param entity_ids: entity ids.
-        :returns: Mapping with one numeric block.
-        """
-        return {
-            "smilesvec": numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=source.get_feature_names(self._view),
-            )
-        }
 
 
 def _smilesvec_embed(smiles: str, kv, *, k: int = 8, dim: int = 100) -> np.ndarray:

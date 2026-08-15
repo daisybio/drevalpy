@@ -132,6 +132,19 @@ def _discover_literature_predictor_modules() -> list[str]:
     return modules
 
 
+def _shared_featurizer_modules() -> list[str]:
+    """Discover featurizers whose one implementation is bound to both sides.
+
+    Each module registers itself on every side via ``register_for_sides``, so the
+    directory is scanned once rather than once per side.
+
+    :returns: Importable module names under ``featurizers/shared``.
+    """
+    import drevalpy.components.featurizers.shared as pkg
+
+    return _discover_modules(pkg.__path__[0], pkg.__name__)
+
+
 def _cell_line_featurizer_modules() -> list[str]:
     import drevalpy.components.featurizers.cell_line as pkg
 
@@ -156,6 +169,7 @@ def _native_predictor_modules() -> list[str]:
 
 def register_native_components() -> None:
     """Register dependency-light native components (featurizers + non-literature predictors)."""
+    _import_modules(_shared_featurizer_modules())
     _import_modules(_cell_line_featurizer_modules())
     _import_modules(_drug_featurizer_modules())
     _import_modules(_native_predictor_modules())

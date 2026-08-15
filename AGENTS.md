@@ -19,6 +19,20 @@ uv run pytest -m "not network" --cov --cov-report=json --cov-report=term-missing
 uv run python tools/coverage_gate.py
 ```
 
+To refresh the coverage Repowise reports, convert first - `repowise coverage add`
+does **not** read coverage.py's JSON (`--format` takes `lcov|cobertura|clover|repowise-json`,
+and `repowise-json` is Repowise's own schema). Passing `.coverage` maps zero files:
+
+```bash
+uv run coverage lcov -o coverage.lcov
+repowise coverage add coverage.lcov   # persists in .repowise/; delete the .lcov after
+```
+
+Without it Repowise falls back to guessing from filenames, and its `has_test_file`
+probe does not recognise `test_init.py`, so every re-export barrel is reported as an
+untested hotspot. The lcov round-trip emits no `DA:` lines for a zero-statement file,
+so empty `__init__.py` files come back as 0% rather than 100% - ignore those.
+
 ## Tests
 
 - Markers: a test is `slow` if it costs >= 0.2s; `network` means it downloads
@@ -59,6 +73,52 @@ uv run python tools/coverage_gate.py
   cross-package policy guards at the `tests/` root, and
   `tests/test_import_cost_policy.py`. `EXEMPT_MODULES` in the mirror policy is a
   last resort.
+- Shared test code is a `_`-prefixed module beside the tests it serves -
+  `tests/_barrel_surface.py`, `tests/_trusted_subprocess.py`,
+  `tests/registry/_helpers.py` - imported as `from tests._x import y`. The
+  underscore keeps it out of collection, and the mirror policy walks `drevalpy/`
+  only, so no mirror is demanded for it.
+- A `test_init.py` pins its package surface by subclassing
+  `ReExportSurface` / `DeclaredSurface` / `SingletonFacadeSurface` from
+  `tests/_barrel_surface.py` and recording `origins` (`name -> defining module`)
+  in the file itself. Keep that table hand-written: deriving it from `__all__`
+  makes `test_all_matches_the_recorded_surface` unfalsifiable, and record each
+  origin against a module the barrel does _not_ import the name from.
+
+## Featurizers
+
+- `DenseViewFeaturizer`, `register_for_sides` and `FeaturizerStorageMixin` are
+  **public**: re-exported from `drevalpy/plugin/__init__.py` and pinned by
+  `tests/plugin/test_init.py`, so renaming them is a breaking change even though
+  two of them live in `_`-prefixed modules.
+- A side-agnostic featurizer is written **once**, in
+  `drevalpy/components/featurizers/shared/`, and bound to both entity sides by
+  `register_for_sides` from `featurizers/_side_binding.py`, which derives,
+  registers and namespace-injects one subclass per side. Never hand-write a
+  second per-side copy - that duplication is exactly what `shared/` removed.
+- `side` is a `ClassVar` stamped onto the class by the **registry**
+  (`drevalpy/registry/featurizer/_base.py`), not by the base class, and
+  `list_stored_variants` is a `classmethod` reading `cls.side`. That is why each
+  side needs its own generated subclass instead of one class registered twice.
+- Registration is by **directory scan**:
+  `drevalpy/registry/_builtins.py::_discover_modules` imports every `*.py` in a
+  component directory except `base`, `__init__` and names starting with `_`.
+  So a shared-but-unregistered base module must be `_`-prefixed to stay out of
+  the scan, and `shared/` has its own `_shared_featurizer_modules()` wired into
+  `register_native_components()`.
+- Single-view dense featurizers subclass `DenseViewFeaturizer`
+  (`featurizers/_dense_view.py`) and override only their distinct transform step.
+  `cell_line/base.py` and `drug/base.py` host the per-side
+  `DenseView{CellLine,Drug}Featurizer` bases.
+- Storage concerns live in `FeaturizerStorageMixin` in `featurizers/storage.py`,
+  not in `base.py`.
+
+## Hyperparameter keys
+
+The key grammar - slot constants, prefix builders, key parsers - has one home in
+`drevalpy/models/_hp_key_grammar.py`, which must stay a dependency-free leaf: it
+imports nothing from `drevalpy` at module scope, and that is what keeps
+`models/config` and `models/tuning` decoupled.
 
 ## Import cost
 

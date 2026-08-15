@@ -2,7 +2,8 @@
 
 ``validate_merged_mapping`` is the single public entry of
 ``drevalpy.models.config._hp_key_validation``; the accepted-key index it builds
-is asserted through it rather than separately.
+is asserted through it rather than separately. The key grammar it delegates to
+is covered in ``tests/models/test_hp_key_grammar.py``.
 """
 
 from __future__ import annotations
@@ -17,7 +18,6 @@ from drevalpy.models.config import (
 )
 from drevalpy.models.config._hp_key_validation import (
     _predictor_accepted_keys,
-    _reject_indexed_featurizer_key,
     validate_merged_mapping,
 )
 from drevalpy.registry._builtins import register_builtin_components
@@ -37,40 +37,6 @@ def config() -> ModelConfig:
         drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
         predictor=PredictorConfig(name="elasticNet"),
     )
-
-
-class TestRejectIndexedFeaturizerKey:
-    """The removed ``slot.name.<index>.param`` notation is refused outright."""
-
-    @pytest.mark.parametrize(
-        "key",
-        [
-            pytest.param("cell_line_featurizer.pca.0.n_components", id="cell-line-slot"),
-            pytest.param("drug_featurizer.fingerprints.1.radius", id="drug-slot"),
-            pytest.param("cell_line_featurizer.pca.12.n_components", id="multi-digit-index"),
-            pytest.param("cell_line_featurizer.pca.0.nested.param", id="dotted-parameter"),
-        ],
-    )
-    def test_rejects_an_indexed_key(self, key: str) -> None:
-        with pytest.raises(ValueError, match="no longer supported"):
-            _reject_indexed_featurizer_key(key)
-
-    def test_error_suggests_the_qualified_selector(self) -> None:
-        with pytest.raises(ValueError, match=r"cell_line_featurizer\.pca\[<view>\]\.n_components"):
-            _reject_indexed_featurizer_key("cell_line_featurizer.pca.0.n_components")
-
-    @pytest.mark.parametrize(
-        "key",
-        [
-            pytest.param("cell_line_featurizer.pca.n_components", id="unindexed"),
-            pytest.param("cell_line_featurizer.pca[gene_expression].n_components", id="qualified-selector"),
-            pytest.param("cell_line_featurizer.pca.view.n_components", id="non-numeric-segment"),
-            pytest.param("predictor.elasticNet.0.alpha", id="predictor-slot-is-not-matched"),
-            pytest.param("cell_line_featurizer.pca.0", id="no-parameter-segment"),
-        ],
-    )
-    def test_leaves_other_keys_alone(self, key: str) -> None:
-        assert _reject_indexed_featurizer_key(key) is None
 
 
 class TestValidateMergedMapping:

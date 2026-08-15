@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
+from drevalpy.components.featurizers.cell_line.base import DenseViewCellLineFeaturizer
 from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
 from drevalpy.registry.cell_line_featurizer import register

@@ -16,7 +16,6 @@ import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
-import plotly.colors as pc
 
 from drevalpy.evaluation import MINIMIZATION_METRICS
 from drevalpy.log import get_logger
@@ -68,6 +67,7 @@ def _build_cd_df(result: ExperimentResult, metric: str) -> pd.DataFrame:
 
 def _generate_discrete_palette(n_colors: int) -> list[str]:
     import matplotlib
+    import plotly.colors as pc
 
     base_palette = pc.qualitative.D3
     base_n = len(base_palette)

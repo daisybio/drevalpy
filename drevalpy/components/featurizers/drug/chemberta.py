@@ -9,10 +9,10 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
+from drevalpy.components.featurizers.drug.base import DenseViewDrugFeaturizer
 from drevalpy.log import get_logger
 from drevalpy.registry.drug_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
 
 _logger = get_logger(__name__)
@@ -77,7 +77,7 @@ def load_chemberta() -> tuple[Any, Any]:
     description="ChemBERTa embeddings loaded from pre-computed view or computed on the fly via transformers.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class ChemBertaFeaturizer(ViewDrugFeaturizer):
+class ChemBertaFeaturizer(DenseViewDrugFeaturizer):
     """ChemBERTa drug featurizer with on-the-fly fallback."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("chemberta", FeatureFormat.NUMERIC_MATRIX),)
@@ -152,17 +152,3 @@ class ChemBertaFeaturizer(ViewDrugFeaturizer):
         if self._pooling == "max":
             return hidden_states.max(dim=1).values.squeeze(0).numpy()
         return hidden_states.mean(dim=1).squeeze(0).numpy()
-
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Transform blocks.
-
-        :param source: Feature source providing drug views.
-        :param entity_ids: entity ids.
-        :returns: Mapping with one numeric block.
-        """
-        return {
-            "chemberta": numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=source.get_feature_names(self._view),
-            )
-        }

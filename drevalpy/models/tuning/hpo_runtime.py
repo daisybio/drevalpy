@@ -296,64 +296,6 @@ def _optuna_objective(
     return score
 
 
-def build_optuna_objective(
-    *,
-    model_class: type[DRPModel],
-    mudataset: Dataset,
-    train_scope: SplitMask,
-    val_scope: SplitMask,
-    early_stopping_scope: SplitMask | None,
-    response_transformation: TransformerMixin | None,
-    metric: str,
-    structured_space: dict[str, Any],
-    model_checkpoint_dir: str | Path | None,
-    cfg: HPOConfig,
-    wandb_project: str | None,
-    wandb_base_config: dict[str, Any] | None,
-    split_index: int | None,
-    model_name: str,
-) -> Callable[[optuna.Trial], float]:
-    """Build an Optuna objective function closure.
-
-    :param model_class: Model class to tune.
-    :param mudataset: Full dataset with all features.
-    :param train_scope: Training SplitMask.
-    :param val_scope: Validation SplitMask for scoring.
-    :param early_stopping_scope: Optional early-stopping scope.
-    :param response_transformation: Optional response transformer.
-    :param metric: Metric to optimize.
-    :param structured_space: Structured hyperparameter search space.
-    :param model_checkpoint_dir: Directory for model checkpoints.
-    :param cfg: HPO configuration.
-    :param wandb_project: W&B project name.
-    :param wandb_base_config: Base W&B config merged per trial.
-    :param split_index: CV fold index for W&B logging.
-    :param model_name: Model name for logging.
-    :returns: Callable objective for ``study.optimize()``.
-    """
-
-    def objective(trial: optuna.Trial) -> float:
-        return _optuna_objective(
-            trial,
-            model_class=model_class,
-            mudataset=mudataset,
-            train_scope=train_scope,
-            val_scope=val_scope,
-            early_stopping_scope=early_stopping_scope,
-            response_transformation=response_transformation,
-            metric=metric,
-            structured_space=structured_space,
-            model_checkpoint_dir=model_checkpoint_dir,
-            cfg=cfg,
-            wandb_project=wandb_project,
-            wandb_base_config=wandb_base_config,
-            split_index=split_index,
-            model_name=model_name,
-        )
-
-    return objective
-
-
 def run_optuna_study(
     *,
     objective: Callable[[optuna.Trial], float],

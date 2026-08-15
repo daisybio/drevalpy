@@ -7,9 +7,8 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.featurizers.cell_line.base import DenseViewCellLineFeaturizer
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 
@@ -18,10 +17,12 @@ from drevalpy.types.data.feature_source import FeatureSource
     description="Landmark gene expression with arcsinh transform and scaling.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
+class ScaledGeneExpressionFeaturizer(DenseViewCellLineFeaturizer):
     """Match sklearn baseline gene-expression preprocessing."""
 
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    requires_fit: ClassVar[bool] = True
+    fit_on_unique_ids: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "gene_expression") -> None:
         """Initialize instance state.
@@ -30,84 +31,36 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         """
         from sklearn.preprocessing import StandardScaler
 
-        self._view = view
+        super().__init__(view=view)
         self._scaler = StandardScaler()
-        self._output_dim = 0
-        self._is_fitted = False
 
-    def _fit(
-        self,
-        source: FeatureSource,
-        *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> ScaledGeneExpressionFeaturizer:
-        """Fit on training data.
+    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
+        """Fit the scaler on arcsinh-transformed training rows.
 
         :param source: Feature source providing view matrices.
-        :param entity_ids: entity ids.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Result.
+        :param entity_ids: Deduplicated cell-line identifiers to fit on.
+        :returns: Output feature dimension.
         """
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, ids) if mdata is not None else None
-        if precomputed is not None:
-            self._output_dim = int(precomputed.shape[1])
-            self._is_fitted = True
-            return self
-        matrix = np.arcsinh(source.get_view_matrix(self._view, np.unique(ids)))
+        matrix = np.arcsinh(self._raw_matrix(source, entity_ids))
         self._scaler.fit(matrix)
-        self._output_dim = int(matrix.shape[1])
-        self._is_fitted = True
-        return self
+        return int(matrix.shape[1])
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into feature payloads.
+    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
+        """Arcsinh-transform and scale *matrix*.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: entity ids.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
+        :param source: Feature source the matrix came from.
+        :param matrix: Raw view matrix for the requested entity IDs.
+        :returns: Scaled feature matrix.
         """
-        if not self._is_fitted:
-            msg = "ScaledGeneExpressionFeaturizer must be fit before transform"
-            raise RuntimeError(msg)
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
-        if precomputed is not None:
-            return precomputed.astype(np.float32)
-        matrix = np.arcsinh(source.get_view_matrix(self._view, entity_ids))
-        return self._scaler.transform(matrix).astype(np.float32)
+        _ = source
+        return self._scaler.transform(np.arcsinh(matrix))
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Transform blocks.
+    def _block_name(self) -> str:
+        """Publish under the canonical gene-expression block name.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: entity ids.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
+        :returns: Block name.
         """
-        if not self._is_fitted:
-            msg = "ScaledGeneExpressionFeaturizer must be fit before transform"
-            raise RuntimeError(msg)
-        return {
-            "gene_expression": numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=source.get_feature_names(self._view),
-            )
-        }
-
-    @property
-    def output_dim(self) -> int:
-        """Return output feature dimension after fitting.
-
-        :returns: Result.
-        """
-        return self._output_dim
+        return "gene_expression"
 
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state.

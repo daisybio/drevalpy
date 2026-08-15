@@ -37,8 +37,8 @@ repos:
         # the run on top of that.
         #
         # Tier definitions, timings and the commands to run each tier live in
-        # the "Running tests" section of AGENTS.md - the single source for those
-        # numbers. Do not restate them here.
+        # the "Tests" and "Commands" sections of AGENTS.md - the single source
+        # for those numbers. Do not restate them here.
         entry: uv run pytest
         language: system
         pass_filenames: false

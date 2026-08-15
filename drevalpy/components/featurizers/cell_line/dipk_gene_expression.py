@@ -16,9 +16,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.featurizers.cell_line.base import DenseViewCellLineFeaturizer
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
 from drevalpy.utils.torch_io import load_state_dict, save_state_dict
 
@@ -48,99 +48,91 @@ def __getattr__(name: str) -> Any:
     description="DIPK gene-expression autoencoder embeddings.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
+class DIPKGeneExpressionFeaturizer(DenseViewCellLineFeaturizer):
     """Encode intersection genes into the 512-dimensional DIPK representation."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    requires_fit: ClassVar[bool] = True
 
     def __init__(self, *, epochs_autoencoder: int = 100) -> None:
         """Store the autoencoder training epoch budget.
 
         :param epochs_autoencoder: Number of autoencoder training epochs.
         """
+        super().__init__()
         self._epochs = int(epochs_autoencoder)
         self._encoder: GeneExpressionEncoder | None = None
         self._input_dim = 0
         self._latent_dim = 512
+        self._validation_ids: np.ndarray | None = None
 
-    def _fit(
+    def _fit_entity_ids(
         self,
         source: FeatureSource,
-        *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> DIPKGeneExpressionFeaturizer:
-        """Train the DIPK autoencoder on pair-expanded train and validation IDs.
+        entity_ids: np.ndarray | None,
+        pair_expanded_ids: np.ndarray | None,
+        pair_expanded_es_ids: np.ndarray | None,
+    ) -> np.ndarray:
+        """Fit on the pair-expanded training IDs, remembering the validation split.
 
         :param source: Feature source providing view matrices.
         :param entity_ids: Unused; IDs come from *pair_expanded_ids*.
         :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
         :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
-        :returns: Fitted featurizer instance.
-        :raises ValueError: If required ID sets are missing or empty.
+        :returns: The pair-expanded training IDs.
+        :raises ValueError: If *pair_expanded_ids* is missing.
+        """
+        _ = source, entity_ids
+        if pair_expanded_ids is None:
+            raise ValueError("dipkGeneExpression requires pair_expanded_ids")
+        self._validation_ids = pair_expanded_es_ids
+        return pair_expanded_ids
+
+    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
+        """Train the DIPK autoencoder and return its latent width.
+
+        :param source: Feature source providing view matrices.
+        :param entity_ids: Pair-expanded training entity IDs.
+        :returns: Latent dimensionality of the trained encoder.
+        :raises ValueError: If the train or early-stopping ID set is missing or empty.
         """
         from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
             train_gene_expession_autoencoder,
         )
 
-        _ = entity_ids
-        mdata = getattr(source, "mdata", None)
-        if mdata is not None and pair_expanded_ids is not None:
-            precomputed = self.fetch(mdata, pair_expanded_ids)
-            if precomputed is not None:
-                self._latent_dim = int(precomputed.shape[1])
-                return self
-        if pair_expanded_ids is None:
-            raise ValueError("dipkGeneExpression requires pair_expanded_ids")
-        train_ids = pair_expanded_ids
-        validation_ids = pair_expanded_es_ids
-        if validation_ids is None or len(train_ids) == 0 or len(validation_ids) == 0:
+        validation_ids = self._validation_ids
+        if validation_ids is None or len(entity_ids) == 0 or len(validation_ids) == 0:
             raise ValueError("dipkGeneExpression requires non-empty train and early-stopping IDs")
-        train = source.get_view_matrix("gene_expression", train_ids)
-        validation = source.get_view_matrix("gene_expression", validation_ids)
+        train = self._raw_matrix(source, entity_ids)
+        validation = self._raw_matrix(source, validation_ids)
         self._input_dim = int(train.shape[1])
         self._encoder = train_gene_expession_autoencoder(train, validation, self._epochs)
         self._latent_dim = int(self._encoder.latent_dim)
-        return self
+        return self._latent_dim
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Encode gene expression into DIPK latent vectors.
+    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
+        """Encode *matrix* into DIPK latent vectors.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Cell-line identifiers to transform.
+        Reached only after the ``requires_fit`` gate, so the encoder exists.
+
+        :param source: Feature source the matrix came from.
+        :param matrix: Raw gene-expression matrix.
         :returns: Float matrix of latent embeddings.
-        :raises RuntimeError: If called before ``fit``.
         """
         from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import encode_gene_expression
 
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
-        if precomputed is not None:
-            return precomputed.astype(np.float32)
-        if self._encoder is None:
-            raise RuntimeError("DIPKGeneExpressionFeaturizer must be fit before transform")
-        return encode_gene_expression(source.get_view_matrix("gene_expression", entity_ids), self._encoder).astype(
-            np.float32
-        )
+        _ = source
+        return encode_gene_expression(matrix, self._encoder)
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Return a single ``gene_expression`` numeric block.
+    def _block_feature_names(self, source: FeatureSource) -> None:
+        """Latent dimensions have no names to inherit from the source view.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Cell-line identifiers to transform.
-        :returns: Mapping with one numeric ``gene_expression`` block.
+        :param source: Feature source (unused).
+        :returns: Always ``None``.
         """
-        return {"gene_expression": numeric_feature_block(self._transform(source, entity_ids))}
-
-    @property
-    def output_dim(self) -> int:
-        """Return latent embedding width after fitting.
-
-        :returns: Latent dimensionality, or ``0`` before fitting.
-        """
-        return self._latent_dim if self._encoder is not None else 0
+        _ = source
+        return None
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -179,9 +171,11 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
             return
         self._input_dim = input_dim
         self._latent_dim = latent_dim
+        self._output_dim = latent_dim
         epochs = state.get("epochs", state.get("epochs_autoencoder"))
         if isinstance(epochs, int):
             self._epochs = epochs
         self._encoder = GeneExpressionEncoder(input_dim, latent_dim=latent_dim)
         self._encoder.load_state_dict(load_state_dict(blob))
         self._encoder.eval()
+        self._is_fitted = True

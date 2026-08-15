@@ -6,8 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
@@ -17,6 +15,7 @@ from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
     import pandas as pd
+    import plotly.graph_objects as go
 
     from drevalpy.types.results import ExperimentResult
 
@@ -144,6 +143,9 @@ class HeatmapVisualization(Visualization):
 
         :param result: Experiment result with multiple folds.
         """
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
         self._result = result
         df = _build_df_from_experiment(result)
         df, metric_cols = _resolve_metric_columns(result, df)

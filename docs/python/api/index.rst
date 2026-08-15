@@ -78,9 +78,10 @@ tree.
    drevalpy.visualization
 
 ``drevalpy.plugin`` defines nothing of its own — every name on it is an alias for
-a symbol documented above. Its page is therefore generated without index
-entries, so a cross-reference to ``Dataset`` resolves to the class rather than to
-one of two equally valid spellings of it.
+a symbol documented above, bar a few whose defining module is private and which
+are therefore documented on the facade page itself. Its page is generated without
+index entries, so a cross-reference to ``Dataset`` resolves to the class rather
+than to one of two equally valid spellings of it.
 
 .. autosummary::
    :toctree: _autosummary

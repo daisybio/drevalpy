@@ -31,13 +31,21 @@ REPO_ROOT = UPath(__file__).resolve().parents[2]
 #: Where each exported name is defined, as ``alias -> (module, attribute)``.
 #: Written out rather than derived from ``__module__`` so a symbol silently
 #: moving between modules is a test failure and not a silently updated
-#: expectation. ``register_*`` are all spelled ``register`` in their own module.
+#: expectation. The five per-registry ``register_*`` are all spelled ``register``
+#: in their own module; ``register_for_sides`` is a featurizer-only decorator
+#: that keeps its own name.
 EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
     "BlockPredictor": ("drevalpy.components.predictors.abstract.block", "BlockPredictor"),
     "BlockSpec": ("drevalpy.types.data.batch.feature_block", "BlockSpec"),
     "CellLineFeatureSource": ("drevalpy.types.data.feature_source", "CellLineFeatureSource"),
     "CellLineFeaturizer": ("drevalpy.components.featurizers.cell_line.base", "CellLineFeaturizer"),
     "Dataset": ("drevalpy.types.data.dataset", "Dataset"),
+    "DenseViewCellLineFeaturizer": (
+        "drevalpy.components.featurizers.cell_line.base",
+        "DenseViewCellLineFeaturizer",
+    ),
+    "DenseViewDrugFeaturizer": ("drevalpy.components.featurizers.drug.base", "DenseViewDrugFeaturizer"),
+    "DenseViewFeaturizer": ("drevalpy.components.featurizers._dense_view", "DenseViewFeaturizer"),
     "DrugFeatureSource": ("drevalpy.types.data.feature_source", "DrugFeatureSource"),
     "DrugFeaturizer": ("drevalpy.components.featurizers.drug.base", "DrugFeaturizer"),
     "ExperimentResult": ("drevalpy.types.results", "ExperimentResult"),
@@ -47,6 +55,7 @@ EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
     "FeatureFreePredictor": ("drevalpy.components.predictors.abstract.feature_free", "FeatureFreePredictor"),
     "FeatureSource": ("drevalpy.types.data.feature_source", "FeatureSource"),
     "Featurizer": ("drevalpy.components.featurizers.base", "Featurizer"),
+    "FeaturizerStorageMixin": ("drevalpy.components.featurizers.storage", "FeaturizerStorageMixin"),
     "HPOStrategy": ("drevalpy.components.featurizers.base", "HPOStrategy"),
     "ImageVisualization": ("drevalpy.visualization.base", "ImageVisualization"),
     "LiteratureReference": ("drevalpy.types.enums.literature_reference", "LiteratureReference"),
@@ -76,6 +85,7 @@ EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
     "ragged_feature_block": ("drevalpy.types.data.batch.feature_block", "ragged_feature_block"),
     "register_cell_line_featurizer": ("drevalpy.registry.cell_line_featurizer", "register"),
     "register_drug_featurizer": ("drevalpy.registry.drug_featurizer", "register"),
+    "register_for_sides": ("drevalpy.components.featurizers._side_binding", "register_for_sides"),
     "register_predictor": ("drevalpy.registry.predictor", "register"),
     "register_splitter": ("drevalpy.registry.splitter", "register"),
     "register_visualization": ("drevalpy.registry.visualization", "register"),

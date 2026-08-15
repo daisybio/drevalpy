@@ -7,21 +7,19 @@ from dataclasses import dataclass
 from typing import Any
 
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
+from drevalpy.models._hp_key_grammar import (
+    CELL_LINE_SLOT,
+    DRUG_SLOT,
+    PREDICTOR_SLOT,
+    featurizer_prefix,
+    predictor_prefix,
+    split_predictor_key,
+    split_prefixed_key,
+)
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 from drevalpy.registry.predictor import get as get_predictor
-
-from .search_space import (
-    _featurizer_prefix,
-    _predictor_prefix,
-    _split_predictor_key,
-    _split_prefixed_key,
-)
-
-_CELL_LINE_SLOT = "cell_line_featurizer"
-_DRUG_SLOT = "drug_featurizer"
-_PREDICTOR_SLOT = "predictor"
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,10 +36,10 @@ class HyperparameterTarget:
 
         :returns: Result.
         """
-        if self.slot == _PREDICTOR_SLOT:
-            return _predictor_prefix(self.selector, self.param)
-        return _featurizer_prefix(
-            "cell_line" if self.slot == _CELL_LINE_SLOT else "drug",
+        if self.slot == PREDICTOR_SLOT:
+            return predictor_prefix(self.selector, self.param)
+        return featurizer_prefix(
+            "cell_line" if self.slot == CELL_LINE_SLOT else "drug",
             self.selector,
             self.param,
         )
@@ -95,7 +93,7 @@ def _alias_targets(targets: tuple[HyperparameterTarget, ...]) -> dict[str, str]:
     aliases: dict[str, str] = {}
     qualified_set = {target.qualified_key for target in targets}
 
-    methylation_key = _featurizer_prefix("cell_line", "pca[methylation]", "n_components")
+    methylation_key = featurizer_prefix("cell_line", "pca[methylation]", "n_components")
     if methylation_key in qualified_set:
         aliases["methylation_n_components"] = methylation_key
         aliases["methylation_pca_components"] = methylation_key
@@ -115,7 +113,7 @@ def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
     for param in sorted(_predictor_accepted_keys(predictor_cls)):
         targets.append(
             HyperparameterTarget(
-                slot=_PREDICTOR_SLOT,
+                slot=PREDICTOR_SLOT,
                 selector=config.predictor.name,
                 param=param,
             ),
@@ -126,7 +124,7 @@ def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
             _append_featurizer_targets(
                 targets,
                 leaf,
-                slot=_CELL_LINE_SLOT,
+                slot=CELL_LINE_SLOT,
                 registry="cell_line",
             )
 
@@ -135,7 +133,7 @@ def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
             _append_featurizer_targets(
                 targets,
                 leaf,
-                slot=_DRUG_SLOT,
+                slot=DRUG_SLOT,
                 registry="drug",
             )
 
@@ -154,7 +152,7 @@ def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
 
 
 def _parse_qualified_key(key: str, config: ModelConfig) -> str | None:
-    predictor_parsed = _split_predictor_key(key)
+    predictor_parsed = split_predictor_key(key)
     if predictor_parsed is not None:
         predictor_name, _param = predictor_parsed
         if predictor_name != config.predictor.name:
@@ -165,15 +163,15 @@ def _parse_qualified_key(key: str, config: ModelConfig) -> str | None:
             raise ValueError(msg)
         return key
 
-    featurizer_parsed = _split_prefixed_key(key)
+    featurizer_parsed = split_prefixed_key(key)
     if featurizer_parsed is not None:
         registry, selector, param = featurizer_parsed
-        return _featurizer_prefix(registry, selector, param)
+        return featurizer_prefix(registry, selector, param)
 
-    if key.startswith(f"{_PREDICTOR_SLOT}."):
+    if key.startswith(f"{PREDICTOR_SLOT}."):
         msg = f"Unknown hyperparameter {key!r}: expected predictor.<name>.<param>."
         raise ValueError(msg)
-    if key.startswith((_CELL_LINE_SLOT + ".", _DRUG_SLOT + ".")):
+    if key.startswith((CELL_LINE_SLOT + ".", DRUG_SLOT + ".")):
         msg = f"Unknown hyperparameter {key!r}: expected <slot>.<selector>.<param>."
         raise ValueError(msg)
     return None
@@ -237,15 +235,3 @@ def resolve_to_qualified_mapping(
         qualified[qualified_key] = value
 
     return qualified
-
-
-def validate_merged_mapping(config: ModelConfig, merged: dict[str, Any]) -> None:
-    """Reject unknown or malformed qualified hyperparameter keys.
-
-    :param config: config.
-    :param merged: merged.
-    :raises ValueError: Raised on invalid input.
-    """
-    from drevalpy.models.config._hp_key_validation import validate_merged_mapping as _validate
-
-    _validate(config, merged)

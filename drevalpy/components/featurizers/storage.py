@@ -1,11 +1,14 @@
-"""Featurizer variant storage helpers for MuData."""
+"""Featurizer variant storage: the MuData helpers and the mixin built on them."""
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from drevalpy.types.data.feature_source import FeatureSource
 
 VARIANTS_UNS_KEY_CELL_LINE = "cell_line_featurizer_variants"
 VARIANTS_UNS_KEY_DRUG = "drug_featurizer_variants"
@@ -177,3 +180,113 @@ def fetch_from_obsm(mdata, key: str, entity_ids: np.ndarray) -> np.ndarray | Non
         result[found] = obsm_data[positions[found]].astype(np.float32)
         return result
     return obsm_data[positions].astype(np.float32)
+
+
+class FeaturizerStorageMixin:
+    """Read and write pre-computed featurizer matrices in a MuData store.
+
+    Extracted from ``Featurizer``, which it is mixed back into: these five methods
+    were the one cohesive cluster on that class, and they reach nothing beyond the
+    two class attributes declared below. Keeping them here means a featurizer that
+    only ever computes on the fly still gets the storage protocol, without the
+    protocol being tangled into the fit/transform contract.
+    """
+
+    #: Base key the variant registry files this featurizer's matrices under.
+    #: Registration defaults it to the registry name.
+    storage_key: ClassVar[str] = ""
+    #: Entity side, stamped on by the registry the featurizer is registered in.
+    side: ClassVar[str] = ""
+
+    def fetch(
+        self, mdata: Any, entity_ids: np.ndarray, hyperparameters: dict[str, Any] | None = None
+    ) -> np.ndarray | None:
+        """Fetch pre-computed representations from MuData for the given HPs.
+
+        :param mdata: MuData object.
+        :param entity_ids: Entity IDs to fetch for.
+        :param hyperparameters: HP setting to match. None matches default (empty params).
+        :returns: Feature matrix or None if not pre-computed for these HPs.
+        """
+        key = find_variant_key(mdata, self.storage_key, hyperparameters, side=self.side)
+        if key is None:
+            return None
+        return self._fetch_by_key(mdata, key, entity_ids)
+
+    def fetch_precomputed(
+        self,
+        source: FeatureSource,
+        entity_ids: np.ndarray,
+        hyperparameters: dict[str, Any] | None = None,
+    ) -> np.ndarray | None:
+        """Fetch a pre-computed matrix through a feature source, if it carries one.
+
+        Every featurizer that can be pre-computed by ``Dataset.precompute()`` opens
+        ``_fit`` and ``_transform`` by asking whether the work is already done. Only
+        dataset-backed sources expose ``mdata``, so the question has to tolerate a
+        source without one.
+
+        :param source: Feature source, which may or may not be MuData-backed.
+        :param entity_ids: Entity IDs to align the stored matrix to.
+        :param hyperparameters: HP setting to match; ``None`` matches the default variant.
+        :returns: Stored feature matrix, or ``None`` when nothing matches.
+        """
+        mdata = getattr(source, "mdata", None)
+        if mdata is None:
+            return None
+        return self.fetch(mdata, entity_ids, hyperparameters)
+
+    def _fetch_by_key(self, mdata: Any, key: str, entity_ids: np.ndarray) -> np.ndarray | None:
+        """Fetch data from MuData by resolved key. Override for custom storage.
+
+        :param mdata: MuData object.
+        :param key: Resolved storage key (e.g., "pca_expression_0").
+        :param entity_ids: Entity IDs to align to.
+        :returns: Feature matrix or None.
+        """
+        result = fetch_from_modality(mdata, key, entity_ids)
+        if result is not None:
+            return result
+        if self.side == "drug":
+            return fetch_from_varm(mdata, key, entity_ids)
+        return fetch_from_obsm(mdata, key, entity_ids)
+
+    def store(
+        self, mdata: Any, entity_ids: np.ndarray, data: np.ndarray, hyperparameters: dict[str, Any] | None = None
+    ) -> None:
+        """Store computed representations into MuData with HP metadata.
+
+        :param mdata: MuData object.
+        :param entity_ids: Entity IDs the data is aligned to.
+        :param data: Feature matrix to store.
+        :param hyperparameters: HP settings this data was computed with.
+        """
+        index = next_variant_index(mdata, self.storage_key, side=self.side)
+        actual_key = make_variant_key(self.storage_key, index)
+        self._store_by_key(mdata, actual_key, entity_ids, data)
+        register_variant(mdata, self.storage_key, actual_key, hyperparameters, side=self.side)
+
+    def _store_by_key(self, mdata: Any, key: str, entity_ids: np.ndarray, data: np.ndarray) -> None:
+        """Write data to MuData under the given key. Override for custom storage.
+
+        Default stores in response.obsm for cell-line-side, varm for drug-side.
+
+        :param mdata: MuData object.
+        :param key: Storage key.
+        :param entity_ids: Entity IDs.
+        :param data: Data matrix.
+        """
+        response = mdata.mod["response"]
+        if self.side == "drug":
+            response.varm[key] = data
+        else:
+            response.obsm[key] = data
+
+    @classmethod
+    def list_stored_variants(cls, mdata: Any) -> dict[str, dict[str, Any]]:
+        """Return available pre-computed HP settings for this featurizer.
+
+        :param mdata: MuData object.
+        :returns: Dict of {mudata_key: params_dict}.
+        """
+        return list_variants(mdata, cls.storage_key, side=cls.side)

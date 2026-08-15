@@ -11,8 +11,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers._constant import ConstantFeaturizerMixin
-from drevalpy.components.featurizers.cell_line.constant import CellLineConstantFeaturizer
-from drevalpy.components.featurizers.drug.constant import DrugConstantFeaturizer
+from drevalpy.components.featurizers.shared.constant import CellLineConstantFeaturizer, DrugConstantFeaturizer
 from tests.conftest import MockFeatureSource
 
 

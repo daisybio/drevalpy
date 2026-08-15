@@ -8,10 +8,10 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
+from drevalpy.components.featurizers.drug.base import DenseViewDrugFeaturizer
 from drevalpy.log import get_logger
 from drevalpy.registry.drug_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
 
 _logger = get_logger(__name__)
@@ -22,7 +22,7 @@ _logger = get_logger(__name__)
     description="Morgan fingerprints loaded from pre-computed view or computed on the fly via rdkit.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class FingerprintsFeaturizer(ViewDrugFeaturizer):
+class FingerprintsFeaturizer(DenseViewDrugFeaturizer):
     """Morgan fingerprints featurizer with on-the-fly fallback."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
@@ -93,20 +93,6 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
             smi = smiles.get(drug_id)
             results[i] = _fingerprint_for_smiles(smi, generator, self._n_bits, self._use_counts)
         return results
-
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Transform blocks.
-
-        :param source: Feature source providing drug views.
-        :param entity_ids: entity ids.
-        :returns: Mapping with one numeric block.
-        """
-        return {
-            "fingerprints": numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=source.get_feature_names(self._view),
-            )
-        }
 
 
 def _fingerprint_for_smiles(smi, generator, n_bits: int, use_counts: bool) -> np.ndarray:

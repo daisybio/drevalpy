@@ -15,18 +15,29 @@ move: only the aliases below are a compatibility promise. Importing the deep
 paths still works, but they are private in the sense that matters - a refactor
 may rename them without a deprecation cycle.
 
-The five ``register_*`` aliases point at the per-registry ``register``
+The five per-registry ``register_*`` aliases point at the ``register``
 decorators, which are all spelled ``register`` in their own modules. Naming them
 apart here is what makes several registrations in one module readable, and
 removes the ``from ... import register as register_x`` boilerplate every plugin
-would otherwise repeat.
+would otherwise repeat. ``register_for_sides`` is not one of them: it is a
+featurizer-only decorator that registers one side-agnostic implementation in
+*both* featurizer registries at once.
+
+Two of the aliases below - ``DenseViewFeaturizer`` and ``register_for_sides`` -
+live in underscore-private modules (``featurizers/_dense_view.py``,
+``featurizers/_side_binding.py``). The leading underscore keeps those modules out
+of the registry's component directory scan; it does not make the aliases here any
+less of a promise.
 """
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.featurizers._dense_view import DenseViewFeaturizer
+from drevalpy.components.featurizers._side_binding import register_for_sides
 from drevalpy.components.featurizers.base import Featurizer, HPOStrategy
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.components.featurizers.drug.base import DrugFeaturizer
+from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer, DenseViewCellLineFeaturizer
+from drevalpy.components.featurizers.drug.base import DenseViewDrugFeaturizer, DrugFeaturizer
+from drevalpy.components.featurizers.storage import FeaturizerStorageMixin
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
@@ -75,6 +86,9 @@ __all__ = [
     "CellLineFeatureSource",
     "CellLineFeaturizer",
     "Dataset",
+    "DenseViewCellLineFeaturizer",
+    "DenseViewDrugFeaturizer",
+    "DenseViewFeaturizer",
     "DrugFeatureSource",
     "DrugFeaturizer",
     "ExperimentResult",
@@ -84,6 +98,7 @@ __all__ = [
     "FeatureFreePredictor",
     "FeatureSource",
     "Featurizer",
+    "FeaturizerStorageMixin",
     "HPOStrategy",
     "ImageVisualization",
     "LiteratureReference",
@@ -113,6 +128,7 @@ __all__ = [
     "ragged_feature_block",
     "register_cell_line_featurizer",
     "register_drug_featurizer",
+    "register_for_sides",
     "register_predictor",
     "register_splitter",
     "register_visualization",

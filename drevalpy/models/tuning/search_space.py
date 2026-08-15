@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
 from typing import Any
 
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
+from drevalpy.models._hp_key_grammar import (
+    CELL_LINE_SLOT,
+    DRUG_SLOT,
+    PREDICTOR_SLOT,
+    featurizer_prefix,
+    is_featurizer_slot_key,
+    predictor_prefix,
+)
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
 from drevalpy.models.config._hp_key_validation import validate_merged_mapping
 from drevalpy.models.config.resolved import ResolvedModelConfig
@@ -16,40 +23,11 @@ from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featuriz
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 
-_CELL_LINE_FEATURIZER_SLOT = "cell_line_featurizer"
-_DRUG_FEATURIZER_SLOT = "drug_featurizer"
-_REGISTRY_TO_SLOT = {
-    "cell_line": _CELL_LINE_FEATURIZER_SLOT,
-    "drug": _DRUG_FEATURIZER_SLOT,
-}
-_SLOT_TO_REGISTRY = {slot: registry for registry, slot in _REGISTRY_TO_SLOT.items()}
-_FEATURIZER_SLOT_PREFIXES = (_CELL_LINE_FEATURIZER_SLOT, _DRUG_FEATURIZER_SLOT)
-
-_INDEXED_FEATURIZER_KEY_RE = re.compile(
-    r"^(?P<slot>cell_line_featurizer|drug_featurizer)\." r"(?P<name>[^.]+)\.(?P<index>\d+)\.(?P<param>.+)$"
-)
-_QUALIFIED_FEATURIZER_KEY_RE = re.compile(
-    r"^(?P<slot>cell_line_featurizer|drug_featurizer)\." r"(?P<selector>[^.]+(?:\[[^\]]+\])?)\.(?P<param>.+)$"
-)
-
 
 def _effective_space(config_space: Mapping[str, Any] | None, cls: type[Any]) -> dict[str, Any]:
     if config_space is not None:
         return {key: dict(value) if isinstance(value, Mapping) else value for key, value in config_space.items()}
     return dict(cls.get_hyperparameter_space())
-
-
-def _featurizer_prefix(registry: str, selector: str, param: str) -> str:
-    slot = _REGISTRY_TO_SLOT[registry]
-    return f"{slot}.{selector}.{param}"
-
-
-def _is_featurizer_slot_key(key: str) -> bool:
-    return any(key.startswith(f"{slot}.") for slot in _FEATURIZER_SLOT_PREFIXES)
-
-
-def _predictor_prefix(name: str, param: str) -> str:
-    return f"predictor.{name}.{param}"
 
 
 def _leaf_selector(featurizer: FeaturizerConfig) -> str:
@@ -60,36 +38,6 @@ def _accepted_featurizer_selectors(featurizer: FeaturizerConfig, registry: str) 
     return [_leaf_selector(leaf) for leaf in iter_featurizer_leaves(featurizer, registry)]
 
 
-def _reject_indexed_featurizer_key(key: str) -> None:
-    match = _INDEXED_FEATURIZER_KEY_RE.match(key)
-    if match is None:
-        return
-    slot = match.group("slot")
-    name = match.group("name")
-    param = match.group("param")
-    msg = (
-        f"Indexed featurizer hyperparameter keys are no longer supported: {key!r}. "
-        f"Use a qualified selector such as "
-        f"'{slot}.{name}[<view>].{param}' "
-        f"or '{slot}.{name}.{param}'."
-    )
-    raise ValueError(msg)
-
-
-def _split_prefixed_key(key: str) -> tuple[str, str, str] | None:
-    """Parse ``<slot>.<selector>.<param>`` into registry, selector, and param.
-
-    :param key: Qualified hyperparameter key from a flat config.
-    :returns: ``(registry, selector, param)`` tuple, or ``None`` when unparsable.
-    """
-    _reject_indexed_featurizer_key(key)
-    match = _QUALIFIED_FEATURIZER_KEY_RE.match(key)
-    if match is None:
-        return None
-    slot = match.group("slot")
-    return _SLOT_TO_REGISTRY[slot], match.group("selector"), match.group("param")
-
-
 def _merge_concat_child_spaces(
     featurizer: FeaturizerConfig,
     registry: str,
@@ -98,11 +46,11 @@ def _merge_concat_child_spaces(
     for child_cfg in featurizer.featurizers or ():
         child_space = _featurizer_spaces(child_cfg)
         for key, spec in child_space.items():
-            if _is_featurizer_slot_key(key):
+            if is_featurizer_slot_key(key):
                 merged[key] = spec
             else:
                 selector = _leaf_selector(child_cfg)
-                merged[_featurizer_prefix(registry, selector, key)] = spec
+                merged[featurizer_prefix(registry, selector, key)] = spec
     return merged
 
 
@@ -119,7 +67,7 @@ def _leaf_featurizer_spaces(featurizer: FeaturizerConfig, registry: str) -> dict
         cls,
     )
     selector = _leaf_selector(featurizer)
-    return {_featurizer_prefix(registry, selector, key): value for key, value in space.items()}
+    return {featurizer_prefix(registry, selector, key): value for key, value in space.items()}
 
 
 def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
@@ -135,7 +83,7 @@ def _predictor_spaces(predictor: PredictorConfig) -> dict[str, Any]:
         dict(predictor.hyperparameter_space) if predictor.hyperparameter_space is not None else None,
         cls,
     )
-    return {_predictor_prefix(predictor.name, key): value for key, value in space.items()}
+    return {predictor_prefix(predictor.name, key): value for key, value in space.items()}
 
 
 def merge_model_config_spaces(config: ModelConfig) -> dict[str, Any]:
@@ -168,13 +116,13 @@ def merge_search_spaces(
     merged: dict[str, Any] = {}
     if cell_line_featurizer_space:
         for key, value in cell_line_featurizer_space.items():
-            merged[f"{_CELL_LINE_FEATURIZER_SLOT}.{key}"] = value
+            merged[f"{CELL_LINE_SLOT}.{key}"] = value
     if drug_featurizer_space:
         for key, value in drug_featurizer_space.items():
-            merged[f"{_DRUG_FEATURIZER_SLOT}.{key}"] = value
+            merged[f"{DRUG_SLOT}.{key}"] = value
     if predictor_space:
         for key, value in predictor_space.items():
-            merged[f"predictor.{key}"] = value
+            merged[f"{PREDICTOR_SLOT}.{key}"] = value
     return merged
 
 
@@ -190,25 +138,15 @@ def split_hyperparameters(
     drug_hp: dict[str, Any] = {}
     predictor_hp: dict[str, Any] = {}
     for key, value in merged_config.items():
-        if key.startswith(f"{_CELL_LINE_FEATURIZER_SLOT}."):
-            cell_line_hp[key.removeprefix(f"{_CELL_LINE_FEATURIZER_SLOT}.")] = value
-        elif key.startswith(f"{_DRUG_FEATURIZER_SLOT}."):
-            drug_hp[key.removeprefix(f"{_DRUG_FEATURIZER_SLOT}.")] = value
-        elif key.startswith("predictor."):
-            predictor_hp[key.removeprefix("predictor.")] = value
+        if key.startswith(f"{CELL_LINE_SLOT}."):
+            cell_line_hp[key.removeprefix(f"{CELL_LINE_SLOT}.")] = value
+        elif key.startswith(f"{DRUG_SLOT}."):
+            drug_hp[key.removeprefix(f"{DRUG_SLOT}.")] = value
+        elif key.startswith(f"{PREDICTOR_SLOT}."):
+            predictor_hp[key.removeprefix(f"{PREDICTOR_SLOT}.")] = value
         else:
             predictor_hp[key] = value
     return cell_line_hp, drug_hp, predictor_hp
-
-
-def _split_predictor_key(key: str) -> tuple[str, str] | None:
-    parts = key.split(".")
-    if len(parts) < 3 or parts[0] != "predictor":
-        return None
-    predictor_name, *param_parts = parts[1:]
-    if not param_parts:
-        return None
-    return predictor_name, ".".join(param_parts)
 
 
 def resolve_model_config(
@@ -268,11 +206,11 @@ def extract_defaults(
             defaults[f"{prefix}.{name}"] = spec["default"]
 
     if cell_line_featurizer_space:
-        _pull(cell_line_featurizer_space, _CELL_LINE_FEATURIZER_SLOT)
+        _pull(cell_line_featurizer_space, CELL_LINE_SLOT)
     if drug_featurizer_space:
-        _pull(drug_featurizer_space, _DRUG_FEATURIZER_SLOT)
+        _pull(drug_featurizer_space, DRUG_SLOT)
     if predictor_space:
-        _pull(predictor_space, "predictor")
+        _pull(predictor_space, PREDICTOR_SLOT)
     return defaults
 
 

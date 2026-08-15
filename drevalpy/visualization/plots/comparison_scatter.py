@@ -13,8 +13,6 @@ import json
 from typing import TYPE_CHECKING
 
 import numpy as np
-import plotly.graph_objects as go
-from plotly.utils import PlotlyJSONEncoder
 
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
@@ -28,6 +26,8 @@ from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import plotly.graph_objects as go
 
     from drevalpy.types.results import ExperimentResult
 
@@ -97,6 +97,8 @@ def _build_figure(matrix: GroupCorrelationMatrix) -> go.Figure:
         figure is returned.
     :returns: A Plotly figure with one scatter trace and two ``updatemenus``.
     """
+    import plotly.graph_objects as go
+
     fig = go.Figure()
     if matrix.is_empty:
         return fig
@@ -201,6 +203,8 @@ def _inline_plotly_html(fig: go.Figure, div_id: str) -> str:
     :param div_id: DOM id for the container div; must be unique in the report.
     :returns: A self-contained HTML fragment.
     """
+    from plotly.utils import PlotlyJSONEncoder
+
     spec = fig.to_plotly_json()
     layout = {key: value for key, value in spec["layout"].items() if key != "template"}
     payload = json.dumps({"data": spec["data"], "layout": layout}, cls=PlotlyJSONEncoder)
@@ -240,6 +244,8 @@ class ComparisonScatterVisualization(Visualization):
         :param result: Experiment result with at least two models.
         :param dataset: Unused; accepted for interface compatibility.
         """
+        import plotly.graph_objects as go
+
         self._matrices = {}
         for grouping in GROUPINGS:
             matrix = model_group_correlations(result, grouping).drop_all_nan_models()

@@ -7,11 +7,10 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers._matrix import stack_view_matrix
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.featurizers.cell_line.base import DenseViewCellLineFeaturizer
 from drevalpy.components.featurizers.cell_line.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
 
 if TYPE_CHECKING:
@@ -37,37 +36,16 @@ def _load_gene_indices(
     return indices
 
 
-def _subset_matrix(
-    source: FeatureSource,
-    entity_ids: np.ndarray,
-    *,
-    view: str,
-    gene_indices: list[int],
-    scaler: StandardScaler | None = None,
-    minmax: MinMaxScaler | None = None,
-    arcsinh: bool = True,
-) -> np.ndarray:
-    matrix = stack_view_matrix(source, view, entity_ids).astype(np.float64)
-    matrix = matrix[:, gene_indices]
-    matrix = np.nan_to_num(matrix, nan=0.0, posinf=0.0, neginf=0.0)
-    if arcsinh:
-        matrix = np.arcsinh(matrix)
-    if scaler is not None:
-        matrix = scaler.transform(matrix)
-    if minmax is not None:
-        matrix = minmax.transform(matrix)
-    return matrix.astype(np.float32)
-
-
 @register(
     "landmarkGenes",
     description="L1000 landmark genes with arcsinh and optional scaling.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class LandmarkGenesFeaturizer(CellLineFeaturizer):
+class LandmarkGenesFeaturizer(DenseViewCellLineFeaturizer):
     """Landmark genes featurizer component."""
 
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    requires_fit: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -86,7 +64,7 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         :param minmax_scale: minmax scale.
         :param arcsinh: arcsinh.
         """
-        self._view = view
+        super().__init__(view=view)
         self._gene_list_stem = gene_list_stem
         self._standardize = standardize
         self._minmax_scale = minmax_scale
@@ -94,114 +72,79 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         self._gene_indices: list[int] = []
         self._scaler: StandardScaler | None = None
         self._minmax: MinMaxScaler | None = None
-        self._output_dim = 0
-        self._is_fitted = False
 
-    def _fit(
-        self,
-        source: FeatureSource,
-        *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> LandmarkGenesFeaturizer:
-        """Fit on training data.
+    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
+        """Select the landmark genes and fit the optional scalers.
 
         :param source: Feature source providing view matrices.
-        :param entity_ids: entity ids.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Result.
+        :param entity_ids: Cell-line identifiers to fit on.
+        :returns: Number of selected genes.
         """
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, ids) if mdata is not None else None
-        if precomputed is not None:
-            self._output_dim = int(precomputed.shape[1])
-            self._is_fitted = True
-            return self
-        self._gene_indices = _load_gene_indices(
-            source,
-            self._view,
-            self._gene_list_stem,
-        )
-        self._output_dim = len(self._gene_indices)
-        matrix = stack_view_matrix(source, self._view, ids).astype(np.float64)[:, self._gene_indices]
-        matrix = np.nan_to_num(matrix, nan=0.0, posinf=0.0, neginf=0.0)
-        if self._arcsinh:
-            matrix = np.arcsinh(matrix)
-        if self._standardize:
-            from sklearn.preprocessing import MinMaxScaler, StandardScaler
+        self._gene_indices = _load_gene_indices(source, self._view, self._gene_list_stem)
+        matrix = self._select_and_transform(self._raw_matrix(source, entity_ids))
+        self._fit_scalers(matrix)
+        return len(self._gene_indices)
 
-            self._scaler = StandardScaler()
-            self._scaler.fit(matrix)
-            if self._minmax_scale:
-                z = self._scaler.transform(matrix)
-                self._minmax = MinMaxScaler()
-                self._minmax.fit(z)
-            else:
-                self._minmax = None
-        else:
+    def _fit_scalers(self, matrix: np.ndarray) -> None:
+        """Fit the standard and optional min-max scalers on *matrix*.
+
+        :param matrix: Gene-subset matrix for the fit entities.
+        """
+        if not self._standardize:
             self._scaler = None
             self._minmax = None
-        self._is_fitted = True
-        return self
+            return
+        from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into feature payloads.
+        self._scaler = StandardScaler()
+        self._scaler.fit(matrix)
+        if self._minmax_scale:
+            self._minmax = MinMaxScaler()
+            self._minmax.fit(self._scaler.transform(matrix))
+        else:
+            self._minmax = None
+
+    def _select_and_transform(self, matrix: np.ndarray) -> np.ndarray:
+        """Subset *matrix* to the selected genes and apply the optional arcsinh.
+
+        :param matrix: Raw view matrix.
+        :returns: Gene-subset matrix, before scaling.
+        """
+        selected = np.nan_to_num(matrix.astype(np.float64)[:, self._gene_indices], nan=0.0, posinf=0.0, neginf=0.0)
+        return np.arcsinh(selected) if self._arcsinh else selected
+
+    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
+        """Subset, transform and scale *matrix*.
+
+        :param source: Feature source the matrix came from.
+        :param matrix: Raw view matrix for the requested entity IDs.
+        :returns: Landmark-gene feature matrix.
+        """
+        _ = source
+        result = self._select_and_transform(matrix)
+        if self._scaler is not None:
+            result = self._scaler.transform(result)
+        if self._minmax is not None:
+            result = self._minmax.transform(result)
+        return result
+
+    def _block_name(self) -> str:
+        """Publish under the canonical gene-expression block name.
+
+        :returns: Block name.
+        """
+        return "gene_expression"
+
+    def _block_feature_names(self, source: FeatureSource) -> tuple[str, ...] | None:
+        """Return only the names of the selected landmark genes.
 
         :param source: Feature source providing view matrices.
-        :param entity_ids: entity ids.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
+        :returns: Selected gene names, or ``None`` when the source has none.
         """
-        if not self._is_fitted:
-            msg = "LandmarkGenesFeaturizer must be fit before transform"
-            raise RuntimeError(msg)
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
-        if precomputed is not None:
-            return precomputed.astype(np.float32)
-        return _subset_matrix(
-            source,
-            entity_ids,
-            view=self._view,
-            gene_indices=self._gene_indices,
-            scaler=self._scaler,
-            minmax=self._minmax,
-            arcsinh=self._arcsinh,
-        )
-
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Transform blocks.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: entity ids.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
-        """
-        if not self._is_fitted:
-            msg = "LandmarkGenesFeaturizer must be fit before transform"
-            raise RuntimeError(msg)
-        selected_names = None
         names = source.get_feature_names(self._view)
-        if names is not None:
-            selected_names = tuple(str(names[index]) for index in self._gene_indices)
-        return {
-            "gene_expression": numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=selected_names,
-            )
-        }
-
-    @property
-    def output_dim(self) -> int:
-        """Return output feature dimension after fitting.
-
-        :returns: Result.
-        """
-        return self._output_dim
+        if names is None:
+            return None
+        return tuple(str(names[index]) for index in self._gene_indices)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:

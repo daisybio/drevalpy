@@ -168,3 +168,21 @@ def test_landmark_set_state_derives_output_dim_from_gene_indices() -> None:
     featurizer.set_state({"gene_indices": [0, 1, 2], "output_dim": None, "fitted": True})
 
     assert featurizer.output_dim == 3
+
+
+def test_landmark_blocks_drop_gene_names_on_a_source_without_metadata() -> None:
+    """Fit needs feature names, but a later source is free not to expose any."""
+    symbols = gene_names_from_list_csv(resolve_gene_list_path("landmark_genes"))[:2]
+    named = MockFeatureSource(
+        features={"cl1": {"gene_expression": np.array([1.0, 2.0], dtype=np.float32)}},
+        meta_info={"gene_expression": list(symbols)},
+    )
+    unnamed = MockFeatureSource(
+        features={"cl1": {"gene_expression": np.array([1.0, 2.0], dtype=np.float32)}},
+    )
+    ids = np.array(["cl1"])
+    featurizer = LandmarkGenesFeaturizer(standardize=False).fit(named, entity_ids=ids)
+
+    blocks = featurizer.transform_blocks(unnamed, ids)
+
+    assert blocks["gene_expression"].feature_names is None

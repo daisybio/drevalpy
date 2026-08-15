@@ -6,6 +6,7 @@ from collections import defaultdict
 from typing import Any
 
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
+from drevalpy.models._hp_key_grammar import featurizer_prefix, predictor_prefix
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
@@ -16,10 +17,6 @@ from .hyperparameter_keys import (
     HyperparameterTarget,
     _leaf_selector,
     build_ownership_index,
-)
-from .search_space import (
-    _featurizer_prefix,
-    _predictor_prefix,
 )
 
 
@@ -91,7 +88,7 @@ def _collect_predictor_export_entries(
     entries: list[tuple[HyperparameterTarget, Any]] = []
     predictor_cls = get_predictor(config.predictor.name)
     for param in _predictor_export_params(config, predictor_cls):
-        qualified = _predictor_prefix(config.predictor.name, param)
+        qualified = predictor_prefix(config.predictor.name, param)
         _append_export_entry(
             entries,
             qualified=qualified,
@@ -117,7 +114,7 @@ def _collect_featurizer_export_entries(
         for leaf in iter_featurizer_leaves(slot_config, registry):
             selector = _leaf_selector(leaf)
             for param in _featurizer_export_params(leaf, registry):
-                qualified = _featurizer_prefix(registry, selector, param)
+                qualified = featurizer_prefix(registry, selector, param)
                 _append_export_entry(
                     entries,
                     qualified=qualified,

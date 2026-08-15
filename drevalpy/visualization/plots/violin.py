@@ -6,8 +6,6 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import plotly.graph_objects as go
-
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Section, Visualization
@@ -15,6 +13,7 @@ from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
     import pandas as pd
+    import plotly.graph_objects as go
 
     from drevalpy.types.results import ExperimentResult
 
@@ -88,6 +87,8 @@ class ViolinVisualization(Visualization):
 
         :param result: Experiment result with multiple folds.
         """
+        import plotly.graph_objects as go
+
         df = _build_df_from_experiment(result).sort_index()
         df["box"] = df["algorithm"] + "_" + df["rand_setting"] + "_" + df["test_mode"]
         df = df.dropna(axis=1, how="all")

@@ -7,9 +7,9 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.featurizers.cell_line.base import DenseViewCellLineFeaturizer
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
 
 
@@ -18,95 +18,80 @@ from drevalpy.types.data.feature_source import FeatureSource
     description="Reduced landmark genes scaled for PharmaFormer.",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
+class PharmaFormerGeneExpressionFeaturizer(DenseViewCellLineFeaturizer):
     """Apply the PharmaFormer StandardScaler then MinMaxScaler sequence."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    requires_fit: ClassVar[bool] = True
 
     def __init__(self) -> None:
         """Initialize StandardScaler and MinMaxScaler pipelines."""
         from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
+        super().__init__()
         self._scaler = StandardScaler()
         self._minmax = MinMaxScaler()
         self._feature_names: tuple[str, ...] | None = None
-        self._output_dim = 0
-        self._is_fitted = False
 
-    def _fit(
+    def _fit_entity_ids(
         self,
         source: FeatureSource,
-        *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> PharmaFormerGeneExpressionFeaturizer:
-        """Fit StandardScaler and MinMaxScaler on pair-expanded training ids.
+        entity_ids: np.ndarray | None,
+        pair_expanded_ids: np.ndarray | None,
+        pair_expanded_es_ids: np.ndarray | None,
+    ) -> np.ndarray:
+        """Fit on the pair-expanded training IDs, matching the reference pipeline.
 
         :param source: Feature source providing view matrices.
-        :param entity_ids: Unused; training ids come from *pair_expanded_ids*.
+        :param entity_ids: Unused; PharmaFormer fits on the pair-expanded IDs.
         :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
         :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Fitted featurizer instance.
+        :returns: The pair-expanded training IDs.
         :raises ValueError: If *pair_expanded_ids* is missing.
         """
-        _ = entity_ids, pair_expanded_es_ids
-        mdata = getattr(source, "mdata", None)
-        if mdata is not None and pair_expanded_ids is not None:
-            precomputed = self.fetch(mdata, pair_expanded_ids)
-            if precomputed is not None:
-                self._output_dim = int(precomputed.shape[1])
-                self._feature_names = source.get_feature_names("gene_expression")
-                self._is_fitted = True
-                return self
+        _ = source, entity_ids, pair_expanded_es_ids
         if pair_expanded_ids is None:
             raise ValueError("pharmaFormerGeneExpression requires pair_expanded_ids")
-        matrix = source.get_view_matrix("gene_expression", pair_expanded_ids)
+        return pair_expanded_ids
+
+    def _on_precomputed_fit(self, source: FeatureSource) -> None:
+        """Record the source's feature names alongside a stored variant.
+
+        :param source: Feature source carrying the stored variant.
+        """
+        self._feature_names = source.get_feature_names(self._view)
+
+    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
+        """Fit both scalers on the pair-expanded training rows.
+
+        :param source: Feature source providing view matrices.
+        :param entity_ids: Pair-expanded training entity IDs.
+        :returns: Output feature dimension.
+        """
+        matrix = self._raw_matrix(source, entity_ids)
         self._minmax.fit(self._scaler.fit_transform(matrix))
-        self._feature_names = source.get_feature_names("gene_expression")
-        self._output_dim = int(matrix.shape[1])
-        self._is_fitted = True
-        return self
+        self._feature_names = source.get_feature_names(self._view)
+        return int(matrix.shape[1])
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Apply fitted scalers to gene-expression rows.
+    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
+        """Apply the fitted scalers to *matrix*.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Cell-line identifiers to transform.
-        :returns: Scaled float matrix.
-        :raises RuntimeError: If called before ``fit``.
+        :param source: Feature source the matrix came from.
+        :param matrix: Raw view matrix for the requested entity IDs.
+        :returns: Scaled feature matrix.
         """
-        if not self._is_fitted:
-            raise RuntimeError("PharmaFormerGeneExpressionFeaturizer must be fit before transform")
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
-        if precomputed is not None:
-            return precomputed.astype(np.float32)
-        matrix = source.get_view_matrix("gene_expression", entity_ids)
-        return self._minmax.transform(self._scaler.transform(matrix)).astype(np.float32)
+        _ = source
+        return self._minmax.transform(self._scaler.transform(matrix))
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Return a single ``gene_expression`` numeric block.
+    def _block_feature_names(self, source: FeatureSource) -> tuple[str, ...] | None:
+        """Return the feature names captured at fit time.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Cell-line identifiers to transform.
-        :returns: Mapping with one numeric block.
+        :param source: Feature source (unused; names are recorded during fit).
+        :returns: Recorded feature names, or ``None``.
         """
-        return {
-            "gene_expression": numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=self._feature_names,
-            )
-        }
-
-    @property
-    def output_dim(self) -> int:
-        """Return landmark gene count after fitting.
-
-        :returns: Output feature dimensionality.
-        """
-        return self._output_dim
+        _ = source
+        return self._feature_names
 
     def get_state(self) -> dict[str, object]:
         """Serialize scaler state and feature names.

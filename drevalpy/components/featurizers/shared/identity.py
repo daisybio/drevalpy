@@ -1,4 +1,4 @@
-"""Cell-line identity featurizer."""
+"""One-hot identity featurizer, shared by both entity sides."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.registry.cell_line_featurizer import register
+from drevalpy.components.featurizers._side_binding import register_for_sides
+from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.types.data.batch.feature_block import (
     BlockSpec,
     FeatureBlock,
@@ -19,13 +19,16 @@ from drevalpy.types.data.batch.feature_block import (
 from drevalpy.types.data.feature_source import FeatureSource
 
 
-@register(
+@register_for_sides(
     "identity",
-    description="One-hot encoding of cell-line entity identifiers.",
+    description={
+        "cell_line": "One-hot encoding of cell-line entity identifiers.",
+        "drug": "One-hot encoding of drug entity identifiers.",
+    },
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class CellLineIdentityFeaturizer(CellLineFeaturizer):
-    """Encode cell-line IDs as dense one-hot vectors."""
+class SharedIdentityFeaturizer(Featurizer):
+    """Encode entity IDs as dense one-hot vectors."""
 
     entity_id_only: ClassVar[bool] = True
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX),)
@@ -41,10 +44,10 @@ class CellLineIdentityFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         pair_expanded_ids: np.ndarray | None = None,
         pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> CellLineIdentityFeaturizer:
-        """Fit on training data.
+    ) -> SharedIdentityFeaturizer:
+        """Learn the category order from the training entity IDs.
 
-        :param source: Feature source providing views for the entity type.
+        :param source: Feature source; only consulted for its identifiers.
         :param entity_ids: entity ids.
         :param pair_expanded_ids: Unused training IDs with duplicates.
         :param pair_expanded_es_ids: Unused early-stopping IDs.
@@ -58,7 +61,7 @@ class CellLineIdentityFeaturizer(CellLineFeaturizer):
     def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
-        :param source: Feature source providing views for the entity type.
+        :param source: Feature source (unused).
         :param entity_ids: entity ids.
         :returns: Result.
         """
@@ -72,7 +75,7 @@ class CellLineIdentityFeaturizer(CellLineFeaturizer):
     ) -> dict[str, FeatureBlock]:
         """Transform blocks.
 
-        :param source: Feature source providing views for the entity type.
+        :param source: Feature source (unused).
         :param entity_ids: entity ids.
         :returns: Result.
         """
