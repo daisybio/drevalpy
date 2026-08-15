@@ -84,12 +84,16 @@ def _fit_chunk(chunk_df: pd.DataFrame, config: dict) -> pd.DataFrame:
 
 def _build_work_items(
     groups: list[tuple[pd.DataFrame, dict]],
-    chunk_size: int,
+    max_chunk_size: int,
     normalize: bool,
     fit_type: str,
     fit_speed: str,
 ) -> tuple[list[tuple[pd.DataFrame, dict, int]], list[dict]]:
     """Split every group into chunks and build the matching curve_curator configs.
+
+    Each group is split into chunks of at most *max_chunk_size* curves.
+    Small groups produce a single chunk; large groups are split into as many
+    chunks as needed to stay at or below the cap.
 
     When *normalize* is set, the group is normalized here - once, over all of its
     rows - and the config handed to each chunk has normalization switched off, so
@@ -97,7 +101,7 @@ def _build_work_items(
     :mod:`drevalpy.curation._normalize`.
 
     :param groups: (wide_df, group_info) tuples from preprocess.
-    :param chunk_size: Target number of curves per chunk.
+    :param max_chunk_size: Maximum number of curves per chunk.
     :param normalize: Whether to apply median-centric normalization.
     :param fit_type: Fitting method. Only "OLS" is currently supported.
     :param fit_speed: Fitting thoroughness.
@@ -125,7 +129,7 @@ def _build_work_items(
             chunk_config = copy.deepcopy(config)
             chunk_config["Processing"]["normalization"] = False
 
-        n_chunks = max(1, math.ceil(len(chunk_df_source) / chunk_size))
+        n_chunks = max(1, math.ceil(len(chunk_df_source) / max_chunk_size))
         for chunk_df in np.array_split(chunk_df_source, n_chunks):
             work_items.append((chunk_df.reset_index(drop=True), chunk_config, group_idx))
 
@@ -134,23 +138,21 @@ def _build_work_items(
 
 def _run_work_items(
     work_items: list[tuple[pd.DataFrame, dict, int]],
-    cores: int,
+    max_workers: int,
     executor: Executor | None = None,
 ) -> list[tuple[pd.DataFrame, int]]:
-    """Fit all chunks, in parallel when more than one core and chunk are available.
+    """Fit all chunks, in parallel when more than one worker and chunk are available.
 
     :param work_items: (chunk_df, config, group_idx) tuples to fit.
-    :param cores: Number of CPU cores for parallel fitting (used only when no
-        external *executor* is provided).
+    :param max_workers: Number of local worker processes to use when no external
+        *executor* is provided.
     :param executor: Optional :class:`~concurrent.futures.Executor` instance. When
         provided, all chunks are submitted to this executor instead of creating an
-        internal :class:`~concurrent.futures.ProcessPoolExecutor`. This allows
-        callers to supply a ``submitit`` SLURM executor or any other
-        ``concurrent.futures``-compatible executor. The executor is **not** shut
-        down by this function — the caller retains ownership.
+        internal :class:`~concurrent.futures.ProcessPoolExecutor`. The executor is
+        **not** shut down by this function — the caller retains ownership.
     :returns: (fitted_df, group_idx) tuples in submission order.
     """
-    if executor is None and (cores <= 1 or len(work_items) == 1):
+    if executor is None and (max_workers <= 1 or len(work_items) == 1):
         return [(_fit_chunk(chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items]
 
     if executor is not None:
@@ -159,7 +161,7 @@ def _run_work_items(
         ]
         return [(future.result(), group_idx) for future, group_idx in futures]
 
-    with ProcessPoolExecutor(max_workers=cores) as pool:
+    with ProcessPoolExecutor(max_workers=max_workers) as pool:
         futures = [
             (pool.submit(_fit_chunk, chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items
         ]
@@ -168,7 +170,8 @@ def _run_work_items(
 
 def fit_groups(
     groups: list[tuple[pd.DataFrame, dict]],
-    cores: int,
+    max_chunk_size: int = 2000,
+    max_workers: int = 4,
     normalize: bool = False,
     fit_type: str = "OLS",
     fit_speed: str = "exhaustive",
@@ -180,10 +183,14 @@ def fit_groups(
     ----------
     groups
         List of (wide_df, group_info) from preprocess.
-    cores
-        Number of CPU cores for parallel fitting. When an external *executor* is
-        provided this still controls the chunk size (total_curves // cores) but
-        does not create a local process pool.
+    max_chunk_size
+        Maximum number of curves in a single parallel chunk. Groups larger than
+        this are split into multiple chunks; smaller groups are kept as one chunk.
+        Controls the granularity of parallelism: smaller values produce more chunks
+        but add serialization overhead.
+    max_workers
+        Number of local worker processes when no external *executor* is provided.
+        Ignored when *executor* is set.
     normalize
         Whether to apply median-centric normalization.
     fit_type
@@ -201,11 +208,8 @@ def fit_groups(
     -------
     List of (fitted_df, config) tuples.
     """
-    total_curves = sum(len(df) for df, _ in groups)
-    chunk_size = max(1, total_curves // cores)
-
-    work_items, configs = _build_work_items(groups, chunk_size, normalize, fit_type, fit_speed)
-    fitted_chunks = _run_work_items(work_items, cores, executor=executor)
+    work_items, configs = _build_work_items(groups, max_chunk_size, normalize, fit_type, fit_speed)
+    fitted_chunks = _run_work_items(work_items, max_workers, executor=executor)
 
     group_results: list[list[pd.DataFrame]] = [[] for _ in groups]
     for fitted_df, group_idx in fitted_chunks:
