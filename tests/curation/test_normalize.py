@@ -207,28 +207,28 @@ class TestWorkItemWiring:
     """``_build_work_items`` must hand the chunks an already-normalized frame."""
 
     def test_chunk_configs_have_normalization_switched_off(self, groups: list[tuple[pd.DataFrame, dict]]) -> None:
-        work_items, _ = _build_work_items(groups, chunk_size=2, normalize=True, fit_type="OLS", fit_speed="fast")
+        work_items, _ = _build_work_items(groups, max_chunk_size=2, normalize=True, fit_type="OLS", fit_speed="fast")
 
         assert all(config["Processing"]["normalization"] is False for _, config, _ in work_items)
 
     def test_the_returned_group_configs_still_record_the_request(self, groups: list[tuple[pd.DataFrame, dict]]) -> None:
         """``fit_groups`` thresholds with these, and they document what was asked."""
-        _, configs = _build_work_items(groups, chunk_size=2, normalize=True, fit_type="OLS", fit_speed="fast")
+        _, configs = _build_work_items(groups, max_chunk_size=2, normalize=True, fit_type="OLS", fit_speed="fast")
 
         assert all(config["Processing"]["normalization"] is True for config in configs)
 
     def test_chunks_carry_the_pre_normalization_signal_quality(self, groups: list[tuple[pd.DataFrame, dict]]) -> None:
-        work_items, _ = _build_work_items(groups, chunk_size=2, normalize=True, fit_type="OLS", fit_speed="fast")
+        work_items, _ = _build_work_items(groups, max_chunk_size=2, normalize=True, fit_type="OLS", fit_speed="fast")
 
         assert all(PRE_NORM_SIGNAL_QUALITY in chunk.columns for chunk, _, _ in work_items)
 
     def test_no_normalization_leaves_the_frames_untouched(self, groups: list[tuple[pd.DataFrame, dict]]) -> None:
-        work_items, _ = _build_work_items(groups, chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast")
+        work_items, _ = _build_work_items(groups, max_chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast")
 
         assert all(PRE_NORM_SIGNAL_QUALITY not in chunk.columns for chunk, _, _ in work_items)
 
     def test_chunking_is_unaffected_by_the_extra_column(self, groups: list[tuple[pd.DataFrame, dict]]) -> None:
-        normalized, _ = _build_work_items(groups, chunk_size=2, normalize=True, fit_type="OLS", fit_speed="fast")
-        plain, _ = _build_work_items(groups, chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast")
+        normalized, _ = _build_work_items(groups, max_chunk_size=2, normalize=True, fit_type="OLS", fit_speed="fast")
+        plain, _ = _build_work_items(groups, max_chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast")
 
         assert [len(chunk) for chunk, _, _ in normalized] == [len(chunk) for chunk, _, _ in plain]

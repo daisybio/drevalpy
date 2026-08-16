@@ -70,7 +70,7 @@ def curated_adata() -> anndata.AnnData:
     the returned object as immutable; a test that needs to mutate it, or that
     asserts on ``curate``'s own arguments, must call ``curate`` itself.
     """
-    return curate(build_dose_response_df(), cores=1, fit_speed="fast")
+    return curate(build_dose_response_df(), max_workers=1, fit_speed="fast")
 
 
 @pytest.fixture()

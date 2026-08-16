@@ -49,15 +49,15 @@ class TestFitOptionValidation:
 
     def test_mle_is_rejected_before_any_fitting(self, dose_response_df: pd.DataFrame) -> None:
         with pytest.raises(ValueError, match="fit_mle"):
-            curate(dose_response_df, cores=1, fit_type="MLE", fit_speed="fast")
+            curate(dose_response_df, max_workers=1, fit_type="MLE", fit_speed="fast")
 
     def test_unknown_fit_type_names_the_supported_ones(self, dose_response_df: pd.DataFrame) -> None:
         with pytest.raises(ValueError, match=r"expected one of \['OLS'\]"):
-            curate(dose_response_df, cores=1, fit_type="nonsense", fit_speed="fast")
+            curate(dose_response_df, max_workers=1, fit_type="nonsense", fit_speed="fast")
 
     def test_unknown_fit_speed_is_rejected(self, dose_response_df: pd.DataFrame) -> None:
         with pytest.raises(ValueError, match="fit_speed='turbo'"):
-            curate(dose_response_df, cores=1, fit_speed="turbo")
+            curate(dose_response_df, max_workers=1, fit_speed="turbo")
 
 
 class TestCurate:
@@ -122,7 +122,7 @@ class TestNativeIdentifiersSurvive:
         native = build_dose_response_df()
         native["cell_line"] = native["cell_line"].map({"CL_A": "ACH-1", "CL_B": "SIDM00400", "CL_C": "2004"})
         native["drug"] = native["drug"].map({"DrugX": "DRUG_1047", "DrugY": "BRD-K02251932"})
-        return curate(native, cores=1, fit_speed="fast")
+        return curate(native, max_workers=1, fit_speed="fast")
 
     def test_the_cell_line_labels_are_the_obs_index(self, natively_curated: anndata.AnnData) -> None:
         assert set(natively_curated.obs_names) == {"ACH-1", "SIDM00400", "2004"}
@@ -158,7 +158,7 @@ class TestCurateIsPreprocessFitPostprocessBuild:
         from drevalpy.curation._postprocess import postprocess
         from drevalpy.curation._preprocess import preprocess
 
-        return build_anndata(postprocess(fit_groups(preprocess(df), cores=1, fit_speed="fast")))
+        return build_anndata(postprocess(fit_groups(preprocess(df), max_workers=1, fit_speed="fast")))
 
     def test_running_the_stages_by_hand_reproduces_curate(
         self, curated_adata: anndata.AnnData, dose_response_df: pd.DataFrame

@@ -1,6 +1,6 @@
 """Tests for drevalpy.curation._fit.
 
-Every test pins ``cores=1`` (or a single work item) so the fitting stays in the
+Every test pins ``max_workers=1`` (or a single work item) so the fitting stays in the
 calling process: the parallel path spawns a ``ProcessPoolExecutor``, which would
 re-import curve_curator per worker for no additional coverage.
 
@@ -88,14 +88,14 @@ def two_groups() -> list[tuple[pd.DataFrame, dict]]:
 def fitted_single_group() -> _Fitted:
     """``fit_groups`` over one group, fitted once and shared read-only."""
     groups = _build_single_group()
-    return _Fitted(groups, fit_groups(groups, cores=1, fit_speed="fast"))
+    return _Fitted(groups, fit_groups(groups, max_workers=1, fit_speed="fast"))
 
 
 @pytest.fixture(scope="session")
 def fitted_two_groups() -> _Fitted:
     """``fit_groups`` over two dose-range groups, fitted once and shared read-only."""
     groups = _build_two_groups()
-    return _Fitted(groups, fit_groups(groups, cores=1, fit_speed="fast"))
+    return _Fitted(groups, fit_groups(groups, max_workers=1, fit_speed="fast"))
 
 
 @pytest.fixture(scope="session")
@@ -175,28 +175,36 @@ class TestBuildWorkItems:
     """Chunking of groups into independently fittable units."""
 
     def test_splits_a_group_into_ceil_chunks(self, single_group: list[tuple[pd.DataFrame, dict]]) -> None:
-        work_items, _ = _build_work_items(single_group, chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast")
+        work_items, _ = _build_work_items(
+            single_group, max_chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast"
+        )
 
         assert len(work_items) == 2
 
     def test_chunks_partition_the_group(self, single_group: list[tuple[pd.DataFrame, dict]]) -> None:
-        work_items, _ = _build_work_items(single_group, chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast")
+        work_items, _ = _build_work_items(
+            single_group, max_chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast"
+        )
 
         assert sum(len(chunk) for chunk, _, _ in work_items) == len(single_group[0][0])
 
     def test_chunk_index_is_reset(self, single_group: list[tuple[pd.DataFrame, dict]]) -> None:
-        work_items, _ = _build_work_items(single_group, chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast")
+        work_items, _ = _build_work_items(
+            single_group, max_chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast"
+        )
 
         _, trailing_chunk = work_items[0][0], work_items[1][0]
         assert trailing_chunk.index.tolist() == [0]
 
     def test_one_config_per_group(self, two_groups: list[tuple[pd.DataFrame, dict]]) -> None:
-        _, configs = _build_work_items(two_groups, chunk_size=10, normalize=False, fit_type="OLS", fit_speed="fast")
+        _, configs = _build_work_items(two_groups, max_chunk_size=10, normalize=False, fit_type="OLS", fit_speed="fast")
 
         assert len(configs) == 2
 
     def test_each_chunk_carries_its_group_index(self, two_groups: list[tuple[pd.DataFrame, dict]]) -> None:
-        work_items, _ = _build_work_items(two_groups, chunk_size=10, normalize=False, fit_type="OLS", fit_speed="fast")
+        work_items, _ = _build_work_items(
+            two_groups, max_chunk_size=10, normalize=False, fit_type="OLS", fit_speed="fast"
+        )
 
         assert [group_idx for _, _, group_idx in work_items] == [0, 1]
 
@@ -214,11 +222,11 @@ class TestFitChunk:
         # the config it was handed, which a shared fitted result cannot show.
         wide_df, group_info = single_group[0]
         config = _build_config(group_info["n_experiments"], group_info["doses"], 1, fit_speed="fast")
-        config["Processing"]["available_cores"] = 8
+        config["Processing"]["available_max_workers"] = 8
 
         _fit_chunk(wide_df, config)
 
-        assert config["Processing"]["available_cores"] == 8
+        assert config["Processing"]["available_max_workers"] == 8
 
     def test_returns_one_row_per_curve(self, fitted_chunk: tuple[pd.DataFrame, pd.DataFrame]) -> None:
         wide_df, fitted = fitted_chunk
@@ -230,7 +238,7 @@ class TestRunWorkItems:
     """Dispatch between the serial and the pooled fitting paths."""
 
     @pytest.mark.parametrize(
-        ("chunk_size", "cores"),
+        ("max_chunk_size", "max_workers"),
         [
             pytest.param(2, 1, id="single-core-many-chunks"),
             pytest.param(10, 4, id="many-cores-single-chunk"),
@@ -241,27 +249,29 @@ class TestRunWorkItems:
         single_group: list[tuple[pd.DataFrame, dict]],
         monkeypatch: pytest.MonkeyPatch,
         recorded_chunk_fits: list[pd.DataFrame],
-        chunk_size: int,
-        cores: int,
+        max_chunk_size: int,
+        max_workers: int,
     ) -> None:
         def _no_pool(*args: object, **kwargs: object) -> None:
             raise AssertionError("ProcessPoolExecutor must not be used on the serial path")
 
         monkeypatch.setattr("drevalpy.curation._fit.ProcessPoolExecutor", _no_pool)
         work_items, _ = _build_work_items(
-            single_group, chunk_size=chunk_size, normalize=False, fit_type="OLS", fit_speed="fast"
+            single_group, max_chunk_size=max_chunk_size, normalize=False, fit_type="OLS", fit_speed="fast"
         )
 
-        results = _run_work_items(work_items, cores=cores)
+        results = _run_work_items(work_items, max_workers=max_workers)
 
         assert len(results) == len(work_items)
 
     def test_preserves_group_index_per_chunk(
         self, two_groups: list[tuple[pd.DataFrame, dict]], recorded_chunk_fits: list[pd.DataFrame]
     ) -> None:
-        work_items, _ = _build_work_items(two_groups, chunk_size=1, normalize=False, fit_type="OLS", fit_speed="fast")
+        work_items, _ = _build_work_items(
+            two_groups, max_chunk_size=1, normalize=False, fit_type="OLS", fit_speed="fast"
+        )
 
-        results = _run_work_items(work_items, cores=1)
+        results = _run_work_items(work_items, max_workers=1)
 
         assert [group_idx for _, group_idx in results] == [group_idx for _, _, group_idx in work_items]
 
@@ -269,9 +279,11 @@ class TestRunWorkItems:
         self, two_groups: list[tuple[pd.DataFrame, dict]], recorded_chunk_fits: list[pd.DataFrame]
     ) -> None:
         """Guards the stub above: a dropped work item must not look like a pass."""
-        work_items, _ = _build_work_items(two_groups, chunk_size=1, normalize=False, fit_type="OLS", fit_speed="fast")
+        work_items, _ = _build_work_items(
+            two_groups, max_chunk_size=1, normalize=False, fit_type="OLS", fit_speed="fast"
+        )
 
-        _run_work_items(work_items, cores=1)
+        _run_work_items(work_items, max_workers=1)
 
         assert [chunk["Name"].tolist() for chunk in recorded_chunk_fits] == [
             chunk["Name"].tolist() for chunk, _, _ in work_items
@@ -331,9 +343,9 @@ class TestNormalizedFitIsCoreCountIndependent:
 
     ``normalize=True`` used to run inside every parallel chunk, so a dataset got
     one set of median-derived normalization factors per chunk and its output
-    depended on ``cores``. ``cores=1`` and ``cores=4`` chunk the same group into
-    one and four pieces respectively, so agreeing here is exactly the property
-    that used to fail.
+    depended on the worker count. ``max_workers=1`` and ``max_workers=4`` chunk
+    the same group into one and four pieces respectively, so agreeing here is
+    exactly the property that used to fail.
 
     Driven through :func:`drevalpy.curation.curate` because that is the only
     public entry point; the AnnData it returns is indexed by cell line and drug,
@@ -346,14 +358,14 @@ class TestNormalizedFitIsCoreCountIndependent:
     pytestmark = pytest.mark.slow
 
     @staticmethod
-    def _curate(*, cores: int, normalize: bool) -> anndata.AnnData:
+    def _curate(*, max_workers: int, normalize: bool) -> anndata.AnnData:
         """Curate the normalizable dataset at a given core count."""
-        return curate(build_normalizable_df(), cores=cores, normalize=normalize, fit_speed="fast")
+        return curate(build_normalizable_df(), max_workers=max_workers, normalize=normalize, fit_speed="fast")
 
     @pytest.fixture(scope="class")
     def normalized_fits(self) -> tuple[anndata.AnnData, anndata.AnnData]:
-        """The same normalized dataset curated at ``cores=1`` and ``cores=4``."""
-        return self._curate(cores=1, normalize=True), self._curate(cores=4, normalize=True)
+        """The same normalized dataset curated at ``max_workers=1`` and ``max_workers=4``."""
+        return self._curate(max_workers=1, normalize=True), self._curate(max_workers=4, normalize=True)
 
     def test_the_same_curves_come_back(self, normalized_fits: tuple[anndata.AnnData, anndata.AnnData]) -> None:
         serial, pooled = normalized_fits
@@ -371,14 +383,14 @@ class TestNormalizedFitIsCoreCountIndependent:
 
     def test_normalization_actually_changed_the_result(self) -> None:
         """Otherwise the equality above would hold for a no-op implementation."""
-        normalized = self._curate(cores=1, normalize=True)
-        plain = self._curate(cores=1, normalize=False)
+        normalized = self._curate(max_workers=1, normalize=True)
+        plain = self._curate(max_workers=1, normalize=False)
 
         assert not np.allclose(normalized.X, plain.X, equal_nan=True)
 
     def test_signal_quality_reflects_the_raw_controls(self) -> None:
         """Normalization overwrites the raw columns, so this is restored explicitly."""
-        normalized = self._curate(cores=1, normalize=True)
-        plain = self._curate(cores=1, normalize=False)
+        normalized = self._curate(max_workers=1, normalize=True)
+        plain = self._curate(max_workers=1, normalize=False)
 
         np.testing.assert_allclose(normalized.layers["signal_quality"], plain.layers["signal_quality"])
