@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING
 from drevalpy.curation._anndata import build_anndata
 
 if TYPE_CHECKING:
+    from concurrent.futures import Executor
+
     import anndata
     import pandas as pd
 
@@ -44,10 +46,12 @@ __all__ = ["DEFAULT_FIT_SPEED", "FIT_SPEEDS", "SUPPORTED_FIT_TYPES", "build_annd
 def curate(
     df: pd.DataFrame,
     *,
-    cores: int = 4,
+    max_chunk_size: int = 2000,
+    max_workers: int = 4,
     normalize: bool = False,
     fit_type: str = "OLS",
     fit_speed: str = DEFAULT_FIT_SPEED,
+    executor: Executor | None = None,
 ) -> anndata.AnnData:
     """Fit dose-response curves and return an AnnData of curve metrics.
 
@@ -58,9 +62,15 @@ def curate(
         intensity, and optionally replicate. The ``drug`` and ``cell_line``
         values are treated as opaque labels, so native identifiers are fine -
         they become the ``var_names``/``obs_names`` of the result.
-    cores
-        Number of CPU cores for parallel fitting. The result does not depend on
-        this, including when *normalize* is set.
+    max_chunk_size
+        Maximum number of curves in a single parallel chunk. Groups larger than
+        this are split into multiple chunks; smaller groups are kept as one chunk.
+        Smaller values produce more parallel jobs and better load balancing at the
+        cost of serialization overhead. The result does not depend on this value,
+        including when *normalize* is set.
+    max_workers
+        Number of local worker processes when no external *executor* is provided.
+        Ignored when *executor* is set.
     normalize
         Whether to apply median-centric normalization before fitting. Factors are
         computed once per dose-range group, not per parallel chunk.
@@ -68,6 +78,13 @@ def curate(
         Fitting method. Only "OLS" is currently supported.
     fit_speed
         Fitting thoroughness, one of :data:`FIT_SPEEDS`.
+    executor
+        Optional :class:`~concurrent.futures.Executor` instance. When provided,
+        chunk fitting is dispatched through this executor instead of an internal
+        :class:`~concurrent.futures.ProcessPoolExecutor`. This enables callers to
+        supply e.g. a ``submitit.AutoExecutor`` configured for SLURM, or any other
+        ``concurrent.futures``-compatible executor. The caller retains ownership
+        and is responsible for shutting down the executor.
 
     Returns:
     -------
@@ -91,10 +108,12 @@ def curate(
     groups = preprocess(df)
     fitted_groups = fit_groups(
         groups,
-        cores=cores,
+        max_chunk_size=max_chunk_size,
+        max_workers=max_workers,
         normalize=normalize,
         fit_type=fit_type,
         fit_speed=fit_speed,
+        executor=executor,
     )
     return build_anndata(postprocess(fitted_groups))
 
