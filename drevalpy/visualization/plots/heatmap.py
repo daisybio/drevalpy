@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -10,7 +9,8 @@ import numpy as np
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
 from drevalpy.visualization._metric_names import resolve_metric_key
-from drevalpy.visualization.base import Section, Visualization
+from drevalpy.visualization.base import PlotlyVisualization, Section
+from drevalpy.visualization.plots._utils import runs_frame
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -30,28 +30,6 @@ _ALL_METRICS = [
     "RMSE",
     "MAE",
 ]
-
-
-def _build_df_from_experiment(result: ExperimentResult) -> pd.DataFrame:
-    """Build a flat DataFrame from an ExperimentResult with an index encoding model/setting/split."""
-    import pandas as pd
-
-    rows: list[dict] = []
-    indices: list[str] = []
-    for model in result.models:
-        for run in model.runs:
-            rand = f"{run.randomization[0]}_{run.randomization[1]}" if run.randomization else "predictions"
-            row: dict = {
-                "algorithm": run.model_name,
-                "rand_setting": rand,
-                "test_mode": result.split_mode,
-                "CV_split": run.fold_index,
-            }
-            row.update(run.metrics)
-            rows.append(row)
-            indices.append(f"{run.model_name}_{rand}_{result.split_mode}_split_{run.fold_index}")
-    df = pd.DataFrame(rows, index=indices)
-    return df
 
 
 def _setting_groups(df: pd.DataFrame) -> pd.Series:
@@ -130,7 +108,7 @@ def _resolve_metric_columns(result: ExperimentResult, df: pd.DataFrame) -> tuple
     "Heatmap of mean metrics per model",
     requirements=frozenset({PlotRequirement.MULTIPLE_FOLDS}),
 )
-class HeatmapVisualization(Visualization):
+class HeatmapVisualization(PlotlyVisualization):
     """Heatmap showing mean metric values (rows=models, cols=metrics) with SSMD subplots."""
 
     def __init__(self) -> None:
@@ -147,7 +125,7 @@ class HeatmapVisualization(Visualization):
         from plotly.subplots import make_subplots
 
         self._result = result
-        df = _build_df_from_experiment(result)
+        df = runs_frame(result, indexed=True)
         df, metric_cols = _resolve_metric_columns(result, df)
         if not metric_cols:
             logger.warning("heatmap: none of the expected metrics are present; the panels will be empty")
@@ -234,15 +212,6 @@ class HeatmapVisualization(Visualization):
             title_text="Heatmap of the evaluation metrics",
         )
 
-    def to_png(self, path: str | Path) -> None:
-        """Render heatmap to a static PNG.
-
-        :param path: Output file path.
-        """
-        if self._fig is None:
-            raise RuntimeError("Call compute() before to_png()")
-        self._fig.write_image(str(path))
-
     def to_multiqc(self) -> list[Section]:
         """Return a MultiQC heatmap Section using native heatmap plot API."""
         if self._result is None:
@@ -278,12 +247,6 @@ class HeatmapVisualization(Visualization):
                 plot=plot,
             )
         ]
-
-    def show(self) -> None:
-        """Display the heatmap in a Jupyter notebook."""
-        if self._fig is None:
-            raise RuntimeError("Call compute() before show()")
-        self._fig.show()
 
 
 def _columns_for_setting(ps: str, metric_cols: list[str]) -> list[str]:

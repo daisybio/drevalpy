@@ -1,8 +1,9 @@
 """Tests for :mod:`drevalpy.visualization.base`.
 
 ``ImageVisualization`` supplies ``to_png``/``to_multiqc``/``show`` to every
-matplotlib-backed plot, so its three ``RuntimeError`` guards and the base64
-embedding are covered here once via a stub subclass rather than repeatedly in
+matplotlib-backed plot and ``PlotlyVisualization`` supplies ``to_png``/``show``
+to every Plotly-backed one, so their ``RuntimeError`` guards and the base64
+embedding are covered here once via stub subclasses rather than repeatedly in
 each plot's own module.
 """
 
@@ -15,7 +16,14 @@ import types
 import matplotlib.pyplot as plt
 import pytest
 
-from drevalpy.visualization.base import ImageVisualization, Section, Visualization
+from drevalpy.visualization.base import (
+    ImageVisualization,
+    PlotlyVisualization,
+    Section,
+    Visualization,
+    embedded_png_html,
+    require_figure,
+)
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -32,6 +40,32 @@ class _StubImagePlot(ImageVisualization):
         fig, ax = plt.subplots(figsize=(1, 1))
         ax.plot([0, 1], [0, 1])
         return fig
+
+
+class _RecordingFigure:
+    """Stand-in for a Plotly figure that records what the base class asked of it."""
+
+    def __init__(self) -> None:
+        self.written: list[str] = []
+        self.shown = 0
+
+    def write_image(self, path: str) -> None:
+        self.written.append(path)
+
+    def show(self) -> None:
+        self.shown += 1
+
+
+class _StubPlotlyPlot(PlotlyVisualization):
+    """Smallest possible PlotlyVisualization."""
+
+    registry_name = "stub_plotly"
+
+    def compute(self, result=None, dataset=None) -> None:
+        self._fig = _RecordingFigure()
+
+    def to_multiqc(self) -> list[Section]:
+        return []
 
 
 @pytest.fixture(autouse=True)
@@ -104,6 +138,36 @@ class TestVisualizationContract:
     def test_image_visualization_adds_only_create_figure(self):
         assert ImageVisualization.__abstractmethods__ == frozenset({"compute", "_create_figure"})
 
+    def test_plotly_visualization_leaves_compute_and_to_multiqc_abstract(self):
+        assert PlotlyVisualization.__abstractmethods__ == frozenset({"compute", "to_multiqc"})
+
+
+class TestRequireFigure:
+    def test_returns_the_figure_untouched(self):
+        sentinel = object()
+
+        assert require_figure(sentinel, "to_png") is sentinel
+
+    def test_names_the_caller_in_the_error(self):
+        with pytest.raises(RuntimeError, match=r"Call compute\(\) before some_method\(\)"):
+            require_figure(None, "some_method")
+
+
+class TestEmbeddedPngHtml:
+    def test_wraps_the_figure_in_an_img_data_uri(self, stub):
+        stub.compute()
+
+        html = embedded_png_html(stub._fig)
+
+        assert html.startswith('<img src="data:image/png;base64,')
+
+    def test_payload_decodes_to_a_png(self, stub):
+        stub.compute()
+
+        payload = embedded_png_html(stub._fig).split("base64,", 1)[1].split('"', 1)[0]
+
+        assert base64.b64decode(payload).startswith(PNG_MAGIC)
+
 
 class TestGuardsBeforeCompute:
     def test_to_png_raises(self, stub, tmp_path):
@@ -163,3 +227,32 @@ class TestImageVisualizationRendering:
         stub.show()
 
         assert displayed == [stub._fig]
+
+
+class TestPlotlyVisualizationRendering:
+    @pytest.fixture
+    def plotly_stub(self) -> _StubPlotlyPlot:
+        return _StubPlotlyPlot()
+
+    def test_to_png_raises_before_compute(self, plotly_stub, tmp_path):
+        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_png\(\)"):
+            plotly_stub.to_png(tmp_path / "out.png")
+
+    def test_show_raises_before_compute(self, plotly_stub):
+        with pytest.raises(RuntimeError, match=r"Call compute\(\) before show\(\)"):
+            plotly_stub.show()
+
+    def test_to_png_delegates_to_write_image_with_a_string_path(self, plotly_stub, tmp_path):
+        plotly_stub.compute()
+        out = tmp_path / "out.png"
+
+        plotly_stub.to_png(out)
+
+        assert plotly_stub._fig.written == [str(out)]
+
+    def test_show_delegates_to_the_figure(self, plotly_stub):
+        plotly_stub.compute()
+
+        plotly_stub.show()
+
+        assert plotly_stub._fig.shown == 1

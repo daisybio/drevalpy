@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.data.quality import curve_quality_mask
+from drevalpy.data.splitters._folds import entity_masks, group_folds, observed_mask, rows_with_labels
 from drevalpy.registry.splitter import register
-from drevalpy.types import MuDataLike, SplitMask, SplitMasks
+from drevalpy.types import MuDataLike, SplitMasks
 
 
 @register("LTO", "Leave-Tissue-Out: test folds contain unseen tissue types", validation="LTO")
@@ -17,38 +17,22 @@ def leave_tissue_out(
     random_state: int = 42,
 ) -> list[SplitMasks]:
     """Generate LTO folds where each tissue appears in exactly one test set."""
-    response = mudataset.response_matrix.copy()
-    response[~curve_quality_mask(mudataset)] = np.nan
-    observed = ~np.isnan(response)
-    cl_ids = mudataset.cell_line_ids
-    tissues = mudataset.get_tissue(cl_ids)
-
+    observed = observed_mask(mudataset)
+    tissues = mudataset.get_tissue(mudataset.cell_line_ids)
     unique_tissues = np.unique(tissues)
-    from sklearn.model_selection import KFold
-
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-    folds: list[SplitMasks] = []
-
-    for train_val_tissue_idx, test_tissue_idx in kf.split(unique_tissues):
-        n_val = max(1, int(len(train_val_tissue_idx) * validation_ratio)) if validation_ratio > 0 else 0
-        rng = np.random.default_rng(random_state)
-        rng.shuffle(train_val_tissue_idx)
-        val_tissue_idx = train_val_tissue_idx[:n_val]
-        train_tissue_idx = train_val_tissue_idx[n_val:]
-
-        train_rows = np.where(np.isin(tissues, unique_tissues[train_tissue_idx]))[0]
-        test_rows = np.where(np.isin(tissues, unique_tissues[test_tissue_idx]))[0]
-        val_rows = np.where(np.isin(tissues, unique_tissues[val_tissue_idx]))[0]
-
-        train_mask = np.zeros_like(observed)
-        train_mask[train_rows, :] = observed[train_rows, :]
-
-        test_mask = np.zeros_like(observed)
-        test_mask[test_rows, :] = observed[test_rows, :]
-
-        val_mask = np.zeros_like(observed)
-        val_mask[val_rows, :] = observed[val_rows, :]
-
-        folds.append(SplitMasks(train=SplitMask(train_mask), test=SplitMask(test_mask), val=SplitMask(val_mask)))
-
-    return folds
+    folds = group_folds(
+        len(unique_tissues),
+        n_splits=n_splits,
+        validation_ratio=validation_ratio,
+        random_state=random_state,
+    )
+    return [
+        entity_masks(
+            observed,
+            train=rows_with_labels(tissues, unique_tissues[train]),
+            validation=rows_with_labels(tissues, unique_tissues[validation]),
+            test=rows_with_labels(tissues, unique_tissues[test]),
+            axis=0,
+        )
+        for train, validation, test in folds
+    ]

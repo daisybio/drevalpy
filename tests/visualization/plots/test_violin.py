@@ -14,7 +14,7 @@ import pytest
 from plotly.basedatatypes import BaseFigure
 
 from drevalpy.types.results.experiment import ExperimentResult
-from drevalpy.visualization.plots.violin import ViolinVisualization, _build_df_from_experiment
+from drevalpy.visualization.plots.violin import ViolinVisualization
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 #: Metrics the plot draws: the seven base metrics, normalized variants excluded.
@@ -31,35 +31,6 @@ def computed(experiment) -> ViolinVisualization:
     plot = ViolinVisualization()
     plot.compute(experiment)
     return plot
-
-
-class TestBuildDfFromExperiment:
-    def test_has_one_row_per_run(self, experiment):
-        df = _build_df_from_experiment(experiment)
-
-        assert len(df) == sum(m.n_folds for m in experiment.models)
-
-    def test_carries_the_identity_columns(self, experiment):
-        df = _build_df_from_experiment(experiment)
-
-        assert list(df.columns[:4]) == ["algorithm", "rand_setting", "test_mode", "CV_split"]
-
-    def test_test_mode_comes_from_the_experiment_split_mode(self, experiment):
-        df = _build_df_from_experiment(experiment)
-
-        assert set(df["test_mode"]) == {experiment.split_mode}
-
-    def test_uses_a_default_range_index(self, experiment):
-        df = _build_df_from_experiment(experiment)
-
-        assert list(df.index) == list(range(len(df)))
-
-    def test_randomized_runs_get_a_composite_setting_label(self):
-        result = ExperimentResult([make_run_result(randomization=("methylation", "invariant"))])
-
-        df = _build_df_from_experiment(result)
-
-        assert df["rand_setting"].tolist() == ["methylation_invariant"]
 
 
 class TestCompute:

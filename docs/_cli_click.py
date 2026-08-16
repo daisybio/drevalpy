@@ -35,6 +35,37 @@ def _format_default(value: object) -> str | None:
     return text
 
 
+def _param_body(param) -> str:
+    """Phrase one parameter's definition-list body.
+
+    :param param: Click parameter to describe.
+    :returns: The help text, the rendered default, or a placeholder.
+    """
+    parts: list[str] = []
+    help_text = (getattr(param, "help", None) or "").strip()
+    if help_text:
+        parts.append(help_text)
+    default = _format_default(getattr(param, "default", None))
+    if default is not None and not getattr(param, "required", False):
+        parts.append(f"Default: ``{default}``.")
+    return " ".join(parts) if parts else "No description."
+
+
+def _documented_params(command) -> list:
+    """Return the parameters worth documenting for *command*.
+
+    Drops positional arguments, which carry no ``opts``, and the two
+    shell-completion options Typer injects into every app.
+
+    :param command: Click command to inspect.
+    :returns: Click parameters in declaration order.
+    """
+    skip = {"install_completion", "show_completion"}
+    return [
+        param for param in command.params if getattr(param, "opts", None) and getattr(param, "name", None) not in skip
+    ]
+
+
 def _render_params(command) -> list[str]:
     """Render options as a definition list (no section titles).
 
@@ -42,24 +73,9 @@ def _render_params(command) -> list[str]:
     :returns: RST lines for the parameter definition list
     """
     lines: list[str] = []
-    params = [param for param in command.params if getattr(param, "opts", None)]
-    skip = {"install_completion", "show_completion"}
-    params = [param for param in params if getattr(param, "name", None) not in skip]
-    if not params:
-        return lines
-
-    for param in params:
-        opts = " / ".join(f"``{opt}``" for opt in param.opts)
-        help_text = (getattr(param, "help", None) or "").strip()
-        default = _format_default(getattr(param, "default", None))
-        body_parts: list[str] = []
-        if help_text:
-            body_parts.append(help_text)
-        if default is not None and not getattr(param, "required", False):
-            body_parts.append(f"Default: ``{default}``.")
-        body = " ".join(body_parts) if body_parts else "No description."
-        lines.append(opts)
-        lines.append(f"   {body}")
+    for param in _documented_params(command):
+        lines.append(" / ".join(f"``{opt}``" for opt in param.opts))
+        lines.append(f"   {_param_body(param)}")
         lines.append("")
     return lines
 

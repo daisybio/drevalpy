@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors._boosted_trees import BoostedTreesPredictor
 from drevalpy.components.predictors.lightgbm_pred import LightGBMPredictor
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
@@ -39,6 +40,10 @@ def test_lightgbm_predictor_requires_numeric_matrix_contracts() -> None:
 
 def test_lightgbm_predictor_reuses_the_sklearn_tabular_lifecycle() -> None:
     assert issubclass(LightGBMPredictor, SklearnTabularPredictor)
+
+
+def test_lightgbm_predictor_shares_the_boosting_base_with_xgboost() -> None:
+    assert issubclass(LightGBMPredictor, BoostedTreesPredictor)
 
 
 def test_lightgbm_make_estimator_returns_an_unfitted_regressor() -> None:
@@ -97,6 +102,10 @@ def test_lightgbm_hyperparameter_space_declares_bounded_specs() -> None:
         "reg_lambda",
     }
     assert all(spec["low"] <= spec["default"] <= spec["high"] for spec in space.values())
+
+
+def test_lightgbm_samples_the_learning_rate_log_uniformly() -> None:
+    assert LightGBMPredictor.get_hyperparameter_space()["learning_rate"]["log"] is True
 
 
 def test_lightgbm_predictor_is_not_fitted_before_fit() -> None:

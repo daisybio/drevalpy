@@ -119,15 +119,10 @@ class PCACellLineFeaturizer(DenseViewCellLineFeaturizer):
         pca = state.get("pca")
         if isinstance(pca, PCA):
             self._pca = pca
-        view = state.get("view")
-        if isinstance(view, str):
-            self._view = view
         n_components = state.get("n_components")
         if isinstance(n_components, int):
             self._n_components = n_components
-        output_dim = state.get("output_dim")
-        if isinstance(output_dim, int):
-            self._output_dim = output_dim
         feature_names = state.get("feature_names")
         if isinstance(feature_names, tuple):
             self._feature_names = tuple(str(name) for name in feature_names)
+        self._restore_dense_state(state)

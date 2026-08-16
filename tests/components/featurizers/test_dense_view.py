@@ -263,3 +263,42 @@ def test_dense_view_fit_on_unique_ids_deduplicates_the_fit_rows() -> None:
     featurizer = _Unique().fit(_cell_line_source(), entity_ids=np.array(["cl1", "cl1", "cl2"], dtype=str))
 
     assert list(featurizer.seen) == ["cl1", "cl2"]
+
+
+class TestRestoreDenseState:
+    """``_restore_dense_state`` is the shared tail of every subclass ``set_state``.
+
+    Four cell-line featurizers used to repeat these three type-guarded reads
+    verbatim around their own one fitted object, which is what made
+    ``normalized_proteomics`` and ``scaled_gene_expression`` the repository's most
+    co-changed duplication pair.
+    """
+
+    def test_it_restores_view_output_dim_and_the_fitted_flag(self) -> None:
+        featurizer = _StrictDenseView(view="gene_expression")
+
+        featurizer._restore_dense_state({"view": "mutations", "output_dim": 7, "fitted": True})
+
+        assert featurizer._view == "mutations"
+        assert featurizer._output_dim == 7
+        assert featurizer._is_fitted is True
+
+    def test_absent_keys_leave_the_fields_alone(self) -> None:
+        """A subclass that never writes ``fitted`` must not have it reset for it."""
+        featurizer = _StrictDenseView(view="gene_expression")
+        featurizer._output_dim = 3
+        featurizer._is_fitted = True
+
+        featurizer._restore_dense_state({})
+
+        assert featurizer._view == "gene_expression"
+        assert featurizer._output_dim == 3
+        assert featurizer._is_fitted is True
+
+    def test_wrongly_typed_values_are_ignored(self) -> None:
+        featurizer = _StrictDenseView(view="gene_expression")
+
+        featurizer._restore_dense_state({"view": 5, "output_dim": "wide"})
+
+        assert featurizer._view == "gene_expression"
+        assert featurizer._output_dim == 0

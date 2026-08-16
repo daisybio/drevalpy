@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.cell_line.pca import PCACellLineFeaturizer
-from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
+from tests.components.featurizers.cell_line._helpers import assert_uses_precomputed_variant, precomputed_source
 from tests.conftest import MockFeatureSource
 
 
@@ -74,17 +74,14 @@ def test_pca_aligns_cross_study_features_by_name() -> None:
 
 
 def test_pca_prefers_a_precomputed_variant_for_matching_hyperparameters() -> None:
-    source = precomputed_source(PCACellLineFeaturizer, hyperparameters={"n_components": 2})
-    ids = source.identifiers
-    featurizer = PCACellLineFeaturizer(view="gene_expression", n_components=2)
-
-    featurizer.fit(source, entity_ids=ids)
-
-    assert featurizer.output_dim == PRECOMPUTED.shape[1]
-    np.testing.assert_allclose(featurizer.transform(source, ids), PRECOMPUTED)
+    assert_uses_precomputed_variant(
+        PCACellLineFeaturizer(view="gene_expression", n_components=2),
+        hyperparameters={"n_components": 2},
+    )
 
 
 def test_pca_ignores_a_variant_computed_under_different_hyperparameters() -> None:
+    """The counterpart to the test above: a mismatched HP set must not be served."""
     source = precomputed_source(PCACellLineFeaturizer, hyperparameters={"n_components": 2})
     ids = source.identifiers
     featurizer = PCACellLineFeaturizer(view="gene_expression", n_components=1)

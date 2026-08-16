@@ -42,13 +42,6 @@ def test_raw_requires_explicit_view() -> None:
 
 def test_raw_prefers_a_precomputed_variant_over_the_view() -> None:
     from drevalpy.components.featurizers.cell_line.raw import RawCellLineFeaturizer as Raw
-    from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
+    from tests.components.featurizers.cell_line._helpers import assert_uses_precomputed_variant
 
-    source = precomputed_source(Raw)
-    featurizer = Raw(view="gene_expression")
-
-    featurizer.fit(source, entity_ids=source.identifiers)
-    matrix = featurizer.transform(source, source.identifiers)
-
-    assert featurizer.output_dim == PRECOMPUTED.shape[1]
-    np.testing.assert_allclose(matrix, PRECOMPUTED)
+    assert_uses_precomputed_variant(Raw(view="gene_expression"))

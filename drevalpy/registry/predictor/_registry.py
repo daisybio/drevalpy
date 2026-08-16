@@ -7,6 +7,11 @@ from typing import Any, ClassVar
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
 from drevalpy.registry.components._base import ComponentRegistry
+from drevalpy.registry.components._contract_assignment import assign_contract
+from drevalpy.registry.components._registration_metadata import (
+    apply_registration_metadata,
+    normalize_registration_metadata,
+)
 from drevalpy.registry.predictor._metadata import predictor_component_metadata
 from drevalpy.registry.predictor._validate import validate_predictor_registration
 from drevalpy.types.enums.literature_reference import LiteratureReference
@@ -47,7 +52,7 @@ class PredictorRegistry(ComponentRegistry):
         :param reference: Optional literature citation metadata.
         :returns: Class decorator that registers and returns the decorated class.
         """
-        metadata = self._normalize_metadata(description, tags, reference)
+        metadata = normalize_registration_metadata(description, tags, reference)
         normalized_cell_line_contract = (
             None if cell_line_contract is None else normalize_feature_contract(cell_line_contract)
         )
@@ -58,9 +63,9 @@ class PredictorRegistry(ComponentRegistry):
                 if name in self._store:
                     msg = f"{self._label} {name!r} already registered"
                     raise ValueError(msg)
-                self._apply_contract(cls, "cell_line_contract", normalized_cell_line_contract)
-                self._apply_contract(cls, "drug_contract", normalized_drug_contract)
-                self._apply_metadata(cls, metadata)
+                assign_contract(cls, "cell_line_contract", normalized_cell_line_contract)
+                assign_contract(cls, "drug_contract", normalized_drug_contract)
+                apply_registration_metadata(cls, metadata)
                 self._validate_registration(name, cls)
                 self._store[name] = cls
                 cls.registry_name = name

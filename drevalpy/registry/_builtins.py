@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib
 import traceback
+from typing import Any
 
 from drevalpy.log import get_logger
 
@@ -44,6 +45,28 @@ def _discover_modules(package_path: str, package_name: str) -> list[str]:
     return modules
 
 
+def _try_import(module_name: str) -> Exception | None:
+    """Make *module_name*'s components available, reporting failure rather than raising.
+
+    An already-imported module is rescanned instead of re-imported, which is what
+    re-populates the registries after a ``clear()``.
+
+    :param module_name: Dotted name of a component module.
+    :returns: The import error, or ``None`` once the module's components are registered.
+    """
+    import sys
+
+    if module_name in sys.modules:
+        _reregister_from_module(sys.modules[module_name])
+        return None
+    try:
+        importlib.import_module(module_name)
+    except (ImportError, AttributeError) as exc:
+        return exc
+    _SKIPPED_MODULES.pop(module_name, None)
+    return None
+
+
 def _import_modules(module_names: list[str]) -> None:
     """Import each module, logging and skipping failures.
 
@@ -54,46 +77,54 @@ def _import_modules(module_names: list[str]) -> None:
     at WARNING level, because a silently skipped module means a component
     silently disappears from the registries.
     """
-    import sys
-
     deferred: list[str] = []
     for module_name in module_names:
-        if module_name in sys.modules:
-            _reregister_from_module(sys.modules[module_name])
-            continue
-        try:
-            importlib.import_module(module_name)
-        except (ImportError, AttributeError):
+        if _try_import(module_name) is not None:
             deferred.append(module_name)
             logger.debug("Deferring %s (import failed on first pass)", module_name)
-        else:
-            _SKIPPED_MODULES.pop(module_name, None)
 
     for module_name in deferred:
-        if module_name in sys.modules:
-            _reregister_from_module(sys.modules[module_name])
+        exc = _try_import(module_name)
+        if exc is None:
             continue
-        try:
-            importlib.import_module(module_name)
-        except (ImportError, AttributeError) as exc:
-            _SKIPPED_MODULES[module_name] = traceback.format_exc()
-            logger.warning(
-                "Skipping built-in component module %s: its components will be unavailable (%s: %s)",
-                module_name,
-                type(exc).__name__,
-                exc,
-            )
-        else:
-            _SKIPPED_MODULES.pop(module_name, None)
+        _SKIPPED_MODULES[module_name] = "".join(traceback.format_exception(exc))
+        logger.warning(
+            "Skipping built-in component module %s: its components will be unavailable (%s: %s)",
+            module_name,
+            type(exc).__name__,
+            exc,
+        )
+
+
+def _registry_for(cls) -> Any:
+    """Return the registry a previously registered class belongs to.
+
+    Which registry a class came from is recoverable from the attributes
+    registration stamped on it: ``side`` for a featurizer, and the contract
+    attributes for everything else.
+
+    :param cls: Class carrying a ``registry_name``.
+    :returns: The matching registry, or ``None`` if the class is not a component.
+    """
+    from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
+    from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
+    from drevalpy.registry.predictor._registry import predictor_registry
+
+    side = getattr(cls, "side", None)
+    if side == "cell_line":
+        return cell_line_featurizer_registry
+    if side == "drug":
+        return drug_featurizer_registry
+    if hasattr(cls, "cell_line_contract"):
+        return predictor_registry
+    if hasattr(cls, "contract"):
+        return cell_line_featurizer_registry
+    return None
 
 
 def _reregister_from_module(module) -> None:
     """Re-register classes from an already-imported module."""
     import inspect
-
-    from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
-    from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
-    from drevalpy.registry.predictor._registry import predictor_registry
 
     for value in vars(module).values():
         if not inspect.isclass(value):
@@ -101,18 +132,9 @@ def _reregister_from_module(module) -> None:
         registry_name = getattr(value, "registry_name", None)
         if not registry_name:
             continue
-        side = getattr(value, "side", None)
-        if side == "cell_line":
-            cell_line_featurizer_registry.register_existing(registry_name, value)
-        elif side == "drug":
-            drug_featurizer_registry.register_existing(registry_name, value)
-        elif hasattr(value, "cell_line_contract"):
-            predictor_registry.register_existing(registry_name, value)
-        elif hasattr(value, "contract"):
-            if side == "drug":
-                drug_featurizer_registry.register_existing(registry_name, value)
-            else:
-                cell_line_featurizer_registry.register_existing(registry_name, value)
+        registry = _registry_for(value)
+        if registry is not None:
+            registry.register_existing(registry_name, value)
 
 
 def _discover_literature_predictor_modules() -> list[str]:

@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.predictors._state_helpers import state_float
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
     predict_with_effects,
     require_pair_matrix,
-    state_float_matrix,
-    state_float_vector,
 )
+from drevalpy.components.predictors.naive._state_mixin import MeanEffectsStateMixin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
@@ -27,19 +25,14 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class NaiveTissueMeanPredictor(BlockPredictor):
+class NaiveTissueMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     """Naive tissue mean predictor component."""
 
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
 
-    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
-        """Initialize instance state.
+    state_effects: ClassVar[tuple[str, ...]] = ("effects",)
 
-        :param hyperparameters: hyperparameters.
-        """
-        super().__init__(hyperparameters)
-        self._dataset_mean: float | None = None
-        self._effects: np.ndarray | None = None
+    _effects: np.ndarray | None
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
@@ -75,37 +68,6 @@ class NaiveTissueMeanPredictor(BlockPredictor):
             raise ValueError(msg)
         return predict_with_effects(design, self._effects, baseline=self._dataset_mean)
 
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Result.
-        """
-        if self._dataset_mean is None or self._effects is None:
-            return {}
-        return {
-            "dataset_mean": self._dataset_mean,
-            "effects": self._effects.tolist(),
-        }
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: state.
-        """
-        mean = state_float(state, "dataset_mean")
-        if mean is not None:
-            self._dataset_mean = mean
-        effects = state_float_vector(state, "effects")
-        if effects is not None:
-            self._effects = effects
-
-    def is_fitted(self) -> bool:
-        """Return whether the component has been fit.
-
-        :returns: Result.
-        """
-        return self._dataset_mean is not None and self._effects is not None
-
 
 @register(
     "naiveTissueDrugMean",
@@ -114,20 +76,16 @@ class NaiveTissueMeanPredictor(BlockPredictor):
     cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class NaiveTissueDrugMeanPredictor(BlockPredictor):
+class NaiveTissueDrugMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     """Naive tissue drug mean predictor component."""
 
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
 
-    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
-        """Initialize instance state.
+    state_effects: ClassVar[tuple[str, ...]] = ("effects",)
+    state_effects_ndim: ClassVar[int] = 2
 
-        :param hyperparameters: hyperparameters.
-        """
-        super().__init__(hyperparameters)
-        self._dataset_mean: float | None = None
-        self._effects: np.ndarray | None = None
+    _effects: np.ndarray | None
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
@@ -174,34 +132,3 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
         tissue64 = np.asarray(tissue, dtype=np.float64)
         drugs64 = np.asarray(drugs, dtype=np.float64)
         return self._dataset_mean + np.einsum("ni,ij,nj->n", tissue64, self._effects, drugs64)
-
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Result.
-        """
-        if self._dataset_mean is None or self._effects is None:
-            return {}
-        return {
-            "dataset_mean": self._dataset_mean,
-            "effects": self._effects.tolist(),
-        }
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: state.
-        """
-        mean = state_float(state, "dataset_mean")
-        if mean is not None:
-            self._dataset_mean = mean
-        effects = state_float_matrix(state, "effects")
-        if effects is not None:
-            self._effects = effects
-
-    def is_fitted(self) -> bool:
-        """Return whether the component has been fit.
-
-        :returns: Result.
-        """
-        return self._dataset_mean is not None and self._effects is not None

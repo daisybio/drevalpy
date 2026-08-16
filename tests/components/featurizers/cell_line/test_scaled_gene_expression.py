@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.cell_line.scaled_gene_expression import ScaledGeneExpressionFeaturizer
-from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
+from tests.components.featurizers.cell_line._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
 
@@ -30,26 +30,11 @@ def test_scaled_gene_expression_output_dim_round_trips() -> None:
     np.testing.assert_allclose(restored.transform(features, ids), matrix)
 
 
-def test_scaled_gene_expression_prefers_a_precomputed_variant() -> None:
-    source = precomputed_source(ScaledGeneExpressionFeaturizer)
-    ids = source.identifiers
-    featurizer = ScaledGeneExpressionFeaturizer()
-
-    featurizer.fit(source, entity_ids=ids)
-
-    assert featurizer.output_dim == PRECOMPUTED.shape[1]
-    np.testing.assert_allclose(featurizer.transform(source, ids), PRECOMPUTED)
-
-
-def test_scaled_gene_expression_blocks_use_the_precomputed_variant() -> None:
-    source = precomputed_source(ScaledGeneExpressionFeaturizer)
-    ids = source.identifiers
-    featurizer = ScaledGeneExpressionFeaturizer().fit(source, entity_ids=ids)
-
-    blocks = featurizer.transform_blocks(source, ids)
-
-    assert set(blocks) == {"gene_expression"}
-    np.testing.assert_allclose(blocks["gene_expression"].values, PRECOMPUTED)
+def test_scaled_gene_expression_serves_a_precomputed_variant() -> None:
+    assert_uses_precomputed_variant(
+        ScaledGeneExpressionFeaturizer(),
+        expected_blocks=("gene_expression",),
+    )
 
 
 def test_scaled_gene_expression_transform_before_fit_raises() -> None:

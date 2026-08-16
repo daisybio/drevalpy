@@ -156,9 +156,4 @@ class NormalizedProteomicsCellLineFeaturizer(DenseViewCellLineFeaturizer):
         transformer = state.get("proteomics_transformer")
         if isinstance(transformer, ProteomicsMedianCenterAndImputeTransformer):
             self._transformer = transformer
-        view = state.get("view")
-        if isinstance(view, str):
-            self._view = view
-        output_dim = state.get("output_dim")
-        if isinstance(output_dim, int):
-            self._output_dim = output_dim
+        self._restore_dense_state(state)

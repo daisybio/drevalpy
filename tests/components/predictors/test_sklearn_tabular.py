@@ -115,3 +115,25 @@ def test_sklearn_tabular_set_state_rejects_an_invalid_prediction_mode() -> None:
 
     with pytest.raises(PredictorStateError, match="invalid prediction mode"):
         RidgePredictor().set_state(state)
+
+
+def test_sklearn_tabular_a_rejected_state_leaves_the_predictor_untouched() -> None:
+    """The shared entries are validated before anything is assigned, so a bad mode is not half-applied."""
+    predictor = RidgePredictor(hyperparameters={"alpha": 0.25})
+    predictor.fit(neural_batch())
+    expected = predictor.predict(neural_batch())
+    state = predictor.get_state()
+    state["mode"] = 3
+
+    with pytest.raises(PredictorStateError, match="invalid prediction mode"):
+        predictor.set_state(state)
+
+    assert predictor._h["alpha"] == pytest.approx(0.25)
+    np.testing.assert_allclose(predictor.predict(neural_batch()), expected)
+
+
+def test_sklearn_tabular_state_carries_only_the_estimator_and_the_shared_entries() -> None:
+    predictor = RidgePredictor()
+    predictor.fit(neural_batch())
+
+    assert set(predictor.get_state()) == {"estimator", "hyperparameters", "mode"}

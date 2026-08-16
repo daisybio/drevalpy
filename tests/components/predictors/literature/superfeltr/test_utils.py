@@ -5,6 +5,9 @@ requires a batch of more than one row, and ``train_superfeltr_model`` builds its
 training loader with ``drop_last=True``, so the pair count must be at least
 ``2 * mini_batch``. Every fit runs on CPU for a single epoch with
 ``wandb_project=None`` so no ``WandbLogger`` import is triggered.
+
+These fits are also what covers the shared ``literature/_omics_loaders.py`` and
+``literature/_lightning_training.py`` through a public entry point.
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
+from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit
 from drevalpy.components.predictors.literature.superfeltr.utils import (
     SuperFELTEncoder,
     SuperFELTRegressor,
@@ -85,6 +89,18 @@ def _pairs() -> tuple[np.ndarray, np.ndarray]:
     response = np.linspace(0.0, 1.0, N_PAIRS, dtype=np.float32)
     pair_idx = np.arange(N_PAIRS, dtype=np.int64) % N_ENTITIES
     return response, pair_idx
+
+
+def _split(response: np.ndarray | None = None) -> OmicsSplit:
+    expr, mut, cnv = _omics()
+    default_response, pair_idx = _pairs()
+    return OmicsSplit(
+        gene_expression=expr,
+        mutations=mut,
+        copy_number=cnv,
+        response=default_response if response is None else response,
+        pair_idx=pair_idx,
+    )
 
 
 def _regressor(**overrides: object) -> SuperFELTRegressor:
@@ -339,56 +355,21 @@ def test_regressor_validation_step_returns_a_scalar_loss() -> None:
 
 @pytest.mark.parametrize("hyperparameter", ["epochs", "mini_batch"])
 def test_train_rejects_non_integer_epochs_and_mini_batch(hyperparameter: str, tmp_path) -> None:
-    response, pair_idx = _pairs()
-    expr, mut, cnv = _omics()
-
     with pytest.raises(ValueError, match="must be integers"):
         train_superfeltr_model(
             model=_encoder(),
             hpams=_hpams(**{hyperparameter: 1.0}),
-            gene_expression=expr,
-            mutations=mut,
-            copy_number=cnv,
-            response=response,
-            pair_idx=pair_idx,
-            model_checkpoint_dir=tmp_path,
-            wandb_project=None,
-        )
-
-
-def test_train_requires_the_other_validation_omics_alongside_expression(tmp_path) -> None:
-    response, pair_idx = _pairs()
-    expr, mut, cnv = _omics()
-
-    with pytest.raises(ValueError, match="val_mutations and val_copy_number are required"):
-        train_superfeltr_model(
-            model=_encoder(),
-            hpams=_hpams(),
-            gene_expression=expr,
-            mutations=mut,
-            copy_number=cnv,
-            response=response,
-            pair_idx=pair_idx,
-            val_gene_expression=expr,
-            val_response=response,
-            val_pair_idx=pair_idx,
+            train=_split(),
             model_checkpoint_dir=tmp_path,
             wandb_project=None,
         )
 
 
 def test_train_encoder_without_validation_monitors_the_training_loss(tmp_path) -> None:
-    response, pair_idx = _pairs()
-    expr, mut, cnv = _omics()
-
     checkpoint = train_superfeltr_model(
         model=_encoder(),
         hpams=_hpams(),
-        gene_expression=expr,
-        mutations=mut,
-        copy_number=cnv,
-        response=response,
-        pair_idx=pair_idx,
+        train=_split(),
         patience=1,
         model_checkpoint_dir=tmp_path,
         wandb_project=None,
@@ -399,22 +380,11 @@ def test_train_encoder_without_validation_monitors_the_training_loss(tmp_path) -
 
 
 def test_train_encoder_with_validation_monitors_the_validation_loss(tmp_path) -> None:
-    response, pair_idx = _pairs()
-    expr, mut, cnv = _omics()
-
     checkpoint = train_superfeltr_model(
         model=_encoder(),
         hpams=_hpams(),
-        gene_expression=expr,
-        mutations=mut,
-        copy_number=cnv,
-        response=response,
-        pair_idx=pair_idx,
-        val_gene_expression=expr,
-        val_mutations=mut,
-        val_copy_number=cnv,
-        val_response=response,
-        val_pair_idx=pair_idx,
+        train=_split(),
+        val=_split(),
         patience=1,
         model_checkpoint_dir=tmp_path,
         wandb_project=None,
@@ -424,17 +394,10 @@ def test_train_encoder_with_validation_monitors_the_validation_loss(tmp_path) ->
 
 
 def test_train_writes_a_checkpoint_under_a_unique_versioned_directory(tmp_path) -> None:
-    response, pair_idx = _pairs()
-    expr, mut, cnv = _omics()
-
     checkpoint = train_superfeltr_model(
         model=_encoder(),
         hpams=_hpams(),
-        gene_expression=expr,
-        mutations=mut,
-        copy_number=cnv,
-        response=response,
-        pair_idx=pair_idx,
+        train=_split(),
         patience=1,
         model_checkpoint_dir=tmp_path,
         wandb_project=None,
@@ -447,17 +410,12 @@ def test_train_writes_a_checkpoint_under_a_unique_versioned_directory(tmp_path) 
 
 
 def test_train_regressor_accepts_a_two_dimensional_response(tmp_path) -> None:
-    response, pair_idx = _pairs()
-    expr, mut, cnv = _omics()
+    response, _ = _pairs()
 
     checkpoint = train_superfeltr_model(
         model=_regressor(),
         hpams=_hpams(),
-        gene_expression=expr,
-        mutations=mut,
-        copy_number=cnv,
-        response=response.reshape(-1, 1),
-        pair_idx=pair_idx,
+        train=_split(response=response.reshape(-1, 1)),
         patience=1,
         model_checkpoint_dir=tmp_path,
         wandb_project=None,
@@ -466,17 +424,34 @@ def test_train_regressor_accepts_a_two_dimensional_response(tmp_path) -> None:
     assert checkpoint.best_model_path
 
 
+def test_train_drops_the_trailing_incomplete_training_batch(tmp_path) -> None:
+    """``drop_last=True`` for training, ``False`` for validation - the shared loaders' contract."""
+    from drevalpy.components.predictors.literature._omics_loaders import make_omics_loaders
+
+    train_loader, val_loader = make_omics_loaders(_split(), _split(), batch_size=MINI_BATCH)
+
+    assert sum(batch[0].shape[0] for batch in train_loader) == N_PAIRS - N_PAIRS % MINI_BATCH
+    assert val_loader is not None
+    assert sum(batch[0].shape[0] for batch in val_loader) == N_PAIRS
+
+
+def test_shared_loaders_reshape_a_one_dimensional_response_to_a_column() -> None:
+    from drevalpy.components.predictors.literature._omics_loaders import make_omics_loaders
+
+    train_loader, _ = make_omics_loaders(_split(), None, batch_size=MINI_BATCH)
+
+    expr, mut, cnv, response = next(iter(train_loader))
+    assert expr.shape == (MINI_BATCH, EXPR_DIM)
+    assert mut.shape == (MINI_BATCH, MUT_DIM)
+    assert cnv.shape == (MINI_BATCH, CNV_DIM)
+    assert response.shape == (MINI_BATCH, 1)
+
+
 def test_trained_encoder_checkpoint_is_loadable(tmp_path) -> None:
-    response, pair_idx = _pairs()
-    expr, mut, cnv = _omics()
     checkpoint = train_superfeltr_model(
         model=_encoder(),
         hpams=_hpams(),
-        gene_expression=expr,
-        mutations=mut,
-        copy_number=cnv,
-        response=response,
-        pair_idx=pair_idx,
+        train=_split(),
         patience=1,
         model_checkpoint_dir=tmp_path,
         wandb_project=None,

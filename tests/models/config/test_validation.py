@@ -4,26 +4,25 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-import numpy as np
 import pytest
 from pydantic import ValidationError
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.predictors.abstract.block import BlockPredictor
-from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.models.config import (
     CellLineFeaturizerConfig,
     DrugFeaturizerConfig,
     ModelConfig,
-    PredictionMode,
     PredictorConfig,
     validate,
 )
-from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
-from drevalpy.registry.drug_featurizer import register as register_drug_featurizer
-from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.types.data.batch.feature_block import BlockSpec
+from tests.models.config._stubs import (
+    register_block_predictor_stub,
+    register_dense_trio,
+    register_feature_free_predictor_stub,
+    register_featurizer_stub,
+    register_matrix_predictor_stub,
+)
 from tests.registry._helpers import isolated_component_registries
 
 
@@ -32,63 +31,35 @@ def _clear_registries() -> Iterator[None]:
     yield from isolated_component_registries()
 
 
-def _register_dense_pair() -> None:
-    @register_cell_line_featurizer(
-        "denseCellLine",
-        description="dense cell line",
-        contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class DenseCellLine:
-        pass
+def _dense_model_config(**overrides) -> ModelConfig:
+    """Build the valid dense triple, with named slots replaceable per test.
 
-    @register_drug_featurizer(
-        "denseDrug",
-        description="dense drug",
-        contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class DenseDrug:
-        pass
-
-    @register_predictor(
-        "densePred",
-        description="dense pred",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
-        drug_contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class DensePred(MatrixPredictor):
-        supported_modes = frozenset({PredictionMode.REGRESSION})
-
-        def _fit_matrix(self, x, y) -> None:
-            return None
-
-        def _predict_matrix(self, x):
-            import numpy as np
-
-            return np.zeros(len(x), dtype=np.float64)
+    :param overrides: Slot values replacing the dense defaults.
+    :returns: A ``ModelConfig`` over the registered stubs.
+    """
+    slots = {
+        "cell_line_featurizer": CellLineFeaturizerConfig(name="denseCellLine", view="gene_expression"),
+        "drug_featurizer": DrugFeaturizerConfig(name="denseDrug", view="fingerprints"),
+        "predictor": PredictorConfig(name="densePred"),
+    }
+    slots.update(overrides)
+    return ModelConfig(**slots)
 
 
 def test_valid_dense_config_passes() -> None:
-    _register_dense_pair()
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="denseCellLine", view="gene_expression"),
-        drug_featurizer=DrugFeaturizerConfig(name="denseDrug", view="fingerprints"),
-        predictor=PredictorConfig(name="densePred"),
-    )
-    validate(config)
+    register_dense_trio()
+
+    validate(_dense_model_config())
 
 
 def test_unknown_cell_line_featurizer_fails() -> None:
-    _register_dense_pair()
+    register_dense_trio()
     with pytest.raises((ValueError, ValidationError), match="Unknown Cell line featurizer"):
-        ModelConfig(
-            cell_line_featurizer=CellLineFeaturizerConfig(name="missing"),
-            drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
-            predictor=PredictorConfig(name="densePred"),
-        )
+        _dense_model_config(cell_line_featurizer=CellLineFeaturizerConfig(name="missing"))
 
 
 def test_wrong_registry_is_coerced_by_slot_subclasses() -> None:
-    _register_dense_pair()
+    register_dense_trio()
     config = ModelConfig.model_validate(
         {
             "cell_line_featurizer": {"name": "denseCellLine", "registry": "drug"},
@@ -104,78 +75,22 @@ def test_wrong_registry_is_coerced_by_slot_subclasses() -> None:
 
 
 def test_graph_featurizer_with_matrix_predictor_fails() -> None:
-    @register_cell_line_featurizer(
-        "graphCellLine",
-        description="graph",
-        contract=FeatureFormat.GRAPH,
-    )
-    class GraphCellLine:
-        pass
-
-    @register_drug_featurizer(
-        "denseDrug",
-        description="dense drug",
-        contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class DenseDrug:
-        pass
-
-    @register_predictor(
-        "densePred",
-        description="dense pred",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
-        drug_contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class DensePred(MatrixPredictor):
-        supported_modes = frozenset({PredictionMode.REGRESSION})
-
-        def _fit_matrix(self, x, y) -> None:
-            return None
-
-        def _predict_matrix(self, x):
-            import numpy as np
-
-            return np.zeros(len(x), dtype=np.float64)
+    register_featurizer_stub("graphCellLine", side="cell_line", contract=FeatureFormat.GRAPH)
+    register_featurizer_stub("denseDrug", side="drug")
+    register_matrix_predictor_stub("densePred")
 
     with pytest.raises((ValueError, ValidationError), match="Cell line featurizer contract|numeric_matrix"):
-        ModelConfig(
-            cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"),
-            drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
-            predictor=PredictorConfig(name="densePred"),
-        )
+        _dense_model_config(cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"))
 
 
 def test_graph_format_match_passes_for_block_predictor() -> None:
-    @register_cell_line_featurizer(
-        "graphCellLine",
-        description="graph",
-        contract=FeatureFormat.GRAPH,
-    )
-    class GraphCellLine:
-        pass
-
-    @register_drug_featurizer(
-        "graphDrug",
-        description="graph drug",
-        contract=FeatureFormat.GRAPH,
-    )
-    class GraphDrug:
-        pass
-
-    @register_predictor(
+    register_featurizer_stub("graphCellLine", side="cell_line", contract=FeatureFormat.GRAPH)
+    register_featurizer_stub("graphDrug", side="drug", contract=FeatureFormat.GRAPH)
+    register_block_predictor_stub(
         "graphPred",
-        description="graph pred",
         cell_line_contract=FeatureFormat.GRAPH,
         drug_contract=FeatureFormat.GRAPH,
     )
-    class GraphPred(BlockPredictor):
-        supported_modes = frozenset({PredictionMode.REGRESSION})
-
-        def _fit(self, batch) -> None:
-            return None
-
-        def _predict(self, batch):
-            return np.zeros(batch.n_pairs, dtype=np.float64)
 
     config = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"),
@@ -186,29 +101,21 @@ def test_graph_format_match_passes_for_block_predictor() -> None:
 
 
 def test_block_schema_reports_missing_named_block() -> None:
-    @register_cell_line_featurizer("cellBlocks", description="cell blocks", contract=FeatureFormat.NUMERIC_MATRIX)
-    class CellBlocks:
-        output_block_specs = (BlockSpec("wrong_name", FeatureFormat.NUMERIC_MATRIX),)
-
-    @register_drug_featurizer("drugBlocks", description="drug blocks", contract=FeatureFormat.NUMERIC_MATRIX)
-    class DrugBlocks:
-        output_block_specs = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
-
-    @register_predictor(
-        "blockPred",
-        description="block pred",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
-        drug_contract=FeatureFormat.NUMERIC_MATRIX,
+    register_featurizer_stub(
+        "cellBlocks",
+        side="cell_line",
+        output_block_specs=(BlockSpec("wrong_name", FeatureFormat.NUMERIC_MATRIX),),
     )
-    class BlockPred(BlockPredictor):
-        required_cell_line_block_specs = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
-        required_drug_block_specs = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
-
-        def _fit(self, batch) -> None:
-            return None
-
-        def _predict(self, batch):
-            return np.zeros(batch.n_pairs, dtype=np.float64)
+    register_featurizer_stub(
+        "drugBlocks",
+        side="drug",
+        output_block_specs=(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),),
+    )
+    register_block_predictor_stub(
+        "blockPred",
+        required_cell_line_block_specs=(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
+        required_drug_block_specs=(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),),
+    )
 
     with pytest.raises((ValueError, ValidationError), match="blockPred.*gene_expression.*numeric_matrix.*wrong_name"):
         ModelConfig(
@@ -225,18 +132,7 @@ def test_builtin_featurizer_declares_output_block_specs() -> None:
 
 
 def test_feature_free_predictor_without_featurizers_passes() -> None:
-    @register_predictor(
-        "naiveMean",
-        description="naive",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
-        drug_contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class NaiveMean(FeatureFreePredictor):
-        def _fit(self, batch) -> None:
-            return None
-
-        def _predict(self, batch):
-            return np.zeros(batch.n_pairs, dtype=np.float64)
+    register_feature_free_predictor_stub("naiveMean")
 
     config = ModelConfig(
         cell_line_featurizer=None,
@@ -247,13 +143,9 @@ def test_feature_free_predictor_without_featurizers_passes() -> None:
 
 
 def test_feature_using_predictor_without_featurizers_fails() -> None:
-    _register_dense_pair()
+    register_dense_trio()
     with pytest.raises((ValueError, ValidationError), match="requires featurizers"):
-        ModelConfig(
-            cell_line_featurizer=None,
-            drug_featurizer=None,
-            predictor=PredictorConfig(name="densePred"),
-        )
+        _dense_model_config(cell_line_featurizer=None, drug_featurizer=None)
 
 
 def test_baseline_tag_does_not_allow_missing_featurizers() -> None:

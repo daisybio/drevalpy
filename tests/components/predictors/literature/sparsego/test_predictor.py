@@ -11,7 +11,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.sparsego.predictor import (
     SparseGOPredictor,
     _parse_ontology_metadata,
@@ -22,7 +21,7 @@ from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from tests.models.synthetic_fixtures import multi_drug_response
+from tests.components.predictors.literature._helpers import two_by_two_batch
 
 _LAYER_CONNECTIONS = [np.array([[0, 1], [1, 2]])]
 _GENE2ID = {"TP53": 0, "EGFR": 1}
@@ -36,17 +35,9 @@ def _batch(cell_line_block_names: tuple[str, ...], *, metadata: dict | None = No
     :returns: Featurized ``ModelInputBatch``.
     """
     values = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
-    return ModelInputBatch.from_response(
-        multi_drug_response(),
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.empty((0, 0), dtype=np.float32),
-        drug_features=None,
-        cell_line_pair_idx=np.array([0, 0, 1, 1]),
-        drug_pair_idx=np.array([0, 1, 0, 1]),
+    return two_by_two_batch(
         cell_line_blocks={name: numeric_feature_block(values, metadata=metadata) for name in cell_line_block_names},
         drug_blocks={"fingerprints": numeric_feature_block(np.eye(2, dtype=np.float32))},
-        training_context=TrainingContext(checkpoint_dir="."),
     )
 
 

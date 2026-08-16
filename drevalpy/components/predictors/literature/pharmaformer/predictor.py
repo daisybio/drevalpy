@@ -8,15 +8,22 @@ the startup path of every CLI invocation. See ``tests/test_import_cost_policy.py
 
 from __future__ import annotations
 
-import secrets
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from upath import UPath as Path
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.literature._early_stopping import (
+    EarlyStoppingRun,
+    train_with_early_stopping,
+)
 from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE
+from drevalpy.components.predictors.literature._pair_predict import (
+    PairEvalSpec,
+    predict_pairs,
+    require_drug_pair_idx,
+)
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
@@ -27,7 +34,6 @@ from drevalpy.utils.torch_io import (
     load_state_dict,
     load_trusted_mapping,
     save_state_dict,
-    save_torch_payload,
     save_trusted_mapping,
 )
 
@@ -165,91 +171,81 @@ class PharmaFormerPredictor(BlockPredictor):
         """
         return {}
 
-    def _fit(self, batch: ModelInputBatch) -> None:
-        """Train the PharmaFormer model with early stopping.
+    def _entity_blocks(self, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray]:
+        """Return the entity-level gene expression and BPE SMILES matrices.
 
-        :param batch: Training batch with gene_expression and bpe_smiles blocks.
-        :raises ValueError: If early stopping data is not provided.
-        :raises RuntimeError: If drug_pair_idx is None.
+        :param batch: Batch to read the blocks from.
+        :returns: Tuple of ``(gene_expression, bpe_smiles)`` matrices.
         """
-        import torch.nn as nn
-        import torch.optim as optim
+        return (
+            batch.cell_line_blocks["gene_expression"].values,
+            batch.drug_blocks["bpe_smiles"].values,
+        )
 
+    def _build_loaders(self, batch: ModelInputBatch) -> tuple[DataLoader, DataLoader]:
+        """Build the training and early-stopping loaders.
+
+        :param batch: Training batch with an early-stopping response.
+        :returns: Tuple of ``(train_loader, val_loader)``.
+        :raises ValueError: If early stopping data is not provided.
+        """
         if batch.early_stopping_response is None:
             msg = "PharmaFormer model requires early stopping data."
             raise ValueError(msg)
 
-        gene_entity = batch.cell_line_blocks["gene_expression"].values
-        drug_entity = batch.drug_blocks["bpe_smiles"].values
-        cell_pair_idx = batch.cell_line_pair_idx
-        drug_pair_idx = batch.drug_pair_idx
-        if drug_pair_idx is None:
-            raise RuntimeError("drug_pair_idx is required for this predictor")
-        response = np.asarray(batch.response, dtype=np.float32)
-
-        gene_input_size = gene_entity.shape[1]
-        self._gene_input_size = gene_input_size
-        self._model = _build_combined_model(gene_input_size, self._hyperparameters, self._device)
-
-        loss_func = nn.MSELoss()
-        optimizer = optim.Adam(self._model.parameters(), lr=self._hyperparameters["lr"])
+        gene_entity, drug_entity = self._entity_blocks(batch)
+        batch_size = self._hyperparameters["batch_size"]
 
         train_loader = make_pair_loader(
-            (gene_entity, cell_pair_idx),
-            (drug_entity, drug_pair_idx),
-            response=response,
-            batch_size=self._hyperparameters["batch_size"],
+            (gene_entity, batch.cell_line_pair_idx),
+            (drug_entity, require_drug_pair_idx(batch.drug_pair_idx)),
+            response=np.asarray(batch.response, dtype=np.float32),
+            batch_size=batch_size,
             shuffle=True,
         )
 
         es_response = batch.early_stopping_response
         es_cell_pair_idx, es_drug_pair_idx = batch._pair_indices_for(es_response)
-        if es_drug_pair_idx is None:
-            raise RuntimeError("drug_pair_idx is required for this predictor")
-        es_resp = np.asarray(es_response.response, dtype=np.float32)
-
         val_loader = make_pair_loader(
             (gene_entity, es_cell_pair_idx),
-            (drug_entity, es_drug_pair_idx),
-            response=es_resp,
-            batch_size=self._hyperparameters["batch_size"],
+            (drug_entity, require_drug_pair_idx(es_drug_pair_idx)),
+            response=np.asarray(es_response.response, dtype=np.float32),
+            batch_size=batch_size,
             shuffle=False,
         )
+        return train_loader, val_loader
 
-        best_val_loss = float("inf")
-        epochs_without_improvement = 0
-        checkpoint_dir = Path(batch.training_context.checkpoint_dir)
-        checkpoint_dir.mkdir(parents=True, exist_ok=True)
-        version = "version-" + "".join([secrets.choice("0123456789abcdef") for _ in range(20)])
-        checkpoint_path = checkpoint_dir / f"{version}_best_PharmaFormer_model.pth"
+    def _fit(self, batch: ModelInputBatch) -> None:
+        """Train the PharmaFormer model with early stopping.
 
-        print("Training PharmaFormer model")
-        for epoch in range(self._hyperparameters["epochs"]):
-            epoch_loss = _run_epoch(self._model, train_loader, loss_func, optimizer, self._device)
-            print(
-                f"PharmaFormer: Epoch [{epoch + 1}/{self._hyperparameters['epochs']}] Training Loss: {epoch_loss:.4f}"
-            )
+        :param batch: Training batch with gene_expression and bpe_smiles blocks.
+        """
+        import torch.nn as nn
+        import torch.optim as optim
 
-            val_loss = _run_epoch(self._model, val_loader, loss_func, None, self._device)
-            print(
-                f"PharmaFormer: Epoch [{epoch + 1}/{self._hyperparameters['epochs']}] Validation Loss: {val_loss:.4f}"
-            )
+        train_loader, val_loader = self._build_loaders(batch)
 
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                epochs_without_improvement = 0
-                save_torch_payload(self._model.state_dict(), checkpoint_path)
-                print(f"PharmaFormer: Saved best model at epoch {epoch + 1}")
-            else:
-                epochs_without_improvement += 1
-                patience = self._hyperparameters.get("patience", 10)
-                if epochs_without_improvement >= patience:
-                    print(f"PharmaFormer: Early stopping triggered at epoch {epoch + 1}")
-                    break
+        gene_entity, _ = self._entity_blocks(batch)
+        self._gene_input_size = gene_entity.shape[1]
+        model = _build_combined_model(self._gene_input_size, self._hyperparameters, self._device)
+        self._model = model
 
-        print("PharmaFormer: Reloading the best model")
-        self._model.load_state_dict(load_state_dict(checkpoint_path, map_location=self._device))
-        self._model.to(self._device)
+        loss_func = nn.MSELoss()
+        optimizer = optim.Adam(model.parameters(), lr=self._hyperparameters["lr"])
+
+        train_with_early_stopping(
+            model,
+            EarlyStoppingRun(
+                epochs=self._hyperparameters["epochs"],
+                patience=self._hyperparameters.get("patience", 10),
+                checkpoint_dir=batch.training_context.checkpoint_dir,
+                model_name="PharmaFormer",
+                verbose=True,
+            ),
+            train_epoch=lambda: _run_epoch(model, train_loader, loss_func, optimizer, self._device),
+            val_epoch=lambda: _run_epoch(model, val_loader, loss_func, None, self._device),
+            device=self._device,
+        )
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Run PharmaFormer inference on the given batch.
@@ -257,40 +253,22 @@ class PharmaFormerPredictor(BlockPredictor):
         :param batch: Featurized pairs to score.
         :returns: One predicted response per pair.
         :raises ValueError: If the model has not been trained yet.
-        :raises RuntimeError: If drug_pair_idx is None.
         """
-        import torch
-
         if self._model is None:
             msg = "PharmaFormer model not initialized."
             raise ValueError(msg)
 
-        gene_entity = batch.cell_line_blocks["gene_expression"].values
-        drug_entity = batch.drug_blocks["bpe_smiles"].values
-        cell_pair_idx = batch.cell_line_pair_idx
-        drug_pair_idx = batch.drug_pair_idx
-        if drug_pair_idx is None:
-            raise RuntimeError("drug_pair_idx is required for this predictor")
-
-        predict_loader = make_pair_loader(
-            (gene_entity, cell_pair_idx),
-            (drug_entity, drug_pair_idx),
-            batch_size=self._hyperparameters.get("batch_size", 64),
-            shuffle=False,
+        gene_entity, drug_entity = self._entity_blocks(batch)
+        return predict_pairs(
+            self._model,
+            batch,
+            PairEvalSpec(
+                cell_line_blocks=(gene_entity,),
+                drug_blocks=(drug_entity,),
+                batch_size=self._hyperparameters.get("batch_size", 64),
+                device=self._device,
+            ),
         )
-
-        self._model.eval()
-        predictions: list[float] = []
-        with torch.no_grad():
-            for gene_inputs, smiles_inputs in predict_loader:
-                gene_inputs = gene_inputs.to(self._device)
-                smiles_inputs = smiles_inputs.to(self._device)
-                outputs = self._model(gene_inputs, smiles_inputs)
-                if outputs.numel() > 1:
-                    predictions += outputs.squeeze().cpu().tolist()
-                else:
-                    predictions += [outputs.item()]
-        return np.asarray(predictions)
 
     def is_fitted(self) -> bool:
         """Return whether the model has been trained.

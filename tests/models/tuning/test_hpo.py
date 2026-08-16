@@ -63,7 +63,8 @@ def test_hpam_tune_zero_trials_returns_defaults() -> None:
     "drevalpy.models.tuning.hpo._mu_evaluate_trial_all_metrics",
     return_value=({"RMSE": 0.1}, np.zeros(4)),
 )
-def test_hpam_tune_one_trial(mock_evaluate) -> None:
+@pytest.mark.parametrize("n_trials", [1, 3])
+def test_hpam_tune_evaluates_exactly_n_trials(mock_evaluate, n_trials) -> None:
     model_cls = construct_model("ElasticNet")
     mudataset, train_scope, val_scope = _tiny_mudataset_and_scopes()
     best, _ = hpam_tune(
@@ -73,11 +74,11 @@ def test_hpam_tune_one_trial(mock_evaluate) -> None:
         val_scope=val_scope,
         early_stopping_scope=None,
         metric="RMSE",
-        hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=n_trials),
     )
     assert isinstance(best, dict)
     assert "alpha" in best
-    mock_evaluate.assert_called_once()
+    assert mock_evaluate.call_count == n_trials
 
 
 @patch(
@@ -187,3 +188,40 @@ def test_hpam_tune_multiple_trials_picks_best(mock_evaluate) -> None:
     )
     assert isinstance(best, dict)
     assert "alpha" in best
+
+
+class TestUnmockedTuning:
+    """The one case that runs Optuna and the estimator for real, end to end.
+
+    Everything above mocks the trial evaluation, so nothing above would notice a
+    break between ``hpam_tune`` and a real split, a real fit and a real metric.
+    Kept in a class of its own so the ``slow`` marker covers only this test and
+    not the mocked ones, which are milliseconds each.
+    """
+
+    pytestmark = pytest.mark.slow
+
+    def test_tuning_elastic_net_over_a_real_lpo_fold_returns_its_hyperparameters(self, synthetic_dataset) -> None:
+        from drevalpy.registry.splitter import get as get_splitter
+
+        model_cls = construct_model("ElasticNet")
+        splitter = get_splitter("LPO")
+        split = splitter(synthetic_dataset, n_splits=2, validation_ratio=0.4)[0]
+
+        early_stopping_scope = None
+        val_scope = split.val
+        if model_cls.supports_early_stopping() and len(split.val) > 1:
+            early_stopping_scope, val_scope = split.early_stopping_mask()
+
+        best, _ = hpam_tune(
+            model_class=model_cls,
+            mudataset=synthetic_dataset,
+            train_scope=split.train,
+            val_scope=val_scope,
+            early_stopping_scope=early_stopping_scope,
+            metric="RMSE",
+            hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
+        )
+
+        assert isinstance(best, dict)
+        assert "alpha" in best

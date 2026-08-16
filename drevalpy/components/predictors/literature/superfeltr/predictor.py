@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
-import hashlib
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from upath import UPath as Path
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
-from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
+from drevalpy.components.predictors.literature._single_drug_omics import (
+    OmicFeatureNames,
+    aligned_pair_matrices,
+    feature_names_from_payload,
+    feature_names_payload,
+    iter_drug_subsets,
+    omic_feature_names,
+    omic_matrices,
+    validation_split,
+)
 from drevalpy.components.predictors.single_drug_routing import (
-    iter_drug_masks,
     require_known_training_keys,
     routing_keys,
 )
@@ -37,40 +41,14 @@ from drevalpy.utils.torch_io import (
 # deferred to the methods that construct them. Guarded by
 # tests/test_import_cost_policy.py.
 if TYPE_CHECKING:
+    from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit
+
     from .utils import SuperFELTEncoder, SuperFELTRegressor
 
-
-def _checkpoint_dir_for_drug(base_dir: Path, drug_id: str) -> Path:
-    """Return a unique checkpoint directory path for a given drug.
-
-    :param base_dir: Base directory for checkpoints.
-    :param drug_id: Drug identifier to hash.
-    :returns: Path to the drug-specific checkpoint directory.
-    """
-    digest = hashlib.sha256(drug_id.encode()).hexdigest()[:16]
-    return base_dir / f"drug_{digest}"
-
-
-class _OmicFeatureNames:
-    """Store feature name tuples for the three omics views."""
-
-    __slots__ = ("gene_expression", "mutations", "copy_number_variation")
-
-    def __init__(
-        self,
-        gene_expression: tuple[str, ...] | None,
-        mutations: tuple[str, ...] | None,
-        copy_number_variation: tuple[str, ...] | None,
-    ) -> None:
-        """Initialize feature name storage.
-
-        :param gene_expression: Gene expression feature names.
-        :param mutations: Mutation feature names.
-        :param copy_number_variation: Copy number variation feature names.
-        """
-        self.gene_expression = gene_expression
-        self.mutations = mutations
-        self.copy_number_variation = copy_number_variation
+#: Encoder omic types, in the order the regressor concatenates their outputs. Paired
+#: with the ``out_dim_*`` hyperparameter naming each one's width.
+_ENCODER_OMIC_TYPES = ("expression", "mutation", "copy_number_variation_gistic")
+_ENCODER_DIM_KEYS = ("out_dim_expr_encoder", "out_dim_mutation_encoder", "out_dim_cnv_encoder")
 
 
 class _DrugModel:
@@ -138,23 +116,18 @@ class SuperFELTRPredictor(BlockPredictor):
         """
         super().__init__(hyperparameters)
         self._drug_models: dict[str, _DrugModel] = {}
-        self._feature_names: dict[str, _OmicFeatureNames] = {}
+        self._feature_names: dict[str, OmicFeatureNames] = {}
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Train per-drug SuperFELTR models.
 
         :param batch: Training batch with all required cell-line omics blocks.
         """
-        keys = routing_keys(batch)
-        require_known_training_keys(keys)
+        require_known_training_keys(routing_keys(batch))
         self._drug_models = {}
         self._feature_names = {}
 
-        for drug_id, mask in iter_drug_masks(batch):
-            context = TrainingContext(
-                checkpoint_dir=_checkpoint_dir_for_drug(batch.training_context.checkpoint_dir, drug_id),
-            )
-            sub = replace(batch.subset_pairs(mask), training_context=context)
+        for drug_id, sub in iter_drug_subsets(batch):
             self._fit_single_drug(drug_id, sub)
 
     def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> None:
@@ -163,119 +136,134 @@ class SuperFELTRPredictor(BlockPredictor):
         :param drug_id: Identifier of the drug to train on.
         :param batch: Subset batch for this drug.
         """
-        pair_idx = batch.cell_line_pair_idx
-        gex_block = batch.cell_line_blocks["gene_expression"]
-        mut_block = batch.cell_line_blocks["mutations"]
-        cnv_block = batch.cell_line_blocks["copy_number_variation_gistic"]
-        n_samples = batch.n_pairs
-
-        feature_names = _OmicFeatureNames(
-            gene_expression=gex_block.feature_names,
-            mutations=mut_block.feature_names,
-            copy_number_variation=cnv_block.feature_names,
-        )
-        self._feature_names[drug_id] = feature_names
-
-        if n_samples == 0:
+        self._feature_names[drug_id] = omic_feature_names(batch)
+        if batch.n_pairs == 0:
             self._drug_models[drug_id] = _DrugModel()
             return
 
-        dim_gex = gex_block.values.shape[1]
-        dim_mut = mut_block.values.shape[1]
-        dim_cnv = cnv_block.values.shape[1]
-
+        matrices = omic_matrices(batch)
         response = np.asarray(batch.response, dtype=np.float32)
         std = float(np.std(response))
         ranges = (std * 0.1, std)
 
-        val_pair_idx, val_response = self._build_early_stopping_indices(batch)
+        train = matrices.split(batch.cell_line_pair_idx, response)
+        val = validation_split(matrices, batch)
+        checkpoint_dir = str(batch.training_context.checkpoint_dir)
+        #: Below one mini-batch the training loader's ``drop_last`` empties it, so the
+        #: encoders and regressor stay randomly initialized rather than being fitted.
+        trainable = batch.n_pairs >= self._hyperparameters["mini_batch"]
 
-        gex_entity = np.asarray(gex_block.values, dtype=np.float32)
-        mut_entity = np.asarray(mut_block.values, dtype=np.float32)
-        cnv_entity = np.asarray(cnv_block.values, dtype=np.float32)
-
-        from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
-
-        encoder_dims = {
-            "expression": dim_gex,
-            "mutation": dim_mut,
-            "copy_number_variation_gistic": dim_cnv,
-        }
-
-        encoders = {}
-        for omic_type, dim in encoder_dims.items():
-            encoder = SuperFELTEncoder(
-                input_size=dim, hpams=dict(self._hyperparameters), omic_type=omic_type, ranges=ranges
-            )
-            if n_samples >= self._hyperparameters["mini_batch"]:
-                best_ckpt = train_superfeltr_model(
-                    model=encoder,
-                    hpams=dict(self._hyperparameters),
-                    gene_expression=gex_entity,
-                    mutations=mut_entity,
-                    copy_number=cnv_entity,
-                    response=response,
-                    pair_idx=pair_idx,
-                    val_gene_expression=gex_entity if val_pair_idx is not None else None,
-                    val_mutations=mut_entity if val_pair_idx is not None else None,
-                    val_copy_number=cnv_entity if val_pair_idx is not None else None,
-                    val_response=val_response,
-                    val_pair_idx=val_pair_idx,
-                    patience=5,
-                    model_checkpoint_dir=str(batch.training_context.checkpoint_dir),
-                )
-                encoder = SuperFELTEncoder.load_from_checkpoint(best_ckpt.best_model_path)
-            encoders[omic_type] = encoder
-
-        expr_encoder = encoders["expression"]
-        mut_encoder = encoders["mutation"]
-        cnv_encoder = encoders["copy_number_variation_gistic"]
-
-        regressor_input_size = (
-            int(self._hyperparameters["out_dim_expr_encoder"])
-            + int(self._hyperparameters["out_dim_mutation_encoder"])
-            + int(self._hyperparameters["out_dim_cnv_encoder"])
-        )
-        regressor = SuperFELTRegressor(
-            input_size=regressor_input_size,
-            hpams=dict(self._hyperparameters),
-            encoders=(expr_encoder, mut_encoder, cnv_encoder),
-        )
-
-        best_checkpoint = None
-        if n_samples >= self._hyperparameters["mini_batch"]:
-            best_checkpoint = train_superfeltr_model(
-                model=regressor,
-                hpams=dict(self._hyperparameters),
-                gene_expression=gex_entity,
-                mutations=mut_entity,
-                copy_number=cnv_entity,
-                response=response,
-                pair_idx=pair_idx,
-                val_gene_expression=gex_entity if val_pair_idx is not None else None,
-                val_mutations=mut_entity if val_pair_idx is not None else None,
-                val_copy_number=cnv_entity if val_pair_idx is not None else None,
-                val_response=val_response,
-                val_pair_idx=val_pair_idx,
-                patience=5,
-                model_checkpoint_dir=str(batch.training_context.checkpoint_dir),
-            )
-            if best_checkpoint is not None:
-                regressor = SuperFELTRegressor.load_from_checkpoint(
-                    best_checkpoint.best_model_path,
-                    input_size=regressor_input_size,
-                    hpams=dict(self._hyperparameters),
-                    encoders=(expr_encoder, mut_encoder, cnv_encoder),
-                )
+        encoders = self._fit_encoders(matrices.widths(), ranges, train, val, checkpoint_dir, trainable)
+        regressor, best_checkpoint = self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)
 
         self._drug_models[drug_id] = _DrugModel(
-            expr_encoder=expr_encoder,
-            mut_encoder=mut_encoder,
-            cnv_encoder=cnv_encoder,
+            expr_encoder=encoders[0],
+            mut_encoder=encoders[1],
+            cnv_encoder=encoders[2],
             regressor=regressor,
             ranges=ranges,
             best_checkpoint=best_checkpoint,
         )
+
+    def _fit_encoders(
+        self,
+        widths: tuple[int, int, int],
+        ranges: tuple[float, float],
+        train: OmicsSplit,
+        val: OmicsSplit | None,
+        checkpoint_dir: str,
+        trainable: bool,
+    ) -> tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder]:
+        """Train one independent encoder per omic view.
+
+        Each encoder sees all three views in every batch and selects its own, so they
+        share the loaders even though they are fitted separately.
+
+        :param widths: Input width of each omic view.
+        :param ranges: Positive and negative triplet-loss ranges.
+        :param train: Training split.
+        :param val: Validation split, or None.
+        :param checkpoint_dir: Directory the fits checkpoint into.
+        :param trainable: Whether there are enough pairs to fit at all.
+        :returns: The three encoders, in ``_ENCODER_OMIC_TYPES`` order.
+        """
+        from .utils import SuperFELTEncoder, train_superfeltr_model
+
+        encoders = []
+        for omic_type, width in zip(_ENCODER_OMIC_TYPES, widths, strict=True):
+            encoder = SuperFELTEncoder(
+                input_size=width,
+                hpams=dict(self._hyperparameters),
+                omic_type=omic_type,
+                ranges=ranges,
+            )
+            if trainable:
+                best_ckpt = train_superfeltr_model(
+                    model=encoder,
+                    hpams=dict(self._hyperparameters),
+                    train=train,
+                    val=val,
+                    patience=5,
+                    model_checkpoint_dir=checkpoint_dir,
+                )
+                encoder = SuperFELTEncoder.load_from_checkpoint(best_ckpt.best_model_path)
+            encoders.append(encoder)
+        return encoders[0], encoders[1], encoders[2]
+
+    def _fit_regressor(
+        self,
+        encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
+        train: OmicsSplit,
+        val: OmicsSplit | None,
+        checkpoint_dir: str,
+        trainable: bool,
+    ) -> tuple[SuperFELTRegressor, object | None]:
+        """Train the regression head on top of the frozen encoders.
+
+        :param encoders: The fitted encoders.
+        :param train: Training split.
+        :param val: Validation split, or None.
+        :param checkpoint_dir: Directory the fit checkpoints into.
+        :param trainable: Whether there are enough pairs to fit at all.
+        :returns: Tuple of the regressor and its best checkpoint, the latter ``None``
+            when the fit was skipped.
+        """
+        from .utils import SuperFELTRegressor, train_superfeltr_model
+
+        input_size = self._regressor_input_size(self._hyperparameters)
+        regressor = SuperFELTRegressor(
+            input_size=input_size,
+            hpams=dict(self._hyperparameters),
+            encoders=encoders,
+        )
+        if not trainable:
+            return regressor, None
+
+        best_checkpoint = train_superfeltr_model(
+            model=regressor,
+            hpams=dict(self._hyperparameters),
+            train=train,
+            val=val,
+            patience=5,
+            model_checkpoint_dir=checkpoint_dir,
+        )
+        if best_checkpoint is not None:
+            regressor = SuperFELTRegressor.load_from_checkpoint(
+                best_checkpoint.best_model_path,
+                input_size=input_size,
+                hpams=dict(self._hyperparameters),
+                encoders=encoders,
+            )
+        return regressor, best_checkpoint
+
+    @staticmethod
+    def _regressor_input_size(hpams: dict[str, Any]) -> int:
+        """Sum the three encoder output widths.
+
+        :param hpams: Hyperparameters carrying the ``out_dim_*`` widths.
+        :returns: The regressor's input width.
+        """
+        return sum(int(hpams[key]) for key in _ENCODER_DIM_KEYS)
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict drug responses for pairs, routing to per-drug models.
@@ -309,56 +297,7 @@ class SuperFELTRPredictor(BlockPredictor):
         if feature_names is None or dm.regressor is None:
             return np.full(batch.n_pairs, np.nan)
 
-        pair_idx = batch.cell_line_pair_idx
-        gex = np.asarray(batch.cell_line_blocks["gene_expression"].values[pair_idx], dtype=np.float32)
-        mut = np.asarray(batch.cell_line_blocks["mutations"].values[pair_idx], dtype=np.float32)
-        cnv = np.asarray(batch.cell_line_blocks["copy_number_variation_gistic"].values[pair_idx], dtype=np.float32)
-
-        gex = self._align_omic(
-            gex, feature_names.gene_expression, batch.cell_line_blocks["gene_expression"].feature_names
-        )
-        mut = self._align_omic(mut, feature_names.mutations, batch.cell_line_blocks["mutations"].feature_names)
-        cnv = self._align_omic(
-            cnv,
-            feature_names.copy_number_variation,
-            batch.cell_line_blocks["copy_number_variation_gistic"].feature_names,
-        )
-
-        return np.atleast_1d(dm.regressor.predict(gex, mut, cnv))
-
-    def _build_early_stopping_indices(self, batch: ModelInputBatch) -> tuple[np.ndarray | None, np.ndarray | None]:
-        """Build validation pair indices from the batch early stopping data.
-
-        :param batch: Training batch.
-        :returns: Tuple of (val_pair_idx, val_response), both None if unavailable.
-        """
-        es_resp = batch.early_stopping_response
-        if es_resp is None or len(es_resp) < 2:
-            return None, None
-
-        entity_map = {str(eid): row for row, eid in enumerate(batch.cell_line_entity_ids)}
-        val_idx = np.array([entity_map[str(cl_id)] for cl_id in es_resp.cell_line_ids], dtype=np.intp)
-        val_response = np.asarray(es_resp.response, dtype=np.float32)
-        return val_idx, val_response
-
-    @staticmethod
-    def _align_omic(
-        values: np.ndarray,
-        model_features: tuple[str, ...] | None,
-        current_features: tuple[str, ...] | None,
-    ) -> np.ndarray:
-        """Align omic matrix columns to match training feature order.
-
-        :param values: Input matrix to realign.
-        :param model_features: Feature names expected by the model.
-        :param current_features: Feature names in the current batch.
-        :returns: Realigned matrix.
-        """
-        if model_features is None or current_features is None:
-            return values
-        if len(model_features) == values.shape[1] and model_features == current_features:
-            return values
-        return _realign_omic_matrix(values, model_features, current_features)
+        return np.atleast_1d(dm.regressor.predict(*aligned_pair_matrices(batch, feature_names)))
 
     def is_fitted(self) -> bool:
         """Report whether trained models exist.
@@ -383,7 +322,7 @@ class SuperFELTRPredictor(BlockPredictor):
             "predictor_hyperparameters": dict(self._hyperparameters),
         }
 
-    def _serialize_drug_model(self, dm: _DrugModel, fn: _OmicFeatureNames | None) -> bytes:
+    def _serialize_drug_model(self, dm: _DrugModel, fn: OmicFeatureNames | None) -> bytes:
         """Serialize a single per-drug model to bytes.
 
         :param dm: Per-drug model container.
@@ -393,13 +332,9 @@ class SuperFELTRPredictor(BlockPredictor):
         payload: dict[str, Any] = {
             "hyperparameters": dict(self._hyperparameters),
             "ranges": dm.ranges,
-            "gene_expression_features": list(fn.gene_expression) if fn and fn.gene_expression else None,
-            "mutations_features": list(fn.mutations) if fn and fn.mutations else None,
-            "copy_number_variation_features": (
-                list(fn.copy_number_variation) if fn and fn.copy_number_variation else None
-            ),
+            "input_dims": self._compute_input_dims(fn),
+            **feature_names_payload(fn),
         }
-        payload["input_dims"] = self._compute_input_dims(fn)
 
         for attr in ("expr_encoder", "mut_encoder", "cnv_encoder", "regressor"):
             module = getattr(dm, attr, None)
@@ -409,20 +344,15 @@ class SuperFELTRPredictor(BlockPredictor):
         return save_trusted_mapping(payload)
 
     @staticmethod
-    def _compute_input_dims(fn: _OmicFeatureNames | None) -> dict[str, int | None]:
+    def _compute_input_dims(fn: OmicFeatureNames | None) -> dict[str, int | None]:
         """Compute input dimension mapping from feature names.
 
         :param fn: Feature name record.
         :returns: Mapping of omic type to dimension.
         """
-        dims: dict[str, int | None] = {"expression": None, "mutation": None, "cnv": None}
-        if fn and fn.gene_expression:
-            dims["expression"] = len(fn.gene_expression)
-        if fn and fn.mutations:
-            dims["mutation"] = len(fn.mutations)
-        if fn and fn.copy_number_variation:
-            dims["cnv"] = len(fn.copy_number_variation)
-        return dims
+        names = fn.as_tuple() if fn is not None else (None, None, None)
+        keys = ("expression", "mutation", "cnv")
+        return {key: len(value) if value else None for key, value in zip(keys, names, strict=True)}
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore fitted state from serialized algorithm blobs.
@@ -445,29 +375,8 @@ class SuperFELTRPredictor(BlockPredictor):
                 msg = f"SuperFELTRPredictor payload for {drug_id!r} must be bytes"
                 raise PredictorStateError(msg)
             payload = load_trusted_mapping(bytes(blob))
-            fn = self._deserialize_feature_names(payload)
-            self._feature_names[str(drug_id)] = fn
-            dm = self._deserialize_drug_model(payload)
-            self._drug_models[str(drug_id)] = dm
-
-    @staticmethod
-    def _deserialize_feature_names(payload: dict[str, Any]) -> _OmicFeatureNames:
-        """Extract feature names from a deserialized payload.
-
-        :param payload: Deserialized drug model payload.
-        :returns: Omic feature names record.
-        """
-        return _OmicFeatureNames(
-            gene_expression=(
-                tuple(payload["gene_expression_features"]) if payload.get("gene_expression_features") else None
-            ),
-            mutations=tuple(payload["mutations_features"]) if payload.get("mutations_features") else None,
-            copy_number_variation=(
-                tuple(payload["copy_number_variation_features"])
-                if payload.get("copy_number_variation_features")
-                else None
-            ),
-        )
+            self._feature_names[str(drug_id)] = feature_names_from_payload(payload)
+            self._drug_models[str(drug_id)] = self._deserialize_drug_model(payload)
 
     def _deserialize_drug_model(self, payload: dict[str, Any]) -> _DrugModel:
         """Reconstruct a _DrugModel from a deserialized payload.
@@ -481,24 +390,21 @@ class SuperFELTRPredictor(BlockPredictor):
             ranges = tuple(ranges)
 
         input_dims = payload.get("input_dims", {})
-        expr_dim = input_dims.get("expression")
-        mut_dim = input_dims.get("mutation")
-        cnv_dim = input_dims.get("cnv")
+        widths = tuple(input_dims.get(key) for key in ("expression", "mutation", "cnv"))
 
         dm = _DrugModel(ranges=ranges)
-        if isinstance(expr_dim, int) and isinstance(mut_dim, int) and isinstance(cnv_dim, int):
-            self._rebuild_encoders_and_regressor(dm, hpams, ranges, expr_dim, mut_dim, cnv_dim, payload)
+        if all(isinstance(width, int) for width in widths):
+            self._rebuild_encoders_and_regressor(dm, hpams, ranges, widths, payload)
 
         return dm
 
-    @staticmethod
+    @classmethod
     def _rebuild_encoders_and_regressor(
+        cls,
         dm: _DrugModel,
         hpams: dict[str, Any],
         ranges: tuple[float, float],
-        expr_dim: int,
-        mut_dim: int,
-        cnv_dim: int,
+        widths: tuple[int, ...],
         payload: dict[str, Any],
     ) -> None:
         """Rebuild encoder and regressor modules and load their state dicts.
@@ -506,27 +412,20 @@ class SuperFELTRPredictor(BlockPredictor):
         :param dm: Drug model to populate.
         :param hpams: Hyperparameters for the modules.
         :param ranges: Response normalization range.
-        :param expr_dim: Expression encoder input size.
-        :param mut_dim: Mutation encoder input size.
-        :param cnv_dim: CNV encoder input size.
+        :param widths: Input widths of the expression, mutation and CNV encoders.
         :param payload: Deserialized payload with state blobs.
         """
         from .utils import SuperFELTEncoder, SuperFELTRegressor
 
-        dm.expr_encoder = SuperFELTEncoder(input_size=expr_dim, hpams=hpams, omic_type="expression", ranges=ranges)
-        dm.mut_encoder = SuperFELTEncoder(input_size=mut_dim, hpams=hpams, omic_type="mutation", ranges=ranges)
-        dm.cnv_encoder = SuperFELTEncoder(
-            input_size=cnv_dim, hpams=hpams, omic_type="copy_number_variation_gistic", ranges=ranges
+        encoders = tuple(
+            SuperFELTEncoder(input_size=width, hpams=hpams, omic_type=omic_type, ranges=ranges)
+            for omic_type, width in zip(_ENCODER_OMIC_TYPES, widths, strict=True)
         )
-        regressor_input_size = (
-            int(hpams["out_dim_expr_encoder"])
-            + int(hpams["out_dim_mutation_encoder"])
-            + int(hpams["out_dim_cnv_encoder"])
-        )
+        dm.expr_encoder, dm.mut_encoder, dm.cnv_encoder = encoders
         dm.regressor = SuperFELTRegressor(
-            input_size=regressor_input_size,
+            input_size=cls._regressor_input_size(hpams),
             hpams=hpams,
-            encoders=(dm.expr_encoder, dm.mut_encoder, dm.cnv_encoder),
+            encoders=encoders,
         )
 
         for attr in ("expr_encoder", "mut_encoder", "cnv_encoder", "regressor"):

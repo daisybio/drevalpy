@@ -13,6 +13,7 @@ import pytest
 import torch
 
 from drevalpy.components.featurizers.drug.chemberta import ChemBertaFeaturizer
+from tests._import_shims import block_imports
 from tests.conftest import MockFeatureSource
 
 _HIDDEN = torch.tensor([[[1.0, 2.0], [3.0, 8.0], [5.0, 2.0]]])
@@ -67,19 +68,10 @@ def test_transform_blocks_are_named_chemberta() -> None:
 
 
 def test_compute_from_source_reports_missing_transformers(monkeypatch: pytest.MonkeyPatch) -> None:
-    import builtins
-
     from drevalpy.components.featurizers.drug.chemberta import load_chemberta
 
     load_chemberta.cache_clear()
-    real_import = builtins.__import__
-
-    def _fail_on_transformers(name, *args, **kwargs):
-        if name.startswith("transformers"):
-            raise ImportError(name)
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", _fail_on_transformers)
+    block_imports(monkeypatch, "transformers")
 
     with pytest.raises(ImportError, match="transformers and torch are required"):
         load_chemberta()

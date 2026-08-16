@@ -16,7 +16,6 @@ from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredict
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
 class SingleDrugSklearnPredictor(SklearnTabularPredictor):
@@ -88,11 +87,7 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
 
         :returns: Result.
         """
-        return {
-            "estimators": dict(self._estimators),
-            "hyperparameters": dict(self._h),
-            "mode": self._mode.value,
-        }
+        return {"estimators": dict(self._estimators), **self._shared_state()}
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
@@ -104,21 +99,9 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         if not estimators:
             msg = f"{self.__class__.__name__} state is missing fitted per-drug estimators"
             raise PredictorStateError(msg)
-        hyperparameters = state_mapping(state, "hyperparameters")
-        if not hyperparameters:
-            msg = f"{self.__class__.__name__} state is missing hyperparameters"
-            raise PredictorStateError(msg)
+        shared = self._validated_shared_state(state)
         self._estimators = {str(key): value for key, value in estimators.items()}
-        self._h = {str(key): value for key, value in hyperparameters.items()}
-        self._hyperparameters = dict(self._h)
-        mode = state.get("mode", PredictionMode.REGRESSION)
-        if isinstance(mode, str):
-            self._mode = PredictionMode(mode)
-        elif isinstance(mode, PredictionMode):
-            self._mode = mode
-        else:
-            msg = f"{self.__class__.__name__} state has an invalid prediction mode"
-            raise PredictorStateError(msg)
+        self._apply_shared_state(shared)
 
     def is_fitted(self) -> bool:
         """Return whether the component has been fit.

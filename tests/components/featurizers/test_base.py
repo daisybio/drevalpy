@@ -1,14 +1,19 @@
-"""Tests for the ``Featurizer`` base class contract and view declarations.
+"""Tests for the ``Featurizer`` base class contract and the registry sweeps over it.
 
-Mirrors :mod:`drevalpy.components.featurizers.base`, which is where ``contract``,
-``input_views``, ``source_views``, ``requires_view``, ``entity_id_only`` and
-``resolve_input_views`` are defined. The registry sweeps below assert those
-class-body declarations across every registered featurizer, so they belong to
-this module rather than to any single concrete featurizer.
+Mirrors :mod:`drevalpy.components.featurizers.base`, which is where the public
+NaN-safe ``fit`` / ``transform`` / ``transform_blocks`` wrappers, the abstract
+subclass hooks they call, and the default hyperparameter-space and fitted-state
+hooks live. The registry sweeps assert class-body declarations across every
+registered featurizer, so they belong to this module rather than to any single
+concrete featurizer.
 
-The NaN-tolerance cases at the bottom cover ``fit``/``transform``/
-``transform_blocks`` and their ``_detect_valid`` / ``_expand_blocks_with_nan`` /
-``_warn_if_above_threshold`` helpers, which are defined in the same module.
+Two neighbours cover what ``base.py`` delegates to: ``test_declarations.py`` for
+the ``contract`` / ``input_views`` / output-block declarations and
+``test_nan_tolerance.py`` for the ``_detect_valid`` / ``_expand_blocks_with_nan``
+/ ``_warn_if_above_threshold`` policy the wrappers below bracket their hooks with.
+The HPO-space and fitted-state hooks now come from ``TunableComponentMixin``,
+whose own contract is pinned in ``tests/components/contracts/test_hyperparameter_space.py``;
+what the cases here assert is that a ``Featurizer`` inherits them.
 """
 
 from __future__ import annotations
@@ -39,13 +44,15 @@ from drevalpy.types.data.batch.feature_block import (
     FeatureBlock,
     metadata_feature_block,
     numeric_feature_block,
-    ragged_feature_block,
 )
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.modalities import resolve_omics_accessor
 from tests.components.featurizers._helpers import DoublingFeaturizer, StubSource
 
 _PROBE_VIEW = "gene_expression"
+
+#: The NaN warning is emitted by the mixin ``base.py`` delegates the policy to.
+_NAN_LOGGER = "drevalpy.components.featurizers._nan_tolerance"
 
 
 @pytest.fixture(autouse=True)
@@ -56,27 +63,6 @@ def _register_components() -> None:
 def _featurizer_names(registry: str) -> list[str]:
     register_builtin_components()
     return list_cell_line_featurizers() if registry == "cell_line" else list_drug_featurizers()
-
-
-def test_featurizer_accepts_class_body_contract() -> None:
-    class BodyContractFeaturizer(Featurizer):  # noqa: B903
-        contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-
-    assert BodyContractFeaturizer.contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-
-
-def test_featurizer_normalizes_a_class_body_format_shorthand() -> None:
-    class ShorthandFeaturizer(Featurizer):  # noqa: B903
-        contract = FeatureFormat.GRAPH
-
-    assert ShorthandFeaturizer.contract == FeatureContract(format=FeatureFormat.GRAPH)
-
-
-def test_featurizer_rejects_an_invalid_class_body_contract() -> None:
-    with pytest.raises(TypeError, match="class-body contract is invalid"):
-
-        class BadFeaturizer(Featurizer):  # noqa: B903
-            contract = "graph_but_a_plain_string"
 
 
 @pytest.mark.parametrize("registry", ["cell_line", "drug"])
@@ -316,32 +302,26 @@ class TestTransformBlocksNaNTolerance:
 
 
 class TestNaNWarning:
-    """Tests for the warning threshold logic."""
+    """The wrappers pass their own context label into the shared warning."""
 
     def test_warning_above_threshold(self, mixed_source, caplog, monkeypatch):
         source, ids = mixed_source
         monkeypatch.setattr(DoublingFeaturizer, "nan_threshold", 0.2)
         feat = DoublingFeaturizer()
         feat.fit(source, entity_ids=ids)
-        with caplog.at_level(logging.WARNING, logger="drevalpy.components.featurizers.base"):
+        with caplog.at_level(logging.WARNING, logger=_NAN_LOGGER):
             feat.transform(source, ids)
-        assert any("invalid" in record.message.lower() for record in caplog.records)
+        assert any("transform" in record.message for record in caplog.records)
 
     def test_no_warning_below_threshold(self, mixed_source, caplog, monkeypatch):
         source, ids = mixed_source
         monkeypatch.setattr(DoublingFeaturizer, "nan_threshold", 0.5)
         feat = DoublingFeaturizer()
         feat.fit(source, entity_ids=ids)
-        with caplog.at_level(logging.WARNING, logger="drevalpy.components.featurizers.base"):
+        with caplog.at_level(logging.WARNING, logger=_NAN_LOGGER):
             feat.transform(source, ids)
         nan_warnings = [r for r in caplog.records if "invalid" in r.message.lower()]
         assert not nan_warnings
-
-    def test_empty_mask_never_warns(self, caplog) -> None:
-        feat = DoublingFeaturizer()
-        with caplog.at_level(logging.WARNING, logger="drevalpy.components.featurizers.base"):
-            feat._warn_if_above_threshold(np.array([], dtype=bool), "empty")
-        assert not caplog.records
 
 
 class TestConsistency:
@@ -363,69 +343,8 @@ class TestConsistency:
 
 
 # ----------------------------------------------------------------------
-# _detect_valid, _expand_blocks_with_nan and the default hooks
+# The abstract contract's own default hooks
 # ----------------------------------------------------------------------
-
-
-def test_detect_valid_treats_entity_id_only_featurizers_as_all_valid(monkeypatch: pytest.MonkeyPatch) -> None:
-    feat = DoublingFeaturizer()
-    monkeypatch.setattr(DoublingFeaturizer, "entity_id_only", True)
-
-    mask = feat._detect_valid(StubSource(np.zeros((1, 3)), np.array(["A"])), np.array(["A"]))
-
-    assert mask.tolist() == [True]
-
-
-def test_detect_valid_treats_a_viewless_featurizer_as_all_valid(monkeypatch: pytest.MonkeyPatch) -> None:
-    feat = DoublingFeaturizer()
-    monkeypatch.setattr(DoublingFeaturizer, "input_views", None)
-
-    mask = feat._detect_valid(StubSource(np.zeros((1, 3)), np.array(["A"])), np.array(["A"]))
-
-    assert mask.tolist() == [True]
-
-
-def test_detect_valid_treats_an_unreadable_view_as_all_valid() -> None:
-    feat = DoublingFeaturizer()
-    source = StubSource(np.zeros((1, 3)), np.array(["A"]))
-
-    mask = feat._detect_valid(source, np.array(["missing"]))
-
-    assert mask.tolist() == [True]
-
-
-def test_detect_valid_treats_non_numeric_views_as_all_valid() -> None:
-    feat = DoublingFeaturizer()
-    source = StubSource(np.array([["a", "b"]], dtype=str), np.array(["A"]))
-
-    mask = feat._detect_valid(source, np.array(["A"]))
-
-    assert mask.tolist() == [True]
-
-
-def test_expand_blocks_passes_non_entity_aligned_blocks_through() -> None:
-    feat = DoublingFeaturizer()
-    block = metadata_feature_block(np.asarray(["lung", "skin"], dtype=str))
-
-    expanded = feat._expand_blocks_with_nan({"categories": block}, np.array([True, False]), 2)
-
-    assert expanded["categories"] is block
-
-
-def test_expand_blocks_fills_ragged_payloads_with_none() -> None:
-    feat = DoublingFeaturizer()
-    payload = np.empty(1, dtype=object)
-    payload[0] = np.ones((2, 3), dtype=np.float32)
-
-    expanded = feat._expand_blocks_with_nan(
-        {"ragged": ragged_feature_block(payload)},
-        np.array([True, False]),
-        2,
-    )
-
-    values = expanded["ragged"].values
-    assert values.shape == (2,)
-    assert values[1] is None
 
 
 def test_default_state_hooks_are_no_ops() -> None:
@@ -484,59 +403,6 @@ def test_default_transform_returns_an_empty_matrix_without_numeric_blocks() -> N
     matrix = _NoNumericBlocks()._transform(StubSource(np.zeros((1, 1)), np.array(["A"])), np.array(["A"]))
 
     assert matrix.shape == (1, 0)
-
-
-def test_output_block_specs_for_config_falls_back_to_the_declared_input_view() -> None:
-    class _Config:
-        view = None
-
-    specs = DoublingFeaturizer.output_block_specs_for_config(_Config())
-
-    assert [spec.name for spec in specs] == ["test_view"]
-
-
-def test_output_block_specs_for_config_honours_an_explicit_view() -> None:
-    class _Config:
-        view = "mutations"
-
-    specs = DoublingFeaturizer.output_block_specs_for_config(_Config())
-
-    assert [spec.name for spec in specs] == ["mutations"]
-
-
-def test_output_block_specs_for_config_is_empty_without_any_view() -> None:
-    class _NoViews(Featurizer):
-        entity_id_only = True
-
-        def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
-            return self
-
-        def _transform_blocks(self, source, entity_ids) -> dict[str, FeatureBlock]:
-            return {}
-
-        @property
-        def output_dim(self) -> int:
-            return 0
-
-    _NoViews.contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-
-    assert _NoViews.output_block_specs_for_config(None) == ()
-
-
-def test_resolve_input_views_rejects_a_featurizer_declaring_nothing() -> None:
-    class _Undeclared(Featurizer):
-        def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
-            return self
-
-        def _transform_blocks(self, source, entity_ids) -> dict[str, FeatureBlock]:
-            return {}
-
-        @property
-        def output_dim(self) -> int:
-            return 0
-
-    with pytest.raises(TypeError, match="declare input_views on the class body"):
-        _Undeclared.resolve_input_views()
 
 
 # ----------------------------------------------------------------------

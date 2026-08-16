@@ -14,6 +14,7 @@ from drevalpy.components.featurizers.drug.drug_graph import (
 )
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import DrugFeatureSource
+from tests._import_shims import block_imports
 from tests.conftest import MockFeatureSource
 
 
@@ -155,35 +156,22 @@ def test_one_hot_encode_sets_the_matching_position() -> None:
     assert _one_hot_encode("b", ["a", "b"]) == [0, 1, 0]
 
 
-def test_smiles_to_graph_reports_a_missing_rdkit(monkeypatch: pytest.MonkeyPatch) -> None:
-    import builtins
+@pytest.mark.parametrize(
+    ("blocked", "message"),
+    [
+        pytest.param(("rdkit",), "rdkit is required", id="rdkit"),
+        pytest.param(("torch",), "torch and torch_geometric are required", id="torch-and-geometric"),
+    ],
+)
+def test_smiles_to_graph_names_the_missing_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+    blocked: tuple[str, ...],
+    message: str,
+) -> None:
+    """``"torch"`` as a prefix blocks ``torch_geometric`` as well."""
+    block_imports(monkeypatch, *blocked)
 
-    real_import = builtins.__import__
-
-    def _fail_on_rdkit(name, *args, **kwargs):
-        if name.startswith("rdkit"):
-            raise ImportError(name)
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", _fail_on_rdkit)
-
-    with pytest.raises(ImportError, match="rdkit is required"):
-        _smiles_to_graph("CCO")
-
-
-def test_smiles_to_graph_reports_a_missing_torch_geometric(monkeypatch: pytest.MonkeyPatch) -> None:
-    import builtins
-
-    real_import = builtins.__import__
-
-    def _fail_on_torch(name, *args, **kwargs):
-        if name == "torch" or name.startswith("torch_geometric"):
-            raise ImportError(name)
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", _fail_on_torch)
-
-    with pytest.raises(ImportError, match="torch and torch_geometric are required"):
+    with pytest.raises(ImportError, match=message):
         _smiles_to_graph("CCO")
 
 

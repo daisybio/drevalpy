@@ -11,9 +11,7 @@ dependencies = [
     "scipy",
     "scikit-learn>=1.4",
     "pandas",
-    # `drevalpy.cli.curate` reads .parquet/.pq inputs with pandas.read_parquet,
-    # which needs an engine. It used to arrive via `fsspec[full]`.
-    "pyarrow",
+    "pyarrow", # pandas.read_parquet engine for `drevalpy.cli.curate`
     "anndata",
     "joblib",
     "networkx",
@@ -35,12 +33,9 @@ dependencies = [
     "gseapy>=1.1.0",
     "optuna",
     "platformdirs>=4.0",
-    # Only s3:// (the default artifacts URI), http(s):// and file:// (fsspec core)
-    # are reachable from shipped code, so the backends are named rather than
-    # pulled via `full`, which added 18 packages - dask, distributed, panel,
-    # paramiko, pygit2, dropbox, adlfs, gcsfs, ocifs and friends - to serve
-    # protocols nothing here can reach. A user registering another protocol with
-    # `register_source` installs that backend themselves.
+    # Named backends, not `full`: shipped code only reaches s3://, http(s):// and
+    # file://, and `full` pulled 18 packages to serve protocols nothing can reach.
+    # Registering another protocol with `register_source` means installing its backend.
     "fsspec[s3,http]",
     "universal-pathlib",
     "filelock>=3.15.2",
@@ -49,23 +44,11 @@ dependencies = [
     "transformers>=5.14.0",
     "gensim>=4.4.0",
     "multiqc>=1.35",
-    # No drevalpy module imports this; it is a real requirement of the
-    # `dev-mode-exact` editable install configured under [tool.hatch.build]. That
-    # mode replaces the .pth full of the project root with a generated
-    # _editable_impl_drevalpy.py that does `from editables.redirector import
-    # RedirectingFinder`, so the interpreter needs `editables` importable or
-    # `import drevalpy` fails outright.
-    #
-    # It has to sit here rather than in the dev group: hatchling records it as a
-    # Requires-Dist of the *editable wheel*, but uv reads static metadata straight
-    # from this file for path dependencies and never sees that, and dev groups do
-    # not propagate to consumers. A repo that path-installs drevalpy as an
-    # editable (both plugin repos do) therefore got `ModuleNotFoundError: No
-    # module named 'editables'` on every import.
-    #
-    # The cost is that non-editable installs carry a 5 KB pypa utility they never
-    # execute. Moving the package under `src/` removes both this entry and
-    # `dev-mode-exact` - see the comment on [tool.hatch.build].
+    # Imported by no drevalpy module: it is what the `dev-mode-exact` editable
+    # install's generated finder imports, so without it `import drevalpy` fails.
+    # It must sit here, not in the dev group - uv reads this file's static metadata
+    # for path dependencies and never sees the editable wheel's Requires-Dist, so
+    # repos that path-install drevalpy editable (both plugin repos) broke on import.
     "editables>=0.3",
 ]
 
@@ -111,41 +94,27 @@ docs = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# The default editable install writes a .pth holding the bare project root, which
-# puts drevalpy's own `tests`, `tools` and `docs` on sys.path for every consumer
-# of the environment - so a plugin repo's `import tests.conftest` resolved to
-# drevalpy's tests. `dev-mode-exact` emits a __editable__ finder that maps only
-# the `drevalpy` package instead, leaking nothing.
-#
-# Two documented costs: some IDEs cannot follow the import hook for
-# autocompletion, and the generated finder needs `editables` at run time, which is
-# why that package is pinned into [project.dependencies] despite no module
-# importing it.
-#
-# A `src/` layout fixes the leak structurally and pays neither cost. It is the
-# better long-term answer, deferred here only because moving the package is a
-# repo-wide change (nine test modules reach for `<repo>/drevalpy` by path).
+# The default editable install puts the bare project root on sys.path, so a
+# consumer's `import tests.conftest` resolved to drevalpy's tests. `dev-mode-exact`
+# maps only the `drevalpy` package. Costs: some IDEs cannot follow the import hook,
+# and the generated finder needs `editables` at run time. A `src/` layout would fix
+# the leak with neither cost, but moving the package is a repo-wide change.
 [tool.hatch.build]
 dev-mode-exact = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["drevalpy"]
-# py.typed is not a .py file, so it needs to be named explicitly for PEP 561 to
-# take effect in the built wheel; tests/plugin/test_init.py asserts it ships.
+# Not a .py file, so PEP 561 needs it named explicitly; tests/plugin/test_init.py
+# asserts it ships.
 artifacts = ["drevalpy/py.typed"]
 
 [tool.uv]
 exclude-newer = "3 weeks"
-# nvidia-nccl-cu12 (pulled in by xgboost on Linux) and nvidia-nccl-cu13 (required by
-# the CUDA 13 torch wheel that a plain `uv sync` resolves) both ship
-# nvidia/nccl/lib/libnccl.so.2, so whichever is unpacked last owns that file. The
-# cu126 extra pins nvidia-nccl-cu12==2.29.3, which the resolver also applied to the
-# no-extra environment; that build predates ncclCommResume, so whenever it won the
-# race `import torch` failed with
-# "libtorch_cuda.so: undefined symbol: ncclCommResume" and every torch-based
-# component silently dropped out of the registries. Keeping nvidia-nccl-cu12 at the
-# NCCL release that torch's cu13 build expects makes the shared library compatible
-# regardless of unpack order.
+# nvidia-nccl-cu12 (via xgboost) and nvidia-nccl-cu13 (via the cu13 torch wheel)
+# ship the same libnccl.so.2, so whichever unpacks last owns it. Pinning cu12 to
+# the NCCL release torch's cu13 build expects keeps the library compatible either
+# way; below it, `import torch` failed on an undefined ncclCommResume symbol and
+# every torch-based component silently dropped out of the registries.
 override-dependencies = ["nvidia-nccl-cu12>=2.30.7; sys_platform == 'linux'"]
 conflicts = [
     [
@@ -197,7 +166,6 @@ ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "D101", "D102", "D103"]
-"drevalpy/datasets/curvecurator.py" = ["S404", "S603"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -214,30 +182,26 @@ docstring-code-format = true
 python-version = "3.11"
 
 [tool.ty.rules]
-# Not about third-party packages: rdkit/transformers/gensim are core
-# [project.dependencies] and resolve fine. The remaining diagnostics are
-# tests/docs/ importing the docs/ generators (`_model_zoo`, `_cli_click`,
-# `_generated_io`), which live outside the package and are put on sys.path at
-# runtime. Once ty supports it, this can be narrowed to a per-file ignore.
+# tests/docs/ imports the docs/ generators (`_model_zoo`, `_cli_click`,
+# `_generated_io`), which live outside the package and go on sys.path at runtime.
+# Narrow to a per-file ignore once ty supports it.
 unresolved-import = "ignore"
 # Incomplete third-party stubs (pandas, matplotlib, torch)
 invalid-argument-type = "ignore"
 no-matching-overload = "ignore"
-# ty beta: does not support type[Any] in return annotations (featurizer registry pattern)
-invalid-type-form = "ignore"
-# Standard PyTorch Dataset.__getitem__ override pattern
-invalid-method-override = "ignore"
-# ty beta: false positive on pytest.skip(reason)
-too-many-positional-arguments = "ignore"
-# Tests intentionally violate types to test immutability (all have # type: ignore)
-invalid-assignment = "ignore"
-# Complex return type narrowing ty cannot yet handle
-invalid-return-type = "ignore"
 # scikit-learn TransformerMixin stub does not declare .fit/.transform
 unresolved-attribute = "ignore"
-# Tests intentionally pass wrong args (all have # type: ignore)
+# Standard PyTorch Dataset.__getitem__ override pattern
+invalid-method-override = "ignore"
+# Tests violate types deliberately, each with its own `# type: ignore`
+invalid-assignment = "ignore"
 missing-argument = "ignore"
 unknown-argument = "ignore"
+# ty beta limitations: type[Any] in return annotations (the featurizer registry
+# pattern), pytest.skip(reason), and return-type narrowing
+invalid-type-form = "ignore"
+too-many-positional-arguments = "ignore"
+invalid-return-type = "ignore"
 # Informational only
 redundant-cast = "ignore"
 deprecated = "ignore"
@@ -245,9 +209,8 @@ deprecated = "ignore"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-# The default run is the fast tier: everything except the extended tier and the
-# network tests. A `-m` on the command line replaces this one rather than adding
-# to it, so CI's `-m "not network"` still selects the whole suite.
+# Default run is the fast tier. A command-line `-m` replaces this one rather than
+# adding to it, so CI's `-m "not network"` still selects the whole suite.
 addopts = ["--import-mode=importlib", "-m", "not slow and not network"]
 markers = [
     "network: requires downloading pretrained weights or remote annotations",
@@ -260,10 +223,8 @@ relative_files = true
 omit = ["*/gene_lists/_make_gene_lists.py"] # maintenance script, not shipped logic
 
 [tool.coverage.report]
-# Measured 90.1% for `pytest -m "not network"`, up from 89.5% as the plugin
-# facade, test kit and CLI list app landed with tests. Kept about a point of
-# headroom so an unrelated refactor does not redden CI, and no more: the point of
-# the number is that it only ever moves up.
+# Keep about a point of headroom below the measured figure so an unrelated
+# refactor does not redden CI, and no more: this number only ever moves up.
 fail_under = 89
 show_missing = true
 skip_covered = true
@@ -275,50 +236,35 @@ exclude_also = [
     "@overload",
 ]
 
-# Per-module coverage floor, enforced by tools/coverage_gate.py because
-# coverage.py can only fail on the aggregate percentage, which lets one untested
-# module hide behind a well-tested package.
+# Per-module floor, enforced by tools/coverage_gate.py because coverage.py can only
+# fail on the aggregate, which lets one untested module hide behind a tested package.
 [tool.drevalpy.coverage_gate]
 min_file_coverage = 60
 
-# Every entry below records a module that cannot currently reach
-# min_file_coverage, together with the reason. An exemption is debt, not a policy
-# decision: delete it (do not lower it) once tests bring the module up, and the
-# gate prints which entries have become redundant on every run.
+# Each entry is a module that cannot currently reach min_file_coverage, with the
+# reason. An exemption is debt, not a policy decision: delete it (do not lower it)
+# once tests bring the module up. The gate prints redundant entries on every run.
 #
-# Deliberately *not* exempted, so their floors are enforced: the network-gated
-# artifact featurizers. Their download paths carry `@pytest.mark.network` and are
-# deselected in the measured run, but their offline logic is tested directly and
-# clears 60% anyway (chemberta 66%, smilesvec 81%, molgnet 84%, bionic 88%).
+# The network-gated artifact featurizers are deliberately *not* exempted: their
+# download paths are deselected in the measured run, but their offline logic clears
+# 60% anyway (chemberta 66%, smilesvec 81%, molgnet 84%, bionic 88%).
 [tool.drevalpy.coverage_gate.exemptions]
-# SparseGO is in tests/synthetic/variants.py::EXCLUDED_MODELS: its ontology
-# featurizer always raises because attach_sparsego_ontology_metadata has no
-# production caller, so the predictor and its algorithm cannot be trained end to
-# end until that source defect is fixed.
+# In EXCLUDED_MODELS: the ontology featurizer always raises because
+# attach_sparsego_ontology_metadata has no production caller, so the predictor
+# cannot be trained end to end until that source defect is fixed. `predictor.py`
+# used to be exempt at 53 and no longer needs it - direct unit tests of its
+# offline paths put it at 62%. `algorithm.py` (34%) and `utils.py` (51%) have
+# under a point of margin over their floors, so measure the full `not network`
+# suite before touching them; a partial run reads several points high.
 "drevalpy/components/predictors/literature/sparsego/algorithm.py" = 33
-"drevalpy/components/predictors/literature/sparsego/predictor.py" = 53
 "drevalpy/components/predictors/literature/sparsego/utils.py" = 51
 
-# DIPK is in EXCLUDED_MODELS too: it needs BIONIC's human_ppi_features.tsv, which
-# the artifacts bucket refuses to serve anonymously (403), so the predictor's
-# train/predict path is unreachable in an offline run. Its pure torch helpers are
-# tested directly and are at 96-100%.
-"drevalpy/components/predictors/literature/dipk/predictor.py" = 52
-
-# Resolving a registered dataset means downloading a multi-GB .h5mu from a
-# credentialed S3 bucket; only the not-found and cache-hit branches are
-# reachable offline. The lazy __getattr__ re-export block in the package
-# __init__ is only entered by callers that use the deprecated import path.
-#
-# The 55 below IS reproducible on a clean checkout: the cache-eviction helpers
-# (_load_from_cache / _carries_curve_quality) are unit-tested against synthetic
-# .h5mu files in tmp_path, so they need neither credentials nor a populated
-# cache. Verified at 56.9% with DREVALPY_CACHE_DIR pointed at an empty directory,
-# i.e. the shape CI runs.
-#
-# What remains uncovered is only the download itself: _download and the
-# registered-but-not-cached branch of load(). Do not raise this entry towards
-# 60% by exercising those - it would mean pulling hundreds of megabytes in CI.
+# Resolving a registered dataset downloads a multi-GB .h5mu from a credentialed S3
+# bucket, so only the not-found and cache-hit branches are reachable offline. These
+# floors are reproducible on a clean checkout - the cache-eviction helpers are
+# unit-tested against synthetic .h5mu files in tmp_path, needing neither
+# credentials nor a warm cache. What remains uncovered is the download itself; do
+# not chase the last points, it would mean pulling hundreds of megabytes in CI.
 "drevalpy/data/datasets/__init__.py" = 44
 "drevalpy/data/datasets/_load.py" = 55
 
@@ -326,6 +272,54 @@ min_file_coverage = 60
 # construct_model() produces sets _base_model_config, so the zoo-lookup and
 # model_config()-RuntimeError branches are dead for all shipped models.
 "drevalpy/models/mixins/_hyperparameters.py" = 57
+
+# Per-module statement ceiling, enforced by tools/size_gate.py. This is the ratchet
+# that keeps the mixin split in models/mixins/ and components/featurizers/ from
+# growing back: complexipy already caps per-function complexity, but nothing stopped
+# a module from accumulating a fourth unrelated concern's worth of small methods.
+#
+# Statements, not lines, so the count does not move with formatting or with the
+# Google-style docstrings this codebase requires.
+#
+# Deliberately not a repowise hotspot-health floor, which is what the health plan
+# asked for. Measured on this repo: `repowise health` reads 10.0 on the
+# `fetch-depth: 1` checkout actions/checkout does by default (every commit-history
+# marker silently vanishes), 6.13 on a full clone with no coverage ingested, and
+# 6.25 in this working tree with coverage ingested - three different numbers for one
+# tree. 68% of its finding impact is derived from commit history, so the score also
+# drifts as unrelated commits land. A CI floor on it would fire on innocent PRs and
+# pass vacuously on the default checkout. Run `repowise health --trend` locally
+# instead; see AGENTS.md.
+[tool.drevalpy.size_gate]
+max_module_statements = 150
+
+# Each entry is a module that is currently above the ceiling, with the reason. An
+# exemption is debt: split the module and delete the entry. A recorded ceiling may
+# be lowered as a module shrinks, never raised to let a regression through. Values
+# are the counts measured by `uv run python tools/size_gate.py`.
+[tool.drevalpy.size_gate.exemptions]
+# Vendored third-party network definition: one architecture transcribed from the
+# reference implementation. Splitting it would make it harder to diff against
+# upstream, not easier to read.
+"drevalpy/components/featurizers/drug/_molgnet_network.py" = 255
+
+# The remaining literature predictors still carry the torch plumbing that
+# _omics_loaders.py and _pair_predict.py pulled out of their siblings. These are the
+# next candidates for the same treatment, in this order.
+"drevalpy/components/predictors/literature/sparsego/algorithm.py" = 188
+"drevalpy/components/predictors/literature/superfeltr/predictor.py" = 187
+"drevalpy/components/predictors/literature/dipk/predictor.py" = 186
+"drevalpy/components/predictors/literature/srmf/predictor.py" = 180
+
+# Single cohesive units whose statements are one flat sequence rather than several
+# concerns: a declarative registry of builtin components, one dataset facade, one
+# component-stack builder, one plot each.
+"drevalpy/registry/_builtins.py" = 199
+"drevalpy/models/component_stack.py" = 240
+"drevalpy/types/data/dataset.py" = 218
+"drevalpy/visualization/plots/leaderboard.py" = 177
+"drevalpy/types/results/experiment.py" = 156
+"drevalpy/components/predictors/neural_network/predictor.py" = 165
 
 [tool.complexipy]
 max-complexity-allowed = 15

@@ -15,7 +15,7 @@ from drevalpy.components.featurizers.cell_line.landmark import (
     LandmarkGenesFeaturizer,
     LandmarkGenesReducedFeaturizer,
 )
-from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
+from tests.components.featurizers.cell_line._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
 
@@ -118,15 +118,8 @@ def test_landmark_without_standardization_keeps_raw_arcsinh_values() -> None:
     np.testing.assert_allclose(matrix, np.arcsinh([[0.0, 1.0]]), rtol=1e-6)
 
 
-def test_landmark_prefers_a_precomputed_variant() -> None:
-    source = precomputed_source(LandmarkGenesFeaturizer)
-    ids = source.identifiers
-    featurizer = LandmarkGenesFeaturizer()
-
-    featurizer.fit(source, entity_ids=ids)
-
-    assert featurizer.output_dim == PRECOMPUTED.shape[1]
-    np.testing.assert_allclose(featurizer.transform(source, ids), PRECOMPUTED)
+def test_landmark_serves_a_precomputed_variant() -> None:
+    assert_uses_precomputed_variant(LandmarkGenesFeaturizer())
 
 
 def test_landmark_transform_before_fit_raises() -> None:

@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import tempfile
 
-import anndata as ad
-import mudata as md
 import numpy as np
-import pandas as pd
 import pytest
 
 from drevalpy.models import construct_model
 from drevalpy.registry._builtins import register_builtin_components
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset
+from tests.models.synthetic_fixtures import lco_split_masks, synthetic_mudataset
+
+#: The multi-omics views ``MultiViewNeuralNetwork`` reads beyond gene expression.
+MULTIVIEW_EXTRA_VIEWS = ("methylation", "mutations", "copy_number_variation_gistic")
 
 
 @pytest.fixture(autouse=True)
@@ -21,82 +22,14 @@ def _register_components() -> None:
     register_builtin_components()
 
 
-def _make_mudataset_ge_fingerprints() -> tuple[Dataset, SplitMasks]:
-    cl_ids = np.array(["cl1", "cl2"])
-    drug_ids = np.array(["d1", "d2"])
-    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-    response_ad = ad.AnnData(
-        X=response_matrix,
-        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
-        var=pd.DataFrame(index=drug_ids),
-    )
-    ge_matrix = np.array([[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]], dtype=np.float32)
-    gene_expression_ad = ad.AnnData(
-        X=ge_matrix,
-        obs=pd.DataFrame(index=cl_ids),
-        var=pd.DataFrame(index=[f"gene{i}" for i in range(4)]),
-    )
-    response_ad.varm["morgan_fingerprint"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
-    mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
-    mudataset = Dataset(mdata, name="test")
-    split = SplitMasks(
-        train=SplitMask(np.array([[True, True], [False, False]])),
-        test=SplitMask(np.array([[False, False], [True, True]])),
-        val=SplitMask(np.zeros((2, 2), dtype=bool)),
-    )
-    return mudataset, split
+def _dataset(*, extra_views: tuple[str, ...] = ()) -> tuple[Dataset, SplitMasks]:
+    """Build a four-feature synthetic dataset and an LCO split over it.
 
-
-def _make_mudataset_multiview() -> tuple[Dataset, SplitMasks]:
-    cl_ids = np.array(["cl1", "cl2"])
-    drug_ids = np.array(["d1", "d2"])
-    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-    response_ad = ad.AnnData(
-        X=response_matrix,
-        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
-        var=pd.DataFrame(index=drug_ids),
-    )
-    ge_matrix = np.array([[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]], dtype=np.float32)
-    gene_expression_ad = ad.AnnData(
-        X=ge_matrix,
-        obs=pd.DataFrame(index=cl_ids),
-        var=pd.DataFrame(index=[f"gene{i}" for i in range(4)]),
-    )
-    meth_matrix = np.array([[0.2, 0.3, 0.4, 0.5], [0.6, 0.7, 0.8, 0.9]], dtype=np.float32)
-    methylation_ad = ad.AnnData(
-        X=meth_matrix,
-        obs=pd.DataFrame(index=cl_ids),
-        var=pd.DataFrame(index=[f"cpg{i}" for i in range(4)]),
-    )
-    mut_matrix = np.array([[0.0, 1.0, 0.0, 1.0], [1.0, 0.0, 1.0, 0.0]], dtype=np.float32)
-    mutations_ad = ad.AnnData(
-        X=mut_matrix,
-        obs=pd.DataFrame(index=cl_ids),
-        var=pd.DataFrame(index=[f"mut{i}" for i in range(4)]),
-    )
-    cnv_matrix = np.array([[0.1, 0.1, 0.2, 0.2], [0.3, 0.3, 0.4, 0.4]], dtype=np.float32)
-    cnv_ad = ad.AnnData(
-        X=cnv_matrix,
-        obs=pd.DataFrame(index=cl_ids),
-        var=pd.DataFrame(index=[f"cnv{i}" for i in range(4)]),
-    )
-    response_ad.varm["morgan_fingerprint"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
-    mdata = md.MuData(
-        {
-            "response": response_ad,
-            "gene_expression": gene_expression_ad,
-            "methylation": methylation_ad,
-            "mutations": mutations_ad,
-            "copy_number_variation_gistic": cnv_ad,
-        }
-    )
-    mudataset = Dataset(mdata, name="test")
-    split = SplitMasks(
-        train=SplitMask(np.array([[True, True], [False, False]])),
-        test=SplitMask(np.array([[False, False], [True, True]])),
-        val=SplitMask(np.zeros((2, 2), dtype=bool)),
-    )
-    return mudataset, split
+    :param extra_views: Cell-line modalities beyond ``gene_expression``.
+    :returns: ``(dataset, split)``.
+    """
+    dataset = synthetic_mudataset(n_features_per_view=4, fingerprint_width=4, extra_views=extra_views)
+    return dataset, lco_split_masks()
 
 
 LITERATURE_MODEL_NAMES = (
@@ -131,10 +64,10 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("model_name", "hyperparameters", "data_factory"),
+    ("model_name", "hyperparameters", "extra_views"),
     [
-        ("SimpleNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, "_make_mudataset_ge_fingerprints"),
-        ("SRMF", {"K": 2, "max_iter": 2, "n_features": 4}, "_make_mudataset_ge_fingerprints"),
+        ("SimpleNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, ()),
+        ("SRMF", {"K": 2, "max_iter": 2, "n_features": 4}, ()),
         (
             "MultiViewNeuralNetwork",
             {
@@ -142,17 +75,17 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
                 "max_epochs": 1,
                 "methylation_pca_components": 2,
             },
-            "_make_mudataset_multiview",
+            MULTIVIEW_EXTRA_VIEWS,
         ),
-        ("NaiveDrugMeanPredictor", {}, "_make_mudataset_ge_fingerprints"),
+        ("NaiveDrugMeanPredictor", {}, ()),
     ],
 )
 def test_literature_model_lifecycle(
     model_name: str,
     hyperparameters: dict,
-    data_factory: str,
+    extra_views: tuple[str, ...],
 ) -> None:
-    mudataset, split = globals()[data_factory]()
+    mudataset, split = _dataset(extra_views=extra_views)
     model = construct_model(model_name)(hyperparameters)
     model.train(mudataset, split)
     preds = model.predict(mudataset, split)
@@ -168,10 +101,9 @@ def test_literature_model_lifecycle(
 
 
 def test_untrained_component_model_raises() -> None:
-    from drevalpy.models import construct_model
-
     model_cls = construct_model("elasticNet", "raw[gene_expression]:fingerprints:elasticNet")
     model = model_cls({})
-    mudataset, split = _make_mudataset_ge_fingerprints()
+    mudataset, split = _dataset()
+
     with pytest.raises(RuntimeError, match="not been trained"):
         model.predict(mudataset, split)

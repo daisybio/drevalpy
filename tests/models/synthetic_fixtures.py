@@ -56,37 +56,79 @@ def identity_drug_features() -> MockFeatureSource:
     )
 
 
-def synthetic_mudataset_gene_expression_fingerprints():
-    """Build a minimal Dataset with gene_expression + fingerprints for 2 cell lines and 2 drugs."""
+#: Column-name prefix and value offset (in tenths) for each cell-line view. The
+#: offset only has to make the views distinguishable; ``gene_expression``'s value
+#: of 1 is what reproduces the matrix this module has always built.
+_VIEW_SPECS = {
+    "gene_expression": ("gene", 1),
+    "methylation": ("cpg", 2),
+    "mutations": ("mut", 3),
+    "copy_number_variation_gistic": ("cnv", 4),
+    "proteomics": ("prot", 5),
+}
+
+
+def _view_matrix(width: int, offset: int) -> np.ndarray:
+    """Build a deterministic 2-row matrix, shifted by *offset* tenths.
+
+    :param width: Number of columns.
+    :param offset: Added to every element before scaling, in tenths.
+    :returns: ``(2, width)`` float32 matrix.
+    """
+    return ((np.arange(2 * width, dtype=np.float32) + offset) / 10.0).reshape(2, width)
+
+
+def synthetic_mudataset(
+    *,
+    n_features_per_view: int = 3,
+    fingerprint_width: int = 2,
+    extra_views: tuple[str, ...] = (),
+):
+    """Build a two-cell-line, two-drug ``Dataset`` with the requested views.
+
+    The one builder behind every synthetic ``Dataset`` in the suite. Callers that
+    needed a wider gene-expression matrix or additional omics modalities used to
+    write out their own AnnData/MuData assembly, which is what made those test
+    files read as clones of each other.
+
+    :param n_features_per_view: Columns in each cell-line modality.
+    :param fingerprint_width: Columns of the ``morgan_fingerprint`` in ``response.varm``.
+    :param extra_views: Further cell-line modalities to attach, named after the
+        views a featurizer reads; see :data:`_VIEW_SPECS`.
+    :returns: The assembled ``Dataset``.
+    """
     import anndata as ad
     import mudata as md
     import pandas as pd
 
     from drevalpy.types.data.dataset import Dataset
 
-    # Response matrix: 2 cell lines x 2 drugs
-    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
     cl_ids = np.array(["cl1", "cl2"])
     drug_ids = np.array(["d1", "d2"])
-
     response_ad = ad.AnnData(
-        X=response_matrix,
+        X=np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32),
         obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
         var=pd.DataFrame(index=drug_ids),
     )
-    # Gene expression modality: 2 cell lines x 3 genes
-    ge_matrix = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], dtype=np.float32)
-    gene_expression_ad = ad.AnnData(
-        X=ge_matrix,
-        obs=pd.DataFrame(index=cl_ids),
-        var=pd.DataFrame(index=[f"gene{i}" for i in range(3)]),
-    )
-    # Fingerprints in response.varm
-    fingerprints = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
-    response_ad.varm["morgan_fingerprint"] = fingerprints
+    response_ad.varm["morgan_fingerprint"] = np.eye(2, fingerprint_width, dtype=np.float32)
 
-    mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
-    return Dataset(mdata, name="test")
+    modalities = {"response": response_ad}
+    for view in ("gene_expression", *extra_views):
+        prefix, offset = _VIEW_SPECS[view]
+        modalities[view] = ad.AnnData(
+            X=_view_matrix(n_features_per_view, offset),
+            obs=pd.DataFrame(index=cl_ids),
+            var=pd.DataFrame(index=[f"{prefix}{i}" for i in range(n_features_per_view)]),
+        )
+    return Dataset(md.MuData(modalities), name="test")
+
+
+def synthetic_mudataset_gene_expression_fingerprints():
+    """Build a minimal Dataset with gene_expression + fingerprints for 2 cell lines and 2 drugs.
+
+    :returns: A ``Dataset`` with a 3-gene expression modality and 2-wide fingerprints.
+    """
+    return synthetic_mudataset()
 
 
 def synthetic_mudataset_identity():

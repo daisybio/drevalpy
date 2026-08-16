@@ -17,6 +17,7 @@ from drevalpy.components.featurizers.drug.molgnet import (
     MolGNetDrugFeaturizer,
     _compute_molgnet_embedding,
 )
+from tests._import_shims import block_imports
 from tests.conftest import MockFeatureSource
 
 _D1 = np.arange(6, dtype=np.float32).reshape(2, 3)
@@ -134,35 +135,21 @@ def test_molgnet_compute_embedding_returns_none_for_unparseable_smiles() -> None
     assert _compute_molgnet_embedding("not-a-smiles") is None
 
 
-def test_molgnet_compute_embedding_reports_a_missing_torch(monkeypatch: pytest.MonkeyPatch) -> None:
-    import builtins
+@pytest.mark.parametrize(
+    ("blocked", "message"),
+    [
+        pytest.param("torch", "torch and torch_geometric are required", id="torch"),
+        pytest.param("rdkit", "rdkit is required", id="rdkit"),
+    ],
+)
+def test_molgnet_compute_embedding_names_the_missing_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+    blocked: str,
+    message: str,
+) -> None:
+    block_imports(monkeypatch, blocked)
 
-    real_import = builtins.__import__
-
-    def _fail_on_torch(name, *args, **kwargs):
-        if name == "torch":
-            raise ImportError(name)
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", _fail_on_torch)
-
-    with pytest.raises(ImportError, match="torch and torch_geometric are required"):
-        _compute_molgnet_embedding("CCO")
-
-
-def test_molgnet_compute_embedding_reports_a_missing_rdkit(monkeypatch: pytest.MonkeyPatch) -> None:
-    import builtins
-
-    real_import = builtins.__import__
-
-    def _fail_on_rdkit(name, *args, **kwargs):
-        if name.startswith("rdkit"):
-            raise ImportError(name)
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", _fail_on_rdkit)
-
-    with pytest.raises(ImportError, match="rdkit is required"):
+    with pytest.raises(ImportError, match=message):
         _compute_molgnet_embedding("CCO")
 
 

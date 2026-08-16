@@ -8,7 +8,7 @@ import pytest
 from drevalpy.components.featurizers.cell_line.pharmaformer_gene_expression import (
     PharmaFormerGeneExpressionFeaturizer,
 )
-from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
+from tests.components.featurizers.cell_line._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
 
@@ -51,12 +51,8 @@ def test_pharmaformer_gene_expression_output_dim_is_zero_before_fit() -> None:
     assert PharmaFormerGeneExpressionFeaturizer().output_dim == 0
 
 
-def test_pharmaformer_gene_expression_prefers_a_precomputed_variant() -> None:
-    source = precomputed_source(PharmaFormerGeneExpressionFeaturizer)
-    ids = source.identifiers
-    featurizer = PharmaFormerGeneExpressionFeaturizer()
-
-    featurizer.fit(source, pair_expanded_ids=ids)
-
-    assert featurizer.output_dim == PRECOMPUTED.shape[1]
-    np.testing.assert_allclose(featurizer.transform(source, ids), PRECOMPUTED)
+def test_pharmaformer_gene_expression_serves_a_precomputed_variant() -> None:
+    assert_uses_precomputed_variant(
+        PharmaFormerGeneExpressionFeaturizer(),
+        ids_kwarg="pair_expanded_ids",
+    )

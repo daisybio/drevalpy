@@ -16,9 +16,9 @@ import pytest
 from plotly.basedatatypes import BaseFigure
 
 from drevalpy.types.results.experiment import ExperimentResult
+from drevalpy.visualization.plots._utils import runs_frame
 from drevalpy.visualization.plots.heatmap import (
     HeatmapVisualization,
-    _build_df_from_experiment,
     _calc_summary_metric,
     _columns_for_setting,
     _compute_ssmd,
@@ -29,7 +29,7 @@ from tests.synthetic import NORMALIZED_METRIC, REFERENCE_MODEL, make_experiment_
 
 
 def _ssmd_frame() -> pd.DataFrame:
-    """Two models x two folds, indexed the way ``_build_df_from_experiment`` does."""
+    """Two models x two folds, indexed the way ``runs_frame`` does."""
     return pd.DataFrame(
         {"MSE": [1.0, 2.0, 5.0, 6.0]},
         index=[
@@ -51,36 +51,6 @@ def computed(experiment) -> HeatmapVisualization:
     plot = HeatmapVisualization()
     plot.compute(experiment)
     return plot
-
-
-class TestBuildDfFromExperiment:
-    def test_has_one_row_per_run(self, experiment):
-        df = _build_df_from_experiment(experiment)
-
-        assert len(df) == sum(m.n_folds for m in experiment.models)
-
-    def test_carries_the_identity_columns_plus_every_metric(self, experiment):
-        df = _build_df_from_experiment(experiment)
-
-        assert list(df.columns[:4]) == ["algorithm", "rand_setting", "test_mode", "CV_split"]
-        assert {"MSE", "RMSE", "MAE", "R^2", "Pearson", "Spearman", "Kendall"} <= set(df.columns)
-
-    def test_index_encodes_model_setting_mode_and_split(self, experiment):
-        df = _build_df_from_experiment(experiment)
-
-        assert df.index[0] == f"{experiment.model_names[0]}_predictions_LPO_split_0"
-
-    def test_unrandomized_runs_are_labelled_predictions(self, experiment):
-        df = _build_df_from_experiment(experiment)
-
-        assert set(df["rand_setting"]) == {"predictions"}
-
-    def test_randomized_runs_are_labelled_by_view_and_mode(self):
-        result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
-
-        df = _build_df_from_experiment(result)
-
-        assert df["rand_setting"].tolist() == ["gene_expression_permutation"]
 
 
 class TestSettingGroups:
@@ -263,7 +233,7 @@ class TestMetricNameResolution:
 
     def test_resolve_metric_columns_prefers_the_plain_name(self):
         result = ExperimentResult([make_run_result(metrics={"Pearson": 0.9, NORMALIZED_METRIC: 0.1})])
-        df = _build_df_from_experiment(result)
+        df = runs_frame(result, indexed=True)
 
         renamed, columns = _resolve_metric_columns(result, df)
 

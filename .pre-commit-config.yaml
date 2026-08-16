@@ -27,6 +27,17 @@ repos:
         files: ^drevalpy/
   - repo: local
     hooks:
+      - id: size-gate
+        name: module size ceiling
+        # Cheap enough to run on every commit: it parses the working tree and
+        # counts AST statements, needing neither a test run nor coverage. The
+        # ceiling and its exemptions live in [tool.drevalpy.size_gate] in
+        # pyproject.toml. Also enforced in CI, so `--no-verify` cannot land a
+        # regression.
+        entry: uv run python tools/size_gate.py
+        language: system
+        pass_filenames: false
+        files: ^(drevalpy/.*\.py|pyproject\.toml|tools/size_gate\.py)$
       - id: pytest
         name: pytest (fast tier)
         # No arguments on purpose: `addopts` in pyproject.toml defaults to

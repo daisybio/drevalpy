@@ -13,9 +13,9 @@ import pytest
 from plotly.basedatatypes import BaseFigure
 
 from drevalpy.types.results.experiment import ExperimentResult
+from drevalpy.visualization.plots._utils import runs_frame
 from drevalpy.visualization.plots.cross_study_table import (
     CrossStudyTableVisualization,
-    _build_cross_study_df,
     _build_simple_table,
 )
 from tests.synthetic import make_experiment_result, make_run_result
@@ -44,28 +44,6 @@ def computed(experiment) -> CrossStudyTableVisualization:
     plot = CrossStudyTableVisualization()
     plot.compute(experiment)
     return plot
-
-
-class TestBuildCrossStudyDf:
-    def test_has_one_row_per_run(self, experiment):
-        df = _build_cross_study_df(experiment)
-
-        assert len(df) == sum(m.n_folds for m in experiment.models)
-
-    def test_index_encodes_model_setting_mode_and_split(self, experiment):
-        df = _build_cross_study_df(experiment)
-
-        assert df.index[0] == f"{experiment.model_names[0]}_predictions_LPO_split_0"
-
-    def test_unrandomized_runs_are_labelled_predictions(self, experiment):
-        df = _build_cross_study_df(experiment)
-
-        assert set(df["rand_setting"]) == {"predictions"}
-
-    def test_cross_study_settings_survive_into_the_index(self):
-        df = _build_cross_study_df(_cross_study_result())
-
-        assert any("cross-study-CCLE_eval" in idx for idx in df.index)
 
 
 class TestBuildSimpleTable:
@@ -192,9 +170,15 @@ class TestComputeWithCrossStudyData:
 class TestCrossStudyDataframeQuirk:
     def test_nothing_in_the_package_emits_a_cross_study_setting(self, experiment):
         """Guards the documented fallback: ``rand_setting`` never carries the prefix."""
-        df = _build_cross_study_df(experiment)
+        df = runs_frame(experiment, indexed=True)
 
         assert not df["rand_setting"].str.contains("cross-study-").any()
+
+    def test_a_cross_study_setting_reaches_the_index_when_present(self):
+        """The compute() branch keys off the index, so the label has to survive into it."""
+        df = runs_frame(_cross_study_result(), indexed=True)
+
+        assert any("cross-study-CCLE_eval" in idx for idx in df.index)
 
 
 class TestToMultiqc:

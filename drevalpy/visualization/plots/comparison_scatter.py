@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import Section, Visualization
+from drevalpy.visualization.base import PlotlyVisualization, Section
 from drevalpy.visualization.plots._group_metrics import (
     GROUPING_LABELS,
     GROUPINGS,
@@ -25,8 +25,6 @@ from drevalpy.visualization.plots._group_metrics import (
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     import plotly.graph_objects as go
 
     from drevalpy.types.results import ExperimentResult
@@ -227,7 +225,7 @@ def _inline_plotly_html(fig: go.Figure, div_id: str) -> str:
     "Per-drug and per-cell-line correlation compared between two selectable models",
     requirements=frozenset({PlotRequirement.MULTIPLE_MODELS}),
 )
-class ComparisonScatterVisualization(Visualization):
+class ComparisonScatterVisualization(PlotlyVisualization):
     """Model-against-model comparison of per-group correlation (Plotly)."""
 
     def __init__(self) -> None:
@@ -256,16 +254,6 @@ class ComparisonScatterVisualization(Visualization):
     def _primary_matrix(self) -> GroupCorrelationMatrix:
         """Return the matrix backing ``_fig``, i.e. the first available grouping."""
         return self._matrices[next(iter(self._matrices))]
-
-    def to_png(self, path: str | Path) -> None:
-        """Render the primary grouping's figure to a static PNG.
-
-        :param path: Output file path.
-        :raises RuntimeError: If called before ``compute()``.
-        """
-        if self._fig is None:
-            raise RuntimeError("Call compute() before to_png()")
-        self._fig.write_image(str(path))
 
     def to_multiqc(self) -> list[Section]:
         """Return one Section per grouping, each holding a two-dropdown figure.
@@ -296,12 +284,3 @@ class ComparisonScatterVisualization(Visualization):
                 )
             )
         return sections
-
-    def show(self) -> None:
-        """Display the comparison scatter in a Jupyter notebook.
-
-        :raises RuntimeError: If called before ``compute()``.
-        """
-        if self._fig is None:
-            raise RuntimeError("Call compute() before show()")
-        self._fig.show()

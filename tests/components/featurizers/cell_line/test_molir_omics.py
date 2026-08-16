@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.featurizers.cell_line.molir_omics import MOLIROmicsFeaturizer
-from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
+from tests.components.featurizers.cell_line._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
 
@@ -34,15 +34,8 @@ def test_molir_omics_selects_expression_and_round_trips_state() -> None:
     np.testing.assert_allclose(restored.transform(features, np.array(["cl0", "cl2"])), blocks["gene_expression"].values)
 
 
-def test_molir_omics_prefers_a_precomputed_variant() -> None:
-    source = precomputed_source(MOLIROmicsFeaturizer)
-    ids = source.identifiers
-    featurizer = MOLIROmicsFeaturizer()
-
-    featurizer.fit(source, entity_ids=ids)
-
-    assert featurizer.output_dim == PRECOMPUTED.shape[1]
-    np.testing.assert_allclose(featurizer.transform(source, ids), PRECOMPUTED)
+def test_molir_omics_serves_a_precomputed_variant() -> None:
+    assert_uses_precomputed_variant(MOLIROmicsFeaturizer())
 
 
 def test_molir_omics_output_dim_is_zero_before_fit() -> None:

@@ -8,7 +8,7 @@ from drevalpy.components.featurizers.cell_line.normalized_proteomics import (
     NormalizedProteomicsCellLineFeaturizer,
     log10_and_set_na,
 )
-from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
+from tests.components.featurizers.cell_line._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
 
@@ -77,15 +77,8 @@ def test_normalized_proteomics_imputes_missing_values() -> None:
     assert not np.isnan(matrix).any()
 
 
-def test_normalized_proteomics_prefers_a_precomputed_variant() -> None:
-    source = precomputed_source(NormalizedProteomicsCellLineFeaturizer)
-    ids = source.identifiers
-    featurizer = NormalizedProteomicsCellLineFeaturizer()
-
-    featurizer.fit(source, entity_ids=ids)
-
-    assert featurizer.output_dim == PRECOMPUTED.shape[1]
-    np.testing.assert_allclose(featurizer.transform(source, ids), PRECOMPUTED)
+def test_normalized_proteomics_serves_a_precomputed_variant() -> None:
+    assert_uses_precomputed_variant(NormalizedProteomicsCellLineFeaturizer())
 
 
 def test_normalized_proteomics_round_trips_state() -> None:

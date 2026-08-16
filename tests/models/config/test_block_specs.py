@@ -10,9 +10,8 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, FeaturizerConfig
 from drevalpy.models.config._block_specs import resolve_output_block_specs
 from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
-from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
-from drevalpy.registry.drug_featurizer import register as register_drug_featurizer
 from drevalpy.types.data.batch.feature_block import BlockSpec
+from tests.models.config._stubs import register_featurizer_stub
 from tests.registry._helpers import isolated_component_registries
 
 
@@ -22,42 +21,29 @@ def _clear_registries() -> Iterator[None]:
 
 
 def test_view_fallback_emits_named_block() -> None:
-    @register_cell_line_featurizer(
-        "viewCell",
-        description="view cell",
-        contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class ViewCell:
-        pass
+    register_featurizer_stub("viewCell", side="cell_line")
 
     config = CellLineFeaturizerConfig(name="viewCell", view="gene_expression")
+
     assert resolve_output_block_specs(config) == (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
 
 
 def test_declared_output_block_specs_win() -> None:
-    @register_drug_featurizer(
+    register_featurizer_stub(
         "declaredDrug",
-        description="declared",
-        contract=FeatureFormat.NUMERIC_MATRIX,
+        side="drug",
+        output_block_specs=(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),),
     )
-    class DeclaredDrug:
-        output_block_specs = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
 
     config = DrugFeaturizerConfig(name="declaredDrug", view="ignored")
+
     assert resolve_output_block_specs(config) == (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
 
 
 def test_nested_concat_flattens_child_blocks() -> None:
     from drevalpy.components.featurizers.shared.concat import CellLineConcatFeaturizer
 
-    @register_cell_line_featurizer(
-        "denseCellLine",
-        description="dense",
-        contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class DenseCellLine:
-        pass
-
+    register_featurizer_stub("denseCellLine", side="cell_line")
     cell_line_featurizer_registry.register_existing("concatFeaturizers", CellLineConcatFeaturizer)
 
     config = CellLineFeaturizerConfig.model_validate(

@@ -86,11 +86,4 @@ class ScaledGeneExpressionFeaturizer(DenseViewCellLineFeaturizer):
         scaler = state.get("gene_expression_scaler")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler
-        view = state.get("view")
-        if isinstance(view, str):
-            self._view = view
-        output_dim = state.get("output_dim")
-        if isinstance(output_dim, int):
-            self._output_dim = output_dim
-        if state.get("fitted"):
-            self._is_fitted = True
+        self._restore_dense_state(state)

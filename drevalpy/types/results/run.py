@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,6 +15,36 @@ from drevalpy.log import get_logger
 from .trial import TrialResult
 
 logger = get_logger(__name__)
+
+
+def _indented_items(
+    items: Mapping[str, Any],
+    format_value: Callable[[Any], str] = str,
+) -> list[str]:
+    """Render *items* as the ``__repr__``'s inner-level ``key: value`` lines.
+
+    :param items: Mapping to render, in iteration order.
+    :param format_value: Applied to each value; defaults to ``str``.
+    :returns: One line per entry, indented to the nested level.
+    """
+    return [f"        {key}: {format_value(value)}" for key, value in items.items()]
+
+
+def _section(
+    heading: str,
+    items: Mapping[str, Any],
+    format_value: Callable[[Any], str] = str,
+) -> list[str]:
+    """Render a headed block of ``key: value`` lines, or nothing when *items* is empty.
+
+    :param heading: Section heading, already indented.
+    :param items: Mapping to render under the heading.
+    :param format_value: Applied to each value; defaults to ``str``.
+    :returns: The heading followed by its entries, or an empty list.
+    """
+    if not items:
+        return []
+    return [heading, *_indented_items(items, format_value)]
 
 
 @dataclass
@@ -37,40 +68,31 @@ class RunResult:
 
     def __repr__(self) -> str:
         """Formatted summary."""
+        extra_fold_metadata = {k: v for k, v in self.fold_metadata.items() if k != "fold_index"}
         lines = [
             "RunResult",
             f"    Model: {self.model_name}",
             f"    Dataset: {self.dataset_name}",
+            f"        Randomization: {self._randomization_summary()}",
+            f"    Fold: {self.fold_index}",
+            *_indented_items(extra_fold_metadata),
+            f"    Predictions: {len(self.predictions)} pairs",
+            f"    Ground truth: {int(np.sum(~np.isnan(self.ground_truth)))} non-NaN values",
+            *_section("    Hyperparameters:", self.best_hyperparameters),
+            *_section("    Metrics:", self.metrics, format_value="{:.4f}".format),
         ]
-
-        if self.randomization:
-            lines.append(f"        Randomization: {self.randomization[0]} ({self.randomization[1]})")
-        else:
-            lines.append("        Randomization: None")
-
-        lines.append(f"    Fold: {self.fold_index}")
-
-        for k, v in self.fold_metadata.items():
-            if k != "fold_index":
-                lines.append(f"        {k}: {v}")
-
-        lines.append(f"    Predictions: {len(self.predictions)} pairs")
-        lines.append(f"    Ground truth: {int(np.sum(~np.isnan(self.ground_truth)))} non-NaN values")
-
-        if self.best_hyperparameters:
-            lines.append("    Hyperparameters:")
-            for k, v in self.best_hyperparameters.items():
-                lines.append(f"        {k}: {v}")
-
-        if self.metrics:
-            lines.append("    Metrics:")
-            for k, v in self.metrics.items():
-                lines.append(f"        {k}: {v:.4f}")
-
         if self.trials:
             lines.append(f"    HPO Trials: {len(self.trials)}")
-
         return "\n".join(lines)
+
+    def _randomization_summary(self) -> str:
+        """Describe the randomization this run was produced under.
+
+        :returns: ``"<view> (<mode>)"``, or ``"None"`` for an unrandomized run.
+        """
+        if not self.randomization:
+            return "None"
+        return f"{self.randomization[0]} ({self.randomization[1]})"
 
     def save(self, path: str | Path) -> None:
         """Save to a compressed .npz file.

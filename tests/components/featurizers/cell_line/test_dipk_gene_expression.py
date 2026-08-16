@@ -9,7 +9,7 @@ from drevalpy.components.featurizers.cell_line.dipk_gene_expression import (
     DIPKGeneExpressionFeaturizer,
     GeneExpressionEncoder,
 )
-from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
+from tests.components.featurizers.cell_line._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
 
@@ -76,22 +76,10 @@ def test_dipk_gene_expression_hyperparameter_space_exposes_the_epoch_count() -> 
     assert set(DIPKGeneExpressionFeaturizer.get_hyperparameter_space()) == {"epochs_autoencoder"}
 
 
-def test_dipk_gene_expression_prefers_a_precomputed_variant() -> None:
-    source = precomputed_source(DIPKGeneExpressionFeaturizer)
-    ids = source.identifiers
-    featurizer = DIPKGeneExpressionFeaturizer()
-
-    featurizer.fit(source, pair_expanded_ids=ids)
-
-    np.testing.assert_allclose(featurizer.transform(source, ids), PRECOMPUTED)
-
-
-def test_dipk_gene_expression_blocks_use_the_precomputed_variant() -> None:
-    source = precomputed_source(DIPKGeneExpressionFeaturizer)
-    ids = source.identifiers
-    featurizer = DIPKGeneExpressionFeaturizer().fit(source, pair_expanded_ids=ids)
-
-    blocks = featurizer.transform_blocks(source, ids)
-
-    assert set(blocks) == {"gene_expression"}
-    np.testing.assert_allclose(blocks["gene_expression"].values, PRECOMPUTED)
+def test_dipk_gene_expression_serves_a_precomputed_variant() -> None:
+    assert_uses_precomputed_variant(
+        DIPKGeneExpressionFeaturizer(),
+        ids_kwarg="pair_expanded_ids",
+        expect_output_dim=False,
+        expected_blocks=("gene_expression",),
+    )

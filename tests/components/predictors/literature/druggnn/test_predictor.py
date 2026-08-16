@@ -11,14 +11,12 @@ import torch
 from torch_geometric.data import Data
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
 from drevalpy.registry._builtins import ensure_predictor_registered, register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import graph_feature_block, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
-from tests.models.synthetic_fixtures import multi_drug_response
+from tests.components.predictors.literature._helpers import early_stopping_response, two_by_two_batch
 
 
 @pytest.fixture(autouse=True)
@@ -35,32 +33,17 @@ def _drug_graph(*, num_features: int = 9) -> Data:
 
 
 def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
-    response = multi_drug_response()
-    cell_line_blocks = {"gene_expression": numeric_feature_block(np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]))}
     graphs = np.empty(2, dtype=object)
     graphs[:] = [_drug_graph(), _drug_graph()]
-    drug_blocks = {
-        "drug_graph": graph_feature_block(graphs),
-    }
-    early_stopping = None
-    if with_early_stopping:
-        early_stopping = ResponseBatch(
-            response=np.array([1.5, 2.5]),
-            cell_line_ids=np.array(["cl1", "cl2"]),
-            drug_ids=np.array(["d1", "d2"]),
-        )
-    return ModelInputBatch.from_response(
-        response,
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.empty((0, 0), dtype=np.float32),
-        drug_features=None,
+    return two_by_two_batch(
+        cell_line_blocks={
+            "gene_expression": numeric_feature_block(np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])),
+        },
+        drug_blocks={"drug_graph": graph_feature_block(graphs)},
         cell_line_pair_idx=np.zeros(4, dtype=np.int64),
         drug_pair_idx=None,
-        cell_line_blocks=cell_line_blocks,
-        drug_blocks=drug_blocks,
-        early_stopping_response=early_stopping,
-        training_context=TrainingContext(checkpoint_dir=Path(tempfile.mkdtemp())),
+        early_stopping_response=early_stopping_response() if with_early_stopping else None,
+        checkpoint_dir=Path(tempfile.mkdtemp()),
     )
 
 

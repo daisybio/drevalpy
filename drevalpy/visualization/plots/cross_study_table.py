@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import Section, Visualization
+from drevalpy.visualization.base import PlotlyVisualization, Section
+from drevalpy.visualization.plots._utils import runs_frame
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -29,33 +29,11 @@ _METRICS = [
 ]
 
 
-def _build_cross_study_df(result: ExperimentResult) -> pd.DataFrame:
-    import pandas as pd
-
-    """Build DataFrame from ExperimentResult for cross-study tables."""
-    rows: list[dict] = []
-    indices: list[str] = []
-    for model in result.models:
-        for run in model.runs:
-            rand = f"{run.randomization[0]}_{run.randomization[1]}" if run.randomization else "predictions"
-            row: dict = {
-                "algorithm": run.model_name,
-                "rand_setting": rand,
-                "test_mode": result.split_mode,
-                "CV_split": run.fold_index,
-            }
-            row.update(run.metrics)
-            rows.append(row)
-            indices.append(f"{run.model_name}_{rand}_{result.split_mode}_split_{run.fold_index}")
-    df = pd.DataFrame(rows, index=indices)
-    return df
-
-
 @register(
     "cross_study_table",
     "Summary table of model metrics for cross-study evaluation",
 )
-class CrossStudyTableVisualization(Visualization):
+class CrossStudyTableVisualization(PlotlyVisualization):
     """Tabular summary of model performance for cross-study predictions (Plotly table)."""
 
     def __init__(self) -> None:
@@ -75,7 +53,7 @@ class CrossStudyTableVisualization(Visualization):
         import plotly.graph_objects as go
 
         self._result = result
-        df = _build_cross_study_df(result)
+        df = runs_frame(result, indexed=True)
 
         cross_study_settings = df[df["rand_setting"].str.contains("cross-study-")]["rand_setting"].unique()
         self._cross_study_datasets = [s.split("cross-study-")[1] for s in cross_study_settings]
@@ -128,15 +106,6 @@ class CrossStudyTableVisualization(Visualization):
         else:
             self._fig = _build_simple_table(result)
 
-    def to_png(self, path: str | Path) -> None:
-        """Render table to a static PNG.
-
-        :param path: Output file path.
-        """
-        if self._fig is None:
-            raise RuntimeError("Call compute() before to_png()")
-        self._fig.write_image(str(path))
-
     def to_multiqc(self) -> list[Section]:
         """Return MultiQC table Sections."""
         if self._result is None:
@@ -185,12 +154,6 @@ class CrossStudyTableVisualization(Visualization):
                 plot=plot,
             )
         ]
-
-    def show(self) -> None:
-        """Display the table in a Jupyter notebook."""
-        if self._fig is None:
-            raise RuntimeError("Call compute() before show()")
-        self._fig.show()
 
 
 def _build_simple_table(result: ExperimentResult) -> go.Figure:

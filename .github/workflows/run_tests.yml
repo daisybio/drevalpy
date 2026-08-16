@@ -72,6 +72,12 @@ jobs:
         # `fail_under` and the per-module floors.
         run: uv run python tools/coverage_gate.py
 
+      - name: Module size ceiling
+        # Runs here as well as in the prek hook so a PR cannot land the
+        # regression by skipping hooks. Needs no test run - it only parses the
+        # working tree - so it costs a couple of seconds.
+        run: uv run python tools/size_gate.py
+
       - name: Upload coverage
         if: always() && matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@6d497bbcd2616c4cbf2f07268d34081bf421ba2c # v7.0.0

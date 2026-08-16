@@ -8,14 +8,13 @@ through ``_compute_from_source`` is already smoke-tested in
 
 from __future__ import annotations
 
-import builtins
-
 import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import DrugFeatureSource
+from tests._import_shims import block_imports
 from tests.conftest import MockFeatureSource
 
 
@@ -43,14 +42,7 @@ def test_compute_from_source_reports_a_missing_rdkit(
     monkeypatch: pytest.MonkeyPatch,
     synthetic_dataset: Dataset,
 ) -> None:
-    real_import = builtins.__import__
-
-    def _fail_on_rdkit(name, *args, **kwargs):
-        if name.startswith("rdkit"):
-            raise ImportError(name)
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", _fail_on_rdkit)
+    block_imports(monkeypatch, "rdkit")
     featurizer = FingerprintsFeaturizer(n_bits=16)
     source = DrugFeatureSource(synthetic_dataset, synthetic_dataset.drug_ids)
 

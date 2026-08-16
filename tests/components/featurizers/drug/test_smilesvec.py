@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.drug.smilesvec import SmilesVecDrugFeaturizer, _smilesvec_embed
+from tests._import_shims import block_imports
 from tests.conftest import MockFeatureSource
 
 
@@ -87,18 +88,9 @@ def test_compute_from_source_reports_missing_gensim(
     monkeypatch: pytest.MonkeyPatch,
     synthetic_dataset,
 ) -> None:
-    import builtins
-
     from drevalpy.types.data.feature_source import DrugFeatureSource
 
-    real_import = builtins.__import__
-
-    def _fail_on_gensim(name, *args, **kwargs):
-        if name.startswith("gensim"):
-            raise ImportError(name)
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", _fail_on_gensim)
+    block_imports(monkeypatch, "gensim")
     source = DrugFeatureSource(synthetic_dataset, synthetic_dataset.drug_ids)
 
     with pytest.raises(ImportError, match="gensim is required"):

@@ -1,19 +1,18 @@
 """Utility functions for the SuperFELTR model."""
 
-import secrets
 from typing import cast
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 from upath import UPath as Path
 
+from drevalpy.components.predictors.literature._lightning_training import LightningRun, run_lightning_fit
+from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
 from drevalpy.components.predictors.literature.molir.utils import (
     generate_triplets_indices,
 )
-from drevalpy.types.data.tensor_data import make_pair_loader
 
 
 class SuperFELTEncoder(pl.LightningModule):
@@ -329,16 +328,8 @@ class SuperFELTRegressor(pl.LightningModule):
 def train_superfeltr_model(
     model: SuperFELTEncoder | SuperFELTRegressor,
     hpams: dict[str, int | float | dict],
-    gene_expression: np.ndarray,
-    mutations: np.ndarray,
-    copy_number: np.ndarray,
-    response: np.ndarray,
-    pair_idx: np.ndarray,
-    val_gene_expression: np.ndarray | None = None,
-    val_mutations: np.ndarray | None = None,
-    val_copy_number: np.ndarray | None = None,
-    val_response: np.ndarray | None = None,
-    val_pair_idx: np.ndarray | None = None,
+    train: OmicsSplit,
+    val: OmicsSplit | None = None,
     patience: int = 5,
     model_checkpoint_dir: str | Path = "superfeltr_checkpoints",
     wandb_project: str | None = None,
@@ -347,16 +338,8 @@ def train_superfeltr_model(
 
     :param model: either one of the encoders or the regressor
     :param hpams: hyperparameters for the model
-    :param gene_expression: entity-level gene expression matrix (n_entities, n_features)
-    :param mutations: entity-level mutation matrix (n_entities, n_features)
-    :param copy_number: entity-level copy number matrix (n_entities, n_features)
-    :param response: training response values (n_pairs,)
-    :param pair_idx: indices into entity matrices for each pair (n_pairs,)
-    :param val_gene_expression: validation entity-level gene expression matrix
-    :param val_mutations: validation entity-level mutation matrix
-    :param val_copy_number: validation entity-level copy number matrix
-    :param val_response: validation response values
-    :param val_pair_idx: validation pair indices into val entity matrices
+    :param train: training split of the three omic views
+    :param val: validation split for early stopping, or None to monitor the training loss
     :param patience: for early stopping, defaults to 5
     :param model_checkpoint_dir: directory to save the model checkpoints
     :param wandb_project: Optional Weights & Biases project name for Lightning logging.
@@ -368,65 +351,15 @@ def train_superfeltr_model(
     if not isinstance(hpams["epochs"], int) or not isinstance(hpams["mini_batch"], int):
         raise ValueError("epochs and mini_batch must be integers!")
 
-    batch_size = hpams["mini_batch"]
-    resp_col = response.reshape(-1, 1) if response.ndim == 1 else response
-    train_loader = make_pair_loader(
-        (gene_expression, pair_idx),
-        (mutations, pair_idx),
-        (copy_number, pair_idx),
-        response=resp_col,
-        batch_size=batch_size,
-        shuffle=False,
-        drop_last=True,
+    train_loader, val_loader = make_omics_loaders(train, val, hpams["mini_batch"])
+    return run_lightning_fit(
+        model,
+        train_loader,
+        val_loader,
+        LightningRun(
+            max_epochs=hpams["epochs"],
+            patience=patience,
+            checkpoint_dir=model_checkpoint_dir,
+            wandb_project=wandb_project,
+        ),
     )
-
-    val_loader = None
-    if val_gene_expression is not None and val_response is not None and val_pair_idx is not None:
-        if val_mutations is None or val_copy_number is None:
-            msg = "val_mutations and val_copy_number are required when val_gene_expression is provided"
-            raise ValueError(msg)
-        val_resp_col = val_response.reshape(-1, 1) if val_response.ndim == 1 else val_response
-        val_loader = make_pair_loader(
-            (val_gene_expression, val_pair_idx),
-            (val_mutations, val_pair_idx),
-            (val_copy_number, val_pair_idx),
-            response=val_resp_col,
-            batch_size=batch_size,
-            shuffle=False,
-            drop_last=False,
-        )
-
-    monitor = "train_loss" if (val_loader is None) else "val_loss"
-    early_stop_callback = EarlyStopping(monitor=monitor, mode="min", patience=patience)
-    name = "version-" + "".join(
-        [secrets.choice("0123456789abcdef") for _ in range(20)]
-    )  # preventing conflicts of filenames
-    checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath=Path(model_checkpoint_dir) / name,
-        monitor=monitor,
-        mode="min",
-        save_top_k=1,
-    )
-    # Set up wandb logger if project is provided
-    loggers = []
-    if wandb_project is not None:
-        from pytorch_lightning.loggers import WandbLogger
-
-        logger = WandbLogger(project=wandb_project, log_model=False)
-        loggers.append(logger)
-
-    # Initialize the Lightning trainer
-    trainer = pl.Trainer(
-        max_epochs=hpams["epochs"],
-        logger=loggers if loggers else True,  # Use default logger if no wandb
-        callbacks=[
-            early_stop_callback,
-            checkpoint_callback,
-            TQDMProgressBar(refresh_rate=0),
-        ],
-    )
-    if val_loader is None:
-        trainer.fit(model, train_loader)
-    else:
-        trainer.fit(model, train_loader, val_loader)
-    return checkpoint_callback

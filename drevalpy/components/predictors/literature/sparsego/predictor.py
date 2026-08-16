@@ -15,6 +15,12 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
+from drevalpy.components.predictors.literature._pair_predict import (
+    PairEvalSpec,
+    concatenated_forward,
+    predict_pairs,
+    require_drug_pair_idx,
+)
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
@@ -24,6 +30,8 @@ from drevalpy.types.data.tensor_data import make_pair_loader
 from drevalpy.utils.torch_io import load_state_dict, load_trusted_mapping, save_state_dict, save_trusted_mapping
 
 if TYPE_CHECKING:
+    from torch.utils.data import DataLoader
+
     from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork
 
 
@@ -180,16 +188,40 @@ class SparseGOPredictor(BlockPredictor):
             p_drop_drugs=self._hyperparameters.get("p_drop_drugs", 0.1),
         ).to(self._device)
 
+    def _entity_matrices(self, batch: ModelInputBatch, active_view: str) -> tuple[np.ndarray, np.ndarray]:
+        """Return the entity-level cell-line and fingerprint matrices as float32.
+
+        :param batch: Batch to read the blocks from.
+        :param active_view: Name of the cell-line block holding the ontology view.
+        :returns: Tuple of ``(cell_line_matrix, fingerprint_matrix)``.
+        """
+        return (
+            np.asarray(batch.cell_line_blocks[active_view].values, dtype=np.float32),
+            np.asarray(batch.drug_blocks["fingerprints"].values, dtype=np.float32),
+        )
+
+    def _build_train_loader(self, batch: ModelInputBatch, blocks: tuple[np.ndarray, np.ndarray]) -> DataLoader:
+        """Build the shuffled training loader over the entity matrices in *blocks*.
+
+        :param batch: Training batch supplying the pair indices and response.
+        :param blocks: Tuple of ``(cell_line_matrix, fingerprint_matrix)``.
+        :returns: Training loader yielding cell-line, drug and response tensors.
+        """
+        cell_entity, drug_entity = blocks
+        return make_pair_loader(
+            (cell_entity, batch.cell_line_pair_idx),
+            (drug_entity, require_drug_pair_idx(batch.drug_pair_idx)),
+            response=np.asarray(batch.response, dtype=np.float32).reshape(-1, 1),
+            batch_size=self._hyperparameters.get("batch_size", 10000),
+            shuffle=True,
+        )
+
     def _fit(self, batch: ModelInputBatch) -> None:
         """Train SparseGO on the batch.
 
         :param batch: Training batch with responses and cell-line/drug blocks.
         :raises ValueError: If ontology metadata is missing or network build fails.
-        :raises RuntimeError: If drug_pair_idx is None.
         """
-        import torch
-        import torch.nn as nn
-
         active_view = _resolve_active_view(batch)
         block = batch.cell_line_blocks[active_view]
         if block.metadata is None:
@@ -199,49 +231,42 @@ class SparseGOPredictor(BlockPredictor):
             dict(block.metadata)
         )
 
-        cell_entity = np.asarray(block.values, dtype=np.float32)
-        drug_entity = np.asarray(batch.drug_blocks["fingerprints"].values, dtype=np.float32)
-        cell_pair_idx = batch.cell_line_pair_idx
-        drug_pair_idx = batch.drug_pair_idx
-        if drug_pair_idx is None:
-            raise RuntimeError("drug_pair_idx is required for this predictor")
-
-        self._hyperparameters["drug_dim"] = int(drug_entity.shape[1])
+        blocks = self._entity_matrices(batch, active_view)
+        self._hyperparameters["drug_dim"] = int(blocks[1].shape[1])
         self._build_network()
         if self._model is None:
             msg = "SparseGO network build failed"
             raise ValueError(msg)
 
-        response = np.asarray(batch.response, dtype=np.float32).reshape(-1, 1)
+        self._run_training(self._model, self._build_train_loader(batch, blocks))
 
-        loader = make_pair_loader(
-            (cell_entity, cell_pair_idx),
-            (drug_entity, drug_pair_idx),
-            response=response,
-            batch_size=self._hyperparameters.get("batch_size", 10000),
-            shuffle=True,
-        )
+    def _run_training(self, model: SparseGONetwork, loader: DataLoader) -> None:
+        """Run the SGD training loop with the paper's per-epoch learning-rate decay.
+
+        :param model: The network to train.
+        :param loader: Training loader over cell-line, drug and response tensors.
+        """
+        import torch
+        import torch.nn as nn
 
         lr = self._hyperparameters.get("learning_rate", 0.1)
         decay_rate = self._hyperparameters.get("decay_rate", 0.002)
-        momentum = self._hyperparameters.get("momentum", 0.9)
-        epochs = self._hyperparameters.get("epochs", 100)
-
         criterion = nn.MSELoss()
-        optimizer = torch.optim.SGD(self._model.parameters(), lr=lr, momentum=momentum)
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=lr,
+            momentum=self._hyperparameters.get("momentum", 0.9),
+        )
 
-        self._model.train()
-        for epoch in range(epochs):
-            current_lr = lr * (1 / (1 + decay_rate * epoch))
+        model.train()
+        for epoch in range(self._hyperparameters.get("epochs", 100)):
             for param_group in optimizer.param_groups:
-                param_group["lr"] = current_lr
+                param_group["lr"] = lr * (1 / (1 + decay_rate * epoch))
 
             for cell_feats, drug_feats, batch_labels in loader:
                 batch_features = torch.cat([cell_feats, drug_feats], dim=1).to(self._device)
-                batch_labels = batch_labels.to(self._device)
                 optimizer.zero_grad()
-                outputs = self._model(batch_features)
-                loss = criterion(outputs, batch_labels)
+                loss = criterion(model(batch_features), batch_labels.to(self._device))
                 loss.backward()
                 optimizer.step()
 
@@ -251,39 +276,22 @@ class SparseGOPredictor(BlockPredictor):
         :param batch: Featurized pairs to score.
         :returns: Predicted response values as a 1D numpy array.
         :raises ValueError: If the model is not fitted.
-        :raises RuntimeError: If drug_pair_idx is None.
         """
-        import torch
-
         if self._model is None:
             raise ValueError("SparseGOPredictor must be fitted before predict().")
 
-        active_view = _resolve_active_view(batch)
-        block = batch.cell_line_blocks[active_view]
-
-        cell_entity = np.asarray(block.values, dtype=np.float32)
-        drug_entity = np.asarray(batch.drug_blocks["fingerprints"].values, dtype=np.float32)
-        cell_pair_idx = batch.cell_line_pair_idx
-        drug_pair_idx = batch.drug_pair_idx
-        if drug_pair_idx is None:
-            raise RuntimeError("drug_pair_idx is required for this predictor")
-
-        loader = make_pair_loader(
-            (cell_entity, cell_pair_idx),
-            (drug_entity, drug_pair_idx),
-            batch_size=self._hyperparameters.get("batch_size", 10000),
-            shuffle=False,
+        cell_entity, drug_entity = self._entity_matrices(batch, _resolve_active_view(batch))
+        return predict_pairs(
+            self._model,
+            batch,
+            PairEvalSpec(
+                cell_line_blocks=(cell_entity,),
+                drug_blocks=(drug_entity,),
+                batch_size=self._hyperparameters.get("batch_size", 10000),
+                device=self._device,
+            ),
+            forward=concatenated_forward(self._model),
         )
-
-        self._model.eval()
-        predictions = []
-        with torch.no_grad():
-            for cell_feats, drug_feats in loader:
-                batch_features = torch.cat([cell_feats, drug_feats], dim=1).to(self._device)
-                outputs = self._model(batch_features)
-                predictions.append(outputs.squeeze().cpu().numpy())
-
-        return np.concatenate(predictions)
 
     def is_fitted(self) -> bool:
         """Return whether the predictor has been trained.

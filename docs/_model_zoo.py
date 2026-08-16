@@ -28,18 +28,26 @@ def _featurizer_recipe(feat: FeaturizerConfig | None) -> str:
     return feat.name
 
 
+def _routes_drugs_by_identity(config: ModelConfig) -> bool:
+    """Report whether *config* is a single-drug model whose drug slot only routes.
+
+    Such a model's recipe is spelled two-part, because ``identity`` carries no
+    features of its own - it exists to hand the predictor a per-drug key.
+
+    :param config: Zoo preset to inspect.
+    :returns: ``True`` when the drug slot should be omitted from the recipe.
+    """
+    if config.scope != ModelScope.SINGLE_DRUG or config.cell_line_featurizer is None:
+        return False
+    return config.drug_featurizer is not None and config.drug_featurizer.name == "identity"
+
+
 def _model_recipe(config: ModelConfig) -> str:
     if config.cell_line_featurizer is None and config.drug_featurizer is None:
         return config.predictor.name
-    if (
-        config.scope == ModelScope.SINGLE_DRUG
-        and config.drug_featurizer is not None
-        and config.drug_featurizer.name == "identity"
-        and config.cell_line_featurizer is not None
-    ):
-        cell = _featurizer_recipe(config.cell_line_featurizer)
-        return f"{cell}:{config.predictor.name}"
     cell = _featurizer_recipe(config.cell_line_featurizer)
+    if _routes_drugs_by_identity(config):
+        return f"{cell}:{config.predictor.name}"
     drug = _featurizer_recipe(config.drug_featurizer)
     return f"{cell}:{drug}:{config.predictor.name}"
 

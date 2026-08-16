@@ -4,23 +4,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.contracts import (
-    FeatureContract,
-    FeatureFormat,
-    featurizer_contract,
-    normalize_feature_contract,
-)
-from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.contracts.hyperparameter_space import TunableComponentMixin
+from drevalpy.components.featurizers._declarations import FeaturizerDeclarationsMixin
+from drevalpy.components.featurizers._nan_tolerance import NanToleranceMixin
 from drevalpy.components.featurizers.storage import FeaturizerStorageMixin
-from drevalpy.log import get_logger
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock
+from drevalpy.types.data.batch.feature_block import FeatureBlock
 from drevalpy.types.data.feature_source import FeatureSource
-
-_logger = get_logger(__name__)
 
 
 class HPOStrategy(Enum):
@@ -30,7 +24,13 @@ class HPOStrategy(Enum):
     PRECOMPUTED = "precomputed"
 
 
-class Featurizer(FeaturizerStorageMixin, ABC):
+class Featurizer(
+    FeaturizerStorageMixin,
+    FeaturizerDeclarationsMixin,
+    NanToleranceMixin,
+    TunableComponentMixin,
+    ABC,
+):
     """Transform feature tables into per-entity representation payloads.
 
     Cell-line featurizers consume cell-line features; drug featurizers consume
@@ -45,37 +45,16 @@ class Featurizer(FeaturizerStorageMixin, ABC):
 
     ``contract`` may be declared on the class body or passed to ``@register``. When
     both are given the decorator argument wins.
+
+    What is left in this class is the fit/transform contract itself. The concerns
+    that reach none of it live in mixins: the class-body declarations in
+    ``_declarations.py``, the NaN policy the public methods below bracket their
+    subclass hooks with in ``_nan_tolerance.py``, the pre-computed variant store
+    in ``storage.py``, and the HPO-space and checkpoint hooks it shares verbatim
+    with ``Predictor`` in ``contracts/hyperparameter_space.py``.
     """
 
-    contract: ClassVar[FeatureContract]
-    precompute: ClassVar[bool] = False
-    requires_view: ClassVar[bool] = False
-    entity_id_only: ClassVar[bool] = False
-    input_views: ClassVar[tuple[str, ...] | None] = None
-    source_views: ClassVar[tuple[str, ...] | None] = None
     hpo_strategy: ClassVar[HPOStrategy] = HPOStrategy.CONTINUOUS
-    nan_threshold: ClassVar[float] = 0.2
-
-    def __init_subclass__(cls, **kwargs: object) -> None:
-        """Normalize a class-body ``contract`` declaration, if there is one.
-
-        A ``FeatureFormat`` shorthand is widened to a ``FeatureContract`` so the
-        class body and the ``@register`` argument accept the same spellings.
-        Subclasses that declare nothing are registered with the decorator's
-        ``contract=`` instead.
-
-        :param kwargs: Forwarded to ``ABC.__init_subclass__``.
-        :raises TypeError: If a class-body ``contract`` is neither a
-            ``FeatureContract`` nor a ``FeatureFormat``.
-        """
-        super().__init_subclass__(**kwargs)
-        if "contract" not in cls.__dict__:
-            return
-        try:
-            cls.contract = normalize_feature_contract(cls.__dict__["contract"])
-        except TypeError as exc:
-            msg = f"{cls.__name__}: class-body contract is invalid: {exc}"
-            raise TypeError(msg) from exc
 
     # ------------------------------------------------------------------
     # Public fit / transform with NaN tolerance
@@ -208,99 +187,6 @@ class Featurizer(FeaturizerStorageMixin, ABC):
             return np.empty((len(entity_ids), 0), dtype=np.float32)
         return np.concatenate(arrays, axis=1)
 
-    # ------------------------------------------------------------------
-    # NaN detection and expansion helpers
-    # ------------------------------------------------------------------
-
-    def _expand_blocks_with_nan(
-        self,
-        valid_blocks: dict[str, FeatureBlock],
-        valid_mask: np.ndarray,
-        n_total: int,
-    ) -> dict[str, FeatureBlock]:
-        """Expand valid-only blocks back to full size, inserting NaN for invalid rows.
-
-        Non-entity-aligned blocks are passed through unchanged.
-
-        :param valid_blocks: Blocks computed on only valid entity IDs.
-        :param valid_mask: Boolean mask of shape ``(n_total,)`` (True = valid).
-        :param n_total: Total number of entities (valid + invalid).
-        :returns: Blocks aligned to the full set of entity IDs.
-        """
-        expanded: dict[str, FeatureBlock] = {}
-        for name, block in valid_blocks.items():
-            if not block.entity_aligned:
-                expanded[name] = block
-                continue
-            if block.format == FeatureFormat.NUMERIC_MATRIX:
-                full = np.full((n_total, block.values.shape[1]), np.nan, dtype=np.float32)
-                full[valid_mask] = block.values
-                expanded[name] = FeatureBlock(
-                    values=full,
-                    format=block.format,
-                    feature_names=block.feature_names,
-                    metadata=block.metadata,
-                    entity_aligned=True,
-                )
-            else:
-                full = np.empty(n_total, dtype=object)
-                full[:] = None
-                full[valid_mask] = block.values
-                expanded[name] = FeatureBlock(
-                    values=full,
-                    format=block.format,
-                    feature_names=block.feature_names,
-                    metadata=block.metadata,
-                    entity_aligned=True,
-                )
-        return expanded
-
-    def _detect_valid(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return a boolean mask indicating which entities have non-NaN features.
-
-        Default: entity_id_only featurizers treat all as valid; view-based
-        featurizers check the first input view for all-NaN rows.
-
-        :param source: Feature source.
-        :param entity_ids: Entity IDs to check.
-        :returns: Boolean array of shape ``(len(entity_ids),)``.
-        """
-        if self.entity_id_only:
-            return np.ones(len(entity_ids), dtype=bool)
-
-        view = getattr(self, "_view", None)
-        if view is None and self.input_views:
-            view = self.input_views[0]
-        if view is None:
-            return np.ones(len(entity_ids), dtype=bool)
-
-        try:
-            matrix = source.get_view_matrix(view, entity_ids)
-        except (KeyError, TypeError, ValueError):
-            return np.ones(len(entity_ids), dtype=bool)
-
-        if matrix.ndim != 2 or matrix.dtype.kind not in ("f", "i", "u"):
-            return np.ones(len(entity_ids), dtype=bool)
-
-        return ~np.all(np.isnan(matrix), axis=1)
-
-    def _warn_if_above_threshold(self, valid_mask: np.ndarray, context: str) -> None:
-        """Log a warning when the fraction of invalid entities exceeds the threshold.
-
-        :param valid_mask: Boolean array (True = valid).
-        :param context: Human-readable label for the warning message.
-        """
-        if len(valid_mask) == 0:
-            return
-        invalid_frac = 1.0 - valid_mask.mean()
-        if invalid_frac > self.nan_threshold:
-            _logger.warning(
-                "%s: %.0f%% of inputs are invalid (threshold: %.0f%%)",
-                context,
-                invalid_frac * 100,
-                self.nan_threshold * 100,
-            )
-
     @property
     @abstractmethod
     def output_dim(self) -> int:
@@ -308,84 +194,3 @@ class Featurizer(FeaturizerStorageMixin, ABC):
 
         :returns: Result.
         """
-
-    @classmethod
-    def output_block_specs_for_config(cls, config: Any) -> tuple[BlockSpec, ...]:
-        """Return named output blocks for a featurizer config node.
-
-        Declared ``output_block_specs`` win when present; otherwise a single
-        block named after the configured (or single declared input) view is emitted.
-
-        :param config: Featurizer config with optional ``view`` / ``hyperparameters``.
-        :returns: Block specs emitted by this featurizer under *config*.
-        """
-        declared = getattr(cls, "output_block_specs", ())
-        if declared:
-            return tuple(spec for spec in declared if isinstance(spec, BlockSpec))
-        view = getattr(config, "view", None)
-        if not isinstance(view, str):
-            view = cls.input_views[0] if cls.input_views else None
-        if isinstance(view, str):
-            return (BlockSpec(view, featurizer_contract(cls).format),)
-        return ()
-
-    @classmethod
-    def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
-        """Return the raw feature views this featurizer reads under *kwargs*.
-
-        An explicit ``view`` kwarg always wins, which covers view-parameterized
-        featurizers such as ``raw`` and ``pca``. Otherwise the declared
-        ``input_views`` are used. Featurizers whose input depends on other
-        hyperparameters override this hook.
-
-        :param kwargs: Featurizer construction / loader kwargs from the model config.
-        :returns: Raw view names required from disk, empty when only entity ids are needed.
-        :raises TypeError: If the views cannot be determined from *kwargs* and the class body.
-        """
-        view = kwargs.get("view")
-        if isinstance(view, str) and view.strip():
-            return (view,)
-        if cls.input_views is not None:
-            return cls.input_views
-        if cls.entity_id_only:
-            return ()
-        if cls.requires_view:
-            msg = f"{cls.__name__} requires an explicit view; pass view= to resolve_input_views"
-            raise TypeError(msg)
-        msg = (
-            f"{cls.__name__}: declare input_views on the class body, set requires_view/entity_id_only, "
-            "or override resolve_input_views"
-        )
-        raise TypeError(msg)
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return tunable hyperparameter specs for HPO.
-
-        :returns: Mapping of parameter name to Ray Tune-style spec dicts.
-        """
-        return {}
-
-    @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return default hyperparameter values from the HP space.
-
-        :returns: Parameter names mapped to their declared ``default`` values.
-        """
-        space = cls.get_hyperparameter_space()
-        validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")
-        return {key: spec["default"] for key, spec in space.items()}
-
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state for checkpoint persistence.
-
-        :returns: JSON-serializable mapping of fitted attributes.
-        """
-        return {}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted state produced by ``get_state``.
-
-        :param state: Mapping previously returned by ``get_state``.
-        """
-        _ = state

@@ -178,9 +178,6 @@ class LandmarkGenesFeaturizer(DenseViewCellLineFeaturizer):
         }
 
     def _restore_landmark_identity(self, state: dict[str, object]) -> None:
-        view = state.get("view")
-        if isinstance(view, str):
-            self._view = view
         stem = state.get("gene_list_stem")
         if isinstance(stem, str):
             self._gene_list_stem = stem
@@ -203,13 +200,9 @@ class LandmarkGenesFeaturizer(DenseViewCellLineFeaturizer):
         minmax = state.get("minmax")
         if isinstance(minmax, MinMaxScaler) or minmax is None:
             self._minmax = minmax
-        output_dim = state.get("output_dim")
-        if isinstance(output_dim, int):
-            self._output_dim = output_dim
-        elif self._gene_indices:
+        self._restore_dense_state(state)
+        if not isinstance(state.get("output_dim"), int) and self._gene_indices:
             self._output_dim = len(self._gene_indices)
-        if state.get("fitted"):
-            self._is_fitted = True
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.

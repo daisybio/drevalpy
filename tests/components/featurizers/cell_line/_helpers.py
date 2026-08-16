@@ -44,3 +44,44 @@ def precomputed_source(
         side=featurizer_cls.side,
     )
     return CellLineFeatureSource(dataset, dataset.cell_line_ids)
+
+
+def assert_uses_precomputed_variant(
+    featurizer,
+    *,
+    ids_kwarg: str = "entity_ids",
+    hyperparameters: dict[str, object] | None = None,
+    expect_output_dim: bool = True,
+    expected_blocks: tuple[str, ...] | None = None,
+) -> None:
+    """Assert *featurizer* serves a stored matrix rather than recomputing one.
+
+    Every dense cell-line featurizer takes the identical ``fetch``-hit path, so
+    this assertion was written out once per featurizer. What actually differs per
+    featurizer is captured in the keyword arguments: which keyword its ``fit``
+    names the entity IDs with, whether it forwards its own hyperparameters to
+    ``fetch``, whether ``output_dim`` follows the stored width, and which blocks
+    ``transform_blocks`` is expected to emit.
+
+    :param featurizer: Unfitted featurizer instance to exercise.
+    :param ids_kwarg: ``fit`` keyword carrying the entity IDs.
+    :param hyperparameters: HP setting the stored variant is registered under.
+    :param expect_output_dim: Assert ``output_dim`` equals the stored width.
+    :param expected_blocks: When given, also assert ``transform_blocks`` returns
+        exactly these block names, each carrying the stored matrix.
+    """
+    source = precomputed_source(type(featurizer), hyperparameters=hyperparameters)
+    ids = source.identifiers
+
+    featurizer.fit(source, **{ids_kwarg: ids})
+
+    if expect_output_dim:
+        assert featurizer.output_dim == PRECOMPUTED.shape[1]
+    np.testing.assert_allclose(featurizer.transform(source, ids), PRECOMPUTED)
+
+    if expected_blocks is None:
+        return
+    blocks = featurizer.transform_blocks(source, ids)
+    assert set(blocks) == set(expected_blocks)
+    for name in expected_blocks:
+        np.testing.assert_allclose(blocks[name].values, PRECOMPUTED)

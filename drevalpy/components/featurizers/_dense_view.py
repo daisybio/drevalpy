@@ -162,6 +162,25 @@ class DenseViewFeaturizer(Featurizer):
             msg = f"{type(self).__name__} must be fit before transform"
             raise RuntimeError(msg)
 
+    def _restore_dense_state(self, state: dict[str, object]) -> None:
+        """Restore the three fields every dense subclass writes in ``get_state``.
+
+        ``view``, ``output_dim`` and the ``fitted`` flag are set by ``__init__``
+        here, not by any subclass, so every subclass ``set_state`` was repeating
+        the same three type-guarded reads around its own one fitted object. A key
+        the subclass does not write is simply absent and leaves the field alone.
+
+        :param state: Mapping previously returned by ``get_state``.
+        """
+        view = state.get("view")
+        if isinstance(view, str):
+            self._view = view
+        output_dim = state.get("output_dim")
+        if isinstance(output_dim, int):
+            self._output_dim = output_dim
+        if state.get("fitted"):
+            self._is_fitted = True
+
     def _fit(
         self,
         source: FeatureSource,

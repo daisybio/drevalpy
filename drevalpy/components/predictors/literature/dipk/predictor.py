@@ -9,24 +9,28 @@ invocation. See ``tests/test_import_cost_policy.py``.
 
 from __future__ import annotations
 
-import secrets
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from upath import UPath as Path
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.literature._early_stopping import (
+    EarlyStoppingRun,
+    train_with_early_stopping,
+)
 from drevalpy.components.predictors.literature._metadata import DIPK_REFERENCE
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.utils.torch_io import load_state_dict, save_state_dict, save_torch_payload
+from drevalpy.utils.torch_io import load_state_dict, save_state_dict
 
 if TYPE_CHECKING:
     import torch
+    from torch import nn, optim
+    from torch.utils.data import DataLoader
 
     from .model_utils import Predictor as DIPKNetwork
 
@@ -133,16 +137,13 @@ class DIPKPredictor(BlockPredictor):
             samples.append(sample)
         return samples
 
-    def _fit(self, batch: ModelInputBatch) -> None:
-        """Train the DIPK model on a batch of pairs.
+    def _build_loaders(self, batch: ModelInputBatch) -> tuple[DataLoader, DataLoader]:
+        """Build the training and early-stopping loaders.
 
-        :param batch: Featurized batch with gene_expression, bionic_features, molgnet_features blocks.
+        :param batch: Featurized training batch.
+        :returns: Tuple of ``(train_loader, es_loader)``.
         :raises ValueError: If drug features or early stopping data is missing.
         """
-        import torch
-        from torch import nn, optim
-        from torch.utils.data import DataLoader
-
         if batch.drug_pair_idx is None:
             msg = "DIPK requires drug features"
             raise ValueError(msg)
@@ -150,13 +151,6 @@ class DIPKPredictor(BlockPredictor):
             msg = "DIPK requires early stopping data"
             raise ValueError(msg)
 
-        self._model = self._build_model()
-        hp = self._hyperparameters
-
-        loss_func = nn.MSELoss()
-        optimizer = optim.Adam(self._model.parameters(), lr=hp["lr"])
-
-        # Build training samples
         train_samples = self._build_samples(
             batch.cell_line_pair_idx,
             batch.drug_pair_idx,
@@ -164,7 +158,6 @@ class DIPKPredictor(BlockPredictor):
             response=batch.response,
         )
 
-        # Build early stopping samples
         es_response = batch.early_stopping_response
         cl_pair_idx_es, drug_pair_idx_es = batch._pair_indices_for(es_response)
         if drug_pair_idx_es is None:
@@ -177,94 +170,112 @@ class DIPKPredictor(BlockPredictor):
             response=es_response.response,
         )
 
-        collate_train = _CollateFn(train=True)
-        collate_val = _CollateFn(train=True)
-        train_loader: DataLoader = DataLoader(
-            _DIPKDataset(train_samples),
-            batch_size=hp["batch_size"],
-            shuffle=True,
-            collate_fn=collate_train,
-        )
-        es_loader: DataLoader = DataLoader(
-            _DIPKDataset(es_samples),
-            batch_size=hp["batch_size"],
-            shuffle=True,
-            collate_fn=collate_val,
+        return (
+            self._loader(train_samples, train=True, shuffle=True),
+            self._loader(es_samples, train=True, shuffle=True),
         )
 
-        best_val_loss = float("inf")
-        epochs_without_improvement = 0
+    def _loader(self, samples: list[dict[str, torch.Tensor]], *, train: bool, shuffle: bool) -> DataLoader:
+        """Wrap *samples* in a padding-collated DataLoader.
 
-        checkpoint_dir = Path(batch.training_context.checkpoint_dir)
-        checkpoint_dir.mkdir(parents=True, exist_ok=True)
-        version = "version-" + "".join([secrets.choice("0123456789abcdef") for _ in range(20)])
-        checkpoint_path = checkpoint_dir / f"{version}_best_DIPK_model.pth"
+        :param samples: Per-sample dictionaries from :meth:`_build_samples`.
+        :param train: Whether the collated batches carry target values.
+        :param shuffle: Whether to shuffle each epoch.
+        :returns: A DataLoader over the samples.
+        """
+        from torch.utils.data import DataLoader
 
-        for _epoch in range(hp["epochs"]):
-            self._model.train()
-            epoch_loss = 0.0
-            batch_count = 0
+        return DataLoader(
+            _DIPKDataset(samples),
+            batch_size=self._hyperparameters["batch_size"],
+            shuffle=shuffle,
+            collate_fn=_CollateFn(train=train),
+        )
 
-            for dl_batch in train_loader:
-                drug_features = dl_batch["molgnet_features"].to(self._device)
-                gene_features = dl_batch["gene_features"].to(self._device)
-                bionic_features = dl_batch["bionic_features"].to(self._device)
-                molgnet_mask = dl_batch["molgnet_mask"].to(self._device)
-                ic50_values = dl_batch["ic50_values"].to(self._device)
+    def _fit(self, batch: ModelInputBatch) -> None:
+        """Train the DIPK model on a batch of pairs.
 
-                prediction = self._model(
-                    molgnet_drug_features=drug_features,
-                    gene_expression=gene_features,
-                    bionic=bionic_features,
-                    molgnet_mask=molgnet_mask,
-                )
-                loss = loss_func(torch.squeeze(prediction), torch.squeeze(ic50_values))
+        :param batch: Featurized batch with gene_expression, bionic_features, molgnet_features blocks.
+        """
+        from torch import nn, optim
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+        train_loader, es_loader = self._build_loaders(batch)
 
-                epoch_loss += loss.detach().item()
+        model = self._build_model()
+        self._model = model
+        hp = self._hyperparameters
+
+        loss_func = nn.MSELoss()
+        optimizer = optim.Adam(model.parameters(), lr=hp["lr"])
+
+        train_with_early_stopping(
+            model,
+            EarlyStoppingRun(
+                epochs=hp["epochs"],
+                patience=hp["patience"],
+                checkpoint_dir=batch.training_context.checkpoint_dir,
+                model_name="DIPK",
+            ),
+            train_epoch=lambda: self._run_epoch(model, train_loader, loss_func, optimizer),
+            val_epoch=lambda: self._run_epoch(model, es_loader, loss_func, None),
+            device=self._device,
+        )
+
+    def _run_epoch(
+        self,
+        model: DIPKNetwork,
+        loader: DataLoader,
+        loss_func: nn.Module,
+        optimizer: optim.Optimizer | None,
+    ) -> float:
+        """Run one train or validation epoch.
+
+        :param model: The DIPK network.
+        :param loader: Training or validation loader.
+        :param loss_func: Loss function.
+        :param optimizer: Optimizer for training; ``None`` for eval-only.
+        :returns: Mean epoch loss.
+        """
+        import torch
+
+        is_training = optimizer is not None
+        if is_training:
+            model.train()
+        else:
+            model.eval()
+
+        epoch_loss = 0.0
+        batch_count = 0
+        context = torch.enable_grad() if is_training else torch.no_grad()
+        with context:
+            for dl_batch in loader:
+                prediction = self._forward(model, dl_batch)
+                loss = loss_func(torch.squeeze(prediction), torch.squeeze(dl_batch["ic50_values"].to(self._device)))
+
+                if optimizer is not None:
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    epoch_loss += loss.detach().item()
+                else:
+                    epoch_loss += loss.item()
                 batch_count += 1
 
-            epoch_loss /= batch_count
+        return epoch_loss / max(batch_count, 1)
 
-            # Validation phase
-            self._model.eval()
-            val_loss = 0.0
-            val_batch_count = 0
-            with torch.no_grad():
-                for dl_batch in es_loader:
-                    drug_features = dl_batch["molgnet_features"].to(self._device)
-                    gene_features = dl_batch["gene_features"].to(self._device)
-                    bionic_features = dl_batch["bionic_features"].to(self._device)
-                    molgnet_mask = dl_batch["molgnet_mask"].to(self._device)
-                    ic50_values = dl_batch["ic50_values"].to(self._device)
+    def _forward(self, model: DIPKNetwork, dl_batch: dict[str, torch.Tensor]) -> torch.Tensor:
+        """Move one collated batch onto the device and run the network.
 
-                    prediction = self._model(
-                        molgnet_drug_features=drug_features,
-                        gene_expression=gene_features,
-                        bionic=bionic_features,
-                        molgnet_mask=molgnet_mask,
-                    )
-                    loss = loss_func(torch.squeeze(prediction), torch.squeeze(ic50_values))
-                    val_loss += loss.item()
-                    val_batch_count += 1
-
-            val_loss /= val_batch_count
-
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                epochs_without_improvement = 0
-                save_torch_payload(self._model.state_dict(), checkpoint_path)
-            else:
-                epochs_without_improvement += 1
-                if epochs_without_improvement >= hp["patience"]:
-                    break
-
-        # Reload best model
-        self._model.load_state_dict(load_state_dict(checkpoint_path, map_location=self._device))
-        self._model.to(self._device)
+        :param model: The DIPK network.
+        :param dl_batch: One collated batch from the loader.
+        :returns: The network's raw output.
+        """
+        return model(
+            molgnet_drug_features=dl_batch["molgnet_features"].to(self._device),
+            gene_expression=dl_batch["gene_features"].to(self._device),
+            bionic=dl_batch["bionic_features"].to(self._device),
+            molgnet_mask=dl_batch["molgnet_mask"].to(self._device),
+        )
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Run DIPK inference on the given batch.
@@ -274,7 +285,6 @@ class DIPKPredictor(BlockPredictor):
         :raises ValueError: If drug pair indices are missing.
         """
         import torch
-        from torch.utils.data import DataLoader
 
         if self._model is None:
             return np.full(batch.n_pairs, np.nan, dtype=np.float64)
@@ -282,41 +292,19 @@ class DIPKPredictor(BlockPredictor):
             msg = "DIPK requires drug features for prediction"
             raise ValueError(msg)
 
-        samples = self._build_samples(
-            batch.cell_line_pair_idx,
-            batch.drug_pair_idx,
-            batch,
-        )
-
-        collate = _CollateFn(train=False)
-        test_loader: DataLoader = DataLoader(
-            _DIPKDataset(samples),
-            batch_size=self._hyperparameters["batch_size"],
-            shuffle=False,
-            collate_fn=collate,
-        )
+        samples = self._build_samples(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
+        test_loader = self._loader(samples, train=False, shuffle=False)
 
         self._model.eval()
-        predictions: list[float] = []
+        chunks: list[np.ndarray] = []
         with torch.no_grad():
             for dl_batch in test_loader:
-                drug_features = dl_batch["molgnet_features"].to(self._device)
-                gene_features = dl_batch["gene_features"].to(self._device)
-                bionic_features = dl_batch["bionic_features"].to(self._device)
-                molgnet_mask = dl_batch["molgnet_mask"].to(self._device)
+                prediction = self._forward(self._model, dl_batch)
+                chunks.append(prediction.detach().cpu().numpy().reshape(-1))
 
-                prediction = self._model(
-                    molgnet_drug_features=drug_features,
-                    gene_expression=gene_features,
-                    bionic=bionic_features,
-                    molgnet_mask=molgnet_mask,
-                )
-                if prediction.numel() > 1:
-                    predictions += torch.squeeze(prediction).cpu().tolist()
-                else:
-                    predictions += [prediction.item()]
-
-        return np.asarray(predictions)
+        if not chunks:
+            return np.empty(0, dtype=np.float64)
+        return np.concatenate(chunks).astype(np.float64)
 
     def is_fitted(self) -> bool:
         """Return whether the model has been trained.

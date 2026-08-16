@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import Section, Visualization
+from drevalpy.visualization.base import PlotlyVisualization, Section
+from drevalpy.visualization.plots._utils import runs_frame
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
-    import pandas as pd
     import plotly.graph_objects as go
 
     from drevalpy.types.results import ExperimentResult
@@ -46,35 +45,12 @@ def _is_finite(value: float) -> bool:
         return False
 
 
-def _build_df_from_experiment(result: ExperimentResult) -> pd.DataFrame:
-    import pandas as pd
-
-    """Build a flat DataFrame from an ExperimentResult.
-
-    Columns: algorithm, rand_setting, test_mode, CV_split, and one column per metric.
-    """
-    rows: list[dict] = []
-    for model in result.models:
-        for run in model.runs:
-            row: dict = {
-                "algorithm": run.model_name,
-                "rand_setting": (
-                    f"{run.randomization[0]}_{run.randomization[1]}" if run.randomization else "predictions"
-                ),
-                "test_mode": result.split_mode,
-                "CV_split": run.fold_index,
-            }
-            row.update(run.metrics)
-            rows.append(row)
-    return pd.DataFrame(rows)
-
-
 @register(
     "violin",
     "Violin plots of evaluation metrics across CV folds",
     requirements=frozenset({PlotRequirement.MULTIPLE_FOLDS}),
 )
-class ViolinVisualization(Visualization):
+class ViolinVisualization(PlotlyVisualization):
     """Violin plot showing metric distributions across folds per model."""
 
     def __init__(self) -> None:
@@ -89,7 +65,7 @@ class ViolinVisualization(Visualization):
         """
         import plotly.graph_objects as go
 
-        df = _build_df_from_experiment(result).sort_index()
+        df = runs_frame(result).sort_index()
         df["box"] = df["algorithm"] + "_" + df["rand_setting"] + "_" + df["test_mode"]
         df = df.dropna(axis=1, how="all")
 
@@ -120,15 +96,6 @@ class ViolinVisualization(Visualization):
                 sample_name = f"{model.model_name}_fold{run.fold_index}"
                 self._data[sample_name] = dict(run.metrics)
 
-    def to_png(self, path: str | Path) -> None:
-        """Render violin plot to a static PNG.
-
-        :param path: Output file path.
-        """
-        if self._fig is None:
-            raise RuntimeError("Call compute() before to_png()")
-        self._fig.write_image(str(path))
-
     def to_multiqc(self) -> list[Section]:
         """Return a MultiQC violin Section using native violin plot API."""
         if self._data is None:
@@ -153,9 +120,3 @@ class ViolinVisualization(Visualization):
                 plot=plot,
             )
         ]
-
-    def show(self) -> None:
-        """Display the violin plot in a Jupyter notebook."""
-        if self._fig is None:
-            raise RuntimeError("Call compute() before show()")
-        self._fig.show()

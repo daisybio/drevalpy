@@ -9,14 +9,12 @@ the density structure that overplotting hides, from two float arrays.
 
 from __future__ import annotations
 
-import base64
-from io import BytesIO
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import ImageVisualization, Section
+from drevalpy.visualization.base import ImageVisualization, Section, embedded_png_html
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -153,9 +151,6 @@ class RegressionScatterVisualization(ImageVisualization):
         """
         if self._fig is None or self._result is None:
             raise RuntimeError("Call compute() before to_multiqc()")
-        buf = BytesIO()
-        self._fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
-        b64 = base64.b64encode(buf.getvalue()).decode()
         return [
             Section(
                 name=f"Regression density: {self._result.model_name}",
@@ -164,6 +159,6 @@ class RegressionScatterVisualization(ImageVisualization):
                     f"Predicted vs. ground-truth values for {self._result.model_name} "
                     f"across {self._result.n_folds} fold(s), binned by density."
                 ),
-                content=f'<img src="data:image/png;base64,{b64}" style="max-width:100%" />',
+                content=embedded_png_html(self._fig),
             )
         ]

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureContract, normalize_feature_contract
-from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.contracts.hyperparameter_space import TunableComponentMixin
 from drevalpy.log import get_logger
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 _logger = get_logger(__name__)
 
 
-class Predictor(ABC):
+class Predictor(TunableComponentMixin, ABC):
     """Train and predict drug response from a ``ModelInputBatch``.
 
     Predictors take featurizer outputs and predict a response for each drug/cell-line pair in the batch.
@@ -28,6 +28,10 @@ class Predictor(ABC):
 
     ``cell_line_contract`` and ``drug_contract`` may be declared on the class body or
     passed to ``@register``. When both are given the decorator argument wins.
+
+    The HPO-space and checkpoint hooks come from ``TunableComponentMixin`` in
+    ``contracts/hyperparameter_space.py``, which ``Featurizer`` mixes in as well;
+    ``is_fitted`` below is predictor-only and stays here.
     """
 
     cell_line_contract: ClassVar[FeatureContract]
@@ -70,24 +74,6 @@ class Predictor(ABC):
             **self.get_default_hyperparameters(),
             **(hyperparameters or {}),
         }
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return tunable hyperparameter specs for HPO.
-
-        :returns: Mapping of parameter name to Ray Tune-style spec dicts.
-        """
-        return {}
-
-    @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return default hyperparameter values from the HP space.
-
-        :returns: Parameter names mapped to their declared ``default`` values.
-        """
-        space = cls.get_hyperparameter_space()
-        validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")
-        return {key: spec["default"] for key, spec in space.items()}
 
     def fit(self, batch: ModelInputBatch) -> None:
         """Validate the batch, filter NaN pairs, and delegate to ``_fit``.
@@ -178,20 +164,6 @@ class Predictor(ABC):
                 invalid_frac * 100,
                 self.nan_threshold * 100,
             )
-
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state for checkpoint persistence.
-
-        :returns: JSON-serializable mapping of fitted attributes.
-        """
-        return {}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted state from a checkpoint produced by ``get_state``.
-
-        :param state: Mapping previously returned by ``get_state``.
-        """
-        _ = state
 
     def is_fitted(self) -> bool:
         """Return whether the predictor has been fit.

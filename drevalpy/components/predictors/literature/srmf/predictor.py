@@ -108,10 +108,9 @@ class SRMFPredictor(BlockPredictor):
         """Fit the SRMF model on training data.
 
         :param batch: Training batch with gene_expression and fingerprints blocks.
-        :raises ValueError: If drug features or response data is missing.
+        :raises ValueError: If drug features are missing.
         """
         import pandas as pd
-        from scipy.spatial.distance import jaccard
 
         cell_lines = batch.cell_line_entity_ids
         drugs = batch.drug_entity_ids
@@ -119,55 +118,16 @@ class SRMFPredictor(BlockPredictor):
             msg = "SRMF requires drug features"
             raise ValueError(msg)
 
-        cell_line_features = batch.cell_line_blocks["gene_expression"].values
-        drug_features = batch.drug_blocks["fingerprints"].values
+        response_matrix = self._response_matrix(batch, cell_lines, drugs)
+        observed = ~np.isnan(response_matrix)
+        response_matrix_filled = np.where(observed, response_matrix, 0.0)
 
-        # Drug similarity: Jaccard on binary fingerprints
-        n_drugs = len(drugs)
-        drug_similarity = np.zeros((n_drugs, n_drugs), dtype=np.float64)
-        for i in range(n_drugs):
-            drug_similarity[i, i] = 1.0
-            for j in range(i + 1, n_drugs):
-                sim = 1.0 - jaccard(drug_features[i], drug_features[j])
-                drug_similarity[i, j] = sim
-                drug_similarity[j, i] = sim
-
-        # Cell-line similarity: Pearson correlation
-        cell_line_similarity = np.corrcoef(cell_line_features, rowvar=True)
-
-        # Build response matrix (cell_lines x drugs)
-        cl_id_to_idx = {str(cid): i for i, cid in enumerate(cell_lines)}
-        dr_id_to_idx = {str(did): i for i, did in enumerate(drugs)}
-
-        response_matrix = np.full((len(cell_lines), n_drugs), np.nan, dtype=np.float64)
-        if batch.response is None:
-            msg = "SRMF requires training response data"
-            raise ValueError(msg)
-        for pair_idx in range(batch.n_pairs):
-            cl_idx = cl_id_to_idx.get(str(batch.cell_line_ids[pair_idx]))
-            dr_idx = dr_id_to_idx.get(str(batch.drug_ids[pair_idx]))
-            if cl_idx is not None and dr_idx is not None:
-                # Average duplicates by accumulating then dividing
-                if np.isnan(response_matrix[cl_idx, dr_idx]):
-                    response_matrix[cl_idx, dr_idx] = batch.response[pair_idx]
-                else:
-                    # Simple running average via pandas-like approach
-                    response_matrix[cl_idx, dr_idx] = (response_matrix[cl_idx, dr_idx] + batch.response[pair_idx]) / 2
-
-        # Handle duplicate pairs more precisely with averaging
-        self._build_response_matrix_averaged(batch, cl_id_to_idx, dr_id_to_idx, response_matrix)
-
-        # Weight matrix: 1 where we have observed data
-        w = ~np.isnan(response_matrix)
-        response_matrix_filled = response_matrix.copy()
-        response_matrix_filled[np.isnan(response_matrix_filled)] = 0.0
-
-        # Train: note the transposition — _cmf expects (drugs x cell_lines)
+        # _cmf works in (drugs x cell_lines) orientation, hence the transpositions.
         best_u, best_v = self._cmf(
-            w=w.T,
+            w=observed.T,
             int_mat=response_matrix_filled.T,
-            drug_mat=drug_similarity,
-            cell_mat=cell_line_similarity,
+            drug_mat=self._drug_similarity(batch.drug_blocks["fingerprints"].values),
+            cell_mat=np.corrcoef(batch.cell_line_blocks["gene_expression"].values, rowvar=True),
         )
 
         self._best_u = pd.DataFrame(best_u, index=[str(d) for d in drugs])
@@ -175,37 +135,60 @@ class SRMFPredictor(BlockPredictor):
         self._training_mean = float(np.nanmean(batch.response))
 
     @staticmethod
-    def _build_response_matrix_averaged(
-        batch: ModelInputBatch,
-        cl_id_to_idx: dict[str, int],
-        dr_id_to_idx: dict[str, int],
-        response_matrix: np.ndarray,
-    ) -> None:
-        """Fill response_matrix with per-pair averaged responses.
+    def _drug_similarity(drug_features: np.ndarray) -> np.ndarray:
+        """Compute pairwise Jaccard similarity over binary fingerprints.
 
-        Overwrites the naive fill with proper grouped means matching old pandas logic.
+        :param drug_features: Binary fingerprint matrix, one row per drug.
+        :returns: Symmetric similarity matrix with ones on the diagonal.
+        """
+        from scipy.spatial.distance import jaccard
+
+        n_drugs = len(drug_features)
+        similarity = np.eye(n_drugs, dtype=np.float64)
+        for i in range(n_drugs):
+            for j in range(i + 1, n_drugs):
+                similarity[i, j] = similarity[j, i] = 1.0 - jaccard(drug_features[i], drug_features[j])
+        return similarity
+
+    @staticmethod
+    def _response_matrix(
+        batch: ModelInputBatch,
+        cell_lines: np.ndarray,
+        drugs: np.ndarray,
+    ) -> np.ndarray:
+        """Pivot the pair-level response into a cell-line x drug matrix.
+
+        Duplicate pairs are averaged, matching the grouped mean the original pandas
+        implementation took. Unobserved cells stay ``NaN`` so the caller can derive the
+        weight mask from them.
 
         :param batch: Training batch with response data.
-        :param cl_id_to_idx: Cell-line ID to matrix row mapping.
-        :param dr_id_to_idx: Drug ID to matrix column mapping.
-        :param response_matrix: Matrix to fill in-place.
+        :param cell_lines: Cell-line entity ids, in row order.
+        :param drugs: Drug entity ids, in column order.
+        :returns: Response matrix with ``NaN`` for unobserved pairs.
         :raises ValueError: If batch has no response data.
         """
         if batch.response is None:
             msg = "SRMF requires training response data"
             raise ValueError(msg)
+
+        cl_id_to_idx = {str(cid): i for i, cid in enumerate(cell_lines)}
+        dr_id_to_idx = {str(did): i for i, did in enumerate(drugs)}
         sums: dict[tuple[int, int], float] = {}
         counts: dict[tuple[int, int], int] = {}
         for pair_idx in range(batch.n_pairs):
             cl_idx = cl_id_to_idx.get(str(batch.cell_line_ids[pair_idx]))
             dr_idx = dr_id_to_idx.get(str(batch.drug_ids[pair_idx]))
-            if cl_idx is not None and dr_idx is not None:
-                key = (cl_idx, dr_idx)
-                sums[key] = sums.get(key, 0.0) + batch.response[pair_idx]
-                counts[key] = counts.get(key, 0) + 1
+            if cl_idx is None or dr_idx is None:
+                continue
+            key = (cl_idx, dr_idx)
+            sums[key] = sums.get(key, 0.0) + batch.response[pair_idx]
+            counts[key] = counts.get(key, 0) + 1
 
+        matrix = np.full((len(cell_lines), len(drugs)), np.nan, dtype=np.float64)
         for (ci, di), total in sums.items():
-            response_matrix[ci, di] = total / counts[(ci, di)]
+            matrix[ci, di] = total / counts[(ci, di)]
+        return matrix
 
     # ------------------------------------------------------------------
     # Predict

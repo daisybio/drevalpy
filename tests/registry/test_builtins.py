@@ -7,7 +7,7 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract
-from drevalpy.registry._builtins import ensure_predictor_registered
+from drevalpy.registry._builtins import _registry_for, ensure_predictor_registered
 from drevalpy.registry.cell_line_featurizer import (
     get as get_cell_line_featurizer,
 )
@@ -92,3 +92,54 @@ def test_naive_predictors_register_from_package() -> None:
         ensure_predictor_registered(name)
         cls = get_predictor(name)
         assert cls.registry_name == name
+
+
+class TestRegistryDispatchOnRescan:
+    """``_registry_for`` recovers a class's registry from what registration stamped on it.
+
+    This is the dispatch ``_reregister_from_module`` runs for every class in an
+    already-imported module, which is how the registries refill after a ``clear()``.
+    """
+
+    def test_a_cell_line_featurizer_goes_back_to_the_cell_line_registry(self) -> None:
+        from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
+
+        cls = get_cell_line_featurizer(list_cell_line_featurizers()[0])
+
+        assert _registry_for(cls) is cell_line_featurizer_registry
+
+    def test_a_drug_featurizer_goes_back_to_the_drug_registry(self) -> None:
+        from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
+
+        cls = get_drug_featurizer(list_drug_featurizers()[0])
+
+        assert _registry_for(cls) is drug_featurizer_registry
+
+    def test_a_predictor_goes_back_to_the_predictor_registry(self) -> None:
+        from drevalpy.registry.predictor._registry import predictor_registry
+
+        assert _registry_for(get_predictor("naiveMean")) is predictor_registry
+
+    def test_the_side_takes_precedence_over_a_predictor_contract(self) -> None:
+        """A class carrying both is a featurizer: ``side`` is only ever stamped by a featurizer registry."""
+        from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
+
+        class Ambiguous:
+            side = "drug"
+            cell_line_contract = object()
+
+        assert _registry_for(Ambiguous) is drug_featurizer_registry
+
+    def test_a_sideless_featurizer_falls_back_to_the_cell_line_registry(self) -> None:
+        from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
+
+        class Sideless:
+            contract = object()
+
+        assert _registry_for(Sideless) is cell_line_featurizer_registry
+
+    def test_a_plain_class_belongs_to_no_registry(self) -> None:
+        class NotAComponent:
+            pass
+
+        assert _registry_for(NotAComponent) is None

@@ -16,7 +16,6 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.dipk.predictor import (
     DIPKPredictor,
     _CollateFn,
@@ -27,7 +26,7 @@ from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block, ragged_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from tests.models.synthetic_fixtures import multi_drug_response
+from tests.components.predictors.literature._helpers import two_by_two_batch
 
 
 def _dipk_batch() -> ModelInputBatch:
@@ -40,20 +39,13 @@ def _dipk_batch() -> ModelInputBatch:
         np.arange(6, dtype=np.float32).reshape(3, 2),
         np.arange(4, dtype=np.float32).reshape(2, 2),
     ]
-    return ModelInputBatch.from_response(
-        multi_drug_response(),
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.empty((0, 0), dtype=np.float32),
-        drug_features=None,
-        cell_line_pair_idx=np.array([0, 0, 1, 1]),
-        drug_pair_idx=np.array([0, 1, 0, 1]),
+    return two_by_two_batch(
         cell_line_blocks={
             "gene_expression": numeric_feature_block(np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)),
             "bionic_features": numeric_feature_block(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)),
         },
         drug_blocks={"molgnet_features": ragged_feature_block(molgnet)},
-        training_context=TrainingContext(checkpoint_dir=Path(tempfile.mkdtemp())),
+        checkpoint_dir=Path(tempfile.mkdtemp()),
     )
 
 

@@ -13,6 +13,7 @@ import pytest
 from drevalpy.components.featurizers.drug.bpe_pharmaformer import BpePharmaformerDrugFeaturizer
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import DrugFeatureSource
+from tests._import_shims import block_imports
 from tests.conftest import MockFeatureSource
 
 
@@ -130,16 +131,7 @@ def test_learn_bpe_reports_missing_subword_nmt(
     drug_source: DrugFeatureSource,
     synthetic_dataset: Dataset,
 ) -> None:
-    import builtins
-
-    real_import = builtins.__import__
-
-    def _fail_on_subword_nmt(name, *args, **kwargs):
-        if name.startswith("subword_nmt"):
-            raise ImportError(name)
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", _fail_on_subword_nmt)
+    block_imports(monkeypatch, "subword_nmt")
 
     with pytest.raises(ImportError, match="subword-nmt is required"):
         BpePharmaformerDrugFeaturizer().fit(drug_source, entity_ids=synthetic_dataset.drug_ids[:2])

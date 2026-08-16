@@ -6,11 +6,12 @@ import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from io import BytesIO
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import matplotlib.figure
+    import plotly.graph_objects as go
+    from upath import UPath
 
     from drevalpy.types.data.dataset import Dataset
     from drevalpy.types.results import ExperimentResult, ModelResult
@@ -25,6 +26,32 @@ class Section:
     description: str = ""
     plot: Any = None
     content: str | None = None
+
+
+def embedded_png_html(figure: matplotlib.figure.Figure) -> str:
+    """Render *figure* as a self-contained ``<img>`` tag for a report Section.
+
+    :param figure: Figure to rasterize.
+    :returns: An ``<img>`` element carrying the PNG as a base64 data URI.
+    """
+    buffer = BytesIO()
+    figure.savefig(buffer, format="png", dpi=150, bbox_inches="tight")
+    payload = base64.b64encode(buffer.getvalue()).decode()
+    return f'<img src="data:image/png;base64,{payload}" style="max-width:100%" />'
+
+
+def require_figure(figure: Any, caller: str) -> Any:
+    """Return *figure*, rejecting the not-yet-computed state.
+
+    :param figure: The visualization's figure, ``None`` before ``compute()``.
+    :param caller: Name of the method being guarded, for the error message.
+    :returns: The figure.
+    :raises RuntimeError: If *figure* is ``None``.
+    """
+    if figure is None:
+        msg = f"Call compute() before {caller}()"
+        raise RuntimeError(msg)
+    return figure
 
 
 class Visualization(ABC):
@@ -42,7 +69,7 @@ class Visualization(ABC):
         ...
 
     @abstractmethod
-    def to_png(self, path: str | Path) -> None:
+    def to_png(self, path: str | UPath) -> None:
         """Render to a static PNG file.
 
         :param path: File path for the output PNG.
@@ -78,34 +105,48 @@ class ImageVisualization(Visualization):
         """Create and return the matplotlib Figure."""
         ...
 
-    def to_png(self, path: str | Path) -> None:
+    def to_png(self, path: str | UPath) -> None:
         """Save the figure to a PNG file.
 
         :param path: Output file path.
         """
-        if self._fig is None:
-            raise RuntimeError("Call compute() before to_png()")
-        self._fig.savefig(str(path), dpi=150, bbox_inches="tight")
+        require_figure(self._fig, "to_png").savefig(str(path), dpi=150, bbox_inches="tight")
 
     def to_multiqc(self) -> list[Section]:
         """Embed figure as a base64-encoded PNG in a report Section."""
-        if self._fig is None:
-            raise RuntimeError("Call compute() before to_multiqc()")
-        buf = BytesIO()
-        self._fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
-        b64 = base64.b64encode(buf.getvalue()).decode()
+        figure = require_figure(self._fig, "to_multiqc")
         return [
             Section(
                 name=self.registry_name,
                 anchor=self.registry_name,
-                content=f'<img src="data:image/png;base64,{b64}" style="max-width:100%" />',
+                content=embedded_png_html(figure),
             )
         ]
 
     def show(self) -> None:
         """Display the figure in a Jupyter notebook."""
-        if self._fig is None:
-            raise RuntimeError("Call compute() before show()")
+        figure = require_figure(self._fig, "show")
         from IPython.display import display
 
-        display(self._fig)
+        display(figure)
+
+
+class PlotlyVisualization(Visualization):
+    """Base for plots whose ``compute()`` leaves a Plotly figure in ``_fig``.
+
+    Subclasses implement compute() and to_multiqc(); rendering the figure to a
+    PNG or into a notebook is the same call for every one of them.
+    """
+
+    _fig: go.Figure | None = None
+
+    def to_png(self, path: str | UPath) -> None:
+        """Render the figure to a static PNG.
+
+        :param path: Output file path.
+        """
+        require_figure(self._fig, "to_png").write_image(str(path))
+
+    def show(self) -> None:
+        """Display the figure in a Jupyter notebook."""
+        require_figure(self._fig, "show").show()
