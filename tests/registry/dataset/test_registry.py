@@ -18,7 +18,7 @@ from drevalpy.registry.dataset._models import DatasetEntry, SourceEntry
 from drevalpy.registry.dataset._registry import DatasetRegistry, dataset_registry
 
 _BUILTIN_DATASET = "GDSC1"
-_BUILTIN_SOURCE = "orakl_v2"
+_BUILTIN_SOURCE = "orakl"
 
 
 @pytest.fixture

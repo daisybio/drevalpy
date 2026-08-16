@@ -60,7 +60,7 @@ class TestBuiltinRegistry:
         assert set(_CORE_DATASETS) <= set(registry.dataset_names)
 
     def test_source_names(self) -> None:
-        assert "orakl_v2" in registry.source_names
+        assert "orakl" in registry.source_names
 
     def test_is_registered(self) -> None:
         assert registry.is_registered("GDSC1")
@@ -135,8 +135,8 @@ class TestRegistration:
             self.reg.unregister_source("NonExistent")
 
     def test_custom_overrides_builtin(self) -> None:
-        self.reg.register_source("orakl_v2", "s3://my-mirror/data")
-        assert self.reg.sources["orakl_v2"].url == "s3://my-mirror/data"
+        self.reg.register_source("orakl", "s3://my-mirror/data")
+        assert self.reg.sources["orakl"].url == "s3://my-mirror/data"
 
 
 class TestPersistence:
@@ -232,7 +232,7 @@ class TestStrRepr:
 
     def test_str_contains_source_names(self) -> None:
         output = str(registry)
-        assert "orakl_v2" in output
+        assert "orakl" in output
 
     def test_repr_equals_str(self) -> None:
         assert str(registry) == repr(registry)
