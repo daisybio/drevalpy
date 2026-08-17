@@ -15,8 +15,11 @@ correlation - drug main effects dominate the plain correlation and hide everythi
   every fold).
 * **the residual encoder** - removing the skip and the per-block residual costs 0.018. A single
   residual block was slightly better than two (+0.002 on 6 of 7 folds) and is kept as the default.
-* **the free per-drug embedding** - every drug is seen during training, so an id-indexed latent
-  captures drug behaviour that fingerprints only approximate. Removing it costs 0.004.
+* **the free per-drug embedding** - every drug seen during training gets an id-indexed latent that
+  captures drug behaviour fingerprints only approximate. Removing it costs 0.004. A drug that
+  never appears in a training batch (a leave-drug-out test drug, or a drug requested only at
+  predict time) gets no such latent - it is scored purely from its fingerprint instead of an
+  untrained one.
 * **per-cell/per-drug/global biases** - a drug-mean predictor alone reaches most of the plain
   correlation, so the model gets those main effects for free rather than spending capacity on them.
 
@@ -116,18 +119,25 @@ class _MFNet(nn.Module):
                 nn.Linear(3 * emb_dim, mlp_hidden), nn.ReLU(), nn.Dropout(dropout), nn.Linear(mlp_hidden, 1)
             )
 
-    def encode(self, x_cell: torch.Tensor, x_drug: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def encode(
+        self, x_cell: torch.Tensor, x_drug: torch.Tensor, drug_id_emb_rows: torch.Tensor | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Compute latent factors for every cell line and every drug.
 
         :param x_cell: (n_cells, cell_in_dim) cell-line features
         :param x_drug: (n_drugs, drug_in_dim) drug features
+        :param drug_id_emb_rows: (n_drugs, emb_dim) id-embedding row to add per drug, aligned with
+            ``x_drug``'s row order; defaults to this net's own embedding table, which is only
+            correct when ``x_drug`` uses the training-time drug ordering. A caller encoding a
+            different drug ordering (e.g. predict-time cross-study features) must gather the
+            right row per drug itself, using zeros for drugs that never appeared in training.
         :returns: (cell factors, drug factors)
         """
         z_cell = self.cell_encoder(x_cell)
         z_drug = self.drug_encoder(x_drug)
         if self.use_drug_id_embedding:
-            z_drug = z_drug + self.drug_id_emb.weight
+            z_drug = z_drug + (self.drug_id_emb.weight if drug_id_emb_rows is None else drug_id_emb_rows)
         return z_cell, z_drug
 
     def score_pairs(self, z_cell: torch.Tensor, z_drug: torch.Tensor) -> torch.Tensor:
@@ -159,11 +169,16 @@ class EnsembleMF(DRPModel):
         self.hyperparameters: dict[str, Any] = {}
         self.device = _select_device()
 
-        # filled in by train(), reused by predict()
+        # filled in by train(), used internally during training; predict() re-encodes fresh
+        # features instead of reusing these (see _encode_dataset).
         self._cell_id_to_idx: dict[str, int] = {}
         self._drug_id_to_idx: dict[str, int] = {}
+        self._drug_seen_mask: np.ndarray = np.array([], dtype=bool)
         self._x_cell: torch.Tensor | None = None
         self._x_drug: torch.Tensor | None = None
+        self._cell_in_dim: int = 0
+        self._drug_in_dim: int = 0
+        self._n_drugs: int = 0
         self._scaler: StandardScaler | None = None
         self.training_mean: float = 0.0
 
@@ -174,16 +189,16 @@ class EnsembleMF(DRPModel):
 
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
-        Store hyperparameters and seed the RNG.
+        Store hyperparameters.
+
+        Per-ensemble-member seeding happens inside ``train()``, scoped to a forked RNG state so
+        it cannot leak into other code sharing the process. Unlike ``experiment.seed_everything``
+        (meant to be called once at the top of a run), this model never touches the global RNG.
 
         :param hyperparameters: hyperparameter dictionary (see hyperparameters.yaml)
         """
         self.log_hyperparameters(hyperparameters)
         self.hyperparameters = dict(hyperparameters)
-        seed = int(hyperparameters.get("seed", 0))
-        if seed >= 0:
-            torch.manual_seed(seed)
-            np.random.seed(seed)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -195,7 +210,7 @@ class EnsembleMF(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list=self.hyperparameters.get("gene_list", "landmark_genes"),
+            gene_list=self.hyperparameters.get("gene_list", "gene_expression_intersection"),
             data_path=data_path,
             dataset_name=dataset_name,
         )
@@ -222,13 +237,15 @@ class EnsembleMF(DRPModel):
         [0, 1]) and ``arcsinh``. ``rank`` is worth about 0.003 within-drug correlation on CTRPv2
         leave-cell-line-out, but it ranks each gene across *every* cell line including held-out
         ones, so it is transductive - set ``arcsinh`` when the evaluation must be strictly
-        inductive. The scaler is fit on training cell lines only either way.
+        inductive (in particular, for cross-study prediction against a materially different cell
+        line cohort). The scaler is fit on training cell lines only either way.
 
         :param cell_line_input: cell-line FeatureDataset
         :param cell_ids: ordered cell-line ids (all cell lines with features)
-        :param train_ids: cell-line ids present in the training responses; empty at predict time,
-            in which case the scaler fitted during train() is reused
+        :param train_ids: cell-line ids present in the training responses; empty to reuse the
+            scaler fitted during train()
         :returns: (n_cells, n_genes) scaled feature matrix
+        :raises ValueError: if train_ids is empty and no scaler has been fit yet
         """
         mat = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=cell_ids).astype(np.float64)
         if str(self.hyperparameters.get("feature_transform", "rank")) == "rank":
@@ -237,8 +254,42 @@ class EnsembleMF(DRPModel):
             mat = np.arcsinh(mat)
         if len(train_ids) > 0:
             self._scaler = StandardScaler().fit(mat[np.isin(cell_ids, np.unique(train_ids))])
-        # train() always fits the scaler before any predict() call reaches this point
+        elif self._scaler is None:
+            raise ValueError(
+                "No fitted scaler available: train() must be called with at least one training "
+                "response whose cell line has features before the scaler can be reused."
+            )
         return cast(StandardScaler, self._scaler).transform(mat).astype(np.float32)
+
+    def _encode_dataset(
+        self, cell_line_input: FeatureDataset, drug_input: FeatureDataset, train_cell_ids: np.ndarray
+    ) -> tuple[torch.Tensor, torch.Tensor, np.ndarray, np.ndarray, dict[str, int], dict[str, int]]:
+        """
+        Build the cell/drug feature tensors and id->index maps for one feature dataset pair.
+
+        Called once in train() (fitting the scaler on train_cell_ids) and once per predict() call
+        (with an empty train_cell_ids, reusing the already-fitted scaler) - so predict() always
+        encodes the features it is actually handed, rather than reusing train()'s cached tensors.
+        That matters for cross-study prediction, where predict() receives a different dataset's
+        features and those must not be silently ignored in favor of stale training-time values.
+
+        :param cell_line_input: cell-line FeatureDataset to encode
+        :param drug_input: drug FeatureDataset to encode
+        :param train_cell_ids: cell-line ids to fit the scaler on; empty to reuse the existing one
+        :returns: (x_cell, x_drug, cell_ids, drug_ids, cell_id_to_idx, drug_id_to_idx)
+        """
+        cell_ids = np.unique(cell_line_input.identifiers)
+        drug_ids = np.unique(drug_input.identifiers)
+        x_cell = self._build_cell_matrix(cell_line_input, cell_ids, train_cell_ids)
+        x_drug = drug_input.get_feature_matrix(view="fingerprints", identifiers=drug_ids).astype(np.float32)
+        return (
+            torch.tensor(x_cell, device=self.device),
+            torch.tensor(x_drug, device=self.device),
+            cell_ids,
+            drug_ids,
+            {c: i for i, c in enumerate(cell_ids)},
+            {d: i for i, d in enumerate(drug_ids)},
+        )
 
     def _pairs(self, data: DrugResponseDataset) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -266,16 +317,14 @@ class EnsembleMF(DRPModel):
         :returns: a new ``_MFNet``
         """
         hp = self.hyperparameters
-        # the feature tensors are set in train() before any net is built
-        x_cell, x_drug = cast(torch.Tensor, self._x_cell), cast(torch.Tensor, self._x_drug)
         return _MFNet(
-            cell_in_dim=x_cell.shape[1],
-            drug_in_dim=x_drug.shape[1],
+            cell_in_dim=self._cell_in_dim,
+            drug_in_dim=self._drug_in_dim,
             hidden_dim=int(hp.get("hidden_dim", 256)),
             emb_dim=int(hp.get("emb_dim", 128)),
             n_layers=int(hp.get("n_layers", 1)),
             dropout=float(hp.get("dropout", 0.2)),
-            n_drugs=x_drug.shape[0],
+            n_drugs=self._n_drugs,
             use_drug_id_embedding=bool(hp.get("use_drug_id_embedding", True)),
             use_mlp_head=bool(hp.get("use_mlp_head", True)),
             mlp_hidden=int(hp.get("mlp_hidden", 256)),
@@ -298,37 +347,54 @@ class EnsembleMF(DRPModel):
         :param output_earlystopping: responses used for early stopping; a 10% split of the
             training pairs is carved out when this is None
         :param model_checkpoint_dir: unused, kept for interface compatibility
-        :raises ValueError: if drug_input is None
+        :raises ValueError: if drug_input is None; if no training pair matches the feature
+            datasets; or if output_earlystopping is non-empty but none of its pairs do
         """
         if drug_input is None:
             raise ValueError("EnsembleMF requires drug features (fingerprints).")
         hp = self.hyperparameters
         self.training_mean = float(np.nanmean(output.response))
 
-        cell_ids = np.unique(cell_line_input.identifiers)
-        drug_ids = np.unique(drug_input.identifiers)
-        self._cell_id_to_idx = {c: i for i, c in enumerate(cell_ids)}
-        self._drug_id_to_idx = {d: i for i, d in enumerate(drug_ids)}
-
-        x_cell = self._build_cell_matrix(cell_line_input, cell_ids, np.asarray(output.cell_line_ids))
-        x_drug = drug_input.get_feature_matrix(view="fingerprints", identifiers=drug_ids).astype(np.float32)
-        self._x_cell = torch.tensor(x_cell, device=self.device)
-        self._x_drug = torch.tensor(x_drug, device=self.device)
+        x_cell, x_drug, _cell_ids, drug_ids, self._cell_id_to_idx, self._drug_id_to_idx = self._encode_dataset(
+            cell_line_input, drug_input, train_cell_ids=np.asarray(output.cell_line_ids)
+        )
+        self._x_cell, self._x_drug = x_cell, x_drug
+        self._cell_in_dim, self._drug_in_dim = int(x_cell.shape[1]), int(x_drug.shape[1])
+        self._n_drugs = int(x_drug.shape[0])
 
         ci, di, y = self._pairs(output)
+        if len(y) == 0:
+            raise ValueError("No training pairs matched the cell-line/drug feature sets; there is nothing to train.")
         if output_earlystopping is not None and len(output_earlystopping) > 0:
             val = self._pairs(output_earlystopping)
+            if len(val[2]) == 0:
+                raise ValueError(
+                    "output_earlystopping was provided but none of its cell lines/drugs matched "
+                    "the feature datasets, so there is nothing to evaluate early stopping on. "
+                    "Pass a dataset that overlaps the feature sets, or omit output_earlystopping "
+                    "to fall back to the automatic 10% split of the training pairs."
+                )
         else:
             perm = torch.randperm(len(y), device=self.device)
             n_val = max(1, int(0.1 * len(y)))
             val = (ci[perm[:n_val]], di[perm[:n_val]], y[perm[:n_val]])
             ci, di, y = ci[perm[n_val:]], di[perm[n_val:]], y[perm[n_val:]]
 
+        # A drug's free id-embedding only ever receives a gradient for drugs that end up in a
+        # training batch here; predict() must not add that embedding for any other drug (see
+        # _MFNet.encode's drug_id_emb_rows).
+        self._drug_seen_mask = np.zeros(len(drug_ids), dtype=bool)
+        self._drug_seen_mask[di.unique().cpu().numpy()] = True
+
+        seed = int(hp.get("seed", 0))
         self.nets = []
         for member in range(int(hp.get("n_ensemble", 20))):
-            torch.manual_seed(int(hp.get("seed", 0)) + member)
-            net = self._build_net().to(self.device)
-            self._train_net(net, ci, di, y, val)
+            fork_devices = [self.device] if self.device.type == "cuda" else []
+            with torch.random.fork_rng(devices=fork_devices):
+                if seed >= 0:
+                    torch.manual_seed(seed + member)
+                net = self._build_net().to(self.device)
+                self._train_net(net, ci, di, y, val)
             self.nets.append(net)
 
     def _train_net(
@@ -411,35 +477,65 @@ class EnsembleMF(DRPModel):
         """
         Predict responses for (cell, drug) pairs, averaging over the ensemble.
 
-        The factors are those learned in ``train``, so pairs whose cell line or drug was not in the
-        training dataset's feature set fall back to the training mean. This makes the model
-        transductive over features, like ``SRMF``: it cannot score a cell line it has never
-        encoded, which matters for cross-study prediction.
+        Cell-line and drug factors are (re-)encoded here from ``cell_line_input``/``drug_input``
+        using the scaler fitted during ``train()`` - they are not reused from train()'s cached
+        tensors. That means a cross-study prediction call (a different dataset's features) is
+        scored on that dataset's own features rather than silently falling back to stale
+        training-study values for any id that happens to collide by name. A pair whose cell line
+        or drug is absent from the supplied feature datasets falls back to the training mean. The
+        free per-drug id embedding only ever contributes for drugs that actually appeared in a
+        training batch; every other drug - an unseen leave-drug-out test drug, or any drug from a
+        different study - is scored purely from its fingerprint.
 
         :param cell_line_ids: cell-line ids to predict
         :param drug_ids: drug ids to predict
-        :param cell_line_input: unused; factors are cached from train()
-        :param drug_input: unused; factors are cached from train()
+        :param cell_line_input: cell-line features to encode (may differ from the training
+            dataset, e.g. for cross-study prediction)
+        :param drug_input: drug features to encode
+        :raises ValueError: if drug_input is None
         :returns: (n,) predicted responses
         """
+        if drug_input is None:
+            raise ValueError("EnsembleMF requires drug features (fingerprints).")
         preds = np.full(len(cell_line_ids), self.training_mean, dtype=np.float32)
         if not self.nets:
             return preds
+
+        x_cell, x_drug, _cell_ids, drug_ids_fresh, cell_id_to_idx, drug_id_to_idx = self._encode_dataset(
+            cell_line_input, drug_input, train_cell_ids=np.array([])
+        )
+
         rows = [
-            (i, self._cell_id_to_idx[c], self._drug_id_to_idx[d])
+            (i, cell_id_to_idx[c], drug_id_to_idx[d])
             for i, (c, d) in enumerate(zip(cell_line_ids, drug_ids))
-            if c in self._cell_id_to_idx and d in self._drug_id_to_idx
+            if c in cell_id_to_idx and d in drug_id_to_idx
         ]
         if not rows:
             return preds
         idx, ci, di = (np.array(v) for v in zip(*rows))
         ci_t = torch.tensor(ci, dtype=torch.long, device=self.device)
         di_t = torch.tensor(di, dtype=torch.long, device=self.device)
-        x_cell, x_drug = cast(torch.Tensor, self._x_cell), cast(torch.Tensor, self._x_drug)
+
+        # Only add a drug's trained id-embedding row where it actually has one: the drug must
+        # both be known from training (present in _drug_id_to_idx) and have appeared in a
+        # training batch (_drug_seen_mask), not merely have had features available at train time.
+        use_emb = bool(self.nets[0].use_drug_id_embedding)
+        train_idx_for_drug = np.empty(0, dtype=np.int64)
+        seen_mask = np.empty(0, dtype=bool)
+        if use_emb:
+            train_idx_for_drug = np.array([self._drug_id_to_idx.get(d, -1) for d in drug_ids_fresh], dtype=np.int64)
+            seen_mask = train_idx_for_drug >= 0
+            seen_mask[seen_mask] = self._drug_seen_mask[train_idx_for_drug[seen_mask]]
+
         member_preds = []
         for net in self.nets:
             net.eval()
-            z_cell, z_drug = net.encode(x_cell, x_drug)
+            drug_id_emb_rows = None
+            if use_emb:
+                drug_id_emb_rows = torch.zeros(len(drug_ids_fresh), net.drug_id_emb.embedding_dim, device=self.device)
+                if seen_mask.any():
+                    drug_id_emb_rows[seen_mask] = net.drug_id_emb.weight[train_idx_for_drug[seen_mask]]
+            z_cell, z_drug = net.encode(x_cell, x_drug, drug_id_emb_rows)
             member_preds.append(net.score_pairs(z_cell[ci_t], z_drug[di_t]).cpu().numpy())
         preds[idx] = np.mean(member_preds, axis=0)
         return preds
@@ -453,16 +549,16 @@ class EnsembleMF(DRPModel):
         """
         if not self.nets:
             raise RuntimeError("No trained model to save.")
-        x_cell, x_drug = cast(torch.Tensor, self._x_cell), cast(torch.Tensor, self._x_drug)
         os.makedirs(directory, exist_ok=True)
         torch.save([net.state_dict() for net in self.nets], os.path.join(directory, "nets.pt"))  # noqa: S614
         joblib.dump(
             {
                 "hyperparameters": self.hyperparameters,
-                "cell_id_to_idx": self._cell_id_to_idx,
                 "drug_id_to_idx": self._drug_id_to_idx,
-                "x_cell": x_cell.cpu().numpy(),
-                "x_drug": x_drug.cpu().numpy(),
+                "drug_seen_mask": self._drug_seen_mask,
+                "cell_in_dim": self._cell_in_dim,
+                "drug_in_dim": self._drug_in_dim,
+                "n_drugs": self._n_drugs,
                 "scaler": self._scaler,
                 "training_mean": self.training_mean,
             },
@@ -480,12 +576,13 @@ class EnsembleMF(DRPModel):
         instance = cls()
         state = joblib.load(os.path.join(directory, "state.pkl"))
         instance.build_model(state["hyperparameters"])
-        instance._cell_id_to_idx = state["cell_id_to_idx"]
         instance._drug_id_to_idx = state["drug_id_to_idx"]
+        instance._drug_seen_mask = state["drug_seen_mask"]
+        instance._cell_in_dim = state["cell_in_dim"]
+        instance._drug_in_dim = state["drug_in_dim"]
+        instance._n_drugs = state["n_drugs"]
         instance._scaler = state["scaler"]
         instance.training_mean = state["training_mean"]
-        instance._x_cell = torch.tensor(state["x_cell"], device=instance.device)
-        instance._x_drug = torch.tensor(state["x_drug"], device=instance.device)
         # map_location: a model trained on a GPU node must still load on a CPU-only machine
         state_dicts = torch.load(os.path.join(directory, "nets.pt"), map_location=instance.device)  # noqa: S614
         instance.nets = []
