@@ -101,6 +101,7 @@ class MultiViewXGBoost(DRPModel):
             subsample=hyperparameters.get("subsample", 0.8),
             colsample_bytree=hyperparameters.get("colsample_bytree", 0.8),
             reg_alpha=hyperparameters.get("reg_alpha", 0.0),
+            reg_lambda=hyperparameters.get("reg_lambda", 1.0),
             random_state=42,
         )
 

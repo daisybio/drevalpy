@@ -12,6 +12,9 @@ def test_factory() -> None:
     assert "TOYv2" in AVAILABLE_DATASETS
     assert "CTRPv1" in AVAILABLE_DATASETS
     assert "CTRPv2" in AVAILABLE_DATASETS
+    assert "CTRPv2_clean" in AVAILABLE_DATASETS
+    assert "CTRPv2_cleaner" in AVAILABLE_DATASETS
+    assert "CTRPv2_cleanest" in AVAILABLE_DATASETS
     assert "BeatAML2" in AVAILABLE_DATASETS
     assert "PDX_Bruna" in AVAILABLE_DATASETS
-    assert len(AVAILABLE_DATASETS) == 9
+    assert len(AVAILABLE_DATASETS) == 12
