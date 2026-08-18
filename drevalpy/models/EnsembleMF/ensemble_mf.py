@@ -234,7 +234,8 @@ class EnsembleMF(DRPModel):
         :raises ValueError: if train_ids is empty and no rank reference/scaler has been fit yet
         """
         mat = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=cell_ids).astype(np.float64)
-        if str(self.hyperparameters.get("feature_transform", "rank")) == "rank":
+        feature_transform = str(self.hyperparameters.get("feature_transform", "rank"))
+        if feature_transform == "rank":
             if len(train_ids) > 0:
                 self._rank_reference = np.sort(mat[np.isin(cell_ids, np.unique(train_ids))], axis=0)
             elif self._rank_reference is None:
@@ -249,8 +250,10 @@ class EnsembleMF(DRPModel):
             for gene in range(mat.shape[1]):
                 percentile[:, gene] = np.searchsorted(reference[:, gene], mat[:, gene], side="left")
             mat = np.clip(percentile / max(1, n_reference - 1), 0.0, 1.0)
-        else:
+        elif feature_transform == "arcsinh":
             mat = np.arcsinh(mat)
+        else:
+            raise ValueError(f"Unknown feature_transform {feature_transform!r}; expected 'rank' or 'arcsinh'.")
         if len(train_ids) > 0:
             self._scaler = StandardScaler().fit(mat[np.isin(cell_ids, np.unique(train_ids))])
         elif self._scaler is None:
@@ -431,9 +434,13 @@ class EnsembleMF(DRPModel):
             for start in range(0, len(y), batch_size):
                 end = start + batch_size
                 idx = perm[start:end]
+                batch_ci, batch_di = ci[idx], di[idx]
+                uniq_ci, inv_ci = torch.unique(batch_ci, return_inverse=True)
+                uniq_di, inv_di = torch.unique(batch_di, return_inverse=True)
                 optimizer.zero_grad()
-                z_cell, z_drug = net.encode(x_cell, x_drug)
-                loss = loss_fn(net.score_pairs(z_cell[ci[idx]], z_drug[di[idx]]), y[idx])
+                drug_id_emb_rows = net.drug_id_emb.weight[uniq_di] if net.use_drug_id_embedding else None
+                z_cell, z_drug = net.encode(x_cell[uniq_ci], x_drug[uniq_di], drug_id_emb_rows)
+                loss = loss_fn(net.score_pairs(z_cell[inv_ci], z_drug[inv_di]), y[idx])
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 5.0)
                 optimizer.step()
