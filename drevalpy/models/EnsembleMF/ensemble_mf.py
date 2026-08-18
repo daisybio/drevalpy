@@ -6,27 +6,12 @@ free parameters but the outputs of small residual MLPs over cell-line and drug f
 keeps the model usable in leave-cell-line-out, where a held-out cell line has features but no
 observed responses and therefore no free factor to fit.
 
-The design is deliberately minimal. Each piece below was kept because removing it measurably hurt
-leave-cell-line-out performance on CTRPv2 (7-fold, paired per fold, measured on the *within-drug*
-correlation - drug main effects dominate the plain correlation and hide everything else):
-
-* **the ensemble** - the single largest effect. Going from 5 members to 1 costs 0.028 within-drug
-  correlation, and accuracy keeps improving up to at least 40 members (+0.008 from 5 to 20, on
-  every fold).
-* **the residual encoder** - removing the skip and the per-block residual costs 0.018. A single
-  residual block was slightly better than two (+0.002 on 6 of 7 folds) and is kept as the default.
-* **the free per-drug embedding** - every drug seen during training gets an id-indexed latent that
-  captures drug behaviour fingerprints only approximate. Removing it costs 0.004. A drug that
-  never appears in a training batch (a leave-drug-out test drug, or a drug requested only at
-  predict time) gets no such latent - it is scored purely from its fingerprint instead of an
-  untrained one.
-* **per-cell/per-drug/global biases** - a drug-mean predictor alone reaches most of the plain
-  correlation, so the model gets those main effects for free rather than spending capacity on them.
-
-Things that were tried and did *not* help, and so are absent: graph convolution over cell-line or
-drug similarity graphs (no effect across neighbourhood sizes 0-48, weighted or binary edges,
-single or multi-relational, and also under leave-tissue-out); multi-omics side information used as
-graph structure; a free per-tissue embedding; and an auxiliary within-drug ranking loss.
+On top of the dot product sit per-cell, per-drug, and global bias terms, a free per-drug id
+embedding, and a small interaction head. The id embedding is indexed by drug identity and only
+ever contributes for a drug that actually appeared in a training batch; a drug held out of
+training (leave-drug-out, or a drug requested only at predict time) is scored purely from its
+fingerprint instead of an untrained embedding. Predictions are averaged over an ensemble of
+independently initialized members.
 """
 
 import os
@@ -179,6 +164,7 @@ class EnsembleMF(DRPModel):
         self._cell_in_dim: int = 0
         self._drug_in_dim: int = 0
         self._n_drugs: int = 0
+        self._rank_reference: np.ndarray | None = None
         self._scaler: StandardScaler | None = None
         self.training_mean: float = 0.0
 
@@ -233,23 +219,36 @@ class EnsembleMF(DRPModel):
         """
         Transform and standardize the cell-line features.
 
-        ``feature_transform`` picks between ``rank`` (per-gene rank across cell lines, mapped to
-        [0, 1]) and ``arcsinh``. ``rank`` is worth about 0.003 within-drug correlation on CTRPv2
-        leave-cell-line-out, but it ranks each gene across *every* cell line including held-out
-        ones, so it is transductive - set ``arcsinh`` when the evaluation must be strictly
-        inductive (in particular, for cross-study prediction against a materially different cell
-        line cohort). The scaler is fit on training cell lines only either way.
+        ``feature_transform`` picks between ``rank`` (each gene's percentile position against a
+        reference distribution) and ``arcsinh`` (a plain pointwise transform). Both the rank
+        reference and the scaler are fit once, on training cell lines only, and reused as-is for
+        every later call - so a single new cell line (one row) is scored against that fixed
+        reference rather than against itself, and the same cell line gets the same features
+        regardless of what other cell lines happen to be requested alongside it in the same call.
 
         :param cell_line_input: cell-line FeatureDataset
         :param cell_ids: ordered cell-line ids (all cell lines with features)
         :param train_ids: cell-line ids present in the training responses; empty to reuse the
-            scaler fitted during train()
+            rank reference and scaler fitted during train()
         :returns: (n_cells, n_genes) scaled feature matrix
-        :raises ValueError: if train_ids is empty and no scaler has been fit yet
+        :raises ValueError: if train_ids is empty and no rank reference/scaler has been fit yet
         """
         mat = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=cell_ids).astype(np.float64)
         if str(self.hyperparameters.get("feature_transform", "rank")) == "rank":
-            mat = mat.argsort(axis=0).argsort(axis=0) / max(1, mat.shape[0] - 1)
+            if len(train_ids) > 0:
+                self._rank_reference = np.sort(mat[np.isin(cell_ids, np.unique(train_ids))], axis=0)
+            elif self._rank_reference is None:
+                raise ValueError(
+                    "No fitted rank reference available: train() must be called with at least "
+                    "one training response whose cell line has features before predict() can "
+                    "reuse it."
+                )
+            reference = cast(np.ndarray, self._rank_reference)
+            n_reference = reference.shape[0]
+            percentile = np.empty_like(mat)
+            for gene in range(mat.shape[1]):
+                percentile[:, gene] = np.searchsorted(reference[:, gene], mat[:, gene], side="left")
+            mat = np.clip(percentile / max(1, n_reference - 1), 0.0, 1.0)
         else:
             mat = np.arcsinh(mat)
         if len(train_ids) > 0:
@@ -559,6 +558,7 @@ class EnsembleMF(DRPModel):
                 "cell_in_dim": self._cell_in_dim,
                 "drug_in_dim": self._drug_in_dim,
                 "n_drugs": self._n_drugs,
+                "rank_reference": self._rank_reference,
                 "scaler": self._scaler,
                 "training_mean": self.training_mean,
             },
@@ -581,6 +581,7 @@ class EnsembleMF(DRPModel):
         instance._cell_in_dim = state["cell_in_dim"]
         instance._drug_in_dim = state["drug_in_dim"]
         instance._n_drugs = state["n_drugs"]
+        instance._rank_reference = state["rank_reference"]
         instance._scaler = state["scaler"]
         instance.training_mean = state["training_mean"]
         # map_location: a model trained on a GPU node must still load on a CPU-only machine
