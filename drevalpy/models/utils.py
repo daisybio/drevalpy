@@ -143,7 +143,11 @@ def load_and_select_gene_features(
             f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {missing_str}"
         )
 
-    indices_to_keep = [i for i, gene in enumerate(cl_features.meta_info[feature_type]) if gene in ordered_genes]
+    # Reorder feature values to match ordered_genes, since meta_info is relabeled to ordered_genes
+    # below and values must stay aligned with their gene names (all ordered_genes are present, per
+    # the check above).
+    source_gene_to_index = {gene: i for i, gene in enumerate(cl_features.meta_info[feature_type])}
+    indices_to_keep = [source_gene_to_index[gene] for gene in ordered_genes]
 
     cl_features.meta_info[feature_type] = np.array(ordered_genes)
 
