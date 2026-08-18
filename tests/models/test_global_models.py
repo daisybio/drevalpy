@@ -25,6 +25,7 @@ from drevalpy.models.drp_model import DRPModel
         "SimpleNeuralNetwork[chemberta]",
         "MultiViewNeuralNetwork",
         "PharmaFormer",
+        "PaccMann",
         "Precily",
         "SparseGO",
     ],
@@ -83,6 +84,9 @@ def test_global_models(
     elif model_name == "SparseGO":
         hpam_combi["epochs"] = 1
         hpam_combi["batch_size"] = 32
+    elif model_name == "PaccMann":
+        hpam_combi["epochs"] = 1
+        hpam_combi["gene_list"] = None
     elif model_name == "AdaBoostDecisionTree":
         hpam_combi["max_depth"] = 2
         hpam_combi["min_samples_split"] = 2

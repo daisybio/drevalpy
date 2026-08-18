@@ -4871,6 +4871,41 @@ train = ["fsspec", "pandas", "pyarrow (>=17.0.0)", "pydantic (>=2.13.0,<3) ; pyt
 tune = ["fsspec", "pandas", "pyarrow (>=17.0.0)", "pydantic (>=2.13.0,<3) ; python_version >= \"3.14\"", "pydantic (>=2.5.0,<3) ; python_version < \"3.14\"", "requests", "tensorboardX (>=1.9)"]
 
 [[package]]
+name = "rdkit"
+version = "2026.3.5"
+description = "A collection of chemoinformatics and machine-learning software written in C++ and Python"
+optional = true
+python-versions = "*"
+groups = ["main"]
+markers = "extra == \"paccmann\""
+files = [
+    {file = "rdkit-2026.3.5-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:ff2103456dd726fbb3f67952ae72c42026cdba46f565352f7f585741b02ba681"},
+    {file = "rdkit-2026.3.5-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:4ed70419877db5dd3f47dc10d3d4b5ab317853cfb9218499b0634854b36ed003"},
+    {file = "rdkit-2026.3.5-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:3b299c2d1e2c4da14b38fae62c650ea315468cb54b2b83a42e1eeed212f5027d"},
+    {file = "rdkit-2026.3.5-cp310-cp310-win_amd64.whl", hash = "sha256:33b7f6e604ee29e4dc426627062ecf64179acc1e7767ad00b738a4d262734f0c"},
+    {file = "rdkit-2026.3.5-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:f3b0102b8d8a2f45faf039d31440e7fcf0dcd423d1416def321e2d772b270f41"},
+    {file = "rdkit-2026.3.5-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:ed230d8d085a85aa45e02509689ea181aad3a1ddcc9aed7f03d03fede8bbee7f"},
+    {file = "rdkit-2026.3.5-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:989323fee0059fa468f408f86012e3bbd3252fa9d0355382cc22c29d1cb0cd78"},
+    {file = "rdkit-2026.3.5-cp311-cp311-win_amd64.whl", hash = "sha256:47ae231c5e8aa03359b91e9639025501cc966b17cc9d8f4ea9f0fcf14bfdb469"},
+    {file = "rdkit-2026.3.5-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:74e621083f26360ae3128b2c283def72e1729c114577c58115294b1cefe0200b"},
+    {file = "rdkit-2026.3.5-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:d6c6b167b4c795468cdd273d35a323226dddbeb204aa34350257ad26d5dfd024"},
+    {file = "rdkit-2026.3.5-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:b75944ba959d908e97b4d68754e5950216ac08aa81faf67cfd1d7a3cb5b2bad7"},
+    {file = "rdkit-2026.3.5-cp312-cp312-win_amd64.whl", hash = "sha256:b60a2b6e8e2cecd89f775c6a3e691d3dacc5ae05cf521154822e7e5a54602825"},
+    {file = "rdkit-2026.3.5-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:f56eb842b8c0716348b31fc97fe0c6581fc39d32567085f19f96bd7f51f0a96c"},
+    {file = "rdkit-2026.3.5-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:91358e266e5189c2402cc8c7df1f34688ec9e25a7235f2191b829f92fadc56df"},
+    {file = "rdkit-2026.3.5-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:04a75a048cd61ef934fd2fd474ff426f40cf22e83fe8cd038d1563d695f7e314"},
+    {file = "rdkit-2026.3.5-cp313-cp313-win_amd64.whl", hash = "sha256:91b31d4ce9f380a09fb263a882d4d8a97eee3dca54acca5b9c568d9bc859dc96"},
+    {file = "rdkit-2026.3.5-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:74c5b98da1d52e83f42ceffcc9dc91fcb0b7615eab82e9a1e736aeb4a6c1cb0e"},
+    {file = "rdkit-2026.3.5-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:7fa98cb6ad79238c7a9cf0a7b42c8abbfed659e9ab5f7b2cba9b17db2915653c"},
+    {file = "rdkit-2026.3.5-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:b79c185602aa21bdfd1f01daae7171598090ee4c4d984d5544905b5318d29288"},
+    {file = "rdkit-2026.3.5-cp314-cp314-win_amd64.whl", hash = "sha256:f0096fdc40ab259151a04933e8201d877f5d274966680c922cd63d3cffb330aa"},
+]
+
+[package.dependencies]
+numpy = "*"
+Pillow = "*"
+
+[[package]]
 name = "referencing"
 version = "0.37.0"
 description = "JSON Referencing + Python"
@@ -7000,6 +7035,7 @@ type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 
 [extras]
 multiprocessing = ["pydantic", "ray"]
+paccmann = ["rdkit"]
 precily = ["gseapy"]
 sparsego = ["mygene", "obonet"]
 xgboost = ["xgboost"]
@@ -7007,4 +7043,4 @@ xgboost = ["xgboost"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "8b4114488e9751e2bfa258bd9d4bf2fdf1964ebac8b25ce3b7520d68382f6cb4"
+content-hash = "f22f494d706a5d6aa4ba9c3398cafa6d656d4dc418087d0ad8534d6c26c478ff"

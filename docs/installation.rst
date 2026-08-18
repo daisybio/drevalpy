@@ -65,6 +65,10 @@ default ``pip install drevalpy``. They are provided as optional `extras`:
    * - ``xgboost``
      - The ``MultiViewXGBoost`` baseline model
      - ``xgboost``
+   * - ``paccmann``
+     - SMILES augmentation for the ``PaccMann`` model. Without it, PaccMann trains on the
+       unaugmented SMILES and warns.
+     - ``rdkit``
    * - ``multiprocessing``
      - Parallelized cross-validation / tuning via Ray
      - ``ray`` (and ``pydantic``, usually already present)
