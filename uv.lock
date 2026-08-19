@@ -3,31 +3,31 @@ revision = 3
 requires-python = ">=3.11, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version < '3.12' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version < '3.12' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version < '3.12' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version < '3.12' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version < '3.12' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version < '3.12' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version < '3.12' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version < '3.12' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version < '3.12' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version < '3.12' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version < '3.12' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version < '3.12' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version < '3.12' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version < '3.12' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
 ]
 conflicts = [[
@@ -230,22 +230,22 @@ version = "0.13.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
 ]
 dependencies = [
@@ -989,7 +989,7 @@ nvtx = [
 [[package]]
 name = "curve-curator"
 version = "0.6.0"
-source = { git = "https://github.com/nictru/curve_curator.git#ffa2007219a85374e55c0cd416d7d6d6183ff24a" }
+source = { git = "https://github.com/nictru/curve_curator.git#e98d052edee051732c23377f2974eb3db6ee0339" }
 dependencies = [
     { name = "bokeh" },
     { name = "numpy" },
@@ -4343,22 +4343,22 @@ version = "1.18.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
 ]
 dependencies = [
@@ -4418,22 +4418,22 @@ version = "0.1.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra == 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
     "python_full_version == '3.12.*' and sys_platform != 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra != 'extra-8-drevalpy-cu130'",
 ]
 dependencies = [
@@ -5015,10 +5015,10 @@ version = "2.13.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
-    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.12.*' and sys_platform != 'emscripten'",
+    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version < '3.12' and sys_platform != 'emscripten'",
 ]
 dependencies = [
@@ -5058,10 +5058,10 @@ version = "2.13.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
-    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'emscripten'",
+    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version < '3.12' and sys_platform != 'darwin' and sys_platform != 'emscripten'",
 ]
 dependencies = [
@@ -5097,10 +5097,10 @@ version = "2.13.0+cu126"
 source = { registry = "https://download.pytorch.org/whl/cu126" }
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
-    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.12.*' and sys_platform != 'emscripten'",
+    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version < '3.12' and sys_platform != 'emscripten'",
 ]
 dependencies = [
@@ -5137,10 +5137,10 @@ version = "2.13.0+cu130"
 source = { registry = "https://download.pytorch.org/whl/cu130" }
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
-    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.12.*' and sys_platform != 'emscripten'",
+    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version < '3.12' and sys_platform != 'emscripten'",
 ]
 dependencies = [
