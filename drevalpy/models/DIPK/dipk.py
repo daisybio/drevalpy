@@ -79,6 +79,25 @@ class DIPKModel(DRPModel):
         self.log_hyperparameters(hyperparameters)
         self.hyperparameters = hyperparameters
 
+    def _fit_gene_encoder(
+        self, train_gene_expression: np.ndarray, val_gene_expression: np.ndarray
+    ) -> GeneExpressionEncoder:
+        """
+        Fit the gene expression autoencoder on the training cell lines of the current fold.
+
+        Separate method so that subclasses can change how the encoder is obtained (e.g. warm start
+        from weights pretrained on an external cohort) without duplicating the whole train() method.
+
+        :param train_gene_expression: gene expression of the training rows
+        :param val_gene_expression: gene expression of the early stopping rows
+        :returns: trained gene expression encoder
+        """
+        return train_gene_expession_autoencoder(
+            train_gene_expression,
+            val_gene_expression,
+            epochs_autoencoder=self.hyperparameters["epochs_autoencoder"],
+        )
+
     def train(
         self,
         output: DrugResponseDataset,
@@ -115,11 +134,7 @@ class DIPKModel(DRPModel):
             view="gene_expression", identifiers=output_earlystopping.cell_line_ids
         )
 
-        self.gene_expression_encoder = train_gene_expession_autoencoder(
-            train_gene_expression,
-            val_gene_expression,
-            epochs_autoencoder=self.hyperparameters["epochs_autoencoder"],
-        )
+        self.gene_expression_encoder = self._fit_gene_encoder(train_gene_expression, val_gene_expression)
         self.hyperparameters["gene_encoder_input_dim"] = train_gene_expression.shape[1]
 
         cell_line_input.apply(
