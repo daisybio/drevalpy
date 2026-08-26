@@ -1555,7 +1555,7 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
 def train_final_model(
     model_class: type[DRPModel],
     full_dataset: DrugResponseDataset,
-    response_transformation: TransformerMixin,
+    response_transformation: TransformerMixin | None,
     path_data: str,
     model_checkpoint_dir: str,
     metric: str,
@@ -1578,7 +1578,7 @@ def train_final_model(
 
     :param model_class: model to use
     :param full_dataset: full training dataset (union of outer folds)
-    :param response_transformation: sklearn scaler used for response normalization
+    :param response_transformation: sklearn scaler used for response normalization, None for no transformation
     :param path_data: path to data directory
     :param model_checkpoint_dir: checkpoint dir for intermediate tuning models
     :param metric: metric for tuning, e.g., "RMSE"
