@@ -9,6 +9,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 import pandas as pd
 import torch
@@ -26,6 +27,9 @@ from .evaluation import get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
+
+#: File name under which train_final_model stores the fitted response transformation next to the model.
+RESPONSE_TRANSFORMATION_FILE = "response_transformation.pkl"
 
 
 def seed_everything(seed: int = 42) -> None:
@@ -1656,6 +1660,10 @@ def train_final_model(
 
     os.makedirs(final_model_path, exist_ok=True)
     model.save(final_model_path)
+    if response_transformation is not None:
+        # The fitted transformation is part of the production model: without it, predictions of a
+        # model trained on a transformed target cannot be mapped back to the original response scale.
+        joblib.dump(response_transformation, os.path.join(final_model_path, RESPONSE_TRANSFORMATION_FILE))
 
 
 @pipeline_function
