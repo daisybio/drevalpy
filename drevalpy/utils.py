@@ -13,6 +13,7 @@ from .datasets.utils import ALLOWED_MEASURES
 from .evaluation import AVAILABLE_METRICS
 from .experiment import drug_response_experiment, pipeline_function
 from .models import MODEL_FACTORY
+from .response_transformation import GroupMeanCenterer
 
 
 def check_arguments(args) -> None:
@@ -117,8 +118,8 @@ def check_arguments(args) -> None:
             "the '_curvecurator' suffix are allowed drug response measures."
         )
 
-    if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
-        raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust")
+    if args.response_transformation not in ["None", "standard", "minmax", "robust", "drug_mean"]:
+        raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust, drug_mean")
 
     if args.optim_metric not in AVAILABLE_METRICS:
         raise AssertionError(
@@ -245,7 +246,10 @@ def get_response_transformation(response_transformation: str | None) -> Transfor
     """
     Get the skelarn response transformation object of choice.
 
-    Users can choose from "None", "standard", "minmax", "robust".
+    Users can choose from "None", "standard", "minmax", "robust", "drug_mean".
+
+    While the first three are global monotone rescalings, "drug_mean" subtracts the per-drug
+    mean of the training fold (target residualization) and adds it back to the predictions.
 
     :param response_transformation: response transformation to apply
     :returns: response transformation object
@@ -259,7 +263,9 @@ def get_response_transformation(response_transformation: str | None) -> Transfor
         return MinMaxScaler()
     if response_transformation == "robust":
         return RobustScaler()
+    if response_transformation == "drug_mean":
+        return GroupMeanCenterer()
     raise ValueError(
         f"Unknown response transformation {response_transformation}. Choose from 'None', "
-        f"'standard', 'minmax', 'robust'"
+        f"'standard', 'minmax', 'robust', 'drug_mean'"
     )

@@ -64,7 +64,8 @@ MEASURE_HELP = (
 
 RESPONSE_TRANSFORMATION_HELP = (
     "Transformation to apply to the response variable during training and prediction. Will be retransformed "
-    "after the final predictions. Possible values: standard, minmax, robust."
+    "after the final predictions. Possible values: standard, minmax, robust, drug_mean (subtracts the per-drug "
+    "mean of the training fold)."
 )
 
 
