@@ -3,7 +3,7 @@
 import pytest
 
 from drevalpy.models import MODEL_FACTORY
-from drevalpy.models.baselines.sklearn_models import SklearnModel
+from drevalpy.models.baselines.sklearn_models import ElasticNetModel, SklearnModel
 from drevalpy.models.utils import load_single_cell_line_view
 
 _GENE_EXPRESSION = (
@@ -95,7 +95,10 @@ def test_load_single_cell_line_view_gene_list_none_loads_all_genes(gene_list_dat
 
 def test_sklearn_model_gene_list_default() -> None:
     """Without the hyperparameter the model keeps the class default."""
-    model = MODEL_FACTORY["ElasticNet"]()
+    # The concrete class is used directly so mypy sees the SklearnModel attributes; MODEL_FACTORY
+    # returns DRPModel. This asserts that the registered model really is that class.
+    assert MODEL_FACTORY["ElasticNet"] is ElasticNetModel
+    model = ElasticNetModel()
     model.build_model(hyperparameters={"alpha": 1.0, "l1_ratio": 0.2})
     assert model.gene_list == SklearnModel.gene_list == "landmark_genes_reduced"
 
@@ -106,7 +109,7 @@ def test_sklearn_model_gene_list_hyperparameter(gene_list_data_dir) -> None:
 
     :param gene_list_data_dir: path to the temporary data directory
     """
-    model = MODEL_FACTORY["ElasticNet"]()
+    model = ElasticNetModel()
     model.build_model(hyperparameters={"alpha": 1.0, "l1_ratio": 0.2, "gene_list": "drug_target_genes_all_drugs"})
     assert model.gene_list == "drug_target_genes_all_drugs"
     # It stays in the hyperparameters, so save()/load() carry it over to predict().
@@ -124,14 +127,14 @@ def test_sklearn_model_gene_list_does_not_leak_between_instances(gene_list_data_
 
     :param gene_list_data_dir: path to the temporary data directory
     """
-    configured = MODEL_FACTORY["ElasticNet"]()
+    configured = ElasticNetModel()
     configured.build_model(hyperparameters={"alpha": 1.0, "l1_ratio": 0.2, "gene_list": None})
     assert configured.gene_list is None
     assert sorted(_gene_names(configured.load_cell_line_features(gene_list_data_dir, "GDSC1_small"))) == sorted(
         _ALL_GENES
     )
 
-    default = MODEL_FACTORY["ElasticNet"]()
+    default = ElasticNetModel()
     default.build_model(hyperparameters={"alpha": 1.0, "l1_ratio": 0.2})
     assert sorted(_gene_names(default.load_cell_line_features(gene_list_data_dir, "GDSC1_small"))) == sorted(
         _LANDMARK_GENES
