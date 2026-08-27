@@ -118,8 +118,11 @@ def check_arguments(args) -> None:
             "the '_curvecurator' suffix are allowed drug response measures."
         )
 
-    if args.response_transformation not in ["None", "standard", "minmax", "robust", "drug_mean"]:
-        raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust, drug_mean")
+    if args.response_transformation not in ["None", "standard", "minmax", "robust", "drug_mean", "drug_tissue_mean"]:
+        raise AssertionError(
+            "Invalid response_transformation. Choose from None, standard, minmax, robust, drug_mean, "
+            "drug_tissue_mean"
+        )
 
     if args.optim_metric not in AVAILABLE_METRICS:
         raise AssertionError(
@@ -246,10 +249,12 @@ def get_response_transformation(response_transformation: str | None) -> Transfor
     """
     Get the skelarn response transformation object of choice.
 
-    Users can choose from "None", "standard", "minmax", "robust", "drug_mean".
+    Users can choose from "None", "standard", "minmax", "robust", "drug_mean", "drug_tissue_mean".
 
     While the first three are global monotone rescalings, "drug_mean" subtracts the per-drug
     mean of the training fold (target residualization) and adds it back to the predictions.
+    "drug_tissue_mean" does the same per drug and tissue, falling back to the per-drug mean for
+    (drug, tissue) combinations that did not occur in the training fold.
 
     :param response_transformation: response transformation to apply
     :returns: response transformation object
@@ -265,7 +270,9 @@ def get_response_transformation(response_transformation: str | None) -> Transfor
         return RobustScaler()
     if response_transformation == "drug_mean":
         return GroupMeanCenterer()
+    if response_transformation == "drug_tissue_mean":
+        return GroupMeanCenterer(group_fields=("drug_ids", "tissue"))
     raise ValueError(
         f"Unknown response transformation {response_transformation}. Choose from 'None', "
-        f"'standard', 'minmax', 'robust', 'drug_mean'"
+        f"'standard', 'minmax', 'robust', 'drug_mean', 'drug_tissue_mean'"
     )

@@ -131,7 +131,7 @@ Example:
 .. option:: --response_transformation TEXT
 
    Transformation applied to the response variable during training and prediction;
-   retransformed after final predictions. For more information, see the :ref:`usage:Available Response Transformations` section. One of ``standard``, ``minmax``, ``robust``, ``drug_mean``.
+   retransformed after final predictions. For more information, see the :ref:`usage:Available Response Transformations` section. One of ``standard``, ``minmax``, ``robust``, ``drug_mean``, ``drug_tissue_mean``.
 
 .. option:: --multiprocessing
 
@@ -515,3 +515,8 @@ We offer the possibility to transform the response data before training the mode
   response and added back to the predictions. Unlike the three scalers above, this is a *conditional* mean, so the
   model is trained on the drug x cell line residuals instead of the drug main effect. Drugs that do not occur in
   the training fold (LDO, cross-study) fall back to the global training mean.
+* **drug_tissue_mean**: Like ``drug_mean``, but the mean is estimated per drug *and* tissue, which also removes
+  the tissue-specific sensitivity of a drug from the target. The means are nested: a (drug, tissue) combination
+  that does not occur in the training fold falls back to the mean of its drug, an unknown drug to the global
+  training mean. In LTO every test tissue is unseen by construction, so there the transformation degenerates to
+  ``drug_mean``. Requires a dataset with a ``tissue`` column, otherwise a ``ValueError`` is raised.
