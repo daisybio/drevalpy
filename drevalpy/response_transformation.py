@@ -23,8 +23,9 @@ class GroupMeanCenterer(BaseEstimator, TransformerMixin):
 
     The class follows the sklearn transformer protocol, but its ``fit``/``transform``/
     ``inverse_transform`` methods accept an additional ``groups`` argument. The
-    ``requires_groups`` class attribute tells :class:`DrugResponseDataset` to supply the
-    drug ids for that argument.
+    ``requires_groups`` class attribute tells
+    :class:`~drevalpy.datasets.dataset.DrugResponseDataset` to supply the drug ids for
+    that argument.
 
     Groups that were not seen during ``fit`` fall back to the global training mean, which
     makes the transformer safe for LDO (unseen drugs) and cross-study prediction.

@@ -131,7 +131,7 @@ Example:
 .. option:: --response_transformation TEXT
 
    Transformation applied to the response variable during training and prediction;
-   retransformed after final predictions. For more information, see the :ref:`usage:Available Response Transformations` section. One of ``standard``, ``minmax``, ``robust``.
+   retransformed after final predictions. For more information, see the :ref:`usage:Available Response Transformations` section. One of ``standard``, ``minmax``, ``robust``, ``drug_mean``.
 
 .. option:: --multiprocessing
 
@@ -511,3 +511,7 @@ We offer the possibility to transform the response data before training the mode
 * **standard**: The `sklearn StandardScaler <https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html>`_ is applied.
 * **minmax**: The `sklearn MinMaxScaler <https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html>`_ is applied.
 * **robust**: The `sklearn RobustScaler <https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.RobustScaler.html>`_ is applied.
+* **drug_mean**: The mean response of each drug, estimated on the training fold only, is subtracted from the
+  response and added back to the predictions. Unlike the three scalers above, this is a *conditional* mean, so the
+  model is trained on the drug x cell line residuals instead of the drug main effect. Drugs that do not occur in
+  the training fold (LDO, cross-study) fall back to the global training mean.

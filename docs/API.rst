@@ -50,6 +50,14 @@ Utility functions
    :undoc-members:
    :show-inheritance:
 
+Response transformations
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: drevalpy.response_transformation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Pipeline function decorator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
