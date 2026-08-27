@@ -177,16 +177,18 @@ def test_dipk_fit_gene_encoder_hook_passes_the_configured_epochs(monkeypatch) ->
     :param monkeypatch: pytest monkeypatch fixture, used to replace the autoencoder training
     """
     seen: dict = {}
+    # The hook is annotated to return an encoder, so the stand in has to be a real one.
+    stub_encoder = GeneExpressionEncoder(_N_GENES)
 
     def _fake_training(train_matrix, val_matrix, epochs_autoencoder):
         seen["epochs"] = epochs_autoencoder
         seen["shapes"] = (train_matrix.shape, val_matrix.shape)
-        return "encoder"
+        return stub_encoder
 
     monkeypatch.setattr("drevalpy.models.DIPK.dipk.train_gene_expession_autoencoder", _fake_training)
     model = DIPKModel()
     model.hyperparameters = {"epochs_autoencoder": 7}
     train, validation = _toy_matrices()
 
-    assert model._fit_gene_encoder(train, validation) == "encoder"
+    assert model._fit_gene_encoder(train, validation) is stub_encoder
     assert seen == {"epochs": 7, "shapes": (train.shape, validation.shape)}
