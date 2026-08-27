@@ -198,9 +198,10 @@ def train_gene_expession_autoencoder(
 
     # load data
     # The full training matrix stays in host memory, only the mini batches are moved to the device
-    # (the training loop below already calls .to(device) per batch). With large gene lists the
-    # complete matrix does not fit into GPU memory: 230k response rows x 11,883 genes x 4 byte is
-    # ~11 GB, while a batch of 1024 rows is ~50 MB. Semantics are unchanged.
+    # (the training loop below already calls .to(device) per batch). The matrix holds one row per
+    # response, not per cell line, so it is large: a GDSC1 training fold has ~270k rows, which is
+    # ~2.5 GB of float32 with the 2.3k genes of the default gene_expression_intersection list and
+    # ~13 GB with a 12k gene list. A batch of 1024 rows is ~50 MB. Semantics are unchanged.
     my_collate = CollateFn()
     gene_expression_tensor = torch.from_numpy(np.asarray(gene_expression_input, dtype=np.float32))
     train_loader = DataLoader(
