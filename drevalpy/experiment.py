@@ -658,7 +658,9 @@ def _load_features_cached(model: DRPModel, path_data: str, dataset_name: str, ki
     :returns: the feature dataset, or None if the model does not use this kind of feature
     """
     loader = model.load_cell_line_features if kind == "cell_line" else model.load_drug_features
-    if os.environ.get("DREVAL_FEATURE_CACHE", "1") == "0":
+    # Models whose loaders also initialize model state have to run them for every instance, and the cache
+    # can be switched off entirely to check that results are unchanged.
+    if not model.supports_feature_caching or os.environ.get("DREVAL_FEATURE_CACHE", "1") == "0":
         return loader(data_path=path_data, dataset_name=dataset_name)
     # The hyperparameters decide which views and which gene list are loaded, so they belong in the key.
     key = (

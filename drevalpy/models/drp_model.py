@@ -28,13 +28,21 @@ class DRPModel(ABC):
 
     The DRPModel class is an abstract wrapper class for drug response prediction models.
     It has a boolean attribute is_single_drug_model indicating whether it is a single drug model and a boolean
-    attribute early_stopping indicating whether early stopping is used.
+    attribute early_stopping indicating whether early stopping is used. The boolean attribute
+    supports_feature_caching tells the pipeline whether the loaded feature matrices may be reused across
+    model instances.
     """
 
     # Used in the pipeline!
     early_stopping = False
     # Then, the model is trained per drug
     is_single_drug_model = False
+    # The pipeline caches the feature matrices a model loads and hands the same object to every later
+    # instance of that model, which is what makes repeated splits and single drug runs affordable.
+    # Set this to False if load_cell_line_features or load_drug_features do more than return features,
+    # i.e., if they also initialize model state. Such a loader has to run for every instance, so the
+    # pipeline then loads the features every time, as it did before the cache existed. See SparseGOModel.
+    supports_feature_caching = True
 
     def __init__(self):
         """Initialize the DRPModel instance."""
