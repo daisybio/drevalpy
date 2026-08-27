@@ -331,6 +331,7 @@ def test_dataset_of_an_unseen_tissue_is_centered_on_the_drug_mean() -> None:
     assert np.allclose(test.response, expected)
 
     test.inverse_transform(centerer)
+    assert test.predictions is not None
     assert np.allclose(test.response, _TT_RESPONSE[_TT_TISSUES == "skin"])
     assert np.allclose(test.predictions, _TT_RESPONSE[_TT_TISSUES == "skin"])
 
