@@ -1,11 +1,16 @@
 """Tests for the feature matrix cache used by the experiment pipeline."""
 
+import ast
+import inspect
+import textwrap
+
 import numpy as np
 import pytest
 
 from drevalpy import experiment
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.experiment import _load_features_cached, clear_feature_cache, load_features
+from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.drp_model import DRPModel
 
 #: Number of loader calls per feature kind, shared by all test models so the cache effect is visible
@@ -115,6 +120,52 @@ class _OtherCountingModel(_CountingModel):
         :returns: name of this test model
         """
         return "OtherCountingModel"
+
+
+class _StatefulLoaderModel(_CountingModel):
+    """Model whose loader also initializes model state, like SparseGO builds its ontology there."""
+
+    supports_feature_caching = False
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: name of this test model
+        """
+        return "StatefulLoaderModel"
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Returns features and, as a side effect, initializes state that train would need.
+
+        :param data_path: unused
+        :param dataset_name: unused
+        :returns: cell line features
+        """
+        features = super().load_cell_line_features(data_path=data_path, dataset_name=dataset_name)
+        self.ontology_loaded = True
+        return features
+
+
+def _self_assignments(function) -> set[str]:
+    """
+    Collect the attribute names a function assigns on ``self``.
+
+    :param function: function to inspect
+    :returns: names assigned on self, empty if the function only returns something
+    """
+    tree = ast.parse(textwrap.dedent(inspect.getsource(function)))
+    assigned = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign | ast.AugAssign | ast.AnnAssign):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
+                    if target.value.id == "self":
+                        assigned.add(target.attr)
+    return assigned
 
 
 @pytest.fixture(autouse=True)
@@ -237,3 +288,33 @@ def test_load_features_uses_the_cache() -> None:
     assert (_CALLS["cell_line"], _CALLS["drug"]) == (1, 1)
     assert cl_first is cl_second
     assert drug_first is drug_second
+
+
+def test_models_that_opt_out_load_for_every_instance() -> None:
+    """A loader that initializes model state has to run for every instance, not once per process."""
+    models = [_build(model_class=_StatefulLoaderModel) for _ in range(3)]
+    for model in models:
+        _load_features_cached(model, "data", "TOYv1", "cell_line")
+
+    assert _CALLS["cell_line"] == 3
+    assert experiment._FEATURE_CACHE == {}
+    assert all(getattr(model, "ontology_loaded", False) for model in models)
+
+
+def test_stateful_loaders_are_marked_as_uncacheable() -> None:
+    """Every shipped model whose feature loaders assign to self must set supports_feature_caching False.
+
+    The cache hands the same matrix to later instances and skips their loader, so a loader that also
+    initializes model state would leave those instances half built.
+    """
+    stateful = {
+        name
+        for name, model_class in MODEL_FACTORY.items()
+        if _self_assignments(model_class.load_cell_line_features) or _self_assignments(model_class.load_drug_features)
+    }
+    not_opted_out = {name for name in stateful if MODEL_FACTORY[name].supports_feature_caching}
+
+    assert not_opted_out == set(), (
+        f"{sorted(not_opted_out)} initialize model state in their feature loaders and must set "
+        "supports_feature_caching = False"
+    )
