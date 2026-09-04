@@ -461,6 +461,7 @@ def drug_response_experiment(
             train_final_model(
                 model_class=model_class,
                 full_dataset=response_data.copy(),
+                drug_id=drug_id,
                 response_transformation=response_transformation,
                 path_data=path_data,
                 model_checkpoint_dir=model_checkpoint_dir,
@@ -1560,6 +1561,7 @@ def train_final_model(
     model_checkpoint_dir: str,
     metric: str,
     final_model_path: str,
+    drug_id: str | None = None,
     test_mode: str = "LCO",
     val_ratio: float = 0.1,
     hyperparameter_tuning: bool = True,
@@ -1583,13 +1585,23 @@ def train_final_model(
     :param model_checkpoint_dir: checkpoint dir for intermediate tuning models
     :param metric: metric for tuning, e.g., "RMSE"
     :param final_model_path: path to final_model save directory
+    :param drug_id: drug id for single drug models. The dataset is reduced to this drug, analogous to
+        get_datasets_from_cv_split, because a single drug model is fitted per drug.
     :param test_mode: split logic for validation (LCO, LDO, LTO, LPO)
     :param val_ratio: validation size ratio
     :param hyperparameter_tuning: whether to perform hyperparameter tuning
+    :raises ValueError: if a single drug model is trained without a drug id
     """
     print("Training final model with application-specific validation strategy ...")
 
     full_dataset.remove_nan_responses()
+    if model_class.is_single_drug_model:
+        if drug_id is None:
+            raise ValueError(
+                f"{model_class.get_model_name()} is a single drug model, so a drug_id is required to train the "
+                f"final model. Otherwise the model would be fitted on the responses of all drugs."
+            )
+        full_dataset.mask(full_dataset.drug_ids == drug_id)
     model = model_class()
     train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
