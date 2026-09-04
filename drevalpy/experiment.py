@@ -9,6 +9,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 import pandas as pd
 import torch
@@ -26,6 +27,9 @@ from .evaluation import get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
+
+#: File name under which train_final_model stores the fitted response transformation next to the model.
+RESPONSE_TRANSFORMATION_FILE = "response_transformation.pkl"
 
 
 def seed_everything(seed: int = 42) -> None:
@@ -461,6 +465,7 @@ def drug_response_experiment(
             train_final_model(
                 model_class=model_class,
                 full_dataset=response_data.copy(),
+                drug_id=drug_id,
                 response_transformation=response_transformation,
                 path_data=path_data,
                 model_checkpoint_dir=model_checkpoint_dir,
@@ -1555,11 +1560,12 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
 def train_final_model(
     model_class: type[DRPModel],
     full_dataset: DrugResponseDataset,
-    response_transformation: TransformerMixin,
+    response_transformation: TransformerMixin | None,
     path_data: str,
     model_checkpoint_dir: str,
     metric: str,
     final_model_path: str,
+    drug_id: str | None = None,
     test_mode: str = "LCO",
     val_ratio: float = 0.1,
     hyperparameter_tuning: bool = True,
@@ -1578,18 +1584,28 @@ def train_final_model(
 
     :param model_class: model to use
     :param full_dataset: full training dataset (union of outer folds)
-    :param response_transformation: sklearn scaler used for response normalization
+    :param response_transformation: sklearn scaler used for response normalization, None for no transformation
     :param path_data: path to data directory
     :param model_checkpoint_dir: checkpoint dir for intermediate tuning models
     :param metric: metric for tuning, e.g., "RMSE"
     :param final_model_path: path to final_model save directory
+    :param drug_id: drug id for single drug models. The dataset is reduced to this drug, analogous to
+        get_datasets_from_cv_split, because a single drug model is fitted per drug.
     :param test_mode: split logic for validation (LCO, LDO, LTO, LPO)
     :param val_ratio: validation size ratio
     :param hyperparameter_tuning: whether to perform hyperparameter tuning
+    :raises ValueError: if a single drug model is trained without a drug id
     """
     print("Training final model with application-specific validation strategy ...")
 
     full_dataset.remove_nan_responses()
+    if model_class.is_single_drug_model:
+        if drug_id is None:
+            raise ValueError(
+                f"{model_class.get_model_name()} is a single drug model, so a drug_id is required to train the "
+                f"final model. Otherwise the model would be fitted on the responses of all drugs."
+            )
+        full_dataset.mask(full_dataset.drug_ids == drug_id)
     model = model_class()
     train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
@@ -1629,16 +1645,18 @@ def train_final_model(
     if len(train_dataset) < len_train_before:
         print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, due to missing features")
 
+    if early_stopping_dataset is not None:
+        len_early_stopping_before = len(early_stopping_dataset)
+        early_stopping_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+        if len(early_stopping_dataset) < len_early_stopping_before:
+            print(
+                f"Reduced early stopping dataset from {len_early_stopping_before} to "
+                f"{len(early_stopping_dataset)}, due to missing features"
+            )
+
     if response_transformation:
         train_dataset.fit_transform(response_transformation)
         if early_stopping_dataset is not None:
-            len_early_stopping_before = len(early_stopping_dataset)
-            early_stopping_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-            if len(early_stopping_dataset) < len_early_stopping_before:
-                print(
-                    f"Reduced early stopping dataset from {len_early_stopping_before} to "
-                    f"{len(early_stopping_dataset)}, due to missing features"
-                )
             early_stopping_dataset.transform(response_transformation)
 
     drug_features = drug_features.copy() if drug_features is not None else None
@@ -1656,6 +1674,10 @@ def train_final_model(
 
     os.makedirs(final_model_path, exist_ok=True)
     model.save(final_model_path)
+    if response_transformation is not None:
+        # The fitted transformation is part of the production model: without it, predictions of a
+        # model trained on a transformed target cannot be mapped back to the original response scale.
+        joblib.dump(response_transformation, os.path.join(final_model_path, RESPONSE_TRANSFORMATION_FILE))
 
 
 @pipeline_function

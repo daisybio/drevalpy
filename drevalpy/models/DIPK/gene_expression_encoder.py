@@ -141,6 +141,39 @@ class DataSet(Dataset, ABC):
         return len(self._data)
 
 
+def _validation_loss(
+    encoder: GeneExpressionEncoder,
+    decoder: GeneExpressionDecoder,
+    gene_expression_val_tensor: torch.Tensor,
+    batch_size: int,
+    device: torch.device,
+) -> float:
+    """Compute the reconstruction MSE of the validation matrix in chunks.
+
+    Sum of squared errors and element count are accumulated exactly, so the result is identical
+    to nn.MSELoss() over the whole matrix, but only one batch has to live on the device.
+
+    :param encoder: encoder in eval mode
+    :param decoder: decoder in eval mode
+    :param gene_expression_val_tensor: validation matrix, kept on the host
+    :param batch_size: number of rows moved to the device at a time
+    :param device: device the models live on
+    :return: mean squared reconstruction error, nan for an empty validation matrix
+    """
+    squared_error = 0.0
+    elements = 0
+    with torch.no_grad():
+        for start in range(0, len(gene_expression_val_tensor), batch_size):
+            stop = start + batch_size
+            val_batch = gene_expression_val_tensor[start:stop].to(device)
+            val_output = decoder(encoder(val_batch))
+            squared_error += float(((val_output - val_batch) ** 2).sum().item())
+            elements += val_batch.numel()
+    if elements == 0:
+        return float("nan")
+    return squared_error / elements
+
+
 def train_gene_expession_autoencoder(
     gene_expression_input: np.ndarray,
     gene_expression_input_early_stopping: np.ndarray,
@@ -182,14 +215,19 @@ def train_gene_expession_autoencoder(
     optimizer = optim.Adam(params, lr=lr)
 
     # load data
+    # The full training matrix stays in host memory, only the mini batches are moved to the device
+    # (the training loop below already calls .to(device) per batch). The matrix holds one row per
+    # response, not per cell line, so it is large: a GDSC1 training fold has ~270k rows, which is
+    # ~2.5 GB of float32 with the 2.3k genes of the default gene_expression_intersection list and
+    # ~13 GB with a 12k gene list. A batch of 1024 rows is ~50 MB. Semantics are unchanged.
     my_collate = CollateFn()
-    gene_expression_tensor = torch.tensor(gene_expression_input, dtype=torch.float32).to(device)
+    gene_expression_tensor = torch.from_numpy(np.asarray(gene_expression_input, dtype=np.float32))
     train_loader = DataLoader(
         DataSet(gene_expression_tensor), batch_size=batch_size, shuffle=True, collate_fn=my_collate
     )
 
-    # prepare early stopping validation data
-    gene_expression_val_tensor = torch.tensor(gene_expression_input_early_stopping, dtype=torch.float32).to(device)
+    # prepare early stopping validation data (kept on the host as well, evaluated in chunks below)
+    gene_expression_val_tensor = torch.from_numpy(np.asarray(gene_expression_input_early_stopping, dtype=np.float32))
 
     # early stopping parameters
     best_val_loss = float("inf")
@@ -223,9 +261,7 @@ def train_gene_expession_autoencoder(
         # validation
         encoder.eval()
         decoder.eval()
-        with torch.no_grad():
-            val_output = decoder(encoder(gene_expression_val_tensor))
-            val_loss = loss_func(val_output, gene_expression_val_tensor).item()
+        val_loss = _validation_loss(encoder, decoder, gene_expression_val_tensor, batch_size, device)
 
         print(f"DIPK Autoenc. Epoch: {epoch_index}, Train Loss: {epoch_loss}, Val Loss: {val_loss}")
 
