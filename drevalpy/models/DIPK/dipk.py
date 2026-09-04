@@ -34,6 +34,10 @@ class DIPKModel(DRPModel):
     cell_line_views = ["gene_expression", "bionic_features"]
     drug_views = ["molgnet_features"]
     early_stopping = True
+    #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
+    #: The default reproduces the previously hard-coded behaviour, i.e. the intersection of the genes
+    #: present in the gene expression features of all datasets.
+    gene_list: str | None = "gene_expression_intersection"
 
     def __init__(self) -> None:
         """Initialize the DIPK model."""
@@ -69,6 +73,8 @@ class DIPKModel(DRPModel):
         - epochs: int, number of epochs to train the model
         - batch_size: int, batch size for training
         - lr: float, learning rate for training
+        - gene_list: str | None, gene list used to subset gene_expression, e.g., landmark_genes_reduced.
+          None loads all genes. Optional, defaults to the class attribute gene_expression_intersection.
         """
         self.model = Predictor(
             hyperparameters["heads"],
@@ -78,6 +84,9 @@ class DIPKModel(DRPModel):
         ).to(self.DEVICE)
         self.log_hyperparameters(hyperparameters)
         self.hyperparameters = hyperparameters
+        # Kept in self.hyperparameters, so save()/load() carry it and predict() uses the same gene
+        # space the model was trained on.
+        self.gene_list = hyperparameters.get("gene_list", type(self).gene_list)
 
     def train(
         self,
@@ -333,11 +342,11 @@ class DIPKModel(DRPModel):
         :param dataset_name: path to the dataset
         :returns: cell line features
         """
-        # we use the interception of all genes that are present
+        # By default we use the interception of all genes that are present
         # in the gene expression features of all datasets
         gene_expression = load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="gene_expression_intersection",
+            gene_list=self.gene_list,
             data_path=data_path,
             dataset_name=dataset_name,
         )
