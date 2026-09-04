@@ -1,9 +1,11 @@
 """Tests for the configurable parameters of the DIPK gene expression autoencoder."""
 
 import inspect
+import os
 
 import numpy as np
 import torch
+import yaml
 from torch import nn
 
 from drevalpy.models.DIPK import gene_expression_encoder as gee
@@ -171,24 +173,94 @@ def test_patience_controls_when_early_stopping_triggers(monkeypatch, capsys) -> 
         assert _count_epochs(capsys) == patience + 1
 
 
-def test_dipk_fit_gene_encoder_hook_passes_the_configured_epochs(monkeypatch) -> None:
-    """train() goes through the overridable hook, which forwards the epochs_autoencoder hyperparameter.
+def _capture_hook_arguments(monkeypatch) -> tuple[dict, GeneExpressionEncoder]:
+    """
+    Replace the autoencoder training with a stub that records what the DIPK hook passed to it.
 
     :param monkeypatch: pytest monkeypatch fixture, used to replace the autoencoder training
+    :returns: the dict the stub fills and the encoder it returns
     """
     seen: dict = {}
     # The hook is annotated to return an encoder, so the stand in has to be a real one.
     stub_encoder = GeneExpressionEncoder(_N_GENES)
 
-    def _fake_training(train_matrix, val_matrix, epochs_autoencoder):
-        seen["epochs"] = epochs_autoencoder
+    def _fake_training(train_matrix, val_matrix, **kwargs):
+        seen.update(kwargs)
         seen["shapes"] = (train_matrix.shape, val_matrix.shape)
         return stub_encoder
 
     monkeypatch.setattr("drevalpy.models.DIPK.dipk.train_gene_expession_autoencoder", _fake_training)
+    return seen, stub_encoder
+
+
+def test_dipk_fit_gene_encoder_hook_passes_all_autoencoder_hyperparameters(monkeypatch) -> None:
+    """train() goes through the overridable hook, which has to forward all four autoencoder parameters.
+
+    :param monkeypatch: pytest monkeypatch fixture, used to replace the autoencoder training
+    """
+    seen, stub_encoder = _capture_hook_arguments(monkeypatch)
+    model = DIPKModel()
+    model.hyperparameters = {
+        "epochs_autoencoder": 7,
+        "lr_autoencoder": 5e-3,
+        "patience_autoencoder": 11,
+        "batch_size_autoencoder": 32,
+    }
+    train, validation = _toy_matrices()
+
+    assert model._fit_gene_encoder(train, validation) is stub_encoder
+    assert seen == {
+        "epochs_autoencoder": 7,
+        "lr": 5e-3,
+        "patience": 11,
+        "batch_size": 32,
+        "shapes": (train.shape, validation.shape),
+    }
+
+
+def test_dipk_hook_falls_back_to_the_previous_hard_coded_values(monkeypatch) -> None:
+    """Hyperparameter sets without the optional autoencoder keys must keep training as before.
+
+    :param monkeypatch: pytest monkeypatch fixture, used to replace the autoencoder training
+    """
+    seen, _ = _capture_hook_arguments(monkeypatch)
     model = DIPKModel()
     model.hyperparameters = {"epochs_autoencoder": 7}
     train, validation = _toy_matrices()
 
-    assert model._fit_gene_encoder(train, validation) is stub_encoder
-    assert seen == {"epochs": 7, "shapes": (train.shape, validation.shape)}
+    model._fit_gene_encoder(train, validation)
+
+    assert seen["lr"] == 1e-4
+    assert seen["patience"] == 3
+    assert seen["batch_size"] == 1024
+
+
+def test_dipk_hook_does_not_read_the_prediction_network_parameters(monkeypatch) -> None:
+    """batch_size, lr and patience belong to the predictor and must not leak into the autoencoder.
+
+    :param monkeypatch: pytest monkeypatch fixture, used to replace the autoencoder training
+    """
+    seen, _ = _capture_hook_arguments(monkeypatch)
+    model = DIPKModel()
+    # The values of the shipped hyperparameters.yaml, which differ from the autoencoder defaults.
+    model.hyperparameters = {"epochs_autoencoder": 7, "batch_size": 64, "lr": 0.001, "patience": 10}
+    train, validation = _toy_matrices()
+
+    model._fit_gene_encoder(train, validation)
+
+    assert seen["lr"] == 1e-4
+    assert seen["patience"] == 3
+    assert seen["batch_size"] == 1024
+
+
+def test_shipped_hyperparameters_keep_the_autoencoder_defaults() -> None:
+    """The tuning grid has to offer the autoencoder keys without changing what DIPK does today."""
+    with open(os.path.join(os.path.dirname(gee.__file__), "hyperparameters.yaml")) as handle:
+        hpams = yaml.safe_load(handle)["DIPK"]
+
+    assert hpams["lr_autoencoder"] == [1e-4]
+    assert hpams["patience_autoencoder"] == [3]
+    assert hpams["batch_size_autoencoder"] == [1024]
+    # Same names without the suffix configure the prediction network and are deliberately different.
+    assert hpams["patience"] != hpams["patience_autoencoder"]
+    assert hpams["batch_size"] != hpams["batch_size_autoencoder"]

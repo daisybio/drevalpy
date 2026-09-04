@@ -69,6 +69,13 @@ class DIPKModel(DRPModel):
         - epochs: int, number of epochs to train the model
         - batch_size: int, batch size for training
         - lr: float, learning rate for training
+        - epochs_autoencoder: int, number of epochs for the gene expression autoencoder
+        - lr_autoencoder: float, learning rate of the gene expression autoencoder, optional,
+          defaults to 1e-4
+        - patience_autoencoder: int, early stopping patience of the gene expression autoencoder,
+          optional, defaults to 3
+        - batch_size_autoencoder: int, mini batch size of the gene expression autoencoder, optional,
+          defaults to 1024
         """
         self.model = Predictor(
             hyperparameters["heads"],
@@ -88,6 +95,10 @@ class DIPKModel(DRPModel):
         Separate method so that subclasses can change how the encoder is obtained (e.g. warm start
         from weights pretrained on an external cohort) without duplicating the whole train() method.
 
+        The autoencoder hyperparameters carry the "_autoencoder" suffix because lr, patience and
+        batch_size are already taken by the prediction network and hold different values there.
+        The defaults are the ones the autoencoder was hard coded to before it became configurable.
+
         :param train_gene_expression: gene expression of the training rows
         :param val_gene_expression: gene expression of the early stopping rows
         :returns: trained gene expression encoder
@@ -96,6 +107,9 @@ class DIPKModel(DRPModel):
             train_gene_expression,
             val_gene_expression,
             epochs_autoencoder=self.hyperparameters["epochs_autoencoder"],
+            lr=self.hyperparameters.get("lr_autoencoder", 1e-4),
+            patience=self.hyperparameters.get("patience_autoencoder", 3),
+            batch_size=self.hyperparameters.get("batch_size_autoencoder", 1024),
         )
 
     def train(
