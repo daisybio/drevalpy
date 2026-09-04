@@ -1645,8 +1645,6 @@ def train_final_model(
     if len(train_dataset) < len_train_before:
         print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, due to missing features")
 
-    # The early stopping set has to be reduced to the available features in every case, not only when a
-    # response transformation is used, otherwise models are handed cell lines without a feature row.
     if early_stopping_dataset is not None:
         len_early_stopping_before = len(early_stopping_dataset)
         early_stopping_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
