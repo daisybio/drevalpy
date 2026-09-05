@@ -73,6 +73,13 @@ class DIPKModel(DRPModel):
         - epochs: int, number of epochs to train the model
         - batch_size: int, batch size for training
         - lr: float, learning rate for training
+        - epochs_autoencoder: int, number of epochs for the gene expression autoencoder
+        - lr_autoencoder: float, learning rate of the gene expression autoencoder, optional,
+          defaults to 1e-4
+        - patience_autoencoder: int, early stopping patience of the gene expression autoencoder,
+          optional, defaults to 3
+        - batch_size_autoencoder: int, mini batch size of the gene expression autoencoder, optional,
+          defaults to 1024
         - gene_list: str | None, gene list used to subset gene_expression, e.g., landmark_genes_reduced.
           None loads all genes. Optional, defaults to the class attribute gene_expression_intersection.
         """
@@ -87,6 +94,32 @@ class DIPKModel(DRPModel):
         # Kept in self.hyperparameters, so save()/load() carry it and predict() uses the same gene
         # space the model was trained on.
         self.gene_list = hyperparameters.get("gene_list", type(self).gene_list)
+
+    def _fit_gene_encoder(
+        self, train_gene_expression: np.ndarray, val_gene_expression: np.ndarray
+    ) -> GeneExpressionEncoder:
+        """
+        Fit the gene expression autoencoder on the training cell lines of the current fold.
+
+        Separate method so that subclasses can change how the encoder is obtained (e.g. warm start
+        from weights pretrained on an external cohort) without duplicating the whole train() method.
+
+        The autoencoder hyperparameters carry the "_autoencoder" suffix because lr, patience and
+        batch_size are already taken by the prediction network and hold different values there.
+        The defaults are the ones the autoencoder was hard coded to before it became configurable.
+
+        :param train_gene_expression: gene expression of the training rows
+        :param val_gene_expression: gene expression of the early stopping rows
+        :returns: trained gene expression encoder
+        """
+        return train_gene_expession_autoencoder(
+            train_gene_expression,
+            val_gene_expression,
+            epochs_autoencoder=self.hyperparameters["epochs_autoencoder"],
+            lr=self.hyperparameters.get("lr_autoencoder", 1e-4),
+            patience=self.hyperparameters.get("patience_autoencoder", 3),
+            batch_size=self.hyperparameters.get("batch_size_autoencoder", 1024),
+        )
 
     def train(
         self,
@@ -124,11 +157,7 @@ class DIPKModel(DRPModel):
             view="gene_expression", identifiers=output_earlystopping.cell_line_ids
         )
 
-        self.gene_expression_encoder = train_gene_expession_autoencoder(
-            train_gene_expression,
-            val_gene_expression,
-            epochs_autoencoder=self.hyperparameters["epochs_autoencoder"],
-        )
+        self.gene_expression_encoder = self._fit_gene_encoder(train_gene_expression, val_gene_expression)
         self.hyperparameters["gene_encoder_input_dim"] = train_gene_expression.shape[1]
 
         cell_line_input.apply(

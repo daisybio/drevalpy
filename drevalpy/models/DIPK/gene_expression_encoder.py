@@ -175,23 +175,41 @@ def _validation_loss(
 
 
 def train_gene_expession_autoencoder(
-    gene_expression_input: np.ndarray, gene_expression_input_early_stopping: np.ndarray, epochs_autoencoder: int = 100
+    gene_expression_input: np.ndarray,
+    gene_expression_input_early_stopping: np.ndarray,
+    epochs_autoencoder: int = 100,
+    encoder_state: dict | None = None,
+    decoder_state: dict | None = None,
+    lr: float = 1e-4,
+    patience: int = 3,
+    batch_size: int = 1024,
 ) -> GeneExpressionEncoder:
     """Train the autoencoder model for gene expression data with early stopping.
 
     :param gene_expression_input: gene expression data
     :param gene_expression_input_early_stopping: validation data for early stopping
     :param epochs_autoencoder: number of epochs for training the autoencoder
+    :param encoder_state: optional state dict to warm start the encoder from (e.g. pretrained on TCGA)
+    :param decoder_state: optional state dict to warm start the decoder from
+    :param lr: learning rate of the Adam optimizer
+    :param patience: number of epochs without improvement before early stopping
+    :param batch_size: mini batch size. The DIPK default of 1024 assumes the response row matrix
+        (every cell line repeated once per response). Callers that train on the unique cell lines
+        instead (a few hundred rows) need a smaller batch to get a comparable number of gradient
+        steps -- with 1024 an epoch would be a single step.
     :return: trained encoder model
     """
-    lr = 1e-4
-    batch_size = 1024
     noising = True
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # create model
     encoder = GeneExpressionEncoder(len(gene_expression_input[0])).to(device)
     decoder = GeneExpressionDecoder(len(gene_expression_input[0])).to(device)
+    # Warm start: with pretrained weights this is a fine tuning run instead of training from scratch.
+    if encoder_state is not None:
+        encoder.load_state_dict(encoder_state)
+    if decoder_state is not None:
+        decoder.load_state_dict(decoder_state)
     loss_func = nn.MSELoss()
     params = [{"params": encoder.parameters()}, {"params": decoder.parameters()}]
     optimizer = optim.Adam(params, lr=lr)
@@ -212,7 +230,6 @@ def train_gene_expession_autoencoder(
     gene_expression_val_tensor = torch.from_numpy(np.asarray(gene_expression_input_early_stopping, dtype=np.float32))
 
     # early stopping parameters
-    patience = 3
     best_val_loss = float("inf")
     epochs_without_improvement = 0
 
