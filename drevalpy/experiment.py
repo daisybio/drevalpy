@@ -7,7 +7,7 @@ import shutil
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import joblib
 import numpy as np
@@ -630,6 +630,82 @@ def consolidate_single_drug_model_predictions(
                     )
 
 
+#: Cache for loaded feature matrices, keyed by everything they depend on.
+#:
+#: Feature matrices depend only on (model class, hyperparameters, data path, dataset), not on the CV
+#: split and not on the drug. For single drug models the pipeline nevertheless walks the whole split
+#: loop once PER DRUG, so the same matrix was re-read from disk once per split and drug. Measured on
+#: a 545 drug CTRPv2 run with 893 genes: 17.8 s per load, 3270 loads, roughly 16 h of an 18.4 h run.
+#:
+#: Reusing one object is safe because every consumer only reads it and hands it on via .copy()
+#: (train_and_predict, train_final_model, cross_study_prediction, randomization_test).
+#: Set DREVAL_FEATURE_CACHE=0 to disable, e.g., to A/B check that results are unchanged.
+_FEATURE_CACHE: dict[tuple, FeatureDataset | None] = {}
+
+#: Kept small on purpose: an entry is a full feature matrix, and the access pattern is "same key many
+#: times in a row", so a couple of slots already give the full speedup.
+_FEATURE_CACHE_MAXSIZE = 4
+
+
+def clear_feature_cache() -> None:
+    """Drop all cached feature matrices, e.g., to free memory between datasets."""
+    _FEATURE_CACHE.clear()
+
+
+def _load_features_cached(model: DRPModel, path_data: str, dataset_name: str, kind: str) -> FeatureDataset | None:
+    """
+    Load cell line or drug features, reusing an already loaded matrix when nothing they depend on changed.
+
+    :param model: built model, i.e., build_model() was already called so the hyperparameters are set
+    :param path_data: path to the data directory, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :param kind: either "cell_line" or "drug"
+    :returns: the feature dataset, or None if the model does not use this kind of feature
+    """
+    loader = model.load_cell_line_features if kind == "cell_line" else model.load_drug_features
+    # Models whose loaders also initialize model state have to run them for every instance, and the cache
+    # can be switched off entirely to check that results are unchanged.
+    if not model.supports_feature_caching or os.environ.get("DREVAL_FEATURE_CACHE", "1") == "0":
+        return loader(data_path=path_data, dataset_name=dataset_name)
+    # The hyperparameters decide which views and which gene list are loaded, so they belong in the key.
+    key = (
+        type(model).__name__,
+        kind,
+        path_data,
+        dataset_name,
+        json.dumps(getattr(model, "hyperparameters", {}), sort_keys=True, default=str),
+    )
+    if key not in _FEATURE_CACHE:
+        if len(_FEATURE_CACHE) >= _FEATURE_CACHE_MAXSIZE:
+            _FEATURE_CACHE.pop(next(iter(_FEATURE_CACHE)))
+        _FEATURE_CACHE[key] = loader(data_path=path_data, dataset_name=dataset_name)
+    return _FEATURE_CACHE[key]
+
+
+def _load_cell_line_features_cached(model: DRPModel, path_data: str, dataset_name: str) -> FeatureDataset:
+    """
+    Cached variant of ``model.load_cell_line_features``, which every model has to implement.
+
+    :param model: built model
+    :param path_data: path to the data directory, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: the cell line feature dataset
+    """
+    return cast(FeatureDataset, _load_features_cached(model, path_data, dataset_name, "cell_line"))
+
+
+def _load_drug_features_cached(model: DRPModel, path_data: str, dataset_name: str) -> FeatureDataset | None:
+    """
+    Cached variant of ``model.load_drug_features``, which single drug models do not provide.
+
+    :param model: built model
+    :param path_data: path to the data directory, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: the drug feature dataset, or None
+    """
+    return _load_features_cached(model, path_data, dataset_name, "drug")
+
+
 def load_features(
     model: DRPModel, path_data: str, dataset: DrugResponseDataset
 ) -> tuple[FeatureDataset, FeatureDataset | None]:
@@ -641,8 +717,8 @@ def load_features(
     :param dataset: dataset to load features for, e.g., GDSC2
     :returns: tuple of cell line and, potentially, drug features
     """
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
+    cl_features = _load_cell_line_features_cached(model, path_data, dataset.dataset_name)
+    drug_features = _load_drug_features_cached(model, path_data, dataset.dataset_name)
     return cl_features, drug_features
 
 
@@ -1110,10 +1186,10 @@ def train_and_predict(
         raise ValueError("train_dataset must have a dataset_name")
     if cl_features is None:
         print("Loading cell line features ...")
-        cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
+        cl_features = _load_cell_line_features_cached(model, path_data, train_dataset.dataset_name)
     if drug_features is None:
         print("Loading drug features ...")
-        drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
+        drug_features = _load_drug_features_cached(model, path_data, train_dataset.dataset_name)
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
     drugs_to_keep = drug_features.identifiers if drug_features is not None else None
@@ -1633,8 +1709,8 @@ def train_final_model(
     print(f"Best hyperparameters for final model: {best_hpams}")
     model.build_model(hyperparameters=best_hpams)
 
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
+    cl_features = _load_cell_line_features_cached(model, path_data, full_dataset.dataset_name)
+    drug_features = _load_drug_features_cached(model, path_data, full_dataset.dataset_name)
     cell_lines_to_keep = cl_features.identifiers
     drugs_to_keep = drug_features.identifiers if drug_features is not None else None
 
