@@ -56,6 +56,7 @@ rich = ">=15.0.0"
 gseapy = { version = ">=1.1.0", optional = true }
 mygene = { version = "*", optional = true }
 obonet = { version = "*", optional = true }
+rdkit = { version = ">=2022.9", optional = true }
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
@@ -65,6 +66,7 @@ multiprocessing = ["ray", "pydantic"]
 xgboost = ["xgboost"]
 precily = ["gseapy"]
 sparsego = ["mygene", "obonet"]
+paccmann = ["rdkit"]
 
 [tool.poetry.dependencies.ray]
 extras = ["tune"]
