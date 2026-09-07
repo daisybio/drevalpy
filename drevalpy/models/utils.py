@@ -543,17 +543,20 @@ def load_single_cell_line_view(
     data_path: str,
     dataset_name: str,
     model_name: str,
+    gene_list: str | None = "landmark_genes_reduced",
 ) -> FeatureDataset:
     """
     Load cell line features for a single-view model.
 
-    If the view is "gene_expression", the landmark_genes_reduced list is used for subsetting.
-    Otherwise, the whole CSV is loaded.
+    If the view is "gene_expression", ``gene_list`` is used for subsetting. Otherwise, the whole CSV
+    is loaded.
 
     :param cell_line_views: list of cell line views (must have exactly one element)
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC1
     :param model_name: name of the model, used for error messages
+    :param gene_list: gene list used to subset gene_expression, e.g., drug_target_genes_all_drugs.
+        None loads all genes. The default reproduces the previously hard-coded behaviour.
     :returns: FeatureDataset containing the cell line features
     :raises ValueError: if cell_line_views is empty or has more than one element
     """
@@ -569,7 +572,7 @@ def load_single_cell_line_view(
     if "gene_expression" in cell_line_views:
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
+            gene_list=gene_list,
             data_path=data_path,
             dataset_name=dataset_name,
         )

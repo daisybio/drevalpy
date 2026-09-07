@@ -6,8 +6,11 @@ import pickle
 from argparse import Namespace
 from typing import Any
 
+import joblib
 import pandas as pd
 import yaml
+
+from drevalpy.experiment import get_model_name_and_drug_id
 
 
 def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
@@ -220,13 +223,10 @@ def run_final_split(
     with open(response, "rb") as response_file:
         response_data = pickle.load(response_file)
     response_data.remove_nan_responses()
-    model_class = MODEL_FACTORY[model_name]
-    model = model_class()
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=response_data.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=response_data.dataset_name)
-    cell_lines_to_keep = cl_features.identifiers
-    drugs_to_keep = drug_features.identifiers if drug_features is not None else None
-    response_data.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    class_name, drug_id = get_model_name_and_drug_id(model_name)
+    model_class = MODEL_FACTORY[class_name]
+    if model_class.is_single_drug_model:
+        response_data.mask(response_data.drug_ids == drug_id)
 
     train_dataset, validation_dataset = make_train_val_split(response_data, test_mode=test_mode, val_ratio=val_ratio)
 
@@ -314,18 +314,37 @@ def run_train_final_model(
         validation_dataset = pickle.load(val_file)
     with open(early_stopping_data, "rb") as es_file:
         es_dataset = pickle.load(es_file)
+
+    with open(best_hpam_combi) as f:
+        best_hpam = yaml.safe_load(f)[f"{model_name}_final"]["best_hpam_combi"]
+    model = MODEL_FACTORY[resolved_name]()
+    model.build_model(hyperparameters=best_hpam)
+    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
+    drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
+    cell_lines_to_keep = cl_features.identifiers
+    drugs_to_keep = drug_features.identifiers if drug_features is not None else None
+
     train_dataset.add_rows(validation_dataset)
     train_dataset.shuffle(random_state=42)
+    len_train_before = len(train_dataset)
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    if len(train_dataset) < len_train_before:
+        print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, due to missing features")
+
+    if es_dataset is not None:
+        len_early_stopping_before = len(es_dataset)
+        es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+        if len(es_dataset) < len_early_stopping_before:
+            print(
+                f"Reduced early stopping dataset from {len_early_stopping_before} to "
+                f"{len(es_dataset)}, due to missing features"
+            )
+
     if response_transform:
         train_dataset.fit_transform(response_transform)
         if es_dataset is not None:
             es_dataset.transform(response_transform)
-    with open(best_hpam_combi) as f:
-        best_hpam = yaml.safe_load(f)[f"{resolved_name}_final"]["best_hpam_combi"]
-    model = MODEL_FACTORY[resolved_name]()
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
-    model.build_model(hyperparameters=best_hpam)
+
     model.train(
         output=train_dataset,
         output_earlystopping=es_dataset,
@@ -335,6 +354,8 @@ def run_train_final_model(
     )
     pathlib.Path(final_model_path).mkdir(parents=True, exist_ok=True)
     model.save(final_model_path)
+    if response_transform:
+        joblib.dump(response_transform, pathlib.Path(final_model_path) / "response_transform.pkl")
 
 
 def run_consolidate_results(
