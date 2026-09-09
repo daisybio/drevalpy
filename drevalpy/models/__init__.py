@@ -19,6 +19,7 @@ __all__ = [
     "SingleDrugRandomForest",
     "SingleDrugElasticNet",
     "SRMF",
+    "EnsembleMF",
     "GradientBoosting",
     "MOLIR",
     "SuperFELTR",
@@ -58,6 +59,7 @@ from .baselines.sklearn_models import (
 from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
 from .DrugGNN import DrugGNN
+from .EnsembleMF import EnsembleMF
 from .MOLIR.molir import MOLIR
 from .PharmaFormer.pharmaformer import PharmaFormerModel
 from .Precily import PrecilyModel
@@ -103,6 +105,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "DIPK": DIPKModel,
     "PharmaFormer": PharmaFormerModel,
     "SRMF": SRMF,
+    "EnsembleMF": EnsembleMF,
     "Precily": PrecilyModel,
     "SparseGO": SparseGOModel,
 }
