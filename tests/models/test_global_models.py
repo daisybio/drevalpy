@@ -27,6 +27,7 @@ from drevalpy.models.drp_model import DRPModel
         "PharmaFormer",
         "Precily",
         "SparseGO",
+        "EnsembleMF",
     ],
 )
 def test_global_models(
@@ -83,6 +84,15 @@ def test_global_models(
     elif model_name == "SparseGO":
         hpam_combi["epochs"] = 1
         hpam_combi["batch_size"] = 32
+    elif model_name == "EnsembleMF":
+        hpam_combi["n_ensemble"] = 2
+        hpam_combi["max_epochs"] = 1
+        hpam_combi["hidden_dim"] = 32
+        hpam_combi["emb_dim"] = 16
+        hpam_combi["mlp_hidden"] = 16
+        hpam_combi["batch_size"] = 64
+        hpam_combi["n_bits"] = 128  # toy data ships only 128-bit fingerprints
+        hpam_combi["gene_list"] = None  # gene_expression_intersection is not in the toy bundle
     elif model_name == "AdaBoostDecisionTree":
         hpam_combi["max_depth"] = 2
         hpam_combi["min_samples_split"] = 2
