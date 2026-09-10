@@ -65,7 +65,9 @@ MEASURE_HELP = (
 RESPONSE_TRANSFORMATION_HELP = (
     "Transformation to apply to the response variable during training and prediction. Will be retransformed "
     "after the final predictions. Possible values: standard, minmax, robust, drug_mean (subtracts the per-drug "
-    "mean of the training fold), drug_tissue_mean (per drug and tissue, falling back to the per-drug mean)."
+    "mean of the training fold), drug_tissue_mean (per drug and tissue, falling back to the per-drug mean). "
+    "The NaiveMeanEffectsPredictor is always trained on the untransformed response because it defines the "
+    "reference scale of the ``Normalized *`` metrics."
 )
 
 
