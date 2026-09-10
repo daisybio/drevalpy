@@ -31,6 +31,10 @@ from .pipeline_function import pipeline_function
 #: File name under which train_final_model stores the fitted response transformation next to the model.
 RESPONSE_TRANSFORMATION_FILE = "response_transformation.pkl"
 
+#: Baseline that defines the reference scale of all ``Normalized *`` metrics. It is always run and is
+#: therefore never trained on a transformed response, see drug_response_experiment.
+NORMALIZATION_BASELINE = "NaiveMeanEffectsPredictor"
+
 
 def seed_everything(seed: int = 42) -> None:
     """
@@ -148,7 +152,9 @@ def drug_response_experiment(
     :param models: list of model classes to compare
     :param baselines: list of baseline models. No randomization or robustness tests are run for the baseline models.
     :param response_data: drug response dataset
-    :param response_transformation: normalizer to use for the response data
+    :param response_transformation: normalizer to use for the response data. The
+        NaiveMeanEffectsPredictor is exempt from it because it defines the reference scale of the
+        ``Normalized *`` metrics.
     :param hpam_optimization_metric: metric to use for hyperparameter optimization
         (i.e., for selecting the best model on the validation set)
     :param n_cv_splits: number of cross-validation splits
@@ -212,7 +218,7 @@ def drug_response_experiment(
             stacklevel=2,
         )
     # Default baseline model, needed for normalization
-    nme = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
+    nme = MODEL_FACTORY[NORMALIZATION_BASELINE]
     if baselines is None:
         baselines = [nme]
     elif nme not in baselines:
@@ -242,6 +248,11 @@ def drug_response_experiment(
         model_name, drug_id = get_model_name_and_drug_id(model_name)
 
         model_class = MODEL_FACTORY[model_name]
+        # The normalization baseline is the ruler of every "Normalized *" metric, so it has to stay on
+        # the original response scale. For the globally affine scalers this is a no-op (means are
+        # affine-equivariant), but the conditional means (drug_mean, drug_tissue_mean) do change its
+        # predictions and would move the ruler along with the models that are measured against it.
+        model_transformation = None if model_name == NORMALIZATION_BASELINE else response_transformation
         if model_class in baselines:
             print("- Only Baseline Tests -")
             is_baseline = True
@@ -308,7 +319,7 @@ def drug_response_experiment(
                     "validation_dataset": validation_dataset,
                     "early_stopping_dataset": early_stopping_dataset,
                     "hpam_set": model_hpam_set,
-                    "response_transformation": response_transformation,
+                    "response_transformation": model_transformation,
                     "metric": hpam_optimization_metric,
                     "path_data": path_data,
                     "model_checkpoint_dir": model_checkpoint_dir,
@@ -368,7 +379,7 @@ def drug_response_experiment(
                     train_dataset=train_dataset,
                     prediction_dataset=test_dataset,
                     early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
-                    response_transformation=response_transformation,
+                    response_transformation=model_transformation,
                     model_checkpoint_dir=model_checkpoint_dir,
                 )
 
@@ -400,7 +411,7 @@ def drug_response_experiment(
                         train_dataset=train_dataset,
                         path_data=path_data,
                         early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
-                        response_transformation=response_transformation,
+                        response_transformation=model_transformation,
                         path_out=parent_dir,
                         split_index=split_index,
                         single_drug_id=(drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None),
@@ -437,7 +448,7 @@ def drug_response_experiment(
                         path_out=parent_dir,
                         split_index=split_index,
                         randomization_type=randomization_type,
-                        response_transformation=response_transformation,
+                        response_transformation=model_transformation,
                         model_checkpoint_dir=model_checkpoint_dir,
                     )
                 if n_trials_robustness > 0:
@@ -452,7 +463,7 @@ def drug_response_experiment(
                         early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
                         path_out=parent_dir,
                         split_index=split_index,
-                        response_transformation=response_transformation,
+                        response_transformation=model_transformation,
                     )
 
         if final_model_on_full_data and (model_class not in baselines):
@@ -466,7 +477,7 @@ def drug_response_experiment(
                 model_class=model_class,
                 full_dataset=response_data.copy(),
                 drug_id=drug_id,
-                response_transformation=response_transformation,
+                response_transformation=model_transformation,
                 path_data=path_data,
                 model_checkpoint_dir=model_checkpoint_dir,
                 metric=hpam_optimization_metric,
