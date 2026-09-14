@@ -31,6 +31,7 @@ Additionally, you must define a unique model name to identify your model during 
 
         is_single_drug_model = True / False # TODO: set to true if your model is a single drug model (i.e., it needs to be trained for each drug separately)
         early_stopping = True / False # TODO: set to true if you want to use a part of the validation set for early stopping
+        supports_feature_caching = True # TODO: set to false if your feature loading also initializes model state, see below
         cell_line_views = ["gene_expression", "methylation"]
         drug_views = ["fingerprints"]
 
@@ -58,6 +59,15 @@ For our provided datasets, we have other loading methods implemented in the `dre
 * ``def load_cl_ids_from_csv``
 * ``def load_drug_ids_from_csv``
 * ``load_tissues_from_csv``
+
+Loading a feature matrix is often the most expensive part of a run, and the same matrix is needed again for
+every CV split and, for single drug models, for every drug. The pipeline therefore caches what your loaders
+return and hands the same object to later model instances, keyed by model class, data path, dataset name and
+hyperparameters. Every consumer works on a ``copy()`` of it, so this is invisible to your model as long as your
+loaders only return features. If they also initialize model state, e.g., an ontology structure that ``train``
+needs later, set ``supports_feature_caching = False`` on your class: the pipeline then calls your loaders for
+every instance, as it did before the cache existed. Setting ``DREVAL_FEATURE_CACHE=0`` in the environment
+disables the cache for all models.
 
 .. code-block:: Python
 

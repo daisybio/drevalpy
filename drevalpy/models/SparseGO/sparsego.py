@@ -415,6 +415,10 @@ class SparseGOModel(DRPModel):
     cell_line_views = ["gene_expression", "mutations"]
     drug_views = ["fingerprints"]
     early_stopping = False
+    # load_cell_line_features also builds the ontology structure (layer_connections, gene2id_mapping_ont,
+    # ontology_gene_order, gene_dim_input) that train() and predict() need, so it has to run for every
+    # instance and the features must not be served from the pipeline's cache.
+    supports_feature_caching = False
 
     def __init__(self) -> None:
         """Initialize SparseGOModel."""
