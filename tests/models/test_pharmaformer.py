@@ -1,10 +1,12 @@
 """Regression test for PharmaFormerModel.predict() gene expression preprocessing."""
 
+import tempfile
+
 import numpy as np
 import torch
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.PharmaFormer.model_utils import CombinedModel
 from drevalpy.models.PharmaFormer.pharmaformer import PharmaFormerModel
 
@@ -120,3 +122,59 @@ def test_predict_scales_gene_expression_only_once_regardless_of_repeat_count() -
         assert actual.shape == (repeat_count, 10)
         for row in actual:
             assert np.allclose(row, expected, atol=1e-6)
+
+
+def test_train_fits_gene_expression_scaler_without_duplicate_weighting() -> None:
+    """The scaler must be fit once per cell line, not weighted by how many drugs each was tested against."""
+    model = PharmaFormerModel()
+    model.hyperparameters = {
+        "gene_hidden_size": 8,
+        "drug_hidden_size": 8,
+        "feature_dim": 4,
+        "nhead": 2,
+        "num_layers": 1,
+        "dim_feedforward": 16,
+        "dropout": 0.0,
+        "batch_size": 64,
+        "lr": 1e-3,
+        "epochs": 1,
+        "patience": 1,
+    }
+
+    rng = np.random.default_rng(3)
+    cell_a_expr = rng.normal(size=10).astype(np.float32)
+    cell_b_expr = rng.normal(size=10).astype(np.float32)
+    cell_line_input = FeatureDataset(
+        features={
+            "cellA": {"gene_expression": cell_a_expr},
+            "cellB": {"gene_expression": cell_b_expr},
+        }
+    )
+    drug_input = FeatureDataset(
+        features={f"drug{i}": {"bpe_smiles": rng.normal(size=128).astype(np.float32)} for i in range(3)}
+    )
+
+    # cellA is tested against three drugs, cellB against only one: a fit on the raw
+    # response-level array would weight cellA's expression vector 3x as heavily as cellB's.
+    output = DrugResponseDataset(
+        response=rng.normal(size=4).astype(np.float32),
+        cell_line_ids=np.array(["cellA", "cellA", "cellA", "cellB"]),
+        drug_ids=np.array(["drug0", "drug1", "drug2", "drug0"]),
+    )
+    output_earlystopping = DrugResponseDataset(
+        response=rng.normal(size=2).astype(np.float32),
+        cell_line_ids=np.array(["cellA", "cellB"]),
+        drug_ids=np.array(["drug1", "drug0"]),
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model.train(
+            output=output,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+            output_earlystopping=output_earlystopping,
+            model_checkpoint_dir=tmpdir,
+        )
+
+    expected_mean = np.mean([cell_a_expr, cell_b_expr], axis=0)
+    assert np.allclose(model.gene_expression_scaler.mean_, expected_mean, atol=1e-6)

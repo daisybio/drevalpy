@@ -141,9 +141,11 @@ class PharmaFormerModel(DRPModel):
         if output_earlystopping is None:
             raise ValueError("PharmaFormer model requires early stopping data.")
 
-        # Get feature dimensions
+        # Get feature dimensions. output.cell_line_ids is response-level (one entry per
+        # cell_line/drug pair), so deduplicate first or cell lines tested against more drugs
+        # would get more weight when fitting the scaler below.
         train_gene_features = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=output.cell_line_ids
+            view="gene_expression", identifiers=np.unique(output.cell_line_ids)
         )
         gene_input_size = train_gene_features.shape[1]
 
