@@ -1,0 +1,344 @@
+{
+  "implementation": "cf5eeb6a0e020ab7e98c9829c0d81dc00a8cdd5c",
+  "seeds": {
+    "0": {
+      "dipk": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.0010000020265579224,
+        "mse": 2.5668013011795217,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 6927883,
+        "predictions": [
+          0.21239353716373444, 0.2668410539627075, 0.23558871448040009,
+          0.3271348476409912
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "druggnn": {
+        "final_validation_loss": 65.89656066894531,
+        "finite_predictions": true,
+        "max_parameter_delta": 2.233351230621338,
+        "mse": 75.24881341760215,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 1070,
+        "predictions": [
+          -6.1022562980651855, -6.1022562980651855, -6.1022562980651855,
+          -6.1022562980651855
+        ],
+        "selected_validation_loss": 65.89656066894531,
+        "state_roundtrip_max_error": 0.0,
+        "validation_history": [
+          1.5338622331619263, 1291.828857421875, 77.81205749511719,
+          65.89656066894531
+        ]
+      },
+      "molir": {
+        "checkpoint_score": 3.1195454597473145,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.029996277764439583,
+        "mse": 0.7986049369626488,
+        "n_train": 6,
+        "n_validation": 2,
+        "parameter_updates": 109,
+        "predictions": [
+          0.7237358093261719, 0.5299315452575684, 0.03734048455953598,
+          0.21109576523303986, -0.34280601143836975, -0.39641425013542175
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "pharmaformer": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.001000046730041504,
+        "mse": 2.077336607174489,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 28868,
+        "predictions": [
+          0.37334442138671875, 0.7054030895233154, 0.44207850098609924,
+          0.706120491027832
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "precily": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.010000001639127731,
+        "mse": 29.00281238872941,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 431965,
+        "predictions": [
+          7.684854030609131, 8.152584075927734, 7.392431259155273,
+          7.765133857727051
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "sparsego": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.2301974892616272,
+        "mse": 5.091189028861786,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 96,
+        "predictions": [
+          0.5540964603424072, 0.5404952168464661, 0.5469093322753906,
+          0.5332842469215393
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "srmf": {
+        "factor_count": 8,
+        "finite_factors": true,
+        "finite_predictions": true,
+        "mse": 0.00010271607189870949,
+        "n_train": 4,
+        "n_validation": 0,
+        "predictions": [
+          0.9930403029944951, 2.0042264405876584, 2.9836044893483065,
+          4.008703524321538
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "superfeltr": {
+        "checkpoint_score": 0.2977854013442993,
+        "checkpoint_selected": true,
+        "finite_predictions": true,
+        "mse": 0.32888558753990244,
+        "n_train": 6,
+        "n_validation": 2,
+        "predictions": [
+          -0.11081120371818542, 0.19697844982147217, -0.15856219828128815,
+          0.06216122582554817, 0.07087979465723038, 0.3027942478656769
+        ],
+        "state_roundtrip_max_error": "non-finite"
+      }
+    },
+    "1": {
+      "dipk": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.0010000020265579224,
+        "mse": 2.729045869936526,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 6896291,
+        "predictions": [
+          0.16503380239009857, 0.1959899663925171, 0.18799249827861786,
+          0.2169991135597229
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "druggnn": {
+        "final_validation_loss": 9.578014373779297,
+        "finite_predictions": true,
+        "max_parameter_delta": 2.7299938201904297,
+        "mse": 13.882194810221392,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 968,
+        "predictions": [
+          -1.0541799068450928, -1.0541799068450928, -1.0541799068450928,
+          -1.0541799068450928
+        ],
+        "selected_validation_loss": 9.578014373779297,
+        "state_roundtrip_max_error": 0.0,
+        "validation_history": [
+          1824.490966796875, 84.99745178222656, 2314.66943359375,
+          9.578014373779297
+        ]
+      },
+      "molir": {
+        "checkpoint_score": 1.9437296390533447,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.028198152780532837,
+        "mse": 0.2893824926346403,
+        "n_train": 6,
+        "n_validation": 2,
+        "parameter_updates": 109,
+        "predictions": [
+          0.0373041033744812, 0.036155104637145996, 0.3042852282524109,
+          0.3041863441467285, 0.022700875997543335, 0.18665264546871185
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "pharmaformer": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.001000046730041504,
+        "mse": 2.4246639830499803,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 30313,
+        "predictions": [
+          0.3413417339324951, 0.37978240847587585, 0.3756433427333832,
+          0.42690300941467285
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "precily": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.010000001639127731,
+        "mse": 66.30596750641325,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 414444,
+        "predictions": [
+          10.497923851013184, 10.84365177154541, 10.160201072692871,
+          10.747937202453613
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "sparsego": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.14528429508209229,
+        "mse": 2.6442528377349674,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 91,
+        "predictions": [
+          1.3487663269042969, 1.296196699142456, 1.3566768169403076,
+          1.305649757385254
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "srmf": {
+        "factor_count": 8,
+        "finite_factors": true,
+        "finite_predictions": true,
+        "mse": 1.2119999451064899e-5,
+        "n_train": 4,
+        "n_validation": 0,
+        "predictions": [
+          0.999462708397874, 2.0000829314488806, 3.0056924795793467,
+          3.9960275808186885
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "superfeltr": {
+        "checkpoint_score": 0.24344417452812195,
+        "checkpoint_selected": true,
+        "finite_predictions": true,
+        "mse": 0.4116491230580046,
+        "n_train": 6,
+        "n_validation": 2,
+        "predictions": [
+          0.17904415726661682, -0.08284437656402588, -0.06536996364593506,
+          0.2936561405658722, 0.016641512513160706, -0.0957147479057312
+        ],
+        "state_roundtrip_max_error": "non-finite"
+      }
+    },
+    "2": {
+      "dipk": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.0010000020265579224,
+        "mse": 2.8509345869211753,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 6955129,
+        "predictions": [
+          0.10231537371873856, 0.12602010369300842, 0.1228656992316246,
+          0.14478033781051636
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "druggnn": {
+        "final_validation_loss": 1.062774419784546,
+        "finite_predictions": true,
+        "max_parameter_delta": 2.2672295570373535,
+        "mse": 3.214314486441765,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 921,
+        "predictions": [
+          1.0984599590301514, 1.0984599590301514, 1.0984599590301514,
+          1.0984599590301514
+        ],
+        "selected_validation_loss": 1.062774419784546,
+        "state_roundtrip_max_error": 0.0,
+        "validation_history": [
+          0.31856995820999146, 208.77120971679688, 25.947612762451172,
+          1.062774419784546
+        ]
+      },
+      "molir": {
+        "checkpoint_score": 2.1541216373443604,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.027630209922790527,
+        "mse": 0.5426650577748083,
+        "n_train": 6,
+        "n_validation": 2,
+        "parameter_updates": 109,
+        "predictions": [
+          0.047188907861709595, -0.04831388592720032, 0.02930855005979538,
+          -0.27199289202690125, -0.2635187804698944, 0.17252568900585175
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "pharmaformer": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.001000046730041504,
+        "mse": 2.526767525221776,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 30651,
+        "predictions": [
+          0.41163337230682373, 0.4635298550128937, 0.5089309811592102,
+          0.3296416997909546
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "precily": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.010000001639127731,
+        "mse": 21.551715146874074,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 413918,
+        "predictions": [
+          6.957337856292725, 6.773700714111328, 7.384984493255615,
+          6.949691295623779
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "sparsego": {
+        "finite_predictions": true,
+        "max_parameter_delta": 0.1668325662612915,
+        "mse": 3.358913193530274,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 94,
+        "predictions": [
+          1.0534145832061768, 1.0437482595443726, 1.054469347000122,
+          1.044785499572754
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "srmf": {
+        "factor_count": 8,
+        "finite_factors": true,
+        "finite_predictions": true,
+        "mse": 0.0001697138482477647,
+        "n_train": 4,
+        "n_validation": 0,
+        "predictions": [
+          1.0169383184798406, 1.9865552195235017, 3.011669865516836,
+          3.99133969533883
+        ],
+        "state_roundtrip_max_error": 0.0
+      },
+      "superfeltr": {
+        "checkpoint_score": 0.7998127937316895,
+        "checkpoint_selected": true,
+        "finite_predictions": true,
+        "mse": 0.4242428490109769,
+        "n_train": 6,
+        "n_validation": 2,
+        "predictions": [
+          -0.32101237773895264, -0.2503381371498108, 0.08108886331319809,
+          -0.017672639340162277, 0.17988543212413788, -0.07989165931940079
+        ],
+        "state_roundtrip_max_error": "non-finite"
+      }
+    }
+  }
+}

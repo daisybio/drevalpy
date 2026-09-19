@@ -1,0 +1,34 @@
+{
+  "molir_gamma_weighting": {
+    "baseline_behavior": "The v2 port added the triplet term without applying the configured gamma weight.",
+    "classification": "verified defect correction",
+    "current_behavior": "The triplet term is multiplied by gamma, matching both cited upstream implementations.",
+    "evidence": [
+      "MultiOmics/src/utils/network_training_util.py:59",
+      "MOLI/Cross validation/MOLI Complete/Erlotinib_cvSoftTripletClassifierNetv16_Script.py:304"
+    ],
+    "seeds": {
+      "0": {
+        "checkpoint_score": 2.3695454597473145,
+        "predictions": [
+          0.7237358093261719, 0.5299315452575684, 0.03734048455953598,
+          0.21109576523303986, -0.34280601143836975, -0.39641425013542175
+        ]
+      },
+      "1": {
+        "checkpoint_score": 1.1937296390533447,
+        "predictions": [
+          0.0373041033744812, 0.036155104637145996, 0.3042852282524109,
+          0.3041863441467285, 0.022700875997543335, 0.18665264546871185
+        ]
+      },
+      "2": {
+        "checkpoint_score": 1.4041216373443604,
+        "predictions": [
+          0.047188907861709595, -0.04831388592720032, 0.02930855005979538,
+          -0.27199289202690125, -0.2635187804698944, 0.17252568900585175
+        ]
+      }
+    }
+  }
+}

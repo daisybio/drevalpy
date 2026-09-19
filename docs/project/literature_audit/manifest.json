@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "purpose": "Pinned source provenance and executed numerical/training regression evidence",
+  "models": {
+    "DrugGNN": {
+      "repo": "https://github.com/hauldhut/GraphDRP",
+      "commit": "ad250651f3db95d9cd7d885740e8636d609b960f",
+      "license": "Apache-2.0 (LICENSE)",
+      "versions": "No requirements file/version pin found in source root",
+      "audited": {
+        "GraphDRP/models/gcn.py": "207d7b9a1f12e60d8d01d658883309c9348c2cbb57ef72e4c77e0a0a2e5b60ae",
+        "GraphDRP/training.py": "139ea7be876df54d825637d4370414f4d7eac77091315b203eef5cbc797d1b5c",
+        "GraphDRP/preprocess.py": "4596e2ca5dd1d2f1570b1a80f79ca38163cd59476fce188b47d6be506a09d353"
+      }
+    },
+    "Precily": {
+      "repo": "https://github.com/SmritiChawla/Precily",
+      "commit": "8fb1a9d1f4970b04adc2d8c9818873f1df75fe1b",
+      "license": "No license file in pinned tree",
+      "versions": "Scripts import tensorflow, keras_tuner; no pinned dependency file",
+      "audited": {
+        "Precily/Fig1/Fig1c/Fig1c_Precily_pathways/Precily_pathways.py": "f370b25946d8042d019f10f5bc12609a3b4272c7c9114e81878370cb9e56d6aa",
+        "Precily/Fig1/Fig1c/Fig1c_Precily_genes/Precily_genes.py": "777e622f4ec42558e208f873fa60037c7feecb97adb8f1ac74943ccdd2fea462",
+        "Precily/Fig4/Fig4b/DrugsPred.R": "d6a24e7ec8414c07b3c902ee331ab2c05ad54feaae65c6112a18ebac588d7003",
+        "Precily/Fig4/Fig4b/Features.csv": "7b6b1f2f6665f057b81889fe12a5cdcbb3b1af13bd506759fec9a5bb1f6f7631",
+        "Precily/Fig2/Fig2b/Fig2b.R": "a51febe68a451c8253db07be2da0b079b6177b58d31329c535a27d96ac16afbd"
+      }
+    },
+    "SRMF": {
+      "repo": "https://github.com/linwang1982/SRMF",
+      "commit": "921770220b62ea37aa98bce6febacc9db85c79f7",
+      "license": "No license file in pinned tree/archive",
+      "versions": "MATLAB source; no version declaration",
+      "audited": {
+        "SRMF-extracted/SRMF/CMF.m": "f20ae4ca8db3dc1180739b1b35093f005f7aece1537b58cb95881c05205be1b6",
+        "SRMF-extracted/SRMF/alg_update.m": "35b47f2e1cb0eb9a3221174f32dc9885afdb60534d4bf738d50aee496abcd5c3",
+        "SRMF-extracted/SRMF/compute_loss.m": "5e831bc424bfa39e15b4726dddb3e14dee58cf94f19861b9b73c77e1c45c9464",
+        "SRMF-extracted/SRMF/predict.m": "9e4dd420af4b6c5529e9c6c80831635b000679c41b6ac2a49c04fc551fdd2d10"
+      }
+    },
+    "MOLIR_source": {
+      "repo": "https://github.com/kramerlab/Multi-Omics_analysis",
+      "commit": "9c860f4b2bd8602f40cd32af835ce6097d0d0426",
+      "license": "GPL-3.0 (LICENSE)",
+      "versions": "requirements.txt present; not a locked environment",
+      "audited": {
+        "MultiOmics/src/models/moli_model.py": "b7345ed95c4c993b591ad95920de5ab1e45887f6d2bd26a66d8a673e8ff6a430",
+        "MultiOmics/src/utils/network_training_util.py": "db74f5176c6a951f8cf7e428d4881613a71414bcfd759033f534b3ff9d0fcf54",
+        "MultiOmics/src/experiments/moli/train_moli.py": "37a61e9b2ce589f4ace73761338fa2e5272c33caeea6c58efa3545bbe6c03ea4",
+        "MultiOmics/src/experiments/super.felt/train_super_felt.py": "abb9ec9512276eb3145ea0e577c87b0c0e83c25019573638270e0a91937bfe3a"
+      }
+    },
+    "MOLI_metadata_ref": {
+      "repo": "https://github.com/hosseinshn/MOLI",
+      "commit": "c83d6d4c7e042ff4da7c7e3df0a7c8d030d37b8b",
+      "license": "No license file found",
+      "versions": "No pinned dependency file found",
+      "audited": {
+        "MOLI/Cross validation/MOLI Complete/Erlotinib_cvSoftTripletClassifierNetv16_Script.py": "33bde5b1e61c959c69858e8772329374f96c4d9ea65a55487c6d75e4aff94fed"
+      }
+    },
+    "SuperFELTR": {
+      "repo": "https://github.com/DMCB-GIST/Super.FELT",
+      "commit": "c47acde62595556d24d126d512342de2ca6c90d0",
+      "license": "No license file found",
+      "versions": "No pinned dependency file found",
+      "audited": {
+        "SuperFELT/Super_FELT_main.py": "15e39d7973eb87eef388408a4dac2d90960b18cbe0f47771e56a60425a1e481b",
+        "SuperFELT/models.py": "19f03c29311aa842db5031d84ab024e28883ae96cd362c3e2d7ab9615b4db7a5"
+      }
+    },
+    "PharmaFormer": {
+      "repo": "https://github.com/zhouyuru1205/PharmaFormer",
+      "commit": "32542e57c4c169425946eec19ac0f761376a6606",
+      "license": "Apache-2.0 (LICENSE)",
+      "versions": "README requests requirements.txt, but no requirements file is tracked at this commit",
+      "audited": {
+        "PharmaFormer/finetune.py": "9cbcd582925f422d7e741327d5f362d771f8e5a62efba0f9f620a9afc8a9c36e",
+        "PharmaFormer/pretrain.py": "c7c1dc2389e4050df1f007093a6042620be1c0abdeb4792f04d583fe2820f567"
+      }
+    },
+    "DIPK": {
+      "repo": "https://github.com/user15632/DIPK",
+      "commit": "0edfc151fbbdb7864d577865f9541a689d706c5b",
+      "license": "No license file found",
+      "versions": "No pinned dependency file found",
+      "audited": {
+        "DIPK/Task1/PreTrain/PreTrain.py": "395295662979f5e3013192ed7718580fe6c9680a38b3b4ee351a4d8ae53c4405",
+        "DIPK/Task1/PreTrain/Model_DAE.py": "b5100a137825b9c0e5f30b489a65377f7d96a39498445062a6f2d9276e161c02",
+        "DIPK/Task1/fold=0_model=0/Train.py": "4a0837ee5ed0a4bd109dcf728d11894cb952b61a284f772f6be0d0cb73140c8c",
+        "DIPK/Task1/fold=0_model=0/Model_MHA.py": "bbb5d5f2520b34310945262c2b5e77d36ff5aa4ae26b5ef5ab80896d372f4ad5",
+        "DIPK/Task1/fold=0_model=2/Model.py": "221ab3ca1716722aac2b45fe894fb2a195065bfc384c2b80de0710cf30d59c49",
+        "DIPK/Task1/fold=0_model=2/Model_MHA.py": "bbb5d5f2520b34310945262c2b5e77d36ff5aa4ae26b5ef5ab80896d372f4ad5",
+        "DIPK/Task1/fold=0_model=2/Train.py": "cc119fc74fb4bbdba24885c896671a95350d17eb551e85566fd052f39c09b8d7"
+      }
+    },
+    "SparseGO": {
+      "repo": "https://github.com/KatynaSada/SparseGO_lightning",
+      "commit": "8cec017405bddc52e3963e5807f6e62f8c224f1d",
+      "license": "No license file found",
+      "versions": "No pinned dependency file found",
+      "audited": {
+        "SparseGO/code/train_cv.py": "fedfc5c720676fa9a58856a3519a345dabe59a87af1d98976b2df6dfb1e51029",
+        "SparseGO/code/utils.py": "db44cfbfffeecf62c64c1216a3e96edde9f5a6110a1dc40c226df36cf41ce996",
+        "SparseGO/code/sparse_linear_new.py": "8c7d8b107264feec58e490edd1367c6cae356025234c198f7057d9daa0c89a24"
+      }
+    }
+  },
+  "numerical_comparison": {
+    "harness": "tools/literature_reference/numerical_compare_v2.py",
+    "harness_sha256": "6149855fd39f3733b4fd112e3603bb3a18cbcec249a76b29b26006a529766a7b",
+    "results": "numerical-results.json",
+    "results_sha256": "191d57329795c0b4a92e6124d54461573b0889ac9c4a4b6908ef11f40bf7e643",
+    "runner": "uv run python; Python 3.13.13, torch 2.13.0, torch_geometric 2.8.0.post1",
+    "tolerances": {
+      "float32": {
+        "rtol": 1e-5,
+        "atol": 1e-6
+      },
+      "float64": {
+        "rtol": 1e-7,
+        "atol": 1e-9
+      }
+    },
+    "expanded_reference_sha256": "bf2af8a923d329c95877c2456cc8ed40110a1f4d10fe21989244df2415d71d61",
+    "fusion_reference_sha256": "91c84c3ed89308d4383e3e6673b8a1cc0d9f48ae123dba3cff92c03da8fd3f74"
+  },
+  "baseline": {
+    "drevalpy_commit": "cf5eeb6a0e020ab7e98c9829c0d81dc00a8cdd5c",
+    "seeds": [0, 1, 2],
+    "python": "3.13.13",
+    "torch": "2.13.0",
+    "torch_geometric": "2.8.0.post1"
+  },
+  "artifacts": {
+    "precily_published_model1": {
+      "sha256": "bef59c630f22dabe4f11ccabdd90083d88dc371229ee2f61f8bd0f63639cd7e1",
+      "scope": "published pathways Model1; isolated TensorFlow/Keras runner"
+    },
+    "MolGNet.pt": {
+      "sha256": "0e644baeddb1649dee2d48154b5122cca4e7f3e0bbc326bb0c513fcee3eba2be"
+    },
+    "human_ppi_features.tsv": {
+      "sha256": "0ce65e25a400a1f4196b5a6478e285bd5ff149293d058f1bb0960f6e645091b2"
+    },
+    "gene_list_sel.txt": {
+      "sha256": "f1152ffe156bab2e8db1c5ffd5b6ce2e74d167fe220cfc14abc653e13a9b8720"
+    }
+  },
+  "results": {
+    "README.md": {
+      "sha256": "41e90f615483a63ad7d0fec2e52e2f06b1bb04b27127c02c6d2bb37de0f89126"
+    },
+    "differences.md": {
+      "sha256": "efd98eee25f62a5e6634de56d885ff165a104dd25124f706378ac51639da669f"
+    },
+    "expanded-reference.json": {
+      "sha256": "5580d0e56eed32c704ed0219ea73d2d8aed5b7be2c0826339b1fae0a85dac072"
+    },
+    "fusion-reference.json": {
+      "sha256": "3fa4f3ff6b2e252880d7938247cf8d7d6cf095ef0b6854255df5cab94419e8ed"
+    },
+    "numerical-results.json": {
+      "sha256": "191d57329795c0b4a92e6124d54461573b0889ac9c4a4b6908ef11f40bf7e643"
+    },
+    "octave-version.txt": {
+      "sha256": "b138deb2a4876d4dddab7e07791bd6ece9652557672bd576fb25dfef1d0c5c5a"
+    },
+    "precily-reference.json": {
+      "sha256": "d9b60b80d2f71adfc76b02ced7af76547d3718d44b233922d2732d81a6582522"
+    },
+    "runtime-precily.json": {
+      "sha256": "5fd616e317f834d77908d61fa7d66bfb5b76390412b9ff1e181094b2d96ec63a"
+    },
+    "runtime-python.json": {
+      "sha256": "759cf43b1a589b6399c8d30baa0b709c801d0cdee230d532f3183fa8dae331fd"
+    },
+    "srmf-reference.json": {
+      "sha256": "e379cc6d512ee7b99153f3ed2be8a350ef0119f5744f46ed01af29a492190fe4"
+    },
+    "srmf-reference.mat": {
+      "sha256": "752c0fd055abcc190edbc9a9752cb379434855b8960e6f56657133b922a53132"
+    },
+    "training-baseline.json": {
+      "sha256": "02411076fa0d0aae3abfeabe5e45a3a687527a341b7c6d326ee6f2996b747677"
+    },
+    "training-current.json": {
+      "sha256": "1136adad34d21345a90acf4b037d6628e22ead7321b93d5c5294048fcc84cb6d"
+    },
+    "training-extended-baseline.json": {
+      "sha256": "3a11bc8dde7c6b0fc12eb9d749fe0b433fccf3c06357d5525b3e2d8e50a4d320"
+    },
+    "training-extended-current.json": {
+      "sha256": "39fc17813e1cc179c9bf501008cc5494690fd64f9fc3851f4a54ee5294af8de2"
+    }
+  },
+  "runtime_inventories": [
+    "runtime-python.json",
+    "runtime-precily.json",
+    "octave-version.txt"
+  ],
+  "harnesses": {
+    "tools/literature_reference/README.md": {
+      "sha256": "1da588037ef1f190ca450bc3513fc2463cb953bbfdf99356f776f5040fd5b885"
+    },
+    "tools/literature_reference/capture_v2_baseline.py": {
+      "sha256": "22a811dd3a681216c403f3d494101f35d41218c3bd8a8d67524aa38275161eb3"
+    },
+    "tools/literature_reference/check.m": {
+      "sha256": "772b8cae8dafdac5eaed64f0ff1725bafa6f7ad84aeee6a2dccb3b591c2dc459"
+    },
+    "tools/literature_reference/compare.py": {
+      "sha256": "4c44647fe653ce4b24570db66dea1115d6c2c36504736ccfb4896569e389aebd"
+    },
+    "tools/literature_reference/compare_tf.py": {
+      "sha256": "dfae8c395dc0ca05ce642accb8b172883f5bb06ae14a362c8f2af7516d4289a2"
+    },
+    "tools/literature_reference/expanded_reference.py": {
+      "sha256": "bf2af8a923d329c95877c2456cc8ed40110a1f4d10fe21989244df2415d71d61"
+    },
+    "tools/literature_reference/fusion_reference.py": {
+      "sha256": "91c84c3ed89308d4383e3e6673b8a1cc0d9f48ae123dba3cff92c03da8fd3f74"
+    },
+    "tools/literature_reference/numerical_compare_v2.py": {
+      "sha256": "6149855fd39f3733b4fd112e3603bb3a18cbcec249a76b29b26006a529766a7b"
+    },
+    "tools/literature_training_benchmark.py": {
+      "sha256": "784950444473d1c9e75fdeb024645caf0e03c4ce9758b7df340412c2e1a77970"
+    }
+  },
+  "normal_dependency_lock_sha256": "8fac41e4b4e6418e3f5066d7df90dfe52337fefebe9ad91c265e859446ec5e36",
+  "regression_ancestry": {
+    "repository": "https://github.com/daisybio/drevalpy",
+    "commit": "528685182164cb1412637bcb95d9fccd0be99291",
+    "audited": {
+      "drevalpy/models/SuperFELTR/utils.py": "6a5b1db5853667e0ab801d76fc165455fc52dcdc25d587973bbb087455be79c6",
+      "drevalpy/models/SuperFELTR/superfeltr.py": "0fc80cee16858cc25fbcb57c9fd6490e951dc8e4e582aaa5896e031cf4f03fa3",
+      "drevalpy/models/SRMF/srmf.py": "308195b3643b17ce530e4bcf841452e76f0a2caa82e55793a93615f7df2bcbaa",
+      "drevalpy/models/PharmaFormer/pharmaformer.py": "a250d70077614164ccea0ad87b66ed2bf2c801405f23bf03f53ba1e937ad73d8",
+      "drevalpy/models/MOLIR/molir.py": "de8c9e01738b2bbf68dee3cf18d8d58b52439b7647e68e779532d3cb4e085bf8"
+    }
+  },
+  "baseline_fixtures": {
+    "tests/components/predictors/literature/_reference/manifest.json": {
+      "sha256": "77d7b1e99da95a9c9fe679ebf0f4875d884df804260d220ca61fef9800ab83b3"
+    },
+    "tests/components/predictors/literature/_reference/seed-0.json": {
+      "sha256": "162e136299b61451a247f38671fd1b44be1f63c2ff74d940d22e72a1db291600"
+    },
+    "tests/components/predictors/literature/_reference/seed-1.json": {
+      "sha256": "72891b710d07339939ebea555fad1b6ee8cc262e03ad9c200fe62a5bacf1eec2"
+    },
+    "tests/components/predictors/literature/_reference/seed-2.json": {
+      "sha256": "fdb0277fb76469b63fc71610d31434b147ef20cf7442568f4a3bb61cc24f68e6"
+    },
+    "tests/components/predictors/literature/_reference/training-corrections.json": {
+      "sha256": "f49951f37bdb20ce78fe7296575b2a9525d8bed24e9a78f87a7563c328babd86"
+    },
+    "tests/components/predictors/literature/_reference/training.json": {
+      "sha256": "c5f1ca2aaf7afa427fc1310c3a3a5c2b08dce909df6094dc15371084e97eb9d6"
+    }
+  }
+}

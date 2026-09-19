@@ -1,0 +1,38 @@
+{
+  "baseline_commit": "cf5eeb6a0e020ab7e98c9829c0d81dc00a8cdd5c",
+  "protocol": {
+    "python": "3.13",
+    "device": "cpu",
+    "torch_deterministic_algorithms": true,
+    "torch_num_threads": 1,
+    "seeds": [0, 1, 2],
+    "low_level_harness": "tools/literature_reference/capture_v2_baseline.py",
+    "training_harness": "tools/literature_training_benchmark.py",
+    "archive_instructions": "Archive baseline_commit, set DREVALPY_BASELINE_ROOT to that checkout, and invoke capture_v2_baseline.py with seed 0, 1 or 2."
+  },
+  "scope": "v2 port regression references; not upstream numerical parity",
+  "models": [
+    "DIPK",
+    "DrugGNN",
+    "MOLIR",
+    "PharmaFormer",
+    "Precily",
+    "SparseGO",
+    "SRMF",
+    "SuperFELTR"
+  ],
+  "evidence": [
+    "seed-N.json captures the eight low-level forward/_cmf operations in their original process order.",
+    "training.json captures predictions and selected checkpoint scores from actual predictor fits.",
+    "training-corrections.json keeps verified defect-correction expectations separate from the immutable v2 fit baseline.",
+    "DIPK uses 512-wide gene/BIONIC and 768-wide MolGNet blocks.",
+    "SparseGO uses a valid two-level toy ontology with index-aligned genes."
+  ],
+  "sha256": {
+    "seed-0.json": "162e136299b61451a247f38671fd1b44be1f63c2ff74d940d22e72a1db291600",
+    "seed-1.json": "72891b710d07339939ebea555fad1b6ee8cc262e03ad9c200fe62a5bacf1eec2",
+    "seed-2.json": "fdb0277fb76469b63fc71610d31434b147ef20cf7442568f4a3bb61cc24f68e6",
+    "training-corrections.json": "f49951f37bdb20ce78fe7296575b2a9525d8bed24e9a78f87a7563c328babd86",
+    "training.json": "c5f1ca2aaf7afa427fc1310c3a3a5c2b08dce909df6094dc15371084e97eb9d6"
+  }
+}
