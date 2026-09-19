@@ -216,6 +216,35 @@ class TestSubsetting:
         assert len(sub.drug_ids) == 5
         assert sub.response_matrix.shape == (N_CELL_LINES, 5)
 
+    def test_subset_drugs_filters_drug_graphs(self, mudataset: Dataset):
+        retained = mudataset.drug_ids[:1]
+        removed = mudataset.drug_ids[1]
+
+        sub = mudataset.subset_drugs(retained)
+
+        assert sub.entities_with_modality("drug_graph", side="drug") == frozenset(map(str, retained))
+        assert sub.get_drug_graphs(np.array([removed])) == [None]
+
+    @pytest.mark.parametrize("method", ["subset_cell_lines", "subset_drugs"])
+    def test_subset_does_not_alias_drug_graphs(self, mudataset: Dataset, method: str):
+        ids = mudataset.cell_line_ids[:1] if method == "subset_cell_lines" else mudataset.drug_ids[:1]
+        sub = getattr(mudataset, method)(ids)
+        drug_id = str(sub.drug_ids[0])
+        parent_value = mudataset.mdata.uns["drug_graphs"][drug_id]["x"][0].copy()
+
+        sub.mdata.uns["drug_graphs"][drug_id]["x"][0] = parent_value + 1
+
+        np.testing.assert_array_equal(mudataset.mdata.uns["drug_graphs"][drug_id]["x"][0], parent_value)
+
+    @pytest.mark.parametrize("method", ["subset_cell_lines", "subset_drugs"])
+    def test_subset_preserves_randomization_metadata(self, mudataset: Dataset, method: str):
+        mudataset.randomization = ("permutation", "gene_expression")
+        ids = mudataset.cell_line_ids[:1] if method == "subset_cell_lines" else mudataset.drug_ids[:1]
+
+        sub = getattr(mudataset, method)(ids)
+
+        assert sub.randomization == mudataset.randomization
+
     def test_subset_preserves_uns(self, mudataset: Dataset):
         sub = mudataset.subset_cell_lines(mudataset.cell_line_ids[:5])
         assert "drug_graphs" in sub.mdata.uns

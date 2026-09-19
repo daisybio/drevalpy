@@ -15,6 +15,7 @@ so only the handful of runtime uses need a function-local import. See
 
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -359,7 +360,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             ids: 1-D array of cellosaurus IDs to keep.
 
         Returns:
-            New Dataset backed by a view of the underlying MuData.
+            Independent Dataset containing the selected cell lines.
         """
         import mudata as md
 
@@ -367,17 +368,15 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         response_mask = np.isin(self.response.obs_names, ids)
         kept_cell_lines = self.response.obs_names[response_mask]
 
-        new_mods: dict[str, md.AnnData] = {}
-        for mod_name, mod_adata in self._mdata.mod.items():
-            mod_mask = np.isin(mod_adata.obs_names, kept_cell_lines)
-            new_mods[mod_name] = mod_adata[mod_mask].copy()
+        new_mods = {
+            name: adata[np.isin(adata.obs_names, kept_cell_lines)].copy() for name, adata in self._mdata.mod.items()
+        }
 
         md.set_options(pull_on_update=False)
         new_mdata = md.MuData(new_mods)
         new_mdata.obs = self._mdata.obs.loc[self._mdata.obs.index.isin(kept_cell_lines)].copy()
-        for key, val in self._mdata.uns.items():
-            new_mdata.uns[key] = val
-        return Dataset(new_mdata, name=self._name)
+        new_mdata.uns.update(copy.deepcopy(dict(self._mdata.uns)))
+        return Dataset(new_mdata, name=self._name, randomization=self.randomization)
 
     def subset_drugs(self, ids: np.ndarray) -> Dataset:
         """Return a new Dataset restricted to the given drugs.
@@ -389,26 +388,28 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             ids: 1-D array of PubChem drug IDs to keep.
 
         Returns:
-            New Dataset backed by a view of the underlying MuData.
+            Independent Dataset containing the selected drugs.
         """
         import mudata as md
 
         ids = np.asarray(ids, dtype=str)
         drug_mask = np.isin(self.response.var_names, ids)
 
-        new_mods: dict[str, md.AnnData] = {}
-        for mod_name, mod_adata in self._mdata.mod.items():
-            if mod_name == "response":
-                new_mods[mod_name] = mod_adata[:, drug_mask].copy()
-            else:
-                new_mods[mod_name] = mod_adata.copy()
+        new_mods = {
+            name: adata[:, drug_mask].copy() if name == "response" else adata.copy()
+            for name, adata in self._mdata.mod.items()
+        }
 
         md.set_options(pull_on_update=False)
         new_mdata = md.MuData(new_mods)
         new_mdata.obs = self._mdata.obs.copy()
-        for key, val in self._mdata.uns.items():
-            new_mdata.uns[key] = val
-        return Dataset(new_mdata, name=self._name)
+        new_uns = copy.deepcopy(dict(self._mdata.uns))
+        graphs = new_uns.get("drug_graphs")
+        if isinstance(graphs, dict):
+            retained_drugs = set(map(str, new_mods["response"].var_names))
+            new_uns["drug_graphs"] = {drug_id: graph for drug_id, graph in graphs.items() if drug_id in retained_drugs}
+        new_mdata.uns.update(new_uns)
+        return Dataset(new_mdata, name=self._name, randomization=self.randomization)
 
     # ------------------------------------------------------------------
     # Auxiliary data
