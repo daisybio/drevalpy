@@ -54,7 +54,7 @@ def group_labels(run: RunResult, grouping: str) -> np.ndarray:
 
 def _scoring_runs(model: ModelResult) -> list[RunResult]:
     """Return the non-randomized runs of a model."""
-    return [run for run in model.runs if run.randomization is None]
+    return model.select_runs()
 
 
 class _PearsonSums:

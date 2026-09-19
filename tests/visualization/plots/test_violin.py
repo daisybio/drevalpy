@@ -59,15 +59,15 @@ class TestCompute:
         assert computed._fig.layout.title.text == "All Metrics"
         assert (computed._fig.layout.height, computed._fig.layout.width) == (600, 1100)
 
-    def test_multiqc_payload_is_keyed_by_model_and_fold(self, computed, experiment):
-        expected = {f"{model.model_name}_fold{run.fold_index}" for model in experiment.models for run in model.runs}
+    def test_multiqc_payload_is_keyed_by_full_execution_identity(self, computed, experiment):
+        expected = {run.execution_id for model in experiment.models for run in model.select_runs()}
 
         assert set(computed._data) == expected
 
     def test_multiqc_payload_holds_the_raw_per_fold_metrics(self, computed, experiment):
         run = experiment.models[0].runs[0]
 
-        assert computed._data[f"{experiment.models[0].model_name}_fold{run.fold_index}"] == run.metrics
+        assert computed._data[run.execution_id] == run.metrics
 
     def test_metrics_absent_from_the_result_are_dropped(self):
         result = ExperimentResult(

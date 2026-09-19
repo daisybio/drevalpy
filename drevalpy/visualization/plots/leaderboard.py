@@ -263,9 +263,7 @@ def _build_leaderboard_df(result: ExperimentResult) -> pd.DataFrame:
     rmse_key = resolve_metric_key(available, "RMSE")
     rows: list[dict] = []
     for model in result.models:
-        for run in model.runs:
-            if run.randomization is not None:
-                continue
+        for run in model.select_runs():
             rows.append(
                 {
                     "algorithm": run.model_name,

@@ -51,7 +51,7 @@ class SplitMasks:
         remaining_arr = np.zeros(self.shape, dtype=bool)
         remaining_arr[val_pairs[n_es:, 0], val_pairs[n_es:, 1]] = True
 
-        return SplitMask(es_arr), SplitMask(remaining_arr)
+        return SplitMask(es_arr, self.val._pair_seed), SplitMask(remaining_arr, self.val._pair_seed)
 
     def save(self, path: str | Path) -> None:
         """Save to a .npz file (compressed bool arrays + JSON-encoded metadata).
@@ -62,6 +62,9 @@ class SplitMasks:
             "train": self.train.mask,
             "test": self.test.mask,
             "val": self.val.mask,
+            "_pair_seeds": np.array(
+                json.dumps({name: getattr(self, name)._pair_seed for name in ("train", "test", "val")})
+            ),
         }
         if self.metadata:
             arrays["_metadata"] = np.array(json.dumps(self.metadata))
@@ -76,10 +79,11 @@ class SplitMasks:
         """
         data = np.load(Path(path), allow_pickle=False)
         metadata = json.loads(str(data["_metadata"])) if "_metadata" in data else {}
+        seeds = json.loads(str(data["_pair_seeds"])) if "_pair_seeds" in data else {}
         return cls(
-            train=SplitMask(data["train"]),
-            test=SplitMask(data["test"]),
-            val=SplitMask(data["val"]),
+            train=SplitMask(data["train"], seeds.get("train")),
+            test=SplitMask(data["test"], seeds.get("test")),
+            val=SplitMask(data["val"], seeds.get("val")),
             metadata=metadata,
         )
 

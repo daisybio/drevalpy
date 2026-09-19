@@ -49,6 +49,22 @@ class TestMetricKeys:
 
         assert metric_keys(result) == {"MSE", "Pearson"}
 
+    def test_ignores_variant_only_metric_keys_by_default(self):
+        from drevalpy.types.results.experiment import ExperimentResult
+
+        result = ExperimentResult(
+            [
+                make_run_result(metrics={"MSE": 1.0}),
+                make_run_result(
+                    randomization=("gene_expression", "permutation"),
+                    fold_metadata={"robustness_trial": 0},
+                    metrics={"VariantOnly": 0.5},
+                ),
+            ]
+        )
+
+        assert metric_keys(result) == {"MSE"}
+
 
 class TestResolveMetricKey:
     def test_the_plain_name_is_returned_when_present(self):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from upath import UPath as Path
@@ -22,8 +22,32 @@ class ModelResult:
 
     @property
     def n_folds(self) -> int:
-        """Number of folds (runs) in this result."""
+        """Number of distinct folds, independent of diagnostic variants."""
+        return len({run.fold_key for run in self.runs})
+
+    @property
+    def n_runs(self) -> int:
+        """Number of executions including diagnostic variants."""
         return len(self.runs)
+
+    def select_runs(
+        self,
+        *,
+        randomization: tuple[str, str] | Literal["all"] | None = None,
+        robustness: int | Literal["all"] | None = None,
+    ) -> list[RunResult]:
+        """Select executions, defaulting to ordinary runs only.
+
+        :param randomization: Exact setting, ``"all"``, or ``None`` for unrandomized data.
+        :param robustness: Exact trial, ``"all"``, or ``None`` for ordinary pair ordering.
+        :returns: Matching runs in their original order.
+        """
+        return [
+            run
+            for run in self.runs
+            if (randomization == "all" or run.randomization == randomization)
+            and (robustness == "all" or run.robustness_trial == robustness)
+        ]
 
     @property
     def aggregate_metrics(self) -> dict[str, dict[str, float]]:
@@ -34,7 +58,7 @@ class ModelResult:
         if not self.runs:
             return {}
         all_metrics: dict[str, list[float]] = {}
-        for run in self.runs:
+        for run in self.select_runs():
             for key, value in run.metrics.items():
                 all_metrics.setdefault(key, []).append(value)
         return {
@@ -53,6 +77,7 @@ class ModelResult:
             "model_name": self.model_name,
             "dataset_name": self.dataset_name,
             "n_folds": self.n_folds,
+            "n_runs": self.n_runs,
             "aggregate_metrics": self.aggregate_metrics,
         }
         (out / "metadata.json").write_text(json.dumps(meta, indent=2))
@@ -72,7 +97,11 @@ class ModelResult:
         path = Path(directory)
         meta = json.loads((path / "metadata.json").read_text())
 
-        fold_files = sorted(path.glob("fold_*.npz"))
+        fold_files = (
+            [path / f"fold_{i}.npz" for i in range(meta["n_runs"])]
+            if "n_runs" in meta
+            else sorted(path.glob("fold_*.npz"))
+        )
         runs = [RunResult.load(str(f), with_trials=with_trials) for f in fold_files]
 
         return cls(

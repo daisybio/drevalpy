@@ -114,6 +114,28 @@ class TestSetOperations:
 
         assert not (train & ~train).any()
 
+    def test_set_operations_preserve_one_pair_order_seed(self):
+        left = SplitMask(np.array([[True, False], [False, False]])).shuffled(seed=3)
+        right = SplitMask(np.array([[False, True], [False, False]]))
+
+        combined = left | right
+
+        assert combined._pair_seed == 3
+
+    def test_set_operations_reject_conflicting_pair_order_seeds(self):
+        left = SplitMask(np.ones((2, 2), dtype=bool)).shuffled(seed=3)
+        right = SplitMask(np.ones((2, 2), dtype=bool)).shuffled(seed=4)
+
+        with pytest.raises(ValueError, match="conflicting pair-order seeds"):
+            left & right
+
+    def test_set_operations_reject_mismatched_shapes(self):
+        with pytest.raises(ValueError, match="Cannot combine mask shapes"):
+            SplitMask(np.ones((2, 2), dtype=bool)) | SplitMask(np.ones((3, 2), dtype=bool))
+
+    def test_inversion_preserves_pair_order_seed(self):
+        assert (~SplitMask(np.ones((2, 2), dtype=bool)).shuffled(seed=3))._pair_seed == 3
+
 
 class TestPredicates:
     @pytest.mark.parametrize(

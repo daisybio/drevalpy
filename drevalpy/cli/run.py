@@ -24,6 +24,9 @@ def run_cmd(
     randomization_type: Annotated[
         str, typer.Option("--randomization-type", help="Randomization type: permutation or invariant.")
     ] = "permutation",
+    randomization_random_state: Annotated[
+        int, typer.Option("--randomization-random-state", help="Root seed for feature randomization.")
+    ] = 42,
     robustness_trials: Annotated[
         int, typer.Option("--robustness-trials", help="Number of robustness permutations (0=disabled).")
     ] = 0,
@@ -45,6 +48,7 @@ def run_cmd(
         split_mode=split_mode,
         randomization_modes=randomization_mode,
         randomization_type=randomization_type,
+        randomization_random_state=randomization_random_state,
         hyperparameter_tuning=hpo,
         hpo_metric=hpo_metric,
         hpo_num_samples=hpo_num_samples,

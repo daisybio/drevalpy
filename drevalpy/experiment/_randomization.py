@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.types.data.dataset import Dataset
 
@@ -22,7 +25,7 @@ def randomization(
     randomization_mode: list[str],
     *,
     randomization_type: str = "permutation",
-    random_state: int | None = None,
+    random_state: int = 42,
 ) -> list[Dataset]:
     """Generate randomized datasets for feature importance testing.
 
@@ -55,8 +58,17 @@ def randomization(
 
     results: list[Dataset] = []
     for (mode, view), views in tests.items():
+        views = sorted(views)
+        identity = json.dumps([random_state, randomization_type, mode, view, views], separators=(",", ":"))
+        seed = int.from_bytes(hashlib.sha256(identity.encode()).digest()[:4], "big")
         ds = dataset.with_randomized_views(
-            views, randomization_type=randomization_type, random_state=random_state, randomization=(mode, view)
+            views, randomization_type=randomization_type, random_state=seed, randomization=(mode, view)
         )
+        ds.mdata.uns["randomization_provenance"] = {
+            "root_seed": random_state,
+            "effective_seed": seed,
+            "type": randomization_type,
+            "views": views,
+        }
         results.append(ds)
     return results

@@ -25,6 +25,7 @@ def run(
     hpo_random_state: int = 42,
     robustness_trials: int = 0,
     precomputed_only: bool = False,
+    randomization_random_state: int = 42,
 ) -> ExperimentResult:
     """Run the full experiment pipeline.
 
@@ -39,13 +40,14 @@ def run(
     :param hpo_random_state: Random seed for HPO.
     :param robustness_trials: Number of robustness permutations (0 = disabled).
     :param precomputed_only: Restrict HPO to pre-computed featurizer variants.
+    :param randomization_random_state: Root seed for reproducible feature randomization.
     :returns: ExperimentResult grouping all model results.
     """
     ds = load(dataset) if isinstance(dataset, str) else dataset
     folds = split(ds, split_mode)
 
     if robustness_trials > 0:
-        folds = [s for fold in folds for s in robustness(fold, robustness_trials)]
+        folds = [s for fold in folds for s in [fold, *robustness(fold, robustness_trials)]]
 
     run_results: list[RunResult] = []
 
@@ -53,7 +55,15 @@ def run(
         run_datasets: list[Dataset] = [ds]
 
         if randomization_modes:
-            run_datasets.extend(randomization(model, ds, randomization_modes, randomization_type=randomization_type))
+            run_datasets.extend(
+                randomization(
+                    model,
+                    ds,
+                    randomization_modes,
+                    randomization_type=randomization_type,
+                    random_state=randomization_random_state,
+                )
+            )
 
         for run_ds in run_datasets:
             result = single(

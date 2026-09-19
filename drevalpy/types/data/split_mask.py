@@ -62,15 +62,25 @@ class SplitMask:
 
     def __or__(self, other: SplitMask) -> SplitMask:
         """Logical OR of two masks."""
-        return SplitMask(self.mask | other.mask)
+        seed = self._combined_seed(other)
+        return SplitMask(self.mask | other.mask, seed)
 
     def __and__(self, other: SplitMask) -> SplitMask:
         """Logical AND of two masks."""
-        return SplitMask(self.mask & other.mask)
+        seed = self._combined_seed(other)
+        return SplitMask(self.mask & other.mask, seed)
 
     def __invert__(self) -> SplitMask:
         """Logical NOT of the mask."""
-        return SplitMask(~self.mask)
+        return SplitMask(~self.mask, self._pair_seed)
+
+    def _combined_seed(self, other: SplitMask) -> int | None:
+        """Preserve pair-order provenance, refusing incompatible combinations."""
+        if self.shape != other.shape:
+            raise ValueError(f"Cannot combine mask shapes {self.shape} and {other.shape}")
+        if self._pair_seed is not None and other._pair_seed is not None and self._pair_seed != other._pair_seed:
+            raise ValueError("Cannot combine masks with conflicting pair-order seeds")
+        return self._pair_seed if self._pair_seed is not None else other._pair_seed
 
     def any(self) -> bool:
         """Whether any entry is True."""

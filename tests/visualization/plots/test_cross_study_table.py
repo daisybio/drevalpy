@@ -176,7 +176,7 @@ class TestCrossStudyDataframeQuirk:
 
     def test_a_cross_study_setting_reaches_the_index_when_present(self):
         """The compute() branch keys off the index, so the label has to survive into it."""
-        df = runs_frame(_cross_study_result(), indexed=True)
+        df = runs_frame(_cross_study_result(), indexed=True, randomization="all")
 
         assert any("cross-study-CCLE_eval" in idx for idx in df.index)
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -56,7 +56,13 @@ def compute_ssmd(values_a: ArrayLike, values_b: ArrayLike) -> float:
     return float((mu_a - mu_b) / np.sqrt(denom))
 
 
-def runs_frame(result: ExperimentResult, *, indexed: bool = False) -> pd.DataFrame:
+def runs_frame(
+    result: ExperimentResult,
+    *,
+    indexed: bool = False,
+    randomization: tuple[str, str] | Literal["all"] | None = None,
+    robustness: int | Literal["all"] | None = None,
+) -> pd.DataFrame:
     """Flatten every run of *result* into one row per model, setting and fold.
 
     Columns are ``algorithm``, ``rand_setting``, ``test_mode``, ``CV_split`` plus
@@ -66,6 +72,8 @@ def runs_frame(result: ExperimentResult, *, indexed: bool = False) -> pd.DataFra
     :param indexed: Label each row ``<model>_<setting>_<mode>_split_<fold>``. The
         heatmap and the cross-study table group on that label; the violin plot
         wants the default positional index.
+    :param randomization: Exact setting, ``"all"``, or ``None`` for ordinary runs.
+    :param robustness: Exact trial, ``"all"``, or ``None`` for ordinary runs.
     :returns: The per-run frame.
     """
     import pandas as pd
@@ -73,7 +81,7 @@ def runs_frame(result: ExperimentResult, *, indexed: bool = False) -> pd.DataFra
     rows: list[dict] = []
     labels: list[str] = []
     for model in result.models:
-        for run in model.runs:
+        for run in model.select_runs(randomization=randomization, robustness=robustness):
             setting = f"{run.randomization[0]}_{run.randomization[1]}" if run.randomization else "predictions"
             row: dict = {
                 "algorithm": run.model_name,

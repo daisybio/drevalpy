@@ -28,13 +28,13 @@ NORMALIZED_SUFFIX = ": normalized"
 
 
 def metric_keys(result: ExperimentResult | ModelResult) -> set[str]:
-    """Collect every metric name any run of *result* reports.
+    """Collect metric names from ordinary runs of *result*.
 
     :param result: Experiment or model result to inspect.
     :returns: Union of the ``metrics`` keys across all runs.
     """
     models = getattr(result, "models", None)
-    runs = [run for model in models for run in model.runs] if models is not None else list(result.runs)
+    runs = [run for model in models for run in model.select_runs()] if models is not None else result.select_runs()
     return {name for run in runs for name in run.metrics}
 
 

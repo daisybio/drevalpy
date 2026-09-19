@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -30,14 +31,20 @@ class _StubConfig:
 
 
 class _StubDataset:
-    """Records every ``with_randomized_views`` call and returns a tagged sentinel."""
+    """Records randomized children with the Dataset surface the helper writes."""
 
     def __init__(self) -> None:
         self.calls: list[tuple[list[str], dict[str, Any]]] = []
+        self.mdata = SimpleNamespace(uns={})
+        self.tag = "dataset"
+        self.randomization: tuple[str, str] | None = None
 
-    def with_randomized_views(self, views: list[str], **kwargs: Any) -> str:
+    def with_randomized_views(self, views: list[str], **kwargs: Any) -> _StubDataset:
         self.calls.append((list(views), kwargs))
-        return f"dataset({','.join(views)})"
+        child = _StubDataset()
+        child.tag = f"dataset({','.join(views)})"
+        child.randomization = kwargs["randomization"]
+        return child
 
 
 def _stub_model(*, cell_lines: list[str] | None = None, drugs: list[str] | None = None) -> type:
@@ -108,7 +115,7 @@ class TestRandomization:
 
         results = randomization(model, _StubDataset(), ["SVRC", "SVRD"])
 
-        assert results == ["dataset(expr)", "dataset(mut)", "dataset(fp)"]
+        assert [result.tag for result in results] == ["dataset(expr)", "dataset(mut)", "dataset(fp)"]
 
     def test_tags_each_dataset_with_its_mode_and_view(self) -> None:
         dataset = _StubDataset()
@@ -133,16 +140,41 @@ class TestRandomization:
 
         _, kwargs = dataset.calls[0]
         assert kwargs["randomization_type"] == "invariant"
-        assert kwargs["random_state"] == 7
+        assert isinstance(kwargs["random_state"], int)
 
-    def test_defaults_to_permutation_without_a_seed(self) -> None:
+    def test_defaults_to_permutation_with_the_documented_root_seed(self) -> None:
         dataset = _StubDataset()
 
-        randomization(_stub_model(cell_lines=["expr"]), dataset, ["SVRC"])
+        result = randomization(_stub_model(cell_lines=["expr"]), dataset, ["SVRC"])
 
         _, kwargs = dataset.calls[0]
         assert kwargs["randomization_type"] == "permutation"
-        assert kwargs["random_state"] is None
+        assert isinstance(kwargs["random_state"], int)
+        assert result[0].mdata.uns["randomization_provenance"]["root_seed"] == 42
+
+    def test_same_root_seed_is_stable_but_variants_get_distinct_effective_seeds(self) -> None:
+        first = _StubDataset()
+        second = _StubDataset()
+        model = _stub_model(cell_lines=["expr", "mut"])
+
+        randomization(model, first, ["SVRC"], random_state=7)
+        randomization(model, second, ["SVRC"], random_state=7)
+
+        first_seeds = [kwargs["random_state"] for _, kwargs in first.calls]
+        second_seeds = [kwargs["random_state"] for _, kwargs in second.calls]
+        assert first_seeds == second_seeds
+        assert len(set(first_seeds)) == len(first_seeds)
+
+    def test_view_order_does_not_change_effective_seeds(self) -> None:
+        forward = _StubDataset()
+        reverse = _StubDataset()
+
+        randomization(_stub_model(cell_lines=["expr", "mut"]), forward, ["SVRC"], random_state=7)
+        randomization(_stub_model(cell_lines=["mut", "expr"]), reverse, ["SVRC"], random_state=7)
+
+        by_view = {kwargs["randomization"][1]: kwargs["random_state"] for _, kwargs in forward.calls}
+        reversed_by_view = {kwargs["randomization"][1]: kwargs["random_state"] for _, kwargs in reverse.calls}
+        assert by_view == reversed_by_view
 
     def test_unknown_modes_are_ignored(self) -> None:
         dataset = _StubDataset()
@@ -176,3 +208,5 @@ class TestRandomization:
         assert [ds.randomization for ds in results] == [("SVRC", "gene_expression")]
         assert results[0] is not synthetic_dataset
         assert synthetic_dataset.randomization is None
+        assert results[0].mdata.uns["randomization_provenance"]["root_seed"] == 0
+        assert results[0].mdata.uns["randomization_provenance"]["views"] == ["gene_expression"]

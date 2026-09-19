@@ -116,24 +116,26 @@ class ExperimentResult:
         if self.normalized_by is not None:
             raise ValueError(f"Already normalized by {self.normalized_by!r}")
 
-        ref_runs_by_fold: dict[str, RunResult] = {}
+        ref_runs_by_fold: dict[tuple, RunResult] = {}
         other_runs: list[RunResult] = []
 
         for model in self.models:
-            if model.model_name == reference_model:
-                for run in model.runs:
-                    ref_runs_by_fold[run.fold_id] = run
-            else:
+            if model.model_name != reference_model:
                 other_runs.extend(model.runs)
+                continue
+            for run in model.select_runs():
+                if run.fold_key in ref_runs_by_fold:
+                    raise ValueError(f"Duplicate ordinary reference run for fold {run.fold_key!r}")
+                ref_runs_by_fold[run.fold_key] = run
 
         if not ref_runs_by_fold:
             raise ValueError(f"Reference model {reference_model!r} not found. Available: {self.model_names}")
 
         normalized_runs: list[RunResult] = []
         for run in other_runs:
-            if run.fold_id not in ref_runs_by_fold:
-                raise ValueError(f"No reference run found for fold_id {run.fold_id!r}")
-            ref_run = ref_runs_by_fold[run.fold_id]
+            if run.fold_key not in ref_runs_by_fold:
+                raise ValueError(f"No reference run found for fold {run.fold_key!r}")
+            ref_run = ref_runs_by_fold[run.fold_key]
             normalized_runs.append(_normalize_run(run, ref_run))
 
         result = ExperimentResult(normalized_runs)
@@ -171,14 +173,12 @@ class ExperimentResult:
         path = Path(directory)
         meta = json.loads((path / "metadata.json").read_text())
 
-        model_results = [ModelResult.load(path / name, with_trials=with_trials) for name in meta["models"]]
-
-        all_runs: list[RunResult] = []
-        for mr in model_results:
-            for r in mr.runs:
-                if not r.split_mode:
-                    r.split_mode = meta.get("split_mode", "")
-                all_runs.append(r)
+        all_runs = [
+            run for name in meta["models"] for run in ModelResult.load(path / name, with_trials=with_trials).runs
+        ]
+        for run in all_runs:
+            if not run.split_mode:
+                run.split_mode = meta.get("split_mode", "")
 
         experiment = cls(all_runs)
         experiment.normalized_by = meta.get("normalized_by")

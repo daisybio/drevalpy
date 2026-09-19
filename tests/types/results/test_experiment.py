@@ -238,6 +238,49 @@ class TestNormalize:
         with pytest.raises(ValueError, match="No reference run"):
             ExperimentResult([reference, other]).normalize()
 
+    def test_normalizes_variants_against_the_ordinary_reference(self) -> None:
+        reference = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
+        randomized = make_run_result(model_name="ElasticNet", fold_index=0, randomization=("SVRC", "gene_expression"))
+
+        normalized = ExperimentResult([reference, randomized]).normalize()
+
+        np.testing.assert_allclose(
+            normalized.models[0].runs[0].predictions,
+            randomized.predictions - reference.predictions,
+        )
+
+    def test_reference_randomization_does_not_replace_the_ordinary_reference(self) -> None:
+        ordinary = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
+        randomized_reference = make_run_result(
+            model_name=REFERENCE_MODEL, fold_index=0, randomization=("SVRC", "gene_expression")
+        )
+        other = make_run_result(model_name="ElasticNet", fold_index=0)
+
+        normalized = ExperimentResult([randomized_reference, other, ordinary]).normalize()
+
+        np.testing.assert_allclose(normalized.models[0].runs[0].predictions, other.predictions - ordinary.predictions)
+
+    def test_normalization_is_independent_of_reference_run_order(self) -> None:
+        reference_zero = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
+        reference_one = make_run_result(model_name=REFERENCE_MODEL, fold_index=1)
+        other_zero = make_run_result(model_name="ElasticNet", fold_index=0)
+        other_one = make_run_result(model_name="ElasticNet", fold_index=1)
+
+        first = ExperimentResult([reference_zero, reference_one, other_zero, other_one]).normalize()
+        second = ExperimentResult([reference_one, other_one, reference_zero, other_zero]).normalize()
+
+        assert {run.fold_key: run.execution_id for run in first.models[0].runs} == {
+            run.fold_key: run.execution_id for run in second.models[0].runs
+        }
+
+    def test_rejects_duplicate_ordinary_reference_runs_for_one_fold(self) -> None:
+        first = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
+        duplicate = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
+        other = make_run_result(model_name="ElasticNet", fold_index=0)
+
+        with pytest.raises(ValueError, match="Duplicate ordinary reference"):
+            ExperimentResult([first, duplicate, other]).normalize()
+
     def test_accepts_an_explicit_reference_model(self) -> None:
         experiment = make_experiment_result(n_models=3, n_folds=1)
 

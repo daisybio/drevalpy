@@ -110,7 +110,7 @@ class TestRunsFrame:
     def test_randomized_runs_get_a_composite_setting_label(self):
         result = ExperimentResult([make_run_result(randomization=("methylation", "invariant"))])
 
-        assert runs_frame(result)["rand_setting"].tolist() == ["methylation_invariant"]
+        assert runs_frame(result, randomization="all")["rand_setting"].tolist() == ["methylation_invariant"]
 
     def test_defaults_to_a_positional_index(self, experiment):
         df = runs_frame(experiment)
@@ -125,10 +125,22 @@ class TestRunsFrame:
     def test_indexed_reuses_the_setting_label_it_puts_in_the_column(self):
         result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
 
-        df = runs_frame(result, indexed=True)
+        df = runs_frame(result, indexed=True, randomization="all")
 
         assert df["rand_setting"].tolist() == ["gene_expression_permutation"]
         assert "gene_expression_permutation" in df.index[0]
+
+    def test_default_selection_excludes_randomized_and_robustness_variants(self):
+        result = ExperimentResult(
+            [
+                make_run_result(),
+                make_run_result(randomization=("gene_expression", "permutation")),
+                make_run_result(fold_metadata={"robustness_trial": 0}),
+            ]
+        )
+
+        assert len(runs_frame(result)) == 1
+        assert len(runs_frame(result, randomization="all", robustness="all")) == 3
 
     def test_indexing_does_not_change_the_rows(self, experiment):
         plain = runs_frame(experiment)

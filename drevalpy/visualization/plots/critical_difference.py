@@ -52,9 +52,7 @@ def _build_cd_df(result: ExperimentResult, metric: str) -> pd.DataFrame:
     key = resolve_metric_key(metric_keys(result), metric)
     rows: list[dict] = []
     for model in result.models:
-        for run in model.runs:
-            if run.randomization is not None:
-                continue
+        for run in model.select_runs():
             rows.append(
                 {
                     "algorithm": run.model_name,

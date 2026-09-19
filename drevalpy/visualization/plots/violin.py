@@ -92,8 +92,8 @@ class ViolinVisualization(PlotlyVisualization):
 
         self._data = {}
         for model in result.models:
-            for run in model.runs:
-                sample_name = f"{model.model_name}_fold{run.fold_index}"
+            for run in model.select_runs():
+                sample_name = run.execution_id
                 self._data[sample_name] = dict(run.metrics)
 
     def to_multiqc(self) -> list[Section]:

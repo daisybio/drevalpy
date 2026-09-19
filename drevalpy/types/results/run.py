@@ -66,6 +66,31 @@ class RunResult:
     trials: list[TrialResult] | None = None
     randomization: tuple[str, str] | None = None
 
+    @property
+    def robustness_trial(self) -> int | None:
+        """Robustness trial, or ``None`` for ordinary pair ordering."""
+        return self.fold_metadata.get("robustness_trial")
+
+    @property
+    def fold_key(self) -> tuple[str, str, str, str | int]:
+        """Dataset and split identity, with a tagged fallback for older results."""
+        return (
+            self.dataset_name,
+            self.split_mode,
+            "id" if self.fold_id else "index",
+            self.fold_id if self.fold_id else self.fold_index,
+        )
+
+    @property
+    def execution_key(self) -> tuple:
+        """Identity including both diagnostic variant dimensions."""
+        return (self.model_name, *self.fold_key, self.randomization, self.robustness_trial)
+
+    @property
+    def execution_id(self) -> str:
+        """Unambiguous serialized execution identity for report sample keys."""
+        return json.dumps(self.execution_key, separators=(",", ":"))
+
     def __repr__(self) -> str:
         """Formatted summary."""
         extra_fold_metadata = {k: v for k, v in self.fold_metadata.items() if k != "fold_index"}

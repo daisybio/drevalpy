@@ -34,9 +34,7 @@ def _pooled_predictions(result: ModelResult) -> tuple[np.ndarray, np.ndarray]:
     """
     truths: list[np.ndarray] = []
     predictions: list[np.ndarray] = []
-    for run in result.runs:
-        if run.randomization is not None:
-            continue
+    for run in result.select_runs():
         truth = np.asarray(run.ground_truth, dtype=np.float64)
         prediction = np.asarray(run.predictions, dtype=np.float64)
         keep = np.isfinite(truth) & np.isfinite(prediction)

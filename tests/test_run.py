@@ -120,7 +120,7 @@ def _set_folds(monkeypatch: pytest.MonkeyPatch, n_folds: int) -> None:
 
 
 def _set_randomizations(monkeypatch: pytest.MonkeyPatch, n: int) -> None:
-    def fake_randomization(model_class, ds, modes, randomization_type="permutation"):
+    def fake_randomization(model_class, ds, modes, randomization_type="permutation", random_state=42):
         copies = []
         for index in range(n):
             copy = _FakeDataset(name=ds.name, tag=f"random_{index}")
@@ -202,7 +202,8 @@ class TestFanOut:
 
         expected = n_models * n_folds * (1 + n_randomizations)
         assert len(recorder.calls) == expected
-        assert sum(m.n_folds for m in result.models) == expected
+        assert sum(m.n_runs for m in result.models) == expected
+        assert sum(m.n_folds for m in result.models) == n_models * n_folds
 
     def test_the_original_dataset_runs_before_its_randomized_copies(
         self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
@@ -245,7 +246,7 @@ class TestRobustness:
 
         run([_stub_model("A")], dataset, "LCO", robustness_trials=trials, hyperparameter_tuning=False)
 
-        assert len(recorder.calls) == n_folds * trials
+        assert len(recorder.calls) == n_folds * (1 + trials)
 
     def test_zero_trials_leaves_the_folds_untouched(
         self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
@@ -264,7 +265,7 @@ class TestRobustness:
 
         run([_stub_model("A")], dataset, "LCO", robustness_trials=3, hyperparameter_tuning=False)
 
-        assert [masks.metadata["robustness_trial"] for masks in recorder.masks] == [0, 1, 2, 0, 1, 2]
+        assert [masks.metadata.get("robustness_trial") for masks in recorder.masks] == [None, 0, 1, 2, None, 0, 1, 2]
 
     def test_the_trial_index_reaches_the_result_metadata(
         self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
@@ -274,7 +275,7 @@ class TestRobustness:
         result = run([_stub_model("A")], dataset, "LCO", robustness_trials=2, hyperparameter_tuning=False)
 
         assert result.has_robustness
-        assert [r.fold_metadata["robustness_trial"] for r in result.models[0].runs] == [0, 1]
+        assert [r.robustness_trial for r in result.models[0].runs] == [None, 0, 1]
 
     def test_the_original_fold_index_survives_the_multiplication(
         self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
@@ -283,7 +284,7 @@ class TestRobustness:
 
         run([_stub_model("A")], dataset, "LCO", robustness_trials=2, hyperparameter_tuning=False)
 
-        assert [masks.metadata["fold_index"] for masks in recorder.masks] == [0, 0, 1, 1]
+        assert [masks.metadata["fold_index"] for masks in recorder.masks] == [0, 0, 0, 1, 1, 1]
 
 
 class TestForwardedArguments:
@@ -348,7 +349,23 @@ class TestForwardedArguments:
             hyperparameter_tuning=False,
         )
 
-        assert seen == [{"modes": ["SVRC", "SVRD"], "randomization_type": "invariant"}]
+        assert seen == [{"modes": ["SVRC", "SVRD"], "randomization_type": "invariant", "random_state": 42}]
+
+    def test_the_randomization_root_seed_reaches_randomization(
+        self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _set_folds(monkeypatch, 1)
+        seen: list[int] = []
+
+        def fake_randomization(*args, **kwargs):
+            seen.append(kwargs["random_state"])
+            return []
+
+        monkeypatch.setattr(RUN_MODULE, "randomization", fake_randomization)
+
+        run([_stub_model("A")], dataset, "LCO", randomization_modes=["SVRC"], randomization_random_state=17)
+
+        assert seen == [17]
 
 
 class TestGrouping:

@@ -93,6 +93,7 @@ class TestDefaults:
 
         assert worker.kwargs["randomization_modes"] is None
         assert worker.kwargs["randomization_type"] == "permutation"
+        assert worker.kwargs["randomization_random_state"] == 42
         assert worker.kwargs["robustness_trials"] == 0
         assert worker.kwargs["precomputed_only"] is False
 
@@ -152,6 +153,11 @@ class TestOptionForwarding:
         _invoke(tmp_path, "--randomization-type", "invariant")
 
         assert worker.kwargs["randomization_type"] == "invariant"
+
+    def test_randomization_root_seed(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--randomization-random-state", "17")
+
+        assert worker.kwargs["randomization_random_state"] == 17
 
     def test_hpo_tuning_options(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path, "--hpo-metric", "Pearson", "--hpo-num-samples", "3", "--hpo-random-state", "7")

@@ -53,7 +53,7 @@ class CrossStudyTableVisualization(PlotlyVisualization):
         import plotly.graph_objects as go
 
         self._result = result
-        df = runs_frame(result, indexed=True)
+        df = runs_frame(result, indexed=True, randomization="all")
 
         cross_study_settings = df[df["rand_setting"].str.contains("cross-study-")]["rand_setting"].unique()
         self._cross_study_datasets = [s.split("cross-study-")[1] for s in cross_study_settings]

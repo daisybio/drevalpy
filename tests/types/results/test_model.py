@@ -20,6 +20,24 @@ class TestFoldCount:
     def test_is_zero_without_runs(self) -> None:
         assert ModelResult(model_name="ElasticNet", dataset_name="SyntheticDataset").n_folds == 0
 
+    def test_counts_distinct_folds_separately_from_diagnostic_runs(self) -> None:
+        ordinary = make_run_result(fold_index=0)
+        robustness = make_run_result(fold_index=0, fold_metadata={"robustness_trial": 0})
+        randomized = make_run_result(fold_index=0, randomization=("SVRC", "gene_expression"))
+        result = ModelResult("ElasticNet", "SyntheticDataset", [ordinary, robustness, randomized])
+
+        assert result.n_folds == 1
+        assert result.n_runs == 3
+
+    def test_select_runs_defaults_to_ordinary_runs_only(self) -> None:
+        ordinary = make_run_result(fold_index=0)
+        robustness = make_run_result(fold_index=0, fold_metadata={"robustness_trial": 0})
+        randomized = make_run_result(fold_index=0, randomization=("SVRC", "gene_expression"))
+        result = ModelResult("ElasticNet", "SyntheticDataset", [ordinary, robustness, randomized])
+
+        assert result.select_runs() == [ordinary]
+        assert result.select_runs(randomization="all", robustness="all") == [ordinary, robustness, randomized]
+
 
 class TestAggregateMetrics:
     def test_is_empty_without_runs(self) -> None:
@@ -97,6 +115,7 @@ class TestPersistence:
         assert meta["model_name"] == "ElasticNet"
         assert meta["dataset_name"] == "SyntheticDataset"
         assert meta["n_folds"] == 2
+        assert meta["n_runs"] == 2
         assert meta["aggregate_metrics"]["MSE"]["mean"] == pytest.approx(result.aggregate_metrics["MSE"]["mean"])
 
     def test_round_trip_preserves_identity_and_folds(self, tmp_path) -> None:
@@ -119,6 +138,14 @@ class TestPersistence:
 
         assert [r.fold_index for r in loaded.runs] == [0, 1, 2]
         np.testing.assert_allclose(loaded.runs[1].predictions, result.runs[1].predictions)
+
+    def test_double_digit_execution_order_and_resave_do_not_revive_old_runs(self, tmp_path) -> None:
+        result = make_model_result(n_folds=12)
+        result.save(tmp_path)
+        assert [r.fold_index for r in ModelResult.load(tmp_path).runs] == list(range(12))
+        result.runs = result.runs[:2]
+        result.save(tmp_path)
+        assert [r.fold_index for r in ModelResult.load(tmp_path).runs] == [0, 1]
 
     def test_round_trip_of_an_empty_result_yields_no_runs(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "ElasticNet"

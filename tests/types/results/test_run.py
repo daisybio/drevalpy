@@ -49,6 +49,26 @@ class TestDefaults:
         assert make_run_result().metrics.keys() == make_metrics().keys()
 
 
+class TestIdentity:
+    def test_fold_key_prefers_the_stable_fold_id(self) -> None:
+        run = make_run_result(fold_index=7, fold_id="stable")
+
+        assert run.fold_key == ("SyntheticDataset", "LPO", "id", "stable")
+
+    def test_fold_key_falls_back_to_fold_index_for_legacy_results(self) -> None:
+        run = make_run_result(fold_index=7, fold_id="")
+
+        assert run.fold_key == ("SyntheticDataset", "LPO", "index", 7)
+
+    def test_execution_id_distinguishes_diagnostic_variants(self) -> None:
+        ordinary = make_run_result(fold_index=0)
+        randomized = make_run_result(fold_index=0, randomization=("SVRC", "gene_expression"))
+        robustness = make_run_result(fold_index=0, fold_metadata={"robustness_trial": 0})
+
+        assert ordinary.execution_id != randomized.execution_id
+        assert ordinary.execution_id != robustness.execution_id
+
+
 class TestRepr:
     def test_reports_model_and_dataset(self) -> None:
         text = repr(make_run_result(model_name="RandomForest"))

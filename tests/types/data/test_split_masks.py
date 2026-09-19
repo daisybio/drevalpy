@@ -71,6 +71,28 @@ class TestSplitMasks:
         np.testing.assert_array_equal(loaded.val.mask, masks.val.mask)
         assert loaded.metadata == masks.metadata
 
+    def test_save_load_preserves_pair_order_seeds(self):
+        shape = (3, 2)
+        masks = SplitMasks(
+            train=_mask(shape, (0, 0)).shuffled(1),
+            test=_mask(shape, (1, 0)).shuffled(2),
+            val=_mask(shape, (2, 0)).shuffled(3),
+        )
+        with tempfile.NamedTemporaryFile(suffix=".npz") as f:
+            masks.save(f.name)
+            loaded = SplitMasks.load(f.name)
+
+        assert [loaded.train._pair_seed, loaded.test._pair_seed, loaded.val._pair_seed] == [1, 2, 3]
+
+    def test_loads_legacy_file_without_pair_order_seeds(self, tmp_path):
+        path = tmp_path / "legacy.npz"
+        arrays = {name: np.zeros((2, 2), dtype=bool) for name in ("train", "test", "val")}
+        np.savez_compressed(path, **arrays)
+
+        loaded = SplitMasks.load(path)
+
+        assert [loaded.train._pair_seed, loaded.test._pair_seed, loaded.val._pair_seed] == [None, None, None]
+
     def test_save_load_empty_val(self):
         shape = (2, 2)
         masks = SplitMasks(
@@ -84,6 +106,18 @@ class TestSplitMasks:
 
         assert not loaded.val.any()
         assert loaded.val.shape == shape
+
+    def test_early_stopping_masks_keep_the_validation_seed(self):
+        shape = (2, 2)
+        masks = SplitMasks(
+            train=SplitMask(np.zeros(shape, dtype=bool)),
+            test=SplitMask(np.zeros(shape, dtype=bool)),
+            val=SplitMask(np.ones(shape, dtype=bool)).shuffled(5),
+        )
+
+        early_stopping, remaining = masks.early_stopping_mask()
+
+        assert early_stopping._pair_seed == remaining._pair_seed == 5
 
     def test_save_load_no_metadata(self):
         shape = (2, 2)
