@@ -46,3 +46,19 @@ def test_realign_omic_matrix_passes_matching_width_through_unchanged() -> None:
     result = _realign_omic_matrix(values, ["a", "b"], ["a", "b"])
 
     assert result is values
+
+
+def test_realign_omic_matrix_reorders_an_equally_wide_permutation() -> None:
+    values = np.array([[10.0, 20.0, 30.0]])
+
+    result = _realign_omic_matrix(values, ["a", "b", "c"], ["c", "a", "b"])
+
+    np.testing.assert_allclose(result, [[20.0, 30.0, 10.0]])
+
+
+def test_realign_omic_matrix_zero_fills_an_equally_wide_missing_feature() -> None:
+    values = np.array([[10.0, 20.0, 30.0]])
+
+    result = _realign_omic_matrix(values, ["a", "b", "missing"], ["c", "a", "b"])
+
+    np.testing.assert_allclose(result, [[20.0, 30.0, 0.0]])

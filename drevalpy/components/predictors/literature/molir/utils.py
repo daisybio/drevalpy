@@ -35,11 +35,11 @@ def generate_triplets_indices(
     :param y: response values
     :param positive_range: positive range for the triplet loss
     :param negative_range: negative range for the triplet loss
-    :param random_seed: random seed for reproducibility
+    :param random_seed: Explicit isolated seed, or None to use the experiment's NumPy random stream.
 
     :returns: returns: positive and negative sample indices for each sample
     """
-    rng = np.random.default_rng(random_seed)
+    rng = np.random if random_seed is None else np.random.default_rng(random_seed)
     positive_sample_indices = []
     negative_sample_indices = []
     # Iterate over each label in the dataset
@@ -318,7 +318,7 @@ class MOLIModel(pl.LightningModule):
 
         triplet_loss = self.triplet_loss(z, z[positive_indices], z[negative_indices])
         regression_loss = self.regression_loss(preds.squeeze(), y)
-        return triplet_loss + regression_loss
+        return self.gamma * triplet_loss + regression_loss
 
     def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Training step of the MOLIR model.

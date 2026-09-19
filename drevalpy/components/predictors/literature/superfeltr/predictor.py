@@ -332,7 +332,7 @@ class SuperFELTRPredictor(BlockPredictor):
         payload: dict[str, Any] = {
             "hyperparameters": dict(self._hyperparameters),
             "ranges": dm.ranges,
-            "input_dims": self._compute_input_dims(fn),
+            "input_dims": self._compute_input_dims(dm, fn),
             **feature_names_payload(fn),
         }
 
@@ -344,15 +344,19 @@ class SuperFELTRPredictor(BlockPredictor):
         return save_trusted_mapping(payload)
 
     @staticmethod
-    def _compute_input_dims(fn: OmicFeatureNames | None) -> dict[str, int | None]:
-        """Compute input dimension mapping from feature names.
+    def _compute_input_dims(dm: _DrugModel, fn: OmicFeatureNames | None) -> dict[str, int | None]:
+        """Persist actual encoder widths even when feature names are absent.
 
+        :param dm: Fitted per-drug model.
         :param fn: Feature name record.
         :returns: Mapping of omic type to dimension.
         """
         names = fn.as_tuple() if fn is not None else (None, None, None)
         keys = ("expression", "mutation", "cnv")
-        return {key: len(value) if value else None for key, value in zip(keys, names, strict=True)}
+        return {
+            key: int(encoder.encode[0].in_features) if encoder is not None else len(value) if value else None
+            for key, value, encoder in zip(keys, names, (dm.expr_encoder, dm.mut_encoder, dm.cnv_encoder), strict=True)
+        }
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore fitted state from serialized algorithm blobs.

@@ -26,7 +26,7 @@ def _realign_omic_matrix(
 
     :returns: Matrix with columns reordered to match *model_features*.
     """
-    if values.shape[1] == len(model_features):
+    if list(meta_feature_names) == list(model_features):
         return values
     realigned = np.zeros((values.shape[0], len(model_features)))
     lookup_table = {feature: i for i, feature in enumerate(meta_feature_names)}

@@ -200,22 +200,13 @@ class SRMFPredictor(BlockPredictor):
         :param batch: Featurized pairs to score.
         :returns: One predicted response per pair.
         """
-        drug_ids = batch.drug_ids
-        cell_line_ids = batch.cell_line_ids
-
-        best_u = np.full((len(drug_ids), self._k), self._training_mean)
-        for idx, drug in enumerate(drug_ids):
-            key = str(drug)
-            if key in self._best_u.index:
-                best_u[idx, :] = self._best_u.loc[key].values
-
-        best_v = np.full((len(cell_line_ids), self._k), self._training_mean)
-        for idx, cell in enumerate(cell_line_ids):
-            key = str(cell)
-            if key in self._best_v.index:
-                best_v[idx, :] = self._best_v.loc[key].values
-
-        return np.einsum("ij,ji->i", best_u, best_v.T)
+        drug_ids, cell_line_ids = batch.drug_ids.astype(str), batch.cell_line_ids.astype(str)
+        best_u = np.ascontiguousarray(self._best_u.reindex(drug_ids).to_numpy())
+        best_v = np.ascontiguousarray(self._best_v.reindex(cell_line_ids).to_numpy())
+        known = np.isin(drug_ids, self._best_u.index) & np.isin(cell_line_ids, self._best_v.index)
+        # A mean response is a prediction fallback, not a latent coordinate:
+        # multiplying mean-filled vectors would return K * mean**2.
+        return np.where(known, np.einsum("ij,ji->i", best_u, best_v.T), self._training_mean)
 
     # ------------------------------------------------------------------
     # State serialization

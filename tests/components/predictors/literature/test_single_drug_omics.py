@@ -262,19 +262,13 @@ class TestAlignedPairMatrices:
         np.testing.assert_allclose(expression[0], [1.0, 0.0, 3.0])
         np.testing.assert_allclose(expression[2], [4.0, 0.0, 6.0])
 
-    def test_a_same_width_reordering_is_left_alone(self) -> None:
-        """Pre-existing semantics: realignment triggers on a width change, not a rename.
-
-        ``_realign_omic_matrix`` short-circuits when the incoming width already matches,
-        so equally wide but differently ordered columns pass through. Pinned here because
-        the extraction had to preserve it, not because it is desirable.
-        """
+    def test_a_same_width_reordering_is_aligned_to_the_training_columns(self) -> None:
         reordered = EXPRESSION[:, [2, 0, 1]]
         batch = _batch(expression=reordered, expression_features=("geneC", "geneA", "geneB"))
 
         expression, _, _ = aligned_pair_matrices(batch, _trained_names())
 
-        np.testing.assert_allclose(expression[0], reordered[0])
+        np.testing.assert_allclose(expression, EXPRESSION[[0, 0, 1, 1]])
 
     def test_matching_views_keep_their_float32_dtype(self) -> None:
         for matrix in aligned_pair_matrices(_batch(), _trained_names()):

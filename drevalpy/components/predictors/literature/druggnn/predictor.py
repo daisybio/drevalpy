@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tempfile
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
@@ -210,21 +211,30 @@ class DrugGNNPredictor(BlockPredictor):
         """
         import pytorch_lightning as pl
 
-        callbacks: list[pl.callbacks.Callback] | None = None
-        if val_loader is not None:
-            callbacks = [pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)]
+        with tempfile.TemporaryDirectory() as directory:
+            callbacks: list[pl.callbacks.Callback] = []
+            checkpoint = None
+            if val_loader is not None:
+                checkpoint = pl.callbacks.ModelCheckpoint(
+                    dirpath=directory, monitor="val_loss", mode="min", save_top_k=1
+                )
+                callbacks = [pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5), checkpoint]
 
-        trainer = pl.Trainer(
-            max_epochs=int(self._hyperparameters.get("epochs", 100)),
-            accelerator="auto",
-            devices="auto",
-            callbacks=callbacks,
-            logger=False,
-            enable_progress_bar=True,
-            log_every_n_steps=int(self._hyperparameters.get("log_every_n_steps", 50)),
-            precision=self._hyperparameters.get("precision", 32),
-        )
-        trainer.fit(self._model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+            trainer = pl.Trainer(
+                max_epochs=int(self._hyperparameters.get("epochs", 100)),
+                accelerator="auto",
+                devices="auto",
+                callbacks=callbacks,
+                logger=False,
+                enable_checkpointing=checkpoint is not None,
+                enable_progress_bar=True,
+                log_every_n_steps=int(self._hyperparameters.get("log_every_n_steps", 50)),
+                precision=self._hyperparameters.get("precision", 32),
+            )
+            trainer.fit(self._model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+
+            if checkpoint is not None and checkpoint.best_model_path:
+                self._model.load_state_dict(load_state_dict(checkpoint.best_model_path)["state_dict"])
 
     @staticmethod
     def _graph_loader(
@@ -345,8 +355,6 @@ class DrugGNNPredictor(BlockPredictor):
 
         :returns: Mapping with binary payload blob and architecture metadata.
         """
-        if not self.is_fitted():
-            return {}
         if self._model is None:
             return {}
         return {
@@ -376,8 +384,7 @@ class DrugGNNPredictor(BlockPredictor):
 
         architecture = state.get("architecture")
         if not isinstance(architecture, dict):
-            msg = f"{self.__class__.__name__} state requires architecture dict"
-            raise PredictorStateError(msg)
+            raise PredictorStateError(f"{self.__class__.__name__} state requires architecture dict")
 
         hyperparameters = state.get("hyperparameters")
         if isinstance(hyperparameters, dict):
