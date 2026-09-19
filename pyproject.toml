@@ -249,16 +249,6 @@ min_file_coverage = 60
 # download paths are deselected in the measured run, but their offline logic clears
 # 60% anyway (chemberta 66%, smilesvec 81%, molgnet 84%, bionic 88%).
 [tool.drevalpy.coverage_gate.exemptions]
-# In EXCLUDED_MODELS: the ontology featurizer always raises because
-# attach_sparsego_ontology_metadata has no production caller, so the predictor
-# cannot be trained end to end until that source defect is fixed. `predictor.py`
-# used to be exempt at 53 and no longer needs it - direct unit tests of its
-# offline paths put it at 62%. `algorithm.py` (34%) and `utils.py` (51%) have
-# under a point of margin over their floors, so measure the full `not network`
-# suite before touching them; a partial run reads several points high.
-"drevalpy/components/predictors/literature/sparsego/algorithm.py" = 33
-"drevalpy/components/predictors/literature/sparsego/utils.py" = 51
-
 # Resolving a registered dataset downloads a multi-GB .h5mu from a credentialed S3
 # bucket, so only the not-found and cache-hit branches are reachable offline. These
 # floors are reproducible on a clean checkout - the cache-eviction helpers are
@@ -309,13 +299,13 @@ max_module_statements = 150
 "drevalpy/components/predictors/literature/sparsego/algorithm.py" = 188
 "drevalpy/components/predictors/literature/superfeltr/predictor.py" = 187
 "drevalpy/components/predictors/literature/dipk/predictor.py" = 186
-"drevalpy/components/predictors/literature/srmf/predictor.py" = 180
+"drevalpy/components/predictors/literature/srmf/predictor.py" = 172
 
 # Single cohesive units whose statements are one flat sequence rather than several
 # concerns: a declarative registry of builtin components, one dataset facade, one
 # component-stack builder, one plot each.
 "drevalpy/registry/_builtins.py" = 199
-"drevalpy/models/component_stack.py" = 240
+"drevalpy/models/component_stack.py" = 166
 "drevalpy/types/data/dataset.py" = 218
 "drevalpy/visualization/plots/leaderboard.py" = 177
 "drevalpy/types/results/experiment.py" = 156

@@ -156,7 +156,7 @@ class TestFitOptions:
         runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad")])
 
         assert worker.kwargs == {
-            "cores": 4,
+            "max_workers": 4,
             "normalize": False,
             "fit_type": "OLS",
             "fit_speed": "exhaustive",
@@ -179,12 +179,12 @@ class TestFitOptions:
             ],
         )
 
-        assert worker.kwargs == {"cores": 2, "normalize": True, "fit_type": "OLS", "fit_speed": "fast"}
+        assert worker.kwargs == {"max_workers": 2, "normalize": True, "fit_type": "OLS", "fit_speed": "fast"}
 
     def test_cores_short_option(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
         runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "-c", "1"])
 
-        assert worker.kwargs["cores"] == 1
+        assert worker.kwargs["max_workers"] == 1
 
     def test_non_integer_cores_is_a_usage_error(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
         result = runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "--cores", "all"])

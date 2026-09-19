@@ -55,5 +55,5 @@ def curate_cmd(
     from drevalpy.curation import curate
 
     df = _read_frame(input_path)
-    adata = curate(df, cores=cores, normalize=normalize, fit_type=fit_type, fit_speed=fit_speed)
+    adata = curate(df, max_workers=cores, normalize=normalize, fit_type=fit_type, fit_speed=fit_speed)
     adata.write_h5ad(UPath(output))

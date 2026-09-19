@@ -378,7 +378,7 @@ class TestNormalizedFitIsCoreCountIndependent:
 
         np.testing.assert_array_equal(serial.X, pooled.X)
         assert set(serial.layers) == set(pooled.layers)
-        for name in serial.layers:
+        for name in serial.layers.keys():
             np.testing.assert_array_equal(serial.layers[name], pooled.layers[name], err_msg=name)
 
     def test_normalization_actually_changed_the_result(self) -> None:

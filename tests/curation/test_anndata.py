@@ -73,7 +73,7 @@ class TestShapeAndAxes:
     def test_an_unmeasured_pair_becomes_nan(self, metrics_df: pd.DataFrame) -> None:
         result = build_anndata(metrics_df.drop(index=1))
 
-        assert np.isnan(result.X[0, 1])
+        assert np.isnan(np.asarray(result.X)[0, 1])
 
 
 class TestXMatrix:

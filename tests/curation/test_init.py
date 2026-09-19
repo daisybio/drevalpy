@@ -173,5 +173,5 @@ class TestCurateIsPreprocessFitPostprocessBuild:
     ) -> None:
         composed = self._stages(dose_response_df)
 
-        for name in curated_adata.layers:
+        for name in curated_adata.layers.keys():
             np.testing.assert_array_equal(composed.layers[name], curated_adata.layers[name], err_msg=name)

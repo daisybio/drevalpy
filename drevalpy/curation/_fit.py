@@ -162,9 +162,7 @@ def _run_work_items(
         return [(future.result(), group_idx) for future, group_idx in futures]
 
     with ProcessPoolExecutor(max_workers=max_workers) as pool:
-        futures = [
-            (pool.submit(_fit_chunk, chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items
-        ]
+        futures = [(pool.submit(_fit_chunk, chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items]
         return [(future.result(), group_idx) for future, group_idx in futures]
 
 

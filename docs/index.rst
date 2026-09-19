@@ -76,6 +76,8 @@ For demanding or highly reproducible runs, use the Nextflow pipeline
    project/contributing
    project/citing
    project/news
+   project/v2_migration
+   project/v2_correctness_review
    project/contributors
    project/memes
 
