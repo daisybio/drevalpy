@@ -95,6 +95,9 @@ def test_predict_scales_gene_expression_only_once_regardless_of_repeat_count() -
     cell_line_features = FeatureDataset(features={"cellA": {"gene_expression": raw_gene_expr}})
     drug_features = FeatureDataset(features={"drug0": {"bpe_smiles": rng.normal(size=128).astype(np.float32)}})
 
+    assert model.gene_expression_scaler is not None
+    assert model.gene_expression_normalizer is not None
+    assert model.model is not None
     expected = model.gene_expression_normalizer.transform(
         model.gene_expression_scaler.transform(raw_gene_expr.reshape(1, -1))
     ).flatten()
@@ -177,4 +180,5 @@ def test_train_fits_gene_expression_scaler_without_duplicate_weighting() -> None
         )
 
     expected_mean = np.mean([cell_a_expr, cell_b_expr], axis=0)
+    assert model.gene_expression_scaler is not None
     assert np.allclose(model.gene_expression_scaler.mean_, expected_mean, atol=1e-6)
