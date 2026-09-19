@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import optuna
+import pytest
 
 from drevalpy.models import construct_model
 from drevalpy.models.tuning.config import HPOConfig
@@ -256,3 +258,48 @@ def test_run_optuna_study_uses_tpe_sampler() -> None:
     study = run_optuna_study(objective=dummy_objective, cfg=cfg)
     assert len(study.trials) == 3
     assert isinstance(study.sampler, optuna.samplers.TPESampler)
+
+
+@pytest.mark.parametrize("all_metrics", [False, True])
+def test_nan_targets_keep_prediction_alignment(all_metrics, tmp_path):
+    from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics, _mu_evaluate_trial_model
+    from tests.models.synthetic_fixtures import lco_split_masks, synthetic_mudataset_identity
+
+    dataset = synthetic_mudataset_identity()
+    dataset.mdata.mod["response"].X[1] = [np.nan, 4.0]
+    masks = lco_split_masks()
+    model = construct_model("NaivePredictor")()
+    kwargs = dict(
+        mudataset=dataset,
+        train_scope=masks.train,
+        val_scope=masks.test,
+        early_stopping_scope=None,
+        response_transformation=None,
+        model_checkpoint_dir=tmp_path,
+    )
+    if all_metrics:
+        metrics, predictions = _mu_evaluate_trial_all_metrics(model, **kwargs)
+        assert predictions.shape == (2,)
+        score = metrics["MSE"]
+    else:
+        score = _mu_evaluate_trial_model(model, metric="MSE", **kwargs)
+    assert score == pytest.approx(6.25)
+
+
+def test_mismatched_predictions_are_rejected_instead_of_truncated(tmp_path):
+    from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
+    from tests.models.synthetic_fixtures import lco_split_masks, synthetic_mudataset_identity
+
+    model = MagicMock()
+    model.predict.return_value = np.zeros(1)
+    masks = lco_split_masks()
+    with pytest.raises(ValueError, match="one value per requested"):
+        _mu_evaluate_trial_all_metrics(
+            model,
+            mudataset=synthetic_mudataset_identity(),
+            train_scope=masks.train,
+            val_scope=masks.test,
+            early_stopping_scope=None,
+            response_transformation=None,
+            model_checkpoint_dir=tmp_path,
+        )

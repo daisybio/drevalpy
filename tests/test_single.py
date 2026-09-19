@@ -20,6 +20,7 @@ Two levels are used deliberately:
 from __future__ import annotations
 
 import importlib
+from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -30,6 +31,7 @@ from drevalpy import single
 from drevalpy.data import split
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.models import construct_model
+from drevalpy.registry.splitter import SplitValidationError
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results.run import RunResult
 
@@ -479,3 +481,52 @@ class TestHyperparameterTuning:
         es_expected, val_expected = folds[0].early_stopping_mask()
         np.testing.assert_array_equal(seen["early_stopping_scope"].mask, es_expected.mask)
         np.testing.assert_array_equal(seen["val_scope"].mask, val_expected.mask)
+
+
+@pytest.mark.parametrize("tuning", [False, True])
+def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
+    stub_model,
+    synthetic_dataset,
+    monkeypatch,
+    tuning,
+):
+    stub_model.early_stopping = True
+    masks = _masks_with_val_pairs(synthetic_dataset.response_matrix.shape, 8)
+    es, val = masks.early_stopping_mask()
+    seen = []
+
+    def tune(**kwargs):
+        seen.append(kwargs)
+        return stub_model.get_default_hyperparameters(), []
+
+    monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", tune)
+    single(stub_model, synthetic_dataset, masks, hyperparameter_tuning=tuning, response_transformation=StandardScaler())
+    call = stub_model.instances[-1].train_calls[0]
+    assert not (call["scope"] & es).any()
+    assert call["scope"] == masks.train | val
+    assert call["early_stopping_scope"] == es
+    pairs = call["scope"].pairs
+    expected = synthetic_dataset.response_matrix[pairs[:, 0], pairs[:, 1]]
+    np.testing.assert_allclose(call["response_transformation"].mean_, [np.nanmean(expected)])
+    if tuning:
+        assert seen[0]["early_stopping_scope"] == es
+        assert seen[0]["val_scope"] == val
+        assert seen[0]["train_scope"] == masks.train
+
+
+@pytest.mark.parametrize("defect", ["shape", "pair_overlap", "entity_overlap"])
+def test_direct_masks_are_validated_before_training(stub_model, synthetic_dataset, defect):
+    shape = synthetic_dataset.response_matrix.shape
+    masks = _masks_with_val_pairs(shape, 4)
+    if defect == "shape":
+        masks = replace(masks, test=SplitMask(np.zeros((1, 1), dtype=bool)))
+    elif defect == "pair_overlap":
+        masks = replace(masks, test=SplitMask(masks.train.mask.copy()))
+    else:
+        # Distinct responses still leak the same cell line in LCO mode.
+        masks.train.mask[0, 0] = False
+        masks.test.mask[0, 0] = True
+
+    with pytest.raises(SplitValidationError):
+        single(stub_model, synthetic_dataset, masks, hyperparameter_tuning=False)
+    assert stub_model.instances == []

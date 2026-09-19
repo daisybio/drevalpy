@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tempfile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -12,7 +12,10 @@ from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.tuning.config import build_experiment_hpo_config
 from drevalpy.models.tuning.hpo import hpam_tune
+from drevalpy.registry.splitter import Validation, splitter_registry
+from drevalpy.registry.splitter._validation import validate_folds
 from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.results.run import RunResult
 from drevalpy.types.results.trial import TrialResult
@@ -52,6 +55,16 @@ def single(
     """
     model_name = model_class.get_model_name()
     logger.info("Run: %s, fold %d", model_name, split_masks.metadata.get("fold_index", 0))
+
+    # Direct callers and restored folds must meet the same constraints as newly
+    # generated folds. Validate the original partition before deriving E and V.
+    mode = split_masks.metadata.get("split_mode", split_masks.metadata.get("mode", ""))
+    validation = splitter_registry.get_metadata(mode)["validation"] if mode in splitter_registry.modes else mode
+    validate_folds(
+        [split_masks],
+        cast(Validation, validation if validation in ("LCO", "LDO", "LTO") else "LPO"),
+        mudataset,
+    )
 
     early_stopping_scope: SplitMask | None = None
     val_scope = split_masks.val
@@ -93,7 +106,7 @@ def single(
 
     model = model_class(best_hpams)
 
-    train_scope = split_masks.train_val
+    train_scope = split_masks.train | val_scope
     fold_transform = fit_response_transformation(response_transformation, mudataset, train_scope)
 
     with tempfile.TemporaryDirectory() as checkpoint_dir:
@@ -110,12 +123,11 @@ def single(
     if fold_transform is not None:
         predictions = fold_transform.inverse_transform(predictions.reshape(-1, 1)).ravel()
 
-    response_matrix = mudataset.response_matrix
-    test_pairs = split_masks.test.pairs
-    ground_truth = response_matrix[test_pairs[:, 0], test_pairs[:, 1]]
-
-    cl_ids = mudataset.cell_line_ids[test_pairs[:, 0]]
-    dr_ids = mudataset.drug_ids[test_pairs[:, 1]]
+    test_response = ResponseBatch.from_dataset(mudataset, split_masks.test)
+    ground_truth = test_response.response
+    cl_ids, dr_ids = test_response.cell_line_ids, test_response.drug_ids
+    if predictions.shape != ground_truth.shape:
+        raise ValueError("Predictions must have one value per requested response position")
 
     valid = ~np.isnan(predictions) & ~np.isnan(ground_truth)
     metrics: dict[str, float] = {}
@@ -137,7 +149,14 @@ def single(
         metrics=metrics,
         # Copied: the caller's SplitMasks.metadata is reused across models and
         # folds by run(), so the result must not alias it.
-        fold_metadata=dict(split_masks.metadata),
+        fold_metadata={
+            **split_masks.metadata,
+            **(
+                {"randomization_provenance": dict(mudataset.mdata.uns["randomization_provenance"])}
+                if "randomization_provenance" in mudataset.mdata.uns
+                else {}
+            ),
+        },
         trials=trials,
         randomization=mudataset.randomization,
     )

@@ -18,6 +18,7 @@ from drevalpy.models.tuning.config_resolution import (
 )
 from drevalpy.models.tuning.search_space import sample_from_optuna_trial
 from drevalpy.types import SplitMask
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.utils.response_transform import fit_response_transformation
 
@@ -56,17 +57,9 @@ def _extract_ground_truth(mudataset: Dataset, scope: SplitMask) -> np.ndarray:
 
     :param mudataset: Source of response values.
     :param scope: SplitMask with 2D pair array.
-    :returns: 1-D array of non-NaN ground-truth response values.
+    :returns: 1-D scope-aligned array, including missing response values.
     """
-    response_matrix = mudataset.response_matrix
-    pairs = scope.pairs
-    cl_idx = pairs[:, 0]
-    dr_idx = pairs[:, 1]
-
-    responses = response_matrix[cl_idx, dr_idx]
-    values = responses[~np.isnan(responses)]
-
-    return values.astype(np.float64)
+    return ResponseBatch.from_dataset(mudataset, scope).response
 
 
 def _mu_evaluate_trial_model(
@@ -82,52 +75,17 @@ def _mu_evaluate_trial_model(
     trial_number: int = 0,
 ) -> float:
     """Train a trial model and compute a validation metric using Dataset + SplitMask."""
-    fitted_transform = fit_response_transformation(response_transformation, mudataset, train_scope)
-    trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
-    if trial_dir is not None:
-        trial_model.train(
-            mudataset=mudataset,
-            scope=train_scope,
-            early_stopping_scope=early_stopping_scope,
-            model_checkpoint_dir=str(trial_dir),
-            response_transformation=fitted_transform,
-        )
-    else:
-        with tempfile.TemporaryDirectory() as checkpoint_dir:
-            trial_model.train(
-                mudataset=mudataset,
-                scope=train_scope,
-                early_stopping_scope=early_stopping_scope,
-                model_checkpoint_dir=checkpoint_dir,
-                response_transformation=fitted_transform,
-            )
-
-    predictions = trial_model.predict(mudataset=mudataset, scope=val_scope)
-
-    if fitted_transform is not None:
-        predictions = fitted_transform.inverse_transform(predictions.reshape(-1, 1)).ravel()
-
-    ground_truth = _extract_ground_truth(mudataset, val_scope)
-
-    if len(predictions) != len(ground_truth):
-        min_len = min(len(predictions), len(ground_truth))
-        predictions = predictions[:min_len]
-        ground_truth = ground_truth[:min_len]
-
-    if len(predictions) == 0:
-        return float("nan")
-
-    # Filter out NaN predictions (from pairs with missing features)
-    valid = ~np.isnan(predictions) & ~np.isnan(ground_truth)
-    if not valid.any():
-        return float("nan")
-    predictions = predictions[valid]
-    ground_truth = ground_truth[valid]
-
-    metric_fn = AVAILABLE_METRICS.get(metric)
-    if metric_fn is None:
-        return float("nan")
-    return float(metric_fn(y_pred=predictions, y_true=ground_truth))
+    metrics, _ = _mu_evaluate_trial_all_metrics(
+        trial_model,
+        mudataset=mudataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=early_stopping_scope,
+        response_transformation=response_transformation,
+        model_checkpoint_dir=model_checkpoint_dir,
+        trial_number=trial_number,
+    )
+    return metrics.get(metric, float("nan"))
 
 
 def _mu_evaluate_trial_all_metrics(
@@ -172,10 +130,8 @@ def _mu_evaluate_trial_all_metrics(
 
     ground_truth = _extract_ground_truth(mudataset, val_scope)
 
-    if len(predictions) != len(ground_truth):
-        min_len = min(len(predictions), len(ground_truth))
-        predictions = predictions[:min_len]
-        ground_truth = ground_truth[:min_len]
+    if predictions.shape != ground_truth.shape:
+        raise ValueError("Predictions must have one value per requested response position")
 
     if len(predictions) == 0:
         return {}, predictions

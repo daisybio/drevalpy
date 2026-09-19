@@ -59,8 +59,8 @@ def _mask(rows: tuple[int, ...], cols: tuple[int, ...]) -> SplitMask:
     return SplitMask(array)
 
 
-def _fold(train: SplitMask, test: SplitMask) -> SplitMasks:
-    return SplitMasks(train=train, test=test, val=SplitMask(np.zeros(_SHAPE, dtype=bool)))
+def _fold(train: SplitMask, test: SplitMask, val: SplitMask | None = None) -> SplitMasks:
+    return SplitMasks(train=train, test=test, val=val if val is not None else SplitMask(np.zeros(_SHAPE, dtype=bool)))
 
 
 @pytest.fixture
@@ -139,6 +139,29 @@ def test_lpo_tolerates_a_shared_row_and_column(mudataset: _FakeMuDataset) -> Non
     fold = _fold(_mask((0,), (0,)), _mask((0,), (1,)))
 
     validate_folds([fold], "LPO", mudataset)
+
+
+@pytest.mark.parametrize(
+    ("mode", "train", "test", "val"),
+    [
+        pytest.param("LCO", _mask((0,), (0,)), _mask((2,), (0,)), _mask((0,), (1,)), id="lco-row"),
+        pytest.param("LDO", _mask((0,), (0,)), _mask((1,), (2,)), _mask((2,), (0,)), id="ldo-column"),
+        pytest.param("LTO", _mask((0,), (0,)), _mask((2,), (0,)), _mask((1,), (1,)), id="lto-tissue"),
+        pytest.param("LPO", _mask((0,), (0,)), _mask((1,), (1,)), _mask((0,), (0,)), id="lpo-pair"),
+    ],
+)
+def test_validation_rejects_validation_leakage(
+    mode: str, train: SplitMask, test: SplitMask, val: SplitMask, mudataset: _FakeMuDataset
+) -> None:
+    with pytest.raises(SplitValidationError, match="validation failed"):
+        validate_folds([_fold(train, test, val)], mode, mudataset)  # type: ignore[arg-type]
+
+
+def test_validation_rejects_a_mask_with_the_wrong_shape(mudataset: _FakeMuDataset) -> None:
+    wrong_shape = SplitMask(np.zeros((3, 3), dtype=bool))
+
+    with pytest.raises(SplitValidationError, match="response shape"):
+        validate_folds([_fold(_mask((0,), (0,)), _mask((1,), (1,)), wrong_shape)], "LPO", mudataset)
 
 
 def test_the_failing_fold_index_is_reported(mudataset: _FakeMuDataset) -> None:

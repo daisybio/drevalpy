@@ -28,59 +28,76 @@ def validate_folds(
     :raises SplitValidationError: If any fold violates the constraint.
     """
     validator = _VALIDATORS[validation]
+    expected_shape = mudataset.response_matrix.shape
     for i, fold in enumerate(folds):
+        _validate_partition(fold, expected_shape, validation=validation, fold_index=i)
         validator(fold, mudataset, fold_index=i)
 
 
-def _validate_lco(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
-    """LCO: no cell line row has True in both train and test."""
-    train_rows = np.where(fold.train.mask.any(axis=1))[0]
-    test_rows = np.where(fold.test.mask.any(axis=1))[0]
-    overlap = np.intersect1d(train_rows, test_rows)
-    if len(overlap) > 0:
+def _validate_partition(
+    fold: SplitMasks,
+    expected_shape: tuple[int, ...],
+    *,
+    validation: Validation,
+    fold_index: int,
+) -> None:
+    """Require three compatible, pairwise-disjoint masks before mode checks."""
+    masks = {"train": fold.train, "val": fold.val, "test": fold.test}
+    wrong_shapes = {name: mask.shape for name, mask in masks.items() if mask.shape != expected_shape}
+    if wrong_shapes:
         raise SplitValidationError(
-            f"LCO validation failed (fold {fold_index}): "
-            f"{len(overlap)} cell line indices appear in both train and test."
+            f"{validation} validation failed (fold {fold_index}): masks must have response shape "
+            f"{expected_shape}; got {wrong_shapes}."
+        )
+
+    for left, right in (("train", "val"), ("train", "test"), ("val", "test")):
+        overlap_count = int(np.count_nonzero(masks[left].mask & masks[right].mask))
+        if overlap_count:
+            raise SplitValidationError(
+                f"{validation} validation failed (fold {fold_index}): {overlap_count} pairs appear in both "
+                f"{left} and {right}."
+            )
+
+
+def _validate_lco(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
+    """LCO: no cell line row belongs to more than one split."""
+    if _has_axis_overlap(fold, axis=1):
+        raise SplitValidationError(
+            f"LCO validation failed (fold {fold_index}): cell line indices appear in more than one split."
         )
 
 
 def _validate_ldo(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
-    """LDO: no drug column has True in both train and test."""
-    train_cols = np.where(fold.train.mask.any(axis=0))[0]
-    test_cols = np.where(fold.test.mask.any(axis=0))[0]
-    overlap = np.intersect1d(train_cols, test_cols)
-    if len(overlap) > 0:
+    """LDO: no drug column belongs to more than one split."""
+    if _has_axis_overlap(fold, axis=0):
         raise SplitValidationError(
-            f"LDO validation failed (fold {fold_index}): {len(overlap)} drug indices appear in both train and test."
+            f"LDO validation failed (fold {fold_index}): drug indices appear in more than one split."
         )
 
 
 def _validate_lto(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
-    """LTO: no tissue appears in both train and test cell lines."""
+    """LTO: no tissue belongs to more than one split."""
     cl_ids = mudataset.cell_line_ids
     tissues = mudataset.get_tissue(cl_ids)
-
-    train_rows = np.where(fold.train.mask.any(axis=1))[0]
-    test_rows = np.where(fold.test.mask.any(axis=1))[0]
-
-    train_tissues = set(tissues[train_rows].tolist())
-    test_tissues = set(tissues[test_rows].tolist())
-    overlap = train_tissues & test_tissues
+    tissue_sets = [
+        set(tissues[np.where(mask.mask.any(axis=1))[0]].tolist()) for mask in (fold.train, fold.val, fold.test)
+    ]
+    overlap = (tissue_sets[0] & tissue_sets[1]) | (tissue_sets[0] & tissue_sets[2]) | (tissue_sets[1] & tissue_sets[2])
     if overlap:
         raise SplitValidationError(
             f"LTO validation failed (fold {fold_index}): "
-            f"{len(overlap)} tissues appear in both train and test: {sorted(overlap)[:5]}"
+            f"{len(overlap)} tissues appear in more than one split: {sorted(overlap)[:5]}"
         )
 
 
 def _validate_lpo(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
-    """LPO: no position is True in both train and test."""
-    overlap_count = len(fold.train & fold.test)
-    if overlap_count > 0:
-        raise SplitValidationError(
-            f"LPO validation failed (fold {fold_index}): "
-            f"{overlap_count} (cell_line, drug) pairs appear in both train and test."
-        )
+    """LPO pair disjointness is enforced by :func:`_validate_partition`."""
+
+
+def _has_axis_overlap(fold: SplitMasks, *, axis: int) -> bool:
+    """Whether an active row or column occurs in more than one split mask."""
+    active = [mask.mask.any(axis=axis) for mask in (fold.train, fold.val, fold.test)]
+    return bool(((active[0] & active[1]) | (active[0] & active[2]) | (active[1] & active[2])).any())
 
 
 _VALIDATORS = {
