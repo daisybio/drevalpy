@@ -37,6 +37,8 @@ SUPPORTED_GLOBAL_MODELS: Final = (
     "MultiViewNeuralNetwork",
     "PharmaFormer",
     "Precily",
+    "DrugGNN",
+    "SparseGO",
 )
 
 #: Single-drug models the fixture is expected to train, predict and round-trip.
@@ -49,27 +51,9 @@ SUPPORTED_SINGLE_DRUG_MODELS: Final = (
     "SuperFELTR",
 )
 
-#: Models kept out of the lists above, mapped to the defect that excludes them.
-#: All three are pre-existing library bugs, independent of the fixture, and are
-#: investigate-only for now, so the reason travels with the exclusion instead of
-#: living solely in a planning document. Each reason below was reproduced against
-#: the complete-coverage fixture, so it is the observed failure, not a guess.
+#: DIPK consumes remote pretrained artifacts and has its own network integration gate.
 EXCLUDED_MODELS: Final[dict[str, str]] = {
-    "DIPK": (
-        "bionic.py fetches human_ppi_features.tsv and gene_list_sel.txt from the artifacts bucket, "
-        "which raises PermissionError(403) without AWS credentials -- anonymous reads are refused -- "
-        "so the featurizer never reaches the ragged molgnet_features it also needs; uns['dipk'] is "
-        "written by the data builder but read by no library code"
-    ),
-    "DrugGNN": (
-        "the drug_graph view stores plain dicts, as a .h5mu must, while "
-        "druggnn/predictor.py calls .num_node_features on them, raising AttributeError"
-    ),
-    "SparseGO": (
-        "attach_sparsego_ontology_metadata has no production caller, so read_sparsego_ontology_metadata "
-        "never finds the layer_connections key it needs and SparseGOOntologyFeaturizer._fit always "
-        "raises 'SparseGO ontology metadata is missing'"
-    ),
+    "DIPK": "Real pretrained MolGNet/PPI artifacts are exercised by the network integration test.",
 }
 
 #: Models expected to fail for a named, still-open defect, mapped to that reason.
@@ -82,13 +66,8 @@ EXCLUDED_MODELS: Final[dict[str, str]] = {
 #: stays so the next genuine defect gets a strict marker rather than a skip.
 MODEL_DEFECTS: Final[dict[str, str]] = {}
 
-#: Models that train and predict but cannot be reloaded from a checkpoint,
-#: mapped to the error their round-trip raises. Their set-dependent featurizers
-#: (learned BPE merges, GSVA scores) are not part of the saved state.
-SAVE_LOAD_DEFECTS: Final[dict[str, str]] = {
-    "PharmaFormer": "BpePharmaformerDrugFeaturizer must be fit before transform",
-    "Precily": "PathwaysCellLineFeaturizer must be fit before transform",
-}
+#: No remaining known checkpoint exclusions; learned featurizer state is persisted.
+SAVE_LOAD_DEFECTS: Final[dict[str, str]] = {}
 
 
 def build_partial_coverage_dataset() -> Dataset:

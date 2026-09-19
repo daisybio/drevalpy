@@ -10,7 +10,7 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.featurizers.base import Featurizer
-from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 
@@ -63,14 +63,16 @@ class DoublingFeaturizer(Featurizer):
         """Fitting is a no-op; the transform is stateless."""
         return self
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Return one numeric block holding the doubled view."""
-        return {"test_view": numeric_feature_block(self._transform(source, entity_ids))}
-
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return the doubled view matrix."""
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
+        """Return the doubled matrix and its named block together."""
         matrix = source.get_view_matrix("test_view", entity_ids)
-        return (matrix * 2).astype(np.float32)
+        doubled = (matrix * 2).astype(np.float32)
+        return FeaturizerResult(doubled, {"test_view": numeric_feature_block(doubled)})
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Retain the fixed output schema when every source row is invalid."""
+        empty = np.empty((0, self.output_dim), dtype=np.float32)
+        return FeaturizerResult(empty, {"test_view": numeric_feature_block(empty)})
 
     @property
     def output_dim(self) -> int:

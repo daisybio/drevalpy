@@ -49,36 +49,9 @@ def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarr
     :returns: Tuple of (layer_connections, gene2id_mapping, gene_order).
     :raises ValueError: If required ontology info is missing from metadata.
     """
-    layer_connections = metadata.get("layer_connections")
-    gene2id_mapping = metadata.get("gene2id_mapping_ont")
-    gene_order = metadata.get("ontology_gene_order")
+    from .utils import resolve_ontology_metadata
 
-    if layer_connections is None or gene2id_mapping is None:
-        from drevalpy.components.predictors.literature.sparsego.utils import (
-            load_mapping,
-            load_ontology,
-            pairs_in_layers,
-            sort_pairs,
-        )
-
-        ontology_file = metadata.get("ontology_file")
-        gene2ind_file = metadata.get("gene2ind_file")
-        if ontology_file is None or gene2ind_file is None:
-            raise ValueError(
-                "SparseGO block metadata must provide either pre-computed ontology structures "
-                "(layer_connections, gene2id_mapping_ont) or file paths (ontology_file, gene2ind_file)."
-            )
-        gene2id_mapping = load_mapping(str(gene2ind_file))
-        _, terms_pairs, genes_terms_pairs = load_ontology(str(ontology_file), gene2id_mapping)
-        sorted_pairs, level_list, level_number = sort_pairs(genes_terms_pairs, terms_pairs, _, gene2id_mapping)
-        layer_connections = pairs_in_layers(sorted_pairs, level_list, level_number)
-        gene_order = list(gene2id_mapping.keys())
-
-    return (
-        list(layer_connections),  # type: ignore[call-overload]
-        dict(gene2id_mapping),  # type: ignore[call-overload]
-        list(gene_order) if gene_order else list(gene2id_mapping.keys()),  # type: ignore[call-overload, attr-defined]
-    )
+    return resolve_ontology_metadata(metadata)
 
 
 def _resolve_active_view(batch: ModelInputBatch) -> str:

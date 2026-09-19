@@ -55,6 +55,7 @@ EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
     "FeatureFreePredictor": ("drevalpy.components.predictors.abstract.feature_free", "FeatureFreePredictor"),
     "FeatureSource": ("drevalpy.types.data.feature_source", "FeatureSource"),
     "Featurizer": ("drevalpy.components.featurizers.base", "Featurizer"),
+    "FeaturizerResult": ("drevalpy.types.data.batch.feature_block", "FeaturizerResult"),
     "FeaturizerStorageMixin": ("drevalpy.components.featurizers.storage", "FeaturizerStorageMixin"),
     "HPOStrategy": ("drevalpy.components.featurizers.base", "HPOStrategy"),
     "ImageVisualization": ("drevalpy.visualization.base", "ImageVisualization"),
@@ -242,7 +243,7 @@ class TestFacadeIsSelfContained:
         """A plugin importing nothing but the facade must be able to declare a component."""
         script = (
             "from drevalpy.plugin import (\n"
-            "    CellLineFeaturizer, FeatureFormat, BlockSpec, numeric_feature_block,\n"
+            "    CellLineFeaturizer, FeatureFormat, BlockSpec, FeaturizerResult, numeric_feature_block,\n"
             "    register_cell_line_featurizer,\n"
             ")\n"
             "import numpy as np\n"
@@ -259,8 +260,12 @@ class TestFacadeIsSelfContained:
             "    )\n"
             "    def _fit(self, source, **kwargs):\n"
             "        return self\n"
-            "    def _transform_blocks(self, source, entity_ids):\n"
-            "        return {'probe': numeric_feature_block(np.zeros((len(entity_ids), 1), dtype=np.float32))}\n"
+            "    def _transform_features(self, source, entity_ids):\n"
+            "        values = np.zeros((len(entity_ids), 1), dtype=np.float32)\n"
+            "        return FeaturizerResult(values, {'probe': numeric_feature_block(values)})\n"
+            "    def _empty_transform_features(self, source):\n"
+            "        values = np.empty((0, 1), dtype=np.float32)\n"
+            "        return FeaturizerResult(values, {'probe': numeric_feature_block(values)})\n"
             "    @property\n"
             "    def output_dim(self):\n"
             "        return 1\n"

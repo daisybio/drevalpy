@@ -27,6 +27,7 @@ from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
 from drevalpy.registry.cell_line_featurizer import metadata as cell_line_metadata
 from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.drug_featurizer import metadata as drug_metadata
+from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from tests.registry._helpers import isolated_component_registries
 
 
@@ -45,9 +46,12 @@ class _Probe(Featurizer):
         """Fitting is a no-op."""
         return self
 
-    def _transform_blocks(self, source, entity_ids: np.ndarray) -> dict:
+    def _transform_features(self, source, entity_ids: np.ndarray) -> FeaturizerResult:
         """No blocks; the probe is only ever inspected as a class."""
-        return {}
+        return FeaturizerResult.from_blocks({}, len(entity_ids))
+
+    def _empty_transform_features(self, source) -> FeaturizerResult:
+        return FeaturizerResult.from_blocks({}, 0)
 
     @property
     def output_dim(self) -> int:

@@ -7,7 +7,10 @@ and the encode path rather than to reach a useful reconstruction.
 
 from __future__ import annotations
 
+import random
+
 import numpy as np
+import pytest
 import torch
 from torch.utils.data import DataLoader
 
@@ -160,3 +163,38 @@ def test_train_autoencoder_produces_an_encoder_usable_for_encoding() -> None:
 
     assert encoded.shape == (4, encoder.latent_dim)
     assert np.isfinite(encoded).all()
+
+
+class TestAutoencoderFinalWeightsContract:
+    pytestmark = pytest.mark.slow
+
+    def test_early_stopping_returns_the_last_epoch_instead_of_restoring_the_best(self, capsys) -> None:
+        """DIPK pretraining saves epoch 1000's final weights; local early stopping preserves that contract."""
+        random.seed(2)
+        np.random.seed(2)
+        torch.manual_seed(2)
+        rng = np.random.default_rng(1002)
+        train = rng.normal(size=(4, INPUT_DIM)).astype(np.float32)
+        validation = (rng.normal(size=(4, INPUT_DIM)) * 3 + 5).astype(np.float32)
+        validation_snapshots: list[dict[str, torch.Tensor]] = []
+
+        def capture_validation_state(module, _inputs, _output) -> None:
+            if isinstance(module, GeneExpressionEncoder) and not module.training:
+                validation_snapshots.append(
+                    {name: value.detach().clone() for name, value in module.state_dict().items()}
+                )
+
+        handle = torch.nn.modules.module.register_module_forward_hook(capture_validation_state)
+        try:
+            encoder = train_gene_expession_autoencoder(train, validation, epochs_autoencoder=10)
+        finally:
+            handle.remove()
+
+        assert "Early stopping triggered at epoch 3" in capsys.readouterr().out
+        assert len(validation_snapshots) == 4
+        returned_state = encoder.state_dict()
+        for name, value in returned_state.items():
+            torch.testing.assert_close(value, validation_snapshots[-1][name])
+        assert any(
+            not torch.equal(validation_snapshots[0][name], validation_snapshots[-1][name]) for name in returned_state
+        )

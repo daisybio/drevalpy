@@ -8,12 +8,11 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import TunableComponentMixin
 from drevalpy.components.featurizers._declarations import FeaturizerDeclarationsMixin
 from drevalpy.components.featurizers._nan_tolerance import NanToleranceMixin
 from drevalpy.components.featurizers.storage import FeaturizerStorageMixin
-from drevalpy.types.data.batch.feature_block import FeatureBlock
+from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource
 
 
@@ -54,6 +53,8 @@ class Featurizer(
     with ``Predictor`` in ``contracts/hyperparameter_space.py``.
     """
 
+    requires_early_stopping: ClassVar[bool] = False
+
     hpo_strategy: ClassVar[HPOStrategy] = HPOStrategy.CONTINUOUS
 
     # ------------------------------------------------------------------
@@ -82,6 +83,12 @@ class Featurizer(
         self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.fit")
         valid_ids = ids[valid_mask] if not valid_mask.all() else ids
 
+        if pair_expanded_ids is not None:
+            pair_expanded_ids = pair_expanded_ids[np.isin(pair_expanded_ids, valid_ids)]
+        if pair_expanded_es_ids is not None:
+            pair_expanded_es_ids = pair_expanded_es_ids[self._detect_valid(source, pair_expanded_es_ids)]
+        if self.requires_early_stopping and (pair_expanded_es_ids is None or len(pair_expanded_es_ids) == 0):
+            raise ValueError(f"{type(self).__name__} requires a usable early-stopping holdout")
         self._fit(
             source,
             entity_ids=valid_ids,
@@ -90,47 +97,47 @@ class Featurizer(
         )
         return self
 
-    def transform_blocks(
-        self,
-        source: FeatureSource,
-        entity_ids: np.ndarray,
-    ) -> dict[str, FeatureBlock]:
-        """Public NaN-safe entry point for block-based transform.
+    def transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
+        """Compute aligned matrices and blocks once, padding unusable entities.
 
-        Detects invalid (all-NaN) entities, transforms only valid ones via
-        ``_transform_blocks``, and inserts NaN rows for invalid entities.
-
-        :param source: Feature source providing views for the entity type.
-        :param entity_ids: Entity identifiers to transform.
-        :returns: Mapping of block name to ``FeatureBlock`` payloads aligned with *entity_ids*.
+        :param source: Feature views for this entity side.
+        :param entity_ids: Requested identifiers in output order.
+        :returns: Both representations, with numeric NaNs or object None for invalid rows.
         """
-        valid_mask = self._detect_valid(source, entity_ids)
-        self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.transform_blocks")
-        if valid_mask.all():
-            return self._transform_blocks(source, entity_ids)
-        valid_ids = entity_ids[valid_mask]
-        valid_blocks = self._transform_blocks(source, valid_ids)
-        return self._expand_blocks_with_nan(valid_blocks, valid_mask, len(entity_ids))
+        valid = self._detect_valid(source, entity_ids)
+        self._warn_if_above_threshold(valid, f"{type(self).__name__}.transform_features")
+        if not valid.any():
+            features = self._empty_transform_features(source)
+        else:
+            features = self._transform_features(source, entity_ids[valid])
+        if valid.all():
+            return features
+        numeric = features.matrix.dtype.kind != "O"
+        matrix = np.full(
+            (len(entity_ids), *features.matrix.shape[1:]),
+            np.nan if numeric else None,
+            dtype=np.result_type(features.matrix.dtype, np.float32) if numeric else object,
+        )
+        matrix[valid] = features.matrix
+        return FeaturizerResult(matrix, self._expand_blocks_with_nan(features.blocks, valid, len(entity_ids)))
+
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Return the named blocks of the combined transformation.
+
+        :param source: Feature source.
+        :param entity_ids: Requested identifiers.
+        :returns: Aligned feature blocks.
+        """
+        return self.transform_features(source, entity_ids).blocks
 
     def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Public NaN-safe entry point for matrix-based transform.
+        """Return the matrix of the combined transformation.
 
-        Detects invalid (all-NaN) entities, transforms only valid ones via
-        ``_transform``, and inserts NaN rows for invalid entities.
-
-        :param source: Feature source providing views for the entity type.
-        :param entity_ids: Entity identifiers to transform.
-        :returns: Feature matrix aligned with *entity_ids*.
+        :param source: Feature source.
+        :param entity_ids: Requested identifiers.
+        :returns: Aligned numeric or object matrix.
         """
-        valid_mask = self._detect_valid(source, entity_ids)
-        self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.transform")
-        if valid_mask.all():
-            return self._transform(source, entity_ids)
-        valid_ids = entity_ids[valid_mask]
-        valid_result = self._transform(source, valid_ids)
-        result = np.full((len(entity_ids), valid_result.shape[1]), np.nan, dtype=np.float32)
-        result[valid_mask] = valid_result
-        return result
+        return self.transform_features(source, entity_ids).matrix
 
     # ------------------------------------------------------------------
     # Abstract methods for subclasses
@@ -156,36 +163,21 @@ class Featurizer(
         """
 
     @abstractmethod
-    def _transform_blocks(
-        self,
-        source: FeatureSource,
-        entity_ids: np.ndarray,
-    ) -> dict[str, FeatureBlock]:
-        """Return named feature blocks for pre-validated (non-NaN) entity IDs.
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
+        """Compute both representations for valid entities in one pass.
 
-        Subclasses must implement this. Called by ``transform_blocks`` after
-        NaN filtering.
-
-        :param source: Feature source providing views for the entity type.
-        :param entity_ids: Entity identifiers to transform (only valid ones).
-        :returns: Mapping of block name to ``FeatureBlock`` payloads aligned with *entity_ids*.
+        :param source: Feature source.
+        :param entity_ids: Nonempty valid identifiers.
+        :returns: Matrix and blocks aligned to these identifiers.
         """
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return a flat feature matrix by concatenating numeric blocks.
+    @abstractmethod
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Build zero-row outputs from fitted schema without invoking a backend.
 
-        Default: derives from ``_transform_blocks``. Subclasses that work
-        directly on matrices can override this.
-
-        :param source: Feature source providing views for the entity type.
-        :param entity_ids: Entity identifiers to transform (only valid ones).
-        :returns: Feature matrix aligned with *entity_ids*.
+        :param source: Feature names and global metadata, when needed.
+        :returns: Empty representations retaining fitted dimensions and metadata.
         """
-        blocks = self._transform_blocks(source, entity_ids)
-        arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
-        if not arrays:
-            return np.empty((len(entity_ids), 0), dtype=np.float32)
-        return np.concatenate(arrays, axis=1)
 
     @property
     @abstractmethod

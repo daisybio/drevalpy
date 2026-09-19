@@ -25,7 +25,7 @@ from drevalpy.testing.plugins import (
     PluginReport,
     check_plugin,
 )
-from drevalpy.types.data.batch.feature_block import BlockSpec, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 
 PLUGIN_NAME = "fake_plugin"
 
@@ -72,8 +72,13 @@ def fake_plugin_package(monkeypatch):
         def _fit(self, source, **kwargs):
             return self
 
-        def _transform_blocks(self, source, entity_ids):
-            return {"fake": numeric_feature_block(np.zeros((len(entity_ids), 1), dtype=np.float32))}
+        def _transform_features(self, source, entity_ids):
+            values = np.zeros((len(entity_ids), 1), dtype=np.float32)
+            return FeaturizerResult(values, {"fake": numeric_feature_block(values)})
+
+        def _empty_transform_features(self, source):
+            values = np.empty((0, 1), dtype=np.float32)
+            return FeaturizerResult(values, {"fake": numeric_feature_block(values)})
 
         @property
         def output_dim(self) -> int:

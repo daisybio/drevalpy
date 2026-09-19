@@ -12,7 +12,7 @@ from drevalpy.components.featurizers._side_binding import register_for_sides
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.types.data.batch.feature_block import (
     BlockSpec,
-    FeatureBlock,
+    FeaturizerResult,
     metadata_feature_block,
     numeric_feature_block,
 )
@@ -58,7 +58,7 @@ class SharedIdentityFeaturizer(Featurizer):
         self._encoder.fit_categories(ids)
         return self
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source (unused).
@@ -68,23 +68,35 @@ class SharedIdentityFeaturizer(Featurizer):
         _ = source
         return self._encoder.transform(entity_ids)
 
-    def _transform_blocks(
+    def _transform_features(
         self,
         source: FeatureSource,
         entity_ids: np.ndarray,
-    ) -> dict[str, FeatureBlock]:
+    ) -> FeaturizerResult:
         """Transform blocks.
 
         :param source: Feature source (unused).
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        return {
-            "identity": numeric_feature_block(self._transform(source, entity_ids)),
-            "identity_categories": metadata_feature_block(
-                np.asarray(self._encoder.categories, dtype=str),
-            ),
-        }
+        matrix = self._feature_matrix(source, entity_ids)
+        return FeaturizerResult(
+            matrix,
+            {
+                "identity": numeric_feature_block(matrix),
+                "identity_categories": metadata_feature_block(
+                    np.asarray(self._encoder.categories, dtype=str),
+                ),
+            },
+        )
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return fitted schema and metadata without transforming any entities.
+
+        :param source: Feature metadata source.
+        :returns: Zero-row matrix and blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:

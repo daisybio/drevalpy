@@ -25,7 +25,7 @@ def test_transform_before_fit_raises() -> None:
     featurizer = PathwaysCellLineFeaturizer()
 
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        featurizer._transform(MockFeatureSource(features={}), np.array(["cl1"]))
+        featurizer._transform_features(MockFeatureSource(features={}), np.array(["cl1"]))
 
 
 def test_run_gsva_requires_pathways_gmt_in_uns() -> None:
@@ -48,17 +48,33 @@ def test_run_gsva_requires_gene_expression_feature_names(synthetic_dataset: Data
         featurizer._run_gsva(source, synthetic_dataset.cell_line_ids[:2])
 
 
-def test_fit_then_transform_returns_pathway_scores(synthetic_dataset: Dataset) -> None:
-    source = CellLineFeatureSource(synthetic_dataset, synthetic_dataset.cell_line_ids)
-    cell_line_ids = synthetic_dataset.cell_line_ids[:6]
-    featurizer = PathwaysCellLineFeaturizer()
+class TestGSVAIntegration:
+    pytestmark = pytest.mark.slow
 
-    featurizer.fit(source, entity_ids=cell_line_ids)
-    matrix = featurizer.transform(source, cell_line_ids)
+    def test_fit_then_transform_returns_pathway_scores(self, synthetic_dataset: Dataset, monkeypatch) -> None:
+        source = CellLineFeatureSource(synthetic_dataset, synthetic_dataset.cell_line_ids)
+        cell_line_ids = synthetic_dataset.cell_line_ids[:6]
+        featurizer = PathwaysCellLineFeaturizer()
 
-    assert featurizer.output_dim > 0
-    assert matrix.shape == (len(cell_line_ids), featurizer.output_dim)
-    assert matrix.dtype == np.float32
+        featurizer.fit(source, entity_ids=cell_line_ids)
+        matrix = featurizer.transform(source, cell_line_ids)
+
+        assert featurizer.output_dim > 0
+        assert matrix.shape == (len(cell_line_ids), featurizer.output_dim)
+        assert matrix.dtype == np.float32
+        names = featurizer.transform_blocks(source, cell_line_ids)["pathways"].feature_names
+        assert names is not None and len(names) == featurizer.output_dim
+        requested = synthetic_dataset.cell_line_ids[:7]
+        expected = featurizer.transform(source, requested)
+        restored = PathwaysCellLineFeaturizer()
+        restored.set_state(featurizer.get_state())
+        monkeypatch.setitem(synthetic_dataset.mdata.uns, "pathways_gmt", "invalid replacement")
+        np.testing.assert_allclose(restored.transform(source, requested), expected)
+        assert restored.transform_blocks(source, requested)["pathways"].feature_names == names
+
+        restored._pathway_names = ("absent_from_fitted_gene_sets", *names[1:])
+        with pytest.raises(ValueError, match="missing pathways"):
+            restored.transform(source, requested)
 
 
 def test_transform_of_unseen_cell_lines_recomputes_gsva(
@@ -80,10 +96,12 @@ def test_transform_of_unseen_cell_lines_recomputes_gsva(
 
     monkeypatch.setattr(featurizer, "_run_gsva", _fake_run_gsva)
 
-    matrix = featurizer._transform(source, np.array([*fit_ids, synthetic_dataset.cell_line_ids[5]]))
+    matrix = featurizer._transform_features(source, np.array([*fit_ids, synthetic_dataset.cell_line_ids[5]])).matrix
 
     assert calls == [3]
     assert matrix.shape == (3, 3)
+    np.testing.assert_array_equal(matrix[:2], featurizer._fit_scores)
+    np.testing.assert_array_equal(matrix[2], np.ones(3))
 
 
 def test_transform_of_known_cell_lines_reuses_fitted_scores(synthetic_dataset: Dataset) -> None:
@@ -94,7 +112,7 @@ def test_transform_of_known_cell_lines_reuses_fitted_scores(synthetic_dataset: D
     featurizer._fit_ids = fit_ids
     featurizer._output_dim = 2
 
-    matrix = featurizer._transform(source, np.array([fit_ids[1], fit_ids[0]]))
+    matrix = featurizer._transform_features(source, np.array([fit_ids[1], fit_ids[0]])).matrix
 
     np.testing.assert_allclose(matrix, [[3.0, 4.0], [1.0, 2.0]])
 
@@ -107,7 +125,13 @@ def test_transform_blocks_emit_one_block_named_after_the_view(synthetic_dataset:
     featurizer._fit_ids = fit_ids
     featurizer._output_dim = 2
 
-    blocks = featurizer._transform_blocks(source, fit_ids)
+    blocks = featurizer._transform_features(source, fit_ids).blocks
 
     assert set(blocks) == {"pathways"}
     assert blocks["pathways"].feature_names is None
+
+
+@pytest.mark.parametrize("state", [{}, {"fit_scores": np.zeros((2, 3)), "fit_ids": np.array(["a"]), "output_dim": 3}])
+def test_pathways_rejects_incomplete_checkpoint(state) -> None:
+    with pytest.raises(ValueError, match="Pathways checkpoint"):
+        PathwaysCellLineFeaturizer().set_state(state)

@@ -11,6 +11,7 @@ import pytest
 from upath import UPath
 
 from drevalpy.models import construct_model
+from drevalpy.models.component_stack import StackState
 from drevalpy.models.mixins._persistence_io import (
     CorruptedCheckpointError,
     IncompatibleModelCheckpointError,
@@ -59,14 +60,14 @@ class TestLoad:
         assert loaded._resolved_model_config is not None
         assert loaded._resolved_model_config.predictor_values()["alpha"] == 0.1
 
-    def test_clears_the_empty_training_flag(self, tmp_path) -> None:
+    def test_restores_fitted_stack_state(self, tmp_path) -> None:
         model = fitted_elastic_net()
         checkpoint = str(UPath(tmp_path) / "elastic_net")
         model.save(checkpoint)
 
         loaded = construct_model("ElasticNet").load(checkpoint)
 
-        assert loaded._empty_training is False
+        assert loaded._stack.state == StackState.FITTED
 
     def test_rejects_a_checkpoint_from_another_model(self, tmp_path) -> None:
         model = fitted_elastic_net()

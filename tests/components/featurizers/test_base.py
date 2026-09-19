@@ -41,9 +41,10 @@ from drevalpy.registry.drug_featurizer import (
     list as list_drug_featurizers,
 )
 from drevalpy.types.data.batch.feature_block import (
-    FeatureBlock,
+    FeaturizerResult,
     metadata_feature_block,
     numeric_feature_block,
+    ragged_feature_block,
 )
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.modalities import resolve_omics_accessor
@@ -366,11 +367,15 @@ def test_default_transform_concatenates_numeric_blocks_only() -> None:
         def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
             return self
 
-        def _transform_blocks(self, source, entity_ids) -> dict[str, FeatureBlock]:
-            return {
+        def _transform_features(self, source, entity_ids) -> FeaturizerResult:
+            blocks = {
                 "numeric": numeric_feature_block(np.ones((len(entity_ids), 2), dtype=np.float32)),
                 "categories": metadata_feature_block(np.asarray(["a"], dtype=str)),
             }
+            return FeaturizerResult.from_blocks(blocks, len(entity_ids))
+
+        def _empty_transform_features(self, source) -> FeaturizerResult:
+            return self._transform_features(source, np.array([], dtype=str))
 
         @property
         def output_dim(self) -> int:
@@ -379,7 +384,7 @@ def test_default_transform_concatenates_numeric_blocks_only() -> None:
     _MixedBlocks.contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     source = StubSource(np.zeros((2, 3), dtype=np.float32), np.array(["A", "B"]))
 
-    matrix = _MixedBlocks()._transform(source, np.array(["A", "B"]))
+    matrix = _MixedBlocks().transform(source, np.array(["A", "B"]))
 
     assert matrix.shape == (2, 2)
 
@@ -391,8 +396,12 @@ def test_default_transform_returns_an_empty_matrix_without_numeric_blocks() -> N
         def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
             return self
 
-        def _transform_blocks(self, source, entity_ids) -> dict[str, FeatureBlock]:
-            return {"categories": metadata_feature_block(np.asarray(["a"], dtype=str))}
+        def _transform_features(self, source, entity_ids) -> FeaturizerResult:
+            blocks = {"categories": metadata_feature_block(np.asarray(["a"], dtype=str))}
+            return FeaturizerResult.from_blocks(blocks, len(entity_ids))
+
+        def _empty_transform_features(self, source) -> FeaturizerResult:
+            return self._transform_features(source, np.array([], dtype=str))
 
         @property
         def output_dim(self) -> int:
@@ -400,9 +409,64 @@ def test_default_transform_returns_an_empty_matrix_without_numeric_blocks() -> N
 
     _NoNumericBlocks.contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
-    matrix = _NoNumericBlocks()._transform(StubSource(np.zeros((1, 1)), np.array(["A"])), np.array(["A"]))
+    matrix = _NoNumericBlocks().transform(StubSource(np.zeros((1, 1)), np.array(["A"])), np.array(["A"]))
 
     assert matrix.shape == (1, 0)
+
+
+def test_transform_features_computes_matrix_and_blocks_once() -> None:
+    class _CountingFeaturizer(DoublingFeaturizer):
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def _transform_features(self, source, entity_ids) -> FeaturizerResult:
+            self.calls += 1
+            return super()._transform_features(source, entity_ids)
+
+    source = StubSource(np.ones((2, 3), dtype=np.float32), np.array(["A", "B"]))
+    featurizer = _CountingFeaturizer()
+    result = featurizer.transform_features(source, np.array(["A", "B"]))
+
+    assert result.matrix.shape == (2, 3)
+    assert set(result.blocks) == {"test_view"}
+    assert result.blocks["test_view"].values is result.matrix
+    assert featurizer.calls == 1
+
+
+def test_transform_features_pads_object_rows_and_preserves_metadata() -> None:
+    class _ObjectFeaturizer(Featurizer):
+        input_views = ("test_view",)
+
+        def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
+            return self
+
+        def _transform_features(self, source, entity_ids) -> FeaturizerResult:
+            matrix = np.asarray([{"id": entity_id} for entity_id in entity_ids], dtype=object)
+            payload = np.empty(len(entity_ids), dtype=object)
+            payload[:] = [np.asarray([entity_id]) for entity_id in entity_ids]
+            blocks = {
+                "payload": ragged_feature_block(payload),
+                "labels": metadata_feature_block(np.asarray(["fixed"], dtype=str)),
+            }
+            return FeaturizerResult(matrix, blocks)
+
+        def _empty_transform_features(self, source) -> FeaturizerResult:
+            blocks = {"labels": metadata_feature_block(np.asarray(["fixed"]))}
+            return FeaturizerResult(np.empty(0, dtype=object), blocks)
+
+        @property
+        def output_dim(self) -> int:
+            return 0
+
+    _ObjectFeaturizer.contract = FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
+    source = StubSource(np.asarray([[np.nan], [2.0]]), np.array(["bad", "good"]))
+
+    result = _ObjectFeaturizer().transform_features(source, np.array(["bad", "good"]))
+
+    assert result.matrix[0] is None
+    assert result.matrix[1] == {"id": "good"}
+    assert result.blocks["payload"].values[0] is None
+    assert result.blocks["labels"].values.tolist() == ["fixed"]
 
 
 # ----------------------------------------------------------------------
@@ -493,3 +557,11 @@ def test_fetch_prefers_a_modality_over_obsm() -> None:
 
     assert matrix is not None
     assert matrix.shape == (2, 3)
+
+
+@pytest.mark.parametrize("stopping_ids", [None, np.array(["missing"])])
+def test_required_featurizer_rejects_absent_or_filtered_holdout(monkeypatch, stopping_ids) -> None:
+    source = StubSource(np.array([[1.0, 2.0, 3.0], [np.nan, np.nan, np.nan]]), np.array(["train", "missing"]))
+    monkeypatch.setattr(DoublingFeaturizer, "requires_early_stopping", True)
+    with pytest.raises(ValueError, match="requires a usable early-stopping holdout"):
+        DoublingFeaturizer().fit(source, entity_ids=np.array(["train"]), pair_expanded_es_ids=stopping_ids)

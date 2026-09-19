@@ -16,7 +16,7 @@ import pytest
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.featurizers._declarations import FeaturizerDeclarationsMixin
 from drevalpy.components.featurizers.base import Featurizer
-from drevalpy.types.data.batch.feature_block import FeatureBlock
+from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from tests.components.featurizers._helpers import DoublingFeaturizer
 
 
@@ -28,8 +28,11 @@ class _Declared(Featurizer):
     def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
         return self
 
-    def _transform_blocks(self, source, entity_ids) -> dict[str, FeatureBlock]:
-        return {}
+    def _transform_features(self, source, entity_ids) -> FeaturizerResult:
+        return FeaturizerResult.from_blocks({}, len(entity_ids))
+
+    def _empty_transform_features(self, source) -> FeaturizerResult:
+        return FeaturizerResult.from_blocks({}, 0)
 
     @property
     def output_dim(self) -> int:

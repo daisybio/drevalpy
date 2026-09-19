@@ -133,3 +133,24 @@ def test_builtin_predictor_interfaces_partition() -> None:
         assert cls.input_interface == matches[0].input_interface
         observed[cls.input_interface].add(name)
     assert observed == EXPECTED
+
+
+@pytest.mark.parametrize("required", [False, True])
+@pytest.mark.parametrize("invalid", ["missing", "response", "features"])
+def test_stopping_requirement_is_checked_after_pair_filtering(monkeypatch, required, invalid) -> None:
+    from drevalpy.types.data.batch.feature_block import numeric_feature_block
+    from drevalpy.types.data.batch.response_batch import ResponseBatch
+    from tests.components.predictors.literature._helpers import two_by_two_batch
+
+    values = np.array([[1.0], [np.nan if invalid == "features" else 2.0]])
+    batch = two_by_two_batch(cell_line_blocks={"gene_expression": numeric_feature_block(values)}, drug_blocks={})
+    if invalid != "missing":
+        batch.early_stopping_response = ResponseBatch(
+            np.array([np.nan if invalid == "response" else 3.0]), np.array(["cl2"]), np.array(["d1"])
+        )
+    monkeypatch.setattr(_StubPredictor, "requires_early_stopping", required)
+    if required:
+        with pytest.raises(ValueError, match="requires a usable early-stopping holdout"):
+            _StubPredictor().fit(batch)
+    else:
+        _StubPredictor().fit(batch)

@@ -13,7 +13,6 @@ import pytest
 from drevalpy.components.predictors.literature._metadata import (
     DIPK_REFERENCE,
     DRUGGNN_REFERENCE,
-    LITERATURE_INTEGRATION_DEVIATIONS,
     MOLIR_REFERENCE,
     PHARMAFORMER_REFERENCE,
     PRECILY_REFERENCE,
@@ -57,9 +56,12 @@ def test_every_reference_has_citation_text(reference: LiteratureReference) -> No
     assert reference.citation_text
 
 
-@pytest.mark.parametrize("reference", ALL_REFERENCES)
-def test_every_reference_shares_the_integration_deviation_note(reference: LiteratureReference) -> None:
-    assert reference.deviations == LITERATURE_INTEGRATION_DEVIATIONS.strip()
+def test_every_reference_records_a_concrete_model_specific_deviation() -> None:
+    deviations = [param.values[0].deviations for param in ALL_REFERENCES]
+
+    assert all(len(note.split()) >= 12 for note in deviations)
+    assert len(set(deviations)) == len(deviations)
+    assert all("may differ" not in note for note in deviations)
 
 
 @pytest.mark.parametrize(("reference", "doi"), WITH_DOI)

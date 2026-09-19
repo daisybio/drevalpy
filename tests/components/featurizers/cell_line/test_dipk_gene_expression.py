@@ -43,17 +43,17 @@ def test_dipk_gene_expression_round_trips_state(monkeypatch) -> None:
 
 def test_dipk_gene_expression_requires_pair_expanded_ids() -> None:
     with pytest.raises(ValueError, match="requires pair_expanded_ids"):
-        DIPKGeneExpressionFeaturizer().fit(_features())
+        DIPKGeneExpressionFeaturizer().fit(_features(), pair_expanded_es_ids=np.array(["cl2"]))
 
 
 def test_dipk_gene_expression_requires_non_empty_early_stopping_ids() -> None:
-    with pytest.raises(ValueError, match="non-empty train and early-stopping IDs"):
+    with pytest.raises(ValueError, match="requires a usable early-stopping holdout"):
         DIPKGeneExpressionFeaturizer().fit(_features(), pair_expanded_ids=np.array(["cl0"]))
 
 
 def test_dipk_gene_expression_transform_before_fit_raises() -> None:
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        DIPKGeneExpressionFeaturizer()._transform(_features(), np.array(["cl0"]))
+        DIPKGeneExpressionFeaturizer()._transform_features(_features(), np.array(["cl0"]))
 
 
 def test_dipk_gene_expression_output_dim_is_zero_before_fit() -> None:

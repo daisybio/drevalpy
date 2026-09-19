@@ -39,6 +39,7 @@ from drevalpy.models import construct_model
 from drevalpy.models.component_stack import _ComponentStack, build_component_stack
 from drevalpy.models.config import from_spec
 from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.utils import fit_response_transformation
 from tests.models.synthetic_fixtures import (
     lco_split_masks,
@@ -69,16 +70,14 @@ def fitted(mudataset, masks: SplitMasks) -> TransformerMixin:
 @pytest.fixture
 def extractions(monkeypatch: pytest.MonkeyPatch) -> list[TransformerMixin | None]:
     """Record the transformer handed to every ``_extract_response_pairs`` call."""
-    original = _ComponentStack._extract_response_pairs
+    original = ResponseBatch.from_dataset
     recorded: list[TransformerMixin | None] = []
 
-    def recorder(mudataset, scope, response_transformation=None):
-        recorded.append(response_transformation)
-        if response_transformation is None:
-            return original(mudataset, scope)
-        return original(mudataset, scope, response_transformation)
+    def recorder(cls, mudataset, scope, *, observed_only=False, transformation=None):
+        recorded.append(transformation)
+        return original(mudataset, scope, observed_only=observed_only, transformation=transformation)
 
-    monkeypatch.setattr(_ComponentStack, "_extract_response_pairs", staticmethod(recorder))
+    monkeypatch.setattr(ResponseBatch, "from_dataset", classmethod(recorder))
     return recorded
 
 
@@ -145,9 +144,11 @@ class TestEvaluationExtractionsStayRaw:
         model.train(mudataset=mudataset, scope=empty, response_transformation=fitted)
         extractions.clear()
 
-        model.predict(mudataset=mudataset, scope=masks.test)
+        predictions = model.predict(mudataset=mudataset, scope=masks.test)
 
-        assert extractions == [None]
+        assert extractions == []
+        assert predictions.shape == (len(masks.test),)
+        assert np.isnan(predictions).all()
 
 
 class TestExtractionSemantics:

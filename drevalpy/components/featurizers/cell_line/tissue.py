@@ -11,7 +11,11 @@ from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import FeatureBlock, metadata_feature_block, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import (
+    FeaturizerResult,
+    metadata_feature_block,
+    numeric_feature_block,
+)
 from drevalpy.types.data.feature_source import FeatureSource
 
 
@@ -77,7 +81,7 @@ class TissueFeaturizer(CellLineFeaturizer):
         self._encoder.fit_categories(np.asarray(available, dtype=str))
         return self
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source providing views for the entity type.
@@ -99,23 +103,35 @@ class TissueFeaturizer(CellLineFeaturizer):
                 categories.append(label)
         return self._encoder.transform(np.asarray(categories, dtype=str))
 
-    def _transform_blocks(
+    def _transform_features(
         self,
         source: FeatureSource,
         entity_ids: np.ndarray,
-    ) -> dict[str, FeatureBlock]:
+    ) -> FeaturizerResult:
         """Transform blocks.
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        return {
-            "tissue": numeric_feature_block(self._transform(source, entity_ids)),
-            "tissue_categories": metadata_feature_block(
-                np.asarray(self._encoder.categories, dtype=str),
-            ),
-        }
+        matrix = self._feature_matrix(source, entity_ids)
+        return FeaturizerResult(
+            matrix,
+            {
+                "tissue": numeric_feature_block(matrix),
+                "tissue_categories": metadata_feature_block(
+                    np.asarray(self._encoder.categories, dtype=str),
+                ),
+            },
+        )
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return fitted schema and metadata without transforming any entities.
+
+        :param source: Feature metadata source.
+        :returns: Zero-row matrix and blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:

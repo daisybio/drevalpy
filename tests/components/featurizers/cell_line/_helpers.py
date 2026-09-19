@@ -10,7 +10,7 @@ import numpy as np
 
 from drevalpy.components.featurizers.storage import register_variant
 from drevalpy.types.data.feature_source import CellLineFeatureSource
-from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
+from tests.models.synthetic_fixtures import synthetic_mudataset
 
 PRECOMPUTED = np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32)
 
@@ -33,7 +33,7 @@ def precomputed_source(
     :returns: Cell-line feature source over a 2x2 synthetic dataset.
     """
     values = PRECOMPUTED if matrix is None else matrix
-    dataset = synthetic_mudataset_gene_expression_fingerprints()
+    dataset = synthetic_mudataset(extra_views=("mutations", "copy_number_variation_gistic"))
     key = f"{featurizer_cls.__name__}_precomputed"
     dataset.mdata.mod["response"].obsm[key] = values
     register_variant(
@@ -73,7 +73,10 @@ def assert_uses_precomputed_variant(
     source = precomputed_source(type(featurizer), hyperparameters=hyperparameters)
     ids = source.identifiers
 
-    featurizer.fit(source, **{ids_kwarg: ids})
+    fit_kwargs = {ids_kwarg: ids}
+    if featurizer.requires_early_stopping:
+        fit_kwargs["pair_expanded_es_ids"] = ids
+    featurizer.fit(source, **fit_kwargs)
 
     if expect_output_dim:
         assert featurizer.output_dim == PRECOMPUTED.shape[1]

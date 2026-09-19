@@ -55,5 +55,4 @@ class DRPPersistenceMixin:
             ) from exc
         if not instance._stack.is_fitted():
             raise CorruptedCheckpointError("checkpoint did not restore a fitted predictor")
-        instance._empty_training = False
         return instance

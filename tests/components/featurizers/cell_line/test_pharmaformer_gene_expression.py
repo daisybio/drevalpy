@@ -40,7 +40,7 @@ def test_pharmaformer_gene_expression_requires_pair_expanded_ids() -> None:
 
 def test_pharmaformer_gene_expression_transform_before_fit_raises() -> None:
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        PharmaFormerGeneExpressionFeaturizer()._transform(_features(), np.array(["cl0"]))
+        PharmaFormerGeneExpressionFeaturizer()._transform_features(_features(), np.array(["cl0"]))
 
 
 def test_pharmaformer_gene_expression_state_is_empty_before_fit() -> None:

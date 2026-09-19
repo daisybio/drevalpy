@@ -9,7 +9,7 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import DenseViewCellLineFeaturizer
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
@@ -62,7 +62,9 @@ class MOLIROmicsFeaturizer(DenseViewCellLineFeaturizer):
         """
         matrix = np.arcsinh(self._raw_matrix(source, entity_ids))
         self._scaler.fit(matrix)
-        variances = np.var(self._scaler.transform(matrix), axis=0)
+        # Standardization makes every nonconstant variance approximately one;
+        # rank expression variance before that step, using training rows only.
+        variances = np.var(matrix, axis=0)
         self._mask = np.zeros(len(variances), dtype=bool)
         self._mask[np.argsort(variances)[::-1][: min(self._n_features, len(variances))]] = True
 
@@ -93,7 +95,7 @@ class MOLIROmicsFeaturizer(DenseViewCellLineFeaturizer):
         _ = source
         return self._feature_names.get("gene_expression")
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
         """Return per-omics numeric blocks for MOLIR.
 
         The gene-expression block goes through the shared dense path; the two other
@@ -103,8 +105,9 @@ class MOLIROmicsFeaturizer(DenseViewCellLineFeaturizer):
         :param entity_ids: Cell-line identifiers to transform.
         :returns: Mapping of omics view name to numeric blocks.
         """
-        return {
-            **super()._transform_blocks(source, entity_ids),
+        result = super()._transform_features(source, entity_ids)
+        blocks = {
+            **result.blocks,
             **{
                 view: numeric_feature_block(
                     source.get_view_matrix(view, entity_ids).astype(np.float32),
@@ -113,6 +116,7 @@ class MOLIROmicsFeaturizer(DenseViewCellLineFeaturizer):
                 for view in _VIEWS[1:]
             },
         }
+        return FeaturizerResult(result.matrix, blocks)
 
     @property
     def output_dim(self) -> int:

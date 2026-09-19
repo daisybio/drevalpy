@@ -75,4 +75,4 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
         model.save(checkpoint)
         loaded_model = model_class.load(checkpoint)
         assert isinstance(loaded_model, DRPModel)
-        assert preds.shape == loaded_model.predict(synthetic_dataset, split).shape
+        np.testing.assert_allclose(preds, loaded_model.predict(synthetic_dataset, split), rtol=1e-5, atol=1e-5)

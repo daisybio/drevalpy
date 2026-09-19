@@ -133,3 +133,18 @@ def test_sparsego_output_dim_is_zero_before_fit() -> None:
 )
 def test_sparsego_resolve_input_views(input_type: str, expected: tuple[str, ...]) -> None:
     assert SparseGOOntologyFeaturizer.resolve_input_views(input_type=input_type) == expected
+
+
+def test_ontology_order_controls_values_and_names() -> None:
+    source = _with_ontology()
+    source._meta_info["gene_expression"] = ["b", "a"]
+    result = SparseGOOntologyFeaturizer().fit(source).transform_features(source, np.array(["cl1"]))
+    np.testing.assert_array_equal(result.matrix, [[2.0, 1.0]])
+    assert result.blocks["gene_expression"].feature_names == ("a", "b")
+
+
+def test_missing_ontology_gene_fails_explicitly() -> None:
+    source = _with_ontology()
+    source._meta_info["gene_expression"] = ["a", "unrelated"]
+    with pytest.raises(ValueError, match="missing ontology genes"):
+        SparseGOOntologyFeaturizer().fit(source).transform_features(source, np.array(["cl1"]))

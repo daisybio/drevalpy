@@ -15,9 +15,9 @@ import numpy as np
 
 from drevalpy.plugin import (
     DrugFeaturizer,
-    FeatureBlock,
     FeatureFormat,
     FeatureSource,
+    FeaturizerResult,
     numeric_feature_block,
     register_drug_featurizer,
 )
@@ -51,12 +51,18 @@ class ToyDrugHashFeaturizer(DrugFeaturizer):
         _ = source, entity_ids, pair_expanded_ids, pair_expanded_es_ids
         return self
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Return one row of hashed bytes per drug."""
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
+        """Return one row of hashed bytes per drug and its named block."""
         _ = source
         rows = [self._hash_row(str(entity_id)) for entity_id in entity_ids]
         values = np.vstack(rows) if rows else np.empty((0, N_COLUMNS), dtype=np.float32)
-        return {"toy_drug_hash": numeric_feature_block(values)}
+        return FeaturizerResult(values, {"toy_drug_hash": numeric_feature_block(values)})
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return the fixed-width output schema for an empty request."""
+        _ = source
+        values = np.empty((0, N_COLUMNS), dtype=np.float32)
+        return FeaturizerResult(values, {"toy_drug_hash": numeric_feature_block(values)})
 
     @staticmethod
     def _hash_row(entity_id: str) -> np.ndarray:

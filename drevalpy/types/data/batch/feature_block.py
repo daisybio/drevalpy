@@ -40,6 +40,26 @@ class FeatureBlock:
             object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
 
+@dataclass(frozen=True)
+class FeaturizerResult:
+    """Matrix and named blocks computed together for the same entity order."""
+
+    matrix: np.ndarray
+    blocks: dict[str, FeatureBlock]
+
+    @classmethod
+    def from_blocks(cls, blocks: dict[str, FeatureBlock], n_entities: int) -> FeaturizerResult:
+        """Concatenate ordered numeric entity blocks into a matrix.
+
+        :param blocks: Named blocks in their declared concatenation order.
+        :param n_entities: Row count when no numeric blocks exist.
+        :returns: Combined representation retaining every block, including metadata.
+        """
+        arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
+        matrix = np.concatenate(arrays, axis=1) if arrays else np.empty((n_entities, 0), dtype=np.float32)
+        return cls(matrix, blocks)
+
+
 def numeric_feature_block(
     values: np.ndarray,
     *,

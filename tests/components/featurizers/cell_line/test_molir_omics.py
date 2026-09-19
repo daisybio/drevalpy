@@ -69,3 +69,20 @@ def test_molir_omics_set_state_ignores_unrelated_keys() -> None:
     featurizer.set_state({"scaler": None, "mask": None, "selected_feature_names": None, "feature_names": None})
 
     assert featurizer.output_dim == 0
+
+
+def test_selection_ranks_training_variance_before_standardization() -> None:
+    features = MockFeatureSource(
+        {
+            f"cl{i}": {
+                "gene_expression": np.array(values, dtype=np.float64),
+                "mutations": np.array([0.0]),
+                "copy_number_variation_gistic": np.array([1.0]),
+            }
+            for i, values in enumerate([[0.0, 1.0], [100.0, 1.01], [1.0, 1e8]])
+        },
+        meta_info={"gene_expression": ["variable", "nearly_constant"]},
+    )
+    featurizer = MOLIROmicsFeaturizer(n_gene_expression_features=1).fit(features, entity_ids=np.array(["cl0", "cl1"]))
+    assert featurizer.get_state()["selected_feature_names"] == ("variable",)
+    np.testing.assert_allclose(featurizer.transform(features, np.array(["cl0", "cl1"])), [[-1.0], [1.0]])

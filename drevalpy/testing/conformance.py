@@ -83,7 +83,7 @@ def check_featurizer_instantiates(
 
     This is the check registration cannot make: ``ABCMeta`` only enforces
     abstract methods at instantiation, so a featurizer missing ``_fit`` or
-    ``_transform_blocks`` registers cleanly and fails here.
+    ``_transform_features`` registers cleanly and fails here.
 
     Args:
         cls: Featurizer class to instantiate.
@@ -195,7 +195,7 @@ def check_featurizer_state_round_trip(
     _require(
         np.allclose(actual, expected, equal_nan=True),
         f"{cls.__name__} restored from get_state produced different features; "
-        "check that get_state covers every attribute _transform_blocks reads",
+        "check that get_state covers every attribute _transform_features reads",
     )
 
 

@@ -62,7 +62,7 @@ def _construct_global_model_class(whole_name: str, model_name: str) -> type[DRPM
 def _apply_global_model_hpam_tweaks(model_name: str, hpam_combi: dict) -> None:
     """Shrink the model to the smallest configuration that still exercises it."""
     if model_name == "DIPK":
-        hpam_combi["batch_size"] = 1
+        hpam_combi["batch_size"] = 8
         hpam_combi["epochs"] = 1
         hpam_combi["epochs_autoencoder"] = 1
         hpam_combi["heads"] = 1
@@ -72,7 +72,7 @@ def _apply_global_model_hpam_tweaks(model_name: str, hpam_combi: dict) -> None:
     elif model_name == "PharmaFormer":
         hpam_combi["epochs"] = 1
         hpam_combi["patience"] = 2
-    elif model_name in {"Precily", "SparseGO"}:
+    elif model_name in {"Precily", "SparseGO", "DrugGNN"}:
         hpam_combi["epochs"] = 1
         hpam_combi["batch_size"] = 32
     elif model_name == "SRMF":
@@ -125,7 +125,7 @@ def _assert_round_trips(
             with pytest.raises(RuntimeError, match=defect):
                 loaded_model.predict(mudataset, split)
             return
-        assert preds.shape == loaded_model.predict(mudataset, split).shape
+        np.testing.assert_allclose(preds, loaded_model.predict(mudataset, split), rtol=1e-5, atol=1e-6)
 
 
 @pytest.mark.parametrize("model_name", [model_param(name) for name in SUPPORTED_GLOBAL_MODELS])
@@ -218,3 +218,36 @@ def test_partial_omics_coverage_trains() -> None:
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         model.train(mudataset, split, model_checkpoint_dir=tmpdirname)
+
+
+@pytest.mark.network
+class TestDIPKArtifactIntegration:
+    """Train the full facade with actual pretrained PPI and MolGNet artifacts."""
+
+    @pytest.mark.parametrize("seed", [0, 1, 2])
+    def test_raw_features_train_and_restore(self, seed: int, tmp_path) -> None:
+        import hashlib
+        import json
+
+        from upath import UPath
+
+        from drevalpy.data.artifacts import get_artifact
+        from tests.components.predictors.literature._helpers import _isolated_reference_rng
+        from tests.synthetic.builders import build_synthetic_dataset
+
+        manifest = json.loads((UPath(__file__).parents[2] / "docs/project/literature_audit/manifest.json").read_text())
+        for name in ("MolGNet.pt", "human_ppi_features.tsv", "gene_list_sel.txt"):
+            # Actual cached/downloaded bytes, with no artifact or backend mocking.
+            assert hashlib.sha256(get_artifact(name).read_bytes()).hexdigest() == manifest["artifacts"][name]["sha256"]
+
+        with _isolated_reference_rng(seed):
+            dataset = build_synthetic_dataset(seed=seed)
+            split = _first_lto_fold(dataset)
+            model = construct_model("DIPK")({"epochs": 2, "epochs_autoencoder": 2, "batch_size": 8, "heads": 1})
+            model.train(dataset, split, model_checkpoint_dir=str(tmp_path))
+            predictions = model.predict(dataset, split)
+            assert np.isfinite(predictions).all()
+            checkpoint = str(tmp_path / "model")
+            model.save(checkpoint)
+            restored = type(model).load(checkpoint)
+            np.testing.assert_allclose(predictions, restored.predict(dataset, split), rtol=1e-5, atol=1e-6)

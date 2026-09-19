@@ -70,7 +70,7 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register
@@ -89,9 +89,13 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
         self._output_dim = 1
         return self
 
-    def _transform_blocks(self, source, entity_ids):
+    def _transform_features(self, source, entity_ids):
         values = np.ones((len(entity_ids), 1), dtype=np.float32)
-        return {"toy": numeric_feature_block(values)}
+        return FeaturizerResult(values, {"toy": numeric_feature_block(values)})
+
+    def _empty_transform_features(self, source):
+        values = np.empty((0, 1), dtype=np.float32)
+        return FeaturizerResult(values, {"toy": numeric_feature_block(values)})
 
     @property
     def output_dim(self):
@@ -163,7 +167,7 @@ def test_external_zoo_references_extension_components(tmp_path: Path) -> None:
 import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register as register_predictor
@@ -180,8 +184,12 @@ class ExternalCellLineFeaturizer(CellLineFeaturizer):
     def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
         self._output_dim = 1
         return self
-    def _transform_blocks(self, source, entity_ids):
-        return {"ext": numeric_feature_block(np.ones((len(entity_ids), 1), dtype=np.float32))}
+    def _transform_features(self, source, entity_ids):
+        values = np.ones((len(entity_ids), 1), dtype=np.float32)
+        return FeaturizerResult(values, {"ext": numeric_feature_block(values)})
+    def _empty_transform_features(self, source):
+        values = np.empty((0, 1), dtype=np.float32)
+        return FeaturizerResult(values, {"ext": numeric_feature_block(values)})
     @property
     def output_dim(self):
         return self._output_dim

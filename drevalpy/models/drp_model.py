@@ -71,7 +71,6 @@ class DRPModel(
         self.wandb_config: dict[str, Any] | None = None
         self._in_hyperparameter_tuning = False
         self._stack: _ComponentStack | None = None
-        self._empty_training = False
         self._hyperparameters: dict[str, Any] = {}
         self._resolved_model_config: ResolvedModelConfig | None = None
 
@@ -124,7 +123,28 @@ class DRPModel(
         :returns: ``True`` when the predictor exposes early-stopping support.
         """
         predictor_class = get_predictor(cls.model_config().predictor.name)
-        return bool(getattr(predictor_class, "supports_early_stopping", False))
+        return bool(getattr(predictor_class, "supports_early_stopping", False)) or cls.requires_early_stopping()
+
+    @classmethod
+    def requires_early_stopping(cls) -> bool:
+        """Return whether any configured component requires a stopping holdout.
+
+        :returns: Aggregated requirement, including nested featurizers.
+        """
+        from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
+        from drevalpy.registry.cell_line_featurizer import get as get_cell_line
+        from drevalpy.registry.drug_featurizer import get as get_drug
+
+        config = cls.model_config()
+        if get_predictor(config.predictor.name).requires_early_stopping:
+            return True
+        for root, registry in ((config.cell_line_featurizer, get_cell_line), (config.drug_featurizer, get_drug)):
+            if root is not None:
+                if any(
+                    registry(leaf.name).requires_early_stopping for leaf in iter_featurizer_leaves(root, root.registry)
+                ):
+                    return True
+        return False
 
     @classmethod
     def is_single_drug(cls) -> bool:
@@ -194,4 +214,3 @@ class DRPModel(
         self._resolved_model_config = ResolvedModelConfig.model_validate(resolved.model_dump(mode="python"))
         self.log_hyperparameters(public_hyperparameters_from_config(self._resolved_model_config))
         self._stack = build_component_stack(self._resolved_model_config)
-        self._empty_training = False

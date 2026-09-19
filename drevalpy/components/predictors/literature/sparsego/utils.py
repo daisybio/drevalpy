@@ -4,6 +4,8 @@ Adapted from https://github.com/KatynaSada/SparseGO_lightning
 """
 
 import sys
+from io import StringIO
+from typing import Any
 
 import networkx as nx
 import networkx.algorithms.components.connected as nxacc
@@ -13,7 +15,7 @@ import pandas as pd
 from upath import UPath as Path
 
 
-def load_mapping(mapping_file: str | Path) -> dict:
+def load_mapping(mapping_file: str | Path | StringIO) -> dict:
     """Open a txt file with two columns and return a dictionary.
 
     The second column becomes the key and the first column becomes the value.
@@ -24,15 +26,14 @@ def load_mapping(mapping_file: str | Path) -> dict:
     :returns: Dictionary mapping names (e.g. gene symbols) to integer indices.
     """
     mapping = {}
-    with open(mapping_file) as file_handle:
-        for line in file_handle:
-            line_parts = line.rstrip().split()
-            mapping[line_parts[1]] = int(line_parts[0])
+    for line in _read_lines(mapping_file):
+        line_parts = line.rstrip().split()
+        mapping[line_parts[1]] = int(line_parts[0])
     return mapping
 
 
 def _read_ontology_edges(
-    ontology_file: str | Path, gene2id_mapping: dict
+    ontology_file: str | Path | StringIO, gene2id_mapping: dict
 ) -> tuple[nx.DiGraph, list[list[str]], list[list[str]], set[str], dict[str, set[int]]]:
     directed_graph = nx.DiGraph()
     terms_pairs: list[list[str]] = []
@@ -40,20 +41,19 @@ def _read_ontology_edges(
     gene_set: set[str] = set()
     term_direct_gene_map: dict[str, set[int]] = {}
 
-    with open(ontology_file) as file_handle:
-        for line in file_handle:
-            line_parts = line.rstrip().split()
+    for line in _read_lines(ontology_file):
+        line_parts = line.rstrip().split()
 
-            if line_parts[2] == "default":
-                directed_graph.add_edge(line_parts[0], line_parts[1])
-                terms_pairs.append([line_parts[0], line_parts[1]])
-                continue
+        if line_parts[2] == "default":
+            directed_graph.add_edge(line_parts[0], line_parts[1])
+            terms_pairs.append([line_parts[0], line_parts[1]])
+            continue
 
-            if line_parts[1] not in gene2id_mapping:
-                continue
-            genes_terms_pairs.append([line_parts[0], line_parts[1]])
-            term_direct_gene_map.setdefault(line_parts[0], set()).add(gene2id_mapping[line_parts[1]])
-            gene_set.add(line_parts[1])
+        if line_parts[1] not in gene2id_mapping:
+            continue
+        genes_terms_pairs.append([line_parts[0], line_parts[1]])
+        term_direct_gene_map.setdefault(line_parts[0], set()).add(gene2id_mapping[line_parts[1]])
+        gene_set.add(line_parts[1])
 
     return directed_graph, terms_pairs, genes_terms_pairs, gene_set, term_direct_gene_map
 
@@ -89,7 +89,7 @@ def _validate_ontology_topology(directed_graph: nx.DiGraph) -> None:
         sys.exit(1)
 
 
-def load_ontology(ontology_file: str | Path, gene2id_mapping: dict) -> tuple:
+def load_ontology(ontology_file: str | Path | StringIO, gene2id_mapping: dict) -> tuple:
     """Create the directed graph of GO terms and store connected elements in arrays.
 
     The ontology file is tab-delimited with three columns:
@@ -206,3 +206,39 @@ def create_index(array: np.ndarray) -> dict:
     """
     unique_array = pd.unique(array)
     return {element: i for i, element in enumerate(unique_array)}
+
+
+def _read_lines(source: str | Path | StringIO) -> list[str]:
+    return (source.getvalue() if isinstance(source, StringIO) else Path(source).read_text()).splitlines()
+
+
+def resolve_ontology_metadata(metadata: dict[str, Any]) -> tuple[list[np.ndarray], dict[str, int], list[str]]:
+    """Resolve precomputed structures, file paths, or embedded ontology text.
+
+    :param metadata: SparseGO dataset or feature-block metadata.
+    :returns: Connections, gene indices and input column order.
+    :raises ValueError: If ontology inputs or gene indices are incomplete.
+    """
+    connections = metadata.get("layer_connections")
+    mapping = metadata.get("gene2id_mapping_ont")
+    if connections is None or mapping is None:
+        ontology = metadata.get("ontology_file")
+        genes = metadata.get("gene2ind_file")
+        if "ontology" in metadata and "gene2ind" in metadata:
+            ontology, genes = StringIO(metadata["ontology"]), StringIO(metadata["gene2ind"])
+        if ontology is None or genes is None:
+            raise ValueError(
+                "SparseGO metadata requires pre-computed ontology structures or ontology_file/gene2ind_file"
+            )
+        mapping = load_mapping(genes)
+        graph, terms, annotations = load_ontology(ontology, mapping)
+        pairs, levels, indices = sort_pairs(annotations, terms, graph, mapping)
+        connections = pairs_in_layers(pairs, levels, indices)
+    if sorted(mapping.values()) != list(range(len(mapping))):
+        raise ValueError("SparseGO gene indices must be unique and contiguous from zero")
+    order = metadata.get("ontology_gene_order")
+    if order is None:
+        order = sorted(mapping, key=mapping.get)
+    if list(order) != sorted(mapping, key=mapping.get):
+        raise ValueError("SparseGO ontology_gene_order must match gene indices")
+    return list(connections), dict(mapping), list(order)

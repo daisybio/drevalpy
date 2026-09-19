@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
+from drevalpy.components.featurizers.drug._smiles_utils import as_pyg_graph, get_smiles_for_entities
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import DrugFeatureSource
 from tests.conftest import MockFeatureSource
@@ -45,3 +45,15 @@ def test_unknown_drug_ids_reindex_to_nan(synthetic_dataset: Dataset) -> None:
 
     assert smiles is not None
     assert smiles.isna().all()
+
+
+def test_portable_graph_conversion_preserves_arrays_and_index_dtype() -> None:
+    import torch
+
+    payload = {"x": np.array([[1.0, 2.0], [3.0, 4.0]]), "edge_index": np.array([[0, 1], [1, 0]])}
+    graph = as_pyg_graph(payload)
+    assert graph.edge_index.dtype == torch.long
+    np.testing.assert_array_equal(graph.x.numpy(), payload["x"])
+    assert isinstance(payload["x"], np.ndarray)
+    assert as_pyg_graph(graph) is graph
+    assert as_pyg_graph(None) is None

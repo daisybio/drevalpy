@@ -13,7 +13,7 @@ from drevalpy.components.featurizers.cell_line._sparsego_metadata import (
 )
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 _INPUT_TYPES = frozenset({"expression", "mutations"})
@@ -108,7 +108,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         self._gene_dim_input = int(metadata["gene_dim_input"])
         return self
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return ontology-aligned omics matrix rows.
 
         :param source: Feature source providing view matrices.
@@ -122,9 +122,17 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
         if precomputed is not None:
             return precomputed.astype(np.float32)
-        return source.get_view_matrix(self._view, entity_ids).astype(np.float32)
+        names = source.get_feature_names(self._view)
+        if names is None:
+            raise ValueError("SparseGO requires named input features to align ontology genes")
+        columns = {name: index for index, name in enumerate(names)}
+        missing = set(self._ontology_gene_order) - columns.keys()
+        if missing:
+            raise ValueError(f"SparseGO input is missing ontology genes: {sorted(missing)}")
+        indices = [columns[name] for name in self._ontology_gene_order]
+        return source.get_view_matrix(self._view, entity_ids)[:, indices].astype(np.float32)
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
         """Return an omics block with SparseGO ontology metadata attached.
 
         :param source: Feature source providing view matrices.
@@ -137,13 +145,25 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
             "ontology_gene_order": self._ontology_gene_order,
             "gene_dim_input": self._gene_dim_input,
         }
-        return {
-            self._view: numeric_feature_block(
-                self.transform(source, entity_ids),
-                feature_names=source.get_feature_names(self._view),
-                metadata=metadata,
-            )
-        }
+        matrix = self._feature_matrix(source, entity_ids)
+        return FeaturizerResult(
+            matrix,
+            {
+                self._view: numeric_feature_block(
+                    matrix,
+                    feature_names=self._ontology_gene_order,
+                    metadata=metadata,
+                )
+            },
+        )
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return fitted schema and metadata without transforming any entities.
+
+        :param source: Feature metadata source.
+        :returns: Zero-row matrix and blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:

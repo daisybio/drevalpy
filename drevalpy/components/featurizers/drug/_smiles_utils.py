@@ -27,3 +27,22 @@ def get_smiles_for_entities(source: FeatureSource, entity_ids: np.ndarray) -> pd
         return None
     smiles = response.var["canonical_smiles"]
     return smiles.reindex(entity_ids)
+
+
+def as_pyg_graph(graph):
+    """Convert a portable h5mu graph mapping to a PyG payload on demand.
+
+    :param graph: A graph mapping, existing PyG payload, or None.
+    :returns: The corresponding graph without modifying stored arrays.
+    """
+    if not isinstance(graph, dict):
+        return graph
+    import torch
+    from torch_geometric.data import Data
+
+    return Data(
+        **{
+            key: torch.as_tensor(value, dtype=torch.long if key == "edge_index" else torch.float32)
+            for key, value in graph.items()
+        }
+    )

@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 import torch
 
+from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.dipk.predictor import (
     DIPKPredictor,
     _CollateFn,
@@ -26,7 +27,15 @@ from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block, ragged_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from tests.components.predictors.literature._helpers import two_by_two_batch
+from drevalpy.types.data.batch.response_batch import ResponseBatch
+from tests.components.predictors.literature._helpers import (
+    assert_frozen_reference,
+    assert_trainable_parameters_changed,
+    assert_training_predictions,
+    seed_literature,
+    trainable_parameter_vector,
+    two_by_two_batch,
+)
 
 
 def _dipk_batch() -> ModelInputBatch:
@@ -49,6 +58,41 @@ def _dipk_batch() -> ModelInputBatch:
     )
 
 
+def _trainable_dipk_batch(tmp_path: Path) -> ModelInputBatch:
+    """Build full-width inputs with a validation split disjoint from training."""
+    rng = np.random.default_rng(321)
+    cell_ids = np.array(["train-1", "train-2", "val-1", "val-2"])
+    drug_ids = np.array(["d1", "d2"])
+    response = ResponseBatch(
+        response=np.array([-1.0, 0.5, 1.5, 3.0], dtype=np.float32),
+        cell_line_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
+        drug_ids=np.array(["d1", "d2", "d1", "d2"]),
+    )
+    validation = ResponseBatch(
+        response=np.array([0.25, 2.25], dtype=np.float32),
+        cell_line_ids=np.array(["val-1", "val-2"]),
+        drug_ids=np.array(["d1", "d2"]),
+    )
+    molgnet = np.empty(2, dtype=object)
+    molgnet[:] = [rng.normal(size=(2, 768)).astype(np.float32), rng.normal(size=(3, 768)).astype(np.float32)]
+    return ModelInputBatch.from_response(
+        response,
+        cell_line_entity_ids=cell_ids,
+        drug_entity_ids=drug_ids,
+        cell_line_features=np.empty((4, 0), dtype=np.float32),
+        drug_features=np.zeros((2, 1), dtype=np.float32),
+        cell_line_pair_idx=np.array([0, 0, 1, 1]),
+        drug_pair_idx=np.array([0, 1, 0, 1]),
+        cell_line_blocks={
+            "gene_expression": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
+            "bionic_features": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
+        },
+        drug_blocks={"molgnet_features": ragged_feature_block(molgnet)},
+        early_stopping_response=validation,
+        training_context=TrainingContext(checkpoint_dir=tmp_path),
+    )
+
+
 def test_dipk_predictor_registry_name() -> None:
     ensure_predictor_registered("dipk")
     assert get_predictor("dipk") is DIPKPredictor
@@ -58,6 +102,50 @@ def test_default_hyperparameters_cover_the_training_loop_knobs() -> None:
     defaults = DIPKPredictor.get_default_hyperparameters()
 
     assert {"batch_size", "lr", "epochs", "patience"} <= set(defaults)
+
+
+class TestFrozenDIPKNumericalReference:
+    pytestmark = pytest.mark.slow
+
+    @pytest.mark.parametrize("seed", [0, 1, 2])
+    def test_matches_v2(self, seed: int) -> None:
+        assert_frozen_reference("dipk", seed)
+
+
+class TestTinyDIPKFit:
+    pytestmark = pytest.mark.slow
+
+    @pytest.mark.parametrize("seed", [0, 1, 2])
+    def test_updates_parameters_and_round_trips_state(self, seed: int, tmp_path: Path) -> None:
+        hyperparameters = {
+            "batch_size": 4,
+            "lr": 0.001,
+            "heads": 1,
+            "fc_layer_num": 3,
+            "fc_layer_dim": [8, 8, 8, 8, 8, 8],
+            "dropout_rate": 0.0,
+            "epochs": 1,
+            "patience": 1,
+        }
+        seed_literature(seed)
+        initial_predictor = DIPKPredictor(hyperparameters)
+        initial = trainable_parameter_vector(initial_predictor._build_model())
+
+        seed_literature(seed)
+        predictor = DIPKPredictor(hyperparameters)
+        batch = _trainable_dipk_batch(tmp_path)
+        predictor.fit(batch)
+        assert predictor._model is not None
+        assert_trainable_parameters_changed(initial, predictor._model)
+
+        predictions = predictor.predict(batch)
+        assert np.isfinite(predictions).all()
+        assert np.isfinite(np.mean((predictions - batch.response) ** 2))
+        assert_training_predictions("dipk", seed, predictions)
+
+        restored = DIPKPredictor()
+        restored.set_state(predictor.get_state())
+        np.testing.assert_allclose(restored.predict(batch), predictions, rtol=1e-6, atol=1e-7)
 
 
 class TestBuildSamples:

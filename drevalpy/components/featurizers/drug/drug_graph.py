@@ -7,11 +7,11 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
+from drevalpy.components.featurizers.drug._smiles_utils import as_pyg_graph, get_smiles_for_entities
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.log import get_logger
 from drevalpy.registry.drug_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, graph_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, graph_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 _logger = get_logger(__name__)
@@ -61,10 +61,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         graphs: list[object] = []
         for drug_id in entity_ids:
             graph = self._compute_graph_from_smiles_for_entity(source, str(drug_id))
-            if graph is not None:
-                graphs.append(graph)
-            else:
-                graphs.append(None)
+            graphs.append(graph)
         payloads = np.empty(len(graphs), dtype=object)
         payloads[:] = graphs
         return payloads
@@ -90,7 +87,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         self._graphs = {}
         has_fallback = False
         for drug_id in ids:
-            graph = source.get_entity_view(str(drug_id), self._view)
+            graph = as_pyg_graph(source.get_entity_view(str(drug_id), self._view))
             if graph is not None:
                 self._graphs[str(drug_id)] = graph
             else:
@@ -101,11 +98,10 @@ class DrugGraphFeaturizer(DrugFeaturizer):
                 if computed is not None:
                     self._graphs[str(drug_id)] = computed
         if self._graphs:
-            first = next(iter(self._graphs.values()))
-            self._output_dim = int(getattr(first, "num_node_features", 0))
+            self._output_dim = int(getattr(next(iter(self._graphs.values())), "num_node_features", 0))
         return self
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return one graph payload per drug id.
 
         :param source: Feature source providing drug graph views.
@@ -118,7 +114,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
             if drug_key in self._graphs:
                 graphs.append(self._graphs[drug_key])
                 continue
-            graph = source.get_entity_view(drug_key, self._view)
+            graph = as_pyg_graph(source.get_entity_view(drug_key, self._view))
             if graph is not None:
                 graphs.append(graph)
             else:
@@ -126,20 +122,30 @@ class DrugGraphFeaturizer(DrugFeaturizer):
                 if computed is not None:
                     graphs.append(computed)
                 else:
-                    msg = f"View {self._view!r} missing for drug {drug_key!r} and SMILES-based graph computation failed"
-                    raise KeyError(msg)
+                    raise KeyError(
+                        f"View {self._view!r} missing for drug {drug_key!r} and SMILES-based graph computation failed"
+                    )
         payloads = np.empty(len(graphs), dtype=object)
         payloads[:] = graphs
         return payloads
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
         """Return a single ``drug_graph`` graph block.
 
         :param source: Feature source providing drug graph views.
         :param entity_ids: Drug identifiers to transform.
         :returns: Mapping with one graph block.
         """
-        return {"drug_graph": graph_feature_block(self._transform(source, entity_ids))}
+        matrix = self._feature_matrix(source, entity_ids)
+        return FeaturizerResult(matrix, {"drug_graph": graph_feature_block(matrix)})
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return fitted schema and metadata without transforming any entities.
+
+        :param source: Feature metadata source.
+        :returns: Zero-row matrix and blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:

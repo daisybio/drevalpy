@@ -129,6 +129,7 @@ class PharmaFormerPredictor(BlockPredictor):
         BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX),
     )
     supports_early_stopping: ClassVar[bool] = True
+    requires_early_stopping: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:

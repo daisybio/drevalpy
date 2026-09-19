@@ -118,9 +118,9 @@ def _padded_block(block: FeatureBlock, valid_mask: np.ndarray, n_total: int) -> 
     :returns: Block of length *n_total* carrying *block*'s metadata.
     """
     if block.format == FeatureFormat.NUMERIC_MATRIX:
-        full = np.full((n_total, block.values.shape[1]), np.nan, dtype=np.float32)
+        full = np.full((n_total, block.values.shape[1]), np.nan, dtype=np.result_type(block.values.dtype, np.float32))
     else:
-        full = np.empty(n_total, dtype=object)
+        full = np.empty((n_total, *block.values.shape[1:]), dtype=object)
         full[:] = None
     full[valid_mask] = block.values
     return FeatureBlock(

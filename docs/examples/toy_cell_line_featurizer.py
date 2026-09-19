@@ -1,7 +1,7 @@
 """Cell-line featurizer example: standardize one raw omics view.
 
 Shows the three hooks every featurizer implements -- ``_fit``,
-``_transform_blocks`` and the ``output_dim`` property -- plus the ``input_views``
+``_transform_features`` and the ``output_dim`` property -- plus the ``input_views``
 declaration, without which registration is rejected.
 """
 
@@ -13,9 +13,9 @@ import numpy as np
 
 from drevalpy.plugin import (
     CellLineFeaturizer,
-    FeatureBlock,
     FeatureFormat,
     FeatureSource,
+    FeaturizerResult,
     numeric_feature_block,
     register_cell_line_featurizer,
 )
@@ -53,8 +53,8 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
         self._scale = np.where(scale > 0.0, scale, 1.0)
         return self
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
-        """Return the standardized view as one named numeric block.
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
+        """Return the standardized matrix and its named numeric block.
 
         The block name matters: a ``BlockPredictor`` asks for it by name through
         ``required_cell_line_blocks``. Naming it after the input view is the
@@ -66,7 +66,13 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
             raise RuntimeError(msg)
         matrix = source.get_view_matrix(self.input_views[0], entity_ids)
         standardized = ((matrix - self._mean) / self._scale).astype(np.float32)
-        return {self.input_views[0]: numeric_feature_block(standardized)}
+        return FeaturizerResult(standardized, {self.input_views[0]: numeric_feature_block(standardized)})
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return the fitted schema without transforming any source rows."""
+        _ = source
+        values = np.empty((0, self.output_dim), dtype=np.float32)
+        return FeaturizerResult(values, {self.input_views[0]: numeric_feature_block(values)})
 
     @property
     def output_dim(self) -> int:

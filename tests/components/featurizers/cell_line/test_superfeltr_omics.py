@@ -39,7 +39,6 @@ def test_superfeltr_omics_selects_each_view_and_round_trips_state() -> None:
 def test_superfeltr_omics_serves_a_precomputed_variant() -> None:
     assert_uses_precomputed_variant(
         SuperFELTROmicsFeaturizer(),
-        expect_output_dim=False,
         expected_blocks=("gene_expression",),
     )
 
@@ -84,3 +83,33 @@ def test_superfeltr_omics_output_dim_is_zero_before_fit() -> None:
 
 def test_superfeltr_omics_hyperparameter_space_exposes_the_feature_count() -> None:
     assert set(SuperFELTROmicsFeaturizer.get_hyperparameter_space()) == {"n_features_per_view"}
+
+
+def test_expression_transform_precedes_training_only_selection() -> None:
+    # Raw variance favors column 0; arcsinh variance favors column 1. A held-out
+    # extreme in column 0 must not change the fitted selection.
+    features = MockFeatureSource(
+        {
+            "train0": {
+                "gene_expression": np.array([100.0, 0.0]),
+                "mutations": np.array([0.0, 1.0]),
+                "copy_number_variation_gistic": np.array([1.0, 2.0]),
+            },
+            "train1": {
+                "gene_expression": np.array([110.0, 2.0]),
+                "mutations": np.array([1.0, 1.0]),
+                "copy_number_variation_gistic": np.array([3.0, 2.0]),
+            },
+            "heldout": {
+                "gene_expression": np.array([1e8, 3.0]),
+                "mutations": np.array([2.0, 1.0]),
+                "copy_number_variation_gistic": np.array([4.0, 2.0]),
+            },
+        }
+    )
+    fitted = SuperFELTROmicsFeaturizer(n_features_per_view=1).fit(features, entity_ids=np.array(["train0", "train1"]))
+    blocks = fitted.transform_blocks(features, np.array(["train0", "heldout"]))
+    np.testing.assert_array_equal(fitted.get_state()["masks"]["gene_expression"], [False, True])
+    np.testing.assert_allclose(blocks["gene_expression"].values[:, 0], np.arcsinh([0.0, 3.0]))
+    np.testing.assert_array_equal(blocks["mutations"].values[:, 0], [0.0, 2.0])
+    np.testing.assert_array_equal(blocks["copy_number_variation_gistic"].values[:, 0], [1.0, 4.0])

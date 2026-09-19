@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 from drevalpy.models import construct_model
+from drevalpy.models.component_stack import StackState
 from drevalpy.models.mixins._training import DRPTrainingMixin, _resolve_predict_scope
 from drevalpy.types import SplitMask, SplitMasks
 from tests.models.synthetic_fixtures import (
@@ -29,7 +30,6 @@ class _Stackless(DRPTrainingMixin):
 
     def __init__(self) -> None:
         self._stack = None
-        self._empty_training = False
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -42,7 +42,12 @@ class _RecordingStack:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
+    def _reset(self) -> None:
+        self.state = StackState.UNTRAINED
+        self.calls = []
+
     def _fit_featurizers_and_predictor(self, output, cell_line_input, drug_input, **kwargs) -> None:
+        self.state = StackState.FITTED if len(output) else StackState.EMPTY
         self.calls.append(("features", {"output": output, "cl": cell_line_input, "dr": drug_input, **kwargs}))
 
     def is_fitted(self) -> bool:
@@ -54,7 +59,6 @@ class _RecordingModel(DRPTrainingMixin):
 
     def __init__(self) -> None:
         self._stack = _RecordingStack()
-        self._empty_training = False
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -98,7 +102,7 @@ class TestTheFeatureSourceForm:
         model.train(_Batch([1, 2, 3]), "cl_source", "dr_source")
 
         assert [name for name, _ in model._stack.calls] == ["features"]
-        assert model._empty_training is False
+        assert model._stack.state == StackState.FITTED
 
     def test_it_forwards_the_early_stopping_batch_and_a_context(self) -> None:
         model = _RecordingModel()
@@ -122,8 +126,8 @@ class TestTheFeatureSourceForm:
 
         model.train(_Batch([]), "cl_source")
 
-        assert model._empty_training is True
-        assert model._stack.calls == []
+        assert model._stack.state == StackState.EMPTY
+        assert len(model._stack.calls) == 1
 
 
 class TestResolvePredictScope:
@@ -186,7 +190,7 @@ class TestPredictAgainstARealModel:
         model.train(mudataset, empty)
         predictions = model.predict(mudataset, empty)
 
-        assert model._empty_training is True
+        assert model._stack.state == StackState.EMPTY
         assert np.isnan(predictions).all()
 
     def test_early_stopping_takes_the_other_dataset_branch(self) -> None:
@@ -203,3 +207,35 @@ class TestPredictAgainstARealModel:
 
         assert model._stack is not None
         assert model._stack.is_fitted()
+
+
+@pytest.mark.parametrize("failure", ["empty", "invalid_call", "fit_error"])
+def test_retraining_never_exposes_previous_fitted_state(failure, monkeypatch, tmp_path):
+    from drevalpy.registry.predictor import get
+
+    naive_predictor_class = get("naiveMean")
+
+    model = construct_model("NaivePredictor")()
+    dataset = synthetic_mudataset_identity()
+    masks = lco_split_masks()
+    model.train(dataset, masks.train)
+    assert np.isfinite(model.predict(dataset, masks.test)).all()
+    if failure == "empty":
+        model.train(dataset, SplitMask(np.zeros(masks.shape, dtype=bool)))
+        dataset.mdata.mod["response"].X[1, 0] = np.nan
+        predictions = model.predict(dataset, masks.test)
+        assert predictions.shape == (len(masks.test),)
+        assert np.isnan(predictions).all()
+    else:
+        if failure == "fit_error":
+
+            def fail(self, batch):
+                raise ValueError("fit failed")
+
+            monkeypatch.setattr(naive_predictor_class, "_fit", fail)
+        with pytest.raises((TypeError, ValueError)):
+            model.train() if failure == "invalid_call" else model.train(dataset, masks.train)
+        with pytest.raises(RuntimeError, match="not been trained"):
+            model.predict(dataset, masks.test)
+    with pytest.raises(RuntimeError, match="fitted|trained"):
+        model.save(tmp_path / "stale.zip")

@@ -124,12 +124,12 @@ def test_landmark_serves_a_precomputed_variant() -> None:
 
 def test_landmark_transform_before_fit_raises() -> None:
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        LandmarkGenesFeaturizer()._transform(_features(), np.array(["cl1"]))
+        LandmarkGenesFeaturizer()._transform_features(_features(), np.array(["cl1"]))
 
 
 def test_landmark_transform_blocks_before_fit_raises() -> None:
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        LandmarkGenesFeaturizer()._transform_blocks(_features(), np.array(["cl1"]))
+        LandmarkGenesFeaturizer()._empty_transform_features(_features())
 
 
 def test_landmark_state_is_empty_before_fit() -> None:

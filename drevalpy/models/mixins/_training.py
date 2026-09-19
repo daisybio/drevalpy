@@ -2,7 +2,7 @@
 
 The two methods here are what makes a ``DRPModel`` a model rather than a
 configuration object, and they are the only ones that read and write
-``_stack`` / ``_empty_training``. Keeping them apart from the config and identity
+``_stack``. Keeping them apart from the config and identity
 surface on ``DRPModel`` is the same separation ``_persistence.py`` already draws
 for checkpoint I/O.
 
@@ -19,7 +19,7 @@ import numpy as np
 from upath import UPath as Path
 
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.models.component_stack import _ComponentStack
+from drevalpy.models.component_stack import StackState, _ComponentStack
 from drevalpy.models.mixins._train_args import TrainCallArgs, resolve_train_args
 from drevalpy.types import SplitMask, SplitMasks
 
@@ -33,7 +33,6 @@ class DRPTrainingMixin:
     """Fit and score the component stack a ``DRPModel`` was materialized with."""
 
     _stack: _ComponentStack | None
-    _empty_training: bool
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -105,6 +104,7 @@ class DRPTrainingMixin:
         :raises TypeError: If neither accepted set of inputs was passed.
         """
         stack = self._require_stack()
+        stack._reset()
         args = resolve_train_args(
             mudataset_or_output,
             split_or_cell_line_input,
@@ -143,11 +143,6 @@ class DRPTrainingMixin:
         :param context: Training context for checkpoints and log labels.
         :param response_transformation: Optional fitted transformer for the targets.
         """
-        train_response = _ComponentStack._extract_response_pairs(args.mudataset, args.scope, response_transformation)
-        if len(train_response) == 0:
-            self._empty_training = True
-            return
-        self._empty_training = False
         if args.early_stopping_scope is not None:
             stack.train_with_early_stopping(
                 args.mudataset,
@@ -178,9 +173,6 @@ class DRPTrainingMixin:
         :param context: Training context for checkpoints and log labels.
         :param output_earlystopping: Optional early-stopping response batch.
         """
-        self._empty_training = len(args.output) == 0
-        if self._empty_training:
-            return
         stack._fit_featurizers_and_predictor(
             args.output,
             args.cell_line_input,
@@ -212,9 +204,8 @@ class DRPTrainingMixin:
         if mudataset is None or scope is None:
             raise TypeError("predict() requires (mudataset, scope) or (mudataset, split)")
 
-        if self._empty_training:
-            test_response = _ComponentStack._extract_response_pairs(mudataset, scope)
-            return np.full(len(test_response), np.nan)
+        if stack.state == StackState.EMPTY:
+            return np.full(len(scope), np.nan)
         if not stack.is_fitted():
             raise RuntimeError("Model has not been trained; call train() or load() before predict()")
         return stack.predict(mudataset, scope)

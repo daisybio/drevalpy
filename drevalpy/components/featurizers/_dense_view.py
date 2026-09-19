@@ -37,7 +37,7 @@ import numpy as np
 
 from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.base import Featurizer
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 
@@ -214,7 +214,7 @@ class DenseViewFeaturizer(Featurizer):
         """
         _ = source
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return the dense matrix for *entity_ids*.
 
         :param source: Feature source providing views for the entity type.
@@ -222,24 +222,38 @@ class DenseViewFeaturizer(Featurizer):
         :returns: Result.
         """
         self._require_fitted()
+        if len(entity_ids) == 0:
+            return np.empty((0, self.output_dim), dtype=np.float32)
         precomputed = self.fetch_precomputed(source, entity_ids, self._fetch_hyperparameters())
         if precomputed is not None:
             return precomputed.astype(np.float32)
         return self._compute_matrix(source, self._raw_matrix(source, entity_ids)).astype(np.float32)
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
         """Wrap the dense matrix in a single named numeric block.
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        return {
-            self._block_name(): numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=self._block_feature_names(source),
-            )
-        }
+        matrix = self._feature_matrix(source, entity_ids)
+        return FeaturizerResult(
+            matrix,
+            {
+                self._block_name(): numeric_feature_block(
+                    matrix,
+                    feature_names=self._block_feature_names(source),
+                )
+            },
+        )
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return fitted schema and metadata without transforming any entities.
+
+        :param source: Feature metadata source.
+        :returns: Zero-row matrix and blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:

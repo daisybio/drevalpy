@@ -36,7 +36,7 @@ def test_transform_before_fit_raises() -> None:
     source = MockFeatureSource(features={"d1": {}})
 
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        featurizer._transform(source, np.array(["d1"]))
+        featurizer._transform_features(source, np.array(["d1"]))
 
 
 def test_fit_without_smiles_raises() -> None:
@@ -83,9 +83,9 @@ def test_transform_leaves_unknown_drugs_as_zero_rows(
     featurizer = BpePharmaformerDrugFeaturizer(num_symbols=50, max_length=16)
     featurizer.fit(drug_source, entity_ids=synthetic_dataset.drug_ids[:2])
 
-    # ``_transform`` rather than ``transform``: the public wrapper's NaN detection
+    # ``_transform_features`` rather than ``transform``: the public wrapper's NaN detection
     # sees no ``bpe_smiles`` row for an unknown drug and overwrites it with NaN.
-    matrix = featurizer._transform(drug_source, np.array(["not-a-drug"]))
+    matrix = featurizer._transform_features(drug_source, np.array(["not-a-drug"])).matrix
 
     np.testing.assert_allclose(matrix, np.zeros((1, 16), dtype=np.float32))
 
@@ -112,7 +112,7 @@ def test_transform_pads_sequences_shorter_than_max_length(
     featurizer = BpePharmaformerDrugFeaturizer(num_symbols=50, max_length=512)
     featurizer.fit(drug_source, entity_ids=drug_ids)
 
-    matrix = featurizer._transform(drug_source, drug_ids)
+    matrix = featurizer._transform_features(drug_source, drug_ids).matrix
 
     assert matrix.shape == (2, 512)
     assert np.any(matrix[0] == 0.0)
@@ -123,7 +123,7 @@ def test_transform_without_smiles_raises(drug_source: DrugFeatureSource, synthet
     featurizer.fit(drug_source, entity_ids=synthetic_dataset.drug_ids[:2])
 
     with pytest.raises(ValueError, match="Cannot encode BPE"):
-        featurizer._transform(MockFeatureSource(features={"d1": {}}), np.array(["d1"]))
+        featurizer._transform_features(MockFeatureSource(features={"d1": {}}), np.array(["d1"]))
 
 
 def test_learn_bpe_reports_missing_subword_nmt(

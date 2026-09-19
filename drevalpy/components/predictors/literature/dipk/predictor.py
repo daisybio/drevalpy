@@ -56,6 +56,7 @@ class DIPKPredictor(BlockPredictor):
     )
     validate_drug_graphs: ClassVar[bool] = False
     supports_early_stopping: ClassVar[bool] = True
+    requires_early_stopping: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -239,10 +240,7 @@ class DIPKPredictor(BlockPredictor):
         import torch
 
         is_training = optimizer is not None
-        if is_training:
-            model.train()
-        else:
-            model.eval()
+        model.train(is_training)
 
         epoch_loss = 0.0
         batch_count = 0

@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 
@@ -34,7 +34,7 @@ class ConstantFeaturizerMixin:
         _ = source, entity_ids, pair_expanded_ids, pair_expanded_es_ids
         return self
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Transform inputs into feature payloads.
 
         :param source: Feature source providing views for the entity type.
@@ -44,18 +44,27 @@ class ConstantFeaturizerMixin:
         _ = source
         return np.ones((len(entity_ids), 1), dtype=np.float32)
 
-    def _transform_blocks(
+    def _transform_features(
         self,
         source: FeatureSource,
         entity_ids: np.ndarray,
-    ) -> dict[str, FeatureBlock]:
+    ) -> FeaturizerResult:
         """Transform blocks.
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        return {"constant": numeric_feature_block(self._transform(source, entity_ids))}
+        matrix = self._feature_matrix(source, entity_ids)
+        return FeaturizerResult(matrix, {"constant": numeric_feature_block(matrix)})
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return fitted schema and metadata without transforming any entities.
+
+        :param source: Feature metadata source.
+        :returns: Zero-row matrix and blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
@@ -37,6 +38,7 @@ class Predictor(TunableComponentMixin, ABC):
     cell_line_contract: ClassVar[FeatureContract]
     drug_contract: ClassVar[FeatureContract]
     supports_early_stopping: ClassVar[bool] = False
+    requires_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
     scope: ClassVar[ModelScope] = ModelScope.MULTI_DRUG
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ()
@@ -85,11 +87,31 @@ class Predictor(TunableComponentMixin, ABC):
             msg = "Predictors require response values during fit"
             raise ValueError(msg)
         valid_mask = self._valid_pair_mask(batch)
+        valid_mask &= ~np.isnan(batch.response)
         self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.fit")
-        if valid_mask.all():
-            self._fit(batch)
-        else:
-            self._fit(batch.subset_pairs(valid_mask))
+        if not valid_mask.all():
+            batch = batch.subset_pairs(valid_mask)
+        self._fit(self._filter_early_stopping(batch))
+
+    def _filter_early_stopping(self, batch: ModelInputBatch) -> ModelInputBatch:
+        """Remove unusable stopping pairs and enforce the predictor requirement."""
+        response = batch.early_stopping_response
+        if response is not None:
+            cl_idx, drug_idx = batch._pair_indices_for(response)
+            stopping = replace(
+                batch,
+                cell_line_ids=response.cell_line_ids,
+                drug_ids=response.drug_ids,
+                response=response.response,
+                cell_line_pair_idx=cl_idx,
+                drug_pair_idx=drug_idx,
+                early_stopping_response=None,
+            )
+            keep = self._valid_pair_mask(stopping) & ~np.isnan(response.response)
+            response = type(response)(response.response[keep], response.cell_line_ids[keep], response.drug_ids[keep])
+        if self.requires_early_stopping and (response is None or len(response) == 0):
+            raise ValueError(f"{type(self).__name__} requires a usable early-stopping holdout")
+        return replace(batch, early_stopping_response=response)
 
     @abstractmethod
     def _fit(self, batch: ModelInputBatch) -> None:
@@ -132,21 +154,30 @@ class Predictor(TunableComponentMixin, ABC):
         :param batch: Input batch.
         :returns: Boolean array of shape ``(batch.n_pairs,)``.
         """
-        cl_feats = batch.cell_line_features
-        cl_pair_idx = batch.cell_line_pair_idx
         valid = np.ones(batch.n_pairs, dtype=bool)
-
-        if cl_feats.size > 0 and cl_feats.dtype.kind == "f":
-            pair_cl = cl_feats[cl_pair_idx]
-            valid &= ~np.isnan(pair_cl).any(axis=1)
-
-        if batch.drug_features is not None and batch.drug_features.size > 0 and batch.drug_features.dtype.kind == "f":
-            drug_pair_idx = batch.drug_pair_idx
-            if drug_pair_idx is not None:
-                pair_dr = batch.drug_features[drug_pair_idx]
-                valid &= ~np.isnan(pair_dr).any(axis=1)
-
+        if batch.n_pairs == 0:
+            return valid
+        for matrix, blocks, indices in (
+            (batch.cell_line_features, batch.cell_line_blocks, batch.cell_line_pair_idx),
+            (batch.drug_features, batch.drug_blocks, batch.drug_pair_idx),
+        ):
+            if indices is None:
+                continue
+            values = [block.values for block in blocks.values() if block.entity_aligned]
+            if matrix is not None and matrix.size:
+                values.append(matrix)
+            for value in values:
+                valid &= self._valid_feature_rows(value[indices])
         return valid
+
+    @staticmethod
+    def _valid_feature_rows(rows: np.ndarray) -> np.ndarray:
+        """Identify numeric NaNs and object placeholders across trailing dimensions."""
+        if rows.dtype.kind in "fiu":
+            return ~np.isnan(rows).reshape(len(rows), -1).any(axis=1)
+        if rows.dtype == object:
+            return np.array([all(item is not None for item in row.flat) for row in rows.reshape(len(rows), -1)])
+        return np.ones(len(rows), dtype=bool)
 
     def _warn_if_above_threshold(self, valid_mask: np.ndarray, context: str) -> None:
         """Log a warning when the fraction of invalid pairs exceeds the threshold.

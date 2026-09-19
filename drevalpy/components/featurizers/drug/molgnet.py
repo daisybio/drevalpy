@@ -12,7 +12,7 @@ from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
 from drevalpy.registry.drug_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, ragged_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, ragged_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 _logger = get_logger(__name__)
@@ -96,7 +96,7 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
             self._output_dim = int(first.shape[1]) if first.ndim == 2 else int(first.size)
         return self
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return one MolGNet tensor per drug id.
 
         :param source: Feature source providing MolGNet views.
@@ -121,14 +121,23 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
                     raise KeyError(msg)
         return np.array(rows, dtype=object)
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
         """Return a single ``molgnet_features`` ragged block.
 
         :param source: Feature source providing MolGNet views.
         :param entity_ids: Drug identifiers to transform.
         :returns: Mapping with one ragged block.
         """
-        return {"molgnet_features": ragged_feature_block(self._transform(source, entity_ids))}
+        matrix = self._feature_matrix(source, entity_ids)
+        return FeaturizerResult(matrix, {"molgnet_features": ragged_feature_block(matrix)})
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return fitted schema and metadata without transforming any entities.
+
+        :param source: Feature metadata source.
+        :returns: Zero-row matrix and blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:

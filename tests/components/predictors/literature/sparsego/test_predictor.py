@@ -21,7 +21,14 @@ from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from tests.components.predictors.literature._helpers import two_by_two_batch
+from tests.components.predictors.literature._helpers import (
+    assert_frozen_reference,
+    assert_trainable_parameters_changed,
+    assert_training_predictions,
+    seed_literature,
+    trainable_parameter_vector,
+    two_by_two_batch,
+)
 
 _LAYER_CONNECTIONS = [np.array([[0, 1], [1, 2]])]
 _GENE2ID = {"TP53": 0, "EGFR": 1}
@@ -56,19 +63,103 @@ def test_hyperparameter_space_is_empty_so_hpo_skips_this_model() -> None:
     assert SparseGOPredictor.get_hyperparameter_space() == {}
 
 
+class TestFrozenSparseGONumericalReference:
+    pytestmark = pytest.mark.slow
+
+    @pytest.mark.parametrize("seed", [0, 1, 2])
+    def test_matches_v2(self, seed: int) -> None:
+        assert_frozen_reference("sparsego", seed)
+
+
+class TestTinySparseGOFit:
+    pytestmark = pytest.mark.slow
+
+    @pytest.mark.parametrize("seed", [0, 1, 2])
+    def test_updates_parameters_and_round_trips_state(self, seed: int) -> None:
+        metadata = {
+            "layer_connections": [
+                np.array([["term-1", "gene-1"], ["term-1", "gene-2"], ["term-2", "gene-3"]]),
+                np.array([["root", "term-1"], ["root", "term-2"]]),
+            ],
+            "gene2id_mapping_ont": {"gene-1": 0, "gene-2": 1, "gene-3": 2},
+            "ontology_gene_order": ["gene-1", "gene-2", "gene-3"],
+        }
+        batch = two_by_two_batch(
+            cell_line_blocks={
+                "gene_expression": numeric_feature_block(
+                    np.array([[0.1, 0.7, 1.4], [1.3, -0.2, 0.4]], dtype=np.float32),
+                    metadata=metadata,
+                )
+            },
+            drug_blocks={
+                "fingerprints": numeric_feature_block(
+                    np.array([[1.0, 0.0, 1.0, 0.0], [0.0, 1.0, 0.0, 1.0]], dtype=np.float32)
+                )
+            },
+        )
+        hyperparameters = {
+            "num_neurons_per_GO": 2,
+            "num_neurons_per_final_GO": 2,
+            "num_neurons_drug": [3, 2],
+            "num_neurons_final": 3,
+            "drug_dim": 4,
+            "learning_rate": 0.05,
+            "momentum": 0.0,
+            "decay_rate": 0.0,
+            "p_drop_genes": 0.0,
+            "p_drop_terms": 0.0,
+            "p_drop_drugs": 0.0,
+            "p_drop_final": 0.0,
+            "epochs": 1,
+            "batch_size": 4,
+        }
+
+        seed_literature(seed)
+        initial_predictor = SparseGOPredictor(hyperparameters)
+        initial_predictor._layer_connections = metadata["layer_connections"]
+        initial_predictor._gene2id_mapping_ont = metadata["gene2id_mapping_ont"]
+        initial_predictor._build_network()
+        assert initial_predictor._model is not None
+        initial = trainable_parameter_vector(initial_predictor._model)
+
+        seed_literature(seed)
+        predictor = SparseGOPredictor(hyperparameters)
+        predictor.fit(batch)
+        assert predictor._model is not None
+        assert_trainable_parameters_changed(initial, predictor._model)
+        predictions = predictor.predict(batch)
+        assert np.isfinite(predictions).all()
+        assert np.isfinite(np.mean((predictions - batch.response) ** 2))
+        assert_training_predictions("sparsego", seed, predictions)
+
+        restored = SparseGOPredictor()
+        restored.set_state(predictor.get_state())
+        np.testing.assert_allclose(restored.predict(batch), predictions, rtol=1e-6, atol=1e-7)
+
+
 class TestParseOntologyMetadata:
     def test_precomputed_structures_are_passed_through(self) -> None:
         connections, gene2id, order = _parse_ontology_metadata(
             {
                 "layer_connections": _LAYER_CONNECTIONS,
                 "gene2id_mapping_ont": _GENE2ID,
-                "ontology_gene_order": ["EGFR", "TP53"],
+                "ontology_gene_order": ["TP53", "EGFR"],
             }
         )
 
         assert len(connections) == 1
         assert gene2id == _GENE2ID
-        assert order == ["EGFR", "TP53"]
+        assert order == ["TP53", "EGFR"]
+
+    def test_gene_order_must_match_mapping_indices(self) -> None:
+        with pytest.raises(ValueError, match="ontology_gene_order"):
+            _parse_ontology_metadata(
+                {
+                    "layer_connections": _LAYER_CONNECTIONS,
+                    "gene2id_mapping_ont": _GENE2ID,
+                    "ontology_gene_order": ["EGFR", "TP53"],
+                }
+            )
 
     def test_a_missing_gene_order_falls_back_to_the_mapping_keys(self) -> None:
         _, _, order = _parse_ontology_metadata(

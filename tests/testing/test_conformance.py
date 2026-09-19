@@ -34,7 +34,7 @@ from drevalpy.testing.conformance import (
     feature_source_for,
 )
 from drevalpy.testing.synthetic import build_synthetic_dataset
-from drevalpy.types.data.batch.feature_block import BlockSpec, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource
 
 BLOCK = "probe"
@@ -56,10 +56,14 @@ class GoodFeaturizer(CellLineFeaturizer):
         self._offset = float(len(entity_ids)) if entity_ids is not None else 0.0
         return self
 
-    def _transform_blocks(self, source, entity_ids):
+    def _transform_features(self, source, entity_ids):
         values = np.arange(len(entity_ids) * self._n_features, dtype=np.float32)
         values = values.reshape(len(entity_ids), self._n_features) + self._offset
-        return {BLOCK: numeric_feature_block(values)}
+        return FeaturizerResult(values, {BLOCK: numeric_feature_block(values)})
+
+    def _empty_transform_features(self, source):
+        values = np.empty((0, self._n_features), dtype=np.float32)
+        return FeaturizerResult(values, {BLOCK: numeric_feature_block(values)})
 
     @property
     def output_dim(self) -> int:
@@ -98,20 +102,20 @@ class MisreportsOutputDimFeaturizer(GoodFeaturizer):
 class MisalignedBlockFeaturizer(GoodFeaturizer):
     """Defect: emits fewer rows than there are entities."""
 
-    def _transform_blocks(self, source, entity_ids):
-        blocks = super()._transform_blocks(source, entity_ids)
-        return {BLOCK: numeric_feature_block(blocks[BLOCK].values[:-1])}
+    def _transform_features(self, source, entity_ids):
+        result = super()._transform_features(source, entity_ids)
+        return FeaturizerResult(result.matrix[:-1], {BLOCK: numeric_feature_block(result.blocks[BLOCK].values[:-1])})
 
 
 class EmptyBlocksFeaturizer(GoodFeaturizer):
     """Defect: produces no blocks at all."""
 
-    def _transform_blocks(self, source, entity_ids):
-        return {}
+    def _transform_features(self, source, entity_ids):
+        return FeaturizerResult(np.empty((len(entity_ids), 0), dtype=np.float32), {})
 
 
 class ForgetfulStateFeaturizer(GoodFeaturizer):
-    """Defect: ``get_state`` omits an attribute ``_transform_blocks`` reads."""
+    """Defect: ``get_state`` omits an attribute ``_transform_features`` reads."""
 
     def get_state(self) -> dict[str, object]:
         return {"n_features": self._n_features, "offset": 0.0}

@@ -46,11 +46,16 @@ def read_sparsego_ontology_metadata(source: FeatureSource) -> SparseGOOntologyMe
             continue
         if metadata is not None:
             break
-    if isinstance(metadata, dict) and "layer_connections" in metadata:
+    if isinstance(metadata, dict) and (
+        "layer_connections" in metadata or "ontology_file" in metadata or "ontology" in metadata
+    ):
+        from drevalpy.components.predictors.literature.sparsego.utils import resolve_ontology_metadata
+
+        connections, mapping, order = resolve_ontology_metadata(metadata)
         return {
-            "layer_connections": metadata["layer_connections"],
-            "gene2id_mapping_ont": metadata["gene2id_mapping_ont"],
-            "ontology_gene_order": metadata["ontology_gene_order"],
-            "gene_dim_input": metadata["gene_dim_input"],
+            "layer_connections": connections,
+            "gene2id_mapping_ont": mapping,
+            "ontology_gene_order": tuple(order),
+            "gene_dim_input": len(order),
         }
     return None

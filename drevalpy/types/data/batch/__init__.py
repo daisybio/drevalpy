@@ -3,6 +3,7 @@
 from .feature_block import (
     BlockSpec,
     FeatureBlock,
+    FeaturizerResult,
     graph_feature_block,
     merge_feature_blocks,
     metadata_feature_block,
@@ -15,6 +16,7 @@ from .model_input_build import build_model_input_batch
 __all__ = [
     "BlockSpec",
     "FeatureBlock",
+    "FeaturizerResult",
     "ModelInputBatch",
     "build_model_input_batch",
     "graph_feature_block",

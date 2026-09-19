@@ -9,7 +9,7 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
@@ -60,13 +60,12 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         mdata = getattr(source, "mdata", None)
         precomputed = self.fetch(mdata, ids) if mdata is not None else None
         if precomputed is not None:
-            for view in _VIEWS:
-                names = source.get_feature_names(view)
-                self._masks[view] = np.ones(1, dtype=bool)
-                self._feature_names[view] = tuple(names) if names else ()
+            names = source.get_feature_names("gene_expression")
+            self._masks = {"gene_expression": np.ones(precomputed.shape[1], dtype=bool)}
+            self._feature_names = {"gene_expression": tuple(names) if names else ()}
             return self
         for view in _VIEWS:
-            matrix = source.get_view_matrix(view, ids)
+            matrix = self._view_matrix(source, view, ids)
             variances = np.var(matrix, axis=0)
             mask = np.zeros(len(variances), dtype=bool)
             mask[np.argsort(variances)[::-1][: min(self._n_features, len(variances))]] = True
@@ -79,21 +78,13 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
                 self._feature_names[view] = ()
         return self
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return variance-selected gene-expression features only.
+    @staticmethod
+    def _view_matrix(source: FeatureSource, view: str, entity_ids: np.ndarray) -> np.ndarray:
+        """Apply the regression adaptation's expression transform before selection."""
+        matrix = source.get_view_matrix(view, entity_ids)
+        return np.arcsinh(matrix) if view == "gene_expression" else matrix
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Cell-line identifiers to transform.
-        :returns: Float matrix of selected gene-expression features.
-        """
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
-        if precomputed is not None:
-            return precomputed.astype(np.float32)
-        mask = self._masks["gene_expression"]
-        return source.get_view_matrix("gene_expression", entity_ids)[:, mask].astype(np.float32)
-
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
         """Return per-omics numeric blocks with variance-selected columns.
 
         :param source: Feature source providing view matrices.
@@ -103,19 +94,35 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         mdata = getattr(source, "mdata", None)
         precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
         if precomputed is not None:
-            return {
+            blocks = {
                 "gene_expression": numeric_feature_block(
                     precomputed.astype(np.float32),
                     feature_names=self._feature_names.get("gene_expression"),
                 )
             }
-        return {
+            return FeaturizerResult(blocks["gene_expression"].values, blocks)
+        blocks = {
             view: numeric_feature_block(
-                source.get_view_matrix(view, entity_ids)[:, mask].astype(np.float32),
+                self._view_matrix(source, view, entity_ids)[:, mask].astype(np.float32),
                 feature_names=self._feature_names.get(view),
             )
             for view, mask in self._masks.items()
         }
+        return FeaturizerResult(blocks["gene_expression"].values, blocks)
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Build selected omics schemas without invoking a transformer.
+
+        :param source: Unused; fitted masks supply dimensions.
+        :returns: Empty gene expression matrix and all omics blocks.
+        """
+        blocks = {
+            view: numeric_feature_block(
+                np.empty((0, int(mask.sum())), dtype=np.float32), feature_names=self._feature_names.get(view)
+            )
+            for view, mask in self._masks.items()
+        }
+        return FeaturizerResult(blocks["gene_expression"].values, blocks)
 
     @property
     def output_dim(self) -> int:

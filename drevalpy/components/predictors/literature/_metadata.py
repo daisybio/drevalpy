@@ -4,60 +4,85 @@ from __future__ import annotations
 
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
-LITERATURE_INTEGRATION_DEVIATIONS = (
-    "Modular drevalpy port; trainable encoders remain in the predictor. "
-    "Preprocessing, tensor layout, and default hyperparameters may differ from "
-    "reference repository scripts."
-)
-
 DRUGGNN_REFERENCE = LiteratureReference(
     repo_url="https://github.com/hauldhut/GraphDRP",
     citation_text="DrugGNN-style GCN on molecular graphs with dense cell-line features (GraphDRP codebase).",
-    deviations=LITERATURE_INTEGRATION_DEVIATIONS,
+    deviations=(
+        "GraphDRP GCN variant: retain its three graph convolutions; use mean pooling, a dense cell-line "
+        "branch and an unbounded regression head instead of max pooling, Conv1d and sigmoid."
+    ),
 )
 
 PRECILY_REFERENCE = LiteratureReference(
     repo_url="https://github.com/SmritiChawla/Precily",
     citation_text="Precily pathway and SMILESVec drug response model.",
-    deviations=LITERATURE_INTEGRATION_DEVIATIONS,
+    deviations=(
+        "Hidden widths match the published pathways Model1 checkpoint. Use one regressor instead of the "
+        "five-model ensemble, fold-specific GSVA and configurable drug features; PyTorch "
+        "initialization/optimizer defaults differ from Keras."
+    ),
 )
 
 SRMF_REFERENCE = LiteratureReference(
     repo_url="https://github.com/linwang1982/SRMF",
     citation_text="Similarity-regularized matrix factorization for drug response prediction.",
-    deviations=LITERATURE_INTEGRATION_DEVIATIONS,
+    deviations=(
+        "Alternating updates and best-objective factor selection match the MATLAB reference with shared "
+        "initial factors. Retain the regression wrapper's response units and configured feature "
+        "similarities instead of the MATLAB demonstration's max-abs scaling and fixed matrices. "
+        "NumPy/MATLAB RNG streams differ; unseen entities use a mean-response fallback absent upstream."
+    ),
 )
 
 MOLIR_REFERENCE = LiteratureReference(
-    repo_url="https://github.com/hosseinshn/MOLI",
+    repo_url="https://github.com/kramerlab/Multi-Omics_analysis",
     citation_doi="10.1186/s12859-023-05166-7",
     citation_text="Multi-omics late integration regression (MOLIR / MOLI family).",
-    deviations=LITERATURE_INTEGRATION_DEVIATIONS,
+    deviations=(
+        "Regression adaptation of kramerlab Multi-Omics_analysis MOLI: preserve encoders and late "
+        "integration, replace classification sigmoid/BCE with continuous outputs/MSE and response-based "
+        "triplet sampling."
+    ),
 )
 
 SUPERFELTR_REFERENCE = LiteratureReference(
     repo_url="https://github.com/DMCB-GIST/Super.FELT",
     citation_doi="10.1186/s12859-023-05166-7",
     citation_text="SuperFELTR multi-omics feature extraction and late integration model.",
-    deviations=LITERATURE_INTEGRATION_DEVIATIONS,
+    deviations=(
+        "Regression adaptation: preserve supervised omics encoders and triplet training; use continuous "
+        "response triplets and MSE regression without the binary classifier sigmoid/BCE."
+    ),
 )
 
 PHARMAFORMER_REFERENCE = LiteratureReference(
     repo_url="https://github.com/zhouyuru1205/PharmaFormer",
     citation_doi="10.1038/s41698-025-01082-6",
     citation_text="PharmaFormer integrates gene expression and compound views via a transformer encoder.",
-    deviations=LITERATURE_INTEGRATION_DEVIATIONS,
+    deviations=(
+        "Architecture follows upstream pretrain.py, not its extra-dropout finetuning variant. Scale "
+        "dataset-provided expression without an additional log2 transform, learn fold-specific BPE, "
+        "and stop on disjoint validation instead of training loss."
+    ),
 )
 
 DIPK_REFERENCE = LiteratureReference(
     repo_url="https://github.com/user15632/DIPK",
     citation_text="DIPK deep integration model with BIONIC and MolGNet features.",
-    deviations=LITERATURE_INTEGRATION_DEVIATIONS,
+    deviations=(
+        "Preserve the upstream autoencoder architecture, 20% masking and final-epoch encoder return. Add "
+        "disjoint validation stopping to autoencoder/predictor; predictor restores best validation "
+        "weights. Real MolGNet/PPI artifacts are required for raw-input integration."
+    ),
 )
 
 SPARSEGO_REFERENCE = LiteratureReference(
     repo_url="https://github.com/KatynaSada/SparseGO_lightning",
     citation_doi="10.1016/j.ebiom.2023.104767",
     citation_text="SparseGO visible neural network structured by the Gene Ontology hierarchy.",
-    deviations=LITERATURE_INTEGRATION_DEVIATIONS,
+    deviations=(
+        "Preserve ontology-indexed sparse connections. Align named input genes explicitly; train on "
+        "training-fold features. Local fixed-epoch MSE training differs from upstream correlation-based "
+        "checkpoint winners."
+    ),
 )

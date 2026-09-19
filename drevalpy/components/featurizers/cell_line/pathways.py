@@ -12,7 +12,7 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.log import get_logger
 from drevalpy.registry.cell_line_featurizer import register
-from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 logger = get_logger(__name__)
@@ -43,6 +43,8 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
         self._output_dim = 0
         self._fit_scores: np.ndarray | None = None
         self._fit_ids: np.ndarray | None = None
+        self._pathway_names: tuple[str, ...] | None = None
+        self._gmt_text: str | None = None
 
     def _fit(
         self,
@@ -62,13 +64,15 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
+        self._pathway_names = None
+        self._gmt_text = None
         result = self._run_gsva(source, ids)
         self._fit_scores = result
         self._fit_ids = ids
         self._output_dim = int(result.shape[1])
         return self
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return GSVA scores for requested entities.
 
         :param source: Feature source providing cell-line views.
@@ -86,23 +90,40 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
 
         all_ids = np.unique(np.concatenate([self._fit_ids, entity_ids]))
         result = self._run_gsva(source, all_ids)
-        id_map = {str(id_): i for i, id_ in enumerate(all_ids)}
-        indices = [id_map[str(id_)] for id_ in entity_ids]
-        return result[indices].astype(np.float32)
+        new_map = {str(id_): i for i, id_ in enumerate(all_ids)}
+        return np.asarray(
+            [
+                self._fit_scores[id_map[str(id_)]] if str(id_) in id_map else result[new_map[str(id_)]]
+                for id_ in entity_ids
+            ],
+            dtype=np.float32,
+        )
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
         """Transform blocks.
 
         :param source: Feature source providing cell-line views.
         :param entity_ids: entity ids.
         :returns: Result.
         """
-        return {
-            self._view: numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=None,
-            )
-        }
+        matrix = self._feature_matrix(source, entity_ids)
+        return FeaturizerResult(
+            matrix,
+            {
+                self._view: numeric_feature_block(
+                    matrix,
+                    feature_names=self._pathway_names,
+                )
+            },
+        )
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return fitted schema and metadata without transforming any entities.
+
+        :param source: Feature metadata source.
+        :returns: Zero-row matrix and blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:
@@ -111,6 +132,37 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
         :returns: Result.
         """
         return self._output_dim
+
+    def get_state(self) -> dict[str, object]:
+        """Persist the training-reference scores and entity order.
+
+        :returns: Fitted GSVA state.
+        """
+        return {
+            "fit_scores": self._fit_scores,
+            "fit_ids": self._fit_ids,
+            "output_dim": self._output_dim,
+            "pathway_names": self._pathway_names,
+            "gmt_text": self._gmt_text,
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        """Restore the training reference for subsequent transformations.
+
+        :param state: Mapping produced by get_state.
+        """
+        scores, ids = state.get("fit_scores"), state.get("fit_ids")
+        if not isinstance(scores, np.ndarray) or not isinstance(ids, np.ndarray):
+            raise ValueError("Pathways checkpoint requires fitted score and identifier arrays")
+        if scores.ndim != 2 or ids.ndim != 1 or scores.shape != (len(ids), state.get("output_dim")):
+            raise ValueError("Pathways checkpoint has inconsistent fitted dimensions")
+        self._fit_scores, self._fit_ids = scores.copy(), ids.copy()
+        self._output_dim = scores.shape[1]
+        names, gmt = state.get("pathway_names"), state.get("gmt_text")
+        if names is not None and (not isinstance(names, (list, tuple)) or len(names) != self._output_dim):
+            raise ValueError("Pathways checkpoint has inconsistent pathway names")
+        self._pathway_names = tuple(names) if names is not None else None
+        self._gmt_text = gmt if isinstance(gmt, str) else None
 
     def _run_gsva(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Run GSVA on the given cell lines.
@@ -122,9 +174,11 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
         import gseapy as gp
 
         mdata = getattr(source, "mdata", None)
-        if mdata is None or "pathways_gmt" not in mdata.uns:
-            msg = "Pathway features require pathways_gmt in mdata.uns"
-            raise ValueError(msg)
+        if self._gmt_text is None:
+            if mdata is None or "pathways_gmt" not in mdata.uns:
+                msg = "Pathway features require pathways_gmt in mdata.uns"
+                raise ValueError(msg)
+            self._gmt_text = str(mdata.uns["pathways_gmt"])
 
         import pandas as pd
 
@@ -138,9 +192,8 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
         expr_df = expr_df.loc[~expr_df.index.duplicated(keep="first")]
         expr_genes_by_samples = expr_df.T
 
-        gmt_text: str = mdata.uns["pathways_gmt"]
         with tempfile.NamedTemporaryFile(mode="w", suffix=".gmt", delete=False) as f:
-            f.write(gmt_text)
+            f.write(self._gmt_text)
             gmt_path = f.name
 
         gv = gp.gsva(
@@ -165,6 +218,11 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
         es_col = cols.get("es", cols.get("nes", "ES"))
         wide = long.pivot(index=term_col, columns=name_col, values=es_col)
         scores = wide.T.astype(np.float32)
+        if self._pathway_names is None:
+            self._pathway_names = tuple(scores.columns)
+        elif not set(self._pathway_names).issubset(scores.columns):
+            raise ValueError("GSVA output is missing pathways from the fitted schema")
+        scores = scores.loc[:, list(self._pathway_names)]
 
         result = np.zeros((len(entity_ids), scores.shape[1]), dtype=np.float32)
         for i, cl in enumerate(entity_ids):

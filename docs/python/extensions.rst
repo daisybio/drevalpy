@@ -73,18 +73,21 @@ the result. You override the hooks underneath them:
    * - Member
      - Responsibility
    * - ``_fit(source, *, entity_ids=None, ...)``
-     - Learn whatever ``_transform_blocks`` needs, on pre-validated entity ids.
+     - Learn whatever ``_transform_features`` needs, on pre-validated entity ids.
        Return ``self``.
-   * - ``_transform_blocks(source, entity_ids)``
-     - Return a ``dict[str, FeatureBlock]``, one row per entity id.
+   * - ``_transform_features(source, entity_ids)``
+     - Return a ``FeaturizerResult`` containing the matrix and named blocks,
+       one row per entity id.
+   * - ``_empty_transform_features(source)``
+     - Return a zero-row ``FeaturizerResult`` with the fitted output schema.
    * - ``output_dim`` (property)
      - Feature width after fitting.
    * - ``get_state`` / ``set_state``
      - Optional, but required for a fitted featurizer to survive a ``*.zip``
        checkpoint: those store the state mapping, not the object.
 
-``_transform(source, entity_ids)`` returning a flat matrix is optional; the base
-class derives it by concatenating your numeric blocks.
+The base exposes ``transform`` and ``transform_blocks`` as projections of the
+combined result, so subclasses compute both representations once.
 
 Two declarations are mandatory, and registration is **rejected** without them:
 
@@ -151,6 +154,7 @@ this way.
    from drevalpy.plugin import (
        BlockSpec,
        FeatureFormat,
+       FeaturizerResult,
        Featurizer,
        numeric_feature_block,
        register_for_sides,
@@ -176,9 +180,13 @@ this way.
        def _fit(self, source, **kwargs):
            return self
 
-       def _transform_blocks(self, source, entity_ids):
+       def _transform_features(self, source, entity_ids):
            ones = np.ones((len(entity_ids), 1), dtype=np.float32)
-           return {"ones": numeric_feature_block(ones)}
+           return FeaturizerResult(ones, {"ones": numeric_feature_block(ones)})
+
+       def _empty_transform_features(self, source):
+           ones = np.empty((0, 1), dtype=np.float32)
+           return FeaturizerResult(ones, {"ones": numeric_feature_block(ones)})
 
        @property
        def output_dim(self):
@@ -193,7 +201,7 @@ side. Both are injected into your module's namespace, which is what keeps them
 findable when the registries are rebuilt.
 
 **One dense matrix from one view.** ``DenseViewFeaturizer`` implements ``_fit``,
-``_transform`` and ``_transform_blocks`` for the shape every dense featurizer
+``_transform_features`` and ``_empty_transform_features`` for the shape every dense featurizer
 shares — ask the storage layer whether the matrix is already pre-computed,
 otherwise compute it from the view, then emit one numeric block. A subclass
 overrides only its distinct step: usually ``_compute_matrix``, plus ``_fit_state``

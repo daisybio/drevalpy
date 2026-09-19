@@ -233,7 +233,7 @@ def test_dense_view_requires_fit_gate_is_off_by_default() -> None:
     source = _cell_line_source()
     ids = np.array(["cl1", "cl2"], dtype=str)
 
-    matrix = _StrictDenseView(view="gene_expression")._transform(source, ids)
+    matrix = _StrictDenseView(view="gene_expression")._transform_features(source, ids).matrix
 
     assert matrix.shape == (2, 2)
 
@@ -244,7 +244,7 @@ def test_dense_view_requires_fit_gate_rejects_an_unfitted_transform() -> None:
         requires_fit = True
 
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        _NeedsFit()._transform(_cell_line_source(), np.array(["cl1"], dtype=str))
+        _NeedsFit()._transform_features(_cell_line_source(), np.array(["cl1"], dtype=str))
 
 
 def test_dense_view_fit_on_unique_ids_deduplicates_the_fit_rows() -> None:

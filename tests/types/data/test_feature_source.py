@@ -133,3 +133,7 @@ class TestDrugFeatureSource:
         row = drug_source.get_entity_view(str(drug_source.identifiers[0]), "chemberta")
 
         assert row.shape == (CHEMBERTA_DIM,)
+
+
+def test_missing_optional_drug_view_permits_computation_fallback(drug_source: DrugFeatureSource):
+    assert drug_source.get_entity_view(str(drug_source.identifiers[0]), "molgnet_features") is None

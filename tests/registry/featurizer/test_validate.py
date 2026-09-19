@@ -15,7 +15,7 @@ from drevalpy.registry.cell_line_featurizer import (
 from drevalpy.registry.cell_line_featurizer import (
     register as register_cell_line_featurizer,
 )
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from tests.registry._helpers import isolated_component_registries
 
 
@@ -30,8 +30,13 @@ class _ConcreteCellLineFeaturizer(CellLineFeaturizer):
     def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
         return self
 
-    def _transform_blocks(self, source, entity_ids):
-        return {"probe": numeric_feature_block(np.zeros((len(entity_ids), 1), dtype=np.float32))}
+    def _transform_features(self, source, entity_ids):
+        values = np.zeros((len(entity_ids), 1), dtype=np.float32)
+        return FeaturizerResult(values, {"probe": numeric_feature_block(values)})
+
+    def _empty_transform_features(self, source):
+        values = np.empty((0, 1), dtype=np.float32)
+        return FeaturizerResult(values, {"probe": numeric_feature_block(values)})
 
     @property
     def output_dim(self) -> int:
@@ -63,7 +68,7 @@ def test_declared_input_views_allow_registration() -> None:
 
 
 def test_a_featurizer_with_unimplemented_abstract_methods_is_rejected() -> None:
-    with pytest.raises(ValueError, match=r"does not implement _fit, _transform_blocks"):
+    with pytest.raises(ValueError, match=r"does not implement _empty_transform_features, _fit, _transform_features"):
 
         @register_cell_line_featurizer(
             "abstractFeaturizer",

@@ -10,11 +10,15 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.models.config.featurizer import FeaturizerConfig
-from drevalpy.types.data.batch.feature_block import FeatureBlock, merge_feature_blocks
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, merge_feature_blocks
 
 
 class ConcatFeaturizersMixin:
     """Fit child featurizers independently and concatenate their dense outputs."""
+
+    def _detect_valid(self, source, entity_ids: np.ndarray) -> np.ndarray:
+        """Require usable rows in every configured child view."""
+        return np.logical_and.reduce([child._detect_valid(source, entity_ids) for _, child in self._children])
 
     @classmethod
     def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
@@ -121,7 +125,7 @@ class ConcatFeaturizersMixin:
         self._is_fitted = True
         return self
 
-    def _transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_features(self, features, entity_ids: np.ndarray) -> FeaturizerResult:
         """Transform blocks.
 
         :param features: features.
@@ -132,8 +136,16 @@ class ConcatFeaturizersMixin:
         if not self._is_fitted:
             msg = f"{type(self).__name__} must be fit before transform"
             raise RuntimeError(msg)
-        child_blocks = [child.transform_blocks(features, entity_ids) for _, child in self._children]
-        return merge_feature_blocks(*child_blocks)
+        child_blocks = [child.transform_features(features, entity_ids).blocks for _, child in self._children]
+        return FeaturizerResult.from_blocks(merge_feature_blocks(*child_blocks), len(entity_ids))
+
+    def _empty_transform_features(self, source) -> FeaturizerResult:
+        """Compose empty child schemas and retain global metadata.
+
+        :param source: Feature metadata source.
+        :returns: Combined empty numeric blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:

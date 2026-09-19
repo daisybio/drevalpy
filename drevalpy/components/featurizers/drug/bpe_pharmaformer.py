@@ -14,7 +14,7 @@ from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_en
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.log import get_logger
 from drevalpy.registry.drug_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
@@ -101,7 +101,7 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
         self._output_dim = self._max_length
         return self
 
-    def _transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Apply learned BPE codes to encode SMILES.
 
         :param source: Feature source providing drug views.
@@ -112,25 +112,39 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
             msg = "BpePharmaformerDrugFeaturizer must be fit before transform"
             raise RuntimeError(msg)
 
+        if len(entity_ids) == 0:
+            return np.empty((0, self.output_dim), dtype=np.float32)
         smiles = get_smiles_for_entities(source, entity_ids)
         if smiles is None:
             msg = "Cannot encode BPE: no SMILES available."
             raise ValueError(msg)
         return self._apply_bpe(smiles, entity_ids).astype(np.float32)
 
-    def _transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
         """Transform blocks.
 
         :param source: Feature source providing drug views.
         :param entity_ids: entity ids.
         :returns: Mapping with one numeric block.
         """
-        return {
-            "bpe_smiles": numeric_feature_block(
-                self._transform(source, entity_ids),
-                feature_names=None,
-            )
-        }
+        matrix = self._feature_matrix(source, entity_ids)
+        return FeaturizerResult(
+            matrix,
+            {
+                "bpe_smiles": numeric_feature_block(
+                    matrix,
+                    feature_names=None,
+                )
+            },
+        )
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Return fitted schema and metadata without transforming any entities.
+
+        :param source: Feature metadata source.
+        :returns: Zero-row matrix and blocks.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     def output_dim(self) -> int:
@@ -139,6 +153,24 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
         :returns: Always 128 (max_length).
         """
         return self._output_dim
+
+    def get_state(self) -> dict[str, object]:
+        """Persist learned BPE merges and sequence width.
+
+        :returns: Fitted tokenizer state, or an empty mapping before fitting.
+        """
+        if self._bpe is None:
+            return {}
+        return {"bpe": self._bpe, "max_length": self._max_length, "output_dim": self._output_dim}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        """Restore the fitted tokenizer used during training.
+
+        :param state: Mapping produced by get_state.
+        """
+        self._bpe = state.get("bpe")
+        self._max_length = int(state.get("max_length", self._max_length))
+        self._output_dim = int(state.get("output_dim", 0))
 
     def _learn_bpe(self, smiles_series) -> object:
         """Learn BPE codes from a set of SMILES strings.

@@ -52,6 +52,7 @@ class DIPKGeneExpressionFeaturizer(DenseViewCellLineFeaturizer):
     """Encode intersection genes into the 512-dimensional DIPK representation."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
+    requires_early_stopping: ClassVar[bool] = True
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
     requires_fit: ClassVar[bool] = True
 

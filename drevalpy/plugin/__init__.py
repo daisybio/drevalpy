@@ -56,6 +56,7 @@ from drevalpy.registry.visualization import register as register_visualization
 from drevalpy.types.data.batch.feature_block import (
     BlockSpec,
     FeatureBlock,
+    FeaturizerResult,
     graph_feature_block,
     merge_feature_blocks,
     metadata_feature_block,
@@ -98,6 +99,7 @@ __all__ = [
     "FeatureFreePredictor",
     "FeatureSource",
     "Featurizer",
+    "FeaturizerResult",
     "FeaturizerStorageMixin",
     "HPOStrategy",
     "ImageVisualization",

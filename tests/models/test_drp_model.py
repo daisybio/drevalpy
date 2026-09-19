@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from drevalpy.models import construct_model
+from drevalpy.models.component_stack import StackState
 from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
     lco_split_masks,
@@ -75,26 +76,26 @@ def test_empty_training_transitions() -> None:
     )
 
     model.train(empty_mudataset, empty_split)
-    assert model._empty_training is True
+    assert model._stack.state == StackState.EMPTY
     empty_preds = model.predict(empty_mudataset, empty_split)
     assert np.isnan(empty_preds).all()
 
     mudataset = synthetic_mudataset_identity()
     split = lco_split_masks()
     model.train(mudataset, split)
-    assert model._empty_training is False
+    assert model._stack.state == StackState.FITTED
     assert model._stack is not None
     assert model._stack.is_fitted()
     real_preds = model.predict(mudataset, split)
     assert np.isfinite(real_preds).all()
 
     model.train(empty_mudataset, empty_split)
-    assert model._empty_training is True
+    assert model._stack.state == StackState.EMPTY
     reempty_preds = model.predict(empty_mudataset, empty_split)
     assert np.isnan(reempty_preds).all()
 
     model.train(mudataset, split)
-    assert model._empty_training is False
+    assert model._stack.state == StackState.FITTED
     again_preds = model.predict(mudataset, split)
     assert np.isfinite(again_preds).all()
 
@@ -174,3 +175,9 @@ def test_hyperparameters_and_views_are_immutable_after_construction() -> None:
         model.drug_views = ["fingerprints"]  # type: ignore[misc]
 
     assert not hasattr(model, "_sync_predictor_hyperparameters")
+
+
+def test_featurizer_requirement_is_aggregated_even_when_predictor_has_no_stopping() -> None:
+    model = construct_model("RequiredFeatures", "dipkGeneExpression:fingerprints:randomForest")
+    assert model.requires_early_stopping()
+    assert model.supports_early_stopping()

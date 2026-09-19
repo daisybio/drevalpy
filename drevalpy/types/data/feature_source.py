@@ -108,4 +108,7 @@ class DrugFeatureSource(FeatureSource):
         if view == "drug_graph":
             graphs = self._dataset.get_drug_graphs(np.array([entity_id]))
             return graphs[0] if graphs else None
-        return self._dataset.get_drug_features(view, np.array([entity_id]))[0]
+        try:
+            return self._dataset.get_drug_features(view, np.array([entity_id]))[0]
+        except KeyError:
+            return None
