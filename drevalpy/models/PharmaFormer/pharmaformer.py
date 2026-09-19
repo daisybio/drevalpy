@@ -341,7 +341,10 @@ class PharmaFormerModel(DRPModel):
         # Apply transformations to gene expression if scalers are available
         if self.gene_expression_scaler is not None and self.gene_expression_normalizer is not None:
             cell_line_input = cell_line_input.copy()
-            for cell_line_id in set(cell_line_ids):
+            # cell_line_ids is response-level (one entry per cell_line/drug pair) and can repeat a
+            # cell line many times, but gene_expression is stored once per cell line, so each id must
+            # only be scaled once here or it gets rescaled on top of its own already-scaled output.
+            for cell_line_id in np.unique(cell_line_ids):
                 if cell_line_id in cell_line_input.features:
                     gene_expr = cell_line_input.features[cell_line_id]["gene_expression"]
                     gene_expr_scaled = self.gene_expression_scaler.transform(gene_expr.reshape(1, -1))

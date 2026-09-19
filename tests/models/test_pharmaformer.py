@@ -1,6 +1,7 @@
 """Regression test for PharmaFormerModel.predict() gene expression preprocessing."""
 
 import numpy as np
+import torch
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drevalpy.datasets.dataset import FeatureDataset
@@ -24,6 +25,7 @@ def _build_fitted_model() -> PharmaFormerModel:
     model.gene_expression_scaler = StandardScaler().fit(train_gene_features)
     model.gene_expression_normalizer = MinMaxScaler().fit(model.gene_expression_scaler.transform(train_gene_features))
 
+    torch.manual_seed(0)
     model.model = CombinedModel(
         gene_input_size=gene_input_size,
         gene_hidden_size=8,
@@ -52,17 +54,19 @@ def test_predict_is_invariant_to_cell_line_repetition() -> None:
         features={f"drug{i}": {"bpe_smiles": rng.normal(size=128).astype(np.float32)} for i in range(5)}
     )
 
-    # Predict cellA against a single drug in isolation.
-    single_prediction = model.predict(
-        cell_line_ids=np.array(["cellA"]),
-        drug_ids=np.array(["drug0"]),
-        cell_line_input=cell_line_features.copy(),
-        drug_input=drug_features.copy(),
-    )
+    # Predict each (cell line, drug) pair in isolation, one request per pair.
+    isolated_predictions = {}
+    for cell_line_id, drug_id in [("cellA", "drug0"), ("cellA", "drug1"), ("cellB", "drug3")]:
+        isolated_predictions[(cell_line_id, drug_id)] = model.predict(
+            cell_line_ids=np.array([cell_line_id]),
+            drug_ids=np.array([drug_id]),
+            cell_line_input=cell_line_features.copy(),
+            drug_input=drug_features.copy(),
+        )[0]
 
-    # Predict the same (cellA, drug0) pair again, but this time cellA also occurs
-    # repeatedly against other drugs in the same request, as happens whenever a held-out
-    # cell line is tested against many drugs in one fold.
+    # Predict the same pairs again, but this time cellA also occurs repeatedly against
+    # other drugs in the same request, as happens whenever a held-out cell line is
+    # tested against many drugs in one fold.
     repeated_cell_line_ids = np.array(["cellA", "cellA", "cellA", "cellB", "cellA"])
     repeated_drug_ids = np.array(["drug0", "drug1", "drug2", "drug3", "drug4"])
     repeated_predictions = model.predict(
@@ -72,7 +76,12 @@ def test_predict_is_invariant_to_cell_line_repetition() -> None:
         drug_input=drug_features.copy(),
     )
 
-    assert np.allclose(single_prediction[0], repeated_predictions[0], atol=1e-6)
+    assert repeated_predictions.shape == (5,)
+    # Batch-of-1 vs batch-of-5 forward passes are not guaranteed bit-identical in float32,
+    # so this compares with a looser tolerance than the exact scaling check below.
+    assert np.allclose(isolated_predictions[("cellA", "drug0")], repeated_predictions[0], atol=1e-4)
+    assert np.allclose(isolated_predictions[("cellA", "drug1")], repeated_predictions[1], atol=1e-4)
+    assert np.allclose(isolated_predictions[("cellB", "drug3")], repeated_predictions[3], atol=1e-4)
 
 
 def test_predict_scales_gene_expression_only_once_regardless_of_repeat_count() -> None:
