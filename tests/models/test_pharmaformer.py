@@ -1,7 +1,6 @@
 """Regression test for PharmaFormerModel.predict() gene expression preprocessing."""
 
 import numpy as np
-import torch
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drevalpy.datasets.dataset import FeatureDataset
@@ -76,8 +75,8 @@ def test_predict_is_invariant_to_cell_line_repetition() -> None:
     assert np.allclose(single_prediction[0], repeated_predictions[0], atol=1e-6)
 
 
-def test_predict_does_not_mutate_input_feature_dataset_repeatedly() -> None:
-    """Gene expression features must only be scaled/normalized once, regardless of repeat count."""
+def test_predict_scales_gene_expression_only_once_regardless_of_repeat_count() -> None:
+    """The gene expression fed into the network must be the once-transformed vector, not repeatedly rescaled."""
     model = _build_fitted_model()
     rng = np.random.default_rng(2)
 
@@ -89,7 +88,11 @@ def test_predict_does_not_mutate_input_feature_dataset_repeatedly() -> None:
         model.gene_expression_scaler.transform(raw_gene_expr.reshape(1, -1))
     ).flatten()
 
-    with torch.no_grad():
+    seen_gene_inputs = []
+    handle = model.model.feature_extractor.gene_fc1.register_forward_pre_hook(
+        lambda module, inputs: seen_gene_inputs.append(inputs[0].clone())
+    )
+    try:
         for repeat_count in (1, 3, 10):
             cell_line_ids = np.array(["cellA"] * repeat_count)
             drug_ids = np.array(["drug0"] * repeat_count)
@@ -99,7 +102,12 @@ def test_predict_does_not_mutate_input_feature_dataset_repeatedly() -> None:
                 cell_line_input=cell_line_features.copy(),
                 drug_input=drug_features.copy(),
             )
+    finally:
+        handle.remove()
 
-    # The original, un-copied feature dataset must remain untouched by predict().
-    assert np.allclose(cell_line_features.features["cellA"]["gene_expression"], raw_gene_expr)
-    assert expected.shape == raw_gene_expr.shape
+    assert len(seen_gene_inputs) == 3
+    for repeat_count, gene_input in zip((1, 3, 10), seen_gene_inputs):
+        actual = gene_input.numpy()
+        assert actual.shape == (repeat_count, 10)
+        for row in actual:
+            assert np.allclose(row, expected, atol=1e-6)
