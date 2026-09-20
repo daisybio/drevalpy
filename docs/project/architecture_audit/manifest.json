@@ -1,0 +1,85 @@
+{
+  "baseline_commit": "e4ad11766bc53554eb0dd53fd29ba47fa41000c2",
+  "archive_root": "/private/tmp/drevalpy-head-e4ad117",
+  "upstream_reference_root": "/private/tmp/drevalpy-upstream",
+  "runtime": {
+    "python": "3.13.13",
+    "numpy": "2.4.6",
+    "scikit_learn": "1.9.0",
+    "torch": "2.13.0",
+    "torch_geometric": "2.8.0.post1",
+    "tensorflow": "unavailable",
+    "keras": "unavailable",
+    "octave": "unavailable (frozen reference was generated with 9.4.0)"
+  },
+  "tolerances": {
+    "float32": {
+      "rtol": 1e-05,
+      "atol": 1e-06
+    },
+    "float64": {
+      "rtol": 1e-07,
+      "atol": 1e-09
+    }
+  },
+  "upstream_commits": {
+    "GraphDRP": "ad250651f3db95d9cd7d885740e8636d609b960f",
+    "Precily": "8fb1a9d1f4970b04adc2d8c9818873f1df75fe1b",
+    "MultiOmics": "9c860f4b2bd8602f40cd32af835ce6097d0d0426",
+    "MOLI": "c83d6d4c7e042ff4da7c7e3df0a7c8d030d37b8b",
+    "SuperFELT": "c47acde62595556d24d126d512342de2ca6c90d0",
+    "PharmaFormer": "32542e57c4c169425946eec19ac0f761376a6606",
+    "DIPK": "0edfc151fbbdb7864d577865f9541a689d706c5b",
+    "SparseGO": "8cec017405bddc52e3963e5807f6e62f8c224f1d",
+    "SRMF": "921770220b62ea37aa98bce6febacc9db85c79f7"
+  },
+  "commands": {
+    "fixtures": "DREVALPY_BASELINE_ROOT=/private/tmp/drevalpy-head-e4ad117 BASELINE_OUTPUT_ROOT=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/capture_v2_baseline.py <seed>",
+    "extended_training": "PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_training_benchmark.py --implementation before-e4ad11766bc53554eb0dd53fd29ba47fa41000c2 --extended --output <output>",
+    "kernels": "UPSTREAM_REFERENCE_ROOT=/private/tmp/drevalpy-upstream DREVALPY_ROOT=/private/tmp/drevalpy-head-e4ad117 NUMERICAL_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/numerical_compare_v2.py",
+    "full_dipk_sparsego": "UPSTREAM_REFERENCE_ROOT=/private/tmp/drevalpy-upstream EXPANDED_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/expanded_reference.py",
+    "fusion": "UPSTREAM_REFERENCE_ROOT=/private/tmp/drevalpy-upstream FUSION_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/fusion_reference.py",
+    "srmf": "SRMF_REFERENCE_MAT=/private/tmp/drevalpy-head-e4ad117/docs/project/literature_audit/srmf-reference.mat SRMF_OCTAVE_VERSION=/private/tmp/drevalpy-head-e4ad117/docs/project/literature_audit/octave-version.txt SRMF_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/compare.py",
+    "precily_isolated": "PRECILY_MODEL1=/private/tmp/drevalpy-upstream/Precily/Fig1/Fig1d/Model1.hdf5 PRECILY_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <tensorflow-keras-venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/compare_tf.py",
+    "supplementary_facade": "DREVALPY_FACADE_ROOT=<archive-or-current-root> PYTHONPATH=<archive-or-current-root> <project-venv>/bin/python tools/literature_reference/facade_training_reference.py --seeds 0 1 2 --output <output>"
+  },
+  "outputs": {
+    "baseline-v2-fixtures/seed-0.json": "d023b5ba154d0a34618de864c5dad4e2b37f3ad4269242b9a0b1796c353783c2",
+    "baseline-v2-fixtures/seed-1.json": "7d3c10ed773bda64453e50a0927d9f9b442f3f711cc557766511110f51a6ed65",
+    "baseline-v2-fixtures/seed-2.json": "8bf24bd3646da974e947f8637ea3fc703c50f0eab8c292ca4d4b5f03f4cf6981",
+    "expanded-reference-postmigration.json": "6fb4b1af62a1f55fcf962bfcb1e6a80bbc3e6985d83270ad1835e01314e24dd0",
+    "expanded-reference.json": "6fb4b1af62a1f55fcf962bfcb1e6a80bbc3e6985d83270ad1835e01314e24dd0",
+    "facade-baseline.json": "ce55964ba8e0e8b8c6a449fb1c29f5003880ffe82d85bc867721ba4614a280c0",
+    "facade-reference-baseline.json": "cbe4b7d6a910d906f0637339b3769f2125324f7f90a2b7632fdb3618e5cb9d4c",
+    "facade-reference-comparison.json": "a44e3a94dccbbd650e602701d38951677bbb80da75f8d44d87b7a72f4b4fb980",
+    "facade-reference-postmigration.json": "a7c50e74072a69ba3e33cd444ec51cc7d02894ec703a92a68f96ddf369ccfd10",
+    "fusion-reference-postmigration.json": "a75ab13bd8a3b4fc7088c068f63d43acdc74bba3f99ba1d3577c46deceadb633",
+    "fusion-reference.json": "a75ab13bd8a3b4fc7088c068f63d43acdc74bba3f99ba1d3577c46deceadb633",
+    "numerical-kernels-postmigration.json": "8545fb902f317d5733de98fa7ed75f977ca8e3851c9ef1f2c3eb0724c9fe192c",
+    "numerical-kernels.json": "8545fb902f317d5733de98fa7ed75f977ca8e3851c9ef1f2c3eb0724c9fe192c",
+    "postmigration-v2-fixtures/seed-0.json": "d023b5ba154d0a34618de864c5dad4e2b37f3ad4269242b9a0b1796c353783c2",
+    "postmigration-v2-fixtures/seed-1.json": "7d3c10ed773bda64453e50a0927d9f9b442f3f711cc557766511110f51a6ed65",
+    "postmigration-v2-fixtures/seed-2.json": "8bf24bd3646da974e947f8637ea3fc703c50f0eab8c292ca4d4b5f03f4cf6981",
+    "precily-reference-baseline.json": "1a49e90f43b7e6ac956b23503bd53ead62e7afe5775c23282ac81266131ff47f",
+    "precily-reference-postmigration.json": "1a49e90f43b7e6ac956b23503bd53ead62e7afe5775c23282ac81266131ff47f",
+    "srmf-reference-postmigration.json": "e379cc6d512ee7b99153f3ed2be8a350ef0119f5744f46ed01af29a492190fe4",
+    "srmf-reference.json": "e379cc6d512ee7b99153f3ed2be8a350ef0119f5744f46ed01af29a492190fe4",
+    "training/literature-training-extended-postmigration.json": "f0f6a75f6ce5dcd2f330f72f029d6864d10cc3e846be436c417f4352cb758104",
+    "training/literature-training-extended.json": "d892211d15253d0d47eb355174ac4b3638c11c21eafb401fabd58512180829b9"
+  },
+  "reference_runtime": {
+    "tensorflow": "2.21.0",
+    "keras": "3.15.1",
+    "h5py": "3.14.0",
+    "numpy": "2.5.2",
+    "environment": "/private/tmp/dreval-architecture-tf",
+    "isolation": "Independent venv; existing project packages appended after reference packages through a .pth file."
+  },
+  "source_and_artifact_manifest": "../literature_audit/manifest.json",
+  "source_and_artifact_manifest_sha256": "5efd69542239a2c0aca73a672ccf9faa82c5384428f5b73bcfc51519548260f2",
+  "runner_sha256": {
+    "tools/literature_reference/facade_training_reference.py": "8ac42dbe123ad55f17abedb78b83be1fad165cd16c964bd9d2b498c7dae37a69",
+    "tools/literature_training_benchmark.py": "74a81339cd2ff246b87974b5bae304f49e8f90392e3f31496b6c9cec5dca8a91",
+    "docs/project/architecture_audit/capture_facade_baseline.py": "404e26b98fe24ab178beb03fb48e50d59efc63b5a190e30f0dd15043d9b32bea"
+  }
+}

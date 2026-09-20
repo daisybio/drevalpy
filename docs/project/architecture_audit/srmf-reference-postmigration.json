@@ -1,0 +1,12 @@
+{
+  "status": "pass",
+  "runtime": "9.4.0",
+  "checks": {
+    "loss": true,
+    "u_update": true,
+    "v_update": true,
+    "five_step_best_factors": true
+  },
+  "loss": 1.65451,
+  "scope": "Original SRMF .m files executed by Octave; nonzero drug and cell similarity regularization; zero/full/partial observation rows. Shared initial factors isolate intentional NumPy vs MATLAB RNG difference."
+}

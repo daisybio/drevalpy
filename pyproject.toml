@@ -258,11 +258,6 @@ min_file_coverage = 60
 "drevalpy/data/datasets/__init__.py" = 44
 "drevalpy/data/datasets/_load.py" = 55
 
-# Defensive resolution fallbacks for hand-rolled DRPModel subclasses. Every model
-# construct_model() produces sets _base_model_config, so the zoo-lookup and
-# model_config()-RuntimeError branches are dead for all shipped models.
-"drevalpy/models/mixins/_hyperparameters.py" = 57
-
 # Per-module statement ceiling, enforced by tools/size_gate.py. This is the ratchet
 # that keeps the mixin split in models/mixins/ and components/featurizers/ from
 # growing back: complexipy already caps per-function complexity, but nothing stopped
@@ -302,13 +297,11 @@ max_module_statements = 150
 "drevalpy/components/predictors/literature/srmf/predictor.py" = 172
 
 # Single cohesive units whose statements are one flat sequence rather than several
-# concerns: a declarative registry of builtin components, one dataset facade, one
-# component-stack builder, one plot each.
+# concerns: a declarative registry of builtin components, one dataset facade,
+# one plot each.
 "drevalpy/registry/_builtins.py" = 199
-"drevalpy/models/component_stack.py" = 166
 "drevalpy/types/data/dataset.py" = 218
 "drevalpy/visualization/plots/leaderboard.py" = 177
-"drevalpy/types/results/experiment.py" = 156
 "drevalpy/components/predictors/neural_network/predictor.py" = 165
 
 [tool.complexipy]

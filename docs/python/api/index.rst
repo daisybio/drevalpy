@@ -7,7 +7,7 @@ workflows; use the packages below when you need signatures and member lists.
 
 The root ``drevalpy`` package re-exports a few conveniences alongside
 ``__version__`` — ``load``, ``split``, ``run``, ``single``,
-``construct_model``, ``randomization``, ``robustness``, and ``registry``. For
+``ModelSpec``, ``DRPModel``, ``randomization``, ``robustness``, and ``registry``. For
 everything else, import from the subpackages in the table.
 
 .. list-table::
@@ -35,7 +35,7 @@ everything else, import from the subpackages in the table.
      - :doc:`/python/visualization`
      - :doc:`/concepts/evaluation`
    * - ``drevalpy.models``
-     - ``construct_model``, ``ModelConfig``, zoo, save/load
+     - ``ModelSpec``, ``DRPModel``, zoo, save/load
      - :doc:`/python/models`
      - :doc:`/concepts/model_zoo`
    * - ``drevalpy.components``

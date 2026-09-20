@@ -1,0 +1,41 @@
+{
+  "MOLIR_regression_adaptation": {
+    "status": "pass",
+    "checks": [
+      "intermediate_fusion",
+      "forward",
+      "adapted_loss",
+      "active_gradients",
+      "SGD_update"
+    ],
+    "predictions": [
+      0.19603630900382996,
+      -0.14146879315376282,
+      0.07018309831619263,
+      -0.19971144199371338
+    ],
+    "loss": 1.5035462379455566,
+    "active_parameter_tensors": 14,
+    "scope": "MultiOmics encoder order plus original MOLI dim=0 fusion normalization and classifier layers before sigmoid; MSE replaces BCE and fixed continuous-response triplets use gamma=.5. This composed regression adaptation is not an unchanged upstream classifier."
+  },
+  "SuperFELTR_regression_adaptation": {
+    "status": "pass",
+    "checks": [
+      "intermediate_fusion",
+      "forward",
+      "adapted_loss",
+      "active_gradients",
+      "SGD_update"
+    ],
+    "predictions": [
+      0.15748031437397003,
+      0.04321316257119179,
+      0.21355444192886353,
+      0.37627115845680237
+    ],
+    "loss": 0.2717786431312561,
+    "active_parameter_tensors": 2,
+    "encoder_triplet_loss_and_gradients": "pass",
+    "scope": "Published three encoders and classifier before sigmoid; frozen encoders during head fitting, MSE replaces BCE. Encoder triplet checks use shared indices, not binary-vs-continuous sampler equality."
+  }
+}

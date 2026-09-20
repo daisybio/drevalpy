@@ -59,11 +59,11 @@ masks for train, validation, and test sets. Pass a fold directly to
 
 .. code-block:: python
 
-   from drevalpy.models import construct_model
+   from drevalpy.models import ModelSpec
    from drevalpy import single
 
-   ElasticNet = construct_model("ElasticNet")
-   result = single(ElasticNet, dataset, folds[0], hyperparameter_tuning=False)
+   elastic_net = ModelSpec.from_name("ElasticNet")
+   result = single(elastic_net, dataset, folds[0], hyperparameter_tuning=False)
 
 Curve quality
 ~~~~~~~~~~~~~

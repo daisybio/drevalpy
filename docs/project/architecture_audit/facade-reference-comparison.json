@@ -1,0 +1,570 @@
+{
+  "all_passed": true,
+  "models": {
+    "DIPK": {
+      "0": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "bionic_features": true,
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "molgnet_features": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "1": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "bionic_features": true,
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "molgnet_features": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "2": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "bionic_features": true,
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "molgnet_features": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      }
+    },
+    "DrugGNN": {
+      "0": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "drug_graph": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "1": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "drug_graph": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "2": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "drug_graph": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      }
+    },
+    "MOLIR": {
+      "0": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "copy_number_variation_gistic": true,
+              "gene_expression": true,
+              "mutations": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "identity": true,
+              "identity_categories": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "1": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "copy_number_variation_gistic": true,
+              "gene_expression": true,
+              "mutations": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "identity": true,
+              "identity_categories": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "2": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "copy_number_variation_gistic": true,
+              "gene_expression": true,
+              "mutations": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "identity": true,
+              "identity_categories": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      }
+    },
+    "PharmaFormer": {
+      "0": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "bpe_smiles": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "1": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "bpe_smiles": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "2": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "bpe_smiles": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      }
+    },
+    "Precily": {
+      "0": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "pathways": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "smilesvec": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "1": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "pathways": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "smilesvec": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "2": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "pathways": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "smilesvec": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      }
+    },
+    "SRMF": {
+      "0": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "fingerprints": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "1": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "fingerprints": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "2": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "fingerprints": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      }
+    },
+    "SparseGO": {
+      "0": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "fingerprints": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "1": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "fingerprints": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "2": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "gene_expression": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "fingerprints": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      }
+    },
+    "SuperFELTR": {
+      "0": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "copy_number_variation_gistic": true,
+              "gene_expression": true,
+              "mutations": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "identity": true,
+              "identity_categories": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "1": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "copy_number_variation_gistic": true,
+              "gene_expression": true,
+              "mutations": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "identity": true,
+              "identity_categories": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      },
+      "2": {
+        "features": {
+          "cell_line": {
+            "block_checksums_equal": {
+              "copy_number_variation_gistic": true,
+              "gene_expression": true,
+              "mutations": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          },
+          "drug": {
+            "block_checksums_equal": {
+              "identity": true,
+              "identity_categories": true
+            },
+            "block_names_equal": true,
+            "entity_ids_equal": true,
+            "matrix_checksum_equal": true
+          }
+        },
+        "passed": true,
+        "prediction_checksum_equal": true
+      }
+    }
+  }
+}

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import importlib
-from pathlib import Path
+
+from upath import UPath as Path
 
 
 def test_native_component_registration_does_not_import_literature_models() -> None:
@@ -55,7 +56,7 @@ def test_component_predictors_avoid_models_utils() -> None:
 
 def test_orchestration_lives_in_models_layer() -> None:
     import drevalpy.components as components_pkg
-    import drevalpy.models.component_stack as component_stack
+    import drevalpy.models._pipeline as pipeline
     import drevalpy.models.config.io as models_config_io
     import drevalpy.models.factory as models_factory
     import drevalpy.models.zoo as models_zoo
@@ -64,7 +65,7 @@ def test_orchestration_lives_in_models_layer() -> None:
     assert not hasattr(components_pkg, "model_config_for_name")
     assert not hasattr(components_pkg, "get_zoo_config")
     assert models_factory.model_config_for_name.__module__ == "drevalpy.models.factory"
-    assert component_stack.build_component_stack.__module__ == "drevalpy.models.component_stack"
+    assert pipeline._ModelPipeline.__module__ == "drevalpy.models._pipeline"
     assert models_config_io.from_yaml.__module__ == "drevalpy.models.config.io"
     assert models_config_io.from_spec.__module__ == "drevalpy.models.config.io"
     assert models_factory.zoo_config.__module__ == "drevalpy.models.factory"

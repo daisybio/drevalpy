@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
+from upath import UPath as Path
 
-from drevalpy.models import construct_model
+from drevalpy.models import ModelSpec
 from drevalpy.models._model_lookup import known_model_names
 from drevalpy.models.drp_model import DRPModel
 
@@ -56,8 +55,9 @@ def test_no_forbidden_runtime_imports_in_source() -> None:
 
 
 @pytest.mark.parametrize("model_name", known_model_names(include_external=False))
-def test_construct_model_classes_are_drp_models(model_name: str) -> None:
-    cls = construct_model(model_name)
-    assert issubclass(cls, DRPModel)
-    assert cls.__module__ == "drevalpy.models"
-    assert cls._model_name == model_name
+def test_presets_build_the_same_concrete_runtime(model_name: str) -> None:
+    spec = ModelSpec.from_name(model_name)
+    model = DRPModel(spec)
+    assert type(model) is DRPModel
+    assert model.name == model_name
+    assert model.spec == spec
