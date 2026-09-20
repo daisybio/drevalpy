@@ -13,7 +13,7 @@ from drevalpy.experiment._randomization import (
     _single_view_tests,
     randomization,
 )
-from drevalpy.models import construct_model
+from drevalpy.models import ModelSpec
 
 
 @dataclass
@@ -50,12 +50,7 @@ class _StubDataset:
 def _stub_model(*, cell_lines: list[str] | None = None, drugs: list[str] | None = None) -> type:
     config = _StubConfig(cell_lines=cell_lines or [], drugs=drugs or [])
 
-    class _StubModel:
-        @classmethod
-        def model_config(cls) -> _StubConfig:
-            return config
-
-    return _StubModel
+    return SimpleNamespace(config=config)
 
 
 class TestSingleViewTests:
@@ -198,12 +193,12 @@ class TestRandomization:
     def test_reads_views_from_a_real_model_config(self) -> None:
         dataset = _StubDataset()
 
-        randomization(construct_model("ElasticNet"), dataset, ["SVRC", "SVRD"])
+        randomization(ModelSpec.from_name("ElasticNet"), dataset, ["SVRC", "SVRD"])
 
         assert [views for views, _ in dataset.calls] == [["gene_expression"], ["morgan_fingerprint"]]
 
     def test_produces_tagged_datasets_from_a_real_dataset(self, synthetic_dataset) -> None:
-        results = randomization(construct_model("ElasticNet"), synthetic_dataset, ["SVRC"], random_state=0)
+        results = randomization(ModelSpec.from_name("ElasticNet"), synthetic_dataset, ["SVRC"], random_state=0)
 
         assert [ds.randomization for ds in results] == [("SVRC", "gene_expression")]
         assert results[0] is not synthetic_dataset

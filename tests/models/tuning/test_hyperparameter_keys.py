@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.tuning.hyperparameter_keys import (
@@ -20,12 +19,8 @@ def _register_components() -> None:
 
 
 def test_elastic_net_alpha_has_single_owner() -> None:
-    model_cls = construct_model("ElasticNet")
-    from drevalpy.models.tuning.config_resolution import default_config_for_drp_model
-
-    config = default_config_for_drp_model(model_cls)
-    assert config is not None
-    index = build_ownership_index(config.template)
+    config = from_spec("ElasticNet")
+    index = build_ownership_index(config)
     assert len(index.short_to_targets["alpha"]) == 1
     assert index.short_to_targets["alpha"][0].qualified_key == "predictor.elasticNet.alpha"
 
@@ -58,15 +53,11 @@ def test_ambiguous_short_key_lists_qualified_alternatives() -> None:
 
 
 def test_duplicate_short_and_qualified_assignments_rejected() -> None:
-    model_cls = construct_model("ElasticNet")
-    from drevalpy.models.tuning.config_resolution import default_config_for_drp_model
-
-    config = default_config_for_drp_model(model_cls)
-    assert config is not None
-    index = build_ownership_index(config.template)
+    config = from_spec("ElasticNet")
+    index = build_ownership_index(config)
     with pytest.raises(ValueError, match="Duplicate hyperparameter assignment"):
         resolve_to_qualified_mapping(
-            config.template,
+            config,
             {"alpha": 0.2, "predictor.elasticNet.alpha": 0.3},
             index,
             reserved_keys=frozenset(),

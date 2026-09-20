@@ -79,7 +79,7 @@ def worker(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Recorder:
         Recorder standing in for :func:`drevalpy.single`.
     """
     recorder = Recorder(return_value=StubRunResult())
-    monkeypatch.setattr("drevalpy.models.construct_model", lambda name: type(f"Stub{name}", (), {}))
+    monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type(f"Stub{name}", (), {}))
     monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: dataset))
     patch_worker(monkeypatch, "drevalpy._single", "single", recorder)
     return recorder

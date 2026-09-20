@@ -153,7 +153,7 @@ class TestOrchestratorPassesType:
         mock_config.drug_views.return_value = []
 
         mock_model = MagicMock()
-        mock_model.model_config.return_value = mock_config
+        mock_model.config = mock_config
 
         mock_dataset = MagicMock()
         mock_dataset.with_randomized_views.return_value = MagicMock(randomization=("SVRC", "gene_expression"))

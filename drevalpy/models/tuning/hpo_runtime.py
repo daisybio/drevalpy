@@ -9,18 +9,14 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from upath import UPath as Path
 
-from drevalpy.evaluation import AVAILABLE_METRICS
+from drevalpy.evaluation import score_predictions
 from drevalpy.log import get_logger
+from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.config import HPOConfig
-from drevalpy.models.tuning.config_resolution import (
-    construct_drp_model_from_config,
-    tuned_config_for_drp_model,
-)
-from drevalpy.models.tuning.search_space import sample_from_optuna_trial
+from drevalpy.models.tuning.search_space import resolve_model_config, sample_from_optuna_trial
 from drevalpy.types import SplitMask
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.utils.response_transform import fit_response_transformation
 
 if TYPE_CHECKING:
     import optuna
@@ -45,11 +41,18 @@ def _trial_checkpoint_dir(base_dir: str | Path | None, trial_number: int) -> Pat
     return path
 
 
-def _construct_trial_model(model_class: type[DRPModel], sampled: dict[str, Any]) -> DRPModel:
-    trial_config = tuned_config_for_drp_model(model_class, sampled)
-    if trial_config is None:
-        return model_class(sampled)
-    return construct_drp_model_from_config(model_class, trial_config)
+def _construct_trial_model(
+    model_spec: ModelSpec,
+    sampled: dict[str, Any],
+    response_transformation: TransformerMixin | None = None,
+) -> DRPModel:
+    from drevalpy.models.drp_model import DRPModel
+    from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
+
+    config = resolve_model_config(model_spec.config, sampled)
+    return DRPModel(
+        model_spec, public_hyperparameters_from_config(config), response_transformation=response_transformation
+    )
 
 
 def _extract_ground_truth(mudataset: Dataset, scope: SplitMask) -> np.ndarray:
@@ -70,7 +73,6 @@ def _mu_evaluate_trial_model(
     train_scope: SplitMask,
     val_scope: SplitMask,
     early_stopping_scope: SplitMask | None,
-    response_transformation: TransformerMixin | None,
     model_checkpoint_dir: str | Path | None,
     trial_number: int = 0,
 ) -> float:
@@ -81,7 +83,6 @@ def _mu_evaluate_trial_model(
         train_scope=train_scope,
         val_scope=val_scope,
         early_stopping_scope=early_stopping_scope,
-        response_transformation=response_transformation,
         model_checkpoint_dir=model_checkpoint_dir,
         trial_number=trial_number,
     )
@@ -95,7 +96,6 @@ def _mu_evaluate_trial_all_metrics(
     train_scope: SplitMask,
     val_scope: SplitMask,
     early_stopping_scope: SplitMask | None,
-    response_transformation: TransformerMixin | None,
     model_checkpoint_dir: str | Path | None,
     trial_number: int = 0,
 ) -> tuple[dict[str, float], np.ndarray]:
@@ -103,47 +103,19 @@ def _mu_evaluate_trial_all_metrics(
 
     :returns: Tuple of (metrics_dict, predictions_array).
     """
-    fitted_transform = fit_response_transformation(response_transformation, mudataset, train_scope)
+    from contextlib import nullcontext
+
     trial_dir = _trial_checkpoint_dir(model_checkpoint_dir, trial_number)
-    if trial_dir is not None:
+    context = nullcontext(trial_dir) if trial_dir is not None else tempfile.TemporaryDirectory()
+    with context as checkpoint_dir:
         trial_model.train(
-            mudataset=mudataset,
-            scope=train_scope,
+            mudataset,
+            train_scope,
             early_stopping_scope=early_stopping_scope,
-            model_checkpoint_dir=str(trial_dir),
-            response_transformation=fitted_transform,
+            model_checkpoint_dir=checkpoint_dir,
         )
-    else:
-        with tempfile.TemporaryDirectory() as checkpoint_dir:
-            trial_model.train(
-                mudataset=mudataset,
-                scope=train_scope,
-                early_stopping_scope=early_stopping_scope,
-                model_checkpoint_dir=checkpoint_dir,
-                response_transformation=fitted_transform,
-            )
-
-    predictions = trial_model.predict(mudataset=mudataset, scope=val_scope)
-
-    if fitted_transform is not None:
-        predictions = fitted_transform.inverse_transform(predictions.reshape(-1, 1)).ravel()
-
-    ground_truth = _extract_ground_truth(mudataset, val_scope)
-
-    if predictions.shape != ground_truth.shape:
-        raise ValueError("Predictions must have one value per requested response position")
-
-    if len(predictions) == 0:
-        return {}, predictions
-
-    valid = ~np.isnan(predictions) & ~np.isnan(ground_truth)
-    if not valid.any():
-        return {}, predictions
-
-    metrics: dict[str, float] = {}
-    for name, fn in AVAILABLE_METRICS.items():
-        metrics[name] = float(fn(y_pred=predictions[valid], y_true=ground_truth[valid]))
-    return metrics, predictions
+    predictions = trial_model.predict(mudataset, val_scope)
+    return score_predictions(predictions, _extract_ground_truth(mudataset, val_scope), empty_as_dict=True), predictions
 
 
 def _wandb_trial_run_config(
@@ -199,7 +171,7 @@ def _init_trial_wandb(
 def _optuna_objective(
     trial: optuna.Trial,
     *,
-    model_class: type[DRPModel],
+    model_spec: ModelSpec,
     mudataset: Dataset,
     train_scope: SplitMask,
     val_scope: SplitMask,
@@ -216,7 +188,7 @@ def _optuna_objective(
 ) -> float:
     """Optuna objective function: sample params, train, evaluate, return score."""
     sampled = sample_from_optuna_trial(trial, structured_space)
-    trial_model = _construct_trial_model(model_class, sampled)
+    trial_model = _construct_trial_model(model_spec, sampled, response_transformation)
 
     if wandb_project is not None:
         trial_model._in_hyperparameter_tuning = True
@@ -238,7 +210,6 @@ def _optuna_objective(
             train_scope=train_scope,
             val_scope=val_scope,
             early_stopping_scope=early_stopping_scope,
-            response_transformation=response_transformation,
             model_checkpoint_dir=model_checkpoint_dir,
             trial_number=trial.number,
         )

@@ -20,7 +20,7 @@ Model names are passed as positional arguments to ``drevalpy run``:
    drevalpy run ElasticNet RandomForest --dataset GDSC1 --split-mode LCO
 
 Names correspond to **zoo presets** — the same names you would pass to
-``construct_model("ElasticNet")`` in Python. The full list of built-in presets
+``ModelSpec.from_name("ElasticNet")`` in Python. The full list of built-in presets
 is documented in :doc:`/concepts/model_zoo`.
 
 Multiple models

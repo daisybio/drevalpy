@@ -17,7 +17,7 @@ def test_experiment_tuning_does_not_use_parameter_grid() -> None:
 def test_drp_model_does_not_load_yaml_hyperparameters() -> None:
     from drevalpy.models import drp_model
 
-    source = inspect.getsource(drp_model.DRPModel.get_hyperparameter_set)
+    source = inspect.getsource(drp_model.DRPModel.__init__)
     assert "yaml" not in source.lower()
     assert "ParameterGrid" not in source
 

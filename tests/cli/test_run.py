@@ -56,7 +56,7 @@ def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str]) -> Recorder:
         return type(f"Stub{name}", (), {})
 
     recorder = Recorder(return_value=StubExperiment())
-    monkeypatch.setattr("drevalpy.models.construct_model", fake_construct_model)
+    monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", fake_construct_model)
     patch_worker(monkeypatch, "drevalpy._run", "run", recorder)
     return recorder
 

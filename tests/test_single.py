@@ -30,7 +30,7 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy import single
 from drevalpy.data import split
 from drevalpy.evaluation import AVAILABLE_METRICS
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.registry.splitter import SplitValidationError
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results.run import RunResult
@@ -40,7 +40,7 @@ from drevalpy.types.results.run import RunResult
 SINGLE_MODULE = importlib.import_module("drevalpy._single")
 
 
-class _StubModel:
+class _StubModel(DRPModel):
     """Minimal stand-in for a ``DRPModel`` subclass.
 
     Class attributes configure the branches ``single`` selects on; instance
@@ -53,10 +53,11 @@ class _StubModel:
     instances: list[_StubModel] = []  # noqa: RUF012 - plain class-level config
     prediction_value: float | None = None
 
-    def __init__(self, hyperparameters: dict[str, Any]) -> None:
-        self.hyperparameters = hyperparameters
-        self.train_calls: list[dict[str, Any]] = []
-        self.predict_calls: list[SplitMask] = []
+    def __init__(self, spec, hyperparameters, *, response_transformation=None) -> None:
+        super().__init__(spec, hyperparameters, response_transformation=response_transformation)
+        self.received_hyperparameters = hyperparameters
+        self.train_calls = []
+        self.predict_calls = []
         type(self).instances.append(self)
 
     @classmethod
@@ -71,37 +72,41 @@ class _StubModel:
     def get_default_hyperparameters(cls) -> dict[str, Any]:
         return dict(cls.default_hyperparameters)
 
-    def train(
-        self,
-        *,
-        mudataset: Any,
-        scope: SplitMask,
-        early_stopping_scope: SplitMask | None,
-        model_checkpoint_dir: str,
-        response_transformation: Any = None,
-    ) -> None:
+    def train(self, dataset, scope, *, early_stopping_scope=None, model_checkpoint_dir="checkpoints"):
+        super().train(
+            dataset, scope, early_stopping_scope=early_stopping_scope, model_checkpoint_dir=model_checkpoint_dir
+        )
         self.train_calls.append(
             {
-                "mudataset": mudataset,
+                "dataset": dataset,
                 "scope": scope,
                 "early_stopping_scope": early_stopping_scope,
                 "model_checkpoint_dir": model_checkpoint_dir,
-                "response_transformation": response_transformation,
+                "response_transformation": self._pipeline._response_transform,
             }
         )
 
-    def predict(self, *, mudataset: Any, scope: SplitMask) -> np.ndarray:
+        def fake_prediction(batch):
+            if self.prediction_value is None:
+                return np.arange(batch.n_pairs, dtype=float)
+            return np.full(batch.n_pairs, self.prediction_value, dtype=float)
+
+        self._pipeline._predictor._predict = fake_prediction
+
+    def predict(self, dataset, scope):
         self.predict_calls.append(scope)
-        n_pairs = len(scope.pairs)
-        if self.prediction_value is None:
-            return np.arange(n_pairs, dtype=float)
-        return np.full(n_pairs, self.prediction_value, dtype=float)
+        return super().predict(dataset, scope)
 
 
 @pytest.fixture
-def stub_model() -> type[_StubModel]:
-    """Return a fresh ``_StubModel`` subclass so class-level state is per-test."""
-    return type("_FreshStubModel", (_StubModel,), {"instances": []})
+def stub_model(monkeypatch):
+    """Record orchestration while exercising the actual fitted model pipeline."""
+    cls = type("_FreshStubModel", (_StubModel,), {"instances": []})
+    cls.recipe = ModelSpec("StubModel", ModelSpec.from_name("ElasticNet").config)
+    monkeypatch.setattr(SINGLE_MODULE, "DRPModel", cls)
+    monkeypatch.setattr(ModelSpec, "supports_early_stopping", property(lambda spec: cls.early_stopping))
+    monkeypatch.setattr(ModelSpec, "default_hyperparameters", property(lambda spec: dict(cls.default_hyperparameters)))
+    return cls
 
 
 @pytest.fixture
@@ -132,7 +137,7 @@ class TestEndToEnd:
 
     @pytest.fixture(scope="class")
     def result(self, synthetic_dataset) -> RunResult:
-        elastic_net = construct_model("ElasticNet")
+        elastic_net = ModelSpec.from_name("ElasticNet")
         fold = split(synthetic_dataset, "LCO", n_splits=2)[0]
         return single(elastic_net, synthetic_dataset, fold, hyperparameter_tuning=False)
 
@@ -156,7 +161,7 @@ class TestEndToEnd:
         assert set(result.metrics) == set(AVAILABLE_METRICS)
 
     def test_records_the_default_hyperparameters(self, result: RunResult) -> None:
-        assert result.best_hyperparameters == construct_model("ElasticNet").get_default_hyperparameters()
+        assert result.best_hyperparameters == ModelSpec.from_name("ElasticNet").default_hyperparameters
 
     def test_skipping_hpo_records_no_trials(self, result: RunResult) -> None:
         assert result.trials is None
@@ -180,17 +185,18 @@ class TestFoldMetadata:
     def test_split_metadata_is_copied_onto_the_result(
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
     ) -> None:
-        result = single(stub_model, synthetic_dataset, folds[1], hyperparameter_tuning=False)
+        result = single(stub_model.recipe, synthetic_dataset, folds[1], hyperparameter_tuning=False)
 
         assert result.split_mode == folds[1].metadata["split_mode"]
         assert result.fold_index == folds[1].metadata["fold_index"]
         assert result.fold_id == folds[1].metadata["fold_id"]
-        assert result.fold_metadata == folds[1].metadata
+        assert {key: result.fold_metadata[key] for key in folds[1].metadata} == folds[1].metadata
+        assert "execution" in result.fold_metadata
 
     def test_fold_metadata_does_not_alias_the_split_masks(
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
     ) -> None:
-        result = single(stub_model, synthetic_dataset, folds[1], hyperparameter_tuning=False)
+        result = single(stub_model.recipe, synthetic_dataset, folds[1], hyperparameter_tuning=False)
 
         result.fold_metadata["injected"] = "value"
 
@@ -204,7 +210,7 @@ class TestFoldMetadata:
             val=SplitMask(np.zeros(shape, dtype=bool)),
         )
 
-        result = single(stub_model, synthetic_dataset, masks, hyperparameter_tuning=False)
+        result = single(stub_model.recipe, synthetic_dataset, masks, hyperparameter_tuning=False)
 
         assert result.split_mode == ""
         assert result.fold_index == 0
@@ -217,7 +223,7 @@ class TestFoldMetadata:
             ["gene_expression"], random_state=0, randomization=("SVRC", "gene_expression")
         )
 
-        result = single(stub_model, randomized, folds[0], hyperparameter_tuning=False)
+        result = single(stub_model.recipe, randomized, folds[0], hyperparameter_tuning=False)
 
         assert result.randomization == ("SVRC", "gene_expression")
 
@@ -226,7 +232,7 @@ class TestTraining:
     def test_trains_on_the_merged_train_and_val_mask(
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
     ) -> None:
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
         scope = stub_model.instances[0].train_calls[0]["scope"]
         np.testing.assert_array_equal(scope.mask, folds[0].train_val.mask)
@@ -234,21 +240,21 @@ class TestTraining:
     def test_predicts_on_the_test_mask(
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
     ) -> None:
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
         np.testing.assert_array_equal(stub_model.instances[0].predict_calls[0].mask, folds[0].test.mask)
 
     def test_the_model_is_built_from_the_default_hyperparameters(
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
     ) -> None:
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
-        assert stub_model.instances[0].hyperparameters == {"alpha": 0.5}
+        assert stub_model.instances[0].received_hyperparameters == {"alpha": 0.5}
 
     def test_the_checkpoint_directory_exists_during_training(
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
     ) -> None:
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
         assert stub_model.instances[0].train_calls[0]["model_checkpoint_dir"]
 
@@ -257,7 +263,7 @@ class TestTraining:
     ) -> None:
         stub_model.prediction_value = float("nan")
 
-        result = single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        result = single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
         assert result.metrics == {}
 
@@ -268,7 +274,7 @@ class TestEarlyStopping:
     ) -> None:
         stub_model.early_stopping = False
 
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
         assert stub_model.instances[0].train_calls[0]["early_stopping_scope"] is None
 
@@ -277,7 +283,7 @@ class TestEarlyStopping:
     ) -> None:
         stub_model.early_stopping = True
 
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
         scope = stub_model.instances[0].train_calls[0]["early_stopping_scope"]
         expected, _ = folds[0].early_stopping_mask()
@@ -289,7 +295,7 @@ class TestEarlyStopping:
     ) -> None:
         stub_model.early_stopping = True
 
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
         scope = stub_model.instances[0].train_calls[0]["early_stopping_scope"]
         assert scope is not None
@@ -314,7 +320,7 @@ class TestEarlyStopping:
         stub_model.early_stopping = True
         masks = _masks_with_val_pairs(synthetic_dataset.response_matrix.shape, n_val)
 
-        single(stub_model, synthetic_dataset, masks, hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, masks, hyperparameter_tuning=False)
 
         scope = stub_model.instances[0].train_calls[0]["early_stopping_scope"]
         assert (scope is not None) is expects_scope
@@ -331,7 +337,9 @@ class TestResponseTransformation:
     ) -> None:
         scaler = StandardScaler()
 
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False, response_transformation=scaler)
+        single(
+            stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False, response_transformation=scaler
+        )
 
         assert not hasattr(scaler, "mean_")
 
@@ -344,7 +352,7 @@ class TestResponseTransformation:
         statistics come from the train_val scope it also inverts with.
         """
         single(
-            stub_model,
+            stub_model.recipe,
             synthetic_dataset,
             folds[0],
             hyperparameter_tuning=False,
@@ -358,7 +366,7 @@ class TestResponseTransformation:
     def test_no_transformation_hands_the_model_nothing(
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
     ) -> None:
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
         assert stub_model.instances[0].train_calls[0]["response_transformation"] is None
 
@@ -366,7 +374,7 @@ class TestResponseTransformation:
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
     ) -> None:
         result = single(
-            stub_model,
+            stub_model.recipe,
             synthetic_dataset,
             folds[0],
             hyperparameter_tuning=False,
@@ -384,7 +392,7 @@ class TestResponseTransformation:
         stub_model.prediction_value = 0.0
 
         result = single(
-            stub_model,
+            stub_model.recipe,
             synthetic_dataset,
             folds[0],
             hyperparameter_tuning=False,
@@ -398,7 +406,7 @@ class TestResponseTransformation:
     def test_no_transformation_leaves_predictions_untouched(
         self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
     ) -> None:
-        result = single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        result = single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
         np.testing.assert_array_equal(result.predictions, np.arange(len(folds[0].test.pairs), dtype=float))
 
@@ -417,7 +425,7 @@ class TestHyperparameterTuning:
         ]
         monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", lambda **kwargs: ({"alpha": 0.1}, raw_trials))
 
-        result = single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=True, hpo_metric="RMSE")
+        result = single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=True, hpo_metric="RMSE")
 
         assert result.trials is not None
         assert [t.hyperparameters for t in result.trials] == [{"alpha": 0.1}, {"alpha": 0.9}]
@@ -440,7 +448,7 @@ class TestHyperparameterTuning:
         monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
 
         single(
-            stub_model,
+            stub_model.recipe,
             synthetic_dataset,
             folds[0],
             hyperparameter_tuning=True,
@@ -450,7 +458,7 @@ class TestHyperparameterTuning:
             precomputed_only=True,
         )
 
-        assert seen["model_class"] is stub_model
+        assert seen["model_spec"] is stub_model.recipe
         assert seen["mudataset"] is synthetic_dataset
         assert seen["metric"] == "MSE"
         assert seen["precomputed_only"] is True
@@ -476,7 +484,7 @@ class TestHyperparameterTuning:
 
         monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
 
-        single(stub_model, synthetic_dataset, folds[0], hyperparameter_tuning=True)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=True)
 
         es_expected, val_expected = folds[0].early_stopping_mask()
         np.testing.assert_array_equal(seen["early_stopping_scope"].mask, es_expected.mask)
@@ -500,7 +508,13 @@ def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
         return stub_model.get_default_hyperparameters(), []
 
     monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", tune)
-    single(stub_model, synthetic_dataset, masks, hyperparameter_tuning=tuning, response_transformation=StandardScaler())
+    single(
+        stub_model.recipe,
+        synthetic_dataset,
+        masks,
+        hyperparameter_tuning=tuning,
+        response_transformation=StandardScaler(),
+    )
     call = stub_model.instances[-1].train_calls[0]
     assert not (call["scope"] & es).any()
     assert call["scope"] == masks.train | val
@@ -528,5 +542,5 @@ def test_direct_masks_are_validated_before_training(stub_model, synthetic_datase
         masks.test.mask[0, 0] = True
 
     with pytest.raises(SplitValidationError):
-        single(stub_model, synthetic_dataset, masks, hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, masks, hyperparameter_tuning=False)
     assert stub_model.instances == []

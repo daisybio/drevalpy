@@ -10,19 +10,15 @@ import numpy as np
 from upath import UPath as Path
 
 from drevalpy.log import get_logger
-from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.config import HPOConfig, validate_hpo_metric
-from drevalpy.models.tuning.config_resolution import (
-    has_tunable_hyperparameters,
-    tuned_config_for_drp_model,
-)
 from drevalpy.models.tuning.hpo_runtime import (
     _construct_trial_model,
     _mu_evaluate_trial_all_metrics,
     run_optuna_study,
 )
 from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
-from drevalpy.models.tuning.search_space import sample_from_optuna_trial
+from drevalpy.models.tuning.search_space import resolve_model_config, sample_from_optuna_trial
 from drevalpy.types import SplitMask
 from drevalpy.types.data.dataset import Dataset
 
@@ -64,7 +60,7 @@ def _is_valid_score(value: float) -> bool:
 
 def hpam_tune(
     *,
-    model_class: type[DRPModel],
+    model_spec: ModelSpec,
     mudataset: Dataset,
     train_scope: SplitMask,
     val_scope: SplitMask,
@@ -82,7 +78,7 @@ def hpam_tune(
 
     Returns the best hyperparameter mapping and per-trial results with all metrics.
 
-    :param model_class: Model class to tune.
+    :param model_spec: Named model recipe to tune.
     :param mudataset: Full dataset with all features.
     :param train_scope: Training SplitMask.
     :param val_scope: Validation SplitMask for scoring.
@@ -108,24 +104,24 @@ def hpam_tune(
         msg = f"HPOConfig.metric ({cfg.metric!r}) must match metric argument ({metric!r})"
         raise ValueError(msg)
 
-    structured_space = model_class.get_structured_hyperparameter_space()
-    if not structured_space or not has_tunable_hyperparameters(model_class):
-        return model_class.get_default_hyperparameters(), []
+    structured_space = model_spec.hyperparameter_space
+    if not structured_space:
+        return model_spec.default_hyperparameters, []
     if cfg.n_trials == 0:
-        return model_class.get_default_hyperparameters(), []
+        return model_spec.default_hyperparameters, []
 
     # TODO: When precomputed_only is True, query list_stored_variants(mdata) for each
     # precomputable featurizer in the model config and restrict its HP params in
     # structured_space to categorical choices over stored variant values.
     _ = precomputed_only
 
-    model_name = model_class.get_model_name()
+    model_name = model_spec.name
     all_trial_data: list[tuple[dict[str, Any], dict[str, float], np.ndarray]] = []
     failures = _TrialFailures()
 
     def objective_with_metrics(trial: Any) -> float:
         sampled = sample_from_optuna_trial(trial, structured_space)
-        trial_model = _construct_trial_model(model_class, sampled)
+        trial_model = _construct_trial_model(model_spec, sampled, response_transformation)
 
         try:
             metrics, predictions = _mu_evaluate_trial_all_metrics(
@@ -134,7 +130,6 @@ def hpam_tune(
                 train_scope=train_scope,
                 val_scope=val_scope,
                 early_stopping_scope=early_stopping_scope,
-                response_transformation=response_transformation,
                 model_checkpoint_dir=model_checkpoint_dir,
                 trial_number=trial.number,
             )
@@ -166,7 +161,7 @@ def hpam_tune(
 
     study = run_optuna_study(objective=objective_with_metrics, cfg=cfg)
     _report_trial_failures(study, failures)
-    best_params = _resolve_best_params(study, model_class)
+    best_params = _resolve_best_params(study, model_spec)
     return best_params, all_trial_data
 
 
@@ -195,7 +190,7 @@ def _report_trial_failures(study, failures: _TrialFailures) -> None:
     raise HPOTrialsFailedError(msg) from failures.first
 
 
-def _resolve_best_params(study, model_class: type[DRPModel]) -> dict[str, Any]:
+def _resolve_best_params(study, model_spec: ModelSpec) -> dict[str, Any]:
     """Extract best hyperparameters from a completed Optuna study."""
     try:
         best_trial = study.best_trial
@@ -207,12 +202,10 @@ def _resolve_best_params(study, model_class: type[DRPModel]) -> dict[str, Any]:
             "Optuna tuning did not find a valid configuration; using defaults.",
             stacklevel=2,
         )
-        return model_class.get_default_hyperparameters()
+        return model_spec.default_hyperparameters
 
     best_config = best_trial.params
-    best_model_config = tuned_config_for_drp_model(model_class, best_config)
-    if best_model_config is None:
-        return dict(best_config)
+    best_model_config = resolve_model_config(model_spec.config, best_config)
     return public_hyperparameters_from_config(best_model_config)
 
 

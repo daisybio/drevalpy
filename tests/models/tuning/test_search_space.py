@@ -3,7 +3,7 @@
 import optuna
 import pytest
 
-from drevalpy.models import construct_model
+from drevalpy.models import ModelSpec
 from drevalpy.models.config import from_spec
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.tuning.search_space import (
@@ -60,7 +60,7 @@ def test_merge_concat_child_spaces_use_qualified_selectors() -> None:
     assert any(key.startswith("cell_line_featurizer.landmarkGenes.") for key in merged)
     assert any("predictor.randomForest." in key for key in merged)
     # The class-level space is what HPO tunes; it must not drift from the config merge.
-    assert construct_model("ComboRF", spec).get_structured_hyperparameter_space() == merged
+    assert ModelSpec("ComboRF", config).hyperparameter_space == merged
 
 
 def test_merge_same_name_different_views_get_distinct_keys() -> None:

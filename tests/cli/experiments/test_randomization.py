@@ -38,7 +38,7 @@ def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str]) -> Recorder:
         return type(f"Stub{name}", (), {})
 
     recorder = Recorder(return_value=[FakeDataset(randomization=tag) for tag in RANDOMIZED])
-    monkeypatch.setattr("drevalpy.models.construct_model", fake_construct_model)
+    monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", fake_construct_model)
     monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: FakeDataset()))
     patch_worker(monkeypatch, "drevalpy.experiment._randomization", "randomization", recorder)
     return recorder
@@ -138,7 +138,7 @@ class TestOutput:
         assert written == sorted(f"{mode}:{view}.h5mu" for mode, view in RANDOMIZED)
 
     def test_untagged_dataset_falls_back_to_unknown(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
-        monkeypatch.setattr("drevalpy.models.construct_model", lambda name: type("Stub", (), {}))
+        monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type("Stub", (), {}))
         monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: FakeDataset()))
         patch_worker(
             monkeypatch,
@@ -158,7 +158,7 @@ class TestOutput:
         assert expected in plain(result.output)
 
     def test_empty_result_still_reports_zero(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
-        monkeypatch.setattr("drevalpy.models.construct_model", lambda name: type("Stub", (), {}))
+        monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type("Stub", (), {}))
         monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: FakeDataset()))
         patch_worker(monkeypatch, "drevalpy.experiment._randomization", "randomization", Recorder(return_value=[]))
 

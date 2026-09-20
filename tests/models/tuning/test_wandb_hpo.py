@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from drevalpy.models import construct_model
+from drevalpy.models import ModelSpec
 from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.types import SplitMask
 
@@ -17,14 +17,14 @@ def test_hpam_tune_logs_wandb_config(mock_wandb_log, mock_evaluate) -> None:
     from drevalpy.models.tuning.hpo import hpam_tune
     from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
-    model_cls = construct_model("ElasticNet")
+    model_spec = ModelSpec.from_name("ElasticNet")
     mudataset = synthetic_mudataset_gene_expression_fingerprints()
     shape = mudataset.response_matrix.shape
     train_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
     val_scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=shape)
 
     hpam_tune(
-        model_class=model_cls,
+        model_spec=model_spec,
         mudataset=mudataset,
         train_scope=train_scope,
         val_scope=val_scope,

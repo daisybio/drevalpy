@@ -12,6 +12,7 @@ from upath import UPath as Path
 
 from drevalpy.log import get_logger
 
+from ._identity import RunIdentity
 from .trial import TrialResult
 
 logger = get_logger(__name__)
@@ -72,19 +73,27 @@ class RunResult:
         return self.fold_metadata.get("robustness_trial")
 
     @property
-    def fold_key(self) -> tuple[str, str, str, str | int]:
-        """Dataset and split identity, with a tagged fallback for older results."""
-        return (
+    def identity(self) -> RunIdentity:
+        """Immutable identity shared with experiment execution."""
+        return RunIdentity.from_metadata(
+            self.model_name,
             self.dataset_name,
             self.split_mode,
-            "id" if self.fold_id else "index",
-            self.fold_id if self.fold_id else self.fold_index,
+            self.fold_index,
+            self.fold_id,
+            self.randomization,
+            self.fold_metadata,
         )
 
     @property
+    def fold_key(self) -> tuple[str, str, str, str | int]:
+        """Dataset/split/fold identity shared by ordinary and diagnostic runs."""
+        return self.identity.fold_key
+
+    @property
     def execution_key(self) -> tuple:
-        """Identity including both diagnostic variant dimensions."""
-        return (self.model_name, *self.fold_key, self.randomization, self.robustness_trial)
+        """Identity including diagnostic settings and recorded provenance."""
+        return self.identity.execution_key
 
     @property
     def execution_id(self) -> str:

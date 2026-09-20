@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.spec import ModelSpec
 from drevalpy.types.data.dataset import Dataset
 
 
@@ -20,7 +20,7 @@ def _complement_view_tests(views: list[str], prefix: str) -> dict[tuple[str, str
 
 
 def randomization(
-    model_class: type[DRPModel],
+    model_spec: ModelSpec,
     dataset: Dataset,
     randomization_mode: list[str],
     *,
@@ -33,14 +33,14 @@ def randomization(
     a copy of the dataset with the relevant views shuffled. Each returned
     dataset has its ``randomization`` field set to ``(mode, view)``.
 
-    :param model_class: Model class whose config defines available views.
+    :param model_spec: Model class whose config defines available views.
     :param dataset: Original dataset to randomize.
     :param randomization_mode: List of mode codes (e.g. ["SVRC", "SVRD"]).
     :param randomization_type: "permutation" or "invariant".
     :param random_state: Seed for reproducibility.
     :returns: List of randomized datasets.
     """
-    config = model_class.model_config()
+    config = model_spec.config
     cell_line_views = config.cell_line_views()
     drug_views = config.drug_views()
 

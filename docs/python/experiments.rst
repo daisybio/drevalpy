@@ -27,21 +27,21 @@ Minimal call
 .. code-block:: python
 
    from drevalpy.data import load
-   from drevalpy.models import construct_model
+   from drevalpy.models import ModelSpec
    from drevalpy import run
 
    dataset = load("GDSC1")
-   ElasticNet = construct_model("ElasticNet")
+   elastic_net = ModelSpec.from_name("ElasticNet")
 
    result = run(
-       models=[ElasticNet],
+       models=[elastic_net],
        dataset=dataset,
        split_mode="LCO",
        hyperparameter_tuning=False,
    )
 
-Pass model **classes** from :func:`~drevalpy.models.construct_model`, not
-instances. The result is an
+Pass ``ModelSpec`` values, not fitted instances. The runner creates a fresh
+``DRPModel`` per fold. The result is an
 :class:`~drevalpy.types.results.ExperimentResult` containing all fold
 predictions and metrics.
 
@@ -57,7 +57,7 @@ predictions and metrics.
      - Description
    * - ``models``
      -
-     - List of ``DRPModel`` subclasses to evaluate.
+     - List of ``ModelSpec`` values to evaluate.
    * - ``dataset``
      -
      - ``Dataset`` object or name string (auto-loaded).
@@ -97,17 +97,17 @@ For parallel or custom workflows, split first and execute folds individually:
 .. code-block:: python
 
    from drevalpy.data import load, split
-   from drevalpy.models import construct_model
+   from drevalpy.models import ModelSpec
    from drevalpy import single
 
    dataset = load("GDSC1")
    folds = split(dataset, mode="LCO", n_splits=5)
-   ElasticNet = construct_model("ElasticNet")
+   elastic_net = ModelSpec.from_name("ElasticNet")
 
    results = []
    for fold in folds:
        result = single(
-           ElasticNet,
+           elastic_net,
            dataset,
            fold,
            hyperparameter_tuning=True,
@@ -162,8 +162,8 @@ Ray and Optuna fulfill different roles in the hyperparameter tuning process:
 Search spaces
 ~~~~~~~~~~~~~
 
-The hyperparameter search space of a model is fixed when you
-:func:`~drevalpy.models.construct_model` the class.
+The hyperparameter search space of a model is fixed when you create its
+``ModelSpec``.
 Whether you can customize the space depends on how you construct the class:
 
 - **Recipe strings** always use each component's built-in search space; they
@@ -210,16 +210,16 @@ Whether you can customize the space depends on how you construct the class:
 
       .. code-block:: python
 
-         from drevalpy.models import config, construct_model
+         from drevalpy.models import ModelSpec, config
 
          cfg = config.from_yaml("my_zoo/custom_en.yaml")
-         MyEN = construct_model("MyElasticNet", cfg)
+         MyEN = ModelSpec("MyElasticNet", cfg)
 
    .. tab-item:: ModelConfig
 
       .. code-block:: python
 
-         from drevalpy.models import config, construct_model
+         from drevalpy.models import ModelSpec, config
 
          cfg = config.ModelConfig(
              cell_line_featurizer=config.CellLineFeaturizerConfig(
@@ -254,14 +254,15 @@ Whether you can customize the space depends on how you construct the class:
                  },
              ),
          )
-         MyEN = construct_model("MyElasticNet", cfg)
+         MyEN = ModelSpec("MyElasticNet", cfg)
 
 Specs use local parameter names (``alpha``, ``n_components``, …). During
 search, Ray Tune / Optuna see dotted qualified keys to prevent name
 collisions, for example ``predictor.elasticNet.alpha`` and
 ``cell_line_featurizer.pca[expression].n_components``. See
 :doc:`/concepts/from_components_to_models` for the full key rules and
-:doc:`models` for how to construct classes from YAML or ``ModelConfig``.
+:doc:`models` for how to construct ``ModelSpec`` values from YAML or
+``ModelConfig``.
 
 Randomization and robustness
 -----------------------------

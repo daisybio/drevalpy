@@ -21,6 +21,7 @@ import numpy as np
 import pytest
 
 from drevalpy import run
+from drevalpy.models import ModelSpec
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results import ExperimentResult
 from tests.synthetic.results import DEFAULT_DATASET_NAME, make_run_result
@@ -42,14 +43,7 @@ class _FakeDataset:
 
 def _stub_model(name: str) -> type:
     """Build a minimal ``DRPModel`` stand-in identified by ``name``."""
-
-    class _StubModel:
-        @classmethod
-        def get_model_name(cls) -> str:
-            return name
-
-    _StubModel.__name__ = name
-    return _StubModel
+    return ModelSpec(name, ModelSpec.from_name("NaivePredictor").config)
 
 
 def _make_masks(*, fold_index: int, shape: tuple[int, int] = (4, 3)) -> SplitMasks:
@@ -77,7 +71,7 @@ class _SingleRecorder:
     def __call__(self, model_class: type, mudataset: Any, split_masks: SplitMasks, **kwargs: Any):
         self.calls.append(((model_class, mudataset, split_masks), kwargs))
         return make_run_result(
-            model_name=model_class.get_model_name(),
+            model_name=model_class.name,
             dataset_name=mudataset.name,
             fold_index=split_masks.metadata["fold_index"],
             fold_metadata=dict(split_masks.metadata),
@@ -94,7 +88,7 @@ class _SingleRecorder:
 
     @property
     def model_names(self) -> list[str]:
-        return [args[0].get_model_name() for args, _ in self.calls]
+        return [args[0].name for args, _ in self.calls]
 
 
 @pytest.fixture
@@ -311,6 +305,7 @@ class TestForwardedArguments:
             "hpo_num_samples": 4,
             "hpo_random_state": 7,
             "precomputed_only": True,
+            "response_transformation": None,
         }
 
     def test_the_split_mode_reaches_split(

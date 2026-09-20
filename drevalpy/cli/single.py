@@ -28,7 +28,7 @@ def single_cmd(
 ) -> None:
     """Train a model on one fold, predict on test set, and save results."""
     from drevalpy._single import single as run_single
-    from drevalpy.models import construct_model
+    from drevalpy.models import ModelSpec
     from drevalpy.types import SplitMasks
     from drevalpy.types.data.dataset import Dataset
     from drevalpy.utils import get_response_transformation
@@ -36,14 +36,14 @@ def single_cmd(
     out = UPath(output)
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    model_class = construct_model(model)
+    model_spec = ModelSpec.from_name(model)
     ds = Dataset.load(dataset)
     split_masks = SplitMasks.load(split)
     if "split_mode" not in split_masks.metadata:
         split_masks.metadata["split_mode"] = split_mode
 
     result = run_single(
-        model_class,
+        model_spec,
         ds,
         split_masks,
         hyperparameter_tuning=hpo,

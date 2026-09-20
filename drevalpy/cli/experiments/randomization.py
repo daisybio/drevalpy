@@ -30,16 +30,16 @@ def randomization_cmd(
 
     from drevalpy.data import Dataset
     from drevalpy.experiment._randomization import randomization
-    from drevalpy.models import construct_model
+    from drevalpy.models import ModelSpec
 
     out = UPath(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
     effective_modes = modes if modes else ["SVRC"]
-    model_class = construct_model(model)
+    model_spec = ModelSpec.from_name(model)
     ds = Dataset.load(dataset)
     randomized = randomization(
-        model_class, ds, effective_modes, randomization_type=randomization_type, random_state=random_state
+        model_spec, ds, effective_modes, randomization_type=randomization_type, random_state=random_state
     )
 
     with Progress() as progress:
