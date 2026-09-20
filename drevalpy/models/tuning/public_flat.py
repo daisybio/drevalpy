@@ -56,21 +56,3 @@ def public_hyperparameters_from_config(
     if isinstance(config, ResolvedModelConfig):
         return export_public_mapping_from_resolved(config)
     return export_public_mapping(config)
-
-
-def config_from_public_hyperparameters(
-    model_class: type[Any],
-    hyperparameters: dict[str, Any] | None,
-) -> ResolvedModelConfig | None:
-    """Convert a public hyperparameter mapping into a resolved config.
-
-    :param model_class: model class.
-    :param hyperparameters: hyperparameters.
-    :returns: Result.
-    """
-    config = model_class._resolve_base_config()
-    if config is None:
-        return None
-    if not hyperparameters:
-        return resolve_model_config(config)
-    return apply_public_hyperparameters_to_config(config, hyperparameters)

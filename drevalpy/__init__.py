@@ -9,6 +9,7 @@ from .data import split as split
 from .data.datasets import load as load
 from .experiment import randomization as randomization
 from .experiment import robustness as robustness
-from .models import construct_model as construct_model
+from .models import DRPModel as DRPModel
+from .models import ModelSpec as ModelSpec
 
 __version__ = version("drevalpy")

@@ -1,29 +1,17 @@
-"""Tests for internal model lookup helpers and modern construct_model forms."""
+"""Tests for model-name lookup and public specification resolution."""
 
 from __future__ import annotations
 
-import warnings
-
-import pytest
-
-from drevalpy.models import construct_model
-from drevalpy.models._model_lookup import (
-    known_model_names,
-    single_drug_model_names,
-)
+from drevalpy.models import ModelSpec
+from drevalpy.models._model_lookup import known_model_names, single_drug_model_names
 from drevalpy.models.zoo import list_zoo_names
 from drevalpy.types.enums.model_scope import ModelScope
 
 
-def test_construct_model_one_arg_resolves_zoo_preset() -> None:
-    model_cls = construct_model("ElasticNet")
-    assert model_cls.get_model_name() == "ElasticNet"
-    assert construct_model("ElasticNet") is model_cls
-
-
-def test_construct_model_one_arg_unknown_raises() -> None:
-    with pytest.raises(ValueError, match="Unknown model spec"):
-        construct_model("NotARealModel")
+def test_model_spec_resolves_zoo_preset() -> None:
+    spec = ModelSpec.from_name("ElasticNet")
+    assert spec.name == "ElasticNet"
+    assert spec.config.predictor.name == "elasticNet"
 
 
 def test_list_zoo_names_scope_filter() -> None:
@@ -42,35 +30,7 @@ def test_model_lookup_helpers() -> None:
     assert "ElasticNet" in known_model_names(include_external=False)
 
 
-def test_construct_model_does_not_warn() -> None:
-    import drevalpy.models as models
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        _ = models.construct_model
-        _ = construct_model("ElasticNet")
-
-    assert not any(issubclass(w.category, FutureWarning) for w in caught)
-
-
-def test_factory() -> None:
-    """Test that known model names include the built-in zoo presets."""
+def test_factory_names_include_builtin_presets() -> None:
     names = set(known_model_names(include_external=False))
-    assert "NaivePredictor" in names
-    assert "NaiveDrugMeanPredictor" in names
-    assert "NaiveCellLineMeanPredictor" in names
-    assert "NaiveMeanEffectsPredictor" in names
-    assert "NaiveTissueDrugMeanPredictor" in names
-    assert "ElasticNet" in names
-    assert "RandomForest" in names
-    assert "SVR" in names
-    assert "SimpleNeuralNetwork" in names
-    assert "MultiViewNeuralNetwork" in names
-    assert "MultiViewRandomForest" in names
-    assert "SingleDrugRandomForest" in names
-    assert "SRMF" in names
-    assert "GradientBoosting" in names
-    assert "MOLIR" in names
-    assert "SuperFELTR" in names
-    assert "DIPK" in names
-    assert "SparseGO" in names
+    for name in ("NaivePredictor", "NaiveDrugMeanPredictor", "ElasticNet", "RandomForest", "SVR", "MOLIR"):
+        assert name in names

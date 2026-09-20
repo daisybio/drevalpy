@@ -14,7 +14,7 @@ from drevalpy.models.config.model import ModelConfig
 class ResolvedModelConfig(BaseModel):
     """Immutable instance config: template plus concrete qualified values.
 
-    The ``template`` is the class-level ``ModelConfig``. ``values`` holds
+    The ``template`` is the unfitted recipe's ``ModelConfig``. ``values`` holds
     fully resolved concrete hyperparameters keyed by qualified names such as
     ``predictor.elasticNet.alpha`` or
     ``cell_line_featurizer.pca[expression].n_components``.

@@ -8,9 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import ModelConfig, from_spec, validate
-from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import model_config_for_name
 from drevalpy.models.zoo import list_zoo_names
 from tests.models.synthetic_fixtures import (
@@ -33,9 +32,7 @@ def test_zoo_entries_create_runnable_models(name: str) -> None:
     config = from_spec(name)
     assert isinstance(config, ModelConfig)
     validate(config)
-    model_cls = construct_model(name)
-    assert issubclass(model_cls, DRPModel)
-    assert model_cls() is not None
+    assert DRPModel(ModelSpec.from_name(name)) is not None
 
 
 def test_no_pair_context_in_production_code() -> None:
@@ -48,10 +45,10 @@ def test_no_pair_context_in_production_code() -> None:
     assert not hits, f"pair_context found in production code: {hits}"
 
 
-def test_multiview_baselines_are_construct_model_classes() -> None:
+def test_multiview_baselines_have_model_specs() -> None:
     for name in ("MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM"):
-        cls = construct_model(name)
-        assert issubclass(cls, DRPModel)
+        model = DRPModel(ModelSpec.from_name(name))
+        assert model.name == name
         config = from_spec(name)
         assert isinstance(config, ModelConfig)
         assert config.cell_line_featurizer is not None
@@ -60,17 +57,17 @@ def test_multiview_baselines_are_construct_model_classes() -> None:
 @pytest.mark.parametrize("name", ["ElasticNet", "NaiveDrugMeanPredictor"])
 def test_component_stack_save_load_round_trip(name: str) -> None:
     if name == "ElasticNet":
-        model = construct_model(name)({"alpha": 0.1, "l1_ratio": 0.5, "max_iter": 1000})
+        model = DRPModel(ModelSpec.from_name(name), {"alpha": 0.1, "l1_ratio": 0.5, "max_iter": 1000})
         mudataset = synthetic_mudataset_gene_expression_fingerprints()
     else:
-        model = construct_model(name)({})
+        model = DRPModel(ModelSpec.from_name(name), {})
         mudataset = synthetic_mudataset_identity()
     split = lco_split_masks()
-    model.train(mudataset, split)
-    preds_before = model.predict(mudataset, split)
+    model.train(mudataset, split.train)
+    preds_before = model.predict(mudataset, split.test)
     with tempfile.TemporaryDirectory() as directory:
         checkpoint = f"{directory}/model"
         model.save(checkpoint)
-        loaded = type(model).load(checkpoint)
-        preds_after = loaded.predict(mudataset, split)
+        loaded = DRPModel.load(checkpoint)
+        preds_after = loaded.predict(mudataset, split.test)
     assert np.allclose(preds_before, preds_after, rtol=1e-6, atol=1e-6)

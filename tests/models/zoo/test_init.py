@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.components.predictors.abstract.block import BlockPredictor
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import ModelConfig, ModelScope, from_spec, validate
 from drevalpy.models.factory import model_config_for_name
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names, zoo_model_config
@@ -216,7 +216,7 @@ def test_literature_zoo_entries_validate(name: str) -> None:
 @pytest.mark.parametrize("name", LITERATURE_ZOO_NAMES)
 def test_literature_zoo_entries_create_model(name: str) -> None:
     config = get_zoo_config(name)
-    model = construct_model(name, config)()
+    model = DRPModel(ModelSpec(name, config))
     assert model is not None
 
 
@@ -245,14 +245,12 @@ def test_single_drug_zoo_membership() -> None:
         "SuperFELTR",
     }
     for name in single_names:
-        model_class = construct_model(name)
-        assert model_class.is_single_drug() is True
+        assert ModelSpec.from_name(name).config.scope is ModelScope.SINGLE_DRUG
         assert get_zoo_config(name).scope == ModelScope.SINGLE_DRUG
 
 
 def test_multi_drug_zoo_excludes_single_drug_scope() -> None:
     multi_names = list_zoo_names(include_external=False, scope=ModelScope.MULTI_DRUG)
     for name in multi_names:
-        model_class = construct_model(name)
-        assert model_class.is_single_drug() is False
+        assert ModelSpec.from_name(name).config.scope is ModelScope.MULTI_DRUG
         assert get_zoo_config(name).scope == ModelScope.MULTI_DRUG

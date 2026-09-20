@@ -22,6 +22,6 @@ Continue from here
 ------------------
 
 - :doc:`/cli/models` — selecting zoo names in CLI experiments
-- :doc:`/python/models` — ``construct_model``, class vs instance, lifecycle
+- :doc:`/python/models` — ``ModelSpec``, ``DRPModel``, and lifecycle
 - :doc:`/python/experiments` — tuning a fixed preset architecture
 - :doc:`from_components_to_models` — revisit recipes and custom composition

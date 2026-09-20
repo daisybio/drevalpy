@@ -29,7 +29,8 @@ from tests._barrel_surface import ReExportSurface
 
 #: ``top-level name -> sub-package it comes from``.
 EXPECTED_ORIGINS: dict[str, str] = {
-    "construct_model": "drevalpy.models",
+    "ModelSpec": "drevalpy.models",
+    "DRPModel": "drevalpy.models",
     "load": "drevalpy.data.datasets",
     "randomization": "drevalpy.experiment",
     "robustness": "drevalpy.experiment",

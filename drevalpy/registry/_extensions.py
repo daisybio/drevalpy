@@ -216,7 +216,7 @@ def load_extensions(
     :param modules: Installed module names to import.
     :param files: Individual ``.py`` extension files.
     :param directories: Directories scanned for ``*.py`` and ``*.yaml`` extension files.
-    :param zoo_files: External zoo YAML files resolved via ``ModelConfig`` / ``construct_model``.
+    :param zoo_files: External zoo YAML files resolved into ``ModelSpec`` recipes.
     """
     for module_name in modules or []:
         load_extension_module(module_name)

@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import clear_external_zoo, get_zoo_config, list_zoo_names, load_external_zoo_file
 from drevalpy.registry._builtins import is_known_builtin_predictor
@@ -235,7 +235,7 @@ externalToy:
     load_extensions(directories=[ext_dir], zoo_files=[zoo_file])
     assert "externalToy" in list_zoo_names(include_external=True)
     config = get_zoo_config("externalToy")
-    model = construct_model("externalToy", config)()
+    model = DRPModel(ModelSpec("externalToy", config))
 
     import anndata as ad
     import mudata as md
@@ -258,8 +258,8 @@ externalToy:
         test=SplitMask(np.array([[False, False], [True, True]])),
         val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
-    model.train(mudataset, split)
-    preds = model.predict(mudataset, split)
+    model.train(mudataset, split.train)
+    preds = model.predict(mudataset, split.test)
     assert np.isfinite(preds).all()
 
 

@@ -93,7 +93,7 @@ def get_zoo_config(name: str, *, prediction_mode: PredictionMode | None = None) 
 def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool = True) -> None:
     """Register an external zoo entry.
 
-    External entries are resolved through ``ModelConfig`` / ``construct_model``
+    External entries are resolved into ``ModelConfig`` / ``ModelSpec`` recipes
     rather than dynamically extending an already-built ``MODEL_FACTORY``.
 
     :param name: Unique preset name; must not collide with built-in names unless ``replace`` allows replacement.
