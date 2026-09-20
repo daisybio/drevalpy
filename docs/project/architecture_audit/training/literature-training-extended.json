@@ -1,0 +1,739 @@
+{
+  "implementation": "before-e4ad11766bc53554eb0dd53fd29ba47fa41000c2",
+  "protocol": "extended",
+  "seeds": {
+    "0": {
+      "dipk": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.004011305049061775,
+        "mse": 8.132146961580759,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 7215875,
+        "patience": 1,
+        "predictions": [
+          0.11089291423559189,
+          1.212728500366211,
+          6.361972332000732,
+          5.673527240753174
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          2.9054826498031616,
+          0.7130163311958313,
+          11.528386950492859
+        ],
+        "training_policy": "early_stopping",
+        "validation_loss_history": [
+          1.6171199083328247,
+          0.6749060750007629,
+          1.2079284191131592
+        ]
+      },
+      "druggnn": {
+        "batch_size": 2,
+        "epochs_configured": 4,
+        "final_validation_loss": 65.89656066894531,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.8724429607391357,
+        "mse": 3.9055933451124147,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 853,
+        "predictions": [
+          0.755718469619751,
+          0.7712870836257935,
+          0.8709782361984253,
+          0.9145128726959229
+        ],
+        "selected_validation_loss": 1.5338622331619263,
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "validation_checkpoint",
+        "validation_history": [
+          1.5338622331619263,
+          1291.828857421875,
+          77.81205749511719,
+          65.89656066894531
+        ]
+      },
+      "molir": {
+        "checkpoint_score": 1.404233694076538,
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.019999951124191284,
+        "mse": 0.679885439212209,
+        "n_train": 6,
+        "n_validation": 2,
+        "parameter_updates": 107,
+        "patience": 1,
+        "predictions": [
+          0.8076168894767761,
+          0.6544692516326904,
+          0.21648666262626648,
+          0.3835461735725403,
+          -0.17804229259490967,
+          -0.25552254915237427
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "early_stopping",
+        "validation_loss_history": [
+          1.404233694076538,
+          1.6328281164169312
+        ]
+      },
+      "pharmaformer": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.007870540022850037,
+        "mse": 1.054804936850614,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 31823,
+        "patience": 1,
+        "predictions": [
+          0.1412111222743988,
+          1.5146790742874146,
+          0.576561689376831,
+          1.9828741550445557
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          2.625224381685257,
+          1.8091980814933777,
+          1.65697380900383,
+          1.3364991545677185
+        ],
+        "training_policy": "early_stopping",
+        "validation_loss_history": [
+          1.2248272895812988,
+          0.7607318758964539,
+          0.46036726236343384,
+          0.4525858163833618
+        ]
+      },
+      "precily": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.06534667313098907,
+        "mse": 1.33620984108617,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 458471,
+        "predictions": [
+          0.4779050648212433,
+          3.000199556350708,
+          1.0026664733886719,
+          4.287255764007568
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          12.194675922393799,
+          7.645219802856445,
+          5.975539684295654,
+          0.8592096269130707
+        ],
+        "training_policy": "fixed_budget"
+      },
+      "sparsego": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 1.2079493999481201,
+        "mse": 1.7704043797563287,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 88,
+        "predictions": [
+          1.8059861660003662,
+          1.8017373085021973,
+          1.7863049507141113,
+          1.7819738388061523
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          5.825479865074158,
+          3.80935737490654,
+          3.3845598697662354,
+          2.053798258304596
+        ],
+        "training_policy": "fixed_budget"
+      },
+      "srmf": {
+        "factor_count": 8,
+        "finite_factors": true,
+        "finite_predictions": true,
+        "iterations_configured": 8,
+        "mse": 3.4269031075971e-05,
+        "n_train": 4,
+        "n_validation": 0,
+        "predictions": [
+          0.9953022239804903,
+          2.002627900111662,
+          2.9906180583102024,
+          4.004481108780957
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "fixed_budget"
+      },
+      "superfeltr": {
+        "checkpoint_score": 0.2747090756893158,
+        "checkpoint_selected": true,
+        "checkpoint_trace": [
+          {
+            "model": "expression",
+            "score": 1.0,
+            "selected": true
+          },
+          {
+            "model": "mutation",
+            "score": 0.9999999403953552,
+            "selected": true
+          },
+          {
+            "model": "copy_number_variation_gistic",
+            "score": 0.9999999403953552,
+            "selected": true
+          },
+          {
+            "model": "SuperFELTRegressor",
+            "score": 0.2747090756893158,
+            "selected": true
+          }
+        ],
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "mse": 0.3254225494567295,
+        "n_train": 6,
+        "n_validation": 2,
+        "patience": 1,
+        "predictions": [
+          -0.056807540357112885,
+          0.13767588138580322,
+          0.0474097803235054,
+          0.1399088054895401,
+          0.11183434724807739,
+          0.1032029241323471
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "early_stopping",
+        "validation_loss_history": {
+          "SuperFELTRegressor": [
+            0.2941950857639313,
+            0.2857684791088104,
+            0.2796168029308319,
+            0.2747090756893158
+          ],
+          "copy_number_variation_gistic": [
+            1.0,
+            0.9999999403953552,
+            1.0000001192092896
+          ],
+          "expression": [
+            1.0,
+            1.0
+          ],
+          "mutation": [
+            1.0,
+            0.9999999403953552,
+            1.0
+          ]
+        }
+      }
+    },
+    "1": {
+      "dipk": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.006000829860568047,
+        "mse": 1.7060779230326661,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 7343859,
+        "patience": 1,
+        "predictions": [
+          0.21575476229190826,
+          2.391798973083496,
+          0.18279853463172913,
+          2.820197343826294
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          2.8697858452796936,
+          2.690025210380554,
+          1.3735840916633606,
+          3.0696587562561035
+        ],
+        "training_policy": "early_stopping",
+        "validation_loss_history": [
+          2.023996114730835,
+          0.46811166405677795,
+          0.04013725742697716,
+          0.7432050704956055
+        ]
+      },
+      "druggnn": {
+        "batch_size": 2,
+        "epochs_configured": 4,
+        "final_validation_loss": 9.578014373779297,
+        "finite_predictions": true,
+        "max_parameter_delta": 2.7299938201904297,
+        "mse": 13.882194810221392,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 968,
+        "predictions": [
+          -1.0541799068450928,
+          -1.0541799068450928,
+          -1.0541799068450928,
+          -1.0541799068450928
+        ],
+        "selected_validation_loss": 9.578014373779297,
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "validation_checkpoint",
+        "validation_history": [
+          1824.490966796875,
+          84.99745178222656,
+          2314.66943359375,
+          9.578014373779297
+        ]
+      },
+      "molir": {
+        "checkpoint_score": 0.8853824138641357,
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.04980750381946564,
+        "mse": 0.2782260452110776,
+        "n_train": 6,
+        "n_validation": 2,
+        "parameter_updates": 109,
+        "patience": 1,
+        "predictions": [
+          0.015248462557792664,
+          0.09144359827041626,
+          0.296939492225647,
+          0.23746220767498016,
+          0.030418112874031067,
+          0.25948449969291687
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "early_stopping",
+        "validation_loss_history": [
+          1.2236363887786865,
+          1.1504459381103516,
+          0.8962361812591553,
+          0.8853824138641357
+        ]
+      },
+      "pharmaformer": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.007891722023487091,
+        "mse": 0.972693180125439,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 31908,
+        "patience": 1,
+        "predictions": [
+          0.051205746829509735,
+          1.473244547843933,
+          0.6756924390792847,
+          1.9234075546264648
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          3.519640862941742,
+          2.1421057283878326,
+          1.4357452392578125,
+          1.1416218280792236
+        ],
+        "training_policy": "early_stopping",
+        "validation_loss_history": [
+          1.420817494392395,
+          0.6919766068458557,
+          0.3867743909358978,
+          0.1799570620059967
+        ]
+      },
+      "precily": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.06435423344373703,
+        "mse": 0.35743230941108806,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 445396,
+        "predictions": [
+          0.66081702709198,
+          1.3497625589370728,
+          2.0697038173675537,
+          3.8374440670013428
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          21.746641397476196,
+          6.335712015628815,
+          3.740159511566162,
+          1.6980212330818176
+        ],
+        "training_policy": "fixed_budget"
+      },
+      "sparsego": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.9386664032936096,
+        "mse": 1.360514656566039,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 91,
+        "predictions": [
+          2.131025791168213,
+          2.082947015762329,
+          2.1729023456573486,
+          2.136704921722412
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          3.799248218536377,
+          2.466445505619049,
+          2.1341677010059357,
+          1.6344882994890213
+        ],
+        "training_policy": "fixed_budget"
+      },
+      "srmf": {
+        "factor_count": 8,
+        "finite_factors": true,
+        "finite_predictions": true,
+        "iterations_configured": 8,
+        "mse": 5.386996206524034e-06,
+        "n_train": 4,
+        "n_validation": 0,
+        "predictions": [
+          1.0018724139496853,
+          1.9983242751436237,
+          3.0031115246130784,
+          3.9976436444209225
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "fixed_budget"
+      },
+      "superfeltr": {
+        "checkpoint_score": 0.22907854616641998,
+        "checkpoint_selected": true,
+        "checkpoint_trace": [
+          {
+            "model": "expression",
+            "score": 1.0,
+            "selected": true
+          },
+          {
+            "model": "mutation",
+            "score": 1.0,
+            "selected": true
+          },
+          {
+            "model": "copy_number_variation_gistic",
+            "score": 1.0,
+            "selected": true
+          },
+          {
+            "model": "SuperFELTRegressor",
+            "score": 0.22907854616641998,
+            "selected": true
+          }
+        ],
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "mse": 0.5829399528663528,
+        "n_train": 6,
+        "n_validation": 2,
+        "patience": 1,
+        "predictions": [
+          0.006742030382156372,
+          0.04901726543903351,
+          0.4615992605686188,
+          -0.18514063954353333,
+          0.15263548493385315,
+          -0.41514378786087036
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "early_stopping",
+        "validation_loss_history": {
+          "SuperFELTRegressor": [
+            0.30468079447746277,
+            0.2721835672855377,
+            0.24818196892738342,
+            0.22907854616641998
+          ],
+          "copy_number_variation_gistic": [
+            1.0,
+            1.0
+          ],
+          "expression": [
+            1.0,
+            1.0
+          ],
+          "mutation": [
+            1.0,
+            1.0000001192092896
+          ]
+        }
+      }
+    },
+    "2": {
+      "dipk": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.007830473594367504,
+        "mse": 0.5838671983684045,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 7318748,
+        "patience": 1,
+        "predictions": [
+          0.17012004554271698,
+          1.174281358718872,
+          1.8370387554168701,
+          3.630902051925659
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          2.8827834129333496,
+          2.748125195503235,
+          1.8961455523967743,
+          1.0403103232383728
+        ],
+        "training_policy": "early_stopping",
+        "validation_loss_history": [
+          1.965156078338623,
+          1.4689308404922485,
+          0.4299856126308441,
+          0.3548577129840851
+        ]
+      },
+      "druggnn": {
+        "batch_size": 2,
+        "epochs_configured": 4,
+        "final_validation_loss": 1.062774419784546,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.9689925312995911,
+        "mse": 1.628497256020534,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 810,
+        "predictions": [
+          1.9525066614151,
+          1.733341097831726,
+          2.0616116523742676,
+          1.842445731163025
+        ],
+        "selected_validation_loss": 0.31856995820999146,
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "validation_checkpoint",
+        "validation_history": [
+          0.31856995820999146,
+          208.77120971679688,
+          25.947612762451172,
+          1.062774419784546
+        ]
+      },
+      "molir": {
+        "checkpoint_score": 1.5043158531188965,
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.031542740762233734,
+        "mse": 0.5129852884089672,
+        "n_train": 6,
+        "n_validation": 2,
+        "parameter_updates": 109,
+        "patience": 1,
+        "predictions": [
+          0.04336206614971161,
+          -0.051552966237068176,
+          0.1252288520336151,
+          -0.24220941960811615,
+          -0.2030179351568222,
+          0.13220012187957764
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "early_stopping",
+        "validation_loss_history": [
+          1.5142608880996704,
+          1.5043158531188965,
+          1.5082790851593018
+        ]
+      },
+      "pharmaformer": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.00802147388458252,
+        "mse": 1.0095766099430428,
+        "n_train": 4,
+        "n_validation": 2,
+        "parameter_updates": 31977,
+        "patience": 1,
+        "predictions": [
+          0.25864195823669434,
+          1.5095736980438232,
+          0.8007181882858276,
+          2.0274298191070557
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          3.2015885412693024,
+          2.083134740591049,
+          1.9020831882953644,
+          1.1731128692626953
+        ],
+        "training_policy": "early_stopping",
+        "validation_loss_history": [
+          1.569912075996399,
+          0.8648200035095215,
+          0.3628841042518616,
+          0.20487600564956665
+        ]
+      },
+      "precily": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.06368155032396317,
+        "mse": 0.7893868022204629,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 440114,
+        "predictions": [
+          2.415564775466919,
+          2.890164613723755,
+          3.2998387813568115,
+          3.479013204574585
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          9.56949520111084,
+          7.917376518249512,
+          4.038996338844299,
+          2.105516791343689
+        ],
+        "training_policy": "fixed_budget"
+      },
+      "sparsego": {
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "max_parameter_delta": 0.914387583732605,
+        "mse": 1.6886110731772952,
+        "n_train": 4,
+        "n_validation": 0,
+        "parameter_updates": 86,
+        "predictions": [
+          1.862149953842163,
+          1.8285592794418335,
+          1.866341233253479,
+          1.8328434228897095
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_loss_history": [
+          3.3423226475715637,
+          2.907516270875931,
+          1.8403448462486267,
+          1.8053180873394012
+        ],
+        "training_policy": "fixed_budget"
+      },
+      "srmf": {
+        "factor_count": 8,
+        "finite_factors": true,
+        "finite_predictions": true,
+        "iterations_configured": 8,
+        "mse": 2.9129876571220542e-05,
+        "n_train": 4,
+        "n_validation": 0,
+        "predictions": [
+          1.0062162443944414,
+          1.9946902039086047,
+          3.0054907597986373,
+          3.995580109253055
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "fixed_budget"
+      },
+      "superfeltr": {
+        "checkpoint_score": 0.4568934142589569,
+        "checkpoint_selected": true,
+        "checkpoint_trace": [
+          {
+            "model": "expression",
+            "score": 1.0,
+            "selected": true
+          },
+          {
+            "model": "mutation",
+            "score": 1.0,
+            "selected": true
+          },
+          {
+            "model": "copy_number_variation_gistic",
+            "score": 1.0,
+            "selected": true
+          },
+          {
+            "model": "SuperFELTRegressor",
+            "score": 0.4568934142589569,
+            "selected": true
+          }
+        ],
+        "epochs_configured": 4,
+        "finite_predictions": true,
+        "mse": 0.8320912631555352,
+        "n_train": 6,
+        "n_validation": 2,
+        "patience": 1,
+        "predictions": [
+          0.07098330557346344,
+          -0.6647381782531738,
+          -0.3531258702278137,
+          -0.1243698000907898,
+          -0.18078210949897766,
+          -0.43703460693359375
+        ],
+        "state_roundtrip_max_error": 0.0,
+        "training_policy": "early_stopping",
+        "validation_loss_history": {
+          "SuperFELTRegressor": [
+            0.6020275950431824,
+            0.5394366383552551,
+            0.49362820386886597,
+            0.4568934142589569
+          ],
+          "copy_number_variation_gistic": [
+            1.0,
+            1.0
+          ],
+          "expression": [
+            1.0,
+            1.0
+          ],
+          "mutation": [
+            1.0,
+            1.0
+          ]
+        }
+      }
+    }
+  },
+  "training_regimes": {
+    "early_stopping": [
+      "dipk",
+      "molir",
+      "pharmaformer",
+      "superfeltr"
+    ],
+    "fixed_budget": [
+      "precily",
+      "sparsego",
+      "srmf"
+    ],
+    "validation_checkpoint": [
+      "druggnn"
+    ]
+  }
+}

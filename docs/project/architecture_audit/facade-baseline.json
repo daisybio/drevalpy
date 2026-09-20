@@ -1,0 +1,199 @@
+{
+  "commit": "e4ad11766bc53554eb0dd53fd29ba47fa41000c2",
+  "models": {
+    "naive": {
+      "0": {
+        "component_state_sha256": "19f516c537fbc5f61599f039ce127f69b6d4a81d0b6567da4301cff3f695e617",
+        "model_class": "drevalpy.models.NaivePredictor",
+        "prediction_sha256": "18440d7629b7f2ae0688b38143a2081cfcc8db2d5b05f79d48174fe845689a31",
+        "predictions": [
+          1.5,
+          1.5
+        ],
+        "resolved_config": {
+          "template": {
+            "cell_line_featurizer": null,
+            "drug_featurizer": null,
+            "prediction_mode": "regression",
+            "predictor": {
+              "hyperparameter_space": null,
+              "name": "naiveMean"
+            }
+          },
+          "values": {}
+        }
+      },
+      "1": {
+        "component_state_sha256": "19f516c537fbc5f61599f039ce127f69b6d4a81d0b6567da4301cff3f695e617",
+        "model_class": "drevalpy.models.NaivePredictor",
+        "prediction_sha256": "18440d7629b7f2ae0688b38143a2081cfcc8db2d5b05f79d48174fe845689a31",
+        "predictions": [
+          1.5,
+          1.5
+        ],
+        "resolved_config": {
+          "template": {
+            "cell_line_featurizer": null,
+            "drug_featurizer": null,
+            "prediction_mode": "regression",
+            "predictor": {
+              "hyperparameter_space": null,
+              "name": "naiveMean"
+            }
+          },
+          "values": {}
+        }
+      },
+      "2": {
+        "component_state_sha256": "19f516c537fbc5f61599f039ce127f69b6d4a81d0b6567da4301cff3f695e617",
+        "model_class": "drevalpy.models.NaivePredictor",
+        "prediction_sha256": "18440d7629b7f2ae0688b38143a2081cfcc8db2d5b05f79d48174fe845689a31",
+        "predictions": [
+          1.5,
+          1.5
+        ],
+        "resolved_config": {
+          "template": {
+            "cell_line_featurizer": null,
+            "drug_featurizer": null,
+            "prediction_mode": "regression",
+            "predictor": {
+              "hyperparameter_space": null,
+              "name": "naiveMean"
+            }
+          },
+          "values": {}
+        }
+      }
+    },
+    "scaled_gene_expression_elastic_net": {
+      "0": {
+        "component_state_sha256": "e7a94be56aaffe3412d0366169c1a109c6bfc4408ab8c0b0c982772583751187",
+        "model_class": "drevalpy.models.ElasticNet",
+        "prediction_sha256": "18440d7629b7f2ae0688b38143a2081cfcc8db2d5b05f79d48174fe845689a31",
+        "predictions": [
+          1.5,
+          1.5
+        ],
+        "resolved_config": {
+          "template": {
+            "cell_line_featurizer": {
+              "featurizers": null,
+              "hyperparameter_space": null,
+              "name": "scaledGeneExpression",
+              "options": null,
+              "registry": "cell_line",
+              "view": null
+            },
+            "drug_featurizer": {
+              "featurizers": null,
+              "hyperparameter_space": null,
+              "name": "fingerprints",
+              "options": null,
+              "registry": "drug",
+              "view": null
+            },
+            "prediction_mode": "regression",
+            "predictor": {
+              "hyperparameter_space": null,
+              "name": "elasticNet"
+            }
+          },
+          "values": {
+            "drug_featurizer.fingerprints.n_bits": 2048,
+            "drug_featurizer.fingerprints.radius": 2,
+            "drug_featurizer.fingerprints.use_chirality": false,
+            "drug_featurizer.fingerprints.use_counts": false,
+            "predictor.elasticNet.alpha": 1.0,
+            "predictor.elasticNet.l1_ratio": 0.5
+          }
+        }
+      },
+      "1": {
+        "component_state_sha256": "e7a94be56aaffe3412d0366169c1a109c6bfc4408ab8c0b0c982772583751187",
+        "model_class": "drevalpy.models.ElasticNet",
+        "prediction_sha256": "18440d7629b7f2ae0688b38143a2081cfcc8db2d5b05f79d48174fe845689a31",
+        "predictions": [
+          1.5,
+          1.5
+        ],
+        "resolved_config": {
+          "template": {
+            "cell_line_featurizer": {
+              "featurizers": null,
+              "hyperparameter_space": null,
+              "name": "scaledGeneExpression",
+              "options": null,
+              "registry": "cell_line",
+              "view": null
+            },
+            "drug_featurizer": {
+              "featurizers": null,
+              "hyperparameter_space": null,
+              "name": "fingerprints",
+              "options": null,
+              "registry": "drug",
+              "view": null
+            },
+            "prediction_mode": "regression",
+            "predictor": {
+              "hyperparameter_space": null,
+              "name": "elasticNet"
+            }
+          },
+          "values": {
+            "drug_featurizer.fingerprints.n_bits": 2048,
+            "drug_featurizer.fingerprints.radius": 2,
+            "drug_featurizer.fingerprints.use_chirality": false,
+            "drug_featurizer.fingerprints.use_counts": false,
+            "predictor.elasticNet.alpha": 1.0,
+            "predictor.elasticNet.l1_ratio": 0.5
+          }
+        }
+      },
+      "2": {
+        "component_state_sha256": "e7a94be56aaffe3412d0366169c1a109c6bfc4408ab8c0b0c982772583751187",
+        "model_class": "drevalpy.models.ElasticNet",
+        "prediction_sha256": "18440d7629b7f2ae0688b38143a2081cfcc8db2d5b05f79d48174fe845689a31",
+        "predictions": [
+          1.5,
+          1.5
+        ],
+        "resolved_config": {
+          "template": {
+            "cell_line_featurizer": {
+              "featurizers": null,
+              "hyperparameter_space": null,
+              "name": "scaledGeneExpression",
+              "options": null,
+              "registry": "cell_line",
+              "view": null
+            },
+            "drug_featurizer": {
+              "featurizers": null,
+              "hyperparameter_space": null,
+              "name": "fingerprints",
+              "options": null,
+              "registry": "drug",
+              "view": null
+            },
+            "prediction_mode": "regression",
+            "predictor": {
+              "hyperparameter_space": null,
+              "name": "elasticNet"
+            }
+          },
+          "values": {
+            "drug_featurizer.fingerprints.n_bits": 2048,
+            "drug_featurizer.fingerprints.radius": 2,
+            "drug_featurizer.fingerprints.use_chirality": false,
+            "drug_featurizer.fingerprints.use_counts": false,
+            "predictor.elasticNet.alpha": 1.0,
+            "predictor.elasticNet.l1_ratio": 0.5
+          }
+        }
+      }
+    }
+  },
+  "protocol": "facade train/predict on LCO synthetic data; seeds 0, 1, 2"
+}
