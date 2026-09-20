@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import tempfile
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pytest
 
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig
-from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.zoo import get_zoo_config
-from drevalpy.types import SplitMasks
+from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
 from tests.synthetic.variants import (
     SAVE_LOAD_DEFECTS,
@@ -46,7 +45,7 @@ def _resolve_global_model_name(model_name: str) -> tuple[str, str]:
     return whole_name, model_name
 
 
-def _construct_global_model_class(whole_name: str, model_name: str) -> type[DRPModel]:
+def _construct_global_model_spec(whole_name: str, model_name: str) -> ModelSpec:
     if whole_name == "SimpleNeuralNetwork[chemberta]":
         config = _zoo_config_variant(
             "SimpleNeuralNetwork",
@@ -55,8 +54,8 @@ def _construct_global_model_class(whole_name: str, model_name: str) -> type[DRPM
                 options={"view": "chemberta"},
             ),
         )
-        return cast(type[DRPModel], construct_model(model_name, config))
-    return cast(type[DRPModel], construct_model(model_name))
+        return ModelSpec(model_name, config)
+    return ModelSpec.from_name(model_name)
 
 
 def _apply_global_model_hpam_tweaks(model_name: str, hpam_combi: dict) -> None:
@@ -97,10 +96,9 @@ def _first_lto_fold(mudataset: Dataset) -> SplitMasks:
 
 def _assert_round_trips(
     model: DRPModel,
-    model_class: type[DRPModel],
     model_name: str,
     mudataset: Dataset,
-    split: SplitMasks,
+    split: SplitMask,
     preds: np.ndarray,
 ) -> None:
     """Assert a save/load cycle reproduces the prediction shape.
@@ -109,7 +107,6 @@ def _assert_round_trips(
     raise it, so the defect cannot be fixed without this test noticing.
 
     :param model: Trained model instance.
-    :param model_class: Class used to reload the checkpoint.
     :param model_name: Model name, used to look up known defects.
     :param mudataset: Dataset the model was trained on.
     :param split: Split the predictions were made over.
@@ -119,7 +116,7 @@ def _assert_round_trips(
     with tempfile.TemporaryDirectory() as model_dir:
         checkpoint = f"{model_dir}/model"
         model.save(checkpoint)
-        loaded_model = model_class.load(checkpoint)
+        loaded_model = DRPModel.load(checkpoint)
         assert isinstance(loaded_model, DRPModel)
         if defect is not None:
             with pytest.raises(RuntimeError, match=defect):
@@ -138,19 +135,24 @@ def test_global_models(synthetic_dataset: Dataset, model_name: str) -> None:
     split = _first_lto_fold(synthetic_dataset)
 
     whole_name, model_name = _resolve_global_model_name(model_name)
-    model_class = _construct_global_model_class(whole_name, model_name)
-    hpam_combi = dict(model_class.get_hyperparameter_set()[0])
+    spec = _construct_global_model_spec(whole_name, model_name)
+    hpam_combi = dict(spec.default_hyperparameters)
     _apply_global_model_hpam_tweaks(model_name, hpam_combi)
-    model = model_class(hpam_combi)
+    model = DRPModel(spec, hpam_combi)
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        model.train(synthetic_dataset, split, model_checkpoint_dir=tmpdirname)
+        model.train(
+            synthetic_dataset,
+            split.train,
+            early_stopping_scope=split.early_stopping_mask()[0] if model.spec.supports_early_stopping else None,
+            model_checkpoint_dir=tmpdirname,
+        )
 
-    preds = model.predict(synthetic_dataset, split)
+    preds = model.predict(synthetic_dataset, split.test)
     assert isinstance(preds, np.ndarray)
     assert preds.shape[0] > 0
 
-    _assert_round_trips(model, model_class, model_name, synthetic_dataset, split, preds)
+    _assert_round_trips(model, model_name, synthetic_dataset, split.test, preds)
 
 
 def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> None:
@@ -165,30 +167,32 @@ def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> N
     """
     split = _first_lto_fold(synthetic_dataset)
 
-    model_class = cast(
-        type[DRPModel],
-        construct_model(
+    spec = ModelSpec(
+        "MultiViewNeuralNetwork",
+        _zoo_config_variant(
             "MultiViewNeuralNetwork",
-            _zoo_config_variant(
-                "MultiViewNeuralNetwork",
-                cell_line_featurizer=CellLineFeaturizerConfig(
-                    name="raw",
-                    view="methylation",
-                ),
+            cell_line_featurizer=CellLineFeaturizerConfig(
+                name="raw",
+                view="methylation",
             ),
         ),
     )
 
-    model = model_class({"units_per_layer": [2, 2], "dropout_prob": 0.3, "max_epochs": 1})
+    model = DRPModel(spec, {"units_per_layer": [2, 2], "dropout_prob": 0.3, "max_epochs": 1})
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        model.train(synthetic_dataset, split, model_checkpoint_dir=tmpdirname)
+        model.train(
+            synthetic_dataset,
+            split.train,
+            early_stopping_scope=split.early_stopping_mask()[0] if model.spec.supports_early_stopping else None,
+            model_checkpoint_dir=tmpdirname,
+        )
 
-    preds = model.predict(synthetic_dataset, split)
+    preds = model.predict(synthetic_dataset, split.test)
     assert isinstance(preds, np.ndarray)
     assert preds.shape[0] > 0
 
-    _assert_round_trips(model, model_class, "MultiViewNeuralNetwork", synthetic_dataset, split, preds)
+    _assert_round_trips(model, "MultiViewNeuralNetwork", synthetic_dataset, split.test, preds)
 
 
 def test_partial_omics_coverage_reaches_the_nan_filtering_path() -> None:
@@ -213,11 +217,10 @@ def test_partial_omics_coverage_trains() -> None:
     """
     mudataset = build_partial_coverage_dataset()
     split = _first_lto_fold(mudataset)
-    model_class = cast(type[DRPModel], construct_model("SimpleNeuralNetwork"))
-    model = model_class({"units_per_layer": [2, 2], "max_epochs": 1})
+    model = DRPModel(ModelSpec.from_name("SimpleNeuralNetwork"), {"units_per_layer": [2, 2], "max_epochs": 1})
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        model.train(mudataset, split, model_checkpoint_dir=tmpdirname)
+        model.train(mudataset, split.train, model_checkpoint_dir=tmpdirname)
 
 
 @pytest.mark.network
@@ -243,11 +246,18 @@ class TestDIPKArtifactIntegration:
         with _isolated_reference_rng(seed):
             dataset = build_synthetic_dataset(seed=seed)
             split = _first_lto_fold(dataset)
-            model = construct_model("DIPK")({"epochs": 2, "epochs_autoencoder": 2, "batch_size": 8, "heads": 1})
-            model.train(dataset, split, model_checkpoint_dir=str(tmp_path))
-            predictions = model.predict(dataset, split)
+            model = DRPModel(
+                ModelSpec.from_name("DIPK"), {"epochs": 2, "epochs_autoencoder": 2, "batch_size": 8, "heads": 1}
+            )
+            model.train(
+                dataset,
+                split.train,
+                early_stopping_scope=split.early_stopping_mask()[0],
+                model_checkpoint_dir=str(tmp_path),
+            )
+            predictions = model.predict(dataset, split.test)
             assert np.isfinite(predictions).all()
             checkpoint = str(tmp_path / "model")
             model.save(checkpoint)
-            restored = type(model).load(checkpoint)
-            np.testing.assert_allclose(predictions, restored.predict(dataset, split), rtol=1e-5, atol=1e-6)
+            restored = DRPModel.load(checkpoint)
+            np.testing.assert_allclose(predictions, restored.predict(dataset, split.test), rtol=1e-5, atol=1e-6)

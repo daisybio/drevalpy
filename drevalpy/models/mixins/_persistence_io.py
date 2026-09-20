@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from drevalpy.models.drp_model import DRPModel
 
 FORMAT_NAME = "drevalpy-model"
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
 PAYLOAD_MEMBER = "payload.joblib"
 
 
@@ -36,10 +36,6 @@ class UnsupportedCheckpointFormatError(ModelCheckpointError, ValueError):
 
 class CorruptedCheckpointError(ModelCheckpointError, ValueError):
     """Raised when checkpoint payload structure or content is invalid."""
-
-
-class IncompatibleModelCheckpointError(ModelCheckpointError, ValueError):
-    """Raised when checkpoint model identity does not match the loader class."""
 
 
 def _as_path(path: str | Path) -> Path:
@@ -115,30 +111,29 @@ def save_model(model: DRPModel, path: str | Path) -> None:
     :param path: Archive file path; ``.zip`` is appended when missing.
     :raises RuntimeError: If the model is not trained or lacks a ``ModelConfig``.
     """
-    stack = model._stack
-    if stack is None or not stack.is_fitted():
-        raise RuntimeError("Cannot save: component stack is not trained")
-    config = model._resolved_model_config
-    if config is None:
-        raise RuntimeError("Cannot save a model without its ResolvedModelConfig")
+    pipeline = model._pipeline
+    if not pipeline.is_fitted():
+        raise RuntimeError(f"Cannot save model {model.name!r}: pipeline must be FITTED")
+    config = model.config
     target = _as_path(path)
     _reject_directory_path(target)
     payload = {
         "format": FORMAT_NAME,
         "version": FORMAT_VERSION,
-        "model_name": model.get_model_name(),
+        "model_name": model.name,
         "config": config.model_dump(mode="json"),
-        "state": stack.component_state(),
+        "state": pipeline.component_state(),
     }
     _write_archive_atomically(resolve_checkpoint_path(target), payload)
 
 
 def _resolved_config_from_checkpoint_payload(payload: dict[str, Any]) -> ResolvedModelConfig:
     version = payload.get("version")
-    if version == 2:
+    if version == 3:
         return ResolvedModelConfig.model_validate(payload["config"])
     raise UnsupportedCheckpointFormatError(
-        f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}"
+        f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}; "
+        "retrain with the current model API because older checkpoints omit target transformation state"
     )
 
 
@@ -162,7 +157,8 @@ def load_model_payload(path: str | Path) -> tuple[str, ResolvedModelConfig, dict
         raise CorruptedCheckpointError("checkpoint payload is not a mapping")
     if payload.get("format") != FORMAT_NAME:
         raise UnsupportedCheckpointFormatError(
-            f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}"
+            f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}; "
+            "retrain with the current model API because older checkpoints omit target transformation state"
         )
     model_name = payload.get("model_name")
     if not isinstance(model_name, str) or not model_name:
@@ -182,9 +178,8 @@ def load_model_payload(path: str | Path) -> tuple[str, ResolvedModelConfig, dict
 def load_model(path: str | Path) -> DRPModel:
     """Reconstruct a fitted ``DRPModel`` from a checkpoint archive path.
 
-    Reads the stored model name and ``ModelConfig``, builds the matching class
-    via ``construct_model``, then restores fitted state. Use this when you do not
-    already have a class handle for ``ModelClass.load(path)``.
+    Reads the stored model name and resolved configuration, constructs a concrete
+    ``DRPModel``, and restores components and target transformation state.
 
     Custom featurizers and predictors must already be registered (same as for
     training). Load only artifacts created with ``save_model`` in the same
@@ -193,7 +188,16 @@ def load_model(path: str | Path) -> DRPModel:
     :param path: Archive file path; ``.zip`` is appended when missing.
     :returns: Fitted ``DRPModel`` instance.
     """
-    from drevalpy.models.construct import construct_model
+    from drevalpy.models.drp_model import DRPModel
+    from drevalpy.models.spec import ModelSpec
+    from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
 
-    model_name, config, _state = load_model_payload(path)
-    return construct_model(model_name, config).load(path)
+    model_name, config, state = load_model_payload(path)
+    model = DRPModel(ModelSpec(model_name, config.template), public_hyperparameters_from_config(config))
+    try:
+        model._pipeline.restore_component_state(state)
+    except (TypeError, ValueError, RuntimeError) as exc:
+        raise CorruptedCheckpointError(f"checkpoint pipeline state is invalid: {exc}") from exc
+    if not model._pipeline.is_fitted():
+        raise CorruptedCheckpointError("checkpoint did not restore a fitted predictor")
+    return model

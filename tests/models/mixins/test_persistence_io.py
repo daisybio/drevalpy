@@ -12,13 +12,12 @@ import zipfile
 import pytest
 from upath import UPath
 
-from drevalpy.models import construct_model, load_model
+from drevalpy.models import DRPModel, ModelSpec, load_model
 from drevalpy.models.mixins._persistence_io import (
     FORMAT_NAME,
     FORMAT_VERSION,
     PAYLOAD_MEMBER,
     CorruptedCheckpointError,
-    IncompatibleModelCheckpointError,
     ModelCheckpointError,
     UnsupportedCheckpointFormatError,
     load_model_payload,
@@ -85,9 +84,9 @@ class TestSaveModel:
             save_model(model, str(tmp_path))
 
     def test_rejects_an_untrained_model(self, tmp_path) -> None:
-        model = construct_model("ElasticNet")({"alpha": 0.1, "l1_ratio": 0.5})
+        model = DRPModel(ModelSpec.from_name("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
 
-        with pytest.raises(RuntimeError, match="not trained"):
+        with pytest.raises(RuntimeError, match="pipeline must be FITTED"):
             save_model(model, str(UPath(tmp_path) / "elastic_net"))
 
 
@@ -103,7 +102,13 @@ class TestLoadModelPayload:
 
         assert model_name == "ElasticNet"
         assert config.predictor_values()["alpha"] == 0.1
-        assert set(state) == {"predictor", "cell_line_featurizer", "drug_featurizer"}
+        assert set(state) == {
+            "predictor",
+            "cell_line_featurizer",
+            "drug_featurizer",
+            "response_prototype",
+            "response_transform",
+        }
 
     def test_accepts_a_path_without_the_zip_suffix(self, tmp_path) -> None:
         model = fitted_elastic_net()
@@ -217,9 +222,8 @@ class TestLoadModel:
 
         loaded = load_model(checkpoint)
 
-        assert loaded.get_model_name() == "ElasticNet"
-        assert loaded._stack is not None
-        assert loaded._stack.is_fitted()
+        assert loaded.name == "ElasticNet"
+        assert loaded._pipeline.is_fitted()
 
     def test_restores_the_hyperparameters(self, tmp_path) -> None:
         model = fitted_elastic_net()
@@ -228,8 +232,7 @@ class TestLoadModel:
 
         loaded = load_model(checkpoint)
 
-        assert loaded._resolved_model_config is not None
-        assert loaded._resolved_model_config.predictor_values()["alpha"] == 0.1
+        assert loaded.config.predictor_values()["alpha"] == 0.1
 
     def test_accepts_an_explicit_zip_path(self, tmp_path) -> None:
         model = fitted_elastic_net()
@@ -238,19 +241,22 @@ class TestLoadModel:
 
         loaded = load_model(archive)
 
-        assert loaded.get_model_name() == "ElasticNet"
+        assert loaded.name == "ElasticNet"
 
     def test_supports_custom_model_names(self, tmp_path) -> None:
-        model = construct_model("MyRF", "scaledGeneExpression:fingerprints:randomForest")({"n_estimators": 5})
-        model.train(synthetic_mudataset_gene_expression_fingerprints(), lco_split_masks())
+        from drevalpy.models.config import from_spec
+
+        model = DRPModel(
+            ModelSpec("MyRF", from_spec("scaledGeneExpression:fingerprints:randomForest")), {"n_estimators": 5}
+        )
+        model.train(synthetic_mudataset_gene_expression_fingerprints(), lco_split_masks().train)
         checkpoint = str(UPath(tmp_path) / "my_rf")
         save_model(model, checkpoint)
 
         loaded = load_model(checkpoint)
 
-        assert loaded.get_model_name() == "MyRF"
-        assert loaded._stack is not None
-        assert loaded._stack.is_fitted()
+        assert loaded.name == "MyRF"
+        assert loaded._pipeline.is_fitted()
 
 
 class TestErrorHierarchy:
@@ -261,7 +267,6 @@ class TestErrorHierarchy:
         [
             pytest.param(UnsupportedCheckpointFormatError, id="unsupported-format"),
             pytest.param(CorruptedCheckpointError, id="corrupted"),
-            pytest.param(IncompatibleModelCheckpointError, id="incompatible"),
         ],
     )
     def test_subclasses_model_checkpoint_error_and_value_error(self, error_type: type[Exception]) -> None:

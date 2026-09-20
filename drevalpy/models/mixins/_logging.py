@@ -37,13 +37,7 @@ class _DRPLoggingMixin:
     wandb_config: dict[str, Any] | None
     _in_hyperparameter_tuning: bool
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """Return the model identity; implemented by ``DRPModel``.
-
-        :raises NotImplementedError: If the subclass does not implement this hook.
-        """
-        raise NotImplementedError
+    name: str
 
     @property
     def hyperparameters(self) -> dict[str, Any]:
@@ -79,7 +73,7 @@ class _DRPLoggingMixin:
         if finish_previous:
             wandb.finish()
 
-        run_name = name or self.get_model_name()
+        run_name = name or self.name
         wandb.init(
             project=project,
             config=self.wandb_config,

@@ -1,4 +1,4 @@
-"""construct_model vs ModelConfig._from_resolved_config parity."""
+"""Parity checks for equivalent ModelSpec configurations."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
     lco_split_masks,
@@ -15,19 +15,7 @@ from tests.models.synthetic_fixtures import (
     synthetic_mudataset_identity,
 )
 
-_PARITY_CASES = (
-    ("NaivePredictor", "factory"),
-    ("NaiveDrugMeanPredictor", "factory"),
-    ("ElasticNet", "factory"),
-    ("RandomForest", "factory"),
-    ("PcaIdentityRF", "construct_model"),
-)
-
-
-def _model_class(model_name: str, entrypoint: str):
-    if entrypoint == "construct_model":
-        return construct_model(model_name, "pca[gene_expression]:identity:randomForest")
-    return construct_model(model_name)
+_PARITY_CASES = ("NaivePredictor", "NaiveDrugMeanPredictor", "ElasticNet", "RandomForest")
 
 
 def _minimal_hp(model_name: str) -> dict:
@@ -35,70 +23,37 @@ def _minimal_hp(model_name: str) -> dict:
         return {}
     if model_name == "ElasticNet":
         return {"alpha": 0.1, "l1_ratio": 0.5}
-    return {
-        "n_estimators": 8,
-        "max_depth": 3,
-        "max_samples": 1.0,
-        "random_state": 0,
-        "n_jobs": 1,
-    }
+    return {"n_estimators": 8, "max_depth": 3, "max_samples": 1.0, "random_state": 0, "n_jobs": 1}
 
 
-@pytest.mark.parametrize(("model_name", "entrypoint"), _PARITY_CASES)
-def test_construct_model_matches_from_resolved_config(model_name: str, entrypoint: str) -> None:
+@pytest.mark.parametrize("model_name", _PARITY_CASES)
+def test_equivalent_specs_have_matching_predictions(model_name: str) -> None:
     hp = _minimal_hp(model_name)
-    model_cls = _model_class(model_name, entrypoint)
-    if model_name.startswith("Naive"):
-        mudataset = synthetic_mudataset_identity()
-    else:
-        mudataset = synthetic_mudataset_gene_expression_fingerprints()
-    split = lco_split_masks()
-
-    config = (
-        from_spec("pca[gene_expression]:identity:randomForest", hyperparameters=hp)
-        if entrypoint == "construct_model"
-        else from_spec(model_name, hyperparameters=hp)
+    spec = ModelSpec.from_name(model_name)
+    equivalent = ModelSpec(model_name, spec.config)
+    dataset = (
+        synthetic_mudataset_identity()
+        if model_name.startswith("Naive")
+        else synthetic_mudataset_gene_expression_fingerprints()
     )
-    flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
-    facade = model_cls(flat_hp)
-    facade.train(mudataset, split)
-    facade_preds = facade.predict(mudataset, split)
-
-    direct = model_cls._from_resolved_config(config)
-    direct.train(mudataset, split)
-    direct_preds = direct.predict(mudataset, split)
-
-    assert facade._resolved_model_config is not None
-    assert facade._resolved_model_config.predictor_name == (
-        config.predictor_name if hasattr(config, "predictor_name") else config.predictor.name
-    )
-    assert np.allclose(facade_preds, direct_preds, equal_nan=True)
-
-
-@pytest.mark.parametrize(("model_name", "entrypoint"), _PARITY_CASES)
-def test_construct_model_save_load_preserves_predictions(model_name: str, entrypoint: str) -> None:
-    hp = _minimal_hp(model_name)
-    model_cls = _model_class(model_name, entrypoint)
-    flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
-    if model_name.startswith("Naive"):
-        mudataset = synthetic_mudataset_identity()
-    else:
-        mudataset = synthetic_mudataset_gene_expression_fingerprints()
     split = lco_split_masks()
+    first = DRPModel(spec, hp)
+    second = DRPModel(equivalent, hp)
+    first.train(dataset, split.train)
+    second.train(dataset, split.train)
+    np.testing.assert_allclose(first.predict(dataset, split.test), second.predict(dataset, split.test), equal_nan=True)
 
-    model = model_cls(flat_hp)
-    model.train(mudataset, split)
-    before_preds = model.predict(mudataset, split)
-    assert model._stack is not None
-    before_state = model._stack.component_state()
 
-    with tempfile.TemporaryDirectory() as model_dir:
-        checkpoint = f"{model_dir}/model"
-        model.save(checkpoint)
-        loaded = model_cls.load(checkpoint)
-        after_preds = loaded.predict(mudataset, split)
-        assert loaded._stack is not None
-        after_state = loaded._stack.component_state()
-
-    assert np.allclose(before_preds, after_preds, equal_nan=True)
-    assert before_state.keys() == after_state.keys()
+def test_custom_recipe_spec_has_matching_checkpoint_round_trip() -> None:
+    config = from_spec("pca[gene_expression]:identity:randomForest")
+    spec = ModelSpec("PcaIdentityRF", config)
+    dataset = synthetic_mudataset_gene_expression_fingerprints()
+    split = lco_split_masks()
+    model = DRPModel(spec, _minimal_hp("RandomForest"))
+    model.train(dataset, split.train)
+    before = model.predict(dataset, split.test)
+    with tempfile.TemporaryDirectory() as directory:
+        model.save(f"{directory}/model")
+        loaded = DRPModel.load(f"{directory}/model")
+    np.testing.assert_allclose(before, loaded.predict(dataset, split.test), equal_nan=True)
+    assert loaded.name == "PcaIdentityRF"

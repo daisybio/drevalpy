@@ -24,6 +24,7 @@ class _Stub(_DRPLoggingMixin):
         self.wandb_config = None
         self._in_hyperparameter_tuning = False
         self._hp: dict = {}
+        self.name = "Stub"
 
     @classmethod
     def get_model_name(cls) -> str:

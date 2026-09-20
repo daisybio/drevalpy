@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import tempfile
-from typing import cast
 
 import numpy as np
 import pytest
 
-from drevalpy.models import construct_model
-from drevalpy.models.drp_model import DRPModel
+from drevalpy.models import DRPModel, ModelSpec
+from drevalpy.models.config import from_spec
 from drevalpy.types.data.dataset import Dataset
 from tests.synthetic.variants import SUPPORTED_SINGLE_DRUG_MODELS, model_param
 
@@ -25,11 +24,11 @@ def _resolve_single_drug_model_name(whole_name: str) -> str:
     return whole_name
 
 
-def _construct_single_drug_model(whole_name: str, model_name: str) -> type[DRPModel]:
+def _construct_single_drug_spec(whole_name: str, model_name: str) -> ModelSpec:
     if whole_name.endswith("[proteomics]"):
         predictor_token = model_name.replace("SingleDrug", "singleDrug")
-        return cast(type[DRPModel], construct_model(model_name, f"normalizedProteomics:{predictor_token}"))
-    return cast(type[DRPModel], construct_model(model_name))
+        return ModelSpec(model_name, from_spec(f"normalizedProteomics:{predictor_token}"))
+    return ModelSpec.from_name(model_name)
 
 
 def _configure_single_drug_hpam(model_name: str, hpam_combi: dict) -> None:
@@ -58,21 +57,26 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
 
     split = get_splitter("LTO")(synthetic_dataset, n_splits=2, validation_ratio=0.4)[0]
 
-    model_class = _construct_single_drug_model(whole_name, model_name)
-    hpam_combi = dict(model_class.get_hyperparameter_set()[0])
+    spec = _construct_single_drug_spec(whole_name, model_name)
+    hpam_combi = dict(spec.default_hyperparameters)
     _configure_single_drug_hpam(model_name, hpam_combi)
-    model = model_class(hpam_combi)
+    model = DRPModel(spec, hpam_combi)
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        model.train(synthetic_dataset, split, model_checkpoint_dir=tmpdirname)
+        model.train(
+            synthetic_dataset,
+            split.train,
+            early_stopping_scope=split.early_stopping_mask()[0] if spec.supports_early_stopping else None,
+            model_checkpoint_dir=tmpdirname,
+        )
 
-    preds = model.predict(synthetic_dataset, split)
+    preds = model.predict(synthetic_dataset, split.test)
     assert isinstance(preds, np.ndarray)
     assert preds.shape[0] > 0
 
     with tempfile.TemporaryDirectory() as model_dir:
         checkpoint = f"{model_dir}/model"
         model.save(checkpoint)
-        loaded_model = model_class.load(checkpoint)
+        loaded_model = DRPModel.load(checkpoint)
         assert isinstance(loaded_model, DRPModel)
-        np.testing.assert_allclose(preds, loaded_model.predict(synthetic_dataset, split), rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(preds, loaded_model.predict(synthetic_dataset, split.test), rtol=1e-5, atol=1e-5)

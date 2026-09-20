@@ -8,7 +8,7 @@ from upath import UPath
 from drevalpy.data import split
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
 from drevalpy.data.quality import curve_quality_mask
-from drevalpy.models import construct_model
+from drevalpy.models import ModelSpec
 from drevalpy.registry.dataset._registry import dataset_registry
 from drevalpy.types.data.dataset import Dataset
 
@@ -81,13 +81,13 @@ class TestFullPipeline:
         from drevalpy import single
         from drevalpy.registry.splitter import splitter_registry
 
-        ElasticNet = construct_model("ElasticNet")  # noqa: N806
+        ElasticNet = ModelSpec.from_name("ElasticNet")  # noqa: N806
 
         splitter = splitter_registry.get("LCO")
         folds = splitter(mudataset, n_splits=2, validation_ratio=0.2)
 
         result = single(
-            model_class=ElasticNet,
+            model_spec=ElasticNet,
             mudataset=mudataset,
             split_masks=folds[0],
             hyperparameter_tuning=False,

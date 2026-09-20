@@ -7,7 +7,8 @@ import tempfile
 import numpy as np
 import pytest
 
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
+from drevalpy.models.config import from_spec
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset
@@ -48,8 +49,8 @@ LITERATURE_MODEL_NAMES = (
 
 @pytest.mark.parametrize("model_name", LITERATURE_MODEL_NAMES)
 def test_literature_models_build_with_defaults(model_name: str) -> None:
-    model_cls = construct_model(model_name)
-    hyperparameters = dict(model_cls.get_hyperparameter_set()[0])
+    spec = ModelSpec.from_name(model_name)
+    hyperparameters = dict(spec.default_hyperparameters)
     if model_name == "DIPK":
         hyperparameters.update({"epochs": 1, "epochs_autoencoder": 1, "heads": 1})
     elif model_name in {"SimpleNeuralNetwork", "MultiViewNeuralNetwork"}:
@@ -60,7 +61,7 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
         hyperparameters.update({"epochs": 1, "batch_size": 32})
     elif model_name == "SparseGO":
         hyperparameters.update({"epochs": 1, "batch_size": 32})
-    model_cls(hyperparameters)
+    DRPModel(spec, hyperparameters)
 
 
 @pytest.mark.parametrize(
@@ -86,23 +87,22 @@ def test_literature_model_lifecycle(
     extra_views: tuple[str, ...],
 ) -> None:
     mudataset, split = _dataset(extra_views=extra_views)
-    model = construct_model(model_name)(hyperparameters)
-    model.train(mudataset, split)
-    preds = model.predict(mudataset, split)
+    model = DRPModel(ModelSpec.from_name(model_name), hyperparameters)
+    model.train(mudataset, split.train)
+    preds = model.predict(mudataset, split.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
 
     with tempfile.TemporaryDirectory() as directory:
         checkpoint = f"{directory}/model"
         model.save(checkpoint)
-        loaded = type(model).load(checkpoint)
-        loaded_preds = loaded.predict(mudataset, split)
+        loaded = DRPModel.load(checkpoint)
+        loaded_preds = loaded.predict(mudataset, split.test)
     assert np.allclose(preds, loaded_preds, rtol=1e-5, atol=1e-5)
 
 
 def test_untrained_component_model_raises() -> None:
-    model_cls = construct_model("elasticNet", "raw[gene_expression]:fingerprints:elasticNet")
-    model = model_cls({})
+    model = DRPModel(ModelSpec("elasticNet", from_spec("raw[gene_expression]:fingerprints:elasticNet")), {})
     mudataset, split = _dataset()
 
     with pytest.raises(RuntimeError, match="not been trained"):

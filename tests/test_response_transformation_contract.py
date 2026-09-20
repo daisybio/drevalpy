@@ -2,7 +2,7 @@
 
 This file is deliberately not a module mirror: the behaviour it pins is a
 pipeline-wide contract that only exists once ``drevalpy/utils/response_transform.py``,
-``models/component_stack.py``, ``models/drp_model.py``,
+``models/_pipeline.py``, ``models/drp_model.py``,
 ``models/tuning/hpo_runtime.py`` and ``_single.py`` agree with each other. Fitting
 it into any one of those mirrors would hide the fact that it is the *seam* being
 tested, not a module.
@@ -45,13 +45,19 @@ from sklearn.preprocessing import StandardScaler
 
 from drevalpy import single
 from drevalpy.data import split
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.tuning.config import build_experiment_hpo_config
 from drevalpy.models.tuning.hpo import hpam_tune
 from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results.run import RunResult
-from drevalpy.utils import fit_response_transformation
+
+
+def _fitted_transform(prototype, dataset, scope):
+    model = DRPModel(ModelSpec.from_name("NaivePredictor"), response_transformation=prototype)
+    model.train(dataset, scope)
+    return model._pipeline._response_transform
+
 
 #: Two trials is the smallest budget that still proves the objective ran more
 #: than once; the suite pays for every extra fit.
@@ -111,7 +117,7 @@ class TestAffineEquivalence:
         equivalence assertion is indistinguishable from a predictor that simply
         does not reproduce its own predictions.
         """
-        model_class = construct_model("GradientBoosting")
+        model_class = ModelSpec.from_name("GradientBoosting")
         return {
             "raw": single(model_class, synthetic_dataset, fold, hyperparameter_tuning=False),
             "raw_again": single(model_class, synthetic_dataset, fold, hyperparameter_tuning=False),
@@ -157,7 +163,7 @@ class TestAffineEquivalence:
 
 
 class TestFittedOnTheTrainingScopeOnly:
-    """``fit_response_transformation`` must not see held-out responses.
+    """``_fitted_transform`` must not see held-out responses.
 
     The scaler's statistics are the leakage channel: fitted on the whole matrix
     they carry the test fold's mean and variance into training, which is a real
@@ -165,16 +171,16 @@ class TestFittedOnTheTrainingScopeOnly:
     """
 
     def test_no_prototype_means_no_transformation(self, synthetic_dataset, fold: SplitMasks) -> None:
-        assert fit_response_transformation(None, synthetic_dataset, fold.train) is None
+        assert _fitted_transform(None, synthetic_dataset, fold.train) is None
 
     def test_the_mean_is_the_training_scope_mean(self, synthetic_dataset, fold: SplitMasks) -> None:
-        fitted = fit_response_transformation(StandardScaler(), synthetic_dataset, fold.train)
+        fitted = _fitted_transform(StandardScaler(), synthetic_dataset, fold.train)
 
         expected = _train_responses(synthetic_dataset, fold.train).mean()
         assert float(fitted.mean_[0]) == pytest.approx(expected)
 
     def test_the_scale_is_the_training_scope_deviation(self, synthetic_dataset, fold: SplitMasks) -> None:
-        fitted = fit_response_transformation(StandardScaler(), synthetic_dataset, fold.train)
+        fitted = _fitted_transform(StandardScaler(), synthetic_dataset, fold.train)
 
         expected = _train_responses(synthetic_dataset, fold.train).std()
         assert float(fitted.scale_[0]) == pytest.approx(expected)
@@ -186,20 +192,20 @@ class TestFittedOnTheTrainingScopeOnly:
         # so an equality below is evidence of leakage and not of a tied fixture.
         assert abs(train_mean - full_mean) > 1e-2
 
-        fitted = fit_response_transformation(StandardScaler(), synthetic_dataset, fold.train)
+        fitted = _fitted_transform(StandardScaler(), synthetic_dataset, fold.train)
 
         assert float(fitted.mean_[0]) != pytest.approx(full_mean, abs=1e-3)
 
     def test_a_different_scope_yields_different_statistics(self, synthetic_dataset, fold: SplitMasks) -> None:
-        on_train = fit_response_transformation(StandardScaler(), synthetic_dataset, fold.train)
-        on_test = fit_response_transformation(StandardScaler(), synthetic_dataset, fold.test)
+        on_train = _fitted_transform(StandardScaler(), synthetic_dataset, fold.train)
+        on_test = _fitted_transform(StandardScaler(), synthetic_dataset, fold.test)
 
         assert float(on_train.mean_[0]) != pytest.approx(float(on_test.mean_[0]), abs=1e-3)
 
     def test_unmeasured_pairs_do_not_poison_the_fit(self, synthetic_dataset) -> None:
         everything = SplitMask(np.ones(synthetic_dataset.response_matrix.shape, dtype=bool))
 
-        fitted = fit_response_transformation(StandardScaler(), synthetic_dataset, everything)
+        fitted = _fitted_transform(StandardScaler(), synthetic_dataset, everything)
 
         assert np.isfinite(fitted.mean_).all()
         assert float(fitted.mean_[0]) == pytest.approx(float(np.nanmean(synthetic_dataset.response_matrix)))
@@ -207,7 +213,7 @@ class TestFittedOnTheTrainingScopeOnly:
     def test_the_prototype_is_cloned_rather_than_fitted(self, synthetic_dataset, fold: SplitMasks) -> None:
         prototype = StandardScaler()
 
-        fitted = fit_response_transformation(prototype, synthetic_dataset, fold.train)
+        fitted = _fitted_transform(prototype, synthetic_dataset, fold.train)
 
         assert fitted is not prototype
         assert not hasattr(prototype, "mean_")
@@ -223,7 +229,9 @@ class TestHpoRoundTrip:
         objective, ``_mu_evaluate_trial_all_metrics`` does not swallow
         exceptions, so a missing fit surfaces as ``NotFittedError`` here.
         """
-        trial_model = construct_model("ElasticNet")({"alpha": 0.1, "l1_ratio": 0.5})
+        trial_model = DRPModel(
+            ModelSpec.from_name("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5}, response_transformation=StandardScaler()
+        )
 
         metrics, predictions = _mu_evaluate_trial_all_metrics(
             trial_model,
@@ -231,7 +239,6 @@ class TestHpoRoundTrip:
             train_scope=fold.train,
             val_scope=fold.val,
             early_stopping_scope=None,
-            response_transformation=StandardScaler(),
             model_checkpoint_dir=None,
         )
 
@@ -251,7 +258,7 @@ class TestHpoRoundTrip:
         with records, warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             best_params, trials = hpam_tune(
-                model_class=construct_model("ElasticNet"),
+                model_spec=ModelSpec.from_name("ElasticNet"),
                 mudataset=synthetic_dataset,
                 train_scope=fold.train,
                 val_scope=fold.val,
@@ -286,5 +293,5 @@ class TestHpoRoundTrip:
         assert tuning["best_params"]
 
     def test_the_callers_prototype_is_left_unfitted(self, tuning: dict[str, Any]) -> None:
-        """Only ``fit_response_transformation`` fits, and it fits a clone."""
+        """Each pipeline fits its own clone."""
         assert not hasattr(tuning["prototype"], "mean_")

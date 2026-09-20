@@ -4,35 +4,37 @@ Quickstart
 Install DrEvalPy and its dependencies first — see
 :doc:`/getting_started/installation`.
 
-Load the GDSC1 dataset, resolve ElasticNet from the model zoo, and run the
+Load the GDSC1 dataset, resolve an ElasticNet specification, and run the
 evaluation pipeline:
 
 .. code-block:: python
 
    from drevalpy.data import load
-   from drevalpy.models import construct_model
-   from drevalpy import run
+   from drevalpy.models import ModelSpec
+   from drevalpy import run, split
 
    dataset = load("GDSC1")
 
-   ElasticNet = construct_model("ElasticNet")
+   elastic_net = ModelSpec.from_name("ElasticNet")
 
    result = run(
-       models=[ElasticNet],
+       models=[elastic_net],
        dataset=dataset,
        split_mode="LCO",
        hyperparameter_tuning=False,
    )
 
-:func:`~drevalpy.models.construct_model` returns a **class**. The pipeline
-expects classes (or a list of classes) so each CV fold can construct a
-fresh configured instance and call ``train``. For a single-model script
-outside the experiment runner:
+The experiment runner constructs a fresh ``DRPModel`` from each specification
+for every fold. For a single-model script outside the experiment runner:
 
 .. code-block:: python
 
-   model = ElasticNet()  # or ElasticNet({"alpha": 0.1})
-   model.train(...)
+   from drevalpy.models import DRPModel
+
+   model = DRPModel(elastic_net, hyperparameters={"alpha": 0.1})
+   fold = split(dataset, mode="LCO", n_splits=2)[0]
+   model.train(dataset, fold.train)
+   prediction = model.predict(dataset, fold.test)
 
 :func:`~drevalpy.run` returns an
 :class:`~drevalpy.types.results.ExperimentResult` that groups predictions,

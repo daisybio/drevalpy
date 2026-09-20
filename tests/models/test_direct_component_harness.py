@@ -1,4 +1,4 @@
-"""Direct construct_model execution for dependency-light models."""
+"""Direct ModelSpec/DRPModel execution for dependency-light models."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import textwrap
 import numpy as np
 import pytest
 
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_dict, validate
 from tests._trusted_subprocess import run_trusted_python
 from tests.models.synthetic_fixtures import (
@@ -36,16 +36,16 @@ _SKLEARN_PRESETS = (
 def test_naive_direct_component_round_trip(preset: str) -> None:
     mudataset = synthetic_mudataset_identity()
     split = lco_split_masks()
-    model = construct_model(preset)()
-    model.train(mudataset, split)
-    preds = model.predict(mudataset, split)
+    model = DRPModel(ModelSpec.from_name(preset))
+    model.train(mudataset, split.train)
+    preds = model.predict(mudataset, split.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
-        loaded = type(model).load(checkpoint)
-        loaded_preds = loaded.predict(mudataset, split)
+        loaded = DRPModel.load(checkpoint)
+        loaded_preds = loaded.predict(mudataset, split.test)
     assert np.allclose(preds, loaded_preds)
 
 
@@ -53,16 +53,16 @@ def test_naive_direct_component_round_trip(preset: str) -> None:
 def test_sklearn_direct_component_round_trip(preset: str) -> None:
     mudataset = synthetic_mudataset_gene_expression_fingerprints()
     split = lco_split_masks()
-    model = construct_model(preset)()
-    model.train(mudataset, split)
-    preds = model.predict(mudataset, split)
+    model = DRPModel(ModelSpec.from_name(preset))
+    model.train(mudataset, split.train)
+    preds = model.predict(mudataset, split.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
-        loaded = type(model).load(checkpoint)
-        loaded_preds = loaded.predict(mudataset, split)
+        loaded = DRPModel.load(checkpoint)
+        loaded_preds = loaded.predict(mudataset, split.test)
     assert np.allclose(preds, loaded_preds)
 
 
@@ -144,7 +144,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
 
         from drevalpy.types.data.dataset import Dataset
         from drevalpy.types import SplitMask, SplitMasks
-        from drevalpy.models import construct_model
+        from drevalpy.models import DRPModel, ModelSpec
 
         cl_ids = np.array(["cl1", "cl2"])
         drug_ids = np.array(["d1", "d2"])
@@ -178,10 +178,10 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
             val=SplitMask(np.zeros((2, 2), dtype=bool)),
         )
 
-        naive = construct_model("NaivePredictor")({})
-        naive.train(mudataset_id, split)
-        elastic = construct_model("ElasticNet")(construct_model("ElasticNet").get_hyperparameter_set()[0])
-        elastic.train(mudataset_ge, split)
+        naive = DRPModel(ModelSpec.from_name("NaivePredictor"), {})
+        naive.train(mudataset_id, split.train)
+        elastic = DRPModel(ModelSpec.from_name("ElasticNet"))
+        elastic.train(mudataset_ge, split.train)
         """)
     completed = run_trusted_python(script)
     assert completed.returncode == 0, completed.stdout + completed.stderr
