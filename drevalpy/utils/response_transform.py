@@ -1,6 +1,6 @@
-"""Sklearn response-value transformations for the evaluation pipeline.
+"""Unfitted sklearn target-transform prototypes for model configuration.
 
-``sklearn`` is imported inside the two functions rather than at module scope:
+``sklearn`` is imported inside the lookup function rather than at module scope:
 ``drevalpy.models.drp_model`` reaches this module on the registration path of
 ``import drevalpy``, and importing ``sklearn.base`` alone costs ~0.35s because it
 pulls in ``scipy.stats``. See ``tests/test_import_cost_policy.py``.
@@ -10,13 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 if TYPE_CHECKING:
     from sklearn.base import TransformerMixin
-
-    from drevalpy.types.data.mudatalike import MuDataLike
-    from drevalpy.types.data.split_mask import SplitMask
 
 
 def get_response_transformation(
@@ -46,36 +41,3 @@ def get_response_transformation(
     raise ValueError(
         f"Unknown response transformation {response_transformation}. Choose from 'None', 'standard', 'minmax', 'robust'"
     )
-
-
-def fit_response_transformation(
-    prototype: TransformerMixin | None,
-    mudataset: MuDataLike,
-    scope: SplitMask,
-) -> TransformerMixin | None:
-    """Fit a clone of *prototype* on the raw responses inside *scope*.
-
-    This is the only place a response transformer is fitted. Every consumer
-    downstream receives the already-fitted instance (or ``None``) and only calls
-    ``transform`` / ``inverse_transform``. Restricting the fit to a single scope -
-    normally the training scope - is what keeps held-out responses out of the
-    scaler's statistics, and cloning leaves the caller's prototype unfitted so it
-    can be reused across folds.
-
-    :param prototype: Unfitted transformer to clone, or ``None`` for no transformation.
-    :param mudataset: Source of the raw response matrix.
-    :param scope: Split mask selecting the pairs to fit on.
-
-    :returns: A transformer fitted on the scope's non-NaN responses, or ``None`` when
-        *prototype* is ``None``.
-    """
-    if prototype is None:
-        return None
-
-    from sklearn.base import clone
-
-    fitted = clone(prototype)
-    pairs = scope.pairs
-    responses = mudataset.response_matrix[pairs[:, 0], pairs[:, 1]]
-    fitted.fit(responses[~np.isnan(responses)].reshape(-1, 1))
-    return fitted

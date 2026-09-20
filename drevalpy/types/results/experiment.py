@@ -5,16 +5,16 @@ from __future__ import annotations
 import json
 import sys
 from collections import defaultdict
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from upath import UPath as Path
 
-from drevalpy.evaluation import AVAILABLE_METRICS, _compute_metric_value
+from drevalpy.evaluation import score_predictions
 from drevalpy.log import get_logger
 from drevalpy.types.results.model import ModelResult
 from drevalpy.types.results.run import RunResult
-from drevalpy.types.results.trial import TrialResult
 
 if TYPE_CHECKING:
     from drevalpy.visualization.requirements import PlotRequirement
@@ -258,37 +258,10 @@ def _normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
     norm_gt = run.ground_truth - ref_preds
     norm_pred = run.predictions - ref_preds
 
-    valid = ~np.isnan(norm_pred) & ~np.isnan(norm_gt)
-    metrics: dict[str, float] = {}
-    if valid.any():
-        for metric_name in AVAILABLE_METRICS:
-            metrics[metric_name] = _compute_metric_value(metric_name, norm_pred[valid], norm_gt[valid])
-
-    normalized_trials = None
-    if run.trials:
-        normalized_trials = [
-            TrialResult(
-                hyperparameters=trial.hyperparameters,
-                metrics=trial.metrics,
-                optimization_metric=trial.optimization_metric,
-                predictions=trial.predictions,
-            )
-            for trial in run.trials
-        ]
-
-    return RunResult(
-        model_name=run.model_name,
-        dataset_name=run.dataset_name,
-        split_mode=run.split_mode,
-        fold_index=run.fold_index,
-        fold_id=run.fold_id,
+    return replace(
+        run,
         predictions=norm_pred,
         ground_truth=norm_gt,
-        cell_line_ids=run.cell_line_ids,
-        drug_ids=run.drug_ids,
-        best_hyperparameters=run.best_hyperparameters,
-        metrics=metrics,
-        fold_metadata=run.fold_metadata,
-        trials=normalized_trials,
-        randomization=run.randomization,
+        metrics=score_predictions(norm_pred, norm_gt, empty_as_dict=True),
+        trials=[replace(trial) for trial in run.trials] if run.trials else None,
     )

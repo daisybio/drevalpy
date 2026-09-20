@@ -196,27 +196,46 @@ def get_mode(metric: str):
     return mode
 
 
-def _should_return_nan_global(response: np.ndarray, predictions: np.ndarray) -> bool:
-    return bool(len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions)))
+def score_predictions(
+    predictions: np.ndarray,
+    response: np.ndarray,
+    metrics: list[str] | None = None,
+    *,
+    empty_as_dict: bool = False,
+) -> dict[str, float]:
+    """Evaluate aligned predictions with one shared missing-response mask.
 
-
-def _masked_metric_inputs(predictions: np.ndarray, response: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:
-    if not np.any(np.isnan(predictions)):
-        return predictions, response
-    if np.all(np.isnan(predictions)):
-        return None
-    mask = ~np.isnan(predictions)
-    return predictions[mask], response[mask]
+    :param predictions: One prediction per requested response position.
+    :param response: Targets in exactly the same order, including NaNs.
+    :param metrics: Requested metric names; None selects every registered metric.
+    :param empty_as_dict: Return {} when no pair is usable (experiment convention).
+    :returns: Requested scores, with NaN for insufficient samples.
+    :raises ValueError: If inputs are not equally shaped one-dimensional arrays.
+    :raises AssertionError: If a metric is unknown.
+    """
+    predictions, response = np.asarray(predictions), np.asarray(response)
+    if predictions.ndim != 1 or response.ndim != 1 or predictions.shape != response.shape:
+        raise ValueError("Predictions and targets must be equal-shaped one-dimensional arrays")
+    names = list(AVAILABLE_METRICS) if metrics is None else metrics
+    for name in names:
+        if name not in AVAILABLE_METRICS:
+            raise AssertionError(f"invalid metric {name}. Available: {list(AVAILABLE_METRICS)}")
+    valid = ~np.isnan(predictions) & ~np.isnan(response)
+    if empty_as_dict and not valid.any():
+        return {}
+    y_pred, y_true = predictions[valid], response[valid]
+    return {
+        name: (
+            float(AVAILABLE_METRICS[name](y_pred=y_pred, y_true=y_true))
+            if len(y_true) >= (1 if name in MINIMIZATION_METRICS else 2)
+            else float("nan")
+        )
+        for name in names
+    }
 
 
 def _compute_metric_value(metric_name: str, predictions: np.ndarray, response: np.ndarray) -> float:
-    if _should_return_nan_global(response, predictions):
-        return float(np.nan)
-    masked = _masked_metric_inputs(predictions, response)
-    if masked is None:
-        return float(np.nan)
-    y_pred, y_true = masked
-    return float(AVAILABLE_METRICS[metric_name](y_pred=y_pred, y_true=y_true))
+    return score_predictions(predictions, response, [metric_name])[metric_name]
 
 
 def evaluate(
@@ -253,10 +272,4 @@ def evaluate(
         preds_arr = np.asarray(predictions_or_dataset)
         response_arr = np.asarray(response)
 
-    results = {}
-    for m in metric:
-        if m not in AVAILABLE_METRICS:
-            raise AssertionError(f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}")
-        results[m] = _compute_metric_value(m, preds_arr, response_arr)
-
-    return results
+    return score_predictions(preds_arr, response_arr, metric)

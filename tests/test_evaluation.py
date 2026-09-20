@@ -217,3 +217,33 @@ def test_compute_metric_value_all_nan_predictions() -> None:
     response = np.array([1.0, 2.0])
     predictions = np.array([np.nan, np.nan])
     assert np.isnan(_compute_metric_value("RMSE", predictions, response))
+
+
+@pytest.mark.parametrize("metric, expected", [("MSE", 6.25), ("RMSE", 2.5), ("MAE", 2.5)])
+def test_error_metrics_score_one_jointly_valid_pair(metric, expected):
+    from drevalpy.evaluation import score_predictions
+
+    assert score_predictions(np.array([1.5, np.nan, 2.0]), np.array([4.0, 1.0, np.nan]), [metric])[metric] == expected
+
+
+@pytest.mark.parametrize("metric", ["R^2", "Pearson", "Spearman", "Kendall"])
+def test_statistical_metrics_require_two_jointly_valid_pairs(metric):
+    from drevalpy.evaluation import score_predictions
+
+    assert np.isnan(score_predictions(np.array([1.5]), np.array([4.0]), [metric])[metric])
+
+
+@pytest.mark.parametrize("predictions, targets", [(np.ones(2), np.ones(3)), (np.ones((2, 1)), np.ones(2))])
+def test_scoring_rejects_alignment_errors(predictions, targets):
+    from drevalpy.evaluation import score_predictions
+
+    with pytest.raises(ValueError, match="equal-shaped one-dimensional"):
+        score_predictions(predictions, targets)
+
+
+def test_empty_scoring_conventions_share_the_same_mask():
+    from drevalpy.evaluation import score_predictions
+
+    predictions, targets = np.array([np.nan, 2.0]), np.array([1.0, np.nan])
+    assert score_predictions(predictions, targets, empty_as_dict=True) == {}
+    assert all(np.isnan(v) for v in score_predictions(predictions, targets).values())
