@@ -137,7 +137,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         :returns: Mapping with one graph block.
         """
         matrix = self._feature_matrix(source, entity_ids)
-        return FeaturizerResult(matrix, {"drug_graph": graph_feature_block(matrix)})
+        return FeaturizerResult(entity_ids, {"drug_graph": graph_feature_block(matrix)}, ("drug_graph",))
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
         """Return fitted schema and metadata without transforming any entities.

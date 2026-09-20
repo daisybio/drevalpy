@@ -11,7 +11,7 @@ from drevalpy.components.predictors.single_drug_routing import (
     require_known_training_keys,
     routing_keys,
 )
-from drevalpy.types.data.batch.feature_block import FeatureBlock
+from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
@@ -20,22 +20,20 @@ def _identity_batch() -> ModelInputBatch:
         cell_line_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
         drug_ids=np.array(["d1", "d1", "d2", "d2"]),
         response=np.array([1.0, 2.0, 3.0, 4.0]),
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.empty((0, 0), dtype=np.float32),
-        drug_features=None,
+        cell_line=FeaturizerResult(np.array(["cl1", "cl2"]), {}, ()),
+        drug=FeaturizerResult(
+            np.array(["d1", "d2"]),
+            {
+                "identity": FeatureBlock(
+                    values=np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32),
+                    format=FeatureFormat.NUMERIC_MATRIX,
+                ),
+                "identity_categories": FeatureBlock(values=np.array(["d1", "d2"]), format=FeatureFormat.NUMERIC_MATRIX),
+            },
+            ("identity",),
+        ),
         cell_line_pair_idx=np.array([0, 1, 0, 1]),
         drug_pair_idx=np.array([0, 0, 1, 1]),
-        drug_blocks={
-            "identity": FeatureBlock(
-                values=np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32),
-                format=FeatureFormat.NUMERIC_MATRIX,
-            ),
-            "identity_categories": FeatureBlock(
-                values=np.array(["d1", "d2"]),
-                format=FeatureFormat.NUMERIC_MATRIX,
-            ),
-        },
     )
 
 
@@ -59,6 +57,6 @@ def test_require_known_training_keys_rejects_unknown() -> None:
 
 def test_routing_keys_requires_identity_blocks() -> None:
     batch = _identity_batch()
-    batch.drug_blocks = {}
+    batch.drug = FeaturizerResult(np.array(["d1", "d2"]), {}, ())
     with pytest.raises(ValueError, match="require drug identity features"):
         routing_keys(batch)

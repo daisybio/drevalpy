@@ -113,10 +113,10 @@ class NeuralNetworkPredictor(MatrixPredictor):
         :returns: Total feature dimensionality per pair.
         """
         dim = 0
-        if batch.cell_line_features.size > 0 and batch.cell_line_features.ndim == 2:
-            dim += batch.cell_line_features.shape[1]
-        if batch.drug_features is not None and batch.drug_features.size > 0 and batch.drug_features.ndim == 2:
-            dim += batch.drug_features.shape[1]
+        if batch.cell_line.matrix.size > 0 and batch.cell_line.matrix.ndim == 2:
+            dim += batch.cell_line.matrix.shape[1]
+        if batch.drug is not None and batch.drug.matrix.size > 0 and batch.drug.matrix.ndim == 2:
+            dim += batch.drug.matrix.shape[1]
         return dim
 
     def _build_pair_loader(
@@ -144,10 +144,10 @@ class NeuralNetworkPredictor(MatrixPredictor):
             batch_size = 1
 
         specs: list[tuple[np.ndarray, np.ndarray]] = []
-        if batch.cell_line_features.size > 0:
-            specs.append((batch.cell_line_features, cell_pair_idx))
-        if batch.drug_features is not None and batch.drug_features.size > 0 and drug_pair_idx is not None:
-            specs.append((batch.drug_features, drug_pair_idx))
+        if batch.cell_line.matrix.size > 0:
+            specs.append((batch.cell_line.matrix, cell_pair_idx))
+        if batch.drug is not None and batch.drug.matrix.size > 0 and drug_pair_idx is not None:
+            specs.append((batch.drug.matrix, drug_pair_idx))
 
         return make_pair_loader(
             *specs,

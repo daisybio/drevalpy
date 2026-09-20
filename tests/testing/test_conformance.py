@@ -59,11 +59,11 @@ class GoodFeaturizer(CellLineFeaturizer):
     def _transform_features(self, source, entity_ids):
         values = np.arange(len(entity_ids) * self._n_features, dtype=np.float32)
         values = values.reshape(len(entity_ids), self._n_features) + self._offset
-        return FeaturizerResult(values, {BLOCK: numeric_feature_block(values)})
+        return FeaturizerResult(entity_ids, {BLOCK: numeric_feature_block(values)}, (BLOCK,))
 
     def _empty_transform_features(self, source):
         values = np.empty((0, self._n_features), dtype=np.float32)
-        return FeaturizerResult(values, {BLOCK: numeric_feature_block(values)})
+        return FeaturizerResult(np.empty(0, dtype=str), {BLOCK: numeric_feature_block(values)}, (BLOCK,))
 
     @property
     def output_dim(self) -> int:
@@ -104,14 +104,16 @@ class MisalignedBlockFeaturizer(GoodFeaturizer):
 
     def _transform_features(self, source, entity_ids):
         result = super()._transform_features(source, entity_ids)
-        return FeaturizerResult(result.matrix[:-1], {BLOCK: numeric_feature_block(result.blocks[BLOCK].values[:-1])})
+        return FeaturizerResult(
+            result.entity_ids[:-1], {BLOCK: numeric_feature_block(result.blocks[BLOCK].values[:-1])}, (BLOCK,)
+        )
 
 
 class EmptyBlocksFeaturizer(GoodFeaturizer):
     """Defect: produces no blocks at all."""
 
     def _transform_features(self, source, entity_ids):
-        return FeaturizerResult(np.empty((len(entity_ids), 0), dtype=np.float32), {})
+        return FeaturizerResult(np.asarray(entity_ids), {}, ())
 
 
 class ForgetfulStateFeaturizer(GoodFeaturizer):
@@ -228,7 +230,7 @@ class TestFeaturizerChecksRejectDefects:
             check_featurizer_fit_transform(MisreportsOutputDimFeaturizer, dataset)
 
     def test_a_misaligned_block_is_rejected(self, dataset):
-        with pytest.raises(ConformanceError, match="rows for"):
+        with pytest.raises(ValueError, match="must preserve requested entity order"):
             check_featurizer_fit_transform(MisalignedBlockFeaturizer, dataset)
 
     def test_producing_no_blocks_is_rejected(self, dataset):

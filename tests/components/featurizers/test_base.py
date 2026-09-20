@@ -372,7 +372,7 @@ def test_default_transform_concatenates_numeric_blocks_only() -> None:
                 "numeric": numeric_feature_block(np.ones((len(entity_ids), 2), dtype=np.float32)),
                 "categories": metadata_feature_block(np.asarray(["a"], dtype=str)),
             }
-            return FeaturizerResult.from_blocks(blocks, len(entity_ids))
+            return FeaturizerResult.from_blocks(blocks, entity_ids)
 
         def _empty_transform_features(self, source) -> FeaturizerResult:
             return self._transform_features(source, np.array([], dtype=str))
@@ -398,7 +398,7 @@ def test_default_transform_returns_an_empty_matrix_without_numeric_blocks() -> N
 
         def _transform_features(self, source, entity_ids) -> FeaturizerResult:
             blocks = {"categories": metadata_feature_block(np.asarray(["a"], dtype=str))}
-            return FeaturizerResult.from_blocks(blocks, len(entity_ids))
+            return FeaturizerResult.from_blocks(blocks, entity_ids)
 
         def _empty_transform_features(self, source) -> FeaturizerResult:
             return self._transform_features(source, np.array([], dtype=str))
@@ -441,18 +441,17 @@ def test_transform_features_pads_object_rows_and_preserves_metadata() -> None:
             return self
 
         def _transform_features(self, source, entity_ids) -> FeaturizerResult:
-            matrix = np.asarray([{"id": entity_id} for entity_id in entity_ids], dtype=object)
             payload = np.empty(len(entity_ids), dtype=object)
             payload[:] = [np.asarray([entity_id]) for entity_id in entity_ids]
             blocks = {
                 "payload": ragged_feature_block(payload),
                 "labels": metadata_feature_block(np.asarray(["fixed"], dtype=str)),
             }
-            return FeaturizerResult(matrix, blocks)
+            return FeaturizerResult(entity_ids, blocks, ("payload",))
 
         def _empty_transform_features(self, source) -> FeaturizerResult:
             blocks = {"labels": metadata_feature_block(np.asarray(["fixed"]))}
-            return FeaturizerResult(np.empty(0, dtype=object), blocks)
+            return FeaturizerResult(np.empty(0, dtype=str), blocks, ())
 
         @property
         def output_dim(self) -> int:
@@ -464,7 +463,7 @@ def test_transform_features_pads_object_rows_and_preserves_metadata() -> None:
     result = _ObjectFeaturizer().transform_features(source, np.array(["bad", "good"]))
 
     assert result.matrix[0] is None
-    assert result.matrix[1] == {"id": "good"}
+    assert result.matrix[1].tolist() == ["good"]
     assert result.blocks["payload"].values[0] is None
     assert result.blocks["labels"].values.tolist() == ["fixed"]
 

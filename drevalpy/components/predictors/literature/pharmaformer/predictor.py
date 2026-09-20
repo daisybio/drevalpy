@@ -179,8 +179,8 @@ class PharmaFormerPredictor(BlockPredictor):
         :returns: Tuple of ``(gene_expression, bpe_smiles)`` matrices.
         """
         return (
-            batch.cell_line_blocks["gene_expression"].values,
-            batch.drug_blocks["bpe_smiles"].values,
+            batch.cell_line.blocks["gene_expression"].values,
+            batch.drug.blocks["bpe_smiles"].values,
         )
 
     def _build_loaders(self, batch: ModelInputBatch) -> tuple[DataLoader, DataLoader]:

@@ -56,13 +56,15 @@ class ToyDrugHashFeaturizer(DrugFeaturizer):
         _ = source
         rows = [self._hash_row(str(entity_id)) for entity_id in entity_ids]
         values = np.vstack(rows) if rows else np.empty((0, N_COLUMNS), dtype=np.float32)
-        return FeaturizerResult(values, {"toy_drug_hash": numeric_feature_block(values)})
+        return FeaturizerResult(entity_ids, {"toy_drug_hash": numeric_feature_block(values)}, ("toy_drug_hash",))
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
         """Return the fixed-width output schema for an empty request."""
         _ = source
         values = np.empty((0, N_COLUMNS), dtype=np.float32)
-        return FeaturizerResult(values, {"toy_drug_hash": numeric_feature_block(values)})
+        return FeaturizerResult(
+            np.empty(0, dtype=str), {"toy_drug_hash": numeric_feature_block(values)}, ("toy_drug_hash",)
+        )
 
     @staticmethod
     def _hash_row(entity_id: str) -> np.ndarray:

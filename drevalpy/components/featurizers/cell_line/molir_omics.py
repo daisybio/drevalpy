@@ -116,7 +116,7 @@ class MOLIROmicsFeaturizer(DenseViewCellLineFeaturizer):
                 for view in _VIEWS[1:]
             },
         }
-        return FeaturizerResult(result.matrix, blocks)
+        return FeaturizerResult(entity_ids, blocks, result.projection)
 
     @property
     def output_dim(self) -> int:

@@ -12,7 +12,7 @@ from drevalpy.components.predictors.literature.pharmaformer.predictor import (
 )
 from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.components.predictors.literature._helpers import (
@@ -45,14 +45,14 @@ def _trainable_batch(tmp_path) -> ModelInputBatch:
     )
     return ModelInputBatch.from_response(
         training,
-        cell_line_entity_ids=cell_ids,
-        drug_entity_ids=drug_ids,
-        cell_line_features=np.empty((4, 0), dtype=np.float32),
-        drug_features=np.zeros((2, 1), dtype=np.float32),
+        cell_line=FeaturizerResult.from_blocks(
+            {"gene_expression": numeric_feature_block(rng.normal(size=(4, 6)).astype(np.float32))}, cell_ids
+        ),
+        drug=FeaturizerResult.from_blocks(
+            {"bpe_smiles": numeric_feature_block(rng.normal(size=(2, 128)).astype(np.float32))}, drug_ids
+        ),
         cell_line_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
-        cell_line_blocks={"gene_expression": numeric_feature_block(rng.normal(size=(4, 6)).astype(np.float32))},
-        drug_blocks={"bpe_smiles": numeric_feature_block(rng.normal(size=(2, 128)).astype(np.float32))},
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=tmp_path),
     )

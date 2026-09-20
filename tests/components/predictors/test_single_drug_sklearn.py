@@ -8,7 +8,7 @@ import pytest
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor
 from drevalpy.components.predictors.sklearn_models import SingleDrugElasticNetPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.models.component_stack import build_component_stack
+from drevalpy.models._pipeline import _ModelPipeline
 from drevalpy.models.config import from_spec
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.enums.prediction_mode import PredictionMode
@@ -34,7 +34,8 @@ def _fitted_stack(cell_line_input: MockFeatureSource) -> tuple[object, SingleDru
         "scaledGeneExpression:identity:singleDrugElasticNet",
         hyperparameters={"alpha": 0.1, "l1_ratio": 0.5},
     )
-    stack = build_component_stack(config)
+    stack = _ModelPipeline(config)
+    stack.reset()
     response = ResponseBatch(
         response=np.array([1.0, 1.0, 10.0, 10.0]),
         cell_line_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
@@ -62,10 +63,12 @@ def test_identity_routes_estimators_without_entering_design_matrix() -> None:
     assert set(predictor._estimators) == {"d1", "d2"}
     assert {estimator.n_features_in_ for estimator in predictor._estimators.values()} == {3}
 
-    predictions = stack.predict_from_features(
-        np.array(["cl1", "cl1"]),
-        np.array(["d1", "d2"]),
-        cell_line_input,
+    predictions = predictor.predict(
+        stack._batch(
+            ResponseBatch(response=None, cell_line_ids=np.array(["cl1", "cl1"]), drug_ids=np.array(["d1", "d2"])),
+            cell_line_input,
+            None,
+        )
     )
     assert np.allclose(predictions, np.array([1.0, 10.0]))
 

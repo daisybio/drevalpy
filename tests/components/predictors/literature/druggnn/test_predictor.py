@@ -114,8 +114,8 @@ class TestTinyDrugGNNFit:
         batch = _druggnn_batch(with_early_stopping=True)
         seed_literature(seed)
         pristine = DrugGNNPredictor(hyperparameters)
-        cell_line_matrix = batch.cell_line_blocks["gene_expression"].values
-        drug_graphs = batch.drug_blocks["drug_graph"].values
+        cell_line_matrix = batch.cell_line.blocks["gene_expression"].values
+        drug_graphs = batch.drug.blocks["drug_graph"].values
         initial = trainable_parameter_vector(pristine._build_model(cell_line_matrix, drug_graphs))
 
         seed_literature(seed)
@@ -160,8 +160,8 @@ class TestTinyDrugGNNFit:
 
         seed_literature(0)
         final_epoch = DrugGNNPredictor(hyperparameters)
-        cell_matrix = batch.cell_line_blocks["gene_expression"].values
-        drug_graphs = batch.drug_blocks["drug_graph"].values
+        cell_matrix = batch.cell_line.blocks["gene_expression"].values
+        drug_graphs = batch.drug.blocks["drug_graph"].values
         final_epoch._model = final_epoch._build_model(cell_matrix, drug_graphs)
         train_loader = final_epoch._graph_loader(
             batch.cell_line_pair_idx,

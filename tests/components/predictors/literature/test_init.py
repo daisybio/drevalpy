@@ -19,9 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.models import construct_model
+from drevalpy.models import ModelSpec
 from drevalpy.models.config import ModelConfig, from_spec, validate
-from drevalpy.models.drp_model import DRPModel
 from drevalpy.registry._builtins import ensure_predictor_registered, register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 
@@ -144,15 +143,15 @@ def test_literature_predictor_lazy_package_import() -> None:
 
 @pytest.mark.parametrize("name", LITERATURE_FACTORY_NAMES)
 def test_literature_factory_entries_are_native_facades(name: str) -> None:
-    cls = construct_model(name)
-    assert issubclass(cls, DRPModel)
-    assert cls.__module__ == "drevalpy.models"
+    spec = ModelSpec.from_name(name)
+    assert isinstance(spec, ModelSpec)
+    assert spec.name == name
 
 
 @pytest.mark.parametrize("name", LITERATURE_FACTORY_NAMES)
 def test_model_config_and_factory_share_zoo_name(name: str) -> None:
     config = from_spec(name)
     assert isinstance(config, ModelConfig)
-    model_cls = construct_model(name)
+    spec = ModelSpec.from_name(name)
     validate(config)
-    assert model_cls.get_model_name() == name
+    assert spec.name == name

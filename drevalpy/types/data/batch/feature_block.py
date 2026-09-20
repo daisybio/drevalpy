@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import cached_property
 from types import MappingProxyType
 
 import numpy as np
@@ -40,24 +41,71 @@ class FeatureBlock:
             object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
 
+def _validate_projection(blocks: Mapping[str, FeatureBlock], projection: tuple[str, ...]) -> None:
+    """Require an ordered, unambiguous selection of compatible entity blocks."""
+    for name in projection:
+        if name not in blocks:
+            raise ValueError(f"Matrix projection selects missing block {name!r}")
+        block = blocks[name]
+        if not block.entity_aligned:
+            raise ValueError(f"Matrix projection cannot select global metadata block {name!r}")
+        if len(projection) > 1 and (
+            block.format != FeatureFormat.NUMERIC_MATRIX
+            or block.values.ndim != 2
+            or block.values.dtype.kind not in "biufc"
+        ):
+            raise ValueError("Multiple matrix blocks must be two-dimensional numeric arrays")
+    if len(set(projection)) != len(projection):
+        raise ValueError("Matrix projection cannot repeat a block")
+
+
 @dataclass(frozen=True)
 class FeaturizerResult:
-    """Matrix and named blocks computed together for the same entity order."""
+    """Named feature blocks in entity order, with an explicit matrix selection.
 
-    matrix: np.ndarray
-    blocks: dict[str, FeatureBlock]
+    The projection names blocks in order. One block is passed through unchanged;
+    several numeric blocks are concatenated. Global metadata is never projected.
+    """
+
+    entity_ids: np.ndarray
+    blocks: Mapping[str, FeatureBlock]
+    projection: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        """Validate row identities, block alignment, and projection compatibility."""
+        ids = np.asarray(self.entity_ids)
+        if ids.ndim != 1:
+            raise ValueError("FeaturizerResult.entity_ids must be one-dimensional")
+        object.__setattr__(self, "entity_ids", ids)
+        object.__setattr__(self, "blocks", MappingProxyType(dict(self.blocks)))
+        object.__setattr__(self, "projection", tuple(self.projection))
+        for name, block in self.blocks.items():
+            if block.entity_aligned and (block.values.ndim == 0 or len(block.values) != len(ids)):
+                raise ValueError(f"Feature block {name!r} rows must match entity_ids")
+        _validate_projection(self.blocks, self.projection)
+
+    @cached_property
+    def matrix(self) -> np.ndarray:
+        """Materialize the declared matrix once, only when a consumer needs it."""
+        if not self.projection:
+            return np.empty((len(self.entity_ids), 0), dtype=np.float32)
+        arrays = [self.blocks[name].values for name in self.projection]
+        return arrays[0] if len(arrays) == 1 else np.concatenate(arrays, axis=1)
 
     @classmethod
-    def from_blocks(cls, blocks: dict[str, FeatureBlock], n_entities: int) -> FeaturizerResult:
-        """Concatenate ordered numeric entity blocks into a matrix.
+    def from_blocks(cls, blocks: Mapping[str, FeatureBlock], entity_ids: np.ndarray) -> FeaturizerResult:
+        """Explicitly select all ordered numeric entity blocks for concatenation.
 
-        :param blocks: Named blocks in their declared concatenation order.
-        :param n_entities: Row count when no numeric blocks exist.
-        :returns: Combined representation retaining every block, including metadata.
+        :param blocks: Canonical named payloads, including optional global metadata.
+        :param entity_ids: Identifiers in row order.
+        :returns: Result used by numeric concatenating featurizers.
         """
-        arrays = [b.values for b in blocks.values() if b.entity_aligned and b.format == FeatureFormat.NUMERIC_MATRIX]
-        matrix = np.concatenate(arrays, axis=1) if arrays else np.empty((n_entities, 0), dtype=np.float32)
-        return cls(matrix, blocks)
+        projection = tuple(
+            name
+            for name, block in blocks.items()
+            if block.entity_aligned and block.format == FeatureFormat.NUMERIC_MATRIX
+        )
+        return cls(entity_ids, blocks, projection)
 
 
 def numeric_feature_block(

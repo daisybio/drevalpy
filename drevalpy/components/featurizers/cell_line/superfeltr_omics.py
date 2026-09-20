@@ -100,7 +100,7 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
                     feature_names=self._feature_names.get("gene_expression"),
                 )
             }
-            return FeaturizerResult(blocks["gene_expression"].values, blocks)
+            return FeaturizerResult(entity_ids, blocks, ("gene_expression",))
         blocks = {
             view: numeric_feature_block(
                 self._view_matrix(source, view, entity_ids)[:, mask].astype(np.float32),
@@ -108,7 +108,7 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
             )
             for view, mask in self._masks.items()
         }
-        return FeaturizerResult(blocks["gene_expression"].values, blocks)
+        return FeaturizerResult(entity_ids, blocks, ("gene_expression",))
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
         """Build selected omics schemas without invoking a transformer.
@@ -122,7 +122,7 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
             )
             for view, mask in self._masks.items()
         }
-        return FeaturizerResult(blocks["gene_expression"].values, blocks)
+        return FeaturizerResult(np.array([], dtype=str), blocks, ("gene_expression",))
 
     @property
     def output_dim(self) -> int:

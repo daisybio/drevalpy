@@ -82,7 +82,7 @@ class TestExpandBlocksWithNan:
     def test_numeric_blocks_are_padded_with_nan(self) -> None:
         block = numeric_feature_block(np.array([[1.0, 2.0]], dtype=np.float32))
 
-        expanded = DoublingFeaturizer()._expand_blocks_with_nan({"numeric": block}, np.array([True, False]), 2)
+        expanded = DoublingFeaturizer()._expand_blocks_with_nan({"numeric": block}, np.array([True, False]))
 
         values = expanded["numeric"].values
         assert values.shape == (2, 2)
@@ -92,7 +92,7 @@ class TestExpandBlocksWithNan:
     def test_non_entity_aligned_blocks_pass_through_untouched(self) -> None:
         block = metadata_feature_block(np.asarray(["lung", "skin"], dtype=str))
 
-        expanded = DoublingFeaturizer()._expand_blocks_with_nan({"categories": block}, np.array([True, False]), 2)
+        expanded = DoublingFeaturizer()._expand_blocks_with_nan({"categories": block}, np.array([True, False]))
 
         assert expanded["categories"] is block
 
@@ -103,7 +103,6 @@ class TestExpandBlocksWithNan:
         expanded = DoublingFeaturizer()._expand_blocks_with_nan(
             {"ragged": ragged_feature_block(payload)},
             np.array([True, False]),
-            2,
         )
 
         values = expanded["ragged"].values
@@ -113,7 +112,7 @@ class TestExpandBlocksWithNan:
     def test_the_padded_block_keeps_its_feature_names(self) -> None:
         block = numeric_feature_block(np.array([[1.0]], dtype=np.float32), feature_names=("g1",))
 
-        expanded = DoublingFeaturizer()._expand_blocks_with_nan({"numeric": block}, np.array([True, False]), 2)
+        expanded = DoublingFeaturizer()._expand_blocks_with_nan({"numeric": block}, np.array([True, False]))
 
         assert expanded["numeric"].feature_names == ("g1",)
 

@@ -42,9 +42,9 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         :param batch: Featurized batch.
         :returns: Pair-level cell-line feature matrix.
         """
-        if batch.cell_line_features.size == 0:
+        if batch.cell_line.matrix.size == 0:
             return np.empty((batch.n_pairs, 0), dtype=np.float32)
-        return batch.cell_line_features[batch.cell_line_pair_idx]
+        return batch.cell_line.matrix[batch.cell_line_pair_idx]
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.

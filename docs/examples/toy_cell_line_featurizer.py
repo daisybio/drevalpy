@@ -66,13 +66,17 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
             raise RuntimeError(msg)
         matrix = source.get_view_matrix(self.input_views[0], entity_ids)
         standardized = ((matrix - self._mean) / self._scale).astype(np.float32)
-        return FeaturizerResult(standardized, {self.input_views[0]: numeric_feature_block(standardized)})
+        return FeaturizerResult(
+            entity_ids, {self.input_views[0]: numeric_feature_block(standardized)}, (self.input_views[0],)
+        )
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
         """Return the fitted schema without transforming any source rows."""
         _ = source
         values = np.empty((0, self.output_dim), dtype=np.float32)
-        return FeaturizerResult(values, {self.input_views[0]: numeric_feature_block(values)})
+        return FeaturizerResult(
+            np.empty(0, dtype=str), {self.input_views[0]: numeric_feature_block(values)}, (self.input_views[0],)
+        )
 
     @property
     def output_dim(self) -> int:

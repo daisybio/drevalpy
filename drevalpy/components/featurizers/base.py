@@ -98,11 +98,11 @@ class Featurizer(
         return self
 
     def transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Compute aligned matrices and blocks once, padding unusable entities.
+        """Compute named features once, padding unusable entities.
 
         :param source: Feature views for this entity side.
         :param entity_ids: Requested identifiers in output order.
-        :returns: Both representations, with numeric NaNs or object None for invalid rows.
+        :returns: Canonical features, with numeric NaNs or object None for invalid rows.
         """
         valid = self._detect_valid(source, entity_ids)
         self._warn_if_above_threshold(valid, f"{type(self).__name__}.transform_features")
@@ -110,16 +110,15 @@ class Featurizer(
             features = self._empty_transform_features(source)
         else:
             features = self._transform_features(source, entity_ids[valid])
+        if not np.array_equal(features.entity_ids, entity_ids[valid]):
+            raise ValueError(f"{type(self).__name__} must preserve requested entity order")
         if valid.all():
             return features
-        numeric = features.matrix.dtype.kind != "O"
-        matrix = np.full(
-            (len(entity_ids), *features.matrix.shape[1:]),
-            np.nan if numeric else None,
-            dtype=np.result_type(features.matrix.dtype, np.float32) if numeric else object,
+        return FeaturizerResult(
+            entity_ids,
+            self._expand_blocks_with_nan(features.blocks, valid),
+            features.projection,
         )
-        matrix[valid] = features.matrix
-        return FeaturizerResult(matrix, self._expand_blocks_with_nan(features.blocks, valid, len(entity_ids)))
 
     def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         """Return the named blocks of the combined transformation.
@@ -128,7 +127,7 @@ class Featurizer(
         :param entity_ids: Requested identifiers.
         :returns: Aligned feature blocks.
         """
-        return self.transform_features(source, entity_ids).blocks
+        return dict(self.transform_features(source, entity_ids).blocks)
 
     def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Return the matrix of the combined transformation.
@@ -164,11 +163,11 @@ class Featurizer(
 
     @abstractmethod
     def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Compute both representations for valid entities in one pass.
+        """Compute canonical features for valid entities in one pass.
 
         :param source: Feature source.
         :param entity_ids: Nonempty valid identifiers.
-        :returns: Matrix and blocks aligned to these identifiers.
+        :returns: Named blocks and their matrix projection, aligned to these identifiers.
         """
 
     @abstractmethod

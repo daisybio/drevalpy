@@ -37,12 +37,12 @@ def require_pair_matrix(
     :raises ValueError: Raised on invalid input.
     """
     if side == "cell_line":
-        return pair_align(batch.cell_line_features, batch.cell_line_pair_idx)
+        return pair_align(batch.cell_line.matrix, batch.cell_line_pair_idx)
     if side == "drug":
-        if batch.drug_features is None:
+        if batch.drug is None:
             msg = "drug features are required"
             raise ValueError(msg)
-        return pair_align(batch.drug_features, batch.drug_pair_idx)
+        return pair_align(batch.drug.matrix, batch.drug_pair_idx)
     msg = f"Unknown feature side {side!r}"
     raise ValueError(msg)
 
@@ -55,10 +55,10 @@ def block_pair_matrix(batch: ModelInputBatch, block_name: str) -> np.ndarray:
     :returns: Result.
     :raises ValueError: Raised on invalid input.
     """
-    if block_name not in batch.cell_line_blocks:
+    if block_name not in batch.cell_line.blocks:
         msg = f"Required cell-line block {block_name!r} is missing"
         raise ValueError(msg)
-    return pair_align(batch.cell_line_blocks[block_name].values, batch.cell_line_pair_idx)
+    return pair_align(batch.cell_line.blocks[block_name].values, batch.cell_line_pair_idx)
 
 
 def category_means(design: np.ndarray, y: np.ndarray) -> np.ndarray:

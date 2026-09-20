@@ -238,13 +238,14 @@ class DenseViewFeaturizer(Featurizer):
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
-            matrix,
+            entity_ids,
             {
                 self._block_name(): numeric_feature_block(
                     matrix,
                     feature_names=self._block_feature_names(source),
                 )
             },
+            (self._block_name(),),
         )
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:

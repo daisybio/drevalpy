@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
@@ -107,21 +107,25 @@ def naive_batch(
         cell_line_pair_idx = np.arange(n_pairs, dtype=np.int64)
     if drug_pair_idx is None:
         drug_pair_idx = np.arange(n_pairs, dtype=np.int64)
-    if cell_line_ids is None:
-        cell_line_ids = np.array([f"decoy_cl_{i}" for i in range(n_pairs)], dtype=str)
-    if drug_ids is None:
-        drug_ids = np.array([f"decoy_d_{i}" for i in range(n_pairs)], dtype=str)
+    cell_entities = np.array([f"entity_cl_{i}" for i in range(len(cell_line_features))], dtype=str)
+    drug_entities = np.array([f"entity_d_{i}" for i in range(len(drug_features))], dtype=str)
+    # Canonical batches validate pair IDs against their indexed entity rows. The
+    # old decoy-ID fixture is intentionally replaced by this explicit mapping.
+    cell_line_ids = cell_entities[np.asarray(cell_line_pair_idx, dtype=np.int64)]
+    drug_ids = drug_entities[np.asarray(drug_pair_idx, dtype=np.int64)]
 
+    cell_blocks = _as_feature_blocks(cell_line_blocks)
+    drug_blocks = _as_feature_blocks(drug_blocks)
+    if not cell_blocks:
+        cell_blocks = {"matrix": numeric_feature_block(np.asarray(cell_line_features, dtype=np.float64))}
+    if not drug_blocks:
+        drug_blocks = {"matrix": numeric_feature_block(np.asarray(drug_features, dtype=np.float64))}
     return ModelInputBatch(
         cell_line_ids=cell_line_ids,
         drug_ids=drug_ids,
         response=response,
-        cell_line_entity_ids=np.array([f"entity_cl_{i}" for i in range(len(cell_line_features))], dtype=str),
-        drug_entity_ids=np.array([f"entity_d_{i}" for i in range(len(drug_features))], dtype=str),
-        cell_line_features=np.asarray(cell_line_features, dtype=np.float64),
-        drug_features=np.asarray(drug_features, dtype=np.float64),
+        cell_line=FeaturizerResult.from_blocks(cell_blocks, cell_entities),
+        drug=FeaturizerResult.from_blocks(drug_blocks, drug_entities),
         cell_line_pair_idx=np.asarray(cell_line_pair_idx, dtype=np.int64),
         drug_pair_idx=np.asarray(drug_pair_idx, dtype=np.int64),
-        cell_line_blocks=_as_feature_blocks(cell_line_blocks),
-        drug_blocks=_as_feature_blocks(drug_blocks),
     )

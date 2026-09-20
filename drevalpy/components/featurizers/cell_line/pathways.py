@@ -108,13 +108,14 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
-            matrix,
+            entity_ids,
             {
                 self._view: numeric_feature_block(
                     matrix,
                     feature_names=self._pathway_names,
                 )
             },
+            (self._view,),
         )
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:

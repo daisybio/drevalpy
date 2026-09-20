@@ -3,7 +3,7 @@ Extensions
 
 If you are reading this, we assume you are already familiar with:
 
-- :doc:`models` — ``construct_model``, recipes, ``ModelConfig``, and lifecycle
+- :doc:`models` — ``ModelSpec``, ``DRPModel``, ``ModelConfig``, and lifecycle
 - :doc:`/concepts/component_catalog`
 - :doc:`/concepts/from_components_to_models`
 - :doc:`/concepts/registries`
@@ -506,13 +506,14 @@ installable (or otherwise on ``PYTHONPATH``), a normal import is enough:
    import my_components.toy_featurizer  # registers toyCellLine
    import my_components.toy_predictors  # registers toyMean, toyRidge, …
 
-   from drevalpy.models import construct_model
+   from drevalpy.models import DRPModel, ModelSpec
 
-   ToyRidge = construct_model(
-       "ToyRidge",
-       "toyCellLine:toyDrugHash:toyRidge",
-   )
-   model = ToyRidge()
+   spec = ModelSpec("ToyRidge", {
+       "cell_line_featurizer": "toyCellLine",
+       "drug_featurizer": "toyDrugHash",
+       "predictor": "toyRidge",
+   })
+   model = DRPModel(spec)
 
 Other sources: ``load_extensions``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -530,14 +531,14 @@ YAML in one call:
 
 .. code-block:: python
 
-   from drevalpy.models import construct_model
+   from drevalpy.models import DRPModel, ModelSpec
    from drevalpy.registry import load_extensions
 
    load_extensions(
        directories=["my_components"],
        zoo_files=["my_zoo/toy.yaml"],
    )
-   ToyMean = construct_model("toyMean")  # zoo preset name
+   ToyMean = ModelSpec.from_name("toyMean")  # zoo preset name
 
 Every entry point rolls the registries back if loading fails part-way, so a
 module that registers two components and then raises leaves neither behind.
@@ -594,7 +595,7 @@ Checkpoints are ZIP archives that store the resolved ``ModelConfig`` (component
 **names**) and fitted state — not the Python classes themselves. On load,
 DrEvalPy looks those names up in the registries again, then restores state. If
 a custom featurizer or predictor is not registered in the process that calls
-``load`` / ``load_model``, reconstruction fails.
+``DRPModel.load``, reconstruction fails.
 
 Import the same modules (or call ``load_extensions``) before loading:
 
@@ -603,9 +604,9 @@ Import the same modules (or call ``load_extensions``) before loading:
    import my_components.toy_featurizer
    import my_components.toy_predictors
 
-   from drevalpy.models import load_model
+   from drevalpy.models import DRPModel
 
-   model = load_model("checkpoints/toy_ridge.zip")
+   model = DRPModel.load("checkpoints/toy_ridge.zip")
 
 Built-in zoo models need no extra step; only custom component names require
 this. See :doc:`models` for the general save/load lifecycle.

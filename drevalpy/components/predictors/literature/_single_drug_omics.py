@@ -88,7 +88,7 @@ def omic_matrices(batch: ModelInputBatch) -> OmicMatrices:
     :param batch: Batch carrying all three blocks.
     :returns: The entity-level matrices as float32.
     """
-    values = [np.asarray(batch.cell_line_blocks[name].values, dtype=np.float32) for name in OMIC_BLOCK_NAMES]
+    values = [np.asarray(batch.cell_line.blocks[name].values, dtype=np.float32) for name in OMIC_BLOCK_NAMES]
     return OmicMatrices(*values)
 
 
@@ -98,7 +98,7 @@ def omic_feature_names(batch: ModelInputBatch) -> OmicFeatureNames:
     :param batch: Batch carrying all three blocks.
     :returns: The recorded feature names.
     """
-    return OmicFeatureNames(*(batch.cell_line_blocks[name].feature_names for name in OMIC_BLOCK_NAMES))
+    return OmicFeatureNames(*(batch.cell_line.blocks[name].feature_names for name in OMIC_BLOCK_NAMES))
 
 
 def checkpoint_dir_for_drug(base_dir: UPath | str, drug_id: str) -> UPath:
@@ -141,7 +141,7 @@ def early_stopping_indices(batch: ModelInputBatch) -> tuple[np.ndarray | None, n
     if es_resp is None or len(es_resp) < 2:
         return None, None
 
-    entity_map = {str(eid): row for row, eid in enumerate(batch.cell_line_entity_ids)}
+    entity_map = {str(eid): row for row, eid in enumerate(batch.cell_line.entity_ids)}
     val_idx = np.array([entity_map[str(cl_id)] for cl_id in es_resp.cell_line_ids], dtype=np.intp)
     return val_idx, np.asarray(es_resp.response, dtype=np.float32)
 
@@ -172,7 +172,7 @@ def aligned_pair_matrices(
     pair_idx = batch.cell_line_pair_idx
     aligned = []
     for name, trained in zip(OMIC_BLOCK_NAMES, feature_names.as_tuple(), strict=True):
-        block = batch.cell_line_blocks[name]
+        block = batch.cell_line.blocks[name]
         values = np.asarray(block.values[pair_idx], dtype=np.float32)
         aligned.append(_align(values, trained, block.feature_names))
     return aligned[0], aligned[1], aligned[2]

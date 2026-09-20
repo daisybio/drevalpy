@@ -87,8 +87,8 @@ class PrecilyPredictor(BlockPredictor):
         :returns: Tuple of ``(pathways, smilesvec)`` matrices.
         """
         return (
-            batch.cell_line_blocks["pathways"].values,
-            batch.drug_blocks["smilesvec"].values,
+            batch.cell_line.blocks["pathways"].values,
+            batch.drug.blocks["smilesvec"].values,
         )
 
     def _build_model(self, input_dim: int, dropout: float) -> PrecilyNetwork:

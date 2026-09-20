@@ -67,12 +67,12 @@ class DoublingFeaturizer(Featurizer):
         """Return the doubled matrix and its named block together."""
         matrix = source.get_view_matrix("test_view", entity_ids)
         doubled = (matrix * 2).astype(np.float32)
-        return FeaturizerResult(doubled, {"test_view": numeric_feature_block(doubled)})
+        return FeaturizerResult(entity_ids, {"test_view": numeric_feature_block(doubled)}, ("test_view",))
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
         """Retain the fixed output schema when every source row is invalid."""
         empty = np.empty((0, self.output_dim), dtype=np.float32)
-        return FeaturizerResult(empty, {"test_view": numeric_feature_block(empty)})
+        return FeaturizerResult(np.empty(0, dtype=str), {"test_view": numeric_feature_block(empty)}, ("test_view",))
 
     @property
     def output_dim(self) -> int:

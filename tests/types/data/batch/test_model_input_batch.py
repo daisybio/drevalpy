@@ -1,181 +1,106 @@
-"""Tests for ModelInputBatch construction and matrix views.
-
-The ``build_model_input_batch`` entry point is covered in
-``test_model_input_build.py``.
-"""
+"""Tests for pair indexing and explicit feature-result projections."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from drevalpy.types.data.batch.model_input_batch import (
-    ModelInputBatch,
-    pair_cell_line_indices,
-    pair_drug_indices,
-)
+from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch, pair_cell_line_indices, pair_drug_indices
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 
 
-def test_to_feature_matrix_combined_cell_line_and_drug() -> None:
-    batch = ModelInputBatch(
-        cell_line_ids=np.array(["cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d2"]),
-        response=np.array([1.0, 2.0]),
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
-        drug_features=np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32),
-        cell_line_pair_idx=np.array([0, 1]),
-        drug_pair_idx=np.array([0, 1]),
+def _result(ids, values, projection=("view",)) -> FeaturizerResult:
+    return FeaturizerResult(np.asarray(ids), {"view": numeric_feature_block(np.asarray(values))}, projection)
+
+
+def _batch(*, drug=True, stopping=None) -> ModelInputBatch:
+    cell = _result(["cl1", "cl2"], [[0.1, 0.2], [0.3, 0.4]])
+    drug_result = _result(["d1", "d2"], [[1.0, 0.0], [0.0, 1.0]]) if drug else None
+    return ModelInputBatch(
+        np.array(["cl1", "cl2"]),
+        np.array(["d1", "d2"]),
+        np.array([1.0, 2.0]),
+        cell,
+        drug_result,
+        np.array([0, 1]),
+        None if not drug else np.array([0, 1]),
+        stopping,
     )
-    matrix = batch.to_feature_matrix()
+
+
+def test_to_feature_matrix_combines_canonical_projections() -> None:
+    matrix = _batch().to_feature_matrix()
     assert matrix.shape == (2, 4)
-    np.testing.assert_allclose(matrix[0], np.array([0.1, 0.2, 1.0, 0.0], dtype=np.float32))
-    np.testing.assert_allclose(matrix[1], np.array([0.3, 0.4, 0.0, 1.0], dtype=np.float32))
+    np.testing.assert_allclose(matrix[0], [0.1, 0.2, 1.0, 0.0])
 
 
-def test_to_feature_matrix_cell_line_only() -> None:
-    batch = ModelInputBatch(
-        cell_line_ids=np.array(["cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d2"]),
-        response=np.array([1.0, 2.0]),
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=None,
-        cell_line_features=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
-        drug_features=None,
-        cell_line_pair_idx=np.array([0, 1]),
-        drug_pair_idx=None,
-    )
-    matrix = batch.to_feature_matrix()
-    assert matrix.shape == (2, 2)
+def test_to_feature_matrix_handles_one_side_and_featureless_result() -> None:
+    assert _batch(drug=False).to_feature_matrix().shape == (2, 2)
+    empty = FeaturizerResult(np.array(["cl1"]), {}, ())
+    batch = ModelInputBatch(np.array(["cl1"]), np.array(["d1"]), np.array([1.0]), empty, None, np.array([0]), None)
+    assert batch.to_feature_matrix().shape == (1, 0)
 
 
-def test_to_feature_matrix_drug_only() -> None:
-    batch = ModelInputBatch(
-        cell_line_ids=np.array(["cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d2"]),
-        response=np.array([1.0, 2.0]),
-        cell_line_entity_ids=np.array([]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.empty((0, 0), dtype=np.float32),
-        drug_features=np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32),
-        cell_line_pair_idx=np.array([0, 1]),
-        drug_pair_idx=np.array([0, 1]),
-    )
-    matrix = batch.to_feature_matrix()
-    assert matrix.shape == (2, 2)
+def test_projection_rules_cover_empty_one_and_many_numeric_blocks() -> None:
+    ids = np.array(["a", "b"])
+    first = numeric_feature_block(np.array([[1.0], [2.0]]))
+    second = numeric_feature_block(np.array([[3.0], [4.0]]))
+    assert FeaturizerResult(ids, {"a": first}, ()).matrix.shape == (2, 0)
+    assert FeaturizerResult(ids, {"a": first}, ("a",)).matrix is first.values
+    np.testing.assert_allclose(FeaturizerResult(ids, {"a": first, "b": second}, ("a", "b")).matrix, [[1, 3], [2, 4]])
 
 
-def test_to_feature_matrix_empty_baseline() -> None:
-    batch = ModelInputBatch(
-        cell_line_ids=np.array(["cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d2"]),
-        response=np.array([1.0, 2.0]),
-        cell_line_entity_ids=np.array([]),
-        drug_entity_ids=None,
-        cell_line_features=np.empty((0, 0), dtype=np.float32),
-        drug_features=None,
-        cell_line_pair_idx=np.array([0, 0]),
-        drug_pair_idx=None,
-    )
-    matrix = batch.to_feature_matrix()
-    assert matrix.shape == (2, 0)
+def test_projection_rejects_missing_duplicate_or_non_numeric_multi_block() -> None:
+    ids = np.array(["a"])
+    numeric = numeric_feature_block(np.array([[1.0]]))
+    object_block = FeatureBlock(np.array([object()], dtype=object), numeric.format)
+    with pytest.raises(ValueError, match="missing block"):
+        FeaturizerResult(ids, {"a": numeric}, ("missing",))
+    with pytest.raises(ValueError, match="cannot repeat"):
+        FeaturizerResult(ids, {"a": numeric}, ("a", "a"))
+    with pytest.raises(ValueError, match="Multiple matrix blocks"):
+        FeaturizerResult(ids, {"a": numeric, "b": object_block}, ("a", "b"))
 
 
-def test_to_feature_matrix_builds_drug_indices_from_entity_maps() -> None:
-    batch = ModelInputBatch(
-        cell_line_ids=np.array(["cl1"]),
-        drug_ids=np.array(["d1"]),
-        response=np.array([1.0]),
-        cell_line_entity_ids=np.array(["cl1"]),
-        drug_entity_ids=np.array(["d1"]),
-        cell_line_features=np.array([[0.1]], dtype=np.float32),
-        drug_features=np.array([[1.0]], dtype=np.float32),
-        cell_line_pair_idx=np.array([0]),
-        drug_pair_idx=None,
-    )
-    matrix = batch.to_feature_matrix()
-    assert matrix.shape == (1, 2)
-    np.testing.assert_allclose(matrix, np.array([[0.1, 1.0]], dtype=np.float32))
-
-
-def test_subset_pairs_filters_pairs_and_early_stopping_by_drug() -> None:
-    response = ResponseBatch(
-        response=np.array([1.0, 2.0, 3.0, 4.0]),
-        cell_line_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d1", "d2", "d2"]),
-    )
-    early_stopping = ResponseBatch(
-        response=np.array([0.5, 0.6, 0.7]),
-        cell_line_ids=np.array(["cl1", "cl2", "cl1"]),
-        drug_ids=np.array(["d1", "d1", "d2"]),
-    )
-    batch = ModelInputBatch(
-        cell_line_ids=response.cell_line_ids,
-        drug_ids=response.drug_ids,
-        response=np.asarray(response.response, dtype=np.float64),
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.array([[0.1], [0.2]], dtype=np.float32),
-        drug_features=None,
-        cell_line_pair_idx=np.array([0, 1, 0, 1]),
-        drug_pair_idx=np.array([0, 0, 1, 1]),
-        early_stopping_response=early_stopping,
-    )
-    subset = batch.subset_pairs(np.array([True, True, False, False]))
-    assert subset.n_pairs == 2
-    assert subset.drug_ids.tolist() == ["d1", "d1"]
+def test_subset_pairs_filters_stopping_by_surviving_drugs() -> None:
+    stopping = ResponseBatch(np.array([0.5, 0.6, 0.7]), np.array(["cl1", "cl2", "cl1"]), np.array(["d1", "d2", "d3"]))
+    batch = _batch(stopping=stopping)
+    subset = batch.subset_pairs(np.array([True, False]))
+    assert subset.n_pairs == 1
     assert subset.early_stopping_response is not None
-    assert subset.early_stopping_response.drug_ids.tolist() == ["d1", "d1"]
+    assert subset.early_stopping_response.drug_ids.tolist() == ["d1"]
 
 
-def test_subset_pairs_keeps_early_stopping_for_every_surviving_drug() -> None:
-    """A multi-drug subset keeps validation pairs for each surviving drug.
-
-    ``PredictorBase.fit`` filters NaN pairs across the whole batch, so the mask it
-    passes routinely spans several drugs. Narrowing early stopping to one drug -- or
-    rejecting the mask outright -- would break every early-stopping predictor.
-    """
-    response = ResponseBatch(
-        response=np.array([1.0, 2.0, 3.0, 4.0]),
-        cell_line_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
-        drug_ids=np.array(["d1", "d1", "d2", "d2"]),
-    )
-    early_stopping = ResponseBatch(
-        response=np.array([0.5, 0.6, 0.7]),
-        cell_line_ids=np.array(["cl1", "cl2", "cl1"]),
-        drug_ids=np.array(["d1", "d2", "d3"]),
-    )
-    batch = ModelInputBatch(
-        cell_line_ids=response.cell_line_ids,
-        drug_ids=response.drug_ids,
-        response=np.asarray(response.response, dtype=np.float64),
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.array([[0.1], [0.2]], dtype=np.float32),
-        drug_features=None,
-        cell_line_pair_idx=np.array([0, 1, 0, 1]),
-        drug_pair_idx=np.array([0, 0, 1, 1]),
-        early_stopping_response=early_stopping,
-    )
-    # Drops one pair per drug, so the surviving mask still spans d1 and d2.
-    subset = batch.subset_pairs(np.array([True, False, True, False]))
-    assert subset.n_pairs == 2
-    assert subset.drug_ids.tolist() == ["d1", "d2"]
-    assert subset.early_stopping_response is not None
-    # d1 and d2 are retained; d3 has no surviving response pair and is dropped.
-    assert subset.early_stopping_response.drug_ids.tolist() == ["d1", "d2"]
-
-
-def test_pair_cell_line_indices_maps_ids() -> None:
-    indices = pair_cell_line_indices(
-        np.array(["cl2", "cl1", "cl2"]),
-        {"cl1": 0, "cl2": 1},
-    )
-    assert indices.tolist() == [1, 0, 1]
-
-
-def test_pair_drug_indices_raises_for_missing_ids() -> None:
+def test_pair_index_helpers_map_and_report_missing_ids() -> None:
+    assert pair_cell_line_indices(np.array(["cl2", "cl1"]), {"cl1": 0, "cl2": 1}).tolist() == [1, 0]
     with pytest.raises(ValueError, match="Missing drug identifiers"):
-        pair_drug_indices(np.array(["d1", "missing"]), {"d1": 0})
+        pair_drug_indices(np.array(["missing"]), {"d1": 0})
+
+
+def test_batch_rejects_pair_indices_that_do_not_match_pair_ids() -> None:
+    cell = _result(["cl1", "cl2"], [[1.0], [2.0]])
+    with pytest.raises(ValueError, match="cell_line pair identifiers"):
+        ModelInputBatch(
+            np.array(["cl1"]),
+            np.array(["d1"]),
+            np.array([1.0]),
+            cell,
+            None,
+            np.array([1]),
+            None,
+        )
+
+
+def test_target_free_numeric_batch_projects_requested_pairs() -> None:
+    cell = _result(["cl1", "cl2"], [[1.0], [2.0]])
+    batch = ModelInputBatch(
+        np.array(["cl2", "cl1"]),
+        np.array(["d1", "d1"]),
+        None,
+        cell,
+        None,
+        np.array([1, 0]),
+        None,
+    )
+    np.testing.assert_allclose(batch.to_feature_matrix(), [[2.0], [1.0]])

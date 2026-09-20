@@ -12,7 +12,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
@@ -83,18 +83,21 @@ def build_synthetic_batch(
         drug_features = rng.normal(size=(len(drug_entity_ids), n_drug_features)).astype(np.float32)
         drug_pair_idx = _row_index(drug_entity_ids, response.drug_ids)
 
+    cell_line_blocks = {"features": numeric_feature_block(cell_line_features)}
+    cell_line_blocks.update({name: numeric_feature_block(cell_line_features) for name in cell_line_block_names})
+    cell_line_result = FeaturizerResult(cell_line_entity_ids, cell_line_blocks, ("features",))
+    drug_result = None
+    if drug_features is not None:
+        drug_blocks_map = {"features": numeric_feature_block(drug_features)}
+        drug_blocks_map.update({name: numeric_feature_block(drug_features) for name in drug_block_names})
+        drug_result = FeaturizerResult(drug_entity_ids, drug_blocks_map, ("features",))
+
     return ModelInputBatch.from_response(
         _learnable_response(response, cell_line_features, cell_line_pair_idx, rng),
-        cell_line_entity_ids=cell_line_entity_ids,
-        drug_entity_ids=None if drug_features is None else drug_entity_ids,
-        cell_line_features=cell_line_features,
-        drug_features=drug_features,
+        cell_line=cell_line_result,
+        drug=drug_result,
         cell_line_pair_idx=cell_line_pair_idx,
         drug_pair_idx=drug_pair_idx,
-        cell_line_blocks={name: numeric_feature_block(cell_line_features) for name in cell_line_block_names},
-        drug_blocks=(
-            {} if drug_features is None else {name: numeric_feature_block(drug_features) for name in drug_block_names}
-        ),
     )
 
 

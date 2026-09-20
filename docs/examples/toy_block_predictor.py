@@ -62,9 +62,9 @@ class ToyBlockRidgePredictor(BlockPredictor):
         Blocks are indexed by entity, not by pair, so they have to be expanded
         through ``cell_line_pair_idx`` before a pair-level model can use them.
         """
-        matrix = batch.cell_line_blocks[BLOCK].values[batch.cell_line_pair_idx]
-        if batch.drug_features is not None and batch.drug_pair_idx is not None:
-            matrix = np.hstack([matrix, batch.drug_features[batch.drug_pair_idx]])
+        matrix = batch.cell_line.blocks[BLOCK].values[batch.cell_line_pair_idx]
+        if batch.drug is not None and batch.drug_pair_idx is not None:
+            matrix = np.hstack([matrix, batch.drug.matrix[batch.drug_pair_idx]])
         return matrix
 
     def get_state(self) -> dict[str, object]:

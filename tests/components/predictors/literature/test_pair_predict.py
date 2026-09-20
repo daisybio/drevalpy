@@ -127,8 +127,8 @@ class TestPredictPairs:
         assert [shape[0] for shape in model.seen_shapes] == [3, 1]
 
     def test_a_batch_without_drug_pair_indices_is_rejected(self) -> None:
-        with pytest.raises(RuntimeError, match="drug_pair_idx is required"):
-            predict_pairs(_SumModel(), _batch(with_drug_pair_idx=False), _spec())
+        with pytest.raises(ValueError, match="drug feature result requires pair indices"):
+            _batch(with_drug_pair_idx=False)
 
     def test_a_multi_element_output_row_is_flattened(self) -> None:
         """A model returning ``[batch, 1]`` must not yield a nested result."""

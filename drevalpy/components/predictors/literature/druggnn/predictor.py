@@ -152,10 +152,10 @@ class DrugGNNPredictor(BlockPredictor):
         """
         if batch.drug_pair_idx is not None:
             return batch.drug_pair_idx
-        if batch.drug_entity_ids is None:
+        if batch.drug is None:
             msg = "DrugGNN requires either drug_pair_idx or drug_entity_ids"
             raise ValueError(msg)
-        entity_map = {str(eid): i for i, eid in enumerate(batch.drug_entity_ids)}
+        entity_map = {str(eid): i for i, eid in enumerate(batch.drug.entity_ids)}
         return np.array([entity_map[str(did)] for did in batch.drug_ids], dtype=np.int64)
 
     def _fit(self, batch: ModelInputBatch) -> None:
@@ -168,8 +168,8 @@ class DrugGNNPredictor(BlockPredictor):
             msg = "DrugGNN requires training response data"
             raise ValueError(msg)
 
-        cell_line_matrix = batch.cell_line_blocks["gene_expression"].values
-        drug_graphs = batch.drug_blocks["drug_graph"].values
+        cell_line_matrix = batch.cell_line.blocks["gene_expression"].values
+        drug_graphs = batch.drug.blocks["drug_graph"].values
 
         self._model = self._build_model(cell_line_matrix, drug_graphs)
         train_loader = self._graph_loader(
@@ -286,10 +286,10 @@ class DrugGNNPredictor(BlockPredictor):
         if es is None or len(es) == 0:
             return None
 
-        cl_entity_map = {str(eid): i for i, eid in enumerate(batch.cell_line_entity_ids)}
+        cl_entity_map = {str(eid): i for i, eid in enumerate(batch.cell_line.entity_ids)}
         drug_entity_map: dict[str, int] = {}
-        if batch.drug_entity_ids is not None:
-            drug_entity_map = {str(eid): i for i, eid in enumerate(batch.drug_entity_ids)}
+        if batch.drug is not None:
+            drug_entity_map = {str(eid): i for i, eid in enumerate(batch.drug.entity_ids)}
 
         return self._graph_loader(
             np.array([cl_entity_map[str(cid)] for cid in es.cell_line_ids], dtype=np.int64),
@@ -322,8 +322,8 @@ class DrugGNNPredictor(BlockPredictor):
         predict_loader = self._graph_loader(
             batch.cell_line_pair_idx,
             self._resolve_drug_pair_idx(batch),
-            batch.cell_line_blocks["gene_expression"].values,
-            batch.drug_blocks["drug_graph"].values,
+            batch.cell_line.blocks["gene_expression"].values,
+            batch.drug.blocks["drug_graph"].values,
             np.zeros(batch.n_pairs, dtype=np.float32),
             batch_size=int(self._hyperparameters.get("batch_size", 32)),
         )

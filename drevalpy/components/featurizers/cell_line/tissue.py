@@ -116,13 +116,14 @@ class TissueFeaturizer(CellLineFeaturizer):
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
-            matrix,
+            entity_ids,
             {
                 "tissue": numeric_feature_block(matrix),
                 "tissue_categories": metadata_feature_block(
                     np.asarray(self._encoder.categories, dtype=str),
                 ),
             },
+            ("tissue",),
         )
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:

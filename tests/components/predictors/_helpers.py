@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.models.synthetic_fixtures import (
@@ -45,10 +46,12 @@ def neural_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
         )
     return ModelInputBatch.from_response(
         response,
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=cell_line_features,
-        drug_features=drug_features,
+        cell_line=FeaturizerResult.from_blocks(
+            {"gene_expression": numeric_feature_block(cell_line_features)}, np.array(["cl1", "cl2"])
+        ),
+        drug=FeaturizerResult.from_blocks(
+            {"fingerprints": numeric_feature_block(drug_features)}, np.array(["d1", "d2"])
+        ),
         cell_line_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
         early_stopping_response=early_stopping,

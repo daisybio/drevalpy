@@ -56,7 +56,7 @@ class ConstantFeaturizerMixin:
         :returns: Result.
         """
         matrix = self._feature_matrix(source, entity_ids)
-        return FeaturizerResult(matrix, {"constant": numeric_feature_block(matrix)})
+        return FeaturizerResult(entity_ids, {"constant": numeric_feature_block(matrix)}, ("constant",))
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
         """Return fitted schema and metadata without transforming any entities.

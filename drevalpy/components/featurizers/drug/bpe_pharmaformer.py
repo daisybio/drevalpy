@@ -129,13 +129,14 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
-            matrix,
+            entity_ids,
             {
                 "bpe_smiles": numeric_feature_block(
                     matrix,
                     feature_names=None,
                 )
             },
+            ("bpe_smiles",),
         )
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:

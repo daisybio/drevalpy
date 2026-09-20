@@ -13,11 +13,12 @@ The module is ``_``-prefixed so ``_discover_modules`` in
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import replace
 from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.log import get_logger
 from drevalpy.types.data.batch.feature_block import FeatureBlock
 from drevalpy.types.data.feature_source import FeatureSource
@@ -37,9 +38,8 @@ class NanToleranceMixin:
 
     def _expand_blocks_with_nan(
         self,
-        valid_blocks: dict[str, FeatureBlock],
+        valid_blocks: Mapping[str, FeatureBlock],
         valid_mask: np.ndarray,
-        n_total: int,
     ) -> dict[str, FeatureBlock]:
         """Expand valid-only blocks back to full size, inserting NaN for invalid rows.
 
@@ -47,7 +47,6 @@ class NanToleranceMixin:
 
         :param valid_blocks: Blocks computed on only valid entity IDs.
         :param valid_mask: Boolean mask of shape ``(n_total,)`` (True = valid).
-        :param n_total: Total number of entities (valid + invalid).
         :returns: Blocks aligned to the full set of entity IDs.
         """
         expanded: dict[str, FeatureBlock] = {}
@@ -55,7 +54,7 @@ class NanToleranceMixin:
             if not block.entity_aligned:
                 expanded[name] = block
                 continue
-            expanded[name] = _padded_block(block, valid_mask, n_total)
+            expanded[name] = _padded_block(block, valid_mask)
         return expanded
 
     def _detect_valid(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
@@ -106,27 +105,18 @@ class NanToleranceMixin:
             )
 
 
-def _padded_block(block: FeatureBlock, valid_mask: np.ndarray, n_total: int) -> FeatureBlock:
-    """Rebuild one entity-aligned block at full length, padding the invalid rows.
+def _padded_block(block: FeatureBlock, valid_mask: np.ndarray) -> FeatureBlock:
+    """Restore entity rows with dtype-appropriate missing values.
 
-    A numeric matrix is padded with NaN; any other payload is an object array
-    padded with ``None``, since there is no NaN for a graph or a token sequence.
-
-    :param block: Block computed on the valid entity IDs only.
-    :param valid_mask: Boolean mask of shape ``(n_total,)`` (True = valid).
-    :param n_total: Total number of entities (valid + invalid).
-    :returns: Block of length *n_total* carrying *block*'s metadata.
+    :param block: Valid-only entity payload.
+    :param valid_mask: Requested positions containing usable rows.
+    :returns: Padded block retaining feature names and metadata.
     """
-    if block.format == FeatureFormat.NUMERIC_MATRIX:
-        full = np.full((n_total, block.values.shape[1]), np.nan, dtype=np.result_type(block.values.dtype, np.float32))
-    else:
-        full = np.empty((n_total, *block.values.shape[1:]), dtype=object)
-        full[:] = None
-    full[valid_mask] = block.values
-    return FeatureBlock(
-        values=full,
-        format=block.format,
-        feature_names=block.feature_names,
-        metadata=block.metadata,
-        entity_aligned=True,
+    numeric = block.values.dtype.kind in "biufc"
+    full = np.full(
+        (len(valid_mask), *block.values.shape[1:]),
+        np.nan if numeric else None,
+        dtype=np.result_type(block.values.dtype, np.float32) if numeric else object,
     )
+    full[valid_mask] = block.values
+    return replace(block, values=full)

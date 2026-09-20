@@ -11,7 +11,7 @@ from drevalpy.components.predictors.naive.tissue import (
     NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
 )
-from drevalpy.models import construct_model
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.registry._builtins import register_builtin_components
 from tests.components.predictors.naive._helpers import naive_batch, one_hot
 
@@ -121,13 +121,13 @@ def test_naive_tissue_round_trip() -> None:
         test=SplitMask(np.array([[False, False], [True, True]])),
         val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
-    model = construct_model("NaiveTissueMeanPredictor")()
-    model.train(mudataset, split)
-    preds = model.predict(mudataset, split)
+    model = DRPModel(ModelSpec.from_name("NaiveTissueMeanPredictor"))
+    model.train(mudataset, split.train)
+    preds = model.predict(mudataset, split.test)
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
         loaded = type(model).load(checkpoint)
-        loaded_preds = loaded.predict(mudataset, split)
+        loaded_preds = loaded.predict(mudataset, split.test)
     assert np.allclose(preds, loaded_preds)

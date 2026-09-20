@@ -81,13 +81,14 @@ class SharedIdentityFeaturizer(Featurizer):
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
-            matrix,
+            entity_ids,
             {
                 "identity": numeric_feature_block(matrix),
                 "identity_categories": metadata_feature_block(
                     np.asarray(self._encoder.categories, dtype=str),
                 ),
             },
+            ("identity",),
         )
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:

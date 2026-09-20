@@ -64,7 +64,7 @@ def _resolve_active_view(batch: ModelInputBatch) -> str:
     :raises ValueError: If zero or multiple valid views are present.
     """
     candidates = {"gene_expression", "mutations"}
-    active = [name for name in candidates if name in batch.cell_line_blocks]
+    active = [name for name in candidates if name in batch.cell_line.blocks]
     if len(active) != 1:
         raise ValueError("SparseGOPredictor requires exactly one cell-line block from ['gene_expression', 'mutations']")
     return active[0]
@@ -169,8 +169,8 @@ class SparseGOPredictor(BlockPredictor):
         :returns: Tuple of ``(cell_line_matrix, fingerprint_matrix)``.
         """
         return (
-            np.asarray(batch.cell_line_blocks[active_view].values, dtype=np.float32),
-            np.asarray(batch.drug_blocks["fingerprints"].values, dtype=np.float32),
+            np.asarray(batch.cell_line.blocks[active_view].values, dtype=np.float32),
+            np.asarray(batch.drug.blocks["fingerprints"].values, dtype=np.float32),
         )
 
     def _build_train_loader(self, batch: ModelInputBatch, blocks: tuple[np.ndarray, np.ndarray]) -> DataLoader:
@@ -196,7 +196,7 @@ class SparseGOPredictor(BlockPredictor):
         :raises ValueError: If ontology metadata is missing or network build fails.
         """
         active_view = _resolve_active_view(batch)
-        block = batch.cell_line_blocks[active_view]
+        block = batch.cell_line.blocks[active_view]
         if block.metadata is None:
             raise ValueError("SparseGOPredictor requires ontology metadata on its active cell-line block")
 

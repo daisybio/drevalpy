@@ -24,6 +24,7 @@ from upath import UPath
 
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.types.data.batch.feature_block import (
+    FeaturizerResult,
     graph_feature_block,
     numeric_feature_block,
     ragged_feature_block,
@@ -99,14 +100,14 @@ def _two_by_two(
     )
     return ModelInputBatch.from_response(
         response,
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.empty((2, 0), dtype=np.float32),
-        drug_features=np.zeros((2, 1), dtype=np.float32),
+        cell_line=FeaturizerResult.from_blocks(cell_line_blocks, np.array(["cl1", "cl2"])),
+        drug=FeaturizerResult(
+            np.array(["d1", "d2"]),
+            drug_blocks,
+            tuple(name for name, block in drug_blocks.items() if block.values.dtype.kind in "biufc"),
+        ),
         cell_line_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
-        cell_line_blocks=cell_line_blocks,
-        drug_blocks=drug_blocks,
         early_stopping_response=(
             ResponseBatch(
                 response=np.array([1.5, 2.5], dtype=np.float32),
@@ -137,14 +138,14 @@ def _early_stopping_batch(
     )
     return ModelInputBatch.from_response(
         training,
-        cell_line_entity_ids=np.array(["train-1", "train-2", "val-1", "val-2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=np.empty((4, 0), dtype=np.float32),
-        drug_features=np.zeros((2, 1), dtype=np.float32),
+        cell_line=FeaturizerResult.from_blocks(cell_line_blocks, np.array(["train-1", "train-2", "val-1", "val-2"])),
+        drug=FeaturizerResult(
+            np.array(["d1", "d2"]),
+            drug_blocks,
+            tuple(name for name, block in drug_blocks.items() if block.values.dtype.kind in "biufc"),
+        ),
         cell_line_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
-        cell_line_blocks=cell_line_blocks,
-        drug_blocks=drug_blocks,
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
     )
@@ -169,17 +170,17 @@ def _omics_batch(checkpoint_dir: UPath) -> ModelInputBatch:
     }
     return ModelInputBatch.from_response(
         training,
-        cell_line_entity_ids=cell_ids,
-        drug_entity_ids=np.array(["d1"]),
-        cell_line_features=np.empty((8, 0), dtype=np.float32),
-        drug_features=np.zeros((1, 1), dtype=np.float32),
+        cell_line=FeaturizerResult.from_blocks(blocks, cell_ids),
+        drug=FeaturizerResult(
+            np.array(["d1"]),
+            {
+                "identity": numeric_feature_block(np.ones((1, 1), dtype=np.float32)),
+                "identity_categories": numeric_feature_block(np.array([["d1"]], dtype=object)),
+            },
+            ("identity",),
+        ),
         cell_line_pair_idx=np.arange(6),
         drug_pair_idx=np.zeros(6, dtype=np.int64),
-        cell_line_blocks=blocks,
-        drug_blocks={
-            "identity": numeric_feature_block(np.ones((1, 1), dtype=np.float32)),
-            "identity_categories": numeric_feature_block(np.array([["d1"]], dtype=object)),
-        },
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
     )
@@ -263,7 +264,7 @@ def _druggnn(seed: int, root: UPath) -> dict[str, Any]:
     hp = {"epochs": 4, "batch_size": 2, "hidden_dim": 8, "dropout": 0.0, "learning_rate": 0.5}
     _seed(seed)
     pristine = DrugGNNPredictor(hp)
-    initial = _parameters(pristine._build_model(batch.cell_line_blocks["gene_expression"].values, graphs))
+    initial = _parameters(pristine._build_model(batch.cell_line.blocks["gene_expression"].values, graphs))
     _seed(seed)
     selected = DrugGNNPredictor(hp)
     selected.fit(batch)
@@ -280,7 +281,7 @@ def _druggnn(seed: int, root: UPath) -> dict[str, Any]:
 
     _seed(seed)
     final = DrugGNNPredictor(hp)
-    cell_matrix = batch.cell_line_blocks["gene_expression"].values
+    cell_matrix = batch.cell_line.blocks["gene_expression"].values
     final._model = final._build_model(cell_matrix, graphs)
     train_loader = final._graph_loader(
         batch.cell_line_pair_idx,

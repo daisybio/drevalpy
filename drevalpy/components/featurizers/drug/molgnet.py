@@ -129,7 +129,7 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
         :returns: Mapping with one ragged block.
         """
         matrix = self._feature_matrix(source, entity_ids)
-        return FeaturizerResult(matrix, {"molgnet_features": ragged_feature_block(matrix)})
+        return FeaturizerResult(entity_ids, {"molgnet_features": ragged_feature_block(matrix)}, ("molgnet_features",))
 
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
         """Return fitted schema and metadata without transforming any entities.

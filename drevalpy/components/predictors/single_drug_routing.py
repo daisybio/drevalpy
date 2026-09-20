@@ -25,8 +25,10 @@ def routing_keys(batch: ModelInputBatch) -> np.ndarray:
     :returns: Drug id string per pair (empty string when unknown).
     :raises ValueError: If identity blocks are missing or misaligned.
     """
-    identity_block = batch.drug_blocks.get(ROUTING_DRUG_FEATURIZER)
-    categories_block = batch.drug_blocks.get(f"{ROUTING_DRUG_FEATURIZER}_categories")
+    if batch.drug is None:
+        raise ValueError("Single-drug routing requires drug identity features")
+    identity_block = batch.drug.blocks.get(ROUTING_DRUG_FEATURIZER)
+    categories_block = batch.drug.blocks.get(f"{ROUTING_DRUG_FEATURIZER}_categories")
     if identity_block is None or categories_block is None or batch.drug_pair_idx is None:
         msg = "Single-drug predictors require drug identity features for per-drug routing"
         raise ValueError(msg)

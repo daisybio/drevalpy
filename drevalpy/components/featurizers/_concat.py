@@ -137,7 +137,7 @@ class ConcatFeaturizersMixin:
             msg = f"{type(self).__name__} must be fit before transform"
             raise RuntimeError(msg)
         child_blocks = [child.transform_features(features, entity_ids).blocks for _, child in self._children]
-        return FeaturizerResult.from_blocks(merge_feature_blocks(*child_blocks), len(entity_ids))
+        return FeaturizerResult.from_blocks(merge_feature_blocks(*child_blocks), entity_ids)
 
     def _empty_transform_features(self, source) -> FeaturizerResult:
         """Compose empty child schemas and retain global metadata.

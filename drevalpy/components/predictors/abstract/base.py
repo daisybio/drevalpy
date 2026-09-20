@@ -157,23 +157,18 @@ class Predictor(TunableComponentMixin, ABC):
         valid = np.ones(batch.n_pairs, dtype=bool)
         if batch.n_pairs == 0:
             return valid
-        for matrix, blocks, indices in (
-            (batch.cell_line_features, batch.cell_line_blocks, batch.cell_line_pair_idx),
-            (batch.drug_features, batch.drug_blocks, batch.drug_pair_idx),
-        ):
-            if indices is None:
+        for table, indices in ((batch.cell_line, batch.cell_line_pair_idx), (batch.drug, batch.drug_pair_idx)):
+            if table is None or indices is None:
                 continue
-            values = [block.values for block in blocks.values() if block.entity_aligned]
-            if matrix is not None and matrix.size:
-                values.append(matrix)
-            for value in values:
-                valid &= self._valid_feature_rows(value[indices])
+            for block in table.blocks.values():
+                if block.entity_aligned:
+                    valid &= self._valid_feature_rows(block.values[indices])
         return valid
 
     @staticmethod
     def _valid_feature_rows(rows: np.ndarray) -> np.ndarray:
         """Identify numeric NaNs and object placeholders across trailing dimensions."""
-        if rows.dtype.kind in "fiu":
+        if rows.dtype.kind in "biufc":
             return ~np.isnan(rows).reshape(len(rows), -1).any(axis=1)
         if rows.dtype == object:
             return np.array([all(item is not None for item in row.flat) for row in rows.reshape(len(rows), -1)])

@@ -119,9 +119,9 @@ class DIPKPredictor(BlockPredictor):
         """
         import torch
 
-        gene_block = batch.cell_line_blocks["gene_expression"].values
-        bionic_block = batch.cell_line_blocks["bionic_features"].values
-        drug_block = batch.drug_blocks["molgnet_features"].values
+        gene_block = batch.cell_line.blocks["gene_expression"].values
+        bionic_block = batch.cell_line.blocks["bionic_features"].values
+        drug_block = batch.drug.blocks["molgnet_features"].values
 
         samples: list[dict[str, torch.Tensor]] = []
         for i in range(len(cell_line_pair_idx)):

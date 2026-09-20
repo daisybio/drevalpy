@@ -11,10 +11,10 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.models import construct_model
-from drevalpy.models.config import from_spec
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.registry._builtins import ensure_predictor_registered, register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.components.predictors._helpers import neural_batch
@@ -68,13 +68,9 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
         val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
 
-    config = from_spec(
-        "SimpleNeuralNetwork",
-        hyperparameters={"max_epochs": 1, "batch_size": 2},
-    )
-    model = construct_model("SimpleNeuralNetwork", config)()
-    model.train(mudataset, split)
-    preds = model.predict(mudataset, split)
+    model = DRPModel(ModelSpec.from_name("SimpleNeuralNetwork"), {"max_epochs": 1, "batch_size": 2})
+    model.train(mudataset, split.train)
+    preds = model.predict(mudataset, split.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
 
@@ -116,10 +112,10 @@ def _matrix_batch() -> ModelInputBatch:
     )
     return ModelInputBatch.from_response(
         response,
-        cell_line_entity_ids=np.array(["cl1", "cl2"]),
-        drug_entity_ids=np.array(["d1", "d2"]),
-        cell_line_features=cell_line_features,
-        drug_features=drug_features,
+        cell_line=FeaturizerResult.from_blocks(
+            {"features": numeric_feature_block(cell_line_features)}, np.array(["cl1", "cl2"])
+        ),
+        drug=FeaturizerResult.from_blocks({"features": numeric_feature_block(drug_features)}, np.array(["d1", "d2"])),
         cell_line_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
         training_context=TrainingContext(),

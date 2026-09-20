@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.types.data.batch.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.models.synthetic_fixtures import multi_drug_response
@@ -130,17 +130,17 @@ def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:
     }
     return ModelInputBatch.from_response(
         training,
-        cell_line_entity_ids=cell_line_ids,
-        drug_entity_ids=np.array(["d1"]),
-        cell_line_features=np.empty((8, 0), dtype=np.float32),
-        drug_features=np.zeros((1, 1), dtype=np.float32),
+        cell_line=FeaturizerResult.from_blocks(blocks, cell_line_ids),
+        drug=FeaturizerResult(
+            np.array(["d1"]),
+            {
+                "identity": numeric_feature_block(np.ones((1, 1), dtype=np.float32)),
+                "identity_categories": numeric_feature_block(np.array([["d1"]], dtype=object)),
+            },
+            ("identity",),
+        ),
         cell_line_pair_idx=np.arange(6),
         drug_pair_idx=np.zeros(6, dtype=np.int64),
-        cell_line_blocks=blocks,
-        drug_blocks={
-            "identity": numeric_feature_block(np.ones((1, 1), dtype=np.float32)),
-            "identity_categories": numeric_feature_block(np.array([["d1"]], dtype=object)),
-        },
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
     )
@@ -342,14 +342,21 @@ def two_by_two_batch(
     """
     return ModelInputBatch.from_response(
         multi_drug_response() if response is None else response,
-        cell_line_entity_ids=CELL_LINE_IDS,
-        drug_entity_ids=DRUG_IDS,
-        cell_line_features=np.empty((0, 0), dtype=np.float32),
-        drug_features=None,
+        cell_line=FeaturizerResult.from_blocks(cell_line_blocks, CELL_LINE_IDS),
+        drug=FeaturizerResult(
+            DRUG_IDS,
+            {
+                name: (
+                    FeatureBlock(block.values, block.format, block.feature_names, block.metadata, entity_aligned=False)
+                    if block.entity_aligned and block.values.ndim > 0 and len(block.values) != len(DRUG_IDS)
+                    else block
+                )
+                for name, block in drug_blocks.items()
+            },
+            tuple(name for name, block in drug_blocks.items() if block.values.dtype.kind in "biufc"),
+        ),
         cell_line_pair_idx=CELL_LINE_PAIR_IDX if cell_line_pair_idx is None else cell_line_pair_idx,
         drug_pair_idx=DRUG_PAIR_IDX if drug_pair_idx is _DEFAULT else drug_pair_idx,
-        cell_line_blocks=cell_line_blocks,
-        drug_blocks=drug_blocks,
         early_stopping_response=early_stopping_response,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
     )
