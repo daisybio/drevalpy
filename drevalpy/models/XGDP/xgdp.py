@@ -25,6 +25,25 @@ from ..lightning_metrics_mixin import RegressionMetricsMixin
 from ..utils import load_and_select_gene_features
 
 
+def _norm_response(response: np.ndarray) -> np.ndarray:
+    """Squash responses into (0, 1) to match the sigmoid output, as in the original ``norm_ic50``.
+
+    :param response: Raw drug response values.
+    :return: Normalized responses in (0, 1).
+    """
+    return 1 / (1 + np.exp(-0.1 * response))
+
+
+def _denorm_response(prediction: np.ndarray) -> np.ndarray:
+    """Invert ``_norm_response``, as in the original ``denorm_ic50``.
+
+    :param prediction: Model outputs in (0, 1).
+    :return: Predictions on the original response scale.
+    """
+    prediction = np.clip(prediction, 1e-7, 1 - 1e-7)
+    return 10 * np.log(prediction / (1 - prediction))
+
+
 class _XGDPDataset(PytorchDataset):
     """A PyTorch Dataset for XGDP."""
 
@@ -85,6 +104,7 @@ class XGDPModule(pl.LightningModule):
         hidden_dim: int = 128,
         dropout: float = 0.5,  # changed to 0.5 as per there default settings for there models
         learning_rate: float = 0.001,
+        weight_decay: float = 0.0,
     ):
         """Initialize the LightningModule.
 
@@ -95,6 +115,7 @@ class XGDPModule(pl.LightningModule):
         :param hidden_dim: The hidden dimension size.
         :param dropout: The dropout rate.
         :param learning_rate: The learning rate.
+        :param weight_decay: The weight decay (L2 penalty) of the Adam optimizer.
         :raises ValueError: If drug_input is not provided.
         """
         super().__init__()
@@ -116,7 +137,7 @@ class XGDPModule(pl.LightningModule):
         self.model = model_class(
             n_output=1,
             num_features_xd=num_node_features,  # gnn number of node features (ECFP& + DeepChem: 334)
-            num_features_xt=25,  # only used in GINNet in embedding, mutation/protein data???
+            num_features_xt=num_cell_features,
             n_filters=32,  # number of filters for cnn for gene expression
             embed_dim=128,  # only used in GINNet in embedding
             output_dim=hidden_dim,  # size latend sapce as output of gnn + cnn -> size of shared size after combination
@@ -209,7 +230,7 @@ class XGDPModule(pl.LightningModule):
 
         :return: The optimizer.
         """
-        return Adam(self.parameters(), lr=self.hparams.learning_rate)
+        return Adam(self.parameters(), lr=self.hparams.learning_rate, weight_decay=self.hparams.weight_decay)
 
 
 class XGDP(DRPModel, RegressionMetricsMixin):
@@ -333,13 +354,14 @@ class XGDP(DRPModel, RegressionMetricsMixin):
             num_node_features=num_node_features,
             num_cell_features=num_cell_features,
             hidden_dim=self.hyperparameters.get("hidden_dim", 128),
-            dropout=self.hyperparameters.get("dropout", 0.5),
+            dropout=self.hyperparameters.get("dropout_rate", 0.5),
             learning_rate=self.hyperparameters.get("learning_rate", 0.001),
+            weight_decay=self.hyperparameters.get("weight_decay", 0.0),
             do_att=self.hyperparameters.get("do_att", True),
         )
 
         train_dataset = _XGDPDataset(
-            response=output.response,
+            response=_norm_response(output.response),
             cell_line_ids=output.cell_line_ids,
             drug_ids=output.drug_ids,
             cell_line_features=cell_line_input,
@@ -355,7 +377,7 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         val_loader = None
         if output_earlystopping is not None and len(output_earlystopping) > 0:
             val_dataset = _XGDPDataset(
-                response=output_earlystopping.response,
+                response=_norm_response(output_earlystopping.response),
                 cell_line_ids=output_earlystopping.cell_line_ids,
                 drug_ids=output_earlystopping.drug_ids,
                 cell_line_features=cell_line_input,
@@ -437,4 +459,4 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         ]
 
         predictions = torch.cat(predictions_flat).view(-1).cpu().numpy()
-        return predictions
+        return _denorm_response(predictions)

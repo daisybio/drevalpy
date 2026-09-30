@@ -18,6 +18,21 @@ from torch_geometric.nn import (
 )
 from torch_geometric.nn import global_max_pool as gmp
 
+# Shortest gene expression input the 1D-CNN branch accepts; shorter inputs are zero-padded.
+MIN_CNN_INPUT = 22
+
+
+def _bond_type_index(edge_feat: torch.Tensor) -> torch.Tensor:
+    """Convert one-hot edge features to bond type indices for relational convolutions.
+
+    The first four columns of the edge features one-hot encode single, double, triple and aromatic bonds.
+
+    :param edge_feat: Edge features of shape (num_edges, 7).
+    :return: Bond type index per edge, of shape (num_edges,).
+    """
+    return edge_feat[:, :4].argmax(dim=1)
+
+
 """
     DeepChem feature set: 78
     ECFP4: 192
@@ -87,7 +102,7 @@ class GCNNet(torch.nn.Module):
         self.fc1_xt = nn.Linear(4096, output_dim)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -129,7 +144,6 @@ class GCNNet(torch.nn.Module):
         # x, edge_index, batch = data.x, data.edge_index, data.batch
         # edge_index = edge_index.long()
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
@@ -250,7 +264,7 @@ class GATNet(torch.nn.Module):
         self.pool_xt_3 = nn.MaxPool1d(p)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -310,7 +324,6 @@ class GATNet(torch.nn.Module):
         # x_cell_mut = x_cell_mut[:,None,:]
         # 1d conv layers
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
@@ -422,7 +435,7 @@ class GATv2Net(torch.nn.Module):
         self.fc1_xt = nn.Linear(4096, output_dim)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -486,7 +499,6 @@ class GATv2Net(torch.nn.Module):
         # x_cell_mut = x_cell_mut[:,None,:]
         # 1d conv layers
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
@@ -589,7 +601,7 @@ class GATNetE(torch.nn.Module):
         self.pool_xt_3 = nn.MaxPool1d(p)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -652,7 +664,6 @@ class GATNetE(torch.nn.Module):
         # x_cell_mut = x_cell_mut[:,None,:]
         # 1d conv layers
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
@@ -761,7 +772,7 @@ class SAGENet(torch.nn.Module):
         self.pool_xt_3 = nn.MaxPool1d(p)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -796,7 +807,6 @@ class SAGENet(torch.nn.Module):
         if edge_feat is not None:
             pass
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
@@ -923,7 +933,7 @@ class GINNet(torch.nn.Module):
         self.pool_xt_3 = nn.MaxPool1d(p)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -955,7 +965,6 @@ class GINNet(torch.nn.Module):
         if edge_feat is not None:
             pass
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
@@ -1090,7 +1099,7 @@ class GINENet(torch.nn.Module):
         self.pool_xt_3 = nn.MaxPool1d(p)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -1122,7 +1131,6 @@ class GINENet(torch.nn.Module):
         if edge_feat is not None:
             pass
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
@@ -1236,7 +1244,7 @@ class RGCNNet(torch.nn.Module):
         self.pool_xt_3 = nn.MaxPool1d(p)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -1272,13 +1280,12 @@ class RGCNNet(torch.nn.Module):
         # get graph input
         # edge_weight is only used for decoding
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
 
         if edge_feat is not None:
-            edge_feat = edge_feat.long().view(-1)
+            edge_feat = _bond_type_index(edge_feat)
 
         # x, edge_index, batch = data.x, data.edge_index, data.batch
         # edge_index = edge_index.long()
@@ -1412,7 +1419,7 @@ class WIRGATNet(torch.nn.Module):
         self.pool_xt_3 = nn.MaxPool1d(p)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -1453,7 +1460,7 @@ class WIRGATNet(torch.nn.Module):
         # print(data.x.shape)
         if edge_feat is not None:
             pass
-        edge_feat = edge_feat.int().squeeze()
+        edge_feat = _bond_type_index(edge_feat)
         # print(edge_feat)
 
         # x = f.dropout(x, p=0.2, training=self.training)
@@ -1472,7 +1479,6 @@ class WIRGATNet(torch.nn.Module):
         x = self.fc_g1(x)
         x = self.relu(x)
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
@@ -1589,7 +1595,7 @@ class ARGATNet(torch.nn.Module):
         self.pool_xt_3 = nn.MaxPool1d(p)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -1630,7 +1636,7 @@ class ARGATNet(torch.nn.Module):
         # print(data.x.shape)
         if edge_feat is not None:
             pass
-        edge_feat = edge_feat.int().squeeze()
+        edge_feat = _bond_type_index(edge_feat)
 
         # x = f.dropout(x, p=0.2, training=self.training)
         # x = self.dropout(x)
@@ -1648,7 +1654,6 @@ class ARGATNet(torch.nn.Module):
         x = self.fc_g1(x)
         x = self.relu(x)
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
@@ -1736,8 +1741,8 @@ class FiLMNet(torch.nn.Module):
         self.use_attn = use_attn
 
         # graph layers
-        self.gcn1 = FiLMConv(num_features_xd, num_features_xd, num_relations=4, act=nn.LeakyReLU(), edge_dim=7)
-        self.gcn2 = FiLMConv(num_features_xd, output_dim, num_relations=4, act=nn.LeakyReLU(), edge_dim=7)
+        self.gcn1 = FiLMConv(num_features_xd, num_features_xd, num_relations=4, act=nn.LeakyReLU())
+        self.gcn2 = FiLMConv(num_features_xd, output_dim, num_relations=4, act=nn.LeakyReLU())
 
         self.fc_g1 = nn.Linear(output_dim, output_dim)
 
@@ -1757,7 +1762,7 @@ class FiLMNet(torch.nn.Module):
         self.pool_xt_3 = nn.MaxPool1d(p)
 
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, num_features_xt)
+            dummy = torch.zeros(1, 1, max(num_features_xt, MIN_CNN_INPUT))
             conv_xt = self.pool_xt_1(self.conv_xt_1(dummy))
             conv_xt = self.pool_xt_2(self.conv_xt_2(conv_xt))
             conv_xt = self.pool_xt_3(self.conv_xt_3(conv_xt))
@@ -1798,7 +1803,7 @@ class FiLMNet(torch.nn.Module):
         # print(data.x.shape)
         if edge_feat is not None:
             pass
-        edge_feat = edge_feat.int().squeeze()
+        edge_feat = _bond_type_index(edge_feat)
 
         # x = f.dropout(x, p=0.2, training=self.training)
         # x = self.dropout(x)
@@ -1811,7 +1816,6 @@ class FiLMNet(torch.nn.Module):
         x = self.fc_g1(x)
         x = self.relu(x)
 
-        MIN_CNN_INPUT = 22
         if x_cell_mut.shape[-1] < MIN_CNN_INPUT:
             pad = MIN_CNN_INPUT - x_cell_mut.shape[-1]
             x_cell_mut = torch.nn.functional.pad(x_cell_mut, (0, pad))
