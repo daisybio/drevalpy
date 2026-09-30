@@ -18,7 +18,7 @@ from torch.utils.data import Dataset
 from drevalpy.datasets.dataset import FeatureDataset
 
 
-def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 512) -> FeatureDataset:
+def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 256) -> FeatureDataset:
     """
     Load biological network (BIONIC) features for DIPK.
 
@@ -46,8 +46,10 @@ def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 
     # Compute BIONIC features
     bionic_feature_dict = {}
     for cell_line, expressions in expression_dict.items():
-        # Sort genes based on descending expression values
-        sorted_genes = sorted(expressions.items(), key=lambda x: -x[1])
+        # Sort the selected genes based on descending expression values
+        sorted_genes = sorted(
+            ((gene, value) for gene, value in expressions.items() if gene in gene_list), key=lambda x: -x[1]
+        )
         top_genes = [gene for gene, _ in sorted_genes[:gene_add_num]]
 
         # Aggregate BIONIC features for selected genes

@@ -20,6 +20,6 @@ DIPK:
   epochs:
     - 100
   epochs_autoencoder:
-    - 100
+    - 1000
   patience:
     - 10
