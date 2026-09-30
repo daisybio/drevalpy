@@ -27,6 +27,8 @@ from .data_utils import CollateFn, DIPKDataset, get_data, load_bionic_features
 from .gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
 from .model_utils import Predictor
 
+TPM_DATASETS = {"CTRPv1", "CTRPv2", "CCLE"}
+
 
 class DIPKModel(DRPModel):
     """DIPK model. Adapted from https://github.com/user15632/DIPK."""
@@ -150,11 +152,12 @@ class DIPKModel(DRPModel):
         params = [{"params": self.model.parameters()}]
         optimizer = optim.Adam(params, lr=self.hyperparameters["lr"])
 
+        # train the autoencoder on each cell line once rather than once per drug
         train_gene_expression = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=output.cell_line_ids
+            view="gene_expression", identifiers=np.unique(output.cell_line_ids)
         )
         val_gene_expression = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=output_earlystopping.cell_line_ids
+            view="gene_expression", identifiers=np.unique(output_earlystopping.cell_line_ids)
         )
 
         self.gene_expression_encoder = self._fit_gene_encoder(train_gene_expression, val_gene_expression)
@@ -379,6 +382,11 @@ class DIPKModel(DRPModel):
             data_path=data_path,
             dataset_name=dataset_name,
         )
+        # like the original DIPK: log2(x + 1) for linear TPM RNA-seq (the other datasets are already
+        # log-scaled), then z-score each cell line's expression profile
+        if dataset_name in TPM_DATASETS:
+            gene_expression.apply(function=lambda x: np.log2(x + 1), view="gene_expression")
+        gene_expression.apply(function=lambda x: (x - np.mean(x)) / np.std(x, ddof=1), view="gene_expression")
         bionic_features = load_bionic_features(
             data_path=data_path,
             dataset_name=dataset_name,
