@@ -70,14 +70,11 @@ class MultiViewRandomForest(RandomForest):
             feature_mat = inputs[view]
 
             if view == "methylation":
-                # feature_mat is response-level, so fit on each cell line once rather than once per drug
-                unique_cell_line_features = cell_line_input.get_feature_matrix(
-                    view=view, identifiers=np.unique(output.cell_line_ids)
-                )
-                n_components = min(self.methylation_n_components, *unique_cell_line_features.shape)
-                self.methylation_pca = PCA(n_components=n_components)
-                self.methylation_pca.fit(unique_cell_line_features)
-                feature_mat = self.methylation_pca.transform(feature_mat)
+                if feature_mat.shape[1] > self.methylation_n_components:
+                    self.methylation_pca = PCA(n_components=self.methylation_n_components)
+                else:
+                    self.methylation_pca = PCA(n_components=feature_mat.shape[1])
+                feature_mat = self.methylation_pca.fit_transform(feature_mat)
 
             array_list.append(feature_mat)
 
