@@ -124,7 +124,7 @@ class MultiViewRandomForest(RandomForest):
         :returns: predicted response
         :raises RuntimeError: if PCA has not been fit
         """
-        if not hasattr(self.methylation_pca, "components_"):
+        if "methylation" in self.cell_line_views and not hasattr(self.methylation_pca, "components_"):
             raise RuntimeError("PCA has not been fit. Call train() before predict().")
 
         inputs = self.get_feature_matrices(

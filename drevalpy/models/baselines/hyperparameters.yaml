@@ -157,11 +157,13 @@ KNNRegressor:
 
 # Global multi-input sklearn models, input can be adjusted to omic list of choice
 MultiViewRandomForest:
-  cell_line_views:
-    - - gene_expression
-      - methylation
-      - mutations
-      - copy_number_variation_gistic
+  view_configs:
+    - cell_line_views:
+        - gene_expression
+        - mutations
+      gene_lists:
+        gene_expression: landmark_genes
+        mutations: drug_target_genes_all_drugs
   drug_views:
     - fingerprints
   n_estimators:
@@ -188,12 +190,17 @@ MultiViewRandomForest:
     - 1.8
 
 MultiViewXGBoost:
-  cell_line_views:
-    - - gene_expression
-      - methylation
-      - mutations
-      - copy_number_variation_gistic
-    - gene_expression
+  view_configs:
+    - cell_line_views:
+        - gene_expression
+        - mutations
+      gene_lists:
+        gene_expression: landmark_genes
+        mutations: drug_target_genes_all_drugs
+    - cell_line_views:
+        - gene_expression
+      gene_lists:
+        gene_expression: landmark_genes
   drug_views:
     - fingerprints
   learning_rate:
@@ -212,12 +219,17 @@ MultiViewXGBoost:
     - 0.1
 
 MultiViewLightGBM:
-  cell_line_views:
-    - - gene_expression
-      - methylation
-      - mutations
-      - copy_number_variation_gistic
-    - gene_expression
+  view_configs:
+    - cell_line_views:
+        - gene_expression
+        - mutations
+      gene_lists:
+        gene_expression: landmark_genes
+        mutations: drug_target_genes_all_drugs
+    - cell_line_views:
+        - gene_expression
+      gene_lists:
+        gene_expression: landmark_genes
   drug_views:
     - fingerprints
   learning_rate:
