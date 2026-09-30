@@ -27,6 +27,8 @@ from .data_utils import CollateFn, DIPKDataset, get_data, load_bionic_features
 from .gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
 from .model_utils import Predictor
 
+TPM_DATASETS = {"CTRPv1", "CTRPv2", "CCLE"}
+
 
 class DIPKModel(DRPModel):
     """DIPK model. Adapted from https://github.com/user15632/DIPK."""
@@ -342,6 +344,11 @@ class DIPKModel(DRPModel):
             data_path=data_path,
             dataset_name=dataset_name,
         )
+        # like the original DIPK: log2(x + 1) for linear TPM RNA-seq (the other datasets are already
+        # log-scaled), then z-score each cell line's expression profile
+        if dataset_name in TPM_DATASETS:
+            gene_expression.apply(function=lambda x: np.log2(x + 1), view="gene_expression")
+        gene_expression.apply(function=lambda x: (x - np.mean(x)) / np.std(x, ddof=1), view="gene_expression")
         bionic_features = load_bionic_features(
             data_path=data_path,
             dataset_name=dataset_name,
