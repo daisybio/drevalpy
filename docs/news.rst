@@ -36,7 +36,9 @@ Check out our preprint on `bioRxiv <https://www.biorxiv.org/content/10.1101/2025
 | 1. Integrate your model into DrEval by following the Contributor Guide.
 | 2. Compare your model to the baseline models provided in the DrEval package, either using the standalone or the Nextflow pipeline.
 | 3. Let us know your results!
-|    3.1. 🎊If you significantly outperform the RandomForest baseline model in the LCO setting or the GradientBoosting model in the LDO setting, we will personally send you chocolate or another snack of your choosing 🍫.
+|    3.1. 🎊If you significantly outperform the RandomForest baseline (gene expression + Morgan fingerprints) in
+the LCO setting or the GradientBoosting model (gene expression + Morgan fingerprints) in the LDO setting, we will personally send you chocolate or another
+snack of your choosing 🍫.
 |    3.2. 🥺If you perform significantly worse than the NaiveDrugMeanPredictor, you will have to send us chocolate.
 
 📜 Origin Story 💊 :date:`2023-11-20`

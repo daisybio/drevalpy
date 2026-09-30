@@ -14,6 +14,7 @@
     * `Elena Sophie Dederer & Gregor Chojetzki <https://github.com/eleded>`_: FU Berlin, integrated the KNNRegressor.
     * `Greta Agnes Gulden & Larissa Susanka Koß <https://github.com/gretag04>`_: FU Berlin, integrated Lasso.
     * `Matvej Elkonin <https://github.com/matvee04>`_: FU Berlin, integrated the AdaBoostDecisionTree.
+    * `jfrog64 <https://github.com/jfrog64>`_: Spotted and fixed various bugs
 
     **Advisors and Principal Investigators**
 
