@@ -26,6 +26,7 @@ Implemented models
 
    drevalpy.models.DIPK
    drevalpy.models.DrugGNN
+   drevalpy.models.EnsembleMF
    drevalpy.models.MOLIR
    drevalpy.models.PaccMann
    drevalpy.models.PharmaFormer

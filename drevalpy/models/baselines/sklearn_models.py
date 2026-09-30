@@ -30,6 +30,9 @@ class SklearnModel(DRPModel):
 
     cell_line_views = []
     drug_views = []
+    #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
+    #: The default reproduces the previously hard-coded behaviour.
+    gene_list: str | None = "landmark_genes_reduced"
 
     def __init__(self):
         """
@@ -81,6 +84,9 @@ class SklearnModel(DRPModel):
         self.hyperparameters = hyperparameters
         self.cell_line_views = _get_view_as_list(hyperparameters.get("cell_line_views", ["gene_expression"]))
         self.drug_views = _get_view_as_list(hyperparameters.get("drug_views", ["fingerprints"]))
+        # Kept in self.hyperparameters, so save()/load() carry it and predict() uses the same gene
+        # space the model was trained on.
+        self.gene_list = hyperparameters.get("gene_list", type(self).gene_list)
 
         # proteomics features are not supported for all models
         if "proteomics" in self.cell_line_views:
@@ -110,7 +116,9 @@ class SklearnModel(DRPModel):
         :param dataset_name: Name of the dataset
         :returns: FeatureDataset containing the cell line features
         """
-        return load_single_cell_line_view(self.cell_line_views, data_path, dataset_name, self.get_model_name())
+        return load_single_cell_line_view(
+            self.cell_line_views, data_path, dataset_name, self.get_model_name(), gene_list=self.gene_list
+        )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         """

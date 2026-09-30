@@ -21,5 +21,14 @@ DIPK:
     - 100
   epochs_autoencoder:
     - 100
+  # The autoencoder keys carry the "_autoencoder" suffix on purpose: batch_size, lr and patience
+  # above belong to the prediction network and hold different values. The values here are the ones
+  # the autoencoder used while they were hard coded.
+  lr_autoencoder:
+    - 0.0001
+  patience_autoencoder:
+    - 3
+  batch_size_autoencoder:
+    - 1024
   patience:
     - 10
