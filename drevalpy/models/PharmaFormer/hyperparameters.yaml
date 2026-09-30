@@ -1,5 +1,7 @@
 ---
 PharmaFormer:
+  gene_list:
+    - landmark_genes
   gene_hidden_size:
     - 2048
     - 4096

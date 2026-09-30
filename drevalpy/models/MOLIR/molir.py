@@ -31,6 +31,12 @@ class MOLIR(DRPModel):
     cell_line_views = ["gene_expression", "mutations", "copy_number_variation_gistic"]
     drug_views = []
     early_stopping = True
+    #: Default gene list per omic. Overridable per omic via the "gene_lists" hyperparameter.
+    default_gene_lists: dict[str, str | None] = {
+        "gene_expression": "gene_expression_intersection",
+        "mutations": "mutations_intersection",
+        "copy_number_variation_gistic": "copy_number_variation_gistic_intersection",
+    }
 
     def __init__(self) -> None:
         """
@@ -63,11 +69,14 @@ class MOLIR(DRPModel):
 
         :param hyperparameters: Custom hyperparameters for the model, includes mini_batch, layer dimensions (h_dim1,
             h_dim2, h_dim3), learning_rate, dropout_rate, weight_decay, gamma, epochs, and margin.
+            "gene_lists" is an optional per-omic override of the default gene lists used to subset the cell line
+            features, e.g. {"gene_expression": "landmark_genes"}; a value of None loads all features of that omic.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
+        self.gene_lists = {**self.default_gene_lists, **hyperparameters.get("gene_lists", {})}
         self.selector = VarianceFeatureSelector(
             view="gene_expression", k=hyperparameters.get("n_gene_expression_features", 1000)
         )
@@ -206,11 +215,7 @@ class MOLIR(DRPModel):
         feature_dataset = get_multiomics_feature_dataset(
             data_path=data_path,
             dataset_name=dataset_name,
-            gene_lists={
-                "gene_expression": "gene_expression_intersection",
-                "mutations": "mutations_intersection",
-                "copy_number_variation_gistic": "copy_number_variation_gistic_intersection",
-            },
+            gene_lists=self.gene_lists,
             omics=self.cell_line_views,
         )
 
