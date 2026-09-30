@@ -33,6 +33,7 @@ __all__ = [
     "MultiViewXGBoost",
     "MultiViewLightGBM",
     "SparseGO",
+    "PaccMann",
 ]
 
 from .baselines.multi_view_lightgbm import MultiViewLightGBM
@@ -61,6 +62,7 @@ from .drp_model import DRPModel
 from .DrugGNN import DrugGNN
 from .EnsembleMF import EnsembleMF
 from .MOLIR.molir import MOLIR
+from .PaccMann.paccmann import PaccMann
 from .PharmaFormer.pharmaformer import PharmaFormerModel
 from .Precily import PrecilyModel
 from .SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
@@ -108,6 +110,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "EnsembleMF": EnsembleMF,
     "Precily": PrecilyModel,
     "SparseGO": SparseGOModel,
+    "PaccMann": PaccMann,
 }
 
 # MODEL_FACTORY is used in the pipeline!

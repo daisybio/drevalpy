@@ -28,6 +28,7 @@ Implemented models
    drevalpy.models.DrugGNN
    drevalpy.models.EnsembleMF
    drevalpy.models.MOLIR
+   drevalpy.models.PaccMann
    drevalpy.models.PharmaFormer
    drevalpy.models.Precily
    drevalpy.models.SRMF
