@@ -108,11 +108,12 @@ class DIPKModel(DRPModel):
         params = [{"params": self.model.parameters()}]
         optimizer = optim.Adam(params, lr=self.hyperparameters["lr"])
 
+        # train the autoencoder on each cell line once rather than once per drug
         train_gene_expression = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=output.cell_line_ids
+            view="gene_expression", identifiers=np.unique(output.cell_line_ids)
         )
         val_gene_expression = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=output_earlystopping.cell_line_ids
+            view="gene_expression", identifiers=np.unique(output_earlystopping.cell_line_ids)
         )
 
         self.gene_expression_encoder = train_gene_expession_autoencoder(
