@@ -188,3 +188,110 @@ It requires the ``lightgbm`` package.
    :members:
    :undoc-members:
    :show-inheritance:
+
+Random Forest on DIPK's features
+-------------------------------------------------------------
+
+``RandomForestAEMolGNet`` takes two of the three learned inputs of the published
+:doc:`DIPK <drevalpy.models.DIPK>` model -- an autoencoder embedding of gene expression and a
+MolGNet embedding of the drug molecule -- and feeds them to a ``RandomForestRegressor`` instead of
+DIPK's neural network. DIPK's third input, the BIONIC network features, is not used at all.
+
+Why this model exists
+^^^^^^^^^^^^^^^^^^^^^
+
+DIPK outperforms a Random Forest baseline, but it changes two things at once: the features become
+learned embeddings *and* the predictor becomes a neural network. A benchmark cannot tell from that
+comparison which of the two changes carries the improvement. This model holds the features fixed
+and swaps only the predictor, so the two effects separate. It is therefore primarily an ablation
+of DIPK, and only secondarily a model of its own.
+
+What it does
+^^^^^^^^^^^^
+
+1. **Cell lines.** Gene expression is restricted to ``gene_list`` (default
+   ``gene_expression_intersection``, 2,270 genes, the same as DIPK) and transformed to
+   ``log2(x + 1)``. In every
+   fold a ``GeneExpressionEncoder`` -- the same autoencoder class DIPK uses -- is trained from
+   scratch on the training cell lines and then encodes all cell lines into 512 latent features.
+2. **Drugs.** The node-level MolGNet embeddings shipped with each dataset under
+   ``DIPK_features/Drugs/MolGNet_<drug>.csv`` are pooled over the atoms of the molecule. The
+   default ``mean_max`` concatenates the per-dimension mean and maximum, giving 1536 features.
+3. **Prediction.** Both blocks are concatenated and handed to the Random Forest, exactly like any
+   other flexible-input sklearn baseline.
+
+The dataset must therefore carry DIPK's feature files; on a dataset without them the model raises
+``FileNotFoundError`` rather than falling back to fingerprints.
+
+Differences from ``DIPK``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+============================  ==========================================  ==================================
+Aspect                        ``DIPK``                                    ``RandomForestAEMolGNet``
+============================  ==========================================  ==================================
+Predictor                     attention network + fully connected head    ``RandomForestRegressor``
+Drug features                 node-level MolGNet, pooled by attention     node-level MolGNet, mean+max pooled
+BIONIC network features       used as a third input                       not used
+Autoencoder training samples  one row per *response*                      one row per *training cell line*
+Autoencoder validation set    ``output_earlystopping`` cell lines         held-out fraction of training lines
+Gene expression scale         as loaded                                   ``log2(x + 1)`` by default
+============================  ==========================================  ==================================
+
+Both models fit the autoencoder inside each fold and only on training cell lines, so neither leaks
+test expression into the encoder.
+
+Autoencoder hyperparameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The four parameters DIPK also has keep DIPK's names, so that a configuration reads the same for
+both models:
+
+- ``epochs_autoencoder`` (default 2000), ``lr_autoencoder`` (1e-4), ``patience_autoencoder`` (50),
+  ``batch_size_autoencoder`` (32).
+
+The parameters that only exist here are prefixed ``autoencoder_``:
+
+- ``autoencoder_log2_transform`` (default ``true``): set to ``false`` for data already on a log
+  scale.
+- ``autoencoder_validation_fraction`` (0.1): share of training cell lines held out for early
+  stopping.
+- ``autoencoder_seed`` (42): makes that split deterministic.
+- ``autoencoder_cache_dir`` (unset): see below.
+
+``batch_size_autoencoder`` defaults to 32 rather than DIPK's 1024 because the training matrix has
+one row per cell line instead of one per response, which is smaller by roughly two orders of
+magnitude; the smaller batch keeps the number of gradient steps comparable. ``patience_autoencoder``
+of 50 stops training long before epoch 2000 on input of that size.
+
+How the published numbers were produced
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The module docstring quotes a paired comparison against ``RandomForest`` on CTRPv2 in
+leave-cell-line-out over ten folds. Three points matter for reading those numbers:
+
+- They are **normalised** correlations in DrEval's own scale, normalised against the run's
+  ``NaiveMeanEffectsPredictor``, where 0 means "no better than the naive mean-effects model".
+  They are not raw correlation coefficients.
+- The p-value is a **paired two-sided exact Wilcoxon signed-rank test over the ten per-fold
+  values** of that metric, this model against the baseline on identical folds -- not the p-value
+  of a correlation test. With ``n = 10`` the smallest p this test can attain is 0.0020.
+- The run encoded **11,883 genes** from a locally built gene list that is not part of the
+  downloadable metadata bundle. The default ``gene_expression_intersection`` has 2,270 genes, so
+  the shipped configuration encodes a gene space about five times smaller and will not reproduce
+  the numbers exactly. The three autoencoder settings above are the ones that run used.
+
+Reusing an encoder across models
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The encoder depends only on the training cell lines, the gene list and the autoencoder
+hyperparameters -- not on the drug features. Setting ``autoencoder_cache_dir`` (or the
+``DREVAL_AE_CACHE`` environment variable) makes models that share those train the encoder once per
+fold and reuse it. Apart from saving time this makes such models pairwise comparable: with an
+identical encoder, any difference between them cannot come from the encoder. Caching is off unless
+one of the two is set, and the cache key covers the gene *order* as well as the gene names, since
+the same genes in a different order produce a different encoder.
+
+.. automodule:: drevalpy.models.baselines.ae_molgnet_random_forest
+   :members:
+   :undoc-members:
+   :show-inheritance:
