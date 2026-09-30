@@ -6,6 +6,7 @@ import pickle
 from argparse import Namespace
 from typing import Any
 
+import joblib
 import pandas as pd
 import yaml
 
@@ -329,16 +330,19 @@ def run_train_final_model(
     train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     if len(train_dataset) < len_train_before:
         print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, due to missing features")
+
+    if es_dataset is not None:
+        len_early_stopping_before = len(es_dataset)
+        es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+        if len(es_dataset) < len_early_stopping_before:
+            print(
+                f"Reduced early stopping dataset from {len_early_stopping_before} to "
+                f"{len(es_dataset)}, due to missing features"
+            )
+
     if response_transform:
         train_dataset.fit_transform(response_transform)
         if es_dataset is not None:
-            len_early_stopping_before = len(es_dataset)
-            es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-            if len(es_dataset) < len_early_stopping_before:
-                print(
-                    f"Reduced early stopping dataset from {len_early_stopping_before} to "
-                    f"{len(es_dataset)}, due to missing features"
-                )
             es_dataset.transform(response_transform)
 
     model.train(
@@ -350,6 +354,8 @@ def run_train_final_model(
     )
     pathlib.Path(final_model_path).mkdir(parents=True, exist_ok=True)
     model.save(final_model_path)
+    if response_transform:
+        joblib.dump(response_transform, pathlib.Path(final_model_path) / "response_transform.pkl")
 
 
 def run_consolidate_results(

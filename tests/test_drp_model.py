@@ -43,6 +43,7 @@ def test_factory() -> None:
     assert "MOLIR" in MODEL_FACTORY
     assert "SuperFELTR" in MODEL_FACTORY
     assert "DIPK" in MODEL_FACTORY
+    assert "EnsembleMF" in MODEL_FACTORY
     assert "SparseGO" in MODEL_FACTORY
 
 

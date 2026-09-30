@@ -1,0 +1,41 @@
+---
+# Defaults are the outcome of a per-fold ablation on CTRPv2 leave-cell-line-out (7 folds, paired,
+# scored on within-drug correlation). n_ensemble is the dominant knob and had not saturated at 40;
+# 20 is the accuracy/runtime compromise.
+EnsembleMF:
+  # rank beats arcsinh by ~0.003 within-drug but ranks genes across held-out cell lines too;
+  # switch to arcsinh for a strictly inductive setup
+  feature_transform:
+    - rank
+  gene_list:
+    - gene_expression_intersection
+  n_bits:
+    - 256
+  hidden_dim:
+    - 256
+  emb_dim:
+    - 128
+  n_layers:
+    - 1
+  dropout:
+    - 0.2
+  use_mlp_head:
+    - true
+  mlp_hidden:
+    - 256
+  use_drug_id_embedding:
+    - true
+  n_ensemble:
+    - 20
+  learning_rate:
+    - 0.0003
+  weight_decay:
+    - 0.00001
+  batch_size:
+    - 2048
+  max_epochs:
+    - 300
+  patience:
+    - 25
+  seed:
+    - 0
