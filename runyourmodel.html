@@ -107,19 +107,19 @@ Additionally, you must define a unique model name to identify your model during 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">YourModel</span><span class="p">(</span><span class="n">DRPModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A revolutionary new modeling strategy.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""A revolutionary new modeling strategy."""</span>
 
     <span class="n">is_single_drug_model</span> <span class="o">=</span> <span class="kc">True</span> <span class="o">/</span> <span class="kc">False</span> <span class="c1"># TODO: set to true if your model is a single drug model (i.e., it needs to be trained for each drug separately)</span>
     <span class="n">early_stopping</span> <span class="o">=</span> <span class="kc">True</span> <span class="o">/</span> <span class="kc">False</span> <span class="c1"># TODO: set to true if you want to use a part of the validation set for early stopping</span>
-    <span class="n">cell_line_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gene_expression&quot;</span><span class="p">,</span> <span class="s2">&quot;methylation&quot;</span><span class="p">]</span>
-    <span class="n">drug_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fingerprints&quot;</span><span class="p">]</span>
+    <span class="n">cell_line_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"gene_expression"</span><span class="p">,</span> <span class="s2">"methylation"</span><span class="p">]</span>
+    <span class="n">drug_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"fingerprints"</span><span class="p">]</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_model_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Returns the name of the model.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="s2">&quot;YourModel&quot;</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="s2">"YourModel"</span>
 </pre></div>
 </div>
 <p>Next let’s implement the feature loading. You have to return a DrEvalPy FeatureDataset object which contains the features for the cell lines and drugs.
@@ -139,17 +139,17 @@ The model will use these identifiers to match the features with the drug respons
 <li><p><code class="docutils literal notranslate"><span class="pre">load_tissues_from_csv</span></code></p></li>
 </ul>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">load_drug_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FeatureDataset</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Loads the drug features, in this case the drug ids.</span>
 
 <span class="sd">    :param data_path: path to the data</span>
 <span class="sd">    :param dataset_name: name of the dataset</span>
 <span class="sd">    :returns: FeatureDataset containing the drug ids</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">feature_dataset</span> <span class="o">=</span> <span class="n">FeatureDataset</span><span class="o">.</span><span class="n">from_csv</span><span class="p">(</span>
-        <span class="n">path_to_csv</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">/fingerprints.csv&quot;</span><span class="p">,</span>
+        <span class="n">path_to_csv</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">data_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">/fingerprints.csv"</span><span class="p">,</span>
         <span class="n">id_column</span><span class="o">=</span><span class="n">DRUG_IDENTIFIER</span><span class="p">,</span>
-        <span class="n">view_name</span><span class="o">=</span><span class="s2">&quot;fingerprints&quot;</span><span class="p">,</span>
+        <span class="n">view_name</span><span class="o">=</span><span class="s2">"fingerprints"</span><span class="p">,</span>
         <span class="n">drop_columns</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">)</span> <span class="c1"># make sure to adjust the path to your data. If you want to drop columns, specify them in a list.</span>
 
@@ -157,22 +157,22 @@ The model will use these identifiers to match the features with the drug respons
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">load_cell_line_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FeatureDataset</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Loads the cell line features, in this case the cell line ids.</span>
 
 <span class="sd">    :param data_path: path to the data</span>
 <span class="sd">    :param dataset_name: name of the dataset</span>
 <span class="sd">    :returns: FeatureDataset containing the cell line ids</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">feature_dataset</span> <span class="o">=</span> <span class="n">FeatureDataset</span><span class="o">.</span><span class="n">from_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">_gene_expression.csv&quot;</span><span class="p">,</span>
+<span class="sd">    """</span>
+    <span class="n">feature_dataset</span> <span class="o">=</span> <span class="n">FeatureDataset</span><span class="o">.</span><span class="n">from_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">data_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">_gene_expression.csv"</span><span class="p">,</span>
                                                 <span class="n">id_column</span><span class="o">=</span><span class="n">CELL_LINE_IDENTIFIER</span><span class="p">,</span>
-                                                <span class="n">view_name</span><span class="o">=</span><span class="s2">&quot;gene_expression&quot;</span><span class="p">,</span>
-                                                <span class="n">drop_columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;cellosaurus_id&#39;</span><span class="p">]</span>
+                                                <span class="n">view_name</span><span class="o">=</span><span class="s2">"gene_expression"</span><span class="p">,</span>
+                                                <span class="n">drop_columns</span><span class="o">=</span><span class="p">[</span><span class="s1">'cellosaurus_id'</span><span class="p">]</span>
                                              <span class="p">)</span> <span class="c1"># make sure to adjust the path to your data</span>
-    <span class="n">methylation</span> <span class="o">=</span> <span class="n">FeatureDataset</span><span class="o">.</span><span class="n">from_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">_methylation.csv&quot;</span><span class="p">,</span>
+    <span class="n">methylation</span> <span class="o">=</span> <span class="n">FeatureDataset</span><span class="o">.</span><span class="n">from_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">data_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">_methylation.csv"</span><span class="p">,</span>
                                             <span class="n">id_column</span><span class="o">=</span><span class="n">CELL_LINE_IDENTIFIER</span><span class="p">,</span>
-                                            <span class="n">view_name</span><span class="o">=</span><span class="s2">&quot;methylation&quot;</span><span class="p">,</span>
-                                            <span class="n">drop_columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;cellosaurus_id&#39;</span><span class="p">]</span>
+                                            <span class="n">view_name</span><span class="o">=</span><span class="s2">"methylation"</span><span class="p">,</span>
+                                            <span class="n">drop_columns</span><span class="o">=</span><span class="p">[</span><span class="s1">'cellosaurus_id'</span><span class="p">]</span>
                                          <span class="p">)</span> <span class="c1"># make sure to adjust the path to your data</span>
     <span class="n">feature_dataset</span><span class="o">.</span><span class="n">add_features</span><span class="p">(</span><span class="n">methylation</span><span class="p">)</span>
 
@@ -182,13 +182,13 @@ The model will use these identifiers to match the features with the drug respons
 <p>The build_model functions can be used if you want to use tunable hyperparameters.
 The hyperparameters which get tested are defined in the <code class="docutils literal notranslate"><span class="pre">drevalpy/models/your_model_name/hyperparameters.yaml</span></code>.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">build_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hyperparameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Builds the model, for models that use hyperparameters.</span>
 
 <span class="sd">    :param hyperparameters: hyperparameters for the model</span>
 <span class="sd">    Example:</span>
-<span class="sd">        self.model = ElasticNet(alpha=hyperparameters[&quot;alpha&quot;], l1_ratio=hyperparameters[&quot;l1_ratio&quot;])</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])</span>
+<span class="sd">    """</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">predictor</span> <span class="o">=</span> <span class="n">YourPredictor</span><span class="p">(</span><span class="n">hyperparameters</span><span class="p">)</span> <span class="c1"># Initialize your Predictor, this could be a sklearn model, a neural network, etc.</span>
 </pre></div>
 </div>
@@ -250,7 +250,7 @@ Here we use a simple predictor that just uses the concatenated features to predi
     <span class="n">cell_line_input</span><span class="p">:</span> <span class="n">FeatureDataset</span><span class="p">,</span>
     <span class="n">drug_input</span><span class="p">:</span> <span class="n">FeatureDataset</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Predicts the response for the given input.</span>
 
 <span class="sd">    :param drug_ids: list of drug ids, also used for single drug models, there it is just an array containing the</span>
@@ -259,7 +259,7 @@ Here we use a simple predictor that just uses the concatenated features to predi
 <span class="sd">    :param cell_line_input: input associated with the cell line, required for all models</span>
 <span class="sd">    :param drug_input: input associated with the drug, optional because single drug models do not use drug features</span>
 <span class="sd">    :returns: predicted response</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_feature_matrices</span><span class="p">(</span>
         <span class="n">cell_line_ids</span><span class="o">=</span><span class="n">cell_line_ids</span><span class="p">,</span>
@@ -274,7 +274,7 @@ Here we use a simple predictor that just uses the concatenated features to predi
 <p>Finally, you need to register your model with the framework. This can be done by adding the following line to the <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> file in the <code class="docutils literal notranslate"><span class="pre">drevalpy/models/__init__.py</span></code> directory.
 Update the <code class="docutils literal notranslate"><span class="pre">MULTI_DRUG_MODEL_FACTORY</span></code> if your model is a global model for multiple cancer drugs or to the <code class="docutils literal notranslate"><span class="pre">SINGLE_DRUG_MODEL_FACTORY</span></code> if your model is specific to a single drug and needs to be trained for each drug separately.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">.your_model_name.your_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">YourModel</span>
-<span class="n">MULTI_DRUG_MODEL_FACTORY</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;YourModel&quot;</span><span class="p">:</span> <span class="n">YourModel</span><span class="p">)</span>
+<span class="n">MULTI_DRUG_MODEL_FACTORY</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">"YourModel"</span><span class="p">:</span> <span class="n">YourModel</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Now you can run your model using the DrEvalPy pipeline. Run the following command (after installing your cloned and edited DrEvalPy repository e.g. with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">.</span></code>):</p>
@@ -293,7 +293,7 @@ Gene expression features are standardized using a <code class="docutils literal 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">"cuda"</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">"cpu"</span><span class="p">)</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">FeedForwardNetwork</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
@@ -340,8 +340,8 @@ Gene expression features are standardized using a <code class="docutils literal 
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">TinyNN</span><span class="p">(</span><span class="n">DRPModel</span><span class="p">):</span>
-    <span class="n">cell_line_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gene_expression&quot;</span><span class="p">]</span>
-    <span class="n">drug_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fingerprints&quot;</span><span class="p">]</span>
+    <span class="n">cell_line_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"gene_expression"</span><span class="p">]</span>
+    <span class="n">drug_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"fingerprints"</span><span class="p">]</span>
     <span class="n">early_stopping</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -352,7 +352,7 @@ Gene expression features are standardized using a <code class="docutils literal 
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_model_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;TinyNN&quot;</span>
+        <span class="k">return</span> <span class="s2">"TinyNN"</span>
 </pre></div>
 </div>
 <ol class="arabic simple" start="3">
@@ -360,10 +360,10 @@ Gene expression features are standardized using a <code class="docutils literal 
 </ol>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">load_cell_line_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FeatureDataset</span><span class="p">:</span>
 
-    <span class="k">return</span> <span class="n">load_and_select_gene_features</span><span class="p">(</span><span class="n">feature_type</span><span class="o">=</span><span class="s2">&quot;gene_expression&quot;</span><span class="p">,</span>
+    <span class="k">return</span> <span class="n">load_and_select_gene_features</span><span class="p">(</span><span class="n">feature_type</span><span class="o">=</span><span class="s2">"gene_expression"</span><span class="p">,</span>
                                         <span class="n">data_path</span><span class="o">=</span><span class="n">data_path</span><span class="p">,</span>
                                         <span class="n">dataset_name</span><span class="o">=</span><span class="n">dataset_name</span><span class="p">,</span>
-                                        <span class="n">gene_list</span><span class="o">=</span><span class="s2">&quot;landmark_genes_reduced&quot;</span><span class="p">)</span>
+                                        <span class="n">gene_list</span><span class="o">=</span><span class="s2">"landmark_genes_reduced"</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">load_drug_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FeatureDataset</span><span class="p">:</span>
@@ -382,8 +382,8 @@ Gene expression features are standardized using a <code class="docutils literal 
 <li><p>In the train method we scale gene expression and train the model.</p></li>
 </ol>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">cell_line_input</span><span class="p">,</span> <span class="n">drug_input</span><span class="p">,</span> <span class="n">output_earlystopping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">model_checkpoint_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">gex</span> <span class="o">=</span> <span class="n">cell_line_input</span><span class="o">.</span><span class="n">get_feature_matrix</span><span class="p">(</span><span class="s2">&quot;gene_expression&quot;</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">cell_line_ids</span><span class="p">)</span>
-    <span class="n">fp</span> <span class="o">=</span> <span class="n">drug_input</span><span class="o">.</span><span class="n">get_feature_matrix</span><span class="p">(</span><span class="s2">&quot;fingerprints&quot;</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">drug_ids</span><span class="p">)</span>
+    <span class="n">gex</span> <span class="o">=</span> <span class="n">cell_line_input</span><span class="o">.</span><span class="n">get_feature_matrix</span><span class="p">(</span><span class="s2">"gene_expression"</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">cell_line_ids</span><span class="p">)</span>
+    <span class="n">fp</span> <span class="o">=</span> <span class="n">drug_input</span><span class="o">.</span><span class="n">get_feature_matrix</span><span class="p">(</span><span class="s2">"fingerprints"</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">drug_ids</span><span class="p">)</span>
 
     <span class="n">gex</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaler_gex</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">gex</span><span class="p">)</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">gex</span><span class="p">,</span> <span class="n">fp</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
@@ -391,7 +391,7 @@ Gene expression features are standardized using a <code class="docutils literal 
 
     <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">FeedForwardNetwork</span><span class="p">(</span>
         <span class="n">input_dim</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-        <span class="n">hidden_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparameters</span><span class="p">[</span><span class="s2">&quot;hidden_dim&quot;</span><span class="p">]</span>
+        <span class="n">hidden_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperparameters</span><span class="p">[</span><span class="s2">"hidden_dim"</span><span class="p">]</span>
     <span class="p">)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
 </pre></div>
@@ -400,8 +400,8 @@ Gene expression features are standardized using a <code class="docutils literal 
 <li><p>We apply scaling in <code class="docutils literal notranslate"><span class="pre">predict</span></code> and return model outputs.</p></li>
 </ol>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cell_line_ids</span><span class="p">,</span> <span class="n">drug_ids</span><span class="p">,</span> <span class="n">cell_line_input</span><span class="p">,</span> <span class="n">drug_input</span><span class="p">):</span>
-    <span class="n">gex</span> <span class="o">=</span> <span class="n">cell_line_input</span><span class="o">.</span><span class="n">get_feature_matrix</span><span class="p">(</span><span class="s2">&quot;gene_expression&quot;</span><span class="p">,</span> <span class="n">cell_line_ids</span><span class="p">)</span>
-    <span class="n">fp</span> <span class="o">=</span> <span class="n">drug_input</span><span class="o">.</span><span class="n">get_feature_matrix</span><span class="p">(</span><span class="s2">&quot;fingerprints&quot;</span><span class="p">,</span> <span class="n">drug_ids</span><span class="p">)</span>
+    <span class="n">gex</span> <span class="o">=</span> <span class="n">cell_line_input</span><span class="o">.</span><span class="n">get_feature_matrix</span><span class="p">(</span><span class="s2">"gene_expression"</span><span class="p">,</span> <span class="n">cell_line_ids</span><span class="p">)</span>
+    <span class="n">fp</span> <span class="o">=</span> <span class="n">drug_input</span><span class="o">.</span><span class="n">get_feature_matrix</span><span class="p">(</span><span class="s2">"fingerprints"</span><span class="p">,</span> <span class="n">drug_ids</span><span class="p">)</span>
 
     <span class="n">gex</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaler_gex</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">gex</span><span class="p">)</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">gex</span><span class="p">,</span> <span class="n">fp</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
@@ -422,7 +422,7 @@ Gene expression features are standardized using a <code class="docutils literal 
 <li><p>Register the model in <code class="docutils literal notranslate"><span class="pre">models/__init__.py</span></code>.</p></li>
 </ol>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">.your_model_folder.tinynn</span><span class="w"> </span><span class="kn">import</span> <span class="n">TinyNN</span>
-<span class="n">MULTI_DRUG_MODEL_FACTORY</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;TinyNN&quot;</span><span class="p">:</span> <span class="n">TinyNN</span><span class="p">})</span>
+<span class="n">MULTI_DRUG_MODEL_FACTORY</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">"TinyNN"</span><span class="p">:</span> <span class="n">TinyNN</span><span class="p">})</span>
 </pre></div>
 </div>
 </section>
