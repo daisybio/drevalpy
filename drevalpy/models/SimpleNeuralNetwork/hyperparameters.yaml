@@ -6,7 +6,6 @@ SimpleNeuralNetwork:
     - gene_expression
   drug_views:
     - fingerprints
-    - drug_chemberta_embeddings
   dropout_prob:
     - 0.3
   units_per_layer:

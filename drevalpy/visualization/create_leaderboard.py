@@ -2,10 +2,11 @@
 """
 DrEvalPy Leaderboard Visualization.
 
-This script generates a leaderboard visualization (normalized PCC and RMSE) from
+This script generates a leaderboard visualization (normalized PCC, RMSE, raw Pearson and,
+optionally, per-drug Pearson) from
 the evaluation results CSV file produced by the DrEvalPy evaluation pipeline.
 Usage:
-python create_leaderboard.py --results_path /path/to/results.csv
+python create_leaderboard.py --results_path /path/to/results.csv [--true_vs_pred_path /path/to/true_vs_pred.csv]
 """
 
 import argparse
@@ -17,6 +18,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.patches import FancyBboxPatch
+
+from drevalpy.evaluation import pearson
 
 # --- Theme Definitions ---
 DARK_THEME = {
@@ -64,12 +67,44 @@ def configure_matplotlib(font_adder: int = 0):
     )
 
 
-def load_results(results_path: str, test_mode: str = "LCO") -> pd.DataFrame:
+def load_per_drug_pearson(true_vs_pred_path: str, test_mode: str = "LCO") -> pd.DataFrame:
+    """
+    Compute the per-drug Pearson from true_vs_pred.csv.
+
+    For every algorithm and CV split, the Pearson between y_true and y_pred is computed within each drug and
+    averaged over drugs (drugs without a defined Pearson, e.g. constant response, are skipped). The result is then
+    averaged over the CV splits.
+
+    :param true_vs_pred_path: Path to true_vs_pred.csv.
+    :param test_mode: Filtering mode (e.g., LCO).
+    :raises FileNotFoundError: If path does not exist.
+    :return: DataFrame with the columns algorithm, Pearson_per_drug and Pearson_per_drug_std.
+    """
+    path = Path(true_vs_pred_path)
+    if not path.exists():
+        raise FileNotFoundError(f"true_vs_pred file not found: {true_vs_pred_path}")
+
+    cols = ["algorithm", "rand_setting", "test_mode", "CV_split", "pubchem_id", "y_true", "y_pred"]
+    df = pd.read_csv(path, usecols=cols)
+    df = df[(df["rand_setting"] == "predictions") & (df["test_mode"] == test_mode)]
+
+    per_drug = df.groupby(["algorithm", "CV_split", "pubchem_id"]).apply(
+        lambda x: pearson(x["y_pred"].to_numpy(), x["y_true"].to_numpy()), include_groups=False
+    )
+    per_split = per_drug.groupby(["algorithm", "CV_split"]).mean()
+    df_agg = per_split.groupby("algorithm").agg(["mean", "std"]).reset_index()
+    df_agg.columns = ["algorithm", "Pearson_per_drug", "Pearson_per_drug_std"]
+    df_agg["Pearson_per_drug_std"] = df_agg["Pearson_per_drug_std"].fillna(0)
+    return df_agg
+
+
+def load_results(results_path: str, test_mode: str = "LCO", true_vs_pred_path: Optional[str] = None) -> pd.DataFrame:
     """
     Load and aggregate results from the evaluation CSV.
 
     :param results_path: Path to evaluation_results.csv.
     :param test_mode: Filtering mode (e.g., LCO).
+    :param true_vs_pred_path: Optional path to true_vs_pred.csv; if given, the per-drug Pearson is added.
     :raises FileNotFoundError: If path does not exist.
     :raises ValueError: If no data matches criteria.
     :return: Processed DataFrame.
@@ -90,15 +125,20 @@ def load_results(results_path: str, test_mode: str = "LCO") -> pd.DataFrame:
             {
                 "Pearson: normalized": ["mean", "std"],
                 "RMSE": ["mean", "std"],
+                "Pearson": ["mean", "std"],
             }
         )
         .reset_index()
     )
 
-    df_agg.columns = ["algorithm", "PCC", "PCC_std", "RMSE", "RMSE_std"]
+    df_agg.columns = ["algorithm", "PCC", "PCC_std", "RMSE", "RMSE_std", "Pearson", "Pearson_std"]
     df_agg["PCC_std"] = df_agg["PCC_std"].fillna(0)
     df_agg["RMSE_std"] = df_agg["RMSE_std"].fillna(0)
+    df_agg["Pearson_std"] = df_agg["Pearson_std"].fillna(0)
     df_agg["is_baseline"] = df_agg["algorithm"].str.startswith("Naive")
+
+    if true_vs_pred_path is not None:
+        df_agg = df_agg.merge(load_per_drug_pearson(true_vs_pred_path, test_mode), on="algorithm", how="left")
 
     return df_agg.sort_values("PCC", ascending=False).reset_index(drop=True)
 
@@ -161,19 +201,19 @@ def create_leaderboard(
     test_mode: str = "LCO",
     dataset: str = "CTRPv2",
     measure: str = "LN_IC50_curvecurator",
-    figsize: tuple = (16, 12),
+    figsize: Optional[tuple] = None,
     show_top_n: Optional[int] = None,
     font_adder: int = 6,
 ) -> tuple:
     """
-    Generate the dual-panel leaderboard figure.
+    Generate the leaderboard figure (normalized PCC, RMSE, raw Pearson and, if available, per-drug Pearson).
 
     :param df: Input results data.
     :param output_path: File path for save.
     :param test_mode: Evaluation mode name.
     :param dataset: Dataset name.
     :param measure: Performance measure.
-    :param figsize: Figure dimensions.
+    :param figsize: Figure dimensions, defaults to 8 inches width per panel.
     :param show_top_n: Limit displayed models.
     :param font_adder: Scale for text.
     :return: Figure and axes tuple.
@@ -187,7 +227,10 @@ def create_leaderboard(
     y_positions = np.arange(n_models - 1, -1, -1)
     bar_height = 0.65
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize, facecolor=COLORS["background"])
+    has_per_drug = "Pearson_per_drug" in df.columns
+    n_panels = 4 if has_per_drug else 3
+    fig, axes = plt.subplots(1, n_panels, figsize=figsize or (8 * n_panels, 12), facecolor=COLORS["background"])
+    ax1, ax2, ax3 = axes[:3]
     fig.subplots_adjust(wspace=0.4)
 
     ax1.set_facecolor(COLORS["background"])
@@ -310,6 +353,127 @@ def create_leaderboard(
     ax2.tick_params(axis="x", colors=COLORS["text_secondary"])
     ax2.set_title("RMSE  ↓  lower is better", fontsize=14 + font_adder, fontweight="bold", color="#FF6B9D", pad=15)
 
+    ax3.set_facecolor(COLORS["background"])
+    df_pearson = df.sort_values("Pearson", ascending=False).reset_index(drop=True)
+    max_pearson = (df_pearson["Pearson"] + df_pearson["Pearson_std"]).max() * 1.18
+
+    for i, (_, row) in enumerate(df_pearson.iterrows()):
+        style = get_bar_color(i, row["is_baseline"])
+        draw_bar(ax3, 0, y_positions[i], row["Pearson"], bar_height, style["color"], style["alpha"])
+
+        label_color = style["color"] if not row["is_baseline"] else COLORS["text_secondary"]
+        label_x = row["Pearson"] + max_pearson * 0.02
+        ax3.text(
+            label_x,
+            y_positions[i],
+            f"{row['Pearson']:.3f}",
+            va="center",
+            ha="left",
+            fontsize=9 + font_adder,
+            fontweight="bold",
+            color=label_color,
+            zorder=5,
+        )
+
+        if i < 3 and not row["is_baseline"]:
+            medals = ["①", "②", "③"]
+            ax3.text(
+                -max_pearson * 0.03,
+                y_positions[i],
+                medals[i],
+                va="center",
+                ha="center",
+                fontsize=14 + font_adder,
+                fontweight="bold",
+                color=style["color"],
+                zorder=5,
+            )
+
+    ax3.set_xlim(-max_pearson * 0.06, max_pearson)
+    ax3.set_ylim(-0.8, n_models - 0.2)
+    ax3.set_yticks(y_positions)
+    ax3.set_yticklabels(df_pearson["algorithm"].values, fontsize=10 + font_adder)
+    ax3.set_xlabel("Raw PCC", fontsize=12 + font_adder, fontweight="bold", labelpad=10)
+
+    for i, label in enumerate(ax3.get_yticklabels()):
+        if i < 3 and not df_pearson.iloc[i]["is_baseline"]:
+            label.set_fontweight("bold")
+            label.set_color(get_bar_color(i, False)["color"])
+        elif df_pearson.iloc[i]["is_baseline"]:
+            label.set_style("italic")
+            label.set_color(COLORS["text_secondary"])
+        else:
+            label.set_color(COLORS["text"])
+
+    ax3.xaxis.grid(True, linestyle="--", alpha=0.3, color=COLORS["grid"])
+    ax3.set_axisbelow(True)
+    ax3.tick_params(axis="x", colors=COLORS["text_secondary"])
+    ax3.set_title("Raw PCC  ↑  higher is better", fontsize=14 + font_adder, fontweight="bold", color="#14B8A6", pad=15)
+
+    if has_per_drug:
+        ax4 = axes[3]
+        ax4.set_facecolor(COLORS["background"])
+        df_pd = df.sort_values("Pearson_per_drug", ascending=False).reset_index(drop=True)
+        max_pd = (df_pd["Pearson_per_drug"] + df_pd["Pearson_per_drug_std"]).max() * 1.18
+
+        for i, (_, row) in enumerate(df_pd.iterrows()):
+            style = get_bar_color(i, row["is_baseline"])
+            draw_bar(ax4, 0, y_positions[i], row["Pearson_per_drug"], bar_height, style["color"], style["alpha"])
+
+            label_color = style["color"] if not row["is_baseline"] else COLORS["text_secondary"]
+            ax4.text(
+                row["Pearson_per_drug"] + max_pd * 0.02,
+                y_positions[i],
+                f"{row['Pearson_per_drug']:.3f}",
+                va="center",
+                ha="left",
+                fontsize=9 + font_adder,
+                fontweight="bold",
+                color=label_color,
+                zorder=5,
+            )
+
+            if i < 3 and not row["is_baseline"]:
+                medals = ["①", "②", "③"]
+                ax4.text(
+                    -max_pd * 0.03,
+                    y_positions[i],
+                    medals[i],
+                    va="center",
+                    ha="center",
+                    fontsize=14 + font_adder,
+                    fontweight="bold",
+                    color=style["color"],
+                    zorder=5,
+                )
+
+        ax4.set_xlim(-max_pd * 0.06, max_pd)
+        ax4.set_ylim(-0.8, n_models - 0.2)
+        ax4.set_yticks(y_positions)
+        ax4.set_yticklabels(df_pd["algorithm"].values, fontsize=10 + font_adder)
+        ax4.set_xlabel("Per-drug Pearson", fontsize=12 + font_adder, fontweight="bold", labelpad=10)
+
+        for i, label in enumerate(ax4.get_yticklabels()):
+            if i < 3 and not df_pd.iloc[i]["is_baseline"]:
+                label.set_fontweight("bold")
+                label.set_color(get_bar_color(i, False)["color"])
+            elif df_pd.iloc[i]["is_baseline"]:
+                label.set_style("italic")
+                label.set_color(COLORS["text_secondary"])
+            else:
+                label.set_color(COLORS["text"])
+
+        ax4.xaxis.grid(True, linestyle="--", alpha=0.3, color=COLORS["grid"])
+        ax4.set_axisbelow(True)
+        ax4.tick_params(axis="x", colors=COLORS["text_secondary"])
+        ax4.set_title(
+            "Per-drug Pearson  ↑  higher is better",
+            fontsize=14 + font_adder,
+            fontweight="bold",
+            color="#F59E0B",
+            pad=15,
+        )
+
     title_text = "DrEval Challenge Leaderboard"
     n_chars = len(title_text)
     gradient_colors = []
@@ -409,7 +573,7 @@ def create_leaderboard(
     plt.close(fig)
     print(f"Saved leaderboard to: {output_path}")
 
-    return fig, (ax1, ax2)
+    return fig, tuple(axes)
 
 
 def _get_test_mode_name(test_mode: str) -> str:
@@ -435,6 +599,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--results_path", "-r", type=str, required=True, help="Path to evaluation_results.csv")
+    parser.add_argument(
+        "--true_vs_pred_path",
+        type=str,
+        default=None,
+        help="Path to true_vs_pred.csv; if given, a per-drug Pearson panel is added",
+    )
     parser.add_argument("--output_dir", "-o", type=str, default="docs/_static/img", help="Directory to save images")
     parser.add_argument("--test_mode", "-t", type=str, default="LCO", choices=["LCO", "LDO", "LPO", "LTO"])
     parser.add_argument("--dataset", "-d", type=str, default="CTRPv2", help="Dataset name")
@@ -444,7 +614,7 @@ def main():
 
     args = parser.parse_args()
 
-    df = load_results(args.results_path, test_mode=args.test_mode)
+    df = load_results(args.results_path, test_mode=args.test_mode, true_vs_pred_path=args.true_vs_pred_path)
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
