@@ -1,5 +1,7 @@
 ---
 DIPK:
+  gene_list:
+    - landmark_genes
   batch_size:
     - 64
   lr:

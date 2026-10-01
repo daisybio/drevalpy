@@ -33,6 +33,7 @@ class MultiViewNeuralNetwork(DRPModel):
     ]
     drug_views = ["fingerprints"]
     early_stopping = True
+    gene_lists: dict[str, str | None] | None = None
 
     def __init__(self):
         """
@@ -66,16 +67,26 @@ class MultiViewNeuralNetwork(DRPModel):
 
         :param hyperparameters: dictionary containing the hyperparameters units_per_layer, dropout_prob, and
             methylation_pca_components.
+            "gene_lists" is a per-omic override of the default gene list used to subset cell line features.
+            "view_configs" is a {"cell_line_views": [...], "gene_lists": {...}} entry to grid-search cell_line_views
+            and gene_lists together instead of independently; when present, it takes precedence over
+            "cell_line_views" and "gene_lists".
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
-        self.cell_line_views = _get_view_as_list(
-            hyperparameters.get(
-                "cell_line_views", ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
+        view_config = hyperparameters.get("view_configs")
+        if view_config is not None:
+            self.cell_line_views = _get_view_as_list(view_config["cell_line_views"])
+            self.gene_lists = view_config.get("gene_lists")
+        else:
+            self.cell_line_views = _get_view_as_list(
+                hyperparameters.get(
+                    "cell_line_views", ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
+                )
             )
-        )
+            self.gene_lists = hyperparameters.get("gene_lists", None)
         self.drug_views = _get_view_as_list(hyperparameters.get("drug_views", ["fingerprints"]))
         if "methylation" in self.cell_line_views:
             self.pca_ncomp = hyperparameters["methylation_pca_components"]
@@ -88,7 +99,9 @@ class MultiViewNeuralNetwork(DRPModel):
         :param dataset_name: dataset name e.g. GDSC1
         :returns: FeatureDataset containing the cell line omics features
         """
-        return load_multi_cell_line_view(self.cell_line_views, data_path, dataset_name, self.get_model_name())
+        return load_multi_cell_line_view(
+            self.cell_line_views, data_path, dataset_name, self.get_model_name(), gene_lists=self.gene_lists
+        )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         """

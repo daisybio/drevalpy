@@ -8,7 +8,7 @@ from sklearn.decomposition import PCA
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
-from ..utils import load_multi_cell_line_view
+from ..utils import _get_view_as_list, load_multi_cell_line_view
 from .sklearn_models import RandomForest
 
 
@@ -21,6 +21,9 @@ class MultiViewRandomForest(RandomForest):
         "mutations",
         "copy_number_variation_gistic",
     ]
+    #: Per-omic override of the default gene list, e.g. {"gene_expression": "landmark_genes"}.
+    #: Overridable via the "gene_lists" hyperparameter.
+    gene_lists: dict[str, str | None] | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -31,6 +34,24 @@ class MultiViewRandomForest(RandomForest):
         """
         return "MultiViewRandomForest"
 
+    def build_model(self, hyperparameters: dict):
+        """
+        Builds the model from hyperparameters.
+
+        :param hyperparameters: Hyperparameters for the model, see RandomForest.build_model. Additionally supports
+            "gene_lists", a per-omic override of the default gene list used to subset cell line features, and
+            "view_configs", a list of {"cell_line_views": [...], "gene_lists": {...}} entries to grid-search
+            cell_line_views and gene_lists together instead of independently. When present, "view_configs"
+            takes precedence over "cell_line_views" and "gene_lists".
+        """
+        super().build_model(hyperparameters)
+        view_config = hyperparameters.get("view_configs")
+        if view_config is not None:
+            self.cell_line_views = _get_view_as_list(view_config["cell_line_views"])
+            self.gene_lists = view_config.get("gene_lists")
+        else:
+            self.gene_lists = hyperparameters.get("gene_lists", type(self).gene_lists)
+
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features for a multi-view random forest.
@@ -39,7 +60,9 @@ class MultiViewRandomForest(RandomForest):
         :param dataset_name: dataset name e.g. GDSC1
         :returns: FeatureDataset containing the cell line omics features
         """
-        return load_multi_cell_line_view(self.cell_line_views, data_path, dataset_name, self.get_model_name())
+        return load_multi_cell_line_view(
+            self.cell_line_views, data_path, dataset_name, self.get_model_name(), gene_lists=self.gene_lists
+        )
 
     def train(
         self,
@@ -101,7 +124,7 @@ class MultiViewRandomForest(RandomForest):
         :returns: predicted response
         :raises RuntimeError: if PCA has not been fit
         """
-        if not hasattr(self.methylation_pca, "components_"):
+        if "methylation" in self.cell_line_views and not hasattr(self.methylation_pca, "components_"):
             raise RuntimeError("PCA has not been fit. Call train() before predict().")
 
         inputs = self.get_feature_matrices(

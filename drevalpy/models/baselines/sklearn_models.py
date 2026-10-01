@@ -326,6 +326,33 @@ class ElasticNetModel(SklearnModel):
             )
 
 
+class LassoModel(SklearnModel):
+    """Lasso regression model for drug response prediction."""
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: Lasso
+        """
+        return "Lasso"
+
+    def build_model(self, hyperparameters: dict):
+        """
+        Builds the Lasso model from hyperparameters.
+
+        :param hyperparameters: Contains alpha.
+        """
+        super().build_model(hyperparameters)
+        self.model = Lasso(
+            alpha=self.hyperparameters["alpha"],
+            max_iter=10000,
+            tol=1e-3,
+            selection="random",
+        )
+
+
 class RandomForest(SklearnModel):
     """RandomForest model for drug response prediction."""
 
@@ -354,33 +381,6 @@ class RandomForest(SklearnModel):
             max_samples=self.hyperparameters["max_samples"],
             max_depth=self.hyperparameters["max_depth"],
             n_jobs=self.hyperparameters["n_jobs"],
-        )
-
-
-class SVMRegressor(SklearnModel):
-    """SVM model for drug response prediction."""
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: SVR (Support Vector Regressor)
-        """
-        return "SVR"
-
-    def build_model(self, hyperparameters: dict):
-        """
-        Builds the model from hyperparameters.
-
-        :param hyperparameters: Hyperparameters for the model. Contains kernel, C, epsilon, and max_iter.
-        """
-        super().build_model(hyperparameters)
-        self.model = SVR(
-            kernel=self.hyperparameters["kernel"],
-            C=self.hyperparameters["C"],
-            epsilon=self.hyperparameters["epsilon"],
-            max_iter=self.hyperparameters["max_iter"],
         )
 
 
@@ -443,30 +443,30 @@ class AdaBoostDecisionTree(SklearnModel):
         )
 
 
-class LassoModel(SklearnModel):
-    """Lasso regression model for drug response prediction."""
+class SVMRegressor(SklearnModel):
+    """SVM model for drug response prediction."""
 
     @classmethod
     def get_model_name(cls) -> str:
         """
         Returns the model name.
 
-        :returns: Lasso
+        :returns: SVR (Support Vector Regressor)
         """
-        return "Lasso"
+        return "SVR"
 
     def build_model(self, hyperparameters: dict):
         """
-        Builds the Lasso model from hyperparameters.
+        Builds the model from hyperparameters.
 
-        :param hyperparameters: Contains alpha.
+        :param hyperparameters: Hyperparameters for the model. Contains kernel, C, epsilon, and max_iter.
         """
         super().build_model(hyperparameters)
-        self.model = Lasso(
-            alpha=self.hyperparameters["alpha"],
-            max_iter=10000,
-            tol=1e-3,
-            selection="random",
+        self.model = SVR(
+            kernel=self.hyperparameters["kernel"],
+            C=self.hyperparameters["C"],
+            epsilon=self.hyperparameters["epsilon"],
+            max_iter=self.hyperparameters["max_iter"],
         )
 
 

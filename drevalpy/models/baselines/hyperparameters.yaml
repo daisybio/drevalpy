@@ -12,23 +12,22 @@ NaiveTissueDrugMeanPredictor:
 ElasticNet:
   cell_line_views:
     - gene_expression
-    - proteomics
   drug_views:
     - fingerprints
+  gene_list:
+    - landmark_genes
   l1_ratio:
     - 0
     - 0.5
-    - 1
+    - 0.7
   alpha:
     - 1
     - 0.8
     - 0.6
     - 0.4
-    - 0.2
     - 0.1
+    - 0.01
     - 5
-    - 10
-    - 100
   proteomics_feature_threshold:
     - 0.7
   proteomics_n_features:
@@ -41,15 +40,18 @@ ElasticNet:
 Lasso:
   cell_line_views:
     - gene_expression
-    - proteomics
   drug_views:
     - fingerprints
+  gene_list:
+    - landmark_genes
   alpha:
-    - 0.0001
-    - 0.001
-    - 0.01
-    - 0.1
     - 1
+    - 0.8
+    - 0.6
+    - 0.4
+    - 0.1
+    - 0.01
+    - 5
   proteomics_feature_threshold:
     - 0.7
   proteomics_n_features:
@@ -62,9 +64,10 @@ Lasso:
 RandomForest:
   cell_line_views:
     - gene_expression
-    - proteomics
   drug_views:
     - fingerprints
+  gene_list:
+    - landmark_genes
   n_estimators:
     - 100
   max_depth:
@@ -81,9 +84,10 @@ RandomForest:
 GradientBoosting:
   cell_line_views:
     - gene_expression
-    - proteomics
   drug_views:
     - fingerprints
+  gene_list:
+    - landmark_genes
   max_iter:
     - 100
   learning_rate:
@@ -97,9 +101,10 @@ GradientBoosting:
 AdaBoostDecisionTree:
   cell_line_views:
     - gene_expression
-    - proteomics
   drug_views:
     - fingerprints
+  gene_list:
+    - landmark_genes
   n_estimators:
     - 50
   max_depth:
@@ -114,9 +119,10 @@ AdaBoostDecisionTree:
 SVR:
   cell_line_views:
     - gene_expression
-    - proteomics
   drug_views:
     - fingerprints
+  gene_list:
+    - landmark_genes
   kernel:
     - rbf
   C:
@@ -135,13 +141,29 @@ SVR:
   max_iter:
     - 500
 
+KNNRegressor:
+  cell_line_views:
+    - gene_expression
+  drug_views:
+    - fingerprints
+  gene_list:
+    - landmark_genes
+  n_neighbors:
+    - 5
+    - 10
+    - 3
+  weights:
+    - distance
+
 # Global multi-input sklearn models, input can be adjusted to omic list of choice
 MultiViewRandomForest:
-  cell_line_views:
-    - - gene_expression
-      - methylation
-      - mutations
-      - copy_number_variation_gistic
+  view_configs:
+    - cell_line_views:
+        - gene_expression
+        - mutations
+      gene_lists:
+        gene_expression: landmark_genes
+        mutations: drug_target_genes_all_drugs
   drug_views:
     - fingerprints
   n_estimators:
@@ -167,11 +189,74 @@ MultiViewRandomForest:
   proteomics_normalization_downshift:
     - 1.8
 
+MultiViewXGBoost:
+  view_configs:
+    - cell_line_views:
+        - gene_expression
+        - mutations
+      gene_lists:
+        gene_expression: landmark_genes
+        mutations: drug_target_genes_all_drugs
+    - cell_line_views:
+        - gene_expression
+      gene_lists:
+        gene_expression: landmark_genes
+  drug_views:
+    - fingerprints
+  learning_rate:
+    - 0.1
+  max_depth:
+    - 10
+  subsample:
+    - 0.8
+  colsample_bytree:
+    - 0.6
+    - 0.8
+  reg_alpha:
+    - 0
+    - 1
+  reg_lambda:
+    - 0.1
+
+MultiViewLightGBM:
+  view_configs:
+    - cell_line_views:
+        - gene_expression
+        - mutations
+      gene_lists:
+        gene_expression: landmark_genes
+        mutations: drug_target_genes_all_drugs
+    - cell_line_views:
+        - gene_expression
+      gene_lists:
+        gene_expression: landmark_genes
+  drug_views:
+    - fingerprints
+  learning_rate:
+    - 0.1
+  num_leaves:
+    - 31
+    - 63
+    - 127
+  subsample:
+    - 0.8
+  colsample_bytree:
+    - 0.6
+    - 0.8
+  reg_alpha:
+    - 0
+    - 1
+  reg_lambda:
+    - 0
+    - 0.1
+    - 1
+
 # Single-drug single-omic sklearn models, input can be adjusted to omic of choice
 SingleDrugRandomForest:
   cell_line_views:
     - gene_expression
-    - proteomics
+  gene_list:
+    - landmark_genes
   n_estimators:
     - 100
   max_depth:
@@ -196,7 +281,8 @@ SingleDrugRandomForest:
 SingleDrugElasticNet:
   cell_line_views:
     - gene_expression
-    - proteomics
+  gene_list:
+    - landmark_genes
   l1_ratio:
     - 0.2
     - 0.5
@@ -206,11 +292,9 @@ SingleDrugElasticNet:
     - 0.8
     - 0.6
     - 0.4
-    - 0.2
     - 0.1
+    - 0.01
     - 5
-    - 10
-    - 100
   proteomics_feature_threshold:
     - 0.7
   proteomics_n_features:
@@ -219,69 +303,3 @@ SingleDrugElasticNet:
     - 0.3
   proteomics_normalization_downshift:
     - 1.8
-KNNRegressor:
-  cell_line_views:
-    - gene_expression
-    - proteomics
-  drug_views:
-    - fingerprints
-  n_neighbors:
-    - 5
-    - 10
-    - 3
-  weights:
-    - distance
-
-MultiViewXGBoost:
-  cell_line_views:
-    - - gene_expression
-      - methylation
-      - mutations
-      - copy_number_variation_gistic
-    - gene_expression
-    - proteomics
-  drug_views:
-    - fingerprints
-  learning_rate:
-    - 0.1
-  max_depth:
-    - 10
-  subsample:
-    - 0.8
-  colsample_bytree:
-    - 0.6
-    - 0.8
-  reg_alpha:
-    - 0
-    - 1
-  reg_lambda:
-    - 0.1
-
-MultiViewLightGBM:
-  cell_line_views:
-    - - gene_expression
-      - methylation
-      - mutations
-      - copy_number_variation_gistic
-    - gene_expression
-    - proteomics
-  drug_views:
-    - fingerprints
-  learning_rate:
-    - 0.1
-  num_leaves:
-    - 31
-    - 63
-    - 127
-  subsample:
-    - 0.8
-  colsample_bytree:
-    - 0.6
-    - 0.8
-  reg_alpha:
-    - 0
-    - 1
-  reg_lambda:
-    - 0
-    - 0.1
-    - 1

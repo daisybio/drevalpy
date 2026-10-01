@@ -590,16 +590,21 @@ def load_multi_cell_line_view(
     data_path: str,
     dataset_name: str,
     model_name: str,
+    gene_lists: dict[str, str | None] | None = None,
 ) -> FeatureDataset:
     """
     Load cell line features for a multi-view model.
 
-    Known omics types use specific gene lists for subsetting. Unknown types are loaded in full.
+    Known omics types use specific gene lists for subsetting by default. Unknown types are loaded in full.
+    Defaults can be overridden per-omic via ``gene_lists``; omics not named there keep their default.
 
     :param cell_line_views: list of cell line views
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC1
     :param model_name: name of the model, used for error messages
+    :param gene_lists: optional per-omic override of the default gene list, e.g.
+        {"gene_expression": "landmark_genes"}. Omics not present here keep their default gene list.
+        A value of None for an omic loads all of its features unfiltered.
     :returns: FeatureDataset containing the cell line features
     :raises ValueError: if cell_line_views is empty
     """
@@ -617,10 +622,14 @@ def load_multi_cell_line_view(
         "copy_number_variation_gistic": "drug_target_genes_all_drugs",
         "proteomics": "drug_target_genes_all_drugs_proteomics",
     }
-    gene_lists = {feature_name: gene_list_defaults.get(feature_name, None) for feature_name in cell_line_views}
+    gene_lists = gene_lists or {}
+    resolved_gene_lists = {
+        feature_name: gene_lists.get(feature_name, gene_list_defaults.get(feature_name, None))
+        for feature_name in cell_line_views
+    }
 
     return get_multiomics_feature_dataset(
-        data_path=data_path, gene_lists=gene_lists, dataset_name=dataset_name, omics=cell_line_views
+        data_path=data_path, gene_lists=resolved_gene_lists, dataset_name=dataset_name, omics=cell_line_views
     )
 
 
