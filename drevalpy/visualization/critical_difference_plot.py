@@ -79,16 +79,17 @@ class CriticalDifferencePlot(OutPlot):
         self.fig: Optional[plt.Figure] = None
         self.test_results: Optional[pd.DataFrame] = None
 
-    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+    def draw_and_save(self, out_prefix: str, out_suffix: str, figsize: Optional[tuple[float, float]] = None) -> None:
         """
         Draws the critical difference plot and saves it to a file.
 
         :param out_prefix: e.g., results/my_run/critical_difference_plots/
         :param out_suffix: e.g., LPO
+        :param figsize: optional (width, height) of the figure in inches; matplotlib default if None
         :raises ValueError: if the figure is None or the test results are None
         """
         try:
-            self._draw()
+            self._draw(figsize=figsize)
             path_out = f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
             if self.fig is None or self.test_results is None:
                 raise ValueError("Figure is None. Cannot save the plot.")
@@ -100,8 +101,14 @@ class CriticalDifferencePlot(OutPlot):
         except Exception as e:
             print(f"Error in drawing critical difference plot: {e}")
 
-    def _draw(self) -> None:
-        """Draws the critical difference plot."""
+    def _draw(self, figsize: Optional[tuple[float, float]] = None) -> None:
+        """
+        Draws the critical difference plot.
+
+        :param figsize: optional (width, height) of the figure in inches; matplotlib default if None
+        """
+        if figsize is not None:
+            plt.figure(figsize=figsize)
         input_friedman = self.eval_results_preds.groupby("algorithm")[self.metric].apply(list)
         # check that all algorithms have the same number of CV splits, if not filter them out
         # table lengths of arrays:

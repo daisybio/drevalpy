@@ -7,6 +7,8 @@ optionally, per-drug Pearson) from
 the evaluation results CSV file produced by the DrEvalPy evaluation pipeline.
 Usage:
 python create_leaderboard.py --results_path /path/to/results.csv [--true_vs_pred_path /path/to/true_vs_pred.csv]
+In addition to the leaderboard, a critical difference diagram (Friedman + post-hoc Conover test over the CV splits)
+is saved to the output directory.
 """
 
 import argparse
@@ -20,6 +22,7 @@ import pandas as pd
 from matplotlib.patches import FancyBboxPatch
 
 from drevalpy.evaluation import pearson
+from drevalpy.visualization.critical_difference_plot import CriticalDifferencePlot
 
 # --- Theme Definitions ---
 DARK_THEME = {
@@ -60,6 +63,7 @@ def configure_matplotlib(font_adder: int = 0):
             "ytick.color": COLORS["text"],
             "grid.color": COLORS["grid"],
             "font.family": "sans-serif",
+            "font.sans-serif": ["DejaVu Sans"],
             "font.size": 11 + font_adder,
             "axes.spines.top": False,
             "axes.spines.right": False,
@@ -213,7 +217,7 @@ def create_leaderboard(
     :param test_mode: Evaluation mode name.
     :param dataset: Dataset name.
     :param measure: Performance measure.
-    :param figsize: Figure dimensions, defaults to 8 inches width per panel.
+    :param figsize: Figure dimensions, defaults to 16 x 24 inches (2 x 2 panels).
     :param show_top_n: Limit displayed models.
     :param font_adder: Scale for text.
     :return: Figure and axes tuple.
@@ -228,10 +232,12 @@ def create_leaderboard(
     bar_height = 0.65
 
     has_per_drug = "Pearson_per_drug" in df.columns
-    n_panels = 4 if has_per_drug else 3
-    fig, axes = plt.subplots(1, n_panels, figsize=figsize or (8 * n_panels, 12), facecolor=COLORS["background"])
+    fig, axes = plt.subplots(2, 2, figsize=figsize or (16, 24), facecolor=COLORS["background"])
+    axes = axes.ravel()
+    if not has_per_drug:
+        axes[3].axis("off")
     ax1, ax2, ax3 = axes[:3]
-    fig.subplots_adjust(wspace=0.4)
+    fig.subplots_adjust(wspace=0.4, hspace=0.3)
 
     ax1.set_facecolor(COLORS["background"])
     df_pcc = df.sort_values("PCC", ascending=False).reset_index(drop=True)
@@ -258,7 +264,7 @@ def create_leaderboard(
         if i < 3 and not row["is_baseline"]:
             medals = ["①", "②", "③"]
             ax1.text(
-                -max_pcc * 0.03,
+                -max_pcc * 0.07,
                 y_positions[i],
                 medals[i],
                 va="center",
@@ -269,7 +275,7 @@ def create_leaderboard(
                 zorder=5,
             )
 
-    ax1.set_xlim(-max_pcc * 0.06, max_pcc)
+    ax1.set_xlim(-max_pcc * 0.12, max_pcc)
     ax1.set_ylim(-0.8, n_models - 0.2)
     ax1.set_yticks(y_positions)
     ax1.set_yticklabels(df_pcc["algorithm"].values, fontsize=10 + font_adder)
@@ -321,7 +327,7 @@ def create_leaderboard(
         if i < 3 and not row["is_baseline"]:
             medals = ["①", "②", "③"]
             ax2.text(
-                -max_rmse * 0.03,
+                -max_rmse * 0.07,
                 y_positions[i],
                 medals[i],
                 va="center",
@@ -332,7 +338,7 @@ def create_leaderboard(
                 zorder=5,
             )
 
-    ax2.set_xlim(-max_rmse * 0.06, max_rmse)
+    ax2.set_xlim(-max_rmse * 0.12, max_rmse)
     ax2.set_ylim(-0.8, n_models - 0.2)
     ax2.set_yticks(y_positions)
     ax2.set_yticklabels(df_rmse["algorithm"].values, fontsize=10 + font_adder)
@@ -378,7 +384,7 @@ def create_leaderboard(
         if i < 3 and not row["is_baseline"]:
             medals = ["①", "②", "③"]
             ax3.text(
-                -max_pearson * 0.03,
+                -max_pearson * 0.07,
                 y_positions[i],
                 medals[i],
                 va="center",
@@ -389,7 +395,7 @@ def create_leaderboard(
                 zorder=5,
             )
 
-    ax3.set_xlim(-max_pearson * 0.06, max_pearson)
+    ax3.set_xlim(-max_pearson * 0.12, max_pearson)
     ax3.set_ylim(-0.8, n_models - 0.2)
     ax3.set_yticks(y_positions)
     ax3.set_yticklabels(df_pearson["algorithm"].values, fontsize=10 + font_adder)
@@ -436,7 +442,7 @@ def create_leaderboard(
             if i < 3 and not row["is_baseline"]:
                 medals = ["①", "②", "③"]
                 ax4.text(
-                    -max_pd * 0.03,
+                    -max_pd * 0.07,
                     y_positions[i],
                     medals[i],
                     va="center",
@@ -447,7 +453,7 @@ def create_leaderboard(
                     zorder=5,
                 )
 
-        ax4.set_xlim(-max_pd * 0.06, max_pd)
+        ax4.set_xlim(-max_pd * 0.12, max_pd)
         ax4.set_ylim(-0.8, n_models - 0.2)
         ax4.set_yticks(y_positions)
         ax4.set_yticklabels(df_pd["algorithm"].values, fontsize=10 + font_adder)
@@ -576,6 +582,25 @@ def create_leaderboard(
     return fig, tuple(axes)
 
 
+def create_critical_difference_diagram(
+    results_path: str, output_dir: Path, test_mode: str, metric: str, figsize: Optional[tuple[float, float]] = None
+) -> None:
+    """
+    Draw the critical difference diagram over the CV splits and save it as SVG plus the Conover p-value table.
+
+    :param results_path: Path to evaluation_results.csv.
+    :param output_dir: Directory to save the diagram to.
+    :param test_mode: Evaluation mode name.
+    :param metric: Metric used to rank the models within each CV split.
+    :param figsize: Optional (width, height) of the diagram in inches.
+    """
+    df = pd.read_csv(results_path, index_col=0)
+    df = df[(df["rand_setting"] == "predictions") & (df["test_mode"] == test_mode)]
+    CriticalDifferencePlot(eval_results_preds=df, metric=metric).draw_and_save(
+        out_prefix=f"{output_dir}/", out_suffix=test_mode, figsize=figsize
+    )
+
+
 def _get_test_mode_name(test_mode: str) -> str:
     """
     Map shorthand mode codes to full descriptive names.
@@ -609,6 +634,11 @@ def main():
     parser.add_argument("--test_mode", "-t", type=str, default="LCO", choices=["LCO", "LDO", "LPO", "LTO"])
     parser.add_argument("--dataset", "-d", type=str, default="CTRPv2", help="Dataset name")
     parser.add_argument("--measure", "-m", type=str, default="LN_IC50_curvecurator", help="Response measure")
+    parser.add_argument(
+        "--cd_metric", type=str, default="Pearson: normalized", help="Metric for the critical " "difference diagram"
+    )
+    parser.add_argument("--cd_width", type=float, default=None, help="Width of the critical difference diagram (in)")
+    parser.add_argument("--cd_height", type=float, default=None, help="Height of the critical difference diagram (in)")
     parser.add_argument("--top_n", "-n", type=int, default=None, help="Top N models")
     parser.add_argument("--font_adder", type=int, default=6, help="Font size increment")
 
@@ -642,6 +672,14 @@ def main():
         show_top_n=args.top_n,
         font_adder=args.font_adder,
     )
+
+    cd_figsize = None
+    if args.cd_width or args.cd_height:
+        cd_figsize = (
+            args.cd_width or plt.rcParams["figure.figsize"][0],
+            args.cd_height or plt.rcParams["figure.figsize"][1],
+        )
+    create_critical_difference_diagram(args.results_path, out_dir, args.test_mode, args.cd_metric, cd_figsize)
 
 
 if __name__ == "__main__":
