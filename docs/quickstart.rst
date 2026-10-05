@@ -32,6 +32,7 @@ knowledge of nextflow is required to run it. The nextflow pipeline is available 
 <https://github.com/nf-core/drugresponseeval.git>`_, the documentation can be found `here <https://nf-co.re/drugresponseeval/dev/>`_.
 
 -  Want to test if your own model outperforms the baselines? See `Run Your Model <./runyourmodel.html>`_.
+-  The splits used for the leaderboard are on `Zenodo <https://doi.org/10.5281/zenodo.12633909>`_ (splits.zip), together with the leaderboard results for the other models.
 -  Discuss usage, development and issues on `GitHub <https://github.com/daisybio/drevalpy>`_.
 -  Check the `Contributor Guide <./contributing.html>`_ if you want to participate in developing.
 -  If you use drevalpy for your work, `please cite us <./reference.html>`_.
