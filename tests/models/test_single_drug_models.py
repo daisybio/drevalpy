@@ -96,6 +96,8 @@ def test_single_drug_models(
         hpam_combi["cell_line_views"] = "proteomics"
     elif model_name in ["MOLIR", "SuperFELTR"]:
         hpam_combi["epochs"] = 1
+    if hpam_combi.get("gene_list") == "landmark_genes":
+        hpam_combi["gene_list"] = "landmark_genes_reduced"  # the toy bundle ships only the reduced list
 
     for random_drug in random_drugs:
         model = MODEL_FACTORY[model_name]()

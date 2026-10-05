@@ -1,5 +1,9 @@
 ---
 SuperFELTR:
+  gene_lists:
+    - gene_expression: null
+      mutations: null
+      copy_number_variation_gistic: null
   mini_batch: 55
   dropout_rate:
     - 0.5

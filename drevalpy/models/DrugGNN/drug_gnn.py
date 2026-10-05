@@ -228,6 +228,9 @@ class _DrugResponsePytorchDataset(PytorchDataset):
 class DrugGNN(DRPModel):
     """DrugGNN model."""
 
+    #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
+    gene_list: str | None = "landmark_genes_reduced"
+
     def __init__(self):
         """Initialize the DrugGNN model."""
         super().__init__()
@@ -261,12 +264,14 @@ class DrugGNN(DRPModel):
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """Build the model.
 
-        :param hyperparameters: The hyperparameters.
+        :param hyperparameters: The hyperparameters. "gene_list" (str | None) is the gene list used to subset
+            gene_expression; None loads all genes. Optional, defaults to landmark_genes_reduced.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
+        self.gene_list = hyperparameters.get("gene_list", type(self).gene_list)
 
     def _loader_kwargs(self) -> dict[str, Any]:
         num_workers = int(self.hyperparameters.get("num_workers", 4))
@@ -423,7 +428,7 @@ class DrugGNN(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
+            gene_list=self.gene_list,
             data_path=data_path,
             dataset_name=dataset_name,
         )

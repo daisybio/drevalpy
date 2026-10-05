@@ -78,4 +78,14 @@ Leaderboard
 .. image:: _static/img/leaderboard_light.png
    :alt: DrEvalPy Leaderboard
    :align: center
-   :width: 70%
+   :width: 80%
+
+In the critical difference diagram, you can see which models outperform which other models significantly.
+The diagram is based on the average ranks of the models across all datasets and metrics, and the
+critical difference is calculated using the Nemenyi test. If model A is outside the bar corresponding to model B, it
+is significantly better (if it lies to the left) or worse (if it lies to the right) than model B.
+
+.. image:: _static/img/critical_difference_algorithms_LCO.svg
+   :alt: Critical difference diagram showing which models significantly outperform which other models
+   :align: center
+   :width: 100%

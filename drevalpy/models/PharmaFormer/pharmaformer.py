@@ -86,6 +86,8 @@ class PharmaFormerModel(DRPModel):
     cell_line_views = ["gene_expression"]
     drug_views = ["bpe_smiles"]
     early_stopping = True
+    #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
+    gene_list: str | None = "landmark_genes_reduced"
 
     def __init__(self) -> None:
         """Initialize the PharmaFormer model."""
@@ -110,12 +112,15 @@ class PharmaFormerModel(DRPModel):
         Builds the PharmaFormer model with the specified hyperparameters.
 
         :param hyperparameters: Model hyperparameters including gene_hidden_size, drug_hidden_size,
-            feature_dim, nhead, num_layers, dim_feedforward, dropout, batch_size, lr, epochs, patience
+            feature_dim, nhead, num_layers, dim_feedforward, dropout, batch_size, lr, epochs, patience.
+            "gene_list" (str | None) is the gene list used to subset gene_expression; None loads all genes.
+            Optional, defaults to landmark_genes_reduced.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
+        self.gene_list = hyperparameters.get("gene_list", type(self).gene_list)
         # Model will be built in train() when we know the input dimensions
 
     def train(
@@ -392,7 +397,7 @@ class PharmaFormerModel(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
+            gene_list=self.gene_list,
             data_path=data_path,
             dataset_name=dataset_name,
         )

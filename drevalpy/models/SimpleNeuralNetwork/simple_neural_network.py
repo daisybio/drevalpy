@@ -28,6 +28,8 @@ class SimpleNeuralNetwork(DRPModel):
     cell_line_views = []
     drug_views = []
     early_stopping = True
+    #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
+    gene_list: str | None = "landmark_genes_reduced"
 
     def __init__(self):
         """Initializes the SimpleNeuralNetwork.
@@ -52,12 +54,14 @@ class SimpleNeuralNetwork(DRPModel):
         """
         Builds the model from hyperparameters.
 
-        :param hyperparameters: includes units_per_layer and dropout_prob.
+        :param hyperparameters: includes units_per_layer and dropout_prob. "gene_list" (str | None) is the gene
+            list used to subset gene_expression; None loads all genes. Optional, defaults to landmark_genes_reduced.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
+        self.gene_list = hyperparameters.get("gene_list", type(self).gene_list)
         self.cell_line_views = _get_view_as_list(hyperparameters.get("cell_line_views", ["gene_expression"]))
         self.drug_views = _get_view_as_list(hyperparameters.get("drug_views", ["fingerprints"]))
         self.hyperparameters.setdefault("input_dim_omic", None)
@@ -71,7 +75,9 @@ class SimpleNeuralNetwork(DRPModel):
         :param dataset_name: name of the dataset
         :returns: FeatureDataset containing the cell line features
         """
-        return load_single_cell_line_view(self.cell_line_views, data_path, dataset_name, self.get_model_name())
+        return load_single_cell_line_view(
+            self.cell_line_views, data_path, dataset_name, self.get_model_name(), gene_list=self.gene_list
+        )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         """

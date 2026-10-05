@@ -45,6 +45,16 @@ Use DrEval to build drug response models that have an impact
   <img alt="DrEvalPy Leaderboard" src="docs/_static/img/leaderboard_dark.png?v=4">
 </picture>
 
+In the critical difference diagram, you can see which models outperform which other models significantly.
+The diagram is based on the average ranks of the models across all datasets and metrics, and the
+critical difference is calculated using the Nemenyi test. If model A is outside the bar corresponding to model B, it
+is significantly better (if it lies to the left) or worse (if it lies to the right) than model B.
+
+<picture>
+  <img alt="Critical difference diagram showing which models significantly outperform which other models"
+src="docs/_static/img/critical_difference_algorithms_LCO.svg?v=4">
+</picture>
+
 ---
 
 This project is a collaboration of the Technical University of Munich (TUM, Germany)

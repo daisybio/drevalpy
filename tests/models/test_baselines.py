@@ -446,31 +446,7 @@ def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_da
     hpams = model_class.get_hyperparameter_set()
 
     if len(hpams) > 2:
-        if model in [
-            "RandomForest",
-            "GradientBoosting",
-            "ElasticNet",
-            "AdaBoostDecisionTree",
-            "SVR",
-            "MultiViewXGBoost",
-        ]:
-            # test a hpam config with cell_line_views == "gene expression" and one with "proteomics
-            covered_gex = False
-            covered_prot = False
-            hpams_subset = []
-            for hpam in hpams:
-                if hpam["cell_line_views"] == "gene_expression" and not covered_gex:
-                    hpams_subset.append(hpam)
-                    covered_gex = True
-                if hpam["cell_line_views"] == "proteomics" and not covered_prot:
-                    hpams_subset.append(hpam)
-                    covered_prot = True
-                if covered_prot and covered_gex:
-                    break
-            assert len(hpams_subset) == 2, "Hpam subset is empty"
-            hpams = hpams_subset
-        else:
-            hpams = hpams[:2]
+        hpams = hpams[:2]
     model_instance = model_class()
     if model not in ("MultiViewXGBoost"):
         assert isinstance(model_instance, SklearnModel)
@@ -491,6 +467,11 @@ def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_da
             hpam_combi["n_neighbors"] = 3
             hpam_combi["weights"] = "distance"
             hpam_combi["variance"] = 0.75
+        # the toy bundle ships only the reduced landmark gene list
+        if hpam_combi.get("gene_list") == "landmark_genes":
+            hpam_combi["gene_list"] = "landmark_genes_reduced"
+        if "view_configs" in hpam_combi:
+            hpam_combi["view_configs"]["gene_lists"]["gene_expression"] = "landmark_genes_reduced"
         model_instance.build_model(hpam_combi)
 
         train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(

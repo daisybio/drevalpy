@@ -8,7 +8,7 @@ EnsembleMF:
   feature_transform:
     - rank
   gene_list:
-    - gene_expression_intersection
+    - landmark_genes
   n_bits:
     - 256
   hidden_dim:
