@@ -28,10 +28,27 @@ def register(app: typer.Typer) -> None:
                 "default: LN_IC50_curvecurator.",
             ),
         ] = "LN_IC50_curvecurator",
+        clean_min_responders: Annotated[
+            int | None,
+            typer.Option(
+                "--clean_min_responders",
+                help="Keep only drugs with at least this many reproducible responder curves. "
+                "Requires curve-curated data. Set at most one of the two clean options.",
+            ),
+        ] = None,
+        clean_min_responder_frac: Annotated[
+            float | None,
+            typer.Option(
+                "--clean_min_responder_frac",
+                help="Fraction-based alternative to --clean_min_responders (in (0, 1]).",
+            ),
+        ] = None,
     ) -> None:
         """Load drug response data for drug response prediction as pickle."""
         run_load_response(
             response_dataset=response_dataset,
             cross_study_dataset=cross_study_dataset,
             measure=measure,
+            clean_min_responders=clean_min_responders,
+            clean_min_responder_frac=clean_min_responder_frac,
         )
