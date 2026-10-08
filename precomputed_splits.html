@@ -1,0 +1,190 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Run on precomputed splits &mdash; DrEvalPy 1.6.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Create the leaderboard" href="leaderboard.html" />
+    <link rel="prev" title="Example: TinyNN (Neural Network with PyTorch)" href="example_tinynn.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/drevalpy.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="runyourmodel.html">Implement your model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example_tinynn.html">Example: TinyNN (Neural Network with PyTorch)</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Run on precomputed splits</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#standalone-drevalpy">Standalone (<code class="docutils literal notranslate"><span class="pre">drevalpy</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#nextflow-pipeline">Nextflow pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#your-own-splitting-strategy">Your own splitting strategy</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="leaderboard.html">Create the leaderboard</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DrEvalPy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="benchmark_overview.html">Benchmark your own model</a></li>
+      <li class="breadcrumb-item active">Run on precomputed splits</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/daisybio/drevalpy/blob/development/docs/precomputed_splits.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="run-on-precomputed-splits">
+<h1>Run on precomputed splits<a class="headerlink" href="#run-on-precomputed-splits" title="Link to this heading"></a></h1>
+<p>The splits used for the leaderboard are available on <a class="reference external" href="https://doi.org/10.5281/zenodo.12633909">Zenodo</a> as <code class="docutils literal notranslate"><span class="pre">splits.zip</span></code>.
+After unzipping, you get a folder <code class="docutils literal notranslate"><span class="pre">splits</span></code> with one set of CSV files per cross-validation split:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>splits/cv_split_0_train.csv
+splits/cv_split_0_validation.csv
+splits/cv_split_0_validation_es.csv
+splits/cv_split_0_early_stopping.csv
+splits/cv_split_0_test.csv
+splits/cv_split_1_train.csv
+...
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">train</span></code>, <code class="docutils literal notranslate"><span class="pre">validation</span></code> and <code class="docutils literal notranslate"><span class="pre">test</span></code> are required. <code class="docutils literal notranslate"><span class="pre">validation_es</span></code> and <code class="docutils literal notranslate"><span class="pre">early_stopping</span></code> are used by models with early stopping.
+The number of CV splits is read from the files.</p>
+<section id="standalone-drevalpy">
+<h2>Standalone (<code class="docutils literal notranslate"><span class="pre">drevalpy</span></code>)<a class="headerlink" href="#standalone-drevalpy" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">drevalpy</span></code> loads existing splits instead of creating new ones if the folder
+<code class="docutils literal notranslate"><span class="pre">results/&lt;run_id&gt;/&lt;dataset_name&gt;/&lt;test_mode&gt;/splits</span></code> already exists. So you only need to copy the splits there before you start your run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span>results/my_model/CTRPv2/LCO
+cp<span class="w"> </span>-r<span class="w"> </span>splits<span class="w"> </span>results/my_model/CTRPv2/LCO/splits
+
+drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_model<span class="w"> </span>--models<span class="w"> </span>YourModel<span class="w"> </span>--dataset_name<span class="w"> </span>CTRPv2<span class="w"> </span>--test_mode<span class="w"> </span>LCO
+</pre></div>
+</div>
+<p>Make sure that</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--run_id</span></code>, <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> and <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> match the folder names above,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--overwrite</span></code> is <strong>not</strong> set (it deletes the result folder, including your splits),</p></li>
+<li><p>the splits belong to the test mode you choose, e.g., the LCO splits for <code class="docutils literal notranslate"><span class="pre">--test_mode</span> <span class="pre">LCO</span></code>.</p></li>
+</ul>
+</section>
+<section id="nextflow-pipeline">
+<h2>Nextflow pipeline<a class="headerlink" href="#nextflow-pipeline" title="Link to this heading"></a></h2>
+<p>With the <a class="reference external" href="https://github.com/nf-core/drugresponseeval">nf-core/drugresponseeval</a> pipeline, pass the script
+<code class="docutils literal notranslate"><span class="pre">assets/custom_splitter_from_csvs.py</span></code> via <code class="docutils literal notranslate"><span class="pre">--custom_splitter_path</span></code>. The example runs from within a clone of the pipeline repository
+(hence <code class="docutils literal notranslate"><span class="pre">nextflow</span> <span class="pre">run</span> <span class="pre">.</span></code>); <code class="docutils literal notranslate"><span class="pre">-profile</span></code> and the cluster config <code class="docutils literal notranslate"><span class="pre">-c</span></code> depend on your infrastructure:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nextflow<span class="w"> </span>run<span class="w"> </span>.<span class="w"> </span>--run_id<span class="w"> </span>new_leaderboard<span class="w"> </span>-profile<span class="w"> </span>gpu<span class="w"> </span>-c<span class="w"> </span>mycluster.config<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--custom_splitter_path<span class="w"> </span>assets/custom_splitter_from_csvs.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--baselines<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--models<span class="w"> </span>MyDLModel1,MyDLModel2
+</pre></div>
+</div>
+<p>The path to the unzipped splits is set <strong>inside this Python file</strong>, so edit it before the run.
+The script is part of the pipeline repository.</p>
+</section>
+<section id="your-own-splitting-strategy">
+<h2>Your own splitting strategy<a class="headerlink" href="#your-own-splitting-strategy" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">--custom_splitter_path</span></code> is also available in standalone <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code> and is not limited to precomputed CSVs.
+Point it to any Python file that defines a module-level function <code class="docutils literal notranslate"><span class="pre">create_splits(response_data,</span> <span class="pre">params)</span></code>.
+It must return a list with one dictionary per split. Each dictionary maps the roles <code class="docutils literal notranslate"><span class="pre">train</span></code>, <code class="docutils literal notranslate"><span class="pre">validation</span></code>, <code class="docutils literal notranslate"><span class="pre">test</span></code>
+(required) and <code class="docutils literal notranslate"><span class="pre">validation_es</span></code>, <code class="docutils literal notranslate"><span class="pre">early_stopping</span></code> (optional) to a <code class="docutils literal notranslate"><span class="pre">DrugResponseDataset</span></code>.
+<code class="docutils literal notranslate"><span class="pre">params</span></code> contains <code class="docutils literal notranslate"><span class="pre">test_mode</span></code>, <code class="docutils literal notranslate"><span class="pre">n_cv_splits</span></code>, <code class="docutils literal notranslate"><span class="pre">validation_ratio</span></code>, <code class="docutils literal notranslate"><span class="pre">random_state</span></code> and <code class="docutils literal notranslate"><span class="pre">split_early_stopping</span></code>.
+The splits are validated, e.g., train/validation/test must not share cell lines in LCO mode.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_model<span class="w"> </span>--models<span class="w"> </span>YourModel<span class="w"> </span>--dataset_name<span class="w"> </span>CTRPv2<span class="w"> </span>--test_mode<span class="w"> </span>LCO<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--custom_splitter_path<span class="w"> </span>my_splitter.py<span class="w"> </span>--custom_split_name<span class="w"> </span>my_split
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--custom_split_name</span></code> is the optional name of the result folder (default: the test mode).</p>
+<p>Next: <a class="reference internal" href="leaderboard.html"><span class="doc">Create the leaderboard</span></a>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="example_tinynn.html" class="btn btn-neutral float-left" title="Example: TinyNN (Neural Network with PyTorch)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="leaderboard.html" class="btn btn-neutral float-right" title="Create the leaderboard" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, DaiSyBio at Technical University of Munich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrEvalPy and Weights &amp; Biases &mdash; DrEvalPy 1.5.1 documentation</title>
+  <title>DrEvalPy and Weights &amp; Biases &mdash; DrEvalPy 1.6.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=44dfd65d"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -47,8 +47,8 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">DrEvalPy and Weights &amp; Biases</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#example-compare-flexible-inputs-for-drevalpy-s-baselines">Example: Compare Flexible Inputs for DrEvalPy’s Baselines</a></li>
@@ -88,7 +88,7 @@
 <h1>DrEvalPy and Weights &amp; Biases<a class="headerlink" href="#drevalpy-and-weights-biases" title="Link to this heading"></a></h1>
 <p>We have a weights and biases integration for all our models. You can use this functionality very easily
 by just supplying an extra parameter <code class="docutils literal notranslate"><span class="pre">--wandb_project</span></code>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_wandb_run<span class="w"> </span>--models<span class="w"> </span>model1<span class="w"> </span>model2<span class="w"> </span>--baselines<span class="w"> </span>baseline1<span class="w"> </span>baseline2<span class="w"> </span>--dataset<span class="w"> </span>CTRPv2<span class="w"> </span>--wandb_project<span class="w"> </span>my_new_project_name
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_wandb_run<span class="w"> </span>--models<span class="w"> </span>model1<span class="w"> </span>model2<span class="w"> </span>--baselines<span class="w"> </span>baseline1<span class="w"> </span>baseline2<span class="w"> </span>--dataset_name<span class="w"> </span>CTRPv2<span class="w"> </span>--wandb_project<span class="w"> </span>my_new_project_name
 </pre></div>
 </div>
 <p>You will be asked to generate an API key in the console. After inputting it, your project is connected to your
@@ -109,7 +109,7 @@ With wandb, we can compare model performances:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>compare_baselines<span class="w"> </span><span class="se">\</span>
 <span class="w">         </span>--models<span class="w"> </span>RandomForest<span class="w"> </span><span class="se">\</span>
 <span class="w">         </span>--baselines<span class="w"> </span>ElasticNet<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>GradientBoosting<span class="w"> </span>AdaBoostDecisionTree<span class="w"> </span><span class="se">\</span>
-<span class="w">         </span>--dataset<span class="w"> </span>TOYv1<span class="w"> </span><span class="se">\</span>
+<span class="w">         </span>--dataset_name<span class="w"> </span>TOYv1<span class="w"> </span><span class="se">\</span>
 <span class="w">         </span>--wandb_project<span class="w"> </span>compare_baselines
 </pre></div>
 </div>

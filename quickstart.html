@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quickstart &mdash; DrEvalPy 1.5.1 documentation</title>
+  <title>Quickstart &mdash; DrEvalPy 1.6.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=44dfd65d"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -45,8 +45,8 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
@@ -84,7 +84,7 @@
 <p>Make sure you have installed DrEvalPy and its dependencies (see <a class="reference external" href="./installation.html">Installation</a>).</p>
 <p>To make sure the pipeline runs, you can use the fast models NaiveMeanEffectsPredictor and NaiveDrugMeanPredictor on the TOYv1 (subset of CTRPv2) or TOYv2 (subset of GDSC2)
 dataset with the LCO test mode.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveTissueMeanPredictor<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>--baselines<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>--dataset<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveTissueMeanPredictor<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>--baselines<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>--dataset_name<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO
 </pre></div>
 </div>
 <p>This will train the three baseline models to predict LN_IC50 values of our Toy dataset which is a subset of CTRPv2.
@@ -95,14 +95,16 @@ The results will be stored in</p>
 </pre></div>
 </div>
 <p>You can visualize them using</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>report<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset<span class="w"> </span>TOYv1
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>report<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset_name<span class="w"> </span>TOYv1
 </pre></div>
 </div>
 <p>This creates an index.html file which you can open in your browser to see the results of your run.</p>
 <p>We recommend the use of our nextflow pipeline for computational demanding runs and for improved reproducibility. No
 knowledge of nextflow is required to run it. The nextflow pipeline is available on the <a class="reference external" href="https://github.com/nf-core/drugresponseeval.git">nf-core GitHub</a>, the documentation can be found <a class="reference external" href="https://nf-co.re/drugresponseeval/dev/">here</a>.</p>
 <ul class="simple">
-<li><p>Want to test if your own model outperforms the baselines? See <a class="reference external" href="./runyourmodel.html">Run Your Model</a>.</p></li>
+<li><p><strong>Want to benchmark your own model against the baselines and the leaderboard?</strong> Start at <a class="reference external" href="./benchmark_overview.html">Benchmark your own model</a>:
+<a class="reference external" href="./runyourmodel.html">implement your model</a>, <a class="reference external" href="./precomputed_splits.html">run it on the precomputed splits</a>, <a class="reference external" href="./leaderboard.html">create the leaderboard</a>.</p></li>
+<li><p>The splits used for the leaderboard are on <a class="reference external" href="https://doi.org/10.5281/zenodo.12633909">Zenodo</a> (splits.zip), together with the leaderboard results for the other models.</p></li>
 <li><p>Discuss usage, development and issues on <a class="reference external" href="https://github.com/daisybio/drevalpy">GitHub</a>.</p></li>
 <li><p>Check the <a class="reference external" href="./contributing.html">Contributor Guide</a> if you want to participate in developing.</p></li>
 <li><p>If you use drevalpy for your work, <a class="reference external" href="./reference.html">please cite us</a>.</p></li>

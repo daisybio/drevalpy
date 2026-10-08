@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Datasets &mdash; DrEvalPy 1.5.1 documentation</title>
+  <title>Datasets &mdash; DrEvalPy 1.6.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=44dfd65d"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -47,8 +47,8 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
@@ -61,6 +61,12 @@
 <li class="toctree-l4"><a class="reference internal" href="#loaders">Loaders</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#curvecurator">CurveCurator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#utility-functions">Utility functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tissue-mapping">Tissue mapping</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#splits-types">Splits: types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#splits-providers">Splits: providers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#splits-validation">Splits: validation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#splits-manifest">Splits: manifest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#custom-splits-compatibility">Custom splits (compatibility)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="drevalpy.models.html">Models</a></li>
@@ -110,6 +116,26 @@
 </section>
 <section id="utility-functions">
 <h2>Utility functions<a class="headerlink" href="#utility-functions" title="Link to this heading"></a></h2>
+</section>
+<section id="tissue-mapping">
+<h2>Tissue mapping<a class="headerlink" href="#tissue-mapping" title="Link to this heading"></a></h2>
+</section>
+<section id="splits-types">
+<h2>Splits: types<a class="headerlink" href="#splits-types" title="Link to this heading"></a></h2>
+</section>
+<section id="splits-providers">
+<h2>Splits: providers<a class="headerlink" href="#splits-providers" title="Link to this heading"></a></h2>
+</section>
+<section id="splits-validation">
+<h2>Splits: validation<a class="headerlink" href="#splits-validation" title="Link to this heading"></a></h2>
+</section>
+<section id="splits-manifest">
+<h2>Splits: manifest<a class="headerlink" href="#splits-manifest" title="Link to this heading"></a></h2>
+</section>
+<section id="custom-splits-compatibility">
+<h2>Custom splits (compatibility)<a class="headerlink" href="#custom-splits-compatibility" title="Link to this heading"></a></h2>
+<p>Legacy names for the split providers (e.g., <code class="docutils literal notranslate"><span class="pre">CustomSplitError</span></code>, <code class="docutils literal notranslate"><span class="pre">load_custom_splitter</span></code>) that are kept for backwards compatibility.
+New code should use <code class="xref py py-mod docutils literal notranslate"><span class="pre">drevalpy.datasets.splits</span></code>.</p>
 </section>
 </section>
 

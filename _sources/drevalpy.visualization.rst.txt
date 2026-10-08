@@ -74,3 +74,18 @@ Utility functions
    :undoc-members:
    :show-inheritance:
 
+Leaderboard
+-----------
+
+.. automodule:: drevalpy.visualization.create_leaderboard
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Report
+------
+
+.. automodule:: drevalpy.visualization.create_report
+   :members:
+   :undoc-members:
+   :show-inheritance:

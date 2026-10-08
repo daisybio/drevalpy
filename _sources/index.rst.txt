@@ -16,8 +16,8 @@
    :caption: Contents:
 
    installation
+   benchmark_overview
    usage
-   runyourmodel
    example_flexible_inputs
    example_wandb
    contributing

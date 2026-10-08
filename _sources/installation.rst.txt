@@ -65,6 +65,16 @@ default ``pip install drevalpy``. They are provided as optional `extras`:
    * - ``xgboost``
      - The ``MultiViewXGBoost`` baseline model
      - ``xgboost``
+   * - ``lightgbm``
+     - The ``MultiViewLightGBM`` baseline model
+     - ``lightgbm``
+   * - ``sparsego``
+     - Creating the ontology features of the ``SparseGO`` model
+     - ``mygene``, ``obonet``
+   * - ``paccmann``
+     - SMILES augmentation for the ``PaccMann`` model. Without it, PaccMann trains on the
+       unaugmented SMILES and warns.
+     - ``rdkit``
    * - ``multiprocessing``
      - Parallelized cross-validation / tuning via Ray
      - ``ray`` (and ``pydantic``, usually already present)
@@ -89,7 +99,7 @@ If you install from source with Poetry, install the extras with ``-E`` (or use
 With Docker
 -----------
 
-DrEvalPy is available as a `Docker image <ghcr.io/daisybio/drevalpy:main>`_.
+DrEvalPy is available as a Docker image on the GitHub Container Registry (``ghcr.io/daisybio/drevalpy``).
 
 Pull the image:
 
@@ -107,13 +117,13 @@ From Source
 -----------
 
 To install DrEvalPy from source, clone the repository and install the package using Poetry
-(ensure that Poetry is  >=1.2.0 because otherwise, the group dependencies will not work, e.g., 2.4.1 works):
+(ensure that Poetry is >=2.0.1, e.g., 2.4.3 works):
 
 .. code-block:: bash
 
     git clone https://github.com/daisybio/drevalpy.git
     cd drevalpy
-    mamba create -y -n drevalpy python==3.13 poetry==2.4.1
+    mamba create -y -n drevalpy python==3.13 poetry==2.4.3
     poetry --version
     pip install poetry-plugin-export
     poetry install

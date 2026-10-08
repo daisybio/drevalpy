@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Installation &mdash; DrEvalPy 1.5.1 documentation</title>
+  <title>Installation &mdash; DrEvalPy 1.6.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,13 +14,13 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=44dfd65d"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="How to use DrEvalPy" href="usage.html" />
+    <link rel="next" title="Benchmark your own model" href="benchmark_overview.html" />
     <link rel="prev" title="DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite" href="index.html" /> 
 </head>
 
@@ -54,8 +54,8 @@
 <li class="toctree-l2"><a class="reference internal" href="#from-source">From Source</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
@@ -148,7 +148,20 @@ default <code class="docutils literal notranslate"><span class="pre">pip</span> 
 <td><p>The <code class="docutils literal notranslate"><span class="pre">MultiViewXGBoost</span></code> baseline model</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">xgboost</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lightgbm</span></code></p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">MultiViewLightGBM</span></code> baseline model</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lightgbm</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sparsego</span></code></p></td>
+<td><p>Creating the ontology features of the <code class="docutils literal notranslate"><span class="pre">SparseGO</span></code> model</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mygene</span></code>, <code class="docutils literal notranslate"><span class="pre">obonet</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">paccmann</span></code></p></td>
+<td><p>SMILES augmentation for the <code class="docutils literal notranslate"><span class="pre">PaccMann</span></code> model. Without it, PaccMann trains on the
+unaugmented SMILES and warns.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">rdkit</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code></p></td>
 <td><p>Parallelized cross-validation / tuning via Ray</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">ray</span></code> (and <code class="docutils literal notranslate"><span class="pre">pydantic</span></code>, usually already present)</p></td>
 </tr>
@@ -169,7 +182,7 @@ poetry<span class="w"> </span>install<span class="w"> </span>--all-extras
 </section>
 <section id="with-docker">
 <h2>With Docker<a class="headerlink" href="#with-docker" title="Link to this heading"></a></h2>
-<p>DrEvalPy is available as a <a class="reference external" href="ghcr.io/daisybio/drevalpy:main">Docker image</a>.</p>
+<p>DrEvalPy is available as a Docker image on the GitHub Container Registry (<code class="docutils literal notranslate"><span class="pre">ghcr.io/daisybio/drevalpy</span></code>).</p>
 <p>Pull the image:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>pull<span class="w"> </span>ghcr.io/daisybio/drevalpy:latest
 </pre></div>
@@ -182,10 +195,10 @@ poetry<span class="w"> </span>install<span class="w"> </span>--all-extras
 <section id="from-source">
 <h2>From Source<a class="headerlink" href="#from-source" title="Link to this heading"></a></h2>
 <p>To install DrEvalPy from source, clone the repository and install the package using Poetry
-(ensure that Poetry is  &gt;=1.2.0 because otherwise, the group dependencies will not work, e.g., 2.4.1 works):</p>
+(ensure that Poetry is &gt;=2.0.1, e.g., 2.4.3 works):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/daisybio/drevalpy.git
 <span class="nb">cd</span><span class="w"> </span>drevalpy
-mamba<span class="w"> </span>create<span class="w"> </span>-y<span class="w"> </span>-n<span class="w"> </span>drevalpy<span class="w"> </span><span class="nv">python</span><span class="o">==</span><span class="m">3</span>.13<span class="w"> </span><span class="nv">poetry</span><span class="o">==</span><span class="m">2</span>.4.1
+mamba<span class="w"> </span>create<span class="w"> </span>-y<span class="w"> </span>-n<span class="w"> </span>drevalpy<span class="w"> </span><span class="nv">python</span><span class="o">==</span><span class="m">3</span>.13<span class="w"> </span><span class="nv">poetry</span><span class="o">==</span><span class="m">2</span>.4.3
 poetry<span class="w"> </span>--version
 pip<span class="w"> </span>install<span class="w"> </span>poetry-plugin-export
 poetry<span class="w"> </span>install
@@ -200,7 +213,7 @@ poetry<span class="w"> </span>install
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="usage.html" class="btn btn-neutral float-right" title="How to use DrEvalPy" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="benchmark_overview.html" class="btn btn-neutral float-right" title="Benchmark your own model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

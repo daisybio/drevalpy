@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Contributor Guide &mdash; DrEvalPy 1.5.1 documentation</title>
+  <title>Contributor Guide &mdash; DrEvalPy 1.6.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=44dfd65d"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -47,8 +47,8 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Contributor Guide</a><ul>
@@ -117,14 +117,12 @@ highly welcomes contributions in the form of bug reports, feature requests, and 
 <li><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">poetry-plugin-export</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">poetry</span> <span class="pre">install</span></code> : this will install all dependencies</p></li>
 <li><p>Test whether the installation was successful by running the following command:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>ElasticNet<span class="w"> </span>--dataset<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>ElasticNet<span class="w"> </span>--dataset_name<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO
 </pre></div>
 </div>
 </li>
-</ol>
-<ol class="arabic" start="6">
 <li><p>Visualize the results by running the following command:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>drevalpy<span class="w"> </span>report<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset<span class="w"> </span>TOYv1
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>drevalpy<span class="w"> </span>report<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset_name<span class="w"> </span>TOYv1
 </pre></div>
 </div>
 </li>

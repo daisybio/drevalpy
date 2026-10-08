@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; DrEvalPy 1.5.1 documentation</title>
+  <title>Index &mdash; DrEvalPy 1.6.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -13,7 +13,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=44dfd65d"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -44,8 +44,8 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
@@ -97,6 +97,20 @@
 </li>
       </ul></li>
       <li>
+    --clean_min_responder_frac
+
+      <ul>
+        <li><a href="usage.html#cmdoption-clean_min_responder_frac">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --clean_min_responders
+
+      <ul>
+        <li><a href="usage.html#cmdoption-clean_min_responders">command line option</a>
+</li>
+      </ul></li>
+      <li>
     --cross_study_datasets
 
       <ul>
@@ -115,6 +129,20 @@
 
       <ul>
         <li><a href="usage.html#cmdoption-curve_curator_normalize">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --custom_split_name
+
+      <ul>
+        <li><a href="usage.html#cmdoption-custom_split_name">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --custom_splitter_path
+
+      <ul>
+        <li><a href="usage.html#cmdoption-custom_splitter_path">command line option</a>
 </li>
       </ul></li>
       <li>
@@ -166,6 +194,8 @@
         <li><a href="usage.html#cmdoption-n_cv_splits">command line option</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     --n_trials_robustness
 
@@ -173,8 +203,6 @@
         <li><a href="usage.html#cmdoption-n_trials_robustness">command line option</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     --no_hyperparameter_tuning
 
@@ -253,10 +281,24 @@
 </li>
       </ul></li>
       <li>
+    --version
+
+      <ul>
+        <li><a href="usage.html#cmdoption-version">command line option</a>
+</li>
+      </ul></li>
+      <li>
     --wandb_project
 
       <ul>
         <li><a href="usage.html#cmdoption-wandb_project">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    -v
+
+      <ul>
+        <li><a href="usage.html#cmdoption-version">command line option</a>
 </li>
       </ul></li>
   </ul></td>
@@ -271,11 +313,19 @@
       <ul>
         <li><a href="usage.html#cmdoption-baselines">--baselines</a>
 </li>
+        <li><a href="usage.html#cmdoption-clean_min_responder_frac">--clean_min_responder_frac</a>
+</li>
+        <li><a href="usage.html#cmdoption-clean_min_responders">--clean_min_responders</a>
+</li>
         <li><a href="usage.html#cmdoption-cross_study_datasets">--cross_study_datasets</a>
 </li>
         <li><a href="usage.html#cmdoption-curve_curator_cores">--curve_curator_cores</a>
 </li>
         <li><a href="usage.html#cmdoption-curve_curator_normalize">--curve_curator_normalize</a>
+</li>
+        <li><a href="usage.html#cmdoption-custom_split_name">--custom_split_name</a>
+</li>
+        <li><a href="usage.html#cmdoption-custom_splitter_path">--custom_splitter_path</a>
 </li>
         <li><a href="usage.html#cmdoption-dataset_name">--dataset_name</a>
 </li>
@@ -315,7 +365,11 @@
 </li>
         <li><a href="usage.html#cmdoption-test_mode">--test_mode</a>
 </li>
+        <li><a href="usage.html#cmdoption-version">--version</a>
+</li>
         <li><a href="usage.html#cmdoption-wandb_project">--wandb_project</a>
+</li>
+        <li><a href="usage.html#cmdoption-version">-v</a>
 </li>
       </ul></li>
   </ul></td>

@@ -18,6 +18,11 @@ Utility functions
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: drevalpy.models.lightning_metrics_mixin
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Implemented models
 ------------------
 
@@ -26,10 +31,13 @@ Implemented models
 
    drevalpy.models.DIPK
    drevalpy.models.DrugGNN
+   drevalpy.models.EnsembleMF
    drevalpy.models.MOLIR
+   drevalpy.models.PaccMann
    drevalpy.models.PharmaFormer
    drevalpy.models.Precily
    drevalpy.models.SRMF
+   drevalpy.models.SparseGO
    drevalpy.models.SimpleNeuralNetwork
    drevalpy.models.SuperFELTR
    drevalpy.models.baselines

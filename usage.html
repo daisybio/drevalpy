@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How to use DrEvalPy &mdash; DrEvalPy 1.5.1 documentation</title>
+  <title>How to use DrEvalPy &mdash; DrEvalPy 1.6.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,14 +14,14 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=44dfd65d"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Run your own model" href="runyourmodel.html" />
-    <link rel="prev" title="Installation" href="installation.html" /> 
+    <link rel="next" title="Custom input with drevalpy’s baselines" href="example_flexible_inputs.html" />
+    <link rel="prev" title="Create the leaderboard" href="leaderboard.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,12 +47,14 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">How to use DrEvalPy</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#run-a-drug-response-experiment-results-with-drevalpy">Run a drug response experiment results with <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#visualize-and-evaluate-results-with-drevalpy-report">Visualize and evaluate results with <code class="docutils literal notranslate"><span class="pre">drevalpy-report</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-a-drug-response-experiment-with-drevalpy">Run a drug response experiment with <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#visualize-and-evaluate-results-with-drevalpy-report">Visualize and evaluate results with <code class="docutils literal notranslate"><span class="pre">drevalpy</span> <span class="pre">report</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#available-settings">Available Settings</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#available-models">Available Models</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#available-datasets">Available Datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cleaner-datasets">Cleaner Datasets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#corresponding-feature-data">Corresponding feature data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#custom-datasets">Custom Datasets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#available-randomization-tests">Available Randomization Tests</a></li>
@@ -61,7 +63,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#available-response-transformations">Available Response Transformations</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
@@ -97,18 +98,18 @@
   <section id="how-to-use-drevalpy">
 <h1>How to use DrEvalPy<a class="headerlink" href="#how-to-use-drevalpy" title="Link to this heading"></a></h1>
 <p>Here, we document how to run DrEval with our implemented models and datasets. You can either do this with the standalone
-supplied here or with the associated Nextflow pipeline <code class="docutils literal notranslate"><span class="pre">drugresponseeval</span></code>. We recommend the use of our Nextflow pipeline for computational
+version supplied here or with the associated Nextflow pipeline <code class="docutils literal notranslate"><span class="pre">drugresponseeval</span></code>. We recommend the use of our Nextflow pipeline for computational
 demanding runs and for improved reproducibility.
 No knowledge of Nextflow is required to run it. The Nextflow pipeline is available on the <a class="reference external" href="https://github.com/nf-core/drugresponseeval.git">nf-core GitHub</a>, the corresponding documentation can be found
 <a class="reference external" href="https://nf-co.re/drugresponseeval/dev/">here</a>. Documentation of the standalone is provided below.</p>
-<section id="run-a-drug-response-experiment-results-with-drevalpy">
-<h2>Run a drug response experiment results with <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code><a class="headerlink" href="#run-a-drug-response-experiment-results-with-drevalpy" title="Link to this heading"></a></h2>
-<p>You can run it the drug response pipeline, which can test drug response models via:</p>
+<section id="run-a-drug-response-experiment-with-drevalpy">
+<h2>Run a drug response experiment with <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code><a class="headerlink" href="#run-a-drug-response-experiment-with-drevalpy" title="Link to this heading"></a></h2>
+<p>You can run the drug response pipeline, which can test drug response models via:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--help
 </pre></div>
 </div>
 <p>Example:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>ElasticNet<span class="w"> </span>--dataset<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>ElasticNet<span class="w"> </span>--dataset_name<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO
 </pre></div>
 </div>
 <p><em>Note</em>: You need at least 7 CV splits to get a meaningful critical difference diagram and the corresponding p-values.</p>
@@ -250,20 +251,32 @@ curves to fit. Only used when <code class="docutils literal notranslate"><span c
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-n_cv_splits">
 <span class="sig-name descname"><span class="pre">--n_cv_splits</span></span><span class="sig-prename descclassname"> <span class="pre">INTEGER</span></span><a class="headerlink" href="#cmdoption-n_cv_splits" title="Link to this definition"></a></dt>
-<dd><p>Number of cross-validation splits. [default: <code class="docutils literal notranslate"><span class="pre">7</span></code>]</p>
+<dd><p>Number of cross-validation splits. Must be greater than 1. With <code class="docutils literal notranslate"><span class="pre">--custom_splitter_path</span></code>, the number of splits is determined by the splitter. [default: <code class="docutils literal notranslate"><span class="pre">7</span></code>]</p>
 </dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-response_transformation">
 <span class="sig-name descname"><span class="pre">--response_transformation</span></span><span class="sig-prename descclassname"> <span class="pre">TEXT</span></span><a class="headerlink" href="#cmdoption-response_transformation" title="Link to this definition"></a></dt>
 <dd><p>Transformation applied to the response variable during training and prediction;
-retransformed after final predictions. For more information, see the <a class="reference internal" href="#available-response-transformations"><span class="std std-ref">Available Response Transformations</span></a> section. One of <code class="docutils literal notranslate"><span class="pre">standard</span></code>, <code class="docutils literal notranslate"><span class="pre">minmax</span></code>, <code class="docutils literal notranslate"><span class="pre">robust</span></code>.</p>
+retransformed after final predictions. For more information, see the <a class="reference internal" href="#available-response-transformations"><span class="std std-ref">Available Response Transformations</span></a> section. One of <code class="docutils literal notranslate"><span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">standard</span></code>, <code class="docutils literal notranslate"><span class="pre">minmax</span></code>, <code class="docutils literal notranslate"><span class="pre">robust</span></code>, <code class="docutils literal notranslate"><span class="pre">drug_mean</span></code>, <code class="docutils literal notranslate"><span class="pre">drug_tissue_mean</span></code>. [default: <code class="docutils literal notranslate"><span class="pre">None</span></code>]</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-custom_splitter_path">
+<span class="sig-name descname"><span class="pre">--custom_splitter_path</span></span><span class="sig-prename descclassname"> <span class="pre">TEXT</span></span><a class="headerlink" href="#cmdoption-custom_splitter_path" title="Link to this definition"></a></dt>
+<dd><p>Path to a Python script that defines <code class="docutils literal notranslate"><span class="pre">create_splits(response_data,</span> <span class="pre">params)</span></code>. If set, the built-in cross-validation splitting is skipped and the splits returned by the script are used instead (e.g., the precomputed leaderboard splits). <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> then selects which validation checks are applied to the splits. See <a class="reference internal" href="precomputed_splits.html"><span class="doc">Run on precomputed splits</span></a>. [default: not set]</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-custom_split_name">
+<span class="sig-name descname"><span class="pre">--custom_split_name</span></span><span class="sig-prename descclassname"> <span class="pre">TEXT</span></span><a class="headerlink" href="#cmdoption-custom_split_name" title="Link to this definition"></a></dt>
+<dd><p>Optional name of the result directory when using <code class="docutils literal notranslate"><span class="pre">--custom_splitter_path</span></code>. [default: the value of <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code>]</p>
 </dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-multiprocessing">
 <span class="sig-name descname"><span class="pre">--multiprocessing</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-multiprocessing" title="Link to this definition"></a></dt>
-<dd><p>If set, we will use raytune for fitting. Default is False. [default: <code class="docutils literal notranslate"><span class="pre">False</span></code>]</p>
+<dd><p>If set, we will use raytune for fitting. [default: <code class="docutils literal notranslate"><span class="pre">False</span></code>]</p>
 </dd></dl>
 
 <dl class="std option">
@@ -284,28 +297,48 @@ retransformed after final predictions. For more information, see the <a class="r
 <dd><p>Disable hyperparameter tuning and use the first hyperparameter set.</p>
 </dd></dl>
 
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-version">
+<span id="cmdoption-v"></span><span class="sig-name descname"><span class="pre">--version</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">-v</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-version" title="Link to this definition"></a></dt>
+<dd><p>Show the version and exit.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-clean_min_responders">
+<span class="sig-name descname"><span class="pre">--clean_min_responders</span></span><span class="sig-prename descclassname"> <span class="pre">INTEGER</span></span><a class="headerlink" href="#cmdoption-clean_min_responders" title="Link to this definition"></a></dt>
+<dd><p>Clean any curve-curated dataset on the fly by keeping only drugs that have at least this many reproducible (curve-curated) responder curves. The run uses a derived <code class="docutils literal notranslate"><span class="pre">&lt;dataset_name&gt;_clean_min&lt;N&gt;</span></code> variant that is materialised once from the base dataset and shares its feature files. Requires curve-curated data (i.e. do not combine with <code class="docutils literal notranslate"><span class="pre">--no_refitting</span></code> on non-curated measures). See the <a class="reference internal" href="#cleaner-datasets"><span class="std std-ref">Cleaner Datasets</span></a> section. [default: not set]</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-clean_min_responder_frac">
+<span class="sig-name descname"><span class="pre">--clean_min_responder_frac</span></span><span class="sig-prename descclassname"> <span class="pre">FLOAT</span></span><a class="headerlink" href="#cmdoption-clean_min_responder_frac" title="Link to this definition"></a></dt>
+<dd><p>Fraction-based alternative to <code class="docutils literal notranslate"><span class="pre">--clean_min_responders</span></code> (a value in <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1]</span></code>): keep only drugs whose share of significant responder curves is at least this fraction. Uses a derived <code class="docutils literal notranslate"><span class="pre">&lt;dataset_name&gt;_clean_frac&lt;F&gt;</span></code> variant. Set at most one of the two clean options. See the <a class="reference internal" href="#cleaner-datasets"><span class="std std-ref">Cleaner Datasets</span></a> section. [default: not set]</p>
+</dd></dl>
+
 </section>
 <section id="visualize-and-evaluate-results-with-drevalpy-report">
-<h2>Visualize and evaluate results with <code class="docutils literal notranslate"><span class="pre">drevalpy-report</span></code><a class="headerlink" href="#visualize-and-evaluate-results-with-drevalpy-report" title="Link to this heading"></a></h2>
+<h2>Visualize and evaluate results with <code class="docutils literal notranslate"><span class="pre">drevalpy</span> <span class="pre">report</span></code><a class="headerlink" href="#visualize-and-evaluate-results-with-drevalpy-report" title="Link to this heading"></a></h2>
 <p>Executing the main script <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code> will generate a folder with the results which includes the predictions of all models
 in all specified settings. The <code class="docutils literal notranslate"><span class="pre">drevalpy</span> <span class="pre">report</span></code> CLI will evaluate the results with all available metrics and create an
 HTML report with many visualizations. You can run it with the following command:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>report<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span>--run_id<span class="w"> </span>RUN_ID<span class="w"> </span>--dataset<span class="w"> </span>DATASET<span class="w"> </span><span class="o">[</span>--path_data<span class="w"> </span>PATH_DATA<span class="o">]</span><span class="w"> </span><span class="o">[</span>--result_path<span class="w"> </span>RESULT_PATH<span class="o">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>report<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span>--run_id<span class="w"> </span>RUN_ID<span class="w"> </span>--dataset_name<span class="w"> </span>DATASET<span class="w"> </span><span class="o">[</span>--path_data<span class="w"> </span>PATH_DATA<span class="o">]</span><span class="w"> </span><span class="o">[</span>--result_path<span class="w"> </span>RESULT_PATH<span class="o">]</span>
 </pre></div>
 </div>
 <p>Options:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">-h,</span> <span class="pre">--help</span></code>: Show help message and exit.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--run_id</span> <span class="pre">RUN_ID</span></code>: Identifier for the run which was used when executing the <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code> command.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--dataset</span> <span class="pre">DATASET</span></code>: Name of the dataset which was used when executing the <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code> command.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--dataset_name</span> <span class="pre">DATASET</span></code>: Name of the dataset which was used when executing the <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code> command.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--path_data</span> <span class="pre">PATH_DATA</span></code>: Path to the data directory, default: data.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--result_path</span> <span class="pre">RESULT_PATH</span></code>: Path to the results directory, default: results.</p></li>
 </ul>
 <p>Example:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>report<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset<span class="w"> </span>TOYv1
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>report<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset_name<span class="w"> </span>TOYv1
 </pre></div>
 </div>
-<p>The report will be stored in the <code class="docutils literal notranslate"><span class="pre">results/RUN_ID</span></code> folder.
+<p>The report will be stored in the <code class="docutils literal notranslate"><span class="pre">&lt;result_path&gt;/RUN_ID</span></code> folder (default: <code class="docutils literal notranslate"><span class="pre">results/RUN_ID</span></code>). The evaluation results are written
+to the same folder as <code class="docutils literal notranslate"><span class="pre">evaluation_results.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">evaluation_results_per_drug.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">evaluation_results_per_cl.csv</span></code> and
+<code class="docutils literal notranslate"><span class="pre">true_vs_pred.csv</span></code> (these are the input for <a class="reference internal" href="leaderboard.html"><span class="doc">Create the leaderboard</span></a>).
 You can open the <code class="docutils literal notranslate"><span class="pre">index.html</span></code> file in your browser to view the report.</p>
 </section>
 <section id="available-settings">
@@ -347,10 +380,10 @@ The <strong>NaiveCellLineMeanPredictor</strong> predicts the mean IC50 of a cell
 the <strong>NaiveDrugMeanPredictor</strong> predicts the mean IC50 of a drug in the training set,
 the <strong>NaiveTissueMeanPredictor</strong> predicts the mean IC50 of a tissue in the training set,
 and the <strong>NaiveTissueDrugMeanPredictor</strong> predicts the mean IC50 per tissue-drug combination (aggregated across all cell lines with that tissue-drug pair).
-The <strong>NaiveMeanEffectPredictor</strong> combines the effects of cell lines and drugs.
+The <strong>NaiveMeanEffectsPredictor</strong> combines the effects of cell lines and drugs.
 It is equivalent to the <strong>NaiveCellLineMeanPredictor</strong> and <strong>NaiveDrugMeanPredictor</strong> for the LDO and LCO settings, respectively,
 as test cell line effects and drug effects are unknown in these settings.</p>
-<p>In LCO, <strong>NaiveTissueDrugMeanPredictor</strong> is the strongest baseline, while in all other settings, <strong>NaiveMeanEffectPredictor</strong> is the strongest.</p>
+<p>In LCO, <strong>NaiveTissueDrugMeanPredictor</strong> is the strongest baseline, while in all other settings, <strong>NaiveMeanEffectsPredictor</strong> is the strongest.</p>
 </section>
 <section id="available-models">
 <h2>Available Models<a class="headerlink" href="#available-models" title="Link to this heading"></a></h2>
@@ -361,14 +394,16 @@ We first identify the best hyperparameters for all models and baselines in a cro
 train the models on the whole training set and evaluate them on the test set.
 For <code class="docutils literal notranslate"><span class="pre">--models</span></code>, you can also perform randomization and robustness tests. The <code class="docutils literal notranslate"><span class="pre">--baselines</span></code> are skipped for these tests.</p>
 <p>The sklearn baseline models (AdaBoostDecisionTree, ElasticNet, GradientBoosting, KNNRegressor, Lasso, RandomForest, SVR, SingleDrugRandomForest, SingleDrugElasticNet),
-MultiViewXGBoost, and the machine learning baselines (SimpleNeuralNetwork, MultiViewNeuralNetwork) support
+the multi-view baselines (MultiViewRandomForest, MultiViewXGBoost, MultiViewLightGBM), and the machine learning baselines (SimpleNeuralNetwork, MultiViewNeuralNetwork) support
 <strong>flexible inputs</strong>: the input types can be configured via <code class="docutils literal notranslate"><span class="pre">cell_line_views</span></code> and <code class="docutils literal notranslate"><span class="pre">drug_views</span></code> in <code class="docutils literal notranslate"><span class="pre">hyperparameters.yaml</span></code> without
-needing separate model classes. By default they use gene expression and fingerprints.
+needing separate model classes. The genes used for gene-based views are selected with <code class="docutils literal notranslate"><span class="pre">gene_list</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">landmark_genes</span></code>);
+the multi-view models set <code class="docutils literal notranslate"><span class="pre">cell_line_views</span></code> and <code class="docutils literal notranslate"><span class="pre">gene_lists</span></code> (one gene list per view) together in <code class="docutils literal notranslate"><span class="pre">view_configs</span></code>.
+By default the single-view models use gene expression (landmark genes) and fingerprints, and the multi-view models use gene expression and mutations.
 See the sklearn model <a class="reference internal" href="drevalpy.models.baselines.html#flexible-inputs"><span class="std std-ref">Flexible Input System</span></a> or the SimpleNeuralNetwork <a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html#flexible-inputs-simplenn"><span class="std std-ref">Flexible Input System</span></a> for details.</p>
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Model Name</p></th>
-<th class="head"><p>Baseline / Published Model</p></th>
+<th class="head"><p>Baseline / Published / Custom</p></th>
 <th class="head"><p>Multi-Drug Model / Single-Drug Model</p></th>
 <th class="head"><p>Description</p></th>
 </tr>
@@ -407,17 +442,17 @@ See the sklearn model <a class="reference internal" href="drevalpy.models.baseli
 <tr class="row-even"><td><p>AdaBoostDecisionTree</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.AdaBoostRegressor.html">Sklearn AdaBoost Regressor</a> with Decision Tree base estimators. Supports flexible inputs (default: gene expression or proteomics + fingerprints).</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.AdaBoostRegressor.html">Sklearn AdaBoost Regressor</a> with Decision Tree base estimators. Supports flexible inputs (default: gene expression + fingerprints).</p></td>
 </tr>
 <tr class="row-odd"><td><p>ElasticNet</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html">Sklearn Elastic Net</a>, <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Lasso</a>, or <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html">Ridge</a> model. Supports flexible inputs (default: gene expression or proteomics + fingerprints).</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html">Sklearn Elastic Net</a>, <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Lasso</a>, or <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html">Ridge</a> model. Supports flexible inputs (default: gene expression + fingerprints).</p></td>
 </tr>
 <tr class="row-even"><td><p>Lasso</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Explicitly fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Sklearn Lasso</a> model. Supports flexible inputs (default: gene expression or proteomics + fingerprints).</p></td>
+<td><p>Explicitly fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Sklearn Lasso</a> model. Supports flexible inputs (default: gene expression + fingerprints).</p></td>
 </tr>
 <tr class="row-odd"><td><p>SingleDrugElasticNet</p></td>
 <td><p>Baseline Method</p></td>
@@ -427,52 +462,62 @@ See the sklearn model <a class="reference internal" href="drevalpy.models.baseli
 <tr class="row-even"><td><p>GradientBoosting</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingRegressor.html">Sklearn Histogram-based Gradient Boosting Regression Tree</a>. Supports flexible inputs (default: gene expression or proteomics + fingerprints).</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingRegressor.html">Sklearn Histogram-based Gradient Boosting Regression Tree</a>. Supports flexible inputs (default: gene expression + fingerprints).</p></td>
 </tr>
 <tr class="row-odd"><td><p>MultiViewXGBoost</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.XGBRegressor">XGBoost XGBRegressor</a> on a single or multiple cell line views. Supports flexible inputs (default: gene expression or proteomics or [gene expression + methylation + mutations + copy number variation] + fingerprints).</p></td>
+<td><p>Fits an <a class="reference external" href="https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.XGBRegressor">XGBoost XGBRegressor</a> on a single or multiple cell line views. Supports flexible inputs (default: gene expression + mutations, or gene expression only, + fingerprints).</p></td>
 </tr>
-<tr class="row-even"><td><p>KNNRegressor</p></td>
+<tr class="row-even"><td><p>MultiViewLightGBM</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsRegressor.html">Sklearn KNNRegressor</a>. Supports flexible inputs (default: gene expression or proteomics + fingerprints).</p></td>
+<td><p>Fits a <a class="reference external" href="https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.LGBMRegressor.html">LightGBM LGBMRegressor</a> on a single or multiple cell line views. Supports flexible inputs (default: gene expression + mutations, or gene expression only, + fingerprints).</p></td>
 </tr>
-<tr class="row-odd"><td><p>RandomForest</p></td>
+<tr class="row-odd"><td><p>KNNRegressor</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a>. Supports flexible inputs (default: gene expression or proteomics + fingerprints).</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsRegressor.html">Sklearn KNNRegressor</a>. Supports flexible inputs (default: gene expression + fingerprints).</p></td>
 </tr>
-<tr class="row-even"><td><p>MultiViewRandomForest</p></td>
+<tr class="row-even"><td><p>RandomForest</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on multiple cell line views (default: gene expression, methylation, mutations, copy number variation) and drug fingerprints. Methylation dimensionality is reduced with PCA.</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a>. Supports flexible inputs (default: gene expression + fingerprints).</p></td>
 </tr>
-<tr class="row-odd"><td><p>SingleDrugRandomForest</p></td>
+<tr class="row-odd"><td><p>MultiViewRandomForest</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on multiple cell line views (default: gene expression + mutations) and drug fingerprints. If methylation is used, its dimensionality is reduced with PCA.</p></td>
+</tr>
+<tr class="row-even"><td><p>SingleDrugRandomForest</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Single-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> for each drug separately. Supports flexible inputs (default: gene expression).</p></td>
 </tr>
-<tr class="row-even"><td><p>SVR</p></td>
+<tr class="row-odd"><td><p>SVR</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/1.5/modules/generated/sklearn.svm.SVR.html">Sklearn Support Vector Regressor</a>. Supports flexible inputs (default: gene expression or proteomics + fingerprints).</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/1.5/modules/generated/sklearn.svm.SVR.html">Sklearn Support Vector Regressor</a>. Supports flexible inputs (default: gene expression + fingerprints).</p></td>
 </tr>
-<tr class="row-odd"><td><p>SimpleNeuralNetwork</p></td>
-<td><p>Baseline Method</p></td>
+<tr class="row-even"><td><p>SimpleNeuralNetwork</p></td>
+<td><p>Custom Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on flexible cell line and drug input (concatenated input) with 3 layers of varying dimensions and Dropout layers. Default: gene expression + fingerprints or drug_chemberta_embeddings.</p></td>
 </tr>
-<tr class="row-even"><td><p>MultiViewNeuralNetwork</p></td>
-<td><p>Baseline Method</p></td>
+<tr class="row-odd"><td><p>MultiViewNeuralNetwork</p></td>
+<td><p>Custom Model</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on flexible omic inputs (default: gene expression, methylation, mutation, copy number variation data), and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers. The dimensionality of the methylation data, if supplied, is reduced with a PCA to the first 100 components before it is fed to the model.</p></td>
+<td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on flexible omic inputs (default: gene expression + mutations), and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers. The dimensionality of the methylation data, if supplied, is reduced with a PCA to the first 100 components before it is fed to the model.</p></td>
 </tr>
-<tr class="row-odd"><td><p>DrugGNN</p></td>
-<td><p>Baseline Method</p></td>
+<tr class="row-even"><td><p>DrugGNN</p></td>
+<td><p>Custom Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Represents drugs as graph, encodes their structure with a 3-layer GNN. Uses a 2-layer MLP for encoding gene expression. Concatenates the representations and feeds them through 2 more MLP layers.</p></td>
+</tr>
+<tr class="row-odd"><td><p>EnsembleMF</p></td>
+<td><p>Custom Model</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Ensembled two-tower matrix factorization. Cell-line and drug latent factors are produced by small residual MLPs over gene expression and Morgan fingerprints, combined by a dot product with per-cell/per-drug/global biases, a free per-drug embedding and a small interaction head. Averaged over N independently seeded members.</p></td>
 </tr>
 <tr class="row-even"><td><p>PharmaFormer</p></td>
 <td><p>Published Model</p></td>
@@ -504,13 +549,24 @@ See the sklearn model <a class="reference internal" href="drevalpy.models.baseli
 <td><p>Multi-Drug Model</p></td>
 <td><p><a class="reference external" href="https://doi.org/10.1038/s41467-022-33291-z">Precily</a> from Chawla et al. Uses GSVA pathway-activity scores with SMILESVec drug embeddings. Features are concatenated and passed through multiple linear layers with ReLU and Dropout.</p></td>
 </tr>
+<tr class="row-even"><td><p>PaccMann</p></td>
+<td><p>Published Model</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p><a class="reference external" href="https://doi.org/10.1021/acs.molpharmaceut.9b00520">PaccMann</a> from Manica et al. Embeds tokenized drug SMILES and encodes them with multi-scale convolutional layers, while cell line gene expression of a curated gene panel serves as biological context. Contextual attention layers connect the gene and molecule representations, which are concatenated and passed through stacked dense layers to predict the response.</p></td>
+</tr>
+<tr class="row-odd"><td><p>SparseGO</p></td>
+<td><p>Published Model</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p><a class="reference external" href="https://doi.org/10.1016/j.ebiom.2023.104767">SparseGO</a> from Del Real et al. Takes fingerprints and gene expression as input.The gene expression is processed via a sparse VNN, representing the GO term hierarchy. Each gene is connected to its annotated GO terms.</p></td>
+</tr>
 </tbody>
 </table>
 </section>
 <section id="available-datasets">
 <h2>Available Datasets<a class="headerlink" href="#available-datasets" title="Link to this heading"></a></h2>
-<p>We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE, CTRPv2) via the <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> parameter.
-Further, we provide 2 datasets with more clinical relevance: BeatAML2 and PDX_Bruna.</p>
+<p>We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE, CTRPv1, CTRPv2) via the <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> parameter.
+Further, we provide 2 datasets with more clinical relevance: BeatAML2 and PDX_Bruna.
+The three <code class="docutils literal notranslate"><span class="pre">CTRPv2_clean*</span></code> entries are drug-cleaned variants of CTRPv2 (not separate downloads); see the <a class="reference internal" href="#cleaner-datasets"><span class="std std-ref">Cleaner Datasets</span></a> section for details and for how to clean any dataset yourself.</p>
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Dataset Name</p></th>
@@ -551,25 +607,43 @@ Further, we provide 2 datasets with more clinical relevance: BeatAML2 and PDX_Br
 <td><p>886</p></td>
 <td><p>The Cancer Therapeutics Response Portal (CTRP) dataset version 2.</p></td>
 </tr>
-<tr class="row-odd"><td><p>TOYv1</p></td>
+<tr class="row-odd"><td><p>CTRPv2_clean</p></td>
+<td><p>363,810</p></td>
+<td><p>477</p></td>
+<td><p>886</p></td>
+<td><p>CTRPv2 keeping only drugs with at least 15 reproducible responder curves.</p></td>
+</tr>
+<tr class="row-even"><td><p>CTRPv2_cleaner</p></td>
+<td><p>353,176</p></td>
+<td><p>458</p></td>
+<td><p>886</p></td>
+<td><p>CTRPv2 keeping only drugs with at least 30 reproducible responder curves.</p></td>
+</tr>
+<tr class="row-odd"><td><p>CTRPv2_cleanest</p></td>
+<td><p>343,219</p></td>
+<td><p>444</p></td>
+<td><p>886</p></td>
+<td><p>CTRPv2 keeping only drugs with at least 50 reproducible responder curves.</p></td>
+</tr>
+<tr class="row-even"><td><p>TOYv1</p></td>
 <td><p>2,711</p></td>
 <td><p>36</p></td>
 <td><p>90</p></td>
 <td><p>A toy dataset for testing purposes subsetted from CTRPv2.</p></td>
 </tr>
-<tr class="row-even"><td><p>TOYv2</p></td>
+<tr class="row-odd"><td><p>TOYv2</p></td>
 <td><p>2,784</p></td>
 <td><p>36</p></td>
 <td><p>90</p></td>
-<td><p>A second toy dataset for cross study testing purposes. 80 cell lines and 32 drugs overlap TOYv2.</p></td>
+<td><p>A second toy dataset for cross study testing purposes. 80 cell lines and 32 drugs overlap TOYv1.</p></td>
 </tr>
-<tr class="row-odd"><td><p>BeatAML2</p></td>
+<tr class="row-even"><td><p>BeatAML2</p></td>
 <td><p>62,487</p></td>
 <td><p>166</p></td>
 <td><p>569 (patients)</p></td>
 <td><p>Ex vivo drug sensitivity screening for a cohort of acute myeloid leukemia (AML) patients.</p></td>
 </tr>
-<tr class="row-even"><td><p>PDX_Bruna</p></td>
+<tr class="row-odd"><td><p>PDX_Bruna</p></td>
 <td><p>2,559</p></td>
 <td><p>104</p></td>
 <td><p>37 (mouse passages)</p></td>
@@ -582,6 +656,41 @@ In the provided datasets, these are the measures calculated with the same fittin
 dataset, use the <code class="docutils literal notranslate"><span class="pre">--no_refitting</span></code> option, which will use the original measures as provided in the datasets.</p>
 <p>This however makes it hard to do cross-study comparisons, since the measures may not be directly comparable due to differences in the fitting procedures used by the original authors.
 It is therefore recommended to always use DrEvalPy without the <code class="docutils literal notranslate"><span class="pre">--no_refitting</span></code> option, which will lead to the use of the refitted measures that are calculated with the same procedure for all datasets.</p>
+</section>
+<section id="cleaner-datasets">
+<h2>Cleaner Datasets<a class="headerlink" href="#cleaner-datasets" title="Link to this heading"></a></h2>
+<p>Curve-curated screens contain many drugs that are inactive on essentially every cell line (prodrugs, non-cytotoxics, or
+compounds whose dose-response curve could not be fit reliably). These add little signal for modelling and can inflate
+leave-drug-out results. DrEval can therefore evaluate on a <em>drug-cleaned</em> variant of a dataset that keeps only drugs with
+enough reproducible responder curves and drops the rest. Whole drugs are removed, never individual (cell line, drug)
+measurements, so no selection-on-outcome bias is introduced.</p>
+<p>Three ready-made tiers of CTRPv2 are registered as datasets and can be selected directly via <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CTRPv2_clean</span></code> – CTRPv2 keeping only drugs with at least 15 reproducible responder curves.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CTRPv2_cleaner</span></code> – CTRPv2 keeping only drugs with at least 30 reproducible responder curves.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CTRPv2_cleanest</span></code> – CTRPv2 keeping only drugs with at least 50 reproducible responder curves.</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>clean_run<span class="w"> </span>--models<span class="w"> </span>ElasticNet<span class="w"> </span>--dataset_name<span class="w"> </span>CTRPv2_clean<span class="w"> </span>--test_mode<span class="w"> </span>LCO
+</pre></div>
+</div>
+<p>To clean <strong>any</strong> curve-curated dataset (built-in or custom) with your own threshold, keep <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> on the base
+dataset and add one of the two cleaning options:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--clean_min_responders</span> <span class="pre">N</span></code> keeps drugs with at least <code class="docutils literal notranslate"><span class="pre">N</span></code> reproducible responder curves. This absolute count is
+recommended, as it is a statistical-power floor that is independent of screen size.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--clean_min_responder_frac</span> <span class="pre">F</span></code> keeps drugs whose fraction of significant responder curves is at least <code class="docutils literal notranslate"><span class="pre">F</span></code> (a value
+in <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1]</span></code>).</p></li>
+</ul>
+<p>Set at most one of the two. For example, to clean GDSC2 down to drugs with at least 30 responders:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>gdsc2_clean<span class="w"> </span>--models<span class="w"> </span>ElasticNet<span class="w"> </span>--dataset_name<span class="w"> </span>GDSC2<span class="w"> </span>--clean_min_responders<span class="w"> </span><span class="m">30</span>
+</pre></div>
+</div>
+<p>The cleaned variant is materialised once as <code class="docutils literal notranslate"><span class="pre">&lt;dataset_name&gt;_clean_min&lt;N&gt;</span></code> (or <code class="docutils literal notranslate"><span class="pre">&lt;dataset_name&gt;_clean_frac&lt;F&gt;</span></code>) next to
+the base dataset, reusing the base dataset’s feature files (via symlinks, or copies where symlinks are unavailable), and
+results are written under that name. Cleaning requires curve-curated data (the CurveCurator <code class="docutils literal notranslate"><span class="pre">Regulation</span></code> column), so do
+not combine it with <code class="docutils literal notranslate"><span class="pre">--no_refitting</span></code> on non-curated measures. Because a cleaned dataset has removed inactive drugs,
+leave-drug-out (<code class="docutils literal notranslate"><span class="pre">LDO</span></code>) evaluation on it is optimistic; for drug generalization, prefer the unfiltered base dataset or
+read cleaned-dataset <code class="docutils literal notranslate"><span class="pre">LDO</span></code> metrics as an upper bound.</p>
 </section>
 <section id="corresponding-feature-data">
 <h2>Corresponding feature data<a class="headerlink" href="#corresponding-feature-data" title="Link to this heading"></a></h2>
@@ -665,7 +774,7 @@ This can be prefit data (not recommended for comparability reasons) or raw viabi
 the available datasets in the previous section.</p>
 <p><strong>Raw viability data</strong></p>
 <ul class="simple">
-<li><p>DrEvalPy expects a csv-formatted file in the location <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset&gt;/&lt;dataset_name&gt;_raw.csv</span></code> (corresponding to the <code class="docutils literal notranslate"><span class="pre">--path_data</span></code> and <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> options), which contains the raw viability data in long format with the columns [“dose”, “response”, “sample”, “drug”] and an optional “replicate” column. If replicates are provided, the procedure will fit one curve per sample / drug pair using all replicates.</p></li>
+<li><p>DrEvalPy expects a csv-formatted file in the location <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset_name&gt;/&lt;dataset_name&gt;_raw.csv</span></code> (corresponding to the <code class="docutils literal notranslate"><span class="pre">--path_data</span></code> and <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> options), which contains the raw viability data in long format with the columns [“dose”, “response”, “sample”, “drug”] and an optional “replicate” column. If replicates are provided, the procedure will fit one curve per sample / drug pair using all replicates.</p></li>
 <li><dl class="simple">
 <dt><strong>All dosages have to be provided in µM!</strong> Drevalpy will compute the following response measures:</dt><dd><ul>
 <li><p>pEC50_curvecurator: computed internally by CurveCurator. Is computed as -log10(EC50_curvecurator[M]).</p></li>
@@ -677,13 +786,13 @@ the available datasets in the previous section.</p>
 </dd>
 </dl>
 </li>
-<li><p>The option <code class="docutils literal notranslate"><span class="pre">--curve_curator_cores</span></code> must be set. <code class="docutils literal notranslate"><span class="pre">--no_refitting</span></code> must not be set.</p></li>
-<li><p>DrEvalPy provides all results of the fitting in the same folder including the fitted curves in a file folder <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset&gt;/&lt;dataset_name&gt;.csv</span></code></p></li>
+<li><p>The option <code class="docutils literal notranslate"><span class="pre">--curve_curator_cores</span></code> is optional (default: 1) and sets the number of cores used for the curve fitting. <code class="docutils literal notranslate"><span class="pre">--no_refitting</span></code> must not be set.</p></li>
+<li><p>DrEvalPy provides all results of the fitting in the same folder including the fitted curves. The fitted response values are stored in <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset_name&gt;/&lt;dataset_name&gt;.csv</span></code></p></li>
 </ul>
 <p><strong>Prefit viability data</strong></p>
 <ul class="simple">
-<li><p>DrEvalPy expects a csv-formatted file in the location <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset&gt;/&lt;dataset_name&gt;.csv</span></code> (corresponding to the <code class="docutils literal notranslate"><span class="pre">--path_data</span></code> and <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> options),
-with at least the columns [“cell_line_id”, “drug_id”, &lt;measure&gt;”] where &lt;measure&gt; is replaced with the name of the measure you provide.</p></li>
+<li><p>DrEvalPy expects a csv-formatted file in the location <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset_name&gt;/&lt;dataset_name&gt;.csv</span></code> (corresponding to the <code class="docutils literal notranslate"><span class="pre">--path_data</span></code> and <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> options),
+with at least the columns [“cell_line_name”, “pubchem_id”, “&lt;measure&gt;”] where &lt;measure&gt; is replaced with the name of the measure you provide.</p></li>
 <li><p>For LTO, you must also provide a “tissue” column with tissue information</p></li>
 <li><p>Available measures depend on the column names and can be provided using the <cite>–measure</cite> option.</p></li>
 <li><p>It is required that you use measure names that are also working with the available datasets if you use the <code class="docutils literal notranslate"><span class="pre">--cross_study_datasets</span></code> option</p></li>
@@ -694,7 +803,7 @@ with at least the columns [“cell_line_id”, “drug_id”, &lt;measure&gt;”
 <h2>Available Randomization Tests<a class="headerlink" href="#available-randomization-tests" title="Link to this heading"></a></h2>
 <p>We offer the possibility to test how much the performance of your model deteriorates when you randomize the input training data.
 We have several randomization modes and types available.</p>
-<p>The modes are supplied via <code class="docutils literal notranslate"><span class="pre">--randomization_mode</span></code> and the types via <code class="docutils literal notranslate"><span class="pre">--randomization_type</span></code>.:</p>
+<p>The modes are supplied via <code class="docutils literal notranslate"><span class="pre">--randomization_mode</span></code> and the types via <code class="docutils literal notranslate"><span class="pre">--randomization_type</span></code>:</p>
 <ul class="simple">
 <li><p><strong>SVCC: Single View Constant for Cell Lines:</strong> A single cell line view (e.g., gene expression) is held unperturbed
 while the others are randomized.</p></li>
@@ -705,7 +814,7 @@ others are held unperturbed.</p></li>
 <li><p><strong>SVRD: Single View Random for Drugs:</strong> A single drug view (e.g., drug fingerprints) is randomized while the others
 are held unperturbed.</p></li>
 </ul>
-<p>Currently, we support two ways of randomizing the data. The default is permututation.</p>
+<p>Currently, we support two ways of randomizing the data. The default is permutation.</p>
 <ul class="simple">
 <li><p><strong>Permutation</strong>: Permutes the features over the instances, keeping the distribution of the features the same but
 dissolving the relationship to the target.</p></li>
@@ -721,7 +830,7 @@ stable the model is. Via <code class="docutils literal notranslate"><span class=
 </section>
 <section id="available-metrics">
 <h2>Available Metrics<a class="headerlink" href="#available-metrics" title="Link to this heading"></a></h2>
-<p>We offer a variety of metrics to evaluate your model on. The default is the R^2 score. You can change the metric via
+<p>We offer a variety of metrics to evaluate your model on. The metric used to select the best hyperparameters is RMSE by default. You can change it via
 the <code class="docutils literal notranslate"><span class="pre">--optim_metric</span></code> parameter. The following metrics are available:</p>
 <ul class="simple">
 <li><p><strong>R^2</strong>: The coefficient of determination. The higher the better.</p></li>
@@ -743,6 +852,15 @@ the <code class="docutils literal notranslate"><span class="pre">--optim_metric<
 <li><p><strong>standard</strong>: The <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html">sklearn StandardScaler</a> is applied.</p></li>
 <li><p><strong>minmax</strong>: The <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html">sklearn MinMaxScaler</a> is applied.</p></li>
 <li><p><strong>robust</strong>: The <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.RobustScaler.html">sklearn RobustScaler</a> is applied.</p></li>
+<li><p><strong>drug_mean</strong>: The mean response of each drug, estimated on the training fold only, is subtracted from the
+response and added back to the predictions. Unlike the three scalers above, this is a <em>conditional</em> mean, so the
+model is trained on the drug x cell line residuals instead of the drug main effect. Drugs that do not occur in
+the training fold (LDO, cross-study) fall back to the global training mean.</p></li>
+<li><p><strong>drug_tissue_mean</strong>: Like <code class="docutils literal notranslate"><span class="pre">drug_mean</span></code>, but the mean is estimated per drug <em>and</em> tissue, which also removes
+the tissue-specific sensitivity of a drug from the target. The means are nested: a (drug, tissue) combination
+that does not occur in the training fold falls back to the mean of its drug, an unknown drug to the global
+training mean. In LTO every test tissue is unseen by construction, so there the transformation degenerates to
+<code class="docutils literal notranslate"><span class="pre">drug_mean</span></code>. Requires a dataset with a <code class="docutils literal notranslate"><span class="pre">tissue</span></code> column, otherwise a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> is raised.</p></li>
 </ul>
 </section>
 </section>
@@ -751,8 +869,8 @@ the <code class="docutils literal notranslate"><span class="pre">--optim_metric<
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="runyourmodel.html" class="btn btn-neutral float-right" title="Run your own model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="leaderboard.html" class="btn btn-neutral float-left" title="Create the leaderboard" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="example_flexible_inputs.html" class="btn btn-neutral float-right" title="Custom input with drevalpy’s baselines" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

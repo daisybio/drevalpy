@@ -1,0 +1,159 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benchmark your own model &mdash; DrEvalPy 1.6.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Implement your model" href="runyourmodel.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/drevalpy.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Benchmark your own model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="runyourmodel.html">Implement your model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example_tinynn.html">Example: TinyNN (Neural Network with PyTorch)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="precomputed_splits.html">Run on precomputed splits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="leaderboard.html">Create the leaderboard</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DrEvalPy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Benchmark your own model</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/daisybio/drevalpy/blob/development/docs/benchmark_overview.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="benchmark-your-own-model">
+<h1>Benchmark your own model<a class="headerlink" href="#benchmark-your-own-model" title="Link to this heading"></a></h1>
+<p>This page is the shortest path from “I have a model” to “my model is on the leaderboard”.
+The leaderboard compares models on fixed, precomputed cross-validation splits, so that every model is evaluated on exactly the same data.</p>
+<ol class="arabic simple">
+<li><p><strong>Implement your model.</strong> Subclass <code class="docutils literal notranslate"><span class="pre">DRPModel</span></code>, register it in <code class="docutils literal notranslate"><span class="pre">drevalpy/models/__init__.py</span></code>.
+See <a class="reference internal" href="runyourmodel.html"><span class="doc">Implement your model</span></a> (and <a class="reference internal" href="example_tinynn.html"><span class="doc">Example: TinyNN (Neural Network with PyTorch)</span></a> for a complete example).</p></li>
+<li><p><strong>Run it on the precomputed splits.</strong> Download <code class="docutils literal notranslate"><span class="pre">splits.zip</span></code> from <a class="reference external" href="https://doi.org/10.5281/zenodo.12633909">Zenodo</a>
+and run <code class="docutils literal notranslate"><span class="pre">drevalpy</span></code> either standalone or with the Nextflow pipeline.
+See <a class="reference internal" href="precomputed_splits.html"><span class="doc">Run on precomputed splits</span></a>.</p></li>
+<li><p><strong>Create the leaderboard.</strong> <code class="docutils literal notranslate"><span class="pre">drevalpy</span> <span class="pre">report</span></code> evaluates your predictions,
+<code class="docutils literal notranslate"><span class="pre">create_leaderboard</span></code> turns the evaluation into the leaderboard and the critical difference diagram.
+You can add your model to the existing leaderboard results from Zenodo. See <a class="reference internal" href="leaderboard.html"><span class="doc">Create the leaderboard</span></a>.</p></li>
+</ol>
+<p>In short, for a model called <code class="docutils literal notranslate"><span class="pre">YourModel</span></code> evaluated on CTRPv2 in the leave-cell-line-out setting:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. put the unzipped splits into the result folder (see "Run on precomputed splits")</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span>results/my_model/CTRPv2/LCO
+cp<span class="w"> </span>-r<span class="w"> </span>splits<span class="w"> </span>results/my_model/CTRPv2/LCO/splits
+
+<span class="c1"># 2. run your model on these splits</span>
+drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_model<span class="w"> </span>--models<span class="w"> </span>YourModel<span class="w"> </span>--dataset_name<span class="w"> </span>CTRPv2<span class="w"> </span>--test_mode<span class="w"> </span>LCO
+
+<span class="c1"># 3. evaluate, then add your model to the downloaded leaderboard results (leaderboard_Oct26.zip from Zenodo)</span>
+drevalpy<span class="w"> </span>report<span class="w"> </span>--run_id<span class="w"> </span>my_model<span class="w"> </span>--dataset_name<span class="w"> </span>CTRPv2
+tail<span class="w"> </span>-n<span class="w"> </span>+2<span class="w"> </span>results/my_model/evaluation_results.csv<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>&gt;&gt;<span class="w"> </span>leaderboard_Oct26/evaluation_results.csv
+tail<span class="w"> </span>-n<span class="w"> </span>+2<span class="w"> </span>results/my_model/true_vs_pred.csv<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>&gt;&gt;<span class="w"> </span>leaderboard_Oct26/true_vs_pred.csv
+
+<span class="c1"># 4. create the leaderboard (must be LCO and CTRPv2)</span>
+python<span class="w"> </span>-m<span class="w"> </span>drevalpy.visualization.create_leaderboard<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--results_path<span class="w"> </span>leaderboard_Oct26/evaluation_results.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--true_vs_pred_path<span class="w"> </span>leaderboard_Oct26/true_vs_pred.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--test_mode<span class="w"> </span>LCO<span class="w"> </span>--dataset<span class="w"> </span>CTRPv2<span class="w"> </span>--output_dir<span class="w"> </span>my_leaderboard
+</pre></div>
+</div>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="runyourmodel.html" class="btn btn-neutral float-right" title="Implement your model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, DaiSyBio at Technical University of Munich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

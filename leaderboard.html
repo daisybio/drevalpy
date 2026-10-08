@@ -1,0 +1,190 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create the leaderboard &mdash; DrEvalPy 1.6.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=72d88caf"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="How to use DrEvalPy" href="usage.html" />
+    <link rel="prev" title="Run on precomputed splits" href="precomputed_splits.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/drevalpy.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="runyourmodel.html">Implement your model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example_tinynn.html">Example: TinyNN (Neural Network with PyTorch)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="precomputed_splits.html">Run on precomputed splits</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Create the leaderboard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#evaluate-the-run">1. Evaluate the run</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#add-your-model-to-the-existing-leaderboard-results">2. Add your model to the existing leaderboard results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id1">3. Create the leaderboard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DrEvalPy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="benchmark_overview.html">Benchmark your own model</a></li>
+      <li class="breadcrumb-item active">Create the leaderboard</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/daisybio/drevalpy/blob/development/docs/leaderboard.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="create-the-leaderboard">
+<h1>Create the leaderboard<a class="headerlink" href="#create-the-leaderboard" title="Link to this heading"></a></h1>
+<p>After your run on the precomputed splits (see <a class="reference internal" href="precomputed_splits.html"><span class="doc">Run on precomputed splits</span></a>), the leaderboard is created in three steps.</p>
+<section id="evaluate-the-run">
+<h2>1. Evaluate the run<a class="headerlink" href="#evaluate-the-run" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>report<span class="w"> </span>--run_id<span class="w"> </span>my_model<span class="w"> </span>--dataset_name<span class="w"> </span>CTRPv2
+</pre></div>
+</div>
+<p>Besides the HTML report, this writes the following files into <code class="docutils literal notranslate"><span class="pre">results/my_model/</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">evaluation_results.csv</span></code>: evaluation metrics per model and CV split,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">true_vs_pred.csv</span></code>: true and predicted responses,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">evaluation_results_per_drug.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">evaluation_results_per_cl.csv</span></code>.</p></li>
+</ul>
+</section>
+<section id="add-your-model-to-the-existing-leaderboard-results">
+<h2>2. Add your model to the existing leaderboard results<a class="headerlink" href="#add-your-model-to-the-existing-leaderboard-results" title="Link to this heading"></a></h2>
+<p>The results of the models that are already on the leaderboard can be downloaded from <a class="reference external" href="https://doi.org/10.5281/zenodo.12633909">Zenodo</a>
+(<code class="docutils literal notranslate"><span class="pre">leaderboard_Oct26.zip</span></code>). Unzip it. The leaderboard folder contains <code class="docutils literal notranslate"><span class="pre">evaluation_results.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">true_vs_pred.csv</span></code>.
+Append the lines of your model (without the header line) from your own files to the respective files of the leaderboard folder.
+The <code class="docutils literal notranslate"><span class="pre">NaiveMeanEffectsPredictor</span></code> is always run as a baseline and is already part of the leaderboard results, so <code class="docutils literal notranslate"><span class="pre">grep</span> <span class="pre">-v</span></code> leaves its lines out:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>tail<span class="w"> </span>-n<span class="w"> </span>+2<span class="w"> </span>results/my_model/evaluation_results.csv<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>&gt;&gt;<span class="w"> </span>leaderboard_Oct26/evaluation_results.csv
+tail<span class="w"> </span>-n<span class="w"> </span>+2<span class="w"> </span>results/my_model/true_vs_pred.csv<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>&gt;&gt;<span class="w"> </span>leaderboard_Oct26/true_vs_pred.csv
+</pre></div>
+</div>
+<p>Make sure that the downloaded files end with a line break before you append.</p>
+</section>
+<section id="id1">
+<h2>3. Create the leaderboard<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<p>For the leaderboard, the test mode must be <code class="docutils literal notranslate"><span class="pre">LCO</span></code> and the dataset must be <code class="docutils literal notranslate"><span class="pre">CTRPv2</span></code>. Run <code class="docutils literal notranslate"><span class="pre">create_leaderboard</span></code> on the merged files:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>drevalpy.visualization.create_leaderboard<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--results_path<span class="w"> </span>leaderboard_Oct26/evaluation_results.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--true_vs_pred_path<span class="w"> </span>leaderboard_Oct26/true_vs_pred.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--test_mode<span class="w"> </span>LCO<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dataset<span class="w"> </span>CTRPv2<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_dir<span class="w"> </span>my_leaderboard
+</pre></div>
+</div>
+<p>This creates <code class="docutils literal notranslate"><span class="pre">leaderboard_dark.png</span></code> and <code class="docutils literal notranslate"><span class="pre">leaderboard_light.png</span></code> (normalized Pearson, RMSE and raw Pearson per model)
+and the critical difference diagram <code class="docutils literal notranslate"><span class="pre">critical_difference_algorithms_LCO.svg</span></code> with the corresponding table of p-values
+(<code class="docutils literal notranslate"><span class="pre">critical_difference_algorithms_LCO.html</span></code>) in the output directory (<code class="docutils literal notranslate"><span class="pre">LCO</span></code> is replaced by the chosen test mode).
+The diagram is skipped, with only a printed message, if there are too few CV splits. The baselines (models starting with <code class="docutils literal notranslate"><span class="pre">Naive</span></code>) are marked as such.
+To only look at your own model and the baselines, use your own <code class="docutils literal notranslate"><span class="pre">results/my_model</span></code> files directly instead of the merged ones.</p>
+<p>Options:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--results_path</span></code>: path to <code class="docutils literal notranslate"><span class="pre">evaluation_results.csv</span></code> (required).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--true_vs_pred_path</span></code>: path to <code class="docutils literal notranslate"><span class="pre">true_vs_pred.csv</span></code>. If given, a per-drug Pearson panel is added.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--test_mode</span></code>: <code class="docutils literal notranslate"><span class="pre">LCO</span></code>, <code class="docutils literal notranslate"><span class="pre">LDO</span></code>, <code class="docutils literal notranslate"><span class="pre">LPO</span></code> or <code class="docutils literal notranslate"><span class="pre">LTO</span></code>. Only results of this test mode are used. Default: <code class="docutils literal notranslate"><span class="pre">LCO</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--dataset</span></code>, <code class="docutils literal notranslate"><span class="pre">--measure</span></code>: names shown in the plot title. Defaults: <code class="docutils literal notranslate"><span class="pre">CTRPv2</span></code>, <code class="docutils literal notranslate"><span class="pre">LN_IC50_curvecurator</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--output_dir</span></code>: where to save the images. Default: <code class="docutils literal notranslate"><span class="pre">docs/_static/img</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--top_n</span></code>: only show the top N models.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--cd_metric</span></code>: metric for the critical difference diagram. Default: <code class="docutils literal notranslate"><span class="pre">Pearson:</span> <span class="pre">normalized</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--cd_width</span></code>, <code class="docutils literal notranslate"><span class="pre">--cd_height</span></code>: size of the critical difference diagram in inches.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--font_adder</span></code>: increase the font size.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The critical difference diagram (Friedman test with post-hoc Conover test over the CV splits) needs several CV splits.
+We recommend at least 7, which are provided in <code class="docutils literal notranslate"><span class="pre">splits.zip</span></code>.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="precomputed_splits.html" class="btn btn-neutral float-left" title="Run on precomputed splits" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="usage.html" class="btn btn-neutral float-right" title="How to use DrEvalPy" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, DaiSyBio at Technical University of Munich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
