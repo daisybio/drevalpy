@@ -10,7 +10,7 @@ Import DrEvalPy using
 Subpackages
 -----------
 
-DrEvalPy consists of three major subpackages:
+DrEvalPy consists of three major subpackages (datasets, which also contains the split providers, models, and visualization):
 
 * Datasets
 * Models
@@ -62,6 +62,29 @@ Pipeline function decorator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: drevalpy.pipeline_function
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Command line interface
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: drevalpy.cli.pipeline
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: drevalpy.cli_run_cv
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: drevalpy.cli_model_testing
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: drevalpy.cli_preprocess_custom
    :members:
    :undoc-members:
    :show-inheritance:

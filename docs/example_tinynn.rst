@@ -53,6 +53,8 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
 
 .. code-block:: Python
 
+    from typing import Any
+
     from drevalpy.models.drp_model import DRPModel
     from drevalpy.datasets.dataset import FeatureDataset
     from sklearn.preprocessing import StandardScaler
@@ -90,7 +92,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
 
             return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
 
-1. In the ``build_model`` we just store the hyperparameters.
+4. In the ``build_model`` we just store the hyperparameters.
 
 .. code-block:: Python
 
@@ -137,12 +139,17 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
         - 32
         - 64
 
-8. Register the model in ``models/__init__.py``.
+8. Register the model in ``models/__init__.py``: import it and add it to the dictionary ``MULTI_DRUG_MODEL_FACTORY`` itself
+   (``MODEL_FACTORY`` is a copy made further down in the file, so entries added after that are not registered).
 
 .. code-block:: Python
 
     from .your_model_folder.tinynn import TinyNN
-    MULTI_DRUG_MODEL_FACTORY.update({"TinyNN": TinyNN})
+
+    MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
+        ...
+        "TinyNN": TinyNN,
+    }
 
 
 

@@ -48,26 +48,49 @@ To train the same Random Forest on **proteomics** data instead, change ``cell_li
         - 100
       ...
 
-For the ``MultiViewRandomForest``, multiple cell line views can be specified as a nested list:
+For the multi-view models (``MultiViewRandomForest``, ``MultiViewXGBoost``, ``MultiViewLightGBM``), the cell line views and the
+gene list of each view are set together in ``view_configs``. Every entry is one configuration that is tried during
+hyperparameter tuning:
 
 .. code-block:: yaml
 
     MultiViewRandomForest:
-      cell_line_views:
-        - - gene_expression
-          - methylation
-          - mutations
-          - copy_number_variation_gistic
+      view_configs:
+        - cell_line_views:
+            - gene_expression
+            - mutations
+          gene_lists:
+            gene_expression: landmark_genes
+            mutations: drug_target_genes_all_drugs
       drug_views:
         - fingerprints
       ...
+
+Selecting genes
+^^^^^^^^^^^^^^^
+
+Gene-based views are restricted to a list of genes, which is stored in ``<data_path>/meta/gene_lists/<gene_list>.csv``
+(column ``Symbol``). The single-view models set it with the hyperparameter ``gene_list``
+(the shipped ``hyperparameters.yaml`` uses ``landmark_genes``; the code default is ``landmark_genes_reduced``):
+
+.. code-block:: yaml
+
+    RandomForest:
+      cell_line_views:
+        - gene_expression
+      gene_list:
+        - landmark_genes
+      ...
+
+The multi-view models and MOLIR and SuperFELTR take a dictionary ``gene_lists`` with one gene list per view
+(``null`` uses all genes of the view). All genes of the list must be present in the dataset.
 
 How features are loaded
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 The feature loading depends on which view is specified in the configuration:
 
-- **gene_expression**: Loaded with the ``landmark_genes_reduced`` gene list for feature selection.
+- **gene_expression**: Loaded with the gene list set by ``gene_list`` for feature selection.
 - **fingerprints**: Loaded using the precomputed Morgan fingerprints provided with each dataset.
 - **proteomics**: Loaded as a generic CSV. The ``ProteomicsMedianCenterAndImputeTransformer`` is
   automatically initialized for preprocessing.
@@ -111,8 +134,8 @@ Sklearn Models
 
 Scikit-learn-based models for drug response prediction. All models in this module support flexible inputs
 (see :ref:`flexible-inputs` above). By default they concatenate cell line features and drug features into
-a single input matrix. Available models: ``ElasticNetModel``, ``RandomForest``, ``SVMRegressor``,
-``GradientBoosting``, and ``AdaBoostDecisionTree``.
+a single input matrix. Available models (names as registered for ``--models``): ``ElasticNet``, ``Lasso``, ``RandomForest``,
+``SVR``, ``GradientBoosting``, ``AdaBoostDecisionTree``, and ``KNNRegressor``.
 
 .. automodule:: drevalpy.models.baselines.sklearn_models
    :members:
@@ -134,11 +157,32 @@ cell line features (no drug features). Available models: ``SingleDrugRandomFores
 Multi-View Random Forest
 -------------------------------------------------------------
 
-A Random Forest that accepts multiple cell line views simultaneously (e.g., gene expression, methylation,
-mutations, and copy number variation). Each view is loaded and preprocessed independently, then all feature
-matrices are concatenated before training. Methylation data is reduced with PCA before concatenation.
+A Random Forest that accepts multiple cell line views simultaneously (by default gene expression and mutations; methylation and
+copy number variation are optional). Each view is loaded and preprocessed independently, then all feature
+matrices are concatenated before training. Methylation data, if used, is reduced with PCA before concatenation.
 
 .. automodule:: drevalpy.models.baselines.multi_view_random_forest
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Multi-View XGBoost
+-------------------------------------------------------------
+
+An XGBoost regressor that accepts multiple cell line views, configured like the ``MultiViewRandomForest``.
+
+.. automodule:: drevalpy.models.baselines.multi_view_xgboost
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Multi-View LightGBM
+-------------------------------------------------------------
+
+A LightGBM regressor that accepts multiple cell line views, configured like the ``MultiViewRandomForest``.
+It requires the ``lightgbm`` package.
+
+.. automodule:: drevalpy.models.baselines.multi_view_lightgbm
    :members:
    :undoc-members:
    :show-inheritance:

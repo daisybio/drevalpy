@@ -65,6 +65,12 @@ default ``pip install drevalpy``. They are provided as optional `extras`:
    * - ``xgboost``
      - The ``MultiViewXGBoost`` baseline model
      - ``xgboost``
+   * - ``lightgbm``
+     - The ``MultiViewLightGBM`` baseline model
+     - ``lightgbm``
+   * - ``sparsego``
+     - Creating the ontology features of the ``SparseGO`` model
+     - ``mygene``, ``obonet``
    * - ``paccmann``
      - SMILES augmentation for the ``PaccMann`` model. Without it, PaccMann trains on the
        unaugmented SMILES and warns.
@@ -93,7 +99,7 @@ If you install from source with Poetry, install the extras with ``-E`` (or use
 With Docker
 -----------
 
-DrEvalPy is available as a `Docker image <ghcr.io/daisybio/drevalpy:main>`_.
+DrEvalPy is available as a Docker image on the GitHub Container Registry (``ghcr.io/daisybio/drevalpy``).
 
 Pull the image:
 

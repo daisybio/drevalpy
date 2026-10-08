@@ -10,7 +10,7 @@ DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
    :target: https://pypi.org/project/drevalpy
    :alt: Python Version
 .. |License| image:: https://img.shields.io/github/license/daisybio/drevalpy
-   :target: https://opensource.org/licenses/GPL3
+   :target: https://opensource.org/licenses/MIT
    :alt: License
 .. |Read the Docs| image:: https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs
    :target: https://drevalpy.readthedocs.io/

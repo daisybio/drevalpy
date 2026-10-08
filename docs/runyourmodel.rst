@@ -29,8 +29,8 @@ Additionally, you must define a unique model name to identify your model during 
     class YourModel(DRPModel):
         """A revolutionary new modeling strategy."""
 
-        is_single_drug_model = True / False # TODO: set to true if your model is a single drug model (i.e., it needs to be trained for each drug separately)
-        early_stopping = True / False # TODO: set to true if you want to use a part of the validation set for early stopping
+        is_single_drug_model = False  # set to True if your model is a single drug model (i.e., it needs to be trained for each drug separately)
+        early_stopping = False  # set to True if you want to use a part of the validation set for early stopping
         cell_line_views = ["gene_expression", "methylation"]
         drug_views = ["fingerprints"]
 
@@ -130,7 +130,7 @@ Here we use a simple predictor that just uses the concatenated features to predi
 
 .. code-block:: Python
 
-    def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None, model_checkpoint_dir: str | None = None) -> None:
+    def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None, model_checkpoint_dir: str = "checkpoints") -> None:
 
         inputs = self.get_feature_matrices(
             cell_line_ids=output.cell_line_ids,
@@ -139,13 +139,13 @@ Here we use a simple predictor that just uses the concatenated features to predi
             drug_input=drug_input,
         )
 
-        self.predictor.fit(**inputs, output.response)
+        self.predictor.fit(**inputs, y=output.response)
 
 In case you want to set some parameters dependent on the training data, your train function might look like this:
 
 .. code-block:: Python
 
-    def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None) -> None:
+    def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None, model_checkpoint_dir: str = "checkpoints") -> None:
 
         cell_line_input = self._feature_selection(output, cell_line_input)
         dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
@@ -203,16 +203,20 @@ The predict method should handle model prediction, and return the predicted resp
             drug_input=drug_input,
         )
 
-        return self.predictor.predict(**inputs, output.response)
+        return self.predictor.predict(**inputs)
 
 
-Finally, you need to register your model with the framework. This can be done by adding the following line to the ``__init__.py`` file in the ``drevalpy/models/__init__.py`` directory.
-Update the ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for multiple cancer drugs or to the ``SINGLE_DRUG_MODEL_FACTORY`` if your model is specific to a single drug and needs to be trained for each drug separately.
+Finally, you need to register your model with the framework. In ``drevalpy/models/__init__.py``, import your model and add it to the dictionary ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for multiple cancer drugs, or to ``SINGLE_DRUG_MODEL_FACTORY`` if your model is specific to a single drug and needs to be trained for each drug separately.
+Add the entry to the dictionary itself: ``MODEL_FACTORY`` is created as a copy of these dictionaries further down in the file, so an entry added after that point is not registered.
 
 .. code-block:: Python
 
     from .your_model_name.your_model import YourModel
-    MULTI_DRUG_MODEL_FACTORY.update("YourModel": YourModel)
+
+    MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
+        ...
+        "YourModel": YourModel,
+    }
 
 Now you can run your model using the DrEvalPy pipeline. Run the following command (after installing your cloned and edited DrEvalPy repository e.g. with ``pip install -e .``):
 
