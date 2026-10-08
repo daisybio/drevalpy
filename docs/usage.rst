@@ -126,7 +126,7 @@ Example:
 
 .. option:: --n_cv_splits INTEGER
 
-   Number of cross-validation splits. [default: ``7``]
+   Number of cross-validation splits. Must be greater than 1. With ``--custom_splitter_path``, the number of splits is determined by the splitter. [default: ``7``]
 
 .. option:: --response_transformation TEXT
 
@@ -143,7 +143,7 @@ Example:
 
 .. option:: --multiprocessing
 
-   If set, we will use raytune for fitting. Default is False. [default: ``False``]
+   If set, we will use raytune for fitting. [default: ``False``]
 
 .. option:: --model_checkpoint_dir TEXT
 
@@ -195,7 +195,9 @@ Example:
 
     drevalpy report --run_id my_first_run --dataset_name TOYv1
 
-The report will be stored in the ``results/RUN_ID`` folder.
+The report will be stored in the ``<result_path>/RUN_ID`` folder (default: ``results/RUN_ID``). The evaluation results are written
+to the same folder as ``evaluation_results.csv``, ``evaluation_results_per_drug.csv``, ``evaluation_results_per_cl.csv`` and
+``true_vs_pred.csv`` (these are the input for :doc:`leaderboard`).
 You can open the ``index.html`` file in your browser to view the report.
 
 Available Settings
@@ -295,8 +297,8 @@ See the sklearn model :ref:`flexible-inputs` or the SimpleNeuralNetwork :ref:`fl
 | GradientBoosting                | Baseline Method               | Multi-Drug Model                     | Fits an `Sklearn Histogram-based Gradient Boosting Regression Tree <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingRegressor.html>`_. Supports flexible inputs (default: gene expression + fingerprints).                                                                                                                                                                                                                                                                                                                                          |
 +---------------------------------+-------------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | MultiViewXGBoost                | Baseline Method               | Multi-Drug Model                     | Fits an `XGBoost XGBRegressor <https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.XGBRegressor>`_ on a single or multiple cell line views. Supports flexible inputs (default: gene expression + mutations, or gene expression only, + fingerprints).                                                                                                                                                                                                                                                                                                                  |
-| MultiViewLightGBM               | Baseline Method               | Multi-Drug Model                     | Fits a `LightGBM LGBMRegressor <https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.LGBMRegressor.html>`_ on a single or multiple cell line views. Supports flexible inputs (default: gene expression + mutations, or gene expression only, + fingerprints).                                                                                                                                                                                                                                                                                                                      |
 +---------------------------------+-------------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| MultiViewLightGBM               | Baseline Method               | Multi-Drug Model                     | Fits a `LightGBM LGBMRegressor <https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.LGBMRegressor.html>`_ on a single or multiple cell line views. Supports flexible inputs (default: gene expression + mutations, or gene expression only, + fingerprints).                                                                                                                                                                                                                                                                                                                      |
 +---------------------------------+-------------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | KNNRegressor                    | Baseline Method               | Multi-Drug Model                     | Fits an `Sklearn KNNRegressor <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsRegressor.html>`_. Supports flexible inputs (default: gene expression + fingerprints).                                                                                                                                                                                                                                                                                                                                                                                        |
 +---------------------------------+-------------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -336,7 +338,7 @@ See the sklearn model :ref:`flexible-inputs` or the SimpleNeuralNetwork :ref:`fl
 
 Available Datasets
 ------------------
-We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE, CTRPv2) via the ``--dataset_name`` parameter.
+We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE, CTRPv1, CTRPv2) via the ``--dataset_name`` parameter.
 Further, we provide 2 datasets with more clinical relevance: BeatAML2 and PDX\_Bruna.
 The three ``CTRPv2_clean*`` entries are drug-cleaned variants of CTRPv2 (not separate downloads); see the :ref:`usage:Cleaner Datasets` section for details and for how to clean any dataset yourself.
 
@@ -466,12 +468,12 @@ the available datasets in the previous section.
     * LN_IC50_curvecurator: computed from IC50_curvecurator
     * AUC_curvecurator
 * The option ``--curve_curator_cores`` is optional (default: 1) and sets the number of cores used for the curve fitting. ``--no_refitting`` must not be set.
-* DrEvalPy provides all results of the fitting in the same folder including the fitted curves in a file folder ``<path_data>/<dataset_name>/<dataset_name>.csv``
+* DrEvalPy provides all results of the fitting in the same folder including the fitted curves. The fitted response values are stored in ``<path_data>/<dataset_name>/<dataset_name>.csv``
 
 **Prefit viability data**
 
 * DrEvalPy expects a csv-formatted file in the location ``<path_data>/<dataset_name>/<dataset_name>.csv`` (corresponding to the ``--path_data`` and ``--dataset_name`` options),
-  with at least the columns ["cell_line_id", "drug_id", <measure>"] where <measure> is replaced with the name of the measure you provide.
+  with at least the columns ["cell_line_name", "pubchem_id", "<measure>"] where <measure> is replaced with the name of the measure you provide.
 * For LTO, you must also provide a "tissue" column with tissue information
 * Available measures depend on the column names and can be provided using the `--measure` option.
 * It is required that you use measure names that are also working with the available datasets if you use the ``--cross_study_datasets`` option

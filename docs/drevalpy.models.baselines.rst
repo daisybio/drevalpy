@@ -83,7 +83,8 @@ Gene-based views are restricted to a list of genes, which is stored in ``<data_p
       ...
 
 The multi-view models and MOLIR and SuperFELTR take a dictionary ``gene_lists`` with one gene list per view
-(``null`` uses all genes of the view). All genes of the list must be present in the dataset.
+(an explicit ``null`` uses all genes of the view). Views that are left out of ``gene_lists`` keep the default gene list of the model,
+and all genes of a list must be present in the dataset.
 
 How features are loaded
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -157,9 +158,10 @@ cell line features (no drug features). Available models: ``SingleDrugRandomFores
 Multi-View Random Forest
 -------------------------------------------------------------
 
-A Random Forest that accepts multiple cell line views simultaneously (by default gene expression and mutations; methylation and
-copy number variation are optional). Each view is loaded and preprocessed independently, then all feature
-matrices are concatenated before training. Methylation data, if used, is reduced with PCA before concatenation.
+A Random Forest that accepts multiple cell line views simultaneously (in the shipped ``hyperparameters.yaml`` gene expression and
+mutations; methylation and copy number variation are optional). Each view is loaded and preprocessed independently, then all feature
+matrices are concatenated before training. Methylation data, if used, is reduced with PCA before concatenation
+(``methylation_n_components``, default: 100).
 
 .. automodule:: drevalpy.models.baselines.multi_view_random_forest
    :members:

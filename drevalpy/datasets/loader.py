@@ -494,7 +494,7 @@ def load_dataset(
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,
-    tissue_column: str | None = None,
+    tissue_column: str | None = TISSUE_IDENTIFIER,
     normalize: bool = False,
     clean_min_responders: int | None = None,
     clean_min_responder_frac: float | None = None,

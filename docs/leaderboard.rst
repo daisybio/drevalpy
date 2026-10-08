@@ -46,7 +46,9 @@ For the leaderboard, the test mode must be ``LCO`` and the dataset must be ``CTR
         --output_dir my_leaderboard
 
 This creates ``leaderboard_dark.png`` and ``leaderboard_light.png`` (normalized Pearson, RMSE and raw Pearson per model)
-and a critical difference diagram in the output directory. The baselines (models starting with ``Naive``) are marked as such.
+and the critical difference diagram ``critical_difference_algorithms_LCO.svg`` with the corresponding table of p-values
+(``critical_difference_algorithms_LCO.html``) in the output directory (``LCO`` is replaced by the chosen test mode).
+The diagram is skipped, with only a printed message, if there are too few CV splits. The baselines (models starting with ``Naive``) are marked as such.
 To only look at your own model and the baselines, use your own ``results/my_model`` files directly instead of the merged ones.
 
 Options:

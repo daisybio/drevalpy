@@ -117,7 +117,7 @@ From Source
 -----------
 
 To install DrEvalPy from source, clone the repository and install the package using Poetry
-(ensure that Poetry is  >=1.2.0 because otherwise, the group dependencies will not work, e.g., 2.5.1 works):
+(ensure that Poetry is >=2.0.1, e.g., 2.5.1 works):
 
 .. code-block:: bash
 

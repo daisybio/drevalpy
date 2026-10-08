@@ -72,3 +72,12 @@ Splits: manifest
    :members:
    :undoc-members:
    :show-inheritance:
+
+Custom splits (compatibility)
+-----------------------------
+
+Legacy names for the split providers (e.g., ``CustomSplitError``, ``load_custom_splitter``) that are kept for backwards compatibility.
+New code should use :mod:`drevalpy.datasets.splits`.
+
+.. automodule:: drevalpy.datasets.custom_splits
+   :members: run_custom_splitter, run_splitter

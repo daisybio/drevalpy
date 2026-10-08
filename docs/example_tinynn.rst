@@ -103,7 +103,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
 
 .. code-block:: Python
 
-        def train(self, output, cell_line_input, drug_input, output_earlystopping=None, model_checkpoint_dir=None):
+        def train(self, output, cell_line_input, drug_input=None, output_earlystopping=None, model_checkpoint_dir="checkpoints"):
             gex = cell_line_input.get_feature_matrix("gene_expression", output.cell_line_ids)
             fp = drug_input.get_feature_matrix("fingerprints", output.drug_ids)
 
