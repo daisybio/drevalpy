@@ -8,13 +8,13 @@
     **Contributors**
 
     * `Mario Picciani <https://github.com/picciama>`_: TUM, contributed to the curve fitting procedure and CI/CD.
-    * `Nico Trummer <https://github.com/nictru>`_: `Orakl Oncology <https://www.orakl-oncology.com/>`_/ TUM, contributed the NaiveTissueDrugMeanPredictor, integrated the PharmaFormer model, the wandb support, and the typer CLI.
+    * `Nico Trummer <https://github.com/nictru>`_: `Orakl Oncology <https://www.orakl-oncology.com/>`_/ TUM, contributed the NaiveTissueDrugMeanPredictor, integrated the PharmaFormer model, the wandb support, the typer CLI, and the custom split option.
     * `Jonah Reiner <https://github.com/reinej03>`_: FU Berlin, supported the integration of the DIPK model.
-    * `Vera Tereshchuk <https://github.com/tereshchuk1>`_: FU Berlin, integrated XGBoost and Precily.
+    * `Vera Tereshchuk <https://github.com/tereshchuk1>`_: FU Berlin, integrated XGBoost, Precily, SparseGO, and LightGBM.
     * `Elena Sophie Dederer & Gregor Chojetzki <https://github.com/eleded>`_: FU Berlin, integrated the KNNRegressor.
-    * `Greta Agnes Gulden & Larissa Susanka Koß <https://github.com/gretag04>`_: FU Berlin, integrated Lasso.
+    * `Greta Agnes Gulden & Larissa Susanka Koß <https://github.com/gretag04>`_: FU Berlin, integrated Lasso and PaccMann.
     * `Matvej Elkonin <https://github.com/matvee04>`_: FU Berlin, integrated the AdaBoostDecisionTree.
-    * `jfrog64 <https://github.com/jfrog64>`_: Spotted and fixed various bugs
+    * `jfrog64 <https://github.com/jfrog64>`_: Spotted and fixed various bugs.
 
     **Advisors and Principal Investigators**
 
