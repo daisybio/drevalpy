@@ -117,13 +117,13 @@ From Source
 -----------
 
 To install DrEvalPy from source, clone the repository and install the package using Poetry
-(ensure that Poetry is >=2.0.1, e.g., 2.5.1 works):
+(ensure that Poetry is >=2.0.1, e.g., 2.4.3 works):
 
 .. code-block:: bash
 
     git clone https://github.com/daisybio/drevalpy.git
     cd drevalpy
-    mamba create -y -n drevalpy python==3.13 poetry==2.5.1
+    mamba create -y -n drevalpy python==3.13 poetry==2.4.3
     poetry --version
     pip install poetry-plugin-export
     poetry install
