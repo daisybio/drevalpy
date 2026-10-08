@@ -84,8 +84,9 @@ def test_load_dataset_clean_min_responders(data_dir, tmp_path) -> None:
 
     # hermetic copy so the derived variant is not written into the shared data dir
     shutil.copytree(data_dir / "TOYv1", tmp_path / "TOYv1")
-    if (data_dir / "meta").is_dir():
-        shutil.copytree(data_dir / "meta", tmp_path / "meta")
+    # stub so the loader does not try to download the tissue mapping (unused: the TOY csv has tissues)
+    (tmp_path / "meta").mkdir()
+    (tmp_path / "meta" / "tissue_mapping.csv").touch()
 
     measure = "LN_IC50_curvecurator"
     base_drugs = set(pd.read_csv(base_csv, dtype={"pubchem_id": str})["pubchem_id"])
@@ -119,8 +120,9 @@ def test_load_dataset_clean_min_responder_frac(data_dir, tmp_path) -> None:
         pytest.skip("TOYv1 toy data not available")
 
     shutil.copytree(data_dir / "TOYv1", tmp_path / "TOYv1")
-    if (data_dir / "meta").is_dir():
-        shutil.copytree(data_dir / "meta", tmp_path / "meta")
+    # stub so the loader does not try to download the tissue mapping (unused: the TOY csv has tissues)
+    (tmp_path / "meta").mkdir()
+    (tmp_path / "meta" / "tissue_mapping.csv").touch()
 
     measure = "LN_IC50_curvecurator"
     base_drugs = set(pd.read_csv(base_csv, dtype={"pubchem_id": str})["pubchem_id"])
