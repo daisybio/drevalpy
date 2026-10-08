@@ -7,6 +7,7 @@ from argparse import Namespace
 
 import pytest
 
+from drevalpy.models import MODEL_FACTORY
 from drevalpy.utils import check_arguments, main
 from drevalpy.visualization.create_report import create_report
 from drevalpy.visualization.utils import (
@@ -44,13 +45,22 @@ from drevalpy.visualization.utils import (
         }
     ],
 )
-def test_drevalpy_main(args, data_dir):
+def test_drevalpy_main(args, data_dir, monkeypatch):
     """
     Tests drevalpy, i.e., all functionality of the main experiment and report.
 
     :param args: arguments for the main function
     :param data_dir: path to the data directory
+    :param monkeypatch: pytest monkeypatch fixture
     """
+    model_class = MODEL_FACTORY["ElasticNet"]
+    original_hpams = model_class.get_hyperparameter_set
+    # the toy bundle ships only the reduced landmark gene list
+    monkeypatch.setattr(
+        model_class,
+        "get_hyperparameter_set",
+        classmethod(lambda cls: [{**h, "gene_list": "landmark_genes_reduced"} for h in original_hpams()]),
+    )
     with tempfile.TemporaryDirectory() as temp_dir:
         args["path_out"] = temp_dir
         args["path_data"] = str(data_dir)

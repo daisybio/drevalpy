@@ -6,8 +6,10 @@ import os
 import shutil
 import tempfile
 import warnings
+from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 import pandas as pd
 import torch
@@ -19,10 +21,19 @@ except ImportError:
     wandb = None  # type: ignore[assignment]
 
 from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_stopping_data
+from .datasets.loader import DERIVED_DATASETS
+from .datasets.splits import ExternalSplitCreator, create_and_record_splits
 from .evaluation import get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
+
+#: File name under which train_final_model stores the fitted response transformation next to the model.
+RESPONSE_TRANSFORMATION_FILE = "response_transformation.pkl"
+
+#: Baseline that defines the reference scale of all ``Normalized *`` metrics. It is always run and is
+#: therefore never trained on a transformed response, see drug_response_experiment.
+NORMALIZATION_BASELINE = "NaiveMeanEffectsPredictor"
 
 
 def seed_everything(seed: int = 42) -> None:
@@ -52,6 +63,65 @@ else:
     ray = None  # type: ignore[assignment]
 
 
+@pipeline_function
+def prepare_response_splits(
+    response_data: DrugResponseDataset,
+    *,
+    split_path: str,
+    result_path: str,
+    split_label: str,
+    test_mode: str,
+    n_cv_splits: int,
+    overwrite: bool,
+    result_folder_exists: bool,
+    custom_splitter: ExternalSplitCreator | str | Path | None = None,
+    validation_ratio: float = 0.1,
+    random_state: int = 42,
+    split_early_stopping: bool = True,
+) -> int:
+    """
+    Create, load, or reuse CV splits for an experiment run.
+
+    :param response_data: dataset whose splits are created or loaded
+    :param split_path: directory for persisted split CSV files
+    :param result_path: experiment result directory
+    :param split_label: directory label under the dataset results folder
+    :param test_mode: built-in split mode or validation mode for custom splits
+    :param n_cv_splits: number of CV splits for built-in splitting
+    :param overwrite: whether to replace existing results and splits
+    :param result_folder_exists: whether ``result_path`` already exists
+    :param custom_splitter: optional script path or callable for custom splits
+    :param validation_ratio: validation fraction for built-in splitting
+    :param random_state: random seed for built-in splitting
+    :param split_early_stopping: whether to derive early-stopping roles
+    :returns: number of splits available after preparation
+    """
+    if result_folder_exists and overwrite:
+        print(f"Overwriting existing results at {result_path}")
+        shutil.rmtree(result_path)
+
+    if result_folder_exists and os.path.exists(split_path) and not overwrite:
+        print(f"Loading existing cv splits from {split_path}")
+        response_data.load_splits(path=split_path)
+    else:
+        print(f"Creating cv splits at {split_path}")
+        os.makedirs(result_path, exist_ok=True)
+        create_and_record_splits(
+            response_data,
+            split_path=split_path,
+            split_label=split_label,
+            external_splitter=custom_splitter,
+            test_mode=test_mode,
+            n_cv_splits=n_cv_splits,
+            validation_ratio=validation_ratio,
+            random_state=random_state,
+            split_early_stopping=split_early_stopping,
+        )
+        response_data.save_splits(path=split_path)
+
+    return len(response_data.cv_splits)
+
+
 def drug_response_experiment(
     models: list[type[DRPModel]],
     response_data: DrugResponseDataset,
@@ -73,6 +143,8 @@ def drug_response_experiment(
     hyperparameter_tuning=True,
     final_model_on_full_data: bool = False,
     wandb_project: str | None = None,
+    custom_splitter: ExternalSplitCreator | str | Path | None = None,
+    custom_split_name: str | None = None,
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -80,7 +152,9 @@ def drug_response_experiment(
     :param models: list of model classes to compare
     :param baselines: list of baseline models. No randomization or robustness tests are run for the baseline models.
     :param response_data: drug response dataset
-    :param response_transformation: normalizer to use for the response data
+    :param response_transformation: normalizer to use for the response data. The
+        NaiveMeanEffectsPredictor is exempt from it because it defines the reference scale of the
+        ``Normalized *`` metrics.
     :param hpam_optimization_metric: metric to use for hyperparameter optimization
         (i.e., for selecting the best model on the validation set)
     :param n_cv_splits: number of cross-validation splits
@@ -127,46 +201,45 @@ def drug_response_experiment(
         which was evaluated in the nested cross validation.
     :param wandb_project: if provided, enables wandb logging for all DRPModel instances throughout training.
         All hyperparameters and metrics will be logged to the specified wandb project.
+    :param custom_splitter: optional path to a Python script or callable implementing ``create_splits``.
+        When provided, built-in ``split_dataset`` is skipped and ``test_mode`` selects validation checks.
+    :param custom_split_name: optional result-directory label when using a custom splitter.
+        Defaults to ``test_mode`` when omitted.
     :raises ValueError: if no cv splits are found
     """
     seed_everything(42)
+    if test_mode == "LDO" and response_data.dataset_name in DERIVED_DATASETS:
+        base = DERIVED_DATASETS[response_data.dataset_name][0]
+        warnings.warn(
+            f"{response_data.dataset_name} removes inactive drugs, so leave-drug-out (LDO) "
+            "evaluation on it is optimistic: real screens contain inactive compounds that a "
+            f"model would still have to handle. For drug generalization, evaluate on the "
+            f"unfiltered {base}, or read these LDO metrics as an upper bound.",
+            stacklevel=2,
+        )
     # Default baseline model, needed for normalization
-    nme = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
+    nme = MODEL_FACTORY[NORMALIZATION_BASELINE]
     if baselines is None:
         baselines = [nme]
     elif nme not in baselines:
         baselines.append(nme)
 
     cross_study_datasets = cross_study_datasets or []
-    result_path = os.path.join(path_out, run_id, response_data._name, test_mode)
+    split_label = custom_split_name if custom_split_name is not None else test_mode
+    result_path = os.path.join(path_out, run_id, response_data._name, split_label)
     split_path = os.path.join(result_path, "splits")
     result_folder_exists = os.path.exists(result_path)
-    if result_folder_exists and overwrite:
-        # if results exists, delete them if overwrite is True
-        print(f"Overwriting existing results at {result_path}")
-        shutil.rmtree(result_path)
-
-    if result_folder_exists and os.path.exists(split_path):
-        # if the results exist and overwrite is false, load the cv splits.
-        # The models will be trained on the existing cv splits.
-        print(f"Loading existing cv splits from {split_path}")
-        response_data.load_splits(path=split_path)
-    else:
-        # if the results do not exist, create the cv splits
-        print(f"Creating cv splits at {split_path}")
-
-        os.makedirs(result_path, exist_ok=True)
-
-        response_data.remove_nan_responses()
-        # if this line changes, also change it in pipeline: cv_split.py
-        response_data.split_dataset(
-            n_cv_splits=n_cv_splits,
-            mode=test_mode,
-            split_validation=True,
-            validation_ratio=0.1,
-            random_state=42,
-        )
-        response_data.save_splits(path=split_path)
+    actual_n_cv_splits = prepare_response_splits(
+        response_data,
+        split_path=split_path,
+        result_path=result_path,
+        split_label=split_label,
+        test_mode=test_mode,
+        n_cv_splits=n_cv_splits,
+        overwrite=overwrite,
+        result_folder_exists=result_folder_exists,
+        custom_splitter=custom_splitter,
+    )
 
     # Build the list of models to run (done regardless of whether splits were newly created or loaded)
     model_list = make_model_list(models + baselines, response_data)
@@ -175,6 +248,11 @@ def drug_response_experiment(
         model_name, drug_id = get_model_name_and_drug_id(model_name)
 
         model_class = MODEL_FACTORY[model_name]
+        # The normalization baseline is the ruler of every "Normalized *" metric, so it has to stay on
+        # the original response scale. For the globally affine scalers this is a no-op (means are
+        # affine-equivariant), but the conditional means (drug_mean, drug_tissue_mean) do change its
+        # predictions and would move the ruler along with the models that are measured against it.
+        model_transformation = None if model_name == NORMALIZATION_BASELINE else response_transformation
         if model_class in baselines:
             print("- Only Baseline Tests -")
             is_baseline = True
@@ -228,7 +306,7 @@ def drug_response_experiment(
                 "split_index": split_index,
                 "test_mode": test_mode,
                 "dataset": response_data.dataset_name,
-                "n_cv_splits": n_cv_splits,
+                "n_cv_splits": actual_n_cv_splits,
                 "hyperparameter_tuning": hyperparameter_tuning,
             }
 
@@ -241,7 +319,7 @@ def drug_response_experiment(
                     "validation_dataset": validation_dataset,
                     "early_stopping_dataset": early_stopping_dataset,
                     "hpam_set": model_hpam_set,
-                    "response_transformation": response_transformation,
+                    "response_transformation": model_transformation,
                     "metric": hpam_optimization_metric,
                     "path_data": path_data,
                     "model_checkpoint_dir": model_checkpoint_dir,
@@ -301,7 +379,7 @@ def drug_response_experiment(
                     train_dataset=train_dataset,
                     prediction_dataset=test_dataset,
                     early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
-                    response_transformation=response_transformation,
+                    response_transformation=model_transformation,
                     model_checkpoint_dir=model_checkpoint_dir,
                 )
 
@@ -333,7 +411,7 @@ def drug_response_experiment(
                         train_dataset=train_dataset,
                         path_data=path_data,
                         early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
-                        response_transformation=response_transformation,
+                        response_transformation=model_transformation,
                         path_out=parent_dir,
                         split_index=split_index,
                         single_drug_id=(drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None),
@@ -370,7 +448,7 @@ def drug_response_experiment(
                         path_out=parent_dir,
                         split_index=split_index,
                         randomization_type=randomization_type,
-                        response_transformation=response_transformation,
+                        response_transformation=model_transformation,
                         model_checkpoint_dir=model_checkpoint_dir,
                     )
                 if n_trials_robustness > 0:
@@ -385,7 +463,7 @@ def drug_response_experiment(
                         early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
                         path_out=parent_dir,
                         split_index=split_index,
-                        response_transformation=response_transformation,
+                        response_transformation=model_transformation,
                     )
 
         if final_model_on_full_data and (model_class not in baselines):
@@ -398,7 +476,8 @@ def drug_response_experiment(
             train_final_model(
                 model_class=model_class,
                 full_dataset=response_data.copy(),
-                response_transformation=response_transformation,
+                drug_id=drug_id,
+                response_transformation=model_transformation,
                 path_data=path_data,
                 model_checkpoint_dir=model_checkpoint_dir,
                 metric=hpam_optimization_metric,
@@ -410,7 +489,7 @@ def drug_response_experiment(
 
     consolidate_single_drug_model_predictions(
         models=models,
-        n_cv_splits=n_cv_splits,
+        n_cv_splits=actual_n_cv_splits,
         results_path=result_path,
         cross_study_datasets=[cs.dataset_name for cs in cross_study_datasets],
         randomization_mode=randomization_mode,
@@ -446,14 +525,14 @@ def consolidate_single_drug_model_predictions(
         if model.get_model_name() in SINGLE_DRUG_MODEL_FACTORY:
             model_instance = MODEL_FACTORY[model.get_model_name()]()
             model_path = os.path.join(results_path, model.get_model_name())
-            out_path = os.path.join(out_path, model.get_model_name())
-            os.makedirs(os.path.join(out_path, "predictions"), exist_ok=True)
+            model_out_path = os.path.join(out_path, model.get_model_name())
+            os.makedirs(os.path.join(model_out_path, "predictions"), exist_ok=True)
             if cross_study_datasets:
-                os.makedirs(os.path.join(out_path, "cross_study"), exist_ok=True)
+                os.makedirs(os.path.join(model_out_path, "cross_study"), exist_ok=True)
             if randomization_mode:
-                os.makedirs(os.path.join(out_path, "randomization"), exist_ok=True)
+                os.makedirs(os.path.join(model_out_path, "randomization"), exist_ok=True)
             if n_trials_robustness:
-                os.makedirs(os.path.join(out_path, "robustness"), exist_ok=True)
+                os.makedirs(os.path.join(model_out_path, "robustness"), exist_ok=True)
 
             for split in range(n_cv_splits):
                 # Collect predictions for drugs across all scenarios (main, cross_study, robustness, randomization)
@@ -528,7 +607,7 @@ def consolidate_single_drug_model_predictions(
                 # Save the consolidated predictions
                 pd.concat(predictions["main"], axis=0).to_csv(
                     os.path.join(
-                        out_path,
+                        model_out_path,
                         "predictions",
                         f"predictions_split_{split}.csv",
                     )
@@ -537,7 +616,7 @@ def consolidate_single_drug_model_predictions(
                 for dataset_name, dataset_predictions in predictions["cross_study"].items():
                     pd.concat(dataset_predictions, axis=0).to_csv(
                         os.path.join(
-                            out_path,
+                            model_out_path,
                             "cross_study",
                             f"cross_study_{dataset_name}_split_{split}.csv",
                         )
@@ -546,7 +625,7 @@ def consolidate_single_drug_model_predictions(
                 for trial, trial_predictions in predictions["robustness"].items():
                     pd.concat(trial_predictions, axis=0).to_csv(
                         os.path.join(
-                            out_path,
+                            model_out_path,
                             "robustness",
                             f"robustness_{trial + 1}_split_{split}.csv",
                         )
@@ -555,7 +634,7 @@ def consolidate_single_drug_model_predictions(
                 for view, view_predictions in predictions["randomization"].items():
                     pd.concat(view_predictions, axis=0).to_csv(
                         os.path.join(
-                            out_path,
+                            model_out_path,
                             "randomization",
                             f"randomization_{view}_split_{split}.csv",
                         )
@@ -608,6 +687,9 @@ def cross_study_prediction(
     :raises ValueError: if feature loading fails, if the test mode is invalid, or if LTO and no tissues are supplied.
     """
     dataset = dataset.copy()
+    # Copy so add_rows(early_stopping_dataset) below does not mutate the caller's train_dataset,
+    # which is reused across cross-study datasets and later by randomization/robustness tests.
+    train_dataset = train_dataset.copy()
     os.makedirs(os.path.join(path_out, "cross_study"), exist_ok=True)
     if response_transformation:
         dataset.transform(response_transformation)
@@ -1489,11 +1571,12 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
 def train_final_model(
     model_class: type[DRPModel],
     full_dataset: DrugResponseDataset,
-    response_transformation: TransformerMixin,
+    response_transformation: TransformerMixin | None,
     path_data: str,
     model_checkpoint_dir: str,
     metric: str,
     final_model_path: str,
+    drug_id: str | None = None,
     test_mode: str = "LCO",
     val_ratio: float = 0.1,
     hyperparameter_tuning: bool = True,
@@ -1512,18 +1595,28 @@ def train_final_model(
 
     :param model_class: model to use
     :param full_dataset: full training dataset (union of outer folds)
-    :param response_transformation: sklearn scaler used for response normalization
+    :param response_transformation: sklearn scaler used for response normalization, None for no transformation
     :param path_data: path to data directory
     :param model_checkpoint_dir: checkpoint dir for intermediate tuning models
     :param metric: metric for tuning, e.g., "RMSE"
     :param final_model_path: path to final_model save directory
+    :param drug_id: drug id for single drug models. The dataset is reduced to this drug, analogous to
+        get_datasets_from_cv_split, because a single drug model is fitted per drug.
     :param test_mode: split logic for validation (LCO, LDO, LTO, LPO)
     :param val_ratio: validation size ratio
     :param hyperparameter_tuning: whether to perform hyperparameter tuning
+    :raises ValueError: if a single drug model is trained without a drug id
     """
     print("Training final model with application-specific validation strategy ...")
 
     full_dataset.remove_nan_responses()
+    if model_class.is_single_drug_model:
+        if drug_id is None:
+            raise ValueError(
+                f"{model_class.get_model_name()} is a single drug model, so a drug_id is required to train the "
+                f"final model. Otherwise the model would be fitted on the responses of all drugs."
+            )
+        full_dataset.mask(full_dataset.drug_ids == drug_id)
     model = model_class()
     train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
@@ -1563,16 +1656,18 @@ def train_final_model(
     if len(train_dataset) < len_train_before:
         print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, due to missing features")
 
+    if early_stopping_dataset is not None:
+        len_early_stopping_before = len(early_stopping_dataset)
+        early_stopping_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+        if len(early_stopping_dataset) < len_early_stopping_before:
+            print(
+                f"Reduced early stopping dataset from {len_early_stopping_before} to "
+                f"{len(early_stopping_dataset)}, due to missing features"
+            )
+
     if response_transformation:
         train_dataset.fit_transform(response_transformation)
         if early_stopping_dataset is not None:
-            len_early_stopping_before = len(early_stopping_dataset)
-            early_stopping_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-            if len(early_stopping_dataset) < len_early_stopping_before:
-                print(
-                    f"Reduced early stopping dataset from {len_early_stopping_before} to "
-                    f"{len(early_stopping_dataset)}, due to missing features"
-                )
             early_stopping_dataset.transform(response_transformation)
 
     drug_features = drug_features.copy() if drug_features is not None else None
@@ -1590,6 +1685,10 @@ def train_final_model(
 
     os.makedirs(final_model_path, exist_ok=True)
     model.save(final_model_path)
+    if response_transformation is not None:
+        # The fitted transformation is part of the production model: without it, predictions of a
+        # model trained on a transformed target cannot be mapped back to the original response scale.
+        joblib.dump(response_transformation, os.path.join(final_model_path, RESPONSE_TRANSFORMATION_FILE))
 
 
 @pipeline_function

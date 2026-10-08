@@ -203,7 +203,9 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
             shuffle=True,
             num_workers=num_workers,
             persistent_workers=True,
-            drop_last=True,  # to avoid batch norm errors, if last batch is smaller than batch_size, it is not processed
+            # drop the last (smaller) batch to avoid batch norm errors, unless that would leave the
+            # loader empty for a tiny training set (fewer rows than one full batch)
+            drop_last=len(train_dataset) > batch_size,
         )
 
         val_loader = None
@@ -271,7 +273,7 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
             trainer.fit(self, train_loader, val_loader)
 
         # load best model
-        if self.checkpoint_callback.best_model_path is not None:
+        if self.checkpoint_callback.best_model_path:
             checkpoint = torch.load(self.checkpoint_callback.best_model_path, weights_only=True)  # noqa: S614
             self.load_state_dict(checkpoint["state_dict"])
         else:
@@ -294,7 +296,8 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
         x = torch.relu(self.fully_connected_layers[-2](x))
         x = self.fully_connected_layers[-1](x)
 
-        return x.squeeze()
+        # squeeze only the output dim, so a batch of size 1 stays 1-D
+        return x.squeeze(-1)
 
     def _forward_loss_and_log(self, x, y, log_as: str):
         """

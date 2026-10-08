@@ -6,8 +6,8 @@ predicts the overall mean of the response, the NaiveCellLineMeanPredictor predic
 line, and the NaiveDrugMeanPredictor predicts the mean of the response per drug.
 The NaiveTissueMeanPredictor predicts the mean of the response per tissue.
 The NaiveTissueDrugMeanPredictor predicts the mean of the response per tissue-drug combination.
-The NaiveMeanEffectsPredictor predicts the response as the overall mean plus the cell line effect
-plus the drug effect and should be the strongest naive baseline.
+The NaiveMeanEffectsPredictor predicts the response as the overall mean plus tissue effect,
+cell line residual effect, and drug effect and should be the strongest naive baseline.
 
 """
 
@@ -19,7 +19,13 @@ import numpy as np
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, load_tissues_from_csv, unique
+from drevalpy.models.utils import (
+    load_cl_ids_and_tissues_from_csv,
+    load_cl_ids_from_csv,
+    load_drug_ids_from_csv,
+    load_tissues_from_csv,
+    unique,
+)
 
 
 class NaiveModel(DRPModel):
@@ -63,6 +69,7 @@ class NaiveModel(DRPModel):
             "tissue_drug_means",
             "cell_line_effects",
             "drug_effects",
+            "tissue_effects",
         ]:
             if hasattr(self, attr):
                 config[attr] = getattr(self, attr)
@@ -90,6 +97,7 @@ class NaiveModel(DRPModel):
             "tissue_drug_means",
             "cell_line_effects",
             "drug_effects",
+            "tissue_effects",
         ]:
             if attr in config:
                 setattr(instance, attr, config[attr])
@@ -498,13 +506,17 @@ class NaiveMeanEffectsPredictor(NaiveModel):
     ANOVA-like predictor model.
 
     Predicts the response as:
-    response = overall_mean + cell_line_effect + drug_effect.
+    response = overall_mean + tissue_effect + cell_line_residual_effect + drug_effect.
 
     Here:
-        - cell_line_effect = (cell line mean - overall_mean)
+        - tissue_effect = (tissue mean - overall_mean)
+        - cell_line_residual_effect = (cell line mean - tissue mean for that cell line)
         - drug_effect = (drug mean - overall_mean)
 
-    This formulation ensures that the overall mean is not counted twice.
+    This formulation avoids double-counting tissue signal already captured by cell line means.
+    For unseen cell lines with a known tissue, the tissue effect provides a fallback.
+    If tissue information is not available, this model falls back to the previous formulation:
+    response = overall_mean + cell_line_effect + drug_effect.
     """
 
     cell_line_views = [CELL_LINE_IDENTIFIER]
@@ -514,10 +526,11 @@ class NaiveMeanEffectsPredictor(NaiveModel):
         """
         Initializes the NaiveMeanEffectsPredictor model.
 
-        The overall dataset mean, cell line effects, and drug effects are initialized to None
-        and empty dictionaries, respectively.
+        The overall dataset mean, tissue effects, cell line residual effects, and drug effects
+        are initialized to None and empty dictionaries, respectively.
         """
         super().__init__()
+        self.tissue_effects = {}
         self.cell_line_effects = {}
         self.drug_effects = {}
 
@@ -539,10 +552,10 @@ class NaiveMeanEffectsPredictor(NaiveModel):
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
-        Trains with overall mean, cell line effects, and drug effects.
+        Trains with overall mean, tissue effects, cell line residual effects, and drug effects.
 
         :param output: Training dataset containing the response output.
-        :param cell_line_input: Feature dataset containing cell line IDs.
+        :param cell_line_input: Feature dataset containing cell line IDs and tissue annotations.
         :param drug_input: Feature dataset containing drug IDs. Must not be None.
         :param output_earlystopping: Not used.
         :param model_checkpoint_dir: Not used.
@@ -551,10 +564,7 @@ class NaiveMeanEffectsPredictor(NaiveModel):
         if drug_input is None:
             raise ValueError("drug_input (drug_id) is required for NaiveMeanEffectsPredictor.")
 
-        # Compute the overall mean response.
         self.dataset_mean = np.mean(output.response)
-
-        # Obtain cell line features.
 
         cell_line_ids = cell_line_input.get_feature_matrix(view=CELL_LINE_IDENTIFIER, identifiers=output.cell_line_ids)
         cell_line_means = {}
@@ -563,7 +573,35 @@ class NaiveMeanEffectsPredictor(NaiveModel):
             if len(responses_cl) > 0:
                 cell_line_means[cl_output] = np.mean(responses_cl)
 
-        # Obtain drug features.
+        if TISSUE_IDENTIFIER in cell_line_input.view_names:
+            tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=output.cell_line_ids)
+            tissues = np.asarray(tissues).flatten()
+
+            tissue_means = {}
+            for tissue in np.unique(tissues):
+                tissue_key = str(tissue.item() if isinstance(tissue, np.ndarray) else tissue)
+                mask = tissues == tissue
+                responses_tissue = output.response[mask]
+                if len(responses_tissue) > 0:
+                    tissue_means[tissue_key] = np.mean(responses_tissue)
+
+            self.tissue_effects = {tissue: (mean - self.dataset_mean) for tissue, mean in tissue_means.items()}
+
+            cell_line_to_tissue = {}
+            for cl_output, cl_feature in zip(unique(output.cell_line_ids), unique(cell_line_ids), strict=True):
+                mask = cl_feature == output.cell_line_ids
+                tissue = tissues[mask][0]
+                tissue_key = tissue.item() if isinstance(tissue, np.ndarray) else tissue
+                cell_line_to_tissue[cl_output] = str(tissue_key)
+
+            self.cell_line_effects = {}
+            for cl, mean in cell_line_means.items():
+                tissue_mean = tissue_means[cell_line_to_tissue[cl]]
+                self.cell_line_effects[cl] = mean - tissue_mean
+        else:
+            self.tissue_effects = {}
+            self.cell_line_effects = {cl: (mean - self.dataset_mean) for cl, mean in cell_line_means.items()}
+
         drug_ids = drug_input.get_feature_matrix(view=DRUG_IDENTIFIER, identifiers=output.drug_ids)
         drug_means = {}
         for drug_output, drug_feature in zip(unique(output.drug_ids), unique(drug_ids), strict=True):
@@ -571,8 +609,6 @@ class NaiveMeanEffectsPredictor(NaiveModel):
             if len(responses_drug) > 0:
                 drug_means[drug_output] = np.mean(responses_drug)
 
-        # Compute the effects as deviations from the overall mean.
-        self.cell_line_effects = {cl: (mean - self.dataset_mean) for cl, mean in cell_line_means.items()}
         self.drug_effects = {drug: (mean - self.dataset_mean) for drug, mean in drug_means.items()}
 
     def predict(
@@ -586,22 +622,30 @@ class NaiveMeanEffectsPredictor(NaiveModel):
         Predicts responses for given cell line and drug pairs.
 
         The prediction is computed as:
-            prediction = overall_mean + cell_line_effect + drug_effect
+            prediction = overall_mean + tissue_effect + cell_line_residual_effect + drug_effect
 
-        If a cell line or drug has not been seen during training, their effect is set to zero.
+        If a cell line, tissue, or drug has not been seen during training, their effect is set to zero.
 
         :param cell_line_ids: Array of cell line IDs.
         :param drug_ids: Array of drug IDs.
-        :param cell_line_input: Not used.
+        :param cell_line_input: Feature dataset containing tissue annotations.
         :param drug_input: Not used.
         :return: NumPy array of predicted responses.
         """
         predictions = []
-        for cl, drug in zip(cell_line_ids, drug_ids):
-            effect_cl = self.cell_line_effects.get(cl, 0)
-            effect_drug = self.drug_effects.get(drug, 0)
-            # ANOVA-based prediction: overall mean + cell line effect + drug effect.
-            predictions.append(self.dataset_mean + effect_cl + effect_drug)
+        if self.tissue_effects and TISSUE_IDENTIFIER in cell_line_input.view_names:
+            tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=cell_line_ids)
+            for cl, drug, tissue in zip(cell_line_ids, drug_ids, tissues, strict=True):
+                tissue_key = tissue.item() if isinstance(tissue, np.ndarray) else tissue
+                effect_tissue = self.tissue_effects.get(str(tissue_key), 0)
+                effect_cl = self.cell_line_effects.get(cl, 0)
+                effect_drug = self.drug_effects.get(drug, 0)
+                predictions.append(self.dataset_mean + effect_tissue + effect_cl + effect_drug)
+        else:
+            for cl, drug in zip(cell_line_ids, drug_ids, strict=True):
+                effect_cl = self.cell_line_effects.get(cl, 0)
+                effect_drug = self.drug_effects.get(drug, 0)
+                predictions.append(self.dataset_mean + effect_cl + effect_drug)
         return np.array(predictions)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -610,9 +654,9 @@ class NaiveMeanEffectsPredictor(NaiveModel):
 
         :param data_path: Path to the data.
         :param dataset_name: Name of the dataset.
-        :return: FeatureDataset containing the cell line IDs.
+        :return: FeatureDataset containing the cell line IDs and tissue annotations, if available.
         """
-        return load_cl_ids_from_csv(data_path, dataset_name)
+        return load_cl_ids_and_tissues_from_csv(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """

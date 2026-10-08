@@ -7,6 +7,13 @@ results/
 # Wandb directory is created when running the benchmark with wandb
 wandb/
 
+# Local model checkpoints and lightning logs from test/training runs
+checkpoints/
+lightning_logs/
+
+# Ad-hoc pytest output files
+.pytest_*.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

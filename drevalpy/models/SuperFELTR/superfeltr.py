@@ -77,11 +77,14 @@ class SuperFELTR(DRPModel):
         :param hyperparameters: dictionary containing the hyperparameters for the model. Contain mini_batch,
             dropout_rate, weight_decay, out_dim_expr_encoder, out_dim_mutation_encoder, out_dim_cnv_encoder, epochs,
             variance thresholds for gene expression, mutation, and copy number variation, margin, and learning rate.
+            "gene_lists" is an optional per-omic gene list used to subset the cell line features, e.g.
+            {"gene_expression": "landmark_genes"}; omics not named there (or None) load all features.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
+        self.gene_lists = {view: hyperparameters.get("gene_lists", {}).get(view) for view in self.cell_line_views}
 
         n_features = hyperparameters.get("n_features_per_view", 1000)
         for view in self.cell_line_views:
@@ -256,7 +259,7 @@ class SuperFELTR(DRPModel):
         :returns: FeatureDataset containing the cell line gene expression features, mutations, and copy number variation
         """
         feature_dataset = get_multiomics_feature_dataset(
-            data_path=data_path, dataset_name=dataset_name, gene_lists=None, omics=self.cell_line_views
+            data_path=data_path, dataset_name=dataset_name, gene_lists=self.gene_lists, omics=self.cell_line_views
         )
         # log transformation
         feature_dataset.apply(function=np.arcsinh, view="gene_expression")

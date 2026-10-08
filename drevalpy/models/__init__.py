@@ -19,6 +19,7 @@ __all__ = [
     "SingleDrugRandomForest",
     "SingleDrugElasticNet",
     "SRMF",
+    "EnsembleMF",
     "GradientBoosting",
     "MOLIR",
     "SuperFELTR",
@@ -30,8 +31,12 @@ __all__ = [
     "AdaBoostDecisionTree",
     "LassoModel",
     "MultiViewXGBoost",
+    "MultiViewLightGBM",
+    "SparseGO",
+    "PaccMann",
 ]
 
+from .baselines.multi_view_lightgbm import MultiViewLightGBM
 from .baselines.multi_view_random_forest import MultiViewRandomForest
 from .baselines.multi_view_xgboost import MultiViewXGBoost
 from .baselines.naive_pred import (
@@ -55,11 +60,14 @@ from .baselines.sklearn_models import (
 from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
 from .DrugGNN import DrugGNN
+from .EnsembleMF import EnsembleMF
 from .MOLIR.molir import MOLIR
+from .PaccMann.paccmann import PaccMann
 from .PharmaFormer.pharmaformer import PharmaFormerModel
 from .Precily import PrecilyModel
 from .SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
+from .SparseGO.sparsego import SparseGOModel
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
 
@@ -94,11 +102,15 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "SimpleNeuralNetwork": SimpleNeuralNetwork,
     "MultiViewNeuralNetwork": MultiViewNeuralNetwork,
     "MultiViewXGBoost": MultiViewXGBoost,
+    "MultiViewLightGBM": MultiViewLightGBM,
     # Published models
     "DIPK": DIPKModel,
     "PharmaFormer": PharmaFormerModel,
     "SRMF": SRMF,
+    "EnsembleMF": EnsembleMF,
     "Precily": PrecilyModel,
+    "SparseGO": SparseGOModel,
+    "PaccMann": PaccMann,
 }
 
 # MODEL_FACTORY is used in the pipeline!

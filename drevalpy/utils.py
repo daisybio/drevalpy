@@ -8,10 +8,12 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from .datasets import AVAILABLE_DATASETS
 from .datasets.dataset import DrugResponseDataset
 from .datasets.loader import load_dataset
+from .datasets.splits import validate_split_label
 from .datasets.utils import ALLOWED_MEASURES
 from .evaluation import AVAILABLE_METRICS
 from .experiment import drug_response_experiment, pipeline_function
 from .models import MODEL_FACTORY
+from .response_transformation import GroupMeanCenterer
 
 
 def check_arguments(args) -> None:
@@ -64,6 +66,15 @@ def check_arguments(args) -> None:
     if (not args.no_refitting) and args.curve_curator_cores < 1:
         raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
+    clean_min_responders = getattr(args, "clean_min_responders", None)
+    clean_min_responder_frac = getattr(args, "clean_min_responder_frac", None)
+    if clean_min_responders is not None and clean_min_responder_frac is not None:
+        raise ValueError("Set at most one of clean_min_responders or clean_min_responder_frac, not both.")
+    if clean_min_responders is not None and clean_min_responders < 1:
+        raise ValueError("clean_min_responders must be a positive integer (minimum number of responder curves).")
+    if clean_min_responder_frac is not None and not (0 < clean_min_responder_frac <= 1):
+        raise ValueError("clean_min_responder_frac must be in the interval (0, 1].")
+
     for dataset in args.cross_study_datasets:
         if dataset not in AVAILABLE_DATASETS:
             raise AssertionError(
@@ -76,8 +87,17 @@ def check_arguments(args) -> None:
     # if the path to args.path_data does not exist, create the directory
     Path(args.path_data).mkdir(parents=True, exist_ok=True)
 
-    if args.n_cv_splits <= 1:
+    if args.n_cv_splits <= 1 and not getattr(args, "custom_splitter_path", None):
         raise ValueError("Number of cross-validation splits must be greater than 1.")
+
+    custom_splitter_path = getattr(args, "custom_splitter_path", None)
+    if custom_splitter_path:
+        if not Path(custom_splitter_path).expanduser().is_file():
+            raise FileNotFoundError(f"Custom split script not found: {custom_splitter_path}")
+
+    custom_split_name = getattr(args, "custom_split_name", None)
+    if custom_split_name is not None:
+        validate_split_label(custom_split_name)
 
     # TODO Allow for custom randomization tests maybe via config file
     if args.randomization_mode[0] != "None":
@@ -98,8 +118,11 @@ def check_arguments(args) -> None:
             "the '_curvecurator' suffix are allowed drug response measures."
         )
 
-    if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
-        raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust")
+    if args.response_transformation not in ["None", "standard", "minmax", "robust", "drug_mean", "drug_tissue_mean"]:
+        raise AssertionError(
+            "Invalid response_transformation. Choose from None, standard, minmax, robust, drug_mean, "
+            "drug_tissue_mean"
+        )
 
     if args.optim_metric not in AVAILABLE_METRICS:
         raise AssertionError(
@@ -122,6 +145,8 @@ def main(args) -> None:
         curve_curator=(not args.no_refitting),
         cores=args.curve_curator_cores,
         normalize=getattr(args, "curve_curator_normalize", False),
+        clean_min_responders=getattr(args, "clean_min_responders", None),
+        clean_min_responder_frac=getattr(args, "clean_min_responder_frac", None),
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]
@@ -157,6 +182,8 @@ def main(args) -> None:
             hyperparameter_tuning=not args.no_hyperparameter_tuning,
             final_model_on_full_data=args.final_model_on_full_data,
             wandb_project=args.wandb_project,
+            custom_splitter=getattr(args, "custom_splitter_path", None),
+            custom_split_name=getattr(args, "custom_split_name", None),
         )
 
 
@@ -168,6 +195,8 @@ def get_datasets(
     curve_curator: bool = False,
     cores: int = 1,
     normalize: bool = False,
+    clean_min_responders: int | None = None,
+    clean_min_responder_frac: float | None = None,
 ) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """
     Load the response data and cross-study datasets.
@@ -192,6 +221,10 @@ def get_datasets(
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
         Only used for custom datasets when curve_curator is True.
+    :param clean_min_responders: If set, keep only drugs with at least this many reproducible responder curves
+        in the main dataset (see drevalpy.datasets.loader.load_dataset). Cross-study datasets are left unfiltered.
+    :param clean_min_responder_frac: Fraction-based alternative to clean_min_responders (see
+        drevalpy.datasets.loader.load_dataset). Set at most one of the two.
     :returns: response data and, potentially, cross-study datasets
     """
     response_data = load_dataset(
@@ -201,6 +234,8 @@ def get_datasets(
         curve_curator=curve_curator,
         cores=cores,
         normalize=normalize,
+        clean_min_responders=clean_min_responders,
+        clean_min_responder_frac=clean_min_responder_frac,
     )
 
     cross_study_datasets = [
@@ -214,7 +249,12 @@ def get_response_transformation(response_transformation: str | None) -> Transfor
     """
     Get the skelarn response transformation object of choice.
 
-    Users can choose from "None", "standard", "minmax", "robust".
+    Users can choose from "None", "standard", "minmax", "robust", "drug_mean", "drug_tissue_mean".
+
+    While the first three are global monotone rescalings, "drug_mean" subtracts the per-drug
+    mean of the training fold (target residualization) and adds it back to the predictions.
+    "drug_tissue_mean" does the same per drug and tissue, falling back to the per-drug mean for
+    (drug, tissue) combinations that did not occur in the training fold.
 
     :param response_transformation: response transformation to apply
     :returns: response transformation object
@@ -228,7 +268,11 @@ def get_response_transformation(response_transformation: str | None) -> Transfor
         return MinMaxScaler()
     if response_transformation == "robust":
         return RobustScaler()
+    if response_transformation == "drug_mean":
+        return GroupMeanCenterer()
+    if response_transformation == "drug_tissue_mean":
+        return GroupMeanCenterer(group_fields=("drug_ids", "tissue"))
     raise ValueError(
         f"Unknown response transformation {response_transformation}. Choose from 'None', "
-        f"'standard', 'minmax', 'robust'"
+        f"'standard', 'minmax', 'robust', 'drug_mean', 'drug_tissue_mean'"
     )

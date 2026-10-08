@@ -86,6 +86,8 @@ class PharmaFormerModel(DRPModel):
     cell_line_views = ["gene_expression"]
     drug_views = ["bpe_smiles"]
     early_stopping = True
+    #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
+    gene_list: str | None = "landmark_genes_reduced"
 
     def __init__(self) -> None:
         """Initialize the PharmaFormer model."""
@@ -110,12 +112,15 @@ class PharmaFormerModel(DRPModel):
         Builds the PharmaFormer model with the specified hyperparameters.
 
         :param hyperparameters: Model hyperparameters including gene_hidden_size, drug_hidden_size,
-            feature_dim, nhead, num_layers, dim_feedforward, dropout, batch_size, lr, epochs, patience
+            feature_dim, nhead, num_layers, dim_feedforward, dropout, batch_size, lr, epochs, patience.
+            "gene_list" (str | None) is the gene list used to subset gene_expression; None loads all genes.
+            Optional, defaults to landmark_genes_reduced.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
+        self.gene_list = hyperparameters.get("gene_list", type(self).gene_list)
         # Model will be built in train() when we know the input dimensions
 
     def train(
@@ -141,9 +146,11 @@ class PharmaFormerModel(DRPModel):
         if output_earlystopping is None:
             raise ValueError("PharmaFormer model requires early stopping data.")
 
-        # Get feature dimensions
+        # Get feature dimensions. output.cell_line_ids is response-level (one entry per
+        # cell_line/drug pair), so deduplicate first or cell lines tested against more drugs
+        # would get more weight when fitting the scaler below.
         train_gene_features = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=output.cell_line_ids
+            view="gene_expression", identifiers=np.unique(output.cell_line_ids)
         )
         gene_input_size = train_gene_features.shape[1]
 
@@ -341,7 +348,10 @@ class PharmaFormerModel(DRPModel):
         # Apply transformations to gene expression if scalers are available
         if self.gene_expression_scaler is not None and self.gene_expression_normalizer is not None:
             cell_line_input = cell_line_input.copy()
-            for cell_line_id in cell_line_ids:
+            # cell_line_ids is response-level (one entry per cell_line/drug pair) and can repeat a
+            # cell line many times, but gene_expression is stored once per cell line, so each id must
+            # only be scaled once here or it gets rescaled on top of its own already-scaled output.
+            for cell_line_id in np.unique(cell_line_ids):
                 if cell_line_id in cell_line_input.features:
                     gene_expr = cell_line_input.features[cell_line_id]["gene_expression"]
                     gene_expr_scaled = self.gene_expression_scaler.transform(gene_expr.reshape(1, -1))
@@ -387,7 +397,7 @@ class PharmaFormerModel(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
+            gene_list=self.gene_list,
             data_path=data_path,
             dataset_name=dataset_name,
         )

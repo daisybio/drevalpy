@@ -1,4 +1,6 @@
 DrugGNN:
+  gene_list:
+    - landmark_genes
   learning_rate:
     - 0.001
   epochs:

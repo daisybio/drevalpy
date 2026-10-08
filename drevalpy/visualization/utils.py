@@ -2,7 +2,6 @@
 
 import os
 import pathlib
-import re
 import shutil
 from typing import TextIO
 
@@ -11,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from ..datasets.dataset import DrugResponseDataset
+from ..datasets.splits import MANIFEST_FILENAME, read_split_manifest
 from ..evaluation import AVAILABLE_METRICS, evaluate
 from ..models.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from ..pipeline_function import pipeline_function
@@ -23,6 +23,34 @@ from . import (
     VioHeat,
     Violin,
 )
+
+_RESULT_CATEGORIES = ("predictions", "cross_study", "randomization", "robustness")
+
+
+def _discover_result_csv_files(result_dir: pathlib.Path, dataset: str) -> list[pathlib.Path]:
+    """
+    Collect prediction result CSV files from the known experiment directory layout.
+
+    Expected layout: ``{result_dir}/{dataset}/{split_label}/{algorithm}/{category}/*.csv``.
+
+    :param result_dir: root results directory for a run
+    :param dataset: dataset name, e.g., GDSC2
+    :returns: paths to result CSV files
+    """
+    dataset_dir = result_dir / dataset
+    if not dataset_dir.is_dir():
+        return []
+
+    result_files: list[pathlib.Path] = []
+    for split_dir in sorted(path for path in dataset_dir.iterdir() if path.is_dir()):
+        for algorithm_dir in sorted(path for path in split_dir.iterdir() if path.is_dir()):
+            if algorithm_dir.name == "splits":
+                continue
+            for category in _RESULT_CATEGORIES:
+                category_dir = algorithm_dir / category
+                if category_dir.is_dir():
+                    result_files.extend(sorted(category_dir.glob("*.csv")))
+    return result_files
 
 
 def create_output_directories(result_path: pathlib.Path, custom_id: str) -> None:
@@ -64,6 +92,27 @@ def _parse_layout(f: TextIO, path_to_layout: str, test_mode: str) -> None:
     f.write("".join(layout))
 
 
+def _resolve_result_test_mode(result_dir: pathlib.Path, dataset: str, split_label: str) -> str:
+    """
+    Resolve the semantic test mode for a result directory.
+
+    Custom split labels such as ``scaling-lco`` are path labels only. When a split
+    manifest is present, use its ``test_mode`` field; otherwise fall back to the label.
+
+    :param result_dir: root results directory
+    :param dataset: dataset name, e.g., GDSC2
+    :param split_label: directory label under the dataset folder
+    :returns: semantic test mode used for evaluation and plotting
+    """
+    manifest_path = result_dir / dataset / split_label / "splits" / MANIFEST_FILENAME
+    manifest = read_split_manifest(manifest_path)
+    if manifest is not None:
+        test_mode = manifest.get("test_mode")
+        if isinstance(test_mode, str) and test_mode.strip():
+            return test_mode.strip()
+    return split_label
+
+
 def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Parse the results from the given directory.
@@ -74,18 +123,8 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
         values
     """
     print("Generating result tables ...")
-    # generate list of all result files
     result_dir = pathlib.Path(path_to_results)
-    result_files = list(result_dir.rglob("*.csv"))
-    # filter for all files that follow this pattern:
-    # result_dir/*/{predictions|cross_study|randomization|robustness}/*.csv
-    # Convert the path to a forward-slash version for the regex (for Windows)
-    result_dir_str = str(result_dir).replace("\\", "/")
-    pattern = re.compile(
-        rf"{result_dir_str}/{dataset}/"
-        r"(LPO|LCO|LDO|LTO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
-    )
-    result_files = [file for file in result_files if pattern.match(str(file).replace("\\", "/"))]
+    result_files = _discover_result_csv_files(result_dir, dataset)
 
     # inititalize dictionaries to store the evaluation results
     evaluation_results = None
@@ -97,10 +136,9 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
     for file in result_files:
         rel_file = str(os.path.normpath(file.relative_to(result_dir))).replace("\\", "/")
         print(f'Evaluating file: "{rel_file}" ...')
-        file_parts = rel_file.split("/")
-        dataset = file_parts[0]
-        test_mode = file_parts[1]
-        algorithm = file_parts[2]
+        split_label = file.parent.parent.parent.name
+        algorithm = file.parent.parent.name
+        test_mode = _resolve_result_test_mode(result_dir, dataset, split_label)
         (
             overall_eval,
             eval_results_per_drug,

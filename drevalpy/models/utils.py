@@ -78,6 +78,22 @@ def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     )
 
 
+def load_cl_ids_and_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
+    """
+    Load cell line ids and optional tissue annotations from csv file.
+
+    :param path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: FeatureDataset with cell line ids and tissue annotations, if available
+    """
+    cl_ids = load_cl_ids_from_csv(path, dataset_name)
+    try:
+        cl_ids.add_features(load_tissues_from_csv(path, dataset_name))
+    except KeyError:
+        pass
+    return cl_ids
+
+
 def load_and_select_gene_features(
     feature_type: str,
     gene_list: str | None,
@@ -127,7 +143,11 @@ def load_and_select_gene_features(
             f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {missing_str}"
         )
 
-    indices_to_keep = [i for i, gene in enumerate(cl_features.meta_info[feature_type]) if gene in ordered_genes]
+    # Reorder feature values to match ordered_genes, since meta_info is relabeled to ordered_genes
+    # below and values must stay aligned with their gene names (all ordered_genes are present, per
+    # the check above).
+    source_gene_to_index = {gene: i for i, gene in enumerate(cl_features.meta_info[feature_type])}
+    indices_to_keep = [source_gene_to_index[gene] for gene in ordered_genes]
 
     cl_features.meta_info[feature_type] = np.array(ordered_genes)
 
@@ -523,17 +543,20 @@ def load_single_cell_line_view(
     data_path: str,
     dataset_name: str,
     model_name: str,
+    gene_list: str | None = "landmark_genes_reduced",
 ) -> FeatureDataset:
     """
     Load cell line features for a single-view model.
 
-    If the view is "gene_expression", the landmark_genes_reduced list is used for subsetting.
-    Otherwise, the whole CSV is loaded.
+    If the view is "gene_expression", ``gene_list`` is used for subsetting. Otherwise, the whole CSV
+    is loaded.
 
     :param cell_line_views: list of cell line views (must have exactly one element)
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC1
     :param model_name: name of the model, used for error messages
+    :param gene_list: gene list used to subset gene_expression, e.g., drug_target_genes_all_drugs.
+        None loads all genes. The default reproduces the previously hard-coded behaviour.
     :returns: FeatureDataset containing the cell line features
     :raises ValueError: if cell_line_views is empty or has more than one element
     """
@@ -549,7 +572,7 @@ def load_single_cell_line_view(
     if "gene_expression" in cell_line_views:
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
+            gene_list=gene_list,
             data_path=data_path,
             dataset_name=dataset_name,
         )
@@ -567,16 +590,21 @@ def load_multi_cell_line_view(
     data_path: str,
     dataset_name: str,
     model_name: str,
+    gene_lists: dict[str, str | None] | None = None,
 ) -> FeatureDataset:
     """
     Load cell line features for a multi-view model.
 
-    Known omics types use specific gene lists for subsetting. Unknown types are loaded in full.
+    Known omics types use specific gene lists for subsetting by default. Unknown types are loaded in full.
+    Defaults can be overridden per-omic via ``gene_lists``; omics not named there keep their default.
 
     :param cell_line_views: list of cell line views
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC1
     :param model_name: name of the model, used for error messages
+    :param gene_lists: optional per-omic override of the default gene list, e.g.
+        {"gene_expression": "landmark_genes"}. Omics not present here keep their default gene list.
+        A value of None for an omic loads all of its features unfiltered.
     :returns: FeatureDataset containing the cell line features
     :raises ValueError: if cell_line_views is empty
     """
@@ -594,10 +622,14 @@ def load_multi_cell_line_view(
         "copy_number_variation_gistic": "drug_target_genes_all_drugs",
         "proteomics": "drug_target_genes_all_drugs_proteomics",
     }
-    gene_lists = {feature_name: gene_list_defaults.get(feature_name, None) for feature_name in cell_line_views}
+    gene_lists = gene_lists or {}
+    resolved_gene_lists = {
+        feature_name: gene_lists.get(feature_name, gene_list_defaults.get(feature_name, None))
+        for feature_name in cell_line_views
+    }
 
     return get_multiomics_feature_dataset(
-        data_path=data_path, gene_lists=gene_lists, dataset_name=dataset_name, omics=cell_line_views
+        data_path=data_path, gene_lists=resolved_gene_lists, dataset_name=dataset_name, omics=cell_line_views
     )
 
 

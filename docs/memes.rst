@@ -25,7 +25,7 @@ CI magic
    :align: center
 
 Garbage in, garbage out
--------------------
+-----------------------
 .. image:: _static/memes/isthisdrugresponse.jpeg
    :width: 400 px
    :align: center

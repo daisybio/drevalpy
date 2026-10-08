@@ -64,7 +64,10 @@ MEASURE_HELP = (
 
 RESPONSE_TRANSFORMATION_HELP = (
     "Transformation to apply to the response variable during training and prediction. Will be retransformed "
-    "after the final predictions. Possible values: standard, minmax, robust."
+    "after the final predictions. Possible values: standard, minmax, robust, drug_mean (subtracts the per-drug "
+    "mean of the training fold), drug_tissue_mean (per drug and tissue, falling back to the per-drug mean). "
+    "The NaiveMeanEffectsPredictor is always trained on the untransformed response because it defines the "
+    "reference scale of the ``Normalized *`` metrics."
 )
 
 
@@ -176,6 +179,39 @@ def register_pipeline_callback(app: typer.Typer) -> None:
                 "--no_hyperparameter_tuning", help="Disable hyperparameter tuning and use first hyperparameter set."
             ),
         ] = False,
+        custom_splitter_path: Annotated[
+            str | None,
+            typer.Option(
+                "--custom_splitter_path",
+                help="Path to a Python script defining create_splits(response_data, params). "
+                "When set, built-in CV splitting is skipped and test_mode selects validation checks.",
+            ),
+        ] = None,
+        custom_split_name: Annotated[
+            str | None,
+            typer.Option(
+                "--custom_split_name",
+                help="Optional result-directory label when using an external split script. Defaults to test_mode.",
+            ),
+        ] = None,
+        clean_min_responders: Annotated[
+            int | None,
+            typer.Option(
+                "--clean_min_responders",
+                help="If set, clean any curve-curated dataset by keeping only drugs with at least this many "
+                "reproducible responder curves. Runs on a derived '<dataset_name>_clean_min<N>' variant that "
+                "shares the base dataset's feature files. Requires curve-curated data.",
+            ),
+        ] = None,
+        clean_min_responder_frac: Annotated[
+            float | None,
+            typer.Option(
+                "--clean_min_responder_frac",
+                help="Fraction-based alternative to --clean_min_responders (in (0, 1]): keep only drugs whose "
+                "share of significant responder curves is at least this fraction. Runs on a derived "
+                "'<dataset_name>_clean_frac<F>' variant. Set at most one of the two clean options.",
+            ),
+        ] = None,
     ) -> None:
         """Run the drug response prediction model test suite."""
         if ctx.invoked_subcommand is not None:
@@ -205,6 +241,10 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             model_checkpoint_dir=model_checkpoint_dir,
             final_model_on_full_data=final_model_on_full_data,
             no_hyperparameter_tuning=no_hyperparameter_tuning,
+            custom_splitter_path=custom_splitter_path,
+            custom_split_name=custom_split_name,
+            clean_min_responders=clean_min_responders,
+            clean_min_responder_frac=clean_min_responder_frac,
         )
         check_arguments(args)
         main(args)

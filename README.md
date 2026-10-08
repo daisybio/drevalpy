@@ -3,12 +3,12 @@
 [![DOI](https://img.shields.io/badge/paper-10.1038%2Fs41467--026--72903--w-be2635?logo=Paper&link=https%3A%2F%2Fdoi.org%2F10.1038%2Fs41467-026-72903-w)](https://doi.org/10.1038/s41467-026-72903-w)
 [![PyPI version](https://img.shields.io/pypi/v/drevalpy.svg)](https://pypi.org/project/drevalpy/)
 ![Python versions](https://img.shields.io/pypi/pyversions/drevalpy)
-[![License](https://img.shields.io/github/license/daisybio/drevalpy)](https://opensource.org/licenses/GPL3)
+[![License](https://img.shields.io/github/license/daisybio/drevalpy)](https://opensource.org/licenses/MIT)
 [![Read the Docs](https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs)](https://drevalpy.readthedocs.io/)
 [![Test status](https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg)](https://github.com/daisybio/drevalpy/actions?workflow=Tests)
 [![Precommit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18302238.svg)](https://doi.org/10.5281/zenodo.18302237)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18302237.svg)](https://doi.org/10.5281/zenodo.18302237)
 
 **News:** Our paper is out on [Nature Communications](https://www.nature.com/articles/s41467-026-72903-w)!
 
@@ -45,6 +45,16 @@ Use DrEval to build drug response models that have an impact
   <img alt="DrEvalPy Leaderboard" src="docs/_static/img/leaderboard_dark.png?v=4">
 </picture>
 
+In the critical difference diagram, you can see which models outperform which other models significantly.
+The diagram is based on the average ranks of the models across all datasets and metrics, and the
+critical difference is calculated using the Nemenyi test. If model A is outside the bar corresponding to model B, it
+is significantly better (if it lies to the left) or worse (if it lies to the right) than model B.
+
+<picture>
+  <img alt="Critical difference diagram showing which models significantly outperform which other models"
+src="docs/_static/img/critical_difference_algorithms_LCO.svg?v=4">
+</picture>
+
 ---
 
 This project is a collaboration of the Technical University of Munich (TUM, Germany)
@@ -71,7 +81,7 @@ pip install drevalpy
 Optional Ray Tune support (for parallel hyperparameter tuning):
 
 ```bash
-pip install drevalpy[multiprocessing]
+pip install "drevalpy[multiprocessing]"
 ```
 
 On a regular machine, the installation should take about a minute.
@@ -79,7 +89,7 @@ On a regular machine, the installation should take about a minute.
 Using docker:
 
 ```bash
-docker pull ghcr.io/daisybio/drevalpy:main
+docker pull ghcr.io/daisybio/drevalpy:latest
 ```
 
 From source:
@@ -103,7 +113,7 @@ drevalpy --help
 To run models from the catalog, you can run:
 
 ```bash
-drevalpy --run_id my_first_run --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor --dataset TOYv1 --test_mode LCO
+drevalpy --run_id my_first_run --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor --dataset_name TOYv1 --test_mode LCO
 ```
 
 This will download a small toy drug response dataset, train our baseline models which just predict the drug or tissue means or the mean drug and cell line effects.
@@ -117,7 +127,7 @@ results/my_first_run/TOYv1/LCO
 You can visualize them using
 
 ```bash
-drevalpy-report --run_id my_first_run --dataset TOYv1
+drevalpy report --run_id my_first_run --dataset_name TOYv1
 ```
 
 This will create an index.html file in the results directory which you can open in your web browser.
@@ -128,8 +138,6 @@ You can also run a drug response experiment using Python:
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.datasets import AVAILABLE_DATASETS
-
-from drevalpy.experiment import drug_response_experiment
 
 naive_mean = MODEL_FACTORY["NaivePredictor"] # a naive model that just predicts the training mean
 enet = MODEL_FACTORY["ElasticNet"] # An Elastic Net based on drug fingerprints and gene expression of 1000 landmark genes
@@ -142,14 +150,14 @@ drug_response_experiment(
             baselines=[naive_mean], # Ablation studies and robustness tests are not run for baselines.
             response_data=toyv1,
             n_cv_splits=2, # the number of cross validation splits. Should be higher in practice :)
-            test_mode="LCO", # LCO means Leave-Cell-Line out. This means that the test and validation splits only contain unseed cell lines.
+            test_mode="LCO", # LCO means Leave-Cell-Line out. This means that the test and validation splits only contain unseen cell lines.
             run_id="my_first_run",
             path_data="data", # where the downloaded drug response and feature data is stored
             path_out="results", # results are stored here :)
             hyperparameter_tuning=False) # if True (default), hyperparameters of the models and baselines are tuned.
 ```
 
-This will run the Random Forest and Simple Neural Network models on the CTRPv2 dataset, using the Naive Mean Effects Predictor as a baseline. The results will be stored in `results/my_second_run/CTRPv2/LCO`.
+This will run the ElasticNet and SimpleNeuralNetwork models on the TOYv1 dataset, using the NaivePredictor as a baseline. The results will be stored in `results/my_first_run/TOYv1/LCO`.
 To obtain evaluation metrics, you can use:
 
 ```python
@@ -164,7 +172,7 @@ create_report(
 ```
 
 We recommend the use of our Nextflow pipeline for computational demanding runs and for improved reproducibility.
-No knowledge of Nextflow is required to run it. The nextflow pipeline is available here: [nf-core-drugresponseeval](https://github.com/JudithBernett/nf-core-drugresponseeval).
+No knowledge of Nextflow is required to run it. The nextflow pipeline is available here: [nf-core/drugresponseeval](https://github.com/nf-core/drugresponseeval).
 
 ## Example Report
 

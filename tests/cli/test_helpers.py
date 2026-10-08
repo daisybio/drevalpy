@@ -61,3 +61,16 @@ def test_normalize_list_argv_expands_subcommand_cross_study_datasets() -> None:
 def test_normalize_list_argv_does_not_expand_scalar_randomization_mode() -> None:
     argv = ["make-randomization-yamls", "--randomization_mode", "SVCC", "SVRC", "--model_name", "Simple"]
     assert normalize_list_argv(argv) == argv
+
+
+def test_normalize_list_argv_option_value_matching_subcommand_name() -> None:
+    # "report" is the value of --run_id, not the subcommand; root list options must still expand.
+    argv = ["--models", "Simple", "ElasticNet", "--run_id", "report"]
+    assert normalize_list_argv(argv) == [
+        "--models",
+        "Simple",
+        "--models",
+        "ElasticNet",
+        "--run_id",
+        "report",
+    ]

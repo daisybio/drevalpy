@@ -25,7 +25,10 @@ from drevalpy.models.drp_model import DRPModel
         "SimpleNeuralNetwork[chemberta]",
         "MultiViewNeuralNetwork",
         "PharmaFormer",
+        "PaccMann",
         "Precily",
+        "SparseGO",
+        "EnsembleMF",
     ],
 )
 def test_global_models(
@@ -79,11 +82,31 @@ def test_global_models(
     elif model_name == "Precily":
         hpam_combi["epochs"] = 1
         hpam_combi["batch_size"] = 32
+    elif model_name == "SparseGO":
+        hpam_combi["epochs"] = 1
+        hpam_combi["batch_size"] = 32
+    elif model_name == "PaccMann":
+        hpam_combi["epochs"] = 1
+        hpam_combi["gene_list"] = None
+    elif model_name == "EnsembleMF":
+        hpam_combi["n_ensemble"] = 2
+        hpam_combi["max_epochs"] = 1
+        hpam_combi["hidden_dim"] = 32
+        hpam_combi["emb_dim"] = 16
+        hpam_combi["mlp_hidden"] = 16
+        hpam_combi["batch_size"] = 64
+        hpam_combi["n_bits"] = 128  # toy data ships only 128-bit fingerprints
+        hpam_combi["gene_list"] = None  # gene_expression_intersection is not in the toy bundle
     elif model_name == "AdaBoostDecisionTree":
         hpam_combi["max_depth"] = 2
         hpam_combi["min_samples_split"] = 2
         hpam_combi["min_samples_leaf"] = 2
         hpam_combi["n_estimators"] = 2
+    # the toy bundle ships only the reduced landmark gene list
+    if hpam_combi.get("gene_list") == "landmark_genes":
+        hpam_combi["gene_list"] = "landmark_genes_reduced"
+    if "view_configs" in hpam_combi:
+        hpam_combi["view_configs"]["gene_lists"]["gene_expression"] = "landmark_genes_reduced"
     model.build_model(hyperparameters=hpam_combi)
 
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
@@ -135,6 +158,8 @@ def test_global_models(
         try:
             model.save(model_dir)
             loaded_model = model_class.load(model_dir)
+            if model_name == "SparseGO":
+                loaded_model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
             assert isinstance(loaded_model, DRPModel)
 
             preds_after = loaded_model.predict(

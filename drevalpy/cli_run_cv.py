@@ -12,10 +12,18 @@ def run_load_response(
     response_dataset: str,
     cross_study_dataset: bool = False,
     measure: str = "LN_IC50_curvecurator",
+    clean_min_responders: int | None = None,
+    clean_min_responder_frac: float | None = None,
 ) -> None:
-    """Load drug response CSV and pickle a ``DrugResponseDataset``."""
+    """
+    Load drug response CSV and pickle a ``DrugResponseDataset``.
+
+    If ``clean_min_responders`` or ``clean_min_responder_frac`` is set, whole drugs failing the responder
+    criterion are removed (needs a curve-curated CSV with a ``Regulation`` column). The dataset keeps its
+    base name so that downstream steps still find its feature files.
+    """
     from drevalpy.datasets.dataset import DrugResponseDataset
-    from drevalpy.datasets.loader import AVAILABLE_DATASETS
+    from drevalpy.datasets.loader import AVAILABLE_DATASETS, DrugCurveFilter
     from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 
     input_file = Path(response_dataset)
@@ -41,6 +49,10 @@ def run_load_response(
         response_data = DrugResponseDataset.from_csv(
             input_file=input_file, dataset_name=dataset_name, measure=measure, tissue_column=tissue_column
         )
+    if clean_min_responders is not None or clean_min_responder_frac is not None:
+        drug_filter = DrugCurveFilter(min_responders=clean_min_responders, min_responder_frac=clean_min_responder_frac)
+        kept = drug_filter.apply(pd.read_csv(input_file, dtype={"pubchem_id": str}))[DRUG_IDENTIFIER].unique()
+        response_data.reduce_to(drug_ids=kept)
     outfile = f"cross_study_{dataset_name}.pkl" if cross_study_dataset else "response_dataset.pkl"
     with open(outfile, "wb") as f:
         pickle.dump(response_data, f)
@@ -53,18 +65,23 @@ def run_cv_split(
     test_mode: str = "LPO",
     validation_ratio: float = 0.1,
     seed: int = 42,
+    custom_splitter_path: str | None = None,
 ) -> None:
     """Split pickled response data into CV fold pickles."""
+    from drevalpy.datasets.splits import create_and_record_splits
+
     with open(response, "rb") as f:
         response_data = pickle.load(f)
-    response_data.remove_nan_responses()
-    response_data.split_dataset(
+    create_and_record_splits(
+        response_data,
+        split_path=".",
+        split_label=test_mode,
+        external_splitter=custom_splitter_path,
+        test_mode=test_mode,
         n_cv_splits=n_cv_splits,
-        mode=test_mode,
-        split_validation=True,
-        split_early_stopping=True,
         validation_ratio=validation_ratio,
         random_state=seed,
+        split_early_stopping=True,
     )
     for split_index, split in enumerate(response_data.cv_splits):
         with open(f"split_{split_index}.pkl", "wb") as f:

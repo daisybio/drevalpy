@@ -150,19 +150,12 @@ def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
     for m in metric:
         if m not in AVAILABLE_METRICS:
             raise AssertionError(f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}")
-        if len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions)):
+        # mask out rows where either the prediction or the response is NaN
+        mask = ~np.isnan(predictions) & ~np.isnan(response)
+        if mask.sum() < 2:
+            # fewer than two valid (prediction, response) pairs -> metric undefined
             results[m] = float(np.nan)
         else:
-            # check whether the predictions contain NaNs
-            if np.any(np.isnan(predictions)):
-                # if there are only NaNs in the predictions, the metric is NaN
-                if np.all(np.isnan(predictions)):
-                    results[m] = float(np.nan)
-                else:
-                    # remove the rows with NaNs in the predictions and response
-                    mask = ~np.isnan(predictions)
-                    results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions[mask], y_true=response[mask]))
-            else:
-                results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
+            results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions[mask], y_true=response[mask]))
 
     return results

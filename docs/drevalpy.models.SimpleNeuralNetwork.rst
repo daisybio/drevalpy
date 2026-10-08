@@ -20,6 +20,8 @@ The default ``SimpleNeuralNetwork`` configuration uses gene expression and finge
 .. code-block:: yaml
 
     SimpleNeuralNetwork:
+        gene_list:
+            - landmark_genes
         cell_line_views:
             - gene_expression
         drug_views:
@@ -38,6 +40,8 @@ To train the same ``SimpleNeuralNetwork`` with **ChemBERTa** embeddings instead,
 .. code-block:: yaml
 
     SimpleNeuralNetwork:
+        gene_list:
+            - landmark_genes
         cell_line_views:
             - gene_expression
         drug_views:
@@ -49,6 +53,26 @@ To train the same ``SimpleNeuralNetwork`` with **ChemBERTa** embeddings instead,
               - 16
               - 8
               - 4
+        ...
+
+The ``MultiViewNeuralNetwork`` sets its cell line views and gene lists together in ``view_configs``
+(default: gene expression and mutations) and reduces methylation data, if used, with a PCA
+(``methylation_pca_components``, default: 100):
+
+.. code-block:: yaml
+
+    MultiViewNeuralNetwork:
+        view_configs:
+            - cell_line_views:
+                - gene_expression
+                - mutations
+              gene_lists:
+                gene_expression: landmark_genes
+                mutations: drug_target_genes_all_drugs
+        drug_views:
+            - fingerprints
+        methylation_pca_components:
+            - 100
         ...
 
 For more, see the documentation of the sklearn models: :ref:`flexible-inputs`.

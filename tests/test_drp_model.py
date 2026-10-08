@@ -9,12 +9,13 @@ import pandas as pd
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.utils import DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (
     get_multiomics_feature_dataset,
     iterate_features,
     load_and_select_gene_features,
+    load_cl_ids_and_tissues_from_csv,
     load_cl_ids_from_csv,
     load_drug_fingerprint_features,
     load_drug_ids_from_csv,
@@ -42,6 +43,8 @@ def test_factory() -> None:
     assert "MOLIR" in MODEL_FACTORY
     assert "SuperFELTR" in MODEL_FACTORY
     assert "DIPK" in MODEL_FACTORY
+    assert "EnsembleMF" in MODEL_FACTORY
+    assert "SparseGO" in MODEL_FACTORY
 
 
 def test_load_cl_ids_from_csv() -> None:
@@ -89,6 +92,34 @@ def test_load_tissues_from_csv() -> None:
             assert isinstance(tissue_value, np.ndarray)
             assert tissue_value.shape == (1,)
             assert tissue_value[0] == expected_tissue
+
+
+def test_load_cl_ids_and_tissues_from_csv() -> None:
+    """Test loading cell line ids and tissues from a CSV file."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
+        temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
+        with open(temp_file, "w") as f:
+            f.write("cellosaurus_id,cell_line_name,tissue\n" "CVCL_X481,201T,lung\n" "CVCL_1045,22Rv1,breast\n")
+
+        features = load_cl_ids_and_tissues_from_csv(temp_dir, "GDSC1_small")
+        assert len(features.features) == 2
+        assert features.features["201T"][TISSUE_IDENTIFIER][0] == "lung"
+        assert features.features["22Rv1"][CELL_LINE_IDENTIFIER][0] == "22Rv1"
+
+
+def test_load_cl_ids_and_tissues_from_csv_missing_tissue_column() -> None:
+    """Test that missing tissue column falls back to cell line ids."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
+        temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
+        with open(temp_file, "w") as f:
+            f.write("cellosaurus_id,cell_line_name\nCVCL_X481,201T\n")
+
+        features = load_cl_ids_and_tissues_from_csv(temp_dir, "GDSC1_small")
+        assert len(features.features) == 1
+        assert features.features["201T"][CELL_LINE_IDENTIFIER][0] == "201T"
+        assert TISSUE_IDENTIFIER not in features.features["201T"]
 
 
 def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[str] = None) -> None:
@@ -180,6 +211,34 @@ def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
         assert np.all(colnames == ["BRCA1", "SCYL3", "TSPAN6"])
     elif gene_list == "gene_list_paccmann_network_prop":
         assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
+
+
+def test_load_and_select_gene_features_reorders_values_to_gene_list() -> None:
+    """
+    Feature values must be reordered to the gene-list order, not the source-CSV order.
+
+    The ``drug_target_genes_all_drugs`` list is ordered ``[TSPAN6, SCYL3, BRCA1]`` while the source CSV
+    lists these genes as ``..., TSPAN6, ..., BRCA1, SCYL3, ...``.
+    """
+    temp = tempfile.TemporaryDirectory()
+    os.mkdir(os.path.join(temp.name, "GDSC1_small"))
+    with open(os.path.join(temp.name, "GDSC1_small", "gene_expression.csv"), "w") as f:
+        f.write(
+            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
+            "CVCL_1104,CAL-120,7.632023171463389,2.9645851205892404,10.3795526353077,3.61479404843988,"
+            "3.38068143582194,7.09344749430946,3.0222634357817597\n"
+        )
+    _write_gene_list(temp, "drug_target_genes_all_drugs")
+
+    features = load_and_select_gene_features("gene_expression", "drug_target_genes_all_drugs", temp.name, "GDSC1_small")
+
+    # meta_info must preserve the gene-list order (not be sorted / not be CSV order)
+    assert list(features.meta_info["gene_expression"]) == ["TSPAN6", "SCYL3", "BRCA1"]
+    # values must follow the same order: TSPAN6, SCYL3, BRCA1 (NOT the CSV order TSPAN6, BRCA1, SCYL3)
+    np.testing.assert_allclose(
+        features.features["CAL-120"]["gene_expression"],
+        [7.632023171463389, 3.61479404843988, 10.3795526353077],
+    )
 
 
 def test_order_load_and_select_gene_features(
