@@ -272,3 +272,4 @@ DEFAULT_FILTERS["modurl"] = modurl
 
 # -- Options for autosectionlabel mappings -----------------------------
 autosectionlabel_prefix_document = True
+autosectionlabel_maxdepth = 2

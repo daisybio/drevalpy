@@ -42,7 +42,7 @@ How to set up your development environment
 
       $ drevalpy --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset_name TOYv1 --test_mode LCO
 
-6. Visualize the results by running the following command:
+7. Visualize the results by running the following command:
 
    .. code:: console
 
