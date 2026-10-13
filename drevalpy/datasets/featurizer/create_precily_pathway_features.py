@@ -9,15 +9,38 @@ Output: data/<dataset>/precily_pathways.csv   (cell lines x pathways)
 
     python -m drevalpy.datasets.featurizer.create_precily_pathway_features GDSC2 \\
         --gene_sets data/msigdb/c2.cp.v6.1.symbols.gmt
+
+If --gene_sets is not given, c2.cp.v6.1.symbols.gmt is downloaded from MSigDB release 6.1 into <data_path>/meta.
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import urllib.request
 
 import numpy as np
 import pandas as pd
+
+# datasets whose gene_expression.csv holds linear TPM (the others are already log-scaled)
+TPM_DATASETS = {"CTRPv1", "CTRPv2", "CCLE"}
+GENE_SETS_FILE = "c2.cp.v6.1.symbols.gmt"
+GENE_SETS_URL = f"https://data.broadinstitute.org/gsea-msigdb/msigdb/release/6.1/{GENE_SETS_FILE}"
+
+
+def _download_gene_sets(data_path: str) -> str:
+    """
+    Download the MSigDB C2 CP v6.1 gene sets to <data_path>/meta unless already present.
+
+    :param data_path: root data path
+    :return: path to the .gmt file
+    """
+    gmt_path = os.path.join(data_path, "meta", GENE_SETS_FILE)
+    if not os.path.exists(gmt_path):
+        os.makedirs(os.path.dirname(gmt_path), exist_ok=True)
+        print(f"Downloading {GENE_SETS_URL} -> {gmt_path}")
+        urllib.request.urlretrieve(GENE_SETS_URL, gmt_path)  # noqa: S310
+    return gmt_path
 
 
 def _load_gene_expression(data_path: str, dataset_name: str) -> pd.DataFrame:
@@ -88,7 +111,7 @@ def _run_gsva(
 def create_precily_pathway_features(
     data_path: str,
     dataset_name: str,
-    gene_sets: str,
+    gene_sets: str | None = None,
     min_size: int = 5,
     max_size: int = 2000,
     kcdf: str = "Gaussian",
@@ -101,7 +124,7 @@ def create_precily_pathway_features(
 
     :param data_path: root data path
     :param dataset_name: dataset name
-    :param gene_sets: path to MSigDB C2 CP v6.1 .gmt file
+    :param gene_sets: path to MSigDB C2 CP v6.1 .gmt file; downloaded if None
     :param min_size: minimum gene-set size
     :param max_size: maximum gene-set size
     :param kcdf: kernel for the CDF ("Gaussian" for log2(TPM+1))
@@ -109,11 +132,17 @@ def create_precily_pathway_features(
     :param threads: parallelism
     :param seed: random seed
     """
+    if gene_sets is None:
+        gene_sets = _download_gene_sets(data_path)
     expr = _load_gene_expression(data_path, dataset_name)  # [cell lines x genes]
 
     before = len(expr)
     expr = expr.loc[~expr.index.duplicated(keep="first")]
     print(f"Removed {before - len(expr)} duplicated cell lines")
+
+    # like the original Precily: GSVA on log2(TPM + 1)
+    if dataset_name in TPM_DATASETS:
+        expr = np.log2(expr + 1)
 
     # gseapy expects genes in rows, samples in columns.
     expr_genes_by_samples = expr.T
@@ -151,8 +180,8 @@ def main() -> None:
     parser.add_argument("--data_path", default="data")
     parser.add_argument(
         "--gene_sets",
-        required=True,
-        help="path to MSigDB C2 CP v6.1 .gmt file (c2.cp.v6.1.symbols.gmt)",
+        default=None,
+        help="path to MSigDB C2 CP v6.1 .gmt file (c2.cp.v6.1.symbols.gmt); downloaded from MSigDB if not given",
     )
     parser.add_argument("--min_size", type=int, default=5)
     parser.add_argument("--max_size", type=int, default=2000)
