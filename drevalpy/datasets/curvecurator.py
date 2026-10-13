@@ -91,7 +91,7 @@ def _prepare_toml(
             "doses": doses,
             "dose_scale": "1e-06",
             "dose_unit": "uM",
-            "control_experiment": [i for i in range(n_replicates)],
+            "control_experiment": [*range(n_replicates)],
             "measurement_type": "OTHER",
             "data_type": "OTHER",
             "search_engine": "OTHER",
