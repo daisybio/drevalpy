@@ -145,6 +145,19 @@ Cell lines are matched through the ``cell_line_names.csv`` of the dataset. The b
 standard deviation of the training rows, which linear models with a penalty need. Set
 ``target_mutation_standardize: false`` to switch it off.
 
+Where the tables come from:
+
+- ``functional_status_matrix.csv`` is built from the DepMap 24Q4 files ``OmicsSomaticMutations.csv`` and ``Model.csv`` by
+  ``drevalpy/datasets/featurizer/create_target_mutation_status.py``, which also downloads them from figshare (md5
+  checked). Per variant and gene the status is ``activating`` (hotspot or oncogene high impact), ``LoF`` (truncating
+  variant; for the tumour suppressors TP53, PTEN and NF1 also hotspots), ``other`` or ``wildtype``. An oncogene counts as
+  ``LoF`` only if all its variants are truncating. ``PI3K_AKT`` and ``RAS_MAPK`` are aggregates of their components.
+  A splice variant without protein change is not recognized as truncating, so it can stay ``activating``.
+- ``curated_drug_target_variant.csv`` is curated by hand: one main target gene per drug that is a column of the status
+  matrix, and the status that sensitizes. Drivers that are fusions or amplifications (ALK, MET, ERBB2, FGFR) cannot be
+  represented and are left out. A drug is demoted if the sensitizing group does not respond more strongly in the
+  response data (Cohen d <= -0.3, p < 0.01, at least 5 cell lines per group); the response data never promotes an entry.
+
 Naive Predictors
 --------------------------------------------
 
