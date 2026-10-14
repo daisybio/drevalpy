@@ -276,16 +276,19 @@ class DrugCurveFilter:
         :param frame: response frame; must carry the CurveCurator ``Regulation`` column.
         :return: the frame restricted to drugs that pass the threshold.
         :raises ValueError: if ``frame`` is not curve-curated (no ``Regulation`` column).
+        :raises AssertionError: if :attr:`min_responder_frac` is set but :attr:`min_responders` is not.
         """
         if "Regulation" not in frame.columns:
             raise ValueError(
                 "Drug cleaning needs curve-curated data (a 'Regulation' column), which this "
                 "dataset does not have. Load it with a curve-curated measure / dataset first."
             )
-        n_sig = frame["Regulation"].isin(self.significant_labels).groupby(frame[DRUG_IDENTIFIER]).sum()
+        n_sig = frame["Regulation"].isin(self.significant_labels).groupby(frame[DRUG_IDENTIFIER]).sum().astype(int)
         if self.min_responders is not None:
             keep = n_sig.index[n_sig >= self.min_responders]
         else:
+            if self.min_responder_frac is None:
+                raise AssertionError("min_responder_frac should be set by now")
             n_total = frame.groupby(DRUG_IDENTIFIER).size()
             keep = n_sig.index[(n_sig / n_total) >= self.min_responder_frac]
         return frame[frame[DRUG_IDENTIFIER].isin(set(keep))]

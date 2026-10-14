@@ -20,7 +20,7 @@ def _check_constant_prediction(y_pred: np.ndarray) -> bool:
     """
     tol = 1e-6
     # no variation in predictions
-    return bool(np.all(np.isclose(y_pred, y_pred[0], atol=tol)))
+    return bool(np.isclose(np.max(y_pred), np.min(y_pred), atol=tol))
 
 
 def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
@@ -32,7 +32,7 @@ def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
     """
     tol = 1e-6
     # Check for insufficient sample size or no variation in target
-    return len(y_true) < 2 or bool(np.all(np.isclose(y_true, y_true[0], atol=tol)))
+    return len(y_true) < 2 or bool(np.isclose(np.max(y_true), np.min(y_true), atol=tol))
 
 
 def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:

@@ -142,7 +142,7 @@ def create_precily_pathway_features(
 
     # like the original Precily: GSVA on log2(TPM + 1)
     if dataset_name in TPM_DATASETS:
-        expr = np.log2(expr + 1)
+        expr = (expr + 1).transform(np.log2)
 
     # gseapy expects genes in rows, samples in columns.
     expr_genes_by_samples = expr.T
