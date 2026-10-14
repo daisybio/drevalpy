@@ -188,22 +188,43 @@ def main():
     """Download the DepMap files and write functional_status_matrix.csv."""
     parser = argparse.ArgumentParser(description="Build the functional mutation status matrix from DepMap 24Q4.")
     parser.add_argument(
+        "--data_path",
+        type=str,
+        default="data",
+        help="Data directory. Without --cell_line_names, all <data_path>/*/cell_line_names.csv define the cell lines.",
+    )
+    parser.add_argument(
         "--cell_line_names",
         type=str,
         nargs="+",
-        required=True,
+        default=None,
         help="cell_line_names.csv file(s) (cellosaurus_id, cell_line_name) defining the cell lines of the matrix.",
     )
-    parser.add_argument("--depmap_dir", type=str, default="data/depmap_24Q4", help="Where the raw files are stored.")
     parser.add_argument(
-        "--output", type=str, default="data/meta/target_mutation/functional_status_matrix.csv", help="Output file."
+        "--depmap_dir",
+        type=str,
+        default=None,
+        help="Where the raw files are stored (default: <data_path>/depmap_24Q4).",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output file (default: <data_path>/meta/target_mutation/functional_status_matrix.csv).",
     )
     args = parser.parse_args()
-    depmap_dir = Path(args.depmap_dir)
+    data_path = Path(args.data_path)
+    depmap_dir = Path(args.depmap_dir) if args.depmap_dir else data_path / "depmap_24Q4"
+    name_files = args.cell_line_names or sorted(str(path) for path in data_path.glob("*/cell_line_names.csv"))
+    if not name_files:
+        raise FileNotFoundError(f"No cell_line_names.csv found below {data_path}.")
+    # also the cell lines of the binary mutation tables: some are in no cell_line_names.csv
+    mutation_files = [] if args.cell_line_names else sorted(str(path) for path in data_path.glob("*/mutations.csv"))
     download_depmap(depmap_dir)
-    cell_lines = pd.concat([pd.read_csv(path, dtype=str) for path in args.cell_line_names])
-    matrix = build_matrix(depmap_dir, cell_lines[["cellosaurus_id", "cell_line_name"]])
-    output = Path(args.output)
+    id_columns = ["cellosaurus_id", "cell_line_name"]
+    cell_lines = pd.concat([pd.read_csv(path, dtype=str, usecols=id_columns) for path in name_files + mutation_files])
+    matrix = build_matrix(depmap_dir, cell_lines[id_columns])
+    output = Path(args.output or data_path / "meta" / "target_mutation" / "functional_status_matrix.csv")
     output.parent.mkdir(parents=True, exist_ok=True)
     matrix.to_csv(output, index=False)
     print(f"{output}: {matrix['cellosaurus_id'].nunique()} cell lines, {len(matrix)} rows")

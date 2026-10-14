@@ -153,10 +153,19 @@ Where the tables come from:
   variant; for the tumour suppressors TP53, PTEN and NF1 also hotspots), ``other`` or ``wildtype``. An oncogene counts as
   ``LoF`` only if all its variants are truncating. ``PI3K_AKT`` and ``RAS_MAPK`` are aggregates of their components.
   A splice variant without protein change is not recognized as truncating, so it can stay ``activating``.
-- ``curated_drug_target_variant.csv`` is curated by hand: one main target gene per drug that is a column of the status
-  matrix, and the status that sensitizes. Drivers that are fusions or amplifications (ALK, MET, ERBB2, FGFR) cannot be
-  represented and are left out. A drug is demoted if the sensitizing group does not respond more strongly in the
-  response data (Cohen d <= -0.3, p < 0.01, at least 5 cell lines per group); the response data never promotes an entry.
+  Without arguments the script uses every ``<data_path>/*/cell_line_names.csv`` and ``mutations.csv``, so the matrix
+  covers all datasets in ``data_path``.
+- ``curated_drug_target_variant.csv`` is built by ``drevalpy/datasets/featurizer/create_curated_drug_target_table.py``
+  from the hand-written seed ``target_mutation_seed.csv`` (drug, ``pubchem_id``, main target gene, sensitizing status)
+  and the response data of CTRPv2, GDSC1 and CCLE (``--datasets``). Drivers that are fusions or amplifications (ALK, MET,
+  ERBB2, FGFR1, FGFR4) cannot be represented and are dropped; ``PI3K_AKT`` entries are mapped to PIK3CA (activating) or
+  PTEN (LoF). Each entry is tested with the scale-free Cohen d of the sensitizing group against all other cell lines on
+  the AUC (Mann-Whitney, at least 5 cell lines per group). It is *supported* at d <= -0.3 and p < 0.01. A seed entry
+  that is testable but neither supported, underpowered (fewer than 10 sensitizing cell lines or no significance) nor
+  weak (d < 0, p < 0.01) is refuted and removed. A seed entry marked as draft is only added if it is supported
+  (``--draft_policy supported``) or at least not refuted (``--draft_policy not_refuted``). Because the response data
+  decide which drafts enter, evaluations on these datasets are not fully independent of the curation; the script writes
+  ``curated_drug_target_report.csv`` with the outcome and the statistics per entry.
 
 Naive Predictors
 --------------------------------------------
