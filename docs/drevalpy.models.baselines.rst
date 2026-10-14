@@ -156,16 +156,14 @@ Where the tables come from:
   Without arguments the script uses every ``<data_path>/*/cell_line_names.csv`` and ``mutations.csv``, so the matrix
   covers all datasets in ``data_path``.
 - ``curated_drug_target_variant.csv`` is built by ``drevalpy/datasets/featurizer/create_curated_drug_target_table.py``
-  from the hand-written seed ``target_mutation_seed.csv`` (drug, ``pubchem_id``, main target gene, sensitizing status)
-  and the response data of CTRPv2, GDSC1 and CCLE (``--datasets``). Drivers that are fusions or amplifications (ALK, MET,
-  ERBB2, FGFR1, FGFR4) cannot be represented and are dropped; ``PI3K_AKT`` entries are mapped to PIK3CA (activating) or
-  PTEN (LoF). Each entry is tested with the scale-free Cohen d of the sensitizing group against all other cell lines on
-  the AUC (Mann-Whitney, at least 5 cell lines per group). It is *supported* at d <= -0.3 and p < 0.01. A seed entry
-  that is testable but neither supported, underpowered (fewer than 10 sensitizing cell lines or no significance) nor
-  weak (d < 0, p < 0.01) is refuted and removed. A seed entry marked as draft is only added if it is supported
-  (``--draft_policy supported``) or at least not refuted (``--draft_policy not_refuted``). Because the response data
-  decide which drafts enter, evaluations on these datasets are not fully independent of the curation; the script writes
-  ``curated_drug_target_report.csv`` with the outcome and the statistics per entry.
+  from the hand-kept seed ``target_mutation_seed.csv`` (drug, ``pubchem_id``, main target gene, sensitizing status,
+  rationale in ``notes``). It does not read any response data, so the table is the same for every dataset and the
+  evaluation does not depend on how it was curated. The script only drops entries that the status matrix cannot
+  represent: drivers that are fusions or amplifications (ALK, MET, ERBB2, FGFR1, FGFR4). It also writes
+  ``curated_drug_target_report.csv`` with the outcome per seed entry.
+- ``check_curated_drug_target_table.py`` is an optional diagnostic. For every drug it compares the AUC of the
+  sensitizing group with all other cell lines (Cohen d, Mann-Whitney) in the given datasets and writes
+  ``curated_drug_target_check.csv``. It changes nothing; it shows where an entry is not supported by the data.
 
 Naive Predictors
 --------------------------------------------
