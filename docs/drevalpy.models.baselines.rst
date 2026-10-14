@@ -118,6 +118,33 @@ preprocessing transformer:
 - ``proteomics_normalization_width`` (default: 0.3): width parameter for median-center normalization
 - ``proteomics_normalization_downshift`` (default: 1.8): downshift parameter for median-center normalization
 
+Mutation status of the target gene
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The sklearn models can append the mutation status of the gene a drug acts on. The feature depends on the pair of
+cell line and drug (BRAF for dabrafenib, PIK3CA for alpelisib), so it is built in ``get_concatenated_features``
+and is not a cell line or a drug view. It is switched on with the hyperparameter ``target_mutation``:
+
+.. code-block:: yaml
+
+    RandomForest:
+      target_mutation:
+        - true
+      ...
+
+The block has 6 columns, appended to the right of the other features: a one-hot encoding of the status
+(``activating``, ``LoF``, ``other``, ``wildtype``, ``missing``) and ``target_sensitizing``, which is 1 if the status
+equals the status that makes cells sensitive to the drug. Drugs without an entry get only zeros, and a cell line
+that is not in the status table gets ``missing``. It needs two tables in ``<data_path>/meta/target_mutation/``
+(another directory can be set with ``target_mutation_path``):
+
+- ``curated_drug_target_variant.csv``: ``pubchem_id``, ``biomarker_gene`` and ``sensitive_status`` per drug.
+- ``functional_status_matrix.csv``: ``cellosaurus_id``, ``gene`` and ``status`` per cell line and gene.
+
+Cell lines are matched through the ``cell_line_names.csv`` of the dataset. The block is standardized with the mean and
+standard deviation of the training rows, which linear models with a penalty need. Set
+``target_mutation_standardize: false`` to switch it off.
+
 Naive Predictors
 --------------------------------------------
 

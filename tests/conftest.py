@@ -307,3 +307,63 @@ def ensure_sparsego_ontology_features(data_dir) -> None:
             import traceback
 
             traceback.print_exc()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_target_mutation_features(data_dir) -> None:
+    """
+    Ensure synthetic target mutation tables exist in <data_dir>/meta/target_mutation.
+
+    The tests only need files that look like the real ones, not the real ones: some drugs of the toy datasets get a
+    target gene, the cell lines get random functional statuses, a few cell lines are left out (status "missing").
+    Existing files are not overwritten.
+
+    :param data_dir: path to the data directory
+    """
+    import numpy as np
+    import pandas as pd
+
+    path_data = str(data_dir)
+    try:
+        load_toyv1(path_data)
+        load_toyv2(path_data)
+    except Exception as e:
+        print(f"Warning: could not load datasets for target mutation features: {e}")
+        return
+
+    target_dir = pathlib.Path(path_data) / "meta" / "target_mutation"
+    curated_file = target_dir / "curated_drug_target_variant.csv"
+    status_file = target_dir / "functional_status_matrix.csv"
+    if curated_file.exists() and status_file.exists():
+        return
+
+    drugs = pd.concat(
+        [pd.read_csv(pathlib.Path(path_data) / name / "drug_names.csv", dtype=str) for name in ["TOYv1", "TOYv2"]]
+    ).drop_duplicates("pubchem_id")
+    cell_lines = pd.concat(
+        [pd.read_csv(pathlib.Path(path_data) / name / "cell_line_names.csv", dtype=str) for name in ["TOYv1", "TOYv2"]]
+    ).drop_duplicates("cellosaurus_id")
+
+    genes = ["BRAF", "EGFR", "PIK3CA", "TP53"]
+    curated = drugs.iloc[: len(drugs) // 2].copy()
+    curated["biomarker_gene"] = [genes[i % len(genes)] for i in range(len(curated))]
+    curated["sensitive_status"] = np.where(curated["biomarker_gene"] == "TP53", "wildtype", "activating")
+    curated["selectivity"] = "selective"
+    curated["notes"] = "synthetic test entry"
+
+    rng = np.random.default_rng(seed=42)
+    covered = cell_lines.iloc[: max(len(cell_lines) - 3, 1)]
+    status = pd.DataFrame(
+        [
+            (row.cell_line_name, row.cellosaurus_id, gene, rng.choice(["activating", "LoF", "other", "wildtype"]))
+            for row in covered.itertuples()
+            for gene in genes
+        ],
+        columns=["sample", "cellosaurus_id", "gene", "status"],
+    )
+    target_dir.mkdir(parents=True, exist_ok=True)
+    print("Creating synthetic target mutation tables...")
+    curated[["drug_name", "biomarker_gene", "sensitive_status", "selectivity", "notes", "pubchem_id"]].to_csv(
+        curated_file, index=False
+    )
+    status.to_csv(status_file, index=False)
