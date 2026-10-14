@@ -95,7 +95,8 @@ def load_per_drug_pearson(true_vs_pred_path: str, test_mode: str = "LCO") -> pd.
     df = df[(df["rand_setting"] == "predictions") & (df["test_mode"] == test_mode)]
 
     per_drug = df.groupby(["algorithm", "CV_split", "pubchem_id"]).apply(
-        lambda x: pearson(x["y_pred"].to_numpy(), x["y_true"].to_numpy()), include_groups=False
+        lambda x: pearson(x["y_pred"].to_numpy(), x["y_true"].to_numpy()),
+        include_groups=False,  # type: ignore[call-overload]
     )
     per_split = per_drug.groupby(["algorithm", "CV_split"]).mean()
     df_agg = per_split.groupby("algorithm").agg(["mean", "std"]).reset_index()
