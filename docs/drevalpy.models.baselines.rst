@@ -313,8 +313,13 @@ and the spread over folds drops from 0.043 to 0.021 -- no jump, but no loss, and
 
 **Inputs.** The script downloads nothing. The panel file is a user-supplied input (``--panel``): the BED file of the
 Ion AmpliSeq Transcriptome Human Gene Expression Panel, published by Thermo Fisher Scientific (semicolon separated,
-no header, gene symbol in the seventh column; adjust with ``--panel_symbol_column``). The protect list and the
-probemap are inputs as well.
+no header, gene symbol in the seventh column; adjust with ``--panel_symbol_column``). The target file
+(``hg19_AmpliSeq_Transcriptome_21K_v1.bed``, ERCC variant) is obtained from Thermo Fisher Scientific via the product
+page or Torrent Suite (a free account is usually required); there is no stable direct download link. The panel is
+described in the user guide
+`MAN0010742 <https://assets.thermofisher.com/TFS-Assets/LSG/manuals/MAN0010742_AmpliSeqTranscriptomeHumanGeneExpr_UG.pdf>`_
+(over 20,000 genes). Illumina publishes the same gene content as a gene list for AmpliSeq for Illumina. The protect
+list and the probemap are inputs as well.
 
 .. code-block:: bash
 
