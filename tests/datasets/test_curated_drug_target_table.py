@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.datasets.featurizer.check_curated_drug_target_table import summarize, check_candidate
+from drevalpy.datasets.featurizer.check_curated_drug_target_table import check_candidate, summarize
 from drevalpy.datasets.featurizer.create_curated_drug_target_table import NOT_REPRESENTABLE, SEED_FILE, curate
 
 

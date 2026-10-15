@@ -185,7 +185,11 @@ def build_matrix(depmap_dir: Path, cell_lines: pd.DataFrame) -> pd.DataFrame:
 
 
 def main():
-    """Download the DepMap files and write functional_status_matrix.csv."""
+    """
+    Download the DepMap files and write functional_status_matrix.csv.
+
+    :raises FileNotFoundError: if no cell_line_names.csv is found below the data path
+    """
     parser = argparse.ArgumentParser(description="Build the functional mutation status matrix from DepMap 24Q4.")
     parser.add_argument(
         "--data_path",

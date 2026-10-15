@@ -9,8 +9,8 @@ import pytest
 from drevalpy.datasets.featurizer import (
     check_curated_drug_target_table,
     create_curated_drug_target_table,
-    create_target_mutation_status as status_script,
 )
+from drevalpy.datasets.featurizer import create_target_mutation_status as status_script
 
 GENES = status_script.GENES
 
@@ -30,7 +30,16 @@ GENES = status_script.GENES
     ],
 )
 def test_variant_status(gene, hotspot, lof, onc, pc, expected):
-    """Rules for one variant, oncogene and tumour suppressor."""
+    """
+    Rules for one variant, oncogene and tumour suppressor.
+
+    :param expected: expected result
+    :param gene: gene symbol
+    :param hotspot: variant is a hotspot
+    :param lof: variant is likely loss of function
+    :param onc: variant is an oncogene high impact variant
+    :param pc: variant has a protein change
+    """
     assert status_script.variant_status(gene, hotspot, lof, onc, pc) == expected
 
 
@@ -48,7 +57,13 @@ def test_variant_status(gene, hotspot, lof, onc, pc, expected):
     ],
 )
 def test_gene_status(gene, variants, expected):
-    """Combination of the variants of one gene."""
+    """
+    Combination of the variants of one gene.
+
+    :param expected: expected result
+    :param gene: gene symbol
+    :param variants: variant statuses of the gene
+    """
     assert status_script.gene_status(variants, gene) == expected
 
 
@@ -93,7 +108,11 @@ def _cell_lines():
 
 
 def test_build_matrix(tmp_path):
-    """Rows per cell line in input order, then the pathway blocks; cell lines without a model are left out."""
+    """
+    Rows per cell line in input order, then the pathway blocks; cell lines without a model are left out.
+
+    :param tmp_path: pytest temporary directory
+    """
     _write_depmap(tmp_path)
     matrix = status_script.build_matrix(tmp_path, _cell_lines())
     assert len(matrix) == 2 * (len(GENES) + 2)
@@ -112,7 +131,12 @@ def test_build_matrix(tmp_path):
 
 
 def test_download_depmap(tmp_path, monkeypatch):
-    """A present file with the right md5 is skipped; a wrong download is an error."""
+    """
+    A present file with the right md5 is skipped; a wrong download is an error.
+
+    :param monkeypatch: pytest monkeypatch fixture
+    :param tmp_path: pytest temporary directory
+    """
     content = b"abc"
     md5 = hashlib.md5(content, usedforsecurity=False).hexdigest()
     monkeypatch.setattr(status_script, "DEPMAP_FILES", {"f.csv": ("https://example.org/f", md5)})
@@ -136,7 +160,12 @@ def test_download_depmap(tmp_path, monkeypatch):
 
 
 def test_main_defaults_use_all_datasets(tmp_path, monkeypatch):
-    """Without arguments the matrix covers every dataset folder, including cell lines only in mutations.csv."""
+    """
+    Without arguments the matrix covers every dataset folder, including cell lines only in mutations.csv.
+
+    :param monkeypatch: pytest monkeypatch fixture
+    :param tmp_path: pytest temporary directory
+    """
     depmap = tmp_path / "depmap_24Q4"
     depmap.mkdir()
     _write_depmap(depmap)
@@ -158,7 +187,12 @@ def test_main_defaults_use_all_datasets(tmp_path, monkeypatch):
 
 
 def test_curation_and_check_scripts_end_to_end(tmp_path, monkeypatch):
-    """The curation script writes table and report; the check script reads them and changes nothing."""
+    """
+    The curation script writes table and report; the check script reads them and changes nothing.
+
+    :param monkeypatch: pytest monkeypatch fixture
+    :param tmp_path: pytest temporary directory
+    """
     directory = tmp_path / "meta" / "target_mutation"
     directory.mkdir(parents=True)
     cells = [f"CVCL_{i}" for i in range(40)]
