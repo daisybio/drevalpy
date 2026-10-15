@@ -118,6 +118,70 @@ preprocessing transformer:
 - ``proteomics_normalization_width`` (default: 0.3): width parameter for median-center normalization
 - ``proteomics_normalization_downshift`` (default: 1.8): downshift parameter for median-center normalization
 
+Mutation status of the target gene
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The sklearn models can append the mutation status of the gene a drug acts on. The feature depends on the pair of
+cell line and drug (BRAF for dabrafenib, PIK3CA for alpelisib), so it is built in ``get_concatenated_features``
+and is not a cell line or a drug view. It is switched on with the hyperparameter ``target_mutation``:
+
+.. code-block:: yaml
+
+    RandomForest:
+      target_mutation:
+        - true
+      ...
+
+The block has 6 columns, appended to the right of the other features: a one-hot encoding of the status
+(``activating``, ``LoF``, ``other``, ``wildtype``, ``missing``) and ``target_sensitizing``, which is 1 if the status
+equals the status that makes cells sensitive to the drug. Drugs without an entry get only zeros, and a cell line
+that is not in the status table gets ``missing``. It needs two tables in ``<data_path>/meta/target_mutation/``
+(another directory can be set with ``target_mutation_path``):
+
+- ``curated_drug_target_variant.csv``: ``pubchem_id``, ``biomarker_gene`` and ``sensitive_status`` per drug.
+- ``functional_status_matrix.csv``: ``cellosaurus_id``, ``gene`` and ``status`` per cell line and gene.
+
+Cell lines are matched through the ``cell_line_names.csv`` of the dataset. The block is standardized with the mean and
+standard deviation of the training rows, which linear models with a penalty need. Set
+``target_mutation_standardize: false`` to switch it off.
+
+Where the tables come from. All scripts are in ``drevalpy/datasets/featurizer/`` and write to
+``<data_path>/meta/target_mutation/``. Run them in this order (``--data_path`` defaults to ``data``):
+
+.. code-block:: bash
+
+    python -m drevalpy.datasets.featurizer.create_target_mutation_status --data_path data
+    python -m drevalpy.datasets.featurizer.create_curated_drug_target_table --data_path data
+    python -m drevalpy.datasets.featurizer.check_curated_drug_target_table --data_path data  # optional
+
+- ``functional_status_matrix.csv`` is built from the DepMap 24Q4 files ``OmicsSomaticMutations.csv`` and ``Model.csv`` by
+  ``drevalpy/datasets/featurizer/create_target_mutation_status.py``, which also downloads them from figshare (md5
+  checked). Per variant and gene the status is ``activating`` (hotspot or oncogene high impact), ``LoF`` (truncating
+  variant; for the tumour suppressors TP53, PTEN and NF1 also hotspots), ``other`` or ``wildtype``. An oncogene counts as
+  ``LoF`` only if all its variants are truncating. ``PI3K_AKT`` and ``RAS_MAPK`` are aggregates of their components.
+  A splice variant without protein change is not recognized as truncating, so it can stay ``activating``.
+  Without arguments the script uses every ``<data_path>/*/cell_line_names.csv`` and ``mutations.csv``, so the matrix
+  covers all datasets in ``data_path``.
+- ``curated_drug_target_variant.csv`` is built by ``drevalpy/datasets/featurizer/create_curated_drug_target_table.py``
+  from the hand-kept seed ``target_mutation_seed.csv`` (drug, ``pubchem_id``, main target gene, sensitizing status,
+  rationale in ``notes``). It does not read any response data, so the table is the same for every dataset and the
+  evaluation does not depend on how it was curated. The script only drops entries that the status matrix cannot
+  represent: drivers that are fusions or amplifications (ALK, MET, ERBB2, FGFR1, FGFR4). It also writes
+  ``curated_drug_target_report.csv`` with the outcome per seed entry.
+- Origin of ``target_mutation_seed.csv`` (95 drugs, column ``origin``): 48 rows (``existing``) are the hand-curated
+  entries of the first release of the table, made for CTRPv2. 47 rows (``draft``) were added later for drugs of GDSC1
+  that act on one of the genes of the status matrix. Every row gives the main target gene and the sensitizing status
+  from the known mechanism of action, with the rationale in ``notes``. The rows carry no literature reference each, and
+  the ``draft`` rows were not validated against the response data on purpose. Drugs that GDSC1 lists under a code name
+  use that code name as ``pubchem_id``. To add a drug, append a row to the seed with a unique ``pubchem_id`` and run the
+  curation script again; the column ``origin`` is only bookkeeping and is not written to the curated table.
+  Flow: seed -> ``create_curated_drug_target_table.py`` (drops entries on fusion or amplification drivers, validates
+  status values and duplicates) -> ``curated_drug_target_variant.csv`` and ``curated_drug_target_report.csv`` -> read by
+  ``TargetMutationFeatures`` at model build time.
+- ``check_curated_drug_target_table.py`` is an optional diagnostic. For every drug it compares the AUC of the
+  sensitizing group with all other cell lines (Cohen d, Mann-Whitney) in the given datasets and writes
+  ``curated_drug_target_check.csv``. It changes nothing; it shows where an entry is not supported by the data.
+
 Naive Predictors
 --------------------------------------------
 
