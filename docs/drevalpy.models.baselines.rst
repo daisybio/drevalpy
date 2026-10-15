@@ -311,20 +311,24 @@ and the spread over folds drops from 0.043 to 0.021 -- no jump, but no loss, and
 4. ``tcga_autoencoder_genes_available`` (11,883): minus the genes without a locus in the TCGA gene annotation
    (``gencode.v23.probemap.tsv``), which cannot be mapped to TCGA expression. Only SCAND3 is dropped.
 
-**Inputs.** The script downloads nothing. The panel file is a user-supplied input (``--panel``): the BED file of the
-Ion AmpliSeq Transcriptome Human Gene Expression Panel, published by Thermo Fisher Scientific (semicolon separated,
-no header, gene symbol in the seventh column; adjust with ``--panel_symbol_column``). The target file
-(``hg19_AmpliSeq_Transcriptome_21K_v1.bed``, ERCC variant) is obtained from Thermo Fisher Scientific via the product
-page or Torrent Suite (a free account is usually required); there is no stable direct download link. The panel is
-described in the user guide
-`MAN0010742 <https://assets.thermofisher.com/TFS-Assets/LSG/manuals/MAN0010742_AmpliSeqTranscriptomeHumanGeneExpr_UG.pdf>`_
-(over 20,000 genes). Illumina publishes the same gene content as a gene list for AmpliSeq for Illumina. The protect
-list and the probemap are inputs as well.
+**Inputs.** By default the script downloads the gene content of the panel: the public *AmpliSeq for Illumina
+Transcriptome RNA Manifest* (dated 2019-03-13, anonymous, 20,802 genes; the ``[Targets]`` section, column ``Gene``)
+
+.. code-block:: text
+
+    https://support.illumina.com/content/dam/illumina-support/documents/downloads/productfiles/ampliseq-for-illumina/ampliseq-for-illumina-transcriptome-rna-manifest-20190313.zip
+
+It has the same genes as the Ion AmpliSeq Transcriptome Human Gene Expression Panel (user guide
+`MAN0010742 <https://assets.thermofisher.com/TFS-Assets/LSG/manuals/MAN0010742_AmpliSeqTranscriptomeHumanGeneExpr_UG.pdf>`_,
+over 20,000 genes); the 10 ERCC spike-in controls of the Thermo Fisher BED file are not part of it and are not in the
+data anyway, so the result is identical. Alternatively, pass the Thermo Fisher target file with ``--panel``
+(``hg19_AmpliSeq_Transcriptome_21K_v1.bed``, ERCC variant; semicolon separated, no header, gene symbol in the seventh
+column, adjustable with ``--panel_symbol_column``). The protect list and the TCGA probemap are inputs as well.
 
 .. code-block:: bash
 
     python -m drevalpy.datasets.featurizer.create_autoencoder_gene_list --data_path data \
-        --panel <panel.bed> --protect <landmark_plus_clinical_drivers.csv> --probemap <gencode.v23.probemap.tsv>
+        --protect <landmark_plus_clinical_drivers.csv> --probemap <gencode.v23.probemap.tsv>
 
 With the original inputs the four lists are reproduced byte-identically.
 

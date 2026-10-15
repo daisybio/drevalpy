@@ -12,6 +12,9 @@ autoencoder does the dimensionality reduction.
 """
 
 import argparse
+import io
+import urllib.request
+import zipfile
 from collections.abc import Callable
 from pathlib import Path
 
@@ -23,6 +26,11 @@ ID_COLUMNS = {"cell_line_name", "cellosaurus_id"}
 #: Noise filter: drop a gene if mean(log2(x + 1)) or the variance of log2(x + 1) is below these values.
 MIN_MEAN = 0.5
 MIN_VARIANCE = 1e-3
+#: Public gene content of the Ion AmpliSeq Transcriptome panel (AmpliSeq for Illumina RNA manifest, dated, anonymous).
+MANIFEST_URL = (
+    "https://support.illumina.com/content/dam/illumina-support/documents/downloads/productfiles/"
+    "ampliseq-for-illumina/ampliseq-for-illumina-transcriptome-rna-manifest-20190313.zip"
+)
 #: Output names, one per step of the chain, in the order they are built.
 STEP_FILES = [
     "ctrpv2_gdsc1_intersection",
@@ -54,6 +62,40 @@ def read_panel_genes(path: Path, symbol_column: int = 6) -> set[str]:
     :returns: gene symbols
     """
     return set(pd.read_csv(path, sep=";", header=None, dtype=str)[symbol_column].str.strip())
+
+
+def parse_manifest(text: str) -> set[str]:
+    """
+    Read the gene symbols of the ``[Targets]`` section of an AmpliSeq for Illumina RNA manifest.
+
+    :param text: content of the manifest (tab separated, sections in square brackets)
+    :returns: gene symbols (column ``Gene``)
+    """
+    lines = text.splitlines()
+    start = lines.index("[Targets]")
+    column = lines[start + 1].split("\t").index("Gene")
+    genes = set()
+    for line in lines[start + 2 :]:  # noqa: E203
+        if line.startswith("["):
+            break
+        fields = line.split("\t")
+        if len(fields) > column and fields[column].strip():
+            genes.add(fields[column].strip())
+    return genes
+
+
+def download_manifest_genes(url: str = MANIFEST_URL, timeout: int = 120) -> set[str]:
+    """
+    Download the public manifest of the panel and return its gene symbols.
+
+    :param url: zip file with one manifest text file
+    :param timeout: seconds
+    :returns: gene symbols
+    """
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})  # noqa: S310
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+        archive = zipfile.ZipFile(io.BytesIO(response.read()))
+    return parse_manifest(archive.read(archive.namelist()[0]).decode("utf-8", "replace"))
 
 
 def read_symbols(path: Path) -> set[str]:
@@ -117,7 +159,12 @@ def main():
     parser = argparse.ArgumentParser(description="Build the gene lists of the TCGA autoencoder gene space.")
     parser.add_argument("--data_path", type=str, default="data", help="Data directory with the dataset folders.")
     parser.add_argument("--datasets", type=str, nargs="+", default=["CTRPv2", "GDSC1"], help="Expression data.")
-    parser.add_argument("--panel", type=str, required=True, help="Ion AmpliSeq Transcriptome panel file (BED).")
+    parser.add_argument(
+        "--panel",
+        type=str,
+        default=None,
+        help="Ion AmpliSeq Transcriptome panel file (BED). Default: download the public Illumina manifest.",
+    )
     parser.add_argument("--panel_symbol_column", type=int, default=6, help="Zero-based gene symbol column.")
     parser.add_argument(
         "--protect",
@@ -140,7 +187,7 @@ def main():
 
     chain = build_chain(
         [expression_genes(data_path / name / "gene_expression.csv") for name in args.datasets],
-        read_panel_genes(Path(args.panel), args.panel_symbol_column),
+        read_panel_genes(Path(args.panel), args.panel_symbol_column) if args.panel else download_manifest_genes(),
         expressed,
         set(pd.read_csv(args.probemap, sep="\t", usecols=["gene"], dtype=str)["gene"]),
     )

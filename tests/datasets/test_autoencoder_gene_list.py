@@ -93,3 +93,21 @@ def test_main_writes_the_four_lists(tmp_path, monkeypatch, capsys):
     for name, expected_genes in expected.items():
         assert pd.read_csv(directory / f"{name}.csv")["Symbol"].tolist() == expected_genes
     assert "dropped 1: ['A']" in capsys.readouterr().out
+
+
+MANIFEST = "[Header]\nx\ty\n\n[Targets]\nID\tGene\tother\na1\tG1\t1\na2\tG2\t2\na3\t\t3\n\n[Other]\nID\tGene\nb\tG9\n"
+
+
+def test_parse_manifest_reads_only_the_targets_section():
+    """Gene symbols come from the Gene column of [Targets]; empty cells and later sections are ignored."""
+    assert script.parse_manifest(MANIFEST) == {"G1", "G2"}
+
+
+def test_download_manifest_genes(tmp_path):
+    """The zip is read from a url (here a local file) and parsed."""
+    import zipfile
+
+    archive = tmp_path / "manifest.zip"
+    with zipfile.ZipFile(archive, "w") as handle:
+        handle.writestr("manifest.txt", MANIFEST)
+    assert script.download_manifest_genes(archive.as_uri()) == {"G1", "G2"}
