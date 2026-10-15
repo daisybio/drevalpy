@@ -275,10 +275,34 @@ leave-cell-line-out over ten folds. Three points matter for reading those number
 - The p-value is a **paired two-sided exact Wilcoxon signed-rank test over the ten per-fold
   values** of that metric, this model against the baseline on identical folds -- not the p-value
   of a correlation test. With ``n = 10`` the smallest p this test can attain is 0.0020.
-- The run encoded **11,883 genes** from a locally built gene list that is not part of the
-  downloadable metadata bundle. The default ``gene_expression_intersection`` has 2,270 genes, so
-  the shipped configuration encodes a gene space about five times smaller and will not reproduce
-  the numbers exactly. The three autoencoder settings above are the ones that run used.
+- The run encoded **11,883 genes** (``tcga_autoencoder_genes_available``), a gene list that is not part of the
+  downloadable metadata bundle. The default ``gene_expression_intersection`` has 2,270 genes, so the shipped
+  configuration encodes a gene space about five times smaller and will not reproduce the numbers exactly. The three
+  autoencoder settings above are the ones that run used. The list can be rebuilt with
+  ``drevalpy/datasets/featurizer/create_autoencoder_gene_list.py``, see below. To use it, copy it to
+  ``<data_path>/meta/gene_lists/`` and set ``gene_list: tcga_autoencoder_genes_available``.
+
+Gene list of the 11,883-gene run
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The list is a chain of set operations; each step writes its own list to ``<data_path>/meta/gene_lists/``:
+
+1. ``ctrpv2_gdsc1_intersection`` (16,159 genes): genes in the expression data of CTRPv2 and GDSC1.
+2. ``ctrpv2_gdsc1_iontorrent_intersection`` (15,701): intersected with the genes of the Ion AmpliSeq Transcriptome
+   Human Gene Expression Panel, the panel behind the expression data (public BED file of the panel; semicolon
+   separated, gene symbol in the seventh column).
+3. ``autoencoder_expressed_genes`` (11,884): intersected with the gene vocabulary of the pretrained autoencoder. This
+   is plain set membership, not a threshold on expression. The vocabulary is an **input** (``--vocabulary``, a csv with
+   a ``Symbol`` column); it cannot be derived from the other inputs.
+4. ``tcga_autoencoder_genes_available`` (11,883): minus the genes without a locus in the TCGA gene annotation
+   (``gencode.v23.probemap.tsv``), which cannot be mapped to TCGA expression. Only SCAND3 is dropped.
+
+.. code-block:: bash
+
+    python -m drevalpy.datasets.featurizer.create_autoencoder_gene_list --data_path data \
+        --panel <panel.bed> --vocabulary <autoencoder_vocabulary.csv> --probemap <gencode.v23.probemap.tsv>
+
+With the original inputs the four lists are reproduced exactly.
 
 Reusing an encoder across models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
