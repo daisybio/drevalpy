@@ -1,5 +1,6 @@
 """Tests for the script that builds the gene lists of the TCGA autoencoder gene space."""
 
+import runpy
 import sys
 
 import numpy as np
@@ -125,3 +126,15 @@ def test_download_manifest_genes(tmp_path):
     with zipfile.ZipFile(archive, "w") as handle:
         handle.writestr("manifest.txt", MANIFEST)
     assert script.download_manifest_genes(archive.as_uri()) == {"G1", "G2"}
+
+
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
+def test_script_starts_as_a_module(monkeypatch):
+    """The script can be started with ``python -m`` and prints its usage.
+
+    :param monkeypatch: pytest monkeypatch fixture
+    """
+    monkeypatch.setattr(sys, "argv", [script.__name__, "--help"])
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_module(script.__name__, run_name="__main__")
+    assert exit_info.value.code == 0
