@@ -145,7 +145,14 @@ Cell lines are matched through the ``cell_line_names.csv`` of the dataset. The b
 standard deviation of the training rows, which linear models with a penalty need. Set
 ``target_mutation_standardize: false`` to switch it off.
 
-Where the tables come from:
+Where the tables come from. All scripts are in ``drevalpy/datasets/featurizer/`` and write to
+``<data_path>/meta/target_mutation/``. Run them in this order (``--data_path`` defaults to ``data``):
+
+.. code-block:: bash
+
+    python -m drevalpy.datasets.featurizer.create_target_mutation_status --data_path data
+    python -m drevalpy.datasets.featurizer.create_curated_drug_target_table --data_path data
+    python -m drevalpy.datasets.featurizer.check_curated_drug_target_table --data_path data  # optional
 
 - ``functional_status_matrix.csv`` is built from the DepMap 24Q4 files ``OmicsSomaticMutations.csv`` and ``Model.csv`` by
   ``drevalpy/datasets/featurizer/create_target_mutation_status.py``, which also downloads them from figshare (md5
