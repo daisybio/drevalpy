@@ -168,6 +168,16 @@ Where the tables come from. All scripts are in ``drevalpy/datasets/featurizer/``
   evaluation does not depend on how it was curated. The script only drops entries that the status matrix cannot
   represent: drivers that are fusions or amplifications (ALK, MET, ERBB2, FGFR1, FGFR4). It also writes
   ``curated_drug_target_report.csv`` with the outcome per seed entry.
+- Origin of ``target_mutation_seed.csv`` (95 drugs, column ``origin``): 48 rows (``existing``) are the hand-curated
+  entries of the first release of the table, made for CTRPv2. 47 rows (``draft``) were added later for drugs of GDSC1
+  that act on one of the genes of the status matrix. Every row gives the main target gene and the sensitizing status
+  from the known mechanism of action, with the rationale in ``notes``. The rows carry no literature reference each, and
+  the ``draft`` rows were not validated against the response data on purpose. Drugs that GDSC1 lists under a code name
+  use that code name as ``pubchem_id``. To add a drug, append a row to the seed with a unique ``pubchem_id`` and run the
+  curation script again; the column ``origin`` is only bookkeeping and is not written to the curated table.
+  Flow: seed -> ``create_curated_drug_target_table.py`` (drops entries on fusion or amplification drivers, validates
+  status values and duplicates) -> ``curated_drug_target_variant.csv`` and ``curated_drug_target_report.csv`` -> read by
+  ``TargetMutationFeatures`` at model build time.
 - ``check_curated_drug_target_table.py`` is an optional diagnostic. For every drug it compares the AUC of the
   sensitizing group with all other cell lines (Cohen d, Mann-Whitney) in the given datasets and writes
   ``curated_drug_target_check.csv``. It changes nothing; it shows where an entry is not supported by the data.
