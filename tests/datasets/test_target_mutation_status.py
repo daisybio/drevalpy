@@ -142,10 +142,7 @@ def test_download_depmap(tmp_path, monkeypatch):
     monkeypatch.setattr(status_script, "DEPMAP_FILES", {"f.csv": ("https://example.org/f", md5)})
     (tmp_path / "f.csv").write_bytes(content)
 
-    def fail(*args):
-        raise AssertionError("must not download")
-
-    monkeypatch.setattr(status_script.urllib.request, "urlretrieve", fail)
+    monkeypatch.setattr(status_script.urllib.request, "urlretrieve", lambda *args: pytest.fail("must not download"))
     status_script.download_depmap(tmp_path)
 
     (tmp_path / "f.csv").write_bytes(b"broken")

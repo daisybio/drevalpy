@@ -1,8 +1,12 @@
 """Tests for the scripts that build and check the curated drug target table."""
 
+import runpy
+import sys
+
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.stats import norm
 
 from drevalpy.datasets.featurizer.check_curated_drug_target_table import check_candidate, summarize
 from drevalpy.datasets.featurizer.create_curated_drug_target_table import NOT_REPRESENTABLE, SEED_FILE, curate
@@ -66,8 +70,49 @@ def test_candidate_verdicts():
     assert check_candidate(response, status, "2", "G", "activating")["verdict"] == "no data"
 
 
+def test_candidate_verdicts_underpowered_and_weak():
+    """A small sensitive group is underpowered; a small but significant effect is weak."""
+    rng = np.random.default_rng(1)
+    cells = [f"CVCL_{i}" for i in range(60)]
+    status = pd.DataFrame({"G": ["activating"] * 6 + ["wildtype"] * 54}, index=cells)
+    flat = pd.DataFrame({"cellosaurus_id": cells, "pubchem_id": "1", "AUC": rng.normal(0.6, 0.05, 60)})
+    assert check_candidate(flat, status, "1", "G", "activating")["verdict"] == "underpowered"
+
+    cells = [f"CVCL_{i}" for i in range(2000)]
+    status = pd.DataFrame({"G": ["activating"] * 1000 + ["wildtype"] * 1000}, index=cells)
+    grid = norm.ppf((np.arange(1000) + 0.5) / 1000) * 0.1  # fixed spread, so that d is exactly -0.2
+    auc = np.concatenate([0.58 + grid, 0.6 + grid])
+    response = pd.DataFrame({"cellosaurus_id": cells, "pubchem_id": "1", "AUC": auc})
+    result = check_candidate(response, status, "1", "G", "activating")
+    assert -0.3 < result["d"] < 0 and result["p"] < 0.01
+    assert result["verdict"] == "weak"
+
+
 def test_summarize_priority():
     """One supporting dataset is enough; only testable datasets without signal refute."""
     assert summarize({"a": {"verdict": "no signal"}, "b": {"verdict": "supported"}}) == "supported"
     assert summarize({"a": {"verdict": "no signal"}, "b": {"verdict": "untestable"}}) == "refuted"
     assert summarize({"a": {"verdict": "no data"}}) == "untestable"
+    assert summarize({"a": {"verdict": "underpowered"}, "b": {"verdict": "no signal"}}) == "underpowered"
+    assert summarize({"a": {"verdict": "weak"}, "b": {"verdict": "no signal"}}) == "weak"
+
+
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
+@pytest.mark.parametrize(
+    "module",
+    [
+        "drevalpy.datasets.featurizer.create_target_mutation_status",
+        "drevalpy.datasets.featurizer.create_curated_drug_target_table",
+        "drevalpy.datasets.featurizer.check_curated_drug_target_table",
+    ],
+)
+def test_scripts_start_as_modules(module, monkeypatch):
+    """Each script can be started with ``python -m`` and prints its usage.
+
+    :param module: dotted name of the script
+    :param monkeypatch: pytest monkeypatch fixture
+    """
+    monkeypatch.setattr(sys, "argv", [module, "--help"])
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_module(module, run_name="__main__")
+    assert exit_info.value.code == 0
