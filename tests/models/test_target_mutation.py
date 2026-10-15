@@ -1,5 +1,7 @@
 """Tests for the target mutation feature of the sklearn models."""
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -7,7 +9,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models.baselines.sklearn_models import ElasticNetModel, RandomForest, SklearnModel
 from drevalpy.models.baselines.target_mutation import FEATURE_NAMES, TargetMutationFeatures
 
-_HYPERPARAMETERS = {
+_HYPERPARAMETERS: dict[type, dict[str, Any]] = {
     ElasticNetModel: {"l1_ratio": 0.5, "alpha": 1.0},
     RandomForest: {"n_estimators": 5, "criterion": "squared_error", "max_samples": 0.5, "n_jobs": 1, "max_depth": 3},
 }
@@ -99,6 +101,7 @@ def _prepare(model_class: type[SklearnModel], data_dir, sample_dataset: DrugResp
         drug_ids=sample_dataset.drug_ids,
         dataset_name="TOYv1",
     )
+    assert cell_line_input is not None and drug_input is not None
     train.reduce_to(cell_line_ids=cell_line_input.identifiers, drug_ids=drug_input.identifiers)
     return model, train, cell_line_input, drug_input
 
