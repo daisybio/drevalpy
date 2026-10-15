@@ -41,7 +41,11 @@ def test_build_chain_is_a_chain_of_subsets():
 
 
 def test_readers(tmp_path):
-    """Expression columns without the id columns, panel symbols from the right column, Symbol lists."""
+    """
+    Expression columns without the id columns, panel symbols from the right column, Symbol lists.
+
+    :param tmp_path: pytest temporary directory
+    """
     pd.DataFrame({"cell_line_name": ["a"], "cellosaurus_id": ["x"], "G1": [1.0], "G2": [2.0]}).to_csv(
         tmp_path / "expr.csv", index=False
     )
@@ -53,7 +57,13 @@ def test_readers(tmp_path):
 
 
 def test_main_writes_the_four_lists(tmp_path, monkeypatch, capsys):
-    """End to end on small files: four sorted lists with a Symbol column, the dropped gene is reported."""
+    """
+    End to end on small files: four sorted lists with a Symbol column, the dropped gene is reported.
+
+    :param capsys: pytest capture fixture
+    :param monkeypatch: pytest monkeypatch fixture
+    :param tmp_path: pytest temporary directory
+    """
     rng = np.random.default_rng(1)
     genes = {"D1": ["A", "B", "C", "D"], "D2": ["A", "B", "C", "E"]}
     for name, columns in genes.items():
@@ -104,7 +114,11 @@ def test_parse_manifest_reads_only_the_targets_section():
 
 
 def test_download_manifest_genes(tmp_path):
-    """The zip is read from a url (here a local file) and parsed."""
+    """
+    The zip is read from a url (here a local file) and parsed.
+
+    :param tmp_path: pytest temporary directory
+    """
     import zipfile
 
     archive = tmp_path / "manifest.zip"
