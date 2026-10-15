@@ -184,6 +184,18 @@ def test_load_drug_features_without_dipk_files(tmp_path) -> None:
         _build().load_drug_features(str(tmp_path), "TOY_small")
 
 
+def test_load_drug_features_skips_other_files_and_rejects_an_empty_directory(tmp_path) -> None:
+    """Files that are not ``MolGNet_*.csv`` are ignored; a directory without any MolGNet file must raise.
+
+    :param tmp_path: pytest temporary path fixture
+    """
+    drugs_dir = tmp_path / "TOY_small" / "DIPK_features" / "Drugs"
+    drugs_dir.mkdir(parents=True)
+    (drugs_dir / "Notes.txt").write_text("not a feature file", encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match="No MolGNet_"):
+        _build().load_drug_features(str(tmp_path), "TOY_small")
+
+
 # ------------------------------------------------------------------ gene expression handling
 
 
