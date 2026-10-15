@@ -42,55 +42,55 @@ SJ-172550,1317464,TP53,wildtype,inverse,MDMX/p53 inhibitor; functional p53,exist
 PRIMA-1,322968,TP53,LoF,mutant_reactivator,reactivates mutant p53 (APR-017),existing
 PRIMA-1-Met,73707386,TP53,LoF,mutant_reactivator,APR-246/eprenetapopt; mutant p53,existing
 SCH-529074,12001922,TP53,LoF,mutant_reactivator,activator of mutant p53,existing
-Quizartinib,24889392,FLT3,activating,selective,selective FLT3 (MOA source typo 'VEGFR3') [low-power n=5],existing
-KW-2449,11427553,FLT3,activating,dual,FLT3/Aurora [low-power n=5],existing
-Masitinib,10074640,KIT,activating,dual,KIT/PDGFR-selective [low-power n=5],existing
-AZD4547,51039095,FGFR3,activating,pan,pan-FGFR1/2/3; assigned FGFR3 (point-mut biomarker) — see note,existing
+Quizartinib,24889392,FLT3,activating,selective,selective FLT3 inhibitor,existing
+KW-2449,11427553,FLT3,activating,dual,FLT3/Aurora inhibitor,existing
+Masitinib,10074640,KIT,activating,dual,KIT/PDGFR-selective inhibitor,existing
+AZD4547,51039095,FGFR3,activating,pan,pan-FGFR1/2/3 inhibitor; assigned to FGFR3 (point-mutation biomarker),existing
 MK-2206,24964624,PI3K_AKT,activating,selective,allosteric pan-AKT; PI3K/AKT/PTEN axis,existing
-Alectinib,49806720,ALK,activating,selective,"ALK-selektiv; Fusion nicht in Matrix, nur Punktmutation",draft
-AZ628,11676786,BRAF,activating,multi,pan-RAF,draft
-RAF_9304,RAF_9304,BRAF,activating,multi,"pan-RAF (ARAF, BRAF, CRAF); GDSC target annotation",draft
-SB590885,135421339,BRAF,activating,selective,BRAF-selektiv,draft
-PF-00299804,11511120,EGFR,activating,selective,"Dacomitinib, pan-HER irreversibel",draft
-Pelitinib,6445562,EGFR,activating,selective,irreversibler EGFR-TKI,draft
-CP724714,9874913,ERBB2,activating,selective,ERBB2-selektiv,draft
-Sapitinib,11488320,ERBB2,activating,selective,EGFR/ERBB2/ERBB3; Gen EGFR oder ERBB2 klaeren,draft
+Alectinib,49806720,ALK,activating,selective,"ALK-selective; the driver is the ALK fusion, which the matrix does not contain (point mutations only)",draft
+AZ628,11676786,BRAF,activating,multi,pan-RAF inhibitor,draft
+RAF_9304,RAF_9304,BRAF,activating,multi,"pan-RAF inhibitor (ARAF, BRAF, CRAF); GDSC target annotation",draft
+SB590885,135421339,BRAF,activating,selective,BRAF-selective inhibitor,draft
+PF-00299804,11511120,EGFR,activating,selective,dacomitinib; irreversible pan-HER inhibitor,draft
+Pelitinib,6445562,EGFR,activating,selective,irreversible EGFR TKI,draft
+CP724714,9874913,ERBB2,activating,selective,ERBB2-selective inhibitor,draft
+Sapitinib,11488320,ERBB2,activating,selective,EGFR/ERBB2/ERBB3 inhibitor; the main target gene (EGFR or ERBB2) is unclear,draft
 FGFR_0939,FGFR_0939,FGFR4,activating,selective,"GDSC target FGFR4 (not in the gene grid, so not representable)",draft
-FGFR_3831,FGFR_3831,FGFR1,activating,multi,"pan-FGFR (FGFR1-4), represented by FGFR1; mostly amplification or fusion",draft
-PD173074,1401,FGFR1,activating,selective,FGFR1/3; Gen FGFR1/2/3 klaeren,draft
-TKI258,135398510,FGFR1,activating,multi,"Dovitinib, FGFR/VEGFR/FLT3",draft
-Lestaurtinib,126565,FLT3,activating,multi,FLT3/JAK2,draft
-Midostaurin,9829523,FLT3,activating,multi,FLT3/KIT/PKC,draft
-tandutinib,3038522,FLT3,activating,multi,FLT3/KIT/PDGFR,draft
-Amuvatinib,11282283,KIT,activating,multi,KIT/PDGFRA/FLT3,draft
-Imatinib,5291,KIT,activating,multi,ABL1-Fusion (BCR-ABL) fehlt in Matrix; KIT/PDGFRA-Mutation moeglich,draft
-Nilotinib,644241,KIT,activating,multi,wie Imatinib,draft
-OSI-930,9868037,KIT,activating,multi,KIT/KDR,draft
-MGCD-265,24901704,MET,activating,multi,MET/VEGFR/TIE2,draft
-PHA-665752,10461815,MET,activating,selective,MET-selektiv,draft
-Savolitinib,68289010,MET,activating,selective,MET-selektiv; Amplifikation/Exon14 nicht in Matrix,draft
-tivantinib,11494412,MET,activating,selective,Wirkmechanismus umstritten,draft
-A-443654,10172943,PI3K_AKT,activating,selective,AKT,draft
-AKT inhibitor VIII,135398501,PI3K_AKT,activating,selective,AKT1/2,draft
-AT7867,11175137,PI3K_AKT,activating,multi,AKT/p70S6K,draft
-AZD8835,76685059,PI3K_AKT,activating,multi,PI3Kalpha/delta,draft
-Apitolisib,25254071,PI3K_AKT,activating,multi,PI3K/mTOR (GDC-0980),draft
-Capivasertib,25227436,PI3K_AKT,activating,selective,AKT-Inhibitor,draft
-GSK690693,16725726,PI3K_AKT,activating,multi,pan-AKT,draft
-Omipalisib,25167777,PI3K_AKT,activating,multi,PI3K/mTOR,draft
-Pilaralisib,56599306,PI3K_AKT,activating,multi,PI3K (XL147),draft
-Voxtalisib,16123056,PI3K_AKT,activating,multi,PI3K/mTOR (XL765-Analog),draft
-ZSTK474,11647372,PI3K_AKT,activating,multi,pan-PI3K,draft
+FGFR_3831,FGFR_3831,FGFR1,activating,multi,"pan-FGFR (FGFR1-4) inhibitor, represented by FGFR1; the drivers are mostly amplification or fusion",draft
+PD173074,1401,FGFR1,activating,selective,"FGFR1/3 inhibitor; the main FGFR gene (1, 2 or 3) is unclear",draft
+TKI258,135398510,FGFR1,activating,multi,dovitinib; FGFR/VEGFR/FLT3 inhibitor,draft
+Lestaurtinib,126565,FLT3,activating,multi,FLT3/JAK2 inhibitor,draft
+Midostaurin,9829523,FLT3,activating,multi,FLT3/KIT/PKC inhibitor,draft
+tandutinib,3038522,FLT3,activating,multi,FLT3/KIT/PDGFR inhibitor,draft
+Amuvatinib,11282283,KIT,activating,multi,KIT/PDGFRA/FLT3 inhibitor,draft
+Imatinib,5291,KIT,activating,multi,BCR-ABL1 fusion is not in the matrix; KIT/PDGFRA mutations are possible,draft
+Nilotinib,644241,KIT,activating,multi,as imatinib,draft
+OSI-930,9868037,KIT,activating,multi,KIT/KDR inhibitor,draft
+MGCD-265,24901704,MET,activating,multi,MET/VEGFR/TIE2 inhibitor,draft
+PHA-665752,10461815,MET,activating,selective,MET-selective inhibitor,draft
+Savolitinib,68289010,MET,activating,selective,MET-selective inhibitor; amplification and exon 14 skipping are not in the matrix,draft
+tivantinib,11494412,MET,activating,selective,mechanism of action disputed,draft
+A-443654,10172943,PI3K_AKT,activating,selective,AKT inhibitor,draft
+AKT inhibitor VIII,135398501,PI3K_AKT,activating,selective,AKT1/2 inhibitor,draft
+AT7867,11175137,PI3K_AKT,activating,multi,AKT/p70S6K inhibitor,draft
+AZD8835,76685059,PI3K_AKT,activating,multi,PI3Kalpha/delta inhibitor,draft
+Apitolisib,25254071,PI3K_AKT,activating,multi,PI3K/mTOR inhibitor (GDC-0980),draft
+Capivasertib,25227436,PI3K_AKT,activating,selective,AKT inhibitor,draft
+GSK690693,16725726,PI3K_AKT,activating,multi,pan-AKT inhibitor,draft
+Omipalisib,25167777,PI3K_AKT,activating,multi,PI3K/mTOR inhibitor,draft
+Pilaralisib,56599306,PI3K_AKT,activating,multi,PI3K inhibitor (XL147),draft
+Voxtalisib,16123056,PI3K_AKT,activating,multi,PI3K/mTOR inhibitor (analog of XL765),draft
+ZSTK474,11647372,PI3K_AKT,activating,multi,pan-PI3K inhibitor,draft
 PI3Ka_4409,PI3Ka_4409,PIK3CA,activating,selective,GDSC target PI3Kalpha and PI3Kdelta,draft
 AZD6482,44137675,PTEN,LoF,selective,PI3Kbeta,draft
 AZD8186,52913813,PTEN,LoF,selective,PI3Kbeta/delta,draft
-GSK2636771,56949517,PTEN,LoF,selective,PI3Kbeta; PTEN-Verlust,draft
+GSK2636771,56949517,PTEN,LoF,selective,PI3Kbeta inhibitor; PTEN loss,draft
 TGX-221,9907093,PTEN,LoF,selective,PI3Kbeta,draft
-CI-1040,6918454,RAS_MAPK,activating,selective,MEK-Inhibitor,draft
-PD-0325901,9826528,RAS_MAPK,activating,selective,MEK-Inhibitor,draft
-Refametinib,44182295,RAS_MAPK,activating,selective,MEK-Inhibitor,draft
-VX-11e,11634725,RAS_MAPK,activating,selective,ERK-Inhibitor,draft
-AZD7762,11152667,TP53,LoF,selective,CHK1/2; TP53-Verlust nur schwach belegt,draft
-MIRA-1,227681,TP53,LoF,selective,wie PRIMA-1 (mut-p53-Reaktivator),draft
-MK-1775,24856436,TP53,LoF,selective,WEE1; TP53-Verlust nur schwach belegt,draft
-NSC319726,5351307,TP53,LoF,selective,ZMC1; zielt auf R175-Mutante,draft
+CI-1040,6918454,RAS_MAPK,activating,selective,MEK inhibitor,draft
+PD-0325901,9826528,RAS_MAPK,activating,selective,MEK inhibitor,draft
+Refametinib,44182295,RAS_MAPK,activating,selective,MEK inhibitor,draft
+VX-11e,11634725,RAS_MAPK,activating,selective,ERK inhibitor,draft
+AZD7762,11152667,TP53,LoF,selective,CHK1/2 inhibitor; evidence for TP53 loss as biomarker is weak,draft
+MIRA-1,227681,TP53,LoF,selective,as PRIMA-1 (mutant p53 reactivator),draft
+MK-1775,24856436,TP53,LoF,selective,WEE1 inhibitor; evidence for TP53 loss as biomarker is weak,draft
+NSC319726,5351307,TP53,LoF,selective,ZMC1; targets the R175 mutant,draft
