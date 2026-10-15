@@ -29,6 +29,7 @@ from drevalpy.models.drp_model import DRPModel
         "Precily",
         "SparseGO",
         "EnsembleMF",
+        "RandomForestAEMolGNet",
     ],
 )
 def test_global_models(
@@ -69,6 +70,8 @@ def test_global_models(
         hpam_combi["epochs"] = 1
         hpam_combi["epochs_autoencoder"] = 1
         hpam_combi["heads"] = 1
+    elif model_name == "RandomForestAEMolGNet":
+        hpam_combi["epochs_autoencoder"] = 1
     elif model_name in ["SimpleNeuralNetwork", "MultiViewNeuralNetwork"]:
         hpam_combi["units_per_layer"] = [2, 2]
         hpam_combi["max_epochs"] = 1
