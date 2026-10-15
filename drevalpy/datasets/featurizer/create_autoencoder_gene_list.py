@@ -1,12 +1,28 @@
-"""Builds the gene lists behind the TCGA autoencoder gene space (``tcga_autoencoder_genes_available``, 11,883 genes)."""
+"""
+Builds the gene lists behind the TCGA autoencoder gene space (``tcga_autoencoder_genes_available``, 11,883 genes).
+
+Why this gene space exists: a model that is trained on gene expression and a model whose gene encoder is pretrained on
+TCGA tumours can only be compared if both see the same genes, otherwise the comparison mixes the effect of the
+pretraining with the effect of the gene set. The list is the largest gene set that fits all of these constraints:
+measured in CTRPv2 and GDSC1 (so every response dataset can use it), covered by the Ion AmpliSeq panel (so a new
+sample sequenced with that panel has every feature), expressed above noise level (so the autoencoder does not learn
+from unexpressed genes), and mappable to TCGA (so the same genes exist in the pretraining data). Expression noise is
+removed, but no top-variance selection is made, because that would remove driver genes; the bottleneck of the
+autoencoder does the dimensionality reduction.
+"""
 
 import argparse
+from collections.abc import Callable
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 #: Columns of a gene expression file that are no genes.
 ID_COLUMNS = {"cell_line_name", "cellosaurus_id"}
+#: Noise filter: drop a gene if mean(log2(x + 1)) or the variance of log2(x + 1) is below these values.
+MIN_MEAN = 0.5
+MIN_VARIANCE = 1e-3
 #: Output names, one per step of the chain, in the order they are built.
 STEP_FILES = [
     "ctrpv2_gdsc1_intersection",
@@ -50,20 +66,39 @@ def read_symbols(path: Path) -> set[str]:
     return set(pd.read_csv(path, dtype=str)["Symbol"])
 
 
+def noise_filter(expression: pd.DataFrame, protected: set[str]) -> set[str]:
+    """
+    Selects the genes that are expressed above noise level.
+
+    A gene is dropped if the mean of log2(expression + 1) over the cell lines is below ``MIN_MEAN`` or its variance is
+    below ``MIN_VARIANCE``, unless it is protected (driver and landmark genes).
+
+    :param expression: cell lines x genes, raw expression
+    :param protected: genes that are never dropped
+    :returns: the genes that stay
+    """
+    logged = np.log2(expression.to_numpy(dtype=float) + 1)
+    mean, variance = pd.Series(logged.mean(axis=0), expression.columns), pd.Series(
+        logged.var(axis=0), expression.columns
+    )
+    noisy = (mean < MIN_MEAN) | (variance < MIN_VARIANCE)
+    return set(expression.columns[~noisy]) | (protected & set(expression.columns))
+
+
 def build_chain(
-    expression: list[set[str]], panel: set[str], vocabulary: set[str], tcga_symbols: set[str]
+    expression: list[set[str]], panel: set[str], expressed: Callable[[set[str]], set[str]], tcga_symbols: set[str]
 ) -> dict[str, set[str]]:
     """
     Builds the four gene lists, each a subset of the one before.
 
     1. genes in the expression data of all datasets;
     2. of those, the genes on the sequencing panel the response data were measured with;
-    3. of those, the genes in the input vocabulary of the pretrained autoencoder (plain set membership);
+    3. of those, the genes that are expressed above noise level (``expressed`` applies the noise filter);
     4. of those, the genes that have a locus in the TCGA gene annotation, since the others cannot be mapped to TCGA.
 
     :param expression: gene symbols of the expression data of every dataset
     :param panel: gene symbols of the sequencing panel
-    :param vocabulary: gene symbols the pretrained autoencoder was built on
+    :param expressed: function that keeps the expressed genes of a gene set
     :param tcga_symbols: gene symbols that have a locus in the TCGA gene annotation (GENCODE v23)
     :returns: step name -> gene symbols
     :raises ValueError: if no dataset is given
@@ -72,7 +107,7 @@ def build_chain(
         raise ValueError("At least one gene expression file is needed.")
     chain = {STEP_FILES[0]: set.intersection(*expression)}
     chain[STEP_FILES[1]] = chain[STEP_FILES[0]] & panel
-    chain[STEP_FILES[2]] = chain[STEP_FILES[1]] & vocabulary
+    chain[STEP_FILES[2]] = expressed(chain[STEP_FILES[1]])
     chain[STEP_FILES[3]] = chain[STEP_FILES[2]] & tcga_symbols
     return chain
 
@@ -85,17 +120,28 @@ def main():
     parser.add_argument("--panel", type=str, required=True, help="Ion AmpliSeq Transcriptome panel file (BED).")
     parser.add_argument("--panel_symbol_column", type=int, default=6, help="Zero-based gene symbol column.")
     parser.add_argument(
-        "--vocabulary", type=str, required=True, help="Gene list (Symbol) of the pretrained autoencoder."
+        "--protect",
+        type=str,
+        default=None,
+        help="Gene list (Symbol) that the noise filter never drops (default: landmark_plus_clinical_drivers).",
     )
+    parser.add_argument("--noise_dataset", type=str, default="CTRPv2", help="Dataset whose expression defines noise.")
     parser.add_argument("--probemap", type=str, required=True, help="TCGA gencode.v23.probemap.tsv (column gene).")
     parser.add_argument("--output", type=str, default=None, help="Directory (default: <data_path>/meta/gene_lists).")
     args = parser.parse_args()
     data_path = Path(args.data_path)
     output = Path(args.output) if args.output else data_path / "meta" / "gene_lists"
+    protect_path = Path(args.protect) if args.protect else output / "landmark_plus_clinical_drivers.csv"
+
+    def expressed(genes: set[str]) -> set[str]:
+        columns = sorted(genes)
+        expression = pd.read_csv(data_path / args.noise_dataset / "gene_expression.csv", usecols=columns)
+        return noise_filter(expression, read_symbols(protect_path))
+
     chain = build_chain(
         [expression_genes(data_path / name / "gene_expression.csv") for name in args.datasets],
         read_panel_genes(Path(args.panel), args.panel_symbol_column),
-        read_symbols(Path(args.vocabulary)),
+        expressed,
         set(pd.read_csv(args.probemap, sep="\t", usecols=["gene"], dtype=str)["gene"]),
     )
     output.mkdir(parents=True, exist_ok=True)

@@ -285,24 +285,43 @@ leave-cell-line-out over ten folds. Three points matter for reading those number
 Gene list of the 11,883-gene run
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The list is a chain of set operations; each step writes its own list to ``<data_path>/meta/gene_lists/``:
+**Motivation.** The default list (``gene_expression_intersection``, 2,270 genes) is small. The 11,883-gene space was
+chosen for four reasons:
+
+* The TCGA-pretrained encoder and the encoder trained from scratch on the cell lines must see the *same* feature
+  space. With different gene sets, the effect of pretraining and the effect of the gene set would be confounded.
+* The space is *deployment-optimal*: every gene is measurable by Ion Torrent RNA-seq (Ion AmpliSeq Transcriptome Human
+  Gene Expression Panel), so new samples can be scored with the same model.
+* Noise genes (not expressed or constant in the cell lines) are removed, but there is deliberately **no
+  top-variance selection**: it would discard driver genes with a low variance. The reduction is left to the
+  autoencoder bottleneck. Known landmark and clinical driver genes are protected from the noise filter.
+* Every gene must exist in the expression data of both CTRPv2 and GDSC1, so that all datasets share one space.
+
+Measured against the 2,270-gene list (``DIPK`` model): normalised Spearman +0.014, normalised PCC +0.010, RMSE equal,
+and the spread over folds drops from 0.043 to 0.021 -- no jump, but no loss, and a larger, deployable gene space.
+
+**Construction.** The list is a chain of set operations; each step writes its own list to
+``<data_path>/meta/gene_lists/``. Nothing in the chain uses the pretrained autoencoder or response data:
 
 1. ``ctrpv2_gdsc1_intersection`` (16,159 genes): genes in the expression data of CTRPv2 and GDSC1.
-2. ``ctrpv2_gdsc1_iontorrent_intersection`` (15,701): intersected with the genes of the Ion AmpliSeq Transcriptome
-   Human Gene Expression Panel, the panel behind the expression data (public BED file of the panel; semicolon
-   separated, gene symbol in the seventh column).
-3. ``autoencoder_expressed_genes`` (11,884): intersected with the gene vocabulary of the pretrained autoencoder. This
-   is plain set membership, not a threshold on expression. The vocabulary is an **input** (``--vocabulary``, a csv with
-   a ``Symbol`` column); it cannot be derived from the other inputs.
+2. ``ctrpv2_gdsc1_iontorrent_intersection`` (15,701): intersected with the genes of the Ion Torrent panel.
+3. ``autoencoder_expressed_genes`` (11,884): noise filter on the CTRPv2 expression
+   (``log2(x + 1)``): a gene is dropped if its mean is below 0.5 or its variance below 1e-3, unless it is in the
+   protect list (``--protect``, ``landmark_plus_clinical_drivers.csv``, 893 genes).
 4. ``tcga_autoencoder_genes_available`` (11,883): minus the genes without a locus in the TCGA gene annotation
    (``gencode.v23.probemap.tsv``), which cannot be mapped to TCGA expression. Only SCAND3 is dropped.
+
+**Inputs.** The script downloads nothing. The panel file is a user-supplied input (``--panel``): the BED file of the
+Ion AmpliSeq Transcriptome Human Gene Expression Panel, published by Thermo Fisher Scientific (semicolon separated,
+no header, gene symbol in the seventh column; adjust with ``--panel_symbol_column``). The protect list and the
+probemap are inputs as well.
 
 .. code-block:: bash
 
     python -m drevalpy.datasets.featurizer.create_autoencoder_gene_list --data_path data \
-        --panel <panel.bed> --vocabulary <autoencoder_vocabulary.csv> --probemap <gencode.v23.probemap.tsv>
+        --panel <panel.bed> --protect <landmark_plus_clinical_drivers.csv> --probemap <gencode.v23.probemap.tsv>
 
-With the original inputs the four lists are reproduced exactly.
+With the original inputs the four lists are reproduced byte-identically.
 
 Reusing an encoder across models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

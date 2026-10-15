@@ -2,10 +2,26 @@
 
 import sys
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from drevalpy.datasets.featurizer import create_autoencoder_gene_list as script
+
+
+def test_noise_filter_drops_unexpressed_and_constant_genes_unless_protected():
+    """Low mean or low variance of log2(x + 1) drops a gene; protected genes stay."""
+    rng = np.random.default_rng(0)
+    expression = pd.DataFrame(
+        {
+            "expressed": rng.uniform(4, 8, 50),
+            "unexpressed": np.zeros(50),
+            "constant": np.full(50, 6.0),
+            "driver_unexpressed": np.zeros(50),
+        }
+    )
+    assert script.noise_filter(expression, set()) == {"expressed"}
+    assert script.noise_filter(expression, {"driver_unexpressed", "not_in_data"}) == {"expressed", "driver_unexpressed"}
 
 
 def test_build_chain_is_a_chain_of_subsets():
@@ -13,7 +29,7 @@ def test_build_chain_is_a_chain_of_subsets():
     chain = script.build_chain(
         expression=[{"A", "B", "C", "D", "E"}, {"A", "B", "C", "D", "F"}],
         panel={"A", "B", "C", "X"},
-        vocabulary={"A", "B", "Y"},
+        expressed=lambda genes: genes - {"C"},
         tcga_symbols={"A", "Z"},
     )
     assert chain["ctrpv2_gdsc1_intersection"] == {"A", "B", "C", "D"}
@@ -21,7 +37,7 @@ def test_build_chain_is_a_chain_of_subsets():
     assert chain["autoencoder_expressed_genes"] == {"A", "B"}
     assert chain["tcga_autoencoder_genes_available"] == {"A"}
     with pytest.raises(ValueError):
-        script.build_chain([], set(), set(), set())
+        script.build_chain([], set(), lambda genes: genes, set())
 
 
 def test_readers(tmp_path):
@@ -38,13 +54,16 @@ def test_readers(tmp_path):
 
 def test_main_writes_the_four_lists(tmp_path, monkeypatch, capsys):
     """End to end on small files: four sorted lists with a Symbol column, the dropped gene is reported."""
-    for name, genes in {"D1": ["A", "B", "C", "D"], "D2": ["A", "B", "C", "E"]}.items():
+    rng = np.random.default_rng(1)
+    genes = {"D1": ["A", "B", "C", "D"], "D2": ["A", "B", "C", "E"]}
+    for name, columns in genes.items():
         (tmp_path / name).mkdir()
-        pd.DataFrame({"cell_line_name": ["a"], **{g: [1.0] for g in genes}}).to_csv(
-            tmp_path / name / "gene_expression.csv", index=False
-        )
+        frame = pd.DataFrame({g: rng.uniform(4, 8, 30) for g in columns})
+        frame["C"] = 0.0  # unexpressed
+        frame.insert(0, "cell_line_name", [f"c{i}" for i in range(30)])
+        frame.to_csv(tmp_path / name / "gene_expression.csv", index=False)
     (tmp_path / "panel.bed").write_text("".join(f'"c";"1";"2";"n";"i";"3";"{g}"\n' for g in ["A", "B", "C"]))
-    pd.DataFrame({"Symbol": ["C", "B"]}).to_csv(tmp_path / "vocabulary.csv", index=False)
+    pd.DataFrame({"Symbol": ["A"]}).to_csv(tmp_path / "protect.csv", index=False)
     pd.DataFrame({"id": ["l1", "l2"], "gene": ["B", "Q"]}).to_csv(tmp_path / "probemap.tsv", sep="\t", index=False)
     monkeypatch.setattr(
         sys,
@@ -56,22 +75,21 @@ def test_main_writes_the_four_lists(tmp_path, monkeypatch, capsys):
             "--datasets",
             "D1",
             "D2",
+            "--noise_dataset",
+            "D1",
             "--panel",
             str(tmp_path / "panel.bed"),
-            "--vocabulary",
-            str(tmp_path / "vocabulary.csv"),
-            "--probemap",
-            str(tmp_path / "probemap.tsv"),
-        ],
+        ]
+        + ["--protect", str(tmp_path / "protect.csv"), "--probemap", str(tmp_path / "probemap.tsv")],
     )
     script.main()
     directory = tmp_path / "meta" / "gene_lists"
     expected = {
         "ctrpv2_gdsc1_intersection": ["A", "B", "C"],
         "ctrpv2_gdsc1_iontorrent_intersection": ["A", "B", "C"],
-        "autoencoder_expressed_genes": ["B", "C"],
+        "autoencoder_expressed_genes": ["A", "B"],
         "tcga_autoencoder_genes_available": ["B"],
     }
-    for name, genes in expected.items():
-        assert pd.read_csv(directory / f"{name}.csv")["Symbol"].tolist() == genes
-    assert "dropped 1: ['C']" in capsys.readouterr().out
+    for name, expected_genes in expected.items():
+        assert pd.read_csv(directory / f"{name}.csv")["Symbol"].tolist() == expected_genes
+    assert "dropped 1: ['A']" in capsys.readouterr().out
