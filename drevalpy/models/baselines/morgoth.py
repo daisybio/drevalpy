@@ -33,8 +33,9 @@ Practical points worth knowing:
 *  **Runtime.** The trees of the package are pure Python and its split search is quadratic. This
    model replaces the search at run time by an equivalent vectorized one (``fast_split``, on by
    default; verified against the original loop in the tests), which makes a tree about 50 times
-   faster. Without it, a tree takes about 21 s for 493 rows x 100 features. ``mrmr_k`` defaults
-   to 100 as in the paper (50 to 100 genes); without selection, 11,883 genes would be infeasible.
+   faster. Without it, a tree takes about 21 s for 493 rows x 100 features. ``mrmr_k`` (default
+   100, as in the paper) selects that many genes from the given gene list on the training fold
+   only; set it to ``None`` to use the full list (slow for large gene lists).
 *  **Cores.** The package hard-wires ``multiprocessing.Pool()`` with all cores. Here the number
    of processes is set via ``n_jobs`` (``-1`` = all).
 *  **Files.** ``MORGOTH.fit`` necessarily writes four log files. They end up in a temporary

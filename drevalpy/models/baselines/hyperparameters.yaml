@@ -307,8 +307,9 @@ SingleDrugElasticNet:
 # MORGOTH (https://github.com/volkamerlab/MORGOTH; Rolli et al., Digital Discovery 2026, 5(4), 1746-1764,
 # doi:10.1039/D5DD00284B). Multivariate random forest that learns class and response value jointly.
 # Optional package: pip install morgoth. The trees are pure Python; fast_split swaps the package's
-# quadratic split search for an equivalent vectorized one. mrmr_k = 100 as in the paper (without
-# selection, 11,883 genes would be infeasible). Threshold (quantile or absolute) and mRMR are derived
+# quadratic split search for an equivalent vectorized one. mrmr_k (default 100, as in the paper)
+# selects that many genes from the gene list on the training fold only; null = full list (slow for
+# large lists). Threshold (quantile or absolute) and mRMR are derived
 # on the training fold only. max_features takes 'sqrt', 'log2' or a fraction in (0, 1]; sample_weights
 # none/simple/linear; no upsampling. impact_classification: share of the classification in the split
 # criterion (0 = regression only, 1 = classification only); tree_weights: class-aware aggregation
