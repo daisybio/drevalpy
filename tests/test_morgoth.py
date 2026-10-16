@@ -70,6 +70,10 @@ def test_registered_and_name():
         ({"impact_classification": 1.5}, "impact_classification"),
         ({"max_features": "all"}, "max_features"),
         ({"max_features": 0.0}, "max_features"),
+        ({"sensitive_side": "middle"}, "sensitive_side"),
+        ({"sensitivity_threshold_mode": "median"}, "sensitivity_threshold_mode"),
+        ({"mrmr_k": "many"}, "mrmr_k"),
+        ({"mrmr_k": -3}, "mrmr_k"),
     ],
 )
 def test_invalid_settings(hpams, word):
@@ -340,3 +344,156 @@ def test_absolute_threshold_and_side():
     assert np.isclose(high._derive_threshold(y), np.quantile(y, 0.8))
     with pytest.raises(ValueError, match="sensitivity_threshold"):
         _model(sensitivity_threshold_mode="absolute")
+
+
+@pytest.mark.parametrize("value", [None, 0, False, "None", "none", ""])
+def test_empty_mrmr_k_switches_the_selection_off(value):
+    """Any empty ``mrmr_k`` keeps all features.
+
+    :param value: empty setting
+    """
+    output, features = _data()
+    model = _model(mrmr_k=value)
+    assert model.mrmr_k is None
+    assert model.load_drug_features("unused", "unused") is None
+    model.train(output=output, cell_line_input=features)
+    assert model.mrmr_genes_ is None and model.selected_features() is None
+
+
+def test_selected_features_are_named_in_selection_order():
+    """The mRMR selection is reported by gene name, the driver gene first."""
+    output, features = _data()
+    model = _model(mrmr_k=3)
+    model.train(output=output, cell_line_input=features)
+    assert model.selected_features() == {"gene_expression": model.mrmr_genes_}
+    assert model.mrmr_genes_[0] == "g0" and len(model.mrmr_genes_) == 3
+
+
+def test_empty_training_data_predicts_nan():
+    """Without training rows the model predicts NA instead of failing."""
+    output, features = _data()
+    empty = DrugResponseDataset(response=np.array([]), cell_line_ids=np.array([]), drug_ids=np.array([]))
+    model = _model()
+    model.train(output=empty, cell_line_input=features)
+    assert model.model is None
+    assert np.isnan(model.predict(output.cell_line_ids, output.drug_ids, features)).all()
+
+
+def test_sensitive_side_high_marks_values_above_the_threshold():
+    """With ``sensitive_side='high'`` the cases above the threshold are the sensitive ones."""
+    model = _model(sensitive_side="high")
+    model.threshold_ = 1.0
+    assert list(model._sensitive_mask(np.array([0.5, 1.5]))) == [False, True]
+    model.sensitive_side = "low"
+    assert list(model._sensitive_mask(np.array([0.5, 1.5]))) == [True, False]
+
+
+def test_mrmr_without_relevant_feature_keeps_all_features(monkeypatch, capsys):
+    """If mRMR chooses nothing, the fold is fitted on all features and says so.
+
+    :param monkeypatch: pytest fixture
+    :param capsys: pytest fixture
+    """
+    monkeypatch.setattr(module, "mrmr_select", lambda x, y, k: [])
+    output, features = _data()
+    model = _model()
+    model.train(output=output, cell_line_input=features)
+    assert "selected no feature" in capsys.readouterr().out
+    assert model.mrmr_genes_ is None
+    prediction = model.predict(output.cell_line_ids, output.drug_ids, features)
+    assert prediction.shape == (len(output),)
+
+
+def test_unnamed_features_are_selected_by_position():
+    """Without feature names the selection works by position."""
+    output, features = _data()
+    features._meta_info = {}
+    model = _model(mrmr_k=3)
+    model.train(output=output, cell_line_input=features)
+    assert model.mrmr_genes_[0] == "column_0"
+    assert model.predict(output.cell_line_ids, output.drug_ids, features).shape == (len(output),)
+
+
+def test_duplicate_gene_names_are_rejected():
+    """A named selection over duplicate gene names would be ambiguous."""
+    output, features = _data()
+    features._meta_info = {"gene_expression": ["g0", "g0"] + [f"g{j}" for j in range(2, 12)]}
+    model = _model()
+    with pytest.raises(ValueError, match="duplicate gene names"):
+        model.train(output=output, cell_line_input=features)
+
+
+def test_missing_genes_at_prediction_are_reported():
+    """If genes selected in the fit are not in the prediction features, the message names them."""
+    output, features = _data()
+    model = _model(mrmr_k=3)
+    model.train(output=output, cell_line_input=features)
+    other, other_features = _data()
+    other_features._meta_info = {"gene_expression": [f"h{j}" for j in range(12)]}
+    with pytest.raises(ValueError, match="missing in the feature space"):
+        model.predict(other.cell_line_ids, other.drug_ids, other_features)
+
+
+def test_load_reads_the_state_file_of_earlier_development_versions(tmp_path):
+    """A state saved as ``sauron_state.pkl`` is still found.
+
+    :param tmp_path: pytest path
+    """
+    output, features = _data()
+    model = _model(n_estimators=4)
+    model.train(output=output, cell_line_input=features, model_checkpoint_dir=str(tmp_path))
+    model.save(str(tmp_path / "m"))
+    (tmp_path / "m" / module.STATE_FILE).rename(tmp_path / "m" / "sauron_state.pkl")
+    loaded = SingleDrugMorgoth.load(str(tmp_path / "m"))
+    assert loaded.threshold_ == model.threshold_ and loaded.mrmr_genes_ == model.mrmr_genes_
+
+
+def _split(func, node, rk, rr, feature, min_leaf=1, best_score=1.0):
+    """Call a split-search function of the package on one feature with the common arguments.
+
+    :param func: ``calculate_best_split_for_feature`` (original or fast)
+    :param node: node with data
+    :param rk: root classification criterion
+    :param rr: root regression criterion
+    :param feature: feature name
+    :param min_leaf: minimum number per leaf
+    :param best_score: score to beat
+    :returns: (score, split, valid_split_found)
+    """
+    import morgoth.multivariate_dt as dt
+
+    return func(
+        node,
+        root_sample_weights=node.sample_weights,
+        min_number_of_samples_per_leaf=min_leaf,
+        class_criterion_function=dt.gini_impurity,
+        regression_criterion_function=dt.MSE,
+        root_reg_criterion=rr,
+        root_class_criterion=rk,
+        impact_classification=0.5,
+        feature_name=feature,
+        best_split=None,
+        best_score=best_score,
+        valid_split_found=False,
+        node_score=1.0,
+    )
+
+
+def test_fast_split_edge_cases_behave_like_the_original():
+    """Constant feature, too large leaf size, nothing better than the given score, unsupported weights or NaN."""
+    dt, node, rk, rr = _node(40, 0, False, False)
+    original = dt.BinaryTreeNode.calculate_best_split_for_feature
+    with module._fast_search():
+        fast = dt.BinaryTreeNode.calculate_best_split_for_feature
+
+    node.X_train["const"] = 1.0
+    for feature, kwargs in [("const", {}), ("a", {"min_leaf": 30}), ("a", {"best_score": -1.0})]:
+        a = _split(original, node, rk, rr, feature, **kwargs)
+        b = _split(fast, node, rk, rr, feature, **kwargs)
+        assert a[1] is None and b[1] is None and a[0] == b[0] and a[2] == b[2]
+
+    node.sample_weights = node.sample_weights.copy()
+    node.sample_weights[0] = 0.0  # unsupported by the fast search -> falls back to the package
+    a = _split(original, node, rk, rr, "a")
+    b = _split(fast, node, rk, rr, "a")
+    assert a[2] == b[2] and a[1].threshold == b[1].threshold
