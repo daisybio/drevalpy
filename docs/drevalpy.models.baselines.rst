@@ -188,3 +188,36 @@ It requires the ``lightgbm`` package.
    :members:
    :undoc-members:
    :show-inheritance:
+
+Single-Drug MORGOTH
+-------------------------------------------------------------
+
+A single-drug multivariate random forest that learns the class (sensitive/resistant) and the response value
+simultaneously. It is based on MORGOTH (https://github.com/volkamerlab/MORGOTH) and requires the optional
+``morgoth`` package (``pip install "drevalpy[morgoth]"`` or ``pip install morgoth``).
+
+If you use this model, please cite:
+
+   Rolli, L.-M.; Eckhart, L.; Herrmann, L.; Volkamer, A.; Lenhof, H.-P.; Lenhof, K. Increasing trustworthiness of
+   machine learning-based drug sensitivity prediction with a multivariate random forest approach.
+   *Digital Discovery* **2026**, *5* (4), 1746-1764. https://doi.org/10.1039/D5DD00284B
+
+.. code-block:: bibtex
+
+   @article{rolli2026morgoth,
+     author  = {Rolli, Lisa-Marie and Eckhart, Lukas and Herrmann, Lukas and Volkamer, Andrea
+                and Lenhof, Hans-Peter and Lenhof, Kerstin},
+     title   = {Increasing trustworthiness of machine learning-based drug sensitivity prediction
+                with a multivariate random forest approach},
+     journal = {Digital Discovery},
+     year    = {2026},
+     volume  = {5},
+     number  = {4},
+     pages   = {1746--1764},
+     doi     = {10.1039/D5DD00284B}
+   }
+
+.. automodule:: drevalpy.models.baselines.morgoth
+   :members:
+   :undoc-members:
+   :show-inheritance:

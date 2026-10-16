@@ -18,6 +18,7 @@ __all__ = [
     "MultiViewRandomForest",
     "SingleDrugRandomForest",
     "SingleDrugElasticNet",
+    "SingleDrugMorgoth",
     "SRMF",
     "EnsembleMF",
     "GradientBoosting",
@@ -36,6 +37,7 @@ __all__ = [
     "PaccMann",
 ]
 
+from .baselines.morgoth import SingleDrugMorgoth
 from .baselines.multi_view_lightgbm import MultiViewLightGBM
 from .baselines.multi_view_random_forest import MultiViewRandomForest
 from .baselines.multi_view_xgboost import MultiViewXGBoost
@@ -75,6 +77,7 @@ from .SuperFELTR.superfeltr import SuperFELTR
 SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "SingleDrugElasticNet": SingleDrugElasticNet,
     "SingleDrugRandomForest": SingleDrugRandomForest,
+    "SingleDrugMorgoth": SingleDrugMorgoth,
     "MOLIR": MOLIR,
     "SuperFELTR": SuperFELTR,
 }
