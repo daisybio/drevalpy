@@ -764,7 +764,7 @@ class SingleDrugMorgoth(SklearnModel):
         )
 
     @classmethod
-    def load(cls, directory: str) -> "SingleDrugMorgoth":
+    def load(cls, directory: str) -> SingleDrugMorgoth:
         """
         Load the forest, scaler and the fitted extra state.
 
