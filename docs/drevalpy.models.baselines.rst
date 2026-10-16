@@ -147,8 +147,14 @@ Single-Drug Baselines
 -----------------------------------------------------------
 
 Single-drug variants of the sklearn models. These models are trained separately for each drug, using only
-cell line features (no drug features). Available models: ``SingleDrugRandomForest`` and
-``SingleDrugElasticNet``. Both support flexible inputs for the cell line view.
+cell line features (no drug features). Available models: ``SingleDrugRandomForest``,
+``SingleDrugElasticNet`` and ``SingleDrugKNN``. All support flexible inputs for the cell line view.
+
+``SingleDrugKNN`` searches, for a test cell line, the most similar training cell lines and averages their
+responses to the same drug. The distance is computed on the ``mrmr_k`` features (default 20) that are most relevant
+for the response of this drug, selected by mRMR (:class:`drevalpy.models.utils.MRMRSelector`) on the training rows
+only. ``mrmr_k: null`` uses all features of the gene list. In contrast to the pooled ``KNNRegressor``, drug
+identity does not enter the distance.
 
 .. automodule:: drevalpy.models.baselines.singledrug_baselines
    :members:

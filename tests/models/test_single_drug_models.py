@@ -27,6 +27,7 @@ from drevalpy.visualization.utils import evaluate_file
         "SingleDrugRandomForest[proteomics]",
         "SingleDrugElasticNet[gex]",
         "SingleDrugElasticNet[proteomics]",
+        "SingleDrugKNN",
         "MOLIR",
         "SuperFELTR",
     ],
