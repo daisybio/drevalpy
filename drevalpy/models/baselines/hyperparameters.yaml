@@ -303,3 +303,28 @@ SingleDrugElasticNet:
     - 0.3
   proteomics_normalization_downshift:
     - 1.8
+
+# One kNN per drug on the mrmr_k genes most relevant for this drug's response (mRMR, fitted on the training rows
+# only). mrmr_k: null/0 = no selection (all genes of gene_list).
+SingleDrugKNN:
+  cell_line_views:
+    - gene_expression
+  gene_list:
+    - landmark_genes
+  n_neighbors:
+    - 3
+    - 5
+    - 10
+    - 20
+  weights:
+    - distance
+  mrmr_k:
+    - 20
+  proteomics_feature_threshold:
+    - 0.7
+  proteomics_n_features:
+    - 1000
+  proteomics_normalization_width:
+    - 0.3
+  proteomics_normalization_downshift:
+    - 1.8
