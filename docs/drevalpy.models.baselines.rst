@@ -194,7 +194,7 @@ Single-Drug MORGOTH
 
 A single-drug multivariate random forest that learns the class (sensitive/resistant) and the response value
 simultaneously. It is based on MORGOTH (https://github.com/volkamerlab/MORGOTH) and requires the optional
-``morgoth`` package (``pip install morgoth``).
+``morgoth`` package (``pip install "drevalpy[morgoth]"`` or ``pip install morgoth``).
 
 If you use this model, please cite:
 

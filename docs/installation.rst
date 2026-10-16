@@ -68,8 +68,8 @@ default ``pip install drevalpy``. They are provided as optional `extras`:
    * - ``lightgbm``
      - The ``MultiViewLightGBM`` baseline model
      - ``lightgbm``
-   * - ``morgoth`` (not an extra)
-     - The ``SingleDrugMorgoth`` baseline model; install with ``pip install morgoth``
+   * - ``morgoth``
+     - The ``SingleDrugMorgoth`` baseline model
      - ``morgoth``
    * - ``sparsego``
      - Creating the ontology features of the ``SparseGO`` model
