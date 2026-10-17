@@ -48,8 +48,11 @@ def test_list_zoo_names_filters_by_scope() -> None:
     single = list_zoo_names(include_external=False, scope=ModelScope.SINGLE_DRUG)
     multi = list_zoo_names(include_external=False, scope="multi_drug")
     assert "SingleDrugElasticNet" in single
+    assert "MOLIR" in single
     assert "ElasticNet" in multi
+    assert "ElasticNet" not in single
     assert set(single).isdisjoint(multi)
+    assert set(single) | set(multi) == set(list_zoo_names(include_external=False))
 
 
 def test_zoo_elastic_net_defaults() -> None:

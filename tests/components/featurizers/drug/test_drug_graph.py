@@ -39,7 +39,7 @@ def test_drug_graph_infers_node_feature_width_from_the_first_graph() -> None:
     featurizer = DrugGraphFeaturizer().fit(features, entity_ids=np.array(["d1"]))
 
     assert featurizer.output_dim == 3
-    assert set(featurizer.graph_by_drug) == {"d1"}
+    assert set(featurizer._graphs) == {"d1"}
 
 
 def test_drug_graph_hyperparameter_space_exposes_add_hydrogens() -> None:
@@ -62,7 +62,7 @@ def test_drug_graph_fit_skips_drugs_it_can_neither_read_nor_compute() -> None:
 
     featurizer = DrugGraphFeaturizer().fit(features, entity_ids=np.array(["d1"]))
 
-    assert featurizer.graph_by_drug == {}
+    assert featurizer._graphs == {}
     assert featurizer.output_dim == 0
 
 
@@ -93,7 +93,7 @@ def test_drug_graph_fit_computes_graphs_on_the_fly_for_missing_views(synthetic_d
 
     featurizer = DrugGraphFeaturizer().fit(source, entity_ids=drug_ids)
 
-    assert set(featurizer.graph_by_drug) == set(drug_ids)
+    assert set(featurizer._graphs) == set(drug_ids)
     assert featurizer.output_dim > 0
 
 

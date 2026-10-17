@@ -5,7 +5,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.featurizers.cell_line._sparsego_metadata import attach_sparsego_ontology_metadata
 from drevalpy.components.featurizers.cell_line.sparsego_ontology import SparseGOOntologyFeaturizer
 from tests.conftest import MockFeatureSource
 
@@ -19,15 +18,12 @@ def _source() -> MockFeatureSource:
 
 def _with_ontology() -> MockFeatureSource:
     features = _source()
-    attach_sparsego_ontology_metadata(
-        features,
-        {
-            "layer_connections": [np.array([["term", "a"]])],
-            "gene2id_mapping_ont": {"a": 0, "b": 1},
-            "ontology_gene_order": ("a", "b"),
-            "gene_dim_input": 2,
-        },
-    )
+    features._meta_info["sparsego_ontology"] = {
+        "layer_connections": [np.array([["term", "a"]])],
+        "gene2id_mapping_ont": {"a": 0, "b": 1},
+        "ontology_gene_order": ("a", "b"),
+        "gene_dim_input": 2,
+    }
     return features
 
 
@@ -104,15 +100,12 @@ def test_sparsego_prefers_a_precomputed_variant() -> None:
     from tests.components.featurizers.cell_line._helpers import PRECOMPUTED, precomputed_source
 
     source = precomputed_source(SparseGOOntologyFeaturizer)
-    attach_sparsego_ontology_metadata(
-        source,
-        {
-            "layer_connections": [np.array([["term", "gene0"]])],
-            "gene2id_mapping_ont": {"gene0": 0, "gene1": 1},
-            "ontology_gene_order": ("gene0", "gene1"),
-            "gene_dim_input": 2,
-        },
-    )
+    source._dataset.mdata.uns["sparsego_ontology"] = {
+        "layer_connections": [np.array([["term", "gene0"]])],
+        "gene2id_mapping_ont": {"gene0": 0, "gene1": 1},
+        "ontology_gene_order": ("gene0", "gene1"),
+        "gene_dim_input": 2,
+    }
     featurizer = SparseGOOntologyFeaturizer().fit(source)
 
     matrix = featurizer.transform(source, source.identifiers)

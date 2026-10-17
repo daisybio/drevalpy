@@ -155,14 +155,6 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         """
         return self._output_dim
 
-    @property
-    def graph_by_drug(self) -> dict[str, object]:
-        """Return fitted graph payloads keyed by drug id.
-
-        :returns: Cached graph object per drug id.
-        """
-        return self._graphs
-
     def _compute_graph_from_smiles_for_entity(self, source: FeatureSource, drug_id: str) -> object | None:
         """Compute a single graph from SMILES for a given drug.
 

@@ -1,4 +1,4 @@
-"""Weights & Biases and metric helpers mixed into DRPModel.
+"""Weights & Biases logging mixed into DRPModel.
 
 ``wandb`` is imported inside the methods that use it. ``DRPModel`` is on the
 registration path of ``import drevalpy``, and importing ``wandb`` costs ~0.11s
@@ -97,17 +97,6 @@ class _DRPLoggingMixin:
         :returns: ``True`` when a wandb project and run are active.
         """
         return self.wandb_project is not None and (self.wandb_run is not None or _wandb().run is not None)
-
-    def log_final_metrics(self, metrics: dict[str, float]) -> None:
-        """Store final metrics in the wandb run summary.
-
-        :param metrics: Final scalar metrics to persist in the run summary.
-        """
-        wandb = _wandb()
-        if not self.is_wandb_enabled() or wandb.run is None:
-            return
-        for key, value in metrics.items():
-            wandb.run.summary[key] = value
 
     def finish_wandb(self) -> None:
         """Finish the wandb run for this model instance."""

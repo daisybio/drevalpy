@@ -5,7 +5,7 @@ import pytest
 from flaky import flaky
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from drevalpy.evaluation import _compute_metric_value, evaluate, kendall, pearson, spearman
+from drevalpy.evaluation import evaluate, kendall, pearson, score_predictions, spearman
 
 
 def test_evaluate() -> None:
@@ -213,10 +213,48 @@ def test_correlations_constant_prediction(
     assert np.isclose(kd, 0.0, atol=1e-3)
 
 
-def test_compute_metric_value_all_nan_predictions() -> None:
+def test_score_predictions_all_nan_predictions() -> None:
     response = np.array([1.0, 2.0])
     predictions = np.array([np.nan, np.nan])
-    assert np.isnan(_compute_metric_value("RMSE", predictions, response))
+    assert np.isnan(score_predictions(predictions, response, ["RMSE"])["RMSE"])
+
+
+@pytest.mark.parametrize("correlation", [pearson, spearman, kendall])
+def test_correlations_raise_value_error_on_length_mismatch(correlation) -> None:
+    with pytest.raises(ValueError, match="same length"):
+        correlation(np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0]))
+
+
+def test_score_predictions_raises_value_error_for_an_unknown_metric() -> None:
+    with pytest.raises(ValueError, match="invalid metric"):
+        score_predictions(np.array([1.0, 2.0]), np.array([1.0, 2.0]), ["nope"])
+
+
+def test_evaluate_raises_value_error_for_an_unknown_metric() -> None:
+    with pytest.raises(ValueError, match="invalid metric"):
+        evaluate(np.array([1.0, 2.0]), np.array([1.0, 2.0]), metric="nope")
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        pytest.param({}, id="nothing"),
+        pytest.param({"predictions": np.array([1.0, 2.0])}, id="keyword-predictions-without-response"),
+        pytest.param({"predictions_or_dataset": np.array([1.0, 2.0])}, id="positional-predictions-without-response"),
+        pytest.param({"response": np.array([1.0, 2.0])}, id="response-without-predictions"),
+    ],
+)
+def test_evaluate_raises_value_error_when_predictions_or_response_are_missing(kwargs) -> None:
+    with pytest.raises(ValueError, match="needs predictions and response"):
+        evaluate(**kwargs)
+
+
+def test_evaluate_reads_predictions_and_response_from_a_dataset_object() -> None:
+    class _Carrier:
+        predictions = np.array([1.0, 2.0, 3.0])
+        response = np.array([1.5, 2.0, 2.5])
+
+    assert evaluate(_Carrier(), metric="MAE")["MAE"] == pytest.approx(1 / 3)
 
 
 @pytest.mark.parametrize("metric, expected", [("MSE", 6.25), ("RMSE", 2.5), ("MAE", 2.5)])

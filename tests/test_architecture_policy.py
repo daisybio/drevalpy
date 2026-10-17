@@ -6,8 +6,8 @@ import pytest
 from upath import UPath as Path
 
 from drevalpy.models import ModelSpec
-from drevalpy.models._model_lookup import known_model_names
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.zoo import list_zoo_names
 
 _FORBIDDEN_MODULE_FRAGMENTS = (
     "_component_bridge",
@@ -54,7 +54,7 @@ def test_no_forbidden_runtime_imports_in_source() -> None:
     assert not hits, f"Forbidden imports/references remain: {hits}"
 
 
-@pytest.mark.parametrize("model_name", known_model_names(include_external=False))
+@pytest.mark.parametrize("model_name", list_zoo_names(include_external=False))
 def test_presets_build_the_same_concrete_runtime(model_name: str) -> None:
     spec = ModelSpec.from_name(model_name)
     model = DRPModel(spec)

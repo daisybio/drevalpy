@@ -53,10 +53,10 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 
     :returns: Pearson correlation, or ``0.0`` / ``nan`` for degenerate inputs.
 
-    :raises AssertionError: If ``y_pred`` and ``y_true`` differ in length.
+    :raises ValueError: If ``y_pred`` and ``y_true`` differ in length.
     """
     if len(y_pred) != len(y_true):
-        raise AssertionError("predictions, response  must have the same length")
+        raise ValueError("predictions, response must have the same length")
 
     if _check_constant_prediction(y_pred):
         return 0.0
@@ -76,11 +76,11 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 
     :returns: Spearman correlation, or ``0.0`` / ``nan`` for degenerate inputs.
 
-    :raises AssertionError: If ``y_pred`` and ``y_true`` differ in length.
+    :raises ValueError: If ``y_pred`` and ``y_true`` differ in length.
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
-        raise AssertionError("predictions, response  must have the same length")
+        raise ValueError("predictions, response must have the same length")
     if _check_constant_prediction(y_pred):
         return 0.0
     if _check_constant_target_or_small_sample(y_true):
@@ -99,11 +99,11 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 
     :returns: Kendall tau, or ``0.0`` / ``nan`` for degenerate inputs.
 
-    :raises AssertionError: If ``y_pred`` and ``y_true`` differ in length.
+    :raises ValueError: If ``y_pred`` and ``y_true`` differ in length.
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
-        raise AssertionError("predictions, response  must have the same length")
+        raise ValueError("predictions, response must have the same length")
     if _check_constant_prediction(y_pred):
         return 0.0
     if _check_constant_target_or_small_sample(y_true):
@@ -210,8 +210,7 @@ def score_predictions(
     :param metrics: Requested metric names; None selects every registered metric.
     :param empty_as_dict: Return {} when no pair is usable (experiment convention).
     :returns: Requested scores, with NaN for insufficient samples.
-    :raises ValueError: If inputs are not equally shaped one-dimensional arrays.
-    :raises AssertionError: If a metric is unknown.
+    :raises ValueError: If inputs are not equally shaped one-dimensional arrays or a metric is unknown.
     """
     predictions, response = np.asarray(predictions), np.asarray(response)
     if predictions.ndim != 1 or response.ndim != 1 or predictions.shape != response.shape:
@@ -219,7 +218,7 @@ def score_predictions(
     names = list(AVAILABLE_METRICS) if metrics is None else metrics
     for name in names:
         if name not in AVAILABLE_METRICS:
-            raise AssertionError(f"invalid metric {name}. Available: {list(AVAILABLE_METRICS)}")
+            raise ValueError(f"invalid metric {name}. Available: {list(AVAILABLE_METRICS)}")
     valid = ~np.isnan(predictions) & ~np.isnan(response)
     if empty_as_dict and not valid.any():
         return {}
@@ -232,10 +231,6 @@ def score_predictions(
         )
         for name in names
     }
-
-
-def _compute_metric_value(metric_name: str, predictions: np.ndarray, response: np.ndarray) -> float:
-    return score_predictions(predictions, response, [metric_name])[metric_name]
 
 
 def evaluate(
@@ -255,21 +250,24 @@ def evaluate(
     :param metric: One metric name or a list of names from ``AVAILABLE_METRICS``.
     :param predictions: Keyword-only alias for predictions_or_dataset.
     :returns: Mapping from metric name to scalar score.
-    :raises AssertionError: If predictions are missing or a metric name is unknown.
+    :raises ValueError: If predictions or response are missing, the inputs are not equal-shaped
+        one-dimensional arrays, or a metric name is unknown.
     """
     if isinstance(metric, str):
         metric = [metric]
 
-    # Handle keyword-only predictions= argument
     if predictions is not None:
-        preds_arr = np.asarray(predictions)
-        response_arr = np.asarray(response)
-    elif response is None and predictions_or_dataset is not None:
-        dataset = predictions_or_dataset
-        preds_arr = np.asarray(dataset.predictions)
-        response_arr = np.asarray(dataset.response)
+        preds_arr, response_arr = predictions, response
+    elif (
+        response is None
+        and hasattr(predictions_or_dataset, "predictions")
+        and hasattr(predictions_or_dataset, "response")
+    ):
+        preds_arr = predictions_or_dataset.predictions
+        response_arr = predictions_or_dataset.response
     else:
-        preds_arr = np.asarray(predictions_or_dataset)
-        response_arr = np.asarray(response)
+        preds_arr, response_arr = predictions_or_dataset, response
+    if preds_arr is None or response_arr is None:
+        raise ValueError("evaluate needs predictions and response, or one object carrying both")
 
-    return score_predictions(preds_arr, response_arr, metric)
+    return score_predictions(np.asarray(preds_arr), np.asarray(response_arr), metric)
