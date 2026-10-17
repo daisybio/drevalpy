@@ -115,11 +115,3 @@ cached under ``<cache dir>/artifacts``. Two environment variables control this:
    JSON object passed to fsspec, for example ``{"profile": "my-aws-profile"}``
    or ``{"anon": true}``. Unset by default, so the ambient credential chain
    (environment variables, shared AWS config, instance roles) applies.
-
-Hyperparameter tuning on Windows
---------------------------------
-
-Hyperparameter tuning uses `Optuna <https://optuna.org/>`_ (TPE sampler), a pure-Python
-dependency installed with DrEvalPy. It works the same on Linux, macOS and Windows and
-needs no extra setup. The sampler is seeded by ``--seed`` (default 42), so searches are
-reproducible.
