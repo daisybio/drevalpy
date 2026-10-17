@@ -178,7 +178,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return tunable SparseGO input type.
 
-        :returns: Ray Tune-style hyperparameter space mapping.
+        :returns: Hyperparameter search space mapping.
         """
         return {"input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": "expression"}}
 

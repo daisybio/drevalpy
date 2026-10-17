@@ -21,8 +21,8 @@ uv run python tools/size_gate.py
 ```
 
 `tools/size_gate.py` caps AST statements per module against
-`[tool.drevalpy.size_gate].max_module_statements`, which is what keeps the mixin
-splits in `models/mixins/` and `components/featurizers/` from growing back. It runs
+`[tool.drevalpy.size_gate].max_module_statements`, which is what keeps the split
+modules in `models/` and `components/featurizers/` from growing back. It runs
 as a prek hook too, and needs no test run. Its exemptions follow the coverage
 gate's ethos: a recorded ceiling is a _measured_ count, lowered as a module shrinks
 and never raised to let a regression through.
@@ -201,25 +201,36 @@ The package sits under `src/`; `drevalpy/...` paths in this file are relative to
   key, where the shared path leaves the flag alone, so folding it in would change
   behaviour.
 
-## DRPModel mixins
+## DRPModel structure
 
-`models/drp_model.py` holds config and identity only - `model_config`,
-`_from_resolved_config`, `_apply_model_config`, the five properties,
-`log_hyperparameters`. Behaviour hangs off mixins in `models/mixins/`, so add new
-behaviour to the mixin that owns that concern rather than back into the base:
+`models/drp_model.py` holds `DRPModel(_DRPLoggingMixin)`, the public runtime. It owns
+an immutable `ModelSpec` and exposes `spec` / `name` / `config` /
+`hyperparameters` / `cell_line_views` / `drug_views`. `train` / `predict` /
+`save` / `load` are thin: `train` and `predict` delegate to a private
+`models/_pipeline._ModelPipeline`, which owns all fitted state and a
+`PipelineState` (`UNTRAINED` / `EMPTY` / `FITTED`); `save` / `load` call
+`models/mixins/_persistence_io.py`. Add new behaviour to the module that owns that
+concern rather than back into `DRPModel`:
 
-- `_training.py` - `DRPTrainingMixin`, owning `train` / `predict`. It drives
-  `_stack` and `_empty_training`, which `drp_model.py` only declares in
-  `_init_runtime_fields`; the one other writer is `_persistence.py`, resetting
-  `_empty_training` on load.
-- `_train_args.py` - `resolve_train_args`, returning a frozen `TrainCallArgs`. It
-  touches no instance state, which is why it was its own LCOM4 island and is a
-  function rather than a mixin method. `TrainCallArgs.is_dataset_form` /
-  `.is_feature_source_form` name the input form once; they replaced a bare
-  6-tuple that forced `train` to re-derive it with `isinstance` checks.
-- `_feature_matrix.py` - `DRPFeatureMatrixMixin`, owning
-  `get_concatenated_features` / `get_feature_matrices` - the hand-rolled-model
-  path that the component stack replaced.
+- `spec.py` - frozen `ModelSpec(name, config)`: `from_name`, `resolve`,
+  `default_hyperparameters`, `hyperparameter_space`, early-stopping flags. It holds
+  no fitted state and is reused across folds and tuning trials.
+- `_components.py` - `build_components`, constructing fresh featurizers and the
+  predictor from a `ResolvedModelConfig`. No fitted state lives here.
+- `_feature_preparation.py` - `transform_entities` (fit on training entities, then
+  transform unique entities once) and `usable_responses` (drop pairs a
+  component's missing-input policy rejects).
+- `_target_transform.py` - `validate_fit_scopes`, `fit_target_transform` and
+  `apply_target_transform` for the optional response transformer.
+- `_pipeline.py` - `_ModelPipeline`: `reset`, `fit`, `predict`,
+  `component_state` / `restore_component_state`.
+- `mixins/_logging.py` - `_DRPLoggingMixin`, wandb and metric helpers; `wandb` is
+  imported lazily.
+- `mixins/_persistence_io.py` - versioned single-ZIP checkpoint I/O
+  (`save_model`, `load_model`, `load_model_payload`). `DRPModel` is imported only
+  under `TYPE_CHECKING` there.
+- `factory.py` - resolves zoo/spec names to `ModelConfig` objects
+  (`model_config_for_name`, `reject_unknown_spec`, `zoo_config`).
 
 ## Hyperparameter keys
 
@@ -288,7 +299,7 @@ Checked directly, all artifacts of how the code is wired rather than debt:
 
 - Both "Break Cycle" plans from `repowise health --refactoring-targets`. In
   `models` the only back edge is the `TYPE_CHECKING`-guarded import at
-  `drevalpy/models/mixins/_persistence_io.py:21-22`, which is already the
+  `drevalpy/models/mixins/_persistence_io.py:20-21`, which is already the
   correct pattern; in `visualization/plots` none of `heatmap.py`, `violin.py`,
   `cross_study_table.py` imports `plots/__init__.py` - it is barrel attribution.
 - `repowise dead-code`'s `unused_export` hits for `LassoPredictor`,
@@ -297,9 +308,9 @@ Checked directly, all artifacts of how the code is wired rather than debt:
   `components/featurizers/cell_line/gene_lists/_make_gene_lists.py`. No static
   importer exists because `registry/_builtins.py::_discover_modules` registers by
   directory scan. `docs/conf.py` is a Sphinx entry point, not dead either.
-- `coverage_gradient` on `sparsego/*`, `dipk/predictor.py`, `data/datasets/*` and
-  `models/mixins/_hyperparameters.py` - the same debt already recorded with
-  reasons in `[tool.drevalpy.coverage_gate.exemptions]`, counted a second time.
+- `coverage_gradient` on `sparsego/*`, `dipk/predictor.py` and `data/datasets/*` -
+  the same debt already recorded with reasons in
+  `[tool.drevalpy.coverage_gate.exemptions]`, counted a second time.
   Work it through the gate's exemption list, not the health score.
 
 `hotspot_health` is a local review aid, not a number to gate on. One tree measures

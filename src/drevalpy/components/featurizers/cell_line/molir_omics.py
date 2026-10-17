@@ -130,7 +130,7 @@ class MOLIROmicsFeaturizer(DenseViewCellLineFeaturizer):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return tunable variance-selection feature count.
 
-        :returns: Ray Tune-style hyperparameter space mapping.
+        :returns: Hyperparameter search space mapping.
         """
         return {"n_gene_expression_features": {"type": "int", "low": 1, "high": 1000, "default": 1000}}
 

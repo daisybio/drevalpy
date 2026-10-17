@@ -52,17 +52,19 @@ and the Freie Universität Berlin (FU, Germany).
 
 ## Installation
 
-Using pip:
+Using pip (PyTorch is an optional extra; pick the one matching your machine):
 
 ```bash
-pip install drevalpy
+pip install "drevalpy[cpu]"
 ```
 
-Ray Tune (`ray[tune]`) and Optuna are included in the default install. HPO uses
-Ray to run trials and Optuna only as the search sampler — there is no
-Optuna-only fallback. On Windows, HPO works with Python 3.10–3.12; with
-Python 3.13+, Ray has no wheel so hyperparameter tuning is unavailable (use
-Python 3.12, WSL, or Docker for HPO, or disable tuning for defaults-only runs).
+The extras `cpu`, `cu126` and `cu130` all require `torch>=2.1`; in a source checkout, `uv sync --extra <name>`
+additionally selects the matching PyTorch wheel index (`pip` takes torch from PyPI). The extras are mutually
+exclusive. Without one, torch-based components (e.g. the neural-network predictors) are unavailable.
+
+Hyperparameter tuning uses [Optuna](https://optuna.org/) (TPE sampler), which is part of the default install and
+works on all platforms. Runs are reproducible: `--seed` (CLI) / `seed=` (Python API), default 42, drives the data splits, the hyperparameter
+search, randomization tests and the seeding of every model fit.
 
 On a regular machine, the installation should take about a minute.
 
@@ -77,7 +79,7 @@ From source:
 ```bash
 git clone https://github.com/daisybio/drevalpy.git
 cd drevalpy
-uv sync
+uv sync --extra cpu   # or --extra cu126 / --extra cu130
 ```
 
 Check your installation:
@@ -86,7 +88,7 @@ Check your installation:
 drevalpy --help
 ```
 
-Full install options (Conda, Docker, Windows HPO): [Installation](https://drevalpy.readthedocs.io/en/latest/getting_started/installation.html).
+Full install options (Conda, Docker): [Installation](https://drevalpy.readthedocs.io/en/latest/getting_started/installation.html).
 
 ## Quickstart
 
@@ -136,7 +138,7 @@ result = run(
 )
 ```
 
-With `hyperparameter_tuning=True` (the default), Ray Tune and Optuna search each model’s structured hyperparameter space. Set `hyperparameter_tuning=False` for a fast defaults-only run.
+With `hyperparameter_tuning=True` (the default), Optuna (TPE sampler) searches each model’s structured hyperparameter space. Set `hyperparameter_tuning=False` for a fast defaults-only run.
 
 `run` returns an `ExperimentResult` holding the predictions and metrics of every fold. Save it and render the same style of HTML report from Python:
 

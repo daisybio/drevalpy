@@ -247,7 +247,7 @@ min_file_coverage = 60
 "drevalpy/data/datasets/_load.py" = 55
 
 # Per-module statement ceiling, enforced by tools/size_gate.py. This is the ratchet
-# that keeps the mixin split in models/mixins/ and components/featurizers/ from
+# that keeps the split modules in models/ and components/featurizers/ from
 # growing back: complexipy already caps per-function complexity, but nothing stopped
 # a module from accumulating a fourth unrelated concern's worth of small methods.
 #

@@ -107,7 +107,7 @@ class TunableComponentMixin:
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return tunable hyperparameter specs for HPO.
 
-        :returns: Mapping of parameter name to Ray Tune-style spec dicts.
+        :returns: Mapping of parameter name to search-space spec dicts.
         """
         return {}
 

@@ -168,7 +168,7 @@ class PharmaFormerPredictor(BlockPredictor):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return the tunable hyperparameter space.
 
-        :returns: Ray Tune-style hyperparameter specs.
+        :returns: Hyperparameter search space specs.
         """
         return {}
 

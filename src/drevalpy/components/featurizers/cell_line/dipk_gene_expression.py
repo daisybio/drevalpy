@@ -139,7 +139,7 @@ class DIPKGeneExpressionFeaturizer(DenseViewCellLineFeaturizer):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return tunable autoencoder epoch count.
 
-        :returns: Ray Tune-style hyperparameter space mapping.
+        :returns: Hyperparameter search space mapping.
         """
         return {"epochs_autoencoder": {"type": "int", "low": 1, "high": 500, "default": 100}}
 

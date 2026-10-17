@@ -443,7 +443,7 @@ names (``alpha``, ``n_components``, …); DrEvalPy prefixes them for tuning.
 Hyperparameter names during search
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When tuning runs, Ray Tune / Optuna see a **merged** space whose keys are
+When tuning runs, Optuna sees a **merged** space whose keys are
 dotted and mirror the composed stack:
 
 .. code-block:: text

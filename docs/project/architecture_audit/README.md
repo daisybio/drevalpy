@@ -1,10 +1,18 @@
 # Architecture v2 baseline
 
 The original before-change gates were captured from the clean starting commit
-`e4ad11766bc53554eb0dd53fd29ba47fa41000c2`, archived at
-`/private/tmp/drevalpy-head-e4ad117` before the architecture work began. Each
-runner executed with that archive first on `PYTHONPATH`; no working-tree library
-code was imported. Supplementary full-facade and isolated Precily comparisons
+`e4ad11766bc53554eb0dd53fd29ba47fa41000c2`, exported to a separate directory
+(`<archive-root>` in `manifest.json`; recreate it with `git worktree add` at that
+commit) before the architecture work began. Each runner executed with that
+archive first on `PYTHONPATH`; no working-tree library code was imported.
+
+`e4ad1176` is the corrected v2 that followed the correctness review, which itself
+started at `cf5eeb6a0e020ab7e98c9829c0d81dc00a8cdd5c` (see
+[v2 correctness review](../v2_correctness_review.rst)); it is a descendant of that
+commit. The `commit` field inside `baseline-v2-fixtures/*.json` and
+`postmigration-v2-fixtures/*.json` is a fixed label hard-coded in
+`tools/literature_reference/capture_v2_baseline.py` and still names `cf5eeb6a`;
+the fixtures themselves were captured from the `e4ad1176` archive. Supplementary full-facade and isolated Precily comparisons
 were subsequently executed against that unchanged archive and the final tree.
 They supplement the frozen fixtures; they do not replace their expected values.
 
@@ -31,8 +39,9 @@ full DIPK attention/head and SparseGO ontology networks; and
 All float32 checks use `rtol=1e-5, atol=1e-6`; SRMF's float64 checks use
 `rtol=1e-7, atol=1e-9`.
 
-The pinned upstream source trees are available at
-`/private/tmp/drevalpy-upstream` and match every manifest commit. The published
+The pinned upstream source trees (`<upstream-root>` in `manifest.json`, one
+checkout per project) are not part of this repository; the commits to check out
+are listed under `upstream_commits` in `manifest.json`. The published
 Precily Fig1/Fig1d `Model1.hdf5` artifact has SHA-256
 `bef59c630f22dabe4f11ccabdd90083d88dc371229ee2f61f8bd0f63639cd7e1`.
 The initial environment lacked TensorFlow and Keras. An isolated runtime was

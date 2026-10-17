@@ -1,7 +1,8 @@
 # Architecture migration validation
 
 The reference implementation is commit
-`e4ad11766bc53554eb0dd53fd29ba47fa41000c2`. The migration preserves its corrected,
+`e4ad11766bc53554eb0dd53fd29ba47fa41000c2` (the corrected v2 that descends from the
+correctness review's starting commit `cf5eeb6a`; see [README](README.md)). The migration preserves its corrected,
 leakage-free training protocol and literature adaptations. No unexplained
 numerical differences were observed in the comparisons below. This is a bounded
 regression audit, not a reproduction of published benchmark scores.
@@ -83,12 +84,12 @@ and cache access. No product workaround was introduced to hide those failures.
 Commands used for the final gates:
 
 ```bash
-MPLCONFIGDIR=/private/tmp/dreval-mpl uv run pytest -q -m 'not network' --cov --cov-report=json --cov-report=term-missing
+MPLCONFIGDIR="$(mktemp -d)" uv run pytest -q -m 'not network' --cov --cov-report=json --cov-report=term-missing
 uv run python tools/coverage_gate.py
 uv run python tools/size_gate.py
 uv run prek run --all-files
 uv run ty check
-MPLCONFIGDIR=/private/tmp/dreval-mpl uv run --group docs sphinx-build -W docs /private/tmp/dreval-architecture-docs
+MPLCONFIGDIR="$(mktemp -d)" uv run --group docs sphinx-build -W docs "$(mktemp -d)"
 uv run pytest -q tests/models/test_global_models.py::TestDIPKArtifactIntegration -m network
 uv run pytest -q tests/plugin/test_init.py tests/visualization/plots/test_comparison_scatter.py tests/visualization/plots/test_cross_study_table.py
 ```

@@ -1,7 +1,7 @@
 {
   "baseline_commit": "e4ad11766bc53554eb0dd53fd29ba47fa41000c2",
-  "archive_root": "/private/tmp/drevalpy-head-e4ad117",
-  "upstream_reference_root": "/private/tmp/drevalpy-upstream",
+  "archive_root": "<archive-root>: a clean checkout (git worktree) of baseline_commit",
+  "upstream_reference_root": "<upstream-root>: checkouts of the upstream_commits below, one directory per project",
   "runtime": {
     "python": "3.13.13",
     "numpy": "2.4.6",
@@ -34,13 +34,13 @@
     "SRMF": "921770220b62ea37aa98bce6febacc9db85c79f7"
   },
   "commands": {
-    "fixtures": "DREVALPY_BASELINE_ROOT=/private/tmp/drevalpy-head-e4ad117 BASELINE_OUTPUT_ROOT=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/capture_v2_baseline.py <seed>",
-    "extended_training": "PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_training_benchmark.py --implementation before-e4ad11766bc53554eb0dd53fd29ba47fa41000c2 --extended --output <output>",
-    "kernels": "UPSTREAM_REFERENCE_ROOT=/private/tmp/drevalpy-upstream DREVALPY_ROOT=/private/tmp/drevalpy-head-e4ad117 NUMERICAL_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/numerical_compare_v2.py",
-    "full_dipk_sparsego": "UPSTREAM_REFERENCE_ROOT=/private/tmp/drevalpy-upstream EXPANDED_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/expanded_reference.py",
-    "fusion": "UPSTREAM_REFERENCE_ROOT=/private/tmp/drevalpy-upstream FUSION_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/fusion_reference.py",
-    "srmf": "SRMF_REFERENCE_MAT=/private/tmp/drevalpy-head-e4ad117/docs/project/literature_audit/srmf-reference.mat SRMF_OCTAVE_VERSION=/private/tmp/drevalpy-head-e4ad117/docs/project/literature_audit/octave-version.txt SRMF_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/compare.py",
-    "precily_isolated": "PRECILY_MODEL1=/private/tmp/drevalpy-upstream/Precily/Fig1/Fig1d/Model1.hdf5 PRECILY_RESULTS_PATH=<output> PYTHONPATH=/private/tmp/drevalpy-head-e4ad117 <tensorflow-keras-venv>/bin/python /private/tmp/drevalpy-head-e4ad117/tools/literature_reference/compare_tf.py",
+    "fixtures": "DREVALPY_BASELINE_ROOT=<archive-root> BASELINE_OUTPUT_ROOT=<output> PYTHONPATH=<archive-root> <venv>/bin/python <archive-root>/tools/literature_reference/capture_v2_baseline.py <seed>",
+    "extended_training": "PYTHONPATH=<archive-root> <venv>/bin/python <archive-root>/tools/literature_training_benchmark.py --implementation before-e4ad11766bc53554eb0dd53fd29ba47fa41000c2 --extended --output <output>",
+    "kernels": "UPSTREAM_REFERENCE_ROOT=<upstream-root> DREVALPY_ROOT=<archive-root> NUMERICAL_RESULTS_PATH=<output> PYTHONPATH=<archive-root> <venv>/bin/python <archive-root>/tools/literature_reference/numerical_compare_v2.py",
+    "full_dipk_sparsego": "UPSTREAM_REFERENCE_ROOT=<upstream-root> EXPANDED_RESULTS_PATH=<output> PYTHONPATH=<archive-root> <venv>/bin/python <archive-root>/tools/literature_reference/expanded_reference.py",
+    "fusion": "UPSTREAM_REFERENCE_ROOT=<upstream-root> FUSION_RESULTS_PATH=<output> PYTHONPATH=<archive-root> <venv>/bin/python <archive-root>/tools/literature_reference/fusion_reference.py",
+    "srmf": "SRMF_REFERENCE_MAT=<archive-root>/docs/project/literature_audit/srmf-reference.mat SRMF_OCTAVE_VERSION=<archive-root>/docs/project/literature_audit/octave-version.txt SRMF_RESULTS_PATH=<output> PYTHONPATH=<archive-root> <venv>/bin/python <archive-root>/tools/literature_reference/compare.py",
+    "precily_isolated": "PRECILY_MODEL1=<upstream-root>/Precily/Fig1/Fig1d/Model1.hdf5 PRECILY_RESULTS_PATH=<output> PYTHONPATH=<archive-root> <tensorflow-keras-venv>/bin/python <archive-root>/tools/literature_reference/compare_tf.py",
     "supplementary_facade": "DREVALPY_FACADE_ROOT=<archive-or-current-root> PYTHONPATH=<archive-or-current-root> <project-venv>/bin/python tools/literature_reference/facade_training_reference.py --seeds 0 1 2 --output <output>"
   },
   "outputs": {
@@ -60,8 +60,8 @@
     "postmigration-v2-fixtures/seed-0.json": "d023b5ba154d0a34618de864c5dad4e2b37f3ad4269242b9a0b1796c353783c2",
     "postmigration-v2-fixtures/seed-1.json": "7d3c10ed773bda64453e50a0927d9f9b442f3f711cc557766511110f51a6ed65",
     "postmigration-v2-fixtures/seed-2.json": "8bf24bd3646da974e947f8637ea3fc703c50f0eab8c292ca4d4b5f03f4cf6981",
-    "precily-reference-baseline.json": "1a49e90f43b7e6ac956b23503bd53ead62e7afe5775c23282ac81266131ff47f",
-    "precily-reference-postmigration.json": "1a49e90f43b7e6ac956b23503bd53ead62e7afe5775c23282ac81266131ff47f",
+    "precily-reference-baseline.json": "b75348bf0ce9bbbbb1620298618ec49ae9bf96aeb990dd7eb4ff75afb7f07788",
+    "precily-reference-postmigration.json": "b75348bf0ce9bbbbb1620298618ec49ae9bf96aeb990dd7eb4ff75afb7f07788",
     "srmf-reference-postmigration.json": "e379cc6d512ee7b99153f3ed2be8a350ef0119f5744f46ed01af29a492190fe4",
     "srmf-reference.json": "e379cc6d512ee7b99153f3ed2be8a350ef0119f5744f46ed01af29a492190fe4",
     "training/literature-training-extended-postmigration.json": "f0f6a75f6ce5dcd2f330f72f029d6864d10cc3e846be436c417f4352cb758104",
@@ -72,7 +72,7 @@
     "keras": "3.15.1",
     "h5py": "3.14.0",
     "numpy": "2.5.2",
-    "environment": "/private/tmp/dreval-architecture-tf",
+    "environment": "<tensorflow-keras-venv>",
     "isolation": "Independent venv; existing project packages appended after reference packages through a .pth file."
   },
   "source_and_artifact_manifest": "../literature_audit/manifest.json",

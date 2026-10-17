@@ -5,7 +5,7 @@
     "tensorflow": "2.21.0",
     "torch": "2.13.0"
   },
-  "artifact": "/private/tmp/drevalpy-upstream/Precily/Fig1/Fig1d/Model1.hdf5",
+  "artifact": "<upstream-root>/Precily/Fig1/Fig1d/Model1.hdf5",
   "sha256": "bef59c630f22dabe4f11ccabdd90083d88dc371229ee2f61f8bd0f63639cd7e1",
   "checks": {
     "forward": true,

@@ -21,7 +21,8 @@ import numpy as np
 from upath import UPath
 
 ROOT = UPath(os.environ.get("DREVALPY_FACADE_ROOT", UPath(__file__).parents[2]))
-sys.path.insert(0, str(ROOT))
+# The current tree is a src layout; older archives keep the package at the root.
+sys.path.insert(0, str(ROOT / "src" if (ROOT / "src").exists() else ROOT))
 
 try:
     from drevalpy.models import DRPModel, ModelSpec  # noqa: E402

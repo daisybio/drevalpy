@@ -9,11 +9,13 @@ If something goes wrong, feel free to open an issue on `GitHub <https://github.c
 With pip
 --------
 
-DrEvalPy requires Python >=3.11 and is available on PyPI:
+DrEvalPy requires Python >=3.11 and is available on PyPI. PyTorch is an optional extra
+(``cpu``, ``cu126`` or ``cu130``, mutually exclusive); without one, torch-based
+components such as the neural-network predictors are unavailable:
 
 .. code-block:: bash
 
-   pip install drevalpy
+   pip install "drevalpy[cpu]"
 
 With Conda
 ----------
@@ -34,7 +36,7 @@ Activate your conda environment and install the package using
 .. code-block:: bash
 
    mamba activate drevalpy
-   pip install drevalpy
+   pip install "drevalpy[cpu]"
 
 With venv
 ---------
@@ -50,7 +52,7 @@ Then, install the package using pip:
 
 .. code-block:: bash
 
-   pip install drevalpy
+   pip install "drevalpy[cpu]"
 
 With Docker
 -----------
@@ -80,7 +82,10 @@ the project together with the locked ``dev`` dependency group:
 
     git clone https://github.com/daisybio/drevalpy.git
     cd drevalpy
-    uv sync
+    uv sync --extra cpu
+
+Use ``--extra cu126`` or ``--extra cu130`` instead for a CUDA build; ``uv`` then
+selects the matching PyTorch wheel index.
 
 Verify the console script:
 
@@ -114,14 +119,7 @@ cached under ``<cache dir>/artifacts``. Two environment variables control this:
 Hyperparameter tuning on Windows
 --------------------------------
 
-Experiment-time HPO depends on `Ray <https://pypi.org/project/ray/>`_.
-Unfortunately, Ray only publishes Windows wheels for Python 3.10-3.12.
-This means, if you are using Windows and a Python version outside of that range, the following will happen:
-
-1. Installation of DrEvalPy will succeed, but ``ray`` won't be installed.
-2. Running a workflow with hyperparameter tuning (which is enabled by default) will fail with ``ImportError: Ray Tune with Optuna requires ray[tune] and optuna to be installed``.
-3. Running a workflow without hyperparameter tuning (``--no-hpo``) will succeed
-
-To run HPO from Windows make sure to use a supported Python version (3.10-3.12), use
-`WSL <https://learn.microsoft.com/en-us/windows/wsl/install>`_, or the
-:ref:`Docker image <getting_started/installation:With Docker>` above.
+Hyperparameter tuning uses `Optuna <https://optuna.org/>`_ (TPE sampler), a pure-Python
+dependency installed with DrEvalPy. It works the same on Linux, macOS and Windows and
+needs no extra setup. The sampler is seeded by ``--seed`` (default 42), so searches are
+reproducible.

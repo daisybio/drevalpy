@@ -128,7 +128,7 @@ class DrugGNNPredictor(BlockPredictor):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return the tunable hyperparameter space.
 
-        :returns: Ray Tune-style hyperparameter specs.
+        :returns: Hyperparameter search space specs.
         """
         return {
             "hidden_dim": {"type": "int", "low": 16, "high": 128, "default": 64},

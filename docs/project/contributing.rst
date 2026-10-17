@@ -57,9 +57,8 @@ How to test the project
 Unit tests are located in the ``tests`` directory,
 and are written using the pytest_ testing framework.
 
-The suite is tiered. The bare command runs the **fast tier** — 3844 tests plus 7
-skipped, about 98% of the suite, in roughly 14 seconds — which is also what the
-commit hook runs:
+The suite is tiered. The bare command runs the **fast tier** (the vast majority
+of tests, finishing in seconds), which is also what the commit hook runs:
 
 .. code:: console
 
@@ -69,13 +68,12 @@ The remaining tests carry markers and are deselected by default:
 
 ``slow``
    The extended tier: tests that spawn a fresh interpreter, fit dose-response
-   curves, or train models. A test belongs here if it costs 0.2s or more. 65
-   tests, about 27 seconds.
+   curves, or train models. A test belongs here if it costs 0.2s or more.
 
 ``network``
    Tests that download pretrained weights or remote annotations from the
    artifacts bucket, which is not readable without credentials. These run on a
-   weekly schedule in CI. 8 tests.
+   weekly schedule in CI.
 
 A ``-m`` on the command line replaces the default marker expression rather than
 adding to it, so run the extended tier — or both tiers, which is what CI does on
@@ -86,12 +84,20 @@ every pull request — like this:
    $ uv run pytest -m slow
    $ uv run pytest -m "not network"
 
-The full run is 3909 passed and 7 skipped.
+To see how many tests each tier holds, count them without running them:
+
+.. code:: console
+
+   $ uv run pytest --collect-only -q
+   $ uv run pytest --collect-only -q -m slow
+   $ uv run pytest --collect-only -q -m network
 
 Coverage is measured and enforced in CI on the full ``-m "not network"`` run,
-both as an aggregate floor (currently 91% against a floor of 89) and per module
-across 276 modules. The commit hook does not measure it, because the floors are
-only meaningful on the full suite. To reproduce the CI check locally:
+both as an aggregate floor (``[tool.coverage.report].fail_under`` in
+``pyproject.toml``) and per module
+(``[tool.drevalpy.coverage_gate].min_file_coverage``). The commit hook does not
+measure it, because the floors are only meaningful on the full suite. To
+reproduce the CI check locally, which prints the current figures:
 
 .. code:: console
 
