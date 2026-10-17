@@ -29,7 +29,7 @@ def _execution(monkeypatch, *, stopping=True, seed=17):
         hpo_metric="RMSE",
         hpo_num_samples=2,
         hpo_random_state=9,
-        precomputed_only=False,
+        seed=5,
     )
     return execution, masks, dataset
 
@@ -43,6 +43,8 @@ def test_stopping_partition_is_reused_for_final_fit(monkeypatch):
     assert scopes.final_training == original.train | scopes.validation
     assert scopes.training._pair_seed == scopes.final_training._pair_seed == 17
     assert execution.metadata["execution"]["hpo"]["random_state"] == 9
+    assert execution.seed == 5
+    assert execution.metadata["execution"]["seed"] == 5
 
 
 def test_non_stopping_model_uses_all_validation_in_final_fit(monkeypatch):
@@ -87,5 +89,5 @@ def test_original_overlap_is_rejected_before_execution(monkeypatch):
             hpo_metric="RMSE",
             hpo_num_samples=2,
             hpo_random_state=9,
-            precomputed_only=False,
+            seed=5,
         )

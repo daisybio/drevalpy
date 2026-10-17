@@ -112,8 +112,8 @@ Expected changes from verified defects
 * MOLIR now applies ``gamma`` to triplet loss. Both source families apply this
   coefficient; storing it without using it was an accidental deviation.
 * MOLIR ranks expression variance before z-scoring, aligns equally wide omics
-  matrices by feature names, and shares the experiment's seeded NumPy stream for
-  triplet sampling. SuperFELTR shares the alignment and sampling fixes.
+  matrices by feature names, and draws triplets from the global NumPy stream, which
+  ``single`` seeds from the experiment ``seed`` before each HPO search and fit. SuperFELTR shares the alignment and sampling fixes.
 * SuperFELTR again applies arcsinh to expression before variance selection and
   inference, as the established regression adaptation does.
 * SRMF uses a direct training-mean prediction when either entity is unseen; its

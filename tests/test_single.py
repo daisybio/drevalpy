@@ -25,6 +25,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+import torch
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy import single
@@ -455,13 +456,11 @@ class TestHyperparameterTuning:
             hpo_metric="MSE",
             hpo_num_samples=3,
             hpo_random_state=11,
-            precomputed_only=True,
         )
 
         assert seen["model_spec"] is stub_model.recipe
         assert seen["mudataset"] is synthetic_dataset
         assert seen["metric"] == "MSE"
-        assert seen["precomputed_only"] is True
         assert seen["early_stopping_scope"] is None
         np.testing.assert_array_equal(seen["train_scope"].mask, folds[0].train.mask)
         np.testing.assert_array_equal(seen["val_scope"].mask, folds[0].val.mask)
@@ -544,3 +543,98 @@ def test_direct_masks_are_validated_before_training(stub_model, synthetic_datase
     with pytest.raises(SplitValidationError):
         single(stub_model.recipe, synthetic_dataset, masks, hyperparameter_tuning=False)
     assert stub_model.instances == []
+
+
+class TestSeeding:
+    """``seed`` drives the global RNGs right before the HPO search and the final fit."""
+
+    @pytest.fixture
+    def seeded(self, monkeypatch: pytest.MonkeyPatch) -> list[int]:
+        calls: list[int] = []
+        monkeypatch.setattr(SINGLE_MODULE, "seed_everything", calls.append)
+        return calls
+
+    def test_the_final_fit_is_seeded_from_the_identity(
+        self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel], seeded: list[int]
+    ) -> None:
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False, seed=3)
+        single(stub_model.recipe, synthetic_dataset, folds[1], hyperparameter_tuning=False, seed=3)
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False, seed=3)
+
+        assert seeded[0] == seeded[2]
+        assert seeded[0] != seeded[1]
+
+    def test_hpo_and_the_final_fit_are_both_seeded(
+        self,
+        synthetic_dataset,
+        folds: list[SplitMasks],
+        stub_model: type[_StubModel],
+        seeded: list[int],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", lambda **kwargs: ({"alpha": 0.2}, []))
+
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=True, seed=3)
+
+        assert len(seeded) == 2
+        assert seeded[0] == seeded[1]
+
+    def test_the_hpo_sampler_defaults_to_the_seed(
+        self,
+        synthetic_dataset,
+        folds: list[SplitMasks],
+        stub_model: type[_StubModel],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        seen: list[int] = []
+
+        def fake_tune(**kwargs: Any):
+            seen.append(kwargs["hpo_config"].random_state)
+            return {"alpha": 0.2}, []
+
+        monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
+
+        single(stub_model.recipe, synthetic_dataset, folds[0], seed=8)
+        single(stub_model.recipe, synthetic_dataset, folds[0], seed=8, hpo_random_state=2)
+
+        assert seen == [8, 2]
+
+    def test_the_seed_is_recorded_in_the_result_metadata(
+        self, synthetic_dataset, folds: list[SplitMasks], stub_model: type[_StubModel]
+    ) -> None:
+        result = single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False, seed=3)
+
+        assert result.fold_metadata["execution"]["seed"] == 3
+
+
+@pytest.mark.slow
+class TestNeuralReproducibility:
+    """The same seed reproduces a torch model's predictions; another seed does not."""
+
+    @pytest.fixture
+    def tiny_network(self, monkeypatch: pytest.MonkeyPatch) -> ModelSpec:
+        hyperparameters = {"units_per_layer": [4, 4], "max_epochs": 2, "batch_size": 8}
+        monkeypatch.setattr(ModelSpec, "default_hyperparameters", property(lambda spec: dict(hyperparameters)))
+        return ModelSpec.from_name("SimpleNeuralNetwork")
+
+    def _predict(self, spec: ModelSpec, dataset, fold: SplitMasks, seed: int) -> np.ndarray:
+        # Dirty the global RNGs so only ``seed`` can explain equal predictions.
+        torch.manual_seed(np.random.randint(0, 2**31))
+        return single(spec, dataset, fold, hyperparameter_tuning=False, seed=seed).predictions
+
+    def test_same_seed_gives_identical_predictions(
+        self, tiny_network: ModelSpec, synthetic_dataset, folds: list[SplitMasks]
+    ) -> None:
+        first = self._predict(tiny_network, synthetic_dataset, folds[0], seed=1)
+        second = self._predict(tiny_network, synthetic_dataset, folds[0], seed=1)
+
+        assert np.isfinite(first).all()
+        np.testing.assert_array_equal(first, second)
+
+    def test_a_different_seed_gives_different_predictions(
+        self, tiny_network: ModelSpec, synthetic_dataset, folds: list[SplitMasks]
+    ) -> None:
+        first = self._predict(tiny_network, synthetic_dataset, folds[0], seed=1)
+        other = self._predict(tiny_network, synthetic_dataset, folds[0], seed=2)
+
+        assert not np.array_equal(first, other)

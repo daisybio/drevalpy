@@ -16,7 +16,10 @@ def single_cmd(
     hpo: Annotated[bool, typer.Option("--hpo/--no-hpo", help="Enable hyperparameter tuning.")] = True,
     hpo_metric: Annotated[str, typer.Option("--hpo-metric", help="Metric to optimize.")] = "RMSE",
     hpo_num_samples: Annotated[int, typer.Option("--hpo-num-samples", help="Number of HPO trials.")] = 16,
-    hpo_random_state: Annotated[int, typer.Option("--hpo-random-state", help="HPO random seed.")] = 42,
+    seed: Annotated[int, typer.Option("--seed", help="Root seed for HPO and model fits.")] = 42,
+    hpo_random_state: Annotated[
+        int | None, typer.Option("--hpo-random-state", help="HPO sampler seed (default: --seed).")
+    ] = None,
     response_transformation: Annotated[
         str,
         typer.Option(
@@ -51,6 +54,7 @@ def single_cmd(
         hpo_metric=hpo_metric,
         hpo_num_samples=hpo_num_samples,
         hpo_random_state=hpo_random_state,
+        seed=seed,
     )
 
     result.save(str(out))

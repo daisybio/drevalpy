@@ -75,7 +75,7 @@ class ExecutionSpec:
     hpo_metric: str
     hpo_num_samples: int
     hpo_random_state: int
-    precomputed_only: bool
+    seed: int
     metadata: Mapping[str, Any]
 
     def __post_init__(self) -> None:
@@ -96,7 +96,7 @@ def build_execution(
     hpo_metric: str,
     hpo_num_samples: int,
     hpo_random_state: int,
-    precomputed_only: bool,
+    seed: int,
 ) -> ExecutionSpec:
     """Validate the original split and reserve stopping data exactly once.
 
@@ -107,7 +107,7 @@ def build_execution(
     :param hpo_metric: Selection metric.
     :param hpo_num_samples: Number of trials.
     :param hpo_random_state: Sampler seed.
-    :param precomputed_only: Restrict feature preparation to stored variants.
+    :param seed: Root seed from which every fit's RNG seed is derived.
     :returns: Immutable execution decisions.
     """
     if not isinstance(model, ModelSpec):
@@ -131,7 +131,7 @@ def build_execution(
             "num_samples": hpo_num_samples,
             "random_state": hpo_random_state,
         },
-        "precomputed_only": precomputed_only,
+        "seed": seed,
     }
     identity = RunIdentity.from_metadata(
         model.name,
@@ -150,6 +150,6 @@ def build_execution(
         hpo_metric,
         hpo_num_samples,
         hpo_random_state,
-        precomputed_only,
+        seed,
         metadata,
     )

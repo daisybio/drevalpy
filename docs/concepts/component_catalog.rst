@@ -71,15 +71,10 @@ Precomputation and hyperparameter optimization are not mutually exclusive.
 A precomputable featurizer can still have hyperparameters (for example, the
 fingerprint radius). Because each hyperparameter configuration yields a
 different cached output, multiple variants can be stored side by side in the
-same dataset. At experiment time, users choose one of two strategies:
-
-- **Precomputed-only mode** -- the optimizer treats the stored variants as
-  categorical choices and selects among them. This is fast because no
-  featurizer computation happens at all during the search.
-- **Standard HPO mode** -- the optimizer ignores stored variants and explores
-  the featurizer's continuous hyperparameter space normally, recomputing
-  features for each trial. This is slower but can find configurations that
-  were never precomputed.
+same dataset. At experiment time, the optimizer explores the featurizer's
+hyperparameter space normally; a trial whose configuration matches a stored
+variant reuses it, and any other configuration is recomputed for that trial.
+Restricting the search to stored variants only is not supported.
 
 Featurizer types
 ~~~~~~~~~~~~~~~~

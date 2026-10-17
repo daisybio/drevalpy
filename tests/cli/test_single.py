@@ -144,7 +144,8 @@ class TestForwarding:
             "hyperparameter_tuning": True,
             "hpo_metric": "RMSE",
             "hpo_num_samples": 16,
-            "hpo_random_state": 42,
+            "hpo_random_state": None,
+            "seed": 42,
         }
 
     def test_no_hpo_disables_tuning(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
@@ -158,6 +159,12 @@ class TestForwarding:
         assert worker.kwargs["hpo_metric"] == "Pearson"
         assert worker.kwargs["hpo_num_samples"] == 2
         assert worker.kwargs["hpo_random_state"] == 9
+
+    def test_seed_is_forwarded(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        _invoke(split_file, tmp_path, "--seed", "3")
+
+        assert worker.kwargs["seed"] == 3
+        assert worker.kwargs["hpo_random_state"] is None
 
     def test_split_mode_is_not_a_worker_keyword(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         """``--split-mode`` only ever reaches the worker through the masks' metadata."""

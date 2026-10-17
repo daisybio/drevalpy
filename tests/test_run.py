@@ -104,13 +104,17 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> _SingleRecorder:
     """
     stub = _SingleRecorder()
     monkeypatch.setattr(RUN_MODULE, "single", stub)
-    monkeypatch.setattr(RUN_MODULE, "split", lambda ds, mode: [_make_masks(fold_index=i) for i in range(2)])
+    monkeypatch.setattr(
+        RUN_MODULE, "split", lambda ds, mode, random_state=42: [_make_masks(fold_index=i) for i in range(2)]
+    )
     monkeypatch.setattr(RUN_MODULE, "load", lambda name: _FakeDataset(name=name))
     return stub
 
 
 def _set_folds(monkeypatch: pytest.MonkeyPatch, n_folds: int) -> None:
-    monkeypatch.setattr(RUN_MODULE, "split", lambda ds, mode: [_make_masks(fold_index=i) for i in range(n_folds)])
+    monkeypatch.setattr(
+        RUN_MODULE, "split", lambda ds, mode, random_state=42: [_make_masks(fold_index=i) for i in range(n_folds)]
+    )
 
 
 def _set_randomizations(monkeypatch: pytest.MonkeyPatch, n: int) -> None:
@@ -295,7 +299,6 @@ class TestForwardedArguments:
             hpo_metric="MSE",
             hpo_num_samples=4,
             hpo_random_state=7,
-            precomputed_only=True,
         )
 
         _, kwargs = recorder.calls[0]
@@ -304,7 +307,7 @@ class TestForwardedArguments:
             "hpo_metric": "MSE",
             "hpo_num_samples": 4,
             "hpo_random_state": 7,
-            "precomputed_only": True,
+            "seed": 42,
             "response_transformation": None,
         }
 
@@ -313,7 +316,7 @@ class TestForwardedArguments:
     ) -> None:
         seen: list[str] = []
 
-        def fake_split(ds: Any, mode: str) -> list[SplitMasks]:
+        def fake_split(ds: Any, mode: str, random_state: int = 42) -> list[SplitMasks]:
             seen.append(mode)
             return [_make_masks(fold_index=0)]
 
@@ -361,6 +364,47 @@ class TestForwardedArguments:
         run([_stub_model("A")], dataset, "LCO", randomization_modes=["SVRC"], randomization_random_state=17)
 
         assert seen == [17]
+
+    def test_the_seed_drives_split_and_defaults_randomization(
+        self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        split_seeds: list[int] = []
+        randomization_seeds: list[int] = []
+
+        def fake_split(ds: Any, mode: str, random_state: int = 42) -> list[SplitMasks]:
+            split_seeds.append(random_state)
+            return [_make_masks(fold_index=0)]
+
+        def fake_randomization(*args, **kwargs):
+            randomization_seeds.append(kwargs["random_state"])
+            return []
+
+        monkeypatch.setattr(RUN_MODULE, "split", fake_split)
+        monkeypatch.setattr(RUN_MODULE, "randomization", fake_randomization)
+
+        run([_stub_model("A")], dataset, "LCO", randomization_modes=["SVRC"], seed=5)
+
+        assert split_seeds == [5]
+        assert randomization_seeds == [5]
+        _, kwargs = recorder.calls[0]
+        assert kwargs["seed"] == 5
+        assert kwargs["hpo_random_state"] is None
+
+    def test_an_explicit_randomization_state_overrides_the_seed(
+        self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _set_folds(monkeypatch, 1)
+        seen: list[int] = []
+
+        def fake_randomization(*args, **kwargs):
+            seen.append(kwargs["random_state"])
+            return []
+
+        monkeypatch.setattr(RUN_MODULE, "randomization", fake_randomization)
+
+        run([_stub_model("A")], dataset, "LCO", randomization_modes=["SVRC"], seed=5, randomization_random_state=0)
+
+        assert seen == [0]
 
 
 class TestGrouping:

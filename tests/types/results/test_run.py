@@ -150,6 +150,18 @@ class TestPersistence:
         np.testing.assert_array_equal(loaded.cell_line_ids, run.cell_line_ids)
         np.testing.assert_array_equal(loaded.drug_ids, run.drug_ids)
 
+    def test_results_recording_a_removed_execution_flag_still_load(self, tmp_path) -> None:
+        removed_flag = "precomputed" + "_only"
+        legacy = {"execution": {"hpo": {"enabled": False}, removed_flag: False}}
+        run = make_run_result(fold_metadata=legacy)
+        path = UPath(tmp_path) / "legacy.npz"
+
+        run.save(path)
+        loaded = RunResult.load(path)
+
+        assert loaded.fold_metadata["execution"][removed_flag] is False
+        assert loaded.identity.execution_key == run.identity.execution_key
+
     def test_round_trip_preserves_scalar_metadata(self, tmp_path) -> None:
         run = make_run_result(model_name="RandomForest", fold_index=2, split_mode="LCO")
         path = UPath(tmp_path) / "fold_2.npz"

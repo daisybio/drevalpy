@@ -72,7 +72,6 @@ def hpam_tune(
     split_index: int | None = None,
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
-    precomputed_only: bool = False,
 ) -> tuple[dict[str, Any], list[tuple[dict[str, Any], dict[str, float], np.ndarray]]]:
     """Tune hyperparameters using Dataset + SplitMask with Optuna.
 
@@ -90,8 +89,6 @@ def hpam_tune(
     :param split_index: CV fold index for W&B logging.
     :param wandb_project: W&B project name.
     :param wandb_base_config: Base W&B config merged per trial.
-    :param precomputed_only: When True, restrict fixed featurizer HP params to
-        stored variants. (Search space restriction is a TODO; plumbing is in place.)
     :returns: Tuple of (best_params, trial_results) where trial_results is a
         list of (hyperparameters, metrics_dict, predictions) tuples for each completed trial.
     :raises ValueError: Raised when ``hpo_config.metric`` disagrees with ``metric``.
@@ -109,11 +106,6 @@ def hpam_tune(
         return model_spec.default_hyperparameters, []
     if cfg.n_trials == 0:
         return model_spec.default_hyperparameters, []
-
-    # TODO: When precomputed_only is True, query list_stored_variants(mdata) for each
-    # precomputable featurizer in the model config and restrict its HP params in
-    # structured_space to categorical choices over stored variant values.
-    _ = precomputed_only
 
     model_name = model_spec.name
     all_trial_data: list[tuple[dict[str, Any], dict[str, float], np.ndarray]] = []

@@ -73,9 +73,17 @@ predictions and metrics.
    * - ``hpo_num_samples``
      - ``16``
      - Number of Optuna trials per fold.
-   * - ``hpo_random_state``
+   * - ``seed``
      - ``42``
-     - Seed for the Optuna sampler.
+     - Root seed. It seeds the splits, the defaults of ``hpo_random_state`` and
+       ``randomization_random_state``, and the global RNGs (Python, NumPy, torch)
+       before every HPO search and final fit; see :ref:`reproducibility`.
+   * - ``hpo_random_state``
+     - ``None``
+     - Seed for the Optuna sampler; ``None`` uses ``seed``.
+   * - ``randomization_random_state``
+     - ``None``
+     - Root seed for feature randomization; ``None`` uses ``seed``.
    * - ``randomization_modes``
      - ``None``
      - Optional list of feature-shuffle modes: ``"SVCC"``, ``"SVRC"``, ``"SVCD"``, ``"SVRD"``.
@@ -85,9 +93,6 @@ predictions and metrics.
    * - ``robustness_trials``
      - ``0``
      - Number of shuffled robustness repetitions (0 = disabled).
-   * - ``precomputed_only``
-     - ``False``
-     - Restrict HPO to pre-computed featurizer variants.
 
 Per-fold execution: ``single``
 ------------------------------
@@ -125,7 +130,8 @@ Aggregate into an :class:`~drevalpy.types.results.ExperimentResult`:
    experiment = ExperimentResult(results)
    experiment.save("results/")
 
-``single`` additionally supports:
+``single`` takes the same ``hyperparameter_tuning``, ``hpo_*`` and ``seed``
+arguments as ``run``. It additionally supports:
 
 - ``response_transformation`` — an unfitted sklearn ``TransformerMixin``
   (``StandardScaler``, ``MinMaxScaler``, ``RobustScaler``). A clone is fitted on
@@ -137,27 +143,39 @@ Hyperparameter tuning
 ---------------------
 
 Tuning is **on by default**. When ``hyperparameter_tuning=True``, each model
-with a search space is tuned with Ray Tune and Optuna before final fold
-evaluation. Set ``hyperparameter_tuning=False`` to skip search and use each
-model's ``get_default_hyperparameters()`` only.
+with a search space is tuned with `Optuna <https://optuna.org/>`_ before final
+fold evaluation. Set ``hyperparameter_tuning=False`` to skip search and use each
+model's default hyperparameters only.
 
-Ray and Optuna
-~~~~~~~~~~~~~~
+Optuna
+~~~~~~
 
-Ray and Optuna fulfill different roles in the hyperparameter tuning process:
+Hyperparameter search is Optuna-only. Each study uses a ``TPESampler`` seeded
+with ``hpo_random_state`` (``seed`` when unset), runs ``hpo_num_samples`` trials
+sequentially in the calling process, and optimizes ``hpo_metric`` on the
+validation scope. To tune folds in parallel, run them as separate processes (see
+``drevalpy single`` in :doc:`/cli/experiments`).
 
-- **Ray Tune** runs and schedules trials (parallelism, resource allocation,
-  trial storage under the run directory).
-- **Optuna** (via Ray's ``OptunaSearch``) chooses which hyperparameter values
-  to try next and optimizes ``hpo_metric``.
+.. _reproducibility:
 
-.. note::
+Reproducibility
+~~~~~~~~~~~~~~~
 
-   Ray is generally installed as a dependency of drevalpy.
-   However, Ray is only compatible with a limited set of Python versions on
-   Windows. See
-   :ref:`getting_started/installation:Hyperparameter tuning on Windows`
-   for more details.
+``seed`` (default ``42``) is the single knob for repeatable experiments:
+
+- ``run`` splits the dataset with ``random_state=seed``.
+- ``hpo_random_state`` and ``randomization_random_state`` default to ``seed``;
+  pass an integer to override either one.
+- Right before each HPO search and each final fit, ``single`` calls
+  ``seed_everything(fit_seed(seed, identity))``. ``fit_seed`` derives a stable
+  32-bit seed from the root seed and the execution identity (model, dataset,
+  split mode, fold, randomization and robustness trial), so different folds and
+  models get different, but reproducible, global RNG streams.
+- The seed is recorded in each result's ``fold_metadata["execution"]["seed"]``.
+
+Running the same call twice on the same machine gives identical predictions for
+seeded CPU fits. GPU kernels and multi-threaded reductions can still introduce
+small non-deterministic differences.
 
 Search spaces
 ~~~~~~~~~~~~~
@@ -257,7 +275,7 @@ Whether you can customize the space depends on how you construct the class:
          MyEN = ModelSpec("MyElasticNet", cfg)
 
 Specs use local parameter names (``alpha``, ``n_components``, …). During
-search, Ray Tune / Optuna see dotted qualified keys to prevent name
+search, Optuna sees dotted qualified keys to prevent name
 collisions, for example ``predictor.elasticNet.alpha`` and
 ``cell_line_featurizer.pca[expression].n_components``. See
 :doc:`/concepts/from_components_to_models` for the full key rules and

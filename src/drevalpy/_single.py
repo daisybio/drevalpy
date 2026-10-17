@@ -17,6 +17,7 @@ from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.results.run import RunResult
 from drevalpy.types.results.trial import TrialResult
+from drevalpy.utils.seed import fit_seed, seed_everything
 
 if TYPE_CHECKING:
     from sklearn.base import TransformerMixin
@@ -33,8 +34,8 @@ def single(
     response_transformation: TransformerMixin | None = None,
     hpo_metric: str = "RMSE",
     hpo_num_samples: int = 16,
-    hpo_random_state: int = 42,
-    precomputed_only: bool = False,
+    hpo_random_state: int | None = None,
+    seed: int = 42,
 ) -> RunResult:
     """Train a single model on a single fold and predict on the test set.
 
@@ -46,8 +47,8 @@ def single(
         fitted per scope and the caller's instance is left untouched.
     :param hpo_metric: Metric to optimize during HPO.
     :param hpo_num_samples: Number of HPO trials.
-    :param hpo_random_state: Random seed for HPO.
-    :param precomputed_only: Restrict HPO to pre-computed featurizer variants.
+    :param hpo_random_state: Random seed for the HPO sampler; defaults to ``seed``.
+    :param seed: Root seed; every HPO run and final fit is seeded from it and the execution identity.
     :returns: RunResult with predictions, ground truth, and metrics.
     """
     execution = build_execution(
@@ -57,8 +58,8 @@ def single(
         hyperparameter_tuning=hyperparameter_tuning,
         hpo_metric=hpo_metric,
         hpo_num_samples=hpo_num_samples,
-        hpo_random_state=hpo_random_state,
-        precomputed_only=precomputed_only,
+        hpo_random_state=seed if hpo_random_state is None else hpo_random_state,
+        seed=seed,
     )
     return _execute(execution, dataset, response_transformation)
 
@@ -67,6 +68,7 @@ def _execute(execution: ExecutionSpec, dataset: Dataset, response_transformation
     """Execute established scopes; model pipelines own all fitted transforms."""
     model_spec, scopes, identity = execution.model, execution.scopes, execution.identity
     hpo_metric = execution.hpo_metric
+    fit_rng_seed = fit_seed(execution.seed, identity)
     trials: list[TrialResult] | None = None
     if execution.hyperparameter_tuning:
         hpo_cfg = build_experiment_hpo_config(
@@ -74,6 +76,7 @@ def _execute(execution: ExecutionSpec, dataset: Dataset, response_transformation
             n_trials=execution.hpo_num_samples,
             random_state=execution.hpo_random_state,
         )
+        seed_everything(fit_rng_seed)
         best_hpams, raw_trials = hpam_tune(
             model_spec=model_spec,
             mudataset=dataset,
@@ -84,7 +87,6 @@ def _execute(execution: ExecutionSpec, dataset: Dataset, response_transformation
             metric=hpo_metric,
             model_checkpoint_dir=None,
             hpo_config=hpo_cfg,
-            precomputed_only=execution.precomputed_only,
         )
         trials = [
             TrialResult(
@@ -102,6 +104,7 @@ def _execute(execution: ExecutionSpec, dataset: Dataset, response_transformation
 
     model = DRPModel(model_spec, best_hpams, response_transformation=response_transformation)
 
+    seed_everything(fit_rng_seed)
     with tempfile.TemporaryDirectory() as checkpoint_dir:
         model.train(
             dataset=dataset,

@@ -16,7 +16,12 @@ def run_cmd(
     hpo: Annotated[bool, typer.Option("--hpo/--no-hpo", help="Enable hyperparameter tuning.")] = True,
     hpo_metric: Annotated[str, typer.Option("--hpo-metric", help="Metric to optimize.")] = "RMSE",
     hpo_num_samples: Annotated[int, typer.Option("--hpo-num-samples", help="Number of HPO trials.")] = 16,
-    hpo_random_state: Annotated[int, typer.Option("--hpo-random-state", help="HPO random seed.")] = 42,
+    seed: Annotated[
+        int, typer.Option("--seed", help="Root seed for splits, HPO, feature randomization, and model fits.")
+    ] = 42,
+    hpo_random_state: Annotated[
+        int | None, typer.Option("--hpo-random-state", help="HPO sampler seed (default: --seed).")
+    ] = None,
     randomization_mode: Annotated[
         list[str] | None,
         typer.Option("--randomization-mode", "-r", help="Randomization mode(s): SVRC, SVCC, SVRD, SVCD."),
@@ -25,14 +30,12 @@ def run_cmd(
         str, typer.Option("--randomization-type", help="Randomization type: permutation or invariant.")
     ] = "permutation",
     randomization_random_state: Annotated[
-        int, typer.Option("--randomization-random-state", help="Root seed for feature randomization.")
-    ] = 42,
+        int | None,
+        typer.Option("--randomization-random-state", help="Root seed for feature randomization (default: --seed)."),
+    ] = None,
     robustness_trials: Annotated[
         int, typer.Option("--robustness-trials", help="Number of robustness permutations (0=disabled).")
     ] = 0,
-    precomputed_only: Annotated[
-        bool, typer.Option("--precomputed-only", help="Restrict HPO to pre-computed featurizer variants.")
-    ] = False,
 ) -> None:
     """Run the full evaluation pipeline."""
     from drevalpy._run import run
@@ -48,13 +51,13 @@ def run_cmd(
         split_mode=split_mode,
         randomization_modes=randomization_mode,
         randomization_type=randomization_type,
+        seed=seed,
         randomization_random_state=randomization_random_state,
         hyperparameter_tuning=hpo,
         hpo_metric=hpo_metric,
         hpo_num_samples=hpo_num_samples,
         hpo_random_state=hpo_random_state,
         robustness_trials=robustness_trials,
-        precomputed_only=precomputed_only,
     )
 
     result.save(str(out))

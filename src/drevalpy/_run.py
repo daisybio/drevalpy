@@ -22,10 +22,10 @@ def run(
     hyperparameter_tuning: bool = True,
     hpo_metric: str = "RMSE",
     hpo_num_samples: int = 16,
-    hpo_random_state: int = 42,
+    hpo_random_state: int | None = None,
     robustness_trials: int = 0,
-    precomputed_only: bool = False,
-    randomization_random_state: int = 42,
+    randomization_random_state: int | None = None,
+    seed: int = 42,
     response_transformation=None,
 ) -> ExperimentResult:
     """Run the full experiment pipeline.
@@ -38,10 +38,10 @@ def run(
     :param hyperparameter_tuning: Whether to run HPO.
     :param hpo_metric: Metric to optimize during HPO.
     :param hpo_num_samples: Number of HPO trials.
-    :param hpo_random_state: Random seed for HPO.
+    :param hpo_random_state: Random seed for the HPO sampler; defaults to ``seed``.
     :param robustness_trials: Number of robustness permutations (0 = disabled).
-    :param precomputed_only: Restrict HPO to pre-computed featurizer variants.
-    :param randomization_random_state: Root seed for reproducible feature randomization.
+    :param randomization_random_state: Root seed for reproducible feature randomization; defaults to ``seed``.
+    :param seed: Root seed driving the splits, the HPO and randomization defaults, and every model fit.
     :param response_transformation: Optional unfitted target transformer, cloned for every fit.
     :returns: ExperimentResult grouping all model results.
     """
@@ -50,11 +50,12 @@ def run(
     if len({model.name for model in models}) != len(models):
         raise ValueError("Model names must be unique within an experiment")
     ds = load(dataset) if isinstance(dataset, str) else dataset
-    folds = split(ds, split_mode)
+    folds = split(ds, split_mode, random_state=seed)
 
     if robustness_trials > 0:
         folds = [s for fold in folds for s in [fold, *robustness(fold, robustness_trials)]]
 
+    randomization_seed = seed if randomization_random_state is None else randomization_random_state
     run_results: list[RunResult] = []
 
     for model, split_masks in product(models, folds):
@@ -67,7 +68,7 @@ def run(
                     ds,
                     randomization_modes,
                     randomization_type=randomization_type,
-                    random_state=randomization_random_state,
+                    random_state=randomization_seed,
                 )
             )
 
@@ -80,7 +81,7 @@ def run(
                 hpo_metric=hpo_metric,
                 hpo_num_samples=hpo_num_samples,
                 hpo_random_state=hpo_random_state,
-                precomputed_only=precomputed_only,
+                seed=seed,
                 response_transformation=response_transformation,
             )
             run_results.append(result)

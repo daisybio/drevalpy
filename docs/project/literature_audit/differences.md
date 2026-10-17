@@ -109,7 +109,8 @@ successful comparisons; the required Python, TensorFlow and Octave runs executed
 - **Corrected defects:** select variance before z-scoring, since z-scoring makes
   nonconstant variances approximately one; align equally wide omics matrices by
   feature names; apply gamma to triplet loss; and draw unseeded-call triplets from
-  the experiment's seeded NumPy stream. Explicit isolated triplet seeds retain
+  the global NumPy stream, which `single` seeds from the experiment `seed` (via
+  `fit_seed`) before each fit. Explicit isolated triplet seeds retain
   their original Generator behavior.
 - **Compared training policy:** both families use Adagrad; local per-group learning
   rates share one configured value whereas upstream exposes separate values.

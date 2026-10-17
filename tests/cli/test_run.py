@@ -86,16 +86,16 @@ class TestDefaults:
         assert worker.kwargs["hyperparameter_tuning"] is True
         assert worker.kwargs["hpo_metric"] == "RMSE"
         assert worker.kwargs["hpo_num_samples"] == 16
-        assert worker.kwargs["hpo_random_state"] == 42
+        assert worker.kwargs["hpo_random_state"] is None
 
     def test_forwards_experiment_defaults(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path)
 
         assert worker.kwargs["randomization_modes"] is None
         assert worker.kwargs["randomization_type"] == "permutation"
-        assert worker.kwargs["randomization_random_state"] == 42
+        assert worker.kwargs["randomization_random_state"] is None
         assert worker.kwargs["robustness_trials"] == 0
-        assert worker.kwargs["precomputed_only"] is False
+        assert worker.kwargs["seed"] == 42
 
     def test_passes_constructed_classes_not_names(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path)
@@ -171,10 +171,17 @@ class TestOptionForwarding:
 
         assert worker.kwargs["robustness_trials"] == 4
 
-    def test_precomputed_only(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "--precomputed-only")
+    def test_seed(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--seed", "5")
 
-        assert worker.kwargs["precomputed_only"] is True
+        assert worker.kwargs["seed"] == 5
+        assert worker.kwargs["hpo_random_state"] is None
+        assert worker.kwargs["randomization_random_state"] is None
+
+    def test_removed_precompute_flag_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--precomputed-only")
+
+        assert result.exit_code == 2
 
     def test_non_integer_hpo_samples_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
         result = _invoke(tmp_path, "--hpo-num-samples", "many")

@@ -6,12 +6,14 @@ import os
 import random
 import sys
 from collections.abc import Iterator
+from dataclasses import replace
 
 import numpy as np
 import pytest
 import torch
 
-from drevalpy.utils.seed import seed_everything
+from drevalpy.types.results._identity import RunIdentity
+from drevalpy.utils.seed import fit_seed, seed_everything
 
 
 class _FakeCuda:
@@ -45,9 +47,8 @@ class _FakeTorch:
 
 
 @pytest.fixture(autouse=True)
-def _restore_global_rng_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def _restore_global_rng_state() -> Iterator[None]:
     """Undo the process-wide state ``seed_everything`` deliberately mutates."""
-    monkeypatch.setenv("PYTHONHASHSEED", os.environ.get("PYTHONHASHSEED", "0"))
     python_state = random.getstate()
     numpy_state = np.random.get_state()
     torch_state = torch.get_rng_state()
@@ -55,18 +56,6 @@ def _restore_global_rng_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]
     random.setstate(python_state)
     np.random.set_state(numpy_state)
     torch.set_rng_state(torch_state)
-
-
-def test_exports_the_hash_seed() -> None:
-    seed_everything(7)
-
-    assert os.environ["PYTHONHASHSEED"] == "7"
-
-
-def test_defaults_to_forty_two() -> None:
-    seed_everything()
-
-    assert os.environ["PYTHONHASHSEED"] == "42"
 
 
 def test_python_random_is_reproducible() -> None:
@@ -143,3 +132,44 @@ def test_cuda_is_skipped_when_unavailable(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert fake_torch.seeds == [5]
     assert fake_torch.cuda.seeds == []
+
+
+def test_seed_everything_leaves_the_hash_seed_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PYTHONHASHSEED", raising=False)
+
+    seed_everything(7)
+
+    assert "PYTHONHASHSEED" not in os.environ
+
+
+class TestFitSeed:
+    identity = RunIdentity("ElasticNet", "TOYv1", "LPO", 2, "abc")
+
+    def test_matches_a_recorded_value(self) -> None:
+        assert fit_seed(42, self.identity) == 2377201496
+
+    def test_is_a_32_bit_unsigned_int(self) -> None:
+        assert 0 <= fit_seed(42, self.identity) < 2**32
+
+    def test_the_provenance_blob_is_ignored(self) -> None:
+        other = replace(self.identity, provenance='{"execution":{"seed":1}}')
+
+        assert fit_seed(42, other) == fit_seed(42, self.identity)
+
+    def test_root_seed_changes_the_seed(self) -> None:
+        assert fit_seed(1, self.identity) != fit_seed(2, self.identity)
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"model_name": "SVR"},
+            {"dataset_name": "other"},
+            {"split_mode": "LCO"},
+            {"fold_index": 3},
+            {"fold_id": "def"},
+            {"randomization": ("SVRC", "gene_expression")},
+            {"robustness_trial": 0},
+        ],
+    )
+    def test_every_identity_field_changes_the_seed(self, change: dict) -> None:
+        assert fit_seed(42, replace(self.identity, **change)) != fit_seed(42, self.identity)

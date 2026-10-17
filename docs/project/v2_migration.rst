@@ -112,8 +112,11 @@ Also re-run MOLIR experiments after the loss weighting, variance ranking and
 feature alignment corrections; SuperFELTR experiments after the expression
 transform and shared omics corrections; SRMF cold-start evaluations; and DrugGNN experiments
 whose best validation checkpoint preceded their final epoch. Triplet sampling
-now follows the experiment seed, so re-run triplet-based training when
-reproducibility matters. Recreate affected
+now draws from the NumPy stream that ``single`` seeds from ``seed`` before each
+fit, so re-run triplet-based training when reproducibility matters. The same
+call also seeds Python and torch, so neural fits are repeatable for a fixed
+``seed``; results from earlier versions, which did not seed them, cannot be
+reproduced. Recreate affected
 SuperFELTR, BPE and pathway checkpoints; repeat SparseGO runs with ontology
 metadata that previously failed or used inconsistent gene ordering. The
 :doc:`v2_correctness_review` records these verified corrections separately from

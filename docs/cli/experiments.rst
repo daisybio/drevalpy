@@ -50,21 +50,25 @@ Models are passed as positional arguments. Options:
    * - ``--hpo-num-samples``
      - ``16``
      - Number of Optuna trials per fold.
-   * - ``--hpo-random-state``
+   * - ``--seed``
      - ``42``
-     - HPO random seed.
+     - Root seed for the splits, feature randomization, HPO sampler, and the
+       global RNGs before every fit (see :ref:`cli_reproducibility`).
+   * - ``--hpo-random-state``
+     - unset
+     - Optuna sampler seed; defaults to ``--seed``.
    * - ``--randomization-mode`` / ``-r``
      - None
      - Randomization mode(s): ``SVRC``, ``SVCC``, ``SVRD``, ``SVCD``.
    * - ``--randomization-type``
      - ``permutation``
      - ``permutation`` or ``invariant``.
+   * - ``--randomization-random-state``
+     - unset
+     - Root seed for feature randomization; defaults to ``--seed``.
    * - ``--robustness-trials``
      - ``0``
      - Number of robustness permutations (0 = disabled).
-   * - ``--precomputed-only``
-     - off
-     - Restrict HPO to pre-computed featurizer variants.
 
 Example with tuning disabled:
 
@@ -101,8 +105,9 @@ Arguments:
 3. Split path (``.npz`` fold file from ``drevalpy data split``)
 4. Output path (``.npz`` result file)
 
-Options are the same HPO flags as ``drevalpy run``, plus one that is specific to
-per-fold execution:
+Options are the same HPO flags (``--hpo``, ``--hpo-metric``,
+``--hpo-num-samples``, ``--hpo-random-state``) and ``--seed`` as
+``drevalpy run``, plus the following that are specific to per-fold execution:
 
 .. list-table::
    :header-rows: 1
@@ -116,6 +121,9 @@ per-fold execution:
      - Target scaling fitted on the training scope only: ``None``, ``standard``,
        ``minmax``, or ``robust``. Predictions are inverse-transformed before
        scoring, so metrics stay in the dataset's original response units.
+   * - ``--split-mode``
+     - ``LPO``
+     - Split mode recorded when the split file carries none.
 
 ``drevalpy aggregate`` — combine results
 -----------------------------------------
@@ -133,21 +141,29 @@ Hyperparameter tuning
 ---------------------
 
 Tuning is **on by default** (``--hpo``). When enabled, models with a search
-space are tuned with Ray Tune and Optuna before final fold evaluation.
+space are tuned with `Optuna <https://optuna.org/>`_ before final fold
+evaluation. Search is Optuna-only: a ``TPESampler`` seeded with
+``--hpo-random-state`` (``--seed`` when unset) runs ``--hpo-num-samples`` trials
+sequentially in the process and optimizes ``--hpo-metric``. Use ``--no-hpo`` for
+defaults-only runs, and run folds as separate ``drevalpy single`` processes to
+parallelize.
 
-Ray vs Optuna
-~~~~~~~~~~~~~
+.. _cli_reproducibility:
 
-These are not two alternate backends. They play different roles in one stack:
+Reproducibility
+~~~~~~~~~~~~~~~
 
-- **Ray Tune** runs and schedules trials (parallelism, resource allocation,
-  trial storage under the run directory).
-- **Optuna** (via Ray's ``OptunaSearch``) chooses which hyperparameter values
-  to try next and optimizes ``--hpo-metric``.
+``--seed`` (default ``42``) controls every random source of a run. ``drevalpy run``
+splits with it and uses it as the default for ``--hpo-random-state`` and
+``--randomization-random-state``. Both ``run`` and ``single`` seed the Python,
+NumPy and torch generators right before each HPO search and final fit, from a
+value derived from ``--seed`` and the fold's identity (model, dataset, split
+mode, fold, randomization and robustness trial). Re-running with the same
+``--seed`` reproduces seeded CPU fits; another ``--seed`` changes them. The seed
+is stored in each result's ``fold_metadata["execution"]["seed"]``.
 
-Without Ray installed, experiment-time tuning cannot run. Use ``--no-hpo``
-for defaults-only runs, or install on a platform that has Ray wheels (see
-:doc:`/getting_started/installation`).
+When running folds with ``drevalpy single``, pass the same ``--seed`` to every
+fold; the fold's identity keeps their RNG streams distinct.
 
 Randomization and robustness
 -----------------------------
