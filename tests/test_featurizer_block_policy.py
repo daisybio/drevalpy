@@ -19,7 +19,7 @@ from drevalpy.types.data.batch.feature_block import (
 )
 
 REPO = Path(__file__).resolve().parents[1]
-DREVALPY = REPO / "drevalpy"
+DREVALPY = REPO / "src" / "drevalpy"
 
 
 @pytest.fixture(autouse=True)

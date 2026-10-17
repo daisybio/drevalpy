@@ -9,7 +9,7 @@ the facade's annotations usable by a plugin's type checker.
 The packaging assertions at the bottom live here rather than in a new root-level
 guard because they are about the same thing the facade is about - what an
 installed consumer can see. ``py.typed`` is what makes the facade's annotations
-usable, and ``dev-mode-exact`` is what stops the editable install from also
+usable, and the ``src/`` layout is what stops the editable install from also
 exporting ``tests``, ``tools`` and ``docs`` into every consumer's ``sys.path``.
 """
 
@@ -147,13 +147,7 @@ class TestPyTypedMarker:
     """PEP 561: without this file, a plugin's type checker treats drevalpy as untyped."""
 
     def test_the_marker_exists_in_the_source_tree(self):
-        assert (REPO_ROOT / "drevalpy" / "py.typed").is_file()
-
-    def test_the_wheel_target_names_the_marker_as_an_artifact(self, pyproject):
-        """``py.typed`` is not a ``.py`` file, so hatchling needs it listed."""
-        wheel = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]
-
-        assert "drevalpy/py.typed" in wheel["artifacts"]
+        assert (REPO_ROOT / "src" / "drevalpy" / "py.typed").is_file()
 
     @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
     def test_the_marker_ships_in_the_built_wheel(self, built_wheel_contents):
@@ -182,29 +176,18 @@ class TestTheWheelShipsThePackageOnly:
 
 
 class TestEditableInstallDoesNotLeak:
-    """The default editable install puts the bare project root on ``sys.path``.
+    """A flat layout makes the editable install put the bare project root on ``sys.path``.
 
-    That makes drevalpy's own ``tests``, ``tools`` and ``docs`` importable by
+    That would make drevalpy's own ``tests``, ``tools`` and ``docs`` importable by
     every consumer of the environment, so a plugin repo's ``import tests.x``
-    resolved to *drevalpy's* tests. ``dev-mode-exact`` replaces the bare path
-    with a finder that maps only the ``drevalpy`` package.
+    would resolve to *drevalpy's* tests. With the package under ``src/``, uv_build
+    exports only ``src/``.
     """
 
-    def test_dev_mode_exact_is_enabled(self, pyproject):
-        assert pyproject["tool"]["hatch"]["build"]["dev-mode-exact"] is True
-
-    def test_the_editables_runtime_dependency_is_declared(self, pyproject):
-        """``dev-mode-exact`` emits a finder importing ``editables`` at start-up.
-
-        It has to be a real ``[project.dependencies]`` entry, not a dev-group
-        one. Dev groups do not propagate to consumers, and uv reads static
-        metadata straight from pyproject.toml for path dependencies rather than
-        from the built editable wheel that declares ``editables`` itself - so a
-        repo installing drevalpy as an editable path dependency got
-        ``ModuleNotFoundError: No module named 'editables'`` on every import.
-        """
-        assert any(entry.startswith("editables") for entry in pyproject["project"]["dependencies"])
-        assert not any(entry.startswith("editables") for entry in pyproject["dependency-groups"]["dev"])
+    def test_the_package_lives_under_src(self, pyproject):
+        assert pyproject["build-system"]["build-backend"] == "uv_build"
+        assert (REPO_ROOT / "src" / "drevalpy" / "__init__.py").is_file()
+        assert not (REPO_ROOT / "drevalpy").exists()
 
     def test_the_repo_top_level_directories_are_not_importable(self, tmp_path):
         """Run from outside the repo, so only the installed paths are in play."""

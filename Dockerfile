@@ -10,7 +10,7 @@ RUN touch README.md
 RUN uv sync --frozen --no-dev --no-install-project --extra ${TORCH_BACKEND}
 
 COPY README.md ./
-COPY drevalpy ./drevalpy
+COPY src ./src
 RUN uv sync --frozen --no-dev --no-editable --extra ${TORCH_BACKEND}
 
 FROM python:3.13-slim-bookworm AS runtime

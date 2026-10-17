@@ -2,7 +2,7 @@ Contributor Guide
 =================
 
 Thank you for your interest in improving this project.
-This project is open-source under the `GPL-3.0 license`_ and
+This project is open-source under the `MIT license`_ and
 highly welcomes contributions in the form of bug reports, feature requests, and pull requests.
 
 Here is a list of important resources for contributors:
@@ -11,7 +11,7 @@ Here is a list of important resources for contributors:
 - `Documentation`_
 - `Issue Tracker`_
 
-.. _GPL-3.0 license: https://www.gnu.org/licenses/gpl-3.0.html
+.. _MIT license: https://opensource.org/licenses/MIT
 .. _Source Code: https://github.com/daisybio/drevalpy
 .. _Documentation: https://drevalpy.readthedocs.io/
 .. _Issue Tracker: https://github.com/daisybio/drevalpy/issues

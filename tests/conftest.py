@@ -65,9 +65,9 @@ def built_wheel_contents(tmp_path_factory: pytest.TempPathFactory) -> frozenset[
     ``tests/plugin/test_init.py`` for the PEP 561 marker and
     ``tests/testing/test_init.py`` for the shipped ``drevalpy.testing``
     submodules. The build is identical for both, so it runs once per session and
-    the namelist is shared read-only rather than paying for a second hatchling
-    run. Skips when ``uv`` is unavailable, which is what makes the tests that
-    request it skip too.
+    the namelist is shared read-only rather than paying for a second build. Skips
+    when ``uv`` is unavailable, which is what makes the tests that request it skip
+    too.
 
     :param tmp_path_factory: Session-scoped temporary directory factory.
     :returns: Every archive member name in the built wheel.

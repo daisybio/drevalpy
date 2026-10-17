@@ -24,23 +24,27 @@ def test_drp_model_does_not_load_yaml_hyperparameters() -> None:
 
 def test_predictor_hyperparameters_yaml_removed() -> None:
     """v2 ParameterGrid YAML is unused; HPO uses Python get_*_hyperparameters."""
-    predictors_root = Path(__file__).resolve().parents[3] / "drevalpy" / "components" / "predictors"
+    predictors_root = Path(__file__).resolve().parents[3] / "src" / "drevalpy" / "components" / "predictors"
     leftover = sorted(predictors_root.rglob("hyperparameters.yaml"))
     assert leftover == [], f"remove unused v2 YAML: {leftover}"
 
 
 def test_package_has_no_v2_hyperparameters_yaml() -> None:
-    package_root = Path(__file__).resolve().parents[3] / "drevalpy"
+    package_root = Path(__file__).resolve().parents[3] / "src" / "drevalpy"
     leftover = sorted(package_root.rglob("hyperparameters.yaml"))
     assert leftover == [], f"remove unused v2 YAML under drevalpy/: {leftover}"
 
 
 def test_literature_impl_tree_removed() -> None:
-    impl_root = Path(__file__).resolve().parents[3] / "drevalpy" / "components" / "predictors" / "literature" / "impl"
+    impl_root = (
+        Path(__file__).resolve().parents[3] / "src" / "drevalpy" / "components" / "predictors" / "literature" / "impl"
+    )
     assert not impl_root.exists(), f"remove unused literature/impl tree: {impl_root}"
 
 
 def test_literature_has_no_flat_predictor_wrappers() -> None:
-    literature_root = Path(__file__).resolve().parents[3] / "drevalpy" / "components" / "predictors" / "literature"
+    literature_root = (
+        Path(__file__).resolve().parents[3] / "src" / "drevalpy" / "components" / "predictors" / "literature"
+    )
     flat_wrappers = sorted(path.name for path in literature_root.glob("*_predictor.py") if path.is_file())
     assert flat_wrappers == [], f"remove flat literature wrappers: {flat_wrappers}"

@@ -36,7 +36,7 @@ def test_zoo_entries_create_runnable_models(name: str) -> None:
 
 
 def test_no_pair_context_in_production_code() -> None:
-    repo_root = Path(__file__).resolve().parents[2] / "drevalpy"
+    repo_root = Path(__file__).resolve().parents[2] / "src" / "drevalpy"
     hits = [
         path.relative_to(repo_root.parent)
         for path in repo_root.rglob("*.py")

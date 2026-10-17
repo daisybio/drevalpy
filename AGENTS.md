@@ -93,7 +93,9 @@ single-commit argument diffs that commit against its parent.
 
 ## Test layout
 
-`tests/` mirrors `drevalpy/`, one test file per module, enforced by
+The package sits under `src/`; `drevalpy/...` paths in this file are relative to `src/`.
+
+`tests/` mirrors `src/drevalpy/`, one test file per module, enforced by
 `tests/test_module_mirror_policy.py`. Rules in order of precedence:
 
 1. **Public module.** `drevalpy/a/b/c.py` -> `tests/a/b/test_c.py`.

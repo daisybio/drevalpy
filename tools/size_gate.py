@@ -37,7 +37,7 @@ from typing import NamedTuple, NoReturn
 
 from upath import UPath
 
-DEFAULT_PACKAGE = "drevalpy"
+DEFAULT_PACKAGE = "src/drevalpy"
 DEFAULT_PYPROJECT = "pyproject.toml"
 DEFAULT_MAX_MODULE_STATEMENTS = 150
 RATCHET_MARGIN = 10

@@ -25,7 +25,7 @@ from drevalpy.registry._builtins import ensure_predictor_registered, register_bu
 from drevalpy.registry.predictor import get as get_predictor
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-PREDICTORS_ROOT = REPO_ROOT / "drevalpy" / "components" / "predictors"
+PREDICTORS_ROOT = REPO_ROOT / "src" / "drevalpy" / "components" / "predictors"
 LITERATURE_ROOT = PREDICTORS_ROOT / "literature"
 
 LITERATURE_FACTORY_NAMES = [

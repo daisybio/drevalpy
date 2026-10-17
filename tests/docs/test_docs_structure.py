@@ -14,7 +14,7 @@ from tests._trusted_subprocess import run_trusted_python
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS = REPO_ROOT / "docs"
-ZOO_DIR = REPO_ROOT / "drevalpy" / "models" / "zoo"
+ZOO_DIR = REPO_ROOT / "src" / "drevalpy" / "models" / "zoo"
 
 if str(DOCS) not in sys.path:
     sys.path.insert(0, str(DOCS))

@@ -123,7 +123,7 @@ def molir():
         ROOT / "MultiOmics/src/models/moli_model.py", ["MOLIEncoder"], {"torch": torch, "nn": nn}
     )
     (local_class,) = classes_from(
-        (REPO_ROOT / "drevalpy/components/predictors/literature/molir/utils.py"),
+        (REPO_ROOT / "src/drevalpy/components/predictors/literature/molir/utils.py"),
         ["MOLIEncoder"],
         {"torch": torch, "nn": nn, "pl": PL, "np": np},
     )
@@ -136,7 +136,7 @@ def superfelt():
     """Compare SuperFELT encoders after mapping parameter names."""
     (source_class,) = classes_from(ROOT / "SuperFELT/models.py", ["Supervised_Encoder"], {"torch": torch, "nn": nn})
     (superfelt_encoder,) = classes_from(
-        (REPO_ROOT / "drevalpy/components/predictors/literature/superfeltr/utils.py"),
+        (REPO_ROOT / "src/drevalpy/components/predictors/literature/superfeltr/utils.py"),
         ["SuperFELTEncoder"],
         {"torch": torch, "nn": nn, "pl": PL, "np": np, "cast": lambda x, y: y},
     )
@@ -178,7 +178,7 @@ def dipk():
         },
     )
     gene_encoder, gene_decoder = classes_from(
-        (REPO_ROOT / "drevalpy/components/predictors/literature/dipk/gene_expression_encoder.py"),
+        (REPO_ROOT / "src/drevalpy/components/predictors/literature/dipk/gene_expression_encoder.py"),
         ["GeneExpressionEncoder", "GeneExpressionDecoder"],
         {"torch": torch, "nn": nn, "functional": torch.nn.functional, "deepcopy": __import__("copy").deepcopy},
     )
@@ -196,7 +196,7 @@ def graphdrp():
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
     (drug_graph_net,) = classes_from(
-        (REPO_ROOT / "drevalpy/components/predictors/literature/druggnn/algorithm.py"),
+        (REPO_ROOT / "src/drevalpy/components/predictors/literature/druggnn/algorithm.py"),
         ["DrugGraphNet"],
         {
             "torch": torch,
@@ -260,7 +260,7 @@ def pharma():
         {"torch": torch, "nn": nn, "F": torch.nn.functional},
     )
     _, _, combined_model = classes_from(
-        (REPO_ROOT / "drevalpy/components/predictors/literature/pharmaformer/model_utils.py"),
+        (REPO_ROOT / "src/drevalpy/components/predictors/literature/pharmaformer/model_utils.py"),
         ["FeatureExtractor", "TransModel", "CombinedModel"],
         {"torch": torch, "nn": nn, "functional": torch.nn.functional},
     )
@@ -304,7 +304,7 @@ def sparsego():
     except Exception as e:
         return {"status": "blocked", "reason": "upstream sparse_linear_new import failed", "error": repr(e)}
     (sparse_linear_new,) = classes_from(
-        (REPO_ROOT / "drevalpy/components/predictors/literature/sparsego/algorithm.py"),
+        (REPO_ROOT / "src/drevalpy/components/predictors/literature/sparsego/algorithm.py"),
         ["SparseLinearNew"],
         {
             "torch": torch,

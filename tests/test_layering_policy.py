@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[1] / "drevalpy"
+PACKAGE_ROOT = Path(__file__).resolve().parents[1] / "src" / "drevalpy"
 DATASETS_ROOT = PACKAGE_ROOT / "datasets"
 
 # Absolute references to the components layer, e.g. ``from drevalpy.components.x import y``,

@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_ROOT = REPO_ROOT / "drevalpy"
+PACKAGE_ROOT = REPO_ROOT / "src" / "drevalpy"
 TESTS_ROOT = REPO_ROOT / "tests"
 
 #: Modules inside the package that intentionally have no mirrored test.

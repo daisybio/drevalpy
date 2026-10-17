@@ -23,7 +23,7 @@ _FORBIDDEN_MODULE_FRAGMENTS = (
 
 
 def test_no_forbidden_modules_exist() -> None:
-    repo = Path(__file__).resolve().parents[1] / "drevalpy"
+    repo = Path(__file__).resolve().parents[1] / "src" / "drevalpy"
     forbidden_paths = []
     for path in repo.rglob("*.py"):
         text = str(path.relative_to(repo.parent))
@@ -33,7 +33,7 @@ def test_no_forbidden_modules_exist() -> None:
 
 
 def test_no_forbidden_runtime_imports_in_source() -> None:
-    repo = Path(__file__).resolve().parents[1] / "drevalpy"
+    repo = Path(__file__).resolve().parents[1] / "src" / "drevalpy"
     hits = []
     needles = (
         "drevalpy.models._component_bridge",

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten' and extra != 'extra-8-drevalpy-cpu' and extra != 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130'",
@@ -1078,7 +1078,6 @@ dependencies = [
     { name = "anndata", version = "0.12.19", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "anndata", version = "0.13.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu126') or (extra == 'extra-8-drevalpy-cpu' and extra == 'extra-8-drevalpy-cu130') or (extra == 'extra-8-drevalpy-cu126' and extra == 'extra-8-drevalpy-cu130')" },
     { name = "curve-curator" },
-    { name = "editables" },
     { name = "filelock" },
     { name = "fsspec", extra = ["http", "s3"] },
     { name = "gensim" },
@@ -1154,7 +1153,6 @@ docs = [
 requires-dist = [
     { name = "anndata" },
     { name = "curve-curator", git = "https://github.com/nictru/curve_curator.git" },
-    { name = "editables", specifier = ">=0.3" },
     { name = "filelock", specifier = ">=3.15.2" },
     { name = "fsspec", extras = ["s3", "http"] },
     { name = "gensim", specifier = ">=4.4.0" },
@@ -1215,15 +1213,6 @@ docs = [
     { name = "sphinx-design", specifier = ">=0.7.0" },
     { name = "sphinx-rtd-theme", specifier = ">=1.0.0,<3.0.3" },
     { name = "sphinxcontrib-mermaid", specifier = ">=2.1.0" },
-]
-
-[[package]]
-name = "editables"
-version = "0.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/82/f8/02a4e9a0cb961b0feeb431ac96b231c157ecdcbbeacafe9e2fdb4b1dde39/editables-0.6.tar.gz", hash = "sha256:1163834902381c4613787951c5914800fdf155ae08848a373b8ea5006780977c", size = 16763, upload-time = "2026-04-14T10:39:04.677Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cc/0e/d095533037fc9468f947b19f2da53f869804632b508808de41e86e801797/editables-0.6-py3-none-any.whl", hash = "sha256:d70e4698078a1d033e7786d9c64e5be070d058a67c21417024d38a58ac20aa43", size = 5438, upload-time = "2026-04-14T10:39:03.663Z" },
 ]
 
 [[package]]

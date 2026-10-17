@@ -3,7 +3,7 @@ name = "drevalpy"
 version = "1.5.1"
 description = "Drug response evaluation of cancer cell line drug response models in a fair setting"
 authors = [{ name = "DrEvalPy development team" }]
-license = "GPL-3.0"
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
@@ -39,17 +39,11 @@ dependencies = [
     "fsspec[s3,http]",
     "universal-pathlib",
     "filelock>=3.15.2",
-    "mudata>=0.3.10",
+    "mudata>=0.3.10,<0.4", # 0.4 removed `mudata.set_options`
     "rdkit>=2026.3.4",
     "transformers>=5.14.0",
     "gensim>=4.4.0",
     "multiqc>=1.35",
-    # Imported by no drevalpy module: it is what the `dev-mode-exact` editable
-    # install's generated finder imports, so without it `import drevalpy` fails.
-    # It must sit here, not in the dev group - uv reads this file's static metadata
-    # for path dependencies and never sees the editable wheel's Requires-Dist, so
-    # repos that path-install drevalpy editable (both plugin repos) broke on import.
-    "editables>=0.3",
 ]
 
 [project.optional-dependencies]
@@ -90,23 +84,13 @@ docs = [
     "sphinxcontrib-mermaid>=2.1.0",
 ]
 
+# The package lives under src/ (uv_build's default), so an editable install puts only
+# src/ on sys.path; a flat layout would expose this repo's own `tests`, `tools` and
+# `docs` to every consumer of the environment. uv_build ships every file under the
+# module, so py.typed needs no artifact entry.
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-# The default editable install puts the bare project root on sys.path, so a
-# consumer's `import tests.conftest` resolved to drevalpy's tests. `dev-mode-exact`
-# maps only the `drevalpy` package. Costs: some IDEs cannot follow the import hook,
-# and the generated finder needs `editables` at run time. A `src/` layout would fix
-# the leak with neither cost, but moving the package is a repo-wide change.
-[tool.hatch.build]
-dev-mode-exact = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["drevalpy"]
-# Not a .py file, so PEP 561 needs it named explicitly; tests/plugin/test_init.py
-# asserts it ships.
-artifacts = ["drevalpy/py.typed"]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
 
 [tool.uv]
 exclude-newer = "3 weeks"

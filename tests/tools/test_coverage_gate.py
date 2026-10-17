@@ -150,3 +150,10 @@ def test_defaults_the_floor_when_the_config_table_is_absent(tmp_path: UPath) -> 
     pyproject.write_text('[project]\nname = "x"\n')
 
     assert _run(coverage_json, pyproject) == 1
+
+
+def test_src_layout_paths_are_matched_against_package_relative_exemptions(tmp_path: UPath) -> None:
+    coverage_json = _write_coverage_json(tmp_path, {"src/drevalpy/low.py": 25.0})
+    pyproject = _write_pyproject(tmp_path, min_file_coverage=50, exemptions={"drevalpy/low.py": 20})
+
+    assert _run(coverage_json, pyproject) == 0

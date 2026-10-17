@@ -80,7 +80,8 @@ def load_file_percentages(coverage_json: UPath) -> dict[str, float]:
         coverage_json: Path to the JSON report written by ``--cov-report=json``.
 
     Returns:
-        Mapping of normalized module path to percent covered.
+        Mapping of normalized module path to percent covered, with any leading
+        ``src/`` removed so keys match the package-relative exemption keys.
 
     Raises:
         SystemExit: If the report is missing or cannot be parsed.
@@ -95,7 +96,8 @@ def load_file_percentages(coverage_json: UPath) -> dict[str, float]:
     except json.JSONDecodeError as exc:
         _fail(f"{coverage_json} is not valid JSON: {exc}")
     return {
-        _normalize(path): float(entry["summary"]["percent_covered"]) for path, entry in report.get("files", {}).items()
+        _normalize(path).removeprefix("src/"): float(entry["summary"]["percent_covered"])
+        for path, entry in report.get("files", {}).items()
     }
 
 

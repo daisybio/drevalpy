@@ -3,7 +3,7 @@
 [![DOI](https://img.shields.io/badge/paper-10.1038%2Fs41467--026--72903--w-be2635?logo=Paper&link=https%3A%2F%2Fdoi.org%2F10.1038%2Fs41467-026-72903-w)](https://doi.org/10.1038/s41467-026-72903-w)
 [![PyPI version](https://img.shields.io/pypi/v/drevalpy.svg)](https://pypi.org/project/drevalpy/)
 ![Python versions](https://img.shields.io/pypi/pyversions/drevalpy)
-[![License](https://img.shields.io/github/license/daisybio/drevalpy)](https://opensource.org/licenses/GPL3)
+[![License](https://img.shields.io/github/license/daisybio/drevalpy)](https://opensource.org/licenses/MIT)
 [![Read the Docs](https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs)](https://drevalpy.readthedocs.io/)
 [![Test status](https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg)](https://github.com/daisybio/drevalpy/actions?workflow=Tests)
 [![Precommit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
@@ -263,7 +263,7 @@ measure: LN_IC50
 
 ## Development
 
-Pre-commit runs [complexipy](https://github.com/rohaquinlop/complexipy) on the `drevalpy/` package with a maximum cognitive complexity of **15** (`[tool.complexipy]` in `pyproject.toml`). Refactors should stay at or below that limit; do not add `# complexipy: ignore` comments or exclude product paths from the hook.
+Pre-commit runs [complexipy](https://github.com/rohaquinlop/complexipy) on the `src/drevalpy/` package with a maximum cognitive complexity of **15** (`[tool.complexipy]` in `pyproject.toml`). Refactors should stay at or below that limit; do not add `# complexipy: ignore` comments or exclude product paths from the hook.
 
 ## Contact
 

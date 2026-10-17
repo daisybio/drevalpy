@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: complexipy
         types_or: [python, pyi]
-        files: ^drevalpy/
+        files: ^src/drevalpy/
   - repo: local
     hooks:
       - id: size-gate
@@ -37,7 +37,7 @@ repos:
         entry: uv run python tools/size_gate.py
         language: system
         pass_filenames: false
-        files: ^(drevalpy/.*\.py|pyproject\.toml|tools/size_gate\.py)$
+        files: ^(src/drevalpy/.*\.py|pyproject\.toml|tools/size_gate\.py)$
       - id: pytest
         name: pytest (fast tier)
         # No arguments on purpose: `addopts` in pyproject.toml defaults to
