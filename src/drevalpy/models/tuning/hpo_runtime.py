@@ -10,10 +10,9 @@ import numpy as np
 from upath import UPath as Path
 
 from drevalpy.evaluation import score_predictions
-from drevalpy.log import get_logger
 from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.config import HPOConfig
-from drevalpy.models.tuning.search_space import resolve_model_config, sample_from_optuna_trial
+from drevalpy.models.tuning.search_space import resolve_model_config
 from drevalpy.types import SplitMask
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
@@ -23,8 +22,6 @@ if TYPE_CHECKING:
     from sklearn.base import TransformerMixin
 
     from drevalpy.models.drp_model import DRPModel
-
-logger = get_logger(__name__)
 
 
 def _trial_checkpoint_dir(base_dir: str | Path | None, trial_number: int) -> Path | None:
@@ -65,30 +62,6 @@ def _extract_ground_truth(mudataset: Dataset, scope: SplitMask) -> np.ndarray:
     return ResponseBatch.from_dataset(mudataset, scope).response
 
 
-def _mu_evaluate_trial_model(
-    trial_model: DRPModel,
-    *,
-    metric: str,
-    mudataset: Dataset,
-    train_scope: SplitMask,
-    val_scope: SplitMask,
-    early_stopping_scope: SplitMask | None,
-    model_checkpoint_dir: str | Path | None,
-    trial_number: int = 0,
-) -> float:
-    """Train a trial model and compute a validation metric using Dataset + SplitMask."""
-    metrics, _ = _mu_evaluate_trial_all_metrics(
-        trial_model,
-        mudataset=mudataset,
-        train_scope=train_scope,
-        val_scope=val_scope,
-        early_stopping_scope=early_stopping_scope,
-        model_checkpoint_dir=model_checkpoint_dir,
-        trial_number=trial_number,
-    )
-    return metrics.get(metric, float("nan"))
-
-
 def _mu_evaluate_trial_all_metrics(
     trial_model: DRPModel,
     *,
@@ -116,124 +89,6 @@ def _mu_evaluate_trial_all_metrics(
         )
     predictions = trial_model.predict(mudataset, val_scope)
     return score_predictions(predictions, _extract_ground_truth(mudataset, val_scope), empty_as_dict=True), predictions
-
-
-def _wandb_trial_run_config(
-    *,
-    trial_model: DRPModel,
-    cfg: HPOConfig,
-    wandb_base_config: dict[str, Any] | None,
-    trial_number: int,
-) -> dict[str, Any]:
-    trial_run_config: dict[str, Any] = {
-        "phase": "hyperparameter_tuning",
-        "hpo_backend": "optuna",
-        "hpo_num_samples": cfg.n_trials,
-        "hyperparameters": trial_model.hyperparameters,
-        "trial_number": trial_number,
-    }
-    if wandb_base_config is not None:
-        trial_run_config = {**wandb_base_config, **trial_run_config}
-    return trial_run_config
-
-
-def _wandb_trial_run_name(*, model_name: str, split_index: int | None, trial_number: int) -> str:
-    trial_run_name = model_name
-    if split_index is not None:
-        trial_run_name += f"_split_{split_index}"
-    return f"{trial_run_name}_trial_{trial_number}"
-
-
-def _init_trial_wandb(
-    trial_model: DRPModel,
-    *,
-    wandb_project: str,
-    wandb_base_config: dict[str, Any] | None,
-    cfg: HPOConfig,
-    model_name: str,
-    split_index: int | None,
-    trial_number: int,
-) -> None:
-    trial_model.init_wandb(
-        project=wandb_project,
-        config=_wandb_trial_run_config(
-            trial_model=trial_model,
-            cfg=cfg,
-            wandb_base_config=wandb_base_config,
-            trial_number=trial_number,
-        ),
-        name=_wandb_trial_run_name(model_name=model_name, split_index=split_index, trial_number=trial_number),
-        tags=[model_name, "hpam_tuning", "optuna"],
-        finish_previous=True,
-    )
-
-
-def _optuna_objective(
-    trial: optuna.Trial,
-    *,
-    model_spec: ModelSpec,
-    mudataset: Dataset,
-    train_scope: SplitMask,
-    val_scope: SplitMask,
-    early_stopping_scope: SplitMask | None,
-    response_transformation: TransformerMixin | None,
-    metric: str,
-    structured_space: dict[str, Any],
-    model_checkpoint_dir: str | Path | None,
-    cfg: HPOConfig,
-    wandb_project: str | None,
-    wandb_base_config: dict[str, Any] | None,
-    split_index: int | None,
-    model_name: str,
-    on_failure: Callable[[BaseException], None] | None = None,
-) -> float:
-    """Optuna objective function: sample params, train, evaluate, return score.
-
-    A raising trial scores NaN so the study keeps running, as in ``hpam_tune``. The
-    failure is logged, stored on the trial as the ``failure`` user attribute, and passed
-    to *on_failure* so the caller can count failures and decide whether the whole
-    search was a fault (``hpam_tune`` records them in its ``_TrialFailures``).
-
-    :param on_failure: Called with the exception of every trial that raised.
-    :returns: The trial score, or NaN when the trial raised.
-    """
-    sampled = sample_from_optuna_trial(trial, structured_space)
-    trial_model = _construct_trial_model(model_spec, sampled, response_transformation)
-
-    if wandb_project is not None:
-        trial_model._in_hyperparameter_tuning = True
-        _init_trial_wandb(
-            trial_model,
-            wandb_project=wandb_project,
-            wandb_base_config=wandb_base_config,
-            cfg=cfg,
-            model_name=model_name,
-            split_index=split_index,
-            trial_number=trial.number,
-        )
-
-    try:
-        score = _mu_evaluate_trial_model(
-            trial_model,
-            metric=metric,
-            mudataset=mudataset,
-            train_scope=train_scope,
-            val_scope=val_scope,
-            early_stopping_scope=early_stopping_scope,
-            model_checkpoint_dir=model_checkpoint_dir,
-            trial_number=trial.number,
-        )
-    except Exception as exc:
-        logger.exception("Optuna trial %d failed", trial.number)
-        trial.set_user_attr("failure", f"{type(exc).__name__}: {exc}")
-        if on_failure is not None:
-            on_failure(exc)
-        score = float("nan")
-    finally:
-        if wandb_project is not None and trial_model.is_wandb_enabled():
-            trial_model.finish_wandb()
-
-    return score
 
 
 def run_optuna_study(

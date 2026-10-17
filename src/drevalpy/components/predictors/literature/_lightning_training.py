@@ -68,6 +68,7 @@ def run_lightning_fit(
 
     trainer = pl.Trainer(
         max_epochs=run.max_epochs,
+        default_root_dir=str(run.checkpoint_dir),
         logger=_loggers(run.wandb_project),
         callbacks=[
             EarlyStopping(monitor=monitor, mode="min", patience=run.patience),

@@ -51,13 +51,13 @@ class TestContractNormalization:
     """``__init_subclass__`` widens a class-body declaration at class creation."""
 
     def test_a_class_body_contract_is_kept(self) -> None:
-        class _BodyContract(Featurizer):  # noqa: B903
+        class _BodyContract(Featurizer):
             contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
         assert _BodyContract.contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
     def test_a_format_shorthand_is_widened(self) -> None:
-        class _Shorthand(Featurizer):  # noqa: B903
+        class _Shorthand(Featurizer):
             contract = FeatureFormat.GRAPH
 
         assert _Shorthand.contract == FeatureContract(format=FeatureFormat.GRAPH)
@@ -65,7 +65,7 @@ class TestContractNormalization:
     def test_an_invalid_declaration_is_rejected_at_class_creation(self) -> None:
         with pytest.raises(TypeError, match="class-body contract is invalid"):
 
-            class _Bad(Featurizer):  # noqa: B903
+            class _Bad(Featurizer):
                 contract = "graph_but_a_plain_string"
 
     def test_a_subclass_declaring_nothing_inherits_the_contract(self) -> None:

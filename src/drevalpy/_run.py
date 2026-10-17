@@ -13,6 +13,13 @@ from drevalpy.types import Dataset
 from drevalpy.types.results import ExperimentResult, RunResult
 
 
+def _validate_models(models: list[ModelSpec]) -> None:
+    if any(not isinstance(model, ModelSpec) for model in models):
+        raise TypeError("run() expects ModelSpec values")
+    if len({model.name for model in models}) != len(models):
+        raise ValueError("Model names must be unique within an experiment")
+
+
 def run(
     models: list[ModelSpec],
     dataset: Dataset | str,
@@ -45,10 +52,7 @@ def run(
     :param response_transformation: Optional unfitted target transformer, cloned for every fit.
     :returns: ExperimentResult grouping all model results.
     """
-    if any(not isinstance(model, ModelSpec) for model in models):
-        raise TypeError("run() expects ModelSpec values")
-    if len({model.name for model in models}) != len(models):
-        raise ValueError("Model names must be unique within an experiment")
+    _validate_models(models)
     ds = load(dataset) if isinstance(dataset, str) else dataset
     folds = split(ds, split_mode, random_state=seed)
 

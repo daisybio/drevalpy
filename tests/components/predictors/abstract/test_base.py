@@ -75,14 +75,14 @@ def _register() -> None:
 
 
 def test_predictor_accepts_class_body_contracts() -> None:
-    class BodyContractPredictor(Predictor):  # noqa: B903
+    class BodyContractPredictor(Predictor):
         cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
     assert BodyContractPredictor.cell_line_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 def test_predictor_normalizes_a_class_body_format_shorthand() -> None:
-    class ShorthandPredictor(Predictor):  # noqa: B903
+    class ShorthandPredictor(Predictor):
         drug_contract = FeatureFormat.GRAPH
 
     assert ShorthandPredictor.drug_contract == FeatureContract(format=FeatureFormat.GRAPH)
@@ -91,7 +91,7 @@ def test_predictor_normalizes_a_class_body_format_shorthand() -> None:
 def test_predictor_rejects_an_invalid_class_body_contract() -> None:
     with pytest.raises(TypeError, match="class-body drug_contract is invalid"):
 
-        class BadPredictor(Predictor):  # noqa: B903
+        class BadPredictor(Predictor):
             drug_contract = "graph_but_a_plain_string"
 
 

@@ -50,8 +50,8 @@ class _StubModel(DRPModel):
     """
 
     early_stopping: bool = False
-    default_hyperparameters: dict[str, Any] = {"alpha": 0.5}  # noqa: RUF012 - plain class-level config
-    instances: list[_StubModel] = []  # noqa: RUF012 - plain class-level config
+    default_hyperparameters: dict[str, Any] = {"alpha": 0.5}  # plain class-level config
+    instances: list[_StubModel] = []  # plain class-level config
     prediction_value: float | None = None
 
     def __init__(self, spec, hyperparameters, *, response_transformation=None) -> None:

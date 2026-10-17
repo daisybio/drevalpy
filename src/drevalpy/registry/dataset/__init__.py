@@ -31,7 +31,7 @@ def register_dataset(name: str, source: str, file: str) -> None:
     dataset_registry.register_dataset(name, source, file)
 
 
-def list() -> list[str]:  # noqa: A001
+def list() -> list[str]:
     """Return sorted list of all registered dataset names."""
     return dataset_registry.dataset_names
 

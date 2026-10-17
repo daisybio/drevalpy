@@ -54,7 +54,7 @@ def _registry_module() -> ModuleType:
 
     try:
         return importlib.import_module("drevalpy.registry")
-    except Exception as error:  # noqa: BLE001 - strict mode surfaces the plugin's own exception
+    except Exception as error:  # strict mode surfaces the plugin's own exception
         import traceback
 
         from rich.text import Text

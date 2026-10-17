@@ -41,7 +41,7 @@ def get(mode: str) -> Splitter:
     return splitter_registry.get(mode)
 
 
-def list() -> list[str]:  # noqa: A001
+def list() -> list[str]:
     """Return sorted list of registered mode names."""
     return splitter_registry.modes
 

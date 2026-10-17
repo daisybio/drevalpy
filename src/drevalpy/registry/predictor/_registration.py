@@ -55,7 +55,7 @@ def get(name: str) -> type[Any]:
     return predictor_registry.get(name)
 
 
-def list() -> list[str]:  # noqa: A001
+def list() -> list[str]:
     """Return sorted list of registered predictor names.
 
     :returns: All currently registered predictor names.

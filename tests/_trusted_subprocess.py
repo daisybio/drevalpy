@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess  # noqa: S404
+import subprocess
 import sys
 from collections.abc import Sequence
 from typing import Any

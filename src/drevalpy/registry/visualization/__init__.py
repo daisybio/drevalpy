@@ -55,7 +55,7 @@ def get(name: str) -> type[Visualization]:
     return visualization_registry.get(name)
 
 
-def list() -> list[str]:  # noqa: A001
+def list() -> list[str]:
     """Return sorted list of registered visualization names."""
     return visualization_registry.names
 

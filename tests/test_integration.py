@@ -55,7 +55,7 @@ def mudataset():
         pytest.skip(f"{DATASET_NAME} is not in the local cache; not downloading it here")
     try:
         dataset = Dataset.load(path)
-    except Exception as exc:  # noqa: BLE001 - any failure to obtain the data is a skip, not a failure
+    except Exception as exc:  # any failure to obtain the data is a skip, not a failure
         pytest.skip(f"cached {DATASET_NAME} at {path} could not be loaded: {exc!r}")
 
     try:

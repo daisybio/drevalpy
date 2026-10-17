@@ -12,6 +12,8 @@ These fits are also what covers the shared ``literature/_omics_loaders.py`` and
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import pytorch_lightning as pl
@@ -461,3 +463,19 @@ def test_trained_encoder_checkpoint_is_loadable(tmp_path) -> None:
 
     assert restored.omic_type == "expression"
     assert restored.encode[0].out_features == OUT_EXPR
+
+
+@pytest.mark.parametrize("make_model", [_encoder, _regressor])
+def test_train_without_checkpoint_dir_uses_a_temporary_directory_and_keeps_best_weights(
+    make_model, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    model = make_model()
+
+    checkpoint = train_superfeltr_model(
+        model=model, hpams=_hpams(), train=_split(), patience=1, model_checkpoint_dir=None, wandb_project=None
+    )
+
+    assert checkpoint.best_model_path
+    assert not Path(checkpoint.best_model_path).exists()
+    assert not (tmp_path / "superfeltr_checkpoints").exists()

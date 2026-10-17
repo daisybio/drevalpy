@@ -8,8 +8,6 @@ covered. Expected dimensions are derived from the builder's constants rather
 than hard-coded, so the fixture and the assertions cannot drift apart.
 """
 
-# ruff: noqa: D102
-
 from __future__ import annotations
 
 import numpy as np

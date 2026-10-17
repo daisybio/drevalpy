@@ -279,7 +279,7 @@ max_module_statements = 150
 # The remaining literature predictors still carry the torch plumbing that
 # _omics_loaders.py and _pair_predict.py pulled out of their siblings. These are the
 # next candidates for the same treatment, in this order.
-"drevalpy/components/predictors/literature/sparsego/algorithm.py" = 188
+"drevalpy/components/predictors/literature/sparsego/algorithm.py" = 187
 "drevalpy/components/predictors/literature/superfeltr/predictor.py" = 187
 "drevalpy/components/predictors/literature/dipk/predictor.py" = 186
 "drevalpy/components/predictors/literature/srmf/predictor.py" = 172

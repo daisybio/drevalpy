@@ -1,5 +1,7 @@
 """Utility functions for the SuperFELTR model."""
 
+import tempfile
+from contextlib import nullcontext
 from typing import cast
 
 import numpy as np
@@ -13,6 +15,7 @@ from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit,
 from drevalpy.components.predictors.literature.molir.utils import (
     generate_triplets_indices,
 )
+from drevalpy.utils.torch_io import load_state_dict
 
 
 class SuperFELTEncoder(pl.LightningModule):
@@ -331,7 +334,7 @@ def train_superfeltr_model(
     train: OmicsSplit,
     val: OmicsSplit | None = None,
     patience: int = 5,
-    model_checkpoint_dir: str | Path = "superfeltr_checkpoints",
+    model_checkpoint_dir: str | Path | None = None,
     wandb_project: str | None = None,
 ) -> pl.callbacks.ModelCheckpoint:
     """Trains one encoder or the regressor using lazy pair-level lookup.
@@ -341,7 +344,9 @@ def train_superfeltr_model(
     :param train: training split of the three omic views
     :param val: validation split for early stopping, or None to monitor the training loss
     :param patience: for early stopping, defaults to 5
-    :param model_checkpoint_dir: directory to save the model checkpoints
+    :param model_checkpoint_dir: directory to save the model checkpoints. When None, a temporary directory is used
+        and removed after the fit; the best weights are then loaded into *model* in place and the returned
+        callback's ``best_model_path`` no longer exists.
     :param wandb_project: Optional Weights & Biases project name for Lightning logging.
 
     :returns: checkpoint callback with the best model
@@ -352,14 +357,23 @@ def train_superfeltr_model(
         raise ValueError("epochs and mini_batch must be integers!")
 
     train_loader, val_loader = make_omics_loaders(train, val, hpams["mini_batch"])
-    return run_lightning_fit(
-        model,
-        train_loader,
-        val_loader,
-        LightningRun(
-            max_epochs=hpams["epochs"],
-            patience=patience,
-            checkpoint_dir=model_checkpoint_dir,
-            wandb_project=wandb_project,
-        ),
+    directory = (
+        tempfile.TemporaryDirectory(prefix="drevalpy-superfeltr-")
+        if model_checkpoint_dir is None
+        else nullcontext(model_checkpoint_dir)
     )
+    with directory as checkpoint_dir:
+        checkpoint = run_lightning_fit(
+            model,
+            train_loader,
+            val_loader,
+            LightningRun(
+                max_epochs=hpams["epochs"],
+                patience=patience,
+                checkpoint_dir=checkpoint_dir,
+                wandb_project=wandb_project,
+            ),
+        )
+        if model_checkpoint_dir is None and checkpoint.best_model_path:
+            model.load_state_dict(load_state_dict(checkpoint.best_model_path)["state_dict"])
+    return checkpoint

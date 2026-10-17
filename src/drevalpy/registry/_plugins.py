@@ -102,7 +102,7 @@ def discover_plugins() -> None:
     :raises Exception: The first plugin failure, when ``DREVALPY_STRICT_PLUGINS``
         is set. Otherwise failures are recorded in :func:`get_failed_plugins`.
     """
-    global _discovered  # noqa: PLW0603
+    global _discovered
     if _discovered:
         return
     _discovered = True

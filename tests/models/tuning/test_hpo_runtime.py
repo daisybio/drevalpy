@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import optuna
 import pytest
 
 from drevalpy.models import ModelSpec
-from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo_runtime import (
     _construct_trial_model,
-    _optuna_objective,
-    _wandb_trial_run_config,
-    _wandb_trial_run_name,
 )
 
 
@@ -23,58 +18,6 @@ def test_construct_trial_model_keeps_spec_identity() -> None:
 
     assert trial_model.spec.name == spec.name
     assert trial_model.hyperparameters["alpha"] == 0.5
-
-
-def test_wandb_name_includes_split_and_trial() -> None:
-    assert _wandb_trial_run_name(model_name="ElasticNet", split_index=2, trial_number=5) == (
-        "ElasticNet_split_2_trial_5"
-    )
-
-
-def test_wandb_config_contains_model_hyperparameters() -> None:
-    model = MagicMock()
-    model.hyperparameters = {"alpha": 0.1}
-    config = _wandb_trial_run_config(
-        trial_model=model,
-        cfg=HPOConfig.from_metric("RMSE", n_trials=3),
-        wandb_base_config={"dataset": "synthetic"},
-        trial_number=1,
-    )
-
-    assert config["dataset"] == "synthetic"
-    assert config["hyperparameters"] == {"alpha": 0.1}
-
-
-@patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.33)
-@patch("drevalpy.models.tuning.hpo_runtime._construct_trial_model")
-@patch("drevalpy.models.tuning.hpo_runtime.sample_from_optuna_trial", return_value={"alpha": 0.1})
-def test_objective_accepts_model_spec(mock_sample, mock_construct, mock_evaluate) -> None:
-    spec = ModelSpec.from_name("ElasticNet")
-    mock_construct.return_value = MagicMock()
-    study = optuna.create_study()
-    trial = study.ask()
-
-    score = _optuna_objective(
-        trial,
-        model_spec=spec,
-        mudataset=MagicMock(),
-        train_scope=MagicMock(),
-        val_scope=MagicMock(),
-        early_stopping_scope=None,
-        response_transformation=None,
-        metric="RMSE",
-        structured_space={"alpha": {"type": "float", "low": 0.01, "high": 1.0, "default": 0.5}},
-        model_checkpoint_dir="checkpoints",
-        cfg=HPOConfig.from_metric("RMSE"),
-        wandb_project=None,
-        wandb_base_config=None,
-        split_index=None,
-        model_name=spec.name,
-    )
-
-    assert score == 0.33
-    mock_construct.assert_called_once_with(spec, {"alpha": 0.1}, None)
-    mock_evaluate.assert_called_once()
 
 
 @pytest.mark.parametrize("supplied", [False, True])
@@ -146,37 +89,3 @@ def test_trial_with_no_joint_valid_pairs_keeps_empty_metric_dictionary() -> None
     )
     assert metrics == {}
     assert predictions.shape == (2,)
-
-
-@patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
-@patch("drevalpy.models.tuning.hpo_runtime._construct_trial_model", return_value=MagicMock())
-@patch("drevalpy.models.tuning.hpo_runtime.sample_from_optuna_trial", return_value={"alpha": 0.1})
-def test_objective_records_a_failed_trial_and_scores_nan(mock_sample, mock_construct, mock_evaluate) -> None:
-    import math
-
-    spec = ModelSpec.from_name("ElasticNet")
-    trial = optuna.create_study().ask()
-    failures: list[BaseException] = []
-
-    score = _optuna_objective(
-        trial,
-        model_spec=spec,
-        mudataset=MagicMock(),
-        train_scope=MagicMock(),
-        val_scope=MagicMock(),
-        early_stopping_scope=None,
-        response_transformation=None,
-        metric="RMSE",
-        structured_space={},
-        model_checkpoint_dir=None,
-        cfg=HPOConfig.from_metric("RMSE"),
-        wandb_project=None,
-        wandb_base_config=None,
-        split_index=None,
-        model_name=spec.name,
-        on_failure=failures.append,
-    )
-
-    assert math.isnan(score)
-    assert [str(exc) for exc in failures] == ["boom"]
-    assert trial.user_attrs["failure"] == "RuntimeError: boom"

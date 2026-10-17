@@ -230,10 +230,13 @@ class SparseGONetwork(nn.Module):
         self.drug_dim = drug_dim
         self.layer_connections = layer_connections
 
-        logger.info("Number of neurons per GO term: %s", num_neurons_per_go)
-        logger.info("Number of neurons of final GO term: %s", num_neurons_per_final_go)
-        logger.info("Number of drug neurons: %s", num_neurons_drug)
-        logger.info("Number of final neurons: %s", num_neurons_final)
+        logger.info(
+            "Neurons per GO term: %s; final GO term: %s; drug: %s; final: %s",
+            num_neurons_per_go,
+            num_neurons_per_final_go,
+            num_neurons_drug,
+            num_neurons_final,
+        )
 
         # (1) Layer of genes with terms
         input_id = self._genes_layer(layer_connections[0], p_drop_genes, gene2id_mapping)

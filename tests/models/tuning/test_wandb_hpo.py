@@ -11,9 +11,8 @@ from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.types import SplitMask
 
 
-@patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", return_value=0.2)
 @patch("drevalpy.models.tuning.hpo._log_trial_to_wandb")
-def test_hpam_tune_logs_wandb_config(mock_wandb_log, mock_evaluate) -> None:
+def test_hpam_tune_logs_wandb_config(mock_wandb_log) -> None:
     from drevalpy.models.tuning.hpo import hpam_tune
     from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 

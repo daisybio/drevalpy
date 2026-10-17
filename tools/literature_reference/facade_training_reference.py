@@ -25,11 +25,11 @@ ROOT = UPath(os.environ.get("DREVALPY_FACADE_ROOT", UPath(__file__).parents[2]))
 sys.path.insert(0, str(ROOT / "src" if (ROOT / "src").exists() else ROOT))
 
 try:
-    from drevalpy.models import DRPModel, ModelSpec  # noqa: E402
+    from drevalpy.models import DRPModel, ModelSpec
 
     MODERN_FACADE = True
 except ImportError:  # v1 archive exposed generated DRPModel subclasses instead.
-    from drevalpy.models import DRPModel, construct_model, load_model  # noqa: E402
+    from drevalpy.models import DRPModel, construct_model, load_model
 
     ModelSpec = Any
     MODERN_FACADE = False

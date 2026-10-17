@@ -51,7 +51,7 @@ def get(name: str) -> type[Any]:
     return drug_featurizer_registry.get(name)
 
 
-def list() -> list[str]:  # noqa: A001
+def list() -> list[str]:
     """Return sorted list of registered drug featurizer names."""
     return drug_featurizer_registry.list_names()
 
