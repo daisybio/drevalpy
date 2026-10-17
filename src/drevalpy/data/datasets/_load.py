@@ -46,16 +46,30 @@ def _carries_curve_quality(dataset: Dataset) -> bool:
     return True
 
 
+def _is_corruption_error(exc: Exception) -> bool:
+    """Whether *exc* says the file content is unusable, as opposed to the environment failing."""
+    if isinstance(exc, (ValueError, TypeError, KeyError)):
+        return True
+    return isinstance(exc, OSError) and not isinstance(exc, (PermissionError, FileNotFoundError))
+
+
 def _load_from_cache(path: Path) -> Dataset | None:
     """Load a cached .h5mu, or return ``None`` when it must be fetched again.
+
+    The file is deleted only when parsing fails with a corruption-type error
+    (``ValueError``, ``TypeError``, ``KeyError``, or an ``OSError`` other than
+    ``PermissionError`` / ``FileNotFoundError``). Any other failure, such as missing
+    permissions or a missing dependency, propagates and leaves the file alone.
 
     :param path: Local candidate path.
     :returns: The dataset, or ``None`` if the file was unusable and removed.
     """
     try:
         dataset = Dataset.load(path)
-    except Exception:
-        logger.warning("Corrupted file at %s, removing and re-downloading.", path)
+    except Exception as exc:
+        if not _is_corruption_error(exc):
+            raise
+        logger.warning("Corrupted file at %s (%s), removing and re-downloading.", path, exc)
         path.unlink()
         return None
 

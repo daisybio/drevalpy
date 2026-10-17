@@ -14,6 +14,7 @@ from drevalpy.registry.dataset import DatasetRegistry as Registry
 from drevalpy.registry.dataset import DrevalConfig, SourceEntry, get_config_path
 from drevalpy.registry.dataset import dataset_registry as registry
 from drevalpy.testing.synthetic import build_synthetic_dataset
+from drevalpy.types.data.dataset import Dataset
 
 _CORE_DATASETS = [
     "BeatAML2",
@@ -283,3 +284,41 @@ class TestCachedFileIsRejectedWhenTooOld:
 
         assert _load_from_cache(path) is None
         assert not path.is_file()
+
+    def test_a_truncated_cached_file_is_deleted(self, tmp_path: Path) -> None:
+        path = UPath(tmp_path) / "truncated.h5mu"
+        build_synthetic_dataset(n_cell_lines=4, n_drugs=3).save(path)
+        path.write_bytes(path.read_bytes()[:200])
+
+        assert _load_from_cache(path) is None
+        assert not path.is_file()
+
+    def test_a_permission_error_keeps_the_file_and_propagates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = UPath(tmp_path) / "locked.h5mu"
+        build_synthetic_dataset(n_cell_lines=4, n_drugs=3).save(path)
+
+        def deny(_path: object) -> None:
+            raise PermissionError("denied")
+
+        monkeypatch.setattr(Dataset, "load", staticmethod(deny))
+
+        with pytest.raises(PermissionError):
+            _load_from_cache(path)
+        assert path.is_file()
+
+    def test_an_unrelated_error_keeps_the_file_and_propagates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = UPath(tmp_path) / "broken_env.h5mu"
+        path.write_bytes(b"x")
+
+        def fail(_path: object) -> None:
+            raise ImportError("missing optional dependency")
+
+        monkeypatch.setattr(Dataset, "load", staticmethod(fail))
+
+        with pytest.raises(ImportError):
+            _load_from_cache(path)
+        assert path.is_file()

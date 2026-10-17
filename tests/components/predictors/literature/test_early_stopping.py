@@ -12,6 +12,8 @@ loop's decisions are observable without a real fit.
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 
 from drevalpy.components.predictors.literature._early_stopping import (
@@ -171,22 +173,25 @@ def test_two_runs_in_one_directory_do_not_collide(tmp_path) -> None:
     assert len(list(tmp_path.glob("*.pth"))) == 2
 
 
-def test_progress_is_silent_unless_the_run_is_verbose(tmp_path, capsys) -> None:
-    _drive(_CountingModel(), _run(tmp_path, epochs=1, patience=1), [1.0])
+def test_progress_is_silent_unless_the_run_is_verbose(tmp_path, caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        _drive(_CountingModel(), _run(tmp_path, epochs=1, patience=1), [1.0])
 
-    assert capsys.readouterr().out == ""
+    assert caplog.messages == []
 
 
-def test_a_verbose_run_reports_both_losses_and_the_reload(tmp_path, capsys) -> None:
-    _drive(_CountingModel(), _run(tmp_path, epochs=1, patience=1, verbose=True), [1.0])
+def test_a_verbose_run_reports_both_losses_and_the_reload(tmp_path, caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        _drive(_CountingModel(), _run(tmp_path, epochs=1, patience=1, verbose=True), [1.0])
 
-    output = capsys.readouterr().out
+    output = "\n".join(caplog.messages)
     assert "Scripted: Epoch [1/1] Training Loss:" in output
     assert "Scripted: Epoch [1/1] Validation Loss:" in output
     assert "Scripted: Reloading the best model" in output
 
 
-def test_a_verbose_run_announces_the_early_stop(tmp_path, capsys) -> None:
-    _drive(_CountingModel(), _run(tmp_path, epochs=10, patience=1, verbose=True), [1.0, 2.0])
+def test_a_verbose_run_announces_the_early_stop(tmp_path, caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        _drive(_CountingModel(), _run(tmp_path, epochs=10, patience=1, verbose=True), [1.0, 2.0])
 
-    assert "Scripted: Early stopping triggered at epoch 2" in capsys.readouterr().out
+    assert "Scripted: Early stopping triggered at epoch 2" in caplog.messages

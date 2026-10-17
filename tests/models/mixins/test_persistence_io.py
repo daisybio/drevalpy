@@ -7,6 +7,8 @@ into it is tested in ``test_persistence.py``.
 
 from __future__ import annotations
 
+import shutil
+import tempfile
 import zipfile
 
 import pytest
@@ -210,6 +212,39 @@ class TestLoadModelPayload:
 
         with pytest.raises(error_type, match=match):
             load_model_payload(str(archive))
+
+
+class TestRemoteCheckpoints:
+    """Saving to and loading from a non-local ``UPath``."""
+
+    def test_memory_round_trip(self) -> None:
+        model = fitted_elastic_net()
+        checkpoint = "memory://checkpoints/nested/elastic_net"
+
+        save_model(model, checkpoint)
+        loaded = load_model(checkpoint)
+
+        assert UPath("memory://checkpoints/nested/elastic_net.zip").is_file()
+        assert loaded.name == "ElasticNet"
+        assert loaded._pipeline.is_fitted()
+
+    def test_remote_save_leaves_no_local_temporary_files(self, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+
+        save_model(fitted_elastic_net(), UPath("memory://checkpoints/elastic_net.zip"))
+
+        assert list(UPath(tmp_path).iterdir()) == []
+
+    def test_failed_remote_save_removes_the_local_temporary_file(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+        monkeypatch.setattr(shutil, "copyfileobj", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("upload")))
+
+        with pytest.raises(OSError, match="upload"):
+            save_model(fitted_elastic_net(), UPath("memory://checkpoints/elastic_net.zip"))
+
+        assert list(UPath(tmp_path).iterdir()) == []
 
 
 class TestLoadModel:

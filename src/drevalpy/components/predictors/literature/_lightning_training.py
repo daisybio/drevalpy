@@ -28,8 +28,8 @@ class LightningRun:
     """Trainer settings for one early-stopped Lightning fit."""
 
     max_epochs: int
+    checkpoint_dir: str | UPath
     patience: int = 5
-    checkpoint_dir: str | UPath = "checkpoints"
     wandb_project: str | None = None
     save_weights_only: bool = False
     #: Pinned by MOLIR, left to Lightning's auto-detection elsewhere.

@@ -185,8 +185,18 @@ def _optuna_objective(
     wandb_base_config: dict[str, Any] | None,
     split_index: int | None,
     model_name: str,
+    on_failure: Callable[[BaseException], None] | None = None,
 ) -> float:
-    """Optuna objective function: sample params, train, evaluate, return score."""
+    """Optuna objective function: sample params, train, evaluate, return score.
+
+    A raising trial scores NaN so the study keeps running, as in ``hpam_tune``. The
+    failure is logged, stored on the trial as the ``failure`` user attribute, and passed
+    to *on_failure* so the caller can count failures and decide whether the whole
+    search was a fault (``hpam_tune`` records them in its ``_TrialFailures``).
+
+    :param on_failure: Called with the exception of every trial that raised.
+    :returns: The trial score, or NaN when the trial raised.
+    """
     sampled = sample_from_optuna_trial(trial, structured_space)
     trial_model = _construct_trial_model(model_spec, sampled, response_transformation)
 
@@ -213,8 +223,11 @@ def _optuna_objective(
             model_checkpoint_dir=model_checkpoint_dir,
             trial_number=trial.number,
         )
-    except Exception:
+    except Exception as exc:
         logger.exception("Optuna trial %d failed", trial.number)
+        trial.set_user_attr("failure", f"{type(exc).__name__}: {exc}")
+        if on_failure is not None:
+            on_failure(exc)
         score = float("nan")
     finally:
         if wandb_project is not None and trial_model.is_wandb_enabled():

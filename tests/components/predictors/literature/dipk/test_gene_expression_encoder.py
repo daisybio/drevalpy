@@ -7,6 +7,7 @@ and the encode path rather than to reach a useful reconstruction.
 
 from __future__ import annotations
 
+import logging
 import random
 
 import numpy as np
@@ -168,7 +169,7 @@ def test_train_autoencoder_produces_an_encoder_usable_for_encoding() -> None:
 class TestAutoencoderFinalWeightsContract:
     pytestmark = pytest.mark.slow
 
-    def test_early_stopping_returns_the_last_epoch_instead_of_restoring_the_best(self, capsys) -> None:
+    def test_early_stopping_returns_the_last_epoch_instead_of_restoring_the_best(self, caplog) -> None:
         """DIPK pretraining saves epoch 1000's final weights; local early stopping preserves that contract."""
         random.seed(2)
         np.random.seed(2)
@@ -186,11 +187,12 @@ class TestAutoencoderFinalWeightsContract:
 
         handle = torch.nn.modules.module.register_module_forward_hook(capture_validation_state)
         try:
-            encoder = train_gene_expession_autoencoder(train, validation, epochs_autoencoder=10)
+            with caplog.at_level(logging.INFO):
+                encoder = train_gene_expession_autoencoder(train, validation, epochs_autoencoder=10)
         finally:
             handle.remove()
 
-        assert "Early stopping triggered at epoch 3" in capsys.readouterr().out
+        assert "DIPK Autoenc. Early stopping triggered at epoch 3" in caplog.messages
         assert len(validation_snapshots) == 4
         returned_state = encoder.state_dict()
         for name, value in returned_state.items():

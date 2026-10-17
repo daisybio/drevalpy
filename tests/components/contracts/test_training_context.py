@@ -8,17 +8,21 @@ behaviour that exists today rather than the repo-wide convention.
 from __future__ import annotations
 
 import dataclasses
+import tempfile
+from pathlib import Path
 
 import pytest
 
-from drevalpy.components.contracts.training_context import _DEFAULT_CHECKPOINT_DIR, TrainingContext
+from drevalpy.components.contracts.training_context import TrainingContext
 
 
-def test_training_context_defaults_to_the_module_checkpoint_dir() -> None:
-    context = TrainingContext()
+def test_training_context_default_checkpoint_dir_is_a_unique_temp_path_not_the_cwd() -> None:
+    first, second = TrainingContext(), TrainingContext()
 
-    assert context.checkpoint_dir == _DEFAULT_CHECKPOINT_DIR
-    assert str(_DEFAULT_CHECKPOINT_DIR) == "checkpoints"
+    assert first.checkpoint_dir != second.checkpoint_dir
+    assert first.checkpoint_dir.is_absolute()
+    assert Path(tempfile.gettempdir()) in Path(str(first.checkpoint_dir)).parents
+    assert not first.checkpoint_dir.exists()
 
 
 def test_training_context_defaults_to_empty_logging_metadata() -> None:

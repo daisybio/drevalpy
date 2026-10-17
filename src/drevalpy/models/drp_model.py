@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import tempfile
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -88,20 +90,25 @@ class DRPModel(_DRPLoggingMixin):
         scope: SplitMask,
         *,
         early_stopping_scope: SplitMask | None = None,
-        model_checkpoint_dir: str | UPath = "checkpoints",
+        model_checkpoint_dir: str | UPath | None = None,
     ) -> None:
         """Start a fresh fit using training and optional disjoint stopping data.
 
         :param dataset: Response matrix and raw features.
         :param scope: Training response positions.
         :param early_stopping_scope: Disjoint positions used only for stopping.
-        :param model_checkpoint_dir: Directory for component training checkpoints.
+        :param model_checkpoint_dir: Directory for component training checkpoints. When omitted, a temporary
+            directory is used for this fit and removed afterwards.
         """
         self._pipeline.reset()
-        context = TrainingContext(
-            checkpoint_dir=UPath(model_checkpoint_dir), logging_metadata={"model_name": self.name}
+        directory = (
+            tempfile.TemporaryDirectory(prefix="drevalpy-checkpoints-")
+            if model_checkpoint_dir is None
+            else nullcontext(model_checkpoint_dir)
         )
-        self._pipeline.fit(dataset, scope, early_stopping_scope, training_context=context)
+        with directory as checkpoint_dir:
+            context = TrainingContext(checkpoint_dir=UPath(checkpoint_dir), logging_metadata={"model_name": self.name})
+            self._pipeline.fit(dataset, scope, early_stopping_scope, training_context=context)
 
     def predict(self, dataset: Dataset, scope: SplitMask) -> np.ndarray:
         """Predict original-unit responses in scope order, preserving missing positions.
@@ -124,6 +131,11 @@ class DRPModel(_DRPLoggingMixin):
     @classmethod
     def load(cls, path: str | UPath) -> DRPModel:
         """Restore a complete fitted model, including its target transformer.
+
+        .. warning::
+           Checkpoints are unpickled (``joblib``, and ``torch.load`` with
+           ``weights_only=False`` for neural weights), which can execute arbitrary
+           code. Load checkpoints only from trusted sources.
 
         :param path: Checkpoint archive path.
         :returns: Restored concrete model.

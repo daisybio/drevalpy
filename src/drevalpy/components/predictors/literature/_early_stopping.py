@@ -4,7 +4,7 @@
 around their epoch functions - track the best validation loss, write the best
 weights to a freshly randomised checkpoint file, stop after *patience* epochs
 without improvement, then reload the best weights. Only the per-epoch work and
-whether progress is printed differed.
+whether progress is logged differed.
 
 ``torch`` is imported inside the entry point: both callers live in a ``predictor.py``
 that ``drevalpy.registry`` imports on ``import drevalpy``. See
@@ -14,6 +14,7 @@ that ``drevalpy.registry`` imports on ``import drevalpy``. See
 
 from __future__ import annotations
 
+import logging
 import secrets
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -26,6 +27,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     import torch
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -96,10 +99,10 @@ def _prepare_checkpoint_path(run: EarlyStoppingRun) -> UPath:
 
 
 def _log(run: EarlyStoppingRun, message: str) -> None:
-    """Print *message* when the run is verbose.
+    """Log *message* at INFO level when the run is verbose.
 
     :param run: The run whose verbosity to honour.
-    :param message: Line to print.
+    :param message: Line to log.
     """
     if run.verbose:
-        print(message)
+        logger.info(message)

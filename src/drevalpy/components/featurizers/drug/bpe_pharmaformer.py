@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import codecs
-import os
-import tempfile
+import io
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any, ClassVar
 
 import numpy as np
@@ -19,6 +19,26 @@ from drevalpy.types.data.feature_source import FeatureSource
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
 _logger = get_logger(__name__)
+
+
+@contextmanager
+def _silenced_learn_bpe_progress() -> Iterator[None]:
+    """Replace the progress bar ``subword_nmt.learn_bpe`` wraps its merge loop in by the bare iterable.
+
+    ``learn_bpe`` looks ``tqdm`` up in its own module namespace and offers no switch for it.
+    The original binding is restored on exit.
+
+    :yields: Control, with the progress bar disabled.
+    """
+    from subword_nmt import learn_bpe as learn_bpe_module
+
+    original = learn_bpe_module.tqdm
+    learn_bpe_module.tqdm = lambda iterable, *args, **kwargs: iterable
+    try:
+        yield
+    finally:
+        learn_bpe_module.tqdm = original
+
 
 _BPE_PHARMAFORMER_REFERENCE = LiteratureReference(
     repo_url="https://github.com/zhouyuru1205/PharmaFormer",
@@ -188,30 +208,11 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
 
         all_smiles = smiles_series.dropna()
 
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, suffix=".txt") as tmp_file:
-            tmp_path = tmp_file.name
-            for smi in all_smiles:
-                tmp_file.write(f"{smi}\n")
-
-        bpe_codes_file = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, suffix=".codes")
-        bpe_codes_path = bpe_codes_file.name
-        bpe_codes_file.close()
-
-        from unittest.mock import patch
-
-        try:
-            with codecs.open(tmp_path, encoding="utf-8") as f_in:
-                with codecs.open(bpe_codes_path, "w", encoding="utf-8") as f_out:
-                    with patch("subword_nmt.learn_bpe.tqdm", side_effect=lambda it, *a, **kw: it):
-                        learn_bpe(f_in, f_out, num_symbols=self._num_symbols, verbose=False)
-        finally:
-            os.unlink(tmp_path)
-
-        with codecs.open(bpe_codes_path, encoding="utf-8") as f_in:
-            bpe = BPE(f_in)
-
-        os.unlink(bpe_codes_path)
-        return bpe
+        smiles_lines = io.StringIO("".join(f"{smi}\n" for smi in all_smiles))
+        bpe_codes = io.StringIO()
+        with _silenced_learn_bpe_progress():
+            learn_bpe(smiles_lines, bpe_codes, num_symbols=self._num_symbols, verbose=False)
+        return BPE(bpe_codes)
 
     def _apply_bpe(self, smiles_series, entity_ids: np.ndarray) -> np.ndarray:
         """Apply stored BPE codes to encode SMILES strings.

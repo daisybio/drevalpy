@@ -146,3 +146,37 @@ def test_trial_with_no_joint_valid_pairs_keeps_empty_metric_dictionary() -> None
     )
     assert metrics == {}
     assert predictions.shape == (2,)
+
+
+@patch("drevalpy.models.tuning.hpo_runtime._mu_evaluate_trial_model", side_effect=RuntimeError("boom"))
+@patch("drevalpy.models.tuning.hpo_runtime._construct_trial_model", return_value=MagicMock())
+@patch("drevalpy.models.tuning.hpo_runtime.sample_from_optuna_trial", return_value={"alpha": 0.1})
+def test_objective_records_a_failed_trial_and_scores_nan(mock_sample, mock_construct, mock_evaluate) -> None:
+    import math
+
+    spec = ModelSpec.from_name("ElasticNet")
+    trial = optuna.create_study().ask()
+    failures: list[BaseException] = []
+
+    score = _optuna_objective(
+        trial,
+        model_spec=spec,
+        mudataset=MagicMock(),
+        train_scope=MagicMock(),
+        val_scope=MagicMock(),
+        early_stopping_scope=None,
+        response_transformation=None,
+        metric="RMSE",
+        structured_space={},
+        model_checkpoint_dir=None,
+        cfg=HPOConfig.from_metric("RMSE"),
+        wandb_project=None,
+        wandb_base_config=None,
+        split_index=None,
+        model_name=spec.name,
+        on_failure=failures.append,
+    )
+
+    assert math.isnan(score)
+    assert [str(exc) for exc in failures] == ["boom"]
+    assert trial.user_attrs["failure"] == "RuntimeError: boom"

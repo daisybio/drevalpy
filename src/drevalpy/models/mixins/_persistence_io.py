@@ -1,14 +1,21 @@
 """Low-level versioned checkpoint I/O for DRPModel instances.
 
-Checkpoints are a single ZIP archive written atomically to an archive file path.
+Checkpoints are a single ZIP archive written atomically to an archive file path,
+which may be local or a remote ``UPath`` (``s3://``, ``memory://``, ...).
 Callers must only load artifacts they created with ``save_model`` in the same
 drevalpy version family.
+
+.. warning::
+   The payload is deserialized with ``joblib`` (pickle). Loading a checkpoint
+   executes arbitrary code from the file, so load checkpoints only from sources
+   you trust.
 """
 
 from __future__ import annotations
 
 import io
 import os
+import shutil
 import tempfile
 import zipfile
 from typing import TYPE_CHECKING, Any
@@ -69,25 +76,43 @@ def _reject_directory_path(path: Path) -> None:
         raise ValueError(msg)
 
 
+def _is_local(path: Path) -> bool:
+    return path.protocol in ("", "file", "local")
+
+
 def _write_archive_atomically(archive_path: Path, payload: dict[str, Any]) -> None:
+    """Write the archive so readers never see a partial file.
+
+    Local targets are written beside the destination and moved with ``os.replace``.
+    Remote targets (``s3://``, ``memory://``, ...) are built in the local temp
+    directory and then uploaded in one streamed copy.
+
+    :param archive_path: Final archive location.
+    :param payload: Checkpoint payload to serialize.
+    """
+    local = _is_local(archive_path)
     archive_path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(prefix=f".{archive_path.name}.", suffix=".tmp", dir=archive_path.parent)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{archive_path.name}.", suffix=".tmp", dir=os.fspath(archive_path.parent) if local else None
+    )
     os.close(fd)
-    tmp_path = Path(tmp_name)
     try:
         buffer = io.BytesIO()
         joblib.dump(payload, buffer)
-        with zipfile.ZipFile(tmp_path, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        with zipfile.ZipFile(tmp_name, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.writestr(PAYLOAD_MEMBER, buffer.getvalue())
-        os.replace(tmp_path, archive_path)
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
-        raise
+        if local:
+            os.replace(tmp_name, os.fspath(archive_path))
+        else:
+            with open(tmp_name, "rb") as source, archive_path.open("wb") as target:
+                shutil.copyfileobj(source, target)
+    finally:
+        Path(tmp_name).unlink(missing_ok=True)
 
 
 def _read_payload_from_archive(archive_path: Path) -> Any:
     try:
-        with zipfile.ZipFile(archive_path, mode="r") as archive:
+        with archive_path.open("rb") as raw, zipfile.ZipFile(raw, mode="r") as archive:
             try:
                 info = archive.getinfo(PAYLOAD_MEMBER)
             except KeyError as exc:
@@ -184,6 +209,11 @@ def load_model(path: str | Path) -> DRPModel:
     Custom featurizers and predictors must already be registered (same as for
     training). Load only artifacts created with ``save_model`` in the same
     drevalpy version family.
+
+    .. warning::
+       Checkpoints are unpickled (``joblib``, and ``torch.load`` with
+       ``weights_only=False`` for neural weights). Loading one can execute
+       arbitrary code, so load checkpoints only from trusted sources.
 
     :param path: Archive file path; ``.zip`` is appended when missing.
     :returns: Fitted ``DRPModel`` instance.

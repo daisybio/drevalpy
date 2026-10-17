@@ -135,3 +135,18 @@ def test_learn_bpe_reports_missing_subword_nmt(
 
     with pytest.raises(ImportError, match="subword-nmt is required"):
         BpePharmaformerDrugFeaturizer().fit(drug_source, entity_ids=synthetic_dataset.drug_ids[:2])
+
+
+def test_learning_bpe_silences_progress_and_restores_the_module_binding(
+    drug_source: DrugFeatureSource, synthetic_dataset: Dataset, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from subword_nmt import learn_bpe as learn_bpe_module
+
+    original = learn_bpe_module.tqdm
+
+    BpePharmaformerDrugFeaturizer(num_symbols=50, max_length=16).fit(
+        drug_source, entity_ids=synthetic_dataset.drug_ids[:2]
+    )
+
+    assert learn_bpe_module.tqdm is original
+    assert "it/s" not in capsys.readouterr().err

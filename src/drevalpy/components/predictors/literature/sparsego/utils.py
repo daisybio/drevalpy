@@ -3,7 +3,7 @@
 Adapted from https://github.com/KatynaSada/SparseGO_lightning
 """
 
-import sys
+import logging
 from io import StringIO
 from typing import Any
 
@@ -13,6 +13,8 @@ import networkx.algorithms.dag as nxadag
 import numpy as np
 import pandas as pd
 from upath import UPath as Path
+
+logger = logging.getLogger(__name__)
 
 
 def load_mapping(mapping_file: str | Path | StringIO) -> dict:
@@ -66,8 +68,7 @@ def _annotate_term_gene_counts(directed_graph: nx.DiGraph, term_direct_gene_map:
             if child in term_direct_gene_map:
                 term_gene_set |= term_direct_gene_map[child]
         if len(term_gene_set) == 0:
-            print(f"There is empty terms, please delete term: {term}")
-            sys.exit(1)
+            raise ValueError(f"SparseGO ontology contains a term without any annotated gene; delete term: {term}")
         term_size_map[term] = len(term_gene_set)
     return term_size_map
 
@@ -77,16 +78,16 @@ def _validate_ontology_topology(directed_graph: nx.DiGraph) -> None:
     undirected_graph = directed_graph.to_undirected()
     connected_subgraphs = list(nxacc.connected_components(undirected_graph))
 
-    print(f"There are {len(leaves)} roots: {leaves[0]}")
-    print(f"There are {len(directed_graph.nodes())} terms")
-    print(f"There are {len(connected_subgraphs)} connected components")
+    if not leaves:
+        raise ValueError("SparseGO ontology has no term-term edges and therefore no root term")
+    logger.info("Ontology has %d root(s): %s", len(leaves), leaves[0])
+    logger.info("Ontology has %d terms", len(directed_graph.nodes()))
+    logger.info("Ontology has %d connected components", len(connected_subgraphs))
 
     if len(leaves) > 1:
-        print("There are more than 1 root of ontology. Please use only one root.")
-        sys.exit(1)
+        raise ValueError(f"SparseGO ontology has {len(leaves)} roots ({leaves[:5]}); use exactly one root")
     if len(connected_subgraphs) > 1:
-        print("There are more than connected components. Please connect them.")
-        sys.exit(1)
+        raise ValueError(f"SparseGO ontology has {len(connected_subgraphs)} connected components; connect them")
 
 
 def load_ontology(ontology_file: str | Path | StringIO, gene2id_mapping: dict) -> tuple:
@@ -101,6 +102,8 @@ def load_ontology(ontology_file: str | Path | StringIO, gene2id_mapping: dict) -
     :param gene2id_mapping: Dictionary mapping gene names to integer IDs.
 
     :returns: Tuple of (directed graph, term-term pairs array, gene-term pairs array).
+    :raises ValueError: If a term has no annotated genes, the ontology has no root, several roots, or
+        several connected components.
     """
     directed_graph, terms_pairs, genes_terms_pairs, gene_set, term_direct_gene_map = _read_ontology_edges(
         ontology_file, gene2id_mapping
@@ -109,7 +112,7 @@ def load_ontology(ontology_file: str | Path | StringIO, gene2id_mapping: dict) -
     terms_pairs_arr: np.ndarray = np.array(terms_pairs)
     genes_terms_pairs_arr: np.ndarray = np.array(genes_terms_pairs)
 
-    print(f"There are {len(gene_set)} genes")
+    logger.info("Ontology annotates %d genes", len(gene_set))
 
     _annotate_term_gene_counts(directed_graph, term_direct_gene_map)
     _validate_ontology_topology(directed_graph)

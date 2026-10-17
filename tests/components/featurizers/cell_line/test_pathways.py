@@ -8,6 +8,8 @@ one test runs it and the rest cover the guards.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -46,6 +48,28 @@ def test_run_gsva_requires_gene_expression_feature_names(synthetic_dataset: Data
 
     with pytest.raises(ValueError, match="must provide feature names"):
         featurizer._run_gsva(source, synthetic_dataset.cell_line_ids[:2])
+
+
+def test_run_gsva_removes_its_temporary_gmt_file_when_gsva_fails(
+    synthetic_dataset: Dataset, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import gseapy
+
+    seen: list[Path] = []
+
+    def failing_gsva(*, gene_sets: str, **_kwargs: object) -> None:
+        seen.append(Path(gene_sets))
+        assert seen[0].read_text(encoding="utf-8") == str(synthetic_dataset.mdata.uns["pathways_gmt"])
+        raise RuntimeError("gsva exploded")
+
+    monkeypatch.setattr(gseapy, "gsva", failing_gsva)
+    source = CellLineFeatureSource(synthetic_dataset, synthetic_dataset.cell_line_ids)
+
+    with pytest.raises(RuntimeError, match="gsva exploded"):
+        PathwaysCellLineFeaturizer()._run_gsva(source, synthetic_dataset.cell_line_ids[:3])
+
+    assert len(seen) == 1
+    assert not seen[0].exists()
 
 
 class TestGSVAIntegration:

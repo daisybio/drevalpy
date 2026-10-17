@@ -5,6 +5,9 @@ Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7),
 https://github.com/kramerlab/Multi-Omics_analysis
 """
 
+import tempfile
+from contextlib import nullcontext
+
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -35,7 +38,7 @@ def generate_triplets_indices(
     :param y: response values
     :param positive_range: positive range for the triplet loss
     :param negative_range: negative range for the triplet loss
-    :param random_seed: Explicit isolated seed, or None to use the experiment's NumPy random stream.
+    :param random_seed: Explicit isolated seed, or None to use the global NumPy stream, which drevalpy seeds per fit.
 
     :returns: returns: positive and negative sample indices for each sample
     """
@@ -205,7 +208,7 @@ class MOLIModel(pl.LightningModule):
         train: OmicsSplit,
         val: OmicsSplit | None = None,
         patience: int = 5,
-        model_checkpoint_dir: str | Path = "checkpoints",
+        model_checkpoint_dir: str | Path | None = None,
         wandb_project: str | None = None,
     ) -> None:
         """Trains the MOLIR model.
@@ -217,7 +220,8 @@ class MOLIModel(pl.LightningModule):
         :param train: training split of the three omic views
         :param val: validation split for early stopping, or None to monitor the training loss
         :param patience: for early stopping
-        :param model_checkpoint_dir: directory to save the model checkpoints
+        :param model_checkpoint_dir: directory to save the model checkpoints; a temporary directory removed after the
+            fit when omitted
         :param wandb_project: Optional Weights & Biases project name for Lightning logging.
         """
         std = float(np.std(train.response))
@@ -226,23 +230,29 @@ class MOLIModel(pl.LightningModule):
 
         train_loader, val_loader = make_omics_loaders(train, val, self.mini_batch)
 
-        self.checkpoint_callback = run_lightning_fit(
-            self,
-            train_loader,
-            val_loader,
-            LightningRun(
-                max_epochs=self.epochs,
-                patience=patience,
-                checkpoint_dir=model_checkpoint_dir,
-                wandb_project=wandb_project,
-                save_weights_only=True,
-                devices=1,
-                enable_model_summary=False,
-            ),
+        directory = (
+            tempfile.TemporaryDirectory(prefix="drevalpy-molir-")
+            if model_checkpoint_dir is None
+            else nullcontext(model_checkpoint_dir)
         )
-        if self.checkpoint_callback.best_model_path is not None:
-            checkpoint = load_state_dict(self.checkpoint_callback.best_model_path)
-            self.load_state_dict(checkpoint["state_dict"])
+        with directory as checkpoint_dir:
+            self.checkpoint_callback = run_lightning_fit(
+                self,
+                train_loader,
+                val_loader,
+                LightningRun(
+                    max_epochs=self.epochs,
+                    patience=patience,
+                    checkpoint_dir=checkpoint_dir,
+                    wandb_project=wandb_project,
+                    save_weights_only=True,
+                    devices=1,
+                    enable_model_summary=False,
+                ),
+            )
+            if self.checkpoint_callback.best_model_path is not None:
+                checkpoint = load_state_dict(self.checkpoint_callback.best_model_path)
+                self.load_state_dict(checkpoint["state_dict"])
 
     def predict(
         self,

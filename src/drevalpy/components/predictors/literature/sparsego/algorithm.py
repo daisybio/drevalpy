@@ -7,6 +7,7 @@ Original authors: Sada Del Real & Rubio (2023, 10.1016/j.ebiom.2023.104767)
 Code adapted from https://github.com/KatynaSada/SparseGO_lightning
 """
 
+import logging
 import warnings
 from typing import cast
 
@@ -16,6 +17,8 @@ import torch.nn as nn
 from scipy import sparse
 
 from .utils import create_index
+
+logger = logging.getLogger(__name__)
 
 
 def _validate_sparse_linear_dimensions(
@@ -227,15 +230,15 @@ class SparseGONetwork(nn.Module):
         self.drug_dim = drug_dim
         self.layer_connections = layer_connections
 
-        print("\nNumber of neurons per GO term: ", num_neurons_per_go)
-        print("Number of neurons of final GO term: ", num_neurons_per_final_go)
-        print("Number of drug neurons: ", num_neurons_drug)
-        print("Number of final neurons: ", num_neurons_final)
+        logger.info("Number of neurons per GO term: %s", num_neurons_per_go)
+        logger.info("Number of neurons of final GO term: %s", num_neurons_per_final_go)
+        logger.info("Number of drug neurons: %s", num_neurons_drug)
+        logger.info("Number of final neurons: %s", num_neurons_final)
 
         # (1) Layer of genes with terms
         input_id = self._genes_layer(layer_connections[0], p_drop_genes, gene2id_mapping)
 
-        print("Number of term-term hierarchy levels:", len(layer_connections))
+        logger.info("Number of term-term hierarchy levels: %d", len(layer_connections))
 
         # (2...) Layers of terms with terms
         for i in range(1, len(layer_connections)):

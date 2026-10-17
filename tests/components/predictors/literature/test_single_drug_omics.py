@@ -59,7 +59,7 @@ def _batch(
     early_stopping_response: ResponseBatch | None = None,
     expression: np.ndarray = EXPRESSION,
     expression_features: tuple[str, ...] = EXPRESSION_FEATURES,
-    checkpoint_dir: str = "checkpoints",
+    checkpoint_dir: str = "/base",
 ) -> ModelInputBatch:
     """Build a four-pair batch carrying all three omic views.
 

@@ -1,5 +1,6 @@
 """Gene expression Autoencoder for DIPK model."""
 
+import logging
 from abc import ABC
 from copy import deepcopy
 
@@ -10,6 +11,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.nn import functional
 from torch.utils.data import DataLoader, Dataset
+
+logger = logging.getLogger(__name__)
 
 
 class GeneExpressionEncoder(nn.Module):
@@ -182,7 +185,7 @@ def train_gene_expession_autoencoder(
     best_val_loss = float("inf")
     epochs_without_improvement = 0
 
-    print("Training DIPK autoencoder for gene expression data")
+    logger.info("Training DIPK autoencoder for gene expression data")
     for epoch_index in range(epochs_autoencoder):
         # training
         encoder.train()
@@ -214,7 +217,7 @@ def train_gene_expession_autoencoder(
             val_output = decoder(encoder(gene_expression_val_tensor))
             val_loss = loss_func(val_output, gene_expression_val_tensor).item()
 
-        print(f"DIPK Autoenc. Epoch: {epoch_index}, Train Loss: {epoch_loss}, Val Loss: {val_loss}")
+        logger.info("DIPK Autoenc. Epoch: %d, Train Loss: %s, Val Loss: %s", epoch_index, epoch_loss, val_loss)
 
         # early stopping check
         if val_loss < best_val_loss:
@@ -223,7 +226,7 @@ def train_gene_expession_autoencoder(
         else:
             epochs_without_improvement += 1
             if epochs_without_improvement >= patience:
-                print(f"DIPK Autoenc. Early stopping triggered at epoch {epoch_index}")
+                logger.info("DIPK Autoenc. Early stopping triggered at epoch %d", epoch_index)
                 break
 
     encoder.eval()

@@ -193,24 +193,22 @@ class PathwaysCellLineFeaturizer(CellLineFeaturizer):
         expr_df = expr_df.loc[~expr_df.index.duplicated(keep="first")]
         expr_genes_by_samples = expr_df.T
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".gmt", delete=False) as f:
-            f.write(self._gmt_text)
-            gmt_path = f.name
-
-        gv = gp.gsva(
-            data=expr_genes_by_samples,
-            gene_sets=gmt_path,
-            kcdf="Gaussian",
-            min_size=5,
-            max_size=2000,
-            mx_diff=True,
-            threads=4,
-            seed=42,
-            outdir=None,
-            verbose=False,
-        )
-
-        os.unlink(gmt_path)
+        with tempfile.TemporaryDirectory() as gmt_dir:
+            gmt_path = os.path.join(gmt_dir, "pathways.gmt")
+            with open(gmt_path, "w", encoding="utf-8") as f:
+                f.write(self._gmt_text)
+            gv = gp.gsva(
+                data=expr_genes_by_samples,
+                gene_sets=gmt_path,
+                kcdf="Gaussian",
+                min_size=5,
+                max_size=2000,
+                mx_diff=True,
+                threads=4,
+                seed=42,
+                outdir=None,
+                verbose=False,
+            )
 
         long = gv.res2d.copy()
         cols = {c.lower(): c for c in long.columns}
