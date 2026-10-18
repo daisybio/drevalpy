@@ -98,6 +98,27 @@ GradientBoosting:
     - 10
     - 30
 
+GradientBoostingReproducible:
+  cell_line_views:
+    - gene_expression
+  drug_views:
+    - fingerprints
+  gene_list:
+    - landmark_genes
+  max_iter:
+    - 100
+  learning_rate:
+    - 0.1
+    - 0.01
+  max_depth:
+    - 5
+    - 10
+    - 30
+  early_stopping:
+    - true
+  random_state:
+    - 42
+
 AdaBoostDecisionTree:
   cell_line_views:
     - gene_expression

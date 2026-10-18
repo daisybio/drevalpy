@@ -21,6 +21,7 @@ __all__ = [
     "SRMF",
     "EnsembleMF",
     "GradientBoosting",
+    "GradientBoostingReproducible",
     "MOLIR",
     "SuperFELTR",
     "DIPKModel",
@@ -47,6 +48,7 @@ from .baselines.naive_pred import (
     NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
 )
+from .baselines.reproducible_gb import GradientBoostingReproducible
 from .baselines.singledrug_baselines import SingleDrugElasticNet, SingleDrugRandomForest
 from .baselines.sklearn_models import (
     AdaBoostDecisionTree,
@@ -93,6 +95,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "ElasticNet": ElasticNetModel,
     "Lasso": LassoModel,
     "GradientBoosting": GradientBoosting,
+    "GradientBoostingReproducible": GradientBoostingReproducible,
     "KNNRegressor": KNNRegressor,
     "RandomForest": RandomForest,
     "MultiViewRandomForest": MultiViewRandomForest,
