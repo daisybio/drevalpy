@@ -410,6 +410,9 @@ class GradientBoosting(SklearnModel):
             max_iter=self.hyperparameters.get("max_iter", 100),
             learning_rate=self.hyperparameters.get("learning_rate", 0.1),
             max_depth=self.hyperparameters.get("max_depth", 3),
+            validation_fraction=self.hyperparameters.get("validation_fraction", 0.1),
+            n_iter_no_change=self.hyperparameters.get("n_iter_no_change", 10),
+            random_state=self.hyperparameters.get("random_state", 42),
         )
 
 
