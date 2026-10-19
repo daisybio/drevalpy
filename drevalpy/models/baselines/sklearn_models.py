@@ -32,7 +32,7 @@ class SklearnModel(DRPModel):
     drug_views = []
     #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
     #: The default reproduces the previously hard-coded behaviour.
-    gene_list: str | None = "landmark_genes_reduced"
+    gene_list: str | None = "landmark_genes"
 
     def __init__(self):
         """
