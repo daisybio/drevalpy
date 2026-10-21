@@ -20,6 +20,9 @@ from .utils import (
     unzip_data,
 )
 
+# header + 13 genes
+TOY_LANDMARK_GENES_N_LINES = 14
+
 
 def check_measure(measure_queried: str, measures_data: list[str], dataset_name: str) -> None:
     """
@@ -36,6 +39,20 @@ def check_measure(measure_queried: str, measures_data: list[str], dataset_name: 
             f"Measure '{measure_queried}' not found in dataset {dataset_name}."
             f"Available measures are: {', '.join(measures_available)}."
         )
+
+
+def _landmark_genes_is_toy(path_data: str) -> bool | None:
+    """
+    Check whether the landmark gene list in the meta folder is the toy version (13 genes + header).
+
+    :param path_data: Path to the data folder.
+    :return: True if it is the toy list, False if it is the full list, None if there is no list.
+    """
+    landmark_path = os.path.join(path_data, "meta", "gene_lists", "landmark_genes.csv")
+    if not os.path.exists(landmark_path):
+        return None
+    with open(landmark_path) as f:
+        return sum(1 for _ in f) == TOY_LANDMARK_GENES_N_LINES
 
 
 def _read_response_frame(path_data: str, file_name: str, dataset_name: str) -> pd.DataFrame:
@@ -55,9 +72,9 @@ def _read_response_frame(path_data: str, file_name: str, dataset_name: str) -> p
     path = os.path.join(path_data, dataset_name, file_name)
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
-    # tissue mapping is not in TOY play dataset
+    # tissue mapping is not in TOY play dataset; meta may also be left over from a TOY run
     meta_path = os.path.join(path_data, "meta", "tissue_mapping.csv")
-    if not os.path.exists(meta_path):
+    if not os.path.exists(meta_path) or _landmark_genes_is_toy(path_data):
         download_dataset("meta", path_data, redownload=True)
 
     response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
@@ -160,8 +177,7 @@ def _load_test_data(
     Path(path_data).mkdir(parents=True, exist_ok=True)
     test_data_path = "https://github.com/nf-core/test-datasets/raw/refs/heads/drugresponseeval/test_data"
     # first get meta
-    meta_path = os.path.join(path_data, "meta")
-    if not os.path.exists(meta_path):
+    if _landmark_genes_is_toy(path_data) is None or not _landmark_genes_is_toy(path_data):
         file_url = f"{test_data_path}/meta.zip"
         file_path = Path(path_data) / "meta.zip"
         response_meta = download_from_url(dataset_name="meta", file_url=file_url)
@@ -173,12 +189,12 @@ def _load_test_data(
         file_path = Path(path_data) / "CTRPv2_sample_test.zip"
         response_raw = download_from_url(dataset_name="CTRPv2_sample_test", file_url=file_url)
         unzip_data(path_to_zip=file_path, response=response_raw, data_path=path_data)
-    file_url = f"{test_data_path}/{dataset_name}.zip"
-    file_path = Path(path_data) / f"{dataset_name}.zip"
-    response = download_from_url(dataset_name=dataset_name, file_url=file_url)
-    unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
-
     file_name = Path(path_data) / dataset_name / f"{dataset_name}.csv"
+    if not file_name.exists():
+        file_url = f"{test_data_path}/{dataset_name}.zip"
+        file_path = Path(path_data) / f"{dataset_name}.zip"
+        response = download_from_url(dataset_name=dataset_name, file_url=file_url)
+        unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
     response_data = pd.read_csv(file_name, dtype={"pubchem_id": str, "cell_line_name": str})
     response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
     check_measure(measure, list(response_data.columns), dataset_name)
