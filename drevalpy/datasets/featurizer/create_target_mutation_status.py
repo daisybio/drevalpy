@@ -227,7 +227,8 @@ def main():
     download_depmap(depmap_dir)
     id_columns = ["cellosaurus_id", "cell_line_name"]
     cell_lines = pd.concat([pd.read_csv(path, dtype=str, usecols=id_columns) for path in name_files + mutation_files])
-    matrix = build_matrix(depmap_dir, cell_lines[id_columns])
+    cell_lines = cell_lines.drop_duplicates(id_columns)
+    matrix = build_matrix(depmap_dir, cell_lines)
     output = Path(args.output or data_path / "meta" / "target_mutation" / "functional_status_matrix.csv")
     output.parent.mkdir(parents=True, exist_ok=True)
     matrix.to_csv(output, index=False)
