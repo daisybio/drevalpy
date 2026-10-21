@@ -82,7 +82,7 @@ class DIPKModel(DRPModel):
           optional, defaults to 3
         - batch_size_autoencoder: int, mini batch size of the gene expression autoencoder, optional,
           defaults to 1024
-        - gene_list: str | None, gene list used to subset gene_expression, e.g., landmark_genes_reduced.
+        - gene_list: str | None, gene list used to subset gene_expression, e.g., landmark_genes.
           None loads all genes. Optional, defaults to the class attribute gene_expression_intersection.
         """
         self.model = Predictor(
