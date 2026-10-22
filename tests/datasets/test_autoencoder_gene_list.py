@@ -128,6 +128,17 @@ def test_download_manifest_genes(tmp_path):
     assert script.download_manifest_genes(archive.as_uri()) == {"G1", "G2"}
 
 
+def test_download_probemap_genes(tmp_path):
+    """
+    The probemap is read from a url (here a local file) and its gene column returned.
+
+    :param tmp_path: pytest temporary directory
+    """
+    probemap = tmp_path / "probemap.tsv"
+    pd.DataFrame({"id": ["l1", "l2"], "gene": ["B", "Q"]}).to_csv(probemap, sep="\t", index=False)
+    assert script.download_probemap_genes(probemap.as_uri()) == {"B", "Q"}
+
+
 @pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_script_starts_as_a_module(monkeypatch):
     """The script can be started with ``python -m`` and prints its usage.

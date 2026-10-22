@@ -310,6 +310,36 @@ def test_batchnorm_guard_avoids_a_trailing_single_row(molgnet_data_dir, monkeypa
     assert seen["n_train"] % 3 != 1
 
 
+def test_early_stopping_cell_lines_validate_the_autoencoder(molgnet_data_dir, monkeypatch) -> None:
+    """Cell lines of ``output_earlystopping`` are the autoencoder validation set, not a held-out fraction.
+
+    :param molgnet_data_dir: path to the temporary data directory
+    :param monkeypatch: pytest monkeypatch fixture
+    """
+    seen: dict[str, int] = {}
+    original = module.train_gene_expession_autoencoder
+
+    def spy(train_matrix, val_matrix, **kwargs):
+        seen["n_train"], seen["n_val"] = len(train_matrix), len(val_matrix)
+        return original(train_matrix, val_matrix, **kwargs)
+
+    monkeypatch.setattr(module, "train_gene_expession_autoencoder", spy)
+    response = _response()
+    keep = np.isin(response.cell_line_ids, _CELL_LINES[:6])
+    train, early = response.copy(), response.copy()
+    train.mask(keep)
+    early.mask(~keep)
+    model = _build()
+    assert model.early_stopping
+    model.train(
+        output=train,
+        cell_line_input=model.load_cell_line_features(molgnet_data_dir, "TOY_small"),
+        drug_input=model.load_drug_features(molgnet_data_dir, "TOY_small"),
+        output_earlystopping=early,
+    )
+    assert (seen["n_train"], seen["n_val"]) == (6, 2)
+
+
 def test_encoding_reduces_features_to_the_latent_dimension(molgnet_data_dir) -> None:
     """After training, the gene expression view must hold latent vectors, not genes.
 

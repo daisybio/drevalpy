@@ -1,95 +1,26 @@
-"""Random Forest on DIPK's two feature building blocks instead of DIPK's neural network.
+"""Random Forest on DIPK's gene expression autoencoder and MolGNet drug features.
 
-DIPK predicts drug response with a neural network on top of three learned inputs: an
-autoencoder embedding of gene expression, node-level MolGNet embeddings of the drug molecule,
-and BIONIC network features. ``RandomForestAEMolGNet`` keeps the first two of those inputs,
-drops the BIONIC network features entirely, and replaces the network with a plain Random Forest.
+``RandomForestAEMolGNet`` keeps two of DIPK's three input blocks, drops the BIONIC network features
+and replaces the neural network with a ``RandomForestRegressor``. It serves as an ablation of DIPK:
+the predictor is the same as in the ``RandomForest`` baseline, only the features differ.
 
-The point is an ablation that the benchmark could not answer before: DIPK improves over a
-Random Forest baseline, but it changes *both* the features and the predictor at the same time.
-This model separates the two: same predictor as the baseline, DIPK's features instead of raw
-gene expression and Morgan fingerprints. On CTRPv2 in leave-cell-line-out it beats that
-baseline over ten folds: 0.3372 against 0.3155 normalised Pearson correlation, winning in 9 of
-the 10 folds, p = 0.027 in a paired two-sided exact Wilcoxon signed-rank test over the ten
-per-fold values. A measurable part of the gap is therefore attributable to the features alone,
-with no neural predictor involved. "Normalised" means normalised against the run's
-``NaiveMeanEffectsPredictor``, where 0 is "no better than the naive mean-effects model"; the
-numbers are not raw correlation coefficients. The configuration behind them is not identical
-to the shipped defaults -- see `Where the published numbers come from`_ below.
+* Cell lines: gene expression is restricted to ``gene_list``, transformed to ``log2(x + 1)`` and
+  encoded by DIPK's ``GeneExpressionEncoder``. The autoencoder is trained from scratch in every
+  fold on the unique training cell lines. The cell lines of the early stopping split
+  (``output_earlystopping``) validate it; without such a split, a fraction of the training cell
+  lines is held out instead.
+* Drugs: the node-level MolGNet embeddings (``n_atoms x 768``) are pooled to a fixed-length vector,
+  by default the concatenation of the per-dimension mean and maximum (``molgnet_pooling``:
+  ``mean_max``, ``mean`` or ``max``).
+* Encoder caching is opt-in: ``autoencoder_cache_dir`` or the ``DREVAL_AE_CACHE`` environment
+  variable let models with identical training cell lines, gene list and autoencoder
+  hyperparameters train the encoder once per fold and share it.
 
-What is different from ``DIPK``
--------------------------------
-
-============================  ==========================================  ==================================
-Aspect                        ``DIPK``                                    ``RandomForestAEMolGNet``
-============================  ==========================================  ==================================
-Predictor                     attention network + fully connected head    ``RandomForestRegressor``
-Drug features                 node-level MolGNet, pooled by attention     node-level MolGNet, mean+max pooled
-BIONIC network features       used as a third input                       not used
-Autoencoder training samples  one row per *response*                      one row per *training cell line*
-Autoencoder validation set    ``output_earlystopping`` cell lines         held-out fraction of training lines
-Gene expression scale         as loaded                                   ``log2(x + 1)`` by default
-============================  ==========================================  ==================================
-
-Both models train the autoencoder from scratch inside every fold and only ever fit it on
-training cell lines, so neither leaks test expression into the encoder.
-
-Design decisions
-----------------
-
-1. **MolGNet pooling is mean+max.** DIPK pools the node embeddings with attention inside its
-   network. A Random Forest needs a fixed-length vector, so the node matrix
-   (``n_atoms x 768``) is reduced to ``1536`` features by concatenating the per-dimension mean
-   and maximum. ``molgnet_pooling`` switches to ``mean`` or ``max`` alone (``768`` features).
-
-2. **The autoencoder sees unique cell lines, not response rows.** DIPK feeds its autoencoder the
-   expression matrix indexed by ``output.cell_line_ids``, which repeats every cell line once per
-   measured drug. Since the autoencoder is unsupervised over cell lines, that only weights cell
-   lines by how many drugs were screened on them and multiplies the number of gradient steps.
-   Training on the unique training cell lines keeps the objective identical while cutting the
-   input matrix by roughly two orders of magnitude; ``batch_size_autoencoder`` defaults to ``32``
-   instead of DIPK's ``1024`` so that the number of gradient steps stays comparable.
-
-3. **Validation for early stopping is a held-out fraction of training cell lines.** sklearn models
-   receive no ``output_earlystopping`` set, which is where DIPK takes its autoencoder validation
-   data from. The split is deterministic given ``autoencoder_seed``.
-
-4. **Gene expression is log2-transformed before encoding.** CTRPv2 gene expression is linear TPM.
-   On a linear scale the highest-expressed genes dominate the variance, and a mean-squared-error
-   autoencoder then spends its capacity reconstructing housekeeping genes. Set
-   ``autoencoder_log2_transform`` to ``false`` for data that is already on a log scale.
-
-5. **Encoder caching is opt-in.** The encoder depends only on the training cell lines, the gene
-   list and the autoencoder hyperparameters -- not on the drug features. When several models share
-   those, ``autoencoder_cache_dir`` (or the ``DREVAL_AE_CACHE`` environment variable) lets them
-   train the encoder once per fold and reuse it. Beyond saving time this makes such models
-   pairwise comparable, because an identical encoder rules out the encoder as a source of
-   differences. Caching is disabled unless one of the two is set.
-
-The four autoencoder hyperparameters that DIPK also has keep DIPK's names
-(``epochs_autoencoder``, ``lr_autoencoder``, ``patience_autoencoder``,
-``batch_size_autoencoder``); the ones that only exist here are prefixed ``autoencoder_``.
-
-.. _Where the published numbers come from:
-
-Where the published numbers come from
--------------------------------------
-
-The comparison quoted at the top was run on CTRPv2 in leave-cell-line-out over ten folds, with
-the ``RandomForest`` baseline exactly as shipped. Three of the four autoencoder settings of that
-run are the defaults here (``epochs_autoencoder`` 2000, ``batch_size_autoencoder`` 32,
-``patience_autoencoder`` 50). The gene list is not: the run used a locally built list of 11,883
-genes, which is not part of the metadata bundle drevalpy downloads, so the default is
-``gene_expression_intersection`` (2,270 genes) -- DIPK's default, and available to everyone.
-Running the defaults therefore encodes a gene space about five times smaller than the one behind
-the quoted p-value, and the numbers will not reproduce exactly.
-
-One more asymmetry of that run, in the baseline's favour: this model was trained on ``drug_mean``
-residuals while the baseline was not, because ``drug_mean`` costs the bare Random Forest a large
-amount of performance (0.3106 down to 0.2495 normalised Pearson in an earlier run), so the
-baseline competed in its stronger configuration.
+The autoencoder hyperparameters that DIPK also has keep its names (``epochs_autoencoder``,
+``lr_autoencoder``, ``patience_autoencoder``, ``batch_size_autoencoder``); the others are prefixed
+``autoencoder_`` (``autoencoder_log2_transform``, ``autoencoder_validation_fraction``,
+``autoencoder_seed``, ``autoencoder_cache_dir``).
 """
-
 import hashlib
 import json
 import os
@@ -196,6 +127,9 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
     with the finished encoder.
     """
 
+    #: Ask the framework for an early stopping split, whose cell lines validate the autoencoder.
+    early_stopping = True
+
     #: Encoder of the current fold, set by :meth:`train` and by :meth:`load`.
     _encoder: GeneExpressionEncoder | None = None
     #: Number of genes the encoder was built for.
@@ -207,7 +141,8 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         Recognised autoencoder hyperparameters, all optional:
         ``epochs_autoencoder`` (2000), ``batch_size_autoencoder`` (32),
         ``patience_autoencoder`` (50), ``lr_autoencoder`` (1e-4),
-        ``autoencoder_log2_transform`` (true), ``autoencoder_validation_fraction`` (0.1),
+        ``autoencoder_log2_transform`` (true), ``autoencoder_validation_fraction`` (0.1, only used
+        when no early stopping data is given),
         ``autoencoder_seed`` (42), ``autoencoder_cache_dir`` (unset).
 
         :param hyperparameters: hyperparameters of the model
@@ -253,7 +188,9 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
             "seed": self._ae_seed,
         }
 
-    def _cache_path(self, train_ids: np.ndarray, input_dim: int, genes: list[str]) -> str | None:
+    def _cache_path(
+        self, train_ids: np.ndarray, input_dim: int, genes: list[str], val_ids: np.ndarray | None = None
+    ) -> str | None:
         """Build the cache file path for these training cell lines, config and gene *order*.
 
         The gene order is part of the key on purpose. Two gene lists with the same members but a
@@ -263,6 +200,7 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         :param train_ids: training cell line identifiers of this fold
         :param input_dim: number of genes going into the encoder
         :param genes: gene symbols in exactly the order they are passed to the encoder
+        :param val_ids: early stopping cell lines, or ``None`` if a fraction of the training lines is held out
         :returns: path of the cache file, or ``None`` if caching is not configured
         """
         if not self._ae_cache_dir:
@@ -272,6 +210,7 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
                 "config": self._autoencoder_config(),
                 "input_dim": int(input_dim),
                 "cell_lines": sorted(map(str, train_ids)),
+                "val_cell_lines": None if val_ids is None else sorted(map(str, val_ids)),
                 "gene_order": hashlib.sha256("\n".join(map(str, genes)).encode()).hexdigest(),
             },
             sort_keys=True,
@@ -279,33 +218,41 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         digest = hashlib.sha256(payload.encode()).hexdigest()[:16]
         return os.path.join(self._ae_cache_dir, f"gene_ae_{digest}.pt")
 
-    def _fit_or_load_encoder(self, train_ids: np.ndarray, cell_line_input: FeatureDataset) -> GeneExpressionEncoder:
+    def _fit_or_load_encoder(
+        self, train_ids: np.ndarray, cell_line_input: FeatureDataset, val_ids: np.ndarray | None = None
+    ) -> GeneExpressionEncoder:
         """Get the encoder for this fold, from the cache if possible, otherwise by training it.
 
         :param train_ids: unique training cell lines of this fold
         :param cell_line_input: cell line features, still unencoded
+        :param val_ids: unique early stopping cell lines; if ``None``, a fraction of the training lines is held out
         :returns: trained encoder
         """
         matrix = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=train_ids)
         self._ae_input_dim = int(matrix.shape[1])
 
         gene_order = [str(gene) for gene in cell_line_input.meta_info["gene_expression"]]
-        path = self._cache_path(train_ids, self._ae_input_dim, gene_order)
+        path = self._cache_path(train_ids, self._ae_input_dim, gene_order, val_ids)
         if path is not None and os.path.exists(path):
             encoder = self._encoder_from_state(torch.load(path, map_location="cpu", weights_only=True))
             print(f"[AE] encoder taken from cache: {path} ({len(train_ids)} cell lines, {self._ae_input_dim} genes)")
             return encoder
 
-        rng = np.random.default_rng(self._ae_seed)
-        order = rng.permutation(len(matrix))
-        n_val = max(1, int(round(self._ae_val_fraction * len(matrix))))
+        if val_ids is not None:
+            val_matrix = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=val_ids)
+            train_matrix = matrix
+        else:
+            rng = np.random.default_rng(self._ae_seed)
+            order = rng.permutation(len(matrix))
+            n_val = max(1, int(round(self._ae_val_fraction * len(matrix))))
+            val_matrix, train_matrix = matrix[order[:n_val]], matrix[order[n_val:]]
         # The encoder uses BatchNorm1d, which cannot normalise a batch of one sample while
         # training. A trailing mini batch of exactly one row would therefore abort the fold, so
         # one row moves to the validation set instead. Training on unique cell lines makes this
         # reachable; DIPK never hits it because it trains on the far longer response matrix.
-        if (len(matrix) - n_val) % self._ae_batch_size == 1:
-            n_val += 1
-        val_matrix, train_matrix = matrix[order[:n_val]], matrix[order[n_val:]]
+        if len(train_matrix) % self._ae_batch_size == 1:
+            val_matrix = np.concatenate([val_matrix, train_matrix[-1:]])
+            train_matrix = train_matrix[:-1]
         print(
             f"[AE] training gene autoencoder from scratch: {len(train_matrix)} cell lines "
             f"(+{len(val_matrix)} validation), {self._ae_input_dim} genes, "
@@ -391,12 +338,15 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         :param output: training response data
         :param cell_line_input: cell line features
         :param drug_input: drug features
-        :param output_earlystopping: unused, sklearn models do not early stop
+        :param output_earlystopping: early stopping data; its cell lines validate the autoencoder
         :param model_checkpoint_dir: unused
         """
         if len(output) > 0:
             train_ids = np.unique(np.asarray(output.cell_line_ids).astype(str))
-            self._encoder = self._fit_or_load_encoder(train_ids, cell_line_input)
+            val_ids = None
+            if output_earlystopping is not None and len(output_earlystopping) > 0:
+                val_ids = np.unique(np.asarray(output_earlystopping.cell_line_ids).astype(str))
+            self._encoder = self._fit_or_load_encoder(train_ids, cell_line_input, val_ids)
             self.hyperparameters["gene_encoder_input_dim"] = self._ae_input_dim
             cell_line_input = self._encode(cell_line_input)
         super().train(

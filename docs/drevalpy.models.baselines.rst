@@ -232,9 +232,6 @@ Aspect                        ``DIPK``                                    ``Rand
 Predictor                     attention network + fully connected head    ``RandomForestRegressor``
 Drug features                 node-level MolGNet, pooled by attention     node-level MolGNet, mean+max pooled
 BIONIC network features       used as a third input                       not used
-Autoencoder training samples  one row per *response*                      one row per *training cell line*
-Autoencoder validation set    ``output_earlystopping`` cell lines         held-out fraction of training lines
-Gene expression scale         as loaded                                   ``log2(x + 1)`` by default
 ============================  ==========================================  ==================================
 
 Both models fit the autoencoder inside each fold and only on training cell lines, so neither leaks
@@ -253,34 +250,11 @@ The parameters that only exist here are prefixed ``autoencoder_``:
 
 - ``autoencoder_log2_transform`` (default ``true``): set to ``false`` for data already on a log
   scale.
-- ``autoencoder_validation_fraction`` (0.1): share of training cell lines held out for early
-  stopping.
-- ``autoencoder_seed`` (42): makes that split deterministic.
+- ``autoencoder_validation_fraction`` (0.1): share of training cell lines held out for validation
+  when the framework provides no early stopping split. Otherwise the cell lines of that split
+  validate the autoencoder.
+- ``autoencoder_seed`` (42): makes the held-out split deterministic.
 - ``autoencoder_cache_dir`` (unset): see below.
-
-``batch_size_autoencoder`` defaults to 32 rather than DIPK's 1024 because the training matrix has
-one row per cell line instead of one per response, which is smaller by roughly two orders of
-magnitude; the smaller batch keeps the number of gradient steps comparable. ``patience_autoencoder``
-of 50 stops training long before epoch 2000 on input of that size.
-
-How the published numbers were produced
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The module docstring quotes a paired comparison against ``RandomForest`` on CTRPv2 in
-leave-cell-line-out over ten folds. Three points matter for reading those numbers:
-
-- They are **normalised** correlations in DrEval's own scale, normalised against the run's
-  ``NaiveMeanEffectsPredictor``, where 0 means "no better than the naive mean-effects model".
-  They are not raw correlation coefficients.
-- The p-value is a **paired two-sided exact Wilcoxon signed-rank test over the ten per-fold
-  values** of that metric, this model against the baseline on identical folds -- not the p-value
-  of a correlation test. With ``n = 10`` the smallest p this test can attain is 0.0020.
-- The run encoded **11,883 genes** (``tcga_autoencoder_genes_available``), a gene list that is not part of the
-  downloadable metadata bundle. The default ``gene_expression_intersection`` has 2,270 genes, so the shipped
-  configuration encodes a gene space about five times smaller and will not reproduce the numbers exactly. The three
-  autoencoder settings above are the ones that run used. The list can be rebuilt with
-  ``drevalpy/datasets/featurizer/create_autoencoder_gene_list.py``, see below. To use it, copy it to
-  ``<data_path>/meta/gene_lists/`` and set ``gene_list: tcga_autoencoder_genes_available``.
 
 Gene list of the 11,883-gene run
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -296,9 +270,6 @@ chosen for four reasons:
   top-variance selection**: it would discard driver genes with a low variance. The reduction is left to the
   autoencoder bottleneck. Known landmark and clinical driver genes are protected from the noise filter.
 * Every gene must exist in the expression data of both CTRPv2 and GDSC1, so that all datasets share one space.
-
-Measured against the 2,270-gene list (``DIPK`` model): normalised Spearman +0.014, normalised PCC +0.010, RMSE equal,
-and the spread over folds drops from 0.043 to 0.021 -- no jump, but no loss, and a larger, deployable gene space.
 
 **Construction.** The list is a chain of set operations; each step writes its own list to
 ``<data_path>/meta/gene_lists/``. Nothing in the chain uses the pretrained autoencoder or response data:
@@ -323,12 +294,13 @@ It has the same genes as the Ion AmpliSeq Transcriptome Human Gene Expression Pa
 over 20,000 genes); the 10 ERCC spike-in controls of the Thermo Fisher BED file are not part of it and are not in the
 data anyway, so the result is identical. Alternatively, pass the Thermo Fisher target file with ``--panel``
 (``hg19_AmpliSeq_Transcriptome_21K_v1.bed``, ERCC variant; semicolon separated, no header, gene symbol in the seventh
-column, adjustable with ``--panel_symbol_column``). The protect list and the TCGA probemap are inputs as well.
+column, adjustable with ``--panel_symbol_column``). The protect list is an input as well. The TCGA probemap (GENCODE v23, Xena Toil hub) is downloaded automatically; pass
+``--probemap <gencode.v23.probemap.tsv>`` to use a local copy instead.
 
 .. code-block:: bash
 
     python -m drevalpy.datasets.featurizer.create_autoencoder_gene_list --data_path data \
-        --protect <landmark_plus_clinical_drivers.csv> --probemap <gencode.v23.probemap.tsv>
+        --protect <landmark_plus_clinical_drivers.csv>
 
 With the original inputs the four lists are reproduced byte-identically.
 

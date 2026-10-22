@@ -31,6 +31,10 @@ MANIFEST_URL = (
     "https://support.illumina.com/content/dam/illumina-support/documents/downloads/productfiles/"
     "ampliseq-for-illumina/ampliseq-for-illumina-transcriptome-rna-manifest-20190313.zip"
 )
+#: TCGA gene annotation (GENCODE v23 probemap of the Xena Toil hub), columns ``id`` and ``gene``.
+PROBEMAP_URL = (
+    "https://toil-xena-hub.s3.us-east-1.amazonaws.com/download/probeMap%2Fgencode.v23.annotation.gene.probemap"
+)
 #: Output names, one per step of the chain, in the order they are built.
 STEP_FILES = [
     "ctrpv2_gdsc1_intersection",
@@ -96,6 +100,19 @@ def download_manifest_genes(url: str = MANIFEST_URL, timeout: int = 120) -> set[
     with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
         archive = zipfile.ZipFile(io.BytesIO(response.read()))
     return parse_manifest(archive.read(archive.namelist()[0]).decode("utf-8", "replace"))
+
+
+def download_probemap_genes(url: str = PROBEMAP_URL, timeout: int = 120) -> set[str]:
+    """
+    Download the TCGA gene annotation and return its gene symbols.
+
+    :param url: tab-separated probemap with a ``gene`` column
+    :param timeout: seconds
+    :returns: gene symbols
+    """
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})  # noqa: S310
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+        return set(pd.read_csv(io.BytesIO(response.read()), sep="\t", usecols=["gene"], dtype=str)["gene"])
 
 
 def read_symbols(path: Path) -> set[str]:
@@ -173,7 +190,12 @@ def main():
         help="Gene list (Symbol) that the noise filter never drops (default: landmark_plus_clinical_drivers).",
     )
     parser.add_argument("--noise_dataset", type=str, default="CTRPv2", help="Dataset whose expression defines noise.")
-    parser.add_argument("--probemap", type=str, required=True, help="TCGA gencode.v23.probemap.tsv (column gene).")
+    parser.add_argument(
+        "--probemap",
+        type=str,
+        default=None,
+        help="TCGA gencode.v23.probemap.tsv (column gene). Downloaded from the Xena Toil hub if not given.",
+    )
     parser.add_argument("--output", type=str, default=None, help="Directory (default: <data_path>/meta/gene_lists).")
     args = parser.parse_args()
     data_path = Path(args.data_path)
@@ -189,7 +211,11 @@ def main():
         [expression_genes(data_path / name / "gene_expression.csv") for name in args.datasets],
         read_panel_genes(Path(args.panel), args.panel_symbol_column) if args.panel else download_manifest_genes(),
         expressed,
-        set(pd.read_csv(args.probemap, sep="\t", usecols=["gene"], dtype=str)["gene"]),
+        (
+            set(pd.read_csv(args.probemap, sep="\t", usecols=["gene"], dtype=str)["gene"])
+            if args.probemap
+            else download_probemap_genes()
+        ),
     )
     output.mkdir(parents=True, exist_ok=True)
     previous: set[str] = set()
