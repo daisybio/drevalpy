@@ -2,8 +2,9 @@
 
 ``BlockPredictor`` is the interface for predictors that must keep the sides (or
 individual featurizer outputs) apart instead of flattening everything into one
-matrix. ``required_sample_blocks`` names the blocks the stack has to supply;
-composition rejects a recipe whose featurizers emit none of them.
+matrix. ``required_sample_block_specs`` names the blocks (and their formats) the
+stack has to supply; composition rejects a recipe whose sample featurizer does not
+emit them.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from sklearn.linear_model import Ridge
 
 from drevalpy.plugin import (
     BlockPredictor,
+    BlockSpec,
     FeatureFormat,
     ModelInputBatch,
     register_predictor,
@@ -32,7 +34,7 @@ BLOCK = "gene_expression"
 class ToyBlockRidgePredictor(BlockPredictor):
     """Read one named block instead of the flattened design matrix."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = (BLOCK,)
+    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec(BLOCK, FeatureFormat.NUMERIC_MATRIX),)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Create an untrained predictor.

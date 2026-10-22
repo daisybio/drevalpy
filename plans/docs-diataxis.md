@@ -578,7 +578,12 @@ register_dataset(name, source, file, *, override=False)               same rule,
   - W&B through `run`;
   - merging `tests/synthetic/builders.py` into `drevalpy.data.synthetic`;
   - a public bucket;
-  - redirects.
+  - redirects;
+  - ElasticNet's default `alpha=1.0` predicts a constant on the synthetic data without
+    tuning (deferred by the user; the tutorials tune it);
+  - curation fits depend on the OpenBLAS kernel (pEC50 moves by up to about 0.11);
+  - the "Install with: pip install drevalpy[report]" hints are removed; check that
+    no docs page still mentions a `report` extra.
 
 ## 4. Parallelization
 

@@ -57,7 +57,7 @@ class ToySampleFeaturizer(SampleFeaturizer):
         """Return the standardized matrix and its named numeric block.
 
         The block name matters: a ``BlockPredictor`` asks for it by name through
-        ``required_sample_blocks``. Naming it after the input view is the
+        ``required_sample_block_specs``. Naming it after the input view is the
         default the registry assumes when a featurizer declares no
         ``output_block_specs``.
         """

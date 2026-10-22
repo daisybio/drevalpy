@@ -40,7 +40,7 @@ from _snippets import MISNAMED_LANGUAGES, RUNNABLE_LANGUAGES, collect  # noqa: E
 SECTIONS = ("tutorials", "how-to", "reference", "explanation", "project")
 
 #: Directories Sphinx never reads pages from, whatever ``exclude_patterns`` says.
-NON_SOURCE_DIRS = frozenset({"_build", "_static", "_templates"})
+NON_SOURCE_DIRS = frozenset({"_autosummary", "_build", "_static", "_templates"})
 
 #: Sections whose pages declare an ``.. interface:`` comment and are checked against it.
 INTERFACE_SECTIONS = ("tutorials", "how-to")

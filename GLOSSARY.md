@@ -110,6 +110,7 @@ A stress test that permutes or replaces one view before training, to measure
 how much the model relies on it.
 
 **Robustness test**:
-A stress test that repeats training with a reshuffled pair order, to measure how
-much the score varies between repeats.
-_Avoid_: reseeding (the model seed does not change)
+A stress test that repeats training on the same split, each repeat with its own
+derived seed (so pair order, the model's own randomness and the early-stopping holdout
+change), to measure how much the score varies between repeats.
+_Avoid_: reseeding (the experiment's root seed does not change)

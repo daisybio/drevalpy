@@ -44,7 +44,7 @@ if str(DOCS) not in sys.path:
 #: ``docs/conf.py`` excludes from the build. D3 moves them to ``how-to/extend/``; set
 #: this to ``()`` then. With it empty, only built pages count as including an example.
 #: A path that no longer exists (the old tree is deleted) is ignored.
-TEMPORARY_INCLUDERS: tuple[Path, ...] = (DOCS / "python" / "extensions.rst",)
+TEMPORARY_INCLUDERS: tuple[Path, ...] = ()
 
 _LITERALINCLUDE = re.compile(r"^\s*\.\. literalinclude:: (\S+)\s*$", re.MULTILINE)
 
