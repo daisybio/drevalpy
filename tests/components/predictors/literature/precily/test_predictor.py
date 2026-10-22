@@ -6,9 +6,11 @@ import numpy as np
 import pytest
 
 from drevalpy.components.predictors.literature.precily.predictor import PrecilyPredictor
+from drevalpy.experiment._tracking import tracking_run
 from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from tests._fake_wandb import install_fake_wandb
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_trainable_parameters_changed,
@@ -60,3 +62,17 @@ class TestTinyPrecilyFit:
         restored = PrecilyPredictor()
         restored.set_state(predictor.get_state())
         np.testing.assert_allclose(expected, restored.predict(batch), rtol=1e-5, atol=1e-5)
+
+
+def test_epochs_are_logged_to_the_active_tracking_run(monkeypatch) -> None:
+    fake = install_fake_wandb(monkeypatch)
+    batch = two_by_two_batch(
+        sample_blocks={"pathways": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
+        drug_blocks={"smilesvec": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
+    )
+
+    with tracking_run("proj", name="r"):
+        PrecilyPredictor({"epochs": 2, "batch_size": 4, "dropout": 0.0, "learning_rate": 0.01}).fit(batch)
+
+    assert [step["epoch"] for step in fake.runs[0].logged] == [1, 2]
+    assert all(np.isfinite(step["train_loss"]) for step in fake.runs[0].logged)

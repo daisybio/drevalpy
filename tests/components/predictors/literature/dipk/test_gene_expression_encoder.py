@@ -23,6 +23,8 @@ from drevalpy.components.predictors.literature.dipk.gene_expression_encoder impo
     encode_gene_expression,
     train_gene_expession_autoencoder,
 )
+from drevalpy.experiment._tracking import tracking_run
+from tests._fake_wandb import install_fake_wandb
 
 INPUT_DIM = 6
 SMALL_HIDDEN = [8, 4]
@@ -164,6 +166,17 @@ def test_train_autoencoder_produces_an_encoder_usable_for_encoding() -> None:
 
     assert encoded.shape == (4, encoder.latent_dim)
     assert np.isfinite(encoded).all()
+
+
+def test_train_autoencoder_logs_each_epoch_to_the_active_tracking_run(monkeypatch) -> None:
+    fake = install_fake_wandb(monkeypatch)
+
+    with tracking_run("proj", name="r"):
+        train_gene_expession_autoencoder(_matrix(4, seed=1), _matrix(4, seed=2), epochs_autoencoder=2)
+
+    logged = fake.runs[0].logged
+    assert [step["autoencoder_epoch"] for step in logged] == [1, 2]
+    assert all({"autoencoder_train_loss", "autoencoder_val_loss"} <= set(step) for step in logged)
 
 
 class TestAutoencoderFinalWeightsContract:

@@ -146,6 +146,7 @@ class TestForwarding:
             "hpo_num_trials": 16,
             "hpo_random_state": None,
             "seed": 42,
+            "wandb_project": None,
         }
 
     def test_no_hpo_disables_tuning(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
@@ -165,6 +166,11 @@ class TestForwarding:
 
         assert worker.kwargs["seed"] == 3
         assert worker.kwargs["hpo_random_state"] is None
+
+    def test_wandb_project_is_forwarded(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        _invoke(split_file, tmp_path, "--wandb-project", "my-project")
+
+        assert worker.kwargs["wandb_project"] == "my-project"
 
     def test_split_mode_is_not_a_worker_keyword(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         """``--split-mode`` only ever reaches the worker through the masks' metadata."""

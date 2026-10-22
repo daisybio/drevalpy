@@ -4,7 +4,7 @@ Two constraints shape the fixtures here: the encoder's ``nn.BatchNorm1d``
 requires a batch of more than one row, and ``train_superfeltr_model`` builds its
 training loader with ``drop_last=True``, so the pair count must be at least
 ``2 * mini_batch``. Every fit runs on CPU for a single epoch with
-``wandb_project=None`` so no ``WandbLogger`` import is triggered.
+no tracking run active, so no ``WandbLogger`` is attached.
 
 These fits are also what covers the shared ``literature/_omics_loaders.py`` and
 ``literature/_lightning_training.py`` through a public entry point.
@@ -363,7 +363,6 @@ def test_train_rejects_non_integer_epochs_and_mini_batch(hyperparameter: str, tm
             hpams=_hpams(**{hyperparameter: 1.0}),
             train=_split(),
             model_checkpoint_dir=tmp_path,
-            wandb_project=None,
         )
 
 
@@ -374,7 +373,6 @@ def test_train_encoder_without_validation_monitors_the_training_loss(tmp_path) -
         train=_split(),
         patience=1,
         model_checkpoint_dir=tmp_path,
-        wandb_project=None,
     )
 
     assert isinstance(checkpoint, pl.callbacks.ModelCheckpoint)
@@ -389,7 +387,6 @@ def test_train_encoder_with_validation_monitors_the_validation_loss(tmp_path) ->
         val=_split(),
         patience=1,
         model_checkpoint_dir=tmp_path,
-        wandb_project=None,
     )
 
     assert checkpoint.monitor == "val_loss"
@@ -402,7 +399,6 @@ def test_train_writes_a_checkpoint_under_a_unique_versioned_directory(tmp_path) 
         train=_split(),
         patience=1,
         model_checkpoint_dir=tmp_path,
-        wandb_project=None,
     )
 
     assert checkpoint.best_model_path
@@ -420,7 +416,6 @@ def test_train_regressor_accepts_a_two_dimensional_response(tmp_path) -> None:
         train=_split(response=response.reshape(-1, 1)),
         patience=1,
         model_checkpoint_dir=tmp_path,
-        wandb_project=None,
     )
 
     assert checkpoint.best_model_path
@@ -456,7 +451,6 @@ def test_trained_encoder_checkpoint_is_loadable(tmp_path) -> None:
         train=_split(),
         patience=1,
         model_checkpoint_dir=tmp_path,
-        wandb_project=None,
     )
 
     restored = SuperFELTEncoder.load_from_checkpoint(checkpoint.best_model_path, map_location="cpu")
@@ -473,7 +467,7 @@ def test_train_without_checkpoint_dir_uses_a_temporary_directory_and_keeps_best_
     model = make_model()
 
     checkpoint = train_superfeltr_model(
-        model=model, hpams=_hpams(), train=_split(), patience=1, model_checkpoint_dir=None, wandb_project=None
+        model=model, hpams=_hpams(), train=_split(), patience=1, model_checkpoint_dir=None
     )
 
     assert checkpoint.best_model_path

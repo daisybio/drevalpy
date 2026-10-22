@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any
 
 from upath import UPath
 
+from drevalpy.experiment._tracking import active_run
+
 if TYPE_CHECKING:
     import pytorch_lightning as pl
     from torch.utils.data import DataLoader
@@ -30,7 +32,6 @@ class LightningRun:
     max_epochs: int
     checkpoint_dir: str | UPath
     patience: int = 5
-    wandb_project: str | None = None
     save_weights_only: bool = False
     #: Pinned by MOLIR, left to Lightning's auto-detection elsewhere.
     devices: int | str | None = None
@@ -69,7 +70,7 @@ def run_lightning_fit(
     trainer = pl.Trainer(
         max_epochs=run.max_epochs,
         default_root_dir=str(run.checkpoint_dir),
-        logger=_loggers(run.wandb_project),
+        logger=_loggers(),
         callbacks=[
             EarlyStopping(monitor=monitor, mode="min", patience=run.patience),
             checkpoint_callback,
@@ -84,17 +85,18 @@ def run_lightning_fit(
     return checkpoint_callback
 
 
-def _loggers(wandb_project: str | None) -> list[Any] | bool:
-    """Resolve the Lightning ``logger`` argument for *wandb_project*.
+def _loggers() -> list[Any] | bool:
+    """Resolve the Lightning ``logger`` argument.
 
-    :param wandb_project: Weights & Biases project name, or ``None``.
-    :returns: A one-element logger list, or ``True`` for Lightning's default logger.
+    :returns: A one-element list logging into the active W&B tracking run, or ``True`` for
+        Lightning's default logger when no run is active.
     """
-    if wandb_project is None:
+    wandb_run = active_run()
+    if wandb_run is None:
         return True
     from pytorch_lightning.loggers import WandbLogger
 
-    return [WandbLogger(project=wandb_project, log_model=False)]
+    return [WandbLogger(experiment=wandb_run, log_model=False)]
 
 
 def _versioned_name() -> str:

@@ -11,7 +11,6 @@ from upath import UPath
 
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.models._pipeline import _ModelPipeline
-from drevalpy.models.mixins._logging import _DRPLoggingMixin
 from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
 from drevalpy.types.data.dataset import Dataset
@@ -23,7 +22,7 @@ if TYPE_CHECKING:
     from drevalpy.models.config.resolved import ResolvedModelConfig
 
 
-class DRPModel(_DRPLoggingMixin):
+class DRPModel:
     """Train, predict, and persist a model built from an immutable ``ModelSpec``.
 
     Predictions always have one value per requested response position, in the
@@ -49,10 +48,6 @@ class DRPModel(_DRPLoggingMixin):
             raise TypeError("DRPModel requires a ModelSpec; use ModelSpec.from_name(name) for a preset")
         self._spec = spec
         self._pipeline = _ModelPipeline(spec.resolve(hyperparameters), response_transformation)
-        self.wandb_project: str | None = None
-        self.wandb_run: Any = None
-        self.wandb_config: dict[str, Any] | None = None
-        self._in_hyperparameter_tuning = False
 
     @property
     def spec(self) -> ModelSpec:

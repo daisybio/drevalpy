@@ -35,6 +35,7 @@ from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.registry.splitter import SplitValidationError
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results.run import RunResult
+from tests._fake_wandb import FakeWandb, install_fake_wandb
 
 #: ``single`` lives in the private ``drevalpy._single`` module so that the public
 #: ``drevalpy.single`` name can be the re-exported function.
@@ -640,7 +641,84 @@ class TestNeuralReproducibility:
         assert not np.array_equal(first, other)
 
 
-def test_wandb_project_is_accepted_and_defaults_to_none() -> None:
+class TestWandbTracking:
+    """One W&B run per HPO trial plus one final run, with the test scores in its summary."""
+
+    pytestmark = pytest.mark.slow
+
+    @pytest.fixture
+    def fake_wandb(self, monkeypatch: pytest.MonkeyPatch) -> FakeWandb:
+        return install_fake_wandb(monkeypatch)
+
+    def test_trials_and_the_final_fit_each_get_a_run(self, synthetic_dataset, fake_wandb: FakeWandb) -> None:
+        fold = split(synthetic_dataset, "LSO", n_splits=2)[1]
+
+        result = single(
+            ModelSpec.from_name("ElasticNet"),
+            synthetic_dataset,
+            fold,
+            hpo_num_trials=2,
+            wandb_project="proj",
+        )
+
+        assert fake_wandb.run_names() == [
+            "ElasticNet_split1_trial0",
+            "ElasticNet_split1_trial1",
+            "ElasticNet_split1_final",
+        ]
+        final = fake_wandb.runs[-1]
+        assert final.project == "proj"
+        assert final.tags == ["ElasticNet", "LSO", synthetic_dataset.name, "final"]
+        assert final.config["model_name"] == "ElasticNet"
+        assert final.config["dataset"] == synthetic_dataset.name
+        assert final.config["split_mode"] == "LSO"
+        assert final.config["fold_index"] == 1
+        assert final.config["hyperparameter_tuning"] is True
+        assert final.config.items() >= result.best_hyperparameters.items()
+        assert final.summary == {f"test_{key}": value for key, value in result.metrics.items()}
+        assert all(run.finished and run.exit_code is None for run in fake_wandb.runs)
+        assert fake_wandb.runs[0].config["fold_index"] == 1
+
+    def test_without_tuning_only_the_final_run_exists(self, synthetic_dataset, fake_wandb: FakeWandb) -> None:
+        fold = split(synthetic_dataset, "LSO", n_splits=2)[0]
+
+        single(
+            ModelSpec.from_name("ElasticNet"), synthetic_dataset, fold, hyperparameter_tuning=False, wandb_project="p"
+        )
+
+        assert fake_wandb.run_names() == ["ElasticNet_split0_final"]
+        assert fake_wandb.runs[0].config["hyperparameter_tuning"] is False
+
+    def test_without_a_project_nothing_is_tracked(self, synthetic_dataset, fake_wandb: FakeWandb) -> None:
+        fold = split(synthetic_dataset, "LSO", n_splits=2)[0]
+
+        single(ModelSpec.from_name("ElasticNet"), synthetic_dataset, fold, hyperparameter_tuning=False)
+
+        assert fake_wandb.runs == []
+
+    def test_a_failing_final_fit_marks_its_run_failed(
+        self, synthetic_dataset, fake_wandb: FakeWandb, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fold = split(synthetic_dataset, "LSO", n_splits=2)[0]
+
+        def explode(self, *args, **kwargs):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(DRPModel, "train", explode)
+
+        with pytest.raises(RuntimeError, match="boom"):
+            single(
+                ModelSpec.from_name("ElasticNet"),
+                synthetic_dataset,
+                fold,
+                hyperparameter_tuning=False,
+                wandb_project="p",
+            )
+
+        assert fake_wandb.runs[0].exit_code == 1
+
+
+def test_wandb_project_defaults_to_none() -> None:
     import inspect
 
     assert inspect.signature(single).parameters["wandb_project"].default is None

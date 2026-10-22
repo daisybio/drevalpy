@@ -20,6 +20,8 @@ from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
     train_with_early_stopping,
 )
+from drevalpy.experiment._tracking import tracking_run
+from tests._fake_wandb import install_fake_wandb
 
 #: ``save_torch_payload``/``load_state_dict`` round-trip real torch checkpoints.
 pytestmark = pytest.mark.slow
@@ -195,3 +197,24 @@ def test_a_verbose_run_announces_the_early_stop(tmp_path, caplog) -> None:
         _drive(_CountingModel(), _run(tmp_path, epochs=10, patience=1, verbose=True), [1.0, 2.0])
 
     assert "Scripted: Early stopping triggered at epoch 2" in caplog.messages
+
+
+def test_each_epoch_is_logged_to_the_active_tracking_run(tmp_path, monkeypatch) -> None:
+    fake = install_fake_wandb(monkeypatch)
+    model = _CountingModel()
+
+    with tracking_run("proj", name="r"):
+        _drive(model, _run(tmp_path, epochs=2, patience=2), [2.0, 1.0])
+
+    assert fake.runs[0].logged == [
+        {"epoch": 1, "train_loss": 1.0, "val_loss": 2.0},
+        {"epoch": 2, "train_loss": 1.0, "val_loss": 1.0},
+    ]
+
+
+def test_without_a_tracking_run_nothing_is_logged(tmp_path, monkeypatch) -> None:
+    fake = install_fake_wandb(monkeypatch)
+
+    _drive(_CountingModel(), _run(tmp_path, epochs=2, patience=2), [2.0, 1.0])
+
+    assert fake.runs == []

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from drevalpy.evaluation import score_predictions
 from drevalpy.experiment._execution import ExecutionSpec, build_execution
+from drevalpy.experiment._tracking import log_summary, tracking_run
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.spec import ModelSpec
@@ -51,7 +52,7 @@ def single(
     :param hpo_random_state: Random seed for the HPO sampler; defaults to ``seed``.
     :param seed: Root seed; every HPO run and final fit is seeded from it and the execution identity.
     :param wandb_project: Weights & Biases project to log the trials and the final fit to; ``None`` disables
-        tracking. Not used yet.
+        tracking.
     :returns: RunResult with predictions, ground truth, and metrics.
     """
     execution = build_execution(
@@ -64,12 +65,24 @@ def single(
         hpo_random_state=seed if hpo_random_state is None else hpo_random_state,
         seed=seed,
     )
-    return _execute(execution, dataset, response_transformation)
+    return _execute(execution, dataset, response_transformation, wandb_project)
 
 
-def _execute(execution: ExecutionSpec, dataset: Dataset, response_transformation=None) -> RunResult:
+def _execute(
+    execution: ExecutionSpec,
+    dataset: Dataset,
+    response_transformation=None,
+    wandb_project: str | None = None,
+) -> RunResult:
     """Execute established scopes; model pipelines own all fitted transforms."""
     model_spec, scopes, identity = execution.model, execution.scopes, execution.identity
+    base_config = {
+        "model_name": identity.model_name,
+        "dataset": dataset.name,
+        "split_mode": identity.split_mode,
+        "fold_index": identity.fold_index,
+        "hyperparameter_tuning": execution.hyperparameter_tuning,
+    }
     hpo_metric = execution.hpo_metric
     fit_rng_seed = fit_seed(execution.seed, identity)
     trials: list[TrialResult] | None = None
@@ -90,6 +103,9 @@ def _execute(execution: ExecutionSpec, dataset: Dataset, response_transformation
             metric=hpo_metric,
             model_checkpoint_dir=None,
             hpo_config=hpo_cfg,
+            split_index=identity.fold_index,
+            wandb_project=wandb_project,
+            wandb_base_config=base_config,
         )
         trials = [
             TrialResult(
@@ -107,20 +123,27 @@ def _execute(execution: ExecutionSpec, dataset: Dataset, response_transformation
 
     model = DRPModel(model_spec, best_hpams, response_transformation=response_transformation)
 
-    seed_everything(fit_rng_seed)
-    with tempfile.TemporaryDirectory() as checkpoint_dir:
-        model.train(
-            dataset=dataset,
-            scope=scopes.final_training,
-            early_stopping_scope=scopes.stopping,
-            model_checkpoint_dir=checkpoint_dir,
-        )
+    with tracking_run(
+        wandb_project,
+        name=f"{identity.model_name}_split{identity.fold_index}_final",
+        config={**base_config, **best_hpams},
+        tags=[identity.model_name, identity.split_mode, dataset.name, "final"],
+    ):
+        seed_everything(fit_rng_seed)
+        with tempfile.TemporaryDirectory() as checkpoint_dir:
+            model.train(
+                dataset=dataset,
+                scope=scopes.final_training,
+                early_stopping_scope=scopes.stopping,
+                model_checkpoint_dir=checkpoint_dir,
+            )
 
-    predictions = model.predict(dataset=dataset, scope=scopes.test)
+        predictions = model.predict(dataset=dataset, scope=scopes.test)
 
-    test_response = ResponseBatch.from_dataset(dataset, scopes.test)
-    ground_truth = test_response.response
-    metrics = score_predictions(predictions, ground_truth, empty_as_dict=True)
+        test_response = ResponseBatch.from_dataset(dataset, scopes.test)
+        ground_truth = test_response.response
+        metrics = score_predictions(predictions, ground_truth, empty_as_dict=True)
+        log_summary({f"test_{key}": value for key, value in metrics.items()})
     return RunResult(
         model_name=identity.model_name,
         dataset_name=dataset.name,

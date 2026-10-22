@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from upath import UPath as Path
 
+from drevalpy.experiment._tracking import log_summary, require_tracking, tracking_run
 from drevalpy.log import get_logger
 from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.config import HPOConfig, validate_hpo_metric
@@ -54,6 +55,10 @@ class _TrialFailures:
             self.first = exc
 
 
+def _prefixed(prefix: str, metrics: dict[str, float]) -> dict[str, float]:
+    return {f"{prefix}{key}": value for key, value in metrics.items()}
+
+
 def _is_valid_score(value: float) -> bool:
     return bool(np.isfinite(value))
 
@@ -86,12 +91,13 @@ def hpam_tune(
     :param metric: Metric to optimize.
     :param model_checkpoint_dir: Directory for model checkpoints.
     :param hpo_config: HPO configuration.
-    :param split_index: CV fold index for W&B logging.
-    :param wandb_project: W&B project name.
-    :param wandb_base_config: Base W&B config merged per trial.
+    :param split_index: Fold index, used in the W&B run names.
+    :param wandb_project: W&B project to log one run per trial to; ``None`` disables tracking.
+    :param wandb_base_config: Base W&B config; each trial's drawn hyperparameters are added to it.
     :returns: Tuple of (best_params, trial_results) where trial_results is a
         list of (hyperparameters, metrics_dict, predictions) tuples for each completed trial.
     :raises ValueError: Raised when ``hpo_config.metric`` disagrees with ``metric``.
+    :raises ImportError: Raised when ``wandb_project`` is set and ``wandb`` is not installed.
     :raises HPOTrialsFailedError: Raised when every trial raised an exception, so no
         tuning information was produced.
     """
@@ -107,6 +113,7 @@ def hpam_tune(
     if cfg.n_trials == 0:
         return model_spec.default_hyperparameters, []
 
+    require_tracking(wandb_project)
     model_name = model_spec.name
     all_trial_data: list[tuple[dict[str, Any], dict[str, float], np.ndarray]] = []
     failures = _TrialFailures()
@@ -116,15 +123,22 @@ def hpam_tune(
         trial_model = _construct_trial_model(model_spec, drawn, response_transformation)
 
         try:
-            metrics, predictions = _mu_evaluate_trial_all_metrics(
-                trial_model,
-                mudataset=mudataset,
-                train_scope=train_scope,
-                val_scope=val_scope,
-                early_stopping_scope=early_stopping_scope,
-                model_checkpoint_dir=model_checkpoint_dir,
-                trial_number=trial.number,
-            )
+            with tracking_run(
+                wandb_project,
+                name=f"{model_name}_split{split_index}_trial{trial.number}",
+                config={**(wandb_base_config or {}), **drawn},
+                tags=[model_name, "trial"],
+            ):
+                metrics, predictions = _mu_evaluate_trial_all_metrics(
+                    trial_model,
+                    mudataset=mudataset,
+                    train_scope=train_scope,
+                    val_scope=val_scope,
+                    early_stopping_scope=early_stopping_scope,
+                    model_checkpoint_dir=model_checkpoint_dir,
+                    trial_number=trial.number,
+                )
+                log_summary({"hpo_metric": metrics.get(metric, float("nan")), **_prefixed("val_", metrics)})
         except Exception as exc:
             # Returning NaN rather than re-raising keeps the study running, so a
             # search space with a few invalid corners still tunes. Whether the
@@ -135,18 +149,6 @@ def hpam_tune(
 
         if metrics:
             all_trial_data.append((drawn, metrics, predictions))
-
-        if wandb_project:
-            _log_trial_to_wandb(
-                wandb_project=wandb_project,
-                wandb_base_config=wandb_base_config,
-                model_name=model_name,
-                split_index=split_index,
-                trial_number=trial.number,
-                drawn=drawn,
-                metrics=metrics,
-                metric=metric,
-            )
 
         target = metrics.get(metric, float("nan"))
         return target if _is_valid_score(target) else float("nan")
@@ -203,35 +205,3 @@ def _resolve_best_params(study, model_spec: ModelSpec) -> dict[str, Any]:
     best_config = draw_from_optuna_trial(FixedTrial(best_trial.params), model_spec.hyperparameter_space)
     best_model_config = resolve_model_config(model_spec.config, best_config)
     return public_hyperparameters_from_config(best_model_config)
-
-
-def _log_trial_to_wandb(
-    *,
-    wandb_project: str,
-    wandb_base_config: dict[str, Any] | None,
-    model_name: str,
-    split_index: int | None,
-    trial_number: int,
-    drawn: dict[str, Any],
-    metrics: dict[str, float],
-    metric: str,
-) -> None:
-    """Log a single HPO trial to W&B."""
-    try:
-        import wandb
-    except ImportError:
-        return
-
-    run_name = f"{model_name}_split{split_index}_trial{trial_number}"
-    run_config = dict(wandb_base_config or {})
-    run_config.update(drawn)
-    run = wandb.init(
-        project=wandb_project,
-        name=run_name,
-        config=run_config,
-        reinit=True,
-    )
-    if run is not None:
-        target_value = metrics.get(metric, float("nan"))
-        wandb.log({"hpo_metric": target_value, **metrics})
-        run.finish()

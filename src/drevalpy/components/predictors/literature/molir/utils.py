@@ -209,7 +209,6 @@ class MOLIModel(pl.LightningModule):
         val: OmicsSplit | None = None,
         patience: int = 5,
         model_checkpoint_dir: str | Path | None = None,
-        wandb_project: str | None = None,
     ) -> None:
         """Trains the MOLIR model.
 
@@ -222,7 +221,6 @@ class MOLIModel(pl.LightningModule):
         :param patience: for early stopping
         :param model_checkpoint_dir: directory to save the model checkpoints; a temporary directory removed after the
             fit when omitted
-        :param wandb_project: Optional Weights & Biases project name for Lightning logging.
         """
         std = float(np.std(train.response))
         self.positive_range = std * 0.1
@@ -244,7 +242,6 @@ class MOLIModel(pl.LightningModule):
                     max_epochs=self.epochs,
                     patience=patience,
                     checkpoint_dir=checkpoint_dir,
-                    wandb_project=wandb_project,
                     save_weights_only=True,
                     devices=1,
                     enable_model_summary=False,

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from upath import UPath
 
+from drevalpy.experiment._tracking import log_metrics
 from drevalpy.utils.torch_io import load_state_dict, save_torch_payload
 
 if TYPE_CHECKING:
@@ -68,6 +69,7 @@ def train_with_early_stopping(
         _log(run, f"{run.model_name}: Epoch [{epoch + 1}/{run.epochs}] Training Loss: {train_loss:.4f}")
         val_loss = val_epoch()
         _log(run, f"{run.model_name}: Epoch [{epoch + 1}/{run.epochs}] Validation Loss: {val_loss:.4f}")
+        log_metrics({"epoch": epoch + 1, "train_loss": train_loss, "val_loss": val_loss})
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss

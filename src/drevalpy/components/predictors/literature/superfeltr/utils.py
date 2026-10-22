@@ -335,7 +335,6 @@ def train_superfeltr_model(
     val: OmicsSplit | None = None,
     patience: int = 5,
     model_checkpoint_dir: str | Path | None = None,
-    wandb_project: str | None = None,
 ) -> pl.callbacks.ModelCheckpoint:
     """Trains one encoder or the regressor using lazy pair-level lookup.
 
@@ -347,7 +346,6 @@ def train_superfeltr_model(
     :param model_checkpoint_dir: directory to save the model checkpoints. When None, a temporary directory is used
         and removed after the fit; the best weights are then loaded into *model* in place and the returned
         callback's ``best_model_path`` no longer exists.
-    :param wandb_project: Optional Weights & Biases project name for Lightning logging.
 
     :returns: checkpoint callback with the best model
 
@@ -371,7 +369,6 @@ def train_superfeltr_model(
                 max_epochs=hpams["epochs"],
                 patience=patience,
                 checkpoint_dir=checkpoint_dir,
-                wandb_project=wandb_project,
             ),
         )
         if model_checkpoint_dir is None and checkpoint.best_model_path:

@@ -12,6 +12,8 @@ import torch.optim as optim
 from torch.nn import functional
 from torch.utils.data import DataLoader, Dataset
 
+from drevalpy.experiment._tracking import log_metrics
+
 logger = logging.getLogger(__name__)
 
 
@@ -218,6 +220,13 @@ def train_gene_expession_autoencoder(
             val_loss = loss_func(val_output, gene_expression_val_tensor).item()
 
         logger.info("DIPK Autoenc. Epoch: %d, Train Loss: %s, Val Loss: %s", epoch_index, epoch_loss, val_loss)
+        log_metrics(
+            {
+                "autoencoder_epoch": epoch_index + 1,
+                "autoencoder_train_loss": epoch_loss,
+                "autoencoder_val_loss": val_loss,
+            }
+        )
 
         # early stopping check
         if val_loss < best_val_loss:

@@ -22,6 +22,7 @@ from drevalpy.components.predictors.literature._pair_predict import (
     require_drug_pair_idx,
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.experiment._tracking import log_metrics
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -131,6 +132,7 @@ class PrecilyPredictor(BlockPredictor):
         for epoch in range(epochs):
             epoch_loss = self._run_epoch(model, train_loader, loss_func, optimizer)
             print(f"Precily: Epoch [{epoch + 1}/{epochs}] Training Loss: {epoch_loss:.4f}")
+            log_metrics({"epoch": epoch + 1, "train_loss": epoch_loss})
 
     def _run_epoch(
         self,

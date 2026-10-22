@@ -12,6 +12,8 @@ Every test runs a one-epoch fit of a tiny module, so the whole file is extended 
 
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 import pytest
 import pytorch_lightning as pl
@@ -24,6 +26,8 @@ from drevalpy.components.predictors.literature._lightning_training import (
     run_lightning_fit,
 )
 from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
+from drevalpy.experiment._tracking import tracking_run
+from tests._fake_wandb import install_fake_wandb
 
 #: Every test fits a real Lightning trainer for one epoch.
 pytestmark = pytest.mark.slow
@@ -201,19 +205,64 @@ def test_the_progress_bar_is_silenced(tmp_path, capsys) -> None:
 
 
 class TestLoggerSelection:
-    """``wandb_project`` is threaded through from the predictors' hyperparameters."""
+    """A ``WandbLogger`` is attached to the active tracking run, and only then."""
 
-    def test_no_project_leaves_lightning_its_default_logger(self) -> None:
-        assert _loggers(None) is True
+    @pytest.fixture
+    def recorded_loggers(self, monkeypatch) -> list[dict[str, object]]:
+        """Replace ``WandbLogger`` with a recorder, so no real ``wandb`` run is needed."""
+        import pytorch_lightning.loggers as lightning_loggers
 
-    def test_a_project_yields_a_single_wandb_logger(self) -> None:
-        from pytorch_lightning.loggers import WandbLogger
+        created: list[dict[str, object]] = []
 
-        loggers = _loggers("drevalpy-test")
+        class _RecordingLogger:
+            def __init__(self, **kwargs) -> None:
+                created.append(kwargs)
+
+        monkeypatch.setattr(lightning_loggers, "WandbLogger", _RecordingLogger)
+        return created
+
+    def test_no_run_leaves_lightning_its_default_logger(self, monkeypatch, recorded_loggers) -> None:
+        install_fake_wandb(monkeypatch)
+
+        assert _loggers() is True
+        assert recorded_loggers == []
+
+    def test_wandb_never_imported_leaves_lightning_its_default_logger(self, monkeypatch, recorded_loggers) -> None:
+        monkeypatch.delitem(sys.modules, "wandb", raising=False)
+
+        assert _loggers() is True
+
+    def test_an_active_run_yields_a_single_logger_on_that_run(self, monkeypatch, recorded_loggers) -> None:
+        fake = install_fake_wandb(monkeypatch)
+
+        with tracking_run("proj", name="r"):
+            loggers = _loggers()
 
         assert isinstance(loggers, list)
         assert len(loggers) == 1
-        assert isinstance(loggers[0], WandbLogger)
+        assert recorded_loggers == [{"experiment": fake.runs[0], "log_model": False}]
+
+    def test_a_fit_in_a_tracking_run_trains_with_the_wandb_logger(self, tmp_path, monkeypatch) -> None:
+        import pytorch_lightning.loggers as lightning_loggers
+
+        seen: list[object] = []
+        real_trainer = pl.Trainer
+
+        def spy_trainer(*args, **kwargs):
+            seen.append(kwargs["logger"])
+            kwargs["logger"] = False
+            return real_trainer(*args, **kwargs)
+
+        monkeypatch.setattr(lightning_loggers, "WandbLogger", lambda **kwargs: ("logger", kwargs["experiment"]))
+        monkeypatch.setattr(pl, "Trainer", spy_trainer)
+        fake = install_fake_wandb(monkeypatch)
+        train_loader, val_loader = _loaders(with_validation=False)
+
+        with tracking_run("proj", name="r"):
+            run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path))
+        run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path))
+
+        assert seen == [[("logger", fake.runs[0])], True]
 
 
 class TestVersionedName:
