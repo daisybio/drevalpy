@@ -5,7 +5,8 @@ Split modes
 -----------
 
 A split mode decides what is held out of training. ``drevalpy.split(dataset, mode)`` and
-``drevalpy data split`` produce one set of masks per fold.
+``drevalpy data split`` produce one set of masks per fold. ``drevalpy data split`` takes a
+registered dataset name or the path of a ``.h5mu`` file.
 
 .. list-table::
    :header-rows: 1
@@ -123,10 +124,18 @@ random_state=42)`` returns the randomized datasets; ``drevalpy run -r MODE`` run
      - drugs
      - One per drug view, with all other drug views randomized
 
-The views come from the model's configuration. With a single view, ``SVCC`` and ``SVCD``
-randomize nothing. A model with no views, such as ``NaiveMeanEffectsPredictor``, gets no
-randomization runs. A mode code that is not in the table is ignored without an error.
-``drevalpy.run`` applies the tests to every model it is given.
+The views come from the model's configuration. A test that would change nothing is skipped
+with a warning and produces no dataset and no run:
+
+- ``SVCC`` and ``SVCD`` on a model with a single view, because no other view is left to
+  randomize;
+- a test whose view the dataset does not store, such as ``SVRD`` on a dataset without the
+  drug view.
+
+``Dataset.with_randomized_views`` itself raises ``KeyError`` for a view the dataset does not
+store. A model with no views, such as ``NaiveMeanEffectsPredictor``, gets no randomization
+runs. A mode code that is not in the table is ignored without an error. ``drevalpy.run``
+applies the tests to every model it is given.
 
 .. list-table::
    :header-rows: 1
@@ -147,8 +156,13 @@ and ``views``. The effective seed is derived from the SHA-256 of
 ``[random_state, type, mode, view, sorted views]``, so the same inputs give the same shuffle.
 ``random_state`` is ``--randomization-random-state``, which defaults to ``--seed``.
 
-``drevalpy experiments randomization`` writes one file per randomized dataset, named
-``<MODE>:<view>.h5mu``. Its default mode is ``SVRC``.
+``drevalpy experiments randomization MODEL DATASET OUTPUT_DIR`` takes a registered dataset
+name or the path of a ``.h5mu`` file. It writes one file per randomized dataset with
+``Dataset.save``, named ``<MODE>:<view>.h5mu``, and prints the number of files. Its default
+mode is ``SVRC``. When every test is skipped it writes 0 files and exits with status 0.
+``Dataset.load`` restores the ``randomization`` label of such a file, so ``drevalpy single``
+records it in the run and ``drevalpy aggregate`` keeps those runs apart from the ordinary
+ones. ``drevalpy single`` reads only a file path.
 
 Robustness tests
 ----------------

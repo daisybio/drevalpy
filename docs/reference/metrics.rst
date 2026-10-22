@@ -100,6 +100,13 @@ defined. Error metrics are defined for any group with one pair. A model that pre
 constant within each drug therefore has no per-drug correlation, whereas its pooled
 correlation can be high.
 
+A per-group ``R^2`` is unbounded below, and a group is scored whenever it has two pairs and a
+response range above ``1e-6``. A group with few test pairs and a nearly flat response, for
+example 2 pairs with a response range of 0.01, can score an ``R^2`` in the tens of thousands
+below zero. Such a group enters the mean over groups with the same weight as any other, so a
+few of them can dominate it. The mean number of groups behind each score, from
+``summary_group_counts``, does not show how small the groups are.
+
 ``drevalpy run --group-by drug|sample`` and ``drevalpy aggregate --group-by drug|sample``
 print the grouped table after the run. Each cell shows the mean and, in brackets, the mean
 number of groups scored; ``undefined`` marks a metric that no group could score.

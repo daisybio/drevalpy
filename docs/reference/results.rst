@@ -49,9 +49,11 @@ of these splits it writes the run on the original dataset, followed by one run p
 dataset.
 
 For example, take two models, five folds, ``--robustness-trials 1`` and ``-r SVRC -r SVCC``.
-A model with one sample view gets 5 folds x 2 splits x 3 datasets = 30 files. The two
-randomization modes each give one dataset, even though ``SVCC`` randomizes nothing when there
-is a single view. A model without views gets no randomized datasets and 5 x 2 = 10 files.
+A model with one sample view gets 5 folds x 2 splits x 2 datasets = 20 files: the original
+dataset and the ``SVRC`` dataset. ``SVCC`` would randomize nothing when there is a single view,
+so it is skipped with a warning and gives no dataset. A model with two sample views gets both
+``SVRC`` datasets and both ``SVCC`` datasets, 5 x 2 x 5 = 50 files. A model without views gets
+no randomized datasets and 5 x 2 = 10 files.
 
 ``drevalpy aggregate RESULTS... -o DIR`` loads run ``.npz`` files and writes the same layout.
 Its output directory defaults to ``experiment_results`` and the file numbers follow the
@@ -138,4 +140,5 @@ Report
 ------
 
 ``drevalpy report EXPERIMENT_DIR -o DIR`` reads an experiment directory and writes a MultiQC
-report into ``DIR``, which defaults to ``report``.
+report into ``DIR``, which defaults to ``report``. Its ``--dataset`` option is accepted for
+pipeline compatibility and the file is not read.

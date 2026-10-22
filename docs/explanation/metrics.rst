@@ -49,6 +49,11 @@ Two details are worth knowing when you read per-drug numbers:
 
 - A group needs at least two pairs to have a correlation. Smaller groups are
   skipped.
+- :math:`R^2` has no lower bound, so a per-group :math:`R^2` is fragile on small groups.
+  A group with two test pairs and a nearly flat response, with a range of 0.01, can score an
+  :math:`R^2` tens of thousands below zero, and one such group can dominate the mean over
+  groups. DrEvalPy keeps the metric as it is. Read the per-group correlations, or the number
+  of groups behind each score, alongside the per-group :math:`R^2`.
 - A predictor that is constant within a group has an undefined correlation. The
   scalar Pearson function returns 0.0 for a constant prediction and NaN for a
   constant target. In the per-group comparison, a model that predicts a constant

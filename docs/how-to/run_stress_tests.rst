@@ -112,10 +112,11 @@ to run several modes.
      - One per drug view, with all the other drug views randomized
 
 Use ``SVRC`` to ask whether the model needs a view, and ``SVCC`` to ask what a view achieves on
-its own. With a single view, ``SVCC`` randomizes nothing. A model without views, such as
-``NaiveMeanEffectsPredictor``, gets no randomized datasets. A drug view that the dataset does not
-store is skipped with a warning, and that run then equals the ordinary one.
-:doc:`/reference/split_modes` has the exact rules.
+its own. A test that would change nothing is skipped with a warning and produces no run: ``SVCC``
+and ``SVCD`` on a model with a single view, which leaves no other view to shuffle, and ``SVRD``
+and ``SVCD`` on a dataset that does not store the drug view. A model without views, such as
+``NaiveMeanEffectsPredictor``, gets no randomized datasets either. :doc:`/reference/split_modes`
+has the exact rules.
 
 ``--randomization-type`` chooses how a view is shuffled. ``permutation`` (the default) permutes the
 rows across samples or drugs. ``invariant`` replaces each row with a draw from a Gaussian with the
@@ -242,6 +243,7 @@ Run the tests as separate jobs
 
 ``run`` does everything in one process. To repeat the folds with shuffled pair order as separate
 jobs, write the shuffled folds with ``drevalpy experiments robustness`` and train each with
-``drevalpy single``. To train the randomized datasets as separate jobs, use
-``drevalpy.randomization`` and ``drevalpy.single`` in Python. :doc:`/how-to/run_folds_in_parallel`
-shows both.
+``drevalpy single``. To train the randomized datasets as separate jobs, write them with
+``drevalpy experiments randomization`` (or ``drevalpy.randomization`` in Python) and train each
+with ``single``. ``experiments randomization`` accepts a registered dataset name or a file;
+``single`` reads only a file. :doc:`/how-to/run_folds_in_parallel` shows the steps.

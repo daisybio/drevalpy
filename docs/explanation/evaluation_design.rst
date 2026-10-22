@@ -134,6 +134,11 @@ There are four randomization modes, named by what stays intact:
 - *SVCC* and *SVCD* keep a single sample view or a single drug view intact and
   randomize all the others.
 
+A test that would change nothing is skipped with a warning and produces no run: *SVCC* or
+*SVCD* on a model with a single view has no other view to randomize, and a drug-view mode
+on a dataset without that drug view has nothing to randomize. Such a run would only repeat
+the ordinary one under a randomization label.
+
 Two kinds of scrambling are available. A *permutation* shuffles rows across
 entities, which keeps each feature's distribution but breaks the link to the
 response. An *invariant* scramble draws new values that match each row's mean

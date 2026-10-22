@@ -31,7 +31,8 @@ The fold files are small and hold only masks over the pairs of the dataset; see
          drevalpy data synthetic --output toy.h5mu
          drevalpy data split toy.h5mu splits --mode LPO
 
-      The command writes ``splits/fold_0.npz`` to ``splits/fold_4.npz``.
+      The command writes ``splits/fold_0.npz`` to ``splits/fold_4.npz``. Instead of the file it
+      accepts a registered dataset name, as ``run --dataset`` does; ``single`` reads only a file.
 
    .. tab-item:: Python
       :sync: python
@@ -232,11 +233,15 @@ Run the randomization test as separate jobs
 -------------------------------------------
 
 The randomization test trains the model on datasets whose views are shuffled, so the unit of
-work is a shuffled dataset and a fold. In Python, ``drevalpy.randomization`` returns the shuffled
-datasets for a model and a mode, and ``single`` trains on each. The run records the randomization
-it belongs to, and the record survives ``save`` and ``load``. On the command line, run the test
-inside ``drevalpy run`` with ``-r``: the shuffled datasets that ``drevalpy experiments
-randomization`` writes cannot be trained with ``drevalpy single`` yet.
+work is a shuffled dataset and a fold. ``drevalpy experiments randomization`` and
+``drevalpy.randomization`` build the shuffled datasets for a model and a mode, and ``single``
+trains on each. The run records the randomization it belongs to, and the record survives
+``save`` and ``load``. ``aggregate`` keeps these runs apart from the ordinary ones, so the
+summary still averages only the ordinary runs.
+
+A model without views, such as ``NaiveMeanEffectsPredictor``, has nothing to shuffle, so the
+examples use ``Ridge``, which reads ``gene_expression``. A test that would change nothing is
+skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`.
 
 .. tab-set::
    :sync-group: interface
@@ -244,14 +249,37 @@ randomization`` writes cannot be trained with ``drevalpy single`` yet.
    .. tab-item:: CLI
       :sync: cli
 
-      Use ``drevalpy run --randomization-mode SVRC`` to run the test; see
-      :doc:`/how-to/run_stress_tests`.
+      ``experiments randomization`` takes the model, the dataset (a registered name or a file)
+      and a directory. It writes one file per shuffled dataset, named ``<MODE>:<view>.h5mu``.
+      The default mode is ``SVRC``, and ``--mode`` chooses others:
+
+      .. code-block:: bash
+
+         drevalpy experiments randomization Ridge toy.h5mu rand
+
+      The command writes ``rand/SVRC:gene_expression.h5mu`` and prints:
+
+      .. code-block:: text
+
+         Wrote 1 randomized datasets to rand
+
+      Train on the shuffled file with ``single``, once per fold, next to the ordinary runs of
+      the same model, then pass all the run files to ``aggregate``:
+
+      .. code-block:: bash
+
+         drevalpy single Ridge toy.h5mu splits/fold_0.npz runs/ridge_0.npz --no-hpo
+         drevalpy single Ridge rand/SVRC:gene_expression.h5mu splits/fold_0.npz runs/ridge_rand_0.npz --no-hpo
+         drevalpy aggregate runs/ridge_0.npz runs/ridge_rand_0.npz --output-dir agg_rand
+
+      Train the other folds the same way. The experiment directory ``agg_rand`` holds both
+      runs, and each run keeps its randomization.
 
    .. tab-item:: Python
       :sync: python
 
-      ``NaiveMeanEffectsPredictor`` reads no views, so there is nothing to shuffle and the list
-      is empty. ``Ridge`` reads ``gene_expression``, so ``SVRC`` gives one shuffled dataset:
+      ``NaiveMeanEffectsPredictor`` reads no views, so the list is empty. ``Ridge`` reads
+      ``gene_expression``, so ``SVRC`` gives one shuffled dataset:
 
       .. code-block:: python
 

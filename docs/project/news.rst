@@ -58,6 +58,16 @@ Defaults and results that changed
   the v2 branch trained it with the exponent, for example 9 fingerprint bits instead of 512, and
   stored that value in ``best_hyperparameters`` and the checkpoint. Re-run tuned experiments
   that use these featurizers.
+- A dataset that ``drevalpy experiments randomization`` writes now trains through
+  ``drevalpy single``. The file keeps its randomization label, so the run records it and
+  ``drevalpy aggregate`` keeps it apart from the ordinary runs. Earlier builds of the v2 branch
+  could not train these files with ``single``.
+- A randomization test that would change nothing is skipped with a warning and produces no
+  run: ``SVRD`` or ``SVCD`` on a dataset without the drug view, and ``SVCC`` or ``SVCD`` on a
+  model with a single view. Earlier builds of the v2 branch trained on an unchanged copy of the
+  dataset and labelled the run as randomized. ``experiments randomization`` then writes 0 files
+  and exits with status 0, and ``Dataset.with_randomized_views`` raises ``KeyError`` for a view
+  the dataset does not store.
 
 New commands and functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -67,6 +77,11 @@ New commands and functions
   It needs no download, and its drugs differ so much in average potency that pooled scores
   look good for models that rank samples poorly. ``drevalpy.testing.build_synthetic_dataset``
   is an alias.
+- ``drevalpy data split`` and ``drevalpy experiments randomization`` accept a registered
+  dataset name as well as a file, like ``drevalpy run --dataset``. ``drevalpy single`` reads
+  only a file.
+- ``drevalpy report --dataset`` is accepted for pipeline compatibility; the report does not
+  read the file.
 - ``drevalpy list zoo-presets`` and ``drevalpy list datasets`` show the model presets you can
   pass to ``run`` and the datasets you can load by name.
 - ``DREVALPY_EXTENSIONS_DIR`` is read by ``load_extensions()`` in Python, not only by the

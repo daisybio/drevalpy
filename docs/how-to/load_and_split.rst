@@ -171,7 +171,8 @@ validation data. The default ``random_state`` is 42, so repeating a split gives 
    .. tab-item:: CLI
       :sync: cli
 
-      The command takes the path of a ``.h5mu`` file, not a dataset name.
+      The command takes the path of a ``.h5mu`` file or a registered dataset name, like
+      ``run --dataset``.
 
       .. code-block:: bash
 
