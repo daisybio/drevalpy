@@ -184,6 +184,8 @@ def _report_trial_failures(study, failures: _TrialFailures) -> None:
 
 def _resolve_best_params(study, model_spec: ModelSpec) -> dict[str, Any]:
     """Extract best hyperparameters from a completed Optuna study."""
+    from optuna.trial import FixedTrial
+
     try:
         best_trial = study.best_trial
     except ValueError:
@@ -196,7 +198,9 @@ def _resolve_best_params(study, model_spec: ModelSpec) -> dict[str, Any]:
         )
         return model_spec.default_hyperparameters
 
-    best_config = best_trial.params
+    # ``best_trial.params`` holds what Optuna sampled (a ``pow2`` exponent), not what
+    # the trials trained with; replaying it through the draw code decodes it identically.
+    best_config = draw_from_optuna_trial(FixedTrial(best_trial.params), model_spec.hyperparameter_space)
     best_model_config = resolve_model_config(model_spec.config, best_config)
     return public_hyperparameters_from_config(best_model_config)
 
