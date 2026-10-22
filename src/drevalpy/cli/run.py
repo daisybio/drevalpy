@@ -8,6 +8,8 @@ from typing import Annotated
 import typer
 from upath import UPath
 
+from ._summary import GroupBy, format_grouped_summary
+
 
 class ResponseTransformation(StrEnum):
     """Values of ``--response-transformation`` shared by ``run`` and ``single``; ``none`` maps to no transformer."""
@@ -54,6 +56,14 @@ def run_cmd(
             help="Response scaling fitted on the training scope.",
         ),
     ] = ResponseTransformation.NONE,
+    group_by: Annotated[
+        GroupBy | None,
+        typer.Option(
+            "--group-by",
+            case_sensitive=False,
+            help="Also print the metrics computed within each drug or sample instead of pooled over all pairs.",
+        ),
+    ] = None,
 ) -> None:
     """Run the full evaluation pipeline."""
     from drevalpy._run import run
@@ -89,3 +99,5 @@ def run_cmd(
     result.save(str(out))
     typer.echo(f"Wrote experiment results to {out}")
     typer.echo(repr(result))
+    if group_by is not None:
+        typer.echo(format_grouped_summary(result, group_by))

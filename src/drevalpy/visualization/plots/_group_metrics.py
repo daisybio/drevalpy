@@ -10,149 +10,41 @@ dominates both runtime and peak memory.
 Everything here works on ``np.bincount`` sums instead, so the cost is a handful
 of vectorised passes per fold and the retained result is a ``models x groups``
 float32 matrix - 0.2 MB at the scale above.
+
+The per-group correlation itself, and the rule for groups where it is undefined, live in
+:mod:`drevalpy._grouped_evaluation` and :mod:`drevalpy._grouped_pearson`, shared with
+``ExperimentResult.summary_table``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Final
 
 import numpy as np
+
+from drevalpy._grouped_evaluation import GROUPINGS, group_labels
+from drevalpy._grouped_pearson import MIN_GROUP_SIZE, PearsonSums
+
+__all__ = [
+    "GROUPINGS",
+    "GROUPING_LABELS",
+    "MIN_GROUP_SIZE",
+    "GroupCorrelationMatrix",
+    "group_labels",
+    "model_group_correlations",
+]
 
 if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 
-#: Groupings the comparison plots support, in report order.
-GROUPINGS: Final[tuple[str, ...]] = ("drug", "sample")
-
-#: Grouping name -> the ``RunResult`` attribute holding that grouping's labels.
-_ID_ATTRIBUTE: Final[dict[str, str]] = {"drug": "drug_ids", "sample": "sample_ids"}
-
 #: Human-readable axis/section labels per grouping.
 GROUPING_LABELS: Final[dict[str, str]] = {"drug": "drug", "sample": "sample"}
-
-#: Correlation is undefined below this many observations in a group.
-MIN_GROUP_SIZE: Final[int] = 2
-
-Grouping = Literal["drug", "sample"]
-
-
-def group_labels(run: RunResult, grouping: str) -> np.ndarray:
-    """Return the grouping labels of a run.
-
-    :param run: Run whose identifier arrays to read.
-    :param grouping: One of :data:`GROUPINGS`.
-    :returns: The run's ``drug_ids`` or ``sample_ids`` array.
-    :raises ValueError: If ``grouping`` is not one of :data:`GROUPINGS`.
-    """
-    try:
-        attribute = _ID_ATTRIBUTE[grouping]
-    except KeyError:
-        raise ValueError(f"Unknown grouping {grouping!r}; expected one of {GROUPINGS}") from None
-    return np.asarray(getattr(run, attribute))
 
 
 def _scoring_runs(model: ModelResult) -> list[RunResult]:
     """Return the non-randomized runs of a model."""
     return model.select_runs()
-
-
-class _PearsonSums:
-    """Streaming sufficient statistics for a grouped Pearson correlation.
-
-    Holds the six ``bincount`` accumulators (count, sum x, sum y, sum x^2,
-    sum y^2, sum xy) for a fixed group axis, so folds can be folded in one at a
-    time and never coexist in memory.
-    """
-
-    __slots__ = ("_count", "_sx", "_sxx", "_sxy", "_sy", "_syy", "n_groups")
-
-    def __init__(self, n_groups: int) -> None:
-        self.n_groups = n_groups
-        self._count = np.zeros(n_groups, dtype=np.int64)
-        self._sx = np.zeros(n_groups, dtype=np.float64)
-        self._sy = np.zeros(n_groups, dtype=np.float64)
-        self._sxx = np.zeros(n_groups, dtype=np.float64)
-        self._syy = np.zeros(n_groups, dtype=np.float64)
-        self._sxy = np.zeros(n_groups, dtype=np.float64)
-
-    def add(self, codes: np.ndarray, x: np.ndarray, y: np.ndarray) -> None:
-        """Accumulate one batch of observations.
-
-        Rows with a negative code (no matching group) or a NaN on either axis
-        are dropped.
-
-        :param codes: Group index per observation.
-        :param x: First variable, aligned with ``codes``.
-        :param y: Second variable, aligned with ``codes``.
-        """
-        codes = np.asarray(codes)
-        x = np.asarray(x, dtype=np.float64)
-        y = np.asarray(y, dtype=np.float64)
-        keep = (codes >= 0) & np.isfinite(x) & np.isfinite(y)
-        if not keep.all():
-            codes, x, y = codes[keep], x[keep], y[keep]
-        if codes.size == 0:
-            return
-        n = self.n_groups
-        self._count += np.bincount(codes, minlength=n)
-        self._sx += np.bincount(codes, weights=x, minlength=n)
-        self._sy += np.bincount(codes, weights=y, minlength=n)
-        self._sxx += np.bincount(codes, weights=x * x, minlength=n)
-        self._syy += np.bincount(codes, weights=y * y, minlength=n)
-        self._sxy += np.bincount(codes, weights=x * y, minlength=n)
-
-    def correlations(self, *, min_count: int = MIN_GROUP_SIZE) -> np.ndarray:
-        """Reduce the accumulated sums to one correlation per group.
-
-        Groups with fewer than ``min_count`` observations, or with no variance
-        on either axis, yield NaN - mirroring
-        :func:`drevalpy.evaluation.pearson`, which returns NaN for a constant
-        target.
-
-        :param min_count: Minimum observations required for a finite value.
-        :returns: ``float64`` array of length ``n_groups``.
-        """
-        counts = self._count.astype(np.float64)
-        enough = self._count >= max(min_count, MIN_GROUP_SIZE)
-        safe = np.where(enough, counts, 1.0)
-
-        cov = self._sxy - self._sx * self._sy / safe
-        var_x = self._sxx - self._sx * self._sx / safe
-        var_y = self._syy - self._sy * self._sy / safe
-
-        # Rounding can drive a genuinely zero variance slightly negative.
-        denominator = np.sqrt(np.clip(var_x, 0.0, None) * np.clip(var_y, 0.0, None))
-        valid = enough & (denominator > 0.0)
-
-        out = np.full(self.n_groups, np.nan, dtype=np.float64)
-        np.divide(cov, denominator, out=out, where=valid)
-        return np.clip(out, -1.0, 1.0, out=out)
-
-
-def grouped_pearson(
-    codes: np.ndarray,
-    n_groups: int,
-    x: np.ndarray,
-    y: np.ndarray,
-    *,
-    min_count: int = MIN_GROUP_SIZE,
-) -> np.ndarray:
-    """Compute the Pearson correlation of ``x`` against ``y`` within each group.
-
-    Vectorised over groups: no Python-level loop and no intermediate object per
-    observation.
-
-    :param codes: Group index per observation; negative entries are dropped.
-    :param n_groups: Size of the group axis, so empty groups keep their slot.
-    :param x: First variable, aligned with ``codes``.
-    :param y: Second variable, aligned with ``codes``.
-    :param min_count: Minimum observations required for a finite value.
-    :returns: ``float64`` array of length ``n_groups``, NaN where undefined.
-    """
-    sums = _PearsonSums(n_groups)
-    sums.add(codes, x, y)
-    return sums.correlations(min_count=min_count)
 
 
 @dataclass(frozen=True)
@@ -260,7 +152,7 @@ def model_group_correlations(
         runs = _scoring_runs(model)
         if not runs:
             continue
-        sums = _PearsonSums(n_groups)
+        sums = PearsonSums(n_groups)
         for run in runs:
             codes = group_index.get_indexer(group_labels(run, grouping))
             sums.add(codes, run.predictions, run.ground_truth)

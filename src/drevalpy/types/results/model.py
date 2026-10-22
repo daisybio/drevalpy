@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from upath import UPath as Path
 
+from drevalpy._grouped_evaluation import GROUPINGS, group_labels, grouped_scores, mean_over_groups
+from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.types.results.run import RunResult
+
+if TYPE_CHECKING:
+    from drevalpy._grouped_evaluation import GroupBy
 
 
 @dataclass
@@ -64,6 +69,37 @@ class ModelResult:
         return {
             key: {"mean": float(np.mean(values)), "std": float(np.std(values))} for key, values in all_metrics.items()
         }
+
+    def aggregate_group_metrics(self, group_by: GroupBy) -> dict[str, dict[str, float]]:
+        """Mean of each metric computed within every drug (or sample), averaged across folds.
+
+        Each metric of :attr:`aggregate_metrics` that is a registered evaluation metric is
+        computed per run within each group of pairs, averaged over the groups where it is
+        defined, and then averaged over the runs where any group was defined. A group where a
+        metric is undefined (for example Pearson of a constant prediction) is skipped, never
+        counted as zero; see :mod:`drevalpy._grouped_evaluation` for the rule. A metric with
+        no defined group in any run is ``NaN``.
+
+        :param group_by: ``"drug"`` or ``"sample"``.
+        :returns: Mapping of metric_name -> {"mean": ..., "n_groups": ...}, where ``n_groups``
+            is the mean number of groups with a defined score per run.
+        :raises ValueError: If ``group_by`` is not ``"drug"`` or ``"sample"``.
+        """
+        if group_by not in GROUPINGS:
+            raise ValueError(f"Unknown grouping {group_by!r}; expected one of {GROUPINGS}")
+        per_run: dict[str, list[tuple[float, int]]] = {}
+        for run in self.select_runs():
+            names = [name for name in run.metrics if name in AVAILABLE_METRICS]
+            if not names:
+                continue
+            _, scores = grouped_scores(group_labels(run, group_by), run.predictions, run.ground_truth, names)
+            for name, values in scores.items():
+                per_run.setdefault(name, []).append(mean_over_groups(values))
+        out: dict[str, dict[str, float]] = {}
+        for name, results in per_run.items():
+            mean, _ = mean_over_groups(np.array([value for value, _ in results]))
+            out[name] = {"mean": mean, "n_groups": float(np.mean([count for _, count in results]))}
+        return out
 
     def save(self, directory: str | Path) -> None:
         """Save to a directory with metadata.json and one .npz per fold.

@@ -18,7 +18,6 @@ from drevalpy.data._synthetic import (
     synthetic,
 )
 from drevalpy.data.utils import TISSUE_IDENTIFIER
-from drevalpy.evaluation import evaluate
 from drevalpy.testing import build_synthetic_dataset
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.results import ExperimentResult
@@ -61,8 +60,12 @@ class TestShapeAndNaming:
 
         assert small.response_matrix.shape == (6, 3)
 
-    def test_only_the_response_modality_is_present_by_default(self, dataset):
-        assert list(dataset.mdata.mod) == ["response"]
+    def test_the_default_carries_the_response_and_gene_expression(self, dataset):
+        assert sorted(dataset.mdata.mod) == ["gene_expression", "response"]
+
+    @pytest.mark.parametrize("omics", [(), None])
+    def test_no_omics_leaves_only_the_response(self, omics):
+        assert list(build_synthetic_dataset(omics=omics).mdata.mod) == ["response"]
 
     def test_identifiers_are_unique(self, dataset):
         assert len(set(dataset.sample_ids)) == N_SAMPLES
@@ -306,18 +309,11 @@ class TestSimpsonPattern:
 
     @staticmethod
     def _pooled(experiment: ExperimentResult, model: str) -> float:
-        return experiment.summary_table[model]["Pearson"]
+        return experiment.summary_table()[model]["Pearson"]
 
     @staticmethod
     def _per_drug(experiment: ExperimentResult, model: str) -> float:
-        scores = [
-            evaluate(run.predictions[mask], run.ground_truth[mask], "Pearson")["Pearson"]
-            for result in experiment.models
-            if result.model_name == model
-            for run in result.runs
-            for mask in (run.drug_ids == drug for drug in np.unique(run.drug_ids))
-        ]
-        return float(np.nanmean(scores)) if not np.isnan(scores).all() else float("nan")
+        return experiment.summary_table(group_by="drug")[model]["Pearson"]
 
     def test_the_drug_mean_baseline_scores_high_pooled(self, experiment):
         assert self._pooled(experiment, "NaiveDrugMeanPredictor") >= 0.7
@@ -326,6 +322,10 @@ class TestSimpsonPattern:
         per_drug = self._per_drug(experiment, "NaiveDrugMeanPredictor")
 
         assert np.isnan(per_drug) or per_drug == 0.0
+
+    def test_the_drug_mean_baseline_is_undefined_for_every_drug(self, experiment):
+        assert experiment.summary_group_counts(group_by="drug")["NaiveDrugMeanPredictor"]["Pearson"] == 0
+        assert np.isnan(self._per_drug(experiment, "NaiveDrugMeanPredictor"))
 
     def test_naive_mean_effects_loses_at_least_point_three_per_drug(self, experiment):
         pooled = self._pooled(experiment, "NaiveMeanEffectsPredictor")

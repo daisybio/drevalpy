@@ -19,7 +19,6 @@ from drevalpy.visualization.plots._group_metrics import (
     GROUPINGS,
     GroupCorrelationMatrix,
     group_labels,
-    grouped_pearson,
     model_group_correlations,
 )
 from tests.synthetic import make_experiment_result, make_run_result
@@ -58,93 +57,6 @@ class TestGroupLabels:
     def test_an_unknown_grouping_is_rejected(self):
         with pytest.raises(ValueError, match="Unknown grouping 'tissue'"):
             group_labels(make_run_result(), "tissue")
-
-
-class TestGroupedPearson:
-    def test_agrees_with_scipy_per_group(self):
-        rng = np.random.default_rng(0)
-        codes = np.repeat([0, 1], 25)
-        x = rng.normal(size=50)
-        y = rng.normal(size=50)
-
-        result = grouped_pearson(codes, 2, x, y)
-
-        for group in (0, 1):
-            expected = pearsonr(x[codes == group], y[codes == group])[0]
-            assert result[group] == pytest.approx(expected, abs=1e-9)
-
-    def test_a_perfect_positive_relationship_is_one(self):
-        x = np.array([1.0, 2.0, 3.0, 4.0])
-
-        assert grouped_pearson(np.zeros(4, dtype=int), 1, x, 2 * x + 1)[0] == pytest.approx(1.0)
-
-    def test_a_perfect_negative_relationship_is_minus_one(self):
-        x = np.array([1.0, 2.0, 3.0, 4.0])
-
-        assert grouped_pearson(np.zeros(4, dtype=int), 1, x, -x)[0] == pytest.approx(-1.0)
-
-    def test_a_single_observation_group_is_nan(self):
-        result = grouped_pearson(np.array([0, 1, 1]), 2, np.array([1.0, 1.0, 2.0]), np.array([1.0, 3.0, 4.0]))
-
-        assert np.isnan(result[0])
-        assert np.isfinite(result[1])
-
-    def test_a_group_with_no_variance_is_nan(self):
-        codes = np.zeros(4, dtype=int)
-
-        result = grouped_pearson(codes, 1, np.ones(4), np.array([1.0, 2.0, 3.0, 4.0]))
-
-        assert np.isnan(result[0])
-
-    def test_an_empty_group_keeps_its_slot_as_nan(self):
-        result = grouped_pearson(np.zeros(3, dtype=int), 3, np.array([1.0, 2.0, 3.0]), np.array([1.0, 3.0, 2.0]))
-
-        assert result.shape == (3,)
-        assert np.isnan(result[1:]).all()
-
-    def test_negative_codes_are_dropped(self):
-        codes = np.array([-1, 0, 0, 0])
-
-        result = grouped_pearson(codes, 1, np.array([99.0, 1.0, 2.0, 3.0]), np.array([-99.0, 1.0, 2.0, 3.0]))
-
-        assert result[0] == pytest.approx(1.0)
-
-    def test_nan_observations_are_dropped(self):
-        codes = np.zeros(5, dtype=int)
-        x = np.array([np.nan, 1.0, 2.0, 3.0, 4.0])
-        y = np.array([0.0, 1.0, 2.0, 3.0, np.nan])
-
-        result = grouped_pearson(codes, 1, x, y)
-
-        assert result[0] == pytest.approx(1.0)
-
-    def test_dropping_nans_can_take_a_group_below_the_minimum(self):
-        codes = np.zeros(3, dtype=int)
-
-        result = grouped_pearson(codes, 1, np.array([1.0, np.nan, np.nan]), np.array([1.0, 2.0, 3.0]))
-
-        assert np.isnan(result[0])
-
-    def test_a_higher_min_count_filters_small_groups(self):
-        codes = np.zeros(3, dtype=int)
-        x = np.array([1.0, 2.0, 3.0])
-
-        assert np.isfinite(grouped_pearson(codes, 1, x, x, min_count=3)[0])
-        assert np.isnan(grouped_pearson(codes, 1, x, x, min_count=4)[0])
-
-    def test_results_stay_inside_the_unit_interval(self):
-        rng = np.random.default_rng(1)
-        codes = rng.integers(0, 5, size=200)
-        x = rng.normal(size=200)
-
-        result = grouped_pearson(codes, 5, x, x * 3.0)
-
-        assert np.all(np.abs(result) <= 1.0)
-
-    def test_all_observations_dropped_yields_all_nan(self):
-        result = grouped_pearson(np.array([-1, -1]), 2, np.array([1.0, 2.0]), np.array([1.0, 2.0]))
-
-        assert np.isnan(result).all()
 
 
 class TestModelGroupCorrelations:

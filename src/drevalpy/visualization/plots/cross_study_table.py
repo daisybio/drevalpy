@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import PlotlyVisualization, Section
 from drevalpy.visualization.plots._utils import runs_frame
@@ -110,10 +112,7 @@ class CrossStudyTableVisualization(PlotlyVisualization):
         """Return MultiQC table Sections."""
         if self._result is None:
             raise RuntimeError("Call compute() before to_multiqc()")
-        try:
-            from multiqc.plots import table as mqc_table
-        except ImportError as e:
-            raise ImportError("multiqc is required for to_multiqc(). Install with: pip install drevalpy[report]") from e
+        from multiqc.plots import table as mqc_table
 
         metric_names = sorted({m for model in self._result.models for m in model.aggregate_metrics})
 
@@ -146,7 +145,7 @@ class CrossStudyTableVisualization(PlotlyVisualization):
             pconfig={"id": "dreval_summary_table", "title": "Model Summary"},
         )
 
-        return [
+        sections = [
             Section(
                 name="Model Summary Table",
                 anchor="dreval_summary_table",
@@ -154,6 +153,65 @@ class CrossStudyTableVisualization(PlotlyVisualization):
                 plot=plot,
             )
         ]
+        per_drug = _per_drug_section(self._result, mqc_table)
+        return sections if per_drug is None else [*sections, per_drug]
+
+
+def _per_drug_section(result: ExperimentResult, mqc_table) -> Section | None:
+    """Build the per-drug counterpart of the model summary table.
+
+    Each metric is computed within every drug of every fold and averaged over the drugs where
+    it is defined, so a model that only knows which drugs are potent scores high in the pooled
+    table above but has no value here. A blank cell means the metric is undefined for every drug
+    (for example Pearson of a constant prediction), not zero. The number of drugs behind each
+    value is in the hidden ``(drugs)`` columns.
+
+    :param result: Experiment whose models to summarize.
+    :param mqc_table: The ``multiqc.plots.table`` module.
+    :returns: The section, or ``None`` when no model has a per-drug score.
+    """
+    grouped = {model.model_name: model.aggregate_group_metrics("drug") for model in result.models}
+    metric_names = sorted({metric for metrics in grouped.values() for metric in metrics})
+
+    table_data: dict[str, dict[str, float]] = {}
+    for model_name, metrics in grouped.items():
+        row: dict[str, float] = {}
+        for metric, stats in metrics.items():
+            if not np.isnan(stats["mean"]):
+                row[metric] = stats["mean"]
+            row[f"{metric}_drugs"] = stats["n_groups"]
+        table_data[model_name] = row
+    if not any(key in metric_names for row in table_data.values() for key in row):
+        return None
+
+    headers: dict[str, dict[str, object]] = {}
+    for metric in metric_names:
+        headers[metric] = {
+            "title": f"{metric} (per drug)",
+            "description": f"{metric} within each drug, averaged over drugs and folds; blank if undefined",
+            "format": "{:,.4f}",
+        }
+        headers[f"{metric}_drugs"] = {
+            "title": f"{metric} (drugs)",
+            "description": f"Mean number of drugs per fold with a defined {metric}",
+            "format": "{:,.1f}",
+            "hidden": True,
+        }
+    plot = mqc_table.plot(
+        table_data,
+        headers,
+        pconfig={"id": "dreval_summary_table_per_drug", "title": "Model Summary per Drug"},
+    )
+    return Section(
+        name="Model Summary Table per Drug",
+        anchor="dreval_summary_table_per_drug",
+        description=(
+            "Each metric computed within every drug, then averaged over drugs and folds. "
+            "Blank means the metric is undefined for every drug, e.g. a Pearson correlation of "
+            "a constant prediction."
+        ),
+        plot=plot,
+    )
 
 
 def _build_simple_table(result: ExperimentResult) -> go.Figure:

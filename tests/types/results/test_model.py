@@ -39,6 +39,39 @@ class TestFoldCount:
         assert result.select_runs(randomization="all", robustness="all") == [ordinary, robustness, randomized]
 
 
+class TestAggregateGroupMetrics:
+    def test_is_empty_without_runs(self) -> None:
+        result = ModelResult(model_name="ElasticNet", dataset_name="SyntheticDataset")
+
+        assert result.aggregate_group_metrics("drug") == {}
+
+    def test_reports_a_mean_and_a_group_count_per_metric(self) -> None:
+        result = make_model_result(n_folds=2, n_pairs=40)
+
+        stats = result.aggregate_group_metrics("drug")["Pearson"]
+
+        assert set(stats) == {"mean", "n_groups"}
+        assert stats["n_groups"] == 4
+
+    def test_covers_the_metrics_the_runs_carry(self) -> None:
+        result = ModelResult(
+            "ElasticNet", "SyntheticDataset", [make_run_result(metrics={"MSE": 0.2, "Not a metric": 1.0}, n_pairs=40)]
+        )
+
+        assert list(result.aggregate_group_metrics("drug")) == ["MSE"]
+
+    def test_samples_are_a_separate_grouping(self) -> None:
+        result = make_model_result(n_folds=1, n_pairs=40)
+
+        assert result.aggregate_group_metrics("sample")["MSE"]["n_groups"] == 5
+
+    def test_an_unknown_grouping_is_rejected_even_without_metrics(self) -> None:
+        result = ModelResult("ElasticNet", "SyntheticDataset", [make_run_result(metrics={})])
+
+        with pytest.raises(ValueError, match="Unknown grouping"):
+            result.aggregate_group_metrics("tissue")  # type: ignore[arg-type]
+
+
 class TestAggregateMetrics:
     def test_is_empty_without_runs(self) -> None:
         result = ModelResult(model_name="ElasticNet", dataset_name="SyntheticDataset")

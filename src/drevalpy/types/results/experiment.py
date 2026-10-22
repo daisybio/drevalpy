@@ -13,6 +13,7 @@ from upath import UPath as Path
 
 from drevalpy.evaluation import score_predictions
 from drevalpy.log import get_logger
+from drevalpy.types.results._summary import SummaryTableMixin
 from drevalpy.types.results.model import ModelResult
 from drevalpy.types.results.run import RunResult
 
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class ExperimentResult:
+class ExperimentResult(SummaryTableMixin):
     """Groups all model results for a complete experiment."""
 
     def __init__(self, run_results: list[RunResult]) -> None:
@@ -97,14 +98,6 @@ class ExperimentResult:
             if req == PlotRequirement.ROBUSTNESS and not self.has_robustness:
                 return False
         return True
-
-    @property
-    def summary_table(self) -> dict[str, dict[str, float]]:
-        """Mean metric per model: {model_name: {metric: mean}}.
-
-        :returns: Nested dict suitable for DataFrame construction.
-        """
-        return {m.model_name: {k: v["mean"] for k, v in m.aggregate_metrics.items()} for m in self.models}
 
     def normalize(self, reference_model: str = "NaiveMeanEffectsPredictor") -> ExperimentResult:
         """Return a new ExperimentResult with metrics normalized against a reference model.

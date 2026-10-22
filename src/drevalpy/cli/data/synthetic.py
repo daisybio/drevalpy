@@ -30,9 +30,7 @@ def synthetic_dataset(
     from drevalpy.data import synthetic
 
     try:
-        dataset = synthetic(
-            seed=seed, n_samples=n_samples, n_drugs=n_drugs, n_tissues=n_tissues, omics=["gene_expression"]
-        )
+        dataset = synthetic(seed=seed, n_samples=n_samples, n_drugs=n_drugs, n_tissues=n_tissues)
     except ValueError as error:
         raise typer.BadParameter(str(error), param_hint="--n-drugs") from error
 

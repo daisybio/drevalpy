@@ -117,3 +117,30 @@ class TestValidation:
         result = _invoke([first, second], tmp_path / "out")
 
         assert isinstance(result.exception, ValueError)
+
+
+class TestGroupBy:
+    """``--group-by`` adds the per-drug or per-sample summary under the repr."""
+
+    @pytest.mark.parametrize("option", ["drug", "sample", "DRUG"])
+    def test_prints_the_grouped_summary(self, run_files: list[UPath], tmp_path: UPath, option: str) -> None:
+        result = runner.invoke(
+            app, ["aggregate", *map(str, run_files), "-o", str(tmp_path / "out"), "--group-by", option]
+        )
+
+        assert result.exit_code == 0, result.output
+        text = plain(result.output)
+        assert f"Metrics computed within each {option.lower()}" in text
+        assert "ElasticNet" in text.split("Metrics computed within")[1]
+
+    def test_is_silent_by_default(self, run_files: list[UPath], tmp_path: UPath) -> None:
+        result = _invoke(run_files, tmp_path / "out")
+
+        assert "Metrics computed within" not in plain(result.output)
+
+    def test_rejects_an_unknown_grouping(self, run_files: list[UPath], tmp_path: UPath) -> None:
+        result = runner.invoke(
+            app, ["aggregate", *map(str, run_files), "-o", str(tmp_path / "out"), "--group-by", "tissue"]
+        )
+
+        assert result.exit_code == 2

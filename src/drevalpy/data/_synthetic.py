@@ -5,9 +5,9 @@ so an offline test run, a tutorial and any third-party plugin's CI cannot use
 one. :func:`synthetic` produces a :class:`~drevalpy.types.data.dataset.Dataset`
 with the same structural slots a published ``.h5mu`` has, entirely in memory.
 
-The default output carries only the ``response`` modality, which is all an
-``entity_id_only`` featurizer needs. Pass *omics* to add sample feature
-modalities for featurizers that read a view.
+The default output carries the ``response`` modality and one
+``gene_expression`` view, so the zoo's expression-based models run on it. Pass
+*omics* to choose other sample views, or ``()`` for responses only.
 
 Response model
 --------------
@@ -346,7 +346,7 @@ def synthetic(
     n_samples: int = N_SAMPLES,
     n_drugs: int = N_DRUGS,
     n_tissues: int = N_TISSUES,
-    omics: Sequence[str] | Mapping[str, int] | None = None,
+    omics: Sequence[str] | Mapping[str, int] | None = ("gene_expression",),
     feature_names: Sequence[str] | None = None,
     n_features: int = N_FEATURES,
     missing_fraction: float = 0.05,
@@ -367,7 +367,8 @@ def synthetic(
             :data:`MAX_SYNTHETIC_DRUGS`.
         n_tissues: Number of distinct tissue labels to cycle through, at most
             six.
-        omics: Public omics names to add as sample modalities. A mapping
+        omics: Public omics names to add as sample modalities; ``None`` or
+            ``()`` adds none. A mapping
             additionally sets each modality's sample coverage, so a value
             below *n_samples* leaves trailing samples unmeasured and
             exercises a component's NaN handling.

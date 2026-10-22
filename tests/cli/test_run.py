@@ -231,6 +231,37 @@ class TestResponseTransformation:
         assert worker.call_count == 0
 
 
+class TestGroupBy:
+    """``--group-by`` prints the grouped summary after the repr; the run itself is unchanged."""
+
+    def test_prints_the_grouped_summary(
+        self, worker: Recorder, tmp_path: UPath, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen: list[Any] = []
+
+        def fake_format(experiment: Any, group_by: Any) -> str:
+            seen.append(group_by)
+            return "GROUPED-SUMMARY"
+
+        monkeypatch.setattr("drevalpy.cli.run.format_grouped_summary", fake_format)
+
+        result = _invoke(tmp_path, "--group-by", "drug")
+
+        assert "GROUPED-SUMMARY" in plain(result.output)
+        assert [member.value for member in seen] == ["drug"]
+
+    def test_is_off_by_default(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path)
+
+        assert plain(result.output).strip().endswith("STUB-EXPERIMENT-REPR")
+
+    def test_an_unknown_grouping_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--group-by", "tissue")
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
+
+
 class TestOutput:
     """The command owns creating the output directory and reporting where it wrote."""
 

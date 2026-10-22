@@ -101,16 +101,6 @@ class TestCapabilities:
 
         assert result.has_robustness is True
 
-    def test_summary_table_holds_the_mean_of_each_metric(self) -> None:
-        runs = [
-            make_run_result(model_name="A", fold_index=0, metrics={"MSE": 0.2}),
-            make_run_result(model_name="A", fold_index=1, metrics={"MSE": 0.4}),
-        ]
-
-        table = ExperimentResult(runs).summary_table
-
-        assert table == {"A": {"MSE": pytest.approx(0.3)}}
-
 
 class TestSatisfies:
     def test_no_requirements_are_always_satisfied(self) -> None:

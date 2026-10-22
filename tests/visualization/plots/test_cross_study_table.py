@@ -182,11 +182,13 @@ class TestCrossStudyDataframeQuirk:
 
 
 class TestToMultiqc:
-    def test_returns_a_single_native_table_section(self, computed):
+    def test_returns_the_pooled_and_the_per_drug_table_sections(self, computed):
         sections = computed.to_multiqc()
 
-        assert len(sections) == 1
-        assert (sections[0].name, sections[0].anchor) == ("Model Summary Table", "dreval_summary_table")
+        assert [(s.name, s.anchor) for s in sections] == [
+            ("Model Summary Table", "dreval_summary_table"),
+            ("Model Summary Table per Drug", "dreval_summary_table_per_drug"),
+        ]
 
     def test_section_carries_a_native_multiqc_plot(self, computed):
         assert computed.to_multiqc()[0].plot is not None
@@ -202,6 +204,46 @@ class TestToMultiqc:
         data, headers = captured[0]
         assert set(data["ElasticNet"]) == set(headers)
         assert {"MSE_mean", "MSE_std"} <= set(headers)
+
+
+class TestPerDrugSection:
+    def test_holds_the_per_drug_means_and_hidden_drug_counts(self, computed, monkeypatch):
+        from multiqc.plots import table as mqc_table
+
+        captured: list = []
+        monkeypatch.setattr(mqc_table, "plot", lambda data, headers, pconfig: captured.append((data, headers)))
+
+        computed.to_multiqc()
+
+        data, headers = captured[1]
+        model = next(m for m in computed._result.models if m.model_name == "ElasticNet")
+        expected = model.aggregate_group_metrics("drug")
+        assert data["ElasticNet"]["Pearson"] == pytest.approx(expected["Pearson"]["mean"])
+        assert data["ElasticNet"]["Pearson_drugs"] == expected["Pearson"]["n_groups"]
+        assert headers["Pearson_drugs"]["hidden"] is True
+
+    def test_an_undefined_metric_is_left_out_rather_than_shown_as_a_number(self, monkeypatch):
+        from multiqc.plots import table as mqc_table
+
+        run = make_run_result(model_name="Constant")
+        run.predictions = run.predictions * 0 + 1.0
+        plot = CrossStudyTableVisualization()
+        plot.compute(ExperimentResult([run]))
+        captured: list = []
+        monkeypatch.setattr(mqc_table, "plot", lambda data, headers, pconfig: captured.append((data, headers)))
+
+        plot.to_multiqc()
+
+        data, _ = captured[1]
+        assert "Pearson" not in data["Constant"]
+        assert data["Constant"]["Pearson_drugs"] == 0
+        assert "MSE" in data["Constant"]
+
+    def test_the_section_is_omitted_when_no_run_has_metrics(self):
+        plot = CrossStudyTableVisualization()
+        plot.compute(ExperimentResult([make_run_result(metrics={})]))
+
+        assert len(plot.to_multiqc()) == 1
 
 
 class TestRendering:
