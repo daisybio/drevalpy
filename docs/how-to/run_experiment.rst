@@ -13,11 +13,13 @@ The examples use the simulated dataset and naive baselines, so they run offline 
 Run models on a dataset
 -----------------------
 
-Give ``run`` the models, a dataset and a split mode. The models are zoo names (see
-:doc:`/how-to/choose_models`). The dataset is a registered name or the path to an ``.h5mu`` file
-(see :doc:`/how-to/load_and_split`). The split mode is ``LPO``, ``LSO``, ``LDO`` or ``LTO``; the
-default on the command line is ``LPO``. ``run`` always splits into 5 folds and trains every model
-on every fold.
+Give ``run`` the models, a dataset and a split mode. The models are zoo names or recipes (see
+:doc:`/how-to/choose_models`), or a grid of components (see
+:doc:`/how-to/evaluate_component_grids`). The dataset is a registered name or the path to an
+``.h5mu`` file (see :doc:`/how-to/load_and_split`); several datasets are combined for a
+cross-study evaluation (see :doc:`/how-to/run_cross_study`). The split mode is ``LPO``, ``LSO``,
+``LDO``, ``LTO`` or ``LStO``; the default on the command line is ``LPO``. ``run`` splits into 5
+folds, except ``LStO`` which makes one fold per study, and trains every model on every fold.
 
 .. tab-set::
    :sync-group: interface
@@ -199,6 +201,44 @@ DrEvalPy clones and fits it for every fit.
              models[1:], dataset, "LPO", hyperparameter_tuning=False, response_transformation=StandardScaler()
          )
 
+Log to Weights & Biases
+-----------------------
+
+Give a project name to log the experiment to `Weights & Biases <https://wandb.ai>`_. Every
+tuning trial gets a run named ``<model>_split<fold>_trial<n>`` with its hyperparameters and
+its validation metrics, and every fold gets a final run named ``<model>_split<fold>_final``
+whose summary holds the test metrics as ``test_<metric>``. The neural predictors that train with
+Lightning also log their per-epoch curves to the active run. Without a project nothing is imported
+or logged. The ``wandb`` package is a dependency of DrEvalPy, and you need to be logged in
+(```wandb login``) or to set ``WANDB_API_KEY``. The examples are not run as tests because they need
+an account.
+
+.. tab-set::
+   :sync-group: interface
+
+   .. tab-item:: CLI
+      :sync: cli
+
+      ``drevalpy run`` and ``drevalpy single`` take ``--wandb-project``.
+
+      .. snippet: skip
+
+      .. code-block:: bash
+
+         drevalpy run NaiveDrugMeanPredictor \
+             --dataset toy.h5mu --split-mode LPO --no-hpo --wandb-project drevalpy-demo
+
+   .. tab-item:: Python
+      :sync: python
+
+      ``drevalpy.run`` and ``drevalpy.single`` take ``wandb_project``.
+
+      .. snippet: skip
+
+      .. code-block:: python
+
+         drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False, wandb_project="drevalpy-demo")
+
 Read the results
 ----------------
 
@@ -214,8 +254,8 @@ subdirectory per model with one ``.npz`` file per run. Load a directory back int
       :sync: cli
 
       ``drevalpy report`` and ``drevalpy aggregate`` read the directories directly; see
-      :doc:`/how-to/make_report`. Add ``--group-by drug`` or ``--group-by sample`` to ``run`` to
-      print the metrics computed within each drug or sample as well.
+      :doc:`/how-to/make_report`. Add ``--group-by drug``, ``--group-by sample`` or ``--group-by study`` to ``run`` to
+      print the metrics computed within each drug, sample or study as well.
 
    .. tab-item:: Python
       :sync: python

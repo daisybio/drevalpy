@@ -217,7 +217,7 @@ The package sits under `src/`; `drevalpy/...` paths in this file are relative to
 
 ## DRPModel structure
 
-`models/drp_model.py` holds `DRPModel(_DRPLoggingMixin)`, the public runtime. It owns
+`models/drp_model.py` holds `DRPModel`, the public runtime. It owns
 an immutable `ModelSpec` and exposes `spec` / `name` / `config` /
 `hyperparameters` / `sample_views` / `drug_views`. `train` / `predict` /
 `save` / `load` are thin: `train` and `predict` delegate to a private
@@ -238,8 +238,8 @@ concern rather than back into `DRPModel`:
   `apply_target_transform` for the optional response transformer.
 - `_pipeline.py` - `_ModelPipeline`: `reset`, `fit`, `predict`,
   `component_state` / `restore_component_state`.
-- `mixins/_logging.py` - `_DRPLoggingMixin`, wandb and metric helpers; `wandb` is
-  imported lazily.
+- `experiment/_tracking.py` - Weights & Biases tracking (`tracking_run`, `log_summary`,
+  `log_metrics`), outside `DRPModel`; `wandb` is imported lazily.
 - `mixins/_persistence_io.py` - versioned single-ZIP checkpoint I/O
   (`save_model`, `load_model`, `load_model_payload`). `DRPModel` is imported only
   under `TYPE_CHECKING` there.
@@ -314,8 +314,8 @@ Checked directly, all artifacts of how the code is wired rather than debt:
 - Both "Break Cycle" plans from `repowise health --refactoring-targets`. In
   `models` the only back edge is the `TYPE_CHECKING`-guarded import at
   `drevalpy/models/mixins/_persistence_io.py:20-21`, which is already the
-  correct pattern; in `visualization/plots` none of `heatmap.py`, `violin.py`,
-  `cross_study_table.py` imports `plots/__init__.py` - it is barrel attribution.
+  correct pattern; in `visualization/plots` none of `heatmap.py`, `violin.py`
+  imports `plots/__init__.py` - it is barrel attribution.
 - `repowise dead-code`'s `unused_export` hits for `LassoPredictor`,
   `SVRPredictor`, `GradientBoostingPredictor` and `KNNPredictor` (reported at
   100% confidence) and the `unreachable_file` hit for

@@ -93,8 +93,8 @@ An experiment evaluates the models over all folds of one split mode. You use lea
 
 ``ElasticNet`` has hyperparameters, so DrEvalPy tunes them on a validation part of each
 training set before the final fit. ``--hpo-trials 8`` tries 8 configurations per fold; the
-default is 16. Keep tuning on for ``ElasticNet``: with its default hyperparameters and no tuning
-it predicts a constant on this dataset.
+default is 16. Keep tuning on for ``ElasticNet``: with its default hyperparameters it already
+learns, but tuning lowers its RMSE over all pairs from 0.780 to 0.741 on this dataset.
 
 .. tab-set::
    :sync-group: interface
@@ -120,12 +120,12 @@ it predicts a constant on this dataset.
              Models: 3
                  NaiveDrugMeanPredictor (5 folds): MSE=0.7908, RMSE=0.8880, MAE=0.7195, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
                  NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5569, RMSE=0.7456, MAE=0.5898, R^2=0.7913, Pearson=0.8921, Spearman=0.9011, Kendall=0.7253
+                 ElasticNet (5 folds): MSE=0.5495, RMSE=0.7407, MAE=0.5832, R^2=0.7939, Pearson=0.8935, Spearman=0.9024, Kendall=0.7275
          Metrics computed within each drug, averaged over drugs and folds (number of drugs scored in brackets):
          Model                      MSE        RMSE       MAE        R^2         Pearson    Spearman   Kendall
          NaiveDrugMeanPredictor     0.789 (8)  0.866 (8)  0.720 (8)  -0.124 (8)  undefined  undefined  undefined
          NaiveMeanEffectsPredictor  0.852 (8)  0.895 (8)  0.731 (8)  -0.583 (8)  0.386 (8)  0.372 (8)  0.277 (8)
-         ElasticNet                 0.562 (8)  0.727 (8)  0.594 (8)  -0.019 (8)  0.513 (8)  0.479 (8)  0.366 (8)
+         ElasticNet                 0.556 (8)  0.722 (8)  0.588 (8)  -0.005 (8)  0.513 (8)  0.479 (8)  0.365 (8)
 
       The results are in the ``results`` directory, one subdirectory per model; see
       :doc:`/reference/results`.
@@ -153,7 +153,7 @@ it predicts a constant on this dataset.
              Models: 3
                  NaiveDrugMeanPredictor (5 folds): MSE=0.7908, RMSE=0.8880, MAE=0.7195, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
                  NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5569, RMSE=0.7456, MAE=0.5898, R^2=0.7913, Pearson=0.8921, Spearman=0.9011, Kendall=0.7253
+                 ElasticNet (5 folds): MSE=0.5495, RMSE=0.7407, MAE=0.5832, R^2=0.7939, Pearson=0.8935, Spearman=0.9024, Kendall=0.7275
 
       ``results`` is an ``ExperimentResult``; ``results.save("results")`` writes it to a
       directory, as the CLI does.
@@ -170,7 +170,7 @@ Model                     Pearson (all pairs)
 ========================= ===================
 NaiveDrugMeanPredictor    0.842
 NaiveMeanEffectsPredictor 0.830
-ElasticNet                0.892
+ElasticNet                0.893
 ========================= ===================
 
 Every model scores above 0.8, and the model that knows only each drug's average, with no idea
@@ -211,7 +211,7 @@ compute each metric within each drug and average over the drugs and folds.
                                     Pearson  Spearman   RMSE    R^2
          NaiveDrugMeanPredictor         NaN       NaN  0.866 -0.124
          NaiveMeanEffectsPredictor    0.386     0.372  0.895 -0.583
-         ElasticNet                   0.513     0.479  0.727 -0.019
+         ElasticNet                   0.513     0.479  0.722 -0.005
 
       ``summary_group_counts(group_by="drug")`` gives the number of drugs behind each cell.
 
@@ -222,7 +222,7 @@ Model                     Pearson (all pairs)         Pearson (within drug)
 ========================= =========================== ======================
 NaiveDrugMeanPredictor    0.842                       undefined
 NaiveMeanEffectsPredictor 0.830                       0.386
-ElasticNet                0.892                       0.513
+ElasticNet                0.893                       0.513
 ========================= =========================== ======================
 
 ``NaiveDrugMeanPredictor`` predicts one value per drug. Within a drug its predictions are

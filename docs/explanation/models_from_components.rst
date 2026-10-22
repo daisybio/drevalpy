@@ -82,9 +82,9 @@ trade conciseness against expressiveness:
 - A *recipe string* is one line, with the components separated by colons. The
   grammar is ``predictor``, ``sample:predictor`` or ``sample:drug:predictor``.
   For example, ``scaledGeneExpression:fingerprints:elasticNet`` scales gene
-  expression, computes drug fingerprints and fits an elastic net. A plus sign joins several featurizers on one side, and square brackets name
-  the view a flexible featurizer should read. Recipes carry no hyperparameter
-  space, so each component falls back to its built-in one.
+  expression, computes drug fingerprints and fits an elastic net. A plus sign joins several
+  featurizers on one side, and square brackets name the view a flexible featurizer should read.
+  Recipes carry no hyperparameter space, so each component falls back to its built-in one.
 - A *model file* (YAML) says the same in more words and can also declare
   hyperparameter spaces for individual components.
 - A *model configuration* in Python holds the same information as the file, as
@@ -97,6 +97,21 @@ are looked up by their zoo name; see :doc:`/reference/model_zoo`. A model
 specification pairs a name with a configuration, and it holds no fitted state, so
 one specification can be reused across folds and tuning trials (see
 :doc:`training_lifecycle`).
+
+A recipe is also a model name. The command line and ``ModelSpec.from_name`` accept a recipe
+wherever they accept a zoo name, and the model is then reported under the recipe string,
+views included, so every combination has a unique name. A zoo name wins when both readings are
+possible. A name that is neither raises ``ValueError``.
+
+Component grids
+~~~~~~~~~~~~~~~
+
+Because components combine freely, comparing featurizers or predictors means evaluating a grid of
+recipes: every sample featurizer with every drug featurizer and every predictor. Most products of
+a list are not all valid, since a tissue-mean predictor cannot use gene expression. Rather than
+making the user work out which combinations fit, a grid applies the validation below to each
+product and keeps the valid ones. The invalid ones are reported with the reason instead of
+failing the whole experiment. The commands are in :doc:`/how-to/evaluate_component_grids`.
 
 Single-drug models
 ~~~~~~~~~~~~~~~~~~
@@ -118,12 +133,15 @@ experiment. When a configuration is resolved, DrEvalPy checks that:
 - each featurizer's output format is accepted by the predictor;
 - the feature blocks that a block predictor requires are produced by the
   featurizers, with the expected schema;
+- the blocks that the predictor names in ``required_sample_blocks`` and
+  ``required_drug_blocks``, such as the ``tissue`` block of a tissue-mean predictor, are among
+  the blocks the featurizers emit;
 - the prediction mode of the model is one the predictor supports;
 - a single-drug predictor is paired with the drug identity featurizer.
 
-For example, a matrix predictor rejects a graph feature, and a feature-free
-predictor rejects any featurizer. The error names the component and the format
-that failed to match. Because a model is a plain description of components,
+For example, a matrix predictor rejects a graph feature, a feature-free
+predictor rejects any featurizer, and a tissue-mean predictor rejects a gene expression
+featurizer. The error names the component and the format or block that failed to match. Because a model is a plain description of components,
 these checks are ordinary code that runs over the description, and this is the
 property that makes it safe to compose models freely.
 

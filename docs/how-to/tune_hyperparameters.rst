@@ -116,7 +116,7 @@ logarithmic scale.
    .. tab-item:: CLI
       :sync: cli
 
-      The command line selects zoo names only, so describe the model in a YAML file in an
+      A recipe carries no hyperparameter space, so describe the model in a YAML file in an
       extension directory, here ``my_models/NarrowElasticNet.yaml``. The file name is the zoo name.
 
       .. code-block:: yaml
@@ -181,7 +181,7 @@ Set the values yourself
 
 To skip the search, fit with fixed values. With tuning off, every fold uses the **defaults** of
 the model. Set a default by giving the parameter as a value in the one-key form of the predictor,
-here ``alpha`` = 0.1. This does not change the range of the space, so it matters when tuning is
+here ``alpha`` = 0.01. This does not change the range of the space, so it matters when tuning is
 off. For a single fit with values of your choice, without any experiment, see
 :doc:`/how-to/train_save_load`.
 
@@ -199,7 +199,7 @@ off. For a single fit with values of your choice, without any experiment, see
          drug_featurizer: fingerprints
          predictor:
            elasticNet:
-             alpha: 0.1
+             alpha: 0.01
 
       Then run it with tuning off:
 
@@ -219,7 +219,7 @@ off. For a single fit with values of your choice, without any experiment, see
              {
                  "sample_featurizer": "scaledGeneExpression",
                  "drug_featurizer": "fingerprints",
-                 "predictor": {"elasticNet": {"alpha": 0.1}},
+                 "predictor": {"elasticNet": {"alpha": 0.01}},
              }
          )
          fixed = ModelSpec("FixedElasticNet", fixed_config)
@@ -233,7 +233,7 @@ off. For a single fit with values of your choice, without any experiment, see
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 FixedElasticNet (5 folds): MSE=0.6091, RMSE=0.7796, MAE=0.6244, R^2=0.7719, Pearson=0.8911, Spearman=0.9021, Kendall=0.7277
+                 FixedElasticNet (5 folds): MSE=0.5552, RMSE=0.7445, MAE=0.5839, R^2=0.7915, Pearson=0.8917, Spearman=0.9017, Kendall=0.7270
 
 Reproduce a search
 ------------------

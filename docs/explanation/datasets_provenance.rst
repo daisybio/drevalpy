@@ -80,18 +80,20 @@ uncertainty of the fitted parameters.
 Why pairs are filtered on curve quality
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Every built-in splitter drops pairs whose curve fails two tests: the
-multiple-testing corrected relevance score must be at least ``-log10(0.05)``, and
-the absolute fold change must be at least 0.45. These are the thresholds that
+By default, ``split`` drops pairs whose curve fails two tests before any splitter
+runs: the multiple-testing corrected relevance score must be at least
+``-log10(0.05)``, and the absolute fold change must be at least 0.45. These are the thresholds that
 DrEvalPy passes to CurveCurator, so the rule agrees with CurveCurator's own
 verdict that a curve is regulated. Drugs that do nothing to a sample leave noise
 behind, and models are scored on pEC50 values only where the curve shows an
 effect.
 
-The filter is not configurable per split, on purpose. A comparison between models
-is only meaningful over the same pairs, so a threshold that depended on the call
-would make results incomparable. A function in the plugin interface lets you build
-a mask from other metrics or thresholds for your own analyses.
+The rule is one setting of an experiment, not of a model or a splitter. A comparison
+between models is only meaningful over the same pairs, so every model of a run is
+trained and scored on the pairs that pass the same rule, and the rule is recorded in
+the metadata of each fold. You can change it for the whole run: other thresholds, any
+of the further quality metrics, or no rule at all for a dataset that carries only a
+pEC50 matrix. See :doc:`/reference/datasets`.
 
 Bringing your own responses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

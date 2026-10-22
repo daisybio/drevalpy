@@ -39,8 +39,9 @@ Grammar
      - The featurizer ``name`` reading the view ``view``; sets the ``view`` field
 
 The recipe layer only checks this shape. Whether a name is registered, whether a featurizer
-accepts a view, and whether the view exists in the dataset are checked later, the same way for
-a recipe and for the equivalent YAML.
+needs a view, and whether the featurizers fit the predictor (formats, required blocks, a drug
+featurizer) are checked when the model configuration is built, the same way for a recipe and for
+the equivalent YAML. Whether a view exists in the dataset is checked only when the model trains.
 
 Examples
 --------
@@ -71,7 +72,8 @@ Views
    the drug feature keys it stores; see :doc:`datasets`. There are no aliases such as
    ``expression`` or ``cnv``. A view the dataset lacks fails when the model trains, for
    example ``KeyError: "Modality 'expression' not found. Available: ['gene_expression',
-   'response']"``.
+   'response']"``. ``drevalpy.run`` records such a failure and continues with the other runs; see
+   :doc:`/how-to/evaluate_component_grids`.
 
 Featurizers that need a view
    Some featurizers, among them ``raw`` and ``pca``, require an explicit view. ``raw`` without
@@ -105,13 +107,19 @@ Where recipes are accepted
        name.
    * - ``ModelSpec(name, config)``
      - A ``ModelConfig``, for example ``from_spec(...)``
-   * - ``ModelSpec.from_name``, ``drevalpy run``, ``drevalpy single``
-     - Zoo names only; any other name raises ``KeyError: Unknown zoo entry``
+   * - ``ModelSpec.from_name``, the ``MODELS`` of ``drevalpy run`` and ``drevalpy single``
+     - A zoo name, else a recipe. A zoo name wins over a recipe of the same name. The model is
+       named by the string as given. A name that is neither raises ``UnknownModelError``, a
+       ``ValueError`` whose message gives the reason the recipe reading failed
+   * - ``drevalpy.models.combinations``, ``drevalpy run -S/-D/-P``
+     - Lists of sample featurizer recipes, drug featurizer recipes and predictor names; every
+       valid ``sample:drug:predictor`` is built and the others are reported. See
+       :doc:`/how-to/evaluate_component_grids`
    * - The ``sample_featurizer`` and ``drug_featurizer`` keys of YAML and ``ModelConfig``
      - A featurizer part of a recipe, such as ``pca[methylation]`` or ``raw[a]+raw[b]``
 
-To run a recipe that is not in the zoo, wrap it in a ``ModelSpec`` or register it as a zoo
-preset; see :doc:`extension_files`.
+A recipe needs no registration. To give it a short name, register it as a zoo preset; see
+:doc:`extension_files`.
 
 Model identifier
 ----------------

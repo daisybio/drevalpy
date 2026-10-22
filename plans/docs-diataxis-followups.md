@@ -8,20 +8,11 @@ Things the docs restructure (`plans/docs-diataxis.md`) found or deliberately lef
 - **LCO → LSO in nf-core/drugresponseeval.** The pipeline still passes `LCO`. The alias keeps it
   working and results are recorded as `LSO`. Rename it in the pipeline's parameter schema,
   and then bump the `drevalpy` version it pins.
-- **Cross-study entry point.** v2 has none; only `CrossStudyTableVisualization` exists. The 1.x
-  `--cross_study_datasets` option has no replacement.
-- **W&B logging from `run`.** `drevalpy run` and `drevalpy single` do not wire it through.
-- **Merge `tests/synthetic/builders.py` into `drevalpy.data.synthetic`.** The test suite keeps its
-  richer builder.
 - **Public dataset bucket.** `s3://orakl-open-source-data/drevalpy_h5mu/gen3/` returns
   `403 Forbidden` without credentials, so a new user cannot load GDSC1, GDSC2, CTRPv1, CTRPv2,
   PDX_Bruna, BeatAML2 or TOYv1. Every how-to that loads one is marked `.. snippet: network`.
 - **Redirects for old documentation URLs.** The pages moved from CLI and Python guides to
   tutorials, how-to guides, reference and explanation; old addresses return 404.
-- **ElasticNet's default `alpha=1.0` predicts a constant on the synthetic dataset** (code).
-  Without tuning, its per-drug Pearson is `undefined` and its pooled Pearson is 0. Checked
-  with `drevalpy run ElasticNet --dataset toy.h5mu --split-mode LSO --no-hpo --group-by drug`
-  on `drevalpy data synthetic` output. The tutorials tune it. Deferred by the user.
 - **Curation fits depend on the OpenBLAS kernel** (code, in dreval_curation): pEC50 moves by up
   to about 0.11 between machines. Recorded from the plan; not re-measured.
 - **`pip install drevalpy[report]` hints.** Removed in `6e59f804`. `multiqc` is a hard
@@ -47,10 +38,19 @@ Things the docs restructure (`plans/docs-diataxis.md`) found or deliberately lef
   PR. Update both when the branch switches.
 - **`drevalpy report --dataset`** is accepted and ignored (code). It exists only for pipeline
   compatibility. Remove it when nf-core/drugresponseeval stops passing it.
-- **Bare pEC50 matrices** (code). `.h5mu` is the only dataset format, and `curate` deliberately
-  writes only the response AnnData (`.h5ad`): users combine it with their omics views into a
-  `MuData` (user decision; `docs/how-to/bring_your_own_data.rst`). A response matrix that did not
-  come from `curate` has no `relevance_score` and `fold_change` layers, and splitting it raises
-  `KeyError`. Decide whether the splitters should accept a dataset without quality layers.
 - **`docs/readme.rst`** still describes DrEvalPy as a "cancer cell line" suite. The plan
   deletes the page in Wave 3.
+- **The zoo loader silently drops a preset that fails validation** (code).
+  `models/zoo/__init__.py::_load_builtin_entries` wraps the validation in a bare
+  `except ValueError: continue`, so a zoo file whose components no longer fit (for example after
+  the enforced `required_*_blocks` check) disappears from `drevalpy list zoo-presets` and from
+  `ModelSpec.from_name` without a message. Log the reason or fail the load.
+- **`tissue:identity:elasticNet` predicts a constant on GDSC2 + CTRPv2 LStO without tuning**
+  (code). Its Pearson correlation is then undefined. The cross-study how-to pages therefore
+  use the naive baselines for their examples.
+- **No per-study response scaling for cross-study runs** (code). `--response-transformation` is
+  fitted on the training scope, so it cannot remove the pEC50 offset between studies (GDSC2 mean
+  ≈6.31, CTRPv2 ≈5.55). Consider a per-study standardization option for `concat` or LStO.
+- **`dataset_registry` re-downloads a cached file without quality layers** (code).
+  `_carries_curve_quality` treats such a file as stale, even when the user passes
+  `CurveQuality.off()`.

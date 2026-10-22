@@ -136,7 +136,7 @@ List split modes and plots
          drevalpy list splitters
          drevalpy list visualizations
 
-      The splitters table has four rows. ``LCO`` is listed as an alias of ``LSO``, the former
+      The splitters table has five rows. ``LCO`` is listed as an alias of ``LSO``, the former
       name of that mode:
 
       .. code-block:: text
@@ -147,9 +147,10 @@ List split modes and plots
           LDO    Leave-Drug-Out: test folds contain unseen drugs            LDO          -
           LPO    Leave-Pair-Out: groups by (sample, drug) pairs             LPO          -
           LSO    Leave-Sample-Out: test folds contain unseen samples        LSO          LCO
+          LStO   Leave-Study-Out: test folds contain one unseen study       LStO         -
           LTO    Leave-Tissue-Out: test folds contain unseen tissue types   LTO          -
 
-      The visualizations table has seven rows. Its last two columns show which result a plot
+      The visualizations table has six rows. Its last two columns show which result a plot
       draws from and what it needs. A plot that needs several folds or several models is left
       out of the report when the experiment has fewer; see :doc:`/how-to/make_report`.
 
@@ -165,8 +166,8 @@ List split modes and plots
 
       .. code-block:: text
 
-         ['LDO', 'LPO', 'LSO', 'LTO']
-         ['comparison_scatter', 'critical_difference', 'cross_study_table', 'heatmap', 'leaderboard', 'regression_scatter', 'violin']
+         ['LDO', 'LPO', 'LSO', 'LStO', 'LTO']
+         ['comparison_scatter', 'critical_difference', 'heatmap', 'leaderboard', 'regression_scatter', 'violin']
 
 List datasets and plugins
 -------------------------

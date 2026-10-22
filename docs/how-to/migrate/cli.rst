@@ -93,7 +93,9 @@ Map the ``drevalpy`` flags
        ``GDSC1``, ``GDSC2``, ``PDX_Bruna`` or ``TOYv1``. See
        ``drevalpy list datasets``. There is no default dataset.
    * - ``--cross_study_datasets``
-     - Removed. Nothing replaces it.
+     - Repeat ``--dataset`` and use ``--split-mode LStO``, which concatenates the datasets and
+       tests on one study per fold; ``drevalpy data concat`` writes the combined dataset. See
+       :doc:`/how-to/run_cross_study`.
    * - ``--path_out``
      - ``--output-dir`` (``-o``), default ``results``.
    * - ``--no_refitting``
@@ -109,7 +111,7 @@ Map the ``drevalpy`` flags
    * - ``--optim_metric``
      - ``--hpo-metric``, default ``RMSE``.
    * - ``--wandb_project``
-     - Removed. Nothing replaces it.
+     - ``--wandb-project`` on ``run`` and ``single``. See :doc:`/how-to/run_experiment`.
    * - ``--n_cv_splits``
      - Removed for ``run``, which always makes five folds.
        ``drevalpy data split --n-splits`` sets the count for splits you make
@@ -132,8 +134,9 @@ Map the ``drevalpy`` flags
      - Removed. Register a splitter in an extension file and load it with
        ``drevalpy -e DIR``. See :doc:`/how-to/extend/write_splitter`.
    * - ``--clean_min_responders``, ``--clean_min_responder_frac``
-     - Removed. The splitters drop pairs that fail the default curve-quality
-       thresholds. That is a filter on pairs, not on drugs.
+     - Removed. ``split`` drops pairs that fail the curve-quality rule, by default two
+       thresholds; change it with ``--min-relevance-score`` and ``--min-abs-fold-change``,
+       or switch it off with ``--no-quality-filter``. That is a filter on pairs, not on drugs.
    * - ``--version``, ``-v``
      - Removed. Read ``drevalpy.__version__`` in Python.
 
@@ -162,8 +165,8 @@ command covers the job.
    * - ``drevalpy-viability-preprocess``, ``drevalpy-viability-postprocess``
      - ``drevalpy curate``. See `Fit your own raw data`_.
    * - ``drevalpy-load-response``
-     - ``drevalpy data load`` reads a dataset. There is no cross-study dataset
-       and no responder filter.
+     - ``drevalpy data load`` reads a dataset. ``drevalpy data concat`` builds a cross-study
+       dataset (:doc:`/how-to/run_cross_study`). There is no responder filter.
    * - ``drevalpy-make-cv-pkls``
      - ``drevalpy data split DATASET OUTPUT_DIR --mode MODE``. It writes
        ``fold_N.npz`` files, not pickles.

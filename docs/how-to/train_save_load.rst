@@ -127,8 +127,8 @@ components and their fitted state, not their code. If the model uses a featurize
 that you wrote, register it before you call ``load``, for example by loading your extension
 directory; see :doc:`/how-to/extend/load_extensions`.
 
-**Checkpoints do not cross format versions.** The current format version is 4. A checkpoint from
-an older format is refused with a message to retrain the model and save it again. Keep checkpoints
+**Checkpoints do not cross format versions.** The current format version is 5. A checkpoint from
+an older format, including every format 4 checkpoint, is refused with a message to retrain the model and save it again. Keep checkpoints
 for the DrEvalPy version that wrote them.
 
 Control where training checkpoints go

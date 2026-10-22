@@ -71,9 +71,11 @@ composition then forbids sample and drug featurizers for it.
       Contracts constrain the **format** of each side. To also require named blocks, set
       ``required_sample_block_specs`` or ``required_drug_block_specs`` to a tuple of
       ``BlockSpec(name, format)``. Composition rejects a recipe whose featurizer does not emit
-      them. ``required_sample_block_alternatives`` accepts any one of several blocks. The older
-      ``required_sample_blocks`` and ``required_drug_blocks`` name attributes are not enforced
-      when a model is composed.
+      them. ``required_sample_block_alternatives`` accepts any one of several blocks. The
+      attributes ``required_sample_blocks`` and ``required_drug_blocks`` list block names only,
+      and are enforced too: a recipe whose featurizer does not emit a named block is rejected
+      when the configuration is built, not when the model trains. A grid skips such a
+      combination and reports the reason; see :doc:`/how-to/evaluate_component_grids`.
 
       .. literalinclude:: /examples/toy_block_predictor.py
          :language: python

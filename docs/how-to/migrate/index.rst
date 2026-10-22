@@ -68,12 +68,14 @@ checks when you try:
      - A single ``.zip`` archive of format ``drevalpy-model``.
      - ``DRPModel.load`` raises ``ValueError``: the checkpoint path "must be an
        archive file path, not a directory".
-   * - A v2 checkpoint from before the sample rename (format version 3)
-     - Format version 4 (``FORMAT_VERSION`` in
+   * - A v2 checkpoint of format version 3 (before the sample rename) or 4 (before feature-name
+       checks)
+     - Format version 5 (``FORMAT_VERSION`` in
        ``drevalpy/models/mixins/_persistence_io.py``).
-     - ``UnsupportedCheckpointFormatError``: the checkpoint "predates the cell
-       line -> sample rename"; retrain the model and save it again. Any other
-       version is rejected with a message to retrain.
+     - ``UnsupportedCheckpointFormatError``: a version 3 checkpoint "predates the cell
+       line -> sample rename" and a version 4 checkpoint "predates feature-name checks at
+       predict"; retrain the model and save it again. Any other version is rejected with a
+       message to retrain.
    * - A v2 result ``.npz`` from before the rename (key ``cell_line_ids``)
      - Key ``sample_ids``.
      - ``ValueError`` naming the file: it was written before the rename;

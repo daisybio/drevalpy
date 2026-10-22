@@ -151,13 +151,15 @@ Map the ``drug_response_experiment`` parameters
      - Removed. Run folds in parallel with ``drevalpy.single``
        (:doc:`/how-to/run_folds_in_parallel`).
    * - ``cross_study_datasets``
-     - Removed. Nothing replaces it.
+     - Pass a list of datasets to ``dataset`` and use the split mode ``"LStO"``, or build the
+       dataset with ``drevalpy.data.concat``. See :doc:`/how-to/run_cross_study`.
    * - ``model_checkpoint_dir``
      - Removed from ``run``. Save a model with ``DRPModel.save``.
    * - ``final_model_on_full_data``
      - Removed. Nothing replaces it.
    * - ``wandb_project``
-     - Removed. Nothing replaces it.
+     - ``wandb_project`` of ``drevalpy.run`` and ``drevalpy.single``. See
+       :doc:`/how-to/run_experiment`.
    * - ``custom_splitter``, ``custom_split_name``
      - Removed. Register a splitter component
        (:doc:`/how-to/extend/write_splitter`).

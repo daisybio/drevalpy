@@ -30,8 +30,8 @@ that said "cell line" now says "sample".
 - A dataset needs a unique observation index and a ``tissue`` column. The columns
   ``cellosaurus_id`` and ``cell_line_name`` are optional and only make sense for datasets whose
   samples are cell lines. See :doc:`/reference/datasets`.
-- Model checkpoints are format 4. Loading an older checkpoint raises an error that says to
-  retrain the model. Loading a result file that has ``cell_line_ids`` raises an error that says
+- Model checkpoints are format 5. Loading an older checkpoint raises an error that says to
+  retrain the model; see the breaking changes below. Loading a result file that has ``cell_line_ids`` raises an error that says
   to re-run the experiment, and so does a dataset with precomputed featurizer variants stored
   under ``cell_line_featurizer_variants``.
 
@@ -44,12 +44,12 @@ Defaults and results that changed
   option, with the same default. The values are ``none``, ``standard``, ``minmax`` and
   ``robust``.
 - ``ExperimentResult.summary_table`` is a method, not a property. Call ``summary_table()`` for
-  the pooled metrics, or ``summary_table(group_by="drug")`` or ``summary_table(group_by="sample")``
-  to compute each metric within every drug or sample and average over the groups. A group where
+  the pooled metrics, or ``summary_table(group_by="drug")``, ``"sample"`` or ``"study"``
+  to compute each metric within every drug, sample or study and average over the groups. A group where
   the metric is undefined, such as the Pearson correlation of a constant prediction, is skipped
   and never counted as 0. ``summary_group_counts`` returns how many groups each value is based
   on.
-- ``drevalpy run`` and ``drevalpy aggregate`` take ``--group-by drug|sample`` and print that
+- ``drevalpy run`` and ``drevalpy aggregate`` take ``--group-by drug|sample|study`` and print that
   table. The report has a second summary table, "Model Summary Table per Drug".
 - One ``--seed`` (``seed=`` in Python, default 42) drives the splits, the hyperparameter search,
   the randomization tests and the seeding of every model fit.
@@ -89,6 +89,68 @@ New commands and functions
 - ``register_source`` and ``register_dataset`` raise ``ValueError`` when the name is already
   registered with a different entry, including a built-in one. Pass ``override=True`` to
   replace it. Registering an identical entry again does nothing.
+
+Cross-study evaluation, component grids and recorded failures
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **Cross-study evaluation.** ``drevalpy.data.concat`` and ``drevalpy data concat`` join the
+  datasets of several studies into one dataset. Sample IDs become ``<study>::<sample_id>``,
+  ``obs`` gains ``study`` and ``source_sample_id``, and ``join="inner"`` (``--join inner``) keeps
+  only the features that all studies share. The new split mode ``LStO`` (leave-study-out) holds
+  out one study per fold. ``drevalpy run`` takes several ``--dataset`` options, and
+  ``drevalpy.run`` a list of datasets, and concatenates them. ``--group-by study`` and
+  ``summary_table(group_by="study")`` score each study separately, and the report adds a per-study
+  section to the comparison scatter plot. See :doc:`/how-to/run_cross_study`.
+- **Component grids and recipe names.** ``drevalpy run -S/-D/-P`` and
+  ``drevalpy.models.combinations`` evaluate every valid combination of sample featurizers, drug
+  featurizers and predictors, and report the skipped ones with the reason. ``ModelSpec.from_name``,
+  ``drevalpy run`` and ``drevalpy single`` accept a recipe such as
+  ``pca[gene_expression]:fingerprints:ridge`` wherever they accepted a zoo name, and the model is
+  named by the recipe. A name that is neither raises ``ValueError`` (``UnknownModelError``)
+  instead of ``KeyError``. See :doc:`/how-to/evaluate_component_grids`.
+- **Recorded failures.** A run that raises no longer aborts the experiment. ``drevalpy.run``
+  logs a warning, keeps the failure in ``ExperimentResult.failures`` and writes ``failures.json``;
+  ``on_error="raise"`` restores the old behavior. ``drevalpy run`` prints the failures and exits
+  with status 1, and the report has a "Failed runs" table. If every run fails, ``run`` raises
+  ``ExperimentFailedError``.
+- **Curve-quality rule.** ``drevalpy.data.CurveQuality`` describes the rule that ``split`` applies
+  before the splitter, with the default unchanged. ``drevalpy run`` and ``drevalpy data split`` take
+  ``--no-quality-filter``, ``--min-relevance-score`` and ``--min-abs-fold-change``, and
+  ``CurveQuality.off()`` splits a dataset that has only a pEC50 matrix. Each fold records the rule
+  under ``quality``. See :doc:`/reference/datasets`.
+- **Weights & Biases.** ``--wandb-project`` on ``drevalpy run`` and ``drevalpy single``, and
+  ``wandb_project=`` in Python, log one W&B run per tuning trial and a final run per fold with the
+  test metrics. The 1.x ``--wandb_project`` option is back under this name.
+- **Randomization tests** build their randomized datasets once per model and reuse them for every
+  fold.
+- **Curated datasets** give each drug ID one canonical SMILES and each InChIKey one drug ID, which
+  ``concat`` relies on.
+
+Breaking changes in the 2.0.0 development builds
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **Checkpoint format 5.** Featurizers store the feature names of their views and align dense views
+  by name when predicting. A missing feature raises ``FeatureMismatchError`` instead of being
+  filled, and ``pca`` no longer zero-fills. Format 4 checkpoints are rejected with a message to
+  retrain the model.
+- **Predictor inputs are checked when the model is built.** The blocks a predictor names in
+  ``required_sample_blocks`` and ``required_drug_blocks`` must be emitted by the featurizers; before,
+  only ``required_*_block_specs`` was enforced. A recipe that fails this check raises ``ValueError``
+  when the configuration is built.
+- **``MuDataLike`` has a seventh member**, ``sample_column(column, ids)``. A hand-written test double
+  or dataset class used with a splitter needs it, or ``isinstance`` checks against the protocol fail.
+- **``CrossStudyTableVisualization`` and the ``cross_study_table`` plot are removed.** ``drevalpy list
+  visualizations`` shows six plots. Use ``LStO`` and ``--group-by study`` instead.
+- **ElasticNet's default ``alpha`` is 0.1.** The hyperparameter space is unchanged, but the
+  default no longer predicts a constant on the simulated dataset. Untuned ElasticNet scores
+  differ from earlier builds.
+- **``drevalpy.synthetic()`` can build more.** The new ``sample_views``, ``drug_views``,
+  ``uns_payloads`` and ``extra_layers`` add the views and layers that the zoo models read, and
+  ``omics`` accepts any of the five omics names. ``drevalpy.testing.build_synthetic_dataset`` calls it.
+  ``drevalpy data synthetic`` gains ``--name``, so two files can be concatenated.
+- **A splitter no longer needs to filter on curve quality.** ``split`` blanks the failing pairs
+  first. A splitter that calls ``curve_quality_mask`` still works, but it reads the quality layers
+  even when the run used ``CurveQuality.off()``.
 
 Other changes since 1.6.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~

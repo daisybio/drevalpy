@@ -27,6 +27,10 @@ registered dataset name or the path of a ``.h5mu`` file.
    * - ``LDO``
      - Drugs
      - Drugs that never occur in training; samples may overlap
+   * - ``LStO``
+     - Studies
+     - One study per fold; the study never occurs in training, but its cell lines and drugs may
+       occur under another study
 
 .. image:: /_static/img/LPO.png
    :width: 24%
@@ -44,6 +48,10 @@ registered dataset name or the path of a ``.h5mu`` file.
    :width: 24%
    :alt: Leave-Drug-Out split mode
 
+``LStO`` needs a dataset with a ``study`` sample column, which ``drevalpy.data.concat`` builds;
+see :doc:`/how-to/run_cross_study`. It raises ``KeyError`` without the column and ``ValueError``
+with fewer than two studies.
+
 ``LCO`` is accepted as an alias of ``LSO``, the former name of that split mode. A split made
 with ``LCO`` is recorded as ``LSO``.
 
@@ -60,12 +68,16 @@ Folds
      - ``split(dataset, mode, n_splits=5, validation_ratio=0.1, random_state=42)``
    * - Fold assignment
      - ``KFold(shuffle=True)`` over the groups of the mode: observed pairs, samples, tissues
-       or drugs
+       or drugs. ``LStO`` makes one fold per study and ignores ``n_splits``
    * - Validation set
      - ``max(1, int(n * validation_ratio))`` of the ``n`` groups left after the test groups
-       are removed
+       are removed. For ``LStO`` the groups are the pairs of the training studies: a random
+       share of them, so a validation pair may come from any training study
    * - Pairs considered
-     - Pairs that pass the curve-quality filter in :doc:`datasets`
+     - Pairs with a finite response that pass the curve-quality rule in :doc:`datasets`
+   * - Curve-quality rule
+     - ``quality``, a ``CurveQuality``; ``None`` means ``CurveQuality.default()``. ``split``
+       applies it before the splitter, which only sees ``NaN`` for the pairs that fail
    * - Leakage check
      - Each fold is validated; a violation raises ``SplitValidationError``
    * - Returned value
@@ -91,6 +103,17 @@ Each fold carries this metadata:
      - The dataset name
    * - ``fold_id``
      - First 12 characters of the SHA-256 of the train, test and validation masks
+   * - ``quality``
+     - The curve-quality rule of the split, as written by ``CurveQuality.to_metadata()``: a
+       mapping from each threshold that is set to its value, such as ``min_abs_fold_change``
+       ``0.45``; empty for ``CurveQuality.off()``
+   * - ``test_study``
+     - ``LStO`` only: the name of the study the fold tests on
+
+In ``LStO`` folds ``n_splits`` is the number of studies. Folds are ordered by study name. The
+sample IDs of a concatenated dataset are ``<study>::<sample_id>``, so a cell line measured in
+two studies is two samples, one per study, and the test study's cell lines may appear in training
+under the other studies' prefixes.
 
 ``drevalpy data split DATASET OUTPUT_DIR`` writes one ``fold_<i>.npz`` per fold with the
 boolean arrays ``train``, ``test`` and ``val``, the array ``_pair_seeds`` and a JSON

@@ -57,17 +57,22 @@ about what the model has already seen.
    usually the hardest. A model that has no way to describe a drug, such as one
    that only looks up a drug identity, has nothing to go on for a held-out drug beyond an average.
 
+**Leave-study-out (LStO).**
+   One whole study is held out per fold, and the model trains on the others. It
+   needs a dataset built from several studies; see `Evaluating across studies`_.
+
 Each mode is a splitter registered in the splitter registry (see
 :doc:`registries_and_plugins`), and every splitter checks its own output after
 splitting: a leave-sample-out split fails loudly if a test sample leaks into
 training. The same checks apply to the validation split used for tuning and
 early stopping (see :doc:`training_lifecycle`).
 
-Every built-in splitter also drops pairs whose fitted dose-response curve fails
-the curve-quality filter, so that models are trained and scored only on
-measurements that are distinguishable from noise. The filter keeps pairs with a
-relevance score of at least ``-log10(0.05)`` and an absolute fold change of at
-least 0.45, and it is not configurable per split.
+Before a splitter runs, ``split`` drops the pairs whose fitted dose-response
+curve fails a curve-quality rule, so that models are trained and scored only on
+measurements that are distinguishable from noise. The default rule keeps pairs
+with a relevance score of at least ``-log10(0.05)`` and an absolute fold change
+of at least 0.45. It is a setting of the experiment, chosen once for all models,
+and it is recorded in the metadata of every fold; see :doc:`/reference/datasets`.
 
 Why not report one split mode
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -161,10 +166,24 @@ Evaluating across studies
 -------------------------
 
 Training on one dataset and scoring on another is a valuable check, because
-two screens can disagree about the same drug and sample. DrEvalPy 2 does not
-have an entry point that runs a cross-study experiment. A plot named
-``cross_study_table`` exists in the visualization registry and expects results
-labelled for a second dataset, but nothing in the current version produces such
-labels, so it falls back to a plain aggregate table. When you compare results from different studies by other means, prefer
+two screens can disagree about the same drug and sample. DrEvalPy 2 does this
+in two steps: ``concat`` joins the datasets of several studies into one dataset
+in which every sample carries the name of its study, and the **leave-study-out
+(LStO)** split mode holds out one study per fold. The model trains on the other
+studies and is scored on the study it has not seen. The question is whether a
+model transfers between laboratories, assays and cell line collections, which a
+random split inside one study cannot show. Unlike LSO, LTO and LDO, LStO does
+not keep the held-out entities out of training: a cell line or drug of the test
+study can also be in a training study, under that study's name. The studies are
+the unit that never overlaps, so the test is about the study, not about new
+samples or drugs. The commands are in :doc:`/how-to/run_cross_study`.
+
+Two cautions apply to a cross-study score. First, studies do not measure the
+response on one scale. The pEC50 values of GDSC2 average about 6.31 and those of
+CTRPv2 about 5.55, so a model trained on one study can predict with an offset on
+the other. Errors and R² then mix the offset with how well the model ranks the
+pairs, while the correlations are not affected by an offset. Read the
+correlations first, and compare the error metrics only with a baseline on the
+same folds. Second, the studies may have fitted their curves differently. Prefer
 responses refit with the same curve fitting procedure, so that the response
 definition itself is aligned (see :doc:`datasets_provenance`).

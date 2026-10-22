@@ -140,7 +140,8 @@ The output:
 
    toySample:fingerprints:toyRidge
 
-``ModelSpec.from_name`` accepts only zoo names, which is why you build the spec from the recipe.
+``ModelSpec.from_name`` would also accept this recipe, but it would report the model under the
+recipe string. Building the spec yourself lets you choose the name.
 :doc:`/reference/recipes` describes the full grammar.
 
 Benchmark it

@@ -5,10 +5,10 @@ constraint the registry enforces after every call, so a splitter that leaks a
 sample into both train and test raises ``SplitValidationError`` rather than
 silently producing an optimistic score.
 
-It also shows the curve-quality step every built-in splitter performs:
-:func:`~drevalpy.plugin.curve_quality_mask` marks the pairs whose fitted
-dose-response curve is trustworthy, and blanking the rest keeps them out of
-every fold.
+``drevalpy.split`` and ``drevalpy.run`` apply the curve-quality rule before
+the splitter runs, so the response matrix a splitter reads already has ``NaN``
+for the pairs whose fitted dose-response curve fails it. This splitter adds one
+extra check of its own with :func:`~drevalpy.plugin.curve_quality_mask`.
 """
 
 from __future__ import annotations
@@ -45,12 +45,11 @@ def toy_leave_sample_out(
         train/test/validation masks shaped like the response matrix.
     """
     _ = validation_ratio
-    # Blank the pairs whose dose-response fit fails the quality thresholds, so
-    # the folds only ever contain curves worth training on. The two default
-    # thresholds are the ones the built-in splitters use; ``min_r2`` is an extra
-    # this splitter opts into.
+    # ``split`` has already blanked the pairs that fail the run's quality rule.
+    # ``min_r2`` is an extra this splitter opts into. Asking for it reads the
+    # ``R2`` layer, even when the run used ``CurveQuality.off()``.
     response = mudataset.response_matrix.copy()
-    response[~curve_quality_mask(mudataset, min_r2=0.5)] = np.nan
+    response[~curve_quality_mask(mudataset, min_relevance_score=None, min_abs_fold_change=None, min_r2=0.5)] = np.nan
     observed = ~np.isnan(response)
     folds: list[SplitMasks] = []
     rng = np.random.default_rng(random_state)

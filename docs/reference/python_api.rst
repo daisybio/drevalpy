@@ -35,7 +35,7 @@ Subpackages
    * - Package
      - Contents
    * - ``drevalpy.data``
-     - Dataset loading, splitting, synthetic datasets and the curve-quality mask
+     - Dataset loading, ``concat``, splitting, synthetic datasets and the ``CurveQuality`` rule
    * - ``drevalpy.types``
      - Shared enums and value objects: datasets, split masks, scopes, results
    * - ``drevalpy.experiment``
@@ -43,7 +43,7 @@ Subpackages
    * - ``drevalpy.evaluation``
      - ``evaluate``, ``score_predictions`` and the metric tables
    * - ``drevalpy.models``
-     - ``ModelSpec``, ``DRPModel``, model configuration, the zoo and tuning
+     - ``ModelSpec``, ``combinations``, ``DRPModel``, model configuration, the zoo and tuning
    * - ``drevalpy.components``
      - Featurizers, predictors and their contracts
    * - ``drevalpy.testing``

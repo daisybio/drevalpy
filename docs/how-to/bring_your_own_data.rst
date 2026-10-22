@@ -130,7 +130,9 @@ pEC50 and the other curve summaries and quality measures, as one table of sample
 other summaries (``EC50``, ``IC50``, ``AUC``) and the curve-quality measures. The splitters read
 the quality layers ``relevance_score`` and ``fold_change``: they drop the pairs whose curve fits
 poorly or barely moves (see :doc:`/reference/datasets`). Splitting a dataset without these two
-layers raises ``KeyError``.
+layers raises ``KeyError``. If your dataset has only a pEC50 matrix, switch the rule off with
+``quality=CurveQuality.off()`` in ``drevalpy.split`` and ``drevalpy.run``, or ``--no-quality-filter``
+on the command line; every pair with a finite response is then kept.
 
 Add the annotations and save the dataset
 ----------------------------------------

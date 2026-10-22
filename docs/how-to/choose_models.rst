@@ -48,7 +48,7 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
    .. tab-item:: CLI
       :sync: cli
 
-      The command line selects models by zoo name only.
+      The command line selects models by zoo name, or by recipe (see below).
 
       .. code-block:: bash
 
@@ -71,7 +71,7 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
    .. tab-item:: Python
       :sync: python
 
-      ``ModelSpec.from_name`` turns a zoo name into a model.
+      ``ModelSpec.from_name`` turns a zoo name, or a recipe (see below), into a model.
 
       .. code-block:: python
 
@@ -162,8 +162,26 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
    .. tab-item:: CLI
       :sync: cli
 
-      The command line accepts zoo names only, so give your combination a name. Put a YAML file
-      in an extension directory, here ``my_models/PcaRidge.yaml``:
+      The command line accepts a recipe wherever it accepts a zoo name. Quote it, because the
+      brackets mean something to a shell. The model is reported under the recipe string:
+
+      .. code-block:: bash
+
+         drevalpy run NaivePredictor "pca[gene_expression]:fingerprints:ridge" \
+             --dataset toy.h5mu --split-mode LDO --no-hpo
+
+      .. code-block:: text
+
+         ExperimentResult
+             Dataset: SYNTHETIC
+             Split mode: LDO
+             Normalized by: None
+             Models: 2
+                 NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 pca[gene_expression]:fingerprints:ridge (5 folds): MSE=2.6447, RMSE=1.5637, MAE=1.3321, R^2=-0.7880, Pearson=0.4109, Spearman=0.3940, Kendall=0.2949
+
+      To give your combination a short name, put a YAML file in an extension directory, here
+      ``my_models/PcaRidge.yaml``:
 
       .. code-block:: yaml
 
@@ -188,7 +206,9 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
    .. tab-item:: Python
       :sync: python
 
-      Wrap the recipe in a ``ModelSpec`` with a name of your choice:
+      ``ModelSpec.from_name("pca[gene_expression]:fingerprints:ridge")`` accepts the recipe and
+      reports the model under the recipe string. To choose the name yourself, wrap the recipe in a
+      ``ModelSpec``:
 
       .. code-block:: python
 
@@ -211,5 +231,6 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
                  NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
                  PcaRidge (5 folds): MSE=2.6447, RMSE=1.5637, MAE=1.3321, R^2=-0.7880, Pearson=0.4109, Spearman=0.3940, Kendall=0.2949
 
-To write a featurizer or a predictor of your own, see :doc:`/how-to/extend/write_predictor` and
+To compare many combinations at once instead of writing each recipe, use a grid; see
+:doc:`/how-to/evaluate_component_grids`. To write a featurizer or a predictor of your own, see :doc:`/how-to/extend/write_predictor` and
 :doc:`/tutorials/own_predictor`.

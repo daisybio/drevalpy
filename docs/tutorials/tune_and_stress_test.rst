@@ -80,7 +80,7 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 30
              Normalized by: None
              Models: 2
                  NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5569, RMSE=0.7456, MAE=0.5898, R^2=0.7913, Pearson=0.8921, Spearman=0.9011, Kendall=0.7253
+                 ElasticNet (5 folds): MSE=0.5495, RMSE=0.7407, MAE=0.5832, R^2=0.7939, Pearson=0.8935, Spearman=0.9024, Kendall=0.7275
 
    .. tab-item:: Python
       :sync: python
@@ -111,7 +111,7 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 30
              Normalized by: None
              Models: 2
                  NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5569, RMSE=0.7456, MAE=0.5898, R^2=0.7913, Pearson=0.8921, Spearman=0.9011, Kendall=0.7253
+                 ElasticNet (5 folds): MSE=0.5495, RMSE=0.7407, MAE=0.5832, R^2=0.7939, Pearson=0.8935, Spearman=0.9024, Kendall=0.7275
 
 The summary has the same numbers as in the first tutorial. It averages only the ordinary runs, the
 ones on the original data in the original pair order, so the stress tests do not change it.
@@ -171,9 +171,10 @@ Both print the same lines:
 Each line is one trial: its number, its validation RMSE (the tuning metric, lower is better) and
 the penalty strength ``alpha`` it tried. Trial 3 had the lowest RMSE, so the final model of fold 0
 uses ``alpha`` = 0.1091. Each fold tunes on its own validation pairs, so other folds can pick other
-configurations. The scores differ little between trials here, but the penalty strength can
-ruin the model: with the default ``alpha`` of 1.0 and no tuning, ``ElasticNet``
-predicts a constant on this dataset. Tuning is what makes the preset usable. See
+configurations. The scores differ little between these four trials, but a strong penalty can
+ruin the model: a search with 8 trials also tries ``alpha`` = 1.39 in this fold, and its RMSE is
+1.14. The default ``alpha`` is 0.1, close to the winner here, so tuning refines a usable preset
+rather than rescuing it. See
 :doc:`/how-to/tune_hyperparameters` for the metric, the number of trials and the search spaces, and
 :doc:`/reference/hyperparameters` for the keys.
 
@@ -247,10 +248,10 @@ Both print:
 .. code-block:: text
 
                              all pairs  within drug
-   ordinary                      0.892        0.513
-   gene_expression permuted      0.843        0.152
-   robustness trial 0            0.892        0.513
-   robustness trial 1            0.892        0.513
+   ordinary                      0.893        0.513
+   gene_expression permuted      0.844        0.152
+   robustness trial 0            0.893        0.513
+   robustness trial 1            0.893        0.513
 
 Two things stand out.
 

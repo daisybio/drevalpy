@@ -94,7 +94,9 @@ The file must have a modality named ``response``; without it loading raises ``Ke
    * - ``obs``
      - The samples
    * - ``var``
-     - The drugs, indexed by PubChem ID, with the columns ``drug_name`` and ``canonical_smiles``
+     - The drugs, indexed by PubChem ID, with the columns ``drug_name`` and ``canonical_smiles``.
+       The curated datasets give each drug ID one canonical SMILES string and each InChIKey one
+       drug ID (the lowest PubChem ID), so datasets of different studies agree on a drug
    * - ``X``
      - The pEC50 of each sample and drug
    * - ``layers``
@@ -164,6 +166,8 @@ Global annotations
        predictors read it
    * - ``cellosaurus_id``, ``cell_line_name``
      - Optional. Present only in datasets whose samples are cell lines
+   * - ``study``, ``source_sample_id``
+     - Written by ``concat``; see `Concatenated datasets`_
 
 ``mdata.uns`` keys DrEvalPy reads or writes:
 
@@ -184,31 +188,129 @@ Global annotations
    * - ``randomization``, ``randomization_provenance``
      - Written on randomized copies; see :doc:`split_modes`
 
+Concatenated datasets
+---------------------
+
+``drevalpy.data.concat(datasets, *, join="exact", name=None)`` and
+``drevalpy data concat DATASETS... OUTPUT [--join exact|inner] [--name NAME]`` join the
+datasets of several studies into one ordinary dataset; ``drevalpy run`` does the same when it is
+given several ``--dataset`` options. How to use it is in :doc:`/how-to/run_cross_study`.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Part
+     - Result
+   * - Study
+     - The name of each input dataset. The names must be distinct, non-empty and free of ``::``
+   * - Sample IDs
+     - ``<study>::<sample_id>``. A sample measured in two studies is two rows, one per study
+   * - ``obs``
+     - The inputs' columns, plus ``study`` (categorical) and ``source_sample_id``, the ID in the
+       input. An input that already has either column is rejected
+   * - Sample views
+     - Stacked by rows, view by view
+   * - Drugs
+     - The union of the drug IDs. A drug ID with different ``canonical_smiles`` in two inputs
+       raises ``ValueError``
+   * - Response and layers
+     - The union of the layers, with ``NaN`` for a pair the study did not measure
+   * - ``uns["dataset_name"]``
+     - ``name``, or the input names joined by ``+``, such as ``GDSC2+CTRPv2``
+   * - Not carried over
+     - Precomputed featurizer variants and the ``obsm`` and ``varm`` embeddings; ``concat`` warns
+
+``join="exact"`` requires every view that the inputs share to have identical feature names, in
+the same order; ``join="inner"`` keeps the features common to all inputs. With ``"exact"`` a view
+that only some inputs have raises; with ``"inner"`` it is dropped with a warning. Different units
+of a view always raise. Randomized datasets cannot be concatenated, and the inputs are not
+changed.
+
 Curve-quality filter
 --------------------
 
-Every splitter keeps only the pairs that pass a fixed curve-quality filter:
+``split`` and ``run`` keep only the pairs that pass a curve-quality rule, before the splitter
+runs. The rule is a ``drevalpy.data.CurveQuality``. The default is the CurveCurator rule:
 
 .. code-block:: text
 
    relevance_score >= -log10(0.05)   (1.3010299956639813)
    abs(fold_change) >= 0.45
 
-A pair whose ``relevance_score`` or ``fold_change`` is NaN fails. The thresholds cannot be
-changed per split. ``drevalpy.data.curve_quality_mask`` computes the same mask and takes
-optional thresholds for the other quality layers; passing ``None`` for a threshold switches
-that check off.
+A pair whose ``relevance_score`` or ``fold_change`` is NaN fails. Pass the rule as the
+``quality`` argument of ``drevalpy.split`` and ``drevalpy.run``; ``None`` means
+``CurveQuality.default()``. The rule is recorded in the metadata of each fold under ``quality``.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 66
+
+   * - Rule
+     - How to get it
+   * - Default
+     - ``CurveQuality.default()``; on the command line, no option
+   * - Other thresholds
+     - ``CurveQuality(min_relevance_score=2.0, min_r2=0.8)`` or
+       ``dataclasses.replace(CurveQuality.default(), ...)``; on the command line,
+       ``--min-relevance-score`` and ``--min-abs-fold-change``
+   * - No rule
+     - ``CurveQuality.off()``; on the command line, ``--no-quality-filter``. Every pair with a
+       finite response is kept and no quality layer is read
+
+``CurveQuality`` is a frozen dataclass with 15 numeric thresholds, each ``None`` when it is not
+checked, and ``regulation``, the labels (``"up"``, ``"down"``, ``"not"``) to keep. The thresholds
+beyond the default two are ``max_p_value``, ``min_log_p_value``, ``min_f_value``,
+``min_f_value_sam``, ``min_r2``, ``max_rmse``, ``min_signal_quality``, ``min_abs_slope``,
+``max_abs_slope``, ``min_front``, ``max_back``, ``min_pec50`` and ``max_pec50``. ``mask(dataset)``
+returns the boolean pair mask.
+
+A rule that needs a response layer the dataset lacks raises ``KeyError``. A dataset without the
+quality layers, such as one with only a pEC50 matrix, therefore needs ``CurveQuality.off()``
+(``--no-quality-filter``). ``run`` and ``data split`` accept the three options above; ``single``
+reads the folds it is given and has none. ``--no-quality-filter`` cannot be combined with
+``--min-relevance-score`` or ``--min-abs-fold-change``.
+
+``drevalpy.data.curve_quality_mask`` remains and computes the same mask as ``CurveQuality`` with
+optional thresholds.
 
 Synthetic dataset
 -----------------
 
-``drevalpy.synthetic(*, name="SYNTHETIC", n_samples=60, n_drugs=8, n_tissues=6, omics=None,
+``drevalpy.synthetic(*, name="SYNTHETIC", n_samples=60, n_drugs=8, n_tissues=6,
+omics=("gene_expression",), sample_views=(), drug_views=(), uns_payloads=(), extra_layers=(),
 feature_names=None, n_features=16, missing_fraction=0.05, low_quality_fraction=0.0, seed=3)``
 returns an in-memory ``Dataset``. It has at most 31 drugs and six tissues. Its responses
 make drugs differ strongly in mean potency, so a pooled score is high even for a model that
-ranks samples poorly within a drug. ``omics`` names the sample modalities to add, as a list or
-as a mapping from name to the number of covered samples.
+ranks samples poorly within a drug. It carries the curve-quality layers, and
+``low_quality_fraction`` makes that share of the pairs fail the default rule. Give each dataset a
+different ``name`` to concatenate several of them; datasets with the same ``seed`` describe the
+same underlying screen, and different seeds permute the drug effects.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 76
+
+   * - Argument
+     - Meaning
+   * - ``omics``
+     - The sample modalities to add, from ``gene_expression``, ``proteomics``, ``mutations``,
+       ``methylation`` and ``copy_number_variation_gistic``. A list, or a mapping from name to the
+       number of covered samples. ``None`` or an empty sequence adds none, leaving the response
+       only
+   * - ``sample_views``
+     - Views in ``response.obsm``: ``pathway_features``
+   * - ``drug_views``
+     - Views in ``response.varm``: ``morgan_fingerprint`` (needs ``rdkit``), ``chemberta``,
+       ``bpe_smiles``, ``smilesvec``
+   * - ``uns_payloads``
+     - Entries of ``mdata.uns``: ``drug_graphs`` (needs ``rdkit``), ``pathways_gmt``,
+       ``sparsego``, ``bpe_codes`` (needs ``subword-nmt``)
+   * - ``extra_layers``
+     - Response layers derived from the pEC50 matrix, from ``AUC`` and ``IC50``
 
 ``drevalpy data synthetic --output FILE`` writes the default dataset: 60 samples named
 ``SYNTH-000`` onward, 8 drugs with IDs from ``100000``, 456 measured pairs and only a
-16-feature ``gene_expression`` modality. Its ``obs`` has only the ``tissue`` column.
+16-feature ``gene_expression`` modality. Its ``obs`` has only the ``tissue`` column. The command
+has the options ``--seed``, ``--n-samples``, ``--n-drugs``, ``--n-tissues`` and ``--name``
+(default ``SYNTHETIC``); give two files different names to concatenate them.

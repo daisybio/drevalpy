@@ -13,6 +13,7 @@ Experiment directory
 
    <output dir>/
      metadata.json
+     failures.json       (only when a run failed)
      <ModelName>/
        metadata.json
        fold_0.npz
@@ -28,6 +29,8 @@ Experiment directory
    * - ``<output dir>/metadata.json``
      - ``dataset_name``, ``split_mode``, ``normalized_by`` (``null`` unless normalized) and
        ``models``, the list of model names
+   * - ``<output dir>/failures.json``
+     - Written only when at least one run failed; see `Recorded failures`_
    * - ``<ModelName>/metadata.json``
      - ``model_name``, ``dataset_name``, ``n_folds``, ``n_runs`` and ``aggregate_metrics``
    * - ``<ModelName>/fold_<i>.npz``
@@ -37,7 +40,41 @@ Experiment directory
 the model. Ordinary runs are those without randomization and without a robustness trial.
 
 An experiment holds one dataset name and one split mode; ``ExperimentResult`` rejects runs
-that disagree.
+that disagree. A model that comes from a grid or a recipe is named by its recipe, such as
+``raw[gene_expression]:fingerprints:ridge``, and so is its directory. The dataset name of a
+concatenated dataset is the study names joined by ``+``.
+
+Recorded failures
+~~~~~~~~~~~~~~~~~
+
+``drevalpy.run`` keeps going when a run raises and keeps a ``RunFailure`` for it, in the tuple
+``ExperimentResult.failures``. ``ExperimentResult.save`` writes the records to ``failures.json``
+only when there is at least one, and ``ExperimentResult.load`` reads them back. The file is a
+JSON list; each entry has these keys:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Key
+     - Content
+   * - ``model_name``
+     - The model whose run failed
+   * - ``fold_index``
+     - The fold of the run
+   * - ``randomization``
+     - ``[mode, view]`` of the randomized dataset, or ``null``
+   * - ``robustness_trial``
+     - The index of the robustness variant, or ``null`` for an ordinary run
+   * - ``error_type``
+     - The class name of the exception, such as ``KeyError``
+   * - ``message``
+     - ``str(exception)``
+
+A failed run writes no ``fold_<i>.npz`` file. The runs of the other models and folds are saved
+as usual. ``drevalpy run`` exits with status 1 when ``failures`` is not empty, and
+``drevalpy.run(..., on_error="raise")`` raises the first error instead of recording it; see
+:doc:`/how-to/evaluate_component_grids`.
 
 Which run is ``fold_<i>``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -116,6 +153,12 @@ they apply:
 
    * - Key
      - Content
+   * - ``quality``
+     - The curve-quality rule the split applied; see :doc:`split_modes`
+   * - ``test_study``
+     - The study of the test set; ``LStO`` only
+   * - ``n_splits``
+     - For ``LStO``, the number of studies
    * - ``robustness_trial``
      - The index of the robustness variant
    * - ``randomization_provenance``

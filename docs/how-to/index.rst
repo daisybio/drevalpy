@@ -16,6 +16,8 @@ so you can try every step offline.
 
 - :doc:`choose_models`: pick baselines and zoo presets, or combine components into a recipe.
 - :doc:`run_experiment`: evaluate models over the folds of a split mode.
+- :doc:`run_cross_study`: combine studies with ``concat`` and test on a study the model never saw.
+- :doc:`evaluate_component_grids`: compare every valid combination of featurizers and predictors.
 - :doc:`run_folds_in_parallel`: train each fold as its own job and combine the runs.
 - :doc:`tune_hyperparameters`: set the search, the metric, a narrower space or a fixed value.
 - :doc:`run_stress_tests`: run randomization and robustness tests.
@@ -37,6 +39,8 @@ from DrEvalPy 1 are under :doc:`migrate/index`.
    bring_your_own_data
    choose_models
    run_experiment
+   run_cross_study
+   evaluate_component_grids
    run_folds_in_parallel
    tune_hyperparameters
    run_stress_tests
