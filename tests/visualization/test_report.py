@@ -26,6 +26,7 @@ from upath import UPath
 
 from drevalpy.registry.visualization import visualization_registry
 from drevalpy.types.results.experiment import ExperimentResult
+from drevalpy.types.results.failure import RunFailure
 from drevalpy.visualization.base import Section, Visualization
 from drevalpy.visualization.report import (
     _add_module,
@@ -372,6 +373,41 @@ class TestLogging:
 
     def test_confirms_the_report_was_written(self, logged_stub_report: _BuiltReport) -> None:
         assert logged_stub_report.records[-1].getMessage().startswith("report: written | rss=")
+
+
+class TestFailedRuns:
+    pytestmark = pytest.mark.slow
+
+    def _failures(self) -> tuple[RunFailure, ...]:
+        return (
+            RunFailure("ElasticNet", 1, ("SVRC", "gene_expression"), None, "ValueError", "bad <b>input</b>"),
+            RunFailure("Ridge", 0, None, 2, "RuntimeError", "boom"),
+        )
+
+    def test_a_failed_runs_module_lists_every_failure(self, experiment, tmp_path, only_stub_is_applicable):
+        result = ExperimentResult(list(experiment.models[0].runs), self._failures())
+
+        built = _build_report(tmp_path / "failed", result)
+
+        module = next(m for m in built.modules if m.name == "Failed runs")
+        content = module.sections[0].content
+        assert content.count("<tr>") == 3
+        assert "SVRC (gene_expression)" in content
+        assert "RuntimeError" in content
+
+    def test_failure_messages_are_escaped(self, experiment, tmp_path, only_stub_is_applicable):
+        result = ExperimentResult(list(experiment.models[0].runs), self._failures())
+
+        built = _build_report(tmp_path / "escaped", result)
+
+        content = next(m for m in built.modules if m.name == "Failed runs").sections[0].content
+        assert "bad &lt;b&gt;input&lt;/b&gt;" in content
+        assert "<b>input</b>" not in content
+
+    def test_no_module_without_failures(self, experiment, tmp_path, only_stub_is_applicable):
+        built = _build_report(tmp_path / "clean", experiment)
+
+        assert [m.name for m in built.modules] == ["stub_viz"]
 
 
 class TestSaveAllPng:

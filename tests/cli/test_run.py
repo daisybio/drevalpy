@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -9,6 +10,9 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from upath import UPath
 
 from drevalpy.cli.main import app
+from drevalpy.data import CurveQuality
+from drevalpy.models import Combinations, SkippedCombination
+from drevalpy.types.results.failure import ExperimentFailedError, RunFailure
 from tests.cli._helpers import HELP_ENV, Recorder, make_runner, patch_worker, plain
 
 runner = make_runner()
@@ -17,9 +21,14 @@ runner = make_runner()
 class StubExperiment:
     """Stand-in for the ``ExperimentResult`` that ``run`` returns."""
 
-    def __init__(self) -> None:
-        """Start with an empty save log."""
+    def __init__(self, failures: tuple[RunFailure, ...] = ()) -> None:
+        """Start with an empty save log.
+
+        Args:
+            failures: Failures the stub reports, like `ExperimentResult.failures`.
+        """
         self.saved: list[str] = []
+        self.failures = failures
 
     def save(self, path: str) -> None:
         """Record the directory the command asked for.
@@ -52,9 +61,9 @@ def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str]) -> Recorder:
         Recorder standing in for :func:`drevalpy.run`.
     """
 
-    def fake_construct_model(name: str) -> type:
+    def fake_construct_model(name: str) -> SimpleNamespace:
         constructed.append(name)
-        return type(f"Stub{name}", (), {})
+        return SimpleNamespace(name=name)
 
     recorder = Recorder(return_value=StubExperiment())
     monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", fake_construct_model)
@@ -78,7 +87,7 @@ class TestDefaults:
     def test_forwards_dataset_and_split_mode(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path)
 
-        assert worker.kwargs["dataset"] == "TOYv1"
+        assert worker.kwargs["dataset"] == ["TOYv1"]
         assert worker.kwargs["split_mode"] == "LPO"
 
     def test_forwards_hpo_defaults(self, worker: Recorder, tmp_path: UPath) -> None:
@@ -103,10 +112,10 @@ class TestDefaults:
 
         assert worker.kwargs["response_transformation"] is None
 
-    def test_passes_constructed_classes_not_names(self, worker: Recorder, tmp_path: UPath) -> None:
+    def test_passes_the_constructed_specs_not_names(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path)
 
-        assert [cls.__name__ for cls in worker.kwargs["models"]] == ["StubElasticNet"]
+        assert [spec.name for spec in worker.kwargs["models"]] == ["ElasticNet"]
 
 
 class TestModelArgument:
@@ -294,3 +303,196 @@ class TestOutput:
         result = _invoke(tmp_path)
 
         assert "STUB-EXPERIMENT-REPR" in plain(result.output)
+
+
+class TestRepeatableDataset:
+    """``--dataset`` is repeatable, and every value reaches ``run`` in order."""
+
+    def test_several_datasets_become_a_list(self, worker: Recorder, tmp_path: UPath) -> None:
+        out_dir = tmp_path / "results"
+        runner.invoke(
+            app, ["run", "ElasticNet", "-d", "GDSC2", "-d", "CTRPv2", "-s", "LStO", "--output-dir", str(out_dir)]
+        )
+
+        assert worker.kwargs["dataset"] == ["GDSC2", "CTRPv2"]
+        assert worker.kwargs["split_mode"] == "LStO"
+
+
+class TestRecipeModels:
+    """MODEL arguments are resolved by ``ModelSpec.from_name``, so recipes pass through."""
+
+    def test_a_recipe_string_is_handed_to_from_name(
+        self, worker: Recorder, tmp_path: UPath, constructed: list[str]
+    ) -> None:
+        recipe = "pca[gene_expression]:fingerprints:elasticNet"
+        out_dir = tmp_path / "results"
+        runner.invoke(app, ["run", recipe, "-d", "TOYv1", "--output-dir", str(out_dir)])
+
+        assert constructed == [recipe]
+        assert [spec.name for spec in worker.kwargs["models"]] == [recipe]
+
+
+class TestGrid:
+    """``-S/-D/-P`` expand through ``drevalpy.models.combinations``."""
+
+    @pytest.fixture()
+    def grid(self, monkeypatch: pytest.MonkeyPatch) -> Recorder:
+        specs = [SimpleNamespace(name="raw[gene_expression]:fingerprints:ridge"), SimpleNamespace(name="ElasticNet")]
+        skipped = [SkippedCombination("raw[gene_expression]:fingerprints:naive", "naive takes no features")]
+        recorder = Recorder(return_value=Combinations(specs=specs, skipped=skipped))
+        monkeypatch.setattr("drevalpy.models.combinations", recorder)
+        return recorder
+
+    def _invoke_grid(self, tmp_path: UPath, *args: str) -> Any:
+        return runner.invoke(app, ["run", "-d", "TOYv1", "--output-dir", str(tmp_path / "results"), *args])
+
+    def test_the_flags_reach_combinations(self, worker: Recorder, grid: Recorder, tmp_path: UPath) -> None:
+        result = self._invoke_grid(
+            tmp_path, "-S", "raw[gene_expression]", "-S", "pca[gene_expression]", "-D", "fingerprints", "-P", "ridge"
+        )
+
+        assert result.exit_code == 0, result.output
+        assert grid.kwargs == {
+            "sample": ["raw[gene_expression]", "pca[gene_expression]"],
+            "drug": ["fingerprints"],
+            "predictors": ["ridge"],
+        }
+
+    def test_the_long_option_names_work(self, worker: Recorder, grid: Recorder, tmp_path: UPath) -> None:
+        self._invoke_grid(
+            tmp_path, "--sample-featurizer", "raw[gene_expression]", "--drug-featurizer", "fingerprints",
+            "--predictor", "ridge",
+        )  # fmt: skip
+
+        assert grid.kwargs["predictors"] == ["ridge"]
+
+    def test_skipped_combinations_are_printed_with_their_reason(
+        self, worker: Recorder, grid: Recorder, tmp_path: UPath
+    ) -> None:
+        result = self._invoke_grid(tmp_path, "-P", "ridge")
+
+        assert "raw[gene_expression]:fingerprints:naive: naive takes no features" in plain(result.output)
+
+    def test_grid_specs_are_run_without_any_model_argument(
+        self, worker: Recorder, grid: Recorder, tmp_path: UPath
+    ) -> None:
+        self._invoke_grid(tmp_path, "-P", "ridge")
+
+        assert [spec.name for spec in worker.kwargs["models"]] == [
+            "raw[gene_expression]:fingerprints:ridge",
+            "ElasticNet",
+        ]
+
+    def test_grid_specs_are_added_to_the_model_arguments_and_deduplicated_by_name(
+        self, worker: Recorder, grid: Recorder, tmp_path: UPath
+    ) -> None:
+        out_dir = tmp_path / "results"
+        runner.invoke(app, ["run", "ElasticNet", "RandomForest", "-d", "TOYv1", "-P", "ridge", "-o", str(out_dir)])
+
+        assert [spec.name for spec in worker.kwargs["models"]] == [
+            "ElasticNet",
+            "RandomForest",
+            "raw[gene_expression]:fingerprints:ridge",
+        ]
+
+    def test_an_invalid_grid_is_a_usage_error(
+        self, worker: Recorder, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
+    ) -> None:
+        def nothing_valid(**kwargs: Any) -> Combinations:
+            raise ValueError("no valid combination")
+
+        monkeypatch.setattr("drevalpy.models.combinations", nothing_valid)
+
+        result = self._invoke_grid(tmp_path, "-P", "ridge")
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
+
+    def test_featurizer_flags_without_a_predictor_are_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = self._invoke_grid(tmp_path, "-S", "pca[gene_expression]")
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
+
+    def test_no_grid_flags_do_not_call_combinations(
+        self, worker: Recorder, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
+    ) -> None:
+        monkeypatch.setattr("drevalpy.models.combinations", lambda **kwargs: pytest.fail("no grid was asked for"))
+
+        assert _invoke(tmp_path).exit_code == 0
+
+
+class TestQualityOptions:
+    """The curve-quality options become one ``CurveQuality`` passed to ``run``."""
+
+    def test_the_default_rule_is_the_default_quality(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path)
+
+        assert worker.kwargs["quality"] == CurveQuality.default()
+
+    def test_no_quality_filter_turns_the_rule_off(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--no-quality-filter")
+
+        assert worker.kwargs["quality"] == CurveQuality.off()
+
+    def test_thresholds_replace_the_defaults(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--min-relevance-score", "2.5", "--min-abs-fold-change", "0.7")
+
+        quality = worker.kwargs["quality"]
+        assert (quality.min_relevance_score, quality.min_abs_fold_change) == (2.5, 0.7)
+
+    def test_a_threshold_with_no_quality_filter_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--no-quality-filter", "--min-abs-fold-change", "0.7")
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
+
+
+class TestWandbProject:
+    def test_defaults_to_no_tracking(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path)
+
+        assert worker.kwargs["wandb_project"] is None
+
+    def test_the_project_is_forwarded(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--wandb-project", "drevalpy")
+
+        assert worker.kwargs["wandb_project"] == "drevalpy"
+
+
+class TestFailures:
+    """Recorded failures are printed after the results are saved, and set exit code 1."""
+
+    FAILURE = RunFailure("ElasticNet", 1, None, None, "RuntimeError", "boom")
+
+    def test_failures_set_exit_code_1_and_are_listed(self, worker: Recorder, tmp_path: UPath) -> None:
+        worker.return_value = StubExperiment(failures=(self.FAILURE,))
+
+        result = _invoke(tmp_path)
+
+        assert result.exit_code == 1
+        assert "1 run(s) failed" in plain(result.output)
+        assert "ElasticNet fold 1: RuntimeError: boom" in plain(result.output)
+
+    def test_the_results_are_saved_before_exiting(self, worker: Recorder, tmp_path: UPath) -> None:
+        experiment = worker.return_value = StubExperiment(failures=(self.FAILURE,))
+
+        _invoke(tmp_path)
+
+        assert experiment.saved == [str(tmp_path / "results")]
+
+    def test_no_failures_exit_cleanly(self, worker: Recorder, tmp_path: UPath) -> None:
+        assert _invoke(tmp_path).exit_code == 0
+
+    def test_every_run_failing_lists_the_failures_and_exits_1(
+        self, worker: Recorder, tmp_path: UPath, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def all_failed(**kwargs: Any) -> None:
+            raise ExperimentFailedError([self.FAILURE])
+
+        patch_worker(monkeypatch, "drevalpy._run", "run", all_failed)
+
+        result = _invoke(tmp_path)
+
+        assert result.exit_code == 1
+        assert "ElasticNet fold 1: RuntimeError: boom" in plain(result.output)

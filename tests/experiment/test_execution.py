@@ -116,6 +116,11 @@ def test_a_stored_lco_mode_is_recorded_as_lso():
 
 
 def test_lsto_folds_are_validated_as_lsto_not_as_lpo(monkeypatch):
-    """``LStO`` reaches its own validator (a stub until W1-P2) instead of the LPO fallback."""
-    with pytest.raises(NotImplementedError, match="W1-P2"):
-        _execution(monkeypatch, split_mode="LStO")
+    """``LStO`` reaches its own validator instead of the LPO fallback."""
+    seen = []
+    monkeypatch.setattr(
+        "drevalpy.experiment._execution.validate_folds",
+        lambda folds, validation, dataset: seen.append(validation),
+    )
+    _execution(monkeypatch, split_mode="LStO")
+    assert seen == ["LStO"]

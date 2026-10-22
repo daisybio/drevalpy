@@ -194,6 +194,7 @@ napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 napoleon_use_param = True
 napoleon_use_rtype = True
+napoleon_use_ivar = True
 autosummary_generate = True
 autosummary_imported_members = False
 autodoc_default_options = {

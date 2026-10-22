@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import time
 from typing import TYPE_CHECKING
 
@@ -9,7 +10,7 @@ from upath import UPath as Path
 
 from drevalpy.log import get_logger
 from drevalpy.visualization._progress import log_stage, rss_gb
-from drevalpy.visualization.base import Visualization
+from drevalpy.visualization.base import Section, Visualization
 
 if TYPE_CHECKING:
     from drevalpy.types.data.dataset import Dataset
@@ -35,6 +36,36 @@ def _add_module(sections, name: str, anchor: str) -> None:
             description=section.description,
         )
     multiqc.report.modules.append(module)
+
+
+def _add_failures_module(failures) -> None:
+    """Append a "Failed runs" module listing every recorded failure."""
+    rows = "".join(
+        "<tr>"
+        + "".join(
+            f"<td>{html.escape(str(cell))}</td>"
+            for cell in (
+                failure.model_name,
+                failure.fold_index,
+                f"{failure.randomization[0]} ({failure.randomization[1]})" if failure.randomization else "",
+                "" if failure.robustness_trial is None else failure.robustness_trial,
+                failure.error_type,
+                failure.message,
+            )
+        )
+        + "</tr>"
+        for failure in failures
+    )
+    header = "".join(
+        f"<th>{name}</th>" for name in ("Model", "Fold", "Randomization", "Robustness trial", "Error", "Message")
+    )
+    section = Section(
+        name="Failed runs",
+        anchor="failed_runs",
+        description=f"{len(failures)} run(s) raised and have no result.",
+        content=f'<table class="table table-condensed"><thead><tr>{header}</tr></thead><tbody>{rows}</tbody></table>',
+    )
+    _add_module([section], "Failed runs", "failed_runs")
 
 
 def _ensure_experiment(result):
@@ -122,6 +153,9 @@ def create_report(
         result_type = visualization_registry._result_types.get(viz_cls.registry_name, "ExperimentResult")
         viz = viz_cls()
         _run_visualization(viz, experiment, result_type, dataset=dataset)
+
+    if experiment.failures:
+        _add_failures_module(experiment.failures)
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
