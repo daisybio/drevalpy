@@ -168,4 +168,3 @@ class TestMeanOverGroups:
 
         assert np.isnan(mean)
         assert count == 0
-

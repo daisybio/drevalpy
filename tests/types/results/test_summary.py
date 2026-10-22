@@ -11,7 +11,6 @@ from drevalpy.types.results.run import RunResult
 from tests.synthetic import make_experiment_result, make_run_result
 
 
-
 def _drug_run(model_name: str, predictions: list[float], *, fold_index: int = 0) -> RunResult:
     """Two drugs of four pairs; the response is 0..3 for drug A and 10..13 for drug B.
 
