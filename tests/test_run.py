@@ -440,3 +440,25 @@ class TestGrouping:
 
         assert result.model_names == ["Alpha"]
         assert result.has_randomization
+
+
+class TestSignatureOnlyParameters:
+    """``quality``, ``wandb_project`` and ``on_error`` are accepted but wired in by W1-P7."""
+
+    def test_the_new_parameters_default_to_the_current_behaviour(self) -> None:
+        import inspect
+
+        parameters = inspect.signature(run).parameters
+
+        assert parameters["quality"].default is None
+        assert parameters["wandb_project"].default is None
+        assert parameters["on_error"].default == "record"
+
+    def test_they_are_accepted_without_changing_the_fan_out(self, recorder: _SingleRecorder, dataset: _FakeDataset):
+        run([_stub_model("A")], dataset, "LSO", hyperparameter_tuning=False, quality=None, wandb_project=None)
+
+        assert len(recorder.calls) == 2
+
+    def test_a_dataset_sequence_is_not_supported_yet(self, recorder: _SingleRecorder, dataset: _FakeDataset) -> None:
+        with pytest.raises(NotImplementedError, match="W1-P7"):
+            run([_stub_model("A")], [dataset, dataset], "LSO")

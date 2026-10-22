@@ -11,6 +11,7 @@ from upath import UPath
 
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.types.results.experiment import ExperimentResult, _run_array_bytes
+from drevalpy.types.results.failure import RunFailure
 from drevalpy.types.results.run import intern_ids
 from drevalpy.types.results.trial import TrialResult
 from drevalpy.visualization.requirements import PlotRequirement
@@ -391,6 +392,53 @@ class TestPersistence:
         make_experiment_result(n_models=1, n_folds=1).save(directory)
 
         assert ExperimentResult.load(directory).n_models == 1
+
+
+class TestFailures:
+    FAILURES = (
+        RunFailure("B", 1, None, None, "ValueError", "boom"),
+        RunFailure("B", 0, ("SVRC", "gene_expression"), 2, "KeyError", "'gene'"),
+    )
+
+    def test_failures_default_to_an_empty_tuple(self) -> None:
+        assert ExperimentResult([make_run_result()]).failures == ()
+
+    def test_failures_are_kept_as_a_tuple(self) -> None:
+        experiment = ExperimentResult([make_run_result()], list(self.FAILURES))
+
+        assert experiment.failures == self.FAILURES
+
+    def test_still_rejects_an_empty_run_list_when_there_are_failures(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            ExperimentResult([], self.FAILURES)
+
+    def test_save_omits_failures_json_when_there_are_none(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+
+        make_experiment_result(n_models=1, n_folds=1).save(directory)
+
+        assert not (directory / "failures.json").exists()
+        assert ExperimentResult.load(directory).failures == ()
+
+    def test_failures_round_trip_through_save_and_load(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+
+        ExperimentResult([make_run_result()], self.FAILURES).save(directory)
+        loaded = ExperimentResult.load(directory)
+
+        assert json.loads((directory / "failures.json").read_text())[1]["randomization"] == ["SVRC", "gene_expression"]
+        assert loaded.failures == self.FAILURES
+
+    def test_normalize_keeps_the_failures(self) -> None:
+        experiment = make_experiment_result(n_models=2, n_folds=1)
+        experiment.failures = self.FAILURES
+
+        assert experiment.normalize().failures == self.FAILURES
+
+    def test_repr_is_unchanged_by_failures(self) -> None:
+        runs = [make_run_result()]
+
+        assert repr(ExperimentResult(runs, self.FAILURES)) == repr(ExperimentResult(runs))
 
 
 class TestTrialSkipping:

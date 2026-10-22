@@ -24,6 +24,11 @@ _Avoid_: sample, observation, data point, instance
 A drug response screen together with the sample and drug features that belong
 to it, stored as one file.
 
+**Study**:
+One screen's dataset, such as GDSC2. In a dataset built with `concat`, the `study`
+column of `obs` names the study each sample row came from.
+_Avoid_: cohort, source
+
 **View**:
 One named feature table on one side, such as the sample view
 `gene_expression` or the drug view `fingerprints`.

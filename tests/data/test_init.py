@@ -42,7 +42,20 @@ LAZY_ORIGINS: dict[str, str] = {
 class TestDataSurface(DeclaredSurface):
     barrel = data
     origins = {**EAGER_ORIGINS, **LAZY_ORIGINS}
-    unpinned_names = ("split",)
+    unpinned_names = ("CurveQuality", "concat", "split")
+
+
+def test_curve_quality_is_the_class_defined_in_the_quality_module() -> None:
+    from drevalpy.data.quality import CurveQuality
+
+    assert data.CurveQuality is CurveQuality
+
+
+def test_split_accepts_a_quality_rule_without_changing_the_folds(synthetic_dataset: data.Dataset) -> None:
+    plain = data.split(synthetic_dataset, "LPO", n_splits=2)
+    with_rule = data.split(synthetic_dataset, "LPO", n_splits=2, quality=data.CurveQuality.off())
+
+    assert [f.metadata["fold_id"] for f in plain] == [f.metadata["fold_id"] for f in with_rule]
 
 
 def test_split_is_defined_by_the_barrel_itself() -> None:

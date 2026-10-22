@@ -36,6 +36,7 @@ def single(
     hpo_num_trials: int = 16,
     hpo_random_state: int | None = None,
     seed: int = 42,
+    wandb_project: str | None = None,
 ) -> RunResult:
     """Train a single model on a single fold and predict on the test set.
 
@@ -49,6 +50,8 @@ def single(
     :param hpo_num_trials: Number of HPO trials.
     :param hpo_random_state: Random seed for the HPO sampler; defaults to ``seed``.
     :param seed: Root seed; every HPO run and final fit is seeded from it and the execution identity.
+    :param wandb_project: Weights & Biases project to log the trials and the final fit to; ``None`` disables
+        tracking. Not used yet.
     :returns: RunResult with predictions, ground truth, and metrics.
     """
     execution = build_execution(

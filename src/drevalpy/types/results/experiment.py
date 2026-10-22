@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
@@ -14,6 +15,7 @@ from upath import UPath as Path
 from drevalpy.evaluation import score_predictions
 from drevalpy.log import get_logger
 from drevalpy.types.results._summary import SummaryTableMixin
+from drevalpy.types.results.failure import RunFailure, read_failures, write_failures
 from drevalpy.types.results.model import ModelResult
 from drevalpy.types.results.run import RunResult
 
@@ -26,10 +28,11 @@ logger = get_logger(__name__)
 class ExperimentResult(SummaryTableMixin):
     """Groups all model results for a complete experiment."""
 
-    def __init__(self, run_results: list[RunResult]) -> None:
+    def __init__(self, run_results: list[RunResult], failures: Sequence[RunFailure] = ()) -> None:
         """Create an ExperimentResult from a flat list of RunResults.
 
         :param run_results: Non-empty list of RunResult objects sharing the same dataset.
+        :param failures: Runs that raised instead of producing a result; kept as the :attr:`failures` tuple.
         :raises ValueError: If the list is empty or contains inconsistent metadata.
         """
         if not run_results:
@@ -46,6 +49,7 @@ class ExperimentResult(SummaryTableMixin):
         self.dataset_name: str = dataset_names.pop()
         self.split_mode: str = split_modes.pop() if split_modes else ""
         self.normalized_by: str | None = None
+        self.failures: tuple[RunFailure, ...] = tuple(failures)
 
         grouped: dict[str, list[RunResult]] = defaultdict(list)
         for r in run_results:
@@ -131,14 +135,14 @@ class ExperimentResult(SummaryTableMixin):
             ref_run = ref_runs_by_fold[run.fold_key]
             normalized_runs.append(_normalize_run(run, ref_run))
 
-        result = ExperimentResult(normalized_runs)
+        result = ExperimentResult(normalized_runs, self.failures)
         result.normalized_by = reference_model
         return result
 
     def save(self, directory: str | Path) -> None:
         """Save to a directory tree.
 
-        :param directory: Root output directory.
+        :param directory: Root output directory. ``failures.json`` is written only when there are failures.
         """
         out = Path(directory)
         out.mkdir(parents=True, exist_ok=True)
@@ -150,6 +154,8 @@ class ExperimentResult(SummaryTableMixin):
             "models": self.model_names,
         }
         (out / "metadata.json").write_text(json.dumps(meta, indent=2))
+
+        write_failures(out, self.failures)
 
         for model_result in self.models:
             model_result.save(out / model_result.model_name)
@@ -173,7 +179,7 @@ class ExperimentResult(SummaryTableMixin):
             if not run.split_mode:
                 run.split_mode = meta.get("split_mode", "")
 
-        experiment = cls(all_runs)
+        experiment = cls(all_runs, read_failures(path))
         experiment.normalized_by = meta.get("normalized_by")
         _log_load_summary(experiment, all_runs, with_trials=with_trials)
         return experiment

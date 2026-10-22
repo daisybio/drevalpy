@@ -288,7 +288,7 @@ max_module_statements = 150
 # concerns: a declarative registry of builtin components, one dataset facade,
 # one plot each.
 "drevalpy/registry/_builtins.py" = 199
-"drevalpy/types/data/dataset.py" = 218
+"drevalpy/types/data/dataset.py" = 207
 "drevalpy/visualization/plots/leaderboard.py" = 177
 "drevalpy/components/predictors/neural_network/predictor.py" = 165
 

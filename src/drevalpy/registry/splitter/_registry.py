@@ -95,7 +95,7 @@ class SplitterRegistry:
 
         :param mode: Mode name (e.g. "LPO", "LSO", or a custom name).
         :param description: Human-readable description of the splitting approach.
-        :param validation: Which leakage constraint to enforce ("LSO", "LDO", "LPO", "LTO").
+        :param validation: Which leakage constraint to enforce ("LSO", "LDO", "LPO", "LTO", "LStO").
         :param override: Replace an already-registered mode instead of raising.
         :param aliases: Alternative names that resolve to *mode*. Results, metadata and
             file names always use *mode*, never the alias the caller typed.

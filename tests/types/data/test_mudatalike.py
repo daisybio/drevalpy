@@ -35,6 +35,12 @@ class _MinimalDataset:
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
         return np.array(["Lung"] * len(ids))
 
+    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
+        """Serve the tissue column, the only per-sample metadata this fake has."""
+        if column != "tissue":
+            raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
+        return self.get_tissue(ids)
+
     def response_layer_names(self) -> list[str]:
         return ["relevance_score"]
 
@@ -58,6 +64,10 @@ class _MissingGetTissue:
     @property
     def response_matrix(self) -> np.ndarray:
         return np.array([[1.0]])
+
+    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
+        """This fake has no per-sample metadata."""
+        raise KeyError(column)
 
     def response_layer_names(self) -> list[str]:
         return []
@@ -83,6 +93,12 @@ class _MissingGetResponseLayer:
 
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
         return np.array(["Lung"] * len(ids))
+
+    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
+        """Serve the tissue column, the only per-sample metadata this fake has."""
+        if column != "tissue":
+            raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
+        return self.get_tissue(ids)
 
     def response_layer_names(self) -> list[str]:
         return []
@@ -132,6 +148,9 @@ class TestProtocolLimits:
             response_layer_names = "not a method"
 
             def get_tissue(self) -> None:
+                return None
+
+            def sample_column(self) -> None:
                 return None
 
             def get_response_layer(self) -> None:

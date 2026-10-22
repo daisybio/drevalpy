@@ -7,9 +7,10 @@ import hashlib
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset as Dataset
 
+from ._concat import concat
 from ._synthetic import synthetic
 from .datasets._load import load
-from .quality import curve_quality_mask
+from .quality import CurveQuality, curve_quality_mask
 
 
 def split(
@@ -18,6 +19,8 @@ def split(
     n_splits: int = 5,
     validation_ratio: float = 0.1,
     random_state: int = 42,
+    *,
+    quality: CurveQuality | None = None,
 ) -> list[SplitMasks]:
     """Split a dataset using a registered splitter.
 
@@ -26,6 +29,8 @@ def split(
     :param n_splits: Number of CV folds.
     :param validation_ratio: Fraction of training data for validation.
     :param random_state: Seed for reproducibility.
+    :param quality: Curve-quality rule applied before the splitter; ``None`` means ``CurveQuality.default()``.
+        Not applied yet: the splitters still filter with the default rule themselves.
     :returns: List of SplitMasks, one per fold.
     """
     from drevalpy.registry.splitter import splitter_registry
@@ -68,6 +73,8 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    "CurveQuality",
+    "concat",
     "curve_quality_mask",
     "dataset_registry",
     "load",

@@ -8,9 +8,10 @@ converged, so ``~np.isnan(response_matrix)`` alone counts junk curves as usable
 observations. Filtering on the quality metrics that ship alongside is what
 separates a measured pair from a trustworthy one.
 
-:func:`curve_quality_mask` is the single entry point. Every quality metric a
-dataset carries is a keyword option, and passing ``None`` disables that check,
-so the default call applies exactly the CurveCurator-derived rule:
+:class:`CurveQuality` is the entry point, and :func:`curve_quality_mask` a thin
+wrapper over it. Every quality metric a dataset carries is a field, and ``None``
+disables that check, so :meth:`CurveQuality.default` applies exactly the
+CurveCurator-derived rule:
 
 .. code-block:: python
 
@@ -34,15 +35,17 @@ Two choices worth stating, because the obvious alternatives are wrong:
   default, but it is NaN wherever CurveCurator reached no verdict and it encodes
   direction rather than quality. It is exposed as a categorical option.
 
-There is no capability check and no silent fallback: the layers are guaranteed
-by the file format, so a missing one raises :class:`KeyError`.
+There is no capability check and no silent fallback: a rule that needs a layer
+the dataset lacks raises :class:`KeyError`. :meth:`CurveQuality.off` is the
+explicit opt-out; it needs no layers.
 """
 
 from __future__ import annotations
 
 import operator
-from collections.abc import Callable, Collection
-from typing import TYPE_CHECKING, Final
+from collections.abc import Callable, Collection, Mapping
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Any, Final
 
 import numpy as np
 
@@ -57,7 +60,7 @@ _RESPONSE_MATRIX: Final = "pEC50"
 _Comparison = Callable[[np.ndarray, float], np.ndarray]
 _Transform = Callable[[np.ndarray], np.ndarray] | None
 
-#: Keyword argument of :func:`curve_quality_mask` -> (response layer,
+#: Threshold field of :class:`CurveQuality` -> (response layer,
 #: comparison that a *passing* curve satisfies, optional value transform).
 #:
 #: Driving the checks from a table rather than a branch per metric is what keeps
@@ -81,48 +84,27 @@ _RULES: Final[dict[str, tuple[str, _Comparison, _Transform]]] = {
     "max_pec50": (_RESPONSE_MATRIX, operator.le, None),
 }
 
+#: Names of the numeric thresholds, in table order.
+_THRESHOLD_NAMES: Final = tuple(_RULES)
+
 #: Layer holding CurveCurator's own up/down/not verdict.
 _REGULATION_LAYER: Final = "regulation"
 
 
-def curve_quality_mask(
-    dataset: MuDataLike,
-    *,
-    # The CurveCurator-derived rule, on by default.
-    min_relevance_score: float | None = 1.3010299956639813,  # -log10(0.05), i.e. alpha
-    min_abs_fold_change: float | None = 0.45,  # fc_lim, already log2 in the layer
-    # Significance, off by default.
-    max_p_value: float | None = None,
-    min_log_p_value: float | None = None,
-    min_f_value: float | None = None,
-    min_f_value_sam: float | None = None,
-    # Goodness of fit, off by default.
-    min_r2: float | None = None,
-    max_rmse: float | None = None,
-    min_signal_quality: float | None = None,
-    # Curve shape, off by default.
-    min_abs_slope: float | None = None,
-    max_abs_slope: float | None = None,
-    min_front: float | None = None,
-    max_back: float | None = None,
-    min_pec50: float | None = None,
-    max_pec50: float | None = None,
-    # CurveCurator's own verdict, off by default.
-    regulation: Collection[str] | None = None,
-) -> np.ndarray:
-    """Mask of the pairs whose fitted curve meets every requested threshold.
+@dataclass(frozen=True)
+class CurveQuality:
+    """A curve-quality rule: every threshold a pair's fitted curve must meet.
 
     The defaults are the ``alpha = 0.05`` and ``fc_lim = 0.45`` that
     :mod:`drevalpy.curation._fit` passes to CurveCurator, expressed as
     ``relevance_score >= -log10(alpha)`` and ``abs(fold_change) >= fc_lim``.
-    Every other option is ``None``, meaning "do not check this metric".
+    Every other threshold is ``None``, meaning "do not check this metric".
+    Use :meth:`default` for that rule and :meth:`off` for no rule at all.
 
     A metric that is NaN fails: a curve CurveCurator could not score is not a
     curve worth training on.
 
-    Args:
-        dataset: Dataset (or any :class:`~drevalpy.types.data.mudatalike.MuDataLike`)
-            whose response layers hold the quality metrics.
+    Attributes:
         min_relevance_score: Minimum SAM-corrected relevance score. This is the
             multiple-testing-corrected statistic; prefer it over *max_p_value*.
         min_abs_fold_change: Minimum absolute log2 curve fold change, i.e. the
@@ -147,46 +129,147 @@ def curve_quality_mask(
             point falls outside the tested dose range.
         max_pec50: Maximum pEC50.
         regulation: Keep only curves CurveCurator labelled with one of these,
-            out of ``"up"``, ``"down"`` and ``"not"``.
+            out of ``"up"``, ``"down"`` and ``"not"``. Stored sorted and
+            de-duplicated.
+    """
+
+    # The CurveCurator-derived rule, on by default.
+    min_relevance_score: float | None = 1.3010299956639813  # -log10(0.05), i.e. alpha
+    min_abs_fold_change: float | None = 0.45  # fc_lim, already log2 in the layer
+    # Significance, off by default.
+    max_p_value: float | None = None
+    min_log_p_value: float | None = None
+    min_f_value: float | None = None
+    min_f_value_sam: float | None = None
+    # Goodness of fit, off by default.
+    min_r2: float | None = None
+    max_rmse: float | None = None
+    min_signal_quality: float | None = None
+    # Curve shape, off by default.
+    min_abs_slope: float | None = None
+    max_abs_slope: float | None = None
+    min_front: float | None = None
+    max_back: float | None = None
+    min_pec50: float | None = None
+    max_pec50: float | None = None
+    # CurveCurator's own verdict, off by default.
+    regulation: tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        """Store *regulation* as a sorted tuple so equal rules compare and serialize equal."""
+        if self.regulation is not None:
+            labels = {self.regulation} if isinstance(self.regulation, str) else set(self.regulation)
+            object.__setattr__(self, "regulation", tuple(sorted(labels)))
+
+    @classmethod
+    def default(cls) -> CurveQuality:
+        """The CurveCurator-derived rule: relevance score and fold change only."""
+        return cls()
+
+    @classmethod
+    def off(cls) -> CurveQuality:
+        """No quality rule: every pair with a finite response is kept.
+
+        :meth:`mask` then reads no response layers, so datasets without the
+        quality metrics can be used.
+        """
+        return cls(**{name: None for name in _THRESHOLD_NAMES})
+
+    def _thresholds(self) -> dict[str, float]:
+        """The thresholds that are set, by name."""
+        return {name: getattr(self, name) for name in _THRESHOLD_NAMES if getattr(self, name) is not None}
+
+    def mask(self, dataset: MuDataLike) -> np.ndarray:
+        """Mask of the pairs whose fitted curve meets every requested threshold.
+
+        When no threshold and no *regulation* is set (see :meth:`off`), this is
+        ``np.isfinite(dataset.response_matrix)`` and reads no response layers.
+
+        Args:
+            dataset: Dataset (or any :class:`~drevalpy.types.data.mudatalike.MuDataLike`)
+                whose response layers hold the quality metrics.
+
+        Returns:
+            Boolean array of shape ``(n_samples, n_drugs)``, True where the curve
+            passes. Use ``~mask`` to blank the failing pairs of a response matrix.
+
+        Raises:
+            KeyError: If a layer a requested threshold needs is not in the dataset.
+            ValueError: If *regulation* contains a label CurveCurator does not use.
+        """
+        thresholds = self._thresholds()
+        if not thresholds and self.regulation is None:
+            return np.isfinite(np.asarray(dataset.response_matrix))
+        return _combine(dataset, thresholds, self.regulation)
+
+    def to_metadata(self) -> dict[str, Any]:
+        """The set thresholds as a JSON-safe dict; unset (``None``) ones are omitted.
+
+        Returns:
+            Mapping of threshold name to float, plus ``regulation`` as a list of
+            labels when set. ``off()`` gives an empty dict.
+        """
+        metadata: dict[str, Any] = {name: float(value) for name, value in self._thresholds().items()}
+        if self.regulation is not None:
+            metadata["regulation"] = list(self.regulation)
+        return metadata
+
+    @classmethod
+    def from_metadata(cls, metadata: Mapping[str, Any]) -> CurveQuality:
+        """Rebuild the rule :meth:`to_metadata` described.
+
+        Names absent from *metadata* are unset, so ``{}`` is :meth:`off`, not
+        :meth:`default`.
+
+        Args:
+            metadata: Mapping as produced by :meth:`to_metadata`.
+
+        Returns:
+            The rule, equal to the one that produced *metadata*.
+
+        Raises:
+            ValueError: If *metadata* holds a name that is not a threshold.
+        """
+        unknown = sorted(set(metadata) - {*_THRESHOLD_NAMES, "regulation"})
+        if unknown:
+            raise ValueError(f"Unknown curve-quality option(s) {unknown}. Valid: {sorted(_RULES)} and 'regulation'")
+        return replace(cls.off(), **metadata)
+
+
+def curve_quality_mask(dataset: MuDataLike, **options: Any) -> np.ndarray:
+    """Mask of the pairs whose fitted curve meets every requested threshold.
+
+    A thin wrapper over :meth:`CurveQuality.mask`. *options* are the fields of
+    :class:`CurveQuality` and start from its defaults, so the default call
+    applies exactly the CurveCurator-derived rule; passing ``None`` for a
+    threshold disables that check.
+
+    Args:
+        dataset: Dataset (or any :class:`~drevalpy.types.data.mudatalike.MuDataLike`)
+            whose response layers hold the quality metrics.
+        **options: Any :class:`CurveQuality` field, such as ``min_r2=0.8`` or
+            ``min_relevance_score=None``.
 
     Returns:
-        Boolean array of shape ``(n_samples, n_drugs)``, True where the curve
-        passes. Use ``~mask`` to blank the failing pairs of a response matrix.
+        Boolean array of shape ``(n_samples, n_drugs)``, True where the curve passes.
 
     Raises:
         KeyError: If a layer a requested threshold needs is not in the dataset.
         ValueError: If *regulation* contains a label CurveCurator does not use.
+        TypeError: If an option is not a :class:`CurveQuality` field.
     """
-    thresholds: dict[str, float | None] = {
-        "min_relevance_score": min_relevance_score,
-        "min_abs_fold_change": min_abs_fold_change,
-        "max_p_value": max_p_value,
-        "min_log_p_value": min_log_p_value,
-        "min_f_value": min_f_value,
-        "min_f_value_sam": min_f_value_sam,
-        "min_r2": min_r2,
-        "max_rmse": max_rmse,
-        "min_signal_quality": min_signal_quality,
-        "min_abs_slope": min_abs_slope,
-        "max_abs_slope": max_abs_slope,
-        "min_front": min_front,
-        "max_back": max_back,
-        "min_pec50": min_pec50,
-        "max_pec50": max_pec50,
-    }
-    return _combine(dataset, thresholds, regulation)
+    return CurveQuality(**options).mask(dataset)
 
 
 def _combine(
     dataset: MuDataLike,
-    thresholds: dict[str, float | None],
+    thresholds: Mapping[str, float],
     regulation: Collection[str] | None,
 ) -> np.ndarray:
     """AND together every requested check, starting from "everything passes"."""
     mask = np.ones(dataset.response_matrix.shape, dtype=bool)
     for name, threshold in thresholds.items():
-        if threshold is not None:
-            mask &= _threshold_mask(dataset, name, threshold)
+        mask &= _threshold_mask(dataset, name, threshold)
     if regulation is not None:
         mask &= _regulation_mask(dataset, regulation)
     return mask

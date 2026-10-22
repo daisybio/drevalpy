@@ -8,7 +8,7 @@ import numpy as np
 
 from drevalpy.types import MuDataLike, SplitMasks
 
-Validation = Literal["LSO", "LDO", "LPO", "LTO"]
+Validation = Literal["LSO", "LDO", "LPO", "LTO", "LStO"]
 
 #: Legacy validation names accepted wherever a :data:`Validation` is, mapped to the canonical one.
 VALIDATION_ALIASES: dict[str, str] = {"LCO": "LSO"}
@@ -99,6 +99,11 @@ def _validate_lto(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -
         )
 
 
+def _validate_lsto(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
+    """LStO: no study belongs to more than one of train/validation and test."""
+    raise NotImplementedError("W1-P2")
+
+
 def _validate_lpo(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
     """LPO pair disjointness is enforced by :func:`_validate_partition`."""
 
@@ -113,5 +118,6 @@ _VALIDATORS = {
     "LSO": _validate_lso,
     "LDO": _validate_ldo,
     "LTO": _validate_lto,
+    "LStO": _validate_lsto,
     "LPO": _validate_lpo,
 }

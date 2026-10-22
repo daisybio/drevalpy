@@ -11,13 +11,13 @@ from drevalpy.types import SplitMask, SplitMasks
 from tests.models.synthetic_fixtures import synthetic_mudataset
 
 
-def _execution(monkeypatch, *, stopping=True, seed=17):
+def _execution(monkeypatch, *, stopping=True, seed=17, split_mode="LPO"):
     dataset = synthetic_mudataset()
     masks = SplitMasks(
         SplitMask(np.array([[True, False], [False, False]]), seed),
         SplitMask(np.array([[False, False], [False, True]]), seed),
         SplitMask(np.array([[False, True], [True, False]]), seed),
-        {"split_mode": "LPO", "fold_index": 1, "nested": {"values": [1, 2]}},
+        {"split_mode": split_mode, "fold_index": 1, "nested": {"values": [1, 2]}},
     )
     spec = ModelSpec.from_name("NaivePredictor")
     monkeypatch.setattr(ModelSpec, "supports_early_stopping", property(lambda self: stopping))
@@ -113,3 +113,9 @@ def test_a_stored_lco_mode_is_recorded_as_lso():
     )
     assert execution.identity.split_mode == "LSO"
     assert execution.result_metadata()["split_mode"] == "LSO"
+
+
+def test_lsto_folds_are_validated_as_lsto_not_as_lpo(monkeypatch):
+    """``LStO`` reaches its own validator (a stub until W1-P2) instead of the LPO fallback."""
+    with pytest.raises(NotImplementedError, match="W1-P2"):
+        _execution(monkeypatch, split_mode="LStO")

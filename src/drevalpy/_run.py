@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from itertools import product
+from typing import Literal
 
 from drevalpy._single import single
-from drevalpy.data import load, split
+from drevalpy.data import CurveQuality, load, split
 from drevalpy.experiment._randomization import randomization
 from drevalpy.experiment._robustness import robustness
 from drevalpy.models.spec import ModelSpec
@@ -22,7 +24,7 @@ def _validate_models(models: list[ModelSpec]) -> None:
 
 def run(
     models: list[ModelSpec],
-    dataset: Dataset | str,
+    dataset: Dataset | str | Sequence[Dataset | str],
     split_mode: str,
     randomization_modes: list[str] | None = None,
     randomization_type: str = "permutation",
@@ -34,11 +36,15 @@ def run(
     randomization_random_state: int | None = None,
     seed: int = 42,
     response_transformation=None,
+    quality: CurveQuality | None = None,
+    wandb_project: str | None = None,
+    on_error: Literal["record", "raise"] = "record",
 ) -> ExperimentResult:
     """Run the full experiment pipeline.
 
     :param models: Named model specifications to evaluate.
-    :param dataset: Dataset object or name to load.
+    :param dataset: Dataset object or name to load, or a sequence of them to concatenate into one
+        cross-study dataset (see ``drevalpy.data.concat``). A sequence is not supported yet.
     :param split_mode: Split mode (LPO, LSO, LDO, LTO).
     :param randomization_modes: Optional randomization modes (SVRC, SVCC, SVRD, SVCD).
     :param randomization_type: "permutation" or "invariant".
@@ -50,8 +56,15 @@ def run(
     :param randomization_random_state: Root seed for reproducible feature randomization; defaults to ``seed``.
     :param seed: Root seed driving the splits, the HPO and randomization defaults, and every model fit.
     :param response_transformation: Optional unfitted target transformer, cloned for every fit.
+    :param quality: Curve-quality rule applied before the splitter; ``None`` means ``CurveQuality.default()``.
+        Not used yet.
+    :param wandb_project: Weights & Biases project to log to; ``None`` disables tracking. Not used yet.
+    :param on_error: ``"record"`` keeps going when a run raises and stores a ``RunFailure`` on the result;
+        ``"raise"`` re-raises the first error. Not used yet.
     :returns: ExperimentResult grouping all model results.
     """
+    if isinstance(dataset, Sequence) and not isinstance(dataset, str):
+        raise NotImplementedError("W1-P7")
     _validate_models(models)
     ds = load(dataset) if isinstance(dataset, str) else dataset
     folds = split(ds, split_mode, random_state=seed)

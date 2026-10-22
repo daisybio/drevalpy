@@ -638,3 +638,9 @@ class TestNeuralReproducibility:
         other = self._predict(tiny_network, synthetic_dataset, folds[0], seed=2)
 
         assert not np.array_equal(first, other)
+
+
+def test_wandb_project_is_accepted_and_defaults_to_none() -> None:
+    import inspect
+
+    assert inspect.signature(single).parameters["wandb_project"].default is None

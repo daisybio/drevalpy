@@ -45,6 +45,12 @@ class _FakeMuDataset:
         """One distinct tissue per sample."""
         return np.array([f"tissue_{i}" for i in range(_SHAPE[0])])
 
+    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
+        """Serve the tissue column, the only per-sample metadata this fake has."""
+        if column != "tissue":
+            raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
+        return self.get_tissue(ids)
+
     def response_layer_names(self) -> list[str]:
         """Names of the available response layers."""
         return ["relevance_score", "fold_change"]

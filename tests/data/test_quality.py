@@ -8,11 +8,15 @@ off-by-default test, so the fifteen options cannot drift apart in coverage.
 
 from __future__ import annotations
 
+import dataclasses
+import json
+
 import numpy as np
 import pytest
 
 from drevalpy.curation._anndata import _REGULATION_ENCODING
-from drevalpy.data.quality import _RESPONSE_MATRIX, _RULES, curve_quality_mask
+from drevalpy.data import synthetic
+from drevalpy.data.quality import _RESPONSE_MATRIX, _RULES, CurveQuality, curve_quality_mask
 
 _SHAPE = (2, 3)
 
@@ -88,6 +92,12 @@ class FakeDataset:
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
         """One tissue for every sample."""
         return np.array(["Lung"] * len(ids))
+
+    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
+        """Serve the tissue column, the only per-sample metadata this fake has."""
+        if column != "tissue":
+            raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
+        return self.get_tissue(ids)
 
     def response_layer_names(self) -> list[str]:
         """Names of the layers this fake carries."""
@@ -416,3 +426,99 @@ class TestMaskShape:
 
         for name, values in before.items():
             assert np.array_equal(dataset.get_response_layer(name), values)
+
+
+class TestCurveQuality:
+    def test_default_mask_equals_the_hand_written_rule_on_a_synthetic_dataset(self) -> None:
+        dataset = synthetic(low_quality_fraction=0.3)
+        relevance = dataset.get_response_layer("relevance_score").astype(np.float64)
+        fold_change = dataset.get_response_layer("fold_change").astype(np.float64)
+        expected = (relevance >= -np.log10(0.05)) & (np.abs(fold_change) >= 0.45)
+
+        mask = CurveQuality.default().mask(dataset)
+
+        assert not mask.all()
+        assert mask.dtype == bool
+        np.testing.assert_array_equal(mask, expected)
+        np.testing.assert_array_equal(mask, curve_quality_mask(dataset))
+
+    def test_default_is_the_dataclass_default(self) -> None:
+        assert CurveQuality.default() == CurveQuality()
+
+    def test_off_keeps_exactly_the_finite_responses(self) -> None:
+        dataset = FakeDataset({}, response=np.array([[6.0, np.nan, 5.0], [np.inf, 7.0, 6.5]]))
+
+        mask = CurveQuality.off().mask(dataset)
+
+        np.testing.assert_array_equal(mask, [[True, False, True], [False, True, True]])
+
+    def test_off_works_after_the_quality_layers_are_removed(self) -> None:
+        dataset = synthetic(low_quality_fraction=0.3)
+        for name in dataset.response_layer_names():
+            if name != "LN_IC50":
+                del dataset.response.layers[name]
+
+        with pytest.raises(KeyError):
+            CurveQuality.default().mask(dataset)
+        np.testing.assert_array_equal(CurveQuality.off().mask(dataset), np.isfinite(dataset.response_matrix))
+
+    def test_off_sets_no_threshold(self) -> None:
+        assert CurveQuality.off().to_metadata() == {}
+
+    def test_custom_thresholds_are_applied_on_top_of_the_defaults(self) -> None:
+        dataset = FakeDataset(
+            {
+                "relevance_score": np.full(_SHAPE, 9.0),
+                "fold_change": np.full(_SHAPE, -2.0),
+                "R2": np.array([[0.99, 0.5, 0.99]] * 2),
+            }
+        )
+
+        mask = CurveQuality(min_r2=0.9).mask(dataset)
+
+        np.testing.assert_array_equal(mask, [[True, False, True]] * 2)
+
+    def test_the_rule_is_frozen_and_hashable(self) -> None:
+        rule = CurveQuality(regulation=("up",))
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            rule.min_r2 = 0.5  # type: ignore[misc]
+        assert hash(rule) == hash(CurveQuality(regulation=("up",)))
+
+    def test_regulation_is_stored_sorted_and_deduplicated(self) -> None:
+        assert CurveQuality(regulation={"up", "down"}).regulation == ("down", "up")  # type: ignore[arg-type]
+        assert CurveQuality(regulation=["up", "up"]).regulation == ("up",)  # type: ignore[arg-type]
+
+    def test_an_unknown_option_is_a_type_error(self) -> None:
+        with pytest.raises(TypeError):
+            curve_quality_mask(FakeDataset({}), min_nonsense=1.0)
+
+
+class TestMetadata:
+    def test_default_metadata_holds_only_the_two_default_thresholds(self) -> None:
+        assert CurveQuality.default().to_metadata() == {
+            "min_relevance_score": 1.3010299956639813,
+            "min_abs_fold_change": 0.45,
+        }
+
+    @pytest.mark.parametrize(
+        "rule",
+        [
+            CurveQuality.default(),
+            CurveQuality.off(),
+            CurveQuality(min_relevance_score=None, max_rmse=0.1, regulation=("up", "down")),
+            CurveQuality(**{option: _THRESHOLDS[option][0] for option in _RULES}),
+        ],
+        ids=["default", "off", "partial", "all"],
+    )
+    def test_metadata_round_trips_through_json(self, rule: CurveQuality) -> None:
+        metadata = json.loads(json.dumps(rule.to_metadata()))
+
+        assert CurveQuality.from_metadata(metadata) == rule
+
+    def test_empty_metadata_is_off_not_default(self) -> None:
+        assert CurveQuality.from_metadata({}) == CurveQuality.off()
+
+    def test_unknown_metadata_names_raise(self) -> None:
+        with pytest.raises(ValueError, match="min_nonsense"):
+            CurveQuality.from_metadata({"min_nonsense": 1.0})

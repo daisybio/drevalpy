@@ -114,7 +114,9 @@ def build_execution(
         raise TypeError("Experiment models must be ModelSpec values")
     mode = splitter_registry.canonical(folds.metadata.get("split_mode", folds.metadata.get("mode", "")))
     validation = splitter_registry.get_metadata(mode)["validation"] if mode in splitter_registry.modes else mode
-    validate_folds([folds], cast(Validation, validation if validation in ("LSO", "LDO", "LTO") else "LPO"), dataset)
+    validate_folds(
+        [folds], cast(Validation, validation if validation in ("LSO", "LDO", "LTO", "LStO") else "LPO"), dataset
+    )
     stopping, validation_scope = None, folds.val
     if model.supports_early_stopping and len(folds.val) > 1:
         stopping, validation_scope = folds.early_stopping_mask()

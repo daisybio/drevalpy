@@ -25,6 +25,7 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 
 from .dataset_utils._dense import to_dense
+from .dataset_utils._sample_column import SampleColumnMixin
 from .dataset_utils._stored_identity import plain_value, stored_randomization
 from .dataset_utils.feature_access import FeatureAccessMixin
 from .dataset_utils.randomization import RandomizationMixin
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
+class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataLike):
     """Single entry point for all dataset access in drevalpy.
 
     Wraps a MuData object containing a "response" modality (sample x drug
@@ -333,17 +334,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         Returns:
             1-D string array of tissue labels (NaN for unknown IDs).
         """
-        import pandas as pd
-
-        ids = np.asarray(ids, dtype=str)
-        idx = pd.Index(self._mdata.obs.index)
-        positions = idx.get_indexer(ids)
-
-        tissues = self._mdata.obs["tissue"].values
-        result = np.full(len(ids), np.nan, dtype=object)
-        valid = positions >= 0
-        result[valid] = tissues[positions[valid]]
-        return result
+        return self.sample_column("tissue", ids)
 
     # ------------------------------------------------------------------
     # Subsetting

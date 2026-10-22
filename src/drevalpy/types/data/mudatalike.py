@@ -37,6 +37,14 @@ class MuDataLike(Protocol):
         """Return tissue labels for the given sample IDs."""
         ...
 
+    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
+        """Return one per-sample metadata column for the given sample IDs.
+
+        IDs that are not samples of the dataset give NaN. A column the dataset
+        does not have raises :class:`KeyError`, naming the available columns.
+        """
+        ...
+
     def response_layer_names(self) -> list[str]:
         """Names of the available response layers."""
         ...

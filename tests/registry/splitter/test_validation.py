@@ -41,6 +41,12 @@ class _FakeMuDataset:
         """Return the tissue label per requested sample id."""
         return self._tissues
 
+    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
+        """Serve the tissue column, the only per-sample metadata this fake has."""
+        if column != "tissue":
+            raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
+        return self.get_tissue(ids)
+
     def response_layer_names(self) -> list[str]:
         """Names of the available response layers."""
         return ["relevance_score", "fold_change"]
@@ -73,7 +79,14 @@ def test_split_validation_error_is_a_value_error() -> None:
 
 
 def test_every_declared_mode_has_a_validator() -> None:
-    assert set(_VALIDATORS) == {"LSO", "LDO", "LPO", "LTO"}
+    assert set(_VALIDATORS) == {"LSO", "LDO", "LPO", "LTO", "LStO"}
+
+
+def test_lsto_validation_is_not_implemented_yet(mudataset: _FakeMuDataset) -> None:
+    fold = _fold(_mask((0,), (0,)), _mask((1,), (0,)))
+
+    with pytest.raises(NotImplementedError, match="W1-P2"):
+        validate_folds([fold], "LStO", mudataset)  # type: ignore[arg-type]
 
 
 def test_the_legacy_lco_validation_name_means_lso(mudataset: _FakeMuDataset) -> None:
