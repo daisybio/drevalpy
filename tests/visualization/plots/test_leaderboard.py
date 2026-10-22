@@ -98,7 +98,7 @@ class TestGetTestModeName:
     @pytest.mark.parametrize(
         ("mode", "expected"),
         [
-            pytest.param("LCO", "10-Fold Leave-Cell-Out Cross Validation", id="lco"),
+            pytest.param("LSO", "10-Fold Leave-Sample-Out Cross Validation", id="lso"),
             pytest.param("LDO", "10-Fold Leave-Drug-Out Cross Validation", id="ldo"),
             pytest.param("LPO", "10-Fold Leave-Pair-Out Cross Validation", id="lpo"),
             pytest.param("LTO", "10-Fold Leave-Tissue-Out Cross Validation", id="lto"),

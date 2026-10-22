@@ -91,3 +91,25 @@ def test_original_overlap_is_rejected_before_execution(monkeypatch):
             hpo_random_state=9,
             seed=5,
         )
+
+
+def test_a_stored_lco_mode_is_recorded_as_lso():
+    dataset = synthetic_mudataset()
+    masks = SplitMasks(
+        SplitMask(np.array([[True, True], [False, False]]), 17),
+        SplitMask(np.array([[False, False], [False, False]]), 17),
+        SplitMask(np.array([[False, False], [True, True]]), 17),
+        {"split_mode": "LCO", "fold_index": 0},
+    )
+    execution = build_execution(
+        ModelSpec.from_name("NaivePredictor"),
+        dataset,
+        masks,
+        hyperparameter_tuning=False,
+        hpo_metric="RMSE",
+        hpo_num_trials=2,
+        hpo_random_state=9,
+        seed=5,
+    )
+    assert execution.identity.split_mode == "LSO"
+    assert execution.result_metadata()["split_mode"] == "LSO"

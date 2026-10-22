@@ -8,6 +8,7 @@ from upath import UPath
 
 from drevalpy.cli.main import app
 from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types.data.dataset import Dataset
 from tests.cli._helpers import HELP_ENV, FakeDataset, Recorder, make_runner, patch_worker, plain
 
 runner = make_runner()
@@ -92,9 +93,9 @@ class TestForwarding:
 
     @pytest.mark.parametrize("flag", ["--mode", "-m"], ids=["long", "short"])
     def test_mode(self, splitter: Recorder, tmp_path: UPath, flag: str) -> None:
-        _invoke(tmp_path, flag, "LCO")
+        _invoke(tmp_path, flag, "LSO")
 
-        assert splitter.kwargs["mode"] == "LCO"
+        assert splitter.kwargs["mode"] == "LSO"
 
     @pytest.mark.parametrize("flag", ["--n-splits", "-n"], ids=["long", "short"])
     def test_n_splits(self, splitter: Recorder, tmp_path: UPath, flag: str) -> None:
@@ -151,3 +152,20 @@ class TestOutput:
         result = _invoke(tmp_path)
 
         assert f"Wrote 0 folds to {tmp_path / 'folds'}" in plain(result.output)
+
+
+class TestLcoAlias:
+    """The pre-rename ``LCO`` mode still splits, and the folds are written as ``LSO``."""
+
+    def test_lco_writes_lso_folds(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath, synthetic_dataset: Dataset
+    ) -> None:
+        monkeypatch.setattr(
+            "drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: synthetic_dataset)
+        )
+
+        result = _invoke(tmp_path, "--mode", "LCO", "--n-splits", "2")
+
+        assert result.exit_code == 0, result.output
+        folds = [SplitMasks.load(str(tmp_path / "folds" / f"fold_{i}.npz")) for i in range(2)]
+        assert {fold.metadata["split_mode"] for fold in folds} == {"LSO"}

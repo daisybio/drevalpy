@@ -16,7 +16,7 @@ Suggested path
 2. :doc:`getting_started/run_first_experiment` — choose the CLI or Python API
    track for your first run.
 3. Read :doc:`concepts/datasets` and :doc:`concepts/evaluation` when you change
-   datasets, split modes (LPO/LCO/LTO/LDO), or metrics.
+   datasets, split modes (LPO/LSO/LTO/LDO), or metrics.
 4. :doc:`concepts/component_catalog` then
    :doc:`concepts/from_components_to_models` and :doc:`concepts/model_zoo` —
    registered atoms, how they compose, and named zoo presets.

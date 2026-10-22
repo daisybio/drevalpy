@@ -20,7 +20,7 @@ import mudata as md
 import numpy as np
 import pandas as pd
 
-from drevalpy.data.utils import CELL_LINE_NAME_COLUMN, TISSUE_IDENTIFIER
+from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.modalities import resolve_omics_accessor
 
@@ -85,7 +85,7 @@ def _response_anndata(
     low_quality_fraction: float,
 ) -> ad.AnnData:
     """Build the ``response`` modality: the pair matrix plus entity metadata."""
-    sample_ids = [f"CVCL_S{index:03d}" for index in range(n_samples)]
+    sample_ids = [f"SYNTH-{index:03d}" for index in range(n_samples)]
     drug_ids = [f"{100000 + index}" for index in range(n_drugs)]
     tissues = [_TISSUES[index % min(n_tissues, len(_TISSUES))] for index in range(n_samples)]
 
@@ -96,10 +96,9 @@ def _response_anndata(
         X=matrix,
         obs=pd.DataFrame(
             {
-                CELL_LINE_NAME_COLUMN: [f"SYNTH-{index:03d}" for index in range(n_samples)],
                 TISSUE_IDENTIFIER: tissues,
             },
-            index=pd.Index(sample_ids, name="cellosaurus_id"),
+            index=pd.Index(sample_ids),
         ),
         var=pd.DataFrame(
             {"drug_name": [f"synthdrug{index}" for index in range(n_drugs)]},
@@ -207,7 +206,7 @@ def _omics_anndata(
     covered = list(sample_ids[:n_covered])
     return ad.AnnData(
         X=rng.normal(6.0, 1.5, size=(len(covered), len(feature_names))).astype(np.float32),
-        obs=pd.DataFrame(index=pd.Index(covered, name="cellosaurus_id")),
+        obs=pd.DataFrame(index=pd.Index(covered)),
         var=pd.DataFrame(index=pd.Index(list(feature_names), name="feature")),
     )
 

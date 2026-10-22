@@ -20,7 +20,7 @@ evaluation pipeline:
    result = run(
        models=[elastic_net],
        dataset=dataset,
-       split_mode="LCO",
+       split_mode="LSO",
        hyperparameter_tuning=False,
    )
 
@@ -32,7 +32,7 @@ for every fold. For a single-model script outside the experiment runner:
    from drevalpy.models import DRPModel
 
    model = DRPModel(elastic_net, hyperparameters={"alpha": 0.1})
-   fold = split(dataset, mode="LCO", n_splits=2)[0]
+   fold = split(dataset, mode="LSO", n_splits=2)[0]
    model.train(dataset, fold.train)
    prediction = model.predict(dataset, fold.test)
 

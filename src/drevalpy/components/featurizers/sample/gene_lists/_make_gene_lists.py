@@ -20,7 +20,8 @@ re-running this script raise rather than silently write an empty intersection - 
 Inputs
 ------
 Per-dataset omics tables, as ``<data-path>/<DATASET>/<omic>.csv`` with a
-``cell_line_name`` index and one column per gene. These raw downloads are not part of the
+sample-ID first column and one column per gene (optional ``cellosaurus_id`` / ``cell_line_name``
+metadata columns are ignored). These raw downloads are not part of the
 repository; point ``--data-path`` at a local data directory.
 
 Three curated lists are read back from this directory rather than derived:
@@ -92,6 +93,7 @@ DERIVED_STEMS: dict[str, tuple[str, str]] = {
 
 #: Omics whose intersections define the "reduced" gene universe. Methylation is excluded:
 #: its columns are genomic ranges, not gene symbols.
+_OPTIONAL_SAMPLE_COLUMNS = frozenset({"cellosaurus_id", "cell_line_name"})
 REDUCED_OMICS: tuple[str, ...] = ("copy_number_variation_gistic", "gene_expression", "mutations", "proteomics")
 
 
@@ -103,8 +105,8 @@ def read_omic_genes(dataset: str, data_path: UPath, omic: str) -> set[str]:
     :param omic: Omic file stem, e.g. ``"gene_expression"``.
     :returns: Gene symbols (or, for methylation, genomic ranges) measured in that dataset.
     """
-    frame = pd.read_csv(data_path / dataset / f"{omic}.csv", index_col="cell_line_name")
-    return {str(column) for column in frame.columns if column != "cellosaurus_id"}
+    frame = pd.read_csv(data_path / dataset / f"{omic}.csv", index_col=0)
+    return {str(column) for column in frame.columns if column not in _OPTIONAL_SAMPLE_COLUMNS}
 
 
 def gene_intersection(datasets: Iterable[str], data_path: UPath, omic: str) -> set[str]:

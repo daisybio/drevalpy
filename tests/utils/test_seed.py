@@ -164,7 +164,7 @@ class TestFitSeed:
         [
             {"model_name": "SVR"},
             {"dataset_name": "other"},
-            {"split_mode": "LCO"},
+            {"split_mode": "LSO"},
             {"fold_index": 3},
             {"fold_id": "def"},
             {"randomization": ("SVRC", "gene_expression")},

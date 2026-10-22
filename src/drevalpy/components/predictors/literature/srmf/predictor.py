@@ -1,6 +1,6 @@
 """SRMF block predictor – Similarity Regularization Matrix Factorization.
 
-Original publication: Wang, L., Li, X., Zhang, L. et al. Improved anticancer drug response prediction in samples
+Original publication: Wang, L., Li, X., Zhang, L. et al. Improved anticancer drug response prediction in cell lines
 using matrix factorization with similarity regularization. BMC Cancer 17, 513 (2017).
 https://doi.org/10.1186/s12885-017-3500-5.
 Matlab code adapted from https://github.com/linwang1982/SRMF.

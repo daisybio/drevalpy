@@ -176,9 +176,15 @@ class RunResult:
             visualization reads them, so the report path opts out. ``np.load`` is lazy, so
             skipping them means they are never read off disk.
         :returns: Reconstructed RunResult.
+        :raises ValueError: If the file predates the cell line -> sample rename (``cell_line_ids`` key).
         """
         logger.debug("Loading run %s (with_trials=%s)", path, with_trials)
         data = np.load(Path(path), allow_pickle=False)
+        if "sample_ids" not in data and "cell_line_ids" in data:
+            raise ValueError(
+                f"{path} stores 'cell_line_ids' and no 'sample_ids': it was written before drevalpy renamed "
+                "cell lines to samples; re-run the experiment to regenerate it"
+            )
         meta = json.loads(str(data["_metadata"]))
         trials = None
         if with_trials and meta.get("trials"):

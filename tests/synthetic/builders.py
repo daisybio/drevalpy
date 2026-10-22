@@ -33,7 +33,7 @@ from drevalpy.components.featurizers.sample.gene_lists import (
     gene_names_from_list_csv,
     resolve_gene_list_path,
 )
-from drevalpy.data.utils import CELL_LINE_NAME_COLUMN, TISSUE_IDENTIFIER
+from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.modalities import OMICS_ACCESSORS, resolve_omics_accessor
 
@@ -161,10 +161,9 @@ def _response_anndata(rng: np.random.Generator, sample_ids: np.ndarray) -> ad.An
         X=matrix,
         obs=pd.DataFrame(
             {
-                CELL_LINE_NAME_COLUMN: [f"SYNTH-{index:03d}" for index in range(N_SAMPLES)],
                 TISSUE_IDENTIFIER: _tissue_labels(),
             },
-            index=pd.Index(sample_ids, name="cellosaurus_id"),
+            index=pd.Index(sample_ids),
         ),
         var=pd.DataFrame(
             {
@@ -227,7 +226,7 @@ def _omics_anndata(
     covered = sample_ids[:n_covered]
     return ad.AnnData(
         X=_omics_matrix(public_name, rng, len(covered), len(var_names)),
-        obs=pd.DataFrame(index=pd.Index(covered, name="cellosaurus_id")),
+        obs=pd.DataFrame(index=pd.Index(covered)),
         var=pd.DataFrame(index=pd.Index(var_names, name="feature")),
     )
 

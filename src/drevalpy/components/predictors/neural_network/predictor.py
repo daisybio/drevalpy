@@ -132,7 +132,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
         """Build a lazy pair loader from entity matrices and pair indices.
 
         :param batch: Batch providing entity-level feature matrices.
-        :param cell_pair_idx: Sample pair indices.
+        :param cell_pair_idx: Sample row index per pair.
         :param drug_pair_idx: Drug pair indices (or None).
         :param response: Optional response array.
         :param shuffle: Whether to shuffle.

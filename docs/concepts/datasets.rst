@@ -20,22 +20,22 @@ Built-in datasets
    * - GDSC1
      - 316506
      - 378
-     - 970 samples
+     - 970 cell lines
      - Genomics of Drug Sensitivity in Cancer v1
    * - GDSC2
      - 234437
      - 287
-     - 969 samples
+     - 969 cell lines
      - Genomics of Drug Sensitivity in Cancer v2
    * - CTRPv1
      - 60758
      - 354
-     - 243 samples
+     - 243 cell lines
      - Cancer Therapeutics Response Portal v1
    * - CTRPv2
      - 395025
      - 546
-     - 886 samples
+     - 886 cell lines
      - Cancer Therapeutics Response Portal v2
    * - BeatAML2
      - 62487

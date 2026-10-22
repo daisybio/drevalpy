@@ -17,7 +17,7 @@ class SplitMasks:
     """Collection of train/test/val masks for a single cross-validation fold.
 
     Each field is a ``SplitMask`` with shape (n_samples, n_drugs).
-    This format is uniform across all split modes (LPO, LCO, LDO, LTO).
+    This format is uniform across all split modes (LPO, LSO, LDO, LTO).
     """
 
     train: SplitMask

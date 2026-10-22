@@ -56,7 +56,7 @@ EXPECTED_REGISTRATIONS: dict[str, tuple[str, ...]] = {
     "sample_featurizer": ("toySample",),
     "drug_featurizer": ("toyDrugHash",),
     "predictor": ("toyBlockRidge", "toyMean", "toyRidge"),
-    "splitter": ("TOY_LCO",),
+    "splitter": ("TOY_LSO",),
     "visualization": ("toyResiduals",),
 }
 

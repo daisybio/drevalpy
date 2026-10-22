@@ -9,7 +9,7 @@ from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models._pipeline import PipelineState
 from drevalpy.types import SplitMask
 from tests.models.synthetic_fixtures import (
-    lco_split_masks,
+    lso_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,
     synthetic_mudataset_identity,
 )
@@ -21,7 +21,7 @@ def test_model_starts_untrained_and_predict_rejects_it() -> None:
 
     assert model._pipeline.state is PipelineState.UNTRAINED
     with pytest.raises(RuntimeError, match="not been trained"):
-        model.predict(dataset, lco_split_masks().test)
+        model.predict(dataset, lso_split_masks().test)
 
 
 def test_empty_fit_returns_aligned_nan_predictions() -> None:
@@ -32,13 +32,13 @@ def test_empty_fit_returns_aligned_nan_predictions() -> None:
     model.train(dataset, empty)
 
     assert model._pipeline.state is PipelineState.EMPTY
-    assert np.isnan(model.predict(dataset, lco_split_masks().test)).all()
+    assert np.isnan(model.predict(dataset, lso_split_masks().test)).all()
 
 
 def test_retraining_resets_previous_fitted_state() -> None:
     model = DRPModel(ModelSpec.from_name("ElasticNet"))
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    masks = lco_split_masks()
+    masks = lso_split_masks()
 
     model.train(dataset, masks.train)
     assert model._pipeline.state is PipelineState.FITTED
@@ -51,14 +51,14 @@ def test_retraining_resets_previous_fitted_state() -> None:
 def test_fitted_model_round_trips_through_v3_checkpoint(tmp_path) -> None:
     model = DRPModel(ModelSpec.from_name("ElasticNet"))
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    scope = lco_split_masks().train
+    scope = lso_split_masks().train
 
     model.train(dataset, scope)
-    before = model.predict(dataset, lco_split_masks().test)
+    before = model.predict(dataset, lso_split_masks().test)
     model.save(tmp_path / "model")
     restored = DRPModel.load(tmp_path / "model")
 
-    np.testing.assert_allclose(restored.predict(dataset, lco_split_masks().test), before)
+    np.testing.assert_allclose(restored.predict(dataset, lso_split_masks().test), before)
     assert restored._pipeline.state is PipelineState.FITTED
 
 
@@ -67,7 +67,7 @@ def test_entered_training_failure_invalidates_previous_model(monkeypatch, failur
     import drevalpy.models._pipeline as pipeline_module
 
     dataset = synthetic_mudataset_identity()
-    scope = lco_split_masks().train
+    scope = lso_split_masks().train
     model = DRPModel(ModelSpec.from_name("NaivePredictor"))
     model.train(dataset, scope)
 
@@ -84,18 +84,18 @@ def test_entered_training_failure_invalidates_previous_model(monkeypatch, failur
         model.train(dataset, scope)
     assert model._pipeline.state is PipelineState.UNTRAINED
     with pytest.raises(RuntimeError, match="not been trained"):
-        model.predict(dataset, lco_split_masks().test)
+        model.predict(dataset, lso_split_masks().test)
 
 
 def test_argument_binding_failure_preserves_previous_fit() -> None:
     dataset = synthetic_mudataset_identity()
     model = DRPModel(ModelSpec.from_name("NaivePredictor"))
-    model.train(dataset, lco_split_masks().train)
-    expected = model.predict(dataset, lco_split_masks().test)
+    model.train(dataset, lso_split_masks().train)
+    expected = model.predict(dataset, lso_split_masks().test)
     with pytest.raises(TypeError):
         model.train(dataset, unexpected=True)
     assert model._pipeline.state is PipelineState.FITTED
-    np.testing.assert_array_equal(model.predict(dataset, lco_split_masks().test), expected)
+    np.testing.assert_array_equal(model.predict(dataset, lso_split_masks().test), expected)
 
 
 def test_components_construct_once_per_training_attempt(monkeypatch) -> None:
@@ -113,8 +113,8 @@ def test_components_construct_once_per_training_attempt(monkeypatch) -> None:
     model = DRPModel(ModelSpec.from_name("ElasticNet"))
     assert calls == []
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    model.train(dataset, lco_split_masks().train)
-    model.train(dataset, lco_split_masks().train)
+    model.train(dataset, lso_split_masks().train)
+    model.train(dataset, lso_split_masks().train)
     assert len(calls) == 2
     assert all(first is not second for first, second in zip(calls[0], calls[1], strict=True))
 
@@ -147,9 +147,9 @@ def test_empty_prediction_does_not_access_dataset_features(monkeypatch) -> None:
 def test_prediction_retains_unobserved_targets_and_all_invalid_feature_rows() -> None:
     dataset = synthetic_mudataset_gene_expression_fingerprints()
     model = DRPModel(ModelSpec.from_name("ElasticNet"))
-    model.train(dataset, lco_split_masks().train)
+    model.train(dataset, lso_split_masks().train)
     dataset.mdata.mod["response"].X[1, 0] = np.nan
-    requested = lco_split_masks().test.shuffled(1)
+    requested = lso_split_masks().test.shuffled(1)
     assert model.predict(dataset, requested).shape == (2,)
     assert np.isfinite(model.predict(dataset, requested)).all()
     dataset.mdata.mod["gene_expression"].X[1, :] = np.nan
@@ -171,8 +171,8 @@ def test_each_side_computes_features_once_per_operation(monkeypatch) -> None:
     monkeypatch.setattr(DenseViewFeaturizer, "_transform_features", record)
     dataset = synthetic_mudataset_gene_expression_fingerprints()
     model = DRPModel(ModelSpec.from_name("ElasticNet"))
-    model.train(dataset, lco_split_masks().train)
+    model.train(dataset, lso_split_masks().train)
     assert len(calls) == 2
     calls.clear()
-    model.predict(dataset, lco_split_masks().test)
+    model.predict(dataset, lso_split_masks().test)
     assert len(calls) == 2

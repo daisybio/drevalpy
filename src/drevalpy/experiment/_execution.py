@@ -112,14 +112,16 @@ def build_execution(
     """
     if not isinstance(model, ModelSpec):
         raise TypeError("Experiment models must be ModelSpec values")
-    mode = folds.metadata.get("split_mode", folds.metadata.get("mode", ""))
+    mode = splitter_registry.canonical(folds.metadata.get("split_mode", folds.metadata.get("mode", "")))
     validation = splitter_registry.get_metadata(mode)["validation"] if mode in splitter_registry.modes else mode
-    validate_folds([folds], cast(Validation, validation if validation in ("LCO", "LDO", "LTO") else "LPO"), dataset)
+    validate_folds([folds], cast(Validation, validation if validation in ("LSO", "LDO", "LTO") else "LPO"), dataset)
     stopping, validation_scope = None, folds.val
     if model.supports_early_stopping and len(folds.val) > 1:
         stopping, validation_scope = folds.early_stopping_mask()
     scopes = FitScopes(folds.train, stopping, validation_scope, folds.train | validation_scope, folds.test)
     metadata = copy.deepcopy(folds.metadata)
+    if "split_mode" in metadata:
+        metadata["split_mode"] = mode
     if "randomization_provenance" in dataset.mdata.uns:
         metadata["randomization_provenance"] = copy.deepcopy(dataset.mdata.uns["randomization_provenance"])
     metadata["execution"] = {

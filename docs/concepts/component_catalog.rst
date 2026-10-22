@@ -92,7 +92,7 @@ Featurizer types
   DIPK consume them without forcing a fixed-width dense matrix.
 
 Sample featurizers
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 .. include:: _generated_sample_featurizers.rst
 

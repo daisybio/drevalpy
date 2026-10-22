@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 VARIANTS_UNS_KEY_SAMPLE = "sample_featurizer_variants"
 VARIANTS_UNS_KEY_DRUG = "drug_featurizer_variants"
+_LEGACY_VARIANTS_UNS_KEY_SAMPLE = "cell_line_featurizer_variants"
 
 
 def _variants_key_for_side(side: str) -> str:
@@ -25,8 +26,16 @@ def _variant_registry(mdata, side: str) -> dict[str, dict[str, dict[str, Any]]]:
     """Read the featurizer variant registry from mdata.uns.
 
     Format: {storage_key: {mudata_key: params_dict, ...}, ...}
+
+    :raises ValueError: If the dataset carries the pre-rename ``cell_line_featurizer_variants`` key.
     """
     uns_key = _variants_key_for_side(side)
+    if uns_key == VARIANTS_UNS_KEY_SAMPLE and _LEGACY_VARIANTS_UNS_KEY_SAMPLE in mdata.uns:
+        raise ValueError(
+            f"dataset stores precomputed variants under {_LEGACY_VARIANTS_UNS_KEY_SAMPLE!r}, written before drevalpy "
+            f"renamed cell lines to samples (now {VARIANTS_UNS_KEY_SAMPLE!r}); regenerate the dataset "
+            "or precompute and store the sample featurizer variants again"
+        )
     raw = mdata.uns.get(uns_key)
     if raw is None:
         return {}

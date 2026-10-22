@@ -57,7 +57,7 @@ The multi-model and one-fold entry points accept ``ModelSpec`` values:
 
    from drevalpy import run, single
 
-   results = run(models=[spec], dataset=dataset, split_mode="LCO", hyperparameter_tuning=False)
+   results = run(models=[spec], dataset=dataset, split_mode="LSO", hyperparameter_tuning=False)
    one_fold = single(spec, dataset, fold, hyperparameter_tuning=False)
 
 Experiments create immutable fit and execution scopes. A model that supports

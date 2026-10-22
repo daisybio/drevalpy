@@ -34,11 +34,11 @@ Splitting datasets
 
 .. code-block:: bash
 
-   drevalpy data split GDSC1 splits/ --mode LCO --n-splits 5
+   drevalpy data split GDSC1 splits/ --mode LSO --n-splits 5
 
 Options:
 
-- ``--mode`` / ``-m`` — split mode: ``LPO``, ``LCO``, ``LDO``, or ``LTO``
+- ``--mode`` / ``-m`` — split mode: ``LPO``, ``LSO``, ``LDO``, or ``LTO``
   (default ``LPO``)
 - ``--n-splits`` / ``-n`` — number of CV folds (default ``5``)
 - ``--validation-ratio`` — fraction of training data for validation (default
@@ -60,6 +60,6 @@ The ``drevalpy run`` command handles loading and splitting automatically. Pass
 
 .. code-block:: bash
 
-   drevalpy run ElasticNet --dataset GDSC1 --split-mode LCO
+   drevalpy run ElasticNet --dataset GDSC1 --split-mode LSO
 
 For more on the ``run`` command, see :doc:`experiments`.

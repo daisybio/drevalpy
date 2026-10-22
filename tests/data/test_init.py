@@ -53,3 +53,20 @@ def test_unknown_name_raises_rather_than_returning_none() -> None:
     """A module-level ``__getattr__`` must not turn a typo into a silent ``None``."""
     with pytest.raises(AttributeError, match="drevalpy.data"):
         getattr(data, "definitely_not_a_real_symbol")  # noqa: B009
+
+
+def test_split_accepts_the_lco_alias_and_reports_lso(synthetic_dataset: data.Dataset) -> None:
+    via_alias = data.split(synthetic_dataset, "LCO", n_splits=2)
+    via_mode = data.split(synthetic_dataset, "LSO", n_splits=2)
+
+    assert len(via_alias) == len(via_mode) == 2
+    for old, new in zip(via_alias, via_mode, strict=True):
+        assert old.metadata["split_mode"] == new.metadata["split_mode"] == "LSO"
+        assert old.metadata["mode"] == "LSO"
+        assert old.metadata["fold_id"] == new.metadata["fold_id"]
+        assert (old.test.mask == new.test.mask).all()
+
+
+def test_split_still_rejects_an_unknown_mode(synthetic_dataset: data.Dataset) -> None:
+    with pytest.raises(ValueError, match="Unknown split mode 'LXO'"):
+        data.split(synthetic_dataset, "LXO")

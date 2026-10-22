@@ -52,13 +52,13 @@ def check_splitter() -> None:
     """Run the registered splitter and let the registry validate its folds.
 
     Resolving the mode through the registry rather than calling the function
-    directly is what matters: the registry wrapped it in the ``LCO`` leakage
+    directly is what matters: the registry wrapped it in the ``LSO`` leakage
     check, so a splitter that leaked would raise here.
     """
     dataset = build_synthetic_dataset()
-    folds = splitter.get("TOY_LCO")(dataset, n_splits=3)
+    folds = splitter.get("TOY_LSO")(dataset, n_splits=3)
     if len(folds) != 3:
-        msg = f"TOY_LCO produced {len(folds)} folds, expected 3"
+        msg = f"TOY_LSO produced {len(folds)} folds, expected 3"
         raise AssertionError(msg)
 
 

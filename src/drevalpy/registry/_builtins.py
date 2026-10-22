@@ -212,7 +212,7 @@ def _register_builtin_splitters() -> None:
         return
 
     splitter_modules = [
-        "drevalpy.data.splitters.lco",
+        "drevalpy.data.splitters.lso",
         "drevalpy.data.splitters.ldo",
         "drevalpy.data.splitters.lpo",
         "drevalpy.data.splitters.lto",

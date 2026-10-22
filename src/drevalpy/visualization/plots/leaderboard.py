@@ -238,7 +238,7 @@ def _draw_legend(fig, font_adder: int, colors: dict, y: float = 0.02) -> None:
 
 def _get_test_mode_name(test_mode: str) -> str:
     names = {
-        "LCO": "10-Fold Leave-Cell-Out Cross Validation",
+        "LSO": "10-Fold Leave-Sample-Out Cross Validation",
         "LDO": "10-Fold Leave-Drug-Out Cross Validation",
         "LPO": "10-Fold Leave-Pair-Out Cross Validation",
         "LTO": "10-Fold Leave-Tissue-Out Cross Validation",
@@ -412,7 +412,7 @@ class LeaderboardVisualization(ImageVisualization):
             # Every run trains on ``Dataset.response_matrix``, i.e. the response
             # modality's X, which curation fills with pEC50.
             "pEC50",
-            _get_test_mode_name(result.split_mode if hasattr(result, "split_mode") else "LCO"),
+            _get_test_mode_name(result.split_mode if hasattr(result, "split_mode") else "LSO"),
             font_adder,
             colors,
             y=1 - header * 0.75,

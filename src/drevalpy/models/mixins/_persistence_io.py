@@ -29,8 +29,9 @@ if TYPE_CHECKING:
     from drevalpy.models.drp_model import DRPModel
 
 FORMAT_NAME = "drevalpy-model"
-FORMAT_VERSION = 3
+FORMAT_VERSION = 4
 PAYLOAD_MEMBER = "payload.joblib"
+_PRE_SAMPLE_RENAME_VERSION = 3
 
 
 class ModelCheckpointError(Exception):
@@ -154,7 +155,13 @@ def save_model(model: DRPModel, path: str | Path) -> None:
 
 def _resolved_config_from_checkpoint_payload(payload: dict[str, Any]) -> ResolvedModelConfig:
     version = payload.get("version")
-    if version == 3:
+    if version == _PRE_SAMPLE_RENAME_VERSION:
+        raise UnsupportedCheckpointFormatError(
+            f"unsupported checkpoint format/version: {payload.get('format')!r}/{version!r}; "
+            f"this checkpoint predates the cell line -> sample rename (format {FORMAT_VERSION}) and its "
+            "configuration and state keys are no longer readable; retrain the model and save it again"
+        )
+    if version == FORMAT_VERSION:
         return ResolvedModelConfig.model_validate(payload["config"])
     raise UnsupportedCheckpointFormatError(
         f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}; "

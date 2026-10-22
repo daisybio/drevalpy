@@ -168,7 +168,7 @@ class TestForwarding:
 
     def test_split_mode_is_not_a_worker_keyword(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         """``--split-mode`` only ever reaches the worker through the masks' metadata."""
-        _invoke(split_file, tmp_path, "--split-mode", "LCO")
+        _invoke(split_file, tmp_path, "--split-mode", "LSO")
 
         assert "split_mode" not in worker.kwargs
 
@@ -218,9 +218,14 @@ class TestSplitModeInjection:
     """``--split-mode`` is a fallback: it fills the gap, it does not override."""
 
     def test_injected_when_absent_from_metadata(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        _invoke(split_file, tmp_path, "--split-mode", "LSO")
+
+        assert worker.args[2].metadata["split_mode"] == "LSO"
+
+    def test_the_lco_alias_is_injected_as_lso(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         _invoke(split_file, tmp_path, "--split-mode", "LCO")
 
-        assert worker.args[2].metadata["split_mode"] == "LCO"
+        assert worker.args[2].metadata["split_mode"] == "LSO"
 
     def test_default_is_lpo(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         _invoke(split_file, tmp_path)
@@ -231,9 +236,17 @@ class TestSplitModeInjection:
         split_file = tmp_path / "fold_with_mode.npz"
         _write_split(split_file, metadata={"fold_index": 3, "split_mode": "LDO"})
 
-        _invoke(split_file, tmp_path, "--split-mode", "LCO")
+        _invoke(split_file, tmp_path, "--split-mode", "LSO")
 
         assert worker.args[2].metadata["split_mode"] == "LDO"
+
+    def test_a_stored_lco_mode_is_read_as_lso(self, worker: Recorder, tmp_path: UPath) -> None:
+        split_file = tmp_path / "fold_with_old_mode.npz"
+        _write_split(split_file, metadata={"fold_index": 3, "split_mode": "LCO"})
+
+        _invoke(split_file, tmp_path)
+
+        assert worker.args[2].metadata["split_mode"] == "LSO"
 
     def test_other_metadata_is_preserved(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         _invoke(split_file, tmp_path)

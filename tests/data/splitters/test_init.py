@@ -1,6 +1,6 @@
 """Tests for the splitter registry surface and cross-mode fold validation.
 
-The individual splitters live in ``test_lpo.py`` / ``test_lco.py`` /
+The individual splitters live in ``test_lpo.py`` / ``test_lso.py`` /
 ``test_ldo.py`` / ``test_lto.py``.
 """
 
@@ -22,7 +22,7 @@ from tests.data.splitters._helpers import MockMuDataset, build_mask
 class TestSplitterRegistry:
     def test_builtin_modes_registered(self):
         assert "LPO" in splitter_registry.modes
-        assert "LCO" in splitter_registry.modes
+        assert "LSO" in splitter_registry.modes
         assert "LDO" in splitter_registry.modes
         assert "LTO" in splitter_registry.modes
 
@@ -35,7 +35,7 @@ class TestSplitterRegistry:
             splitter_registry.get("NONEXISTENT")
 
     def test_resolve_string(self):
-        splitter = splitter_registry.resolve("LCO")
+        splitter = splitter_registry.resolve("LSO")
         assert callable(splitter)
 
     def test_resolve_callable_passthrough(self):
@@ -50,23 +50,23 @@ class TestSplitterRegistry:
     def test_repr_shows_modes(self):
         output = repr(splitter_registry)
         assert "LPO" in output
-        assert "LCO" in output
+        assert "LSO" in output
 
 
 class TestValidation:
-    def test_lco_valid_passes(self, mock_dataset: MockMuDataset):
-        folds = splitter_registry.get("LCO")(mock_dataset, n_splits=3)
-        validate_folds(folds, "LCO", mock_dataset)
+    def test_lso_valid_passes(self, mock_dataset: MockMuDataset):
+        folds = splitter_registry.get("LSO")(mock_dataset, n_splits=3)
+        validate_folds(folds, "LSO", mock_dataset)
 
-    def test_lco_invalid_raises(self, mock_dataset: MockMuDataset):
+    def test_lso_invalid_raises(self, mock_dataset: MockMuDataset):
         shape = mock_dataset.response_matrix.shape
         bad_fold = SplitMasks(
             train=build_mask(shape, (0, 0), (1, 1)),
             test=build_mask(shape, (0, 2)),
             val=SplitMask(np.zeros(shape, dtype=bool)),
         )
-        with pytest.raises(SplitValidationError, match="LCO"):
-            validate_folds([bad_fold], "LCO", mock_dataset)
+        with pytest.raises(SplitValidationError, match="LSO"):
+            validate_folds([bad_fold], "LSO", mock_dataset)
 
     def test_ldo_invalid_raises(self, mock_dataset: MockMuDataset):
         shape = mock_dataset.response_matrix.shape

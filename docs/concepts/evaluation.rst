@@ -13,9 +13,9 @@ Four leave-out modes control what is held out at validation and test time:
     :width: 24%
     :alt: Leave-Pair-Out setting
 
-.. image:: /_static/img/LCO.png
+.. image:: /_static/img/LSO.png
     :width: 24%
-    :alt: Leave-Cell-Line-Out setting
+    :alt: Leave-Sample-Out setting
 
 .. image:: /_static/img/LTO.png
     :width: 24%
@@ -29,10 +29,11 @@ Four leave-out modes control what is held out at validation and test time:
   the drug and the sample may already appear in training. Easiest setting;
   mainly useful to check whether a model can complete missing training
   entries.
-* **LCO (Leave-Cell-Line-Out).** Entire samples are held out while drugs may
+* **LSO (Leave-Sample-Out).** Entire samples are held out while drugs may
   overlap training. Relevant for personalized medicine: can the model predict
-  a new sample?
-* **LTO (Leave-Tissue-Out).** Entire tissues are held out. Harder than LCO;
+  a new sample? ``LCO`` (the former name, *Leave-Cell-Line-Out*) is still
+  accepted as an alias, but results and file names always say ``LSO``.
+* **LTO (Leave-Tissue-Out).** Entire tissues are held out. Harder than LSO;
   relevant for tissue transfer and drug-repurposing style questions.
 * **LDO (Leave-Drug-Out).** Entire drugs are held out while samples may
   overlap training. Usually the hardest setting; relevant for new-drug

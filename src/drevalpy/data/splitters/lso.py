@@ -1,4 +1,4 @@
-"""Leave-Cell-Line-Out splitting function."""
+"""Leave-Sample-Out splitting function."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMasks
 
 
-@register("LCO", "Leave-Cell-Line-Out: test folds contain unseen samples", validation="LCO")
+@register("LSO", "Leave-Sample-Out: test folds contain unseen samples", validation="LSO", aliases=("LCO",))
 def leave_sample_out(
     mudataset: MuDataLike,
     n_splits: int = 5,
     validation_ratio: float = 0.1,
     random_state: int = 42,
 ) -> list[SplitMasks]:
-    """Generate LCO folds where each sample appears in exactly one test set."""
+    """Generate LSO folds where each sample appears in exactly one test set."""
     observed = observed_mask(mudataset)
     folds = group_folds(
         observed.shape[0],

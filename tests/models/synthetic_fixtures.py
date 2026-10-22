@@ -169,8 +169,8 @@ def lpo_split_masks_all_train() -> SplitMasks:
     )
 
 
-def lco_split_masks() -> SplitMasks:
-    """LCO-style masks: cl0 pairs in train, cl1 pairs in test, no val."""
+def lso_split_masks() -> SplitMasks:
+    """LSO-style masks: cl0 pairs in train, cl1 pairs in test, no val."""
     return SplitMasks(
         train=_mask_2x2((0, 0), (0, 1)),
         test=_mask_2x2((1, 0), (1, 1)),

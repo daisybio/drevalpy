@@ -9,7 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models._pipeline import PipelineState
 from tests.models.synthetic_fixtures import (
-    lco_split_masks,
+    lso_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,
 )
 
@@ -31,7 +31,7 @@ def test_properties_expose_name_config_and_independent_hyperparameters() -> None
 
 def test_train_predict_and_load_preserve_original_response_units(tmp_path) -> None:
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    split = lco_split_masks()
+    split = lso_split_masks()
     model = DRPModel(ModelSpec.from_name("ElasticNet"), response_transformation=StandardScaler())
 
     model.train(dataset, split.train, model_checkpoint_dir=tmp_path)
@@ -46,7 +46,7 @@ def test_train_predict_and_load_preserve_original_response_units(tmp_path) -> No
 
 def test_train_without_a_checkpoint_dir_uses_a_temporary_one_and_removes_it(tmp_path, monkeypatch) -> None:
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    split = lco_split_masks()
+    split = lso_split_masks()
     model = DRPModel(ModelSpec.from_name("ElasticNet"))
     seen = []
     original_fit = model._pipeline.fit

@@ -28,7 +28,7 @@ from drevalpy.models.mixins._persistence_io import (
 )
 from tests.models.mixins._helpers import elastic_net_payload, fitted_elastic_net, write_archive
 from tests.models.synthetic_fixtures import (
-    lco_split_masks,
+    lso_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,
 )
 
@@ -138,6 +138,24 @@ class TestLoadModelPayload:
 
         with pytest.raises(CorruptedCheckpointError, match=f"missing {PAYLOAD_MEMBER!r}"):
             load_model_payload(str(archive))
+
+    def test_rejects_a_pre_rename_version_3_checkpoint(self, tmp_path) -> None:
+        payload = {
+            "format": FORMAT_NAME,
+            "version": 3,
+            "model_name": "ElasticNet",
+            "config": {"cell_line_featurizer": {"name": "GeneExpression"}},
+            "state": {"cell_line": {}},
+        }
+        archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
+
+        with pytest.raises(UnsupportedCheckpointFormatError, match=r"predates the cell line -> sample rename") as info:
+            load_model_payload(str(archive))
+        assert "format 4" in str(info.value)
+        assert "retrain" in str(info.value)
+
+    def test_current_format_version_is_4(self) -> None:
+        assert FORMAT_VERSION == 4
 
     def test_rejects_a_non_mapping_state(self, tmp_path) -> None:
         archive = write_archive(UPath(tmp_path) / "elastic_net.zip", elastic_net_payload("bad"))
@@ -284,7 +302,7 @@ class TestLoadModel:
         model = DRPModel(
             ModelSpec("MyRF", from_spec("scaledGeneExpression:fingerprints:randomForest")), {"n_estimators": 5}
         )
-        model.train(synthetic_mudataset_gene_expression_fingerprints(), lco_split_masks().train)
+        model.train(synthetic_mudataset_gene_expression_fingerprints(), lso_split_masks().train)
         checkpoint = str(UPath(tmp_path) / "my_rf")
         save_model(model, checkpoint)
 

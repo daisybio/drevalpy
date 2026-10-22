@@ -54,7 +54,7 @@ to a drug-response estimate. Each predictor declares:
   block-based (see :doc:`component_catalog` for details)
 
 Sample featurizer registry
------------------------------
+--------------------------
 
 Stores featurizer classes that transform raw sample data (gene expression,
 methylation, mutations, CNV, proteomics) into a feature representation
@@ -73,7 +73,7 @@ Splitter registry
 
 Stores splitting strategies that divide datasets into train, validation, and
 test folds. Each splitter is registered under a mode name (such as ``LPO``,
-``LCO``, ``LDO``, or ``LTO``) and declares which **leakage constraint** to
+``LSO``, ``LDO``, or ``LTO``) and declares which **leakage constraint** to
 enforce. After every split, the registry automatically validates that the
 chosen constraint holds.
 

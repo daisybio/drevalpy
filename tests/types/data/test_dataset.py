@@ -14,6 +14,8 @@ import numpy as np
 import pytest
 from upath import UPath
 
+from drevalpy.data import split
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.types.data.dataset import Dataset
 from tests.synthetic import (
     BPE_LENGTH,
@@ -183,8 +185,9 @@ class TestMetadata:
 
     def test_sample_meta(self, mudataset: Dataset):
         meta = mudataset.sample_meta
-        assert "cell_line_name" in meta.columns
         assert "tissue" in meta.columns
+        assert "cell_line_name" not in meta.columns
+        assert "cellosaurus_id" not in meta.columns
 
     def test_get_tissue(self, mudataset: Dataset):
         tissues = mudataset.get_tissue(mudataset.sample_ids[:5])
@@ -412,3 +415,28 @@ class TestSourceAvailability:
     )
     def test_required_views_span_modalities_varm_and_obsm(self, mudataset: Dataset, views, available):
         assert mudataset._has_required_views(views) is available
+
+
+class TestTissueOnlyObs:
+    """A dataset whose obs holds only ``tissue`` under an unnamed index needs no cell-line columns."""
+
+    def test_obs_has_only_tissue_and_an_unnamed_index_after_the_round_trip(self, mudataset: Dataset):
+        assert list(mudataset.sample_meta.columns) == ["tissue"]
+        assert mudataset.sample_meta.index.name is None
+
+    @pytest.mark.parametrize("mode", ["LSO", "LTO"])
+    def test_sample_and_tissue_out_splits_run(self, mudataset: Dataset, mode: str):
+        folds = split(mudataset, mode=mode, n_splits=3)
+
+        assert len(folds) == 3
+        assert all(fold.train.mask.any() and fold.test.mask.any() for fold in folds)
+
+    def test_a_naive_baseline_trains_and_predicts(self, mudataset: Dataset):
+        fold = split(mudataset, mode="LTO", n_splits=3)[0]
+        model = DRPModel(ModelSpec.from_name("NaiveMeanEffectsPredictor"))
+
+        model.train(mudataset, fold.train)
+        predictions = model.predict(mudataset, fold.test)
+
+        assert predictions.shape == (int(fold.test.mask.sum()),)
+        assert np.isfinite(predictions).any()

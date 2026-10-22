@@ -89,6 +89,28 @@ def test_registry_sides_are_independent(mdata: md.MuData) -> None:
     assert find_variant_key(mdata, "shared", {"a": 1}, side="drug") == "shared_9"
 
 
+@pytest.mark.parametrize("reader", [find_variant_key, list_variants, next_variant_index])
+def test_readers_reject_a_dataset_with_the_pre_rename_variants_key(mdata: md.MuData, reader) -> None:
+    mdata.uns["cell_line_featurizer_variants"] = json.dumps({"pca_expression": {"pca_expression_0": {}}})
+
+    with pytest.raises(ValueError, match="regenerate the dataset"):
+        reader(mdata, "pca_expression")
+
+
+def test_register_variant_rejects_a_dataset_with_the_pre_rename_variants_key(mdata: md.MuData) -> None:
+    mdata.uns["cell_line_featurizer_variants"] = "{}"
+
+    with pytest.raises(ValueError, match="cell_line_featurizer_variants"):
+        register_variant(mdata, "pca_expression", "pca_expression_0", {})
+    assert VARIANTS_UNS_KEY_SAMPLE not in mdata.uns
+
+
+def test_drug_side_ignores_the_pre_rename_sample_key(mdata: md.MuData) -> None:
+    mdata.uns["cell_line_featurizer_variants"] = "{}"
+
+    assert list_variants(mdata, "morgan", side="drug") == {}
+
+
 def test_list_variants_is_empty_for_an_unknown_storage_key(mdata: md.MuData) -> None:
     register_variant(mdata, "pca_expression", "pca_expression_0", {"n_components": 2})
 

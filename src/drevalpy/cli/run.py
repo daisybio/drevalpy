@@ -11,7 +11,7 @@ from upath import UPath
 def run_cmd(
     models: Annotated[list[str], typer.Argument(help="Model name(s) to evaluate.")],
     dataset: Annotated[str, typer.Option("--dataset", "-d", help="Dataset name or .h5mu path.")],
-    split_mode: Annotated[str, typer.Option("--split-mode", "-s", help="Split mode: LPO, LCO, LDO, LTO.")] = "LPO",
+    split_mode: Annotated[str, typer.Option("--split-mode", "-s", help="Split mode: LPO, LSO, LDO, LTO.")] = "LPO",
     output_dir: Annotated[str, typer.Option("--output-dir", "-o", help="Output directory for results.")] = "results",
     hpo: Annotated[bool, typer.Option("--hpo/--no-hpo", help="Enable hyperparameter tuning.")] = True,
     hpo_metric: Annotated[str, typer.Option("--hpo-metric", help="Metric to optimize.")] = "RMSE",

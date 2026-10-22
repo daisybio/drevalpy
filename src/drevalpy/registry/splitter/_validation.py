@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 
 from drevalpy.types import MuDataLike, SplitMasks
 
-Validation = Literal["LCO", "LDO", "LPO", "LTO"]
+Validation = Literal["LSO", "LDO", "LPO", "LTO"]
+
+#: Legacy validation names accepted wherever a :data:`Validation` is, mapped to the canonical one.
+VALIDATION_ALIASES: dict[str, str] = {"LCO": "LSO"}
+
+
+def canonical_validation(validation: str) -> Validation:
+    """Return the canonical validation name for *validation*, resolving legacy aliases."""
+    return cast(Validation, VALIDATION_ALIASES.get(validation, validation))
 
 
 class SplitValidationError(ValueError):
@@ -27,6 +35,7 @@ def validate_folds(
     :param mudataset: The dataset used for splitting (needed for tissue resolution).
     :raises SplitValidationError: If any fold violates the constraint.
     """
+    validation = canonical_validation(validation)
     validator = _VALIDATORS[validation]
     expected_shape = mudataset.response_matrix.shape
     for i, fold in enumerate(folds):
@@ -59,11 +68,11 @@ def _validate_partition(
             )
 
 
-def _validate_lco(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
-    """LCO: no sample row belongs to more than one split."""
+def _validate_lso(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
+    """LSO: no sample row belongs to more than one split."""
     if _has_axis_overlap(fold, axis=1):
         raise SplitValidationError(
-            f"LCO validation failed (fold {fold_index}): sample indices appear in more than one split."
+            f"LSO validation failed (fold {fold_index}): sample indices appear in more than one split."
         )
 
 
@@ -101,7 +110,7 @@ def _has_axis_overlap(fold: SplitMasks, *, axis: int) -> bool:
 
 
 _VALIDATORS = {
-    "LCO": _validate_lco,
+    "LSO": _validate_lso,
     "LDO": _validate_ldo,
     "LTO": _validate_lto,
     "LPO": _validate_lpo,

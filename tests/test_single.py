@@ -112,8 +112,8 @@ def stub_model(monkeypatch):
 
 @pytest.fixture
 def folds(synthetic_dataset) -> list[SplitMasks]:
-    """Two real LCO folds over the synthetic dataset."""
-    return split(synthetic_dataset, "LCO", n_splits=2)
+    """Two real LSO folds over the synthetic dataset."""
+    return split(synthetic_dataset, "LSO", n_splits=2)
 
 
 def _masks_with_val_pairs(shape: tuple[int, int], n_val: int) -> SplitMasks:
@@ -129,7 +129,7 @@ def _masks_with_val_pairs(shape: tuple[int, int], n_val: int) -> SplitMasks:
         train=SplitMask(train),
         test=SplitMask(test),
         val=SplitMask(val),
-        metadata={"split_mode": "LCO", "fold_index": 0, "fold_id": "abc123"},
+        metadata={"split_mode": "LSO", "fold_index": 0, "fold_id": "abc123"},
     )
 
 
@@ -139,7 +139,7 @@ class TestEndToEnd:
     @pytest.fixture(scope="class")
     def result(self, synthetic_dataset) -> RunResult:
         elastic_net = ModelSpec.from_name("ElasticNet")
-        fold = split(synthetic_dataset, "LCO", n_splits=2)[0]
+        fold = split(synthetic_dataset, "LSO", n_splits=2)[0]
         return single(elastic_net, synthetic_dataset, fold, hyperparameter_tuning=False)
 
     def test_returns_a_run_result(self, result: RunResult) -> None:
@@ -150,7 +150,7 @@ class TestEndToEnd:
         assert result.dataset_name == synthetic_dataset.name
 
     def test_predicts_one_value_per_test_pair(self, result: RunResult, synthetic_dataset) -> None:
-        fold = split(synthetic_dataset, "LCO", n_splits=2)[0]
+        fold = split(synthetic_dataset, "LSO", n_splits=2)[0]
 
         assert len(result.predictions) == len(fold.test.pairs)
         assert len(result.ground_truth) == len(result.predictions)
@@ -168,14 +168,14 @@ class TestEndToEnd:
         assert result.trials is None
 
     def test_ids_line_up_with_the_test_pairs(self, result: RunResult, synthetic_dataset) -> None:
-        fold = split(synthetic_dataset, "LCO", n_splits=2)[0]
+        fold = split(synthetic_dataset, "LSO", n_splits=2)[0]
         pairs = fold.test.pairs
 
         np.testing.assert_array_equal(result.sample_ids, synthetic_dataset.sample_ids[pairs[:, 0]])
         np.testing.assert_array_equal(result.drug_ids, synthetic_dataset.drug_ids[pairs[:, 1]])
 
     def test_ground_truth_is_read_from_the_response_matrix(self, result: RunResult, synthetic_dataset) -> None:
-        fold = split(synthetic_dataset, "LCO", n_splits=2)[0]
+        fold = split(synthetic_dataset, "LSO", n_splits=2)[0]
         pairs = fold.test.pairs
         expected = synthetic_dataset.response_matrix[pairs[:, 0], pairs[:, 1]]
 
@@ -536,7 +536,7 @@ def test_direct_masks_are_validated_before_training(stub_model, synthetic_datase
     elif defect == "pair_overlap":
         masks = replace(masks, test=SplitMask(masks.train.mask.copy()))
     else:
-        # Distinct responses still leak the same sample in LCO mode.
+        # Distinct responses still leak the same sample in LSO mode.
         masks.train.mask[0, 0] = False
         masks.test.mask[0, 0] = True
 

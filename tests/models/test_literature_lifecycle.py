@@ -12,7 +12,7 @@ from drevalpy.models.config import from_spec
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset
-from tests.models.synthetic_fixtures import lco_split_masks, synthetic_mudataset
+from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset
 
 #: The multi-omics views ``MultiViewNeuralNetwork`` reads beyond gene expression.
 MULTIVIEW_EXTRA_VIEWS = ("methylation", "mutations", "copy_number_variation_gistic")
@@ -24,13 +24,13 @@ def _register_components() -> None:
 
 
 def _dataset(*, extra_views: tuple[str, ...] = ()) -> tuple[Dataset, SplitMasks]:
-    """Build a four-feature synthetic dataset and an LCO split over it.
+    """Build a four-feature synthetic dataset and an LSO split over it.
 
     :param extra_views: Sample modalities beyond ``gene_expression``.
     :returns: ``(dataset, split)``.
     """
     dataset = synthetic_mudataset(n_features_per_view=4, fingerprint_width=4, extra_views=extra_views)
-    return dataset, lco_split_masks()
+    return dataset, lso_split_masks()
 
 
 LITERATURE_MODEL_NAMES = (

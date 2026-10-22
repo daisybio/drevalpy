@@ -12,7 +12,7 @@ from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_dict, validate
 from tests._trusted_subprocess import run_trusted_python
 from tests.models.synthetic_fixtures import (
-    lco_split_masks,
+    lso_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,
     synthetic_mudataset_identity,
 )
@@ -35,7 +35,7 @@ _SKLEARN_PRESETS = (
 @pytest.mark.parametrize("preset", _NAIVE_PRESETS)
 def test_naive_direct_component_round_trip(preset: str) -> None:
     mudataset = synthetic_mudataset_identity()
-    split = lco_split_masks()
+    split = lso_split_masks()
     model = DRPModel(ModelSpec.from_name(preset))
     model.train(mudataset, split.train)
     preds = model.predict(mudataset, split.test)
@@ -52,7 +52,7 @@ def test_naive_direct_component_round_trip(preset: str) -> None:
 @pytest.mark.parametrize("preset", _SKLEARN_PRESETS)
 def test_sklearn_direct_component_round_trip(preset: str) -> None:
     mudataset = synthetic_mudataset_gene_expression_fingerprints()
-    split = lco_split_masks()
+    split = lso_split_masks()
     model = DRPModel(ModelSpec.from_name(preset))
     model.train(mudataset, split.train)
     preds = model.predict(mudataset, split.test)

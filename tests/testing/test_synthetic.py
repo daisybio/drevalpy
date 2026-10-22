@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.data.utils import CELL_LINE_NAME_COLUMN, TISSUE_IDENTIFIER
+from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.testing.synthetic import (
     DATASET_NAME,
     MEASURE,
@@ -50,8 +50,12 @@ class TestShapeAndNaming:
 
 
 class TestMetadata:
-    def test_the_cell_line_name_column_is_populated(self, dataset):
-        assert dataset.response.obs[CELL_LINE_NAME_COLUMN].notna().all()
+    def test_obs_holds_only_tissue_under_an_unnamed_sample_id_index(self, dataset):
+        obs = dataset.response.obs
+
+        assert list(obs.columns) == [TISSUE_IDENTIFIER]
+        assert obs.index.name is None
+        assert obs.index[0] == "SYNTH-000"
 
     def test_tissue_labels_are_resolvable_through_the_dataset(self, dataset):
         tissues = dataset.get_tissue(np.asarray(dataset.sample_ids))
@@ -95,7 +99,7 @@ class TestMissingResponses:
         assert np.isnan(sparse.response_matrix).sum() > np.isnan(dense.response_matrix).sum()
 
     def test_an_extreme_fraction_still_honours_the_row_guarantee(self):
-        """Clamped rather than obeyed: an empty row breaks the LCO splitters."""
+        """Clamped rather than obeyed: an empty row breaks the LSO splitters."""
         extreme = build_synthetic_dataset(missing_fraction=1.0)
 
         assert (~np.isnan(extreme.response_matrix)).any(axis=1).all()
@@ -180,7 +184,7 @@ class TestDeterminism:
 class TestSplitterCompatibility:
     """The builder exists so plugin CI can split and train; prove it can."""
 
-    @pytest.mark.parametrize("mode", ["LPO", "LCO", "LDO", "LTO"])
+    @pytest.mark.parametrize("mode", ["LPO", "LSO", "LDO", "LTO"])
     def test_every_builtin_splitter_accepts_it(self, dataset, mode):
         from drevalpy.registry import splitter
 

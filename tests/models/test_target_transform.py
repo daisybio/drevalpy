@@ -75,15 +75,15 @@ def test_fit_scope_validation_requires_dataset_and_matching_shape() -> None:
 
 def test_custom_transform_is_independent_and_round_trips_with_retraining(tmp_path) -> None:
     from drevalpy.models import DRPModel, ModelSpec
-    from tests.models.synthetic_fixtures import lco_split_masks
+    from tests.models.synthetic_fixtures import lso_split_masks
 
     prototype = _CenteringTransformer(offset=11.0)
     dataset = synthetic_mudataset_identity()
     first = DRPModel(ModelSpec.from_name("NaivePredictor"), response_transformation=prototype)
     second = DRPModel(first.spec, response_transformation=prototype)
-    scope = lco_split_masks().train
+    scope = lso_split_masks().train
     first.train(dataset, scope)
-    second.train(dataset, lco_split_masks().test)
+    second.train(dataset, lso_split_masks().test)
     assert not hasattr(prototype, "mean_")
     assert first._pipeline._response_transform is not second._pipeline._response_transform
     np.testing.assert_allclose(first.predict(dataset, scope), 1.5)
@@ -92,7 +92,7 @@ def test_custom_transform_is_independent_and_round_trips_with_retraining(tmp_pat
     restored = DRPModel.load(tmp_path / "transformed")
     np.testing.assert_array_equal(restored.predict(dataset, scope), first.predict(dataset, scope))
     old_transform = restored._pipeline._response_transform
-    restored.train(dataset, lco_split_masks().test)
+    restored.train(dataset, lso_split_masks().test)
     assert restored._pipeline._response_transform is not old_transform
     np.testing.assert_allclose(restored.predict(dataset, scope), 3.5)
 

@@ -25,10 +25,10 @@ def test_trial_uses_one_training_call_and_keeps_nan_scope_alignment(tmp_path, su
     import numpy as np
 
     from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
-    from tests.models.synthetic_fixtures import lco_split_masks, synthetic_mudataset_identity
+    from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
 
     dataset = synthetic_mudataset_identity()
-    scopes = lco_split_masks()
+    scopes = lso_split_masks()
     model = MagicMock()
     model.predict.return_value = np.array([np.nan, 5.0])
     metrics, predictions = _mu_evaluate_trial_all_metrics(
@@ -54,11 +54,11 @@ def test_trial_rejects_prediction_truncation() -> None:
     import numpy as np
 
     from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
-    from tests.models.synthetic_fixtures import lco_split_masks, synthetic_mudataset_identity
+    from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
 
     model = MagicMock()
     model.predict.return_value = np.array([1.0])
-    scopes = lco_split_masks()
+    scopes = lso_split_masks()
     with pytest.raises(ValueError, match="shape"):
         _mu_evaluate_trial_all_metrics(
             model,
@@ -74,11 +74,11 @@ def test_trial_with_no_joint_valid_pairs_keeps_empty_metric_dictionary() -> None
     import numpy as np
 
     from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
-    from tests.models.synthetic_fixtures import lco_split_masks, synthetic_mudataset_identity
+    from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
 
     model = MagicMock()
     model.predict.return_value = np.full(2, np.nan)
-    scopes = lco_split_masks()
+    scopes = lso_split_masks()
     metrics, predictions = _mu_evaluate_trial_all_metrics(
         model,
         mudataset=synthetic_mudataset_identity(),

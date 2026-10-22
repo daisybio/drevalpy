@@ -10,7 +10,7 @@ import pytest
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
-    lco_split_masks,
+    lso_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,
     synthetic_mudataset_identity,
 )
@@ -36,7 +36,7 @@ def test_equivalent_specs_have_matching_predictions(model_name: str) -> None:
         if model_name.startswith("Naive")
         else synthetic_mudataset_gene_expression_fingerprints()
     )
-    split = lco_split_masks()
+    split = lso_split_masks()
     first = DRPModel(spec, hp)
     second = DRPModel(equivalent, hp)
     first.train(dataset, split.train)
@@ -48,7 +48,7 @@ def test_custom_recipe_spec_has_matching_checkpoint_round_trip() -> None:
     config = from_spec("pca[gene_expression]:identity:randomForest")
     spec = ModelSpec("PcaIdentityRF", config)
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    split = lco_split_masks()
+    split = lso_split_masks()
     model = DRPModel(spec, _minimal_hp("RandomForest"))
     model.train(dataset, split.train)
     before = model.predict(dataset, split.test)

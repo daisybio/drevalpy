@@ -95,8 +95,8 @@ class _LogCapture(logging.Handler):
 
 @pytest.fixture(scope="module")
 def fold(synthetic_dataset) -> SplitMasks:
-    """The first of two LCO folds over the session-wide synthetic dataset."""
-    return split(synthetic_dataset, "LCO", n_splits=2)[0]
+    """The first of two LSO folds over the session-wide synthetic dataset."""
+    return split(synthetic_dataset, "LSO", n_splits=2)[0]
 
 
 def _train_responses(mudataset, scope) -> np.ndarray:

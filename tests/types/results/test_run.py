@@ -163,7 +163,7 @@ class TestPersistence:
         assert loaded.identity.execution_key == run.identity.execution_key
 
     def test_round_trip_preserves_scalar_metadata(self, tmp_path) -> None:
-        run = make_run_result(model_name="RandomForest", fold_index=2, split_mode="LCO")
+        run = make_run_result(model_name="RandomForest", fold_index=2, split_mode="LSO")
         path = UPath(tmp_path) / "fold_2.npz"
 
         run.save(path)
@@ -171,7 +171,7 @@ class TestPersistence:
 
         assert loaded.model_name == "RandomForest"
         assert loaded.dataset_name == run.dataset_name
-        assert loaded.split_mode == "LCO"
+        assert loaded.split_mode == "LSO"
         assert loaded.fold_index == 2
         assert loaded.fold_id == "fold_2"
 
@@ -254,6 +254,16 @@ class TestPersistence:
 
         assert meta["split_mode"] == "LDO"
         assert meta["fold_id"] == "fold_0"
+
+    def test_a_file_written_before_the_sample_rename_is_rejected(self, tmp_path) -> None:
+        path = UPath(tmp_path) / "fold.npz"
+        make_run_result().save(path)
+        with np.load(path, allow_pickle=False) as data:
+            arrays = {("cell_line_ids" if key == "sample_ids" else key): data[key] for key in data.files}
+        np.savez_compressed(path, **arrays)
+
+        with pytest.raises(ValueError, match="written before drevalpy renamed cell lines to samples; re-run"):
+            RunResult.load(path)
 
 
 class TestTrialSkipping:

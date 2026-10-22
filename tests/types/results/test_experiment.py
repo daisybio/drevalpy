@@ -34,7 +34,7 @@ class TestConstruction:
     def test_rejects_mixed_split_modes(self) -> None:
         runs = [
             make_run_result(model_name="A", split_mode="LPO"),
-            make_run_result(model_name="B", split_mode="LCO"),
+            make_run_result(model_name="B", split_mode="LSO"),
         ]
 
         with pytest.raises(ValueError, match="same split_mode"):
@@ -211,13 +211,13 @@ class TestNormalize:
         assert normalized_run.trials[0].hyperparameters == {"alpha": 0.1}
 
     def test_preserves_run_identity(self) -> None:
-        experiment = make_experiment_result(n_models=2, n_folds=2, split_mode="LCO")
+        experiment = make_experiment_result(n_models=2, n_folds=2, split_mode="LSO")
 
         normalized_run = experiment.normalize().models[0].runs[1]
 
         assert normalized_run.fold_id == "fold_1"
         assert normalized_run.fold_index == 1
-        assert normalized_run.split_mode == "LCO"
+        assert normalized_run.split_mode == "LSO"
 
     def test_rejects_a_second_normalization(self) -> None:
         normalized = make_experiment_result(n_models=2, n_folds=1).normalize()
@@ -505,11 +505,11 @@ class TestLoadLogging:
 
 class TestRepr:
     def test_reports_experiment_level_metadata(self) -> None:
-        text = repr(make_experiment_result(n_models=2, n_folds=2, split_mode="LCO"))
+        text = repr(make_experiment_result(n_models=2, n_folds=2, split_mode="LSO"))
 
         assert text.startswith("ExperimentResult")
         assert "Dataset: SyntheticDataset" in text
-        assert "Split mode: LCO" in text
+        assert "Split mode: LSO" in text
         assert "Normalized by: None" in text
         assert "Models: 2" in text
 

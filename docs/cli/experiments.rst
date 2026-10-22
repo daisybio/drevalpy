@@ -20,7 +20,7 @@ trains, predicts, and writes results:
 
    drevalpy run ElasticNet RandomForest \
        --dataset GDSC1 \
-       --split-mode LCO \
+       --split-mode LSO \
        --output-dir results
 
 Models are passed as positional arguments. Options:
@@ -37,7 +37,7 @@ Models are passed as positional arguments. Options:
      - Dataset name or ``.h5mu`` path (required).
    * - ``--split-mode`` / ``-s``
      - ``LPO``
-     - Split mode: ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+     - Split mode: ``LPO``, ``LSO``, ``LDO``, or ``LTO``.
    * - ``--output-dir`` / ``-o``
      - ``results``
      - Output directory for results.
@@ -74,7 +74,7 @@ Example with tuning disabled:
 
 .. code-block:: bash
 
-   drevalpy run ElasticNet --dataset GDSC1 --split-mode LCO --no-hpo
+   drevalpy run ElasticNet --dataset GDSC1 --split-mode LSO --no-hpo
 
 Example with custom HPO settings:
 

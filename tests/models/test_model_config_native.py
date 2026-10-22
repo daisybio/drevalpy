@@ -13,7 +13,7 @@ from drevalpy.models.config import ModelConfig, from_spec, validate
 from drevalpy.models.factory import model_config_for_name
 from drevalpy.models.zoo import list_zoo_names
 from tests.models.synthetic_fixtures import (
-    lco_split_masks,
+    lso_split_masks,
     synthetic_mudataset_gene_expression_fingerprints,
     synthetic_mudataset_identity,
 )
@@ -62,7 +62,7 @@ def test_component_stack_save_load_round_trip(name: str) -> None:
     else:
         model = DRPModel(ModelSpec.from_name(name), {})
         mudataset = synthetic_mudataset_identity()
-    split = lco_split_masks()
+    split = lso_split_masks()
     model.train(mudataset, split.train)
     preds_before = model.predict(mudataset, split.test)
     with tempfile.TemporaryDirectory() as directory:

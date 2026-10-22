@@ -33,7 +33,7 @@ def _snippets(page: str) -> list[str]:
 )
 def test_model_guides_use_executable_public_imports(page, synthetic_dataset, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    fold = split(synthetic_dataset, "LCO", n_splits=2)[0]
+    fold = split(synthetic_dataset, "LSO", n_splits=2)[0]
     namespace = {
         "dataset": synthetic_dataset,
         "scope": fold.train,

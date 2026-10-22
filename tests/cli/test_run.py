@@ -140,9 +140,9 @@ class TestOptionForwarding:
         assert worker.kwargs["hyperparameter_tuning"] is False
 
     def test_split_mode_short_option(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "-s", "LCO")
+        _invoke(tmp_path, "-s", "LSO")
 
-        assert worker.kwargs["split_mode"] == "LCO"
+        assert worker.kwargs["split_mode"] == "LSO"
 
     def test_repeated_randomization_modes_become_a_list(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path, "-r", "SVRC", "-r", "SVCD")

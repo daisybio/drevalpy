@@ -61,16 +61,16 @@ def _run(seed: int, preset: str, dataset: Any, split: Any) -> dict[str, Any]:
 def main() -> None:
     """Write frozen facade outputs from the archived implementation only."""
     from tests.models.synthetic_fixtures import (
-        lco_split_masks,
+        lso_split_masks,
         synthetic_mudataset_gene_expression_fingerprints,
         synthetic_mudataset_identity,
     )
 
     output = UPath(os.environ["FACADE_BASELINE_OUTPUT"])
-    split = lco_split_masks()
+    split = lso_split_masks()
     records: dict[str, Any] = {
         "commit": "e4ad11766bc53554eb0dd53fd29ba47fa41000c2",
-        "protocol": "facade train/predict on LCO synthetic data; seeds 0, 1, 2",
+        "protocol": "facade train/predict on LSO synthetic data; seeds 0, 1, 2",
         "models": {},
     }
     for name, preset, dataset_factory in (

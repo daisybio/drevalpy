@@ -36,7 +36,7 @@ Minimal call
    result = run(
        models=[elastic_net],
        dataset=dataset,
-       split_mode="LCO",
+       split_mode="LSO",
        hyperparameter_tuning=False,
    )
 
@@ -63,7 +63,7 @@ predictions and metrics.
      - ``Dataset`` object or name string (auto-loaded).
    * - ``split_mode``
      -
-     - Split mode: ``"LPO"``, ``"LCO"``, ``"LDO"``, or ``"LTO"`` (see :doc:`/concepts/evaluation`).
+     - Split mode: ``"LPO"``, ``"LSO"``, ``"LDO"``, or ``"LTO"`` (see :doc:`/concepts/evaluation`).
    * - ``hyperparameter_tuning``
      - ``True``
      - Whether to run HPO on each model.
@@ -106,7 +106,7 @@ For parallel or custom workflows, split first and execute folds individually:
    from drevalpy import single
 
    dataset = load("GDSC1")
-   folds = split(dataset, mode="LCO", n_splits=5)
+   folds = split(dataset, mode="LSO", n_splits=5)
    elastic_net = ModelSpec.from_name("ElasticNet")
 
    results = []

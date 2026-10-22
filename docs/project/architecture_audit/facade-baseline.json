@@ -195,5 +195,5 @@
       }
     }
   },
-  "protocol": "facade train/predict on LCO synthetic data; seeds 0, 1, 2"
+  "protocol": "facade train/predict on LSO synthetic data; seeds 0, 1, 2"
 }

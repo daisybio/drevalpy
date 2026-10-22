@@ -73,7 +73,14 @@ def test_split_validation_error_is_a_value_error() -> None:
 
 
 def test_every_declared_mode_has_a_validator() -> None:
-    assert set(_VALIDATORS) == {"LCO", "LDO", "LPO", "LTO"}
+    assert set(_VALIDATORS) == {"LSO", "LDO", "LPO", "LTO"}
+
+
+def test_the_legacy_lco_validation_name_means_lso(mudataset: _FakeMuDataset) -> None:
+    leaking = _fold(_mask((0, 1), (0,)), _mask((1, 2), (1,)))
+
+    with pytest.raises(SplitValidationError, match="LSO validation failed"):
+        validate_folds([leaking], "LCO", mudataset)  # type: ignore[arg-type]
 
 
 def test_unknown_validation_mode_is_rejected(mudataset: _FakeMuDataset) -> None:
@@ -90,7 +97,7 @@ def test_no_folds_is_vacuously_valid(mudataset: _FakeMuDataset) -> None:
 @pytest.mark.parametrize(
     ("mode", "train", "test"),
     [
-        pytest.param("LCO", _mask((0, 1), (0, 1, 2)), _mask((2, 3), (0, 1, 2)), id="lco-disjoint-rows"),
+        pytest.param("LSO", _mask((0, 1), (0, 1, 2)), _mask((2, 3), (0, 1, 2)), id="lso-disjoint-rows"),
         pytest.param("LDO", _mask((0, 1, 2, 3), (0,)), _mask((0, 1, 2, 3), (1, 2)), id="ldo-disjoint-cols"),
         pytest.param("LPO", _mask((0, 1), (0,)), _mask((2, 3), (1,)), id="lpo-disjoint-pairs"),
         pytest.param("LTO", _mask((0, 1), (0, 1, 2)), _mask((2, 3), (0, 1, 2)), id="lto-disjoint-tissues"),
@@ -100,11 +107,11 @@ def test_valid_folds_pass(mode: str, train: SplitMask, test: SplitMask, mudatase
     validate_folds([_fold(train, test)], mode, mudataset)  # type: ignore[arg-type]
 
 
-def test_lco_rejects_a_sample_in_both_sides(mudataset: _FakeMuDataset) -> None:
+def test_lso_rejects_a_sample_in_both_sides(mudataset: _FakeMuDataset) -> None:
     fold = _fold(_mask((0, 1), (0,)), _mask((1, 2), (1,)))
 
-    with pytest.raises(SplitValidationError, match="LCO validation failed"):
-        validate_folds([fold], "LCO", mudataset)
+    with pytest.raises(SplitValidationError, match="LSO validation failed"):
+        validate_folds([fold], "LSO", mudataset)
 
 
 def test_ldo_rejects_a_drug_in_both_sides(mudataset: _FakeMuDataset) -> None:
@@ -144,7 +151,7 @@ def test_lpo_tolerates_a_shared_row_and_column(mudataset: _FakeMuDataset) -> Non
 @pytest.mark.parametrize(
     ("mode", "train", "test", "val"),
     [
-        pytest.param("LCO", _mask((0,), (0,)), _mask((2,), (0,)), _mask((0,), (1,)), id="lco-row"),
+        pytest.param("LSO", _mask((0,), (0,)), _mask((2,), (0,)), _mask((0,), (1,)), id="lso-row"),
         pytest.param("LDO", _mask((0,), (0,)), _mask((1,), (2,)), _mask((2,), (0,)), id="ldo-column"),
         pytest.param("LTO", _mask((0,), (0,)), _mask((2,), (0,)), _mask((1,), (1,)), id="lto-tissue"),
         pytest.param("LPO", _mask((0,), (0,)), _mask((1,), (1,)), _mask((0,), (0,)), id="lpo-pair"),

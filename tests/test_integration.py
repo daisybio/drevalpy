@@ -67,7 +67,7 @@ def mudataset():
 
 class TestFullPipeline:
     def test_split_produces_valid_folds(self, mudataset):
-        folds = split(mudataset, "LCO", n_splits=2)
+        folds = split(mudataset, "LSO", n_splits=2)
         assert len(folds) == 2
         for fold in folds:
             assert fold.train.mask.ndim == 2
@@ -83,7 +83,7 @@ class TestFullPipeline:
 
         ElasticNet = ModelSpec.from_name("ElasticNet")  # noqa: N806
 
-        splitter = splitter_registry.get("LCO")
+        splitter = splitter_registry.get("LSO")
         folds = splitter(mudataset, n_splits=2, validation_ratio=0.2)
 
         result = single(

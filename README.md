@@ -96,12 +96,12 @@ DrEvalPy exposes the same evaluation workflow through the **CLI** and the **Pyth
 
 ### CLI (smallest runnable example)
 
-After installation, run naive baselines on the GDSC1 screen with leave-sample-out (LCO) splits:
+After installation, run naive baselines on the GDSC1 screen with leave-sample-out (LSO) splits:
 
 ```bash
 drevalpy run NaiveTissueMeanPredictor NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
   --dataset GDSC1 \
-  --split-mode LCO \
+  --split-mode LSO \
   --no-hpo
 ```
 
@@ -133,7 +133,7 @@ ElasticNet = construct_model("ElasticNet")
 result = run(
     models=[ElasticNet],
     dataset=dataset,
-    split_mode="LCO",
+    split_mode="LSO",
     hyperparameter_tuning=False,
 )
 ```
@@ -181,7 +181,7 @@ dataset_name: CTRPv2
 cross_study_datasets: CTRPv1,GDSC1,GDSC2
 models: DIPK,MultiViewRandomForest
 baselines: SimpleNeuralNetwork,RandomForest,MultiViewNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveSampleMeanPredictor,NaiveDrugMeanPredictor
-test_mode: LPO,LCO,LTO,LDO
+test_mode: LPO,LSO,LTO,LDO
 randomization_mode: SVRC,SVRD
 randomization_type: permutation
 measure: LN_IC50
@@ -196,7 +196,7 @@ dataset_name: CTRPv2
 cross_study_datasets: CTRPv1,GDSC1,GDSC2,PDX_Bruna,BeatAML2
 models: RandomForest
 baselines: NaiveMeanEffectsPredictor
-test_mode: LCO
+test_mode: LSO
 measure: pEC50
 ```
 
@@ -207,7 +207,7 @@ dataset_name: CTRPv2
 cross_study_datasets: CTRPv1,GDSC1,GDSC2,PDX_Bruna,BeatAML2
 models: RandomForest
 baselines: NaiveMeanEffectsPredictor
-test_mode: LCO
+test_mode: LSO
 measure: AUC
 ```
 
@@ -220,7 +220,7 @@ run_id: invariant-rf
 dataset_name: CTRPv2
 models: MultiViewRandomForest
 baselines: NaiveMeanEffectsPredictor
-test_mode: LPO,LCO,LDO
+test_mode: LPO,LSO,LDO
 randomization_mode: SVRC,SVRD
 randomization_type: invariant
 measure: LN_IC50
@@ -232,7 +232,7 @@ run_id: invariant-dipk
 dataset_name: CTRPv2
 models: DIPK
 baselines: NaiveMeanEffectsPredictor
-test_mode: LPO,LCO,LDO
+test_mode: LPO,LSO,LDO
 randomization_mode: SVRC,SVRD
 randomization_type: invariant
 measure: LN_IC50
@@ -248,7 +248,7 @@ dataset_name: CTRPv2
 cross_study_datasets: PDX_Bruna,BeatAML2
 models: RandomForest,SimpleNeuralNetwork,GradientBoosting,SRMF,ElasticNet,NaivePredictor,NaiveDrugMeanPredictor,NaiveSampleMeanPredictor
 baselines: NaiveMeanEffectsPredictor
-test_mode: LPO,LCO,LDO
+test_mode: LPO,LSO,LDO
 measure: LN_IC50
 ```
 
@@ -259,7 +259,7 @@ dataset_name: CTRPv2
 cross_study_datasets: PDX_Bruna,BeatAML2
 models: DIPK
 baselines: NaiveMeanEffectsPredictor
-test_mode: LPO,LCO,LDO
+test_mode: LPO,LSO,LDO
 measure: LN_IC50
 ```
 

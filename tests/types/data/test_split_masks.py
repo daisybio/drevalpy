@@ -60,7 +60,7 @@ class TestSplitMasks:
             train=_mask(shape, (0, 0), (1, 1), (2, 2)),
             test=_mask(shape, (3, 0), (4, 1)),
             val=_mask(shape, (5, 2)),
-            metadata={"mode": "LCO", "fold_index": 0, "custom": 42},
+            metadata={"mode": "LSO", "fold_index": 0, "custom": 42},
         )
         with tempfile.NamedTemporaryFile(suffix=".npz") as f:
             masks.save(f.name)

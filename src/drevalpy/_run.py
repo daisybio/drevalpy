@@ -39,7 +39,7 @@ def run(
 
     :param models: Named model specifications to evaluate.
     :param dataset: Dataset object or name to load.
-    :param split_mode: Split mode (LPO, LCO, LDO, LTO).
+    :param split_mode: Split mode (LPO, LSO, LDO, LTO).
     :param randomization_modes: Optional randomization modes (SVRC, SVCC, SVRD, SVCD).
     :param randomization_type: "permutation" or "invariant".
     :param hyperparameter_tuning: Whether to run HPO.

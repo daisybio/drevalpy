@@ -27,7 +27,7 @@ class DrugGraphNet(nn.Module):
         self.conv3 = GCNConv(hidden_dim * 2, hidden_dim * 4)
         self.drug_embed_fc = nn.Linear(hidden_dim * 4, hidden_dim)
 
-        # Cell Line Encoder (MLP)
+        # Sample encoder (MLP)
         self.cell_fc1 = nn.Linear(num_cell_features, hidden_dim * 2)
         self.cell_fc2 = nn.Linear(hidden_dim * 2, hidden_dim)
 

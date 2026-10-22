@@ -21,7 +21,7 @@ def split(
     """Split a dataset using a registered splitter.
 
     :param dataset: Dataset instance.
-    :param mode: Splitter mode (e.g. "LCO", "LPO", "LDO", "LTO").
+    :param mode: Splitter mode or alias (e.g. "LSO", "LPO", "LDO", "LTO"). Metadata records the canonical mode.
     :param n_splits: Number of CV folds.
     :param validation_ratio: Fraction of training data for validation.
     :param random_state: Seed for reproducibility.
@@ -29,6 +29,7 @@ def split(
     """
     from drevalpy.registry.splitter import splitter_registry
 
+    mode = splitter_registry.canonical(mode)
     splitter = splitter_registry.get(mode)
     folds = splitter(dataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state)
 

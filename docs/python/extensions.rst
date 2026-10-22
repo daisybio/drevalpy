@@ -114,7 +114,7 @@ methods, naming the members it is missing. That check runs at registration
 rather than at instantiation, so a missing ``_fit`` fails next to its cause.
 
 A view-reading sample featurizer
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: /examples/toy_sample_featurizer.py
    :language: python
@@ -292,7 +292,7 @@ The dataset argument is typed as :class:`~drevalpy.plugin.MuDataLike`, a
    :caption: docs/examples/toy_splitter.py
 
 The ``validation`` argument names the leakage constraint the registry enforces
-automatically after every split (``"LCO"``, ``"LDO"``, ``"LPO"``, or ``"LTO"``).
+automatically after every split (``"LSO"``, ``"LDO"``, ``"LPO"``, or ``"LTO"``).
 The registry wraps your function, so the check cannot be bypassed by calling the
 registered splitter directly; a violation raises ``SplitValidationError``.
 
@@ -300,13 +300,20 @@ Registering a mode name that is already taken **raises**. Pass
 ``override=True`` when replacing an existing mode is the intent — a silent
 overwrite would let one package quietly change another's split semantics.
 
+Pass ``aliases=("OLD_NAME",)`` to keep a renamed mode reachable under its former
+name. An alias resolves to the canonical mode everywhere a mode is looked up
+(``split``, the CLI, ``drevalpy list splitters``), while results and file names
+always carry the canonical name. An alias that collides with an existing mode or
+alias raises, like any other duplicate. The built-in ``LSO`` is registered with
+``aliases=("LCO",)``.
+
 Once registered, the mode works anywhere a mode string is accepted:
 
 .. code-block:: python
 
    from drevalpy.data import split
 
-   folds = split(dataset, mode="TOY_LCO", n_splits=5)
+   folds = split(dataset, mode="TOY_LSO", n_splits=5)
 
 Filtering on curve quality
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

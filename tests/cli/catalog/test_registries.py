@@ -123,6 +123,24 @@ class TestSingleEntry:
         assert "elasticNet" not in printed
 
 
+class TestSplitterAliases:
+    """The splitter listing shows an alias next to its mode and resolves it."""
+
+    def test_the_table_has_an_aliases_column(self) -> None:
+        assert "Aliases" in invoke("splitters")
+
+    def test_the_table_shows_lco_next_to_lso(self) -> None:
+        row = next(line for line in invoke("splitters").splitlines() if "LSO" in line)
+
+        assert "LCO" in row
+
+    def test_the_alias_describes_the_canonical_mode(self) -> None:
+        result = runner.invoke(app, ["list", "splitters", "LCO"], env=HELP_ENV)
+
+        assert result.exit_code == 0, result.output
+        assert "LSO" in plain(result.output)
+
+
 class TestUnknownEntry:
     """An unregistered name fails with the registry's own message."""
 

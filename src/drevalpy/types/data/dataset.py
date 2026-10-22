@@ -272,7 +272,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         """Sample identifiers (obs_names of the response modality).
 
         Returns:
-            1-D string array of cellosaurus IDs.
+            1-D string array of sample IDs.
         """
         return np.asarray(self.response.obs_names)
 
@@ -318,10 +318,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
 
     @property
     def sample_meta(self) -> pd.DataFrame:
-        """Global sample metadata (cell_line_name, tissue, etc.).
+        """Global sample metadata (tissue, plus optional cellosaurus_id/cell_line_name for cell-line datasets).
 
         Returns:
-            DataFrame indexed by cellosaurus_id from mdata.obs.
+            DataFrame from mdata.obs, indexed by sample ID.
         """
         return self._mdata.obs
 
@@ -329,7 +329,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         """Get tissue labels for the given sample IDs.
 
         Args:
-            ids: 1-D array of cellosaurus IDs.
+            ids: 1-D array of sample IDs.
 
         Returns:
             1-D string array of tissue labels (NaN for unknown IDs).
@@ -357,7 +357,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         are also subset to their intersection with *ids*.
 
         Args:
-            ids: 1-D array of cellosaurus IDs to keep.
+            ids: 1-D array of sample IDs to keep.
 
         Returns:
             Independent Dataset containing the selected samples.

@@ -58,7 +58,7 @@ def _make_masks(*, fold_index: int, shape: tuple[int, int] = (4, 3)) -> SplitMas
         train=SplitMask(train),
         test=SplitMask(test),
         val=SplitMask(val),
-        metadata={"fold_index": fold_index, "split_mode": "LCO", "fold_id": f"fold_{fold_index}"},
+        metadata={"fold_index": fold_index, "split_mode": "LSO", "fold_id": f"fold_{fold_index}"},
     )
 
 
@@ -134,7 +134,7 @@ class TestDatasetResolution:
         loaded = []
         monkeypatch.setattr(RUN_MODULE, "load", lambda name: loaded.append(name) or _FakeDataset(name=name))
 
-        run([_stub_model("A")], "CTRPv1", "LCO", hyperparameter_tuning=False)
+        run([_stub_model("A")], "CTRPv1", "LSO", hyperparameter_tuning=False)
 
         assert loaded == ["CTRPv1"]
 
@@ -144,7 +144,7 @@ class TestDatasetResolution:
         sentinel = _FakeDataset(name="CTRPv1", tag="loaded")
         monkeypatch.setattr(RUN_MODULE, "load", lambda name: sentinel)
 
-        run([_stub_model("A")], "CTRPv1", "LCO", hyperparameter_tuning=False)
+        run([_stub_model("A")], "CTRPv1", "LSO", hyperparameter_tuning=False)
 
         assert recorder.datasets == [sentinel, sentinel]
 
@@ -153,7 +153,7 @@ class TestDatasetResolution:
     ) -> None:
         monkeypatch.setattr(RUN_MODULE, "load", lambda name: pytest.fail("load must not be called"))
 
-        run([_stub_model("A")], dataset, "LCO", hyperparameter_tuning=False)
+        run([_stub_model("A")], dataset, "LSO", hyperparameter_tuning=False)
 
         assert recorder.datasets == [dataset, dataset]
 
@@ -178,7 +178,7 @@ class TestFanOut:
         _set_folds(monkeypatch, n_folds)
         models = [_stub_model(f"Model{i}") for i in range(n_models)]
 
-        result = run(models, dataset, "LCO", hyperparameter_tuning=False)
+        result = run(models, dataset, "LSO", hyperparameter_tuning=False)
 
         assert len(recorder.calls) == n_models * n_folds
         assert sum(m.n_folds for m in result.models) == n_models * n_folds
@@ -196,7 +196,7 @@ class TestFanOut:
         _set_randomizations(monkeypatch, n_randomizations)
         models = [_stub_model(f"Model{i}") for i in range(n_models)]
 
-        result = run(models, dataset, "LCO", randomization_modes=["SVRC"], hyperparameter_tuning=False)
+        result = run(models, dataset, "LSO", randomization_modes=["SVRC"], hyperparameter_tuning=False)
 
         expected = n_models * n_folds * (1 + n_randomizations)
         assert len(recorder.calls) == expected
@@ -209,7 +209,7 @@ class TestFanOut:
         _set_folds(monkeypatch, 1)
         _set_randomizations(monkeypatch, 2)
 
-        run([_stub_model("A")], dataset, "LCO", randomization_modes=["SVRC"], hyperparameter_tuning=False)
+        run([_stub_model("A")], dataset, "LSO", randomization_modes=["SVRC"], hyperparameter_tuning=False)
 
         assert [ds.tag for ds in recorder.datasets] == ["original", "random_0", "random_1"]
 
@@ -219,7 +219,7 @@ class TestFanOut:
         _set_folds(monkeypatch, 2)
         monkeypatch.setattr(RUN_MODULE, "randomization", lambda *a, **k: pytest.fail("must not randomize"))
 
-        run([_stub_model("A")], dataset, "LCO", randomization_modes=[], hyperparameter_tuning=False)
+        run([_stub_model("A")], dataset, "LSO", randomization_modes=[], hyperparameter_tuning=False)
 
         assert len(recorder.calls) == 2
 
@@ -227,7 +227,7 @@ class TestFanOut:
         self, recorder: _SingleRecorder, dataset: _FakeDataset
     ) -> None:
         with pytest.raises(ValueError, match="must not be empty"):
-            run([], dataset, "LCO", hyperparameter_tuning=False)
+            run([], dataset, "LSO", hyperparameter_tuning=False)
 
 
 class TestRobustness:
@@ -242,7 +242,7 @@ class TestRobustness:
         n_folds = 3
         _set_folds(monkeypatch, n_folds)
 
-        run([_stub_model("A")], dataset, "LCO", robustness_trials=trials, hyperparameter_tuning=False)
+        run([_stub_model("A")], dataset, "LSO", robustness_trials=trials, hyperparameter_tuning=False)
 
         assert len(recorder.calls) == n_folds * (1 + trials)
 
@@ -251,7 +251,7 @@ class TestRobustness:
     ) -> None:
         _set_folds(monkeypatch, 3)
 
-        run([_stub_model("A")], dataset, "LCO", robustness_trials=0, hyperparameter_tuning=False)
+        run([_stub_model("A")], dataset, "LSO", robustness_trials=0, hyperparameter_tuning=False)
 
         assert len(recorder.calls) == 3
         assert all("robustness_trial" not in masks.metadata for masks in recorder.masks)
@@ -261,7 +261,7 @@ class TestRobustness:
     ) -> None:
         _set_folds(monkeypatch, 2)
 
-        run([_stub_model("A")], dataset, "LCO", robustness_trials=3, hyperparameter_tuning=False)
+        run([_stub_model("A")], dataset, "LSO", robustness_trials=3, hyperparameter_tuning=False)
 
         assert [masks.metadata.get("robustness_trial") for masks in recorder.masks] == [None, 0, 1, 2, None, 0, 1, 2]
 
@@ -270,7 +270,7 @@ class TestRobustness:
     ) -> None:
         _set_folds(monkeypatch, 1)
 
-        result = run([_stub_model("A")], dataset, "LCO", robustness_trials=2, hyperparameter_tuning=False)
+        result = run([_stub_model("A")], dataset, "LSO", robustness_trials=2, hyperparameter_tuning=False)
 
         assert result.has_robustness
         assert [r.robustness_trial for r in result.models[0].runs] == [None, 0, 1]
@@ -280,7 +280,7 @@ class TestRobustness:
     ) -> None:
         _set_folds(monkeypatch, 2)
 
-        run([_stub_model("A")], dataset, "LCO", robustness_trials=2, hyperparameter_tuning=False)
+        run([_stub_model("A")], dataset, "LSO", robustness_trials=2, hyperparameter_tuning=False)
 
         assert [masks.metadata["fold_index"] for masks in recorder.masks] == [0, 0, 0, 1, 1, 1]
 
@@ -294,7 +294,7 @@ class TestForwardedArguments:
         run(
             [_stub_model("A")],
             dataset,
-            "LCO",
+            "LSO",
             hyperparameter_tuning=True,
             hpo_metric="MSE",
             hpo_num_trials=4,
@@ -341,7 +341,7 @@ class TestForwardedArguments:
         run(
             [_stub_model("A")],
             dataset,
-            "LCO",
+            "LSO",
             randomization_modes=["SVRC", "SVRD"],
             randomization_type="invariant",
             hyperparameter_tuning=False,
@@ -361,7 +361,7 @@ class TestForwardedArguments:
 
         monkeypatch.setattr(RUN_MODULE, "randomization", fake_randomization)
 
-        run([_stub_model("A")], dataset, "LCO", randomization_modes=["SVRC"], randomization_random_state=17)
+        run([_stub_model("A")], dataset, "LSO", randomization_modes=["SVRC"], randomization_random_state=17)
 
         assert seen == [17]
 
@@ -382,7 +382,7 @@ class TestForwardedArguments:
         monkeypatch.setattr(RUN_MODULE, "split", fake_split)
         monkeypatch.setattr(RUN_MODULE, "randomization", fake_randomization)
 
-        run([_stub_model("A")], dataset, "LCO", randomization_modes=["SVRC"], seed=5)
+        run([_stub_model("A")], dataset, "LSO", randomization_modes=["SVRC"], seed=5)
 
         assert split_seeds == [5]
         assert randomization_seeds == [5]
@@ -402,7 +402,7 @@ class TestForwardedArguments:
 
         monkeypatch.setattr(RUN_MODULE, "randomization", fake_randomization)
 
-        run([_stub_model("A")], dataset, "LCO", randomization_modes=["SVRC"], seed=5, randomization_random_state=0)
+        run([_stub_model("A")], dataset, "LSO", randomization_modes=["SVRC"], seed=5, randomization_random_state=0)
 
         assert seen == [0]
 
@@ -414,7 +414,7 @@ class TestGrouping:
         _set_folds(monkeypatch, 3)
         models = [_stub_model("Alpha"), _stub_model("Beta")]
 
-        result = run(models, dataset, "LCO", hyperparameter_tuning=False)
+        result = run(models, dataset, "LSO", hyperparameter_tuning=False)
 
         assert isinstance(result, ExperimentResult)
         assert sorted(result.model_names) == ["Alpha", "Beta"]
@@ -426,7 +426,7 @@ class TestGrouping:
         _set_folds(monkeypatch, 2)
         models = [_stub_model("Alpha"), _stub_model("Beta")]
 
-        run(models, dataset, "LCO", hyperparameter_tuning=False)
+        run(models, dataset, "LSO", hyperparameter_tuning=False)
 
         assert recorder.model_names == ["Alpha", "Alpha", "Beta", "Beta"]
 
@@ -436,7 +436,7 @@ class TestGrouping:
         _set_folds(monkeypatch, 1)
         _set_randomizations(monkeypatch, 2)
 
-        result = run([_stub_model("Alpha")], dataset, "LCO", randomization_modes=["SVRC"], hyperparameter_tuning=False)
+        result = run([_stub_model("Alpha")], dataset, "LSO", randomization_modes=["SVRC"], hyperparameter_tuning=False)
 
         assert result.model_names == ["Alpha"]
         assert result.has_randomization

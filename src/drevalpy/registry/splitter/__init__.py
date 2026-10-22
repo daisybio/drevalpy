@@ -24,16 +24,24 @@ __all__ = [
 ]
 
 
-def register(mode: str, description: str, validation: Validation, *, override: bool = False):
+def register(
+    mode: str,
+    description: str,
+    validation: Validation,
+    *,
+    override: bool = False,
+    aliases: tuple[str, ...] = (),
+):
     """Decorator to register a splitter function under a mode name.
 
     :param mode: Mode name (e.g. ``"LPO"``, or a custom name).
     :param description: Human-readable description of the splitting approach.
     :param validation: Which leakage constraint to enforce.
     :param override: Replace an already-registered mode instead of raising.
+    :param aliases: Alternative names resolving to *mode*; results always carry *mode*.
     :returns: Decorator that registers and returns the wrapped function.
     """
-    return splitter_registry.register(mode, description, validation, override=override)
+    return splitter_registry.register(mode, description, validation, override=override, aliases=aliases)
 
 
 def get(mode: str) -> Splitter:
@@ -49,7 +57,7 @@ def list() -> list[str]:
 def table() -> pd.DataFrame:
     """Return registry contents as a DataFrame.
 
-    :returns: DataFrame with Mode, Description and Validation columns.
+    :returns: DataFrame with Mode, Description, Validation and Aliases columns.
     """
     return splitter_registry.to_dataframe()
 

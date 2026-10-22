@@ -41,7 +41,7 @@ How to set up your development environment
 
    .. code:: console
 
-      $ uv run drevalpy run NaiveDrugMeanPredictor ElasticNet --dataset GDSC1 --split-mode LCO --no-hpo
+      $ uv run drevalpy run NaiveDrugMeanPredictor ElasticNet --dataset GDSC1 --split-mode LSO --no-hpo
 
 5. Visualize the results by running the following command:
 

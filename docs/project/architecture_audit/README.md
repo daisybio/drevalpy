@@ -26,7 +26,7 @@ seeds 0, 1 and 2. `training/literature-training-extended.json` contains all
 eight literature predictors for each seed using the four-epoch multi-batch
 protocol. `facade-baseline.json` freezes `NaivePredictor` and the
 scaled-gene-expression/fingerprint `ElasticNet` facade paths on the synthetic
-LCO fixture for the same three seeds. It records prediction and component-state
+LSO fixture for the same three seeds. It records prediction and component-state
 checksums so later checks can distinguish a numerical regression from a change
 to serialization.
 

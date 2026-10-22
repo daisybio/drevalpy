@@ -27,11 +27,12 @@ def single_cmd(
             help="Response scaling fitted on the training scope: None, standard, minmax, or robust.",
         ),
     ] = "standard",
-    split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LCO, LDO).")] = "LPO",
+    split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LSO, LDO).")] = "LPO",
 ) -> None:
     """Train a model on one fold, predict on test set, and save results."""
     from drevalpy._single import single as run_single
     from drevalpy.models import ModelSpec
+    from drevalpy.registry.splitter import splitter_registry
     from drevalpy.types import SplitMasks
     from drevalpy.types.data.dataset import Dataset
     from drevalpy.utils import get_response_transformation
@@ -42,8 +43,7 @@ def single_cmd(
     model_spec = ModelSpec.from_name(model)
     ds = Dataset.load(dataset)
     split_masks = SplitMasks.load(split)
-    if "split_mode" not in split_masks.metadata:
-        split_masks.metadata["split_mode"] = split_mode
+    split_masks.metadata["split_mode"] = splitter_registry.canonical(split_masks.metadata.get("split_mode", split_mode))
 
     result = run_single(
         model_spec,

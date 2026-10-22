@@ -70,7 +70,7 @@ The experiment helpers use the same model API for one or many models:
 
    from drevalpy import run, single
 
-   results = run(models=[elastic_net], dataset=dataset, split_mode="LCO", hyperparameter_tuning=False)
+   results = run(models=[elastic_net], dataset=dataset, split_mode="LSO", hyperparameter_tuning=False)
    fold_result = single(elastic_net, dataset, fold, hyperparameter_tuning=False)
 
 ``run`` owns fold execution and result identity. ``single`` is the focused
@@ -162,7 +162,7 @@ A regular fit follows this sequence:
 
 .. code-block:: text
 
-   run(models=[spec], dataset=dataset, split_mode="LCO")
+   run(models=[spec], dataset=dataset, split_mode="LSO")
      -> RunIdentity(fold, model, ordinary execution)
      -> immutable ExecutionSpec(FitScopes)
      -> DRPModel clones config

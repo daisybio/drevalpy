@@ -90,6 +90,11 @@ single-commit argument diffs that commit against its parent.
   teardown via `restore_component_registries()` / `isolated_component_registries()`
   from `tests/registry/_helpers.py`, plus `clear_external_zoo()` when an external
   zoo is loaded. `register_builtin_components()` is **not** a teardown - it only adds.
+- Terminology: write "sample" for the biological source and "pair" for one
+  sample-drug measurement (`GLOSSARY.md`). `tests/test_terminology_policy.py`
+  fails on any "cell line" under `src/` or `tests/` that its hand-written
+  `ALLOWLIST` does not cover with a reason, and on allowlist entries that no
+  longer match. Allowlist only text about data that really are cell lines.
 
 ## Test layout
 

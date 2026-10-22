@@ -20,9 +20,9 @@ from drevalpy.plugin import MuDataLike, SplitMask, SplitMasks, curve_quality_mas
 
 
 @register_splitter(
-    "TOY_LCO",
-    "Leave-Cell-Line-Out with a fixed 80/20 train/validation carve-out",
-    validation="LCO",
+    "TOY_LSO",
+    "Leave-Sample-Out with a fixed 80/20 train/validation carve-out",
+    validation="LSO",
 )
 def toy_leave_sample_out(
     mudataset: MuDataLike,
@@ -37,7 +37,7 @@ def toy_leave_sample_out(
         n_splits: Number of folds.
         validation_ratio: Ignored; this splitter always holds out a fifth of the
             training samples, which is what makes it worth registering
-            separately from the built-in ``LCO``.
+            separately from the built-in ``LSO``.
         random_state: Seed for the fold assignment.
 
     Returns:

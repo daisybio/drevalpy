@@ -43,7 +43,7 @@ Splits
 ------
 
 :func:`~drevalpy.run` splits the loaded dataset for you (``split_mode``
-of ``LPO``, ``LCO``, ``LTO``, or ``LDO``). You can also use
+of ``LPO``, ``LSO``, ``LTO``, or ``LDO``). You can also use
 :func:`~drevalpy.data.split` yourself before a custom training loop:
 
 .. code-block:: python
@@ -51,7 +51,7 @@ of ``LPO``, ``LCO``, ``LTO``, or ``LDO``). You can also use
    from drevalpy.data import load, split
 
    dataset = load("GDSC1")
-   folds = split(dataset, mode="LCO", n_splits=5)
+   folds = split(dataset, mode="LSO", n_splits=5)
 
 Each fold is a :class:`~drevalpy.types.SplitMasks` object containing boolean
 masks for train, validation, and test sets. Pass a fold directly to
