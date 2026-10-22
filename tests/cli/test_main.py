@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from upath import UPath
 
@@ -66,7 +68,10 @@ class TestRegistration:
 
 
 class TestExtensionLoading:
-    """``main_callback`` forwards extension directories to the registry loader.
+    """``main_callback`` loads ``DREVALPY_EXTENSIONS_DIR`` first, then the ``-e`` directories.
+
+    The directory loader is patched in :mod:`drevalpy.registry._extensions`, the module
+    ``load_extensions`` resolves it from.
 
     Every invocation here appends a subcommand before ``-h``: click's root-level
     eager help option short-circuits before the group callback runs, so
@@ -76,7 +81,7 @@ class TestExtensionLoading:
     def test_extensions_dir_option_is_forwarded(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
         loader = Recorder()
         monkeypatch.delenv("DREVALPY_EXTENSIONS_DIR", raising=False)
-        monkeypatch.setattr("drevalpy.registry.load_extension_dir", loader)
+        monkeypatch.setattr("drevalpy.registry._extensions.load_extension_dir", loader)
         ext_dir = tmp_path / "ext"
         ext_dir.mkdir()
 
@@ -90,7 +95,7 @@ class TestExtensionLoading:
     ) -> None:
         loader = Recorder()
         monkeypatch.delenv("DREVALPY_EXTENSIONS_DIR", raising=False)
-        monkeypatch.setattr("drevalpy.registry.load_extension_dir", loader)
+        monkeypatch.setattr("drevalpy.registry._extensions.load_extension_dir", loader)
         ext_dir = tmp_path / "ext"
         ext_dir.mkdir()
 
@@ -102,7 +107,7 @@ class TestExtensionLoading:
     def test_short_option_accepts_repeats_in_order(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
         loader = Recorder()
         monkeypatch.delenv("DREVALPY_EXTENSIONS_DIR", raising=False)
-        monkeypatch.setattr("drevalpy.registry.load_extension_dir", loader)
+        monkeypatch.setattr("drevalpy.registry._extensions.load_extension_dir", loader)
         first = tmp_path / "one"
         second = tmp_path / "two"
         for directory in (first, second):
@@ -120,17 +125,68 @@ class TestExtensionLoading:
         for directory in (env_dir, opt_dir):
             directory.mkdir()
         monkeypatch.setenv("DREVALPY_EXTENSIONS_DIR", str(env_dir))
-        monkeypatch.setattr("drevalpy.registry.load_extension_dir", loader)
+        monkeypatch.setattr("drevalpy.registry._extensions.load_extension_dir", loader)
 
         result = runner.invoke(app, ["-e", str(opt_dir), "run", "-h"], env=HELP_ENV)
 
         assert result.exit_code == 0
         assert [call[0][0] for call in loader.calls] == [str(env_dir), str(opt_dir)]
 
+    def test_callback_calls_load_extensions_bare_and_then_with_the_flags(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
+    ) -> None:
+        loader = Recorder()
+        monkeypatch.setattr("drevalpy.registry.load_extensions", loader)
+
+        result = runner.invoke(app, ["-e", str(tmp_path), "-e", "other", "run", "-h"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+        assert loader.calls == [((), {}), ((), {"directories": [str(tmp_path), "other"]})]
+
+    def test_callback_without_flags_calls_load_extensions_once(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        loader = Recorder()
+        monkeypatch.setattr("drevalpy.registry.load_extensions", loader)
+
+        result = runner.invoke(app, ["run", "-h"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+        assert loader.calls == [((), {})]
+
+    def test_env_var_with_several_directories_loads_each_before_the_option(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
+    ) -> None:
+        loader = Recorder()
+        env_dirs = [tmp_path / "env_one", tmp_path / "env_two"]
+        monkeypatch.setenv("DREVALPY_EXTENSIONS_DIR", os.pathsep.join(str(d) for d in env_dirs))
+        monkeypatch.setattr("drevalpy.registry._extensions.load_extension_dir", loader)
+
+        result = runner.invoke(app, ["-e", "from_option", "run", "-h"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+        assert [call[0][0] for call in loader.calls] == [str(env_dirs[0]), str(env_dirs[1]), "from_option"]
+
+    def test_env_var_directory_missing_fails_the_command(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
+    ) -> None:
+        monkeypatch.setenv("DREVALPY_EXTENSIONS_DIR", str(tmp_path / "missing"))
+
+        result = runner.invoke(app, ["run", "-h"], env=HELP_ENV)
+
+        assert isinstance(result.exception, FileNotFoundError)
+
+    def test_same_directory_in_env_and_option_loads_without_error(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
+    ) -> None:
+        monkeypatch.setenv("DREVALPY_EXTENSIONS_DIR", str(tmp_path))
+
+        result = runner.invoke(app, ["-e", str(tmp_path), "run", "-h"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+
     def test_unset_env_var_triggers_no_load(self, monkeypatch: pytest.MonkeyPatch) -> None:
         loader = Recorder()
         monkeypatch.delenv("DREVALPY_EXTENSIONS_DIR", raising=False)
-        monkeypatch.setattr("drevalpy.registry.load_extension_dir", loader)
+        monkeypatch.setattr("drevalpy.registry._extensions.load_extension_dir", loader)
 
         result = runner.invoke(app, ["run", "-h"], env=HELP_ENV)
 
@@ -140,7 +196,7 @@ class TestExtensionLoading:
     def test_empty_env_var_triggers_no_load(self, monkeypatch: pytest.MonkeyPatch) -> None:
         loader = Recorder()
         monkeypatch.setenv("DREVALPY_EXTENSIONS_DIR", "")
-        monkeypatch.setattr("drevalpy.registry.load_extension_dir", loader)
+        monkeypatch.setattr("drevalpy.registry._extensions.load_extension_dir", loader)
 
         result = runner.invoke(app, ["run", "-h"], env=HELP_ENV)
 

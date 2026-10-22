@@ -21,14 +21,22 @@ __all__ = [
 ]
 
 
-def register_source(name: str, base_url: str, storage_options: dict | None = None) -> None:
-    """Register a custom source (base URL + optional fsspec storage options)."""
-    dataset_registry.register_source(name, base_url, storage_options)
+def register_source(name: str, base_url: str, storage_options: dict | None = None, *, override: bool = False) -> None:
+    """Register a custom source (base URL + optional fsspec storage options).
+
+    An identical repeat is a no-op; a different entry under a taken name raises ``ValueError``
+    unless ``override=True``.
+    """
+    dataset_registry.register_source(name, base_url, storage_options, override=override)
 
 
-def register_dataset(name: str, source: str, file: str) -> None:
-    """Register a custom dataset under an existing source."""
-    dataset_registry.register_dataset(name, source, file)
+def register_dataset(name: str, source: str, file: str, *, override: bool = False) -> None:
+    """Register a custom dataset under an existing source.
+
+    An identical repeat is a no-op; a different entry under a taken name raises ``ValueError``
+    unless ``override=True``.
+    """
+    dataset_registry.register_dataset(name, source, file, override=override)
 
 
 def list() -> list[str]:

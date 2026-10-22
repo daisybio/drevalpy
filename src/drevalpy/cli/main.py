@@ -31,16 +31,11 @@ def main_callback(
     ] = None,
 ) -> None:
     """Global options applied before any subcommand."""
-    import os
+    from drevalpy.registry import load_extensions
 
-    from drevalpy.registry import load_extension_dir
-
-    env_dir = os.environ.get("DREVALPY_EXTENSIONS_DIR")
-    if env_dir:
-        load_extension_dir(env_dir)
-
-    for d in extensions_dir or []:
-        load_extension_dir(d)
+    load_extensions()
+    if extensions_dir:
+        load_extensions(directories=extensions_dir)
 
 
 app.add_typer(data_app, name="data")

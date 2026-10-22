@@ -111,38 +111,67 @@ class DatasetRegistry:
         """
         return name in self.datasets
 
-    def register_source(self, name: str, base_url: str, storage_options: dict[str, Any] | None = None) -> None:
+    def register_source(
+        self,
+        name: str,
+        base_url: str,
+        storage_options: dict[str, Any] | None = None,
+        *,
+        override: bool = False,
+    ) -> None:
         """Register a custom source (base URL + optional fsspec storage options).
 
-        Atomically reads the config, applies the change, and writes back.
+        Atomically reads the config, applies the change, and writes back. Registering an
+        entry identical to the one already in effect (built-in or custom) is a no-op and
+        writes nothing.
 
         :param name: Source name (used to reference from dataset entries).
         :param base_url: Base URL (any fsspec-compatible protocol: https, s3, gs, az, ...).
         :param storage_options: Optional dict passed to fsspec for auth/config.
+        :param override: Replace an existing source of the same name instead of raising.
+        :raises ValueError: If *name* is already registered with a different entry and *override* is false.
         """
+        self._ensure_loaded()
         entry = SourceEntry(url=base_url, storage_options=storage_options or {})
         with config_lock():
             config = load_config()
+            existing = {**self._builtin.sources, **config.sources}.get(name)  # type: ignore[union-attr]
+            if existing == entry:
+                self._custom = config
+                return
+            if existing is not None and not override:
+                raise ValueError(f"Source {name!r} already registered")
             config.sources[name] = entry
             save_config(config)
             self._custom = config
 
-    def register_dataset(self, name: str, source: str, file: str) -> None:
+    def register_dataset(self, name: str, source: str, file: str, *, override: bool = False) -> None:
         """Register a custom dataset under an existing source.
 
-        Atomically reads the config, applies the change, and writes back.
+        Atomically reads the config, applies the change, and writes back. Registering an
+        entry identical to the one already in effect (built-in or custom) is a no-op and
+        writes nothing.
 
         :param name: Dataset name (used with ``drevalpy.data.load``).
         :param source: Source name (must be registered).
         :param file: Filename of the .h5mu file at the source URL.
+        :param override: Replace an existing dataset of the same name instead of raising.
         :raises KeyError: If the source is not registered.
+        :raises ValueError: If *name* is already registered with a different entry and *override* is false.
         """
         if source not in self.sources:
             raise KeyError(f"Source '{source}' not registered. Register it first with register_source().")
 
+        entry = DatasetEntry(source=source, file=file)
         with config_lock():
             config = load_config()
-            config.datasets[name] = DatasetEntry(source=source, file=file)
+            existing = {**self._builtin.datasets, **config.datasets}.get(name)  # type: ignore[union-attr]
+            if existing == entry:
+                self._custom = config
+                return
+            if existing is not None and not override:
+                raise ValueError(f"Dataset {name!r} already registered")
+            config.datasets[name] = entry
             save_config(config)
             self._custom = config
 

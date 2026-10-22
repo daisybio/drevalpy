@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import sys
 import textwrap
 from collections.abc import Iterator
@@ -16,11 +17,14 @@ from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import clear_external_zoo, get_zoo_config, list_zoo_names, load_external_zoo_file
 from drevalpy.registry._builtins import is_known_builtin_predictor
 from drevalpy.registry._extensions import (
+    EXTENSIONS_DIR_ENV_VAR,
     _extension_module_name,
+    extension_dirs_from_env,
     load_extension_dir,
     load_extension_file,
     load_extensions,
 )
+from drevalpy.registry.dataset._registry import DatasetRegistry
 from drevalpy.registry.predictor import (
     get as get_predictor,
 )
@@ -157,6 +161,162 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
     load_extension_dir(tmp_path)
     get_predictor("toyA")
     get_predictor("toyB")
+
+
+_TOY_PREDICTOR_TEMPLATE = """\
+import numpy as np
+
+from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
+from drevalpy.registry.predictor import register as register_predictor
+
+
+@register_predictor({name!r}, description='toy',
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX)
+class Toy(FeatureFreePredictor):
+    def _fit(self, batch): return None
+    def _predict(self, batch): return np.zeros(batch.n_pairs)
+"""
+
+
+def _write_toy_predictor_dir(directory: Path, name: str) -> Path:
+    directory.mkdir()
+    (directory / "toy.py").write_text(_TOY_PREDICTOR_TEMPLATE.format(name=name), encoding="utf-8")
+    return directory
+
+
+class TestExtensionDirsFromEnv:
+    def test_unset_gives_no_directories(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv(EXTENSIONS_DIR_ENV_VAR, raising=False)
+
+        assert extension_dirs_from_env() == []
+
+    def test_empty_gives_no_directories(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, "")
+
+        assert extension_dirs_from_env() == []
+
+    def test_single_directory(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, "/one")
+
+        assert extension_dirs_from_env() == ["/one"]
+
+    def test_several_directories_split_on_pathsep_in_order(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, os.pathsep.join(["/one", "/two", "/three"]))
+
+        assert extension_dirs_from_env() == ["/one", "/two", "/three"]
+
+    def test_empty_entries_are_dropped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, os.pathsep + "/one" + os.pathsep * 2)
+
+        assert extension_dirs_from_env() == ["/one"]
+
+
+class TestLoadExtensionsEnvVar:
+    def test_none_directories_load_the_env_directory(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        ext_dir = _write_toy_predictor_dir(tmp_path / "ext", "envToy")
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, str(ext_dir))
+
+        load_extensions()
+
+        get_predictor("envToy")
+
+    def test_several_env_directories_are_all_loaded(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        first = _write_toy_predictor_dir(tmp_path / "first", "envToyA")
+        second = _write_toy_predictor_dir(tmp_path / "second", "envToyB")
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, os.pathsep.join([str(first), str(second)]))
+
+        load_extensions()
+
+        get_predictor("envToyA")
+        get_predictor("envToyB")
+
+    def test_explicit_directories_do_not_read_the_env_var(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        env_dir = _write_toy_predictor_dir(tmp_path / "env", "envToy")
+        flag_dir = _write_toy_predictor_dir(tmp_path / "flag", "flagToy")
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, str(env_dir))
+
+        load_extensions(directories=[flag_dir])
+
+        get_predictor("flagToy")
+        assert "envToy" not in list_predictors()
+
+    def test_empty_explicit_directories_do_not_read_the_env_var(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        env_dir = _write_toy_predictor_dir(tmp_path / "env", "envToy")
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, str(env_dir))
+
+        load_extensions(directories=[])
+
+        assert "envToy" not in list_predictors()
+
+    def test_missing_env_directory_raises(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, str(tmp_path / "missing"))
+
+        with pytest.raises(FileNotFoundError, match="Extension directory not found"):
+            load_extensions()
+
+
+class TestRepeatedLoads:
+    def test_loading_the_same_directory_twice_is_harmless(self, tmp_path: Path) -> None:
+        ext_dir = _write_toy_predictor_dir(tmp_path / "ext", "twiceToy")
+
+        load_extension_dir(ext_dir)
+        load_extension_dir(ext_dir)
+
+        get_predictor("twiceToy")
+
+    def test_loading_the_same_file_twice_is_harmless(self, tmp_path: Path) -> None:
+        ext_dir = _write_toy_predictor_dir(tmp_path / "ext", "twiceToy")
+
+        load_extension_file(ext_dir / "toy.py")
+        load_extension_file(ext_dir / "toy.py")
+
+        get_predictor("twiceToy")
+
+    def test_env_and_flag_naming_the_same_directory_is_harmless(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        ext_dir = _write_toy_predictor_dir(tmp_path / "ext", "twiceToy")
+        monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, str(ext_dir))
+
+        load_extensions()
+        load_extensions(directories=[ext_dir])
+
+        get_predictor("twiceToy")
+
+    def test_file_is_executed_again_after_its_registrations_were_evicted(self, tmp_path: Path) -> None:
+        ext_dir = _write_toy_predictor_dir(tmp_path / "ext", "evictedToy")
+        load_extension_dir(ext_dir)
+        restore_component_registries()
+        assert "evictedToy" not in list_predictors()
+
+        load_extension_dir(ext_dir)
+
+        get_predictor("evictedToy")
+
+
+def test_loading_the_same_dataset_declaration_yaml_twice_is_harmless(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path / "config"))
+    registry = DatasetRegistry()
+    monkeypatch.setattr("drevalpy.registry.dataset._registry.dataset_registry", registry)
+    ext_dir = tmp_path / "ext"
+    ext_dir.mkdir()
+    (ext_dir / "datasets.yaml").write_text(
+        "sources:\n  mirror:\n    url: file:///data\ndatasets:\n  Toy:\n    source: mirror\n    file: toy.h5mu\n",
+        encoding="utf-8",
+    )
+
+    load_extension_dir(ext_dir)
+    load_extension_dir(ext_dir)
+
+    assert registry.custom_datasets["Toy"].file == "toy.h5mu"
 
 
 def test_external_zoo_references_extension_components(tmp_path: Path) -> None:

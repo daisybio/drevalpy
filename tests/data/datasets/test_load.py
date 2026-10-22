@@ -136,7 +136,7 @@ class TestRegistration:
             self.reg.unregister_source("NonExistent")
 
     def test_custom_overrides_builtin(self) -> None:
-        self.reg.register_source("orakl", "s3://my-mirror/data")
+        self.reg.register_source("orakl", "s3://my-mirror/data", override=True)
         assert self.reg.sources["orakl"].url == "s3://my-mirror/data"
 
 

@@ -78,10 +78,70 @@ def test_register_source_keeps_storage_options(registry: DatasetRegistry) -> Non
 
 
 def test_custom_sources_override_builtins(registry: DatasetRegistry) -> None:
-    registry.register_source(_BUILTIN_SOURCE, "file:///override")
+    registry.register_source(_BUILTIN_SOURCE, "file:///override", override=True)
 
     assert registry.sources[_BUILTIN_SOURCE].url == "file:///override"
     assert registry.builtin_sources[_BUILTIN_SOURCE].url != "file:///override"
+
+
+def test_register_source_identical_repeat_leaves_the_file_untouched(
+    registry: DatasetRegistry, config_path: UPath
+) -> None:
+    registry.register_source("local", "file:///data", {"anon": True})
+    config_path.write_text(config_path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    written = config_path.read_text(encoding="utf-8")
+
+    registry.register_source("local", "file:///data", {"anon": True})
+
+    assert config_path.read_text(encoding="utf-8") == written
+
+
+def test_register_source_identical_to_a_builtin_is_a_noop(registry: DatasetRegistry, config_path: UPath) -> None:
+    registry.register_source(_BUILTIN_SOURCE, registry.builtin_sources[_BUILTIN_SOURCE].url)
+
+    assert registry.custom_sources == {}
+    assert not config_path.exists()
+
+
+def test_register_source_conflict_raises(registry: DatasetRegistry) -> None:
+    registry.register_source("local", "file:///data")
+
+    with pytest.raises(ValueError, match="Source 'local' already registered"):
+        registry.register_source("local", "file:///elsewhere")
+
+    assert registry.custom_sources["local"].url == "file:///data"
+
+
+def test_register_source_differing_storage_options_conflict(registry: DatasetRegistry) -> None:
+    registry.register_source("bucket", "s3://bucket/", {"anon": True})
+
+    with pytest.raises(ValueError, match="already registered"):
+        registry.register_source("bucket", "s3://bucket/", {"anon": False})
+
+
+def test_register_source_conflict_with_a_builtin_raises(registry: DatasetRegistry, config_path: UPath) -> None:
+    with pytest.raises(ValueError, match=f"Source '{_BUILTIN_SOURCE}' already registered"):
+        registry.register_source(_BUILTIN_SOURCE, "file:///override")
+
+    assert not config_path.exists()
+
+
+def test_register_source_override_replaces_and_persists(registry: DatasetRegistry, config_path: UPath) -> None:
+    registry.register_source("local", "file:///data")
+
+    registry.register_source("local", "file:///elsewhere", override=True)
+
+    assert json.loads(config_path.read_text(encoding="utf-8"))["sources"] == {"local": "file:///elsewhere"}
+
+
+def test_register_source_sees_an_entry_written_by_another_process(
+    registry: DatasetRegistry, config_path: UPath
+) -> None:
+    assert registry.custom_sources == {}
+    config_path.write_text(json.dumps({"sources": {"local": "file:///data"}, "datasets": {}}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="already registered"):
+        registry.register_source("local", "file:///elsewhere")
 
 
 def test_register_dataset_requires_a_known_source(registry: DatasetRegistry) -> None:
@@ -104,6 +164,59 @@ def test_register_dataset_persists_the_entry(registry: DatasetRegistry, config_p
     }
 
 
+def test_register_dataset_identical_repeat_leaves_the_file_untouched(
+    registry: DatasetRegistry, config_path: UPath
+) -> None:
+    registry.register_source("local", "file:///data")
+    registry.register_dataset("Toy", "local", "toy.h5mu")
+    config_path.write_text(config_path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    written = config_path.read_text(encoding="utf-8")
+
+    registry.register_dataset("Toy", "local", "toy.h5mu")
+
+    assert config_path.read_text(encoding="utf-8") == written
+
+
+def test_register_dataset_identical_to_a_builtin_is_a_noop(registry: DatasetRegistry, config_path: UPath) -> None:
+    builtin = registry.builtin_datasets[_BUILTIN_DATASET]
+
+    registry.register_dataset(_BUILTIN_DATASET, builtin.source, builtin.file)
+
+    assert registry.custom_datasets == {}
+    assert not config_path.exists()
+
+
+def test_register_dataset_conflict_raises(registry: DatasetRegistry) -> None:
+    registry.register_dataset("Toy", _BUILTIN_SOURCE, "toy.h5mu")
+
+    with pytest.raises(ValueError, match="Dataset 'Toy' already registered"):
+        registry.register_dataset("Toy", _BUILTIN_SOURCE, "other.h5mu")
+
+    assert registry.custom_datasets["Toy"].file == "toy.h5mu"
+
+
+def test_register_dataset_conflict_with_a_builtin_raises(registry: DatasetRegistry, config_path: UPath) -> None:
+    with pytest.raises(ValueError, match=f"Dataset '{_BUILTIN_DATASET}' already registered"):
+        registry.register_dataset(_BUILTIN_DATASET, _BUILTIN_SOURCE, "override.h5mu")
+
+    assert not config_path.exists()
+
+
+def test_register_dataset_override_replaces_and_persists(registry: DatasetRegistry, config_path: UPath) -> None:
+    registry.register_dataset("Toy", _BUILTIN_SOURCE, "toy.h5mu")
+
+    registry.register_dataset("Toy", _BUILTIN_SOURCE, "other.h5mu", override=True)
+
+    assert json.loads(config_path.read_text(encoding="utf-8"))["datasets"] == {
+        "Toy": {"source": _BUILTIN_SOURCE, "file": "other.h5mu"}
+    }
+
+
+def test_register_dataset_unknown_source_wins_over_override(registry: DatasetRegistry) -> None:
+    with pytest.raises(KeyError, match="Source 'ghost' not registered"):
+        registry.register_dataset("Toy", "ghost", "toy.h5mu", override=True)
+
+
 def test_unregister_dataset_removes_a_custom_entry(registry: DatasetRegistry) -> None:
     registry.register_source("local", "file:///data")
     registry.register_dataset("Toy", "local", "toy.h5mu")
@@ -119,7 +232,7 @@ def test_unregister_dataset_rejects_an_unknown_name(registry: DatasetRegistry) -
 
 
 def test_unregister_dataset_refuses_a_builtin(registry: DatasetRegistry) -> None:
-    registry.register_dataset(_BUILTIN_DATASET, _BUILTIN_SOURCE, "override.h5mu")
+    registry.register_dataset(_BUILTIN_DATASET, _BUILTIN_SOURCE, "override.h5mu", override=True)
 
     with pytest.raises(KeyError, match="is built-in and cannot be unregistered"):
         registry.unregister_dataset(_BUILTIN_DATASET)
@@ -139,7 +252,7 @@ def test_unregister_source_rejects_an_unknown_name(registry: DatasetRegistry) ->
 
 
 def test_unregister_source_refuses_a_builtin(registry: DatasetRegistry) -> None:
-    registry.register_source(_BUILTIN_SOURCE, "file:///override")
+    registry.register_source(_BUILTIN_SOURCE, "file:///override", override=True)
 
     with pytest.raises(KeyError, match="is built-in and cannot be unregistered"):
         registry.unregister_source(_BUILTIN_SOURCE)
@@ -196,3 +309,25 @@ def test_module_list_delegates_to_the_singleton() -> None:
 
 def test_module_table_delegates_to_the_singleton() -> None:
     assert list(dataset_facade.table().columns) == ["Name", "Source", "File", "Origin"]
+
+
+def test_module_register_source_forwards_override(registry: DatasetRegistry, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dataset_facade, "dataset_registry", registry)
+    dataset_facade.register_source("local", "file:///data")
+
+    with pytest.raises(ValueError, match="already registered"):
+        dataset_facade.register_source("local", "file:///elsewhere")
+    dataset_facade.register_source("local", "file:///elsewhere", override=True)
+
+    assert registry.custom_sources["local"].url == "file:///elsewhere"
+
+
+def test_module_register_dataset_forwards_override(registry: DatasetRegistry, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dataset_facade, "dataset_registry", registry)
+    dataset_facade.register_dataset("Toy", _BUILTIN_SOURCE, "toy.h5mu")
+
+    with pytest.raises(ValueError, match="already registered"):
+        dataset_facade.register_dataset("Toy", _BUILTIN_SOURCE, "other.h5mu")
+    dataset_facade.register_dataset("Toy", _BUILTIN_SOURCE, "other.h5mu", override=True)
+
+    assert registry.custom_datasets["Toy"].file == "other.h5mu"
