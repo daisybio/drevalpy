@@ -23,6 +23,7 @@ The built-in datasets in `s3://orakl-open-source-data/drevalpy_h5mu/gen3/` retur
 `403 Forbidden` without AWS credentials, so a new user cannot load any of them.
 
 **Goal:**
+
 - The docs have four sections: Tutorials, How-to guides, Reference and Explanation, plus
   Project.
 - Each how-to shows its task once, with synced **CLI** and **Python** tabs.
@@ -39,6 +40,7 @@ The built-in datasets in `s3://orakl-open-source-data/drevalpy_h5mu/gen3/` retur
   and primary patient cells. "Cell line" stays only where data really are cell lines.
 
 **Non-goals:**
+
 - Redirects for old URLs. Old bookmarks will return 404; only the README links are
   updated.
 - Making the S3 bucket public.
@@ -65,6 +67,7 @@ Wave 2 describe the behaviour they produce. The snippet runner also lands in Wav
 that every docs package in Wave 2 can prove its own pages run.
 
 **Decisions:**
+
 - Top level is the four modes. CLI and Python are synced tabs inside how-tos and
   tutorials: the user wanted one task shown once.
 - Scope is restructure, fix and fill gaps: moving pages without fixing them would only
@@ -83,6 +86,9 @@ that every docs package in Wave 2 can prove its own pages run.
 - Trim README to a pitch, one install line, a working CLI and Python example, and links.
   Fix the `black` badge and the removed `construct_model` example.
 - `GLOSSARY.md` at the repo root is the single source. Docs render it with `myst-parser`.
+- Theme: `pydata-sphinx-theme` (replaces `sphinx_rtd_theme`). The top navbar holds the
+  four Diátaxis sections; the Project pages sit in its "More" dropdown. Pages must not use
+  rtd-only CSS classes (`wy-*`, `rst-*`).
   It was written during the interview, and its terms are binding for every page.
 - Tutorials use a synthetic dataset written to disk, so they run offline and in tests.
   How-tos may use GDSC2 and the other built-in datasets, and say that loading those needs
@@ -107,8 +113,8 @@ that every docs package in Wave 2 can prove its own pages run.
     `drevalpy data synthetic`.
 - Rename "cell line" to "sample" before any other work (Wave R), so that every later
   package, and every page, uses the new names:
-  - **Glossary rule:** a *sample* is the biological source (cell line, organoid, PDX,
-    primary patient cells). A *pair* is one sample–drug measurement. A *trial* is one
+  - **Glossary rule:** a _sample_ is the biological source (cell line, organoid, PDX,
+    primary patient cells). A _pair_ is one sample–drug measurement. A _trial_ is one
     tuning configuration. Prose never uses "sample" for a pair or as a verb.
   - **Mechanical name map:** `cell_line` → `sample` and `CellLine` → `Sample`
     everywhere. For example:
@@ -165,85 +171,85 @@ The Interface column on how-to pages is a comment on the page's second line:
 
 **Tutorials** (`docs/tutorials/`, owner D1)
 
-| Path | Title | Interface | Source |
-| ---- | ----- | --------- | ------ |
-| `index.rst` | Tutorials | – | new |
-| `first_benchmark.rst` | Benchmark your first models | both | new; replaces both quickstarts |
-| `own_predictor.rst` | Build and benchmark your own predictor | python | new; uses `docs/examples/toy_*.py` |
-| `tune_and_stress_test.rst` | Tune a model and stress-test it | both | new |
+| Path                       | Title                                  | Interface | Source                             |
+| -------------------------- | -------------------------------------- | --------- | ---------------------------------- |
+| `index.rst`                | Tutorials                              | –         | new                                |
+| `first_benchmark.rst`      | Benchmark your first models            | both      | new; replaces both quickstarts     |
+| `own_predictor.rst`        | Build and benchmark your own predictor | python    | new; uses `docs/examples/toy_*.py` |
+| `tune_and_stress_test.rst` | Tune a model and stress-test it        | both      | new                                |
 
 **How-to guides: using DrEvalPy** (`docs/how-to/`, owner D2)
 
-| Path | Title | Interface | Source |
-| ---- | ----- | --------- | ------ |
-| `index.rst` | How-to guides | – | new |
-| `install.rst` | Install DrEvalPy | cli | `getting_started/installation.rst` (install steps only) |
-| `load_and_split.rst` | Load and split a dataset | both | `python/datasets.rst`, `cli/datasets.rst` |
-| `bring_your_own_data.rst` | Use your own dataset | both | `concepts/datasets.rst` 63-107, `drevalpy curate` (new) |
-| `choose_models.rst` | Choose models from the zoo or write a recipe | both | `python/models.rst` 9-33, `cli/models.rst` |
-| `run_experiment.rst` | Run an experiment | both | `python/experiments.rst` 10-95, `cli/experiments.rst` 13-88 |
-| `run_folds_in_parallel.rst` | Run folds in parallel and combine them | both | `cli/experiments.rst` 90-138, `python/experiments.rst` 97-140 |
-| `tune_hyperparameters.rst` | Tune hyperparameters | both | `python/experiments.rst` 142-283, `concepts/from_components_to_models.rst` 358-441 |
-| `run_stress_tests.rst` | Run randomization and robustness tests | both | `python/experiments.rst` 285-296, `cli/experiments.rst` 168-181 |
-| `make_report.rst` | Evaluate results and build a report | both | `python/visualization.rst`, `cli/visualization.rst` |
-| `train_save_load.rst` | Train, save and load a single model | python | `python/models.rst` 35-101 |
-| `list_available.rst` | List what is available | both | new (`drevalpy list *`) |
+| Path                        | Title                                        | Interface | Source                                                                             |
+| --------------------------- | -------------------------------------------- | --------- | ---------------------------------------------------------------------------------- |
+| `index.rst`                 | How-to guides                                | –         | new                                                                                |
+| `install.rst`               | Install DrEvalPy                             | cli       | `getting_started/installation.rst` (install steps only)                            |
+| `load_and_split.rst`        | Load and split a dataset                     | both      | `python/datasets.rst`, `cli/datasets.rst`                                          |
+| `bring_your_own_data.rst`   | Use your own dataset                         | both      | `concepts/datasets.rst` 63-107, `drevalpy curate` (new)                            |
+| `choose_models.rst`         | Choose models from the zoo or write a recipe | both      | `python/models.rst` 9-33, `cli/models.rst`                                         |
+| `run_experiment.rst`        | Run an experiment                            | both      | `python/experiments.rst` 10-95, `cli/experiments.rst` 13-88                        |
+| `run_folds_in_parallel.rst` | Run folds in parallel and combine them       | both      | `cli/experiments.rst` 90-138, `python/experiments.rst` 97-140                      |
+| `tune_hyperparameters.rst`  | Tune hyperparameters                         | both      | `python/experiments.rst` 142-283, `concepts/from_components_to_models.rst` 358-441 |
+| `run_stress_tests.rst`      | Run randomization and robustness tests       | both      | `python/experiments.rst` 285-296, `cli/experiments.rst` 168-181                    |
+| `make_report.rst`           | Evaluate results and build a report          | both      | `python/visualization.rst`, `cli/visualization.rst`                                |
+| `train_save_load.rst`       | Train, save and load a single model          | python    | `python/models.rst` 35-101                                                         |
+| `list_available.rst`        | List what is available                       | both      | new (`drevalpy list *`)                                                            |
 
 **How-to guides: extending DrEvalPy** (`docs/how-to/extend/`, owner D3)
 
-| Path | Title | Interface | Source |
-| ---- | ----- | --------- | ------ |
-| `index.rst` | Extend DrEvalPy | – | new |
-| `write_featurizer.rst` | Write a featurizer | python | `python/extensions.rst` 53-217 |
-| `write_predictor.rst` | Write a predictor | python | `python/extensions.rst` 219-268 |
-| `write_splitter.rst` | Write a splitter | python | `python/extensions.rst` 270-359 |
-| `write_visualization.rst` | Write a visualization | python | `python/extensions.rst` 361-397 |
-| `test_components.rst` | Test your components | python | `python/extensions.rst` 399-452 |
-| `load_extensions.rst` | Load extension files and directories | both | `python/extensions.rst` 495-545, 581-612, `cli/extensions.rst`, `cli/models.rst` 41-79 |
-| `publish_plugin.rst` | Publish components as a plugin package | python | `python/extensions.rst` 546-579, `cli/extensions.rst` 49-64 |
-| `add_dataset_source.rst` | Register a dataset source | both | `python/extensions.rst` 454-483 |
+| Path                      | Title                                  | Interface | Source                                                                                 |
+| ------------------------- | -------------------------------------- | --------- | -------------------------------------------------------------------------------------- |
+| `index.rst`               | Extend DrEvalPy                        | –         | new                                                                                    |
+| `write_featurizer.rst`    | Write a featurizer                     | python    | `python/extensions.rst` 53-217                                                         |
+| `write_predictor.rst`     | Write a predictor                      | python    | `python/extensions.rst` 219-268                                                        |
+| `write_splitter.rst`      | Write a splitter                       | python    | `python/extensions.rst` 270-359                                                        |
+| `write_visualization.rst` | Write a visualization                  | python    | `python/extensions.rst` 361-397                                                        |
+| `test_components.rst`     | Test your components                   | python    | `python/extensions.rst` 399-452                                                        |
+| `load_extensions.rst`     | Load extension files and directories   | both      | `python/extensions.rst` 495-545, 581-612, `cli/extensions.rst`, `cli/models.rst` 41-79 |
+| `publish_plugin.rst`      | Publish components as a plugin package | python    | `python/extensions.rst` 546-579, `cli/extensions.rst` 49-64                            |
+| `add_dataset_source.rst`  | Register a dataset source              | both      | `python/extensions.rst` 454-483                                                        |
 
 **How-to guides: migrating from 1.x** (`docs/how-to/migrate/`, owner D4)
 
-| Path | Title | Interface | Source |
-| ---- | ----- | --------- | ------ |
-| `index.rst` | Migrate from DrEvalPy 1.x | – | new |
-| `cli.rst` | Migrate command-line runs from 1.x | cli | new, from `git show v1.6.0:` |
-| `python.rst` | Migrate Python scripts from 1.x | python | new, from `git show v1.6.0:` |
-| `models.rst` | Port a 1.x model to components | python | new, from `git show v1.6.0:` |
+| Path         | Title                              | Interface | Source                       |
+| ------------ | ---------------------------------- | --------- | ---------------------------- |
+| `index.rst`  | Migrate from DrEvalPy 1.x          | –         | new                          |
+| `cli.rst`    | Migrate command-line runs from 1.x | cli       | new, from `git show v1.6.0:` |
+| `python.rst` | Migrate Python scripts from 1.x    | python    | new, from `git show v1.6.0:` |
+| `models.rst` | Port a 1.x model to components     | python    | new, from `git show v1.6.0:` |
 
 **Reference** (`docs/reference/`, owner D5 unless noted)
 
-| Path | Title | Source |
-| ---- | ----- | ------ |
-| `index.rst` | Reference | new |
-| `cli.rst` | Command-line reference | includes `_generated_cli.rst` (generator from P8) |
-| `python_api.rst` | Python API reference | `python/api/index.rst`, with `drevalpy`, `drevalpy.registry`, `drevalpy.models.zoo` added |
-| `model_zoo.rst` | Model zoo | `concepts/model_zoo.rst` plus `_generated_model_zoo.rst` |
-| `components.rst` | Components | `concepts/component_catalog.rst` 94-114 plus the three `_generated_*` catalogs |
-| `recipes.rst` | Recipe syntax | `concepts/from_components_to_models.rst` 23-345 (grammar only) |
-| `hyperparameters.rst` | Hyperparameter keys and search spaces | `concepts/from_components_to_models.rst` 443-474, YAML format |
-| `datasets.rst` | Datasets and file format | `concepts/datasets.rst` 8-61, 79-107, 109-162 (tables and format) |
-| `split_modes.rst` | Split modes and stress tests | `concepts/evaluation.rst` 7-79 (facts only) |
-| `metrics.rst` | Metrics and response transformations | `concepts/evaluation.rst` 88-127 |
-| `environment.rst` | Environment variables | new: the six `DREVALPY_*` variables |
-| `extension_files.rst` | Extension and zoo file formats | new: extension dir, zoo YAML (single and mapping), dataset-declaration YAML, `drevalpy.plugins` entry-point group |
-| `results.rst` | Results layout | new: what `run`, `single` and `aggregate` write |
-| `examples.rst` | Example components | includes `_generated_examples.rst` |
-| `glossary.rst` | Glossary | Wave 0: `.. include:: ../../GLOSSARY.md` with `:parser: myst_parser.sphinx_` |
+| Path                  | Title                                 | Source                                                                                                            |
+| --------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `index.rst`           | Reference                             | new                                                                                                               |
+| `cli.rst`             | Command-line reference                | includes `_generated_cli.rst` (generator from P8)                                                                 |
+| `python_api.rst`      | Python API reference                  | `python/api/index.rst`, with `drevalpy`, `drevalpy.registry`, `drevalpy.models.zoo` added                         |
+| `model_zoo.rst`       | Model zoo                             | `concepts/model_zoo.rst` plus `_generated_model_zoo.rst`                                                          |
+| `components.rst`      | Components                            | `concepts/component_catalog.rst` 94-114 plus the three `_generated_*` catalogs                                    |
+| `recipes.rst`         | Recipe syntax                         | `concepts/from_components_to_models.rst` 23-345 (grammar only)                                                    |
+| `hyperparameters.rst` | Hyperparameter keys and search spaces | `concepts/from_components_to_models.rst` 443-474, YAML format                                                     |
+| `datasets.rst`        | Datasets and file format              | `concepts/datasets.rst` 8-61, 79-107, 109-162 (tables and format)                                                 |
+| `split_modes.rst`     | Split modes and stress tests          | `concepts/evaluation.rst` 7-79 (facts only)                                                                       |
+| `metrics.rst`         | Metrics and response transformations  | `concepts/evaluation.rst` 88-127                                                                                  |
+| `environment.rst`     | Environment variables                 | new: the six `DREVALPY_*` variables                                                                               |
+| `extension_files.rst` | Extension and zoo file formats        | new: extension dir, zoo YAML (single and mapping), dataset-declaration YAML, `drevalpy.plugins` entry-point group |
+| `results.rst`         | Results layout                        | new: what `run`, `single` and `aggregate` write                                                                   |
+| `examples.rst`        | Example components                    | includes `_generated_examples.rst`                                                                                |
+| `glossary.rst`        | Glossary                              | Wave 0: `.. include:: ../../GLOSSARY.md` with `:parser: myst_parser.sphinx_`                                      |
 
 **Explanation** (`docs/explanation/`, owner D6)
 
-| Path | Title | Source |
-| ---- | ----- | ------ |
-| `index.rst` | Explanation | new |
-| `evaluation_design.rst` | Why split modes and baselines matter | `concepts/evaluation.rst` 7-54, 81-86, 129-134 (fixed) |
-| `models_from_components.rst` | How models are built from components | `concepts/component_catalog.rst` 1-92, `from_components_to_models.rst` 1-21, 347-356 |
-| `training_lifecycle.rst` | How a model trains: scopes and early stopping | A/E/V and `UNTRAINED`/`EMPTY`/`FITTED` from `project/v2_*.rst`, `python/models.rst` 90-101 |
-| `registries_and_plugins.rst` | How registries and plugins fit together | `concepts/registries.rst` 1-127 (fixed) |
-| `reproducibility.rst` | What makes a run reproducible | `python/experiments.rst` 159-178, `cli/experiments.rst` 151-166 |
-| `datasets_provenance.rst` | Where the datasets come from | `concepts/datasets.rst` 164-185 |
-| `literature_models.rst` | How the literature models differ from their papers | `project/literature_audit/differences.md`, rewritten for users |
+| Path                         | Title                                              | Source                                                                                     |
+| ---------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `index.rst`                  | Explanation                                        | new                                                                                        |
+| `evaluation_design.rst`      | Why split modes and baselines matter               | `concepts/evaluation.rst` 7-54, 81-86, 129-134 (fixed)                                     |
+| `models_from_components.rst` | How models are built from components               | `concepts/component_catalog.rst` 1-92, `from_components_to_models.rst` 1-21, 347-356       |
+| `training_lifecycle.rst`     | How a model trains: scopes and early stopping      | A/E/V and `UNTRAINED`/`EMPTY`/`FITTED` from `project/v2_*.rst`, `python/models.rst` 90-101 |
+| `registries_and_plugins.rst` | How registries and plugins fit together            | `concepts/registries.rst` 1-127 (fixed)                                                    |
+| `reproducibility.rst`        | What makes a run reproducible                      | `python/experiments.rst` 159-178, `cli/experiments.rst` 151-166                            |
+| `datasets_provenance.rst`    | Where the datasets come from                       | `concepts/datasets.rst` 164-185                                                            |
+| `literature_models.rst`      | How the literature models differ from their papers | `project/literature_audit/differences.md`, rewritten for users                             |
 
 **Project** (`docs/project/`, owner D7): `contributing.rst`, `citing.rst`, `news.rst`,
 `contributors.rst` and `memes.rst` stay. The toctree drops the `v2_*` pages.
@@ -293,59 +299,59 @@ list and the five toctrees. `docs/readme.rst` is deleted in Wave 3.
 
 Each fix belongs to the package that owns the target page.
 
-| Old location | Correct fact (evidence) | Owner |
-| ------------ | ----------------------- | ----- |
-| README.md 122-138 | No `construct_model`. Use `ModelSpec.from_name` + `drevalpy.run(models: list[ModelSpec], ...)` (`_run.py:24`) | D7 |
-| README.md 10 | Linter is ruff (`.pre-commit-config.yaml`) | D7 |
-| README.md 74, installation.rst 60-72 | Docker tag mismatch (`:main` against `:latest`). Check the published tag in `.github/workflows` | D2 |
-| installation.rst 12, 23 | Python `>=3.11,<3.14` (`pyproject.toml:8`) | D2 |
-| concepts/datasets.rst 69-72 | `curate` input columns: `drug, sample, concentration, intensity` (+ optional `replicate`), `curation/_preprocess.py:8` (`cell_line` today; Wave R renames it to `sample`). Output is `.h5ad` (`cli/curate.py:36,52`) | D2 |
-| concepts/datasets.rst 73-77 | No CSV loader. `load` takes a registered name or an existing `.h5mu` path (`data/datasets/_load.py:87-126`) | D2, D5 |
-| concepts/datasets.rst 54, 94 | `response.X` holds pEC50. Modality names are `gene_expression`, `copy_number_variation_gistic`, … (`types/data/modalities.py:27-35`) | D5 |
-| concepts/datasets.rst 8-49, cli/datasets.rst 26 | `TOYv1` is also registered (`available_datasets.json`) | D5 |
-| concepts/evaluation.rst 50-53 | `run` never adds `NaiveMeanEffectsPredictor` and treats all models alike (`_run.py:63-75`). Normalizing uses `ExperimentResult.normalize(reference_model=...)` | D5, D6 |
-| concepts/evaluation.rst 84 | A robustness test reshuffles pair order and keeps the model seed (`experiment/_robustness.py:8-27`) | D5, D6 |
-| concepts/evaluation.rst 100 | The report normalizes only when `reference_model` is given (`visualization/report.py:115-117`) | D2 |
-| concepts/evaluation.rst 129-134 | v2 has no cross-study entry point; only `CrossStudyTableVisualization` exists | D6 |
-| component_catalog.rst 112 | MOLIR needs `copy_number_variation_gistic` and is single-drug (`literature/molir/predictor.py:58-62`) | D5 |
-| from_components_to_models.rst 265 | No `expression`/`cnv` view aliases. Use `gene_expression` etc. (`zoo/SRMF.yaml:1`) | D5 |
-| model_zoo.rst 10 | A zoo file holds one preset (name = file stem) or a mapping of name → configuration (`models/zoo/_external_load.py:52-73`) | D5 |
-| registries.rst 35-38 | After P5 every registry, including datasets, raises on a conflicting name and accepts `override=True` | D6 |
-| registries.rst 91-97 | Built-in source is `s3://…`. Only the `s3` and `http` fsspec backends are installed | D3, D6 |
-| registries.rst 108-111 | `PlotRequirement` has no "reference model" (`visualization/requirements.py:6-12`) | D3 |
-| registries.rst 132-137, extensions.rst 584-589 | After P4, `DREVALPY_EXTENSIONS_DIR` works in Python through `load_extensions()` | D3, D5 |
-| python/models.rst 49-50 | `model_checkpoint_dir=None` means a temporary directory (`drp_model.py:92,101-105`) | D2 |
-| python/models.rst | `DRPModel.load` unpickles; trust only your own files (`drp_model.py:135-138`) | D2 |
-| python/extensions.rst 185, 189 | `FeaturizerResult(entity_ids, blocks, projection)` (`types/data/batch/feature_block.py:70-72`) | D3 |
-| python/extensions.rst 511-515 | `ModelSpec(name, ModelConfig)`; a dict raises `TypeError` (`models/spec.py:33-34`) | D3 |
-| python/extensions.rst 145 | Registry name is `concatFeaturizers` | D3 |
-| python/extensions.rst 462 | Import dataset registration from the public surface, not `drevalpy.registry.dataset` internals | D3 |
-| python/extensions.rst 525-530 | `load_extension_dir` loads `*.py` and `*.yaml` (`registry/_extensions.py:174-201`) | D3 |
-| python/experiments.rst 48-95, 133-140 | `run` also takes `response_transformation`; after P3 both interfaces default to none | D2 |
-| python/datasets.rst 45 | `run` always uses `n_splits=5` (`_run.py:56`) | D2 |
-| python/visualization.rst 47-54 | Classes are `ComparisonScatterVisualization`, `CriticalDifferenceVisualization`, `CrossStudyTableVisualization`, `HeatmapVisualization`, `RegressionScatterVisualization`, `ViolinVisualization`, `LeaderboardVisualization` (`visualization/plots/*`); none is re-exported from `drevalpy.visualization` | D2 |
-| python/visualization.rst 35 | `RunResult` has `ground_truth`, not `response` (`types/results/run.py:58-59`) | D2 |
-| python/visualization.rst 64-65 | `Visualization` has four abstract methods (`visualization/base.py:62-89`) | D3 |
-| cli/visualization.rst 64-65 | Advises seven folds; `run` uses five | D2 |
-| python/api/index.rst 22, 41-42 | Registries live in `drevalpy.registry` and tuning in `drevalpy.models.tuning`; no custom response tables | D5 |
-| v2_migration.rst 45-46 | `FeaturizerResult` fields are `entity_ids, blocks, projection`; `matrix` is a property | D6 |
-| AGENTS.md 61 | Eight literature model packages, not seven | D7 |
-| `DREVALPY_CONFIG_DIR` | Undocumented; holds `datasets.json` (`data/_paths.py:11`) | D5 |
+| Old location                                    | Correct fact (evidence)                                                                                                                                                                                                                                                                                   | Owner  |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| README.md 122-138                               | No `construct_model`. Use `ModelSpec.from_name` + `drevalpy.run(models: list[ModelSpec], ...)` (`_run.py:24`)                                                                                                                                                                                             | D7     |
+| README.md 10                                    | Linter is ruff (`.pre-commit-config.yaml`)                                                                                                                                                                                                                                                                | D7     |
+| README.md 74, installation.rst 60-72            | Docker tag mismatch (`:main` against `:latest`). Check the published tag in `.github/workflows`                                                                                                                                                                                                           | D2     |
+| installation.rst 12, 23                         | Python `>=3.11,<3.14` (`pyproject.toml:8`)                                                                                                                                                                                                                                                                | D2     |
+| concepts/datasets.rst 69-72                     | `curate` input columns: `drug, sample, concentration, intensity` (+ optional `replicate`), `curation/_preprocess.py:8` (`cell_line` today; Wave R renames it to `sample`). Output is `.h5ad` (`cli/curate.py:36,52`)                                                                                      | D2     |
+| concepts/datasets.rst 73-77                     | No CSV loader. `load` takes a registered name or an existing `.h5mu` path (`data/datasets/_load.py:87-126`)                                                                                                                                                                                               | D2, D5 |
+| concepts/datasets.rst 54, 94                    | `response.X` holds pEC50. Modality names are `gene_expression`, `copy_number_variation_gistic`, … (`types/data/modalities.py:27-35`)                                                                                                                                                                      | D5     |
+| concepts/datasets.rst 8-49, cli/datasets.rst 26 | `TOYv1` is also registered (`available_datasets.json`)                                                                                                                                                                                                                                                    | D5     |
+| concepts/evaluation.rst 50-53                   | `run` never adds `NaiveMeanEffectsPredictor` and treats all models alike (`_run.py:63-75`). Normalizing uses `ExperimentResult.normalize(reference_model=...)`                                                                                                                                            | D5, D6 |
+| concepts/evaluation.rst 84                      | A robustness test reshuffles pair order and keeps the model seed (`experiment/_robustness.py:8-27`)                                                                                                                                                                                                       | D5, D6 |
+| concepts/evaluation.rst 100                     | The report normalizes only when `reference_model` is given (`visualization/report.py:115-117`)                                                                                                                                                                                                            | D2     |
+| concepts/evaluation.rst 129-134                 | v2 has no cross-study entry point; only `CrossStudyTableVisualization` exists                                                                                                                                                                                                                             | D6     |
+| component_catalog.rst 112                       | MOLIR needs `copy_number_variation_gistic` and is single-drug (`literature/molir/predictor.py:58-62`)                                                                                                                                                                                                     | D5     |
+| from_components_to_models.rst 265               | No `expression`/`cnv` view aliases. Use `gene_expression` etc. (`zoo/SRMF.yaml:1`)                                                                                                                                                                                                                        | D5     |
+| model_zoo.rst 10                                | A zoo file holds one preset (name = file stem) or a mapping of name → configuration (`models/zoo/_external_load.py:52-73`)                                                                                                                                                                                | D5     |
+| registries.rst 35-38                            | After P5 every registry, including datasets, raises on a conflicting name and accepts `override=True`                                                                                                                                                                                                     | D6     |
+| registries.rst 91-97                            | Built-in source is `s3://…`. Only the `s3` and `http` fsspec backends are installed                                                                                                                                                                                                                       | D3, D6 |
+| registries.rst 108-111                          | `PlotRequirement` has no "reference model" (`visualization/requirements.py:6-12`)                                                                                                                                                                                                                         | D3     |
+| registries.rst 132-137, extensions.rst 584-589  | After P4, `DREVALPY_EXTENSIONS_DIR` works in Python through `load_extensions()`                                                                                                                                                                                                                           | D3, D5 |
+| python/models.rst 49-50                         | `model_checkpoint_dir=None` means a temporary directory (`drp_model.py:92,101-105`)                                                                                                                                                                                                                       | D2     |
+| python/models.rst                               | `DRPModel.load` unpickles; trust only your own files (`drp_model.py:135-138`)                                                                                                                                                                                                                             | D2     |
+| python/extensions.rst 185, 189                  | `FeaturizerResult(entity_ids, blocks, projection)` (`types/data/batch/feature_block.py:70-72`)                                                                                                                                                                                                            | D3     |
+| python/extensions.rst 511-515                   | `ModelSpec(name, ModelConfig)`; a dict raises `TypeError` (`models/spec.py:33-34`)                                                                                                                                                                                                                        | D3     |
+| python/extensions.rst 145                       | Registry name is `concatFeaturizers`                                                                                                                                                                                                                                                                      | D3     |
+| python/extensions.rst 462                       | Import dataset registration from the public surface, not `drevalpy.registry.dataset` internals                                                                                                                                                                                                            | D3     |
+| python/extensions.rst 525-530                   | `load_extension_dir` loads `*.py` and `*.yaml` (`registry/_extensions.py:174-201`)                                                                                                                                                                                                                        | D3     |
+| python/experiments.rst 48-95, 133-140           | `run` also takes `response_transformation`; after P3 both interfaces default to none                                                                                                                                                                                                                      | D2     |
+| python/datasets.rst 45                          | `run` always uses `n_splits=5` (`_run.py:56`)                                                                                                                                                                                                                                                             | D2     |
+| python/visualization.rst 47-54                  | Classes are `ComparisonScatterVisualization`, `CriticalDifferenceVisualization`, `CrossStudyTableVisualization`, `HeatmapVisualization`, `RegressionScatterVisualization`, `ViolinVisualization`, `LeaderboardVisualization` (`visualization/plots/*`); none is re-exported from `drevalpy.visualization` | D2     |
+| python/visualization.rst 35                     | `RunResult` has `ground_truth`, not `response` (`types/results/run.py:58-59`)                                                                                                                                                                                                                             | D2     |
+| python/visualization.rst 64-65                  | `Visualization` has four abstract methods (`visualization/base.py:62-89`)                                                                                                                                                                                                                                 | D3     |
+| cli/visualization.rst 64-65                     | Advises seven folds; `run` uses five                                                                                                                                                                                                                                                                      | D2     |
+| python/api/index.rst 22, 41-42                  | Registries live in `drevalpy.registry` and tuning in `drevalpy.models.tuning`; no custom response tables                                                                                                                                                                                                  | D5     |
+| v2_migration.rst 45-46                          | `FeaturizerResult` fields are `entity_ids, blocks, projection`; `matrix` is a property                                                                                                                                                                                                                    | D6     |
+| AGENTS.md 61                                    | Eight literature model packages, not seven                                                                                                                                                                                                                                                                | D7     |
+| `DREVALPY_CONFIG_DIR`                           | Undocumented; holds `datasets.json` (`data/_paths.py:11`)                                                                                                                                                                                                                                                 | D5     |
 
 ### Modules
 
-| Module | Interface (small) | Hides | New / changed |
-| ------ | ----------------- | ----- | ------------- |
-| `docs/_snippets.py` | `collect(page: Path) -> list[Snippet]`; `run_page(page: Path, workdir: Path, *, allow_network: bool) -> None`, raises `SnippetError(page, line, output)` | RST parsing at any indent (inside `tab-item`), marker comments, shared Python namespace, `typer.testing.CliRunner` against `drevalpy.cli.main.app`, `shlex` argv splitting, rejecting non-`drevalpy` shell lines | new |
-| `tests/docs/test_snippets.py` | pytest parametrized over every page in `tutorials/` and `how-to/` | offline and network variants | new (replaces `test_model_workflows.py`) |
-| `tests/docs/test_docs_structure.py` | pytest | mode rules (see Tests) | rewritten |
-| `docs/_cli_click.py` | `generate_cli_reference_rst()`, `write_generated_cli_reference()` | recursion into groups (`data`, `experiments`, `list`), true root description | changed |
-| `drevalpy/data/_synthetic.py` | `synthetic(*, name, n_samples=60, n_drugs, n_tissues, omics, feature_names, n_features, missing_fraction, low_quality_fraction, seed) -> Dataset`, today's `build_synthetic_dataset` signature with the default sample count raised from 24 to 60, plus drug `canonical_smiles` so `fingerprints` works; `n_drugs` above `MAX_SYNTHETIC_DRUGS` (the length of the fixed SMILES list, at least 8) raises `ValueError` naming the limit | the response model below (fixed effect sizes), quality layers, SMILES list | new (moved from `testing/synthetic.py`) |
-| `drevalpy/cli/data/synthetic.py` | `drevalpy data synthetic --output PATH [--seed N] [--n-samples N] [--n-drugs N] [--n-tissues N]`; defaults match `synthetic()` | `synthetic(...).save(path)`; turns the `ValueError` into a CLI usage error | new |
-| `drevalpy/cli/catalog/registries.py` | `drevalpy list zoo-presets`, `drevalpy list datasets` | zoo lookup, `dataset_registry.to_dataframe()`, shared `_render` | changed |
-| `drevalpy/cli/run.py`, `cli/single.py` | `--response-transformation {none,standard,minmax,robust}` (default `none`); use the values the code accepts | mapping `none` → `None` | changed |
-| `drevalpy/registry/_extensions.py::load_extensions` | `directories=None` now means "`DREVALPY_EXTENSIONS_DIR` if set" | env lookup in one place | changed |
-| `drevalpy/registry/dataset` | `register_source(name, base_url, storage_options=None, *, override=False)`, `register_dataset(name, source, file, *, override=False)`; raises `ValueError` on a conflicting entry | equality check against the persisted and built-in entry; identical repeat is a no-op | changed |
+| Module                                              | Interface (small)                                                                                                                                                                                                                                                                                                                                                                                                                     | Hides                                                                                                                                                                                                            | New / changed                            |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `docs/_snippets.py`                                 | `collect(page: Path) -> list[Snippet]`; `run_page(page: Path, workdir: Path, *, allow_network: bool) -> None`, raises `SnippetError(page, line, output)`                                                                                                                                                                                                                                                                              | RST parsing at any indent (inside `tab-item`), marker comments, shared Python namespace, `typer.testing.CliRunner` against `drevalpy.cli.main.app`, `shlex` argv splitting, rejecting non-`drevalpy` shell lines | new                                      |
+| `tests/docs/test_snippets.py`                       | pytest parametrized over every page in `tutorials/` and `how-to/`                                                                                                                                                                                                                                                                                                                                                                     | offline and network variants                                                                                                                                                                                     | new (replaces `test_model_workflows.py`) |
+| `tests/docs/test_docs_structure.py`                 | pytest                                                                                                                                                                                                                                                                                                                                                                                                                                | mode rules (see Tests)                                                                                                                                                                                           | rewritten                                |
+| `docs/_cli_click.py`                                | `generate_cli_reference_rst()`, `write_generated_cli_reference()`                                                                                                                                                                                                                                                                                                                                                                     | recursion into groups (`data`, `experiments`, `list`), true root description                                                                                                                                     | changed                                  |
+| `drevalpy/data/_synthetic.py`                       | `synthetic(*, name, n_samples=60, n_drugs, n_tissues, omics, feature_names, n_features, missing_fraction, low_quality_fraction, seed) -> Dataset`, today's `build_synthetic_dataset` signature with the default sample count raised from 24 to 60, plus drug `canonical_smiles` so `fingerprints` works; `n_drugs` above `MAX_SYNTHETIC_DRUGS` (the length of the fixed SMILES list, at least 8) raises `ValueError` naming the limit | the response model below (fixed effect sizes), quality layers, SMILES list                                                                                                                                       | new (moved from `testing/synthetic.py`)  |
+| `drevalpy/cli/data/synthetic.py`                    | `drevalpy data synthetic --output PATH [--seed N] [--n-samples N] [--n-drugs N] [--n-tissues N]`; defaults match `synthetic()`                                                                                                                                                                                                                                                                                                        | `synthetic(...).save(path)`; turns the `ValueError` into a CLI usage error                                                                                                                                       | new                                      |
+| `drevalpy/cli/catalog/registries.py`                | `drevalpy list zoo-presets`, `drevalpy list datasets`                                                                                                                                                                                                                                                                                                                                                                                 | zoo lookup, `dataset_registry.to_dataframe()`, shared `_render`                                                                                                                                                  | changed                                  |
+| `drevalpy/cli/run.py`, `cli/single.py`              | `--response-transformation {none,standard,minmax,robust}` (default `none`); use the values the code accepts                                                                                                                                                                                                                                                                                                                           | mapping `none` → `None`                                                                                                                                                                                          | changed                                  |
+| `drevalpy/registry/_extensions.py::load_extensions` | `directories=None` now means "`DREVALPY_EXTENSIONS_DIR` if set"                                                                                                                                                                                                                                                                                                                                                                       | env lookup in one place                                                                                                                                                                                          | changed                                  |
+| `drevalpy/registry/dataset`                         | `register_source(name, base_url, storage_options=None, *, override=False)`, `register_dataset(name, source, file, *, override=False)`; raises `ValueError` on a conflicting entry                                                                                                                                                                                                                                                     | equality check against the persisted and built-in entry; identical repeat is a no-op                                                                                                                             | changed                                  |
 
 The deletion test: `docs/_snippets.py` earns its place. Without it, every docs test would
 re-implement RST block extraction, which is what `test_model_workflows.py` does today
@@ -383,8 +389,8 @@ holdout, per-drug ElasticNet on 16 features, 20 seeds) measured:
 
 | `n_samples` | drug-mean pooled r (mean / min) | NaiveMeanEffects per-drug r | ElasticNet per-drug r | ElasticNet beats naive |
 | ----------- | ------------------------------- | --------------------------- | --------------------- | ---------------------- |
-| 24 | 0.81 / 0.63 | 0.45 | 0.56 | 12 / 20 seeds |
-| 60 | 0.83 / 0.74 | 0.43 | 0.66 | 18 / 20 seeds |
+| 24          | 0.81 / 0.63                     | 0.45                        | 0.56                  | 12 / 20 seeds          |
+| 60          | 0.83 / 0.74                     | 0.43                        | 0.66                  | 18 / 20 seeds          |
 
 At 24 samples the ranking is a coin flip, which would teach the wrong lesson. At 60 it is
 stable, and the dataset is still small: 60 × 8 pairs, a few hundred kB.
@@ -688,8 +694,7 @@ R1 runs alone. R2 and R3 run in parallel after R1, and R4 runs after R3.
   - curation's `uv run pytest` and hooks pass;
   - `dvc status` is clean;
   - every file in `data/07_assembled/` loads with `drevalpy.load(path)` from R1's
-    drevalpy, and `drevalpy run --models NaiveMeanEffectsPredictor --dataset
-    data/07_assembled/TOYv1.h5mu --split-mode LSO` finishes;
+    drevalpy, and `drevalpy run --models NaiveMeanEffectsPredictor --dataset data/07_assembled/TOYv1.h5mu --split-mode LSO` finishes;
   - in `PDX_Bruna.h5mu` and `BeatAML2.h5mu`, `mdata.obs` has `tissue` but no
     `cellosaurus_id` or `cell_line_name`. In every CMP and PRISM file, both columns are
     present and the index is unique;
@@ -876,6 +881,7 @@ Every docs package follows the writing conventions and fixes the contradictions 
 to it in section 3. Each one owns only the pages listed for it in the page map.
 
 The shared done-when check for each package:
+
 - `DOCS` passes;
 - `DOCTESTS` passes;
 - `uv run --frozen pytest -q -p no:cacheprovider -m network tests/docs/test_snippets.py -k <dir>`
@@ -955,7 +961,7 @@ The shared done-when check for each package:
 - **Interface:** as in the page map. `python_api.rst` adds autosummary entries for
   `drevalpy` (`run`, `single`, `load`, `split`, `synthetic`, `randomization`,
   `robustness`), `drevalpy.registry` and `drevalpy.models.zoo`, so that
-  `:func:`~drevalpy.run`` resolves. `environment.rst` documents all six `DREVALPY_*`
+  `:func:`~drevalpy.run``resolves.`environment.rst`documents all six`DREVALPY\_\*`
   variables.
 - **Depends on:** P0, P1, P4, P5.
 - **Done when:** shared check, plus every `DREVALPY_` name found by

@@ -1,73 +1,55 @@
-.. include:: readme.rst
+DrEvalPy
+========
 
-.. role:: small
+DrEvalPy evaluates drug response prediction models. It trains models on sample and
+drug data, scores them on held-out pairs, and compares them against baselines under
+fixed split modes.
 
-.. role:: smaller
+You can drive it from the ``drevalpy`` command line or from Python. Both interfaces run
+the same evaluation pipeline, and the how-to guides and tutorials show each task once,
+with a tab for each interface.
 
-DrEvalPy documentation is organized into shared **concepts** plus separate **Python**
-and **CLI** tracks. Both interfaces run the same evaluation pipeline; only
-the wiring differs.
+For large or strictly reproducible benchmarks, use the Nextflow pipeline
+`nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_. The source code is
+on `GitHub <https://github.com/daisybio/drevalpy>`_, the package on
+`PyPI <https://pypi.org/project/drevalpy/>`_ and the
+`paper <https://doi.org/10.1038/s41467-026-72903-w>`_ on Nature Communications.
 
-Suggested path
---------------
+Where to go
+-----------
 
-1. :doc:`getting_started/installation` — Python version, pip/Conda/Docker, and
-   verify with ``drevalpy --help``.
-2. :doc:`getting_started/run_first_experiment` — choose the CLI or Python API
-   track for your first run.
-3. Read :doc:`concepts/datasets` and :doc:`concepts/evaluation` when you change
-   datasets, split modes (LPO/LSO/LTO/LDO), or metrics.
-4. :doc:`concepts/component_catalog` then
-   :doc:`concepts/from_components_to_models` and :doc:`concepts/model_zoo` —
-   registered atoms, how they compose, and named zoo presets.
-5. Go deeper on your track. For Python: :doc:`python/datasets` →
-   :doc:`python/models` → :doc:`python/extensions` →
-   :doc:`python/experiments` (then visualization). For CLI: :doc:`cli/experiments`.
-
-For demanding or highly reproducible runs, use the Nextflow pipeline
-`nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_.
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Getting started
-
-   getting_started/installation
-   getting_started/run_first_experiment
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Concepts
-
-   concepts/datasets
-   concepts/evaluation
-   concepts/component_catalog
-   concepts/from_components_to_models
-   concepts/model_zoo
-   concepts/registries
+- **Learn by doing:** :doc:`tutorials/index` walks you through a first benchmark on a
+  synthetic dataset.
+- **Get a task done:** :doc:`how-to/index` has recipes for running, tuning and reporting
+  experiments, extending DrEvalPy, and migrating from 1.x.
+- **Look something up:** :doc:`reference/index` lists commands, Python APIs, components,
+  file formats and the :doc:`glossary <reference/glossary>`.
+- **Understand the design:** :doc:`explanation/index` explains why split modes, components
+  and registries work the way they do.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Python guide
+   :caption: Tutorials
 
-   python/quickstart
-   python/datasets
-   python/models
-   python/extensions
-   python/experiments
-   python/visualization
-   python/api/index
+   tutorials/index
 
 .. toctree::
-   :maxdepth: 1
-   :caption: CLI guide
+   :maxdepth: 2
+   :caption: How-to guides
 
-   cli/quickstart
-   cli/datasets
-   cli/models
-   cli/experiments
-   cli/visualization
-   cli/extensions
-   cli/reference
+   how-to/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
+   reference/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Explanation
+
+   explanation/index
 
 .. toctree::
    :maxdepth: 1
@@ -76,11 +58,5 @@ For demanding or highly reproducible runs, use the Nextflow pipeline
    project/contributing
    project/citing
    project/news
-   project/v2_migration
-   project/v2_architecture
-   project/v2_architecture_migration
-   project/v2_correctness_review
    project/contributors
    project/memes
-
-.. _github: https://github.com/daisybio/drevalpy

@@ -1,0 +1,4 @@
+Install DrEvalPy
+================
+
+.. interface: cli

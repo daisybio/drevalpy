@@ -22,9 +22,9 @@ from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_CATALOGS = {
-    "sample": DOCS_DIR / "concepts" / "_generated_sample_featurizers.rst",
-    "drug": DOCS_DIR / "concepts" / "_generated_drug_featurizers.rst",
-    "predictor": DOCS_DIR / "concepts" / "_generated_predictors.rst",
+    "sample": DOCS_DIR / "reference" / "_generated_sample_featurizers.rst",
+    "drug": DOCS_DIR / "reference" / "_generated_drug_featurizers.rst",
+    "predictor": DOCS_DIR / "reference" / "_generated_predictors.rst",
 }
 EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample": 17, "drug": 10, "predictor": 27}
 EXPECTED_PREDICTOR_INTERFACE_COUNTS = {"feature_free": 1, "matrix": 13, "block": 13}

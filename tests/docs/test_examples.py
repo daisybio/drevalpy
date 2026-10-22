@@ -1,6 +1,6 @@
-"""Guard the runnable examples the extensions page includes.
+"""Guard the runnable examples the documentation includes.
 
-``docs/python/extensions.rst`` shows its examples with ``literalinclude``, which
+The how-to pages show ``docs/examples/*.py`` with ``literalinclude``, which
 keeps page and code identical but proves nothing about either: a
 ``literalinclude`` of a module that no longer imports renders happily. The docs
 build closes that gap by calling ``docs/_examples.verify_documented_examples``,
@@ -21,6 +21,7 @@ its output.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -29,14 +30,23 @@ from typing import Any
 import pytest
 
 from tests._trusted_subprocess import run_trusted_python
+from tests.docs.test_docs_structure import built_pages, exclude_patterns
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS = REPO_ROOT / "docs"
 EXAMPLES = DOCS / "examples"
-EXTENSIONS_PAGE = DOCS / "python" / "extensions.rst"
+EXTEND_PAGES = DOCS / "how-to" / "extend"
 
 if str(DOCS) not in sys.path:
     sys.path.insert(0, str(DOCS))
+
+#: TEMPORARY(D3): the literal includes still sit on this page of the old tree, which
+#: ``docs/conf.py`` excludes from the build. D3 moves them to ``how-to/extend/``; set
+#: this to ``()`` then. With it empty, only built pages count as including an example.
+#: A path that no longer exists (the old tree is deleted) is ignored.
+TEMPORARY_INCLUDERS: tuple[Path, ...] = (DOCS / "python" / "extensions.rst",)
+
+_LITERALINCLUDE = re.compile(r"^\s*\.\. literalinclude:: (\S+)\s*$", re.MULTILINE)
 
 #: Runs the docs build's own verification in a fresh interpreter and reports the
 #: registry sizes on either side of it along with what the examples registered.
@@ -66,10 +76,22 @@ def verification() -> dict[str, Any]:
     return json.loads(completed.stdout)
 
 
-def _literalincluded_paths() -> list[str]:
-    """Return every path the page pulls in, indented (inside a tab) or not."""
-    text = EXTENSIONS_PAGE.read_text(encoding="utf-8")
-    return re.findall(r"^\s*\.\. literalinclude:: /(examples/\S+)$", text, flags=re.MULTILINE)
+def _includer_pages() -> list[Path]:
+    """Return the pages whose ``literalinclude`` lines count: built pages plus the temporary allowance."""
+    return built_pages(DOCS, exclude_patterns(DOCS)) + [path for path in TEMPORARY_INCLUDERS if path.is_file()]
+
+
+def _literalincludes(pages: list[Path]) -> list[tuple[Path, Path]]:
+    """Return ``(page, target)`` for every ``literalinclude``, indented (inside a tab) or not.
+
+    Targets are resolved the way Sphinx does: ``/x`` from the docs root, anything else from the page.
+    """
+    found = []
+    for page in pages:
+        for target in _LITERALINCLUDE.findall(page.read_text(encoding="utf-8")):
+            base = DOCS if target.startswith("/") else page.parent
+            found.append((page, Path(os.path.normpath(base / target.lstrip("/")))))
+    return found
 
 
 class TestVerificationInAPristineInterpreter:
@@ -98,21 +120,25 @@ class TestVerificationInAPristineInterpreter:
         assert verification["after"] == verification["before"]
 
 
-def test_every_example_module_is_shown_on_the_page() -> None:
-    """An example nobody reads is dead code; the page must include each one."""
+def test_every_example_module_is_shown_on_some_page() -> None:
+    """An example nobody reads is dead code; some page under ``docs/`` must include each one."""
     from _examples import EXAMPLE_MODULES
 
-    included = set(_literalincluded_paths())
+    included = {target for _, target in _literalincludes(_includer_pages())}
     # toy_conformance.py is the harness that checks the others, so it is
-    # described in prose rather than shown; everything else is on the page.
-    expected = {f"examples/{name}.py" for name in EXAMPLE_MODULES} - {"examples/toy_conformance.py"}
-    assert expected <= included, f"Example modules missing from extensions.rst: {sorted(expected - included)}"
+    # described in prose rather than shown; everything else is on a page.
+    expected = {EXAMPLES / f"{name}.py" for name in EXAMPLE_MODULES} - {EXAMPLES / "toy_conformance.py"}
+    assert expected <= included, f"Example modules no page includes: {sorted(p.name for p in expected - included)}"
 
 
-def test_the_page_only_includes_files_that_exist() -> None:
+def test_pages_only_include_files_that_exist() -> None:
     """A renamed example must not leave a dangling ``literalinclude``."""
-    missing = [target for target in _literalincluded_paths() if not (DOCS / target).is_file()]
-    assert not missing, f"extensions.rst literalincludes missing files: {missing}"
+    missing = [
+        f"{page.relative_to(DOCS).as_posix()}: {target}"
+        for page, target in _literalincludes(_includer_pages())
+        if not target.is_file()
+    ]
+    assert not missing, f"literalincludes of missing files: {missing}"
 
 
 def test_every_example_module_is_listed_in_the_driver() -> None:
@@ -123,7 +149,7 @@ def test_every_example_module_is_listed_in_the_driver() -> None:
     assert on_disk == set(EXAMPLE_MODULES)
 
 
-#: Import paths and hooks the page used to teach that never existed or no longer
+#: Import paths and hooks the extension pages used to teach that never existed or no longer
 #: do. Kept as a regression guard because every one of them was published.
 DEAD_REFERENCES = (
     "drevalpy.components.core",
@@ -135,10 +161,31 @@ DEAD_REFERENCES = (
 )
 
 
-def test_the_page_teaches_the_supported_import_surface() -> None:
-    """Prose and snippets must route plugin authors through ``drevalpy.plugin``."""
-    text = EXTENSIONS_PAGE.read_text(encoding="utf-8")
-    found = [reference for reference in DEAD_REFERENCES if reference in text]
-    assert not found, f"extensions.rst points at unsupported import paths: {found}"
+def _extend_pages() -> list[Path]:
+    return sorted(EXTEND_PAGES.rglob("*.rst"))
+
+
+def test_extend_pages_do_not_teach_dead_import_paths() -> None:
+    pages = _extend_pages() + [path for path in TEMPORARY_INCLUDERS if path.is_file()]
+    found = [
+        f"{page.relative_to(DOCS).as_posix()}: {reference}"
+        for page in pages
+        for reference in DEAD_REFERENCES
+        if reference in page.read_text(encoding="utf-8")
+    ]
+    assert not found, f"pages point at unsupported import paths: {found}"
+
+
+def test_extend_pages_with_python_route_plugin_authors_through_the_supported_surface() -> None:
+    """Once the extend pages show Python, they must teach ``drevalpy.plugin`` and ``drevalpy.testing``.
+
+    Vacuous while the pages are stubs, so the check cannot fail the Wave 1 tree.
+    """
+    from _snippets import collect
+
+    pages = _extend_pages()
+    if not any(snippet.language == "python" for page in pages for snippet in collect(page)):
+        pytest.skip("the extend pages show no Python yet")
+    text = "\n".join(page.read_text(encoding="utf-8") for page in pages)
     assert "drevalpy.plugin" in text
     assert "drevalpy.testing" in text

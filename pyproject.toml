@@ -83,9 +83,10 @@ docs = [
     "sphinx>=4.0.2",
     "sphinx-autobuild>=2021.3.14",
     "sphinx-autodoc-typehints",
-    "sphinx-rtd-theme>=1.0.0,<3.0.3",
     "sphinx-design>=0.7.0",
     "sphinxcontrib-mermaid>=2.1.0",
+    "myst-parser>=4.0.0",
+    "pydata-sphinx-theme>=0.16",
 ]
 
 # The package lives under src/ (uv_build's default), so an editable install puts only
@@ -244,7 +245,6 @@ min_file_coverage = 60
 # credentials nor a warm cache. What remains uncovered is the download itself; do
 # not chase the last points, it would mean pulling hundreds of megabytes in CI.
 "drevalpy/data/datasets/__init__.py" = 44
-"drevalpy/data/datasets/_load.py" = 55
 
 # Per-module statement ceiling, enforced by tools/size_gate.py. This is the ratchet
 # that keeps the split modules in models/ and components/featurizers/ from

@@ -14,7 +14,7 @@ from drevalpy.registry.predictor import metadata as get_predictor_metadata
 from drevalpy.types.enums.model_scope import ModelScope
 
 DOCS_DIR = Path(__file__).resolve().parent
-GENERATED_MODEL_ZOO = DOCS_DIR / "concepts" / "_generated_model_zoo.rst"
+GENERATED_MODEL_ZOO = DOCS_DIR / "reference" / "_generated_model_zoo.rst"
 
 
 def _featurizer_recipe(feat: FeaturizerConfig | None) -> str:
@@ -104,7 +104,7 @@ def generate_model_zoo_rst() -> str:
 
 
 def write_generated_model_zoo() -> Path:
-    """Write the generated model zoo RST consumed by ``concepts/model_zoo.rst``.
+    """Write the generated model zoo RST consumed by ``reference/model_zoo.rst``.
 
     :returns: path to the written ``_generated_model_zoo.rst`` file
     """

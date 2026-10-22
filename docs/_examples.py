@@ -31,7 +31,7 @@ from drevalpy.registry import (
 
 DOCS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DOCS_DIR.parent
-GENERATED_EXAMPLES = DOCS_DIR / "python" / "_generated_examples.rst"
+GENERATED_EXAMPLES = DOCS_DIR / "reference" / "_generated_examples.rst"
 
 #: Import package of the examples. ``docs`` has no ``__init__.py`` and resolves
 #: as a namespace package, which keeps the generic name ``examples`` off the top

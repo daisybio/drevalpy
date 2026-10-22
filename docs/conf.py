@@ -37,6 +37,7 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx_design",
     "sphinxcontrib.mermaid",
+    "myst_parser",
 ]
 
 # Generate registry- and application-driven tables before sources are read.
@@ -98,13 +99,20 @@ exclude_patterns = [
     "_generated_io.py",
     "_model_zoo.py",
     "examples",
-    "cli/_generated_reference.rst",
-    "concepts/_generated_sample_featurizers.rst",
-    "concepts/_generated_drug_featurizers.rst",
-    "concepts/_generated_model_zoo.rst",
-    "concepts/_generated_predictors.rst",
-    "python/_generated_examples.rst",
+    "readme.rst",
+    "reference/_generated_*.rst",
+    # Old tree, read in place by the Wave 2 writers and deleted in Wave 3.
+    "concepts",
+    "python",
+    "cli",
+    "getting_started",
+    "project/v2_*",
+    "project/architecture_audit",
+    "project/literature_audit",
 ]
+
+# reference/glossary.rst includes GLOSSARY.md without its H1, so its sections start at H2.
+suppress_warnings = ["myst.header"]
 
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
@@ -114,22 +122,24 @@ todo_include_todos = False
 # -- Options for HTML output -------------------------------------------
 
 html_context = {
-    "display_github": True,  # Integrate GitHub
-    "github_user": "daisybio",  # Username
-    "github_repo": "drevalpy",  # Repo name
-    "github_version": "development",  # Version
-    "conf_py_path": "/docs/",  # Path in the checkout to the docs root
-    "github_url": "https://github.com/daisybio/drevalpy/",
+    "github_user": "daisybio",
+    "github_repo": "drevalpy",
+    "github_version": "development",
+    "doc_path": "docs",
 }
 
-# The theme to use for HTML and HTML Help pages.
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 
-html_theme_options = dict(
-    navigation_depth=6,
-    logo_only=True,
-)
-html_logo = "_static/img/drevalpy.png"
+html_theme_options = {
+    "logo": {"image_light": "_static/img/drevalpy.png", "image_dark": "_static/img/drevalpy.png"},
+    "github_url": "https://github.com/daisybio/drevalpy",
+    "use_edit_page_button": True,
+    "navbar_align": "left",
+    "header_links_before_dropdown": 4,
+    "show_toc_level": 2,
+    "navigation_with_keys": False,
+}
+html_title = "DrEvalPy"
 
 
 # Add any paths that contain custom static files (such as style sheets) here,
