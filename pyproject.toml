@@ -1,6 +1,6 @@
 [project]
 name = "drevalpy"
-version = "1.5.1"
+version = "2.0.0"
 description = "Drug response evaluation of cancer drug response models in a fair setting"
 authors = [{ name = "DrEvalPy development team" }]
 license = "MIT"

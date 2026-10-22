@@ -40,14 +40,11 @@ Things the docs restructure (`plans/docs-diataxis.md`) found or deliberately lef
   and the "once v2 is released" wording in the README install section, and set the entry date.
   Until then `pip install drevalpy` and `docker pull ...:latest` (the Docker image is only
   built when a release is published) give 1.6.0.
-- **Package version.** `pyproject.toml` says `version = "1.5.1"` on the `v2` branch, although
-  1.6.0 is released and `drevalpy.__version__` reads this value. Pick the v2 version number.
-- **Default branch.** `docs/conf.py` points edit links at `main`, and `publish_docs.yml` deploys
-  from `main`. `git ls-remote --symref origin HEAD` still reports `development`, and
+- **Default branch.** It will be `main`, but the GitHub setting is left alone for now (user
+  decision). `docs/conf.py` edit links, `publish_docs.yml` and `docs/project/contributing.rst`
+  already assume `main`; `git ls-remote --symref origin HEAD` still reports `development`, and
   `.github/pull_request_template.md` (line 38) still describes a development → `main` release
-  PR. Set the default branch on GitHub and decide whether the release flow keeps a
-  `development` branch. `docs/project/contributing.rst`
-  now says to open pull requests against `main`.
+  PR. Update both when the branch switches.
 - **`drevalpy report --dataset`** is accepted and ignored (code). It exists only for pipeline
   compatibility. Remove it when nf-core/drugresponseeval stops passing it.
 - **`drevalpy curate` writes `.h5ad`, but `load` takes only `.h5mu`** (code). If the how-to for

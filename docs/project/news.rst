@@ -4,7 +4,7 @@ News
 .. role:: date
     :class: date
 
-🧬 DrEvalPy v2 :date:`2026-10-22`
+🧬 DrEvalPy 2.0.0 :date:`2026-10-22`
 --------------------------------------------------------------
 v2 is a rewrite of the interface, not an upgrade in place. It is not released yet:
 ``pip install drevalpy`` still installs 1.6.0. Nothing that 1.x wrote loads in v2, so re-run
