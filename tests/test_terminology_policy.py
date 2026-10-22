@@ -10,6 +10,7 @@ sources under ``src/`` and ``tests/`` for the old wording and fails on any hit t
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from fnmatch import fnmatch
 from functools import lru_cache
@@ -90,9 +91,12 @@ ALLOWLIST: tuple[tuple[str, str, str], ...] = (
 @lru_cache(maxsize=1)
 def _tracked_files() -> tuple[str, ...]:
     """Git-tracked files under ``src/`` and ``tests/`` with a scanned suffix."""
+    git = shutil.which("git")
+    if git is None:
+        pytest.skip("git is not installed")
     try:
-        listing = subprocess.run(
-            ["git", "ls-files", "-z", "--", "src", "tests"],
+        listing = subprocess.run(  # noqa: S603 - fixed argv, git resolved via shutil.which
+            [git, "ls-files", "-z", "--", "src", "tests"],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -125,10 +129,10 @@ def _covers(entry: tuple[str, str, str], path: str, line: str) -> bool:
 
 def test_no_unlisted_cell_line_wording() -> None:
     """Use "sample" in new text; allowlist a hit only if the data really are cell lines."""
-    stray = [f"{path}:{n}: {line.strip()}" for path, n, line in _hits() if not any(_covers(e, path, line) for e in ALLOWLIST)]
-    assert not stray, (
-        "'cell line' wording outside the ALLOWLIST (say 'sample', see GLOSSARY.md):\n" + "\n".join(stray)
-    )
+    stray = [
+        f"{path}:{n}: {line.strip()}" for path, n, line in _hits() if not any(_covers(e, path, line) for e in ALLOWLIST)
+    ]
+    assert not stray, "'cell line' wording outside the ALLOWLIST (say 'sample', see GLOSSARY.md):\n" + "\n".join(stray)
 
 
 def test_allowlist_entries_still_match() -> None:
