@@ -1,6 +1,6 @@
 """Comparison scatter plot: per-group correlation of one model against another.
 
-One point per drug (or per sample), not per prediction. Both axes carry the
+One point per drug (or per sample or study), not per prediction. Both axes carry the
 same quantity for two different models, so the identity line reads directly as
 "these two models are equally good on this group"; systematic deviation means one
 model dominates. Model selection is a pair of Plotly dropdowns, so the payload is
@@ -222,7 +222,7 @@ def _inline_plotly_html(fig: go.Figure, div_id: str) -> str:
 
 @register(
     "comparison_scatter",
-    "Per-drug and per-sample correlation compared between two selectable models",
+    "Per-drug, per-sample and per-study correlation compared between two selectable models",
     requirements=frozenset({PlotRequirement.MULTIPLE_MODELS}),
 )
 class ComparisonScatterVisualization(PlotlyVisualization):
@@ -258,8 +258,10 @@ class ComparisonScatterVisualization(PlotlyVisualization):
     def to_multiqc(self) -> list[Section]:
         """Return one Section per grouping, each holding a two-dropdown figure.
 
-        :returns: Sections for the drug and sample groupings, in that order.
-            Empty when fewer than two models have defined correlations.
+        :returns: Sections for the drug, sample and study groupings, in that order,
+            leaving out a grouping with no defined group (such as ``"study"`` on a run
+            that was not concatenated). Empty when fewer than two models have defined
+            correlations.
         :raises RuntimeError: If called before ``compute()``.
         """
         if self._fig is None:
@@ -268,6 +270,7 @@ class ComparisonScatterVisualization(PlotlyVisualization):
         sections: list[Section] = []
         for grouping, matrix in self._matrices.items():
             label = GROUPING_LABELS[grouping]
+            plural = "studies" if label == "study" else f"{label}s"
             anchor = f"dreval_comp_scatter_{grouping}"
             figure = self._fig if matrix is self._primary_matrix() else _build_figure(matrix)
             sections.append(
@@ -276,7 +279,7 @@ class ComparisonScatterVisualization(PlotlyVisualization):
                     anchor=anchor,
                     description=(
                         f"Pearson correlation of predictions against ground truth within each {label}, "
-                        f"for {matrix.n_models} models over {matrix.n_groups} {label}s. "
+                        f"for {matrix.n_models} models over {matrix.n_groups} {plural}. "
                         "Pick the model on each axis with the dropdowns; points above the diagonal "
                         "favour the model on the y-axis."
                     ),

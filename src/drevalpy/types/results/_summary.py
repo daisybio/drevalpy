@@ -18,8 +18,8 @@ class SummaryTableMixin:
         """Mean metric per model: {model_name: {metric: mean}}.
 
         Without ``group_by`` each metric is the pooled score over all pairs of a fold,
-        averaged over folds. With ``group_by="drug"`` (or ``"sample"``) it is computed within
-        each drug (sample) of a fold, averaged over the groups where it is defined, then
+        averaged over folds. With ``group_by="drug"`` (or ``"sample"`` or ``"study"``) it is
+        computed within each drug (sample, study) of a fold, averaged over the groups where it is defined, then
         averaged over folds. This is the number that tells a model that only knows which
         drugs are potent (high pooled, undefined per drug) from one that ranks samples within
         a drug. A group where the metric is undefined - fewer than two pairs, or no variance
@@ -27,11 +27,13 @@ class SummaryTableMixin:
         Pearson - is skipped rather than scored 0, and the result is ``NaN`` if no group is
         defined. The rule is shared with the comparison plots, see
         :mod:`drevalpy._grouped_evaluation`. Use :meth:`summary_group_counts` for how many
-        groups were defined. Randomized and robustness runs are not part of either table.
+        groups were defined. The study of a pair is the ``"<study>::"`` prefix of its sample ID, as written by
+        ``drevalpy.data.concat``; a run without prefixes has no studies, so ``group_by="study"``
+        is ``NaN``. Randomized and robustness runs are not part of either table.
 
-        :param group_by: ``None`` for pooled metrics, or ``"drug"`` / ``"sample"``.
+        :param group_by: ``None`` for pooled metrics, or ``"drug"`` / ``"sample"`` / ``"study"``.
         :returns: Nested dict suitable for DataFrame construction.
-        :raises ValueError: If ``group_by`` is not ``None``, ``"drug"`` or ``"sample"``.
+        :raises ValueError: If ``group_by`` is not ``None``, ``"drug"``, ``"sample"`` or ``"study"``.
         """
         if group_by is None:
             return {m.model_name: {k: v["mean"] for k, v in m.aggregate_metrics.items()} for m in self.models}
@@ -40,13 +42,13 @@ class SummaryTableMixin:
         }
 
     def summary_group_counts(self, group_by: GroupBy) -> dict[str, dict[str, float]]:
-        """Number of drugs (samples) with a defined score behind ``summary_table(group_by=...)``.
+        """Number of drugs (samples, studies) with a defined score behind ``summary_table(group_by=...)``.
 
-        :param group_by: ``"drug"`` or ``"sample"``.
+        :param group_by: ``"drug"``, ``"sample"`` or ``"study"``.
         :returns: {model_name: {metric: groups}}, the mean over folds of the number of groups
             where the metric is defined. Error metrics count every group; correlations skip
             constant ones.
-        :raises ValueError: If ``group_by`` is not ``"drug"`` or ``"sample"``.
+        :raises ValueError: If ``group_by`` is not ``"drug"``, ``"sample"`` or ``"study"``.
         """
         return {
             m.model_name: {k: v["n_groups"] for k, v in m.aggregate_group_metrics(group_by).items()}

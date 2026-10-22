@@ -2,7 +2,7 @@
 
 The comparison scatter needs one number per (model, group) pair - the Pearson
 correlation of a model's predictions against ground truth restricted to a single
-drug or sample - not the underlying point cloud. Computing it with
+drug, sample or study - not the underlying point cloud. Computing it with
 ``DataFrame.groupby(...).apply(pearsonr)`` costs a Python call per group and a
 row-wise DataFrame to group over; at 96 models x 10 folds x 23k rows that
 dominates both runtime and peak memory.
@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Final
 
 import numpy as np
 
-from drevalpy._grouped_evaluation import GROUPINGS, group_labels
+from drevalpy._grouped_evaluation import GROUPINGS, defined_labels, group_labels
 from drevalpy._grouped_pearson import MIN_GROUP_SIZE, PearsonSums
 
 __all__ = [
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 
 #: Human-readable axis/section labels per grouping.
-GROUPING_LABELS: Final[dict[str, str]] = {"drug": "drug", "sample": "sample"}
+GROUPING_LABELS: Final[dict[str, str]] = {"drug": "drug", "sample": "sample", "study": "study"}
 
 
 def _scoring_runs(model: ModelResult) -> list[RunResult]:
@@ -68,7 +68,7 @@ class GroupCorrelationMatrix:
 
     @property
     def n_groups(self) -> int:
-        """Number of drugs or samples on the column axis."""
+        """Number of drugs, samples or studies on the column axis."""
         return len(self.group_names)
 
     @property
@@ -116,7 +116,8 @@ def _shared_group_axis(result: ExperimentResult, grouping: str) -> np.ndarray:
     seen: list[np.ndarray] = []
     for model in result.models:
         for run in _scoring_runs(model):
-            seen.append(np.unique(group_labels(run, grouping)))
+            labels = group_labels(run, grouping)
+            seen.append(np.unique(labels[defined_labels(labels)]))
     if not seen:
         return np.empty(0, dtype=object)
     return np.unique(np.concatenate(seen))
@@ -154,8 +155,10 @@ def model_group_correlations(
             continue
         sums = PearsonSums(n_groups)
         for run in runs:
-            codes = group_index.get_indexer(group_labels(run, grouping))
-            sums.add(codes, run.predictions, run.ground_truth)
+            labels = group_labels(run, grouping)
+            defined = defined_labels(labels)
+            codes = group_index.get_indexer(labels[defined])
+            sums.add(codes, run.predictions[defined], run.ground_truth[defined])
         model_names.append(model.model_name)
         rows.append(sums.correlations(min_count=min_count).astype(np.float32))
 

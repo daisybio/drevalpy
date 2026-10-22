@@ -80,6 +80,40 @@ class TestGroupedSummaryTable:
         assert table["MSE"] == pytest.approx(0.0)
         assert table["Pearson"] == pytest.approx(1.0)
 
+    def test_study_grouping_gives_one_group_per_sample_id_prefix(self) -> None:
+        runs = []
+        for fold in range(2):
+            run = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0], fold_index=fold)
+            run.sample_ids = np.array([f"{'A' if i % 4 < 2 else 'B'}::S{i % 4}" for i in range(8)])
+            runs.append(run)
+        experiment = ExperimentResult(runs)
+
+        table = experiment.summary_table(group_by="study")["M"]
+
+        assert table["MSE"] == pytest.approx(0.0)
+        assert table["Pearson"] == pytest.approx(1.0)
+        assert experiment.summary_group_counts(group_by="study")["M"] == {"MSE": 2.0, "Pearson": 2.0}
+
+    def test_study_grouping_scores_each_study_separately(self) -> None:
+        run = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0])
+        run.sample_ids = np.array(["A::S0"] * 4 + ["B::S0"] * 4)
+        run.predictions = np.array([0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 15.0])
+        run.metrics = score_predictions(run.predictions, run.ground_truth, ["MSE"])
+
+        table = ExperimentResult([run]).summary_table(group_by="study")["M"]
+
+        assert table["MSE"] == pytest.approx((0.0 + 1.0) / 2)
+
+    def test_study_grouping_of_a_run_without_prefixes_is_undefined(self) -> None:
+        run = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0])
+        experiment = ExperimentResult([run])
+
+        table = experiment.summary_table(group_by="study")["M"]
+
+        assert table.keys() == {"MSE", "Pearson"}
+        assert all(np.isnan(value) for value in table.values())
+        assert experiment.summary_group_counts(group_by="study")["M"] == {"MSE": 0.0, "Pearson": 0.0}
+
     def test_an_unknown_grouping_is_rejected(self) -> None:
         experiment = make_experiment_result(n_models=1, n_folds=1)
 

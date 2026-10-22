@@ -1,7 +1,7 @@
 """Tests for :mod:`drevalpy.visualization.plots._utils`.
 
 Per the underscore-stripping naming convention, this mirrors ``plots/_utils.py``.
-``runs_frame`` backs the heatmap, violin and cross-study-table plots; the colour
+``runs_frame`` backs the heatmap and violin plots; the colour
 helpers are a public extension point no shipped plot uses yet, so both are
 covered here directly.
 """

@@ -14,6 +14,7 @@ from drevalpy._grouped_evaluation import (
     CONSTANT_TOLERANCE,
     GROUPINGS,
     _group_score,
+    defined_labels,
     group_labels,
     grouped_scores,
     mean_over_groups,
@@ -33,8 +34,8 @@ def pairs() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 class TestGroupLabels:
-    def test_drug_and_sample_are_the_supported_groupings(self):
-        assert GROUPINGS == ("drug", "sample")
+    def test_drug_sample_and_study_are_the_supported_groupings(self):
+        assert GROUPINGS == ("drug", "sample", "study")
 
     def test_drug_grouping_reads_drug_ids(self):
         run = make_run_result(n_pairs=6)
@@ -46,12 +47,58 @@ class TestGroupLabels:
 
         np.testing.assert_array_equal(group_labels(run, "sample"), run.sample_ids)
 
+    def test_study_grouping_reads_the_prefix_before_the_separator(self):
+        run = make_run_result(n_pairs=4)
+        run.sample_ids = np.array(["GDSC2::CL_1", "CTRPv2::CL_1", "GDSC2::a::b", "CTRPv2::CL_2"])
+
+        assert group_labels(run, "study").tolist() == ["GDSC2", "CTRPv2", "GDSC2", "CTRPv2"]
+
+    @pytest.mark.parametrize("sample_id", ["CL_1", "::CL_1"])
+    def test_a_sample_id_without_a_study_prefix_has_no_study(self, sample_id):
+        run = make_run_result(n_pairs=2)
+        run.sample_ids = np.array(["GDSC2::CL_1", sample_id])
+
+        labels = group_labels(run, "study")
+
+        assert labels[0] == "GDSC2"
+        assert labels[1] is np.nan
+        assert defined_labels(labels).tolist() == [True, False]
+
+    def test_plain_sample_ids_leave_the_study_grouping_all_undefined(self):
+        labels = group_labels(make_run_result(n_pairs=6), "study")
+
+        assert not defined_labels(labels).any()
+
+    def test_drug_and_sample_labels_are_always_defined(self):
+        run = make_run_result(n_pairs=6)
+
+        assert defined_labels(group_labels(run, "drug")).all()
+        assert defined_labels(group_labels(run, "sample")).all()
+
     def test_an_unknown_grouping_is_rejected(self):
         with pytest.raises(ValueError, match="Unknown grouping 'tissue'"):
             group_labels(make_run_result(), "tissue")
 
 
 class TestGroupedScores:
+    def test_pairs_without_a_group_are_dropped(self):
+        labels = np.array(["A", "A", np.nan, "B", "B", np.nan], dtype=object)
+        predictions = np.array([1.0, 2.0, 100.0, 1.0, 3.0, -100.0])
+        response = np.array([1.0, 2.0, 0.0, 1.0, 2.0, 0.0])
+
+        groups, scores = grouped_scores(labels, predictions, response, ["MSE"])
+
+        assert groups.tolist() == ["A", "B"]
+        np.testing.assert_allclose(scores["MSE"], [0.0, 0.5])
+
+    def test_labels_that_are_all_undefined_leave_no_groups(self):
+        labels = np.array([np.nan, np.nan], dtype=object)
+
+        groups, scores = grouped_scores(labels, np.array([1.0, 2.0]), np.array([1.0, 3.0]), ["MSE"])
+
+        assert groups.size == 0
+        assert scores["MSE"].size == 0
+
     @pytest.mark.parametrize("metric", list(AVAILABLE_METRICS))
     def test_every_metric_matches_the_registered_function_per_group(self, pairs, metric):
         labels, predictions, response = pairs

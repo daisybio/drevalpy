@@ -4,7 +4,7 @@ Splitters are plain callables with the signature::
 
     (mudataset: MuDataLike, n_splits: int, validation_ratio: float, random_state: int) -> list[SplitMasks]
 
-Built-in modes (LPO, LSO, LDO, LTO) are registered via decorator on import.
+Built-in modes (LPO, LSO, LDO, LTO, LStO) are registered via decorator on import.
 Register custom splitters with::
 
     @splitter_registry.register("MY_MODE", "Description", validation="LSO")
@@ -22,6 +22,7 @@ from drevalpy.registry.splitter import (
 from .ldo import leave_drug_out as leave_drug_out
 from .lpo import leave_pair_out as leave_pair_out
 from .lso import leave_sample_out as leave_sample_out
+from .lsto import leave_study_out as leave_study_out
 from .lto import leave_tissue_out as leave_tissue_out
 
 get_splitter = splitter_registry.get
@@ -35,6 +36,7 @@ __all__ = [
     "leave_sample_out",
     "leave_drug_out",
     "leave_pair_out",
+    "leave_study_out",
     "leave_tissue_out",
     "splitter_registry",
 ]

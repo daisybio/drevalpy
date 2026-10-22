@@ -11,10 +11,11 @@ if TYPE_CHECKING:
 
 
 class GroupBy(StrEnum):
-    """Values of ``--group-by``: compute each metric within every drug or sample."""
+    """Values of ``--group-by``: compute each metric within every drug, sample or study."""
 
     DRUG = "drug"
     SAMPLE = "sample"
+    STUDY = "study"
 
 
 def format_grouped_summary(experiment: ExperimentResult, group_by: GroupBy) -> str:
@@ -25,10 +26,11 @@ def format_grouped_summary(experiment: ExperimentResult, group_by: GroupBy) -> s
     correlation of a constant prediction.
 
     :param experiment: Experiment to summarize.
-    :param group_by: Whether to group by drug or by sample.
+    :param group_by: Whether to group by drug, sample or study.
     :returns: A heading and one row per model.
     """
     grouping = group_by.value
+    plural = "studies" if group_by is GroupBy.STUDY else f"{grouping}s"
     means = experiment.summary_table(group_by=grouping)
     counts = experiment.summary_group_counts(group_by=grouping)
     metrics = list(dict.fromkeys(metric for row in means.values() for metric in row))
@@ -38,8 +40,8 @@ def format_grouped_summary(experiment: ExperimentResult, group_by: GroupBy) -> s
     widths = [max(len(row[i]) for row in table) for i in range(len(table[0]))]
     lines = ["  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True)).rstrip() for row in table]
     heading = (
-        f"Metrics computed within each {grouping}, averaged over {grouping}s and folds "
-        f"(number of {grouping}s scored in brackets):"
+        f"Metrics computed within each {grouping}, averaged over {plural} and folds "
+        f"(number of {plural} scored in brackets):"
     )
     return "\n".join([heading, *lines])
 

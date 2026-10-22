@@ -57,6 +57,17 @@ def matrix(experiment) -> GroupCorrelationMatrix:
     return model_group_correlations(experiment, "drug")
 
 
+def _concatenated_experiment() -> ExperimentResult:
+    """Three models over runs whose sample IDs carry a ``<study>::`` prefix."""
+    runs = []
+    for model in "ABC":
+        for fold in range(2):
+            run = make_run_result(model_name=model, fold_index=fold, n_pairs=40, n_samples=8, n_drugs=5)
+            run.sample_ids = np.array([f"{'GDSC2' if i % 2 else 'CTRPv2'}::CL_{i % 8}" for i in range(40)])
+            runs.append(run)
+    return ExperimentResult(runs)
+
+
 def _empty_matrix() -> GroupCorrelationMatrix:
     return GroupCorrelationMatrix("drug", (), (), np.empty((0, 0), dtype=np.float32))
 
@@ -224,6 +235,17 @@ class TestCompute:
     def test_the_figure_shows_the_first_grouping(self, computed):
         assert len(computed._fig.data[0].x) == N_DRUGS
 
+    def test_a_run_without_study_prefixes_draws_no_study_panel(self, computed):
+        assert "study" not in computed._matrices
+
+    def test_a_concatenated_run_gets_one_column_per_study(self):
+        plot = ComparisonScatterVisualization()
+
+        plot.compute(_concatenated_experiment())
+
+        assert plot._matrices["study"].group_names == ("CTRPv2", "GDSC2")
+        assert plot._matrices["study"].values.shape == (3, 2)
+
     def test_dataset_argument_is_accepted_and_ignored(self, experiment):
         plot = ComparisonScatterVisualization()
 
@@ -315,6 +337,16 @@ class TestToMultiqc:
 
         assert f"{N_MODELS} models" in description
         assert f"{N_DRUGS} drugs" in description
+
+    def test_a_concatenated_run_gets_a_study_section_last(self):
+        plot = ComparisonScatterVisualization()
+        plot.compute(_concatenated_experiment())
+
+        sections = plot.to_multiqc()
+
+        assert sections[-1].anchor == "dreval_comp_scatter_study"
+        assert sections[-1].name == "Study-wise comparison"
+        assert "2 studies" in sections[-1].description
 
     def test_returns_nothing_when_there_is_no_comparison_to_make(self):
         result = ExperimentResult([make_run_result(model_name="Solo")])

@@ -3,7 +3,6 @@
 from drevalpy.visualization.plots import (
     comparison_scatter,
     critical_difference,
-    cross_study_table,
     heatmap,
     leaderboard,
     regression_scatter,
@@ -13,7 +12,6 @@ from drevalpy.visualization.plots import (
 __all__ = [
     "comparison_scatter",
     "critical_difference",
-    "cross_study_table",
     "heatmap",
     "leaderboard",
     "regression_scatter",

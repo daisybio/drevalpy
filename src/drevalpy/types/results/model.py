@@ -71,7 +71,7 @@ class ModelResult:
         }
 
     def aggregate_group_metrics(self, group_by: GroupBy) -> dict[str, dict[str, float]]:
-        """Mean of each metric computed within every drug (or sample), averaged across folds.
+        """Mean of each metric computed within every drug (sample, study), averaged across folds.
 
         Each metric of :attr:`aggregate_metrics` that is a registered evaluation metric is
         computed per run within each group of pairs, averaged over the groups where it is
@@ -80,10 +80,10 @@ class ModelResult:
         counted as zero; see :mod:`drevalpy._grouped_evaluation` for the rule. A metric with
         no defined group in any run is ``NaN``.
 
-        :param group_by: ``"drug"`` or ``"sample"``.
+        :param group_by: ``"drug"``, ``"sample"`` or ``"study"``.
         :returns: Mapping of metric_name -> {"mean": ..., "n_groups": ...}, where ``n_groups``
             is the mean number of groups with a defined score per run.
-        :raises ValueError: If ``group_by`` is not ``"drug"`` or ``"sample"``.
+        :raises ValueError: If ``group_by`` is not ``"drug"``, ``"sample"`` or ``"study"``.
         """
         if group_by not in GROUPINGS:
             raise ValueError(f"Unknown grouping {group_by!r}; expected one of {GROUPINGS}")

@@ -19,8 +19,8 @@ def _experiment() -> ExperimentResult:
     return ExperimentResult([constant, varying])
 
 
-def test_the_group_by_values_are_drug_and_sample() -> None:
-    assert [member.value for member in GroupBy] == ["drug", "sample"]
+def test_the_group_by_values_are_drug_sample_and_study() -> None:
+    assert [member.value for member in GroupBy] == ["drug", "sample", "study"]
 
 
 def test_an_undefined_metric_is_labelled_rather_than_shown_as_a_number() -> None:
@@ -47,3 +47,23 @@ def test_every_model_gets_a_row_under_a_header() -> None:
 
     assert lines[1].split() == ["Model", "MSE", "Pearson"]
     assert [line.split()[0] for line in lines[2:]] == ["DrugMean", "Varying"]
+
+
+def _prefixed_experiment() -> ExperimentResult:
+    run = make_run_result(model_name="Varying", n_pairs=40, n_samples=8, n_drugs=5)
+    run.sample_ids = np.array([f"{'GDSC2' if i % 2 else 'CTRPv2'}::CL_{i % 8}" for i in range(40)])
+    run.metrics = score_predictions(run.predictions, run.ground_truth, ["MSE", "Pearson"])
+    return ExperimentResult([run])
+
+
+def test_grouping_by_study_scores_each_prefix_of_a_concatenated_run() -> None:
+    lines = format_grouped_summary(_prefixed_experiment(), GroupBy.STUDY).splitlines()
+
+    assert lines[0].startswith("Metrics computed within each study, averaged over studies and folds")
+    assert "(2)" in next(line for line in lines if line.startswith("Varying"))
+
+
+def test_grouping_by_study_on_a_plain_run_is_undefined() -> None:
+    lines = format_grouped_summary(_experiment(), GroupBy.STUDY).splitlines()
+
+    assert all("undefined" in line for line in lines[2:])

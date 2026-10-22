@@ -1,14 +1,18 @@
-"""Per-group metrics: one score per drug or per sample, and how to average them.
+"""Per-group metrics: one score per drug, sample or study, and how to average them.
 
 Pooled metrics reward a model for knowing which drugs are potent. A per-group score
 removes that: the metric is computed among the pairs of a single drug (or sample), so it
-asks whether the model ranks the *other* axis correctly. This module is the one place
-that rule lives; :meth:`drevalpy.types.results.ExperimentResult.summary_table` and the
+asks whether the model ranks the *other* axis correctly. The ``"study"`` grouping reads
+the study from the ``"<study>::"`` prefix of the sample IDs that ``drevalpy.data.concat``
+writes, so it scores each study of a concatenated dataset separately. This module is the one
+place that rule lives; :meth:`drevalpy.types.results.ExperimentResult.summary_table` and the
 comparison plots in :mod:`drevalpy.visualization.plots._group_metrics` both call it.
 
 **Undefined groups.** A group's score is ``NaN`` - undefined, never ``0.0`` and never
 ``1.0`` - when:
 
+* it does not exist: a pair whose sample ID has no ``"::"`` prefix belongs to no study, so
+  on a run of a single, non-concatenated dataset the ``"study"`` grouping has no groups, or
 * it has fewer than two usable pairs (correlations and ``R^2``), or
 * a correlation (``Pearson``, ``Spearman``, ``Kendall``) has predictions or response with
   no variance, i.e. a range of at most :data:`CONSTANT_TOLERANCE`, or
@@ -39,13 +43,16 @@ if TYPE_CHECKING:
     from drevalpy.types.results import RunResult
 
 #: What a result can be grouped by, in report order.
-GROUPINGS: Final[tuple[str, ...]] = ("drug", "sample")
+GROUPINGS: Final[tuple[str, ...]] = ("drug", "sample", "study")
 
-#: A grouping of pairs: by drug or by sample.
-GroupBy = Literal["drug", "sample"]
+#: A grouping of pairs: by drug, by sample or by study.
+GroupBy = Literal["drug", "sample", "study"]
 
 #: Grouping name -> the ``RunResult`` attribute holding that grouping's labels.
-_ID_ATTRIBUTE: Final[dict[str, str]] = {"drug": "drug_ids", "sample": "sample_ids"}
+_ID_ATTRIBUTE: Final[dict[str, str]] = {"drug": "drug_ids", "sample": "sample_ids", "study": "sample_ids"}
+
+#: Separates the study from the source sample ID in the sample IDs of a concatenated dataset.
+STUDY_SEPARATOR: Final[str] = "::"
 
 _CORRELATIONS: Final[frozenset[str]] = frozenset({"Pearson", "Spearman", "Kendall"})
 _NEEDS_VARYING_RESPONSE: Final[frozenset[str]] = _CORRELATIONS | {"R^2"}
@@ -56,14 +63,38 @@ def group_labels(run: RunResult, grouping: str) -> np.ndarray:
 
     :param run: Run whose identifier arrays to read.
     :param grouping: One of :data:`GROUPINGS`.
-    :returns: The run's ``drug_ids`` or ``sample_ids`` array.
+    :returns: The run's ``drug_ids`` or ``sample_ids`` array. For ``"study"``, an object array
+        of the sample ID prefixes before ``"::"`` (the study of a concatenated dataset), NaN
+        where a sample ID has no prefix; see :func:`defined_labels`.
     :raises ValueError: If ``grouping`` is not one of :data:`GROUPINGS`.
     """
     try:
         attribute = _ID_ATTRIBUTE[grouping]
     except KeyError:
         raise ValueError(f"Unknown grouping {grouping!r}; expected one of {GROUPINGS}") from None
-    return np.asarray(getattr(run, attribute))
+    labels = np.asarray(getattr(run, attribute))
+    return _study_of(labels) if grouping == "study" else labels
+
+
+def _study_of(sample_ids: np.ndarray) -> np.ndarray:
+    """Return the prefix before ``"::"`` of every sample ID, NaN where there is none."""
+    distinct, inverse = np.unique(sample_ids.astype(str), return_inverse=True)
+    prefixes = np.empty(len(distinct), dtype=object)
+    for position, sample_id in enumerate(distinct):
+        study, separator, _ = sample_id.partition(STUDY_SEPARATOR)
+        prefixes[position] = study if separator and study else np.nan
+    return prefixes[inverse]
+
+
+def defined_labels(labels: np.ndarray) -> np.ndarray:
+    """Return which pairs have a group, i.e. a label that is not NaN.
+
+    :param labels: Labels as returned by :func:`group_labels`.
+    :returns: Boolean array, all True unless the labels are an object array holding NaN.
+    """
+    if labels.dtype != object:
+        return np.ones(labels.shape, dtype=bool)
+    return np.fromiter((isinstance(label, str) for label in labels), dtype=bool, count=len(labels))
 
 
 def _group_score(name: str, y_pred: np.ndarray, y_true: np.ndarray) -> float:
@@ -144,7 +175,8 @@ def grouped_scores(
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """Compute metrics within each group of pairs.
 
-    :param labels: Group label per pair, for example the drug ids of a run.
+    :param labels: Group label per pair, for example the drug ids of a run. Pairs whose label
+        is NaN (see :func:`defined_labels`) belong to no group and are dropped.
     :param predictions: Predicted response per pair.
     :param response: Observed response per pair.
     :param metrics: Metric names from :data:`drevalpy.evaluation.AVAILABLE_METRICS`; ``None``
@@ -164,6 +196,7 @@ def grouped_scores(
             raise ValueError(f"invalid metric {name}. Available: {list(AVAILABLE_METRICS)}")
 
     usable = np.isfinite(predictions.astype(np.float64)) & np.isfinite(response.astype(np.float64))
+    usable &= defined_labels(labels)
     groups, codes = np.unique(labels[usable], return_inverse=True)
     y_pred, y_true = predictions[usable].astype(np.float64), response[usable].astype(np.float64)
 

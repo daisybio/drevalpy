@@ -70,7 +70,7 @@ def runs_frame(
 
     :param result: Experiment result to flatten.
     :param indexed: Label each row ``<model>_<setting>_<mode>_split_<fold>``. The
-        heatmap and the cross-study table group on that label; the violin plot
+        heatmap groups on that label; the violin plot
         wants the default positional index.
     :param randomization: Exact setting, ``"all"``, or ``None`` for ordinary runs.
     :param robustness: Exact trial, ``"all"``, or ``None`` for ordinary runs.

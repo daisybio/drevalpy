@@ -19,8 +19,9 @@ _SHAPE = (4, 3)
 class _FakeMuDataset:
     """Minimal ``MuDataLike`` stand-in supplying sample ids and tissues."""
 
-    def __init__(self, tissues: tuple[str, ...]) -> None:
+    def __init__(self, tissues: tuple[str, ...], studies: tuple[str, ...] | None = None) -> None:
         self._tissues = np.array(tissues)
+        self._studies = None if studies is None else np.array(studies)
 
     @property
     def sample_ids(self) -> np.ndarray:
@@ -42,7 +43,9 @@ class _FakeMuDataset:
         return self._tissues
 
     def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
-        """Serve the tissue column, the only per-sample metadata this fake has."""
+        """Serve the tissue column and, when built with studies, the study column."""
+        if column == "study" and self._studies is not None:
+            return self._studies
         if column != "tissue":
             raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
         return self.get_tissue(ids)
@@ -82,11 +85,36 @@ def test_every_declared_mode_has_a_validator() -> None:
     assert set(_VALIDATORS) == {"LSO", "LDO", "LPO", "LTO", "LStO"}
 
 
-def test_lsto_validation_is_not_implemented_yet(mudataset: _FakeMuDataset) -> None:
-    fold = _fold(_mask((0,), (0,)), _mask((1,), (0,)))
+@pytest.fixture
+def studies() -> _FakeMuDataset:
+    return _FakeMuDataset(("lung",) * 4, studies=("GDSC2", "GDSC2", "CTRPv2", "CTRPv2"))
 
-    with pytest.raises(NotImplementedError, match="W1-P2"):
-        validate_folds([fold], "LStO", mudataset)  # type: ignore[arg-type]
+
+def test_lsto_accepts_a_test_study_absent_from_train_and_validation(studies: _FakeMuDataset) -> None:
+    fold = _fold(_mask((0,), (0, 1)), _mask((2, 3), (0, 1, 2)), _mask((1,), (0, 2)))
+    other_way = _fold(_mask((2,), (0, 1)), _mask((0, 1), (0, 1, 2)), _mask((3,), (0,)))
+
+    validate_folds([fold, other_way], "LStO", studies)  # type: ignore[arg-type]
+
+
+def test_lsto_rejects_a_study_in_both_train_and_test(studies: _FakeMuDataset) -> None:
+    fold = _fold(_mask((0, 2), (0,)), _mask((3,), (1,)))
+
+    with pytest.raises(SplitValidationError, match=r"LStO validation failed \(fold 0\).*CTRPv2"):
+        validate_folds([fold], "LStO", studies)  # type: ignore[arg-type]
+
+
+def test_lsto_rejects_a_study_in_both_validation_and_test(studies: _FakeMuDataset) -> None:
+    fold = _fold(_mask((0,), (0,)), _mask((1, 3), (1,)), _mask((2,), (2,)))
+
+    with pytest.raises(SplitValidationError, match="LStO validation failed"):
+        validate_folds([fold], "LStO", studies)  # type: ignore[arg-type]
+
+
+def test_lsto_tolerates_a_study_split_between_train_and_validation(studies: _FakeMuDataset) -> None:
+    fold = _fold(_mask((0,), (0,)), _mask((2, 3), (1,)), _mask((1,), (2,)))
+
+    validate_folds([fold], "LStO", studies)  # type: ignore[arg-type]
 
 
 def test_the_legacy_lco_validation_name_means_lso(mudataset: _FakeMuDataset) -> None:

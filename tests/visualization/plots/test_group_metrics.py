@@ -36,8 +36,8 @@ def experiment() -> ExperimentResult:
 
 
 class TestGroupings:
-    def test_drug_and_sample_are_the_supported_groupings(self):
-        assert GROUPINGS == ("drug", "sample")
+    def test_drug_sample_and_study_are_the_supported_groupings(self):
+        assert GROUPINGS == ("drug", "sample", "study")
 
     def test_every_grouping_has_a_human_label(self):
         assert set(GROUPING_LABELS) == set(GROUPINGS)

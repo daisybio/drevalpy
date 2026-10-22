@@ -100,8 +100,17 @@ def _validate_lto(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -
 
 
 def _validate_lsto(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
-    """LStO: no study belongs to more than one of train/validation and test."""
-    raise NotImplementedError("W1-P2")
+    """LStO: no study has active rows in both test and train/validation."""
+    studies = mudataset.sample_column("study", mudataset.sample_ids)
+    train_val, test = (
+        set(studies[np.where(mask.mask.any(axis=1))[0]].tolist()) for mask in (fold.train_val, fold.test)
+    )
+    overlap = train_val & test
+    if overlap:
+        raise SplitValidationError(
+            f"LStO validation failed (fold {fold_index}): "
+            f"{len(overlap)} studies appear in both train/validation and test: {sorted(overlap)[:5]}"
+        )
 
 
 def _validate_lpo(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
