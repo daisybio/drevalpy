@@ -42,6 +42,17 @@ def test_builtin_zoo_lists_passing_models() -> None:
     assert "SingleDrugElasticNet" in names
 
 
+def test_every_builtin_zoo_file_is_listed() -> None:
+    from drevalpy.models.zoo import _BUILTIN_ZOO_DIR
+
+    assert list_zoo_names(include_external=False) == sorted(path.stem for path in _BUILTIN_ZOO_DIR.glob("*.yaml"))
+
+
+@pytest.mark.parametrize("name", list_zoo_names(include_external=False))
+def test_every_zoo_preset_validates(name: str) -> None:
+    validate(get_zoo_config(name))
+
+
 def test_list_zoo_names_filters_by_scope() -> None:
     from drevalpy.types.enums.model_scope import ModelScope
 

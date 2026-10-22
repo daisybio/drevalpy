@@ -12,6 +12,7 @@ from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.batch.feature_block import (
+    BlockSpec,
     FeaturizerResult,
     metadata_feature_block,
     numeric_feature_block,
@@ -35,6 +36,7 @@ class TissueFeaturizer(SampleFeaturizer):
     """Map each sample to a dense one-hot tissue vector."""
 
     input_views: ClassVar[tuple[str, ...]] = ()
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX),)
 
     def __init__(self, *, allow_missing: bool = False) -> None:
         """Initialize instance state.

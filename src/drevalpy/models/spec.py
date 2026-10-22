@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
@@ -12,6 +12,30 @@ from drevalpy.models.tuning.public_flat import (
     public_hyperparameters_from_config,
 )
 from drevalpy.models.tuning.search_space import merge_model_config_spaces, resolve_model_config
+
+
+class UnknownModelError(ValueError):
+    """A model name that is neither a zoo name nor a valid recipe.
+
+    Attributes:
+        name: The name as given.
+        detail: Why reading *name* as a recipe failed, without the recipe itself repeated.
+    """
+
+    def __init__(self, name: str, detail: str) -> None:
+        """Build the message naming both readings of *name*.
+
+        :param name: The name as given.
+        :param detail: Why the recipe reading failed.
+        """
+        super().__init__(f"{name!r} is not a zoo name and not a valid recipe: {detail}")
+        self.name = name
+        self.detail = detail
+
+
+def _recipe_error_detail(name: str, exc: ValueError) -> str:
+    """Strip the wrapper text a recipe error repeats around its actual reason."""
+    return str(exc).removeprefix(f"Invalid model config in recipe {name.strip()!r}: ").replace("Value error, ", "")
 
 
 @dataclass(frozen=True)
@@ -36,14 +60,28 @@ class ModelSpec:
 
     @classmethod
     def from_name(cls, name: str) -> ModelSpec:
-        """Resolve a built-in or external zoo preset by its public name.
+        """Resolve a zoo preset by its zoo name, or else read *name* as a recipe.
 
-        :param name: Registered zoo preset name.
+        A zoo name wins over a recipe reading. The spec is named by *name* exactly as given,
+        so a recipe is reported under its full recipe string.
+
+        :param name: Zoo name, or a recipe such as ``"pca[gene_expression]:fingerprints:elasticNet"``.
         :returns: An unfitted, reusable named recipe.
+        :raises UnknownModelError: If *name* is neither a zoo name nor a valid recipe; ``detail``
+            on the error says why the recipe reading failed.
         """
+        from drevalpy.models.config.io import from_spec
         from drevalpy.models.zoo import zoo_model_config
 
-        return cls(name, zoo_model_config(name))
+        try:
+            return cls(name, zoo_model_config(name))
+        except KeyError:
+            pass
+        try:
+            config = from_spec(name)
+        except ValueError as exc:
+            raise UnknownModelError(name, _recipe_error_detail(name, exc)) from exc
+        return cls(name, cast("ModelConfig", config))
 
     def resolve(self, hyperparameters: dict[str, Any] | None = None) -> ResolvedModelConfig:
         """Resolve defaults and optional public hyperparameters for one fit.

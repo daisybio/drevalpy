@@ -128,7 +128,7 @@ class ModelConfig(BaseModel):
     def drug_entity_id_only(self) -> bool:
         """Return ``True`` when the drug featurizer only needs entity identifiers.
 
-        :returns: ``True`` when no drug feature views are required.
+        :returns: ``True`` when no drug views are required.
         """
         if self.drug_featurizer is None:
             return False

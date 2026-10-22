@@ -112,3 +112,10 @@ def test_tissue_round_trips_state() -> None:
         restored.transform(features, entity_ids),
         featurizer.transform(features, entity_ids),
     )
+
+
+def test_tissue_declares_the_block_it_emits() -> None:
+    from drevalpy.components.contracts.contracts import FeatureFormat
+    from drevalpy.types.data.batch.feature_block import BlockSpec
+
+    assert TissueFeaturizer.output_block_specs == (BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX),)

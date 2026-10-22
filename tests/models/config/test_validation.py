@@ -125,6 +125,48 @@ def test_block_schema_reports_missing_named_block() -> None:
         )
 
 
+def test_required_block_names_are_enforced_for_matrix_predictors() -> None:
+    register_featurizer_stub("denseSample", side="sample")
+    register_featurizer_stub("denseDrug", side="drug")
+    register_matrix_predictor_stub("densePred").required_drug_blocks = ("smilesvec",)
+
+    with pytest.raises(
+        (ValueError, ValidationError),
+        match=r"densePred.*needs drug block\(s\) \['smilesvec'\].*'denseDrug' emits \[fingerprints\]",
+    ):
+        _dense_model_config()
+
+
+def test_required_block_names_accept_a_featurizer_emitting_them() -> None:
+    register_featurizer_stub(
+        "cellBlocks",
+        side="sample",
+        output_block_specs=(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
+    )
+    register_featurizer_stub("denseDrug", side="drug")
+    stub = register_matrix_predictor_stub("densePred")
+    stub.required_sample_blocks = ("gene_expression",)
+
+    validate(_dense_model_config(sample_featurizer=SampleFeaturizerConfig(name="cellBlocks")))
+
+
+def test_required_block_names_name_the_missing_block_and_what_is_emitted() -> None:
+    register_featurizer_stub(
+        "cellBlocks",
+        side="sample",
+        output_block_specs=(BlockSpec("wrong_name", FeatureFormat.NUMERIC_MATRIX),),
+    )
+    register_featurizer_stub("denseDrug", side="drug")
+    register_block_predictor_stub("blockPred").required_sample_blocks = ("gene_expression", "tissue")
+
+    with pytest.raises((ValueError, ValidationError), match=r"\['gene_expression', 'tissue'\].*emits \[wrong_name\]"):
+        ModelConfig(
+            sample_featurizer=SampleFeaturizerConfig(name="cellBlocks"),
+            drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
+            predictor=PredictorConfig(name="blockPred"),
+        )
+
+
 def test_builtin_featurizer_declares_output_block_specs() -> None:
     from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
 

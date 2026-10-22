@@ -25,7 +25,7 @@ def _declares_input_views(cls: type[Any]) -> bool:
 def validate_featurizer_input_views(registry_id: str, name: str, cls: type[Any]) -> None:
     """Raise ``ValueError`` when a featurizer does not declare its input views.
 
-    Every featurizer must state which raw feature views it consumes so that the
+    Every featurizer must state which raw views it consumes so that the
     data-loading layer never needs a name-to-view lookup table. Classes that do not
     derive from ``Featurizer`` are skipped; they do not participate in view resolution.
 

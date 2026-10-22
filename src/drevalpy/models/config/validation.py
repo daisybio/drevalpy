@@ -134,6 +134,29 @@ def _validate_block_schema(config: ModelConfig, pred_cls: type[Any]) -> None:
             )
 
 
+def _validate_required_block_names(config: ModelConfig, pred_cls: type[Any]) -> None:
+    """Require each name in ``required_{side}_blocks`` among the blocks the featurizer emits.
+
+    :param config: Model configuration being validated.
+    :param pred_cls: Registered predictor class.
+    :raises ValueError: If a declared block name is not emitted by that side's featurizer.
+    """
+    for side, featurizer in (
+        ("sample", config.sample_featurizer),
+        ("drug", config.drug_featurizer),
+    ):
+        required = tuple(getattr(pred_cls, f"required_{side}_blocks", ()))
+        if featurizer is None or not required:
+            continue
+        emitted = tuple(spec.name for spec in resolve_output_block_specs(featurizer))
+        missing = [name for name in required if name not in emitted]
+        if missing:
+            raise ValueError(
+                f"Predictor {config.predictor.name!r} needs {side} block(s) {missing} but the {side} "
+                f"featurizer {featurizer.name!r} emits [{', '.join(emitted) or '<none>'}]"
+            )
+
+
 def validate(config: ModelConfig) -> ModelConfig:
     """Check registry slots, feature compatibility, and prediction mode.
 
@@ -152,4 +175,5 @@ def validate(config: ModelConfig) -> ModelConfig:
     _validate_single_drug_pairing(config, pred_cls)
     _validate_featurizer_contracts(config, pred_cls)
     _validate_block_schema(config, pred_cls)
+    _validate_required_block_names(config, pred_cls)
     return config
