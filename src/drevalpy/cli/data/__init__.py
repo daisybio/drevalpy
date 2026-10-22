@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from .concat import concat_datasets
 from .load import load_dataset
 from .split import split_dataset
 from .synthetic import synthetic_dataset
@@ -14,6 +15,7 @@ data_app = typer.Typer(
     no_args_is_help=True,
 )
 
+data_app.command("concat")(concat_datasets)
 data_app.command("load")(load_dataset)
 data_app.command("split")(split_dataset)
 data_app.command("synthetic")(synthetic_dataset)

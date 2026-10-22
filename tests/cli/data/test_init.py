@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.cli.data import data_app
+from drevalpy.cli.data.concat import concat_datasets
 from drevalpy.cli.data.load import load_dataset
 from drevalpy.cli.data.split import split_dataset
 from drevalpy.cli.data.synthetic import synthetic_dataset
@@ -15,18 +16,23 @@ runner = make_runner()
 
 
 class TestGroup:
-    """The group is help-first and exposes exactly three commands."""
+    """The group is help-first and exposes exactly four commands."""
 
     def test_app_name(self) -> None:
         assert data_app.info.name == "data"
 
     def test_registered_command_names(self) -> None:
-        assert {command.name for command in data_app.registered_commands} == {"load", "split", "synthetic"}
+        assert {command.name for command in data_app.registered_commands} == {"concat", "load", "split", "synthetic"}
 
     def test_commands_wrap_the_source_callbacks(self) -> None:
         callbacks = {command.name: command.callback for command in data_app.registered_commands}
 
-        assert callbacks == {"load": load_dataset, "split": split_dataset, "synthetic": synthetic_dataset}
+        assert callbacks == {
+            "concat": concat_datasets,
+            "load": load_dataset,
+            "split": split_dataset,
+            "synthetic": synthetic_dataset,
+        }
 
     def test_bare_group_prints_help(self) -> None:
         result = runner.invoke(app, ["data"], env=HELP_ENV)
@@ -38,7 +44,7 @@ class TestGroup:
 
         assert result.exit_code != 0
 
-    @pytest.mark.parametrize("command", ["load", "split", "synthetic"], ids=["load", "split", "synthetic"])
+    @pytest.mark.parametrize("command", ["concat", "load", "split", "synthetic"])
     def test_help_lists_each_command(self, command: str) -> None:
         result = runner.invoke(app, ["data", "--help"], env=HELP_ENV)
 
