@@ -17,41 +17,44 @@ and Origin. These rows are built in. They all come from the source ``orakl``, th
 
    * - Name
      - Screen
-     - Curves
+     - Pairs
      - Drugs
      - Samples
    * - ``GDSC1``
      - Genomics of Drug Sensitivity in Cancer v1
-     - 316506
+     - 316129
      - 378
-     - 970 cell lines
+     - 969 cell lines
    * - ``GDSC2``
      - Genomics of Drug Sensitivity in Cancer v2
-     - 234437
-     - 287
+     - 233002
+     - 285
      - 969 cell lines
    * - ``CTRPv1``
      - Cancer Therapeutics Response Portal v1
-     - 60758
+     - 60757
      - 354
-     - 243 cell lines
+     - 242 cell lines
    * - ``CTRPv2``
      - Cancer Therapeutics Response Portal v2
-     - 395025
-     - 546
-     - 886 cell lines
+     - 386372
+     - 545
+     - 885 cell lines
    * - ``BeatAML2``
      - Ex vivo AML patient screens
-     - 62487
+     - 57727
      - 166
      - 569 patients
    * - ``PDX_Bruna``
      - Breast cancer PDTX-derived cultures
-     - 2559
+     - 2549
      - 104
      - 37 mouse passages
 
-``TOYv1`` is also registered.
+``TOYv1`` is also registered: a subsample of 32 cell lines and 12 drugs (384 pairs) for quick
+checks.
+
+Pairs counts the sample-drug pairs with a pEC50 value.
 
 A dataset registered with ``register_dataset`` or a declaration file has the origin
 ``custom``; see :doc:`extension_files`.

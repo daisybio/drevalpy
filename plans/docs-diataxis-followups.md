@@ -54,6 +54,3 @@ Things the docs restructure (`plans/docs-diataxis.md`) found or deliberately lef
   `KeyError`. Decide whether the splitters should accept a dataset without quality layers.
 - **`docs/readme.rst`** still describes DrEvalPy as a "cancer cell line" suite. The plan
   deletes the page in Wave 3.
-- **Datasets on `gen3/`** may still be the pre-rename files (plan, wave R4). I could not read the
-  bucket (`403`), so I did not check. A file with the old `cell_line_featurizer_variants` key
-  fails to load in v2, with a message to regenerate it.
