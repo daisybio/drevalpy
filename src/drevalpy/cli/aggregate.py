@@ -20,7 +20,7 @@ def aggregate_cmd(
         typer.Option(
             "--group-by",
             case_sensitive=False,
-            help="Also print the metrics computed within each drug or sample instead of pooled over all pairs.",
+            help="Also print the metrics computed within each drug, sample or study instead of pooled over all pairs.",
         ),
     ] = None,
 ) -> None:

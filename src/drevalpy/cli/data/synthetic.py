@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from drevalpy.data._synthetic import MAX_SYNTHETIC_DRUGS, N_DRUGS, N_SAMPLES, N_TISSUES, SEED
+from drevalpy.data._synthetic import DATASET_NAME, MAX_SYNTHETIC_DRUGS, N_DRUGS, N_SAMPLES, N_TISSUES, SEED
 
 
 def synthetic_dataset(
@@ -17,6 +17,9 @@ def synthetic_dataset(
         int, typer.Option("--n-drugs", help=f"Number of drugs, at most {MAX_SYNTHETIC_DRUGS}.")
     ] = N_DRUGS,
     n_tissues: Annotated[int, typer.Option("--n-tissues", help="Number of distinct tissues.")] = N_TISSUES,
+    name: Annotated[
+        str, typer.Option("--name", help="Dataset name; give each file its own to concatenate them.")
+    ] = DATASET_NAME,
 ) -> None:
     """Write a small simulated dataset to an .h5mu file.
 
@@ -30,7 +33,7 @@ def synthetic_dataset(
     from drevalpy.data import synthetic
 
     try:
-        dataset = synthetic(seed=seed, n_samples=n_samples, n_drugs=n_drugs, n_tissues=n_tissues)
+        dataset = synthetic(name=name, seed=seed, n_samples=n_samples, n_drugs=n_drugs, n_tissues=n_tissues)
     except ValueError as error:
         raise typer.BadParameter(str(error), param_hint="--n-drugs") from error
 

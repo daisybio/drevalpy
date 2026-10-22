@@ -75,6 +75,15 @@ class TestWriting:
         assert loaded.response_matrix.shape == (40, 5)
         assert loaded.response.obs[TISSUE_IDENTIFIER].nunique() == 4
 
+    def test_name_sets_the_dataset_name(self, tmp_path: UPath) -> None:
+        import drevalpy
+
+        out = tmp_path / "a.h5mu"
+        result = runner.invoke(app, ["data", "synthetic", "--output", str(out), "--name", "STUDY_A"])
+
+        assert result.exit_code == 0, result.output
+        assert drevalpy.load(str(out)).name == "STUDY_A"
+
     def test_the_seed_changes_the_responses(self, tmp_path: UPath) -> None:
         import numpy as np
 

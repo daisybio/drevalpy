@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Literal
 
+from rich.markup import escape
+
 from drevalpy._single import single
 from drevalpy.data import CurveQuality, concat, load, split
 from drevalpy.experiment._randomization import randomization
@@ -90,7 +92,7 @@ class _Outcomes:
             randomization=randomized,
             robustness_trial=masks.metadata.get("robustness_trial"),
         )
-        logger.warning("Run failed, continuing: %s", failure)
+        logger.warning("Run failed, continuing: %s", escape(str(failure)))
         self.failures.append(failure)
 
 
