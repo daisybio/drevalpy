@@ -6,6 +6,7 @@ import typer
 
 from .load import load_dataset
 from .split import split_dataset
+from .synthetic import synthetic_dataset
 
 data_app = typer.Typer(
     name="data",
@@ -15,3 +16,4 @@ data_app = typer.Typer(
 
 data_app.command("load")(load_dataset)
 data_app.command("split")(split_dataset)
+data_app.command("synthetic")(synthetic_dataset)

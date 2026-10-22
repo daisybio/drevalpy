@@ -7,6 +7,7 @@ import hashlib
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset as Dataset
 
+from ._synthetic import synthetic
 from .datasets._load import load
 from .quality import curve_quality_mask
 
@@ -72,4 +73,5 @@ __all__ = [
     "load",
     "split",
     "splitter_registry",
+    "synthetic",
 ]

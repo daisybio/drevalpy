@@ -28,6 +28,7 @@ from tests._barrel_surface import DeclaredSurface
 EAGER_ORIGINS: dict[str, str] = {
     "curve_quality_mask": "drevalpy.data.quality",
     "load": "drevalpy.data.datasets",
+    "synthetic": "drevalpy",
 }
 
 #: Names served by the module-level ``__getattr__`` -> the leaf module that

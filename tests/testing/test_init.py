@@ -24,7 +24,7 @@ EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
     "PluginCheckError": ("drevalpy.testing.plugins", "PluginCheckError"),
     "PluginReport": ("drevalpy.testing.plugins", "PluginReport"),
     "build_synthetic_batch": ("drevalpy.testing.batch", "build_synthetic_batch"),
-    "build_synthetic_dataset": ("drevalpy.testing.synthetic", "build_synthetic_dataset"),
+    "build_synthetic_dataset": ("drevalpy.data._synthetic", "synthetic"),
     "check_featurizer_fit_transform": ("drevalpy.testing.conformance", "check_featurizer_fit_transform"),
     "check_featurizer_instantiates": ("drevalpy.testing.conformance", "check_featurizer_instantiates"),
     "check_featurizer_state_round_trip": ("drevalpy.testing.conformance", "check_featurizer_state_round_trip"),

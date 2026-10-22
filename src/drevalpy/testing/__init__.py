@@ -3,7 +3,8 @@
 Everything a plugin's test suite needs to exercise its own components without a
 downloaded dataset:
 
-* :func:`build_synthetic_dataset` - an in-memory :class:`~drevalpy.plugin.Dataset`.
+* :func:`build_synthetic_dataset` - an in-memory :class:`~drevalpy.plugin.Dataset`;
+  an alias of :func:`drevalpy.data.synthetic`.
 * :func:`build_synthetic_batch` - a featurized batch a predictor can train on.
 * :func:`check_plugin` - assert the plugin's entry point loaded and its
   components resolve through the registries.
