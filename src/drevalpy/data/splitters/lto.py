@@ -16,7 +16,11 @@ def leave_tissue_out(
     validation_ratio: float = 0.1,
     random_state: int = 42,
 ) -> list[SplitMasks]:
-    """Generate LTO folds where each tissue appears in exactly one test set."""
+    """Generate LTO folds where each tissue appears in exactly one test set.
+
+    Every pair with a finite response is used; :func:`drevalpy.data.split` applies the curve-quality rule
+    beforehand by blanking failed pairs.
+    """
     observed = observed_mask(mudataset)
     tissues = mudataset.get_tissue(mudataset.sample_ids)
     unique_tissues = np.unique(tissues)

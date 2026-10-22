@@ -16,7 +16,11 @@ def leave_pair_out(
     validation_ratio: float = 0.1,
     random_state: int = 42,
 ) -> list[SplitMasks]:
-    """Generate LPO folds where each (sample, drug) pair appears in exactly one test set."""
+    """Generate LPO folds where each (sample, drug) pair appears in exactly one test set.
+
+    Every pair with a finite response is used; :func:`drevalpy.data.split` applies the curve-quality rule
+    beforehand by blanking failed pairs.
+    """
     observed = observed_mask(mudataset)
     obs_rows, obs_cols = np.where(observed)
     folds = group_folds(

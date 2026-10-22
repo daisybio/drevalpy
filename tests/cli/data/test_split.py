@@ -7,6 +7,7 @@ import pytest
 from upath import UPath
 
 from drevalpy.cli.main import app
+from drevalpy.data.quality import CurveQuality
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
 from tests.cli._helpers import HELP_ENV, FakeDataset, Recorder, make_runner, patch_worker, plain
@@ -113,6 +114,7 @@ class TestForwarding:
             "n_splits": 5,
             "validation_ratio": 0.1,
             "random_state": 42,
+            "quality": CurveQuality.default(),
         }
 
     @pytest.mark.parametrize("flag", ["--mode", "-m"], ids=["long", "short"])
@@ -141,6 +143,37 @@ class TestForwarding:
         result = _invoke(tmp_path, "--validation-ratio", "a-lot")
 
         assert result.exit_code == 2
+
+
+class TestQualityOptions:
+    """The curve-quality options build the rule :func:`drevalpy.data.split` receives."""
+
+    def test_no_quality_filter_passes_the_off_rule(self, splitter: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--no-quality-filter")
+
+        assert splitter.kwargs["quality"] == CurveQuality.off()
+
+    def test_thresholds_override_the_default_rule(self, splitter: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--min-relevance-score", "3", "--min-abs-fold-change", "0.8")
+
+        assert splitter.kwargs["quality"] == CurveQuality(min_relevance_score=3.0, min_abs_fold_change=0.8)
+
+    def test_a_threshold_with_no_quality_filter_is_a_usage_error(self, splitter: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--no-quality-filter", "--min-abs-fold-change", "0.8")
+
+        assert result.exit_code == 2
+        assert not splitter.calls
+
+    def test_the_rule_reaches_the_written_folds(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath, synthetic_dataset: Dataset
+    ) -> None:
+        patch_worker(monkeypatch, "drevalpy.data", "load", Recorder(return_value=synthetic_dataset))
+
+        result = _invoke(tmp_path, "--n-splits", "2", "--min-relevance-score", "4")
+
+        assert result.exit_code == 0, result.output
+        fold = SplitMasks.load(str(tmp_path / "folds" / "fold_0.npz"))
+        assert fold.metadata["quality"] == CurveQuality(min_relevance_score=4.0).to_metadata()
 
 
 class TestOutput:

@@ -2,7 +2,7 @@
 
 Mirrors the private module with the underscore stripped. All four built-in
 splitters are assembled from these helpers, so the properties every mode inherits
-- quality filtering, a disjoint train/validation/test partition, reproducibility
+- the observation mask, a disjoint train/validation/test partition, reproducibility
 from ``random_state`` - are asserted here once, directly on the helpers, rather
 than four times over through the registered splitters.
 """
@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from drevalpy.data.quality import CurveQuality
 from drevalpy.data.splitters._folds import (
     entity_masks,
     group_folds,
@@ -19,6 +20,7 @@ from drevalpy.data.splitters._folds import (
     pair_masks,
     rows_with_labels,
 )
+from drevalpy.data.splitters._quality_view import QualityMasked
 from tests.data.splitters._helpers import MockMuDataset, first_measured_pairs
 
 FOLD_KWARGS = {"n_splits": 5, "validation_ratio": 0.1, "random_state": 42}
@@ -42,14 +44,30 @@ class TestObservedMask:
     def test_marks_the_measured_pairs(self, dataset, observed):
         np.testing.assert_array_equal(observed, ~np.isnan(dataset.response_matrix))
 
-    def test_drops_pairs_that_fail_the_quality_filter(self):
+    def test_ignores_the_quality_layers(self):
+        """Quality is applied by ``split`` before the splitter; here only the response counts."""
         clean = MockMuDataset()
         failing = first_measured_pairs(clean, 3)
 
-        filtered = observed_mask(MockMuDataset(failing_pairs=failing))
+        unfiltered = observed_mask(MockMuDataset(failing_pairs=failing))
+
+        np.testing.assert_array_equal(unfiltered, observed_mask(clean))
+
+    def test_drops_pairs_that_the_quality_view_blanks(self):
+        clean = MockMuDataset()
+        failing = first_measured_pairs(clean, 3)
+
+        filtered = observed_mask(QualityMasked(MockMuDataset(failing_pairs=failing), CurveQuality.default()))
 
         assert not any(filtered[row, column] for row, column in failing)
         assert filtered.sum() == observed_mask(clean).sum() - len(failing)
+
+    def test_infinite_responses_are_not_observed(self):
+        dataset = MockMuDataset()
+        row, column = first_measured_pairs(dataset, 1)[0]
+        dataset.response_matrix[row, column] = np.inf
+
+        assert not observed_mask(dataset)[row, column]
 
     def test_does_not_mutate_the_response_matrix(self, dataset):
         before = dataset.response_matrix.copy()

@@ -14,7 +14,11 @@ def leave_drug_out(
     validation_ratio: float = 0.1,
     random_state: int = 42,
 ) -> list[SplitMasks]:
-    """Generate LDO folds where each drug appears in exactly one test set."""
+    """Generate LDO folds where each drug appears in exactly one test set.
+
+    Every pair with a finite response is used; :func:`drevalpy.data.split` applies the curve-quality rule
+    beforehand by blanking failed pairs.
+    """
     observed = observed_mask(mudataset)
     folds = group_folds(
         observed.shape[1],

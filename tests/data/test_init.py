@@ -16,9 +16,13 @@ resolution are tested in ``tests/data/splitters/`` and
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
+from upath import UPath
 
 from drevalpy import data
+from drevalpy.data.splitters import leave_pair_out, splitter_registry
+from drevalpy.types import SplitMasks
 from tests._barrel_surface import DeclaredSurface
 
 #: Names bound at import time -> a module holding the same object. The barrel
@@ -84,3 +88,108 @@ def test_split_accepts_the_lco_alias_and_reports_lso(synthetic_dataset: data.Dat
 def test_split_still_rejects_an_unknown_mode(synthetic_dataset: data.Dataset) -> None:
     with pytest.raises(ValueError, match="Unknown split mode 'LXO'"):
         data.split(synthetic_dataset, "LXO")
+
+
+@pytest.fixture(scope="module")
+def low_quality_dataset() -> data.Dataset:
+    return data.synthetic(low_quality_fraction=0.3)
+
+
+def _covered(folds: list) -> np.ndarray:
+    covered = np.zeros(folds[0].train.shape, dtype=bool)
+    for fold in folds:
+        covered |= fold.train.mask | fold.test.mask | fold.val.mask
+    return covered
+
+
+class TestSplitQuality:
+    def test_the_default_rule_is_the_one_used_without_an_argument(self, low_quality_dataset: data.Dataset) -> None:
+        implicit = data.split(low_quality_dataset, "LPO", n_splits=2)
+        explicit = data.split(low_quality_dataset, "LPO", n_splits=2, quality=data.CurveQuality.default())
+
+        assert [f.metadata["fold_id"] for f in implicit] == [f.metadata["fold_id"] for f in explicit]
+
+    @pytest.mark.parametrize("mode", ["LPO", "LSO", "LDO", "LTO"])
+    def test_failed_pairs_are_in_no_fold(self, low_quality_dataset: data.Dataset, mode: str) -> None:
+        passes = data.CurveQuality.default().mask(low_quality_dataset)
+        measured = np.isfinite(low_quality_dataset.response_matrix)
+        assert (measured & ~passes).any()
+
+        covered = _covered(data.split(low_quality_dataset, mode, n_splits=2))
+
+        assert not (covered & ~passes).any()
+
+    def test_off_keeps_the_pairs_the_default_rule_drops(self, low_quality_dataset: data.Dataset) -> None:
+        default = _covered(data.split(low_quality_dataset, "LPO", n_splits=2))
+        off = _covered(data.split(low_quality_dataset, "LPO", n_splits=2, quality=data.CurveQuality.off()))
+
+        np.testing.assert_array_equal(off, np.isfinite(low_quality_dataset.response_matrix))
+        assert off.sum() > default.sum()
+
+    def test_a_custom_threshold_drops_more_pairs(self, low_quality_dataset: data.Dataset) -> None:
+        median = float(np.nanmedian(low_quality_dataset.response_matrix))
+        default = _covered(data.split(low_quality_dataset, "LPO", n_splits=2))
+
+        covered = _covered(
+            data.split(low_quality_dataset, "LPO", n_splits=2, quality=data.CurveQuality(min_pec50=median))
+        )
+
+        assert 0 < covered.sum() < default.sum()
+
+    def test_the_dataset_is_not_modified(self, low_quality_dataset: data.Dataset) -> None:
+        before = low_quality_dataset.response_matrix.copy()
+
+        data.split(low_quality_dataset, "LPO", n_splits=2)
+
+        np.testing.assert_array_equal(low_quality_dataset.response_matrix, before)
+
+    def test_off_splits_a_dataset_without_quality_layers(self) -> None:
+        dataset = data.synthetic()
+        for name in dataset.response_layer_names():
+            del dataset.response.layers[name]
+
+        folds = data.split(dataset, "LSO", n_splits=2, quality=data.CurveQuality.off())
+
+        assert len(folds) == 2
+        with pytest.raises(KeyError):
+            data.split(dataset, "LSO", n_splits=2)
+
+    @pytest.mark.parametrize(
+        "rule",
+        [
+            pytest.param(None, id="default"),
+            pytest.param(data.CurveQuality.off(), id="off"),
+            pytest.param(data.CurveQuality(min_relevance_score=5.0, min_r2=0.9), id="custom"),
+        ],
+    )
+    def test_the_rule_is_recorded_and_round_trips_through_save(
+        self, low_quality_dataset: data.Dataset, rule: data.CurveQuality | None, tmp_path: UPath
+    ) -> None:
+        folds = data.split(low_quality_dataset, "LSO", n_splits=2, quality=rule)
+        expected = (rule or data.CurveQuality.default()).to_metadata()
+
+        folds[0].save(str(tmp_path / "fold.npz"))
+        loaded = SplitMasks.load(str(tmp_path / "fold.npz"))
+
+        assert [f.metadata["quality"] for f in folds] == [expected, expected]
+        assert loaded.metadata["quality"] == expected
+        assert data.CurveQuality.from_metadata(loaded.metadata["quality"]) == (rule or data.CurveQuality.default())
+
+    def test_a_plugin_splitter_that_ignores_quality_sees_nan_on_failed_pairs(
+        self, low_quality_dataset: data.Dataset
+    ) -> None:
+        seen: list[np.ndarray] = []
+
+        def plugin(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+            seen.append(mudataset.response_matrix)
+            return leave_pair_out(mudataset, n_splits, validation_ratio, random_state)
+
+        modes = frozenset(splitter_registry.modes)
+        splitter_registry.register("P3_PLUGIN", "Records what it is given", validation="LPO")(plugin)
+        try:
+            data.split(low_quality_dataset, "P3_PLUGIN", n_splits=2)
+        finally:
+            splitter_registry.retain_only(modes)
+
+        failed = ~data.CurveQuality.default().mask(low_quality_dataset)
+        assert np.isnan(seen[0][failed]).all()

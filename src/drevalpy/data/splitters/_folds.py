@@ -1,7 +1,7 @@
 """Shared fold construction for the built-in splitters.
 
 The four modes differ only in *what* they hold out - rows, columns, tissues or
-individual pairs - so the quality-filtered observation mask, the k-fold
+individual pairs - so the observation mask, the k-fold
 train/validation/test partition and the mask assembly all live here. Keeping the
 partition in one place also keeps the folds reproducible across modes: the
 validation slice is drawn with a generator seeded from ``random_state`` on every
@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from drevalpy.data.quality import curve_quality_mask
 from drevalpy.types import SplitMask, SplitMasks
 
 if TYPE_CHECKING:
@@ -24,14 +23,15 @@ if TYPE_CHECKING:
 
 
 def observed_mask(mudataset: MuDataLike) -> np.ndarray:
-    """Return the pairs that are measured *and* pass the curve-quality filter.
+    """Return the pairs with a finite response.
 
-    :param mudataset: Dataset to read the response matrix and quality layers from.
+    The curve-quality rule is not applied here: :func:`drevalpy.data.split` blanks the
+    pairs that fail it before the splitter runs, so they are already NaN.
+
+    :param mudataset: Dataset to read the response matrix from.
     :returns: Boolean sample-by-drug mask of usable pairs.
     """
-    response = mudataset.response_matrix.copy()
-    response[~curve_quality_mask(mudataset)] = np.nan
-    return ~np.isnan(response)
+    return np.isfinite(mudataset.response_matrix)
 
 
 def group_folds(
