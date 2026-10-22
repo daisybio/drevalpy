@@ -106,6 +106,33 @@ def test_main_writes_the_four_lists(tmp_path, monkeypatch, capsys):
     assert "dropped 1: ['A']" in capsys.readouterr().out
 
 
+def test_main_protects_landmark_and_clinical_driver_genes_by_default(tmp_path, monkeypatch):
+    """Without ``--protect`` the bundled landmark genes and the clinical driver genes survive the noise filter.
+
+    :param monkeypatch: pytest monkeypatch fixture
+    :param tmp_path: pytest temporary directory
+    """
+    rng = np.random.default_rng(1)
+    (tmp_path / "D1").mkdir()
+    frame = pd.DataFrame({g: rng.uniform(4, 8, 30) for g in ["A", "B", "C", "KRAS"]})
+    frame[["B", "C", "KRAS"]] = 0.0  # all unexpressed, B is a landmark gene, KRAS a clinical driver
+    frame.insert(0, "cell_line_name", [f"c{i}" for i in range(30)])
+    frame.to_csv(tmp_path / "D1" / "gene_expression.csv", index=False)
+    (tmp_path / "meta" / "gene_lists").mkdir(parents=True)
+    pd.DataFrame({"Symbol": ["B"]}).to_csv(tmp_path / "meta" / "gene_lists" / "landmark_genes.csv", index=False)
+    (tmp_path / "panel.bed").write_text("".join(f'"c";"1";"2";"n";"i";"3";"{g}"\n' for g in ["A", "B", "C", "KRAS"]))
+    pd.DataFrame({"id": ["l1"], "gene": ["A"]}).to_csv(tmp_path / "probemap.tsv", sep="\t", index=False)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["x", "--data_path", str(tmp_path), "--datasets", "D1", "--noise_dataset", "D1"]
+        + ["--panel", str(tmp_path / "panel.bed"), "--probemap", str(tmp_path / "probemap.tsv")],
+    )
+    script.main()
+    result = pd.read_csv(tmp_path / "meta" / "gene_lists" / "autoencoder_expressed_genes.csv")["Symbol"].tolist()
+    assert result == ["A", "B", "KRAS"]
+
+
 MANIFEST = "[Header]\nx\ty\n\n[Targets]\nID\tGene\tother\na1\tG1\t1\na2\tG2\t2\na3\t\t3\n\n[Other]\nID\tGene\nb\tG9\n"
 
 

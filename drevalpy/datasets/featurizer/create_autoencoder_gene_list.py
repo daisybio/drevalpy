@@ -35,6 +35,11 @@ MANIFEST_URL = (
 PROBEMAP_URL = (
     "https://toil-xena-hub.s3.us-east-1.amazonaws.com/download/probeMap%2Fgencode.v23.annotation.gene.probemap"
 )
+#: Clinically actionable driver genes that the noise filter never drops, in addition to the landmark genes.
+CLINICAL_DRIVER_GENES = {
+    "ALK", "BRAF", "CTNNB1", "DDR2", "ERBB4", "ESR1", "FBXW7", "FGFR1", "FGFR3", "FLT3", "H3-3A", "HRAS", "IDH1",
+    "IDH2", "JAK2", "KRAS", "MAP2K1", "MDM2", "MET", "NF1", "PDGFRA", "PTEN", "RET", "ROS1", "SMAD4", "STK11",
+}  # fmt: skip
 #: Output names, one per step of the chain, in the order they are built.
 STEP_FILES = [
     "ctrpv2_gdsc1_intersection",
@@ -187,7 +192,8 @@ def main():
         "--protect",
         type=str,
         default=None,
-        help="Gene list (Symbol) that the noise filter never drops (default: landmark_plus_clinical_drivers).",
+        help="Gene list (Symbol) that the noise filter never drops. Default: the landmark genes of the metadata "
+        "bundle plus the clinical driver genes.",
     )
     parser.add_argument("--noise_dataset", type=str, default="CTRPv2", help="Dataset whose expression defines noise.")
     parser.add_argument(
@@ -200,12 +206,15 @@ def main():
     args = parser.parse_args()
     data_path = Path(args.data_path)
     output = Path(args.output) if args.output else data_path / "meta" / "gene_lists"
-    protect_path = Path(args.protect) if args.protect else output / "landmark_plus_clinical_drivers.csv"
+    if args.protect:
+        protected = read_symbols(Path(args.protect))
+    else:
+        protected = read_symbols(data_path / "meta" / "gene_lists" / "landmark_genes.csv") | CLINICAL_DRIVER_GENES
 
     def expressed(genes: set[str]) -> set[str]:
         columns = sorted(genes)
         expression = pd.read_csv(data_path / args.noise_dataset / "gene_expression.csv", usecols=columns)
-        return noise_filter(expression, read_symbols(protect_path))
+        return noise_filter(expression, protected)
 
     chain = build_chain(
         [expression_genes(data_path / name / "gene_expression.csv") for name in args.datasets],

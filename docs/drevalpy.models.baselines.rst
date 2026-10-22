@@ -278,7 +278,8 @@ chosen for four reasons:
 2. ``ctrpv2_gdsc1_iontorrent_intersection`` (15,701): intersected with the genes of the Ion Torrent panel.
 3. ``autoencoder_expressed_genes`` (11,884): noise filter on the CTRPv2 expression
    (``log2(x + 1)``): a gene is dropped if its mean is below 0.5 or its variance below 1e-3, unless it is in the
-   protect list (``--protect``, ``landmark_plus_clinical_drivers.csv``, 893 genes).
+   protect list (the 867 landmark genes of ``meta/gene_lists/landmark_genes.csv`` plus 26 clinical driver genes, 893 genes;
+   override with ``--protect <csv with column Symbol>``).
 4. ``tcga_autoencoder_genes_available`` (11,883): minus the genes without a locus in the TCGA gene annotation
    (``gencode.v23.probemap.tsv``), which cannot be mapped to TCGA expression. Only SCAND3 is dropped.
 
@@ -294,13 +295,12 @@ It has the same genes as the Ion AmpliSeq Transcriptome Human Gene Expression Pa
 over 20,000 genes); the 10 ERCC spike-in controls of the Thermo Fisher BED file are not part of it and are not in the
 data anyway, so the result is identical. Alternatively, pass the Thermo Fisher target file with ``--panel``
 (``hg19_AmpliSeq_Transcriptome_21K_v1.bed``, ERCC variant; semicolon separated, no header, gene symbol in the seventh
-column, adjustable with ``--panel_symbol_column``). The protect list is an input as well. The TCGA probemap (GENCODE v23, Xena Toil hub) is downloaded automatically; pass
+column, adjustable with ``--panel_symbol_column``). The TCGA probemap (GENCODE v23, Xena Toil hub) is downloaded automatically; pass
 ``--probemap <gencode.v23.probemap.tsv>`` to use a local copy instead.
 
 .. code-block:: bash
 
-    python -m drevalpy.datasets.featurizer.create_autoencoder_gene_list --data_path data \
-        --protect <landmark_plus_clinical_drivers.csv>
+    python -m drevalpy.datasets.featurizer.create_autoencoder_gene_list --data_path data
 
 With the original inputs the four lists are reproduced byte-identically.
 
