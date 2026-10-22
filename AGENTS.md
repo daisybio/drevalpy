@@ -58,7 +58,7 @@ does not recognise `test_init.py`, so every re-export barrel is reported as an
 untested hotspot. One artifact survives **both** ingest paths: lcov emits no `DA:`
 lines for a zero-statement file, and `.coverage` does not fix it, so the eleven
 one-line `__init__.py` files under `components/featurizers/{sample,drug}`,
-`components/featurizers/shared` and the seven literature model packages read 0%
+`components/featurizers/shared` and the eight literature model packages read 0%
 rather than 100% and each takes a full `-2.00` `coverage_gradient` penalty, 22
 points in total. Ignore those; the other `__init__.py` files carry genuine partial
 coverage and are real debt.
@@ -75,6 +75,15 @@ directive naming `will_break`, `missing_cochanges`, `missing_tests` and
 ingested. `repowise impacted-tests <revspec>` answers the narrower "which tests
 cover these changed lines" - it takes a **git revspec**, not a path, and a
 single-commit argument diffs that commit against its parent.
+
+## Docs
+
+The docs follow Diátaxis (`tutorials/`, `how-to/`, `reference/`, `explanation/`,
+`project/`); the rules are in the "How to write documentation" section of
+`docs/project/contributing.rst`, and `tests/docs/test_docs_structure.py` enforces them.
+Use the terms in `GLOSSARY.md`. `tests/docs/test_snippets.py` runs every code block on
+tutorial and how-to pages, so check a changed page with
+`uv run pytest -m "not network" tests/docs` as well as the Sphinx build.
 
 ## Tests
 

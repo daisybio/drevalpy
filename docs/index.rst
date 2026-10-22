@@ -7,7 +7,8 @@ fixed split modes.
 
 You can drive it from the ``drevalpy`` command line or from Python. Both interfaces run
 the same evaluation pipeline, and the how-to guides and tutorials show each task once,
-with a tab for each interface.
+with a tab for each interface. DrEvalPy v2 is a rewrite: if you used 1.x, start with
+:doc:`how-to/migrate/index`, because nothing that 1.x wrote loads in v2.
 
 For large or strictly reproducible benchmarks, use the Nextflow pipeline
 `nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_. The source code is
@@ -20,8 +21,8 @@ Where to go
 
 - **Learn by doing:** :doc:`tutorials/index` walks you through a first benchmark on a
   synthetic dataset.
-- **Get a task done:** :doc:`how-to/index` has recipes for running, tuning and reporting
-  experiments, extending DrEvalPy, and migrating from 1.x.
+- **Get a task done:** :doc:`how-to/index` has recipes for installing DrEvalPy, running,
+  tuning and reporting experiments, extending DrEvalPy, and migrating from 1.x.
 - **Look something up:** :doc:`reference/index` lists commands, Python APIs, components,
   file formats and the :doc:`glossary <reference/glossary>`.
 - **Understand the design:** :doc:`explanation/index` explains why split modes, components

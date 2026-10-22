@@ -37,11 +37,13 @@ How to set up your development environment
 3. ``uv sync`` : this creates the virtual environment and installs the project
    with its ``dev`` dependency group. The ``docs`` group is pulled in on demand
    with ``--group docs``.
-4. Test whether the installation was successful by running a small experiment:
+4. Test whether the installation was successful by running a small experiment on a simulated
+   dataset, which needs no download:
 
    .. code:: console
 
-      $ uv run drevalpy run NaiveDrugMeanPredictor ElasticNet --dataset GDSC1 --split-mode LSO --no-hpo
+      $ uv run drevalpy data synthetic --output toy.h5mu
+      $ uv run drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LSO --no-hpo
 
 5. Visualize the results by running the following command:
 
@@ -49,7 +51,7 @@ How to set up your development environment
 
       $ uv run drevalpy report results/ --output-dir report
 
-   Then open ``report/multiqc_report.html`` in your browser.
+   Then open ``report/Drug-Response-Evaluation_multiqc_report.html`` in your browser.
 
 How to test the project
 -----------------------
@@ -119,7 +121,7 @@ cleanup first.
 How to submit changes
 ---------------------
 
-Open a `pull request`_ to submit changes to this project against the ``development`` branch.
+Open a `pull request`_ to submit changes to this project against the ``main`` branch.
 
 Your pull request needs to meet the following guidelines for acceptance:
 
@@ -158,4 +160,51 @@ Build it from the repository root with warnings treated as errors, exactly as CI
 The generated static HTML files can be found in ``docs/_build``.
 Simply open them with your favorite browser.
 
+The tests in ``tests/docs`` check the layout and run the code on the tutorial and how-to pages:
+
+.. code:: console
+
+    $ uv run pytest tests/docs
+
 .. _sphinx: https://www.sphinx-doc.org/en/master/
+
+How to write documentation
+--------------------------
+
+The documentation follows the Diátaxis_ modes. Each page belongs to exactly one section of
+``docs/``, and ``tests/docs/test_docs_structure.py`` checks the layout rules below.
+
+``tutorials/``
+   A lesson that the reader follows on a synthetic dataset, with the output they should see.
+``how-to/``
+   One task, named by a title that starts with a verb. ``how-to/extend/`` covers extending
+   DrEvalPy and ``how-to/migrate/`` covers moving from 1.x.
+``reference/``
+   Facts only: no steps and no advice. The command-line, component, model zoo and example
+   pages include files that ``docs/conf.py`` generates from the code.
+``explanation/``
+   Background and design decisions, with no ``python`` or ``bash`` code blocks.
+``project/``
+   This guide, the citation, the news and the contributors.
+
+Use the terms of ``GLOSSARY.md`` at the repository root. It is the single source of the
+glossary page. Write "sample" for the biological source and "pair" for one sample-drug
+measurement. The glossary also lists the words to avoid.
+
+A tutorial or how-to page declares which interfaces it covers in a comment on its second
+line: ``.. interface: both`` (the default), ``.. interface: python`` or
+``.. interface: cli``. On a ``both`` page, every ``python`` or ``bash`` block sits in a
+``tab-set`` with ``:sync-group: interface`` and a ``cli`` and a ``python`` tab.
+
+``tests/docs/test_snippets.py`` runs every ``python`` and ``bash`` code block on the tutorial
+and how-to pages. The ``python`` blocks of a page share one namespace and run in order in a
+temporary directory, and every line of a ``bash`` block must start with ``drevalpy``. A comment
+on the line before a block changes how it runs:
+
+``.. snippet: skip``
+   Never run the block, for example an install command.
+``.. snippet: network``
+   Run the block only under ``pytest -m network``, for example one that downloads a
+   built-in dataset.
+
+.. _Diátaxis: https://diataxis.fr/

@@ -1,4 +1,4 @@
-# DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
+# DrEvalPy: Python Drug Response Prediction Suite
 
 [![DOI](https://img.shields.io/badge/paper-10.1038%2Fs41467--026--72903--w-be2635?logo=Paper&link=https%3A%2F%2Fdoi.org%2F10.1038%2Fs41467-026-72903-w)](https://doi.org/10.1038/s41467-026-72903-w)
 [![PyPI version](https://img.shields.io/pypi/v/drevalpy.svg)](https://pypi.org/project/drevalpy/)
@@ -7,12 +7,10 @@
 [![Read the Docs](https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs)](https://drevalpy.readthedocs.io/)
 [![Test status](https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg)](https://github.com/daisybio/drevalpy/actions?workflow=Tests)
 [![Precommit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18302238.svg)](https://doi.org/10.5281/zenodo.18302237)
 
 **News:** Our paper is out on [Nature Communications](https://www.nature.com/articles/s41467-026-72903-w)!
-
-Documentation at [ReadTheDocs](https://drevalpy.readthedocs.io/en/latest/index.html#).
 
 **Focus on Innovating Your Models — DrEval Handles the Rest!**
 
@@ -32,10 +30,9 @@ Use DrEval to build drug response models that have an impact
 2. Gold standard datasets for benchmarking
 3. Consistent application-driven evaluation
 4. Ablation studies with permutation tests
-5. Cross-study evaluation for generalization analysis
-6. Optimized nextflow pipeline for fast experiments
-7. Easy-to-use hyperparameter tuning
-8. Paper-ready visualizations to display performance
+5. Optimized nextflow pipeline for fast experiments
+6. Easy-to-use hyperparameter tuning
+7. Paper-ready visualizations to display performance
 
 ---
 
@@ -50,36 +47,31 @@ Use DrEval to build drug response models that have an impact
 This project is a collaboration of the Technical University of Munich (TUM, Germany)
 and the Freie Universität Berlin (FU, Germany).
 
+> **Coming from DrEvalPy 1.x?** v2 is a rewrite and nothing that 1.x wrote loads in it. Read the
+> [migration guides](https://drevalpy.readthedocs.io/en/latest/how-to/migrate/index.html) first.
+> Until v2 is released, `pip install drevalpy` installs 1.6.0; install v2 from source as shown below.
+
 ## Installation
 
-Using pip (PyTorch is an optional extra; pick the one matching your machine):
+From source, with [uv](https://docs.astral.sh/uv/). PyTorch is an optional extra; pick the one matching your machine
+(`cpu`, `cu126` or `cu130`), or none if you do not need the neural-network predictors:
+
+```bash
+git clone https://github.com/daisybio/drevalpy.git
+cd drevalpy
+uv sync --extra cpu
+```
+
+With pip, once v2 is released:
 
 ```bash
 pip install "drevalpy[cpu]"
 ```
 
-The extras `cpu`, `cu126` and `cu130` all require `torch>=2.1`; in a source checkout, `uv sync --extra <name>`
-additionally selects the matching PyTorch wheel index (`pip` takes torch from PyPI). The extras are mutually
-exclusive. Without one, torch-based components (e.g. the neural-network predictors) are unavailable.
-
-Hyperparameter tuning uses [Optuna](https://optuna.org/) (TPE sampler), which is part of the default install and
-works on all platforms. Runs are reproducible: `--seed` (CLI) / `seed=` (Python API), default 42, drives the data splits, the hyperparameter
-search, randomization tests and the seeding of every model fit.
-
-On a regular machine, the installation should take about a minute.
-
-Using docker:
+With Docker, the image of the latest release:
 
 ```bash
-docker pull ghcr.io/daisybio/drevalpy:main
-```
-
-From source:
-
-```bash
-git clone https://github.com/daisybio/drevalpy.git
-cd drevalpy
-uv sync --extra cpu   # or --extra cu126 / --extra cu130
+docker pull ghcr.io/daisybio/drevalpy:latest
 ```
 
 Check your installation:
@@ -88,184 +80,66 @@ Check your installation:
 drevalpy --help
 ```
 
-Full install options (Conda, Docker): [Installation](https://drevalpy.readthedocs.io/en/latest/getting_started/installation.html).
+More options: [Install DrEvalPy](https://drevalpy.readthedocs.io/en/latest/how-to/install.html).
 
-## Quickstart
+## Quick start
 
-DrEvalPy exposes the same evaluation workflow through the **CLI** and the **Python API**. Pick one track below; both write results into an output directory (default `results/`) that holds one subdirectory per model and one `.npz` file per cross-validation fold.
-
-### CLI (smallest runnable example)
-
-After installation, run naive baselines on the GDSC1 screen with leave-sample-out (LSO) splits:
+This runs offline. It writes a small simulated dataset, evaluates three baselines on it with leave-sample-out
+(LSO) splits and builds an HTML report.
 
 ```bash
+drevalpy data synthetic --output toy.h5mu
 drevalpy run NaiveTissueMeanPredictor NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
-  --dataset GDSC1 \
-  --split-mode LSO \
-  --no-hpo
+  --dataset toy.h5mu --split-mode LSO --no-hpo --group-by drug
+drevalpy report results --reference-model NaiveMeanEffectsPredictor --output-dir report
 ```
 
-Models are positional arguments. This downloads GDSC1 into the system cache directory (override with the `DREVALPY_CACHE_DIR` environment variable), trains the listed models, and evaluates with the default five-fold CV. Outputs go to `results/`; use `--output-dir` to change that. Hyperparameter tuning is on by default — `--no-hpo` above keeps this first run fast.
+`run` trains each model on five folds and writes the predictions to `results/`. `--group-by drug` also prints the
+metrics computed within each drug: `NaiveDrugMeanPredictor` scores a Pearson correlation of about 0.85 over all
+pairs, but its per-drug correlation is `undefined`, because it predicts one value per drug. Open
+`report/Drug-Response-Evaluation_multiqc_report.html` in your browser for the report.
 
-Build the HTML report:
-
-```bash
-drevalpy report results/ --output-dir report
-```
-
-Open `report/multiqc_report.html` in your browser.
-
-More CLI options: [CLI quickstart](https://drevalpy.readthedocs.io/en/latest/cli/quickstart.html).
-
-### Python API
-
-Load the dataset, resolve zoo presets with `construct_model` (returns a **class**), and pass those classes to `run`:
+The same run from Python:
 
 ```python
-from drevalpy.data import load
-from drevalpy.models import construct_model
-from drevalpy import run
+import drevalpy
+from drevalpy import ModelSpec
 
-dataset = load("GDSC1")
+dataset = drevalpy.synthetic()
+models = [
+    ModelSpec.from_name(name)
+    for name in ("NaiveTissueMeanPredictor", "NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor")
+]
+result = drevalpy.run(models, dataset, split_mode="LSO", hyperparameter_tuning=False)
 
-ElasticNet = construct_model("ElasticNet")
-
-result = run(
-    models=[ElasticNet],
-    dataset=dataset,
-    split_mode="LSO",
-    hyperparameter_tuning=False,
-)
+print(result.summary_table(group_by="drug"))
+result.save("results")
 ```
 
-With `hyperparameter_tuning=True` (the default), Optuna (TPE sampler) searches each model’s structured hyperparameter space. Set `hyperparameter_tuning=False` for a fast defaults-only run.
+The built-in datasets (GDSC1, GDSC2, CTRPv1, CTRPv2, PDX_Bruna, BeatAML2) are stored in a bucket that needs read
+access. See [Load and split a dataset](https://drevalpy.readthedocs.io/en/latest/how-to/load_and_split.html).
 
-`run` returns an `ExperimentResult` holding the predictions and metrics of every fold. Save it and render the same style of HTML report from Python:
+## Documentation
 
-```python
-from drevalpy.visualization.report import create_report
+The documentation is at [drevalpy.readthedocs.io](https://drevalpy.readthedocs.io/en/latest/index.html).
 
-result.save("results/")
+- [Tutorials](https://drevalpy.readthedocs.io/en/latest/tutorials/index.html): benchmark your first models, build your
+  own predictor, tune a model and stress-test it.
+- [How-to guides](https://drevalpy.readthedocs.io/en/latest/how-to/index.html): run, tune and report experiments,
+  use your own data, extend DrEvalPy, migrate from 1.x.
+- [Reference](https://drevalpy.readthedocs.io/en/latest/reference/index.html): commands, Python API, model zoo,
+  file formats and the glossary.
+- [Explanation](https://drevalpy.readthedocs.io/en/latest/explanation/index.html): why the split modes, baselines and
+  components work the way they do.
+- [News](https://drevalpy.readthedocs.io/en/latest/project/news.html) and
+  [Contributor guide](https://drevalpy.readthedocs.io/en/latest/project/contributing.html).
 
-create_report(result, "report/")
-```
+## Large or highly reproducible runs
 
-Concepts (datasets, splits, metrics): [documentation index](https://drevalpy.readthedocs.io/en/latest/index.html). Python walkthrough: [Python quickstart](https://drevalpy.readthedocs.io/en/latest/python/quickstart.html).
-
-### Large or highly reproducible runs
-
-For demanding workloads, prefer the Nextflow pipeline [nf-core/drugresponseeval](https://nf-co.re/drugresponseeval/dev/) ([GitHub](https://github.com/nf-core/drugresponseeval)). No Nextflow experience is required for the standard profile.
-
-## Example Report
-
-[Browse our benchmark results here.](https://dilis-lab.github.io/drevalpy-report/)
-
-The published benchmark was produced with the Nextflow pipeline
-[nf-core/drugresponseeval](https://nf-co.re/drugresponseeval/dev/), which has its own
-[parameter schema](https://nf-co.re/drugresponseeval/dev/parameters/) and pins the `drevalpy`
-version it runs. The keys below are _pipeline_ parameters, not flags of the `drevalpy` CLI shown
-above. Write each parameter set to a YAML file and hand it to Nextflow with `-params-file`:
-
-```bash
-for params in params/*.yaml; do
-    nextflow run nf-core/drugresponseeval -profile docker -params-file "$params"
-done
-```
-
-Main run:
-
-```yaml
-# params/main_results.yaml
-run_id: main_results
-dataset_name: CTRPv2
-cross_study_datasets: CTRPv1,GDSC1,GDSC2
-models: DIPK,MultiViewRandomForest
-baselines: SimpleNeuralNetwork,RandomForest,MultiViewNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveSampleMeanPredictor,NaiveDrugMeanPredictor
-test_mode: LPO,LSO,LTO,LDO
-randomization_mode: SVRC,SVRD
-randomization_type: permutation
-measure: LN_IC50
-```
-
-EC50 and AUC runs:
-
-```yaml
-# params/ec50_run.yaml
-run_id: ec50_run
-dataset_name: CTRPv2
-cross_study_datasets: CTRPv1,GDSC1,GDSC2,PDX_Bruna,BeatAML2
-models: RandomForest
-baselines: NaiveMeanEffectsPredictor
-test_mode: LSO
-measure: pEC50
-```
-
-```yaml
-# params/auc_run.yaml
-run_id: auc_run
-dataset_name: CTRPv2
-cross_study_datasets: CTRPv1,GDSC1,GDSC2,PDX_Bruna,BeatAML2
-models: RandomForest
-baselines: NaiveMeanEffectsPredictor
-test_mode: LSO
-measure: AUC
-```
-
-Invariant ablation runs — run the first on CPU, and adjust the profile to use a GPU for the
-second one if you can:
-
-```yaml
-# params/invariant-rf.yaml
-run_id: invariant-rf
-dataset_name: CTRPv2
-models: MultiViewRandomForest
-baselines: NaiveMeanEffectsPredictor
-test_mode: LPO,LSO,LDO
-randomization_mode: SVRC,SVRD
-randomization_type: invariant
-measure: LN_IC50
-```
-
-```yaml
-# params/invariant-dipk.yaml
-run_id: invariant-dipk
-dataset_name: CTRPv2
-models: DIPK
-baselines: NaiveMeanEffectsPredictor
-test_mode: LPO,LSO,LDO
-randomization_mode: SVRC,SVRD
-randomization_type: invariant
-measure: LN_IC50
-```
-
-Inference on BeatAML2 and PDX_Bruna — again CPU for the first, GPU for the second where
-available:
-
-```yaml
-# params/infer_pdx_beat.yaml
-run_id: infer_pdx_beat
-dataset_name: CTRPv2
-cross_study_datasets: PDX_Bruna,BeatAML2
-models: RandomForest,SimpleNeuralNetwork,GradientBoosting,SRMF,ElasticNet,NaivePredictor,NaiveDrugMeanPredictor,NaiveSampleMeanPredictor
-baselines: NaiveMeanEffectsPredictor
-test_mode: LPO,LSO,LDO
-measure: LN_IC50
-```
-
-```yaml
-# params/dipk_pdx_beat.yaml
-run_id: dipk_pdx_beat
-dataset_name: CTRPv2
-cross_study_datasets: PDX_Bruna,BeatAML2
-models: DIPK
-baselines: NaiveMeanEffectsPredictor
-test_mode: LPO,LSO,LDO
-measure: LN_IC50
-```
-
-## Development
-
-Pre-commit runs [complexipy](https://github.com/rohaquinlop/complexipy) on the `src/drevalpy/` package with a maximum cognitive complexity of **15** (`[tool.complexipy]` in `pyproject.toml`). Refactors should stay at or below that limit; do not add `# complexipy: ignore` comments or exclude product paths from the hook.
+For demanding workloads, prefer the Nextflow pipeline [nf-core/drugresponseeval](https://nf-co.re/drugresponseeval/dev/)
+([GitHub](https://github.com/nf-core/drugresponseeval)). It has its own
+[parameter schema](https://nf-co.re/drugresponseeval/dev/parameters/) and pins the `drevalpy` version it runs. The
+published benchmark was produced with it: [browse the results](https://dilis-lab.github.io/drevalpy-report/).
 
 ## Contact
 
