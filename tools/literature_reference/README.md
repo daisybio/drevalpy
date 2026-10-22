@@ -4,7 +4,9 @@ This directory contains source independent comparison runners. They compare narr
 numerical kernels or serialized published artifacts; they do not claim full
 architecture equivalence or reproduce upstream training pipelines.
 
-The frozen provenance and results are in [`docs/project/literature_audit/`](../../docs/project/literature_audit/).
+The frozen provenance is pinned in [`manifest.json`](manifest.json), and the
+per-model source comparison is in
+[`docs/project/literature_audit/differences.md`](../../docs/project/literature_audit/differences.md).
 The v2 kernel runner covers MOLIR, SuperFELTR, DIPK autoencoder modules,
 GraphDRP's shared GCN stack, PharmaFormer, and SparseGO's sparse layer. SRMF
 and Precily have separate authoritative runners because SRMF is MATLAB/Octave
@@ -29,9 +31,10 @@ with `FUSION_RESULTS_PATH=/tmp/fusion-reference.json`. These runners compile onl
 the selected source definitions, avoiding upstream training-script entry points.
 They execute real source tensor operations, gradients and optimizer updates.
 
-The normal audit environment is recorded in `runtime-python.json`. The Precily
-environment adds TensorFlow 2.21.0 and Keras 3.15.1 in a disposable virtualenv;
-its full inventory is in `runtime-precily.json`. It needs access to the repository
+The normal audit environment used the Python and torch versions recorded in
+`manifest.json`. The Precily
+environment adds TensorFlow 2.21.0 and Keras 3.15.1 in a disposable virtualenv.
+It needs access to the repository
 and its PyTorch dependencies as well as the isolated TensorFlow packages. The
 executed setup used Python 3.13 with the isolated environment's site-packages
 first, followed by this repository's `.venv/lib/python3.13/site-packages`, on
@@ -41,7 +44,8 @@ Precily requires its isolated TensorFlow/Keras environment and a published
 Model1 artifact. Set `PRECILY_MODEL1` and `PRECILY_RESULTS_PATH` before running
 `compare_tf.py`. SRMF requires Octave for `check.m`; `compare.py` consumes the
 resulting `reference.mat`, with paths supplied by `SRMF_REFERENCE_MAT` and
-`SRMF_RESULTS_PATH`. The checked-in `.mat` file is the small frozen audit output;
+`SRMF_RESULTS_PATH`. The checked-in `srmf-reference.mat` is the small frozen audit output, and
+`octave-version.txt` records the Octave version that produced it;
 no upstream source is included here.
 
 The Octave run used version 9.4.0 in a disposable Debian container. Set

@@ -238,7 +238,7 @@ class TestDIPKArtifactIntegration:
         from tests.components.predictors.literature._helpers import _isolated_reference_rng
         from tests.synthetic.builders import build_synthetic_dataset
 
-        manifest = json.loads((UPath(__file__).parents[2] / "docs/project/literature_audit/manifest.json").read_text())
+        manifest = json.loads((UPath(__file__).parents[2] / "tools/literature_reference/manifest.json").read_text())
         for name in ("MolGNet.pt", "human_ppi_features.tsv", "gene_list_sel.txt"):
             # Actual cached/downloaded bytes, with no artifact or backend mocking.
             assert hashlib.sha256(get_artifact(name).read_bytes()).hexdigest() == manifest["artifacts"][name]["sha256"]

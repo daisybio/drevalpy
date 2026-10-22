@@ -109,8 +109,6 @@
   "numerical_comparison": {
     "harness": "tools/literature_reference/numerical_compare_v2.py",
     "harness_sha256": "6149855fd39f3733b4fd112e3603bb3a18cbcec249a76b29b26006a529766a7b",
-    "results": "numerical-results.json",
-    "results_sha256": "191d57329795c0b4a92e6124d54461573b0889ac9c4a4b6908ef11f40bf7e643",
     "runner": "uv run python; Python 3.13.13, torch 2.13.0, torch_geometric 2.8.0.post1",
     "tolerances": {
       "float32": {
@@ -148,60 +146,20 @@
     }
   },
   "results": {
-    "README.md": {
-      "sha256": "41e90f615483a63ad7d0fec2e52e2f06b1bb04b27127c02c6d2bb37de0f89126"
-    },
-    "differences.md": {
+    "../../docs/project/literature_audit/differences.md": {
       "sha256": "efd98eee25f62a5e6634de56d885ff165a104dd25124f706378ac51639da669f"
-    },
-    "expanded-reference.json": {
-      "sha256": "5580d0e56eed32c704ed0219ea73d2d8aed5b7be2c0826339b1fae0a85dac072"
-    },
-    "fusion-reference.json": {
-      "sha256": "3fa4f3ff6b2e252880d7938247cf8d7d6cf095ef0b6854255df5cab94419e8ed"
-    },
-    "numerical-results.json": {
-      "sha256": "191d57329795c0b4a92e6124d54461573b0889ac9c4a4b6908ef11f40bf7e643"
     },
     "octave-version.txt": {
       "sha256": "b138deb2a4876d4dddab7e07791bd6ece9652557672bd576fb25dfef1d0c5c5a"
     },
-    "precily-reference.json": {
-      "sha256": "d9b60b80d2f71adfc76b02ced7af76547d3718d44b233922d2732d81a6582522"
-    },
-    "runtime-precily.json": {
-      "sha256": "5fd616e317f834d77908d61fa7d66bfb5b76390412b9ff1e181094b2d96ec63a"
-    },
-    "runtime-python.json": {
-      "sha256": "759cf43b1a589b6399c8d30baa0b709c801d0cdee230d532f3183fa8dae331fd"
-    },
-    "srmf-reference.json": {
-      "sha256": "e379cc6d512ee7b99153f3ed2be8a350ef0119f5744f46ed01af29a492190fe4"
-    },
     "srmf-reference.mat": {
       "sha256": "752c0fd055abcc190edbc9a9752cb379434855b8960e6f56657133b922a53132"
-    },
-    "training-baseline.json": {
-      "sha256": "02411076fa0d0aae3abfeabe5e45a3a687527a341b7c6d326ee6f2996b747677"
-    },
-    "training-current.json": {
-      "sha256": "1136adad34d21345a90acf4b037d6628e22ead7321b93d5c5294048fcc84cb6d"
-    },
-    "training-extended-baseline.json": {
-      "sha256": "3a11bc8dde7c6b0fc12eb9d749fe0b433fccf3c06357d5525b3e2d8e50a4d320"
-    },
-    "training-extended-current.json": {
-      "sha256": "39fc17813e1cc179c9bf501008cc5494690fd64f9fc3851f4a54ee5294af8de2"
     }
   },
-  "runtime_inventories": [
-    "runtime-python.json",
-    "runtime-precily.json",
-    "octave-version.txt"
-  ],
+  "runtime_inventories": ["octave-version.txt"],
   "harnesses": {
     "tools/literature_reference/README.md": {
-      "sha256": "1da588037ef1f190ca450bc3513fc2463cb953bbfdf99356f776f5040fd5b885"
+      "sha256": "c6a090b7cb74afc97b2cece7b9168ae0eaabc64373e84fa7450973bde39fd5b9"
     },
     "tools/literature_reference/capture_v2_baseline.py": {
       "sha256": "22a811dd3a681216c403f3d494101f35d41218c3bd8a8d67524aa38275161eb3"
