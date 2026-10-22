@@ -17,23 +17,14 @@ if TYPE_CHECKING:
     from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
-def _load_gene_indices(
-    source: FeatureSource,
-    view: str,
-    gene_list_stem: str,
-) -> list[int]:
+def _landmark_gene_names(source: FeatureSource, view: str, gene_list_stem: str) -> tuple[str, ...]:
     names = source.get_feature_names(view)
     if names is None:
         msg = f"FeatureSource has no feature names for view {view!r}"
         raise ValueError(msg)
-    gene_list_path = resolve_gene_list_path(gene_list_stem)
-    selected_genes = gene_names_from_list_csv(gene_list_path)
-    gene_to_idx = {str(gene): index for index, gene in enumerate(names)}
-    indices = [gene_to_idx[gene] for gene in selected_genes if gene in gene_to_idx]
-    if not indices:
-        msg = f"No genes from {gene_list_stem!r} matched view {view!r}"
-        raise ValueError(msg)
-    return indices
+    available = {str(gene) for gene in names}
+    selected_genes = gene_names_from_list_csv(resolve_gene_list_path(gene_list_stem))
+    return tuple(gene for gene in selected_genes if gene in available)
 
 
 @register(
@@ -69,21 +60,30 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         self._standardize = standardize
         self._minmax_scale = minmax_scale
         self._arcsinh = arcsinh
-        self._gene_indices: list[int] = []
         self._scaler: StandardScaler | None = None
         self._minmax: MinMaxScaler | None = None
 
+    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...]:
+        """Bind the transform to the landmark genes the view holds.
+
+        :param source: Feature source providing view matrices.
+        :returns: Landmark gene names in gene-list order.
+        """
+        return _landmark_gene_names(source, self._view, self._gene_list_stem)
+
     def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
-        """Select the landmark genes and fit the optional scalers.
+        """Fit the optional scalers on the landmark-gene columns.
 
         :param source: Feature source providing view matrices.
         :param entity_ids: Sample identifiers to fit on.
         :returns: Number of selected genes.
+        :raises ValueError: If no gene of the list is in the view.
         """
-        self._gene_indices = _load_gene_indices(source, self._view, self._gene_list_stem)
-        matrix = self._select_and_transform(self._raw_matrix(source, entity_ids))
-        self._fit_scalers(matrix)
-        return len(self._gene_indices)
+        if not self._view_names:
+            msg = f"No genes from {self._gene_list_stem!r} matched view {self._view!r}"
+            raise ValueError(msg)
+        self._fit_scalers(self._transform_genes(self._raw_matrix(source, entity_ids)))
+        return len(self._view_names)
 
     def _fit_scalers(self, matrix: np.ndarray) -> None:
         """Fit the standard and optional min-max scalers on *matrix*.
@@ -104,24 +104,24 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         else:
             self._minmax = None
 
-    def _select_and_transform(self, matrix: np.ndarray) -> np.ndarray:
-        """Subset *matrix* to the selected genes and apply the optional arcsinh.
+    def _transform_genes(self, matrix: np.ndarray) -> np.ndarray:
+        """Clean the landmark-gene columns of *matrix* and apply the optional arcsinh.
 
-        :param matrix: Raw view matrix.
-        :returns: Gene-subset matrix, before scaling.
+        :param matrix: Landmark-gene matrix in fitted column order.
+        :returns: Cleaned matrix, before scaling.
         """
-        selected = np.nan_to_num(matrix.astype(np.float64)[:, self._gene_indices], nan=0.0, posinf=0.0, neginf=0.0)
+        selected = np.nan_to_num(matrix.astype(np.float64), nan=0.0, posinf=0.0, neginf=0.0)
         return np.arcsinh(selected) if self._arcsinh else selected
 
     def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
-        """Subset, transform and scale *matrix*.
+        """Transform and scale the landmark-gene columns of *matrix*.
 
         :param source: Feature source the matrix came from.
-        :param matrix: Raw view matrix for the requested entity IDs.
+        :param matrix: Landmark-gene matrix for the requested entity IDs.
         :returns: Landmark-gene feature matrix.
         """
         _ = source
-        result = self._select_and_transform(matrix)
+        result = self._transform_genes(matrix)
         if self._scaler is not None:
             result = self._scaler.transform(result)
         if self._minmax is not None:
@@ -139,12 +139,10 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         """Return only the names of the selected landmark genes.
 
         :param source: Feature source providing view matrices.
-        :returns: Selected gene names, or ``None`` when the source has none.
+        :returns: Selected gene names, or ``None`` before fit.
         """
-        names = source.get_feature_names(self._view)
-        if names is None:
-            return None
-        return tuple(str(names[index]) for index in self._gene_indices)
+        _ = source
+        return self._view_names
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -165,15 +163,13 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         if not self._is_fitted:
             return {}
         return {
-            "view": self._view,
+            **self._dense_state(),
             "gene_list_stem": self._gene_list_stem,
             "standardize": self._standardize,
             "minmax_scale": self._minmax_scale,
             "arcsinh": self._arcsinh,
-            "gene_indices": list(self._gene_indices),
             "scaler": self._scaler,
             "minmax": self._minmax,
-            "output_dim": self._output_dim,
             "fitted": True,
         }
 
@@ -191,9 +187,6 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
     def _restore_landmark_fit_state(self, state: dict[str, object]) -> None:
         from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-        gene_indices = state.get("gene_indices")
-        if isinstance(gene_indices, list):
-            self._gene_indices = [int(index) for index in gene_indices]
         scaler = state.get("scaler")
         if isinstance(scaler, StandardScaler) or scaler is None:
             self._scaler = scaler
@@ -201,8 +194,8 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         if isinstance(minmax, MinMaxScaler) or minmax is None:
             self._minmax = minmax
         self._restore_dense_state(state)
-        if not isinstance(state.get("output_dim"), int) and self._gene_indices:
-            self._output_dim = len(self._gene_indices)
+        if not isinstance(state.get("output_dim"), int) and self._view_names:
+            self._output_dim = len(self._view_names)
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.

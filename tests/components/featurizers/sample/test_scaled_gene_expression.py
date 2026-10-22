@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.sample.scaled_gene_expression import ScaledGeneExpressionFeaturizer
+from tests.components.featurizers._name_alignment import assert_aligns_by_name, random_views
 from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
@@ -83,3 +84,7 @@ def test_scaled_gene_expression_set_state_ignores_unrelated_keys() -> None:
 
     assert featurizer.output_dim == 0
     assert featurizer._view == "gene_expression"
+
+
+def test_scaled_gene_expression_reads_columns_by_name() -> None:
+    assert_aligns_by_name(ScaledGeneExpressionFeaturizer, random_views({"gene_expression": list("abcdef")}))

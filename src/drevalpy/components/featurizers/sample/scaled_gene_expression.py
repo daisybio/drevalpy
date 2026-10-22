@@ -71,8 +71,7 @@ class ScaledGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
             return {}
         return {
             "gene_expression_scaler": self._scaler,
-            "view": self._view,
-            "output_dim": self._output_dim,
+            **self._dense_state(),
             "fitted": True,
         }
 

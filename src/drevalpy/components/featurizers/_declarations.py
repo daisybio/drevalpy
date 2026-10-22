@@ -76,7 +76,7 @@ class FeaturizerDeclarationsMixin:
 
     @classmethod
     def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
-        """Return the raw feature views this featurizer reads under *kwargs*.
+        """Return the raw views this featurizer reads under *kwargs*.
 
         An explicit ``view`` kwarg always wins, which covers view-parameterized
         featurizers such as ``raw`` and ``pca``. Otherwise the declared

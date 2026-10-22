@@ -7,7 +7,7 @@ from drevalpy.components.featurizers.base import Featurizer
 
 
 class SampleFeaturizer(Featurizer):
-    """Base for featurizers that read one or more sample feature views."""
+    """Base for featurizers that read one or more sample views."""
 
 
 class DenseViewSampleFeaturizer(DenseViewFeaturizer, SampleFeaturizer):

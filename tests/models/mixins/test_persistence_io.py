@@ -151,11 +151,21 @@ class TestLoadModelPayload:
 
         with pytest.raises(UnsupportedCheckpointFormatError, match=r"predates the cell line -> sample rename") as info:
             load_model_payload(str(archive))
-        assert "format 4" in str(info.value)
+        assert "format 5" in str(info.value)
         assert "retrain" in str(info.value)
 
-    def test_current_format_version_is_4(self) -> None:
-        assert FORMAT_VERSION == 4
+    def test_rejects_a_version_4_checkpoint_without_feature_names(self, tmp_path) -> None:
+        payload = elastic_net_payload({})
+        payload["version"] = 4
+        archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
+
+        with pytest.raises(UnsupportedCheckpointFormatError, match=r"predates feature-name checks") as info:
+            load_model_payload(str(archive))
+        assert "format 5" in str(info.value)
+        assert "retrain the model and save it again" in str(info.value)
+
+    def test_current_format_version_is_5(self) -> None:
+        assert FORMAT_VERSION == 5
 
     def test_rejects_a_non_mapping_state(self, tmp_path) -> None:
         archive = write_archive(UPath(tmp_path) / "elastic_net.zip", elastic_net_payload("bad"))

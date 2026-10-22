@@ -7,7 +7,7 @@ from drevalpy.components.featurizers.base import Featurizer
 
 
 class DrugFeaturizer(Featurizer):
-    """Base for featurizers that read drug feature views."""
+    """Base for featurizers that read drug views."""
 
 
 class DenseViewDrugFeaturizer(DenseViewFeaturizer, DrugFeaturizer):

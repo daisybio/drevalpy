@@ -32,7 +32,6 @@ class PharmaFormerGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         super().__init__()
         self._scaler = StandardScaler()
         self._minmax = MinMaxScaler()
-        self._feature_names: tuple[str, ...] | None = None
 
     def _fit_entity_ids(
         self,
@@ -55,13 +54,6 @@ class PharmaFormerGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
             raise ValueError("pharmaFormerGeneExpression requires pair_expanded_ids")
         return pair_expanded_ids
 
-    def _on_precomputed_fit(self, source: FeatureSource) -> None:
-        """Record the source's feature names alongside a stored variant.
-
-        :param source: Feature source carrying the stored variant.
-        """
-        self._feature_names = source.get_feature_names(self._view)
-
     def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
         """Fit both scalers on the pair-expanded training rows.
 
@@ -71,7 +63,6 @@ class PharmaFormerGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         """
         matrix = self._raw_matrix(source, entity_ids)
         self._minmax.fit(self._scaler.fit_transform(matrix))
-        self._feature_names = source.get_feature_names(self._view)
         return int(matrix.shape[1])
 
     def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
@@ -84,15 +75,6 @@ class PharmaFormerGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         _ = source
         return self._minmax.transform(self._scaler.transform(matrix))
 
-    def _block_feature_names(self, source: FeatureSource) -> tuple[str, ...] | None:
-        """Return the feature names captured at fit time.
-
-        :param source: Feature source (unused; names are recorded during fit).
-        :returns: Recorded feature names, or ``None``.
-        """
-        _ = source
-        return self._feature_names
-
     def get_state(self) -> dict[str, object]:
         """Serialize scaler state and feature names.
 
@@ -103,7 +85,7 @@ class PharmaFormerGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         return {
             "scaler": self._scaler,
             "minmax": self._minmax,
-            "feature_names": self._feature_names,
+            "view_feature_names": self._view_names,
             "output_dim": self._output_dim,
             "fitted": True,
         }
@@ -120,9 +102,7 @@ class PharmaFormerGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
             self._scaler = scaler
         if isinstance(minmax, MinMaxScaler):
             self._minmax = minmax
-        names = state.get("feature_names")
-        if isinstance(names, tuple):
-            self._feature_names = tuple(str(name) for name in names)
+        self._restore_view_names(state)
         output_dim = state.get("output_dim")
         if isinstance(output_dim, int):
             self._output_dim = output_dim

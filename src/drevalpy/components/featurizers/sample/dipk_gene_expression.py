@@ -151,6 +151,7 @@ class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         if self._encoder is None:
             return {}
         return {
+            **self._dense_state(),
             "encoder_state": save_state_dict(self._encoder.state_dict()),
             "input_dim": self._input_dim,
             "latent_dim": self._latent_dim,
@@ -179,4 +180,5 @@ class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         self._encoder = GeneExpressionEncoder(input_dim, latent_dim=latent_dim)
         self._encoder.load_state_dict(load_state_dict(blob))
         self._encoder.eval()
+        self._restore_dense_state(state)
         self._is_fitted = True

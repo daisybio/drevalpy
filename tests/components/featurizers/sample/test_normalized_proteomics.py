@@ -8,6 +8,7 @@ from drevalpy.components.featurizers.sample.normalized_proteomics import (
     NormalizedProteomicsSampleFeaturizer,
     log10_and_set_na,
 )
+from tests.components.featurizers._name_alignment import assert_aligns_by_name, random_views
 from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
@@ -120,3 +121,11 @@ def test_normalized_proteomics_blocks_carry_feature_names() -> None:
 
     assert set(blocks) == {"proteomics"}
     assert blocks["proteomics"].feature_names == ("p1", "p2", "p3")
+
+
+def test_normalized_proteomics_reads_columns_by_name() -> None:
+    assert_aligns_by_name(
+        lambda: NormalizedProteomicsSampleFeaturizer(proteomics_n_features=4),
+        random_views({"proteomics": list("abcdef")}),
+        drop_view="proteomics",
+    )

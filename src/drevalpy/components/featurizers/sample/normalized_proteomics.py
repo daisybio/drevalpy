@@ -140,8 +140,7 @@ class NormalizedProteomicsSampleFeaturizer(DenseViewSampleFeaturizer):
         """
         return {
             "proteomics_transformer": self._transformer,
-            "view": self._view,
-            "output_dim": self._output_dim,
+            **self._dense_state(),
         }
 
     def set_state(self, state: dict[str, object]) -> None:

@@ -8,6 +8,7 @@ import pytest
 from drevalpy.components.featurizers.sample.pharmaformer_gene_expression import (
     PharmaFormerGeneExpressionFeaturizer,
 )
+from tests.components.featurizers._name_alignment import assert_aligns_by_name, random_views
 from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
@@ -55,4 +56,12 @@ def test_pharmaformer_gene_expression_serves_a_precomputed_variant() -> None:
     assert_uses_precomputed_variant(
         PharmaFormerGeneExpressionFeaturizer(),
         ids_kwarg="pair_expanded_ids",
+    )
+
+
+def test_pharmaformer_gene_expression_reads_columns_by_name() -> None:
+    assert_aligns_by_name(
+        PharmaFormerGeneExpressionFeaturizer,
+        random_views({"gene_expression": list("abcdef")}),
+        fit_kwargs=lambda ids: {"pair_expanded_ids": ids},
     )

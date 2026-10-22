@@ -38,7 +38,7 @@ class Featurizer(
     ``@register`` (from the sample_featurizer or drug_featurizer registry), so that
     they can be discovered and used in models.
 
-    Each subclass declares which raw feature views it reads via ``input_views``
+    Each subclass declares which raw views it reads via ``input_views``
     (or ``requires_view`` / ``entity_id_only`` / a ``resolve_input_views``
     override); registration rejects featurizers that declare nothing.
 

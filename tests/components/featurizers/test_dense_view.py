@@ -17,6 +17,7 @@ from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturize
 from drevalpy.components.featurizers.storage import register_variant
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import DrugFeatureSource, SampleFeatureSource
+from tests.components.featurizers._name_alignment import assert_aligns_by_name, mock_source, random_views
 from tests.conftest import MockFeatureSource
 from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
@@ -302,3 +303,45 @@ class TestRestoreDenseState:
 
         assert featurizer._view == "gene_expression"
         assert featurizer._output_dim == 0
+
+
+def test_dense_view_reads_a_sample_view_by_name() -> None:
+    assert_aligns_by_name(
+        lambda: _StrictDenseView(view="gene_expression"), random_views({"gene_expression": list("abcdef")})
+    )
+
+
+def test_dense_view_blocks_carry_the_fitted_order_of_a_permuted_source() -> None:
+    views = random_views({"gene_expression": ["a", "b", "c"]})
+    source = mock_source(views)
+    featurizer = _StrictDenseView(view="gene_expression").fit(source, entity_ids=source.identifiers)
+    matrix, names = views["gene_expression"]
+    permuted = mock_source({"gene_expression": (matrix[:, ::-1], names[::-1])})
+
+    block = featurizer.transform_blocks(permuted, permuted.identifiers)["gene_expression"]
+
+    assert block.feature_names == ("a", "b", "c")
+    np.testing.assert_allclose(block.values, matrix, rtol=1e-6)
+
+
+def test_dense_view_does_not_reindex_the_computed_fallback() -> None:
+    source = _sample_source()
+    featurizer = _ComputedDenseView(view="bionic_features").fit(source, entity_ids=np.array(["cl1", "cl2"]))
+
+    assert featurizer._view_names is None
+    assert featurizer.transform(source, np.array(["cl1"])).shape == (1, 4)
+
+
+def test_dense_view_state_is_empty_before_fit_and_round_trips_after() -> None:
+    views = random_views({"gene_expression": ["a", "b", "c"]})
+    source = mock_source(views)
+    featurizer = _StrictDenseView(view="gene_expression")
+    assert featurizer.get_state() == {}
+
+    featurizer.fit(source, entity_ids=source.identifiers)
+    restored = _StrictDenseView(view="gene_expression")
+    restored.set_state(featurizer.get_state())
+
+    assert restored._view_names == ("a", "b", "c")
+    assert restored.output_dim == 3
+    assert restored._is_fitted

@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.featurizers.sample.molir_omics import MOLIROmicsFeaturizer
+from tests.components.featurizers._name_alignment import assert_aligns_by_name, random_views
 from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
@@ -86,3 +87,15 @@ def test_selection_ranks_training_variance_before_standardization() -> None:
     featurizer = MOLIROmicsFeaturizer(n_gene_expression_features=1).fit(features, entity_ids=np.array(["cl0", "cl1"]))
     assert featurizer.get_state()["selected_feature_names"] == ("variable",)
     np.testing.assert_allclose(featurizer.transform(features, np.array(["cl0", "cl1"])), [[-1.0], [1.0]])
+
+
+def test_molir_omics_reads_every_view_by_name() -> None:
+    views = random_views(
+        {
+            "gene_expression": list("abcdef"),
+            "mutations": ["m1", "m2", "m3"],
+            "copy_number_variation_gistic": ["c1", "c2", "c3"],
+        }
+    )
+    for drop_view in views:
+        assert_aligns_by_name(lambda: MOLIROmicsFeaturizer(n_gene_expression_features=3), views, drop_view=drop_view)

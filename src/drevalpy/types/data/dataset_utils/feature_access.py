@@ -218,7 +218,7 @@ class FeatureAccessMixin:
         return frozenset(np.asarray(adata.obs_names)[valid])
 
     def _drug_entities_for_view(self, name: str) -> frozenset[str]:
-        """Drug IDs present in a given drug feature view."""
+        """Drug IDs present in a given drug view."""
         if name == "drug_graph":
             if "drug_graphs" not in self._mdata.uns:
                 return frozenset()

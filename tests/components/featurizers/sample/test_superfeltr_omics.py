@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.featurizers.sample.superfeltr_omics import SuperFELTROmicsFeaturizer
+from tests.components.featurizers._name_alignment import assert_aligns_by_name, random_views
 from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
@@ -113,3 +114,15 @@ def test_expression_transform_precedes_training_only_selection() -> None:
     np.testing.assert_allclose(blocks["gene_expression"].values[:, 0], np.arcsinh([0.0, 3.0]))
     np.testing.assert_array_equal(blocks["mutations"].values[:, 0], [0.0, 2.0])
     np.testing.assert_array_equal(blocks["copy_number_variation_gistic"].values[:, 0], [1.0, 4.0])
+
+
+def test_superfeltr_omics_reads_every_view_by_name() -> None:
+    views = random_views(
+        {
+            "gene_expression": list("abcdef"),
+            "mutations": ["m1", "m2", "m3", "m4"],
+            "copy_number_variation_gistic": ["c1", "c2", "c3", "c4"],
+        }
+    )
+    for drop_view in views:
+        assert_aligns_by_name(lambda: SuperFELTROmicsFeaturizer(n_features_per_view=3), views, drop_view=drop_view)

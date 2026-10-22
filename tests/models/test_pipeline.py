@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from drevalpy.components.featurizers import FeatureMismatchError
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models._pipeline import PipelineState
 from drevalpy.types import SplitMask
@@ -48,7 +49,7 @@ def test_retraining_resets_previous_fitted_state() -> None:
     assert np.isnan(model.predict(dataset, masks.test)).all()
 
 
-def test_fitted_model_round_trips_through_v3_checkpoint(tmp_path) -> None:
+def test_fitted_model_round_trips_through_a_checkpoint(tmp_path) -> None:
     model = DRPModel(ModelSpec.from_name("ElasticNet"))
     dataset = synthetic_mudataset_gene_expression_fingerprints()
     scope = lso_split_masks().train
@@ -60,6 +61,38 @@ def test_fitted_model_round_trips_through_v3_checkpoint(tmp_path) -> None:
 
     np.testing.assert_allclose(restored.predict(dataset, lso_split_masks().test), before)
     assert restored._pipeline.state is PipelineState.FITTED
+
+
+def _with_gene_columns(dataset, columns: slice):
+    gene_expression = dataset.mdata.mod["gene_expression"]
+    dataset.mdata.mod["gene_expression"] = gene_expression[:, columns].copy()
+    dataset.mdata.update()
+    return dataset
+
+
+def test_predictions_do_not_depend_on_the_gene_order_of_the_dataset(tmp_path) -> None:
+    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model.train(synthetic_mudataset_gene_expression_fingerprints(), lso_split_masks().train)
+    model.save(tmp_path / "model")
+    restored = DRPModel.load(tmp_path / "model")
+    reordered = _with_gene_columns(synthetic_mudataset_gene_expression_fingerprints(), slice(None, None, -1))
+    test = lso_split_masks().test
+
+    expected = model.predict(synthetic_mudataset_gene_expression_fingerprints(), test)
+
+    np.testing.assert_allclose(model.predict(reordered, test), expected)
+    np.testing.assert_allclose(restored.predict(reordered, test), expected)
+
+
+def test_predicting_on_a_dataset_without_a_fitted_gene_raises(tmp_path) -> None:
+    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model.train(synthetic_mudataset_gene_expression_fingerprints(), lso_split_masks().train)
+    model.save(tmp_path / "model")
+    missing_gene = _with_gene_columns(synthetic_mudataset_gene_expression_fingerprints(), slice(1, None))
+
+    for fitted in (model, DRPModel.load(tmp_path / "model")):
+        with pytest.raises(FeatureMismatchError, match="gene_expression.*missing 1 of the 3 features.*'gene0'"):
+            fitted.predict(missing_gene, lso_split_masks().test)
 
 
 @pytest.mark.parametrize("failure", ["validation", "construction", "fit"])

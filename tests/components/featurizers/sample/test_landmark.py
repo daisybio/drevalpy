@@ -15,6 +15,7 @@ from drevalpy.components.featurizers.sample.landmark import (
     LandmarkGenesFeaturizer,
     LandmarkGenesReducedFeaturizer,
 )
+from tests.components.featurizers._name_alignment import assert_aligns_by_name, mock_source, random_views
 from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant
 from tests.conftest import MockFeatureSource
 
@@ -155,15 +156,15 @@ def test_landmark_blocks_carry_the_selected_gene_names() -> None:
     assert blocks["gene_expression"].feature_names == tuple(symbols)
 
 
-def test_landmark_set_state_derives_output_dim_from_gene_indices() -> None:
+def test_landmark_set_state_derives_output_dim_from_gene_names() -> None:
     featurizer = LandmarkGenesFeaturizer()
 
-    featurizer.set_state({"gene_indices": [0, 1, 2], "output_dim": None, "fitted": True})
+    featurizer.set_state({"view_feature_names": ("A", "B", "C"), "output_dim": None, "fitted": True})
 
     assert featurizer.output_dim == 3
 
 
-def test_landmark_blocks_drop_gene_names_on_a_source_without_metadata() -> None:
+def test_landmark_blocks_keep_the_fitted_gene_names_on_a_source_without_metadata() -> None:
     """Fit needs feature names, but a later source is free not to expose any."""
     symbols = gene_names_from_list_csv(resolve_gene_list_path("landmark_genes"))[:2]
     named = MockFeatureSource(
@@ -178,4 +179,24 @@ def test_landmark_blocks_drop_gene_names_on_a_source_without_metadata() -> None:
 
     blocks = featurizer.transform_blocks(unnamed, ids)
 
-    assert blocks["gene_expression"].feature_names is None
+    assert blocks["gene_expression"].feature_names == tuple(symbols)
+
+
+def test_landmark_reads_genes_by_name_and_ignores_the_others() -> None:
+    symbols = gene_names_from_list_csv(resolve_gene_list_path("landmark_genes"))[:4]
+    views = random_views({"gene_expression": [*symbols, "NOT_A_GENE"]})
+
+    assert_aligns_by_name(LandmarkGenesFeaturizer, views)
+
+
+def test_landmark_does_not_need_genes_outside_its_list() -> None:
+    symbols = gene_names_from_list_csv(resolve_gene_list_path("landmark_genes"))[:3]
+    fit_views = random_views({"gene_expression": [*symbols, "NOT_A_GENE"]})
+    fit_source = mock_source(fit_views)
+    featurizer = LandmarkGenesFeaturizer(standardize=False).fit(fit_source, entity_ids=fit_source.identifiers)
+    without_extra = mock_source({"gene_expression": (fit_views["gene_expression"][0][:, :3], symbols)})
+
+    np.testing.assert_allclose(
+        featurizer.transform(without_extra, without_extra.identifiers),
+        featurizer.transform(fit_source, fit_source.identifiers),
+    )

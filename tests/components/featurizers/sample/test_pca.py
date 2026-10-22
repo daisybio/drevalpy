@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from drevalpy.components.featurizers import FeatureMismatchError
 from drevalpy.components.featurizers.sample.pca import PCASampleFeaturizer
+from tests.components.featurizers._name_alignment import assert_aligns_by_name, mock_source, random_views
 from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant, precomputed_source
 from tests.conftest import MockFeatureSource
 
@@ -48,29 +50,23 @@ def test_pca_state_roundtrip() -> None:
     )
 
 
-def test_pca_aligns_cross_study_features_by_name() -> None:
-    training = MockFeatureSource(
-        features={
-            "cl1": {"methylation": np.array([1.0, 2.0, 3.0])},
-            "cl2": {"methylation": np.array([4.0, 5.0, 6.0])},
-        },
-        meta_info={"methylation": np.array(["a", "b", "c"])},
+def test_pca_reads_columns_by_name() -> None:
+    assert_aligns_by_name(
+        lambda: PCASampleFeaturizer(view="methylation", n_components=2),
+        random_views({"methylation": list("abcdef")}),
+        drop_view="methylation",
     )
-    cross_study = MockFeatureSource(
-        features={"cl3": {"methylation": np.array([20.0, 30.0, 40.0])}},
-        meta_info={"methylation": np.array(["b", "c", "d"])},
-    )
-    expected = MockFeatureSource(
-        features={"cl3": {"methylation": np.array([0.0, 20.0, 30.0])}},
-        meta_info={"methylation": np.array(["a", "b", "c"])},
-    )
-    featurizer = PCASampleFeaturizer(view="methylation", n_components=2)
-    featurizer.fit(training, entity_ids=np.array(["cl1", "cl2"]))
 
-    assert np.allclose(
-        featurizer.transform(cross_study, np.array(["cl3"])),
-        featurizer.transform(expected, np.array(["cl3"])),
-    )
+
+def test_pca_no_longer_zero_fills_missing_features() -> None:
+    training = random_views({"methylation": ["a", "b", "c"]}, n_samples=3)
+    featurizer = PCASampleFeaturizer(view="methylation", n_components=2)
+    source = mock_source(training)
+    featurizer.fit(source, entity_ids=source.identifiers)
+    cross_study = mock_source(random_views({"methylation": ["b", "c", "d"]}, n_samples=1))
+
+    with pytest.raises(FeatureMismatchError, match=r"view 'methylation' is missing 1 of the 3 features.*'a'"):
+        featurizer.transform(cross_study, cross_study.identifiers)
 
 
 def test_pca_prefers_a_precomputed_variant_for_matching_hyperparameters() -> None:
@@ -107,7 +103,9 @@ def test_pca_hyperparameter_space_exposes_n_components() -> None:
 def test_pca_set_state_ignores_unrelated_keys() -> None:
     featurizer = PCASampleFeaturizer(view="gene_expression", n_components=2)
 
-    featurizer.set_state({"pca": None, "view": 3, "n_components": "two", "output_dim": None, "feature_names": None})
+    featurizer.set_state(
+        {"pca": None, "view": 3, "n_components": "two", "output_dim": None, "view_feature_names": None}
+    )
 
     assert featurizer._view == "gene_expression"
     assert featurizer.output_dim == 0
@@ -116,6 +114,6 @@ def test_pca_set_state_ignores_unrelated_keys() -> None:
 def test_pca_set_state_restores_feature_names() -> None:
     featurizer = PCASampleFeaturizer(view="gene_expression", n_components=2)
 
-    featurizer.set_state({"feature_names": ("a", "b")})
+    featurizer.set_state({"view_feature_names": ["a", "b"]})
 
-    assert featurizer._feature_names == ("a", "b")
+    assert featurizer._view_names == ("a", "b")

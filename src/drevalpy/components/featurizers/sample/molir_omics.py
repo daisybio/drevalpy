@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.featurizers._feature_names import align_to_fitted
 from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
@@ -110,7 +111,9 @@ class MOLIROmicsFeaturizer(DenseViewSampleFeaturizer):
             **result.blocks,
             **{
                 view: numeric_feature_block(
-                    source.get_view_matrix(view, entity_ids).astype(np.float32),
+                    align_to_fitted(
+                        source, view, source.get_view_matrix(view, entity_ids), self._feature_names.get(view)
+                    ).astype(np.float32),
                     feature_names=self._feature_names.get(view),
                 )
                 for view in _VIEWS[1:]
@@ -140,6 +143,7 @@ class MOLIROmicsFeaturizer(DenseViewSampleFeaturizer):
         :returns: Fitted state mapping.
         """
         return {
+            **self._dense_state(),
             "scaler": self._scaler,
             "mask": self._mask,
             "selected_feature_names": self._selected_feature_names,
@@ -166,3 +170,4 @@ class MOLIROmicsFeaturizer(DenseViewSampleFeaturizer):
         names = state.get("feature_names")
         if isinstance(names, dict):
             self._feature_names = {str(key): value for key, value in names.items()}
+        self._restore_dense_state(state)

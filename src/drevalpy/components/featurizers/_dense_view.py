@@ -16,6 +16,12 @@ Subclass hooks, all optional:
 * ``_fit_entity_ids`` - choose the rows to fit on (deduplicated, pair-expanded).
 * ``_fetch_hyperparameters`` - the HP setting a stored variant must match.
 * ``_block_name`` / ``_block_feature_names`` - name and label the emitted block.
+* ``_names_to_fit`` - the feature names the fitted transform is bound to.
+
+The view's feature names are recorded at fit and restored by ``set_state``. At
+transform the raw matrix is reindexed to them by name, so a source holding the
+same features in another order predicts identically and one lacking a fitted
+feature raises :class:`~drevalpy.components.featurizers._feature_names.FeatureMismatchError`.
 
 ``precompute`` subclasses additionally provide ``_compute_from_source``, used as a
 fallback when the declared view is absent from the source altogether.
@@ -35,6 +41,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
+from drevalpy.components.featurizers._feature_names import align_to_fitted
 from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
@@ -42,7 +49,7 @@ from drevalpy.types.data.feature_source import FeatureSource
 
 
 class DenseViewFeaturizer(Featurizer):
-    """Emit one dense numeric block for one feature view, on either entity side."""
+    """Emit one dense numeric block for one view, on either entity side."""
 
     #: Set on subclasses whose transform is meaningless before ``fit``; they then
     #: raise instead of returning garbage.
@@ -59,6 +66,7 @@ class DenseViewFeaturizer(Featurizer):
         self._view = view or self.resolve_input_views()[0]
         self._output_dim = 0
         self._is_fitted = False
+        self._view_names: tuple[str, ...] | None = None
 
     # ------------------------------------------------------------------
     # Subclass hooks
@@ -112,6 +120,17 @@ class DenseViewFeaturizer(Featurizer):
         _ = source
         return matrix
 
+    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...] | None:
+        """Return the feature names the fitted transform is bound to.
+
+        The default is every feature of the view. A featurizer that reads only a
+        subset overrides this, so features it ignores may be absent at transform.
+
+        :param source: Feature source providing views for the entity type.
+        :returns: Ordered feature names, or ``None`` when the source has none.
+        """
+        return feature_names_for_view(source, self._view)
+
     def _block_name(self) -> str:
         """Return the name of the single emitted block.
 
@@ -129,6 +148,8 @@ class DenseViewFeaturizer(Featurizer):
         :param source: Feature source providing views for the entity type.
         :returns: Ordered feature names, or ``None`` when the source has none.
         """
+        if self._view_names is not None:
+            return self._view_names
         return feature_names_for_view(source, self._view)
 
     # ------------------------------------------------------------------
@@ -136,7 +157,7 @@ class DenseViewFeaturizer(Featurizer):
     # ------------------------------------------------------------------
 
     def _raw_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Stack the declared view, falling back to an on-the-fly computation.
+        """Stack the declared view in fitted column order, or compute it on the fly.
 
         :param source: Feature source providing views for the entity type.
         :param entity_ids: Entity identifiers to stack.
@@ -146,12 +167,13 @@ class DenseViewFeaturizer(Featurizer):
         :raises ValueError: If the view is unusable and no fallback is available.
         """
         try:
-            return stack_view_matrix(source, self._view, entity_ids)
+            matrix = stack_view_matrix(source, self._view, entity_ids)
         except (KeyError, TypeError, ValueError):
             compute = getattr(self, "_compute_from_source", None)
             if self.precompute and callable(compute):
                 return compute(source, entity_ids)
             raise
+        return align_to_fitted(source, self._view, matrix, self._view_names)
 
     def _require_fitted(self) -> None:
         """Reject a transform on a subclass that has state to learn first.
@@ -162,19 +184,51 @@ class DenseViewFeaturizer(Featurizer):
             msg = f"{type(self).__name__} must be fit before transform"
             raise RuntimeError(msg)
 
-    def _restore_dense_state(self, state: dict[str, object]) -> None:
-        """Restore the three fields every dense subclass writes in ``get_state``.
+    def _dense_state(self) -> dict[str, object]:
+        """Return the fields ``_restore_dense_state`` reads back.
 
-        ``view``, ``output_dim`` and the ``fitted`` flag are set by ``__init__``
-        here, not by any subclass, so every subclass ``set_state`` was repeating
-        the same three type-guarded reads around its own one fitted object. A key
-        the subclass does not write is simply absent and leaves the field alone.
+        :returns: ``view``, ``output_dim`` and the view feature names recorded at fit.
+        """
+        return {"view": self._view, "output_dim": self._output_dim, "view_feature_names": self._view_names}
+
+    def get_state(self) -> dict[str, object]:
+        """Return the shared fitted state of a featurizer with no learned object.
+
+        :returns: The dense state plus the ``fitted`` flag, or an empty dict before ``fit``.
+        """
+        return {**self._dense_state(), "fitted": True} if self._is_fitted else {}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        """Restore the state written by ``get_state``.
+
+        :param state: Mapping previously returned by ``get_state``.
+        """
+        self._restore_dense_state(state)
+
+    def _restore_view_names(self, state: dict[str, object]) -> None:
+        """Restore the view feature names recorded at fit.
+
+        :param state: Mapping previously returned by ``get_state``.
+        """
+        names = state.get("view_feature_names")
+        if isinstance(names, (tuple, list)):
+            self._view_names = tuple(str(name) for name in names)
+
+    def _restore_dense_state(self, state: dict[str, object]) -> None:
+        """Restore the fields every dense subclass writes in ``get_state``.
+
+        ``view``, ``output_dim``, the view feature names and the ``fitted`` flag
+        are set by ``__init__`` here, not by any subclass, so every subclass
+        ``set_state`` was repeating the same type-guarded reads around its own one
+        fitted object. A key the subclass does not write is simply absent and
+        leaves the field alone.
 
         :param state: Mapping previously returned by ``get_state``.
         """
         view = state.get("view")
         if isinstance(view, str):
             self._view = view
+        self._restore_view_names(state)
         output_dim = state.get("output_dim")
         if isinstance(output_dim, int):
             self._output_dim = output_dim
@@ -197,6 +251,7 @@ class DenseViewFeaturizer(Featurizer):
         :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
         :returns: Result.
         """
+        self._view_names = self._names_to_fit(source)
         ids = self._fit_entity_ids(source, entity_ids, pair_expanded_ids, pair_expanded_es_ids)
         precomputed = self.fetch_precomputed(source, ids, self._fetch_hyperparameters())
         if precomputed is not None:

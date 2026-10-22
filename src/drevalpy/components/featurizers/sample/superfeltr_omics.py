@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any, ClassVar
 
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.featurizers._feature_names import align_to_fitted
 from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
+
+
+def _name_tuple(names: Iterable[object] | None) -> tuple[str, ...] | None:
+    return None if names is None else tuple(str(name) for name in names)
 
 
 @register(
@@ -38,6 +44,7 @@ class SuperFELTROmicsFeaturizer(SampleFeaturizer):
         self._n_features = int(n_features_per_view)
         self._masks: dict[str, np.ndarray] = {}
         self._feature_names: dict[str, tuple[str, ...]] = {}
+        self._source_names: dict[str, tuple[str, ...] | None] = {}
 
     def _fit(
         self,
@@ -65,23 +72,20 @@ class SuperFELTROmicsFeaturizer(SampleFeaturizer):
             self._feature_names = {"gene_expression": tuple(names) if names else ()}
             return self
         for view in _VIEWS:
+            self._source_names[view] = source.get_feature_names(view)
             matrix = self._view_matrix(source, view, ids)
             variances = np.var(matrix, axis=0)
             mask = np.zeros(len(variances), dtype=bool)
             mask[np.argsort(variances)[::-1][: min(self._n_features, len(variances))]] = True
             self._masks[view] = mask
 
-            names = source.get_feature_names(view)
-            if names is not None:
-                self._feature_names[view] = tuple(np.array(names)[mask])
-            else:
-                self._feature_names[view] = ()
+            names = self._source_names[view]
+            self._feature_names[view] = () if names is None else tuple(np.array(names)[mask])
         return self
 
-    @staticmethod
-    def _view_matrix(source: FeatureSource, view: str, entity_ids: np.ndarray) -> np.ndarray:
-        """Apply the regression adaptation's expression transform before selection."""
-        matrix = source.get_view_matrix(view, entity_ids)
+    def _view_matrix(self, source: FeatureSource, view: str, entity_ids: np.ndarray) -> np.ndarray:
+        """Read *view* in fitted column order and apply the expression transform before selection."""
+        matrix = align_to_fitted(source, view, source.get_view_matrix(view, entity_ids), self._source_names.get(view))
         return np.arcsinh(matrix) if view == "gene_expression" else matrix
 
     def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
@@ -148,6 +152,7 @@ class SuperFELTROmicsFeaturizer(SampleFeaturizer):
         return {
             "masks": self._masks,
             "feature_names": self._feature_names,
+            "source_feature_names": self._source_names,
             "n_features_per_view": self._n_features,
         }
 
@@ -162,3 +167,6 @@ class SuperFELTROmicsFeaturizer(SampleFeaturizer):
         names = state.get("feature_names")
         if isinstance(names, dict):
             self._feature_names = {str(key): tuple(value) for key, value in names.items()}
+        source_names = state.get("source_feature_names")
+        if isinstance(source_names, dict):
+            self._source_names = {str(key): _name_tuple(value) for key, value in source_names.items()}
