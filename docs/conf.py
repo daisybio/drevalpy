@@ -124,7 +124,7 @@ todo_include_todos = False
 html_context = {
     "github_user": "daisybio",
     "github_repo": "drevalpy",
-    "github_version": "development",
+    "github_version": "main",
     "doc_path": "docs",
 }
 
