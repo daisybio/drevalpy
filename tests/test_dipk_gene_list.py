@@ -47,9 +47,7 @@ def gene_list_data_dir(tmp_path) -> str:
     (gene_lists / "gene_expression_intersection.csv").write_text(
         "Symbol\n" + "\n".join(_INTERSECTION_GENES) + "\n", encoding="utf-8"
     )
-    (gene_lists / "landmark_genes_reduced.csv").write_text(
-        "Symbol\n" + "\n".join(_LANDMARK_GENES) + "\n", encoding="utf-8"
-    )
+    (gene_lists / "landmark_genes.csv").write_text("Symbol\n" + "\n".join(_LANDMARK_GENES) + "\n", encoding="utf-8")
     return str(tmp_path)
 
 
@@ -101,10 +99,10 @@ def test_dipk_gene_list_hyperparameter(gene_list_data_dir) -> None:
 
     :param gene_list_data_dir: path to the temporary data directory
     """
-    model = _build({"gene_list": "landmark_genes_reduced"})
-    assert model.gene_list == "landmark_genes_reduced"
+    model = _build({"gene_list": "landmark_genes"})
+    assert model.gene_list == "landmark_genes"
     # It stays in the hyperparameters, so save()/load() carry it over to predict().
-    assert model.hyperparameters["gene_list"] == "landmark_genes_reduced"
+    assert model.hyperparameters["gene_list"] == "landmark_genes"
 
     features = model.load_cell_line_features(data_path=gene_list_data_dir, dataset_name="GDSC1_small")
     assert sorted(_gene_names(features)) == sorted(_LANDMARK_GENES)
@@ -130,7 +128,7 @@ def test_dipk_gene_list_does_not_leak_between_instances(gene_list_data_dir) -> N
 
     :param gene_list_data_dir: path to the temporary data directory
     """
-    configured = _build({"gene_list": "landmark_genes_reduced"})
+    configured = _build({"gene_list": "landmark_genes"})
     assert sorted(_gene_names(configured.load_cell_line_features(gene_list_data_dir, "GDSC1_small"))) == sorted(
         _LANDMARK_GENES
     )
@@ -147,12 +145,12 @@ def test_dipk_gene_list_survives_the_save_load_round_trip(gene_list_data_dir) ->
 
     :param gene_list_data_dir: path to the temporary data directory
     """
-    trained = _build({"gene_list": "landmark_genes_reduced"})
+    trained = _build({"gene_list": "landmark_genes"})
     # This is what save() writes and load() reads back before calling build_model().
     restored = DIPKModel()
     restored.build_model(json.loads(json.dumps(trained.hyperparameters)))
 
-    assert restored.gene_list == "landmark_genes_reduced"
+    assert restored.gene_list == "landmark_genes"
     assert sorted(_gene_names(restored.load_cell_line_features(gene_list_data_dir, "GDSC1_small"))) == sorted(
         _LANDMARK_GENES
     )

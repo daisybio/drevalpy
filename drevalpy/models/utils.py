@@ -216,7 +216,7 @@ def get_multiomics_feature_dataset(
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
     :param gene_lists: dictionary of names of lists of genes to include, for each omics type,
-                e.g., {"gene_expression": "landmark_genes_reduced"}, if None, all features are not reduced
+                e.g., {"gene_expression": "landmark_genes"}, if None, all features are not reduced
     :param omics: list of omics to include, e.g., ["gene_expression", "methylation"]
     :returns: FeatureDataset with the multiomics features
     :raises ValueError: if no omics features are found
@@ -543,7 +543,7 @@ def load_single_cell_line_view(
     data_path: str,
     dataset_name: str,
     model_name: str,
-    gene_list: str | None = "landmark_genes_reduced",
+    gene_list: str | None = "landmark_genes",
 ) -> FeatureDataset:
     """
     Load cell line features for a single-view model.

@@ -29,7 +29,7 @@ class SimpleNeuralNetwork(DRPModel):
     drug_views = []
     early_stopping = True
     #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
-    gene_list: str | None = "landmark_genes_reduced"
+    gene_list: str | None = "landmark_genes"
 
     def __init__(self):
         """Initializes the SimpleNeuralNetwork.
@@ -55,7 +55,7 @@ class SimpleNeuralNetwork(DRPModel):
         Builds the model from hyperparameters.
 
         :param hyperparameters: includes units_per_layer and dropout_prob. "gene_list" (str | None) is the gene
-            list used to subset gene_expression; None loads all genes. Optional, defaults to landmark_genes_reduced.
+            list used to subset gene_expression; None loads all genes. Optional, defaults to landmark_genes.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
