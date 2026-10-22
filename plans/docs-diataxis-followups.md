@@ -47,9 +47,11 @@ Things the docs restructure (`plans/docs-diataxis.md`) found or deliberately lef
   PR. Update both when the branch switches.
 - **`drevalpy report --dataset`** is accepted and ignored (code). It exists only for pipeline
   compatibility. Remove it when nf-core/drugresponseeval stops passing it.
-- **`drevalpy curate` writes `.h5ad`, but `load` takes only `.h5mu`** (code). If the how-to for
-  bringing your own data does not describe a supported path from curated output to a loadable
-  dataset, add one, for example an `.h5mu` output of `curate` or a converter command.
+- **Bare pEC50 matrices** (code). `.h5mu` is the only dataset format, and `curate` deliberately
+  writes only the response AnnData (`.h5ad`): users combine it with their omics views into a
+  `MuData` (user decision; `docs/how-to/bring_your_own_data.rst`). A response matrix that did not
+  come from `curate` has no `relevance_score` and `fold_change` layers, and splitting it raises
+  `KeyError`. Decide whether the splitters should accept a dataset without quality layers.
 - **`docs/readme.rst`** still describes DrEvalPy as a "cancer cell line" suite. The plan
   deletes the page in Wave 3.
 - **Datasets on `gen3/`** may still be the pre-rename files (plan, wave R4). I could not read the
