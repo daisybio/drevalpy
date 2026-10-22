@@ -1,7 +1,10 @@
-"""``drevalpy list`` commands over the five component registries.
+"""``drevalpy list`` commands over the registries and the zoo.
 
-All five registries expose the same surface (``list``, ``get``, ``metadata``,
-``table``), so every command here is a two-line wrapper around :func:`_show`.
+The five component registries expose the same surface (``list``, ``get``,
+``metadata``, ``table``), so each command over them is a two-line wrapper around
+:func:`_show`. Zoo presets and datasets are not component registries; their
+commands build rows from :mod:`drevalpy.models.zoo` and the dataset registry and
+render them through the same helpers.
 """
 
 from __future__ import annotations
@@ -78,3 +81,82 @@ def list_splitters(name: EntryName = None) -> None:
 def list_visualizations(name: EntryName = None) -> None:
     """List registered visualizations."""
     _show("visualization", "Visualizations", name)
+
+
+def _unknown_entry(kind: str, name: str, valid: list[str]) -> typer.Exit:
+    """Report an unregistered name on stderr, mirroring the registries' own message.
+
+    Args:
+        kind: Singular noun for the entry, e.g. ``"zoo preset"``.
+        name: The name the user asked for.
+        valid: Every name that is registered.
+
+    Returns:
+        The exception for the caller to raise.
+    """
+    typer.echo(f"Unknown {kind} {name!r}. Available: {', '.join(valid)}", err=True)
+    return typer.Exit(1)
+
+
+def list_zoo_presets(name: EntryName = None) -> None:
+    """List zoo presets, the named model configurations accepted by ``run``."""
+    from drevalpy.models.zoo import get_zoo_config, list_zoo_names
+
+    from ._render import format_value, render_mapping, render_rows
+
+    names = list_zoo_names()
+    if name is None:
+        builtin = set(list_zoo_names(include_external=False))
+        rows = []
+        for preset in names:
+            config = get_zoo_config(preset)
+            rows.append(
+                [
+                    preset,
+                    format_value(config.model_id),
+                    config.scope.value,
+                    config.prediction_mode.value,
+                    "built-in" if preset in builtin else "external",
+                ]
+            )
+        render_rows(
+            rows,
+            columns=["Name", "Recipe", "Scope", "Prediction mode", "Origin"],
+            title="Zoo presets",
+            empty_hint="No zoo presets are registered.",
+        )
+        return
+    if name not in names:
+        raise _unknown_entry("zoo preset", name, names)
+    config = get_zoo_config(name)
+    render_mapping(
+        {
+            "Recipe": config.model_id,
+            "Scope": config.scope.value,
+            "Prediction mode": config.prediction_mode.value,
+            "Sample featurizer": config.sample_featurizer.name if config.sample_featurizer else None,
+            "Drug featurizer": config.drug_featurizer.name if config.drug_featurizer else None,
+            "Predictor": config.predictor.name,
+        },
+        title=name,
+    )
+
+
+def list_datasets(name: EntryName = None) -> None:
+    """List registered datasets, built-in and user-registered."""
+    from drevalpy.registry.dataset import dataset_registry
+
+    from ._render import render_frame, render_mapping
+
+    frame = dataset_registry.to_dataframe()
+    if name is None:
+        render_frame(frame, title="Datasets", empty_hint="No datasets are registered.")
+        return
+    rows = frame[frame["Name"] == name]
+    if rows.empty:
+        raise _unknown_entry("dataset", name, [str(value) for value in frame["Name"]])
+    row = rows.iloc[0].to_dict()
+    source = dataset_registry.sources.get(str(row["Source"]))
+    if source is not None:
+        row["URL"] = source.url
+    render_mapping(row, title=name)

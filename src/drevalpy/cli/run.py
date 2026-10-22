@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated
 
 import typer
 from upath import UPath
+
+
+class ResponseTransformation(StrEnum):
+    """Values of ``--response-transformation`` shared by ``run`` and ``single``; ``none`` maps to no transformer."""
+
+    NONE = "none"
+    STANDARD = "standard"
+    MINMAX = "minmax"
+    ROBUST = "robust"
 
 
 def run_cmd(
@@ -36,10 +46,25 @@ def run_cmd(
     robustness_trials: Annotated[
         int, typer.Option("--robustness-trials", help="Number of robustness permutations (0=disabled).")
     ] = 0,
+    response_transformation: Annotated[
+        ResponseTransformation,
+        typer.Option(
+            "--response-transformation",
+            case_sensitive=False,
+            help="Response scaling fitted on the training scope.",
+        ),
+    ] = ResponseTransformation.NONE,
 ) -> None:
     """Run the full evaluation pipeline."""
     from drevalpy._run import run
     from drevalpy.models import ModelSpec
+    from drevalpy.utils import get_response_transformation
+
+    transformer = (
+        None
+        if response_transformation is ResponseTransformation.NONE
+        else get_response_transformation(response_transformation.value)
+    )
 
     model_specs = [ModelSpec.from_name(m) for m in models]
     out = UPath(output_dir)
@@ -58,6 +83,7 @@ def run_cmd(
         hpo_num_trials=hpo_num_trials,
         hpo_random_state=hpo_random_state,
         robustness_trials=robustness_trials,
+        response_transformation=transformer,
     )
 
     result.save(str(out))

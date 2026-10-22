@@ -176,14 +176,14 @@ class TestForwarding:
 class TestResponseTransformation:
     """``--response-transformation`` resolves to the sklearn transformer prototype."""
 
-    def test_the_default_standardizes_the_response(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+    def test_the_default_applies_no_transformation(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         _invoke(split_file, tmp_path)
 
-        assert isinstance(worker.kwargs["response_transformation"], StandardScaler)
+        assert worker.kwargs["response_transformation"] is None
 
     def test_the_prototype_is_handed_over_unfitted(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         """``single`` fits a clone per scope, so the CLI must not fit anything itself."""
-        _invoke(split_file, tmp_path)
+        _invoke(split_file, tmp_path, "--response-transformation", "standard")
 
         assert not hasattr(worker.kwargs["response_transformation"], "mean_")
 
@@ -203,6 +203,11 @@ class TestResponseTransformation:
         assert isinstance(worker.kwargs["response_transformation"], expected)
 
     def test_none_disables_the_transformation(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        _invoke(split_file, tmp_path, "--response-transformation", "none")
+
+        assert worker.kwargs["response_transformation"] is None
+
+    def test_the_option_is_case_insensitive(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         _invoke(split_file, tmp_path, "--response-transformation", "None")
 
         assert worker.kwargs["response_transformation"] is None

@@ -6,16 +6,18 @@ import typer
 
 from .plugins import list_plugins
 from .registries import (
+    list_datasets,
     list_drug_featurizers,
     list_predictors,
     list_sample_featurizers,
     list_splitters,
     list_visualizations,
+    list_zoo_presets,
 )
 
 list_app = typer.Typer(
     name="list",
-    help="List registered components, splitters, visualizations and plugins.",
+    help="List registered components, splitters, visualizations, zoo presets, datasets and plugins.",
     no_args_is_help=True,
 )
 
@@ -24,6 +26,8 @@ list_app.command("sample-featurizers")(list_sample_featurizers)
 list_app.command("drug-featurizers")(list_drug_featurizers)
 list_app.command("splitters")(list_splitters)
 list_app.command("visualizations")(list_visualizations)
+list_app.command("zoo-presets")(list_zoo_presets)
+list_app.command("datasets")(list_datasets)
 list_app.command("plugins")(list_plugins)
 
 __all__ = ["list_app"]

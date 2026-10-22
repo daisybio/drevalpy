@@ -12,13 +12,15 @@ from tests.cli._helpers import HELP_ENV, make_runner, plain
 
 runner = make_runner()
 
-#: The command surface documented in the plan, one per registry plus plugins.
+#: The command surface documented in the plan, one per registry, the zoo, datasets and plugins.
 COMMAND_NAMES = [
     "predictors",
     "sample-featurizers",
     "drug-featurizers",
     "splitters",
     "visualizations",
+    "zoo-presets",
+    "datasets",
     "plugins",
 ]
 
@@ -28,12 +30,14 @@ EXPECTED_CALLBACKS = {
     "drug-featurizers": registries_module.list_drug_featurizers,
     "splitters": registries_module.list_splitters,
     "visualizations": registries_module.list_visualizations,
+    "zoo-presets": registries_module.list_zoo_presets,
+    "datasets": registries_module.list_datasets,
     "plugins": plugins_module.list_plugins,
 }
 
 
 class TestGroup:
-    """The group is help-first and exposes exactly the six commands."""
+    """The group is help-first and exposes exactly the eight commands."""
 
     def test_app_name(self) -> None:
         assert list_app.info.name == "list"

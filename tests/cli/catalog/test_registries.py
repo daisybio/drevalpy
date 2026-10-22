@@ -1,4 +1,4 @@
-"""Tests for :mod:`drevalpy.cli.catalog.registries`, the five per-registry commands.
+"""Tests for :mod:`drevalpy.cli.catalog.registries`, the per-registry, zoo and dataset commands.
 
 The commands run against the real registries: they are populated on
 ``import drevalpy.registry`` and reading them has no side effects, so a stub
@@ -192,3 +192,108 @@ class TestEmptyRegistry:
         result = runner.invoke(app, ["list", "predictors"], env=HELP_ENV)
 
         assert result.exit_code == 0
+
+
+class TestZooPresets:
+    """``list zoo-presets`` shows every preset of :mod:`drevalpy.models.zoo`."""
+
+    def test_exits_cleanly(self) -> None:
+        assert runner.invoke(app, ["list", "zoo-presets"], env=HELP_ENV).exit_code == 0
+
+    def test_shows_every_built_in_yaml_stem(self) -> None:
+        from pathlib import Path
+
+        import drevalpy.models.zoo as zoo
+
+        stems = [path.stem for path in Path(zoo.__file__).parent.glob("*.yaml")]
+        printed = invoke("zoo-presets")
+
+        assert stems
+        assert all(stem in printed for stem in stems)
+
+    def test_prints_column_headers_and_count(self) -> None:
+        from drevalpy.models.zoo import list_zoo_names
+
+        printed = invoke("zoo-presets")
+
+        assert all(header in printed for header in ("Name", "Recipe", "Scope", "Prediction mode", "Origin"))
+        assert f"{len(list_zoo_names())} entries" in printed
+
+    def test_shows_a_recipe_and_scope(self) -> None:
+        row = next(line for line in invoke("zoo-presets").splitlines() if "SingleDrugElasticNet" in line)
+
+        assert "single_drug" in row
+        assert "singleDrugElasticNet" in row
+
+    def test_marks_external_presets(self) -> None:
+        from drevalpy.models.zoo import clear_external_zoo, get_zoo_config, register_external_zoo_entry
+
+        register_external_zoo_entry("MyExternalPreset", get_zoo_config("ElasticNet"))
+        try:
+            row = next(line for line in invoke("zoo-presets").splitlines() if "MyExternalPreset" in line)
+        finally:
+            clear_external_zoo()
+
+        assert "external" in row
+
+    def test_single_entry_prints_its_fields(self) -> None:
+        printed = invoke("zoo-presets", "ElasticNet")
+
+        assert all(field in printed for field in ("Recipe", "Scope", "Sample featurizer", "Predictor"))
+        assert "scaledGeneExpression:fingerprints:elasticNet" in printed
+
+    def test_single_entry_does_not_print_the_whole_table(self) -> None:
+        assert "RandomForest" not in invoke("zoo-presets", "ElasticNet")
+
+    def test_unknown_entry_fails_and_lists_valid_names(self) -> None:
+        result = runner.invoke(app, ["list", "zoo-presets", "definitely-not-registered"], env=HELP_ENV)
+
+        assert result.exit_code == 1
+        assert "definitely-not-registered" in plain(result.output)
+        assert "ElasticNet" in plain(result.output)
+
+
+class TestDatasets:
+    """``list datasets`` renders the dataset registry."""
+
+    def test_exits_cleanly(self) -> None:
+        assert runner.invoke(app, ["list", "datasets"], env=HELP_ENV).exit_code == 0
+
+    def test_lists_the_toy_dataset(self) -> None:
+        assert "TOYv1" in invoke("datasets")
+
+    def test_prints_the_registry_column_headers_and_count(self) -> None:
+        from drevalpy.registry.dataset import dataset_registry
+
+        frame = dataset_registry.to_dataframe()
+        printed = invoke("datasets")
+
+        assert all(str(column) in printed for column in frame.columns)
+        assert f"{len(frame)} entries" in printed
+
+    def test_single_entry_prints_its_fields_and_source_url(self) -> None:
+        from drevalpy.registry.dataset import dataset_registry
+
+        printed = invoke("datasets", "TOYv1")
+
+        assert all(field in printed for field in ("Source", "File", "Origin", "URL"))
+        assert dataset_registry.sources["orakl"].url in printed.replace("\n", "")
+
+    def test_single_entry_does_not_print_the_whole_table(self) -> None:
+        assert "GDSC1" not in invoke("datasets", "TOYv1")
+
+    def test_unknown_entry_fails_and_lists_valid_names(self) -> None:
+        result = runner.invoke(app, ["list", "datasets", "definitely-not-registered"], env=HELP_ENV)
+
+        assert result.exit_code == 1
+        assert "definitely-not-registered" in plain(result.output)
+        assert "TOYv1" in plain(result.output)
+
+    def test_empty_registry_prints_a_hint(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import pandas as pd
+
+        from drevalpy.registry.dataset import dataset_registry
+
+        monkeypatch.setattr(dataset_registry, "to_dataframe", lambda: pd.DataFrame(columns=["Name"]))
+
+        assert "No datasets are registered." in invoke("datasets")

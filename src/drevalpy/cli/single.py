@@ -7,6 +7,8 @@ from typing import Annotated
 import typer
 from upath import UPath
 
+from .run import ResponseTransformation
+
 
 def single_cmd(
     model: Annotated[str, typer.Argument(help="Model name (e.g. ElasticNet, RandomForest).")],
@@ -21,12 +23,13 @@ def single_cmd(
         int | None, typer.Option("--hpo-random-state", help="HPO sampler seed (default: --seed).")
     ] = None,
     response_transformation: Annotated[
-        str,
+        ResponseTransformation,
         typer.Option(
             "--response-transformation",
-            help="Response scaling fitted on the training scope: None, standard, minmax, or robust.",
+            case_sensitive=False,
+            help="Response scaling fitted on the training scope.",
         ),
-    ] = "standard",
+    ] = ResponseTransformation.NONE,
     split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LSO, LDO).")] = "LPO",
 ) -> None:
     """Train a model on one fold, predict on test set, and save results."""
@@ -36,6 +39,12 @@ def single_cmd(
     from drevalpy.types import SplitMasks
     from drevalpy.types.data.dataset import Dataset
     from drevalpy.utils import get_response_transformation
+
+    transformer = (
+        None
+        if response_transformation is ResponseTransformation.NONE
+        else get_response_transformation(response_transformation.value)
+    )
 
     out = UPath(output)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -50,7 +59,7 @@ def single_cmd(
         ds,
         split_masks,
         hyperparameter_tuning=hpo,
-        response_transformation=get_response_transformation(response_transformation),
+        response_transformation=transformer,
         hpo_metric=hpo_metric,
         hpo_num_trials=hpo_num_trials,
         hpo_random_state=hpo_random_state,

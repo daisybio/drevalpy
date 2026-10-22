@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from upath import UPath
 
 from drevalpy.cli.main import app
@@ -97,6 +98,11 @@ class TestDefaults:
         assert worker.kwargs["robustness_trials"] == 0
         assert worker.kwargs["seed"] == 42
 
+    def test_forwards_no_response_transformation(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path)
+
+        assert worker.kwargs["response_transformation"] is None
+
     def test_passes_constructed_classes_not_names(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path)
 
@@ -187,6 +193,42 @@ class TestOptionForwarding:
         result = _invoke(tmp_path, "--hpo-trials", "many")
 
         assert result.exit_code == 2
+
+
+class TestResponseTransformation:
+    """``--response-transformation`` resolves to the sklearn transformer prototype."""
+
+    @pytest.mark.parametrize(
+        ("option", "expected"),
+        [
+            pytest.param("standard", StandardScaler, id="standard"),
+            pytest.param("minmax", MinMaxScaler, id="minmax"),
+            pytest.param("robust", RobustScaler, id="robust"),
+        ],
+    )
+    def test_each_option_selects_its_transformer(
+        self, worker: Recorder, tmp_path: UPath, option: str, expected: type
+    ) -> None:
+        _invoke(tmp_path, "--response-transformation", option)
+
+        assert isinstance(worker.kwargs["response_transformation"], expected)
+
+    def test_the_prototype_is_handed_over_unfitted(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--response-transformation", "standard")
+
+        assert not hasattr(worker.kwargs["response_transformation"], "mean_")
+
+    @pytest.mark.parametrize("option", ["none", "None"])
+    def test_none_disables_the_transformation(self, worker: Recorder, tmp_path: UPath, option: str) -> None:
+        _invoke(tmp_path, "--response-transformation", option)
+
+        assert worker.kwargs["response_transformation"] is None
+
+    def test_an_unknown_option_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--response-transformation", "logarithmic")
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
 
 
 class TestOutput:
