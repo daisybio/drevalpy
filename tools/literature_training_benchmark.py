@@ -346,7 +346,7 @@ def _molir(seed: int, root: UPath) -> dict[str, Any]:
 
     hp = {
         "epochs": 4 if EXTENDED else 1,
-        "mini_batch": 3 if EXTENDED else 2,
+        "mini_batch": 3 if EXTENDED else 6,
         "h_dim1": 4,
         "h_dim2": 4,
         "h_dim3": 4,

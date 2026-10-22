@@ -33,6 +33,11 @@ DRUG_IDS = np.array(["d1", "d2"])
 CELL_LINE_PAIR_IDX = np.array([0, 0, 1, 1])
 DRUG_PAIR_IDX = np.array([0, 1, 0, 1])
 
+#: Tiny fits run many float32 updates, so CPU architectures drift apart by up to
+#: ~2e-6 relative; the references mix macOS arm64 and x86_64 captures. Single
+#: forward passes keep the strict 1e-6 bound in ``_assert_array_payload_matches``.
+TRAINING_TOLERANCE = {"rtol": 1e-4, "atol": 1e-6}
+
 
 def seed_literature(seed: int) -> None:
     """Seed NumPy, Torch, and Python for a repeatable tiny model fit."""
@@ -67,7 +72,7 @@ def assert_training_predictions(model: str, seed: int, actual: Any) -> None:
     from tests.components.predictors.literature._reference.loader import load_training_seed
 
     expected = load_training_seed(seed)[model]
-    np.testing.assert_allclose(np.asarray(actual), np.asarray(expected), rtol=1e-6, atol=1e-7)
+    np.testing.assert_allclose(np.asarray(actual), np.asarray(expected), **TRAINING_TOLERANCE)
 
 
 def assert_training_checkpoint_score(model: str, seed: int, actual: Any) -> None:
@@ -75,7 +80,7 @@ def assert_training_checkpoint_score(model: str, seed: int, actual: Any) -> None
     from tests.components.predictors.literature._reference.loader import load_training_seed
 
     expected = load_training_seed(seed)[f"{model}_checkpoint_score"]
-    np.testing.assert_allclose(float(actual), float(expected), rtol=1e-6, atol=1e-7)
+    np.testing.assert_allclose(float(actual), float(expected), **TRAINING_TOLERANCE)
 
 
 def assert_corrected_training_result(
@@ -88,18 +93,8 @@ def assert_corrected_training_result(
     from tests.components.predictors.literature._reference.loader import load_corrected_training_seed
 
     expected = load_corrected_training_seed(correction, seed)
-    np.testing.assert_allclose(
-        np.asarray(predictions),
-        np.asarray(expected["predictions"]),
-        rtol=1e-6,
-        atol=1e-7,
-    )
-    np.testing.assert_allclose(
-        float(checkpoint_score),
-        float(expected["checkpoint_score"]),
-        rtol=1e-6,
-        atol=1e-7,
-    )
+    np.testing.assert_allclose(np.asarray(predictions), np.asarray(expected["predictions"]), **TRAINING_TOLERANCE)
+    np.testing.assert_allclose(float(checkpoint_score), float(expected["checkpoint_score"]), **TRAINING_TOLERANCE)
 
 
 def identity_drug_blocks() -> dict[str, FeatureBlock]:

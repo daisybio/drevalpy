@@ -242,7 +242,7 @@
   },
   "baseline_fixtures": {
     "tests/components/predictors/literature/_reference/manifest.json": {
-      "sha256": "77d7b1e99da95a9c9fe679ebf0f4875d884df804260d220ca61fef9800ab83b3"
+      "sha256": "73f6d26113121824753a3d3f8ce2aa170a13a92c5bc45bb6564338a0e2add6c9"
     },
     "tests/components/predictors/literature/_reference/seed-0.json": {
       "sha256": "162e136299b61451a247f38671fd1b44be1f63c2ff74d940d22e72a1db291600"
@@ -254,10 +254,10 @@
       "sha256": "fdb0277fb76469b63fc71610d31434b147ef20cf7442568f4a3bb61cc24f68e6"
     },
     "tests/components/predictors/literature/_reference/training-corrections.json": {
-      "sha256": "f49951f37bdb20ce78fe7296575b2a9525d8bed24e9a78f87a7563c328babd86"
+      "sha256": "65c408556b8bd397adbb3a63e194bfe7cfef0d50d6a3a66e5daab7ee85fd8c1f"
     },
     "tests/components/predictors/literature/_reference/training.json": {
-      "sha256": "c5f1ca2aaf7afa427fc1310c3a3a5c2b08dce909df6094dc15371084e97eb9d6"
+      "sha256": "27d02243a0d4fb51ff12ce73fb3a719703977aa5c0f4aa7349f0219b3bd806f5"
     }
   }
 }
