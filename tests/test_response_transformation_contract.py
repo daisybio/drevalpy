@@ -13,16 +13,15 @@ untouched ground truth.
 
 Two properties make that contract falsifiable end to end:
 
-* **Affine equivalence.** Squared-error trees are affine-equivariant - splits are
-  chosen by a gain that scales uniformly with the target and leaves are means -
-  so a symmetric transform/inverse round trip is a provable no-op for
-  ``GradientBoosting``. Any asymmetry breaks the identity: training on raw
+* **Affine equivalence.** A k-nearest-neighbour regressor is affine-equivariant -
+  the neighbours are chosen from the features alone and the prediction is a mean
+  of their targets - so a symmetric transform/inverse round trip is a provable
+  no-op for ``KNNRegressor``. Any asymmetry breaks the identity: training on raw
   targets and inverse-transforming anyway shifts every prediction by the training
   mean, and transforming without inverting shrinks them onto unit variance.
-  ``GradientBoosting`` (``HistGradientBoostingRegressor``) is used rather than
-  ``randomForest`` because its default ``random_state`` is ``None``, so two
-  bootstrap-sampled fits of the forest would disagree for reasons unrelated to
-  the transform.
+  A tree is not used: the synthetic omics views share hidden factors, so many
+  features offer equally good splits and ``HistGradientBoostingRegressor`` breaks
+  such near-ties by float32 rounding, which depends on the target's scale.
 * **HPO round trip.** Nothing in ``hpam_tune`` used to fit the transformer, so a
   non-``None`` value raised ``NotFittedError`` on the first trial - and the
   Optuna objective swallows trial exceptions, so the only visible symptom was an
@@ -107,7 +106,7 @@ def _train_responses(mudataset, scope) -> np.ndarray:
 
 
 class TestAffineEquivalence:
-    """A squared-error tree must be indifferent to a symmetric affine transform."""
+    """A nearest-neighbour mean must be indifferent to a symmetric affine transform."""
 
     @pytest.fixture(scope="class")
     def runs(self, synthetic_dataset, fold: SplitMasks) -> dict[str, RunResult]:
@@ -117,7 +116,7 @@ class TestAffineEquivalence:
         equivalence assertion is indistinguishable from a predictor that simply
         does not reproduce its own predictions.
         """
-        model_class = ModelSpec.from_name("GradientBoosting")
+        model_class = ModelSpec.from_name("KNNRegressor")
         return {
             "raw": single(model_class, synthetic_dataset, fold, hyperparameter_tuning=False),
             "raw_again": single(model_class, synthetic_dataset, fold, hyperparameter_tuning=False),

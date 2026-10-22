@@ -215,6 +215,233 @@ class TestOmics:
         assert with_cnv.get_sample_features("copy_number_variation_gistic", np.asarray([])).size == 0
 
 
+ALL_OMICS = ("gene_expression", "proteomics", "mutations", "methylation", "copy_number_variation_gistic")
+
+
+class TestOmicsViews:
+    """The five views the zoo reads, each with realistic names and a plausible value range."""
+
+    pytestmark = pytest.mark.slow
+
+    @pytest.fixture(scope="class")
+    def every_view(self) -> Dataset:
+        return synthetic(omics=ALL_OMICS, n_samples=40, n_features=12)
+
+    def _matrix(self, dataset: Dataset, view: str) -> np.ndarray:
+        return dataset.get_sample_features(view, np.asarray(dataset.sample_ids))
+
+    def test_every_view_is_stored_under_its_accessor(self, every_view):
+        assert set(every_view.mdata.mod) == {
+            "response",
+            "gene_expression",
+            "proteomics",
+            "mutations",
+            "methylation",
+            "copy_number_variation",
+        }
+
+    def test_gene_views_are_named_by_landmark_symbols(self, every_view):
+        from drevalpy.components.featurizers.sample.gene_lists import (
+            gene_names_from_list_csv,
+            resolve_gene_list_path,
+        )
+
+        symbols = gene_names_from_list_csv(resolve_gene_list_path("landmark_genes"))
+
+        for view in ("gene_expression", "proteomics", "mutations", "copy_number_variation_gistic"):
+            assert every_view.get_sample_feature_names(view) == tuple(symbols[:12])
+
+    def test_methylation_is_named_by_genomic_sites(self, every_view):
+        names = every_view.get_sample_feature_names("methylation")
+
+        assert len(set(names)) == 12
+        assert all(name.startswith("chr") for name in names)
+
+    def test_mutations_are_binary_calls(self, every_view):
+        matrix = self._matrix(every_view, "mutations")
+
+        assert set(np.unique(matrix)) == {0.0, 1.0}
+        assert 0.1 < matrix.mean() < 0.4
+
+    def test_methylation_is_a_beta_value(self, every_view):
+        matrix = self._matrix(every_view, "methylation")
+
+        assert matrix.min() > 0.0
+        assert matrix.max() < 1.0
+
+    def test_copy_number_is_a_gistic_integer(self, every_view):
+        matrix = self._matrix(every_view, "copy_number_variation_gistic")
+
+        assert set(np.unique(matrix)) <= {-2.0, -1.0, 0.0, 1.0, 2.0}
+
+    def test_proteomics_intensities_stay_positive(self, every_view):
+        assert self._matrix(every_view, "proteomics").min() > 0.0
+
+    def test_a_mapping_of_feature_names_applies_per_view(self):
+        dataset = synthetic(omics=["gene_expression", "methylation"], feature_names={"methylation": ["s1", "s2", "s3"]})
+
+        assert dataset.get_sample_feature_names("methylation") == ("s1", "s2", "s3")
+        assert len(dataset.get_sample_feature_names("gene_expression")) == N_FEATURES
+
+    def test_the_landmark_featurizer_selects_every_default_gene(self):
+        from drevalpy.components.featurizers.sample.landmark import LandmarkGenesFeaturizer
+        from drevalpy.types.data.feature_source import SampleFeatureSource
+
+        dataset = synthetic()
+        ids = np.asarray(dataset.sample_ids)
+        featurizer = LandmarkGenesFeaturizer()
+
+        featurizer.fit(SampleFeatureSource(dataset, ids), entity_ids=ids)
+
+        assert featurizer.output_dim == N_FEATURES
+
+    def test_more_features_than_symbols_asks_for_feature_names(self):
+        with pytest.raises(ValueError, match="feature_names"):
+            synthetic(n_features=100_000)
+
+
+class TestExtras:
+    """Opt-in drug views, payloads, layers and sample views."""
+
+    pytestmark = pytest.mark.slow
+
+    @pytest.fixture(scope="class")
+    def full(self) -> Dataset:
+        return synthetic(
+            n_samples=24,
+            n_drugs=8,
+            sample_views=["pathway_features"],
+            drug_views=["morgan_fingerprint", "chemberta", "bpe_smiles", "smilesvec"],
+            uns_payloads=["drug_graphs", "pathways_gmt", "sparsego", "bpe_codes"],
+            extra_layers=["AUC", "IC50"],
+        )
+
+    def test_nothing_extra_is_added_by_default(self, dataset):
+        response = dataset.mdata.mod["response"]
+
+        assert not response.varm
+        assert not response.obsm
+        assert not {"drug_graphs", "pathways_gmt", "sparsego", "bpe_codes"} & set(dataset.mdata.uns)
+        assert "AUC" not in response.layers
+
+    @pytest.mark.parametrize(
+        ("view", "width"), [("morgan_fingerprint", 128), ("chemberta", 768), ("bpe_smiles", 128), ("smilesvec", 100)]
+    )
+    def test_drug_views_have_the_production_width(self, full, view, width):
+        features = full.get_drug_features(view, full.drug_ids)
+
+        assert features.shape == (8, width)
+        assert features.dtype == np.float32
+
+    def test_the_fingerprint_is_the_real_featurizers_output(self, full):
+        from rdkit import Chem
+        from rdkit.Chem import rdFingerprintGenerator
+
+        smiles = full.response.var["canonical_smiles"].iloc[0]
+        generator = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=128)
+        expected = generator.GetFingerprintAsNumPy(Chem.MolFromSmiles(smiles))
+
+        np.testing.assert_array_equal(full.get_drug_features("morgan_fingerprint", full.drug_ids)[0], expected)
+
+    def test_noise_views_are_seeded(self):
+        first = synthetic(drug_views=["chemberta"]).get_drug_features("chemberta", np.asarray(["100000"]))
+        second = synthetic(drug_views=["chemberta"]).get_drug_features("chemberta", np.asarray(["100000"]))
+
+        np.testing.assert_array_equal(first, second)
+
+    def test_every_drug_gets_a_graph(self, full):
+        graphs = full.get_uns("drug_graphs")
+
+        assert set(graphs) == set(full.drug_ids)
+        assert {"x", "edge_index", "edge_attr"} <= set(next(iter(graphs.values())))
+
+    def test_the_pathway_sets_are_large_enough_for_gsva(self, full):
+        rows = [line.split("\t") for line in full.get_uns("pathways_gmt").splitlines()]
+
+        assert len(rows) == 2
+        assert all(len(row) - 2 >= 5 for row in rows)
+
+    def test_the_ontology_covers_every_gene(self, full):
+        genes = set(full.get_sample_feature_names("gene_expression"))
+        ontology = full.get_uns("sparsego")
+
+        assert {line.split("\t")[1] for line in ontology["gene2ind"].splitlines()} == genes
+        assert "default" in ontology["ontology"]
+
+    def test_learned_bpe_codes_are_stored(self, full):
+        assert len(full.get_uns("bpe_codes").splitlines()) > 1
+
+    def test_the_pathway_view_has_one_row_per_sample(self, full):
+        assert full.get_sample_features("pathway_features", np.asarray(full.sample_ids)).shape == (24, 2)
+
+    @pytest.mark.parametrize("layer", ["AUC", "IC50"])
+    def test_extra_layers_keep_the_unmeasured_pairs(self, full, layer):
+        values = full.get_response_layer(layer)
+
+        np.testing.assert_array_equal(np.isnan(values), np.isnan(full.response_matrix))
+
+    def test_the_auc_falls_as_potency_rises(self, full):
+        measured = ~np.isnan(full.response_matrix)
+
+        correlation = np.corrcoef(full.response_matrix[measured], full.get_response_layer("AUC")[measured])[0, 1]
+
+        assert correlation < -0.9
+
+    def test_the_ic50_is_in_micromolar_units(self, full):
+        measured = ~np.isnan(full.response_matrix)
+
+        np.testing.assert_allclose(
+            full.get_response_layer("IC50")[measured], 10.0 ** (6.0 - full.response_matrix[measured]), rtol=1e-4
+        )
+
+    def test_extras_do_not_change_the_response(self, full):
+        plain = synthetic(n_samples=24, n_drugs=8)
+
+        np.testing.assert_array_equal(plain.response_matrix, full.response_matrix)
+
+    @pytest.mark.parametrize("keyword", ["sample_views", "drug_views", "uns_payloads", "extra_layers"])
+    def test_an_unknown_name_is_rejected_with_the_valid_ones(self, keyword):
+        with pytest.raises(ValueError, match=keyword):
+            synthetic(**{keyword: ["nonsense"]})
+
+
+class TestSuiteBuilder:
+    """``tests.synthetic.build_synthetic_dataset`` is one call into ``synthetic``."""
+
+    pytestmark = pytest.mark.slow
+
+    @pytest.fixture(scope="class")
+    def built(self) -> Dataset:
+        from tests.synthetic import build_synthetic_dataset as suite_builder
+
+        return suite_builder()
+
+    def test_it_keeps_the_shape_seed_and_name_the_suite_relies_on(self, built):
+        assert built.name == "SYNTH"
+        assert built.response_matrix.shape == (24, 8)
+        assert len(set(built.response.obs[TISSUE_IDENTIFIER])) == 6
+        assert int(np.isnan(built.response_matrix).sum()) == 6
+
+    def test_it_carries_all_five_views_and_the_extras(self, built):
+        assert set(built.mdata.mod) == {
+            "response",
+            "gene_expression",
+            "proteomics",
+            "mutations",
+            "methylation",
+            "copy_number_variation",
+        }
+        assert set(built.mdata.mod["response"].varm) == {"morgan_fingerprint", "chemberta", "bpe_smiles", "smilesvec"}
+        assert set(built.mdata.uns) >= {"drug_graphs", "pathways_gmt", "sparsego", "bpe_codes"}
+        assert {"AUC", "IC50", "LN_IC50"} <= set(built.mdata.mod["response"].layers)
+
+    def test_it_keeps_the_feature_widths(self, built):
+        ids = np.asarray(built.sample_ids)
+
+        assert built.get_sample_features("gene_expression", ids).shape == (24, 16)
+        assert built.get_sample_features("methylation", ids).shape == (24, 20)
+
+
 class TestDeterminism:
     def test_the_same_seed_gives_the_same_matrix(self):
         first = build_synthetic_dataset()

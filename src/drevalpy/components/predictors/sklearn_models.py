@@ -15,6 +15,10 @@ from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearn
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.registry.predictor import register
 
+#: At the old default of 1.0 the penalty shrinks every coefficient to zero on
+#: standardized features, so the untuned model predicted the training mean.
+DEFAULT_ELASTICNET_ALPHA = 0.1
+
 
 @register(
     "elasticNet",
@@ -47,7 +51,7 @@ class ElasticNetPredictor(SklearnTabularPredictor):
         from sklearn.linear_model import ElasticNet, Lasso, Ridge
 
         l1_ratio = float(self._h.get("l1_ratio", 0.5))
-        alpha = float(self._h.get("alpha", 1.0))
+        alpha = float(self._h.get("alpha", DEFAULT_ELASTICNET_ALPHA))
         max_iter = int(self._h.get("max_iter", 2000))
         tol = float(self._h.get("tol", 1e-2))
         random_state = self._h.get("random_state")
@@ -79,7 +83,7 @@ class ElasticNetPredictor(SklearnTabularPredictor):
         :returns: Result.
         """
         return {
-            "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
+            "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": DEFAULT_ELASTICNET_ALPHA},
             "l1_ratio": {"type": "float", "low": 0.0, "high": 1.0, "default": 0.5},
         }
 

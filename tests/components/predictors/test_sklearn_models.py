@@ -13,6 +13,7 @@ from drevalpy.components.predictors.sklearn_models import (
     SingleDrugElasticNetPredictor,
     SingleDrugRandomForestPredictor,
 )
+from drevalpy.models import ModelSpec
 from drevalpy.models.config import ModelConfig, from_spec
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.types.enums.model_scope import ModelScope
@@ -54,3 +55,35 @@ def test_adaboost_default_depth_matches_space() -> None:
     predictor = AdaBoostPredictor()
     estimator = predictor._make_estimator()
     assert estimator.estimator.max_depth == 4
+
+
+def test_elasticnet_default_alpha_is_a_tenth_with_an_unchanged_search_range() -> None:
+    space = ElasticNetPredictor.get_hyperparameter_space()
+
+    assert ElasticNetPredictor.get_default_hyperparameters() == {"alpha": 0.1, "l1_ratio": 0.5}
+    assert (space["alpha"]["low"], space["alpha"]["high"], space["alpha"]["log"]) == (1e-4, 10.0, True)
+    assert ElasticNetPredictor()._make_estimator().alpha == 0.1
+
+
+@pytest.mark.parametrize("zoo_name", ["ElasticNet", "SingleDrugElasticNet"])
+def test_elasticnet_zoo_presets_do_not_override_alpha(zoo_name: str) -> None:
+    resolved = ModelSpec.from_name(zoo_name).resolve()
+
+    assert resolved.predictor_values()["alpha"] == 0.1
+
+
+@pytest.mark.slow
+def test_untuned_zoo_elasticnet_does_not_predict_a_constant_on_the_synthetic_dataset() -> None:
+    import numpy as np
+
+    import drevalpy
+    from drevalpy.models import DRPModel
+
+    dataset = drevalpy.synthetic()
+    fold = drevalpy.data.split(dataset, "LPO", n_splits=2)[0]
+    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+
+    model.train(dataset, fold.train)
+    predictions = model.predict(dataset, fold.test)
+
+    assert np.nanstd(predictions) > 0.05

@@ -7,7 +7,10 @@ with the same structural slots a published ``.h5mu`` has, entirely in memory.
 
 The default output carries the ``response`` modality and one
 ``gene_expression`` view, so the zoo's expression-based models run on it. Pass
-*omics* to choose other sample views, or ``()`` for responses only.
+*omics* to choose other sample views, or ``()`` for responses only. The opt-in
+*sample_views*, *drug_views*, *uns_payloads* and *extra_layers* add what the
+rest of the zoo reads; they live in :mod:`drevalpy.data._synthetic_omics` and
+:mod:`drevalpy.data._synthetic_drugs`.
 
 Response model
 --------------
@@ -30,7 +33,10 @@ handful of drugs random draws made the pooled score swing between seeds. The
 effect sizes are fixed module constants, not parameters. Every omics view mixes
 the same ``z``, so features carry signal and permuting a view visibly hurts.
 
-``response.X`` is in pEC50 units and the ``LN_IC50`` layer is derived from it.
+``response.X`` is in pEC50 units and the ``LN_IC50`` layer is derived from it, as
+are the optional ``AUC`` and ``IC50`` layers. Views other than expression and
+proteomics reshape the same signal into their own value range (0/1 mutation calls,
+beta values, GISTIC integers).
 
 ``mudata``, ``anndata`` and ``pandas`` are imported inside the functions that
 need them: this module is re-exported by :mod:`drevalpy.data`, which sits on the
@@ -45,6 +51,20 @@ from typing import TYPE_CHECKING, Final
 
 import numpy as np
 
+from drevalpy.data._synthetic_drugs import (
+    MAX_SYNTHETIC_DRUGS,
+    SMILES,
+    add_drug_views,
+    add_uns_payloads,
+)
+from drevalpy.data._synthetic_omics import (
+    add_sample_views,
+    check_choices,
+    omics_anndata,
+    omics_coverage,
+    payload_genes,
+    view_feature_names,
+)
 from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.modalities import resolve_omics_accessor
@@ -72,45 +92,6 @@ SEED: Final = 3
 
 _TISSUES: Final = ("Lung", "Blood", "Skin", "Colon", "Brain", "Breast")
 
-#: Real, rdkit-parseable SMILES, so the ``fingerprints`` featurizer works. The
-#: simulated responses do not depend on them.
-_SMILES: Final = (
-    "COCCOC1=C(C=C2C(=C1)C(=NC=N2)NC3=CC=CC(=C3)C#C)OCCOC",
-    "COC1=C(C=C2C(=C1)N=CN=C2NC3=CC(=C(C=C3)F)Cl)OCCCN4CCOCC4",
-    "CS(=O)(=O)CCNCC1=CC2=C(C=C1)N=CN=C2NC3=CC(=C(C=C3)OCC4=CC(=CC=C4)F)Cl",
-    "CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5",
-    "CNC(=O)C1=NC=CC(=C1)OC2=CC=C(C=C2)NC(=O)NC3=CC(=C(C=C3)Cl)C(F)(F)F",
-    "CCN(CC)CCNC(=O)C1=C(NC(=C1C)C=C2C3=C(C=CC(=C3)F)NC2=O)C",
-    "CC1=NC(=CC(=N1)N2CCN(CC2)CCO)NC3=NC=C(S3)C(=O)NC4=C(C=CC=C4Cl)C",
-    "CNC(=O)C1=CC=CC=C1SC2=CC3=C(C=C2)C(=NN3)C=CC4=CC=CC=N4",
-    "CN(CC1=CN=C2C(=N1)C(=NC(=N2)N)N)C3=CC=C(C=C3)C(=O)NC(CCC(=O)O)C(=O)O",
-    "C1=CN(C(=O)N=C1N)C2C(C(C(O2)CO)O)(F)F",
-    "C1=C(C(=O)NC(=O)N1)F",
-    "CCC(=C(C1=CC=CC=C1)C2=CC=C(C=C2)OCCN(C)C)C3=CC=CC=C3",
-    "C1CC1N2C=C(C(=O)C3=CC(=C(C=C32)N4CCNCC4)F)C(=O)O",
-    "CCC1(C2=C(COC1=O)C(=O)N3CC4=CC5=CC=CC=C5N=C4C3=C2)O",
-    "C1=CC=C(C=C1)NC(=O)CCCCCCC(=O)NO",
-    "C1=CN(C(=O)N=C1N)C2C(C(C(O2)CO)O)O",
-    "C1=NC2=C(N1)C(=S)N=CN2",
-    "NC(=O)NO",
-    "CC1=CC=C(C=C1)C2=CC(=NN2C3=CC=C(C=C3)S(=O)(=O)N)C(F)(F)F",
-    "CCCC1=NN(C2=C1NC(=NC2=O)C3=C(C=CC(=C3)S(=O)(=O)N4CCN(CC4)C)OCC)C",
-    "CNCCC(C1=CC=CC=C1)OC2=CC=C(C=C2)C(F)(F)F",
-    "CN1C(=O)CN=C(C2=C1C=CC(=C2)Cl)C3=CC=CC=C3",
-    "CC(C)NCC(COC1=CC=CC2=CC=CC=C21)O",
-    "CC(C)NCC(COC1=CC=C(C=C1)CC(=O)N)O",
-    "CC(=O)CC(C1=CC=CC=C1)C2=C(C3=CC=CC=C3OC2=O)O",
-    "CC(=O)OC1=CC=CC=C1C(=O)O",
-    "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
-    "CC(=O)NC1=CC=C(C=C1)O",
-    "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
-    "CN(C)C(=N)N=C(N)N",
-    "CN1CCCC1C2=CN=CC=C2",
-)
-
-#: Most drugs :func:`synthetic` can build; one SMILES per drug.
-MAX_SYNTHETIC_DRUGS: Final = len(_SMILES)
-
 #: Hidden sample factors shared by the response and every omics view.
 _N_FACTORS: Final = 3
 _DRUG_MEAN_SD: Final = 1.5
@@ -119,8 +100,6 @@ _SAMPLE_EFFECT_SD: Final = 0.4
 _INTERACTION_SD: Final = 0.6
 _NOISE_SD: Final = 0.5
 _BASE_PEC50: Final = 2.0
-_OMICS_BASE: Final = 6.0
-_OMICS_NOISE_SD: Final = 0.5
 
 
 def _punch_holes(matrix: np.ndarray, rng: np.random.Generator, fraction: float) -> None:
@@ -192,6 +171,7 @@ def _response_anndata(
     n_tissues: int,
     missing_fraction: float,
     low_quality_fraction: float,
+    extra_layers: Sequence[str],
 ) -> tuple[ad.AnnData, np.ndarray]:
     """Build the ``response`` modality: the pair matrix plus entity metadata.
 
@@ -218,12 +198,14 @@ def _response_anndata(
         var=pd.DataFrame(
             {
                 "drug_name": [f"synthdrug{index}" for index in range(n_drugs)],
-                "canonical_smiles": list(_SMILES[:n_drugs]),
+                "canonical_smiles": list(SMILES[:n_drugs]),
             },
             index=pd.Index(drug_ids, name="pubchem_id"),
         ),
     )
     response.layers[MEASURE] = _ln_ic50_from_pec50(matrix)
+    for layer_name in extra_layers:
+        response.layers[layer_name] = _EXTRA_LAYERS[layer_name](matrix)
     for name, layer in _quality_layers(rng, matrix, low_quality_fraction=low_quality_fraction).items():
         response.layers[name] = layer
     return response, factors
@@ -244,13 +226,18 @@ def _ln_ic50_from_pec50(pec50: np.ndarray) -> np.ndarray:
     return ((6.0 - pec50) * np.log(10.0)).astype(np.float32)
 
 
-def _omics_coverage(omics: Sequence[str] | Mapping[str, int] | None, n_samples: int) -> dict[str, int]:
-    """Normalize the *omics* argument into a public-name to coverage map."""
-    if omics is None:
-        return {}
-    if isinstance(omics, Mapping):
-        return {name: int(count) for name, count in omics.items()}
-    return dict.fromkeys(omics, n_samples)
+def _auc_from_pec50(pec50: np.ndarray) -> np.ndarray:
+    """Derive an ``AUC`` layer in ``(0, 1)``: a more potent pair has a lower area."""
+    return (1.0 / (1.0 + np.exp(pec50 - _BASE_PEC50))).astype(np.float32)
+
+
+def _ic50_from_pec50(pec50: np.ndarray) -> np.ndarray:
+    """Derive an ``IC50`` layer in uM from a pEC50 matrix, on the ideal-curve identity."""
+    return np.power(10.0, 6.0 - pec50).astype(np.float32)
+
+
+#: Layers ``extra_layers`` may name, each derived from the pEC50 matrix.
+_EXTRA_LAYERS: Final = {"AUC": _auc_from_pec50, "IC50": _ic50_from_pec50}
 
 
 def _quality_layers(
@@ -313,33 +300,6 @@ def _quality_layers(
     }
 
 
-def _omics_anndata(
-    rng: np.random.Generator,
-    sample_ids: Sequence[str],
-    factors: np.ndarray,
-    *,
-    n_covered: int,
-    feature_names: Sequence[str],
-) -> ad.AnnData:
-    """Build one omics modality covering the first *n_covered* samples.
-
-    Every feature is the shared hidden factors mixed through a random loading
-    matrix, plus noise, so the view carries the sample effect in the response.
-    """
-    import anndata as ad
-    import pandas as pd
-
-    covered = list(sample_ids[:n_covered])
-    loadings = rng.normal(size=(factors.shape[1], len(feature_names)))
-    mixed = _OMICS_BASE + factors[:n_covered] @ loadings
-    noise = rng.normal(0.0, _OMICS_NOISE_SD, size=mixed.shape)
-    return ad.AnnData(
-        X=(mixed + noise).astype(np.float32),
-        obs=pd.DataFrame(index=pd.Index(covered)),
-        var=pd.DataFrame(index=pd.Index(list(feature_names), name="feature")),
-    )
-
-
 def synthetic(
     *,
     name: str = DATASET_NAME,
@@ -347,7 +307,11 @@ def synthetic(
     n_drugs: int = N_DRUGS,
     n_tissues: int = N_TISSUES,
     omics: Sequence[str] | Mapping[str, int] | None = ("gene_expression",),
-    feature_names: Sequence[str] | None = None,
+    sample_views: Sequence[str] = (),
+    drug_views: Sequence[str] = (),
+    uns_payloads: Sequence[str] = (),
+    extra_layers: Sequence[str] = (),
+    feature_names: Sequence[str] | Mapping[str, Sequence[str]] | None = None,
     n_features: int = N_FEATURES,
     missing_fraction: float = 0.05,
     low_quality_fraction: float = 0.0,
@@ -360,6 +324,10 @@ def synthetic(
     than chance within a drug. Hidden sample factors drive both the response and
     every omics view, so a model reading the features can beat that baseline.
 
+    Everything beyond the response and the default ``gene_expression`` view is
+    opt-in, so the default dataset stays small and cheap. The extras are what the
+    zoo's other models read: fingerprints, graphs, pathway sets and ontologies.
+
     Args:
         name: Dataset name recorded on the returned object.
         n_samples: Number of samples on the ``obs`` axis.
@@ -368,14 +336,27 @@ def synthetic(
         n_tissues: Number of distinct tissue labels to cycle through, at most
             six.
         omics: Public omics names to add as sample modalities; ``None`` or
-            ``()`` adds none. A mapping
-            additionally sets each modality's sample coverage, so a value
-            below *n_samples* leaves trailing samples unmeasured and
+            ``()`` adds none. Any of ``gene_expression``, ``proteomics``,
+            ``mutations``, ``methylation`` and ``copy_number_variation_gistic``.
+            A mapping additionally sets each modality's sample coverage, so a
+            value below *n_samples* leaves trailing samples unmeasured and
             exercises a component's NaN handling.
-        feature_names: Column names for every omics modality. Defaults to
-            generated ``FEATURE0000`` style names.
-        n_features: Number of generated column names when *feature_names* is
-            ``None``.
+        sample_views: Extra sample views stored in ``response.obsm``:
+            ``pathway_features`` (seeded noise).
+        drug_views: Drug views stored in ``response.varm``: ``morgan_fingerprint``
+            (computed by the real featurizer, so it needs ``rdkit``) and the
+            seeded-noise views ``chemberta``, ``bpe_smiles`` and ``smilesvec``.
+        uns_payloads: Auxiliary payloads stored in ``mdata.uns``:
+            ``drug_graphs`` (computed, needs ``rdkit``), ``pathways_gmt``,
+            ``sparsego`` and ``bpe_codes`` (learned, needs ``subword-nmt``).
+        extra_layers: Response layers derived from the pEC50 matrix, beyond
+            ``LN_IC50``: any of ``AUC`` and ``IC50``.
+        feature_names: Column names for every omics modality, or a mapping from
+            public omics name to its column names. Defaults to the first
+            *n_features* landmark gene symbols, or methylation site ids for
+            ``methylation``.
+        n_features: Number of generated column names when *feature_names* does
+            not name a view.
         missing_fraction: Share of response pairs left unmeasured. Every sample
             and drug keeps at least one measurement regardless.
         low_quality_fraction: Share of response pairs whose curve-quality
@@ -388,16 +369,19 @@ def synthetic(
     Returns:
         A dataset carrying a ``response`` modality with sample metadata,
         tissue labels, drug identifiers, drug ``canonical_smiles`` and the
-        CurveCurator quality layers, plus any requested omics modality.
+        CurveCurator quality layers, plus any requested omics modality and extra.
 
     Raises:
-        ValueError: If *n_drugs* exceeds :data:`MAX_SYNTHETIC_DRUGS`.
+        ValueError: If *n_drugs* exceeds :data:`MAX_SYNTHETIC_DRUGS`, if a name in
+            *sample_views*, *drug_views*, *uns_payloads* or *extra_layers* is
+            unknown, or if the packaged gene list is shorter than *n_features*.
     """
     import mudata as md
 
     if n_drugs > MAX_SYNTHETIC_DRUGS:
         msg = f"n_drugs={n_drugs} is above the limit of {MAX_SYNTHETIC_DRUGS} synthetic drugs"
         raise ValueError(msg)
+    check_choices("extra_layers", extra_layers, _EXTRA_LAYERS)
 
     rng = np.random.default_rng(seed)
     response, factors = _response_anndata(
@@ -407,20 +391,28 @@ def synthetic(
         n_tissues=n_tissues,
         missing_fraction=missing_fraction,
         low_quality_fraction=low_quality_fraction,
+        extra_layers=extra_layers,
     )
-    columns = feature_names if feature_names is not None else [f"FEATURE{index:04d}" for index in range(n_features)]
 
-    modalities: dict[str, ad.AnnData] = {"response": response}
-    for public_name, n_covered in _omics_coverage(omics, n_samples).items():
-        modalities[resolve_omics_accessor(public_name)] = _omics_anndata(
+    built: dict[str, ad.AnnData] = {}
+    for public_name, n_covered in omics_coverage(omics, n_samples).items():
+        built[public_name] = omics_anndata(
             rng,
+            public_name,
             list(response.obs_names),
             factors,
             n_covered=n_covered,
-            feature_names=columns,
+            feature_names=view_feature_names(public_name, feature_names, n_features),
         )
+
+    modalities: dict[str, ad.AnnData] = {"response": response}
+    modalities.update({resolve_omics_accessor(public_name): modality for public_name, modality in built.items()})
 
     md.set_options(pull_on_update=False)
     mdata = md.MuData(modalities)
     mdata.obs = response.obs.copy()
-    return Dataset(mdata, name=name)
+    dataset = Dataset(mdata, name=name)
+    add_uns_payloads(dataset, uns_payloads, payload_genes(built, n_features) if uns_payloads else [])
+    add_drug_views(dataset, drug_views, rng)
+    add_sample_views(dataset, sample_views, rng)
+    return dataset
