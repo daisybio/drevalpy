@@ -210,8 +210,8 @@ What it does
 ^^^^^^^^^^^^
 
 1. **Cell lines.** Gene expression is restricted to ``gene_list`` (default
-   ``gene_expression_intersection``, 2,270 genes, the same as DIPK) and transformed to
-   ``log2(x + 1)``. In every
+   ``tcga_autoencoder_genes_available``, see below) and transformed to
+   ``log2(x + 1)`` for the TPM datasets (CCLE, CTRPv1, CTRPv2; the others are already log scaled). In every
    fold a ``GeneExpressionEncoder`` -- the same autoencoder class DIPK uses -- is trained from
    scratch on the training cell lines and then encodes all cell lines into 512 latent features.
 2. **Drugs.** The node-level MolGNet embeddings shipped with each dataset under
@@ -246,21 +246,14 @@ both models:
 - ``epochs_autoencoder`` (default 2000), ``lr_autoencoder`` (1e-4), ``patience_autoencoder`` (50),
   ``batch_size_autoencoder`` (1024).
 
-The parameters that only exist here are prefixed ``autoencoder_``:
+The cell lines of the early stopping split validate the autoencoder. The one parameter that only exists
+here is ``autoencoder_cache_dir`` (unset): see below.
 
-- ``autoencoder_log2_transform`` (default ``true``): set to ``false`` for data already on a log
-  scale.
-- ``autoencoder_validation_fraction`` (0.1): share of training cell lines held out for validation
-  when the framework provides no early stopping split. Otherwise the cell lines of that split
-  validate the autoencoder.
-- ``autoencoder_seed`` (42): makes the held-out split deterministic.
-- ``autoencoder_cache_dir`` (unset): see below.
+Gene list
+^^^^^^^^^
 
-Gene list of the 11,883-gene run
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-**Motivation.** The default list (``gene_expression_intersection``, 2,270 genes) is small. The 11,883-gene space was
-chosen for four reasons:
+**Motivation.** The default list ``tcga_autoencoder_genes_available`` is much larger than the 2,270 genes of
+``gene_expression_intersection``. It was chosen for four reasons:
 
 * The TCGA-pretrained encoder and the encoder trained from scratch on the cell lines must see the *same* feature
   space. With different gene sets, the effect of pretraining and the effect of the gene set would be confounded.
@@ -269,19 +262,25 @@ chosen for four reasons:
 * Noise genes (not expressed or constant in the cell lines) are removed, but there is deliberately **no
   top-variance selection**: it would discard driver genes with a low variance. The reduction is left to the
   autoencoder bottleneck. Known landmark and clinical driver genes are protected from the noise filter.
-* Every gene must exist in the expression data of both CTRPv2 and GDSC1, so that all datasets share one space.
+* Every gene must exist in the expression data of all datasets (CTRPv2, GDSC1, PDX_Bruna, BeatAML2), so that all datasets share one space.
 
-**Construction.** The list is a chain of set operations; each step writes its own list to
-``<data_path>/meta/gene_lists/``. Nothing in the chain uses the pretrained autoencoder or response data:
+**Construction.** The list is a chain of set operations. Nothing in the chain uses the pretrained autoencoder or
+response data, and only the last list is written, to ``<data_path>/meta/gene_lists/tcga_autoencoder_genes_available.csv``:
 
-1. ``ctrpv2_gdsc1_intersection`` (16,159 genes): genes in the expression data of CTRPv2 and GDSC1.
-2. ``ctrpv2_gdsc1_iontorrent_intersection`` (15,701): intersected with the genes of the Ion Torrent panel.
-3. ``autoencoder_expressed_genes`` (11,884): noise filter on the CTRPv2 expression
-   (``log2(x + 1)``): a gene is dropped if its mean is below 0.5 or its variance below 1e-3, unless it is in the
-   protect list (the 867 landmark genes of ``meta/gene_lists/landmark_genes.csv`` plus 26 clinical driver genes, 893 genes;
-   override with ``--protect <csv with column Symbol>``).
-4. ``tcga_autoencoder_genes_available`` (11,883): minus the genes without a locus in the TCGA gene annotation
-   (``gencode.v23.probemap.tsv``), which cannot be mapped to TCGA expression. Only SCAND3 is dropped.
+1. ``expression_intersection``: genes in the expression data of all datasets.
+2. ``panel_intersection``: intersected with the genes of the Ion Torrent panel.
+3. ``expressed_genes``: noise filter on the linear TPM expression of a TPM dataset (default CTRPv2),
+   applied as ``log2(x + 1)``: a gene is dropped if its mean is below 0.5 or its variance below 1e-3, unless it is in
+   the protect list (the 867 landmark genes of ``meta/gene_lists/landmark_genes.csv`` plus 26 clinical driver genes,
+   893 genes; override with ``--protect <csv with column Symbol>``). The thresholds only make sense for linear TPM;
+   the script raises an error if the noise dataset looks log scaled already.
+4. ``tcga_autoencoder_genes_available``: minus the genes without a locus in the TCGA gene annotation
+   (``gencode.v23.probemap.tsv``), which cannot be mapped to TCGA expression.
+
+If the file is not in the metadata, the model creates it when it loads a dataset: from the expression of that dataset
+alone, saved as ``tcga_autoencoder_genes_available_<dataset>.csv``. The noise filter then uses the dataset itself if it
+is a TPM dataset, otherwise CTRPv2 if present, otherwise it is skipped. The lists of different datasets differ, so
+models trained on one dataset and applied to another need the shared file.
 
 **Inputs.** By default the script downloads the gene content of the panel: the public *AmpliSeq for Illumina
 Transcriptome RNA Manifest* (dated 2019-03-13, anonymous, 20,802 genes; the ``[Targets]`` section, column ``Gene``)
@@ -301,8 +300,6 @@ column, adjustable with ``--panel_symbol_column``). The TCGA probemap (GENCODE v
 .. code-block:: bash
 
     python -m drevalpy.datasets.featurizer.create_autoencoder_gene_list --data_path data
-
-With the original inputs the four lists are reproduced byte-identically.
 
 Reusing an encoder across models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

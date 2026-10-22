@@ -4,11 +4,10 @@
 and replaces the neural network with a ``RandomForestRegressor``. It serves as an ablation of DIPK:
 the predictor is the same as in the ``RandomForest`` baseline, only the features differ.
 
-* Cell lines: gene expression is restricted to ``gene_list``, transformed to ``log2(x + 1)`` and
-  encoded by DIPK's ``GeneExpressionEncoder``. The autoencoder is trained from scratch in every
-  fold on the unique training cell lines. The cell lines of the early stopping split
-  (``output_earlystopping``) validate it; without such a split, a fraction of the training cell
-  lines is held out instead.
+* Cell lines: gene expression is restricted to ``gene_list``, transformed to ``log2(x + 1)`` for the
+  TPM datasets (CCLE, CTRPv1, CTRPv2) and encoded by DIPK's ``GeneExpressionEncoder``. The
+  autoencoder is trained from scratch in every fold on the unique training cell lines. The cell
+  lines of the early stopping split (``output_earlystopping``) validate it.
 * Drugs: the node-level MolGNet embeddings (``n_atoms x 768``) are pooled to a fixed-length vector,
   by default the concatenation of the per-dimension mean and maximum (``molgnet_pooling``:
   ``mean_max``, ``mean`` or ``max``).
@@ -18,13 +17,13 @@ the predictor is the same as in the ``RandomForest`` baseline, only the features
 
 The autoencoder hyperparameters that DIPK also has keep its names (``epochs_autoencoder``,
 ``lr_autoencoder``, ``patience_autoencoder``, ``batch_size_autoencoder``); the others are prefixed
-``autoencoder_`` (``autoencoder_log2_transform``, ``autoencoder_validation_fraction``,
-``autoencoder_seed``, ``autoencoder_cache_dir``).
+``autoencoder_`` (``autoencoder_cache_dir``).
 """
 
 import hashlib
 import json
 import os
+from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -32,7 +31,9 @@ import pandas as pd
 import torch
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.featurizer.create_autoencoder_gene_list import GENE_LIST_NAME, create_gene_list
 
+from ..DIPK.dipk import TPM_DATASETS
 from ..DIPK.gene_expression_encoder import (
     GeneExpressionEncoder,
     encode_gene_expression,
@@ -142,34 +143,40 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         Recognised autoencoder hyperparameters, all optional:
         ``epochs_autoencoder`` (2000), ``batch_size_autoencoder`` (1024),
         ``patience_autoencoder`` (50), ``lr_autoencoder`` (1e-4),
-        ``autoencoder_log2_transform`` (true), ``autoencoder_validation_fraction`` (0.1, only used
-        when no early stopping data is given),
-        ``autoencoder_seed`` (42), ``autoencoder_cache_dir`` (unset).
+        ``autoencoder_cache_dir`` (unset).
 
         :param hyperparameters: hyperparameters of the model
         """
         super().build_model(hyperparameters)
         hpams = self.hyperparameters
-        self._ae_log2 = bool(hpams.get("autoencoder_log2_transform", True))
         self._ae_epochs = int(hpams.get("epochs_autoencoder", 2000))
         self._ae_batch_size = int(hpams.get("batch_size_autoencoder", 1024))
         self._ae_patience = int(hpams.get("patience_autoencoder", 50))
         self._ae_lr = float(hpams.get("lr_autoencoder", 1e-4))
-        self._ae_val_fraction = float(hpams.get("autoencoder_validation_fraction", 0.1))
-        self._ae_seed = int(hpams.get("autoencoder_seed", 42))
         self._ae_cache_dir = hpams.get("autoencoder_cache_dir") or os.environ.get("DREVAL_AE_CACHE") or None
         self._encoder: GeneExpressionEncoder | None = None
         self._ae_input_dim: int | None = hpams.get("gene_encoder_input_dim")
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """Load gene expression and, unless switched off, transform it to ``log2(x + 1)``.
+        """Load gene expression and transform it to ``log2(x + 1)`` if the dataset is linear TPM.
+
+        If the default gene list ``tcga_autoencoder_genes_available`` is not in the metadata, it is created for this
+        dataset (see :func:`create_gene_list`) and saved as ``tcga_autoencoder_genes_available_<dataset_name>``.
 
         :param data_path: path to the data directory
         :param dataset_name: name of the dataset
-        :returns: FeatureDataset with the (optionally log2-transformed) gene expression
+        :returns: FeatureDataset with the gene expression, log2-transformed for TPM datasets
         """
+        if self.gene_list == GENE_LIST_NAME:
+            lists = os.path.join(data_path, "meta", "gene_lists")
+            if not os.path.exists(os.path.join(lists, f"{GENE_LIST_NAME}.csv")):
+                name = f"{GENE_LIST_NAME}_{dataset_name}"
+                if not os.path.exists(os.path.join(lists, f"{name}.csv")):
+                    print(f"[AE] {GENE_LIST_NAME}.csv not found, creating the gene list for {dataset_name}")
+                    create_gene_list(Path(data_path), [dataset_name], name=name)
+                self.gene_list = name
         cell_line_input = super().load_cell_line_features(data_path, dataset_name)
-        if self._ae_log2:
+        if dataset_name in TPM_DATASETS:
             cell_line_input.apply(lambda x: np.log2(np.clip(x, 0.0, None) + 1.0), view="gene_expression")
         return cell_line_input
 
@@ -180,18 +187,13 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         """
         return {
             "gene_list": self.gene_list,
-            "log2": self._ae_log2,
             "epochs": self._ae_epochs,
             "batch_size": self._ae_batch_size,
             "patience": self._ae_patience,
             "lr": self._ae_lr,
-            "val_fraction": self._ae_val_fraction,
-            "seed": self._ae_seed,
         }
 
-    def _cache_path(
-        self, train_ids: np.ndarray, input_dim: int, genes: list[str], val_ids: np.ndarray | None = None
-    ) -> str | None:
+    def _cache_path(self, train_ids: np.ndarray, input_dim: int, genes: list[str], val_ids: np.ndarray) -> str | None:
         """Build the cache file path for these training cell lines, config and gene *order*.
 
         The gene order is part of the key on purpose. Two gene lists with the same members but a
@@ -201,7 +203,7 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         :param train_ids: training cell line identifiers of this fold
         :param input_dim: number of genes going into the encoder
         :param genes: gene symbols in exactly the order they are passed to the encoder
-        :param val_ids: early stopping cell lines, or ``None`` if a fraction of the training lines is held out
+        :param val_ids: early stopping cell lines
         :returns: path of the cache file, or ``None`` if caching is not configured
         """
         if not self._ae_cache_dir:
@@ -211,7 +213,7 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
                 "config": self._autoencoder_config(),
                 "input_dim": int(input_dim),
                 "cell_lines": sorted(map(str, train_ids)),
-                "val_cell_lines": None if val_ids is None else sorted(map(str, val_ids)),
+                "val_cell_lines": sorted(map(str, val_ids)),
                 "gene_order": hashlib.sha256("\n".join(map(str, genes)).encode()).hexdigest(),
             },
             sort_keys=True,
@@ -220,13 +222,13 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         return os.path.join(self._ae_cache_dir, f"gene_ae_{digest}.pt")
 
     def _fit_or_load_encoder(
-        self, train_ids: np.ndarray, cell_line_input: FeatureDataset, val_ids: np.ndarray | None = None
+        self, train_ids: np.ndarray, cell_line_input: FeatureDataset, val_ids: np.ndarray
     ) -> GeneExpressionEncoder:
         """Get the encoder for this fold, from the cache if possible, otherwise by training it.
 
         :param train_ids: unique training cell lines of this fold
         :param cell_line_input: cell line features, still unencoded
-        :param val_ids: unique early stopping cell lines; if ``None``, a fraction of the training lines is held out
+        :param val_ids: unique early stopping cell lines
         :returns: trained encoder
         """
         matrix = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=train_ids)
@@ -239,14 +241,8 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
             print(f"[AE] encoder taken from cache: {path} ({len(train_ids)} cell lines, {self._ae_input_dim} genes)")
             return encoder
 
-        if val_ids is not None:
-            val_matrix = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=val_ids)
-            train_matrix = matrix
-        else:
-            rng = np.random.default_rng(self._ae_seed)
-            order = rng.permutation(len(matrix))
-            n_val = max(1, int(round(self._ae_val_fraction * len(matrix))))
-            val_matrix, train_matrix = matrix[order[:n_val]], matrix[order[n_val:]]
+        val_matrix = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=val_ids)
+        train_matrix = matrix
         # The encoder uses BatchNorm1d, which cannot normalise a batch of one sample while
         # training. A trailing mini batch of exactly one row would therefore abort the fold, so
         # one row moves to the validation set instead. Training on unique cell lines makes this
@@ -344,9 +340,7 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         """
         if len(output) > 0:
             train_ids = np.unique(np.asarray(output.cell_line_ids).astype(str))
-            val_ids = None
-            if output_earlystopping is not None and len(output_earlystopping) > 0:
-                val_ids = np.unique(np.asarray(output_earlystopping.cell_line_ids).astype(str))
+            val_ids = np.unique(np.asarray(cast(DrugResponseDataset, output_earlystopping).cell_line_ids).astype(str))
             self._encoder = self._fit_or_load_encoder(train_ids, cell_line_input, val_ids)
             self.hyperparameters["gene_encoder_input_dim"] = self._ae_input_dim
             cell_line_input = self._encode(cell_line_input)
@@ -414,9 +408,9 @@ class RandomForestAEMolGNet(AutoencodedGeneExpressionMixin, MolGNetPooledMixin, 
     network. See the module docstring for the full comparison with :class:`DIPK`.
     """
 
-    #: Gene list the autoencoder input is restricted to. Same default as ``DIPK`` so that both
-    #: models encode the same gene space. Overridable via the ``gene_list`` hyperparameter.
-    gene_list: str | None = "gene_expression_intersection"
+    #: Gene list the autoencoder input is restricted to; created on the fly if it is missing.
+    #: Overridable via the ``gene_list`` hyperparameter.
+    gene_list: str | None = GENE_LIST_NAME
 
     @classmethod
     def get_model_name(cls) -> str:

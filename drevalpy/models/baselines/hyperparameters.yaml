@@ -86,11 +86,9 @@ RandomForestAEMolGNet:
     - gene_expression
   drug_views:
     - molgnet_pooled
-  # DIPK's own default. The measured comparison in the module docstring used a locally built
-  # list of 11,883 genes that is not part of the downloadable metadata bundle, so it cannot be
-  # the default here.
+  # Created for the dataset on the fly if it is not in the metadata (create_autoencoder_gene_list.py).
   gene_list:
-    - gene_expression_intersection
+    - tcga_autoencoder_genes_available
   molgnet_pooling:
     - mean_max
   # Autoencoder. The four keys DIPK also has carry DIPK's names. The values are the ones the
@@ -103,12 +101,6 @@ RandomForestAEMolGNet:
     - 50
   batch_size_autoencoder:
     - 1024
-  autoencoder_log2_transform:
-    - true
-  autoencoder_validation_fraction:
-    - 0.1
-  autoencoder_seed:
-    - 42
   n_estimators:
     - 100
   max_depth:
