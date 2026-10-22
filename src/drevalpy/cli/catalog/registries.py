@@ -60,9 +60,9 @@ def list_predictors(name: EntryName = None) -> None:
     _show("predictor", "Predictors", name)
 
 
-def list_cell_line_featurizers(name: EntryName = None) -> None:
-    """List registered cell-line featurizers."""
-    _show("cell_line_featurizer", "Cell-line featurizers", name)
+def list_sample_featurizers(name: EntryName = None) -> None:
+    """List registered sample featurizers."""
+    _show("sample_featurizer", "Sample featurizers", name)
 
 
 def list_drug_featurizers(name: EntryName = None) -> None:

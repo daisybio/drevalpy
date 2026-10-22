@@ -15,10 +15,10 @@ def _make_metrics_df() -> pd.DataFrame:
     Columns are checked against :data:`_LAYER_METRICS` so a metric added there
     without a value here fails loudly rather than silently skipping its layer.
 
-    :returns: A 2 cell lines x 2 drugs metrics frame.
+    :returns: A 2 samples x 2 drugs metrics frame.
     """
     values: dict[str, list] = {
-        "cell_line": ["CL_A", "CL_A", "CL_B", "CL_B"],
+        "sample": ["CL_A", "CL_A", "CL_B", "CL_B"],
         "drug": ["DrugX", "DrugY", "DrugX", "DrugY"],
         X_MEASURE: [6.0, 4.0, 5.5, 3.5],
         "EC50": [1.0, 100.0, 3.16, 316.0],
@@ -61,7 +61,7 @@ def adata(metrics_df: pd.DataFrame):
 
 
 class TestShapeAndAxes:
-    """Long-form rows become a (cell_lines x drugs) matrix."""
+    """Long-form rows become a (samples x drugs) matrix."""
 
     def test_shape(self, adata) -> None:
         assert adata.shape == (2, 2)
@@ -80,7 +80,7 @@ class TestXMatrix:
     """``X`` holds pEC50; nothing else does."""
 
     def test_x_is_the_pec50_column(self, metrics_df: pd.DataFrame, adata) -> None:
-        expected = metrics_df.pivot(index="cell_line", columns="drug", values=X_MEASURE).to_numpy()
+        expected = metrics_df.pivot(index="sample", columns="drug", values=X_MEASURE).to_numpy()
 
         np.testing.assert_allclose(adata.X, expected.astype(np.float32))
 
@@ -118,7 +118,7 @@ class TestPerCurveErrorLayers:
 
     @pytest.mark.parametrize("metric", ["pec50_error", "slope_error", "front_error", "back_error"])
     def test_values_round_trip_through_the_pivot(self, metrics_df: pd.DataFrame, adata, metric: str) -> None:
-        expected = metrics_df.pivot(index="cell_line", columns="drug", values=metric).to_numpy()
+        expected = metrics_df.pivot(index="sample", columns="drug", values=metric).to_numpy()
 
         np.testing.assert_allclose(adata.layers[metric], expected.astype(np.float32))
 

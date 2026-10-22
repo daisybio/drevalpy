@@ -106,7 +106,7 @@ class TestLoadModelPayload:
         assert config.predictor_values()["alpha"] == 0.1
         assert set(state) == {
             "predictor",
-            "cell_line_featurizer",
+            "sample_featurizer",
             "drug_featurizer",
             "response_prototype",
             "response_transform",

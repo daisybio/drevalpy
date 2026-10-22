@@ -9,7 +9,7 @@ import drevalpy.models.config as model_config
 def test_public_exports_are_importable() -> None:
     expected = {
         "register_builtin_components",
-        "register_cell_line_featurizer",
+        "register_sample_featurizer",
         "register_drug_featurizer",
         "register_predictor",
         "load_extensions",
@@ -23,7 +23,7 @@ def test_model_config_lives_under_models() -> None:
     expected = {
         "ModelConfig",
         "FeaturizerConfig",
-        "CellLineFeaturizerConfig",
+        "SampleFeaturizerConfig",
         "DrugFeaturizerConfig",
         "PredictorConfig",
         "PredictionMode",

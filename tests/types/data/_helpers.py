@@ -13,10 +13,10 @@ from typing import Any
 
 import numpy as np
 
-#: Defaults describing an eligible cell-line featurizer with no hyperparameters.
+#: Defaults describing an eligible sample featurizer with no hyperparameters.
 _DEFAULT_ATTRS: dict[str, Any] = {
     "storage_key": "stub",
-    "side": "cell_line",
+    "side": "sample",
     "precompute": True,
     "entity_id_only": False,
     "requires_view": False,

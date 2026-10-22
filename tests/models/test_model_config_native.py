@@ -51,7 +51,7 @@ def test_multiview_baselines_have_model_specs() -> None:
         assert model.name == name
         config = from_spec(name)
         assert isinstance(config, ModelConfig)
-        assert config.cell_line_featurizer is not None
+        assert config.sample_featurizer is not None
 
 
 @pytest.mark.parametrize("name", ["ElasticNet", "NaiveDrugMeanPredictor"])

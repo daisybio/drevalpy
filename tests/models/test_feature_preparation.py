@@ -27,11 +27,11 @@ def test_configured_featurizer_requires_a_feature_source() -> None:
 def test_usable_responses_removes_missing_targets() -> None:
     response = ResponseBatch(
         response=np.array([1.0, np.nan, 3.0]),
-        cell_line_ids=np.array(["a", "a", "b"]),
+        sample_ids=np.array(["a", "a", "b"]),
         drug_ids=np.array(["x", "y", "x"]),
     )
 
     usable = usable_responses(response, None, None, None, None)
 
     np.testing.assert_array_equal(usable.response, [1.0, 3.0])
-    np.testing.assert_array_equal(usable.cell_line_ids, ["a", "b"])
+    np.testing.assert_array_equal(usable.sample_ids, ["a", "b"])

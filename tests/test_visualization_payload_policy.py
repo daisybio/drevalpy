@@ -36,7 +36,7 @@ from tests.synthetic import DEFAULT_DATASET_NAME, make_run_result
 #: Held fixed across the two sizes so only the prediction count varies.
 N_MODELS = 4
 N_DRUGS = 5
-N_CELL_LINES = 4
+N_SAMPLES = 4
 
 #: An 8x growth in predictions. Anything retaining per-pair state grows with
 #: this; the plots under test must not.
@@ -58,7 +58,7 @@ def _experiment(n_rows: int) -> ExperimentResult:
                 model_name=name,
                 fold_index=fold,
                 n_pairs=n_rows,
-                n_cell_lines=N_CELL_LINES,
+                n_samples=N_SAMPLES,
                 n_drugs=N_DRUGS,
                 seed=index * 100 + fold,
             )
@@ -77,7 +77,7 @@ def _model_result(n_rows: int) -> ModelResult:
                 model_name="Model_0",
                 fold_index=fold,
                 n_pairs=n_rows,
-                n_cell_lines=N_CELL_LINES,
+                n_samples=N_SAMPLES,
                 n_drugs=N_DRUGS,
             )
             for fold in range(2)
@@ -176,7 +176,7 @@ class TestComparisonScatter:
         plot.compute(_experiment(SMALL_ROWS))
 
         assert plot._matrices["drug"].values.shape == (N_MODELS, N_DRUGS)
-        assert plot._matrices["cell_line"].values.shape == (N_MODELS, N_CELL_LINES)
+        assert plot._matrices["sample"].values.shape == (N_MODELS, N_SAMPLES)
 
     def test_nothing_is_retained_per_model_pair(self):
         """The original bug stored ``C(n_models, 2)`` point clouds."""

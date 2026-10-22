@@ -52,7 +52,7 @@ _set_xgboost_thread_defaults()
 @register(
     "xgboost",
     description="XGBoost regressor on concatenated dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class XGBoostPredictor(BoostedTreesPredictor):

@@ -22,9 +22,9 @@ from typing import Any
 from _generated_io import write_text_if_changed
 
 from drevalpy.registry import (
-    cell_line_featurizer,
     drug_featurizer,
     predictor,
+    sample_featurizer,
     splitter,
     visualization,
 )
@@ -40,7 +40,7 @@ EXAMPLE_PACKAGE = "docs.examples"
 
 #: Every example module, in the order the extensions page presents them.
 EXAMPLE_MODULES: tuple[str, ...] = (
-    "toy_cell_line_featurizer",
+    "toy_sample_featurizer",
     "toy_drug_featurizer",
     "toy_mean_predictor",
     "toy_ridge_predictor",
@@ -53,7 +53,7 @@ EXAMPLE_MODULES: tuple[str, ...] = (
 #: What importing the examples must add to each registry. Pinned rather than
 #: derived so a decorator that silently stops running is a build failure.
 EXPECTED_REGISTRATIONS: dict[str, tuple[str, ...]] = {
-    "cell_line_featurizer": ("toyCellLine",),
+    "sample_featurizer": ("toySample",),
     "drug_featurizer": ("toyDrugHash",),
     "predictor": ("toyBlockRidge", "toyMean", "toyRidge"),
     "splitter": ("TOY_LCO",),
@@ -61,7 +61,7 @@ EXPECTED_REGISTRATIONS: dict[str, tuple[str, ...]] = {
 }
 
 _REGISTRIES = {
-    "cell_line_featurizer": cell_line_featurizer,
+    "sample_featurizer": sample_featurizer,
     "drug_featurizer": drug_featurizer,
     "predictor": predictor,
     "splitter": splitter,
@@ -69,7 +69,7 @@ _REGISTRIES = {
 }
 
 _SINGLETONS = {
-    "cell_line_featurizer": cell_line_featurizer.cell_line_featurizer_registry,
+    "sample_featurizer": sample_featurizer.sample_featurizer_registry,
     "drug_featurizer": drug_featurizer.drug_featurizer_registry,
     "predictor": predictor.predictor_registry,
     "splitter": splitter.splitter_registry,
@@ -77,7 +77,7 @@ _SINGLETONS = {
 }
 
 _LABELS = {
-    "cell_line_featurizer": "Cell-line featurizer",
+    "sample_featurizer": "Sample featurizer",
     "drug_featurizer": "Drug featurizer",
     "predictor": "Predictor",
     "splitter": "Splitter mode",

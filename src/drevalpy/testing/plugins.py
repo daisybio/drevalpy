@@ -15,10 +15,10 @@ from dataclasses import dataclass
 from types import ModuleType
 
 from drevalpy.registry import (
-    cell_line_featurizer,
     drug_featurizer,
     get_failed_plugins,
     predictor,
+    sample_featurizer,
     splitter,
     visualization,
 )
@@ -28,7 +28,7 @@ ENTRY_POINT_GROUP = "drevalpy.plugins"
 
 #: The registries a plugin can contribute to, keyed by the name used in reports.
 _REGISTRIES: Mapping[str, ModuleType] = {
-    "cell_line_featurizer": cell_line_featurizer,
+    "sample_featurizer": sample_featurizer,
     "drug_featurizer": drug_featurizer,
     "predictor": predictor,
     "splitter": splitter,

@@ -19,7 +19,7 @@ from drevalpy.registry.splitter import (
     splitter_registry,
 )
 
-from .lco import leave_cell_line_out as leave_cell_line_out
+from .lco import leave_sample_out as leave_sample_out
 from .ldo import leave_drug_out as leave_drug_out
 from .lpo import leave_pair_out as leave_pair_out
 from .lto import leave_tissue_out as leave_tissue_out
@@ -32,7 +32,7 @@ __all__ = [
     "SplitterRegistry",
     "Validation",
     "get_splitter",
-    "leave_cell_line_out",
+    "leave_sample_out",
     "leave_drug_out",
     "leave_pair_out",
     "leave_tissue_out",

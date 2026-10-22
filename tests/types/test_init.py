@@ -20,7 +20,7 @@ from tests._barrel_surface import DeclaredSurface
 #: ``exported name -> module that defines it``.
 EXPECTED_ORIGINS: dict[str, str] = {
     "BlockSpec": "drevalpy.types.data.batch.feature_block",
-    "CellLineFeatureSource": "drevalpy.types.data.feature_source",
+    "SampleFeatureSource": "drevalpy.types.data.feature_source",
     "Dataset": "drevalpy.types.data.dataset",
     "DrugFeatureSource": "drevalpy.types.data.feature_source",
     "ExperimentResult": "drevalpy.types.results.experiment",
@@ -42,7 +42,7 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "merge_feature_blocks": "drevalpy.types.data.batch.feature_block",
     "metadata_feature_block": "drevalpy.types.data.batch.feature_block",
     "numeric_feature_block": "drevalpy.types.data.batch.feature_block",
-    "pair_cell_line_indices": "drevalpy.types.data.batch.model_input_batch",
+    "pair_sample_indices": "drevalpy.types.data.batch.model_input_batch",
     "pair_drug_indices": "drevalpy.types.data.batch.model_input_batch",
     "ragged_feature_block": "drevalpy.types.data.batch.feature_block",
 }

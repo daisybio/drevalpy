@@ -1,7 +1,7 @@
 """Tests for the ``FeatureSource`` ABC and its two Dataset-backed adapters.
 
 The special cases each adapter's ``get_entity_view`` carries are the point of
-this module: ``"tissue"`` is metadata rather than a matrix on the cell-line side,
+this module: ``"tissue"`` is metadata rather than a matrix on the sample side,
 and ``"drug_graph"`` is a ``uns`` dict rather than a ``varm`` row on the drug side.
 """
 
@@ -12,17 +12,17 @@ import pytest
 
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import (
-    CellLineFeatureSource,
     DrugFeatureSource,
     FeatureSource,
+    SampleFeatureSource,
 )
 from tests.synthetic import CHEMBERTA_DIM, N_GENES
 
 
 @pytest.fixture()
-def cell_line_source(synthetic_dataset: Dataset) -> CellLineFeatureSource:
-    """Cell-line adapter over the first five cell lines."""
-    return CellLineFeatureSource(synthetic_dataset, synthetic_dataset.cell_line_ids[:5])
+def sample_source(synthetic_dataset: Dataset) -> SampleFeatureSource:
+    """Sample adapter over the first five samples."""
+    return SampleFeatureSource(synthetic_dataset, synthetic_dataset.sample_ids[:5])
 
 
 @pytest.fixture()
@@ -37,71 +37,69 @@ class TestSharedBase:
             FeatureSource(synthetic_dataset, np.array(["x"]))  # type: ignore[abstract]
 
     def test_identifiers_are_coerced_to_strings(self, synthetic_dataset: Dataset):
-        source = CellLineFeatureSource(synthetic_dataset, np.array([1, 2]))
+        source = SampleFeatureSource(synthetic_dataset, np.array([1, 2]))
 
         assert source.identifiers.dtype.kind == "U"
         assert source.identifiers.tolist() == ["1", "2"]
 
     def test_identifiers_preserve_the_requested_order(self, synthetic_dataset: Dataset):
-        ids = synthetic_dataset.cell_line_ids[[3, 0, 1]]
+        ids = synthetic_dataset.sample_ids[[3, 0, 1]]
 
-        source = CellLineFeatureSource(synthetic_dataset, ids)
+        source = SampleFeatureSource(synthetic_dataset, ids)
 
         assert source.identifiers.tolist() == list(ids)
 
     def test_mdata_exposes_the_dataset_backing_object(
-        self, synthetic_dataset: Dataset, cell_line_source: CellLineFeatureSource
+        self, synthetic_dataset: Dataset, sample_source: SampleFeatureSource
     ):
-        assert cell_line_source.mdata is synthetic_dataset.mdata
+        assert sample_source.mdata is synthetic_dataset.mdata
 
-    def test_get_metadata_reads_dataset_uns(self, cell_line_source: CellLineFeatureSource):
-        assert set(cell_line_source.get_metadata("sparsego")) == {"gene2ind", "ontology"}
+    def test_get_metadata_reads_dataset_uns(self, sample_source: SampleFeatureSource):
+        assert set(sample_source.get_metadata("sparsego")) == {"gene2ind", "ontology"}
 
-    def test_get_metadata_propagates_missing_keys(self, cell_line_source: CellLineFeatureSource):
+    def test_get_metadata_propagates_missing_keys(self, sample_source: SampleFeatureSource):
         with pytest.raises(KeyError, match="nonexistent"):
-            cell_line_source.get_metadata("nonexistent")
+            sample_source.get_metadata("nonexistent")
 
 
-class TestCellLineFeatureSource:
-    def test_get_view_matrix_returns_one_row_per_requested_id(self, cell_line_source: CellLineFeatureSource):
-        matrix = cell_line_source.get_view_matrix("gene_expression", cell_line_source.identifiers)
+class TestSampleFeatureSource:
+    def test_get_view_matrix_returns_one_row_per_requested_id(self, sample_source: SampleFeatureSource):
+        matrix = sample_source.get_view_matrix("gene_expression", sample_source.identifiers)
 
         assert matrix.shape == (5, N_GENES)
 
-    def test_get_feature_names_returns_gene_symbols(self, cell_line_source: CellLineFeatureSource):
-        names = cell_line_source.get_feature_names("gene_expression")
+    def test_get_feature_names_returns_gene_symbols(self, sample_source: SampleFeatureSource):
+        names = sample_source.get_feature_names("gene_expression")
 
         assert names is not None
         assert len(names) == N_GENES
 
-    def test_get_feature_names_is_none_for_an_unknown_view(self, cell_line_source: CellLineFeatureSource):
-        assert cell_line_source.get_feature_names("absent_view") is None
+    def test_get_feature_names_is_none_for_an_unknown_view(self, sample_source: SampleFeatureSource):
+        assert sample_source.get_feature_names("absent_view") is None
 
-    def test_get_entity_view_special_cases_tissue(
-        self, synthetic_dataset: Dataset, cell_line_source: CellLineFeatureSource
-    ):
-        entity_id = str(cell_line_source.identifiers[0])
+    def test_get_entity_view_special_cases_tissue(self, synthetic_dataset: Dataset, sample_source: SampleFeatureSource):
+        entity_id = str(sample_source.identifiers[0])
 
-        tissue = cell_line_source.get_entity_view(entity_id, "tissue")
+        tissue = sample_source.get_entity_view(entity_id, "tissue")
 
         assert tissue == synthetic_dataset.get_tissue(np.array([entity_id]))[0]
 
-    def test_tissue_of_an_unknown_cell_line_is_nan(self, cell_line_source: CellLineFeatureSource):
-        assert np.isnan(cell_line_source.get_entity_view("NOT_A_CELL_LINE", "tissue"))
+    def test_tissue_of_an_unknown_sample_is_nan(self, sample_source: SampleFeatureSource):
+        assert np.isnan(sample_source.get_entity_view("NOT_A_SAMPLE", "tissue"))
 
-    def test_get_entity_view_returns_a_single_omics_row(self, cell_line_source: CellLineFeatureSource):
-        entity_id = str(cell_line_source.identifiers[0])
+    def test_get_entity_view_returns_a_single_omics_row(self, sample_source: SampleFeatureSource):
+        entity_id = str(sample_source.identifiers[0])
 
-        row = cell_line_source.get_entity_view(entity_id, "gene_expression")
+        row = sample_source.get_entity_view(entity_id, "gene_expression")
 
         assert row.shape == (N_GENES,)
 
-    def test_get_entity_view_row_matches_the_matrix_row(self, cell_line_source: CellLineFeatureSource):
-        entity_id = str(cell_line_source.identifiers[2])
+    def test_get_entity_view_row_matches_the_matrix_row(self, sample_source: SampleFeatureSource):
+        entity_id = str(sample_source.identifiers[2])
 
-        row = cell_line_source.get_entity_view(entity_id, "gene_expression")
+        row = sample_source.get_entity_view(entity_id, "gene_expression")
 
-        matrix = cell_line_source.get_view_matrix("gene_expression", np.array([entity_id]))
+        matrix = sample_source.get_view_matrix("gene_expression", np.array([entity_id]))
         np.testing.assert_array_equal(row, matrix[0])
 
 

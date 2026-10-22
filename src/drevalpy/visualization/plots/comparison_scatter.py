@@ -1,6 +1,6 @@
 """Comparison scatter plot: per-group correlation of one model against another.
 
-One point per drug (or per cell line), not per prediction. Both axes carry the
+One point per drug (or per sample), not per prediction. Both axes carry the
 same quantity for two different models, so the identity line reads directly as
 "these two models are equally good on this group"; systematic deviation means one
 model dominates. Model selection is a pair of Plotly dropdowns, so the payload is
@@ -222,7 +222,7 @@ def _inline_plotly_html(fig: go.Figure, div_id: str) -> str:
 
 @register(
     "comparison_scatter",
-    "Per-drug and per-cell-line correlation compared between two selectable models",
+    "Per-drug and per-sample correlation compared between two selectable models",
     requirements=frozenset({PlotRequirement.MULTIPLE_MODELS}),
 )
 class ComparisonScatterVisualization(PlotlyVisualization):
@@ -258,7 +258,7 @@ class ComparisonScatterVisualization(PlotlyVisualization):
     def to_multiqc(self) -> list[Section]:
         """Return one Section per grouping, each holding a two-dropdown figure.
 
-        :returns: Sections for the drug and cell-line groupings, in that order.
+        :returns: Sections for the drug and sample groupings, in that order.
             Empty when fewer than two models have defined correlations.
         :raises RuntimeError: If called before ``compute()``.
         """

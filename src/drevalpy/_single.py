@@ -126,7 +126,7 @@ def _execute(execution: ExecutionSpec, dataset: Dataset, response_transformation
         fold_id=identity.fold_id,
         predictions=predictions,
         ground_truth=ground_truth,
-        cell_line_ids=test_response.cell_line_ids,
+        sample_ids=test_response.sample_ids,
         drug_ids=test_response.drug_ids,
         best_hyperparameters=best_hpams,
         metrics=metrics,

@@ -57,7 +57,7 @@ Without an ingest Repowise guesses from filenames, and its `has_test_file` probe
 does not recognise `test_init.py`, so every re-export barrel is reported as an
 untested hotspot. One artifact survives **both** ingest paths: lcov emits no `DA:`
 lines for a zero-statement file, and `.coverage` does not fix it, so the eleven
-one-line `__init__.py` files under `components/featurizers/{cell_line,drug}`,
+one-line `__init__.py` files under `components/featurizers/{sample,drug}`,
 `components/featurizers/shared` and the seven literature model packages read 0%
 rather than 100% and each takes a full `-2.00` `coverage_gradient` penalty, 22
 points in total. Ignore those; the other `__init__.py` files carry genuine partial
@@ -135,14 +135,14 @@ The package sits under `src/`; `drevalpy/...` paths in this file are relative to
     Patches `builtins.__import__`, because the dependency is imported _inside_
     the method under test, by which point a `sys.modules` edit is too late.
   - `tests/models/synthetic_fixtures.py::synthetic_mudataset` - the one builder
-    behind every synthetic `Dataset`: two cell lines, two drugs, and whichever
-    cell-line views the caller asks for via `extra_views`. Add a view to
+    behind every synthetic `Dataset`: two samples, two drugs, and whichever
+    sample views the caller asks for via `extra_views`. Add a view to
     `_VIEW_SPECS` rather than assembling AnnData in a test file.
   - `tests/components/predictors/literature/_helpers.py::two_by_two_batch` - the
     twelve-keyword `ModelInputBatch.from_response` every literature predictor
     test needs; a caller passes only the feature blocks it consumes.
-  - `tests/components/featurizers/cell_line/_helpers.py::assert_uses_precomputed_variant`
-    - the `fetch`-hit assertion shared by every dense cell-line featurizer.
+  - `tests/components/featurizers/sample/_helpers.py::assert_uses_precomputed_variant`
+    - the `fetch`-hit assertion shared by every dense sample featurizer.
   - `tests/models/config/_stubs.py` - throwaway featurizer/predictor
     registrations whose only real content is their contract. Callers must be
     under `isolated_component_registries`.
@@ -176,8 +176,8 @@ The package sits under `src/`; `drevalpy/...` paths in this file are relative to
   `register_native_components()`.
 - Single-view dense featurizers subclass `DenseViewFeaturizer`
   (`featurizers/_dense_view.py`) and override only their distinct transform step.
-  `cell_line/base.py` and `drug/base.py` host the per-side
-  `DenseView{CellLine,Drug}Featurizer` bases.
+  `sample/base.py` and `drug/base.py` host the per-side
+  `DenseView{Sample,Drug}Featurizer` bases.
 - `Featurizer` in `base.py` keeps only the abstract hooks and the public wrappers
   that guard them; the split-out concerns live in mixins beside it:
   `FeaturizerStorageMixin` in `featurizers/storage.py`, `NanToleranceMixin` in
@@ -205,7 +205,7 @@ The package sits under `src/`; `drevalpy/...` paths in this file are relative to
 
 `models/drp_model.py` holds `DRPModel(_DRPLoggingMixin)`, the public runtime. It owns
 an immutable `ModelSpec` and exposes `spec` / `name` / `config` /
-`hyperparameters` / `cell_line_views` / `drug_views`. `train` / `predict` /
+`hyperparameters` / `sample_views` / `drug_views`. `train` / `predict` /
 `save` / `load` are thin: `train` and `predict` delegate to a private
 `models/_pipeline._ModelPipeline`, which owns all fitted state and a
 `PipelineState` (`UNTRAINED` / `EMPTY` / `FITTED`); `save` / `load` call
@@ -263,7 +263,7 @@ Two cases a function-local import cannot fix:
 - A **base class** from a forbidden library has to exist when the `class`
   statement executes. Drop the base where it earns nothing, or move the class
   into its own private module and re-export it lazily, as
-  `components/featurizers/cell_line/_proteomics_transformer.py` does.
+  `components/featurizers/sample/_proteomics_transformer.py` does.
 - A module-scope **side effect** that must run before the library is imported
   anywhere stays eager - `xgboost_pred.py` calls
   `_set_xgboost_thread_defaults()` at module scope to keep OpenMP from crashing.
@@ -305,7 +305,7 @@ Checked directly, all artifacts of how the code is wired rather than debt:
 - `repowise dead-code`'s `unused_export` hits for `LassoPredictor`,
   `SVRPredictor`, `GradientBoostingPredictor` and `KNNPredictor` (reported at
   100% confidence) and the `unreachable_file` hit for
-  `components/featurizers/cell_line/gene_lists/_make_gene_lists.py`. No static
+  `components/featurizers/sample/gene_lists/_make_gene_lists.py`. No static
   importer exists because `registry/_builtins.py::_discover_modules` registers by
   directory scan. `docs/conf.py` is a Sphinx entry point, not dead either.
 - `coverage_gradient` on `sparsego/*`, `dipk/predictor.py` and `data/datasets/*` -

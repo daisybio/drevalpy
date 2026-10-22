@@ -9,14 +9,14 @@ from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMasks
 
 
-@register("LPO", "Leave-Pair-Out: groups by (cell_line, drug) pairs", validation="LPO")
+@register("LPO", "Leave-Pair-Out: groups by (sample, drug) pairs", validation="LPO")
 def leave_pair_out(
     mudataset: MuDataLike,
     n_splits: int = 5,
     validation_ratio: float = 0.1,
     random_state: int = 42,
 ) -> list[SplitMasks]:
-    """Generate LPO folds where each (cell_line, drug) pair appears in exactly one test set."""
+    """Generate LPO folds where each (sample, drug) pair appears in exactly one test set."""
     observed = observed_mask(mudataset)
     obs_rows, obs_cols = np.where(observed)
     folds = group_folds(

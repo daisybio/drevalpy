@@ -8,9 +8,9 @@ from drevalpy.components.contracts.contracts import contracts_compatible, featur
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.single_drug_routing import ROUTING_DRUG_FEATURIZER
 from drevalpy.models.config._block_specs import resolve_output_block_specs
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.enums.model_scope import ModelScope
 
@@ -30,23 +30,23 @@ def _validate_prediction_mode(config: ModelConfig, pred_cls: type[Any]) -> None:
 
 
 def _validate_feature_free_config(config: ModelConfig) -> None:
-    if config.cell_line_featurizer is not None or config.drug_featurizer is not None:
+    if config.sample_featurizer is not None or config.drug_featurizer is not None:
         msg = f"Predictor {config.predictor.name!r} is a feature-free predictor and forbids configured featurizers"
         raise ValueError(msg)
 
 
 def _validate_featurizer_presence(config: ModelConfig) -> None:
-    if config.cell_line_featurizer is None and config.drug_featurizer is None:
+    if config.sample_featurizer is None and config.drug_featurizer is None:
         msg = (
             f"Predictor {config.predictor.name!r} requires featurizers; "
-            "set cell_line_featurizer and drug_featurizer, or use a feature-free predictor."
+            "set sample_featurizer and drug_featurizer, or use a feature-free predictor."
         )
         raise ValueError(msg)
     if config.drug_featurizer is None:
         msg = f"Predictor {config.predictor.name!r} requires a drug_featurizer"
         raise ValueError(msg)
-    if config.cell_line_featurizer is None:
-        msg = "cell_line_featurizer must be set for feature-based predictors"
+    if config.sample_featurizer is None:
+        msg = "sample_featurizer must be set for feature-based predictors"
         raise ValueError(msg)
 
 
@@ -62,14 +62,14 @@ def _validate_single_drug_pairing(config: ModelConfig, pred_cls: type[Any]) -> N
 
 
 def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> None:
-    required_cell_line, required_drug = predictor_contracts(pred_cls)
+    required_sample, required_drug = predictor_contracts(pred_cls)
     sides = (
         (
-            "cell_line",
-            config.cell_line_featurizer,
-            required_cell_line,
-            get_cell_line_featurizer,
-            "Cell line",
+            "sample",
+            config.sample_featurizer,
+            required_sample,
+            get_sample_featurizer,
+            "Sample",
         ),
         (
             "drug",
@@ -112,7 +112,7 @@ def _validate_block_schema(config: ModelConfig, pred_cls: type[Any]) -> None:
     if pred_cls.input_interface != "block":
         return
     for side, featurizer in (
-        ("cell_line", config.cell_line_featurizer),
+        ("sample", config.sample_featurizer),
         ("drug", config.drug_featurizer),
     ):
         if featurizer is None:

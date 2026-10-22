@@ -30,7 +30,7 @@ class _StubPredictor(Predictor):
         return np.zeros(batch.n_pairs, dtype=np.float64)
 
 
-_StubPredictor.cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+_StubPredictor.sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 _StubPredictor.drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 EXPECTED = {
@@ -52,7 +52,7 @@ EXPECTED = {
     },
     "block": {
         "naiveDrugMean",
-        "naiveCellLineMean",
+        "naiveSampleMean",
         "naiveTissueMean",
         "naiveTissueDrugMean",
         "naiveMeanEffects",
@@ -76,9 +76,9 @@ def _register() -> None:
 
 def test_predictor_accepts_class_body_contracts() -> None:
     class BodyContractPredictor(Predictor):
-        cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+        sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
-    assert BodyContractPredictor.cell_line_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert BodyContractPredictor.sample_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 def test_predictor_normalizes_a_class_body_format_shorthand() -> None:
@@ -143,7 +143,7 @@ def test_stopping_requirement_is_checked_after_pair_filtering(monkeypatch, requi
     from tests.components.predictors.literature._helpers import two_by_two_batch
 
     values = np.array([[1.0], [np.nan if invalid == "features" else 2.0]])
-    batch = two_by_two_batch(cell_line_blocks={"gene_expression": numeric_feature_block(values)}, drug_blocks={})
+    batch = two_by_two_batch(sample_blocks={"gene_expression": numeric_feature_block(values)}, drug_blocks={})
     if invalid != "missing":
         batch.early_stopping_response = ResponseBatch(
             np.array([np.nan if invalid == "response" else 3.0]), np.array(["cl2"]), np.array(["d1"])

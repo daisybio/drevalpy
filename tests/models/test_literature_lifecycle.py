@@ -26,7 +26,7 @@ def _register_components() -> None:
 def _dataset(*, extra_views: tuple[str, ...] = ()) -> tuple[Dataset, SplitMasks]:
     """Build a four-feature synthetic dataset and an LCO split over it.
 
-    :param extra_views: Cell-line modalities beyond ``gene_expression``.
+    :param extra_views: Sample modalities beyond ``gene_expression``.
     :returns: ``(dataset, split)``.
     """
     dataset = synthetic_mudataset(n_features_per_view=4, fingerprint_width=4, extra_views=extra_views)

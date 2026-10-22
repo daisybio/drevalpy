@@ -1,4 +1,4 @@
-"""Tests for the cell-line and drug feature access mixin.
+"""Tests for the sample and drug feature access mixin.
 
 ``tests/types/data/test_dataset.py`` covers the happy paths through the real
 fixture. This module targets what that cannot reach: the ``name:variant`` varm
@@ -16,7 +16,7 @@ import pytest
 
 from drevalpy.types.data.dataset import Dataset
 
-CELL_LINES = np.array(["cl1", "cl2", "cl3"])
+SAMPLES = np.array(["cl1", "cl2", "cl3"])
 DRUGS = np.array(["d1", "d2"])
 
 
@@ -31,7 +31,7 @@ def _dataset(
     """Build a 3x2 Dataset with exactly the pieces a test needs."""
     response = ad.AnnData(
         X=np.arange(6.0, dtype=np.float32).reshape(3, 2),
-        obs=pd.DataFrame({"tissue": ["Lung", "Blood", "Skin"]}, index=CELL_LINES),
+        obs=pd.DataFrame({"tissue": ["Lung", "Blood", "Skin"]}, index=SAMPLES),
         var=pd.DataFrame(index=DRUGS),
     )
     for key, value in (varm or {}).items():
@@ -43,13 +43,13 @@ def _dataset(
     default_expression = np.array([[0.0, 1.0], [2.0, 3.0], [4.0, 5.0]], dtype=np.float32)
     mods["gene_expression"] = ad.AnnData(
         X=default_expression if gene_expression is None else gene_expression,
-        obs=pd.DataFrame(index=CELL_LINES),
+        obs=pd.DataFrame(index=SAMPLES),
         var=pd.DataFrame(index=["GENE1", "GENE2"]),
     )
     if cnv_under_stored_name:
         mods["copy_number_variation"] = ad.AnnData(
             X=np.zeros((3, 2), dtype=np.float32),
-            obs=pd.DataFrame(index=CELL_LINES),
+            obs=pd.DataFrame(index=SAMPLES),
             var=pd.DataFrame(index=["GENE1", "GENE2"]),
         )
 
@@ -64,7 +64,7 @@ class TestModalityResolution:
     def test_a_public_name_resolves_through_the_accessor_map(self):
         dataset = _dataset(cnv_under_stored_name=True)
 
-        features = dataset.get_cell_line_features("copy_number_variation_gistic", CELL_LINES)
+        features = dataset.get_sample_features("copy_number_variation_gistic", SAMPLES)
 
         assert features.shape == (3, 2)
 
@@ -72,37 +72,37 @@ class TestModalityResolution:
         dataset = _dataset(cnv_under_stored_name=True)
 
         with pytest.raises(KeyError, match="copy_number_variation_gistic"):
-            dataset.get_cell_line_features("absent", CELL_LINES)
+            dataset.get_sample_features("absent", SAMPLES)
 
     def test_feature_names_come_from_var_names(self):
-        assert _dataset().get_cell_line_feature_names("gene_expression") == ("GENE1", "GENE2")
+        assert _dataset().get_sample_feature_names("gene_expression") == ("GENE1", "GENE2")
 
     def test_feature_names_are_none_for_an_absent_modality(self):
-        assert _dataset().get_cell_line_feature_names("absent") is None
+        assert _dataset().get_sample_feature_names("absent") is None
 
     def test_pathway_features_have_no_column_names(self):
         dataset = _dataset(obsm={"pathway_features": np.zeros((3, 4), dtype=np.float32)})
 
-        assert dataset.get_cell_line_feature_names("pathway_features") is None
+        assert dataset.get_sample_feature_names("pathway_features") is None
 
 
 class TestObsmFeatures:
     def test_pathway_features_are_read_from_obsm(self):
         dataset = _dataset(obsm={"pathway_features": np.ones((3, 4), dtype=np.float32)})
 
-        features = dataset.get_cell_line_features("pathway_features", CELL_LINES[:2])
+        features = dataset.get_sample_features("pathway_features", SAMPLES[:2])
 
         assert features.shape == (2, 4)
 
     def test_a_missing_obsm_key_raises(self):
         with pytest.raises(KeyError, match="obsm key 'pathway_features' not found"):
-            _dataset().get_cell_line_features("pathway_features", CELL_LINES)
+            _dataset().get_sample_features("pathway_features", SAMPLES)
 
-    def test_strict_mode_rejects_unknown_cell_lines(self):
+    def test_strict_mode_rejects_unknown_samples(self):
         dataset = _dataset(obsm={"pathway_features": np.ones((3, 4), dtype=np.float32)})
 
-        with pytest.raises(KeyError, match="cell line IDs not found"):
-            dataset.get_cell_line_features("pathway_features", np.array(["absent"]), strict=True)
+        with pytest.raises(KeyError, match="sample IDs not found"):
+            dataset.get_sample_features("pathway_features", np.array(["absent"]), strict=True)
 
 
 class TestVarmKeyResolution:
@@ -169,7 +169,7 @@ class TestDrugGraphs:
 
 
 class TestEntitiesWithModality:
-    def test_cell_lines_with_an_all_nan_row_are_excluded(self):
+    def test_samples_with_an_all_nan_row_are_excluded(self):
         matrix = np.array([[0.0, 1.0], [np.nan, np.nan], [4.0, 5.0]], dtype=np.float32)
         dataset = _dataset(gene_expression=matrix)
 

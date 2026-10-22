@@ -1,8 +1,8 @@
-"""Splitter example: a leave-cell-line-out variant with a custom fold count.
+"""Splitter example: a leave-sample-out variant with a custom fold count.
 
 A splitter is a plain function, not a class. ``validation=`` picks the leakage
 constraint the registry enforces after every call, so a splitter that leaks a
-cell line into both train and test raises ``SplitValidationError`` rather than
+sample into both train and test raises ``SplitValidationError`` rather than
 silently producing an optimistic score.
 
 It also shows the curve-quality step every built-in splitter performs:
@@ -24,19 +24,19 @@ from drevalpy.plugin import MuDataLike, SplitMask, SplitMasks, curve_quality_mas
     "Leave-Cell-Line-Out with a fixed 80/20 train/validation carve-out",
     validation="LCO",
 )
-def toy_leave_cell_line_out(
+def toy_leave_sample_out(
     mudataset: MuDataLike,
     n_splits: int = 5,
     validation_ratio: float = 0.1,
     random_state: int = 42,
 ) -> list[SplitMasks]:
-    """Split so that every cell line is tested exactly once.
+    """Split so that every sample is tested exactly once.
 
     Args:
         mudataset: Dataset whose response matrix is split.
         n_splits: Number of folds.
         validation_ratio: Ignored; this splitter always holds out a fifth of the
-            training cell lines, which is what makes it worth registering
+            training samples, which is what makes it worth registering
             separately from the built-in ``LCO``.
         random_state: Seed for the fold assignment.
 

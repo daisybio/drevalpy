@@ -7,14 +7,14 @@ from typing import Any
 from drevalpy.components.contracts.contracts import featurizer_contract
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.models.config.featurizer import FeaturizerConfig
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 from drevalpy.types.data.batch.feature_block import BlockSpec
 
 
 def _lookup_featurizer_class(config: FeaturizerConfig) -> type[Any]:
-    if config.registry == "cell_line":
-        return get_cell_line_featurizer(config.name)
+    if config.registry == "sample":
+        return get_sample_featurizer(config.name)
     return get_drug_featurizer(config.name)
 
 

@@ -31,9 +31,9 @@ from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import (
-    CellLineFeatureSource,
     DrugFeatureSource,
     FeatureSource,
+    SampleFeatureSource,
 )
 
 from .batch import build_synthetic_batch
@@ -59,7 +59,7 @@ def feature_source_for(cls: type[Featurizer], dataset: Dataset) -> FeatureSource
 
     Args:
         cls: Featurizer class. Its ``side`` is set by the registry to
-            ``"cell_line"`` or ``"drug"``.
+            ``"sample"`` or ``"drug"``.
         dataset: Dataset to wrap.
 
     Returns:
@@ -67,11 +67,11 @@ def feature_source_for(cls: type[Featurizer], dataset: Dataset) -> FeatureSource
     """
     if getattr(cls, "side", "") == "drug":
         return DrugFeatureSource(dataset, np.asarray(dataset.drug_ids))
-    return CellLineFeatureSource(dataset, np.asarray(dataset.cell_line_ids))
+    return SampleFeatureSource(dataset, np.asarray(dataset.sample_ids))
 
 
 def _entity_ids(cls: type[Featurizer], dataset: Dataset) -> np.ndarray:
-    return np.asarray(dataset.drug_ids if getattr(cls, "side", "") == "drug" else dataset.cell_line_ids)
+    return np.asarray(dataset.drug_ids if getattr(cls, "side", "") == "drug" else dataset.sample_ids)
 
 
 def check_featurizer_instantiates(

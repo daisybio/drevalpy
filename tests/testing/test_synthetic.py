@@ -5,13 +5,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.data.utils import CELL_LINE_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.data.utils import CELL_LINE_NAME_COLUMN, TISSUE_IDENTIFIER
 from drevalpy.testing.synthetic import (
     DATASET_NAME,
     MEASURE,
-    N_CELL_LINES,
     N_DRUGS,
     N_FEATURES,
+    N_SAMPLES,
     _punch_holes,
     build_synthetic_dataset,
 )
@@ -34,10 +34,10 @@ class TestShapeAndNaming:
         assert build_synthetic_dataset(name="MYDATA").name == "MYDATA"
 
     def test_the_response_matrix_has_the_default_shape(self, dataset):
-        assert dataset.response_matrix.shape == (N_CELL_LINES, N_DRUGS)
+        assert dataset.response_matrix.shape == (N_SAMPLES, N_DRUGS)
 
     def test_the_shape_is_configurable(self):
-        small = build_synthetic_dataset(n_cell_lines=6, n_drugs=3, n_tissues=3)
+        small = build_synthetic_dataset(n_samples=6, n_drugs=3, n_tissues=3)
 
         assert small.response_matrix.shape == (6, 3)
 
@@ -45,18 +45,18 @@ class TestShapeAndNaming:
         assert list(dataset.mdata.mod) == ["response"]
 
     def test_identifiers_are_unique(self, dataset):
-        assert len(set(dataset.cell_line_ids)) == N_CELL_LINES
+        assert len(set(dataset.sample_ids)) == N_SAMPLES
         assert len(set(dataset.drug_ids)) == N_DRUGS
 
 
 class TestMetadata:
     def test_the_cell_line_name_column_is_populated(self, dataset):
-        assert dataset.response.obs[CELL_LINE_IDENTIFIER].notna().all()
+        assert dataset.response.obs[CELL_LINE_NAME_COLUMN].notna().all()
 
     def test_tissue_labels_are_resolvable_through_the_dataset(self, dataset):
-        tissues = dataset.get_tissue(np.asarray(dataset.cell_line_ids))
+        tissues = dataset.get_tissue(np.asarray(dataset.sample_ids))
 
-        assert len(tissues) == N_CELL_LINES
+        assert len(tissues) == N_SAMPLES
         assert all(isinstance(tissue, str) for tissue in tissues)
 
     def test_the_requested_number_of_tissues_is_produced(self):
@@ -77,7 +77,7 @@ class TestMissingResponses:
     def test_some_pairs_are_unmeasured_by_default(self, dataset):
         assert np.isnan(dataset.response_matrix).any()
 
-    def test_every_cell_line_keeps_a_measurement(self, dataset):
+    def test_every_sample_keeps_a_measurement(self, dataset):
         assert (~np.isnan(dataset.response_matrix)).any(axis=1).all()
 
     def test_every_drug_keeps_a_measurement(self, dataset):
@@ -127,14 +127,14 @@ class TestOmics:
     def test_features_are_retrievable_through_the_public_accessor(self):
         with_omics = build_synthetic_dataset(omics=["gene_expression"])
 
-        matrix = with_omics.get_cell_line_features("gene_expression", np.asarray(with_omics.cell_line_ids))
+        matrix = with_omics.get_sample_features("gene_expression", np.asarray(with_omics.sample_ids))
 
-        assert matrix.shape == (N_CELL_LINES, N_FEATURES)
+        assert matrix.shape == (N_SAMPLES, N_FEATURES)
 
     def test_feature_names_are_exposed(self):
         with_omics = build_synthetic_dataset(omics=["gene_expression"], feature_names=["A", "B"])
 
-        assert with_omics.get_cell_line_feature_names("gene_expression") == ("A", "B")
+        assert with_omics.get_sample_feature_names("gene_expression") == ("A", "B")
 
     def test_the_feature_width_is_configurable(self):
         with_omics = build_synthetic_dataset(omics=["gene_expression"], n_features=3)
@@ -147,10 +147,10 @@ class TestOmics:
 
         assert partial.mdata.mod["gene_expression"].shape[0] == 10
 
-    def test_uncovered_cell_lines_come_back_as_nan(self):
+    def test_uncovered_samples_come_back_as_nan(self):
         partial = build_synthetic_dataset(omics={"gene_expression": 10})
 
-        matrix = partial.get_cell_line_features("gene_expression", np.asarray(partial.cell_line_ids))
+        matrix = partial.get_sample_features("gene_expression", np.asarray(partial.sample_ids))
 
         assert np.isnan(matrix[10:]).all()
         assert not np.isnan(matrix[:10]).any()
@@ -160,7 +160,7 @@ class TestOmics:
         with_cnv = build_synthetic_dataset(omics=["copy_number_variation_gistic"])
 
         assert "copy_number_variation" in with_cnv.mdata.mod
-        assert with_cnv.get_cell_line_features("copy_number_variation_gistic", np.asarray([])).size == 0
+        assert with_cnv.get_sample_features("copy_number_variation_gistic", np.asarray([])).size == 0
 
 
 class TestDeterminism:

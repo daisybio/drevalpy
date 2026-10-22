@@ -14,14 +14,14 @@ def test_ensure_unique_allows_same_name_different_views() -> None:
     config = FeaturizerConfig.model_validate(
         {
             "name": "concatFeaturizers",
-            "registry": "cell_line",
+            "registry": "sample",
             "featurizers": [
                 {"name": "raw", "view": "gene_expression"},
                 {"name": "raw", "view": "mutations"},
             ],
         },
     )
-    ensure_unique_qualified_featurizers(config, "cell_line")
+    ensure_unique_qualified_featurizers(config, "sample")
 
 
 def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
@@ -29,7 +29,7 @@ def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
         FeaturizerConfig.model_validate(
             {
                 "name": "concatFeaturizers",
-                "registry": "cell_line",
+                "registry": "sample",
                 "featurizers": [
                     {"name": "raw", "view": "gene_expression"},
                     {"name": "raw", "view": "gene_expression"},
@@ -39,9 +39,9 @@ def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
 
 
 def test_ensure_unique_ignores_a_non_concat_node() -> None:
-    config = FeaturizerConfig.model_validate({"name": "raw", "registry": "cell_line", "view": "gene_expression"})
+    config = FeaturizerConfig.model_validate({"name": "raw", "registry": "sample", "view": "gene_expression"})
 
-    ensure_unique_qualified_featurizers(config, "cell_line")
+    ensure_unique_qualified_featurizers(config, "sample")
 
 
 def test_recipe_string_rejects_duplicate_qualified_selector() -> None:
@@ -55,5 +55,5 @@ def test_recipe_string_allows_same_name_different_views() -> None:
     register_builtin_components()
     config = from_spec("raw[expression]+raw[mutations]:fingerprints:randomForest")
     assert isinstance(config, ModelConfig)
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "concatFeaturizers"

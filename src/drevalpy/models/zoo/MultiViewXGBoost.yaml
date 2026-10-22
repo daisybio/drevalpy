@@ -1,4 +1,4 @@
-cell_line_featurizer:
+sample_featurizer:
   - scaledGeneExpression
   - pca[methylation]:
       n_components: 100

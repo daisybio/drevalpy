@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.models.config import CellLineFeaturizerConfig, FeaturizerConfig
+from drevalpy.models.config import FeaturizerConfig, SampleFeaturizerConfig
 
 
 def test_empty_view_string_fails() -> None:
     with pytest.raises(ValidationError, match="view must be a non-empty string when set"):
-        CellLineFeaturizerConfig(name="denseCellLine", view="   ")
+        SampleFeaturizerConfig(name="denseSample", view="   ")
 
 
 def test_views_plural_is_rejected_as_unknown_field() -> None:
@@ -20,17 +20,17 @@ def test_views_plural_is_rejected_as_unknown_field() -> None:
 
 
 def test_non_empty_view_is_accepted() -> None:
-    config = CellLineFeaturizerConfig(name="denseCellLine", view="gene_expression")
+    config = SampleFeaturizerConfig(name="denseSample", view="gene_expression")
     assert config.view == "gene_expression"
 
 
-@pytest.mark.parametrize("cls", [FeaturizerConfig, CellLineFeaturizerConfig])
+@pytest.mark.parametrize("cls", [FeaturizerConfig, SampleFeaturizerConfig])
 def test_one_key_shorthand_is_accepted_by_base_and_pinned(cls: type[FeaturizerConfig]) -> None:
     from drevalpy.registry._builtins import register_builtin_components
 
     register_builtin_components()
     config = cls.model_validate({"pca[methylation]": {"n_components": 42}})
-    assert (config.name, config.view, config.registry) == ("pca", "methylation", "cell_line")
+    assert (config.name, config.view, config.registry) == ("pca", "methylation", "sample")
     assert config.hyperparameter_space is not None
     assert config.hyperparameter_space["n_components"]["default"] == 42
 
@@ -40,7 +40,7 @@ def test_list_sequence_fields_are_stored_as_tuples() -> None:
     from drevalpy.registry._builtins import register_builtin_components
 
     register_builtin_components()
-    config = CellLineFeaturizerConfig.model_validate(
+    config = SampleFeaturizerConfig.model_validate(
         {"name": "concatFeaturizers", "featurizers": ["raw[gene_expression]", "raw[mutations]"]},
     )
     assert isinstance(config.featurizers, tuple)
@@ -52,7 +52,7 @@ def test_json_dump_renders_sequences_as_lists() -> None:
     from drevalpy.registry._builtins import register_builtin_components
 
     register_builtin_components()
-    config = CellLineFeaturizerConfig.model_validate(
+    config = SampleFeaturizerConfig.model_validate(
         {"name": "concatFeaturizers", "featurizers": ["raw[gene_expression]", "raw[mutations]"]},
     )
     dumped = config.model_dump(mode="json")

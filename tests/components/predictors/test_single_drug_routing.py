@@ -17,10 +17,10 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 def _identity_batch() -> ModelInputBatch:
     return ModelInputBatch(
-        cell_line_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
+        sample_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
         drug_ids=np.array(["d1", "d1", "d2", "d2"]),
         response=np.array([1.0, 2.0, 3.0, 4.0]),
-        cell_line=FeaturizerResult(np.array(["cl1", "cl2"]), {}, ()),
+        sample=FeaturizerResult(np.array(["cl1", "cl2"]), {}, ()),
         drug=FeaturizerResult(
             np.array(["d1", "d2"]),
             {
@@ -32,7 +32,7 @@ def _identity_batch() -> ModelInputBatch:
             },
             ("identity",),
         ),
-        cell_line_pair_idx=np.array([0, 1, 0, 1]),
+        sample_pair_idx=np.array([0, 1, 0, 1]),
         drug_pair_idx=np.array([0, 0, 1, 1]),
     )
 

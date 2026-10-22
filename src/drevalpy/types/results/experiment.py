@@ -211,7 +211,7 @@ def _run_array_bytes(run: RunResult) -> int:
     :returns: Approximate number of bytes retained by the run's arrays.
     """
     total = run.predictions.nbytes + run.ground_truth.nbytes
-    for ids in (run.cell_line_ids, run.drug_ids):
+    for ids in (run.sample_ids, run.drug_ids):
         total += ids.nbytes
         if ids.dtype == object:
             total += sum(sys.getsizeof(value) for value in set(ids.tolist()))
@@ -240,7 +240,7 @@ def _normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
     import pandas as pd
 
     ref_index = pd.MultiIndex.from_arrays(
-        [np.asarray(ref_run.cell_line_ids, dtype=object), np.asarray(ref_run.drug_ids, dtype=object)]
+        [np.asarray(ref_run.sample_ids, dtype=object), np.asarray(ref_run.drug_ids, dtype=object)]
     )
     ref_predictions = np.asarray(ref_run.predictions)
     if ref_index.has_duplicates:
@@ -249,7 +249,7 @@ def _normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
         ref_index = ref_index[keep]
         ref_predictions = ref_predictions[keep]
     positions = ref_index.get_indexer(
-        pd.MultiIndex.from_arrays([np.asarray(run.cell_line_ids, dtype=object), np.asarray(run.drug_ids, dtype=object)])
+        pd.MultiIndex.from_arrays([np.asarray(run.sample_ids, dtype=object), np.asarray(run.drug_ids, dtype=object)])
     )
     # get_indexer yields -1 for pairs the reference never predicted; those normalize
     # against 0.0, matching the dict-lookup default this replaced.

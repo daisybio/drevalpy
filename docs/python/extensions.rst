@@ -22,7 +22,7 @@ base class, value type, and registration decorator a component needs:
 
 .. code-block:: python
 
-   from drevalpy.plugin import CellLineFeaturizer, FeatureFormat, register_cell_line_featurizer
+   from drevalpy.plugin import SampleFeaturizer, FeatureFormat, register_sample_featurizer
 
 Nothing is defined there — each name is an alias for a symbol that lives deeper
 in the package. That indirection is the point: **only the aliases are a
@@ -53,8 +53,8 @@ present in a normal session.
 Custom featurizers
 ------------------
 
-Subclass ``CellLineFeaturizer`` or ``DrugFeaturizer`` and register with
-``@register_cell_line_featurizer`` or ``@register_drug_featurizer``. Before
+Subclass ``SampleFeaturizer`` or ``DrugFeaturizer`` and register with
+``@register_sample_featurizer`` or ``@register_drug_featurizer``. Before
 writing a base of your own, check :ref:`featurizer-reuse` below — the shipped
 featurizers are built on three reusable pieces that ``drevalpy.plugin`` exports.
 
@@ -93,7 +93,7 @@ Two declarations are mandatory, and registration is **rejected** without them:
 
 **The feature contract.** A ``FeatureFormat`` (``numeric_matrix``, ``graph``, or
 ``ragged_sequence``) describing the payload format this featurizer produces.
-Composition validation compares it to the predictor's ``cell_line_contract`` /
+Composition validation compares it to the predictor's ``sample_contract`` /
 ``drug_contract`` and rejects stacks whose formats disagree. Declare it either
 as ``contract`` on the class body or as ``contract=`` on the decorator; when
 both are present the decorator argument wins.
@@ -113,12 +113,12 @@ Registration also rejects a class that still has unimplemented abstract
 methods, naming the members it is missing. That check runs at registration
 rather than at instantiation, so a missing ``_fit`` fails next to its cause.
 
-A view-reading cell-line featurizer
+A view-reading sample featurizer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: /examples/toy_cell_line_featurizer.py
+.. literalinclude:: /examples/toy_sample_featurizer.py
    :language: python
-   :caption: docs/examples/toy_cell_line_featurizer.py
+   :caption: docs/examples/toy_sample_featurizer.py
 
 An identifier-only drug featurizer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -138,7 +138,7 @@ Reusing the shipped featurizer machinery
 **One implementation, both sides.** A featurizer whose logic does not depend on
 the entity side is written **once** and bound to both sides with
 ``register_for_sides``, which registers it under the same name in both
-featurizer registries. Do not write a cell-line copy and a drug copy: the side
+featurizer registries. Do not write a sample copy and a drug copy: the side
 is a class-level fact the registry stamps on, so a second registration would
 overwrite the first one's side, and the decorator derives one subclass per side
 precisely so each registry gets its own class to stamp. The built-in
@@ -164,7 +164,7 @@ this way.
    @register_for_sides(
        "myOnes",
        description={
-           "cell_line": "A constant column per cell line.",
+           "sample": "A constant column per sample.",
            "drug": "A constant column per drug.",
        },
        contract=FeatureFormat.NUMERIC_MATRIX,
@@ -193,9 +193,9 @@ this way.
            return 1
 
 ``description`` also accepts a plain string used for every side, and
-``sides=("cell_line",)`` binds one side only. The decorated class is returned
+``sides=("sample",)`` binds one side only. The decorated class is returned
 **unregistered**, so it stays importable as the shared logic it is; what lands in
-the registries are the derived ``CellLineOnesFeaturizer`` and
+the registries are the derived ``SampleOnesFeaturizer`` and
 ``DrugOnesFeaturizer``, named by stripping a leading ``Shared`` and prefixing the
 side. Both are injected into your module's namespace, which is what keeps them
 findable when the registries are rebuilt.
@@ -206,7 +206,7 @@ shares — ask the storage layer whether the matrix is already pre-computed,
 otherwise compute it from the view, then emit one numeric block. A subclass
 overrides only its distinct step: usually ``_compute_matrix``, plus ``_fit_state``
 when there is state to learn. For a one-sided featurizer subclass the side-bound
-``DenseViewCellLineFeaturizer`` or ``DenseViewDrugFeaturizer``, as the built-in
+``DenseViewSampleFeaturizer`` or ``DenseViewDrugFeaturizer``, as the built-in
 ``pca``, ``landmark`` and ``scaled_gene_expression`` featurizers do; subclass
 bare ``DenseViewFeaturizer`` when the implementation is side-agnostic and you
 bind it with ``register_for_sides``.
@@ -233,7 +233,7 @@ the class body or passed to the decorator, and the decorator wins.
    .. tab-item:: Feature-free
 
       ``FeatureFreePredictor`` sees pair identifiers and response values only.
-      Composition forbids cell-line and drug featurizers for it, since it would
+      Composition forbids sample and drug featurizers for it, since it would
       consume neither, but registration still wants both contracts because the
       composition checker compares them before it knows the interface.
       Implement ``_fit`` and ``_predict``.
@@ -257,9 +257,9 @@ the class body or passed to the decorator, and the decorator wins.
    .. tab-item:: Block
 
       ``BlockPredictor`` reads named featurizer blocks from
-      ``batch.cell_line_blocks`` / ``batch.drug_blocks`` instead of one
+      ``batch.sample_blocks`` / ``batch.drug_blocks`` instead of one
       flattened matrix. Contracts still constrain the **format** of each side;
-      ``required_cell_line_blocks`` / ``required_drug_blocks`` additionally
+      ``required_sample_blocks`` / ``required_drug_blocks`` additionally
       require named blocks to be present in the stack. Implement ``_fit`` and
       ``_predict``.
 
@@ -275,7 +275,7 @@ A splitter is a function, not a class. Register it under a mode name with
 return a list of :class:`~drevalpy.types.SplitMasks`.
 
 The dataset argument is typed as :class:`~drevalpy.plugin.MuDataLike`, a
-``runtime_checkable`` protocol with six members: the ``cell_line_ids``,
+``runtime_checkable`` protocol with six members: the ``sample_ids``,
 ``drug_ids`` and ``response_matrix`` properties, plus ``get_tissue(ids)``,
 ``response_layer_names()`` and ``get_response_layer(name)``.
 
@@ -412,12 +412,12 @@ predictor needs a fully featurized batch.
      - What it gives you
    * - ``build_synthetic_dataset(...)``
      - An in-memory ``Dataset``. Response-only by default; pass ``omics=[...]``
-       to add the cell-line modalities your featurizer reads.
+       to add the sample modalities your featurizer reads.
    * - ``build_synthetic_batch(dataset, ...)``
      - A ``ModelInputBatch`` with drawn features and a learnable response, so a
        predictor is testable without composing a model.
    * - ``observed_pairs(dataset)``
-     - Every measured cell-line/drug pair, as a ``ResponseBatch``.
+     - Every measured sample/drug pair, as a ``ResponseBatch``.
    * - ``FEATURIZER_CHECKS`` / ``PREDICTOR_CHECKS``
      - Every conformance check, as a tuple to parametrize over.
    * - ``check_plugin(name)``
@@ -503,13 +503,13 @@ installable (or otherwise on ``PYTHONPATH``), a normal import is enough:
 
 .. code-block:: python
 
-   import my_components.toy_featurizer  # registers toyCellLine
+   import my_components.toy_featurizer  # registers toySample
    import my_components.toy_predictors  # registers toyMean, toyRidge, …
 
    from drevalpy.models import DRPModel, ModelSpec
 
    spec = ModelSpec("ToyRidge", {
-       "cell_line_featurizer": "toyCellLine",
+       "sample_featurizer": "toySample",
        "drug_featurizer": "toyDrugHash",
        "predictor": "toyRidge",
    })

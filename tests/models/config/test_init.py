@@ -31,7 +31,7 @@ from tests._barrel_surface import DeclaredSurface
 
 #: ``exported name -> module that defines it``.
 EXPECTED_ORIGINS: dict[str, str] = {
-    "CellLineFeaturizerConfig": "drevalpy.models.config.featurizer",
+    "SampleFeaturizerConfig": "drevalpy.models.config.featurizer",
     "DrugFeaturizerConfig": "drevalpy.models.config.featurizer",
     "FeaturizerConfig": "drevalpy.models.config.featurizer",
     "ModelConfig": "drevalpy.models.config.model",

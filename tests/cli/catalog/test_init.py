@@ -15,7 +15,7 @@ runner = make_runner()
 #: The command surface documented in the plan, one per registry plus plugins.
 COMMAND_NAMES = [
     "predictors",
-    "cell-line-featurizers",
+    "sample-featurizers",
     "drug-featurizers",
     "splitters",
     "visualizations",
@@ -24,7 +24,7 @@ COMMAND_NAMES = [
 
 EXPECTED_CALLBACKS = {
     "predictors": registries_module.list_predictors,
-    "cell-line-featurizers": registries_module.list_cell_line_featurizers,
+    "sample-featurizers": registries_module.list_sample_featurizers,
     "drug-featurizers": registries_module.list_drug_featurizers,
     "splitters": registries_module.list_splitters,
     "visualizations": registries_module.list_visualizations,

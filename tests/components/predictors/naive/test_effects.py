@@ -18,21 +18,21 @@ def test_naive_mean_effects_without_tissue_decomposes_cell_and_drug() -> None:
     predictor.fit(
         naive_batch(
             response=response,
-            cell_line_features=cell,
+            sample_features=cell,
             drug_features=drugs,
-            cell_line_pair_idx=np.array([0, 0, 1, 1], dtype=np.int64),
+            sample_pair_idx=np.array([0, 0, 1, 1], dtype=np.int64),
             drug_pair_idx=np.array([0, 1, 0, 1], dtype=np.int64),
-            cell_line_blocks={"identity": cell},
+            sample_blocks={"identity": cell},
         )
     )
     preds = predictor.predict(
         naive_batch(
-            cell_line_features=cell,
+            sample_features=cell,
             drug_features=drugs,
-            cell_line_pair_idx=np.array([0, 1], dtype=np.int64),
+            sample_pair_idx=np.array([0, 1], dtype=np.int64),
             drug_pair_idx=np.array([0, 1], dtype=np.int64),
-            cell_line_blocks={"identity": cell},
-            cell_line_ids=np.array(["wrong_cl", "also_wrong"]),
+            sample_blocks={"identity": cell},
+            sample_ids=np.array(["wrong_cl", "also_wrong"]),
             drug_ids=np.array(["wrong_d", "also_wrong_d"]),
         )
     )
@@ -60,20 +60,20 @@ def test_naive_mean_effects_with_tissue_blocks() -> None:
     predictor.fit(
         naive_batch(
             response=response,
-            cell_line_features=np.concatenate([cell, tissue], axis=1),
+            sample_features=np.concatenate([cell, tissue], axis=1),
             drug_features=drugs,
-            cell_line_pair_idx=pair_cl,
+            sample_pair_idx=pair_cl,
             drug_pair_idx=pair_d,
-            cell_line_blocks={"identity": cell, "tissue": tissue},
+            sample_blocks={"identity": cell, "tissue": tissue},
         )
     )
     preds = predictor.predict(
         naive_batch(
-            cell_line_features=np.concatenate([cell, tissue], axis=1),
+            sample_features=np.concatenate([cell, tissue], axis=1),
             drug_features=drugs,
-            cell_line_pair_idx=np.array([0, 1, 2], dtype=np.int64),
+            sample_pair_idx=np.array([0, 1, 2], dtype=np.int64),
             drug_pair_idx=np.array([0, 1, 0], dtype=np.int64),
-            cell_line_blocks={"identity": cell, "tissue": tissue},
+            sample_blocks={"identity": cell, "tissue": tissue},
         )
     )
     dataset_mean = float(np.mean(response))
@@ -103,20 +103,20 @@ def test_naive_mean_effects_empty_optional_tissue() -> None:
     predictor.fit(
         naive_batch(
             response=response,
-            cell_line_features=cell,
+            sample_features=cell,
             drug_features=drugs,
-            cell_line_pair_idx=np.array([0, 0, 1, 1], dtype=np.int64),
+            sample_pair_idx=np.array([0, 0, 1, 1], dtype=np.int64),
             drug_pair_idx=np.array([0, 1, 0, 1], dtype=np.int64),
-            cell_line_blocks={"identity": cell, "tissue": empty_tissue},
+            sample_blocks={"identity": cell, "tissue": empty_tissue},
         )
     )
     preds = predictor.predict(
         naive_batch(
-            cell_line_features=cell,
+            sample_features=cell,
             drug_features=drugs,
-            cell_line_pair_idx=np.array([0, 1], dtype=np.int64),
+            sample_pair_idx=np.array([0, 1], dtype=np.int64),
             drug_pair_idx=np.array([0, 1], dtype=np.int64),
-            cell_line_blocks={"identity": cell, "tissue": empty_tissue},
+            sample_blocks={"identity": cell, "tissue": empty_tissue},
         )
     )
     dataset_mean = float(np.mean(response))
@@ -135,11 +135,11 @@ def test_naive_mean_effects_state_roundtrip() -> None:
     predictor = NaiveMeanEffectsPredictor()
     batch = naive_batch(
         response=np.array([4.0]),
-        cell_line_features=cell,
+        sample_features=cell,
         drug_features=drugs,
-        cell_line_pair_idx=np.array([0], dtype=np.int64),
+        sample_pair_idx=np.array([0], dtype=np.int64),
         drug_pair_idx=np.array([0], dtype=np.int64),
-        cell_line_blocks={"identity": cell},
+        sample_blocks={"identity": cell},
     )
     predictor.fit(batch)
     restored = NaiveMeanEffectsPredictor()

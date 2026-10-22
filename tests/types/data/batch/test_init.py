@@ -20,7 +20,7 @@ class TestBatchSurface(DeclaredSurface):
         "merge_feature_blocks": "drevalpy.types.data.batch.feature_block",
         "metadata_feature_block": "drevalpy.types.data.batch.feature_block",
         "numeric_feature_block": "drevalpy.types.data.batch.feature_block",
-        "pair_cell_line_indices": "drevalpy.types.data.batch.model_input_batch",
+        "pair_sample_indices": "drevalpy.types.data.batch.model_input_batch",
         "pair_drug_indices": "drevalpy.types.data.batch.model_input_batch",
         "ragged_feature_block": "drevalpy.types.data.batch.feature_block",
     }

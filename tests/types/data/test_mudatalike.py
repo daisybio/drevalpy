@@ -21,7 +21,7 @@ class _MinimalDataset:
     """Smallest object satisfying the protocol: two entities, one measured pair."""
 
     @property
-    def cell_line_ids(self) -> np.ndarray:
+    def sample_ids(self) -> np.ndarray:
         return np.array(["cl1", "cl2"])
 
     @property
@@ -48,7 +48,7 @@ class _MissingGetTissue:
     """Satisfies every member but the tissue lookup."""
 
     @property
-    def cell_line_ids(self) -> np.ndarray:
+    def sample_ids(self) -> np.ndarray:
         return np.array(["cl1"])
 
     @property
@@ -70,7 +70,7 @@ class _MissingGetResponseLayer:
     """Satisfies every member but the layer accessor the quality filter needs."""
 
     @property
-    def cell_line_ids(self) -> np.ndarray:
+    def sample_ids(self) -> np.ndarray:
         return np.array(["cl1"])
 
     @property
@@ -126,7 +126,7 @@ class TestProtocolLimits:
         """
 
         class WrongSignatures:
-            cell_line_ids = "not an array"
+            sample_ids = "not an array"
             drug_ids = "not an array"
             response_matrix = "not an array"
             response_layer_names = "not a method"
@@ -149,4 +149,4 @@ class TestStandInBehaviour:
     def test_get_tissue_returns_one_label_per_requested_id(self):
         dataset = _MinimalDataset()
 
-        assert len(dataset.get_tissue(dataset.cell_line_ids)) == 2
+        assert len(dataset.get_tissue(dataset.sample_ids)) == 2

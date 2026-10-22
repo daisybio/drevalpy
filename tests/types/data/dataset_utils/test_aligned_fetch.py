@@ -20,7 +20,7 @@ DATA = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
 
 
 def _fetch(ids: list[str], *, strict: bool = False) -> np.ndarray:
-    return _aligned_fetch(INDEX, np.array(ids), DATA, strict=strict, entity_label="cell line")
+    return _aligned_fetch(INDEX, np.array(ids), DATA, strict=strict, entity_label="sample")
 
 
 class TestAlignment:
@@ -59,7 +59,7 @@ class TestMissingIds:
         with caplog.at_level(logging.WARNING, logger="drevalpy.types.data.dataset_utils.aligned_fetch"):
             _fetch(["a", "absent"])
 
-        assert "1 of 2 cell line IDs not found" in caplog.text
+        assert "1 of 2 sample IDs not found" in caplog.text
 
     def test_the_warning_previews_at_most_five_ids(self, caplog: pytest.LogCaptureFixture):
         with caplog.at_level(logging.WARNING, logger="drevalpy.types.data.dataset_utils.aligned_fetch"):
@@ -76,7 +76,7 @@ class TestMissingIds:
 
 class TestStrictMode:
     def test_strict_mode_raises_for_a_missing_id(self):
-        with pytest.raises(KeyError, match="1 of 2 cell line IDs not found"):
+        with pytest.raises(KeyError, match="1 of 2 sample IDs not found"):
             _fetch(["a", "absent"], strict=True)
 
     def test_strict_mode_passes_when_every_id_is_present(self):

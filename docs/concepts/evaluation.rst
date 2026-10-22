@@ -25,32 +25,32 @@ Four leave-out modes control what is held out at validation and test time:
     :width: 24%
     :alt: Leave-Drug-Out setting
 
-* **LPO (Leave-Pair-Out).** Random cell-line–drug pairs are held out, but both
-  the drug and the cell line may already appear in training. Easiest setting;
+* **LPO (Leave-Pair-Out).** Random sample–drug pairs are held out, but both
+  the drug and the sample may already appear in training. Easiest setting;
   mainly useful to check whether a model can complete missing training
   entries.
-* **LCO (Leave-Cell-Line-Out).** Entire cell lines are held out while drugs may
+* **LCO (Leave-Cell-Line-Out).** Entire samples are held out while drugs may
   overlap training. Relevant for personalized medicine: can the model predict
-  a new cell line?
+  a new sample?
 * **LTO (Leave-Tissue-Out).** Entire tissues are held out. Harder than LCO;
   relevant for tissue transfer and drug-repurposing style questions.
-* **LDO (Leave-Drug-Out).** Entire drugs are held out while cell lines may
+* **LDO (Leave-Drug-Out).** Entire drugs are held out while samples may
   overlap training. Usually the hardest setting; relevant for new-drug
   prediction in discovery workflows.
 
 Baselines and naive predictors
 ------------------------------
 
-Drug response values often have strong drug- or cell-line-specific means. A
+Drug response values often have strong drug- or sample-specific means. A
 model that only recovers those effects can look strong on naive correlation
 or R²-style scores. We therefore always compare against naive predictors
-(overall mean, cell-line mean, drug mean, tissue mean, tissue–drug mean, and
+(overall mean, sample mean, drug mean, tissue mean, tissue–drug mean, and
 the ANOVA-style ``NaiveMeanEffectsPredictor``).
 
 Baselines are tuned and scored alongside primary models, but randomization
 and robustness stress tests apply to primary models only.
 ``NaiveMeanEffectsPredictor`` is required for normalized metrics and is added
-when missing. It combines dataset, tissue (when available), cell-line, and drug
+when missing. It combines dataset, tissue (when available), sample, and drug
 effects and is usually the strongest naive reference across settings.
 
 Randomization modes
@@ -61,9 +61,9 @@ while the rest of the experiment stays fixed.
 
 Modes:
 
-* **SVCC** — Single View Constant (cell lines): one cell-line view stays
-  intact; other cell-line views are perturbed.
-* **SVRC** — Single View Random (cell lines): one cell-line view is
+* **SVCC** — Single View Constant (samples): one sample view stays
+  intact; other sample views are perturbed.
+* **SVRC** — Single View Random (samples): one sample view is
   randomized; others stay intact.
 * **SVCD** — Single View Constant (drugs): one drug view stays intact; other
   drug views are perturbed.
@@ -95,7 +95,7 @@ Reported metrics include **MSE**, **RMSE**, **MAE**, **R²**, **Pearson**,
 Normalized metrics
 ~~~~~~~~~~~~~~~~~~
 
-Drug- and cell-line-specific means can make ordinary R² and correlation look
+Drug- and sample-specific means can make ordinary R² and correlation look
 strong even when a model adds little beyond those effects (Simpson's paradox
 style inflation). The HTML report therefore also computes **normalized**
 variants of R², Pearson, Spearman, and Kendall.

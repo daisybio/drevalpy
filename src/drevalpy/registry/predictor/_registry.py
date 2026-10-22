@@ -18,11 +18,11 @@ from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
 class PredictorRegistry(ComponentRegistry):
-    """Registry for predictors that declare cell-line and drug input contracts."""
+    """Registry for predictors that declare sample and drug input contracts."""
 
     _required_fields: ClassVar[tuple[str, ...]] = (
         "description",
-        "cell_line_contract",
+        "sample_contract",
         "drug_contract",
     )
 
@@ -35,7 +35,7 @@ class PredictorRegistry(ComponentRegistry):
         name: str,
         *,
         description: str,
-        cell_line_contract: FeatureContract | FeatureFormat | None = None,
+        sample_contract: FeatureContract | FeatureFormat | None = None,
         drug_contract: FeatureContract | FeatureFormat | None = None,
         tags: Iterable[str] | None = None,
         reference: LiteratureReference | None = None,
@@ -44,8 +44,8 @@ class PredictorRegistry(ComponentRegistry):
 
         :param name: Registry name used in model configs and discovery listings.
         :param description: Short human-readable summary.
-        :param cell_line_contract: Expected cell-line feature format. When omitted,
-            the ``cell_line_contract`` declared on the class body is used.
+        :param sample_contract: Expected sample feature format. When omitted,
+            the ``sample_contract`` declared on the class body is used.
         :param drug_contract: Expected drug feature format. When omitted, the
             ``drug_contract`` declared on the class body is used.
         :param tags: Optional discovery tags.
@@ -53,9 +53,7 @@ class PredictorRegistry(ComponentRegistry):
         :returns: Class decorator that registers and returns the decorated class.
         """
         metadata = normalize_registration_metadata(description, tags, reference)
-        normalized_cell_line_contract = (
-            None if cell_line_contract is None else normalize_feature_contract(cell_line_contract)
-        )
+        normalized_sample_contract = None if sample_contract is None else normalize_feature_contract(sample_contract)
         normalized_drug_contract = None if drug_contract is None else normalize_feature_contract(drug_contract)
 
         def decorator(cls: type[Any]) -> type[Any]:
@@ -63,7 +61,7 @@ class PredictorRegistry(ComponentRegistry):
                 if name in self._store:
                     msg = f"{self._label} {name!r} already registered"
                     raise ValueError(msg)
-                assign_contract(cls, "cell_line_contract", normalized_cell_line_contract)
+                assign_contract(cls, "sample_contract", normalized_sample_contract)
                 assign_contract(cls, "drug_contract", normalized_drug_contract)
                 apply_registration_metadata(cls, metadata)
                 self._validate_registration(name, cls)

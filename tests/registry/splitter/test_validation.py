@@ -17,13 +17,13 @@ _SHAPE = (4, 3)
 
 
 class _FakeMuDataset:
-    """Minimal ``MuDataLike`` stand-in supplying cell-line ids and tissues."""
+    """Minimal ``MuDataLike`` stand-in supplying sample ids and tissues."""
 
     def __init__(self, tissues: tuple[str, ...]) -> None:
         self._tissues = np.array(tissues)
 
     @property
-    def cell_line_ids(self) -> np.ndarray:
+    def sample_ids(self) -> np.ndarray:
         """Row identifiers, one per tissue label."""
         return np.array([f"CL_{i}" for i in range(len(self._tissues))])
 
@@ -38,7 +38,7 @@ class _FakeMuDataset:
         return np.ones((len(self._tissues), _SHAPE[1]))
 
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
-        """Return the tissue label per requested cell-line id."""
+        """Return the tissue label per requested sample id."""
         return self._tissues
 
     def response_layer_names(self) -> list[str]:
@@ -100,7 +100,7 @@ def test_valid_folds_pass(mode: str, train: SplitMask, test: SplitMask, mudatase
     validate_folds([_fold(train, test)], mode, mudataset)  # type: ignore[arg-type]
 
 
-def test_lco_rejects_a_cell_line_in_both_sides(mudataset: _FakeMuDataset) -> None:
+def test_lco_rejects_a_sample_in_both_sides(mudataset: _FakeMuDataset) -> None:
     fold = _fold(_mask((0, 1), (0,)), _mask((1, 2), (1,)))
 
     with pytest.raises(SplitValidationError, match="LCO validation failed"):

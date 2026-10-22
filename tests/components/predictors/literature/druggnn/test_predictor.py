@@ -44,11 +44,11 @@ def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
     graphs = np.empty(2, dtype=object)
     graphs[:] = [_drug_graph(), _drug_graph(offset=0.5)]
     return two_by_two_batch(
-        cell_line_blocks={
+        sample_blocks={
             "gene_expression": numeric_feature_block(np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])),
         },
         drug_blocks={"drug_graph": graph_feature_block(graphs)},
-        cell_line_pair_idx=np.array([0, 0, 1, 1]),
+        sample_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
         early_stopping_response=early_stopping_response() if with_early_stopping else None,
         checkpoint_dir=Path(tempfile.mkdtemp()),
@@ -114,9 +114,9 @@ class TestTinyDrugGNNFit:
         batch = _druggnn_batch(with_early_stopping=True)
         seed_literature(seed)
         pristine = DrugGNNPredictor(hyperparameters)
-        cell_line_matrix = batch.cell_line.blocks["gene_expression"].values
+        sample_matrix = batch.sample.blocks["gene_expression"].values
         drug_graphs = batch.drug.blocks["drug_graph"].values
-        initial = trainable_parameter_vector(pristine._build_model(cell_line_matrix, drug_graphs))
+        initial = trainable_parameter_vector(pristine._build_model(sample_matrix, drug_graphs))
 
         seed_literature(seed)
         predictor = DrugGNNPredictor(hyperparameters=hyperparameters)
@@ -160,11 +160,11 @@ class TestTinyDrugGNNFit:
 
         seed_literature(0)
         final_epoch = DrugGNNPredictor(hyperparameters)
-        cell_matrix = batch.cell_line.blocks["gene_expression"].values
+        cell_matrix = batch.sample.blocks["gene_expression"].values
         drug_graphs = batch.drug.blocks["drug_graph"].values
         final_epoch._model = final_epoch._build_model(cell_matrix, drug_graphs)
         train_loader = final_epoch._graph_loader(
-            batch.cell_line_pair_idx,
+            batch.sample_pair_idx,
             final_epoch._resolve_drug_pair_idx(batch),
             cell_matrix,
             drug_graphs,

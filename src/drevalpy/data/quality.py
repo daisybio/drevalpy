@@ -150,7 +150,7 @@ def curve_quality_mask(
             out of ``"up"``, ``"down"`` and ``"not"``.
 
     Returns:
-        Boolean array of shape ``(n_cell_lines, n_drugs)``, True where the curve
+        Boolean array of shape ``(n_samples, n_drugs)``, True where the curve
         passes. Use ``~mask`` to blank the failing pairs of a response matrix.
 
     Raises:

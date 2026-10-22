@@ -9,9 +9,9 @@ from drevalpy.components.contracts.hyperparameter_space import validate_hyperpar
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.models._hp_key_grammar import (
-    CELL_LINE_SLOT,
     DRUG_SLOT,
     PREDICTOR_SLOT,
+    SAMPLE_SLOT,
     featurizer_prefix,
     is_featurizer_slot_key,
     predictor_prefix,
@@ -19,9 +19,9 @@ from drevalpy.models._hp_key_grammar import (
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
 from drevalpy.models.config._hp_key_validation import validate_merged_mapping
 from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 
 def _effective_space(config_space: Mapping[str, Any] | None, cls: type[Any]) -> dict[str, Any]:
@@ -56,8 +56,8 @@ def _merge_concat_child_spaces(
 
 def _leaf_featurizer_spaces(featurizer: FeaturizerConfig, registry: str) -> dict[str, Any]:
     cls = (
-        get_cell_line_featurizer(featurizer.name)
-        if registry == "cell_line"
+        get_sample_featurizer(featurizer.name)
+        if registry == "sample"
         else get_drug_featurizer(
             featurizer.name,
         )
@@ -93,8 +93,8 @@ def merge_model_config_spaces(config: ModelConfig) -> dict[str, Any]:
     :returns: Result.
     """
     merged: dict[str, Any] = {}
-    if config.cell_line_featurizer is not None:
-        merged.update(_featurizer_spaces(config.cell_line_featurizer))
+    if config.sample_featurizer is not None:
+        merged.update(_featurizer_spaces(config.sample_featurizer))
     if config.drug_featurizer is not None:
         merged.update(_featurizer_spaces(config.drug_featurizer))
     merged.update(_predictor_spaces(config.predictor))
@@ -102,21 +102,21 @@ def merge_model_config_spaces(config: ModelConfig) -> dict[str, Any]:
 
 
 def merge_search_spaces(
-    cell_line_featurizer_space: dict[str, Any] | None = None,
+    sample_featurizer_space: dict[str, Any] | None = None,
     drug_featurizer_space: dict[str, Any] | None = None,
     predictor_space: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Merge component spaces into a single dict with dot-notation prefixed keys.
 
-    :param cell_line_featurizer_space: cell line featurizer space.
+    :param sample_featurizer_space: sample featurizer space.
     :param drug_featurizer_space: drug featurizer space.
     :param predictor_space: predictor space.
     :returns: Result.
     """
     merged: dict[str, Any] = {}
-    if cell_line_featurizer_space:
-        for key, value in cell_line_featurizer_space.items():
-            merged[f"{CELL_LINE_SLOT}.{key}"] = value
+    if sample_featurizer_space:
+        for key, value in sample_featurizer_space.items():
+            merged[f"{SAMPLE_SLOT}.{key}"] = value
     if drug_featurizer_space:
         for key, value in drug_featurizer_space.items():
             merged[f"{DRUG_SLOT}.{key}"] = value
@@ -134,19 +134,19 @@ def split_hyperparameters(
     :param merged_config: merged config.
     :returns: Result.
     """
-    cell_line_hp: dict[str, Any] = {}
+    sample_hp: dict[str, Any] = {}
     drug_hp: dict[str, Any] = {}
     predictor_hp: dict[str, Any] = {}
     for key, value in merged_config.items():
-        if key.startswith(f"{CELL_LINE_SLOT}."):
-            cell_line_hp[key.removeprefix(f"{CELL_LINE_SLOT}.")] = value
+        if key.startswith(f"{SAMPLE_SLOT}."):
+            sample_hp[key.removeprefix(f"{SAMPLE_SLOT}.")] = value
         elif key.startswith(f"{DRUG_SLOT}."):
             drug_hp[key.removeprefix(f"{DRUG_SLOT}.")] = value
         elif key.startswith(f"{PREDICTOR_SLOT}."):
             predictor_hp[key.removeprefix(f"{PREDICTOR_SLOT}.")] = value
         else:
             predictor_hp[key] = value
-    return cell_line_hp, drug_hp, predictor_hp
+    return sample_hp, drug_hp, predictor_hp
 
 
 def resolve_model_config(
@@ -187,13 +187,13 @@ def apply_merged_to_model_config(config: ModelConfig, merged: dict[str, Any]) ->
 
 
 def extract_defaults(
-    cell_line_featurizer_space: dict[str, Any] | None = None,
+    sample_featurizer_space: dict[str, Any] | None = None,
     drug_featurizer_space: dict[str, Any] | None = None,
     predictor_space: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Pull ``default`` values from spec dicts, returning a merged flat dict.
 
-    :param cell_line_featurizer_space: cell line featurizer space.
+    :param sample_featurizer_space: sample featurizer space.
     :param drug_featurizer_space: drug featurizer space.
     :param predictor_space: predictor space.
     :returns: Result.
@@ -205,8 +205,8 @@ def extract_defaults(
         for name, spec in space.items():
             defaults[f"{prefix}.{name}"] = spec["default"]
 
-    if cell_line_featurizer_space:
-        _pull(cell_line_featurizer_space, CELL_LINE_SLOT)
+    if sample_featurizer_space:
+        _pull(sample_featurizer_space, SAMPLE_SLOT)
     if drug_featurizer_space:
         _pull(drug_featurizer_space, DRUG_SLOT)
     if predictor_space:

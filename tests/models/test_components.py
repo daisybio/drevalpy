@@ -9,9 +9,9 @@ from drevalpy.models.tuning.search_space import resolve_model_config
 
 def test_build_components_creates_predictor_and_configured_featurizers() -> None:
     resolved = resolve_model_config(from_spec("ElasticNet"))
-    cell_line, drug, predictor = build_components(resolved)
+    sample, drug, predictor = build_components(resolved)
 
-    assert cell_line is not None
+    assert sample is not None
     assert drug is not None
     assert predictor.__class__.__name__
 

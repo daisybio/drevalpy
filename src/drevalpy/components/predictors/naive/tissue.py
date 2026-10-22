@@ -22,13 +22,13 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
     "naiveTissueMean",
     tags=("baseline",),
     description="Predict per-tissue mean response with global fallback.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NaiveTissueMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     """Naive tissue mean predictor component."""
 
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
 
     state_effects: ClassVar[tuple[str, ...]] = ("effects",)
 
@@ -41,7 +41,7 @@ class NaiveTissueMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
         :raises ValueError: Raised on invalid input.
         :raises RuntimeError: If batch.response is None.
         """
-        design = require_pair_matrix(batch, side="cell_line")
+        design = require_pair_matrix(batch, side="sample")
         if design.shape[1] == 0:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
@@ -62,7 +62,7 @@ class NaiveTissueMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
         if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        design = require_pair_matrix(batch, side="cell_line")
+        design = require_pair_matrix(batch, side="sample")
         if design.shape[1] == 0:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
@@ -73,13 +73,13 @@ class NaiveTissueMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     "naiveTissueDrugMean",
     tags=("baseline",),
     description="Predict per tissue-drug combination mean response.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NaiveTissueDrugMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     """Naive tissue drug mean predictor component."""
 
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
 
     state_effects: ClassVar[tuple[str, ...]] = ("effects",)
@@ -94,7 +94,7 @@ class NaiveTissueDrugMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
         :raises ValueError: Raised on invalid input.
         :raises RuntimeError: If batch.response is None.
         """
-        tissue = require_pair_matrix(batch, side="cell_line")
+        tissue = require_pair_matrix(batch, side="sample")
         drugs = require_pair_matrix(batch, side="drug")
         if tissue.shape[1] == 0 or drugs.shape[1] == 0:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
@@ -124,7 +124,7 @@ class NaiveTissueDrugMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
         if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        tissue = require_pair_matrix(batch, side="cell_line")
+        tissue = require_pair_matrix(batch, side="sample")
         drugs = require_pair_matrix(batch, side="drug")
         if tissue.shape[1] == 0 or drugs.shape[1] == 0:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"

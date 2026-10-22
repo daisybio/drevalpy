@@ -15,8 +15,8 @@ from typing import Any
 from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.models.config._recipe import CONCAT_FEATURIZER_NAME, expand_featurizer_recipe
 from drevalpy.models.config._space_defaults import split_space_and_options
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 _RESERVED_FEATURIZER_KEYS = frozenset(
     {
@@ -56,11 +56,11 @@ def _featurizer_class(name: str, registry: str) -> type[Any]:
     """Look up a featurizer class in the registry the config is written against.
 
     :param name: Featurizer registry name.
-    :param registry: ``cell_line`` or ``drug``.
+    :param registry: ``sample`` or ``drug``.
     :returns: The registered featurizer class.
     """
-    if registry == "cell_line":
-        return get_cell_line_featurizer(name)
+    if registry == "sample":
+        return get_sample_featurizer(name)
     return get_drug_featurizer(name)
 
 
@@ -180,7 +180,7 @@ def _split_one_key_payload(
 
     :param payload: Body of a one-key featurizer mapping.
     :param name: Featurizer registry name.
-    :param default_registry: ``cell_line`` or ``drug``.
+    :param default_registry: ``sample`` or ``drug``.
     :returns: ``(featurizers, hyperparameter_space, options)``.
     """
     body = dict(payload)
@@ -253,7 +253,7 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
     )
 
 
-def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line") -> dict[str, Any]:
+def normalize_featurizer_config(data: Any, *, default_registry: str = "sample") -> dict[str, Any]:
     """Normalize a featurizer mapping into a canonical field mapping.
 
     Accepts a list of featurizers (equivalent to a concat node), a one-key mapping
@@ -263,7 +263,7 @@ def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line
     as a recipe arrives here as the same mapping the equivalent YAML would produce.
 
     :param data: List of featurizers, or a field mapping.
-    :param default_registry: Registry used to resolve bare names (``cell_line`` or ``drug``).
+    :param default_registry: Registry used to resolve bare names (``sample`` or ``drug``).
     :returns: Mapping of canonical ``FeaturizerConfig`` fields.
     :raises ValueError: If the mapping form is not a one-key shorthand and lacks ``name``.
     :raises TypeError: If *data* is not a list or mapping.

@@ -3,7 +3,7 @@
 ``curate`` reads a long-form dose-response table and writes the AnnData a full
 curation produces - see :mod:`drevalpy.curation`. The ``.h5ad`` is the only
 output: because :func:`drevalpy.curation.curate` keys ``obs_names``/``var_names``
-from the ``cell_line``/``drug`` columns it was given, a pipeline can curate on
+from the ``sample``/``drug`` columns it was given, a pipeline can curate on
 native identifiers and remap the indices in a later, cheap stage.
 """
 

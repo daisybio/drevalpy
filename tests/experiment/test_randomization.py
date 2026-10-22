@@ -20,11 +20,11 @@ from drevalpy.models import ModelSpec
 class _StubConfig:
     """Minimal stand-in for the ``ModelConfig`` surface ``randomization`` reads."""
 
-    cell_lines: list[str] = field(default_factory=list)
+    samples: list[str] = field(default_factory=list)
     drugs: list[str] = field(default_factory=list)
 
-    def cell_line_views(self) -> list[str]:
-        return list(self.cell_lines)
+    def sample_views(self) -> list[str]:
+        return list(self.samples)
 
     def drug_views(self) -> list[str]:
         return list(self.drugs)
@@ -47,8 +47,8 @@ class _StubDataset:
         return child
 
 
-def _stub_model(*, cell_lines: list[str] | None = None, drugs: list[str] | None = None) -> type:
-    config = _StubConfig(cell_lines=cell_lines or [], drugs=drugs or [])
+def _stub_model(*, samples: list[str] | None = None, drugs: list[str] | None = None) -> type:
+    config = _StubConfig(samples=samples or [], drugs=drugs or [])
 
     return SimpleNamespace(config=config)
 
@@ -80,14 +80,14 @@ class TestRandomization:
     @pytest.mark.parametrize(
         ("mode", "expected"),
         [
-            pytest.param("SVRC", [["expr"], ["mut"]], id="SVRC-single-cell-line-view"),
-            pytest.param("SVCC", [["mut"], ["expr"]], id="SVCC-complement-cell-line-view"),
+            pytest.param("SVRC", [["expr"], ["mut"]], id="SVRC-single-sample-view"),
+            pytest.param("SVCC", [["mut"], ["expr"]], id="SVCC-complement-sample-view"),
         ],
     )
-    def test_cell_line_modes_select_the_right_views(self, mode: str, expected: list[list[str]]) -> None:
+    def test_sample_modes_select_the_right_views(self, mode: str, expected: list[list[str]]) -> None:
         dataset = _StubDataset()
 
-        randomization(_stub_model(cell_lines=["expr", "mut"]), dataset, [mode])
+        randomization(_stub_model(samples=["expr", "mut"]), dataset, [mode])
 
         assert [views for views, _ in dataset.calls] == expected
 
@@ -106,7 +106,7 @@ class TestRandomization:
         assert [views for views, _ in dataset.calls] == expected
 
     def test_returns_one_dataset_per_test(self) -> None:
-        model = _stub_model(cell_lines=["expr", "mut"], drugs=["fp"])
+        model = _stub_model(samples=["expr", "mut"], drugs=["fp"])
 
         results = randomization(model, _StubDataset(), ["SVRC", "SVRD"])
 
@@ -115,7 +115,7 @@ class TestRandomization:
     def test_tags_each_dataset_with_its_mode_and_view(self) -> None:
         dataset = _StubDataset()
 
-        randomization(_stub_model(cell_lines=["expr", "mut"]), dataset, ["SVRC"])
+        randomization(_stub_model(samples=["expr", "mut"]), dataset, ["SVRC"])
 
         assert [kwargs["randomization"] for _, kwargs in dataset.calls] == [
             ("SVRC", "expr"),
@@ -126,7 +126,7 @@ class TestRandomization:
         dataset = _StubDataset()
 
         randomization(
-            _stub_model(cell_lines=["expr"]),
+            _stub_model(samples=["expr"]),
             dataset,
             ["SVRC"],
             randomization_type="invariant",
@@ -140,7 +140,7 @@ class TestRandomization:
     def test_defaults_to_permutation_with_the_documented_root_seed(self) -> None:
         dataset = _StubDataset()
 
-        result = randomization(_stub_model(cell_lines=["expr"]), dataset, ["SVRC"])
+        result = randomization(_stub_model(samples=["expr"]), dataset, ["SVRC"])
 
         _, kwargs = dataset.calls[0]
         assert kwargs["randomization_type"] == "permutation"
@@ -150,7 +150,7 @@ class TestRandomization:
     def test_same_root_seed_is_stable_but_variants_get_distinct_effective_seeds(self) -> None:
         first = _StubDataset()
         second = _StubDataset()
-        model = _stub_model(cell_lines=["expr", "mut"])
+        model = _stub_model(samples=["expr", "mut"])
 
         randomization(model, first, ["SVRC"], random_state=7)
         randomization(model, second, ["SVRC"], random_state=7)
@@ -164,8 +164,8 @@ class TestRandomization:
         forward = _StubDataset()
         reverse = _StubDataset()
 
-        randomization(_stub_model(cell_lines=["expr", "mut"]), forward, ["SVRC"], random_state=7)
-        randomization(_stub_model(cell_lines=["mut", "expr"]), reverse, ["SVRC"], random_state=7)
+        randomization(_stub_model(samples=["expr", "mut"]), forward, ["SVRC"], random_state=7)
+        randomization(_stub_model(samples=["mut", "expr"]), reverse, ["SVRC"], random_state=7)
 
         by_view = {kwargs["randomization"][1]: kwargs["random_state"] for _, kwargs in forward.calls}
         reversed_by_view = {kwargs["randomization"][1]: kwargs["random_state"] for _, kwargs in reverse.calls}
@@ -174,17 +174,17 @@ class TestRandomization:
     def test_unknown_modes_are_ignored(self) -> None:
         dataset = _StubDataset()
 
-        results = randomization(_stub_model(cell_lines=["expr"]), dataset, ["NOPE"])
+        results = randomization(_stub_model(samples=["expr"]), dataset, ["NOPE"])
 
         assert results == []
         assert dataset.calls == []
 
     def test_no_modes_yields_no_datasets(self) -> None:
-        assert randomization(_stub_model(cell_lines=["expr"]), _StubDataset(), []) == []
+        assert randomization(_stub_model(samples=["expr"]), _StubDataset(), []) == []
 
     def test_later_modes_override_a_colliding_key(self) -> None:
         dataset = _StubDataset()
-        model = _stub_model(cell_lines=["expr", "mut"])
+        model = _stub_model(samples=["expr", "mut"])
 
         randomization(model, dataset, ["SVRC", "SVRC"])
 

@@ -68,23 +68,23 @@ def featurizer_contract(cls: type[Any]) -> FeatureContract:
 
 
 def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContract]:
-    """Return predictor input contracts for cell-line and drug sides.
+    """Return predictor input contracts for sample and drug sides.
 
     :param cls: Predictor class registered in the component registry.
 
-    :returns: ``(cell_line_contract, drug_contract)`` pair for compatibility checks.
+    :returns: ``(sample_contract, drug_contract)`` pair for compatibility checks.
 
     :raises TypeError: If either contract is missing or not a ``FeatureContract``.
     """
-    cell_line = getattr(cls, "cell_line_contract", None)
+    sample = getattr(cls, "sample_contract", None)
     drug = getattr(cls, "drug_contract", None)
-    if cell_line is None or drug is None:
-        msg = f"Predictor {cls.__name__!r} must define both cell_line_contract and drug_contract"
+    if sample is None or drug is None:
+        msg = f"Predictor {cls.__name__!r} must define both sample_contract and drug_contract"
         raise TypeError(msg)
-    if not isinstance(cell_line, FeatureContract) or not isinstance(drug, FeatureContract):
+    if not isinstance(sample, FeatureContract) or not isinstance(drug, FeatureContract):
         msg = f"Predictor {cls.__name__!r} contracts must be FeatureContract instances"
         raise TypeError(msg)
-    return cell_line, drug
+    return sample, drug
 
 
 def contracts_compatible(produced: FeatureContract, required: FeatureContract) -> bool:

@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
 from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource
+from drevalpy.types.data.feature_source import DrugFeatureSource, SampleFeatureSource
 
 #: Featurizers that need a pretrained-weight or remote-annotation download, so
 #: they cannot be derived from the raw data the fixture carries. Marked ``network``
@@ -34,7 +34,7 @@ def _collect_precomputable_featurizers():
     """Collect all registered featurizers with precompute=True."""
     items = []
     for registry, side in [
-        (cell_line_featurizer_registry, "cell_line"),
+        (sample_featurizer_registry, "sample"),
         (drug_featurizer_registry, "drug"),
     ]:
         for name in registry.list_names():
@@ -70,8 +70,8 @@ def _instantiate_featurizer(name, cls):
 
 def _make_source_and_ids(side, ds):
     """Build the appropriate FeatureSource and pick 2 entity IDs."""
-    if side == "cell_line":
-        return CellLineFeatureSource(ds, ds.cell_line_ids), ds.cell_line_ids[:2]
+    if side == "sample":
+        return SampleFeatureSource(ds, ds.sample_ids), ds.sample_ids[:2]
     return DrugFeatureSource(ds, ds.drug_ids), ds.drug_ids[:2]
 
 
@@ -86,7 +86,7 @@ def test_precompute_fit_transform(name, cls, side, synthetic_dataset: Dataset) -
 
     :param name: Registry name of the featurizer.
     :param cls: Featurizer class.
-    :param side: ``cell_line`` or ``drug``.
+    :param side: ``sample`` or ``drug``.
     :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
     """
     if name in _UNSUPPORTED:

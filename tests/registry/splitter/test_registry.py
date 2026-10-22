@@ -24,10 +24,10 @@ _BUILTIN_MODES = ("LCO", "LDO", "LPO", "LTO")
 
 
 class _FakeMuDataset:
-    """Minimal ``MuDataLike`` stand-in with one tissue per cell line."""
+    """Minimal ``MuDataLike`` stand-in with one tissue per sample."""
 
     @property
-    def cell_line_ids(self) -> np.ndarray:
+    def sample_ids(self) -> np.ndarray:
         """Row identifiers."""
         return np.array([f"CL_{i}" for i in range(_SHAPE[0])])
 
@@ -42,7 +42,7 @@ class _FakeMuDataset:
         return np.ones(_SHAPE)
 
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
-        """One distinct tissue per cell line."""
+        """One distinct tissue per sample."""
         return np.array([f"tissue_{i}" for i in range(_SHAPE[0])])
 
     def response_layer_names(self) -> list[str]:
@@ -206,9 +206,9 @@ def test_resolve_passes_a_callable_through(registry: SplitterRegistry) -> None:
 
 
 def test_the_wrapper_runs_validation(registry: SplitterRegistry, mudataset: _FakeMuDataset) -> None:
-    @registry.register("LEAKY", "leaks a cell line", validation="LCO")
+    @registry.register("LEAKY", "leaks a sample", validation="LCO")
     def leaky(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
-        """Return a fold whose train and test share a cell line."""
+        """Return a fold whose train and test share a sample."""
         return [_leaking_fold()]
 
     with pytest.raises(SplitValidationError, match="LCO validation failed"):

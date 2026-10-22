@@ -9,10 +9,10 @@ from pydantic import ValidationError
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.models.config import (
-    CellLineFeaturizerConfig,
     DrugFeaturizerConfig,
     ModelConfig,
     PredictorConfig,
+    SampleFeaturizerConfig,
     validate,
 )
 from drevalpy.types.data.batch.feature_block import BlockSpec
@@ -38,7 +38,7 @@ def _dense_model_config(**overrides) -> ModelConfig:
     :returns: A ``ModelConfig`` over the registered stubs.
     """
     slots = {
-        "cell_line_featurizer": CellLineFeaturizerConfig(name="denseCellLine", view="gene_expression"),
+        "sample_featurizer": SampleFeaturizerConfig(name="denseSample", view="gene_expression"),
         "drug_featurizer": DrugFeaturizerConfig(name="denseDrug", view="fingerprints"),
         "predictor": PredictorConfig(name="densePred"),
     }
@@ -52,48 +52,48 @@ def test_valid_dense_config_passes() -> None:
     validate(_dense_model_config())
 
 
-def test_unknown_cell_line_featurizer_fails() -> None:
+def test_unknown_sample_featurizer_fails() -> None:
     register_dense_trio()
-    with pytest.raises((ValueError, ValidationError), match="Unknown Cell line featurizer"):
-        _dense_model_config(cell_line_featurizer=CellLineFeaturizerConfig(name="missing"))
+    with pytest.raises((ValueError, ValidationError), match="Unknown Sample featurizer"):
+        _dense_model_config(sample_featurizer=SampleFeaturizerConfig(name="missing"))
 
 
 def test_wrong_registry_is_coerced_by_slot_subclasses() -> None:
     register_dense_trio()
     config = ModelConfig.model_validate(
         {
-            "cell_line_featurizer": {"name": "denseCellLine", "registry": "drug"},
-            "drug_featurizer": {"name": "denseDrug", "registry": "cell_line"},
+            "sample_featurizer": {"name": "denseSample", "registry": "drug"},
+            "drug_featurizer": {"name": "denseDrug", "registry": "sample"},
             "predictor": {"name": "densePred"},
         }
     )
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.registry == "cell_line"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.registry == "sample"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.registry == "drug"
     validate(config)
 
 
 def test_graph_featurizer_with_matrix_predictor_fails() -> None:
-    register_featurizer_stub("graphCellLine", side="cell_line", contract=FeatureFormat.GRAPH)
+    register_featurizer_stub("graphSample", side="sample", contract=FeatureFormat.GRAPH)
     register_featurizer_stub("denseDrug", side="drug")
     register_matrix_predictor_stub("densePred")
 
-    with pytest.raises((ValueError, ValidationError), match="Cell line featurizer contract|numeric_matrix"):
-        _dense_model_config(cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"))
+    with pytest.raises((ValueError, ValidationError), match="Sample featurizer contract|numeric_matrix"):
+        _dense_model_config(sample_featurizer=SampleFeaturizerConfig(name="graphSample"))
 
 
 def test_graph_format_match_passes_for_block_predictor() -> None:
-    register_featurizer_stub("graphCellLine", side="cell_line", contract=FeatureFormat.GRAPH)
+    register_featurizer_stub("graphSample", side="sample", contract=FeatureFormat.GRAPH)
     register_featurizer_stub("graphDrug", side="drug", contract=FeatureFormat.GRAPH)
     register_block_predictor_stub(
         "graphPred",
-        cell_line_contract=FeatureFormat.GRAPH,
+        sample_contract=FeatureFormat.GRAPH,
         drug_contract=FeatureFormat.GRAPH,
     )
 
     config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"),
+        sample_featurizer=SampleFeaturizerConfig(name="graphSample"),
         drug_featurizer=DrugFeaturizerConfig(name="graphDrug"),
         predictor=PredictorConfig(name="graphPred"),
     )
@@ -103,7 +103,7 @@ def test_graph_format_match_passes_for_block_predictor() -> None:
 def test_block_schema_reports_missing_named_block() -> None:
     register_featurizer_stub(
         "cellBlocks",
-        side="cell_line",
+        side="sample",
         output_block_specs=(BlockSpec("wrong_name", FeatureFormat.NUMERIC_MATRIX),),
     )
     register_featurizer_stub(
@@ -113,13 +113,13 @@ def test_block_schema_reports_missing_named_block() -> None:
     )
     register_block_predictor_stub(
         "blockPred",
-        required_cell_line_block_specs=(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
+        required_sample_block_specs=(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
         required_drug_block_specs=(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),),
     )
 
     with pytest.raises((ValueError, ValidationError), match="blockPred.*gene_expression.*numeric_matrix.*wrong_name"):
         ModelConfig(
-            cell_line_featurizer=CellLineFeaturizerConfig(name="cellBlocks"),
+            sample_featurizer=SampleFeaturizerConfig(name="cellBlocks"),
             drug_featurizer=DrugFeaturizerConfig(name="drugBlocks"),
             predictor=PredictorConfig(name="blockPred"),
         )
@@ -135,7 +135,7 @@ def test_feature_free_predictor_without_featurizers_passes() -> None:
     register_feature_free_predictor_stub("naiveMean")
 
     config = ModelConfig(
-        cell_line_featurizer=None,
+        sample_featurizer=None,
         drug_featurizer=None,
         predictor=PredictorConfig(name="naiveMean"),
     )
@@ -145,7 +145,7 @@ def test_feature_free_predictor_without_featurizers_passes() -> None:
 def test_feature_using_predictor_without_featurizers_fails() -> None:
     register_dense_trio()
     with pytest.raises((ValueError, ValidationError), match="requires featurizers"):
-        _dense_model_config(cell_line_featurizer=None, drug_featurizer=None)
+        _dense_model_config(sample_featurizer=None, drug_featurizer=None)
 
 
 def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
@@ -154,7 +154,7 @@ def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
     register_builtin_components()
     with pytest.raises((ValueError, ValidationError), match="requires featurizers"):
         ModelConfig(
-            cell_line_featurizer=None,
+            sample_featurizer=None,
             drug_featurizer=None,
             predictor=PredictorConfig(name="naiveMeanEffects"),
         )
@@ -166,7 +166,7 @@ def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
     register_builtin_components()
     with pytest.raises((ValueError, ValidationError), match="requires drug_featurizer='identity'"):
         ModelConfig(
-            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+            sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
             predictor=PredictorConfig(name="singleDrugElasticNet"),
         )
@@ -177,7 +177,7 @@ def test_single_drug_scope_accepts_identity_routing_featurizer() -> None:
 
     register_builtin_components()
     config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+        sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
         drug_featurizer=DrugFeaturizerConfig(name="identity"),
         predictor=PredictorConfig(name="singleDrugElasticNet"),
     )

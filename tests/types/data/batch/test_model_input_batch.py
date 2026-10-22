@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch, pair_cell_line_indices, pair_drug_indices
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch, pair_drug_indices, pair_sample_indices
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 
 
@@ -73,14 +73,14 @@ def test_subset_pairs_filters_stopping_by_surviving_drugs() -> None:
 
 
 def test_pair_index_helpers_map_and_report_missing_ids() -> None:
-    assert pair_cell_line_indices(np.array(["cl2", "cl1"]), {"cl1": 0, "cl2": 1}).tolist() == [1, 0]
+    assert pair_sample_indices(np.array(["cl2", "cl1"]), {"cl1": 0, "cl2": 1}).tolist() == [1, 0]
     with pytest.raises(ValueError, match="Missing drug identifiers"):
         pair_drug_indices(np.array(["missing"]), {"d1": 0})
 
 
 def test_batch_rejects_pair_indices_that_do_not_match_pair_ids() -> None:
     cell = _result(["cl1", "cl2"], [[1.0], [2.0]])
-    with pytest.raises(ValueError, match="cell_line pair identifiers"):
+    with pytest.raises(ValueError, match="sample pair identifiers"):
         ModelInputBatch(
             np.array(["cl1"]),
             np.array(["d1"]),

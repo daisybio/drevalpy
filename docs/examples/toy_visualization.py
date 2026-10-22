@@ -42,7 +42,7 @@ class ToyResidualHistogram(ImageVisualization):
 
         Args:
             result: The model whose folds are pooled.
-            dataset: Unused here. It is offered so a plot can look up cell-line
+            dataset: Unused here. It is offered so a plot can look up sample
                 or drug metadata that the result itself does not carry.
         """
         _ = dataset

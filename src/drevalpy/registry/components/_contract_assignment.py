@@ -5,7 +5,7 @@ registration decorator or the one declared in the class body - is a pure functio
 of the class and the decorator argument. It touches no registry state, which is
 what made ``ComponentRegistry`` incohesive while it lived there, and it is shared
 verbatim by the featurizer registry (one ``contract``) and the predictor registry
-(a ``cell_line_contract`` and a ``drug_contract``).
+(a ``sample_contract`` and a ``drug_contract``).
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def assign_contract(cls: type[Any], attr_name: str, contract: FeatureContract | 
     decorator wins, since it is the more specific of the two.
 
     :param cls: Class being registered.
-    :param attr_name: Attribute name such as ``contract`` or ``cell_line_contract``.
+    :param attr_name: Attribute name such as ``contract`` or ``sample_contract``.
     :param contract: Already-normalized feature contract from the decorator, or
         ``None`` to fall back to the class declaration.
     :raises ValueError: If neither the decorator nor the class declares *attr_name*.
@@ -46,7 +46,7 @@ def declared_contract(cls: type[Any], attr_name: str) -> FeatureContract:
     """Return the contract *cls* declares under *attr_name*.
 
     :param cls: Class being registered.
-    :param attr_name: Attribute name such as ``contract`` or ``cell_line_contract``.
+    :param attr_name: Attribute name such as ``contract`` or ``sample_contract``.
     :returns: Normalized contract taken from the class declaration.
     :raises ValueError: If the class declares no usable contract.
     """

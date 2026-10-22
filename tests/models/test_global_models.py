@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from drevalpy.models import DRPModel, ModelSpec
-from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig
+from drevalpy.models.config import DrugFeaturizerConfig, ModelConfig, SampleFeaturizerConfig
 from drevalpy.models.zoo import get_zoo_config
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
@@ -156,7 +156,7 @@ def test_global_models(synthetic_dataset: Dataset, model_name: str) -> None:
 
 
 def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> None:
-    """MultiViewNeuralNetwork runs with a non-default cell-line view.
+    """MultiViewNeuralNetwork runs with a non-default sample view.
 
     Uses an existing modality (methylation) through the raw featurizer to verify
     the flexible input pipeline works end-to-end including save/load. Overriding
@@ -171,7 +171,7 @@ def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> N
         "MultiViewNeuralNetwork",
         _zoo_config_variant(
             "MultiViewNeuralNetwork",
-            cell_line_featurizer=CellLineFeaturizerConfig(
+            sample_featurizer=SampleFeaturizerConfig(
                 name="raw",
                 view="methylation",
             ),
@@ -196,14 +196,14 @@ def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> N
 
 
 def test_partial_omics_coverage_reaches_the_nan_filtering_path() -> None:
-    """The partial-coverage variant really does leave cell lines without omics data.
+    """The partial-coverage variant really does leave samples without omics data.
 
     Guards the premise of the test below: if coverage silently became complete,
     that test would start passing for the wrong reason.
     """
     mudataset = build_partial_coverage_dataset()
     covered = mudataset.entities_with_modality("gene_expression")
-    assert len(covered) < len(mudataset.cell_line_ids)
+    assert len(covered) < len(mudataset.sample_ids)
 
 
 def test_partial_omics_coverage_trains() -> None:

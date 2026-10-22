@@ -93,7 +93,7 @@ def test_unpack_batch_concatenates_all_but_the_last_tensor() -> None:
     assert torch.allclose(unpacked_response, response)
 
 
-def test_unpack_batch_handles_a_cell_line_only_batch() -> None:
+def test_unpack_batch_handles_a_sample_only_batch() -> None:
     cell = torch.zeros(2, 5)
     response = torch.ones(2)
 

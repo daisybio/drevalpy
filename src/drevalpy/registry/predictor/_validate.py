@@ -24,9 +24,9 @@ def _leaf_interface_match(name: str, cls: type[Any], leaf_bases: tuple[type[Any]
 
 
 def _validate_matrix_contracts(name: str, cls: type[Any]) -> None:
-    cell_line = getattr(cls, "cell_line_contract", None)
+    sample = getattr(cls, "sample_contract", None)
     drug = getattr(cls, "drug_contract", None)
-    for side, contract in (("cell_line", cell_line), ("drug", drug)):
+    for side, contract in (("sample", sample), ("drug", drug)):
         if contract is None or contract.format != FeatureFormat.NUMERIC_MATRIX:
             actual = getattr(contract, "format", None)
             actual_value = actual.value if actual is not None else "<missing>"

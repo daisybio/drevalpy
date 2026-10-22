@@ -34,10 +34,10 @@ class PairEvalSpec:
     """One eval pass: which entity matrices to index, how to batch, where to run.
 
     The two block groups are kept apart because they are indexed by different arrays:
-    cell-line blocks by ``cell_line_pair_idx``, drug blocks by ``drug_pair_idx``.
+    sample blocks by ``sample_pair_idx``, drug blocks by ``drug_pair_idx``.
     """
 
-    cell_line_blocks: Sequence[np.ndarray]
+    sample_blocks: Sequence[np.ndarray]
     drug_blocks: Sequence[np.ndarray]
     batch_size: int
     device: torch.device
@@ -108,10 +108,10 @@ def _iter_pair_batches(batch: ModelInputBatch, spec: PairEvalSpec) -> Iterator[t
     from drevalpy.types.data.tensor_data import make_pair_loader
 
     drug_pair_idx = require_drug_pair_idx(batch.drug_pair_idx)
-    cell_line_pair_idx = batch.cell_line_pair_idx
+    sample_pair_idx = batch.sample_pair_idx
 
     loader = make_pair_loader(
-        *((values, cell_line_pair_idx) for values in spec.cell_line_blocks),
+        *((values, sample_pair_idx) for values in spec.sample_blocks),
         *((values, drug_pair_idx) for values in spec.drug_blocks),
         batch_size=spec.batch_size,
         shuffle=False,

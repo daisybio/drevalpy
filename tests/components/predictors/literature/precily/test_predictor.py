@@ -30,7 +30,7 @@ class TestTinyPrecilyFit:
     @pytest.mark.parametrize("seed", [0, 1, 2])
     def test_updates_parameters_and_round_trips_state(self, seed: int) -> None:
         batch = two_by_two_batch(
-            cell_line_blocks={
+            sample_blocks={
                 "pathways": numeric_feature_block(
                     np.array([[0.1, 0.4, 0.8, 1.2], [1.3, 0.7, -0.2, 0.5]], dtype=np.float32)
                 )

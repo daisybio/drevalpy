@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
-from drevalpy.registry.cell_line_featurizer import (
-    cell_line_featurizer_registry,
-)
 from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.featurizer import FeaturizerRegistry
+from drevalpy.registry.sample_featurizer import (
+    sample_featurizer_registry,
+)
 
 
 def test_module_featurizer_singletons_use_fixed_identity() -> None:
-    assert cell_line_featurizer_registry._registry_id == "cell_line_featurizer"
+    assert sample_featurizer_registry._registry_id == "sample_featurizer"
     assert drug_featurizer_registry._registry_id == "drug_featurizer"
-    assert cell_line_featurizer_registry._display_name == "cell_line_featurizers"
+    assert sample_featurizer_registry._display_name == "sample_featurizers"
     assert drug_featurizer_registry._display_name == "drug_featurizers"
 
 

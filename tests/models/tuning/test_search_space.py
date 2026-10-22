@@ -20,12 +20,12 @@ from drevalpy.registry._builtins import register_builtin_components
 
 def test_merge_all_three_spaces() -> None:
     merged = merge_search_spaces(
-        cell_line_featurizer_space={"n_components": {"type": "int", "low": 4, "high": 64, "default": 8}},
+        sample_featurizer_space={"n_components": {"type": "int", "low": 4, "high": 64, "default": 8}},
         drug_featurizer_space={"n_bits": {"type": "int", "low": 64, "high": 256, "default": 128}},
         predictor_space={"alpha": {"type": "float", "low": 0.1, "high": 1.0, "default": 0.5}},
     )
     assert set(merged) == {
-        "cell_line_featurizer.n_components",
+        "sample_featurizer.n_components",
         "drug_featurizer.n_bits",
         "predictor.alpha",
     }
@@ -33,12 +33,12 @@ def test_merge_all_three_spaces() -> None:
 
 def test_split_hyperparameters_inverts_merge() -> None:
     merged = {
-        "cell_line_featurizer.n_components": 8,
+        "sample_featurizer.n_components": 8,
         "drug_featurizer.n_bits": 128,
         "predictor.alpha": 0.5,
     }
-    cell_line_hp, drug_hp, predictor_hp = split_hyperparameters(merged)
-    assert cell_line_hp == {"n_components": 8}
+    sample_hp, drug_hp, predictor_hp = split_hyperparameters(merged)
+    assert sample_hp == {"n_components": 8}
     assert drug_hp == {"n_bits": 128}
     assert predictor_hp == {"alpha": 0.5}
 
@@ -55,9 +55,9 @@ def test_merge_concat_child_spaces_use_qualified_selectors() -> None:
     config = from_spec(spec)
     assert isinstance(config, ModelConfig)
     merged = merge_model_config_spaces(config)
-    pca_keys = [key for key in merged if key.startswith("cell_line_featurizer.pca[expression].")]
+    pca_keys = [key for key in merged if key.startswith("sample_featurizer.pca[expression].")]
     assert pca_keys
-    assert any(key.startswith("cell_line_featurizer.landmarkGenes.") for key in merged)
+    assert any(key.startswith("sample_featurizer.landmarkGenes.") for key in merged)
     assert any("predictor.randomForest." in key for key in merged)
     # The class-level space is what HPO tunes; it must not drift from the config merge.
     assert ModelSpec("ComboRF", config).hyperparameter_space == merged
@@ -68,8 +68,8 @@ def test_merge_same_name_different_views_get_distinct_keys() -> None:
     config = from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
     assert isinstance(config, ModelConfig)
     merged = merge_model_config_spaces(config)
-    assert any(key.startswith("cell_line_featurizer.pca[expression].") for key in merged)
-    assert any(key.startswith("cell_line_featurizer.pca[proteomics].") for key in merged)
+    assert any(key.startswith("sample_featurizer.pca[expression].") for key in merged)
+    assert any(key.startswith("sample_featurizer.pca[proteomics].") for key in merged)
 
 
 def test_apply_rejects_indexed_featurizer_keys() -> None:
@@ -82,7 +82,7 @@ def test_apply_rejects_indexed_featurizer_keys() -> None:
     ):
         apply_merged_to_model_config(
             config,
-            {"cell_line_featurizer.pca.0.n_components": 8},
+            {"sample_featurizer.pca.0.n_components": 8},
         )
 
 
@@ -92,17 +92,17 @@ def test_apply_merged_to_model_config_strips_featurizer_prefix() -> None:
     assert isinstance(config, ModelConfig)
     merged = defaults_from_merged_space(merge_model_config_spaces(config))
     updated = apply_merged_to_model_config(config, merged)
-    assert updated.featurizer_values("cell_line", "pca[expression]")["n_components"] == 128
+    assert updated.featurizer_values("sample", "pca[expression]")["n_components"] == 128
     assert all("." in key for key in updated.values)
 
 
 def test_extract_defaults() -> None:
     defaults = extract_defaults(
-        cell_line_featurizer_space={"n_components": {"type": "int", "default": 16}},
+        sample_featurizer_space={"n_components": {"type": "int", "default": 16}},
         predictor_space={"alpha": {"type": "float", "default": 0.1}},
     )
     assert defaults == {
-        "cell_line_featurizer.n_components": 16,
+        "sample_featurizer.n_components": 16,
         "predictor.alpha": 0.1,
     }
 

@@ -16,7 +16,7 @@ from .split_mask import SplitMask
 class SplitMasks:
     """Collection of train/test/val masks for a single cross-validation fold.
 
-    Each field is a ``SplitMask`` with shape (n_cell_lines, n_drugs).
+    Each field is a ``SplitMask`` with shape (n_samples, n_drugs).
     This format is uniform across all split modes (LPO, LCO, LDO, LTO).
     """
 
@@ -27,7 +27,7 @@ class SplitMasks:
 
     @property
     def shape(self) -> tuple[int, int]:
-        """Shape of the response matrix (n_cell_lines, n_drugs)."""
+        """Shape of the response matrix (n_samples, n_drugs)."""
         return self.train.shape
 
     @property

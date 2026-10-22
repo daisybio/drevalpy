@@ -66,7 +66,7 @@ def from_spec(
     directly. Zoo names win, so a preset can shadow a bare predictor name. Recipes take the
     same two steps as any other config source: ``parse_model_recipe`` reads the syntax into a
     plain field mapping, then ``from_dict`` resolves the names against the registry and checks
-    that the combination is legal. A bare token is exactly the recipe with no cell-line slot,
+    that the combination is legal. A bare token is exactly the recipe with no sample slot,
     so that is where a mistyped zoo name is caught before it is read as a predictor.
 
     :param spec: Zoo preset name, or a recipe of one to three colon-separated parts.
@@ -87,7 +87,7 @@ def from_spec(
         return preset
 
     payload = parse_model_recipe(trimmed)
-    if payload["cell_line_featurizer"] is None:
+    if payload["sample_featurizer"] is None:
         reject_unknown_spec(payload["predictor"])
     config = from_dict({**payload, "prediction_mode": mode}, source=f"recipe {trimmed!r}")
     return apply_optional_hyperparameters(config, hyperparameters)

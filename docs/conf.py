@@ -99,7 +99,7 @@ exclude_patterns = [
     "_model_zoo.py",
     "examples",
     "cli/_generated_reference.rst",
-    "concepts/_generated_cell_line_featurizers.rst",
+    "concepts/_generated_sample_featurizers.rst",
     "concepts/_generated_drug_featurizers.rst",
     "concepts/_generated_model_zoo.rst",
     "concepts/_generated_predictors.rst",

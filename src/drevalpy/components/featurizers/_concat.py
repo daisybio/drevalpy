@@ -1,4 +1,4 @@
-"""Shared dense concatenation logic for cell-line and drug featurizers."""
+"""Shared dense concatenation logic for sample and drug featurizers."""
 
 from __future__ import annotations
 

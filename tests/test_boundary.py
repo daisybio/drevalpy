@@ -29,8 +29,8 @@ def test_native_component_registration_does_not_import_literature_models() -> No
 
 def test_component_featurizers_import_from_features_not_models_utils() -> None:
     for module_name in (
-        "drevalpy.components.featurizers.cell_line.scaled_gene_expression",
-        "drevalpy.components.featurizers.cell_line.normalized_proteomics",
+        "drevalpy.components.featurizers.sample.scaled_gene_expression",
+        "drevalpy.components.featurizers.sample.normalized_proteomics",
     ):
         module = importlib.import_module(module_name)
         source_path = module.__file__

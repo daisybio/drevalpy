@@ -45,12 +45,12 @@ def test_metadata_omits_the_legacy_capability_fields() -> None:
     meta = predictor_component_metadata("predictors", "featureFree", _FeatureFreeLike)
 
     for dropped in (
-        "cell_line_format",
+        "sample_format",
         "drug_format",
         "supported_modes",
         "scope",
         "supports_early_stopping",
-        "required_cell_line_views",
+        "required_sample_views",
         "required_drug_views",
     ):
         assert dropped not in meta

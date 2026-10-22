@@ -1,7 +1,7 @@
 """Shared batch factory for the literature predictor tests.
 
 Every literature predictor is exercised against the same shape of input - two
-cell lines, two drugs, the four pairs between them, and a checkpoint directory -
+samples, two drugs, the four pairs between them, and a checkpoint directory -
 so each of those test files had written out the same twelve-keyword
 ``ModelInputBatch.from_response`` call. What actually differs per predictor is
 which feature blocks it consumes, and that is all a caller passes here.
@@ -26,11 +26,11 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.models.synthetic_fixtures import multi_drug_response
 
-CELL_LINE_IDS = np.array(["cl1", "cl2"])
+SAMPLE_IDS = np.array(["cl1", "cl2"])
 DRUG_IDS = np.array(["d1", "d2"])
 
-#: The four (cell line, drug) pairs of the 2x2 grid, in row-major order.
-CELL_LINE_PAIR_IDX = np.array([0, 0, 1, 1])
+#: The four (sample, drug) pairs of the 2x2 grid, in row-major order.
+SAMPLE_PAIR_IDX = np.array([0, 0, 1, 1])
 DRUG_PAIR_IDX = np.array([0, 1, 0, 1])
 
 #: Tiny fits run many float32 updates, so CPU architectures drift apart by up to
@@ -108,15 +108,15 @@ def identity_drug_blocks() -> dict[str, FeatureBlock]:
 def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:
     """Build a varied, trainable three-omic batch with disjoint validation rows."""
     rng = np.random.default_rng(2025)
-    cell_line_ids = np.array([*(f"train-{idx}" for idx in range(6)), "val-0", "val-1"])
+    sample_ids = np.array([*(f"train-{idx}" for idx in range(6)), "val-0", "val-1"])
     training = ResponseBatch(
         response=np.array([0.0, 0.02, 0.3, 0.7, 0.98, 1.0], dtype=np.float32),
-        cell_line_ids=cell_line_ids[:6],
+        sample_ids=sample_ids[:6],
         drug_ids=np.repeat("d1", 6),
     )
     validation = ResponseBatch(
         response=np.array([0.15, 0.85], dtype=np.float32),
-        cell_line_ids=cell_line_ids[6:],
+        sample_ids=sample_ids[6:],
         drug_ids=np.repeat("d1", 2),
     )
     widths = {"gene_expression": 6, "mutations": 5, "copy_number_variation_gistic": 4}
@@ -125,7 +125,7 @@ def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:
     }
     return ModelInputBatch.from_response(
         training,
-        cell_line=FeaturizerResult.from_blocks(blocks, cell_line_ids),
+        sample=FeaturizerResult.from_blocks(blocks, sample_ids),
         drug=FeaturizerResult(
             np.array(["d1"]),
             {
@@ -134,7 +134,7 @@ def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:
             },
             ("identity",),
         ),
-        cell_line_pair_idx=np.arange(6),
+        sample_pair_idx=np.arange(6),
         drug_pair_idx=np.zeros(6, dtype=np.int64),
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
@@ -315,20 +315,20 @@ _DEFAULT = object()
 
 def two_by_two_batch(
     *,
-    cell_line_blocks: dict[str, FeatureBlock],
+    sample_blocks: dict[str, FeatureBlock],
     drug_blocks: dict[str, FeatureBlock],
     response: ResponseBatch | None = None,
-    cell_line_pair_idx: np.ndarray | None = None,
+    sample_pair_idx: np.ndarray | None = None,
     drug_pair_idx: Any = _DEFAULT,
     early_stopping_response: ResponseBatch | None = None,
     checkpoint_dir: Any = ".",
 ) -> ModelInputBatch:
-    """Build a featurized batch over two cell lines and two drugs.
+    """Build a featurized batch over two samples and two drugs.
 
-    :param cell_line_blocks: Cell-line blocks the predictor under test consumes.
+    :param sample_blocks: Sample blocks the predictor under test consumes.
     :param drug_blocks: Drug blocks the predictor under test consumes.
     :param response: Training responses; defaults to ``multi_drug_response()``.
-    :param cell_line_pair_idx: Per-pair cell-line row index; defaults to the 2x2 grid.
+    :param sample_pair_idx: Per-pair sample row index; defaults to the 2x2 grid.
     :param drug_pair_idx: Per-pair drug row index; defaults to the 2x2 grid. Pass
         ``None`` explicitly for a predictor with no per-drug axis.
     :param early_stopping_response: Optional early-stopping responses.
@@ -337,7 +337,7 @@ def two_by_two_batch(
     """
     return ModelInputBatch.from_response(
         multi_drug_response() if response is None else response,
-        cell_line=FeaturizerResult.from_blocks(cell_line_blocks, CELL_LINE_IDS),
+        sample=FeaturizerResult.from_blocks(sample_blocks, SAMPLE_IDS),
         drug=FeaturizerResult(
             DRUG_IDS,
             {
@@ -350,7 +350,7 @@ def two_by_two_batch(
             },
             tuple(name for name, block in drug_blocks.items() if block.values.dtype.kind in "biufc"),
         ),
-        cell_line_pair_idx=CELL_LINE_PAIR_IDX if cell_line_pair_idx is None else cell_line_pair_idx,
+        sample_pair_idx=SAMPLE_PAIR_IDX if sample_pair_idx is None else sample_pair_idx,
         drug_pair_idx=DRUG_PAIR_IDX if drug_pair_idx is _DEFAULT else drug_pair_idx,
         early_stopping_response=early_stopping_response,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
@@ -364,6 +364,6 @@ def early_stopping_response() -> ResponseBatch:
     """
     return ResponseBatch(
         response=np.array([1.5, 2.5]),
-        cell_line_ids=CELL_LINE_IDS,
+        sample_ids=SAMPLE_IDS,
         drug_ids=DRUG_IDS,
     )

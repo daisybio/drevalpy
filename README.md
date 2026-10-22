@@ -96,7 +96,7 @@ DrEvalPy exposes the same evaluation workflow through the **CLI** and the **Pyth
 
 ### CLI (smallest runnable example)
 
-After installation, run naive baselines on the GDSC1 screen with leave-cell-line-out (LCO) splits:
+After installation, run naive baselines on the GDSC1 screen with leave-sample-out (LCO) splits:
 
 ```bash
 drevalpy run NaiveTissueMeanPredictor NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
@@ -180,7 +180,7 @@ run_id: main_results
 dataset_name: CTRPv2
 cross_study_datasets: CTRPv1,GDSC1,GDSC2
 models: DIPK,MultiViewRandomForest
-baselines: SimpleNeuralNetwork,RandomForest,MultiViewNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveCellLineMeanPredictor,NaiveDrugMeanPredictor
+baselines: SimpleNeuralNetwork,RandomForest,MultiViewNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveSampleMeanPredictor,NaiveDrugMeanPredictor
 test_mode: LPO,LCO,LTO,LDO
 randomization_mode: SVRC,SVRD
 randomization_type: permutation
@@ -246,7 +246,7 @@ available:
 run_id: infer_pdx_beat
 dataset_name: CTRPv2
 cross_study_datasets: PDX_Bruna,BeatAML2
-models: RandomForest,SimpleNeuralNetwork,GradientBoosting,SRMF,ElasticNet,NaivePredictor,NaiveDrugMeanPredictor,NaiveCellLineMeanPredictor
+models: RandomForest,SimpleNeuralNetwork,GradientBoosting,SRMF,ElasticNet,NaivePredictor,NaiveDrugMeanPredictor,NaiveSampleMeanPredictor
 baselines: NaiveMeanEffectsPredictor
 test_mode: LPO,LCO,LDO
 measure: LN_IC50

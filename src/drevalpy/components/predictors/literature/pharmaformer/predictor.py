@@ -113,16 +113,16 @@ def _run_epoch(
 @register(
     "pharmaFormer",
     description="PharmaFormer landmark genes + BPE PharmaFormer model.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=PHARMAFORMER_REFERENCE,
 )
 class PharmaFormerPredictor(BlockPredictor):
     """Registered PharmaFormer predictor consuming ModelInputBatch directly."""
 
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("bpe_smiles",)
-    required_cell_line_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
     )
     required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
@@ -179,7 +179,7 @@ class PharmaFormerPredictor(BlockPredictor):
         :returns: Tuple of ``(gene_expression, bpe_smiles)`` matrices.
         """
         return (
-            batch.cell_line.blocks["gene_expression"].values,
+            batch.sample.blocks["gene_expression"].values,
             batch.drug.blocks["bpe_smiles"].values,
         )
 
@@ -198,7 +198,7 @@ class PharmaFormerPredictor(BlockPredictor):
         batch_size = self._hyperparameters["batch_size"]
 
         train_loader = make_pair_loader(
-            (gene_entity, batch.cell_line_pair_idx),
+            (gene_entity, batch.sample_pair_idx),
             (drug_entity, require_drug_pair_idx(batch.drug_pair_idx)),
             response=np.asarray(batch.response, dtype=np.float32),
             batch_size=batch_size,
@@ -264,7 +264,7 @@ class PharmaFormerPredictor(BlockPredictor):
             self._model,
             batch,
             PairEvalSpec(
-                cell_line_blocks=(gene_entity,),
+                sample_blocks=(gene_entity,),
                 drug_blocks=(drug_entity,),
                 batch_size=self._hyperparameters.get("batch_size", 64),
                 device=self._device,

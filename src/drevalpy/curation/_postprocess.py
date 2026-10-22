@@ -32,7 +32,7 @@ _COLUMN_RENAME = {
     "Curve Back Error": "back_error",
 }
 
-_LABEL_COLUMNS = ["cell_line", "drug"]
+_LABEL_COLUMNS = ["sample", "drug"]
 
 #: Metrics derived here rather than read from the fit.
 DERIVED_METRICS = ("EC50", "IC50", "LN_IC50")
@@ -58,9 +58,9 @@ def postprocess(groups: list[tuple[pd.DataFrame, dict]]) -> pd.DataFrame:
 
     Returns:
     -------
-    Single DataFrame with columns: cell_line, drug, plus all metric columns.
+    Single DataFrame with columns: sample, drug, plus all metric columns.
     All curves are preserved (no filtering). The label columns hold whatever
-    ``cell_line``/``drug`` values were fitted, so native identifiers survive the
+    ``sample``/``drug`` values were fitted, so native identifiers survive the
     round trip - as strings, because they travel through curve_curator's
     ``Name`` column.
 

@@ -42,17 +42,17 @@ def _map_pair_indices(
     return np.asarray(rows, dtype=np.int64)
 
 
-def pair_cell_line_indices(
-    cell_line_ids: np.ndarray,
-    cell_line_id_to_row: dict[str, int],
+def pair_sample_indices(
+    sample_ids: np.ndarray,
+    sample_id_to_row: dict[str, int],
 ) -> np.ndarray:
-    """Map pair cell-line identifiers to featurizer row indices.
+    """Map pair sample identifiers to featurizer row indices.
 
-    :param cell_line_ids: Cell-line id per response pair.
-    :param cell_line_id_to_row: Mapping from entity id to featurizer row index.
-    :returns: Integer array of row indices aligned with *cell_line_ids*.
+    :param sample_ids: Sample id per response pair.
+    :param sample_id_to_row: Mapping from entity id to featurizer row index.
+    :returns: Integer array of row indices aligned with *sample_ids*.
     """
-    return _map_pair_indices(cell_line_ids, cell_line_id_to_row, side="cell-line")
+    return _map_pair_indices(sample_ids, sample_id_to_row, side="sample")
 
 
 def pair_drug_indices(
@@ -89,44 +89,44 @@ def _validate_pair_indices(table, indices, pair_ids, *, side: str) -> None:
 class ModelInputBatch:
     """Response pairs indexed into canonical per-side featurizer results."""
 
-    cell_line_ids: np.ndarray
+    sample_ids: np.ndarray
     drug_ids: np.ndarray
     response: np.ndarray | None
-    cell_line: FeaturizerResult
+    sample: FeaturizerResult
     drug: FeaturizerResult | None
-    cell_line_pair_idx: np.ndarray
+    sample_pair_idx: np.ndarray
     drug_pair_idx: np.ndarray | None
     early_stopping_response: ResponseBatch | None = None
     training_context: TrainingContext = field(default_factory=TrainingContext)
 
     def __post_init__(self) -> None:
         """Validate pair lengths and indices against canonical entity tables."""
-        n = len(self.cell_line_ids)
-        for name in ("cell_line_ids", "drug_ids", "response", "cell_line_pair_idx", "drug_pair_idx"):
+        n = len(self.sample_ids)
+        for name in ("sample_ids", "drug_ids", "response", "sample_pair_idx", "drug_pair_idx"):
             value = getattr(self, name)
             if value is not None and (np.asarray(value).ndim != 1 or len(value) != n):
                 raise ValueError(f"{name} must be one-dimensional with n_pairs ({n}) entries")
         if self.response is not None:
             self.response = np.asarray(self.response, dtype=np.float64)
         for side, table, indices in (
-            ("cell_line", self.cell_line, self.cell_line_pair_idx),
+            ("sample", self.sample, self.sample_pair_idx),
             ("drug", self.drug, self.drug_pair_idx),
         ):
             _validate_pair_indices(table, indices, getattr(self, f"{side}_ids"), side=side)
 
     @property
     def n_pairs(self) -> int:
-        """Number of requested cell-line/drug response pairs."""
-        return len(self.cell_line_ids)
+        """Number of requested sample/drug response pairs."""
+        return len(self.sample_ids)
 
     @classmethod
     def from_response(
         cls,
         response: ResponseBatch,
         *,
-        cell_line: FeaturizerResult,
+        sample: FeaturizerResult,
         drug: FeaturizerResult | None = None,
-        cell_line_pair_idx: np.ndarray,
+        sample_pair_idx: np.ndarray,
         drug_pair_idx: np.ndarray | None = None,
         early_stopping_response: ResponseBatch | None = None,
         training_context: TrainingContext | None = None,
@@ -134,21 +134,21 @@ class ModelInputBatch:
         """Index response pairs into already computed entity-level results.
 
         :param response: Requested pairs and optional targets.
-        :param cell_line: Canonical cell-line features.
+        :param sample: Canonical sample features.
         :param drug: Optional canonical drug features.
-        :param cell_line_pair_idx: Entity row per response pair.
+        :param sample_pair_idx: Entity row per response pair.
         :param drug_pair_idx: Drug row per response pair.
         :param early_stopping_response: Optional disjoint stopping pairs.
         :param training_context: Runtime checkpoint and logging context.
         :returns: Aligned predictor input.
         """
         return cls(
-            response.cell_line_ids,
+            response.sample_ids,
             response.drug_ids,
             response.response,
-            cell_line,
+            sample,
             drug,
-            cell_line_pair_idx,
+            sample_pair_idx,
             drug_pair_idx,
             early_stopping_response,
             training_context or TrainingContext(),
@@ -160,7 +160,7 @@ class ModelInputBatch:
             return _map_pair_indices(ids, mapping, side=side)
 
         return (
-            indices(self.cell_line, response.cell_line_ids, "cell-line"),
+            indices(self.sample, response.sample_ids, "sample"),
             None if self.drug is None else indices(self.drug, response.drug_ids, "drug"),
         )
 
@@ -174,7 +174,7 @@ class ModelInputBatch:
 
     def _feature_matrix(self, cell_indices, drug_indices, *, n_pairs: int) -> np.ndarray:
         arrays = []
-        for table, indices in ((self.cell_line, cell_indices), (self.drug, drug_indices)):
+        for table, indices in ((self.sample, cell_indices), (self.drug, drug_indices)):
             if table is None or not table.projection:
                 continue
             matrix = table.matrix
@@ -193,7 +193,7 @@ class ModelInputBatch:
 
     def to_feature_matrix(self) -> np.ndarray:
         """Return the dense design matrix in the batch's requested pair order."""
-        return self._feature_matrix(self.cell_line_pair_idx, self.drug_pair_idx, n_pairs=self.n_pairs)
+        return self._feature_matrix(self.sample_pair_idx, self.drug_pair_idx, n_pairs=self.n_pairs)
 
     def subset_pairs(self, mask: np.ndarray) -> ModelInputBatch:
         """Subset pairs, sharing entity payloads and restricting stopping drugs.
@@ -209,16 +209,16 @@ class ModelInputBatch:
         if stopping is not None and mask.any():
             keep = np.isin(stopping.drug_ids, np.unique(self.drug_ids[mask]))
             stopping = (
-                ResponseBatch(stopping.response[keep], stopping.cell_line_ids[keep], stopping.drug_ids[keep])
+                ResponseBatch(stopping.response[keep], stopping.sample_ids[keep], stopping.drug_ids[keep])
                 if keep.any()
                 else None
             )
         return replace(
             self,
-            cell_line_ids=self.cell_line_ids[mask],
+            sample_ids=self.sample_ids[mask],
             drug_ids=self.drug_ids[mask],
             response=None if self.response is None else self.response[mask],
-            cell_line_pair_idx=self.cell_line_pair_idx[mask],
+            sample_pair_idx=self.sample_pair_idx[mask],
             drug_pair_idx=None if self.drug_pair_idx is None else self.drug_pair_idx[mask],
             early_stopping_response=stopping,
         )

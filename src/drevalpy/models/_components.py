@@ -27,13 +27,13 @@ def build_components(config: ResolvedModelConfig) -> tuple[Featurizer | None, Fe
     """Instantiate featurizers and predictor for a validated config.
 
     :param config: Resolved model configuration.
-    :returns: Fresh cell-line featurizer, optional drug featurizer, and predictor.
+    :returns: Fresh sample featurizer, optional drug featurizer, and predictor.
     """
     resolved = config
     template = resolved.template
-    cell_line = (
-        _instantiate_featurizer(template.cell_line_featurizer, resolved)
-        if template.cell_line_featurizer is not None
+    sample = (
+        _instantiate_featurizer(template.sample_featurizer, resolved)
+        if template.sample_featurizer is not None
         else None
     )
     drug = _instantiate_featurizer(template.drug_featurizer, resolved) if template.drug_featurizer is not None else None
@@ -42,4 +42,4 @@ def build_components(config: ResolvedModelConfig) -> tuple[Featurizer | None, Fe
         "prediction_mode": template.prediction_mode,
     }
     predictor = template.predictor.create_instance(predictor_hp)
-    return cell_line, drug, predictor
+    return sample, drug, predictor

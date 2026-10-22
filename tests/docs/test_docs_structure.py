@@ -30,7 +30,7 @@ EXEMPT_SUFFIXES = {
     "index.rst",
     "reference.rst",
     "_generated_reference.rst",
-    "_generated_cell_line_featurizers.rst",
+    "_generated_sample_featurizers.rst",
     "_generated_drug_featurizers.rst",
     "_generated_examples.rst",
     "_generated_model_zoo.rst",
@@ -135,13 +135,13 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     from a clean registry, not from whatever this session has registered.
     """
     from drevalpy.registry import _builtins as rb
-    from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
     from drevalpy.registry.drug_featurizer import drug_featurizer_registry
     from drevalpy.registry.predictor import predictor_registry
+    from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
     catalog = (DOCS / "concepts" / "component_catalog.rst").read_text(encoding="utf-8")
     for include in (
-        "_generated_cell_line_featurizers.rst",
+        "_generated_sample_featurizers.rst",
         "_generated_drug_featurizers.rst",
         "_generated_predictors.rst",
     ):
@@ -161,14 +161,14 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
 
     rb.register_builtin_components()
     expected_featurizers = {
-        "cell_line": {
+        "sample": {
             row["name"]: (
                 row["output_format"],
                 "\u2705" if row["precompute"] else "\u274c",
                 " ".join(row["description"].split()),
             )
-            for row in cell_line_featurizer_registry.list_metadata()
-            if row["name"] in rb.BUILTIN_CELL_LINE_FEATURIZER_NAMES
+            for row in sample_featurizer_registry.list_metadata()
+            if row["name"] in rb.BUILTIN_SAMPLE_FEATURIZER_NAMES
         },
         "drug": {
             row["name"]: (
@@ -205,7 +205,7 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
         flags=re.MULTILINE,
     )
     observed_predictors = {name: (interface, description) for name, interface, description in predictor_matches}
-    assert len(expected_featurizers["cell_line"]) == len(rb.BUILTIN_CELL_LINE_FEATURIZER_NAMES) == 17
+    assert len(expected_featurizers["sample"]) == len(rb.BUILTIN_SAMPLE_FEATURIZER_NAMES) == 17
     assert len(expected_featurizers["drug"]) == len(rb.BUILTIN_DRUG_FEATURIZER_NAMES) == 10
     assert len(expected_predictors) == len(rb.BUILTIN_PREDICTOR_NAMES) == 27
     assert observed_predictors == expected_predictors

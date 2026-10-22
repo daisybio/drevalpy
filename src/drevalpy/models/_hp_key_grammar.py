@@ -3,7 +3,7 @@
 A qualified key names one knob on one component of a composed model stack:
 
 * ``predictor.<name>.<param>``
-* ``cell_line_featurizer.<selector>.<param>``
+* ``sample_featurizer.<selector>.<param>``
 * ``drug_featurizer.<selector>.<param>``
 
 where ``<selector>`` is a featurizer name optionally qualified by a view, as in
@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 
 __all__ = [
-    "CELL_LINE_SLOT",
+    "SAMPLE_SLOT",
     "DRUG_SLOT",
     "FEATURIZER_SLOTS",
     "PREDICTOR_SLOT",
@@ -33,16 +33,16 @@ __all__ = [
     "split_prefixed_key",
 ]
 
-CELL_LINE_SLOT = "cell_line_featurizer"
+SAMPLE_SLOT = "sample_featurizer"
 DRUG_SLOT = "drug_featurizer"
 PREDICTOR_SLOT = "predictor"
 
 #: The two featurizer slots, in the order stacks declare them.
-FEATURIZER_SLOTS = (CELL_LINE_SLOT, DRUG_SLOT)
+FEATURIZER_SLOTS = (SAMPLE_SLOT, DRUG_SLOT)
 
 #: Registry name (as used by ``FeaturizerConfig.registry``) to slot name.
 REGISTRY_TO_SLOT = {
-    "cell_line": CELL_LINE_SLOT,
+    "sample": SAMPLE_SLOT,
     "drug": DRUG_SLOT,
 }
 
@@ -62,7 +62,7 @@ _QUALIFIED_FEATURIZER_KEY_RE = re.compile(
 def featurizer_prefix(registry: str, selector: str, param: str) -> str:
     """Build the qualified key for a featurizer parameter.
 
-    :param registry: Registry name, ``cell_line`` or ``drug``.
+    :param registry: Registry name, ``sample`` or ``drug``.
     :param selector: Featurizer name, optionally view-qualified.
     :param param: Parameter name.
     :returns: ``<slot>.<selector>.<param>``.

@@ -5,7 +5,7 @@ measurements, runs the parallel CurveCurator fit, extracts the per-curve metrics
 and pivots them into an :class:`~anndata.AnnData`.
 
 Fitting is identifier-agnostic - CurveCurator groups by dose range and treats
-``cell_line``/``drug`` purely as labels - and :func:`curate` keys the returned
+``sample``/``drug`` purely as labels - and :func:`curate` keys the returned
 ``obs_names``/``var_names`` from whatever those two columns held. A pipeline can
 therefore curate on *native* identifiers, persist the ``.h5ad``, and resolve
 identity (Cellosaurus accessions, PubChem CIDs, duplicate collapse) in a later,
@@ -58,8 +58,8 @@ def curate(
     Parameters
     ----------
     df
-        Long-form DataFrame with columns: drug, cell_line, concentration,
-        intensity, and optionally replicate. The ``drug`` and ``cell_line``
+        Long-form DataFrame with columns: drug, sample, concentration,
+        intensity, and optionally replicate. The ``drug`` and ``sample``
         values are treated as opaque labels, so native identifiers are fine -
         they become the ``var_names``/``obs_names`` of the result.
     max_chunk_size
@@ -88,7 +88,7 @@ def curate(
 
     Returns:
     -------
-    AnnData of shape (n_cell_lines, n_drugs), indexed by the labels that were
+    AnnData of shape (n_samples, n_drugs), indexed by the labels that were
     fitted. ``X`` holds pEC50; every other curve metric is a layer - the derived
     ``EC50``/``IC50``/``LN_IC50``, the goodness-of-fit columns, and the
     per-parameter standard errors ``pec50_error``/``slope_error``/

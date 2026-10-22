@@ -35,7 +35,7 @@ class TestPreprocess:
         assert group_info["n_experiments"] == len([c for c in groups[0][0].columns if str(c).startswith("Raw")])
 
     def test_missing_columns_raises(self) -> None:
-        bad_df = pd.DataFrame({"drug": ["A"], "cell_line": ["B"]})
+        bad_df = pd.DataFrame({"drug": ["A"], "sample": ["B"]})
         with pytest.raises(ValueError, match="Missing required columns"):
             preprocess(bad_df)
 

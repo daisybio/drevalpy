@@ -34,14 +34,14 @@ def test_decorator_returns_original_class() -> None:
     @register_predictor(
         "dummyPred",
         description="pred",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        sample_contract=FeatureFormat.NUMERIC_MATRIX,
         drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class DummyPred(_ConcretePredictor):
         pass
 
     assert vars(DummyPred)["registry_name"] == "dummyPred"
-    assert vars(DummyPred)["cell_line_contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert vars(DummyPred)["sample_contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     assert vars(DummyPred)["drug_contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
@@ -49,7 +49,7 @@ def test_predictor_metadata_facade_returns_catalog_metadata() -> None:
     @register_predictor(
         "catalogPred",
         description="catalog shape",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        sample_contract=FeatureFormat.NUMERIC_MATRIX,
         drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class CatalogPred(_ConcretePredictor):
@@ -64,45 +64,45 @@ def test_predictor_metadata_facade_returns_catalog_metadata() -> None:
 def test_class_body_contracts_are_accepted() -> None:
     @register_predictor("bodyContractPred", description="declares on the class body")
     class BodyContractPred(_ConcretePredictor):
-        cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+        sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
         drug_contract = FeatureContract(format=FeatureFormat.GRAPH)
 
-    assert BodyContractPred.cell_line_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert BodyContractPred.sample_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     assert BodyContractPred.drug_contract == FeatureContract(format=FeatureFormat.GRAPH)
 
 
 def test_class_body_contracts_accept_the_format_shorthand() -> None:
     @register_predictor("shorthandPred", description="format shorthand on the class body")
     class ShorthandPred(_ConcretePredictor):
-        cell_line_contract = FeatureFormat.NUMERIC_MATRIX
+        sample_contract = FeatureFormat.NUMERIC_MATRIX
         drug_contract = FeatureFormat.RAGGED_SEQUENCE
 
-    assert ShorthandPred.cell_line_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert ShorthandPred.sample_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     assert ShorthandPred.drug_contract == FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
 
 
 def test_an_invalid_class_body_contract_is_rejected() -> None:
-    with pytest.raises(TypeError, match="class-body cell_line_contract is invalid"):
+    with pytest.raises(TypeError, match="class-body sample_contract is invalid"):
 
         class BadBodyPred(_ConcretePredictor):
-            cell_line_contract = "numeric_matrix_but_a_plain_string"
+            sample_contract = "numeric_matrix_but_a_plain_string"
 
 
 def test_the_decorator_contract_overrides_the_class_body() -> None:
     @register_predictor(
         "overriddenPred",
         description="decorator wins",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        sample_contract=FeatureFormat.NUMERIC_MATRIX,
         drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class OverriddenPred(_ConcretePredictor):
-        cell_line_contract = FeatureContract(format=FeatureFormat.GRAPH)
+        sample_contract = FeatureContract(format=FeatureFormat.GRAPH)
 
-    assert OverriddenPred.cell_line_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert OverriddenPred.sample_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 def test_a_predictor_declaring_no_contract_anywhere_is_rejected() -> None:
-    with pytest.raises(ValueError, match="no cell_line_contract declared"):
+    with pytest.raises(ValueError, match="no sample_contract declared"):
 
         @register_predictor("noContractPred", description="missing contracts")
         class NoContractPred(_ConcretePredictor):
@@ -114,8 +114,8 @@ def test_a_predictor_missing_only_the_drug_contract_is_rejected() -> None:
 
         @register_predictor(
             "halfContractPred",
-            description="only the cell-line side",
-            cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+            description="only the sample side",
+            sample_contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class HalfContractPred(_ConcretePredictor):
             pass

@@ -11,7 +11,7 @@ Run an LCO experiment on GDSC1 with ElasticNet:
    drevalpy run ElasticNet --dataset GDSC1 --split-mode LCO --no-hpo
 
 This trains ElasticNet to predict drug response on the GDSC1 screen, using
-leave-cell-line-out splits (LCO; see :doc:`/concepts/evaluation`).
+leave-sample-out splits (LCO; see :doc:`/concepts/evaluation`).
 Results are written under the output directory (default ``results/``).
 
 Build the HTML report:

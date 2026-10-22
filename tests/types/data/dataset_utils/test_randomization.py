@@ -149,7 +149,7 @@ class TestOrchestratorPassesType:
         from drevalpy.experiment import randomization
 
         mock_config = MagicMock()
-        mock_config.cell_line_views.return_value = ["gene_expression"]
+        mock_config.sample_views.return_value = ["gene_expression"]
         mock_config.drug_views.return_value = []
 
         mock_model = MagicMock()

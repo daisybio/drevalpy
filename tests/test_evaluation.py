@@ -34,19 +34,19 @@ def test_evaluate() -> None:
 def generate_mock_data_drug_mean() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Generate mock data with a mean response per drug.
 
-    :returns: response, cell_line_ids, drug_ids
+    :returns: response, sample_ids, drug_ids
     """
     response_list = []
     drug_ids = []
-    cell_line_ids = []
+    sample_ids = []
     for drug in [f"drug_{i}" for i in range(100)]:
         drug_mean = np.random.randint(0, 8)
-        for cell_line in [f"cell_line_{i}" for i in range(200)]:
+        for sample in [f"sample_{i}" for i in range(200)]:
             response = np.random.normal(drug_mean, 0.1)
             response_list.append(response)
             drug_ids.append(drug)
-            cell_line_ids.append(cell_line)
-    return np.array(response_list), np.array(cell_line_ids), np.array(drug_ids)
+            sample_ids.append(sample)
+    return np.array(response_list), np.array(sample_ids), np.array(drug_ids)
 
 
 @pytest.fixture

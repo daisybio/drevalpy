@@ -17,7 +17,7 @@ from drevalpy.types.enums.literature_reference import LiteratureReference
 
 def test_literature_reference_is_accepted() -> None:
     class Lit:
-        cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+        sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
         drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
     apply_registration_metadata(
@@ -68,7 +68,7 @@ def test_predictor_role_validation_requires_contracts() -> None:
         tags: frozenset[str] = frozenset()
         reference = None
 
-    with pytest.raises(ValueError, match="missing=\\['cell_line_contract', 'drug_contract'\\]"):
+    with pytest.raises(ValueError, match="missing=\\['sample_contract', 'drug_contract'\\]"):
         validate_registered_class(
             "predictor",
             "native",

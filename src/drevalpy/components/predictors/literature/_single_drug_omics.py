@@ -1,6 +1,6 @@
 """Per-drug three-omic plumbing shared by MOLIR and SuperFELTR.
 
-Both are single-drug models over the same three cell-line views, and both carried
+Both are single-drug models over the same three sample views, and both carried
 their own copy of: the per-drug checkpoint directory, the record of which feature
 names a model was trained on, the column realignment applied at predict time, the
 early-stopping index lookup, and the feature-name (de)serialization.
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
-#: The three cell-line views both models consume, in encoder order.
+#: The three sample views both models consume, in encoder order.
 OMIC_BLOCK_NAMES = ("gene_expression", "mutations", "copy_number_variation_gistic")
 
 
@@ -83,22 +83,22 @@ class OmicMatrices:
 
 
 def omic_matrices(batch: ModelInputBatch) -> OmicMatrices:
-    """Read the three cell-line views out of *batch*.
+    """Read the three sample views out of *batch*.
 
     :param batch: Batch carrying all three blocks.
     :returns: The entity-level matrices as float32.
     """
-    values = [np.asarray(batch.cell_line.blocks[name].values, dtype=np.float32) for name in OMIC_BLOCK_NAMES]
+    values = [np.asarray(batch.sample.blocks[name].values, dtype=np.float32) for name in OMIC_BLOCK_NAMES]
     return OmicMatrices(*values)
 
 
 def omic_feature_names(batch: ModelInputBatch) -> OmicFeatureNames:
-    """Record the feature names of the three cell-line views of *batch*.
+    """Record the feature names of the three sample views of *batch*.
 
     :param batch: Batch carrying all three blocks.
     :returns: The recorded feature names.
     """
-    return OmicFeatureNames(*(batch.cell_line.blocks[name].feature_names for name in OMIC_BLOCK_NAMES))
+    return OmicFeatureNames(*(batch.sample.blocks[name].feature_names for name in OMIC_BLOCK_NAMES))
 
 
 def checkpoint_dir_for_drug(base_dir: UPath | str, drug_id: str) -> UPath:
@@ -131,7 +131,7 @@ def iter_drug_subsets(batch: ModelInputBatch) -> Iterator[tuple[str, ModelInputB
 
 
 def early_stopping_indices(batch: ModelInputBatch) -> tuple[np.ndarray | None, np.ndarray | None]:
-    """Map the batch's early-stopping response onto cell-line entity rows.
+    """Map the batch's early-stopping response onto sample entity rows.
 
     :param batch: Training batch.
     :returns: Tuple of ``(val_pair_idx, val_response)``, both ``None`` when there is
@@ -141,8 +141,8 @@ def early_stopping_indices(batch: ModelInputBatch) -> tuple[np.ndarray | None, n
     if es_resp is None or len(es_resp) < 2:
         return None, None
 
-    entity_map = {str(eid): row for row, eid in enumerate(batch.cell_line.entity_ids)}
-    val_idx = np.array([entity_map[str(cl_id)] for cl_id in es_resp.cell_line_ids], dtype=np.intp)
+    entity_map = {str(eid): row for row, eid in enumerate(batch.sample.entity_ids)}
+    val_idx = np.array([entity_map[str(cl_id)] for cl_id in es_resp.sample_ids], dtype=np.intp)
     return val_idx, np.asarray(es_resp.response, dtype=np.float32)
 
 
@@ -169,10 +169,10 @@ def aligned_pair_matrices(
     :param feature_names: Feature names the model was trained on.
     :returns: Tuple of ``(expression, mutation, cnv)`` pair-level matrices.
     """
-    pair_idx = batch.cell_line_pair_idx
+    pair_idx = batch.sample_pair_idx
     aligned = []
     for name, trained in zip(OMIC_BLOCK_NAMES, feature_names.as_tuple(), strict=True):
-        block = batch.cell_line.blocks[name]
+        block = batch.sample.blocks[name]
         values = np.asarray(block.values[pair_idx], dtype=np.float32)
         aligned.append(_align(values, trained, block.feature_names))
     return aligned[0], aligned[1], aligned[2]

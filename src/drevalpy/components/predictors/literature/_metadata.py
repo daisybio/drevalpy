@@ -6,9 +6,9 @@ from drevalpy.types.enums.literature_reference import LiteratureReference
 
 DRUGGNN_REFERENCE = LiteratureReference(
     repo_url="https://github.com/hauldhut/GraphDRP",
-    citation_text="DrugGNN-style GCN on molecular graphs with dense cell-line features (GraphDRP codebase).",
+    citation_text="DrugGNN-style GCN on molecular graphs with dense sample features (GraphDRP codebase).",
     deviations=(
-        "GraphDRP GCN variant: retain its three graph convolutions; use mean pooling, a dense cell-line "
+        "GraphDRP GCN variant: retain its three graph convolutions; use mean pooling, a dense sample "
         "branch and an unbounded regression head instead of max pooling, Conv1d and sigmoid."
     ),
 )

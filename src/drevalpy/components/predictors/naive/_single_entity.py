@@ -19,7 +19,7 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 class SingleEntityNaivePredictor(MeanEffectsStateMixin, BlockPredictor):
     """Predict per-entity means from a one-hot design matrix."""
 
-    _feature_side: ClassVar[str] = "cell_line"
+    _feature_side: ClassVar[str] = "sample"
 
     state_effects: ClassVar[tuple[str, ...]] = ("effects",)
 

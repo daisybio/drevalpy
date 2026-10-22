@@ -24,7 +24,7 @@ def sigmoid(x: np.ndarray, top: float, bottom: float, ec50: float, slope: float)
 
 
 def build_dose_response_df() -> pd.DataFrame:
-    """Artificial dose-response data: 3 cell lines x 2 drugs.
+    """Artificial dose-response data: 3 samples x 2 drugs.
 
     Exposed as a plain function so the session-scoped fitted fixtures below can
     build their own private copy without sharing one frame across scopes.
@@ -32,13 +32,13 @@ def build_dose_response_df() -> pd.DataFrame:
     :returns: Long-form dose-response measurements.
     """
     concentrations = [0.001, 0.01, 0.1, 1.0, 10.0]
-    cell_lines = ["CL_A", "CL_B", "CL_C"]
+    samples = ["CL_A", "CL_B", "CL_C"]
     drugs = ["DrugX", "DrugY"]
 
     rng = np.random.default_rng(42)
     rows: list[dict] = []
 
-    for cl in cell_lines:
+    for cl in samples:
         for drug in drugs:
             conc_arr = np.array(concentrations)
             if drug == "DrugX":
@@ -50,14 +50,14 @@ def build_dose_response_df() -> pd.DataFrame:
             intensity = np.clip(intensity + noise, 0.01, 1.5)
 
             for conc, intens in zip(concentrations, intensity, strict=True):
-                rows.append({"drug": drug, "cell_line": cl, "concentration": conc, "intensity": intens})
+                rows.append({"drug": drug, "sample": cl, "concentration": conc, "intensity": intens})
 
     return pd.DataFrame(rows)
 
 
 @pytest.fixture()
 def dose_response_df() -> pd.DataFrame:
-    """Artificial dose-response data: 3 cell lines x 2 drugs."""
+    """Artificial dose-response data: 3 samples x 2 drugs."""
     return build_dose_response_df()
 
 

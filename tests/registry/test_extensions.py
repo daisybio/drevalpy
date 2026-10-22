@@ -21,13 +21,6 @@ from drevalpy.registry._extensions import (
     load_extension_file,
     load_extensions,
 )
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
-from drevalpy.registry.cell_line_featurizer import (
-    get as get_cell_line_featurizer,
-)
-from drevalpy.registry.cell_line_featurizer import (
-    list as list_cell_line_featurizers,
-)
 from drevalpy.registry.predictor import (
     get as get_predictor,
 )
@@ -35,6 +28,13 @@ from drevalpy.registry.predictor import (
     list as list_predictors,
 )
 from drevalpy.registry.predictor import predictor_registry
+from drevalpy.registry.sample_featurizer import (
+    get as get_sample_featurizer,
+)
+from drevalpy.registry.sample_featurizer import (
+    list as list_sample_featurizers,
+)
+from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 from tests._trusted_subprocess import run_trusted_python
 from tests.registry._helpers import restore_component_registries
 
@@ -69,20 +69,20 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register
-from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
+from drevalpy.registry.sample_featurizer import register as register_sample_featurizer
 
 
-@register_cell_line_featurizer(
-    "toyCellLine",
+@register_sample_featurizer(
+    "toySample",
     description="Toy featurizer",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class ToyCellLineFeaturizer(CellLineFeaturizer):
+class ToySampleFeaturizer(SampleFeaturizer):
     entity_id_only = True
 
     def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
@@ -105,7 +105,7 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
 @register(
     "toyPredictor",
     description="Toy predictor",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ToyPredictor(FeatureFreePredictor):
@@ -117,11 +117,11 @@ class ToyPredictor(FeatureFreePredictor):
 """,
         encoding="utf-8",
     )
-    before = set(list_cell_line_featurizers())
+    before = set(list_sample_featurizers())
     load_extension_file(ext_file)
-    assert "toyCellLine" in list_cell_line_featurizers()
-    assert "toyCellLine" not in before
-    get_cell_line_featurizer("toyCellLine")
+    assert "toySample" in list_sample_featurizers()
+    assert "toySample" not in before
+    get_sample_featurizer("toySample")
     get_predictor("toyPredictor")
 
 
@@ -133,7 +133,7 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
         "from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
         "@register_predictor('toyB', description='b',\n"
-        "    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,\n"
+        "    sample_contract=FeatureFormat.NUMERIC_MATRIX,\n"
         "    drug_contract=FeatureFormat.NUMERIC_MATRIX)\n"
         "class ToyB(FeatureFreePredictor):\n"
         "    def _fit(self, batch: ModelInputBatch): return None\n"
@@ -147,7 +147,7 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
         "from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
         "@register_predictor('toyA', description='a',\n"
-        "    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,\n"
+        "    sample_contract=FeatureFormat.NUMERIC_MATRIX,\n"
         "    drug_contract=FeatureFormat.NUMERIC_MATRIX)\n"
         "class ToyA(FeatureFreePredictor):\n"
         "    def _fit(self, batch: ModelInputBatch): return None\n"
@@ -166,19 +166,19 @@ def test_external_zoo_references_extension_components(tmp_path: Path) -> None:
         """
 import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register as register_predictor
-from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
+from drevalpy.registry.sample_featurizer import register as register_sample_featurizer
 
-@register_cell_line_featurizer(
-    "externalCellLine",
+@register_sample_featurizer(
+    "externalSample",
     description="ext",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class ExternalCellLineFeaturizer(CellLineFeaturizer):
+class ExternalSampleFeaturizer(SampleFeaturizer):
     entity_id_only = True
 
     def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
@@ -197,7 +197,7 @@ class ExternalCellLineFeaturizer(CellLineFeaturizer):
 @register_predictor(
     "externalPredictor",
     description="ext",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ExternalPredictor(FeatureFreePredictor):
@@ -314,7 +314,7 @@ import numpy as np
 @register_predictor(
     "brokenPartial",
     description="partial",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class BrokenPartial(FeatureFreePredictor):
@@ -405,7 +405,7 @@ import numpy as np
 @register_predictor(
     "isolatedPredictor",
     description="isolated",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class IsolatedPredictor(FeatureFreePredictor):
@@ -430,10 +430,10 @@ class IsolatedPredictor(FeatureFreePredictor):
 
     def test_subprocess_native_lookup_does_not_import_optional_families(self) -> None:
         script = _BLOCK_OPTIONAL_FAMILIES + textwrap.dedent("""
-            from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+            from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
             from drevalpy.registry.predictor import get as get_predictor
 
-            get_cell_line_featurizer("identity")
+            get_sample_featurizer("identity")
             get_predictor("elasticNet")
             """)
         completed = run_trusted_python(script)
@@ -447,6 +447,6 @@ def test_unknown_builtin_predictor_raises_value_error() -> None:
 
 
 def test_unknown_builtin_featurizer_raises_value_error() -> None:
-    cell_line_featurizer_registry.clear()
-    with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
-        get_cell_line_featurizer("notRegisteredAnywhere")
+    sample_featurizer_registry.clear()
+    with pytest.raises(ValueError, match="Unknown Sample featurizer"):
+        get_sample_featurizer("notRegisteredAnywhere")

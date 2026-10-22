@@ -4,26 +4,26 @@ Component catalog
 This catalog is the vocabulary of a DrEvalPy model. Every model is assembled
 from components with three distinct roles:
 
-- a **cell-line featurizer** represents the biological sample,
+- a **sample featurizer** represents the biological sample,
 - a **drug featurizer** represents the compound, and
 - a **predictor** maps those representations to a drug-response estimate.
 
 .. mermaid::
 
    flowchart LR
-      cellLineData["Cell line"]
+      sampleData["Sample"]
       drugData["Drug"]
       responseEstimate["Drug response estimate"]
 
       subgraph model [Model]
-         cellLineFeaturizer["Cell-line featurizer"]
+         sampleFeaturizer["Sample featurizer"]
          drugFeaturizer["Drug featurizer"]
          predictor["Predictor"]
       end
 
-      cellLineData --> cellLineFeaturizer
+      sampleData --> sampleFeaturizer
       drugData --> drugFeaturizer
-      cellLineFeaturizer --> predictor
+      sampleFeaturizer --> predictor
       drugFeaturizer --> predictor
       predictor --> responseEstimate
 
@@ -42,7 +42,7 @@ In DrEvalPy, we distinguish between featurizers and encoders.
 Both are used to transform the input data into a feature space that can be used by the predictor, but they differ in their purpose, how they are trained, and how they are used.
 
 **Featurizers** are strategies for extracting features from the input data in an unsupervised manner.
-They can be precomputed from cell-line or drug data alone, without the need for drug response labels.
+They can be precomputed from sample or drug data alone, without the need for drug response labels.
 Featurizers can however have hyperparameters, for example the number of principal components to keep in a PCA transformation.
 While featurizer representations are generally predictor-agnostic, the optimal hyperparameters can depend on the predictor, the data, and the task.
 In DrEvalPy, we try to make sure that featurizers can be elegantly combined with different predictors, while ensuring that hyperparameters are optimized jointly with the predictor.
@@ -56,7 +56,7 @@ Precomputable featurizers
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some featurizers produce representations that depend only on the entity itself
-(the cell line or the drug) and not on any training labels. Their output is
+(the sample or the drug) and not on any training labels. Their output is
 deterministic and identical regardless of which predictor consumes it or which
 CV fold is active. These featurizers are marked as **precomputable**.
 
@@ -79,7 +79,7 @@ Restricting the search to stored variants only is not supported.
 Featurizer types
 ~~~~~~~~~~~~~~~~
 
-- ``numeric_matrix`` — one dense numeric row per entity (cell line or drug).
+- ``numeric_matrix`` — one dense numeric row per entity (sample or drug).
   Fingerprints, gene expression, and pathways use this format. It is the
   default and the only format ``MatrixPredictor`` models can consume.
 - ``graph`` — one molecular graph object per entity, held in an object array
@@ -91,10 +91,10 @@ Featurizer types
   featurizer exposes MolGNet embeddings this way; block predictors such as
   DIPK consume them without forcing a fixed-width dense matrix.
 
-Cell-line featurizers
+Sample featurizers
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. include:: _generated_cell_line_featurizers.rst
+.. include:: _generated_sample_featurizers.rst
 
 Drug featurizers
 ~~~~~~~~~~~~~~~~
@@ -107,7 +107,7 @@ Predictors
 Every predictor inherits exactly one **input interface**. That interface decides whether featurizers are
 required and how features are consumed:
 
-- **Feature-free** — the predictor only receives the drug/cell line identifiers, no featurizers are required.
+- **Feature-free** — the predictor only receives the drug/sample identifiers, no featurizers are required.
 - **Matrix** — the predictor receives a single numeric matrix (can be concatenated from multiple featurizers). This is the case for predictors like ``randomForest``, where it does not matter which omics layer the features originate from.
 - **Block** — the predictor receives a dictionary of named featurizer outputs. This is useful for predictors that treat different omics layers separately, e.g. ``molir``, which consumes ``gene_expression``, ``mutations``, and ``copy_number_variation`` as separate blocks. It also allows for predictors to specify that they require certain featurizers to be present in their input data, otherwise they can't work.
 

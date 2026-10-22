@@ -66,7 +66,7 @@ def test_block_predictor_subclass_supplying_both_hooks_is_concrete() -> None:
             self._value = 1.0
 
         def _predict(self, batch: ModelInputBatch) -> np.ndarray:
-            return np.full(len(batch.cell_line_ids), self._value)
+            return np.full(len(batch.sample_ids), self._value)
 
     assert not inspect.isabstract(_Constant)
     assert _Constant.input_interface == "block"

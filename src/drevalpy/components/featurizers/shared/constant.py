@@ -11,7 +11,7 @@ from drevalpy.components.featurizers.base import Featurizer
 @register_for_sides(
     "constant",
     description={
-        "cell_line": "Constant one-column intercept features with no cell-line identity.",
+        "sample": "Constant one-column intercept features with no sample identity.",
         "drug": "Constant one-column intercept features with no drug identity.",
     },
     contract=FeatureFormat.NUMERIC_MATRIX,

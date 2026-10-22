@@ -13,14 +13,14 @@ from .batch import (
 )
 from .batch.response_batch import ResponseBatch
 from .dataset import Dataset
-from .feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
+from .feature_source import DrugFeatureSource, FeatureSource, SampleFeatureSource
 from .mudatalike import MuDataLike
 from .split_mask import SplitMask
 from .split_masks import SplitMasks
 
 __all__ = [
     "BlockSpec",
-    "CellLineFeatureSource",
+    "SampleFeatureSource",
     "Dataset",
     "DrugFeatureSource",
     "FeatureBlock",

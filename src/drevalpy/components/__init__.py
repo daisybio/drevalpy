@@ -12,7 +12,7 @@ def __getattr__(name: str):
     _mapping = {
         "register_builtin_components": ("drevalpy.registry._builtins", "register_builtin_components"),
         "load_extensions": ("drevalpy.registry._extensions", "load_extensions"),
-        "register_cell_line_featurizer": ("drevalpy.registry.cell_line_featurizer", "register"),
+        "register_sample_featurizer": ("drevalpy.registry.sample_featurizer", "register"),
         "register_drug_featurizer": ("drevalpy.registry.drug_featurizer", "register"),
         "register_predictor": ("drevalpy.registry.predictor", "register"),
     }

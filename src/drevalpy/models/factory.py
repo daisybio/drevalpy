@@ -79,7 +79,7 @@ def reject_unknown_spec(token: str) -> None:
         return
     msg = (
         f"Unknown model spec {token!r}. Use a recipe triple "
-        "(cellLine:drug:predictor), zoo name, or feature-free predictor token."
+        "(sample:drug:predictor), zoo name, or feature-free predictor token."
     )
     raise ValueError(msg)
 

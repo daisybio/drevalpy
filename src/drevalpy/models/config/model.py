@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from drevalpy.components.predictors.single_drug_routing import ROUTING_DRUG_FEATURIZER
 from drevalpy.models.config._predictor_traits import needs_identity_drug_routing, scope
 from drevalpy.models.config._recipe import format_model_recipe
-from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
+from drevalpy.models.config.featurizer import DrugFeaturizerConfig, SampleFeaturizerConfig
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
 from drevalpy.models.config.view_resolution import (
@@ -33,7 +33,7 @@ class ModelConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    cell_line_featurizer: CellLineFeaturizerConfig | None = None
+    sample_featurizer: SampleFeaturizerConfig | None = None
     drug_featurizer: DrugFeaturizerConfig | None = None
     predictor: PredictorConfig
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
@@ -58,7 +58,7 @@ class ModelConfig(BaseModel):
         payload = dict(data)
         if (
             needs_identity_drug_routing(payload.get("predictor"))
-            and payload.get("cell_line_featurizer") is not None
+            and payload.get("sample_featurizer") is not None
             and payload.get("drug_featurizer") is None
         ):
             payload["drug_featurizer"] = DrugFeaturizerConfig(name=ROUTING_DRUG_FEATURIZER)
@@ -85,7 +85,7 @@ class ModelConfig(BaseModel):
 
         :returns: Colon-separated featurizer and predictor names, or ``None`` when incomplete.
         """
-        cell = self.cell_line_featurizer
+        cell = self.sample_featurizer
         drug = self.drug_featurizer
         if cell is None:
             return self.predictor.name if drug is None else None
@@ -96,15 +96,15 @@ class ModelConfig(BaseModel):
         omit_drug = self.scope == ModelScope.SINGLE_DRUG and drug.name == ROUTING_DRUG_FEATURIZER
         return format_model_recipe(cell.name, None if omit_drug else drug.name, self.predictor.name)
 
-    def cell_line_views(self, *, resolved: ResolvedModelConfig | None = None) -> list[str]:
-        """Return the raw view names required by the cell-line featurizer tree.
+    def sample_views(self, *, resolved: ResolvedModelConfig | None = None) -> list[str]:
+        """Return the raw view names required by the sample featurizer tree.
 
         :param resolved: Optional resolved instance values that can affect view selection.
-        :returns: View names required by the cell-line featurizer tree.
+        :returns: View names required by the sample featurizer tree.
         """
-        if self.cell_line_featurizer is None:
+        if self.sample_featurizer is None:
             return []
-        return views_from_featurizer_config(self.cell_line_featurizer, registry="cell_line", resolved=resolved)
+        return views_from_featurizer_config(self.sample_featurizer, registry="sample", resolved=resolved)
 
     def drug_views(self, *, resolved: ResolvedModelConfig | None = None) -> list[str]:
         """Return the raw view names required by the drug featurizer tree.
@@ -116,14 +116,14 @@ class ModelConfig(BaseModel):
             return []
         return views_from_featurizer_config(self.drug_featurizer, registry="drug", resolved=resolved)
 
-    def cell_line_entity_id_only(self) -> bool:
-        """Return ``True`` when the cell-line featurizer only needs entity identifiers.
+    def sample_entity_id_only(self) -> bool:
+        """Return ``True`` when the sample featurizer only needs entity identifiers.
 
-        :returns: ``True`` when no cell-line omics views are required.
+        :returns: ``True`` when no sample omics views are required.
         """
-        if self.cell_line_featurizer is None:
+        if self.sample_featurizer is None:
             return False
-        return entity_id_only_from_featurizer_config(self.cell_line_featurizer, registry="cell_line")
+        return entity_id_only_from_featurizer_config(self.sample_featurizer, registry="sample")
 
     def drug_entity_id_only(self) -> bool:
         """Return ``True`` when the drug featurizer only needs entity identifiers.

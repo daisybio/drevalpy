@@ -1,7 +1,7 @@
 """Feature-free predictor example: predict the training mean.
 
 ``FeatureFreePredictor`` sees pair identifiers and responses only. Composition
-forbids pairing it with cell-line or drug featurizers, but registration still
+forbids pairing it with sample or drug featurizers, but registration still
 wants both contracts, because the composition checker compares them before it
 knows the interface.
 """
@@ -21,7 +21,7 @@ from drevalpy.plugin import (
 @register_predictor(
     "toyMean",
     description="Predict the mean training response for every pair.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ToyMeanPredictor(FeatureFreePredictor):

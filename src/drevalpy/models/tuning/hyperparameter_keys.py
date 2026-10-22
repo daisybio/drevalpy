@@ -8,18 +8,18 @@ from typing import Any
 
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.models._hp_key_grammar import (
-    CELL_LINE_SLOT,
     DRUG_SLOT,
     PREDICTOR_SLOT,
+    SAMPLE_SLOT,
     featurizer_prefix,
     predictor_prefix,
     split_predictor_key,
     split_prefixed_key,
 )
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +39,7 @@ class HyperparameterTarget:
         if self.slot == PREDICTOR_SLOT:
             return predictor_prefix(self.selector, self.param)
         return featurizer_prefix(
-            "cell_line" if self.slot == CELL_LINE_SLOT else "drug",
+            "sample" if self.slot == SAMPLE_SLOT else "drug",
             self.selector,
             self.param,
         )
@@ -73,7 +73,7 @@ def _predictor_accepted_keys(predictor_cls: type[Any]) -> set[str]:
 
 
 def _featurizer_accepted_keys(featurizer: FeaturizerConfig, registry: str) -> set[str]:
-    cls = get_cell_line_featurizer(featurizer.name) if registry == "cell_line" else get_drug_featurizer(featurizer.name)
+    cls = get_sample_featurizer(featurizer.name) if registry == "sample" else get_drug_featurizer(featurizer.name)
     return set(cls.get_hyperparameter_space())
 
 
@@ -93,7 +93,7 @@ def _alias_targets(targets: tuple[HyperparameterTarget, ...]) -> dict[str, str]:
     aliases: dict[str, str] = {}
     qualified_set = {target.qualified_key for target in targets}
 
-    methylation_key = featurizer_prefix("cell_line", "pca[methylation]", "n_components")
+    methylation_key = featurizer_prefix("sample", "pca[methylation]", "n_components")
     if methylation_key in qualified_set:
         aliases["methylation_n_components"] = methylation_key
         aliases["methylation_pca_components"] = methylation_key
@@ -119,13 +119,13 @@ def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
             ),
         )
 
-    if config.cell_line_featurizer is not None:
-        for leaf in iter_featurizer_leaves(config.cell_line_featurizer, "cell_line"):
+    if config.sample_featurizer is not None:
+        for leaf in iter_featurizer_leaves(config.sample_featurizer, "sample"):
             _append_featurizer_targets(
                 targets,
                 leaf,
-                slot=CELL_LINE_SLOT,
-                registry="cell_line",
+                slot=SAMPLE_SLOT,
+                registry="sample",
             )
 
     if config.drug_featurizer is not None:
@@ -171,7 +171,7 @@ def _parse_qualified_key(key: str, config: ModelConfig) -> str | None:
     if key.startswith(f"{PREDICTOR_SLOT}."):
         msg = f"Unknown hyperparameter {key!r}: expected predictor.<name>.<param>."
         raise ValueError(msg)
-    if key.startswith((CELL_LINE_SLOT + ".", DRUG_SLOT + ".")):
+    if key.startswith((SAMPLE_SLOT + ".", DRUG_SLOT + ".")):
         msg = f"Unknown hyperparameter {key!r}: expected <slot>.<selector>.<param>."
         raise ValueError(msg)
     return None

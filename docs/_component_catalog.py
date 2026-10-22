@@ -10,23 +10,23 @@ from typing import TypedDict, TypeVar, cast
 from _generated_io import write_text_if_changed
 
 from drevalpy.registry._builtins import (
-    BUILTIN_CELL_LINE_FEATURIZER_NAMES,
     BUILTIN_DRUG_FEATURIZER_NAMES,
     BUILTIN_PREDICTOR_NAMES,
+    BUILTIN_SAMPLE_FEATURIZER_NAMES,
     get_skipped_builtin_modules,
     register_builtin_components,
 )
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
 from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.predictor import predictor_registry
+from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_CATALOGS = {
-    "cell_line": DOCS_DIR / "concepts" / "_generated_cell_line_featurizers.rst",
+    "sample": DOCS_DIR / "concepts" / "_generated_sample_featurizers.rst",
     "drug": DOCS_DIR / "concepts" / "_generated_drug_featurizers.rst",
     "predictor": DOCS_DIR / "concepts" / "_generated_predictors.rst",
 }
-EXPECTED_BUILTIN_COMPONENT_COUNTS = {"cell_line": 17, "drug": 10, "predictor": 27}
+EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample": 17, "drug": 10, "predictor": 27}
 EXPECTED_PREDICTOR_INTERFACE_COUNTS = {"feature_free": 1, "matrix": 13, "block": 13}
 
 
@@ -145,19 +145,19 @@ def _skipped_module_report() -> str:
 
 def _validate_builtin_catalog(
     *,
-    cell_line_rows: list[FeaturizerCatalogMetadata],
+    sample_rows: list[FeaturizerCatalogMetadata],
     drug_rows: list[FeaturizerCatalogMetadata],
     predictor_rows: list[PredictorCatalogMetadata],
 ) -> None:
     """Fail generation when built-in catalogs diverge from supported interfaces.
 
-    :param cell_line_rows: registered cell-line featurizer metadata rows
+    :param sample_rows: registered sample featurizer metadata rows
     :param drug_rows: registered drug featurizer metadata rows
     :param predictor_rows: registered predictor metadata rows
     :raises RuntimeError: if component or interface counts diverge from expectations
     """
     observed_counts = {
-        "cell_line": len(cell_line_rows),
+        "sample": len(sample_rows),
         "drug": len(drug_rows),
         "predictor": len(predictor_rows),
     }
@@ -182,10 +182,10 @@ def generate_component_catalog_rsts() -> dict[str, str]:
     :returns: generated RST keyed by component registry
     """
     register_builtin_components()
-    cell_line_rows = _builtin_rows(
-        cast(list[FeaturizerCatalogMetadata], cell_line_featurizer_registry.list_metadata()),
-        BUILTIN_CELL_LINE_FEATURIZER_NAMES,
-        "cell-line featurizers",
+    sample_rows = _builtin_rows(
+        cast(list[FeaturizerCatalogMetadata], sample_featurizer_registry.list_metadata()),
+        BUILTIN_SAMPLE_FEATURIZER_NAMES,
+        "sample featurizers",
     )
     drug_rows = _builtin_rows(
         cast(list[FeaturizerCatalogMetadata], drug_featurizer_registry.list_metadata()),
@@ -198,12 +198,12 @@ def generate_component_catalog_rsts() -> dict[str, str]:
         "predictors",
     )
     _validate_builtin_catalog(
-        cell_line_rows=cell_line_rows,
+        sample_rows=sample_rows,
         drug_rows=drug_rows,
         predictor_rows=predictor_rows,
     )
     return {
-        "cell_line": _render_featurizers(cell_line_rows),
+        "sample": _render_featurizers(sample_rows),
         "drug": _render_featurizers(drug_rows),
         "predictor": _render_predictors(predictor_rows),
     }

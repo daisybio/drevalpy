@@ -34,16 +34,16 @@ from tests.curation.test_normalize import build_normalizable_df
 _DOSES = [0.0, 0.001, 0.01, 0.1, 1.0, 10.0]
 
 
-def _curve_rows(concentrations: list[float], cell_lines: list[str], drug: str) -> list[dict]:
+def _curve_rows(concentrations: list[float], samples: list[str], drug: str) -> list[dict]:
     """Build long-form rows following a well-behaved sigmoid, one row per dose."""
     return [
         {
             "drug": drug,
-            "cell_line": cell_line,
+            "sample": sample,
             "concentration": concentration,
             "intensity": 0.1 + 0.9 / (1 + (concentration / 0.5) ** 1.5),
         }
-        for cell_line in cell_lines
+        for sample in samples
         for concentration in concentrations
     ]
 
@@ -348,7 +348,7 @@ class TestNormalizedFitIsCoreCountIndependent:
     exactly the property that used to fail.
 
     Driven through :func:`drevalpy.curation.curate` because that is the only
-    public entry point; the AnnData it returns is indexed by cell line and drug,
+    public entry point; the AnnData it returns is indexed by sample and drug,
     so ``X`` and the layers line up pair-for-pair without any sorting.
 
     Extended tier: two real multi-curve CurveCurator fits, one of them across a

@@ -28,7 +28,7 @@ N_MODELS = 3
 N_FOLDS = 2
 N_PAIRS = 20
 N_DRUGS = 4
-N_CELL_LINES = 5
+N_SAMPLES = 5
 
 
 @pytest.fixture(scope="module")
@@ -37,8 +37,8 @@ def experiment() -> ExperimentResult:
 
 
 class TestGroupings:
-    def test_drug_and_cell_line_are_the_supported_groupings(self):
-        assert GROUPINGS == ("drug", "cell_line")
+    def test_drug_and_sample_are_the_supported_groupings(self):
+        assert GROUPINGS == ("drug", "sample")
 
     def test_every_grouping_has_a_human_label(self):
         assert set(GROUPING_LABELS) == set(GROUPINGS)
@@ -50,10 +50,10 @@ class TestGroupLabels:
 
         np.testing.assert_array_equal(group_labels(run, "drug"), run.drug_ids)
 
-    def test_cell_line_grouping_reads_cell_line_ids(self):
+    def test_sample_grouping_reads_sample_ids(self):
         run = make_run_result(n_pairs=6)
 
-        np.testing.assert_array_equal(group_labels(run, "cell_line"), run.cell_line_ids)
+        np.testing.assert_array_equal(group_labels(run, "sample"), run.sample_ids)
 
     def test_an_unknown_grouping_is_rejected(self):
         with pytest.raises(ValueError, match="Unknown grouping 'tissue'"):
@@ -153,10 +153,10 @@ class TestModelGroupCorrelations:
 
         assert matrix.values.shape == (N_MODELS, N_DRUGS)
 
-    def test_the_cell_line_axis_has_one_column_per_cell_line(self, experiment):
-        matrix = model_group_correlations(experiment, "cell_line")
+    def test_the_sample_axis_has_one_column_per_sample(self, experiment):
+        matrix = model_group_correlations(experiment, "sample")
 
-        assert matrix.n_groups == N_CELL_LINES
+        assert matrix.n_groups == N_SAMPLES
 
     def test_values_are_float32_so_the_matrix_stays_small(self, experiment):
         assert model_group_correlations(experiment, "drug").values.dtype == np.float32
@@ -310,7 +310,7 @@ class TestGroupCorrelationMatrix:
         assert matrix.drop_all_nan_models() is matrix
 
     def test_the_grouping_is_carried_through(self, experiment):
-        assert model_group_correlations(experiment, "cell_line").grouping == "cell_line"
+        assert model_group_correlations(experiment, "sample").grouping == "sample"
 
 
 class TestBoundedMemory:

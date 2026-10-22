@@ -32,7 +32,7 @@ def test_neural_network_predictor_registry_name() -> None:
 
 def test_neural_network_requires_numeric_contracts() -> None:
     cls = get_predictor("neuralNetwork")
-    assert cls.cell_line_contract.format == FeatureFormat.NUMERIC_MATRIX
+    assert cls.sample_contract.format == FeatureFormat.NUMERIC_MATRIX
     assert cls.drug_contract.format == FeatureFormat.NUMERIC_MATRIX
 
 
@@ -95,10 +95,10 @@ def test_neural_network_configured_is_not_fitted() -> None:
 def _matrix_batch() -> ModelInputBatch:
     response = ResponseBatch(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
-        cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
+        sample_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
     )
-    cell_line_features = np.vstack(
+    sample_features = np.vstack(
         [
             np.array([0.1, 0.2, 0.3, 0.4]),
             np.array([0.5, 0.6, 0.7, 0.8]),
@@ -112,11 +112,11 @@ def _matrix_batch() -> ModelInputBatch:
     )
     return ModelInputBatch.from_response(
         response,
-        cell_line=FeaturizerResult.from_blocks(
-            {"features": numeric_feature_block(cell_line_features)}, np.array(["cl1", "cl2"])
+        sample=FeaturizerResult.from_blocks(
+            {"features": numeric_feature_block(sample_features)}, np.array(["cl1", "cl2"])
         ),
         drug=FeaturizerResult.from_blocks({"features": numeric_feature_block(drug_features)}, np.array(["d1", "d2"])),
-        cell_line_pair_idx=np.array([0, 0, 1, 1]),
+        sample_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
         training_context=TrainingContext(),
     )

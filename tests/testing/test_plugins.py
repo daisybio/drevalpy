@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.testing import plugins as plugins_module
 from drevalpy.testing.plugins import (
     ENTRY_POINT_GROUP,
@@ -48,8 +48,8 @@ def fake_plugin_package(monkeypatch):
     import sys
     import types
 
-    from drevalpy.registry import cell_line_featurizer
-    from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
+    from drevalpy.registry import sample_featurizer
+    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
 
     registry_name = f"fakePluginFeaturizer{next(_REGISTRY_NAME_COUNTER)}"
     package = types.ModuleType(PLUGIN_NAME)
@@ -57,13 +57,13 @@ def fake_plugin_package(monkeypatch):
     monkeypatch.setitem(sys.modules, PLUGIN_NAME, package)
     monkeypatch.setitem(sys.modules, f"{PLUGIN_NAME}.components", components)
 
-    @cell_line_featurizer.register(
+    @sample_featurizer.register(
         registry_name,
         description="Registered by the fake plugin package.",
         contract=FeatureFormat.NUMERIC_MATRIX,
         tags=("fake",),
     )
-    class FakeFeaturizer(CellLineFeaturizer):
+    class FakeFeaturizer(SampleFeaturizer):
         """Fake featurizer contributed by the fake plugin."""
 
         entity_id_only: ClassVar[bool] = True
@@ -89,7 +89,7 @@ def fake_plugin_package(monkeypatch):
     try:
         yield registry_name
     finally:
-        cell_line_featurizer_registry._store.pop(registry_name, None)
+        sample_featurizer_registry._store.pop(registry_name, None)
 
 
 def _stub_entry_points(monkeypatch, *entry_points: importlib.metadata.EntryPoint) -> None:
@@ -170,7 +170,7 @@ class TestNoComponentsRegistered:
         monkeypatch.setitem(sys.modules, "empty_fake_plugin", types.ModuleType("empty_fake_plugin"))
         _stub_entry_points(monkeypatch, _entry_point("empty_fake_plugin", name="empty_fake_plugin"))
 
-        with pytest.raises(PluginCheckError, match="cell_line_featurizer"):
+        with pytest.raises(PluginCheckError, match="sample_featurizer"):
             check_plugin("empty_fake_plugin")
 
 
@@ -193,7 +193,7 @@ class TestSuccessfulCheck:
         assert report.module == f"{PLUGIN_NAME}.components"
 
     def test_the_contributed_component_is_attributed_to_its_registry(self, report, fake_plugin_package):
-        assert report.components["cell_line_featurizer"] == (fake_plugin_package,)
+        assert report.components["sample_featurizer"] == (fake_plugin_package,)
 
     def test_registries_the_plugin_did_not_touch_are_omitted(self, report):
         assert "predictor" not in report.components
@@ -228,7 +228,7 @@ class TestAttributionAcrossRegistries:
     @pytest.mark.parametrize(
         ("registry_name", "component_name", "expected_root"),
         [
-            ("cell_line_featurizer", "identity", "drevalpy"),
+            ("sample_featurizer", "identity", "drevalpy"),
             ("drug_featurizer", "fingerprints", "drevalpy"),
             ("predictor", "ridge", "drevalpy"),
             ("splitter", "LPO", "drevalpy"),
@@ -244,7 +244,7 @@ class TestAttributionAcrossRegistries:
 
     def test_all_five_registries_are_inspected(self):
         assert set(plugins_module._REGISTRIES) == {
-            "cell_line_featurizer",
+            "sample_featurizer",
             "drug_featurizer",
             "predictor",
             "splitter",

@@ -19,7 +19,7 @@ from drevalpy.registry.predictor import register
 @register(
     "elasticNet",
     description="Elastic Net regression on concatenated dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ElasticNetPredictor(SklearnTabularPredictor):
@@ -86,8 +86,8 @@ class ElasticNetPredictor(SklearnTabularPredictor):
 
 @register(
     "singleDrugElasticNet",
-    description="ElasticNet fitted independently per drug on dense cell-line features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    description="ElasticNet fitted independently per drug on dense sample features.",
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class SingleDrugElasticNetPredictor(SingleDrugSklearnPredictor, ElasticNetPredictor):
@@ -97,7 +97,7 @@ class SingleDrugElasticNetPredictor(SingleDrugSklearnPredictor, ElasticNetPredic
 @register(
     "lasso",
     description="Lasso regression on dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class LassoPredictor(SklearnTabularPredictor):
@@ -135,7 +135,7 @@ class LassoPredictor(SklearnTabularPredictor):
 @register(
     "ridge",
     description="Ridge regression on dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class RidgePredictor(SklearnTabularPredictor):
@@ -160,7 +160,7 @@ class RidgePredictor(SklearnTabularPredictor):
 @register(
     "randomForest",
     description="Random forest on concatenated dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class RandomForestPredictor(SklearnTabularPredictor):
@@ -200,8 +200,8 @@ class RandomForestPredictor(SklearnTabularPredictor):
 
 @register(
     "singleDrugRandomForest",
-    description="Random forest fitted independently per drug on dense cell-line features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    description="Random forest fitted independently per drug on dense sample features.",
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class SingleDrugRandomForestPredictor(SingleDrugSklearnPredictor, RandomForestPredictor):
@@ -211,7 +211,7 @@ class SingleDrugRandomForestPredictor(SingleDrugSklearnPredictor, RandomForestPr
 @register(
     "svr",
     description="Support vector regression on dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class SVRPredictor(SklearnTabularPredictor):
@@ -247,7 +247,7 @@ class SVRPredictor(SklearnTabularPredictor):
 @register(
     "gradientBoosting",
     description="Histogram gradient boosting on dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class GradientBoostingPredictor(SklearnTabularPredictor):
@@ -279,7 +279,7 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
 @register(
     "adaboost",
     description="AdaBoost decision tree regressor on dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class AdaBoostPredictor(SklearnTabularPredictor):
@@ -322,7 +322,7 @@ class AdaBoostPredictor(SklearnTabularPredictor):
 @register(
     "knn",
     description="K-nearest neighbors on dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class KNNPredictor(SklearnTabularPredictor):

@@ -2,7 +2,7 @@
 
 The comparison scatter needs one number per (model, group) pair - the Pearson
 correlation of a model's predictions against ground truth restricted to a single
-drug or cell line - not the underlying point cloud. Computing it with
+drug or sample - not the underlying point cloud. Computing it with
 ``DataFrame.groupby(...).apply(pearsonr)`` costs a Python call per group and a
 row-wise DataFrame to group over; at 96 models x 10 folds x 23k rows that
 dominates both runtime and peak memory.
@@ -23,18 +23,18 @@ if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 
 #: Groupings the comparison plots support, in report order.
-GROUPINGS: Final[tuple[str, ...]] = ("drug", "cell_line")
+GROUPINGS: Final[tuple[str, ...]] = ("drug", "sample")
 
 #: Grouping name -> the ``RunResult`` attribute holding that grouping's labels.
-_ID_ATTRIBUTE: Final[dict[str, str]] = {"drug": "drug_ids", "cell_line": "cell_line_ids"}
+_ID_ATTRIBUTE: Final[dict[str, str]] = {"drug": "drug_ids", "sample": "sample_ids"}
 
 #: Human-readable axis/section labels per grouping.
-GROUPING_LABELS: Final[dict[str, str]] = {"drug": "drug", "cell_line": "cell line"}
+GROUPING_LABELS: Final[dict[str, str]] = {"drug": "drug", "sample": "sample"}
 
 #: Correlation is undefined below this many observations in a group.
 MIN_GROUP_SIZE: Final[int] = 2
 
-Grouping = Literal["drug", "cell_line"]
+Grouping = Literal["drug", "sample"]
 
 
 def group_labels(run: RunResult, grouping: str) -> np.ndarray:
@@ -42,7 +42,7 @@ def group_labels(run: RunResult, grouping: str) -> np.ndarray:
 
     :param run: Run whose identifier arrays to read.
     :param grouping: One of :data:`GROUPINGS`.
-    :returns: The run's ``drug_ids`` or ``cell_line_ids`` array.
+    :returns: The run's ``drug_ids`` or ``sample_ids`` array.
     :raises ValueError: If ``grouping`` is not one of :data:`GROUPINGS`.
     """
     try:
@@ -176,7 +176,7 @@ class GroupCorrelationMatrix:
 
     @property
     def n_groups(self) -> int:
-        """Number of drugs or cell lines on the column axis."""
+        """Number of drugs or samples on the column axis."""
         return len(self.group_names)
 
     @property
@@ -201,7 +201,7 @@ class GroupCorrelationMatrix:
         """Return a copy without models whose correlations are all NaN.
 
         A model that predicts a constant within every group - the per-drug and
-        per-cell-line naive baselines do exactly that - has no defined
+        per-sample naive baselines do exactly that - has no defined
         correlation anywhere and would only contribute an empty dropdown entry.
 
         :returns: ``self`` when nothing is dropped, otherwise a filtered copy.

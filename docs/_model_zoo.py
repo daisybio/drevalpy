@@ -37,15 +37,15 @@ def _routes_drugs_by_identity(config: ModelConfig) -> bool:
     :param config: Zoo preset to inspect.
     :returns: ``True`` when the drug slot should be omitted from the recipe.
     """
-    if config.scope != ModelScope.SINGLE_DRUG or config.cell_line_featurizer is None:
+    if config.scope != ModelScope.SINGLE_DRUG or config.sample_featurizer is None:
         return False
     return config.drug_featurizer is not None and config.drug_featurizer.name == "identity"
 
 
 def _model_recipe(config: ModelConfig) -> str:
-    if config.cell_line_featurizer is None and config.drug_featurizer is None:
+    if config.sample_featurizer is None and config.drug_featurizer is None:
         return config.predictor.name
-    cell = _featurizer_recipe(config.cell_line_featurizer)
+    cell = _featurizer_recipe(config.sample_featurizer)
     if _routes_drugs_by_identity(config):
         return f"{cell}:{config.predictor.name}"
     drug = _featurizer_recipe(config.drug_featurizer)

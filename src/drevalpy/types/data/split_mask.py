@@ -9,9 +9,9 @@ import numpy as np
 
 @dataclass(frozen=True)
 class SplitMask:
-    """2D boolean mask defining which (cell_line, drug) pairs to operate on.
+    """2D boolean mask defining which (sample, drug) pairs to operate on.
 
-    The ``mask`` array has shape (n_cell_lines, n_drugs) with True at positions
+    The ``mask`` array has shape (n_samples, n_drugs) with True at positions
     that should be included. When ``_pair_seed`` is set, ``.pairs`` returns
     the indices in a shuffled order (for robustness testing).
     """

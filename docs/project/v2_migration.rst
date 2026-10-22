@@ -92,7 +92,7 @@ seed derived from its full identity; the result records both seeds, type and
 affected views in ``dataset.mdata.uns["randomization_provenance"]``. Set the
 root seed in scripts and CLI runs when reproducing prior comparisons.
 
-``Dataset.subset_cell_lines`` and ``Dataset.subset_drugs`` return independent
+``Dataset.subset_samples`` and ``Dataset.subset_drugs`` return independent
 datasets rather than backed views. Their ``uns`` payload is deep-copied,
 randomization metadata is retained, and drug subsetting removes unretained
 entries from ``uns["drug_graphs"]``. Code that relied on mutating a subset to

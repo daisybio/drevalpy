@@ -71,12 +71,12 @@ def _batch(
     """
     response = ResponseBatch(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
-        cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
+        sample_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
     )
     return two_by_two_batch(
         response=response,
-        cell_line_blocks={
+        sample_blocks={
             "gene_expression": numeric_feature_block(expression, feature_names=expression_features),
             "mutations": numeric_feature_block(MUTATIONS, feature_names=MUTATION_FEATURES),
             "copy_number_variation_gistic": numeric_feature_block(CNV, feature_names=CNV_FEATURES),
@@ -205,16 +205,16 @@ class TestEarlyStopping:
         """One point cannot support an early-stopping decision."""
         response = ResponseBatch(
             response=np.array([1.0]),
-            cell_line_ids=np.array(["cl1"]),
+            sample_ids=np.array(["cl1"]),
             drug_ids=np.array(["d1"]),
         )
 
         assert early_stopping_indices(_batch(early_stopping_response=response)) == (None, None)
 
-    def test_validation_cell_lines_map_onto_entity_rows(self) -> None:
+    def test_validation_samples_map_onto_entity_rows(self) -> None:
         response = ResponseBatch(
             response=np.array([7.0, 8.0]),
-            cell_line_ids=np.array(["cl2", "cl1"]),
+            sample_ids=np.array(["cl2", "cl1"]),
             drug_ids=np.array(["d1", "d1"]),
         )
 
@@ -226,7 +226,7 @@ class TestEarlyStopping:
     def test_the_validation_split_shares_the_training_entity_matrices(self) -> None:
         response = ResponseBatch(
             response=np.array([7.0, 8.0]),
-            cell_line_ids=np.array(["cl2", "cl1"]),
+            sample_ids=np.array(["cl2", "cl1"]),
             drug_ids=np.array(["d1", "d1"]),
         )
         matrices = _matrices()

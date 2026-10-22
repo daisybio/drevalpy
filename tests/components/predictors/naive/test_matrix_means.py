@@ -45,14 +45,14 @@ def test_pair_align_requires_a_pair_index() -> None:
         pair_align(np.ones((2, 2)), None)
 
 
-def test_require_pair_matrix_aligns_the_cell_line_side() -> None:
+def test_require_pair_matrix_aligns_the_sample_side() -> None:
     batch = naive_batch(
-        cell_line_features=one_hot(["cl1", "cl2"], ["cl1", "cl2"]),
-        cell_line_pair_idx=np.array([0, 1, 0], dtype=np.int64),
+        sample_features=one_hot(["cl1", "cl2"], ["cl1", "cl2"]),
+        sample_pair_idx=np.array([0, 1, 0], dtype=np.int64),
         n_pairs=3,
     )
 
-    result = require_pair_matrix(batch, side="cell_line")
+    result = require_pair_matrix(batch, side="sample")
 
     np.testing.assert_allclose(result, [[1.0, 0.0], [0.0, 1.0], [1.0, 0.0]])
 
@@ -74,12 +74,12 @@ def test_require_pair_matrix_rejects_an_unknown_side() -> None:
         require_pair_matrix(naive_batch(n_pairs=1), side="tissue")
 
 
-def test_block_pair_matrix_aligns_a_named_cell_line_block() -> None:
+def test_block_pair_matrix_aligns_a_named_sample_block() -> None:
     identity = one_hot(["cl1", "cl2"], ["cl1", "cl2"])
     batch = naive_batch(
-        cell_line_features=identity,
-        cell_line_pair_idx=np.array([1, 0], dtype=np.int64),
-        cell_line_blocks={"identity": identity},
+        sample_features=identity,
+        sample_pair_idx=np.array([1, 0], dtype=np.int64),
+        sample_blocks={"identity": identity},
         n_pairs=2,
     )
 
@@ -91,7 +91,7 @@ def test_block_pair_matrix_aligns_a_named_cell_line_block() -> None:
 def test_block_pair_matrix_rejects_a_missing_block() -> None:
     batch = naive_batch(n_pairs=1)
 
-    with pytest.raises(ValueError, match="Required cell-line block 'tissue' is missing"):
+    with pytest.raises(ValueError, match="Required sample block 'tissue' is missing"):
         block_pair_matrix(batch, "tissue")
 
 

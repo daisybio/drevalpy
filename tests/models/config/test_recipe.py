@@ -148,10 +148,10 @@ def _slots(spec: str) -> tuple[str | None, str | None, str]:
     concat slot is named after the node it expands to.
 
     :param spec: Model recipe string.
-    :returns: Cell-line slot name, drug slot name, and predictor name.
+    :returns: Sample slot name, drug slot name, and predictor name.
     """
     payload = parse_model_recipe(spec)
-    cell = payload["cell_line_featurizer"]
+    cell = payload["sample_featurizer"]
     drug = payload["drug_featurizer"]
     return (
         cell["name"] if cell is not None else None,
@@ -163,7 +163,7 @@ def _slots(spec: str) -> tuple[str | None, str | None, str]:
 def test_model_recipe_payload_carries_exactly_the_config_field_keys() -> None:
     """The mapping goes straight into ``from_dict``, so it names config fields and nothing else."""
     assert parse_model_recipe("raw[expression]+landmarkGenes:fingerprints:randomForest") == {
-        "cell_line_featurizer": {
+        "sample_featurizer": {
             "name": "concatFeaturizers",
             "featurizers": [
                 {"name": "raw", "view": "expression"},
@@ -178,13 +178,13 @@ def test_model_recipe_payload_carries_exactly_the_config_field_keys() -> None:
 def test_both_slots_are_expanded_the_same_way() -> None:
     """No registry is involved, so a slot is transcribed the same wherever it appears."""
     payload = parse_model_recipe("raw[expression]:raw[expression]:randomForest")
-    assert payload["cell_line_featurizer"] == payload["drug_featurizer"] == {"name": "raw", "view": "expression"}
+    assert payload["sample_featurizer"] == payload["drug_featurizer"] == {"name": "raw", "view": "expression"}
 
 
 def test_two_part_model_recipe_leaves_the_drug_slot_unset() -> None:
     """``ModelConfig`` injects the routing featurizer, so the payload states no drug slot."""
     assert parse_model_recipe("scaledGeneExpression:singleDrugElasticNet") == {
-        "cell_line_featurizer": {"name": "scaledGeneExpression"},
+        "sample_featurizer": {"name": "scaledGeneExpression"},
         "drug_featurizer": None,
         "predictor": "singleDrugElasticNet",
     }
@@ -214,7 +214,7 @@ def test_model_recipe_slots_are_split(spec: str, expected: tuple[str | None, str
     """Each slot becomes its own featurizer mapping, stripped of padding.
 
     :param spec: Model recipe string.
-    :param expected: Expected ``(cell_line, drug, predictor)`` names.
+    :param expected: Expected ``(sample, drug, predictor)`` names.
     """
     assert _slots(spec) == expected
 
@@ -264,7 +264,7 @@ def test_colon_inside_a_view_is_not_a_slot_separator() -> None:
 def test_model_recipe_is_formatted_from_slots(slots: tuple[str | None, str | None, str], expected: str) -> None:
     """Formatting writes the grammar that parsing reads.
 
-    :param slots: ``(cell_line, drug, predictor)`` names to join.
+    :param slots: ``(sample, drug, predictor)`` names to join.
     :param expected: Expected recipe string.
     """
     assert format_model_recipe(*slots) == expected
@@ -286,7 +286,7 @@ def test_formatted_recipes_parse_back_to_the_same_slots(slots: tuple[str | None,
     name is not the recipe it came from, which is the same reason ``ModelConfig.model_id``
     cannot name one.
 
-    :param slots: ``(cell_line, drug, predictor)`` names to join.
+    :param slots: ``(sample, drug, predictor)`` names to join.
     """
     assert _slots(format_model_recipe(*slots)) == slots
 
@@ -296,7 +296,7 @@ def test_formatting_requires_a_predictor() -> None:
         format_model_recipe("scaledGeneExpression", "fingerprints", "")
 
 
-def test_formatting_rejects_a_drug_slot_without_a_cell_line_slot() -> None:
+def test_formatting_rejects_a_drug_slot_without_a_sample_slot() -> None:
     """A recipe fills its slots left to right, so this pair has no representation."""
-    with pytest.raises(ValueError, match="cell_line is required when drug is set"):
+    with pytest.raises(ValueError, match="sample is required when drug is set"):
         format_model_recipe(None, "fingerprints", "elasticNet")

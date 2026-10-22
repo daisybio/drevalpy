@@ -57,8 +57,8 @@ def test_list_zoo_names_filters_by_scope() -> None:
 
 def test_zoo_elastic_net_defaults() -> None:
     zoo_config = get_zoo_config("ElasticNet")
-    assert zoo_config.cell_line_featurizer is not None
-    assert zoo_config.cell_line_featurizer.name == "scaledGeneExpression"
+    assert zoo_config.sample_featurizer is not None
+    assert zoo_config.sample_featurizer.name == "scaledGeneExpression"
     assert zoo_config.drug_featurizer is not None
     assert zoo_config.drug_featurizer.name == "fingerprints"
     assert zoo_config.predictor.name == "elasticNet"
@@ -67,37 +67,37 @@ def test_zoo_elastic_net_defaults() -> None:
 def test_zoo_naive_presets_use_information_accurate_featurizers() -> None:
     naive = get_zoo_config("NaivePredictor")
     assert naive.predictor.name == "naiveMean"
-    assert naive.cell_line_featurizer is None
+    assert naive.sample_featurizer is None
     assert naive.drug_featurizer is None
 
-    cell_mean = get_zoo_config("NaiveCellLineMeanPredictor")
-    assert cell_mean.cell_line_featurizer is not None
-    assert cell_mean.cell_line_featurizer.name == "identity"
+    cell_mean = get_zoo_config("NaiveSampleMeanPredictor")
+    assert cell_mean.sample_featurizer is not None
+    assert cell_mean.sample_featurizer.name == "identity"
     assert cell_mean.drug_featurizer is not None
     assert cell_mean.drug_featurizer.name == "constant"
 
     drug_mean = get_zoo_config("NaiveDrugMeanPredictor")
-    assert drug_mean.cell_line_featurizer is not None
-    assert drug_mean.cell_line_featurizer.name == "constant"
+    assert drug_mean.sample_featurizer is not None
+    assert drug_mean.sample_featurizer.name == "constant"
     assert drug_mean.drug_featurizer is not None
     assert drug_mean.drug_featurizer.name == "identity"
 
     tissue_mean = get_zoo_config("NaiveTissueMeanPredictor")
-    assert tissue_mean.cell_line_featurizer is not None
-    assert tissue_mean.cell_line_featurizer.name == "tissue"
+    assert tissue_mean.sample_featurizer is not None
+    assert tissue_mean.sample_featurizer.name == "tissue"
     assert tissue_mean.drug_featurizer is not None
     assert tissue_mean.drug_featurizer.name == "constant"
 
     tissue_drug = get_zoo_config("NaiveTissueDrugMeanPredictor")
-    assert tissue_drug.cell_line_featurizer is not None
-    assert tissue_drug.cell_line_featurizer.name == "tissue"
+    assert tissue_drug.sample_featurizer is not None
+    assert tissue_drug.sample_featurizer.name == "tissue"
     assert tissue_drug.drug_featurizer is not None
     assert tissue_drug.drug_featurizer.name == "identity"
 
     mean_effects = get_zoo_config("NaiveMeanEffectsPredictor")
-    assert mean_effects.cell_line_featurizer is not None
-    assert mean_effects.cell_line_featurizer.name == "concatFeaturizers"
-    children = mean_effects.cell_line_featurizer.featurizers
+    assert mean_effects.sample_featurizer is not None
+    assert mean_effects.sample_featurizer.name == "concatFeaturizers"
+    children = mean_effects.sample_featurizer.featurizers
     assert children is not None
     assert [child.name for child in children] == ["identity", "tissue"]
     assert children[1].options is not None
@@ -118,7 +118,7 @@ def test_zoo_model_config_rejects_view_keys() -> None:
     with pytest.raises(ValueError, match=r"Unknown hyperparameter"):
         zoo_model_config(
             "ElasticNet",
-            {"cell_line_views": ["gene_expression"], "alpha": 0.1},
+            {"sample_views": ["gene_expression"], "alpha": 0.1},
         )
 
 
@@ -128,7 +128,7 @@ def test_zoo_model_config_routes_methylation_flat_key_to_pca_child() -> None:
     resolved = zoo_model_config("MultiViewRandomForest", {"methylation_n_components": 11})
     assert isinstance(resolved, ResolvedModelConfig)
     assert resolved.predictor_values().get("methylation_n_components") is None
-    assert resolved.featurizer_values("cell_line", "pca[methylation]")["n_components"] == 11
+    assert resolved.featurizer_values("sample", "pca[methylation]")["n_components"] == 11
 
 
 def test_get_zoo_config_applies_prediction_mode_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -151,11 +151,11 @@ def test_external_zoo_rejects_builtin_collision_and_is_atomic(tmp_path) -> None:
     bad.write_text(
         """
 goodEntry:
-  cell_line_featurizer: scaledGeneExpression
+  sample_featurizer: scaledGeneExpression
   drug_featurizer: fingerprints
   predictor: elasticNet
 ElasticNet:
-  cell_line_featurizer: scaledGeneExpression
+  sample_featurizer: scaledGeneExpression
   drug_featurizer: fingerprints
   predictor: elasticNet
 """,
@@ -198,7 +198,7 @@ def test_multi_drug_sklearn_predictor_without_drug_featurizer_fails() -> None:
     preset = get_zoo_config("ElasticNet")
     with pytest.raises(ValidationError, match="requires a drug_featurizer"):
         ModelConfig(
-            cell_line_featurizer=preset.cell_line_featurizer,
+            sample_featurizer=preset.sample_featurizer,
             drug_featurizer=None,
             predictor=preset.predictor,
             prediction_mode=preset.prediction_mode,
@@ -210,7 +210,7 @@ def test_literature_zoo_entries_validate(name: str) -> None:
     assert name in list_zoo_names(include_external=False)
     config = get_zoo_config(name)
     validate(config)
-    assert config.cell_line_featurizer is not None
+    assert config.sample_featurizer is not None
     if name in BLOCK_ZOO_NAMES:
         assert config.drug_featurizer is not None
         assert issubclass(get_predictor(config.predictor.name), BlockPredictor)
@@ -235,7 +235,7 @@ def test_from_spec_resolves_literature_zoo() -> None:
     config = from_spec("DrugGNN")
     assert isinstance(config, ModelConfig)
     assert config.predictor.name == "drugGNN"
-    assert config.cell_line_featurizer is not None
+    assert config.sample_featurizer is not None
     assert config.drug_featurizer is not None
 
 

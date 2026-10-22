@@ -12,27 +12,27 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.featurizers.cell_line.base import DenseViewCellLineFeaturizer
 from drevalpy.components.featurizers.drug.base import DenseViewDrugFeaturizer
+from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
 from drevalpy.components.featurizers.storage import register_variant
 from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource
+from drevalpy.types.data.feature_source import DrugFeatureSource, SampleFeatureSource
 from tests.conftest import MockFeatureSource
 from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
-_CELL_LINE_PRECOMPUTED = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+_SAMPLE_PRECOMPUTED = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
 _DRUG_PRECOMPUTED = np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32)
 
 
-class _StoredDenseView(DenseViewCellLineFeaturizer):
+class _StoredDenseView(DenseViewSampleFeaturizer):
     """Dense view whose values were pre-computed into ``response.obsm``."""
 
     storage_key = "stored_dense"
-    side = "cell_line"
+    side = "sample"
     input_views = ("gene_expression",)
 
 
-class _ComputedDenseView(DenseViewCellLineFeaturizer):
+class _ComputedDenseView(DenseViewSampleFeaturizer):
     """Dense view with an on-the-fly fallback and no stored matrix."""
 
     precompute = True
@@ -43,7 +43,7 @@ class _ComputedDenseView(DenseViewCellLineFeaturizer):
         return np.full((len(entity_ids), 4), 7.0, dtype=np.float32)
 
 
-class _StrictDenseView(DenseViewCellLineFeaturizer):
+class _StrictDenseView(DenseViewSampleFeaturizer):
     """Dense view without a fallback, so a missing view must propagate."""
 
     input_views = ("bionic_features",)
@@ -75,7 +75,7 @@ class _NamedBlockDrugView(DenseViewDrugFeaturizer):
     output_block_specs = (BlockSpec("custom_block", None),)
 
 
-def _cell_line_source() -> MockFeatureSource:
+def _sample_source() -> MockFeatureSource:
     return MockFeatureSource(
         features={
             "cl1": {"gene_expression": np.array([0.1, 0.2])},
@@ -96,12 +96,12 @@ def _drug_source() -> MockFeatureSource:
 
 
 @pytest.fixture
-def stored_cell_line_source() -> CellLineFeatureSource:
+def stored_sample_source() -> SampleFeatureSource:
     """A dataset-backed source carrying a registered ``stored_dense`` variant."""
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    dataset.mdata.mod["response"].obsm["stored_dense_0"] = _CELL_LINE_PRECOMPUTED
-    register_variant(dataset.mdata, "stored_dense", "stored_dense_0", None, side="cell_line")
-    return CellLineFeatureSource(dataset, dataset.cell_line_ids)
+    dataset.mdata.mod["response"].obsm["stored_dense_0"] = _SAMPLE_PRECOMPUTED
+    register_variant(dataset.mdata, "stored_dense", "stored_dense_0", None, side="sample")
+    return SampleFeatureSource(dataset, dataset.sample_ids)
 
 
 @pytest.fixture
@@ -114,7 +114,7 @@ def stored_drug_source() -> DrugFeatureSource:
 
 
 def test_dense_view_passes_the_declared_view_through() -> None:
-    source = _cell_line_source()
+    source = _sample_source()
     ids = np.array(["cl1", "cl2"], dtype=str)
     featurizer = _StrictDenseView(view="gene_expression").fit(source, entity_ids=ids)
 
@@ -141,7 +141,7 @@ def test_dense_view_defaults_to_the_single_declared_input_view() -> None:
 
 
 def test_dense_view_names_its_block_after_the_view_and_carries_feature_names() -> None:
-    source = _cell_line_source()
+    source = _sample_source()
     ids = np.array(["cl1", "cl2"], dtype=str)
     featurizer = _StrictDenseView(view="gene_expression").fit(source, entity_ids=ids)
 
@@ -160,21 +160,21 @@ def test_dense_view_block_honours_declared_output_specs() -> None:
 
 
 def test_dense_view_fit_uses_a_precomputed_variant_when_one_is_registered(
-    stored_cell_line_source: CellLineFeatureSource,
+    stored_sample_source: SampleFeatureSource,
 ) -> None:
-    featurizer = _StoredDenseView().fit(stored_cell_line_source, entity_ids=stored_cell_line_source.identifiers)
+    featurizer = _StoredDenseView().fit(stored_sample_source, entity_ids=stored_sample_source.identifiers)
 
-    assert featurizer.output_dim == _CELL_LINE_PRECOMPUTED.shape[1]
+    assert featurizer.output_dim == _SAMPLE_PRECOMPUTED.shape[1]
 
 
 def test_dense_view_transform_returns_the_precomputed_variant(
-    stored_cell_line_source: CellLineFeatureSource,
+    stored_sample_source: SampleFeatureSource,
 ) -> None:
-    featurizer = _StoredDenseView().fit(stored_cell_line_source, entity_ids=stored_cell_line_source.identifiers)
+    featurizer = _StoredDenseView().fit(stored_sample_source, entity_ids=stored_sample_source.identifiers)
 
-    matrix = featurizer.transform(stored_cell_line_source, stored_cell_line_source.identifiers)
+    matrix = featurizer.transform(stored_sample_source, stored_sample_source.identifiers)
 
-    np.testing.assert_allclose(matrix, _CELL_LINE_PRECOMPUTED)
+    np.testing.assert_allclose(matrix, _SAMPLE_PRECOMPUTED)
 
 
 def test_dense_view_reads_a_drug_side_variant_from_varm(stored_drug_source: DrugFeatureSource) -> None:
@@ -187,13 +187,13 @@ def test_dense_view_reads_a_drug_side_variant_from_varm(stored_drug_source: Drug
 
 
 def test_dense_view_fit_falls_back_to_computing_from_source() -> None:
-    featurizer = _ComputedDenseView().fit(_cell_line_source(), entity_ids=np.array(["cl1", "cl2"], dtype=str))
+    featurizer = _ComputedDenseView().fit(_sample_source(), entity_ids=np.array(["cl1", "cl2"], dtype=str))
 
     assert featurizer.output_dim == 4
 
 
 def test_dense_view_transform_falls_back_to_computing_from_source() -> None:
-    source = _cell_line_source()
+    source = _sample_source()
     ids = np.array(["cl1", "cl2"], dtype=str)
     featurizer = _ComputedDenseView().fit(source, entity_ids=ids)
 
@@ -211,11 +211,11 @@ def test_dense_view_drug_side_falls_back_to_computing_from_source() -> None:
 
 def test_dense_view_without_a_fallback_propagates_the_missing_view() -> None:
     with pytest.raises(KeyError):
-        _StrictDenseView().fit(_cell_line_source(), entity_ids=np.array(["cl1", "cl2"], dtype=str))
+        _StrictDenseView().fit(_sample_source(), entity_ids=np.array(["cl1", "cl2"], dtype=str))
 
 
 def test_dense_view_transform_without_a_fallback_propagates_the_missing_view() -> None:
-    source = _cell_line_source()
+    source = _sample_source()
     ids = np.array(["cl1", "cl2"], dtype=str)
     featurizer = _StrictDenseView(view="gene_expression").fit(source, entity_ids=ids)
     featurizer._view = "bionic_features"
@@ -225,12 +225,12 @@ def test_dense_view_transform_without_a_fallback_propagates_the_missing_view() -
 
 
 def test_dense_view_fit_over_all_identifiers_when_none_are_given() -> None:
-    assert _StrictDenseView(view="gene_expression").fit(_cell_line_source()).output_dim == 2
+    assert _StrictDenseView(view="gene_expression").fit(_sample_source()).output_dim == 2
     assert _StoredDrugView().fit(_drug_source()).output_dim == 2
 
 
 def test_dense_view_requires_fit_gate_is_off_by_default() -> None:
-    source = _cell_line_source()
+    source = _sample_source()
     ids = np.array(["cl1", "cl2"], dtype=str)
 
     matrix = _StrictDenseView(view="gene_expression")._transform_features(source, ids).matrix
@@ -239,16 +239,16 @@ def test_dense_view_requires_fit_gate_is_off_by_default() -> None:
 
 
 def test_dense_view_requires_fit_gate_rejects_an_unfitted_transform() -> None:
-    class _NeedsFit(DenseViewCellLineFeaturizer):
+    class _NeedsFit(DenseViewSampleFeaturizer):
         input_views = ("gene_expression",)
         requires_fit = True
 
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        _NeedsFit()._transform_features(_cell_line_source(), np.array(["cl1"], dtype=str))
+        _NeedsFit()._transform_features(_sample_source(), np.array(["cl1"], dtype=str))
 
 
 def test_dense_view_fit_on_unique_ids_deduplicates_the_fit_rows() -> None:
-    class _Unique(DenseViewCellLineFeaturizer):
+    class _Unique(DenseViewSampleFeaturizer):
         input_views = ("gene_expression",)
         fit_on_unique_ids = True
 
@@ -260,7 +260,7 @@ def test_dense_view_fit_on_unique_ids_deduplicates_the_fit_rows() -> None:
             self.seen = entity_ids
             return super()._fit_state(source, entity_ids)
 
-    featurizer = _Unique().fit(_cell_line_source(), entity_ids=np.array(["cl1", "cl1", "cl2"], dtype=str))
+    featurizer = _Unique().fit(_sample_source(), entity_ids=np.array(["cl1", "cl1", "cl2"], dtype=str))
 
     assert list(featurizer.seen) == ["cl1", "cl2"]
 
@@ -268,7 +268,7 @@ def test_dense_view_fit_on_unique_ids_deduplicates_the_fit_rows() -> None:
 class TestRestoreDenseState:
     """``_restore_dense_state`` is the shared tail of every subclass ``set_state``.
 
-    Four cell-line featurizers used to repeat these three type-guarded reads
+    Four sample featurizers used to repeat these three type-guarded reads
     verbatim around their own one fitted object, which is what made
     ``normalized_proteomics`` and ``scaled_gene_expression`` the repository's most
     co-changed duplication pair.

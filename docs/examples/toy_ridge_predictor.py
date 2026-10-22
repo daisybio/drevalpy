@@ -31,8 +31,8 @@ TOY_RIDGE_REFERENCE = LiteratureReference(
 
 @register_predictor(
     "toyRidge",
-    description="Ridge regression on concatenated dense cell-line and drug features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    description="Ridge regression on concatenated dense sample and drug features.",
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=TOY_RIDGE_REFERENCE,
 )

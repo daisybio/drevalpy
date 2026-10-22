@@ -1,4 +1,4 @@
-"""Shared FeaturizerRegistry class for cell-line and drug featurizer registries."""
+"""Shared FeaturizerRegistry class for sample and drug featurizer registries."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ class FeaturizerRegistry(ComponentRegistry):
         :param registry_id: Stable identifier.
         :param label: Human-readable label.
         :param display_name: Catalog name.
-        :param side: Entity side ("cell_line" or "drug").
+        :param side: Entity side ("sample" or "drug").
         """
         super().__init__(registry_id, label, display_name)
         self._side = side

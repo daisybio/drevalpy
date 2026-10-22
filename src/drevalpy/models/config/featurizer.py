@@ -13,15 +13,15 @@ from drevalpy.components.featurizers._featurizer_tree import ensure_unique_quali
 from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 from drevalpy.models.config._recipe import expand_featurizer_recipe
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 
 class FeaturizerConfig(BaseModel):
     """Immutable template for a featurizer node in a model stack.
 
     Describes *which* featurizer to build and how to address it, not the built object:
-    a ``name`` looked up in one of the two registries (``cell_line`` or ``drug``), an
+    a ``name`` looked up in one of the two registries (``sample`` or ``drug``), an
     optional ``view`` selecting the input matrix, ``options`` fixing concrete
     constructor values, and ``hyperparameter_space`` declaring what tuning may vary.
     ``featurizers`` makes the node a tree, holding children for ``concatFeaturizers``.
@@ -38,14 +38,14 @@ class FeaturizerConfig(BaseModel):
     ``hyperparameter_space`` hold arbitrary nested data, so a config carrying either is
     unhashable regardless. Configs are compared and copied by value via ``model_dump``.
 
-    Subclasses pin ``registry`` to a single value; see ``CellLineFeaturizerConfig``
+    Subclasses pin ``registry`` to a single value; see ``SampleFeaturizerConfig``
     and ``DrugFeaturizerConfig``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
-    registry: Literal["cell_line", "drug"] = "cell_line"
+    registry: Literal["sample", "drug"] = "sample"
     view: str | None = None
     featurizers: tuple[FeaturizerConfig, ...] | None = None
     options: FrozenMapping | None = None
@@ -194,8 +194,8 @@ class FeaturizerConfig(BaseModel):
             or config payloads under the ``featurizers`` key.
         :returns: Featurizer instance for this config.
         """
-        if self.registry == "cell_line":
-            cls = get_cell_line_featurizer(self.name)
+        if self.registry == "sample":
+            cls = get_sample_featurizer(self.name)
         else:
             cls = get_drug_featurizer(self.name)
         hp = thaw_value(dict(self.options or {}))
@@ -207,25 +207,25 @@ class FeaturizerConfig(BaseModel):
         return cls(**hp)
 
 
-class CellLineFeaturizerConfig(FeaturizerConfig):
-    """Featurizer config fixed to the cell-line registry.
+class SampleFeaturizerConfig(FeaturizerConfig):
+    """Featurizer config fixed to the sample registry.
 
-    Use in a slot that must hold cell-line features: a mismatched ``registry`` in the
-    payload is corrected to ``cell_line`` rather than accepted.
+    Use in a slot that must hold sample features: a mismatched ``registry`` in the
+    payload is corrected to ``sample`` rather than accepted.
     """
 
-    registry: Literal["cell_line"] = "cell_line"
+    registry: Literal["sample"] = "sample"
 
 
 class DrugFeaturizerConfig(FeaturizerConfig):
     """Featurizer config fixed to the drug registry.
 
-    Drug-side counterpart of ``CellLineFeaturizerConfig``.
+    Drug-side counterpart of ``SampleFeaturizerConfig``.
     """
 
     registry: Literal["drug"] = "drug"
 
 
 FeaturizerConfig.model_rebuild()
-CellLineFeaturizerConfig.model_rebuild()
+SampleFeaturizerConfig.model_rebuild()
 DrugFeaturizerConfig.model_rebuild()

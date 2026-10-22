@@ -1,2 +1,2 @@
-cell_line_featurizer: superfeltrOmics
+sample_featurizer: superfeltrOmics
 predictor: superfeltr

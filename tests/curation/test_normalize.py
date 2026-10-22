@@ -25,13 +25,13 @@ from drevalpy.curation._preprocess import preprocess
 _CONCENTRATIONS = (0.001, 0.01, 0.1, 1.0, 10.0)
 
 
-def _viability_rows(cell_lines: list[str], drug: str, scale: float) -> list[dict]:
-    """Long-form rows for a sigmoid scaled by a per-cell-line offset.
+def _viability_rows(samples: list[str], drug: str, scale: float) -> list[dict]:
+    """Long-form rows for a sigmoid scaled by a per-sample offset.
 
-    A constant scale per cell line is exactly what median-centric normalization
+    A constant scale per sample is exactly what median-centric normalization
     is meant to remove, so the scaling makes the factors non-trivial.
 
-    :param cell_lines: Cell-line labels to emit curves for.
+    :param samples: Sample labels to emit curves for.
     :param drug: Drug label.
     :param scale: Multiplicative offset applied to every intensity.
     :returns: Long-form rows.
@@ -39,11 +39,11 @@ def _viability_rows(cell_lines: list[str], drug: str, scale: float) -> list[dict
     return [
         {
             "drug": drug,
-            "cell_line": cell_line,
+            "sample": sample,
             "concentration": concentration,
             "intensity": scale * (index + 1) * (0.1 + 0.9 / (1 + (concentration / 0.5) ** 1.5)),
         }
-        for index, cell_line in enumerate(cell_lines)
+        for index, sample in enumerate(samples)
         for concentration in _CONCENTRATIONS
     ]
 

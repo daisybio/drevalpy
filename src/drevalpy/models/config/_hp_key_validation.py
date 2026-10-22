@@ -18,9 +18,9 @@ from drevalpy.models._hp_key_grammar import (
     predictor_prefix,
     reject_indexed_featurizer_key,
 )
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 if TYPE_CHECKING:
     from drevalpy.models.config.featurizer import FeaturizerConfig
@@ -43,7 +43,7 @@ def _predictor_accepted_keys(predictor_cls: type[Any]) -> set[str]:
 
 
 def _featurizer_accepted_keys(featurizer: FeaturizerConfig, registry: str) -> set[str]:
-    cls = get_cell_line_featurizer(featurizer.name) if registry == "cell_line" else get_drug_featurizer(featurizer.name)
+    cls = get_sample_featurizer(featurizer.name) if registry == "sample" else get_drug_featurizer(featurizer.name)
     return set(cls.get_hyperparameter_space())
 
 
@@ -58,11 +58,11 @@ def _build_validation_index(config: ModelConfig) -> dict[str, Any]:
     for param in _predictor_accepted_keys(predictor_cls):
         accepted[predictor_prefix(config.predictor.name, param)] = True
 
-    if config.cell_line_featurizer is not None:
-        for leaf in iter_featurizer_leaves(config.cell_line_featurizer, "cell_line"):
+    if config.sample_featurizer is not None:
+        for leaf in iter_featurizer_leaves(config.sample_featurizer, "sample"):
             selector = _leaf_selector(leaf)
-            for param in _featurizer_accepted_keys(leaf, "cell_line"):
-                accepted[featurizer_prefix("cell_line", selector, param)] = True
+            for param in _featurizer_accepted_keys(leaf, "sample"):
+                accepted[featurizer_prefix("sample", selector, param)] = True
 
     if config.drug_featurizer is not None:
         for leaf in iter_featurizer_leaves(config.drug_featurizer, "drug"):

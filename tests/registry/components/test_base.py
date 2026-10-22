@@ -12,6 +12,6 @@ def test_required_fields_are_explicit_per_registry() -> None:
     assert FeaturizerRegistry._required_fields == ("description", "contract")
     assert PredictorRegistry._required_fields == (
         "description",
-        "cell_line_contract",
+        "sample_contract",
         "drug_contract",
     )

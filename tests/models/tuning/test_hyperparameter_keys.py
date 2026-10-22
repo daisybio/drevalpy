@@ -34,14 +34,14 @@ def test_two_pca_views_make_n_components_ambiguous() -> None:
     qualified = resolve_to_qualified_mapping(
         config,
         {
-            "cell_line_featurizer.pca[expression].n_components": 32,
-            "cell_line_featurizer.pca[proteomics].n_components": 16,
+            "sample_featurizer.pca[expression].n_components": 32,
+            "sample_featurizer.pca[proteomics].n_components": 16,
         },
         index,
         reserved_keys=frozenset(),
     )
-    assert qualified["cell_line_featurizer.pca[expression].n_components"] == 32
-    assert qualified["cell_line_featurizer.pca[proteomics].n_components"] == 16
+    assert qualified["sample_featurizer.pca[expression].n_components"] == 32
+    assert qualified["sample_featurizer.pca[proteomics].n_components"] == 16
 
 
 def test_ambiguous_short_key_lists_qualified_alternatives() -> None:

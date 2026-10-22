@@ -27,7 +27,7 @@ def observed_mask(mudataset: MuDataLike) -> np.ndarray:
     """Return the pairs that are measured *and* pass the curve-quality filter.
 
     :param mudataset: Dataset to read the response matrix and quality layers from.
-    :returns: Boolean cell-line-by-drug mask of usable pairs.
+    :returns: Boolean sample-by-drug mask of usable pairs.
     """
     response = mudataset.response_matrix.copy()
     response[~curve_quality_mask(mudataset)] = np.nan
@@ -73,7 +73,7 @@ def entity_masks(
     :param train: Indices along *axis* assigned to training.
     :param validation: Indices along *axis* assigned to validation.
     :param test: Indices along *axis* assigned to testing.
-    :param axis: 0 to split cell lines, 1 to split drugs.
+    :param axis: 0 to split samples, 1 to split drugs.
     :returns: The three masks of one fold.
     """
     return SplitMasks(

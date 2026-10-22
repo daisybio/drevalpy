@@ -30,7 +30,7 @@ class TestDefaults:
             fold_index=0,
             predictions=np.zeros(3),
             ground_truth=np.zeros(3),
-            cell_line_ids=np.array(["CL_0", "CL_1", "CL_2"]),
+            sample_ids=np.array(["CL_0", "CL_1", "CL_2"]),
             drug_ids=np.array(["D_0", "D_1", "D_2"]),
         )
 
@@ -118,7 +118,7 @@ class TestRepr:
             fold_index=0,
             predictions=np.zeros(3),
             ground_truth=np.zeros(3),
-            cell_line_ids=np.array(["CL_0", "CL_1", "CL_2"]),
+            sample_ids=np.array(["CL_0", "CL_1", "CL_2"]),
             drug_ids=np.array(["D_0", "D_1", "D_2"]),
         )
 
@@ -147,7 +147,7 @@ class TestPersistence:
 
         np.testing.assert_allclose(loaded.predictions, run.predictions)
         np.testing.assert_allclose(loaded.ground_truth, run.ground_truth)
-        np.testing.assert_array_equal(loaded.cell_line_ids, run.cell_line_ids)
+        np.testing.assert_array_equal(loaded.sample_ids, run.sample_ids)
         np.testing.assert_array_equal(loaded.drug_ids, run.drug_ids)
 
     def test_results_recording_a_removed_execution_flag_still_load(self, tmp_path) -> None:
@@ -238,12 +238,12 @@ class TestPersistence:
 
     def test_entity_ids_are_stored_as_strings(self, tmp_path) -> None:
         run = make_run_result(n_pairs=3)
-        run.cell_line_ids = np.array([1, 2, 3])
+        run.sample_ids = np.array([1, 2, 3])
         path = UPath(tmp_path) / "fold.npz"
 
         run.save(path)
 
-        np.testing.assert_array_equal(RunResult.load(path).cell_line_ids, np.array(["1", "2", "3"]))
+        np.testing.assert_array_equal(RunResult.load(path).sample_ids, np.array(["1", "2", "3"]))
 
     def test_metadata_blob_is_json(self, tmp_path) -> None:
         path = UPath(tmp_path) / "fold.npz"
@@ -321,11 +321,11 @@ class TestInternIds:
 
         loaded = RunResult.load(path)
 
-        assert loaded.cell_line_ids.dtype == object
+        assert loaded.sample_ids.dtype == object
         assert loaded.drug_ids.dtype == object
 
     def test_the_save_load_round_trip_stays_lossless_through_interning(self, tmp_path) -> None:
-        run = make_run_result(n_pairs=8, n_cell_lines=3, n_drugs=2)
+        run = make_run_result(n_pairs=8, n_samples=3, n_drugs=2)
         first = UPath(tmp_path) / "a.npz"
         second = UPath(tmp_path) / "b.npz"
 
@@ -334,5 +334,5 @@ class TestInternIds:
         once.save(second)
         twice = RunResult.load(second)
 
-        np.testing.assert_array_equal(once.cell_line_ids, run.cell_line_ids)
+        np.testing.assert_array_equal(once.sample_ids, run.sample_ids)
         np.testing.assert_array_equal(twice.drug_ids, run.drug_ids)

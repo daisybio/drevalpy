@@ -22,36 +22,36 @@ def _result(ids=("cl1", "cl2"), values=None) -> FeaturizerResult:
 def test_build_indexes_entities_in_result_order() -> None:
     batch = build_model_input_batch(
         _response(("cl2", "cl1", "cl2"), ("d2", "d1", "d2")),
-        cell_line=_result(),
+        sample=_result(),
         drug=_result(("d1", "d2")),
     )
-    assert batch.cell_line_pair_idx.tolist() == [1, 0, 1]
+    assert batch.sample_pair_idx.tolist() == [1, 0, 1]
     assert batch.drug_pair_idx.tolist() == [1, 0, 1]
-    assert batch.cell_line.entity_ids.tolist() == ["cl1", "cl2"]
+    assert batch.sample.entity_ids.tolist() == ["cl1", "cl2"]
 
 
 def test_drug_is_optional() -> None:
-    batch = build_model_input_batch(_response(), cell_line=_result())
+    batch = build_model_input_batch(_response(), sample=_result())
     assert batch.drug is None
     assert batch.drug_pair_idx is None
 
 
 def test_featureless_entity_table_retains_and_indexes_entity_ids() -> None:
     featureless = FeaturizerResult(np.array(["cl1", "cl2"]), {}, ())
-    batch = build_model_input_batch(_response(), cell_line=featureless)
-    assert batch.cell_line_pair_idx.tolist() == [0, 1]
+    batch = build_model_input_batch(_response(), sample=featureless)
+    assert batch.sample_pair_idx.tolist() == [0, 1]
 
 
 def test_build_rejects_duplicate_entity_ids() -> None:
     duplicate = FeaturizerResult(np.array(["cl1", "cl1"]), {}, ())
     with pytest.raises(ValueError, match="unique"):
-        build_model_input_batch(_response(), cell_line=duplicate)
+        build_model_input_batch(_response(), sample=duplicate)
 
 
 def test_zero_pairs_yield_empty_indices() -> None:
     empty = FeaturizerResult(np.array([], dtype=str), {}, ())
-    batch = build_model_input_batch(_response((), ()), cell_line=empty, drug=empty)
-    assert batch.cell_line_pair_idx.size == 0
+    batch = build_model_input_batch(_response((), ()), sample=empty, drug=empty)
+    assert batch.sample_pair_idx.size == 0
     assert batch.drug_pair_idx is not None and batch.drug_pair_idx.size == 0
 
 
@@ -63,7 +63,7 @@ def test_result_rejects_mismatched_rows_and_scalars() -> None:
 
 
 def test_build_rejects_missing_pair_ids() -> None:
-    with pytest.raises(ValueError, match="Missing cell-line identifiers"):
-        build_model_input_batch(_response(("missing",), ("d1",)), cell_line=_result(), drug=_result(("d1", "d2")))
+    with pytest.raises(ValueError, match="Missing sample identifiers"):
+        build_model_input_batch(_response(("missing",), ("d1",)), sample=_result(), drug=_result(("d1", "d2")))
     with pytest.raises(ValueError, match="Missing drug identifiers"):
-        build_model_input_batch(_response(("cl1",), ("missing",)), cell_line=_result(), drug=_result(("d1", "d2")))
+        build_model_input_batch(_response(("cl1",), ("missing",)), sample=_result(), drug=_result(("d1", "d2")))

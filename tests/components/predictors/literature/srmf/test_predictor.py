@@ -39,7 +39,7 @@ def test_unseen_entity_pairs_fall_back_to_the_training_mean() -> None:
     predictor._training_mean = 4.0
     batch = SimpleNamespace(
         drug_ids=np.array(["d1", "missing-drug", "d1", "missing-drug"]),
-        cell_line_ids=np.array(["c1", "c1", "missing-cell", "missing-cell"]),
+        sample_ids=np.array(["c1", "c1", "missing-cell", "missing-cell"]),
     )
 
     predictions = predictor._predict(batch)
@@ -54,7 +54,7 @@ class TestTinySRMFFit:
     def test_learns_finite_factors_and_round_trips_state(self, seed: int) -> None:
         seed_literature(seed)
         batch = two_by_two_batch(
-            cell_line_blocks={
+            sample_blocks={
                 "gene_expression": numeric_feature_block(
                     np.array([[0.1, 0.4, 0.9], [1.1, -0.2, 0.5]], dtype=np.float32)
                 )

@@ -10,21 +10,20 @@ from .data.batch import (
     merge_feature_blocks,
     metadata_feature_block,
     numeric_feature_block,
-    pair_cell_line_indices,
     pair_drug_indices,
+    pair_sample_indices,
     ragged_feature_block,
 )
 from .data.feature_source import (
-    CellLineFeatureSource,
     DrugFeatureSource,
     FeatureSource,
+    SampleFeatureSource,
 )
 from .enums import LiteratureReference, ModelScope, PredictionMode
 from .results import ExperimentResult, ModelResult, RunResult, TrialResult
 
 __all__ = [
     "BlockSpec",
-    "CellLineFeatureSource",
     "Dataset",
     "DrugFeatureSource",
     "ExperimentResult",
@@ -38,6 +37,7 @@ __all__ = [
     "PredictionMode",
     "ResponseBatch",
     "RunResult",
+    "SampleFeatureSource",
     "SplitMask",
     "SplitMasks",
     "TrialResult",
@@ -46,7 +46,7 @@ __all__ = [
     "merge_feature_blocks",
     "metadata_feature_block",
     "numeric_feature_block",
-    "pair_cell_line_indices",
     "pair_drug_indices",
+    "pair_sample_indices",
     "ragged_feature_block",
 ]

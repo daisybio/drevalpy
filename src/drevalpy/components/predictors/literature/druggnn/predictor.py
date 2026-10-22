@@ -1,4 +1,4 @@
-"""DrugGNN block predictor – GCN on molecular graphs with dense cell-line features."""
+"""DrugGNN block predictor – GCN on molecular graphs with dense sample features."""
 
 from __future__ import annotations
 
@@ -40,25 +40,25 @@ class _DrugGNNDataset:
 
     def __init__(
         self,
-        cell_line_pair_idx: np.ndarray,
+        sample_pair_idx: np.ndarray,
         drug_pair_idx: np.ndarray,
-        cell_line_matrix: np.ndarray,
+        sample_matrix: np.ndarray,
         drug_graphs: np.ndarray,
         response: np.ndarray,
     ) -> None:
         """Initialize the DrugGNN dataset.
 
-        :param cell_line_pair_idx: Pair-level indices into the cell-line matrix.
+        :param sample_pair_idx: Pair-level indices into the sample matrix.
         :param drug_pair_idx: Pair-level indices into the drug graphs array.
-        :param cell_line_matrix: Cell-line feature matrix.
+        :param sample_matrix: Sample feature matrix.
         :param drug_graphs: Array of PyG Data objects for drugs.
         :param response: Response values for each pair.
         """
         import torch
 
-        self._cl_pair_idx = cell_line_pair_idx
+        self._cl_pair_idx = sample_pair_idx
         self._drug_pair_idx = drug_pair_idx
-        self._cl_tensors = torch.as_tensor(cell_line_matrix, dtype=torch.float32)
+        self._cl_tensors = torch.as_tensor(sample_matrix, dtype=torch.float32)
         self._drug_graphs = drug_graphs
         self._response = torch.as_tensor(response, dtype=torch.float32)
 
@@ -82,8 +82,8 @@ class _DrugGNNDataset:
 
 @register(
     "drugGNN",
-    description="DrugGNN: GCN on molecular graphs with dense cell-line features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    description="DrugGNN: GCN on molecular graphs with dense sample features.",
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.GRAPH,
     reference=DRUGGNN_REFERENCE,
 )
@@ -91,9 +91,9 @@ class DrugGNNPredictor(BlockPredictor):
     """Registered DrugGNN predictor consuming ModelInputBatch directly."""
 
     supports_early_stopping: ClassVar[bool] = True
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("drug_graph",)
-    required_cell_line_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
     )
     required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("drug_graph", FeatureFormat.GRAPH),)
@@ -168,33 +168,33 @@ class DrugGNNPredictor(BlockPredictor):
             msg = "DrugGNN requires training response data"
             raise ValueError(msg)
 
-        cell_line_matrix = batch.cell_line.blocks["gene_expression"].values
+        sample_matrix = batch.sample.blocks["gene_expression"].values
         drug_graphs = batch.drug.blocks["drug_graph"].values
 
-        self._model = self._build_model(cell_line_matrix, drug_graphs)
+        self._model = self._build_model(sample_matrix, drug_graphs)
         train_loader = self._graph_loader(
-            batch.cell_line_pair_idx,
+            batch.sample_pair_idx,
             self._resolve_drug_pair_idx(batch),
-            cell_line_matrix,
+            sample_matrix,
             drug_graphs,
             batch.response,
             batch_size=int(self._hyperparameters.get("batch_size", 1024)),
             shuffle=True,
         )
-        val_loader = self._build_val_loader(batch, cell_line_matrix, drug_graphs)
+        val_loader = self._build_val_loader(batch, sample_matrix, drug_graphs)
         self._run_training(train_loader, val_loader)
 
-    def _build_model(self, cell_line_matrix: np.ndarray, drug_graphs: np.ndarray) -> DrugGNNModule:
+    def _build_model(self, sample_matrix: np.ndarray, drug_graphs: np.ndarray) -> DrugGNNModule:
         """Instantiate the Lightning module and record the widths it was built for.
 
-        :param cell_line_matrix: Cell-line feature matrix.
+        :param sample_matrix: Sample feature matrix.
         :param drug_graphs: Array of drug graph objects.
         :returns: An untrained ``DrugGNNModule``.
         """
         from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
 
         self._num_node_features = int(drug_graphs[0].num_node_features)
-        self._num_cell_features = int(cell_line_matrix.shape[1])
+        self._num_cell_features = int(sample_matrix.shape[1])
         return DrugGNNModule(
             num_node_features=self._num_node_features,
             num_cell_features=self._num_cell_features,
@@ -238,9 +238,9 @@ class DrugGNNPredictor(BlockPredictor):
 
     @staticmethod
     def _graph_loader(
-        cell_line_pair_idx: np.ndarray,
+        sample_pair_idx: np.ndarray,
         drug_pair_idx: np.ndarray,
-        cell_line_matrix: np.ndarray,
+        sample_matrix: np.ndarray,
         drug_graphs: np.ndarray,
         response: np.ndarray,
         *,
@@ -249,9 +249,9 @@ class DrugGNNPredictor(BlockPredictor):
     ) -> DataLoader:
         """Build one graph loader over the given pairs.
 
-        :param cell_line_pair_idx: Cell-line row per pair.
+        :param sample_pair_idx: Sample row per pair.
         :param drug_pair_idx: Drug row per pair.
-        :param cell_line_matrix: Cell-line feature matrix.
+        :param sample_matrix: Sample feature matrix.
         :param drug_graphs: Array of drug graph objects.
         :param response: Pair-level response values.
         :param batch_size: Mini-batch size.
@@ -261,9 +261,9 @@ class DrugGNNPredictor(BlockPredictor):
         from torch_geometric.loader import DataLoader
 
         dataset = _DrugGNNDataset(
-            cell_line_pair_idx=cell_line_pair_idx,
+            sample_pair_idx=sample_pair_idx,
             drug_pair_idx=drug_pair_idx,
-            cell_line_matrix=cell_line_matrix,
+            sample_matrix=sample_matrix,
             drug_graphs=drug_graphs,
             response=response,
         )
@@ -272,13 +272,13 @@ class DrugGNNPredictor(BlockPredictor):
     def _build_val_loader(
         self,
         batch: ModelInputBatch,
-        cell_line_matrix: np.ndarray,
+        sample_matrix: np.ndarray,
         drug_graphs: np.ndarray,
     ) -> DataLoader | None:
         """Build a validation DataLoader from the early-stopping response if available.
 
         :param batch: Full training batch (for entity ID lookups).
-        :param cell_line_matrix: Cell-line feature matrix.
+        :param sample_matrix: Sample feature matrix.
         :param drug_graphs: Array of drug graph objects.
         :returns: Validation DataLoader or None if no early-stopping data.
         """
@@ -286,15 +286,15 @@ class DrugGNNPredictor(BlockPredictor):
         if es is None or len(es) == 0:
             return None
 
-        cl_entity_map = {str(eid): i for i, eid in enumerate(batch.cell_line.entity_ids)}
+        cl_entity_map = {str(eid): i for i, eid in enumerate(batch.sample.entity_ids)}
         drug_entity_map: dict[str, int] = {}
         if batch.drug is not None:
             drug_entity_map = {str(eid): i for i, eid in enumerate(batch.drug.entity_ids)}
 
         return self._graph_loader(
-            np.array([cl_entity_map[str(cid)] for cid in es.cell_line_ids], dtype=np.int64),
+            np.array([cl_entity_map[str(cid)] for cid in es.sample_ids], dtype=np.int64),
             np.array([drug_entity_map[str(did)] for did in es.drug_ids], dtype=np.int64),
-            cell_line_matrix,
+            sample_matrix,
             drug_graphs,
             es.response,
             batch_size=int(self._hyperparameters.get("batch_size", 32)),
@@ -320,9 +320,9 @@ class DrugGNNPredictor(BlockPredictor):
             return np.array([])
 
         predict_loader = self._graph_loader(
-            batch.cell_line_pair_idx,
+            batch.sample_pair_idx,
             self._resolve_drug_pair_idx(batch),
-            batch.cell_line.blocks["gene_expression"].values,
+            batch.sample.blocks["gene_expression"].values,
             batch.drug.blocks["drug_graph"].values,
             np.zeros(batch.n_pairs, dtype=np.float32),
             batch_size=int(self._hyperparameters.get("batch_size", 32)),

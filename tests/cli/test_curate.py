@@ -21,7 +21,7 @@ from tests.cli._helpers import HELP_ENV, Recorder, make_runner, patch_worker, pl
 runner = make_runner()
 
 CONCENTRATIONS = (0.001, 0.01, 0.1, 1.0, 10.0)
-CELL_LINES = ("CL_A", "CL_B", "CL_C")
+SAMPLES = ("CL_A", "CL_B", "CL_C")
 DRUGS = ("DrugX", "DrugY")
 
 
@@ -31,18 +31,18 @@ def _sigmoid(x: np.ndarray, top: float, bottom: float, ec50: float, slope: float
 
 
 def build_dose_response_df() -> pd.DataFrame:
-    """Build artificial dose-response data: 3 cell lines x 2 drugs.
+    """Build artificial dose-response data: 3 samples x 2 drugs.
 
     ``DrugX`` gets a genuine sigmoid so the fit converges; ``DrugY`` is flat.
 
     Returns:
-        Long-format frame with ``drug``/``cell_line``/``concentration``/``intensity``.
+        Long-format frame with ``drug``/``sample``/``concentration``/``intensity``.
     """
     rng = np.random.default_rng(42)
     conc_arr = np.array(CONCENTRATIONS)
     rows: list[dict] = []
 
-    for cell_line in CELL_LINES:
+    for sample in SAMPLES:
         for drug in DRUGS:
             if drug == "DrugX":
                 intensity = _sigmoid(conc_arr, top=1.0, bottom=0.1, ec50=0.5, slope=1.5)
@@ -51,7 +51,7 @@ def build_dose_response_df() -> pd.DataFrame:
             intensity = np.clip(intensity + rng.normal(0, 0.02, size=len(conc_arr)), 0.01, 1.5)
 
             rows.extend(
-                {"drug": drug, "cell_line": cell_line, "concentration": conc, "intensity": value}
+                {"drug": drug, "sample": sample, "concentration": conc, "intensity": value}
                 for conc, value in zip(CONCENTRATIONS, intensity, strict=True)
             )
 
@@ -60,7 +60,7 @@ def build_dose_response_df() -> pd.DataFrame:
 
 @pytest.fixture()
 def dose_response_df() -> pd.DataFrame:
-    """Artificial dose-response data: 3 cell lines x 2 drugs."""
+    """Artificial dose-response data: 3 samples x 2 drugs."""
     return build_dose_response_df()
 
 
@@ -107,7 +107,7 @@ class TestFormatDetection:
         result = runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad")])
 
         assert result.exit_code == 0, result.output
-        assert len(worker.args[0]) == len(CONCENTRATIONS) * len(CELL_LINES) * len(DRUGS)
+        assert len(worker.args[0]) == len(CONCENTRATIONS) * len(SAMPLES) * len(DRUGS)
 
     @pytest.mark.parametrize("suffix", [".parquet", ".pq"], ids=["parquet", "pq"])
     def test_parquet_suffixes_are_read(
@@ -133,7 +133,7 @@ class TestFormatDetection:
 
     def test_unsupported_suffix_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
         path = tmp_path / "input.tsv"
-        path.write_text("drug\tcell_line\n")
+        path.write_text("drug\tsample\n")
 
         result = runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")], env=HELP_ENV)
 
@@ -142,7 +142,7 @@ class TestFormatDetection:
 
     def test_unsupported_suffix_does_not_reach_the_fitter(self, worker: Recorder, tmp_path: UPath) -> None:
         path = tmp_path / "input.tsv"
-        path.write_text("drug\tcell_line\n")
+        path.write_text("drug\tsample\n")
 
         runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")], env=HELP_ENV)
 
@@ -224,7 +224,7 @@ class TestRoundTrip:
     def test_output_is_readable_anndata(self, curated: UPath) -> None:
         adata = anndata.read_h5ad(curated)
 
-        assert adata.shape == (len(CELL_LINES), len(DRUGS))
+        assert adata.shape == (len(SAMPLES), len(DRUGS))
 
     def test_output_carries_curve_metric_layers(self, curated: UPath) -> None:
         adata = anndata.read_h5ad(curated)

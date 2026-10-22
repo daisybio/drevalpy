@@ -57,7 +57,7 @@ class RunResult:
     fold_index: int
     predictions: np.ndarray
     ground_truth: np.ndarray
-    cell_line_ids: np.ndarray
+    sample_ids: np.ndarray
     drug_ids: np.ndarray
     split_mode: str = ""
     fold_id: str = ""
@@ -136,7 +136,7 @@ class RunResult:
         arrays: dict[str, np.ndarray] = {
             "predictions": self.predictions,
             "ground_truth": self.ground_truth,
-            "cell_line_ids": np.asarray(self.cell_line_ids, dtype=str),
+            "sample_ids": np.asarray(self.sample_ids, dtype=str),
             "drug_ids": np.asarray(self.drug_ids, dtype=str),
         }
         trials_meta = None
@@ -199,7 +199,7 @@ class RunResult:
             fold_id=meta.get("fold_id", ""),
             predictions=np.asarray(data["predictions"]),
             ground_truth=np.asarray(data["ground_truth"]),
-            cell_line_ids=intern_ids(data["cell_line_ids"]),
+            sample_ids=intern_ids(data["sample_ids"]),
             drug_ids=intern_ids(data["drug_ids"]),
             best_hyperparameters=meta.get("best_hyperparameters", {}),
             metrics=meta.get("metrics", {}),

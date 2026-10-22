@@ -10,7 +10,7 @@ import numpy as np
 if TYPE_CHECKING:
     from drevalpy.types.data.feature_source import FeatureSource
 
-VARIANTS_UNS_KEY_CELL_LINE = "cell_line_featurizer_variants"
+VARIANTS_UNS_KEY_SAMPLE = "sample_featurizer_variants"
 VARIANTS_UNS_KEY_DRUG = "drug_featurizer_variants"
 
 
@@ -18,7 +18,7 @@ def _variants_key_for_side(side: str) -> str:
     """Return the uns key for the given side."""
     if side == "drug":
         return VARIANTS_UNS_KEY_DRUG
-    return VARIANTS_UNS_KEY_CELL_LINE
+    return VARIANTS_UNS_KEY_SAMPLE
 
 
 def _variant_registry(mdata, side: str) -> dict[str, dict[str, dict[str, Any]]]:
@@ -46,14 +46,14 @@ def find_variant_key(
     storage_key: str,
     hyperparameters: dict[str, Any] | None = None,
     *,
-    side: str = "cell_line",
+    side: str = "sample",
 ) -> str | None:
     """Find the MuData storage key for a featurizer variant matching the given HPs.
 
     :param mdata: MuData object.
     :param storage_key: Base storage key for the featurizer.
     :param hyperparameters: HP dict to match against stored variants.
-    :param side: Entity side ("cell_line" or "drug").
+    :param side: Entity side ("sample" or "drug").
     :returns: The actual MuData key, or None if not found.
     """
     registry = _variant_registry(mdata, side)
@@ -66,12 +66,12 @@ def find_variant_key(
     return None
 
 
-def list_variants(mdata, storage_key: str, *, side: str = "cell_line") -> dict[str, dict[str, Any]]:
+def list_variants(mdata, storage_key: str, *, side: str = "sample") -> dict[str, dict[str, Any]]:
     """List all stored HP variants for a featurizer.
 
     :param mdata: MuData object.
     :param storage_key: Base storage key for the featurizer.
-    :param side: Entity side ("cell_line" or "drug").
+    :param side: Entity side ("sample" or "drug").
     :returns: Dict of {mudata_key: params_dict}.
     """
     registry = _variant_registry(mdata, side)
@@ -84,7 +84,7 @@ def register_variant(
     actual_key: str,
     hyperparameters: dict[str, Any] | None = None,
     *,
-    side: str = "cell_line",
+    side: str = "sample",
 ) -> None:
     """Register a new variant in the featurizer variant registry.
 
@@ -92,7 +92,7 @@ def register_variant(
     :param storage_key: Base storage key for the featurizer.
     :param actual_key: The actual MuData key where data is stored.
     :param hyperparameters: HP settings for this variant.
-    :param side: Entity side ("cell_line" or "drug").
+    :param side: Entity side ("sample" or "drug").
     """
     registry = _variant_registry(mdata, side)
     variants = registry.setdefault(storage_key, {})
@@ -111,7 +111,7 @@ def make_variant_key(storage_key: str, index: int) -> str:
     return f"{safe_key}_{index}"
 
 
-def next_variant_index(mdata, storage_key: str, *, side: str = "cell_line") -> int:
+def next_variant_index(mdata, storage_key: str, *, side: str = "sample") -> int:
     """Return the next available variant index."""
     variants = list_variants(mdata, storage_key, side=side)
     return len(variants)
@@ -269,7 +269,7 @@ class FeaturizerStorageMixin:
     def _store_by_key(self, mdata: Any, key: str, entity_ids: np.ndarray, data: np.ndarray) -> None:
         """Write data to MuData under the given key. Override for custom storage.
 
-        Default stores in response.obsm for cell-line-side, varm for drug-side.
+        Default stores in response.obsm for sample-side, varm for drug-side.
 
         :param mdata: MuData object.
         :param key: Storage key.

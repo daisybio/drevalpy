@@ -45,7 +45,7 @@ def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarr
     - ``gene2id_mapping_ont``: Pre-computed gene-to-id mapping dict.
     - ``ontology_gene_order``: Ordered list of gene names matching expression columns.
 
-    :param metadata: Metadata mapping from the active cell-line block.
+    :param metadata: Metadata mapping from the active sample block.
     :returns: Tuple of (layer_connections, gene2id_mapping, gene_order).
     :raises ValueError: If required ontology info is missing from metadata.
     """
@@ -55,33 +55,33 @@ def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarr
 
 
 def _resolve_active_view(batch: ModelInputBatch) -> str:
-    """Determine which cell-line block is the active ontology view.
+    """Determine which sample block is the active ontology view.
 
     SparseGO supports either 'gene_expression' or 'mutations' (exactly one).
 
-    :param batch: Input batch with cell-line blocks.
-    :returns: Name of the active cell-line view.
+    :param batch: Input batch with sample blocks.
+    :returns: Name of the active sample view.
     :raises ValueError: If zero or multiple valid views are present.
     """
     candidates = {"gene_expression", "mutations"}
-    active = [name for name in candidates if name in batch.cell_line.blocks]
+    active = [name for name in candidates if name in batch.sample.blocks]
     if len(active) != 1:
-        raise ValueError("SparseGOPredictor requires exactly one cell-line block from ['gene_expression', 'mutations']")
+        raise ValueError("SparseGOPredictor requires exactly one sample block from ['gene_expression', 'mutations']")
     return active[0]
 
 
 @register(
     "sparsego",
     description="SparseGO GO-structured visible neural network.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=SPARSEGO_REFERENCE,
 )
 class SparseGOPredictor(BlockPredictor):
     """SparseGO predictor consuming ModelInputBatch directly."""
 
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ()
-    required_cell_line_block_alternatives: ClassVar[tuple[BlockSpec, ...]] = (
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ()
+    required_sample_block_alternatives: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX, metadata=True),
         BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX, metadata=True),
     )
@@ -162,14 +162,14 @@ class SparseGOPredictor(BlockPredictor):
         ).to(self._device)
 
     def _entity_matrices(self, batch: ModelInputBatch, active_view: str) -> tuple[np.ndarray, np.ndarray]:
-        """Return the entity-level cell-line and fingerprint matrices as float32.
+        """Return the entity-level sample and fingerprint matrices as float32.
 
         :param batch: Batch to read the blocks from.
-        :param active_view: Name of the cell-line block holding the ontology view.
-        :returns: Tuple of ``(cell_line_matrix, fingerprint_matrix)``.
+        :param active_view: Name of the sample block holding the ontology view.
+        :returns: Tuple of ``(sample_matrix, fingerprint_matrix)``.
         """
         return (
-            np.asarray(batch.cell_line.blocks[active_view].values, dtype=np.float32),
+            np.asarray(batch.sample.blocks[active_view].values, dtype=np.float32),
             np.asarray(batch.drug.blocks["fingerprints"].values, dtype=np.float32),
         )
 
@@ -177,12 +177,12 @@ class SparseGOPredictor(BlockPredictor):
         """Build the shuffled training loader over the entity matrices in *blocks*.
 
         :param batch: Training batch supplying the pair indices and response.
-        :param blocks: Tuple of ``(cell_line_matrix, fingerprint_matrix)``.
-        :returns: Training loader yielding cell-line, drug and response tensors.
+        :param blocks: Tuple of ``(sample_matrix, fingerprint_matrix)``.
+        :returns: Training loader yielding sample, drug and response tensors.
         """
         cell_entity, drug_entity = blocks
         return make_pair_loader(
-            (cell_entity, batch.cell_line_pair_idx),
+            (cell_entity, batch.sample_pair_idx),
             (drug_entity, require_drug_pair_idx(batch.drug_pair_idx)),
             response=np.asarray(batch.response, dtype=np.float32).reshape(-1, 1),
             batch_size=self._hyperparameters.get("batch_size", 10000),
@@ -192,13 +192,13 @@ class SparseGOPredictor(BlockPredictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Train SparseGO on the batch.
 
-        :param batch: Training batch with responses and cell-line/drug blocks.
+        :param batch: Training batch with responses and sample/drug blocks.
         :raises ValueError: If ontology metadata is missing or network build fails.
         """
         active_view = _resolve_active_view(batch)
-        block = batch.cell_line.blocks[active_view]
+        block = batch.sample.blocks[active_view]
         if block.metadata is None:
-            raise ValueError("SparseGOPredictor requires ontology metadata on its active cell-line block")
+            raise ValueError("SparseGOPredictor requires ontology metadata on its active sample block")
 
         self._layer_connections, self._gene2id_mapping_ont, self._ontology_gene_order = _parse_ontology_metadata(
             dict(block.metadata)
@@ -217,7 +217,7 @@ class SparseGOPredictor(BlockPredictor):
         """Run the SGD training loop with the paper's per-epoch learning-rate decay.
 
         :param model: The network to train.
-        :param loader: Training loader over cell-line, drug and response tensors.
+        :param loader: Training loader over sample, drug and response tensors.
         """
         import torch
         import torch.nn as nn
@@ -258,7 +258,7 @@ class SparseGOPredictor(BlockPredictor):
             self._model,
             batch,
             PairEvalSpec(
-                cell_line_blocks=(cell_entity,),
+                sample_blocks=(cell_entity,),
                 drug_blocks=(drug_entity,),
                 batch_size=self._hyperparameters.get("batch_size", 10000),
                 device=self._device,

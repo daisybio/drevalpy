@@ -38,16 +38,16 @@ if TYPE_CHECKING:
 @register(
     "dipk",
     description="DIPK BIONIC + MolGNet model.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.RAGGED_SEQUENCE,
     reference=DIPK_REFERENCE,
 )
 class DIPKPredictor(BlockPredictor):
     """DIPK predictor that trains an attention-based model on gene expression, BIONIC, and MolGNet features."""
 
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("gene_expression", "bionic_features")
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression", "bionic_features")
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("molgnet_features",)
-    required_cell_line_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
         BlockSpec("bionic_features", FeatureFormat.NUMERIC_MATRIX),
     )
@@ -104,14 +104,14 @@ class DIPKPredictor(BlockPredictor):
 
     def _build_pairs(
         self,
-        cell_line_pair_idx: np.ndarray,
+        sample_pair_idx: np.ndarray,
         drug_pair_idx: np.ndarray,
         batch: ModelInputBatch,
         response: np.ndarray | None = None,
     ) -> list[dict[str, torch.Tensor]]:
         """Construct per-pair dictionaries from batch blocks using pair indices.
 
-        :param cell_line_pair_idx: Indices mapping pairs to cell-line entities.
+        :param sample_pair_idx: Indices mapping pairs to sample entities.
         :param drug_pair_idx: Indices mapping pairs to drug entities.
         :param batch: Model input batch with feature blocks.
         :param response: Optional response values per pair.
@@ -119,13 +119,13 @@ class DIPKPredictor(BlockPredictor):
         """
         import torch
 
-        gene_block = batch.cell_line.blocks["gene_expression"].values
-        bionic_block = batch.cell_line.blocks["bionic_features"].values
+        gene_block = batch.sample.blocks["gene_expression"].values
+        bionic_block = batch.sample.blocks["bionic_features"].values
         drug_block = batch.drug.blocks["molgnet_features"].values
 
         pairs: list[dict[str, torch.Tensor]] = []
-        for i in range(len(cell_line_pair_idx)):
-            cl_idx = cell_line_pair_idx[i]
+        for i in range(len(sample_pair_idx)):
+            cl_idx = sample_pair_idx[i]
             dr_idx = drug_pair_idx[i]
 
             pair: dict[str, torch.Tensor] = {
@@ -153,7 +153,7 @@ class DIPKPredictor(BlockPredictor):
             raise ValueError(msg)
 
         train_pairs = self._build_pairs(
-            batch.cell_line_pair_idx,
+            batch.sample_pair_idx,
             batch.drug_pair_idx,
             batch,
             response=batch.response,
@@ -290,7 +290,7 @@ class DIPKPredictor(BlockPredictor):
             msg = "DIPK requires drug features for prediction"
             raise ValueError(msg)
 
-        pairs = self._build_pairs(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
+        pairs = self._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
         test_loader = self._loader(pairs, train=False, shuffle=False)
 
         self._model.eval()

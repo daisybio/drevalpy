@@ -92,7 +92,7 @@ def create_report(
     :param output_dir: Output directory for the report.
     :param title: Report title.
     :param reference_model: If set, normalize metrics against this model.
-    :param dataset: Optional dataset for drug/cell-line metadata in plots.
+    :param dataset: Optional dataset for drug/sample metadata in plots.
     """
     try:
         import multiqc
@@ -151,7 +151,7 @@ def save_all_png(
     :param result: Experiment, model, or run result.
     :param output_dir: Output directory for the PNG files.
     :param reference_model: If set, normalize metrics against this model.
-    :param dataset: Optional dataset for drug/cell-line metadata in plots.
+    :param dataset: Optional dataset for drug/sample metadata in plots.
     """
     import drevalpy.visualization.plots  # noqa: F401
     from drevalpy.registry.visualization import visualization_registry

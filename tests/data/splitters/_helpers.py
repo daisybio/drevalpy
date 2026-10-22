@@ -1,7 +1,7 @@
 """Shared stubs for the splitter tests.
 
 ``MockMuDataset`` is the reference in-memory ``MuDataLike`` stand-in: the
-splitters read ``cell_line_ids``, ``drug_ids``, ``response_matrix``,
+splitters read ``sample_ids``, ``drug_ids``, ``response_matrix``,
 ``get_tissue`` and the response layers behind
 :func:`drevalpy.data.quality.curve_quality_mask`, so a real ``.h5mu``
 round-trip buys nothing here.
@@ -33,10 +33,10 @@ class MockMuDataset:
     ):
         """Build a response matrix with a deterministic pattern of missing values.
 
-        :param n_cl: Number of cell lines (rows).
+        :param n_cl: Number of samples (rows).
         :param n_dr: Number of drugs (columns).
         :param density: Fraction of observed entries; the rest become NaN.
-        :param n_tissues: Number of distinct tissues cycled over the cell lines.
+        :param n_tissues: Number of distinct tissues cycled over the samples.
         :param failing_pairs: ``(row, column)`` pairs to mark as failing the
             default curve-quality thresholds.
         """
@@ -58,7 +58,7 @@ class MockMuDataset:
         self._layers = {"relevance_score": relevance, "fold_change": fold_change}
 
     @property
-    def cell_line_ids(self) -> np.ndarray:
+    def sample_ids(self) -> np.ndarray:
         """Row identifiers of the response matrix."""
         return self._cl_ids
 
@@ -69,13 +69,13 @@ class MockMuDataset:
 
     @property
     def response_matrix(self) -> np.ndarray:
-        """Cell-line-by-drug response matrix with NaN for unobserved pairs."""
+        """Sample-by-drug response matrix with NaN for unobserved pairs."""
         return self._response
 
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
-        """Return the tissue label for each requested cell line id.
+        """Return the tissue label for each requested sample id.
 
-        :param ids: Cell line identifiers to look up.
+        :param ids: Sample identifiers to look up.
         :returns: Tissue labels in the order of *ids*.
         """
         idx_map = {name: i for i, name in enumerate(self._cl_ids)}
@@ -90,7 +90,7 @@ class MockMuDataset:
         """Return a named response layer.
 
         :param name: Layer name.
-        :returns: Cell-line-by-drug matrix for that layer.
+        :returns: Sample-by-drug matrix for that layer.
         :raises KeyError: If the layer was not built.
         """
         if name not in self._layers:
@@ -101,7 +101,7 @@ class MockMuDataset:
 def build_mask(shape: tuple[int, int], *positions: tuple[int, int]) -> SplitMask:
     """Build a ``SplitMask`` of *shape* that is True exactly at *positions*.
 
-    :param shape: ``(n_cell_lines, n_drugs)`` shape of the mask.
+    :param shape: ``(n_samples, n_drugs)`` shape of the mask.
     :param positions: ``(row, column)`` coordinates to set to True.
     :returns: The assembled ``SplitMask``.
     """

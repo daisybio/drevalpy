@@ -32,19 +32,19 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         self._estimators: dict[str, Any] = {}
 
     @staticmethod
-    def _cell_line_matrix(batch: ModelInputBatch) -> np.ndarray:
-        """Expand deduplicated cell-line features to one row per pair.
+    def _sample_matrix(batch: ModelInputBatch) -> np.ndarray:
+        """Expand deduplicated sample features to one row per pair.
 
-        Features are stored entity-level (one row per unique cell line).
-        ``cell_line_pair_idx`` maps each pair to its cell-line row, repeating
-        rows when multiple pairs share the same cell line.
+        Features are stored entity-level (one row per unique sample).
+        ``sample_pair_idx`` maps each pair to its sample row, repeating
+        rows when multiple pairs share the same sample.
 
         :param batch: Featurized batch.
-        :returns: Pair-level cell-line feature matrix.
+        :returns: Pair-level sample feature matrix.
         """
-        if batch.cell_line.matrix.size == 0:
+        if batch.sample.matrix.size == 0:
             return np.empty((batch.n_pairs, 0), dtype=np.float32)
-        return batch.cell_line.matrix[batch.cell_line_pair_idx]
+        return batch.sample.matrix[batch.sample_pair_idx]
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
@@ -52,7 +52,7 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         :param batch: batch.
         :raises RuntimeError: If batch.response is None.
         """
-        x = self._cell_line_matrix(batch)
+        x = self._sample_matrix(batch)
         if batch.response is None:
             raise RuntimeError("batch.response is required for fit")
         y = batch.response.ravel()
@@ -71,7 +71,7 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         :param batch: batch.
         :returns: Result.
         """
-        x = self._cell_line_matrix(batch)
+        x = self._sample_matrix(batch)
         keys = routing_keys(batch)
         predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
         for drug_id in np.unique(keys):

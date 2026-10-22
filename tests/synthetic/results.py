@@ -64,7 +64,7 @@ def make_run_result(
     fold_id: str | None = None,
     split_mode: str = DEFAULT_SPLIT_MODE,
     n_pairs: int = 20,
-    n_cell_lines: int = 5,
+    n_samples: int = 5,
     n_drugs: int = 4,
     metrics: dict[str, float] | None = None,
     best_hyperparameters: dict[str, Any] | None = None,
@@ -74,9 +74,9 @@ def make_run_result(
 ) -> RunResult:
     """Build one fold's worth of predictions for a single model.
 
-    ``cell_line_ids`` and ``drug_ids`` are cycled independently over the
+    ``sample_ids`` and ``drug_ids`` are cycled independently over the
     requested cardinalities, so every pair is unique as long as
-    ``n_pairs <= n_cell_lines * n_drugs`` and the two counts are coprime; the
+    ``n_pairs <= n_samples * n_drugs`` and the two counts are coprime; the
     defaults satisfy both.
 
     Args:
@@ -89,8 +89,8 @@ def make_run_result(
             on across models.
         split_mode: Value for ``RunResult.split_mode``. Every run in one
             experiment must agree on this.
-        n_pairs: Number of cell-line/drug pairs in the fold.
-        n_cell_lines: Number of distinct cell-line ids to cycle through.
+        n_pairs: Number of sample/drug pairs in the fold.
+        n_samples: Number of distinct sample ids to cycle through.
         n_drugs: Number of distinct drug ids to cycle through.
         metrics: Metrics dict. Defaults to :func:`make_metrics`.
         best_hyperparameters: Value for ``RunResult.best_hyperparameters``.
@@ -117,7 +117,7 @@ def make_run_result(
         fold_index=fold_index,
         predictions=predictions,
         ground_truth=ground_truth,
-        cell_line_ids=np.array([f"CL_{i % n_cell_lines}" for i in range(n_pairs)]),
+        sample_ids=np.array([f"CL_{i % n_samples}" for i in range(n_pairs)]),
         drug_ids=np.array([f"D_{i % n_drugs}" for i in range(n_pairs)]),
         split_mode=split_mode,
         fold_id=f"fold_{fold_index}" if fold_id is None else fold_id,

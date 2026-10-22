@@ -34,16 +34,16 @@ _LAYER_CONNECTIONS = [np.array([[0, 1], [1, 2]])]
 _GENE2ID = {"TP53": 0, "EGFR": 1}
 
 
-def _batch(cell_line_block_names: tuple[str, ...], *, metadata: dict | None = None) -> ModelInputBatch:
-    """Build a batch carrying the named cell-line blocks plus fingerprints.
+def _batch(sample_block_names: tuple[str, ...], *, metadata: dict | None = None) -> ModelInputBatch:
+    """Build a batch carrying the named sample blocks plus fingerprints.
 
-    :param cell_line_block_names: Cell-line block names to populate.
-    :param metadata: Optional metadata attached to every cell-line block.
+    :param sample_block_names: Sample block names to populate.
+    :param metadata: Optional metadata attached to every sample block.
     :returns: Featurized ``ModelInputBatch``.
     """
     values = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
     return two_by_two_batch(
-        cell_line_blocks={name: numeric_feature_block(values, metadata=metadata) for name in cell_line_block_names},
+        sample_blocks={name: numeric_feature_block(values, metadata=metadata) for name in sample_block_names},
         drug_blocks={"fingerprints": numeric_feature_block(np.eye(2, dtype=np.float32))},
     )
 
@@ -85,7 +85,7 @@ class TestTinySparseGOFit:
             "ontology_gene_order": ["gene-1", "gene-2", "gene-3"],
         }
         batch = two_by_two_batch(
-            cell_line_blocks={
+            sample_blocks={
                 "gene_expression": numeric_feature_block(
                     np.array([[0.1, 0.7, 1.4], [1.3, -0.2, 0.4]], dtype=np.float32),
                     metadata=metadata,
@@ -184,11 +184,11 @@ class TestResolveActiveView:
         assert _resolve_active_view(_batch((view,))) == view
 
     def test_both_supported_blocks_is_ambiguous_and_rejected(self) -> None:
-        with pytest.raises(ValueError, match="exactly one cell-line block"):
+        with pytest.raises(ValueError, match="exactly one sample block"):
             _resolve_active_view(_batch(("gene_expression", "mutations")))
 
     def test_no_supported_block_is_rejected(self) -> None:
-        with pytest.raises(ValueError, match="exactly one cell-line block"):
+        with pytest.raises(ValueError, match="exactly one sample block"):
             _resolve_active_view(_batch(("proteomics",)))
 
 

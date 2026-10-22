@@ -17,7 +17,7 @@ class TestLeaveTissueOut:
     def test_no_tissue_in_both_train_and_test(self, mock_dataset: MockMuDataset) -> None:
         splitter = splitter_registry.get("LTO")
         folds = splitter(mock_dataset, n_splits=3)
-        tissues = mock_dataset.get_tissue(mock_dataset.cell_line_ids)
+        tissues = mock_dataset.get_tissue(mock_dataset.sample_ids)
         for fold in folds:
             train_rows = np.where(fold.train.mask.any(axis=1))[0]
             test_rows = np.where(fold.test.mask.any(axis=1))[0]

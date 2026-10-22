@@ -2,7 +2,7 @@ Datasets and response data
 ==========================
 
 DrEvalPy ships commonly used drug-response screens. Each built-in name resolves
-to a response table and the matching cell-line and drug feature views used by
+to a response table and the matching sample and drug feature views used by
 the model zoo.
 
 Built-in datasets
@@ -20,22 +20,22 @@ Built-in datasets
    * - GDSC1
      - 316506
      - 378
-     - 970 cell lines
+     - 970 samples
      - Genomics of Drug Sensitivity in Cancer v1
    * - GDSC2
      - 234437
      - 287
-     - 969 cell lines
+     - 969 samples
      - Genomics of Drug Sensitivity in Cancer v2
    * - CTRPv1
      - 60758
      - 354
-     - 243 cell lines
+     - 243 samples
      - Cancer Therapeutics Response Portal v1
    * - CTRPv2
      - 395025
      - 546
-     - 886 cell lines
+     - 886 samples
      - Cancer Therapeutics Response Portal v2
    * - BeatAML2
      - 62487
@@ -70,7 +70,7 @@ two shapes:
   and ``drug``, plus an optional ``replicate``. Dosages must be in µM.
   DrEvalPy fits curves with the same CurveCurator procedure used for built-in
   refits, so the same measures become available.
-* **Prefit response CSV.** At least ``cell_line_id``, ``drug_id``, and a
+* **Prefit response CSV.** At least ``sample_id``, ``drug_id``, and a
   measure column. Leave-Tissue-Out also needs a ``tissue`` column.
 
 Custom names are not restricted to the built-in list; the library treats an
@@ -91,18 +91,18 @@ A single MuData object bundles all modalities of a dataset:
 .. code-block:: text
 
    MuData
-   ├── response        # AnnData: cell_lines × drugs (X = IC50/AUC/...)
-   ├── expression      # AnnData: cell_lines × genes
-   ├── methylation     # AnnData: cell_lines × CpG regions
-   ├── mutations       # AnnData: cell_lines × genes
-   ├── copy_number     # AnnData: cell_lines × genes
-   ├── proteomics      # AnnData: cell_lines × proteins
+   ├── response        # AnnData: samples × drugs (X = IC50/AUC/...)
+   ├── expression      # AnnData: samples × genes
+   ├── methylation     # AnnData: samples × CpG regions
+   ├── mutations       # AnnData: samples × genes
+   ├── copy_number     # AnnData: samples × genes
+   ├── proteomics      # AnnData: samples × proteins
    └── fingerprints    # AnnData: drugs × fingerprint bits
 
 Each modality is an AnnData with:
 
 - ``X`` — the data matrix (e.g. expression counts, response values)
-- ``obs`` — observation (cell line / drug) metadata (tissue, name, ...)
+- ``obs`` — observation (sample / drug) metadata (tissue, name, ...)
 - ``var`` — variable (gene / drug) metadata
 - ``layers`` — alternative representations (e.g. raw vs normalized counts)
 
@@ -177,7 +177,7 @@ Filtering on any other metric, or on other thresholds, is available through
 Feature provenance
 ------------------
 
-Cell-line and drug features shipped with the built-in screens come from public
+Sample and drug features shipped with the built-in screens come from public
 omics and chemistry sources (expression, methylation, mutation, CNV,
 proteomics, fingerprints, and model-specific embeddings). Preprocessing and
 feature inventories live in the

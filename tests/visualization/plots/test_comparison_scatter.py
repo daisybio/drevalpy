@@ -37,7 +37,7 @@ N_MODELS = 3
 N_FOLDS = 2
 N_PAIRS = 20
 N_DRUGS = 4
-N_CELL_LINES = 5
+N_SAMPLES = 5
 
 
 @pytest.fixture(scope="module")
@@ -72,7 +72,7 @@ class TestAxisLayout:
         assert _axis_layout("drug", "ElasticNet")["range"] == list(_AXIS_RANGE)
 
     def test_the_grouping_label_is_spelled_out(self):
-        assert "per-cell line" in _axis_layout("cell_line", "ElasticNet")["title"]["text"]
+        assert "per-sample" in _axis_layout("sample", "ElasticNet")["title"]["text"]
 
 
 class TestDropdownButtons:
@@ -215,11 +215,11 @@ class TestInlinePlotlyHtml:
 
 class TestCompute:
     def test_computes_a_matrix_per_grouping(self, computed):
-        assert set(computed._matrices) == {"drug", "cell_line"}
+        assert set(computed._matrices) == {"drug", "sample"}
 
     def test_each_matrix_is_models_by_groups(self, computed):
         assert computed._matrices["drug"].values.shape == (N_MODELS, N_DRUGS)
-        assert computed._matrices["cell_line"].values.shape == (N_MODELS, N_CELL_LINES)
+        assert computed._matrices["sample"].values.shape == (N_MODELS, N_SAMPLES)
 
     def test_the_figure_shows_the_first_grouping(self, computed):
         assert len(computed._fig.data[0].x) == N_DRUGS
@@ -229,7 +229,7 @@ class TestCompute:
 
         plot.compute(experiment, dataset=object())
 
-        assert set(plot._matrices) == {"drug", "cell_line"}
+        assert set(plot._matrices) == {"drug", "sample"}
 
     def test_a_single_model_yields_an_empty_figure_rather_than_an_error(self):
         result = ExperimentResult([make_run_result(model_name="Solo", fold_index=i) for i in range(2)])
@@ -293,7 +293,7 @@ class TestToMultiqc:
     def test_anchors_are_unique_and_name_the_grouping(self, computed):
         anchors = [section.anchor for section in computed.to_multiqc()]
 
-        assert anchors == ["dreval_comp_scatter_drug", "dreval_comp_scatter_cell_line"]
+        assert anchors == ["dreval_comp_scatter_drug", "dreval_comp_scatter_sample"]
 
     def test_sections_are_named_after_the_grouping(self, computed):
         names = [section.anchor for section in computed.to_multiqc()]
@@ -308,7 +308,7 @@ class TestToMultiqc:
     def test_each_section_targets_its_own_div(self, computed):
         divs = [re.search(r'<div id="([^"]+)"', section.content).group(1) for section in computed.to_multiqc()]
 
-        assert divs == ["dreval_comp_scatter_drug_div", "dreval_comp_scatter_cell_line_div"]
+        assert divs == ["dreval_comp_scatter_drug_div", "dreval_comp_scatter_sample_div"]
 
     def test_descriptions_report_the_model_and_group_counts(self, computed):
         description = computed.to_multiqc()[0].description
@@ -327,7 +327,7 @@ class TestToMultiqc:
         """~90 bytes per (model, group) value, nowhere near per-prediction."""
         total = sum(len(section.content) for section in computed.to_multiqc())
 
-        assert total < 200 * N_MODELS * (N_DRUGS + N_CELL_LINES) + 10_000
+        assert total < 200 * N_MODELS * (N_DRUGS + N_SAMPLES) + 10_000
 
 
 class TestRendering:

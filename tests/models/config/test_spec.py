@@ -30,7 +30,7 @@ def _register_components() -> Iterator[None]:
     registers into the process-global component registries and the external zoo.
     ``register_builtin_components`` only ever *adds*, so without an explicit
     eviction that extension outlives its test - and
-    ``BUILTIN_CELL_LINE_FEATURIZER_NAMES`` and friends in
+    ``BUILTIN_SAMPLE_FEATURIZER_NAMES`` and friends in
     :mod:`drevalpy.registry._builtins` are lazy singletons that cache on first
     access, so whichever test resolves them next counts the extension as a
     built-in. That is how a leak here fails
@@ -46,8 +46,8 @@ def _register_components() -> Iterator[None]:
 def test_build_model_config_from_zoo_name() -> None:
     config = from_spec("ElasticNet")
     assert isinstance(config, ModelConfig)
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "scaledGeneExpression"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "scaledGeneExpression"
     assert config.drug_featurizer is not None
     assert config.predictor.name == "elasticNet"
 
@@ -93,7 +93,7 @@ def test_build_model_config_from_baseline_predictor_token() -> None:
     config = from_spec("naiveMean")
     assert isinstance(config, ModelConfig)
     assert config.predictor.name == "naiveMean"
-    assert config.cell_line_featurizer is None
+    assert config.sample_featurizer is None
     assert config.drug_featurizer is None
 
 
@@ -131,12 +131,12 @@ def test_two_part_multi_drug_recipe_rejected() -> None:
 def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
     config = from_spec("raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
     assert isinstance(config, ModelConfig)
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "concatFeaturizers"
     assert config.predictor.name == "randomForest"
-    cell_children = config.cell_line_featurizer.featurizers
+    cell_children = config.sample_featurizer.featurizers
     drug_children = config.drug_featurizer.featurizers
     assert cell_children is not None and drug_children is not None
     assert [child.name for child in cell_children] == ["raw", "raw"]
@@ -149,12 +149,12 @@ def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
 def test_build_model_config_from_recipe_triple_with_bracket_views() -> None:
     config = from_spec("raw[expression]+pca[proteomics]:identity:randomForest")
     assert isinstance(config, ModelConfig)
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "identity"
     assert config.predictor.name == "randomForest"
-    cell_children = config.cell_line_featurizer.featurizers
+    cell_children = config.sample_featurizer.featurizers
     assert cell_children is not None
     assert cell_children[0].name == "raw"
     assert cell_children[0].view == "expression"
@@ -166,8 +166,8 @@ def test_build_model_config_from_literature_zoo_name() -> None:
     config = from_spec("DIPK")
     assert isinstance(config, ModelConfig)
     assert config.predictor.name == "dipk"
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "molgnet"
 
@@ -255,7 +255,7 @@ def test_zoo_name_wins_over_a_bare_predictor_name() -> None:
     """``ElasticNet`` is a preset; the recipe path would reject it for missing featurizers."""
     config = from_spec("ElasticNet")
     assert isinstance(config, ModelConfig)
-    assert config.cell_line_featurizer is not None
+    assert config.sample_featurizer is not None
 
 
 def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
@@ -265,19 +265,19 @@ def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
         """
 import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register as register_predictor
-from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
+from drevalpy.registry.sample_featurizer import register as register_sample_featurizer
 
-@register_cell_line_featurizer(
-    "resolverCellLine",
+@register_sample_featurizer(
+    "resolverSample",
     description="ext",
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class ResolverCellLineFeaturizer(CellLineFeaturizer):
+class ResolverSampleFeaturizer(SampleFeaturizer):
     entity_id_only = True
 
     def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
@@ -296,7 +296,7 @@ class ResolverCellLineFeaturizer(CellLineFeaturizer):
 @register_predictor(
     "resolverPredictor",
     description="ext",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ResolverPredictor(FeatureFreePredictor):
@@ -322,6 +322,6 @@ resolverEntry:
     load_extensions(directories=[ext_dir], zoo_files=[zoo_file])
     config = from_spec("resolverEntry")
     assert isinstance(config, ModelConfig)
-    assert config.cell_line_featurizer is None
+    assert config.sample_featurizer is None
     assert config.predictor.name == "resolverPredictor"
     validate(config)

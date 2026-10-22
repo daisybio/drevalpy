@@ -76,8 +76,8 @@ class FeedForwardNetwork(pl.LightningModule):
         """Concatenate feature tensors and separate the response.
 
         The batch is ``(*feature_tensors, response)`` where the number of feature
-        tensors depends on how many entity blocks are present (e.g. cell-line
-        only vs cell-line + drug).
+        tensors depends on how many entity blocks are present (e.g. sample
+        only vs sample + drug).
 
         :param batch: Sequence of tensors from the DataLoader.
         :returns: ``(concatenated_features, response)``.

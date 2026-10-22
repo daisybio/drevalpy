@@ -14,7 +14,7 @@ from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
 class SklearnTabularPredictor(MatrixPredictor):
-    """Fit a scikit-learn estimator on available cell-line and drug features."""
+    """Fit a scikit-learn estimator on available sample and drug features."""
 
     # Estimators are regressors only until classifier implementations exist.
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})

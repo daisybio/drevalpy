@@ -23,7 +23,7 @@ Eight-model comparison
    * - DrugGNN
      - GraphDRP's GCN variant: mapped three-layer graph convolution stack,
        forward values, loss, gradients and optimizer update.
-     - The local mean pooling, dense cell-line branch and unbounded head are
+     - The local mean pooling, dense sample branch and unbounded head are
        explicit architectural adaptations. Full-network output equality with
        GraphDRP is neither expected nor claimed. Best validation checkpoint
        selection is now restored, as in GraphDRP.

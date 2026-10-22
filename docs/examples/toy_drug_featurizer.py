@@ -1,6 +1,6 @@
 """Drug featurizer example: features derived from the identifier alone.
 
-Shows the two declarations the cell-line example does not: a ``contract`` on the
+Shows the two declarations the sample example does not: a ``contract`` on the
 class body rather than in the decorator, and ``entity_id_only``, which is how a
 featurizer states that it reads no raw feature view. Leaving both
 ``entity_id_only`` and ``input_views`` unset makes registration raise.

@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
 from drevalpy.models.config.featurizer import FeaturizerConfig
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 if TYPE_CHECKING:
     from drevalpy.models.config.resolved import ResolvedModelConfig
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 def featurizer_leaf_kwargs(
     leaf: FeaturizerConfig,
     *,
-    registry: Literal["cell_line", "drug"],
+    registry: Literal["sample", "drug"],
     resolved: ResolvedModelConfig | None,
 ) -> dict[str, Any]:
     """Build featurizer kwargs from options, hyperparameter defaults, and resolved values.
@@ -26,14 +26,14 @@ def featurizer_leaf_kwargs(
     the same kwargs that ``Featurizer.resolve_input_views`` interprets.
 
     :param leaf: Featurizer leaf configuration.
-    :param registry: ``cell_line`` or ``drug``.
+    :param registry: ``sample`` or ``drug``.
     :param resolved: Optional resolved instance values for tunable kwargs.
     :returns: Keyword arguments for featurizer construction.
     """
     kwargs: dict[str, Any] = dict(leaf.options or {})
     space = dict(leaf.hyperparameter_space or {})
     if not space:
-        cls = get_cell_line_featurizer(leaf.name) if registry == "cell_line" else get_drug_featurizer(leaf.name)
+        cls = get_sample_featurizer(leaf.name) if registry == "sample" else get_drug_featurizer(leaf.name)
         space = dict(cls.get_hyperparameter_space())
     for key, spec in space.items():
         if isinstance(spec, Mapping) and "default" in spec:

@@ -34,10 +34,10 @@ def test_featurizer_values_use_qualified_selectors() -> None:
     resolved = from_spec(
         "pca[expression]+pca[proteomics]:fingerprints:randomForest",
         hyperparameters={
-            "cell_line_featurizer.pca[expression].n_components": 32,
-            "cell_line_featurizer.pca[proteomics].n_components": 16,
+            "sample_featurizer.pca[expression].n_components": 32,
+            "sample_featurizer.pca[proteomics].n_components": 16,
         },
     )
     assert isinstance(resolved, ResolvedModelConfig)
-    assert resolved.featurizer_values("cell_line", "pca[expression]")["n_components"] == 32
-    assert resolved.featurizer_values("cell_line", "pca[proteomics]")["n_components"] == 16
+    assert resolved.featurizer_values("sample", "pca[expression]")["n_components"] == 32
+    assert resolved.featurizer_values("sample", "pca[proteomics]")["n_components"] == 16

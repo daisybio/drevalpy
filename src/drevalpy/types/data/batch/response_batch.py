@@ -18,12 +18,12 @@ if TYPE_CHECKING:
 class ResponseBatch:
     """Lightweight immutable container for response triples passed to predictors.
 
-    Provides ``.response``, ``.cell_line_ids``,
+    Provides ``.response``, ``.sample_ids``,
     ``.drug_ids``, and ``__len__``.
     """
 
     response: np.ndarray
-    cell_line_ids: np.ndarray
+    sample_ids: np.ndarray
     drug_ids: np.ndarray
 
     @classmethod
@@ -50,7 +50,7 @@ class ResponseBatch:
             pairs, values = pairs[keep], values[keep]
         if transformation is not None and len(values):
             values = transformation.transform(values.reshape(-1, 1)).ravel()
-        return cls(values, dataset.cell_line_ids[pairs[:, 0]], dataset.drug_ids[pairs[:, 1]])
+        return cls(values, dataset.sample_ids[pairs[:, 0]], dataset.drug_ids[pairs[:, 1]])
 
     def __len__(self) -> int:
         """Return the number of response pairs.

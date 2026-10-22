@@ -18,7 +18,7 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
     "naiveMean",
     tags=("baseline",),
     description="Predict the global mean response.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NaiveMeanPredictor(MeanEffectsStateMixin, FeatureFreePredictor):

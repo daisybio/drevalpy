@@ -44,19 +44,19 @@ Third-party plugins installed via pip are discovered at the same time
 Predictor registry
 ------------------
 
-Stores predictor classes that map featurized cell-line and drug representations
+Stores predictor classes that map featurized sample and drug representations
 to a drug-response estimate. Each predictor declares:
 
-- a **cell-line contract** -- what feature format it expects from the cell-line
+- a **sample contract** -- what feature format it expects from the sample
   featurizer (numeric matrix, graph, or ragged sequence)
 - a **drug contract** -- what feature format it expects from the drug featurizer
 - an **input interface** -- whether it is feature-free, matrix-based, or
   block-based (see :doc:`component_catalog` for details)
 
-Cell-line featurizer registry
+Sample featurizer registry
 -----------------------------
 
-Stores featurizer classes that transform raw cell-line data (gene expression,
+Stores featurizer classes that transform raw sample data (gene expression,
 methylation, mutations, CNV, proteomics) into a feature representation
 consumable by predictors. Each featurizer declares a **contract** describing
 its output format.
@@ -66,7 +66,7 @@ Drug featurizer registry
 
 Stores featurizer classes that transform raw drug data (SMILES strings,
 molecular structures, precomputed embeddings) into feature representations.
-Like cell-line featurizers, each drug featurizer declares an output contract.
+Like sample featurizers, each drug featurizer declares an output contract.
 
 Splitter registry
 -----------------

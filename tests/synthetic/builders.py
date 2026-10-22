@@ -29,23 +29,23 @@ import mudata as md
 import numpy as np
 import pandas as pd
 
-from drevalpy.components.featurizers.cell_line.gene_lists import (
+from drevalpy.components.featurizers.sample.gene_lists import (
     gene_names_from_list_csv,
     resolve_gene_list_path,
 )
-from drevalpy.data.utils import CELL_LINE_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.data.utils import CELL_LINE_NAME_COLUMN, TISSUE_IDENTIFIER
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.modalities import OMICS_ACCESSORS, resolve_omics_accessor
 
 #: Roughly the smallest shape that keeps every downstream library happy. At 2x2
 #: sklearn emits low-bootstrap warnings and subword-nmt refuses to learn BPE
 #: codes ("no pair has frequency >= 2"), both of which are errors under -W.
-N_CELL_LINES: Final = 24
+N_SAMPLES: Final = 24
 N_DRUGS: Final = 8
 
 #: ``LTO`` runs ``KFold(n_splits=2)`` over the unique tissues and then carves a
 #: validation tissue out of the training half, so three is the hard floor. Six
-#: leaves four cell lines per tissue, which keeps each fold's training half wide
+#: leaves four samples per tissue, which keeps each fold's training half wide
 #: enough for the single-drug models.
 N_TISSUES: Final = 6
 
@@ -98,7 +98,7 @@ _DRUGS: Final = (
     ("6450551", "Axitinib", "CNC(=O)C1=CC=CC=C1SC2=CC3=C(C=C2)C(=NN3)C=CC4=CC=CC=N4"),
 )
 
-#: Sparse gaps in the response matrix, as ``(cell_line_index, drug_index)``.
+#: Sparse gaps in the response matrix, as ``(sample_index, drug_index)``.
 #: Kept deliberately thin: the splitters must still leave every tissue and every
 #: drug with observed pairs in each fold.
 _UNMEASURED_PAIRS: Final = ((0, 3), (5, 1), (9, 6), (14, 0), (18, 5), (22, 7))
@@ -122,12 +122,12 @@ def synthetic_gene_symbols(n: int = N_GENES) -> list[str]:
     return symbols[:n]
 
 
-def _cell_line_ids() -> np.ndarray:
-    return np.array([f"CVCL_S{index:03d}" for index in range(N_CELL_LINES)], dtype=object)
+def _sample_ids() -> np.ndarray:
+    return np.array([f"CVCL_S{index:03d}" for index in range(N_SAMPLES)], dtype=object)
 
 
 def _tissue_labels() -> np.ndarray:
-    return np.array([_TISSUES[index % N_TISSUES] for index in range(N_CELL_LINES)], dtype=object)
+    return np.array([_TISSUES[index % N_TISSUES] for index in range(N_SAMPLES)], dtype=object)
 
 
 def _var_names(axis: str) -> list[str]:
@@ -150,10 +150,10 @@ def _omics_matrix(public_name: str, rng: np.random.Generator, n_rows: int, n_col
     return rng.normal(6.0, 1.5, size=(n_rows, n_cols)).astype(np.float32)
 
 
-def _response_anndata(rng: np.random.Generator, cell_line_ids: np.ndarray) -> ad.AnnData:
+def _response_anndata(rng: np.random.Generator, sample_ids: np.ndarray) -> ad.AnnData:
     """Build the ``response`` modality: the pair matrix plus drug metadata."""
     drug_ids = np.array([drug[0] for drug in _DRUGS], dtype=object)
-    matrix = rng.normal(2.0, 1.0, size=(N_CELL_LINES, N_DRUGS)).astype(np.float32)
+    matrix = rng.normal(2.0, 1.0, size=(N_SAMPLES, N_DRUGS)).astype(np.float32)
     for row, column in _UNMEASURED_PAIRS:
         matrix[row, column] = np.nan
 
@@ -161,10 +161,10 @@ def _response_anndata(rng: np.random.Generator, cell_line_ids: np.ndarray) -> ad
         X=matrix,
         obs=pd.DataFrame(
             {
-                CELL_LINE_IDENTIFIER: [f"SYNTH-{index:03d}" for index in range(N_CELL_LINES)],
+                CELL_LINE_NAME_COLUMN: [f"SYNTH-{index:03d}" for index in range(N_SAMPLES)],
                 TISSUE_IDENTIFIER: _tissue_labels(),
             },
-            index=pd.Index(cell_line_ids, name="cellosaurus_id"),
+            index=pd.Index(sample_ids, name="cellosaurus_id"),
         ),
         var=pd.DataFrame(
             {
@@ -220,11 +220,11 @@ def _quality_layers(shape: tuple[int, int]) -> dict[str, np.ndarray]:
 def _omics_anndata(
     public_name: str,
     rng: np.random.Generator,
-    cell_line_ids: np.ndarray,
+    sample_ids: np.ndarray,
     n_covered: int,
 ) -> ad.AnnData:
     var_names = _var_names(_VAR_AXIS[public_name])
-    covered = cell_line_ids[:n_covered]
+    covered = sample_ids[:n_covered]
     return ad.AnnData(
         X=_omics_matrix(public_name, rng, len(covered), len(var_names)),
         obs=pd.DataFrame(index=pd.Index(covered, name="cellosaurus_id")),
@@ -312,7 +312,7 @@ def _pretrained_views(dataset: Dataset, rng: np.random.Generator) -> None:
     response.varm["chemberta"] = rng.normal(size=(N_DRUGS, CHEMBERTA_DIM)).astype(np.float32)
     response.varm["bpe_smiles"] = rng.normal(size=(N_DRUGS, BPE_LENGTH)).astype(np.float32)
     response.varm["smilesvec"] = rng.normal(size=(N_DRUGS, SMILESVEC_DIM)).astype(np.float32)
-    response.obsm["pathway_features"] = rng.normal(size=(N_CELL_LINES, N_PATHWAYS)).astype(np.float32)
+    response.obsm["pathway_features"] = rng.normal(size=(N_SAMPLES, N_PATHWAYS)).astype(np.float32)
 
 
 def build_synthetic_dataset(
@@ -324,9 +324,9 @@ def build_synthetic_dataset(
     """Build the synthetic raw-omics :class:`~drevalpy.types.data.dataset.Dataset`.
 
     :param name: Dataset name recorded on the returned object.
-    :param omics_coverage: Optional public-omics-name to cell-line-count map.
+    :param omics_coverage: Optional public-omics-name to sample-count map.
         Any omics view left out is given full coverage. Reducing a count drops
-        trailing cell lines from that modality, which is what makes the
+        trailing samples from that modality, which is what makes the
         predictors' NaN-filtering path fire; see
         :mod:`tests.synthetic.variants`.
     :param seed: Seed for every drawn matrix, so the dataset is reproducible.
@@ -334,13 +334,13 @@ def build_synthetic_dataset(
         drug views, pathway scores and the auxiliary ``uns`` payloads.
     """
     rng = np.random.default_rng(seed)
-    cell_line_ids = _cell_line_ids()
+    sample_ids = _sample_ids()
     coverage = dict(omics_coverage or {})
 
-    modalities: dict[str, ad.AnnData] = {"response": _response_anndata(rng, cell_line_ids)}
+    modalities: dict[str, ad.AnnData] = {"response": _response_anndata(rng, sample_ids)}
     for public_name, accessor in OMICS_ACCESSORS.items():
-        n_covered = int(coverage.get(public_name, N_CELL_LINES))
-        modalities[accessor] = _omics_anndata(public_name, rng, cell_line_ids, n_covered)
+        n_covered = int(coverage.get(public_name, N_SAMPLES))
+        modalities[accessor] = _omics_anndata(public_name, rng, sample_ids, n_covered)
 
     md.set_options(pull_on_update=False)
     mdata = md.MuData(modalities)

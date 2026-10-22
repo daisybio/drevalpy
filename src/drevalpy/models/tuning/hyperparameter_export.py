@@ -8,9 +8,9 @@ from typing import Any
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.models._hp_key_grammar import featurizer_prefix, predictor_prefix
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 from .hyperparameter_keys import (
     HyperparameterOwnershipIndex,
@@ -43,7 +43,7 @@ def _predictor_export_params(config: ModelConfig, predictor_cls: type[Any]) -> l
 
 
 def _featurizer_export_params(featurizer: FeaturizerConfig, registry: str) -> list[str]:
-    cls = get_cell_line_featurizer(featurizer.name) if registry == "cell_line" else get_drug_featurizer(featurizer.name)
+    cls = get_sample_featurizer(featurizer.name) if registry == "sample" else get_drug_featurizer(featurizer.name)
     space = (
         dict(featurizer.hyperparameter_space)
         if featurizer.hyperparameter_space is not None
@@ -53,7 +53,7 @@ def _featurizer_export_params(featurizer: FeaturizerConfig, registry: str) -> li
 
 
 def _featurizer_value(featurizer: FeaturizerConfig, param: str, registry: str) -> Any | None:
-    cls = get_cell_line_featurizer(featurizer.name) if registry == "cell_line" else get_drug_featurizer(featurizer.name)
+    cls = get_sample_featurizer(featurizer.name) if registry == "sample" else get_drug_featurizer(featurizer.name)
     space = (
         dict(featurizer.hyperparameter_space)
         if featurizer.hyperparameter_space is not None
@@ -106,7 +106,7 @@ def _collect_featurizer_export_entries(
 ) -> list[tuple[HyperparameterTarget, Any]]:
     entries: list[tuple[HyperparameterTarget, Any]] = []
     for registry, slot_config in (
-        ("cell_line", config.cell_line_featurizer),
+        ("sample", config.sample_featurizer),
         ("drug", config.drug_featurizer),
     ):
         if slot_config is None:

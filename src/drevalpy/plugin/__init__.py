@@ -4,9 +4,9 @@ Everything a plugin needs to declare a featurizer, predictor, splitter or
 visualization is re-exported here, so a plugin imports from exactly one module::
 
     from drevalpy.plugin import (
-        CellLineFeaturizer,
+        SampleFeaturizer,
         FeatureFormat,
-        register_cell_line_featurizer,
+        register_sample_featurizer,
     )
 
 Nothing is defined in this module. Every name is an alias for a symbol that
@@ -35,17 +35,17 @@ from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.featurizers._dense_view import DenseViewFeaturizer
 from drevalpy.components.featurizers._side_binding import register_for_sides
 from drevalpy.components.featurizers.base import Featurizer, HPOStrategy
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer, DenseViewCellLineFeaturizer
 from drevalpy.components.featurizers.drug.base import DenseViewDrugFeaturizer, DrugFeaturizer
+from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer, SampleFeaturizer
 from drevalpy.components.featurizers.storage import FeaturizerStorageMixin
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.data.quality import curve_quality_mask
-from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import register as register_drug_featurizer
 from drevalpy.registry.predictor import register as register_predictor
+from drevalpy.registry.sample_featurizer import register as register_sample_featurizer
 from drevalpy.registry.splitter import (
     Splitter,
     SplitValidationError,
@@ -67,9 +67,9 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import (
-    CellLineFeatureSource,
     DrugFeatureSource,
     FeatureSource,
+    SampleFeatureSource,
 )
 from drevalpy.types.data.mudatalike import MuDataLike
 from drevalpy.types.data.split_mask import SplitMask
@@ -84,12 +84,10 @@ from drevalpy.visualization.requirements import PlotRequirement
 __all__ = [
     "BlockPredictor",
     "BlockSpec",
-    "CellLineFeatureSource",
-    "CellLineFeaturizer",
     "Dataset",
-    "DenseViewCellLineFeaturizer",
     "DenseViewDrugFeaturizer",
     "DenseViewFeaturizer",
+    "DenseViewSampleFeaturizer",
     "DrugFeatureSource",
     "DrugFeaturizer",
     "ExperimentResult",
@@ -114,6 +112,8 @@ __all__ = [
     "Predictor",
     "ResponseBatch",
     "RunResult",
+    "SampleFeatureSource",
+    "SampleFeaturizer",
     "Section",
     "SplitMask",
     "SplitMasks",
@@ -128,10 +128,10 @@ __all__ = [
     "metadata_feature_block",
     "numeric_feature_block",
     "ragged_feature_block",
-    "register_cell_line_featurizer",
     "register_drug_featurizer",
     "register_for_sides",
     "register_predictor",
+    "register_sample_featurizer",
     "register_splitter",
     "register_visualization",
 ]

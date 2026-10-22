@@ -7,14 +7,14 @@ from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMasks
 
 
-@register("LCO", "Leave-Cell-Line-Out: test folds contain unseen cell lines", validation="LCO")
-def leave_cell_line_out(
+@register("LCO", "Leave-Cell-Line-Out: test folds contain unseen samples", validation="LCO")
+def leave_sample_out(
     mudataset: MuDataLike,
     n_splits: int = 5,
     validation_ratio: float = 0.1,
     random_state: int = 42,
 ) -> list[SplitMasks]:
-    """Generate LCO folds where each cell line appears in exactly one test set."""
+    """Generate LCO folds where each sample appears in exactly one test set."""
     observed = observed_mask(mudataset)
     folds = group_folds(
         observed.shape[0],

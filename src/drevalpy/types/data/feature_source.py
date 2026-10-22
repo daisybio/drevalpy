@@ -5,7 +5,7 @@ featurizers. It provides the shared Dataset-backed logic (init, identifiers,
 mdata, get_metadata) so concrete adapters only implement entity-specific
 dispatch methods.
 
-``CellLineFeatureSource`` and ``DrugFeatureSource`` are the concrete adapters.
+``SampleFeatureSource`` and ``DrugFeatureSource`` are the concrete adapters.
 """
 
 from __future__ import annotations
@@ -66,26 +66,26 @@ class FeatureSource(ABC):
         ...
 
 
-class CellLineFeatureSource(FeatureSource):
-    """Adapts Dataset for cell-line featurizers."""
+class SampleFeatureSource(FeatureSource):
+    """Adapts Dataset for sample featurizers."""
 
     def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:
-        """Return feature matrix for the given cell lines and view."""
-        return self._dataset.get_cell_line_features(view, entity_ids)
+        """Return feature matrix for the given samples and view."""
+        return self._dataset.get_sample_features(view, entity_ids)
 
     def get_feature_names(self, view: str) -> tuple[str, ...] | None:
-        """Return feature names for a cell-line view."""
-        return self._dataset.get_cell_line_feature_names(view)
+        """Return feature names for a sample view."""
+        return self._dataset.get_sample_feature_names(view)
 
     def get_entity_view(self, entity_id: str, view: str) -> Any:
-        """Return a per-entity value for a single cell line.
+        """Return a per-entity value for a single sample.
 
         For metadata keys like "tissue", delegates to Dataset.get_tissue().
         For omics modalities, returns the feature vector from that modality.
         """
         if view == "tissue":
             return self._dataset.get_tissue(np.array([entity_id]))[0]
-        return self._dataset.get_cell_line_features(view, np.array([entity_id]))[0]
+        return self._dataset.get_sample_features(view, np.array([entity_id]))[0]
 
 
 class DrugFeatureSource(FeatureSource):

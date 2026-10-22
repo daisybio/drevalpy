@@ -26,15 +26,15 @@ def test_model_config_from_predictor_only_spec() -> None:
     config = from_spec("naiveMean")
     assert isinstance(config, ModelConfig)
     assert config.predictor.name == "naiveMean"
-    assert config.cell_line_featurizer is None
+    assert config.sample_featurizer is None
     assert config.drug_featurizer is None
 
 
 def test_model_config_from_triple_spec() -> None:
     config = from_spec("scaledGeneExpression:fingerprints:elasticNet")
     assert isinstance(config, ModelConfig)
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "scaledGeneExpression"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "scaledGeneExpression"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "fingerprints"
     assert config.predictor.name == "elasticNet"
@@ -43,8 +43,8 @@ def test_model_config_from_triple_spec() -> None:
 def test_model_config_from_triple_spec_with_plus_concat() -> None:
     config = from_spec("raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
     assert isinstance(config, ModelConfig)
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "concatFeaturizers"
     assert config.predictor.name == "randomForest"
@@ -59,7 +59,7 @@ def test_model_config_from_zoo_name() -> None:
 def test_from_dict_with_sections() -> None:
     config = from_dict(
         {
-            "cell_line_featurizer": "scaledGeneExpression",
+            "sample_featurizer": "scaledGeneExpression",
             "drug_featurizer": "fingerprints",
             "predictor": {"randomForest": {"n_estimators": 10}},
         }
@@ -72,13 +72,13 @@ def test_from_dict_accepts_recipe_strings_in_slots() -> None:
     """Slots may hold recipe strings, which is what lets ``from_spec`` reuse this."""
     config = from_dict(
         {
-            "cell_line_featurizer": "raw[expression]+raw[mutations]",
+            "sample_featurizer": "raw[expression]+raw[mutations]",
             "drug_featurizer": "fingerprints",
             "predictor": "randomForest",
         }
     )
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "concatFeaturizers"
     assert config.predictor.name == "randomForest"
 
 
@@ -87,7 +87,7 @@ def test_from_yaml(tmp_path: Path) -> None:
     path.write_text(
         yaml.safe_dump(
             {
-                "cell_line_featurizer": "constant",
+                "sample_featurizer": "constant",
                 "drug_featurizer": "identity",
                 "predictor": "naiveDrugMean",
             }

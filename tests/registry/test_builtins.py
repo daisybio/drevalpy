@@ -8,12 +8,6 @@ import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract
 from drevalpy.registry._builtins import _registry_for, ensure_predictor_registered
-from drevalpy.registry.cell_line_featurizer import (
-    get as get_cell_line_featurizer,
-)
-from drevalpy.registry.cell_line_featurizer import (
-    list as list_cell_line_featurizers,
-)
 from drevalpy.registry.drug_featurizer import (
     get as get_drug_featurizer,
 )
@@ -21,6 +15,12 @@ from drevalpy.registry.drug_featurizer import (
     list as list_drug_featurizers,
 )
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.registry.sample_featurizer import (
+    get as get_sample_featurizer,
+)
+from drevalpy.registry.sample_featurizer import (
+    list as list_sample_featurizers,
+)
 from tests._trusted_subprocess import run_trusted_python
 from tests.registry._helpers import restore_component_registries
 
@@ -32,9 +32,9 @@ def _register_components() -> Iterator[None]:
     restore_component_registries()
 
 
-def test_builtin_cell_line_featurizers_declare_contract() -> None:
-    for name in list_cell_line_featurizers():
-        cls = get_cell_line_featurizer(name)
+def test_builtin_sample_featurizers_declare_contract() -> None:
+    for name in list_sample_featurizers():
+        cls = get_sample_featurizer(name)
         assert "contract" in cls.__dict__, name
         assert isinstance(cls.contract, FeatureContract)
 
@@ -67,10 +67,10 @@ class TestDiscoveryInAFreshProcess:
 
     def test_fresh_process_discovery_returns_all_builtins(self) -> None:
         script = """
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.predictor import predictor_registry
-assert len(cell_line_featurizer_registry.list_metadata()) == 17
+assert len(sample_featurizer_registry.list_metadata()) == 17
 assert len(drug_featurizer_registry.list_metadata()) == 10
 assert len(predictor_registry.list_metadata()) == 27
 print("ok")
@@ -101,12 +101,12 @@ class TestRegistryDispatchOnRescan:
     already-imported module, which is how the registries refill after a ``clear()``.
     """
 
-    def test_a_cell_line_featurizer_goes_back_to_the_cell_line_registry(self) -> None:
-        from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
+    def test_a_sample_featurizer_goes_back_to_the_sample_registry(self) -> None:
+        from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
 
-        cls = get_cell_line_featurizer(list_cell_line_featurizers()[0])
+        cls = get_sample_featurizer(list_sample_featurizers()[0])
 
-        assert _registry_for(cls) is cell_line_featurizer_registry
+        assert _registry_for(cls) is sample_featurizer_registry
 
     def test_a_drug_featurizer_goes_back_to_the_drug_registry(self) -> None:
         from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
@@ -126,17 +126,17 @@ class TestRegistryDispatchOnRescan:
 
         class Ambiguous:
             side = "drug"
-            cell_line_contract = object()
+            sample_contract = object()
 
         assert _registry_for(Ambiguous) is drug_featurizer_registry
 
-    def test_a_sideless_featurizer_falls_back_to_the_cell_line_registry(self) -> None:
-        from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
+    def test_a_sideless_featurizer_falls_back_to_the_sample_registry(self) -> None:
+        from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
 
         class Sideless:
             contract = object()
 
-        assert _registry_for(Sideless) is cell_line_featurizer_registry
+        assert _registry_for(Sideless) is sample_featurizer_registry
 
     def test_a_plain_class_belongs_to_no_registry(self) -> None:
         class NotAComponent:

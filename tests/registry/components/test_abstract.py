@@ -75,4 +75,4 @@ def test_the_error_names_every_missing_member() -> None:
 
 def test_the_error_suggests_the_fix() -> None:
     with pytest.raises(ValueError, match="register a concrete subclass"):
-        validate_no_abstract_methods("cell_line_featurizer", "base", _Base)
+        validate_no_abstract_methods("sample_featurizer", "base", _Base)

@@ -35,23 +35,23 @@ def _trainable_batch(tmp_path) -> ModelInputBatch:
     drug_ids = np.array(["d1", "d2"])
     training = ResponseBatch(
         response=np.array([-1.0, 0.5, 1.5, 3.0], dtype=np.float32),
-        cell_line_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
+        sample_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
     )
     validation = ResponseBatch(
         response=np.array([0.25, 2.25], dtype=np.float32),
-        cell_line_ids=np.array(["val-1", "val-2"]),
+        sample_ids=np.array(["val-1", "val-2"]),
         drug_ids=np.array(["d1", "d2"]),
     )
     return ModelInputBatch.from_response(
         training,
-        cell_line=FeaturizerResult.from_blocks(
+        sample=FeaturizerResult.from_blocks(
             {"gene_expression": numeric_feature_block(rng.normal(size=(4, 6)).astype(np.float32))}, cell_ids
         ),
         drug=FeaturizerResult.from_blocks(
             {"bpe_smiles": numeric_feature_block(rng.normal(size=(2, 128)).astype(np.float32))}, drug_ids
         ),
-        cell_line_pair_idx=np.array([0, 0, 1, 1]),
+        sample_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=tmp_path),

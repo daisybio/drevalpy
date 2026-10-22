@@ -25,7 +25,7 @@ def test_collect_zoo_entries_rejects_non_mapping_entry(tmp_path) -> None:
 def test_collect_zoo_entries_single_document_format(tmp_path) -> None:
     payload = {
         "predictor": "elasticNet",
-        "cell_line_featurizer": "scaledGeneExpression",
+        "sample_featurizer": "scaledGeneExpression",
         "drug_featurizer": "fingerprints",
         "name": "customEntry",
     }

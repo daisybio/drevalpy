@@ -14,18 +14,18 @@ import pytest
 from pydantic import ValidationError
 
 from drevalpy.components.featurizers.shared.concat import (
-    CellLineConcatFeaturizer,
     DrugConcatFeaturizer,
+    SampleConcatFeaturizer,
     SharedConcatFeaturizer,
 )
-from drevalpy.models.config import CellLineFeaturizerConfig, FeaturizerConfig
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+from drevalpy.models.config import FeaturizerConfig, SampleFeaturizerConfig
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 from drevalpy.types.data.batch.feature_block import FeatureBlock
 from tests.conftest import MockFeatureSource
 
 
-def _cell_line_features() -> MockFeatureSource:
+def _sample_features() -> MockFeatureSource:
     return MockFeatureSource(
         features={
             "cl1": {
@@ -66,14 +66,14 @@ def _drug_features() -> MockFeatureSource:
     )
 
 
-def test_cell_line_concat_fit_transform_and_blocks() -> None:
-    featurizer = CellLineConcatFeaturizer(
+def test_sample_concat_fit_transform_and_blocks() -> None:
+    featurizer = SampleConcatFeaturizer(
         featurizers=[
-            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
-            FeaturizerConfig(name="raw", view="mutations", registry="cell_line"),
+            FeaturizerConfig(name="raw", view="gene_expression", registry="sample"),
+            FeaturizerConfig(name="raw", view="mutations", registry="sample"),
         ],
     )
-    features = _cell_line_features()
+    features = _sample_features()
     ids = np.array(["cl1", "cl2"])
     featurizer.fit(features, entity_ids=ids)
 
@@ -113,10 +113,10 @@ def test_drug_concat_fit_transform_and_blocks() -> None:
 
 
 def test_concat_uses_canonical_block_names_for_same_name_different_views() -> None:
-    featurizer = CellLineConcatFeaturizer(
+    featurizer = SampleConcatFeaturizer(
         featurizers=[
-            CellLineFeaturizerConfig(name="pca", view="gene_expression", options={"n_components": 1}),
-            CellLineFeaturizerConfig(name="pca", view="proteomics", options={"n_components": 1}),
+            SampleFeaturizerConfig(name="pca", view="gene_expression", options={"n_components": 1}),
+            SampleFeaturizerConfig(name="pca", view="proteomics", options={"n_components": 1}),
         ],
     )
     features = _multi_view_features()
@@ -131,13 +131,13 @@ def test_concat_uses_canonical_block_names_for_same_name_different_views() -> No
 
 
 def test_concat_rejects_duplicate_emitted_block_names() -> None:
-    featurizer = CellLineConcatFeaturizer(
+    featurizer = SampleConcatFeaturizer(
         featurizers=[
-            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
-            FeaturizerConfig(name="scaledGeneExpression", registry="cell_line"),
+            FeaturizerConfig(name="raw", view="gene_expression", registry="sample"),
+            FeaturizerConfig(name="scaledGeneExpression", registry="sample"),
         ],
     )
-    features = _cell_line_features()
+    features = _sample_features()
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
     featurizer.fit(features, entity_ids=entity_ids)
 
@@ -147,10 +147,10 @@ def test_concat_rejects_duplicate_emitted_block_names() -> None:
 
 def test_concat_duplicate_same_name_view_raises() -> None:
     with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[gene_expression\\]'"):
-        CellLineConcatFeaturizer(
+        SampleConcatFeaturizer(
             featurizers=[
-                FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
-                FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
+                FeaturizerConfig(name="raw", view="gene_expression", registry="sample"),
+                FeaturizerConfig(name="raw", view="gene_expression", registry="sample"),
             ],
         )
 
@@ -168,15 +168,15 @@ def test_concat_rejects_non_numeric_children() -> None:
 
 
 def test_concat_registers_one_class_per_side() -> None:
-    assert get_cell_line_featurizer("concatFeaturizers") is CellLineConcatFeaturizer
+    assert get_sample_featurizer("concatFeaturizers") is SampleConcatFeaturizer
     assert get_drug_featurizer("concatFeaturizers") is DrugConcatFeaturizer
-    assert CellLineConcatFeaturizer is not DrugConcatFeaturizer
+    assert SampleConcatFeaturizer is not DrugConcatFeaturizer
 
 
 def test_concat_side_is_stamped_per_binding() -> None:
-    assert CellLineConcatFeaturizer.side == "cell_line"
+    assert SampleConcatFeaturizer.side == "sample"
     assert DrugConcatFeaturizer.side == "drug"
-    assert issubclass(CellLineConcatFeaturizer, SharedConcatFeaturizer)
+    assert issubclass(SampleConcatFeaturizer, SharedConcatFeaturizer)
 
 
 def test_concat_resolves_children_against_its_own_side_registry() -> None:

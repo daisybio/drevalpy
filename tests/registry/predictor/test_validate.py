@@ -60,7 +60,7 @@ def test_predictor_must_inherit_exactly_one_leaf_interface() -> None:
         @register_predictor(
             "noLeafPred",
             description="missing leaf",
-            cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+            sample_contract=FeatureFormat.NUMERIC_MATRIX,
             drug_contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class NoLeafPred:
@@ -68,12 +68,12 @@ def test_predictor_must_inherit_exactly_one_leaf_interface() -> None:
 
 
 def test_matrix_predictor_requires_numeric_contracts() -> None:
-    with pytest.raises(ValueError, match="requires numeric_matrix cell_line contract"):
+    with pytest.raises(ValueError, match="requires numeric_matrix sample contract"):
 
         @register_predictor(
             "graphMatrixPred",
             description="bad matrix",
-            cell_line_contract=FeatureFormat.GRAPH,
+            sample_contract=FeatureFormat.GRAPH,
             drug_contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class GraphMatrixPred(_ConcreteMatrix):
@@ -84,7 +84,7 @@ def test_single_drug_feature_predictor_needs_no_routing_declaration() -> None:
     @register_predictor(
         "plainSingleDrug",
         description="declares only its scope",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        sample_contract=FeatureFormat.NUMERIC_MATRIX,
         drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class PlainSingleDrug(_ConcreteMatrix):
@@ -98,7 +98,7 @@ def test_feature_free_single_drug_skips_identity_routing() -> None:
     @register_predictor(
         "freeSingleDrug",
         description="feature free single drug",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        sample_contract=FeatureFormat.NUMERIC_MATRIX,
         drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class FreeSingleDrug(_ConcreteFeatureFree):
@@ -112,7 +112,7 @@ def test_registered_predictor_scope_defaults_to_multi_drug() -> None:
     @register_predictor(
         "scopedPred",
         description="scope default",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        sample_contract=FeatureFormat.NUMERIC_MATRIX,
         drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class ScopedPred(_ConcreteBlock):
@@ -126,7 +126,7 @@ def test_register_existing_rejects_invalid_predictor_class() -> None:
         description = "invalid"
         tags: frozenset[str] = frozenset()
         reference = None
-        cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+        sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
         drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
     with pytest.raises(ValueError, match="exactly one of"):
@@ -137,7 +137,7 @@ def test_register_existing_restores_valid_predictor() -> None:
     @register_predictor(
         "restorablePred",
         description="restorable",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        sample_contract=FeatureFormat.NUMERIC_MATRIX,
         drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class RestorablePred(_ConcreteBlock):
@@ -160,7 +160,7 @@ def test_a_predictor_missing_its_subclass_hooks_is_rejected() -> None:
         @register_predictor(
             "abstractPred",
             description="forgot _fit and _predict",
-            cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+            sample_contract=FeatureFormat.NUMERIC_MATRIX,
             drug_contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class AbstractPred(BlockPredictor):
@@ -173,7 +173,7 @@ def test_a_matrix_predictor_missing_its_matrix_hooks_is_rejected() -> None:
         @register_predictor(
             "abstractMatrixPred",
             description="forgot the matrix hooks",
-            cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+            sample_contract=FeatureFormat.NUMERIC_MATRIX,
             drug_contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class AbstractMatrixPred(MatrixPredictor):
@@ -186,7 +186,7 @@ def test_the_rejection_names_the_registry_and_the_name() -> None:
         @register_predictor(
             "namedPred",
             description="names itself in the error",
-            cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+            sample_contract=FeatureFormat.NUMERIC_MATRIX,
             drug_contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class NamedPred(BlockPredictor):
@@ -198,7 +198,7 @@ def test_register_existing_also_rejects_an_abstract_class() -> None:
         description = "abstract"
         tags: frozenset[str] = frozenset()
         reference = None
-        cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+        sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
         drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
     with pytest.raises(ValueError, match="does not implement"):

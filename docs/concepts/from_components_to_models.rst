@@ -6,7 +6,7 @@ page supplies the grammar for combining them into a runnable model.
 
 A model consists of three components:
 
-- a cell-line featurizer
+- a sample featurizer
 - a drug featurizer
 - a predictor
 
@@ -23,7 +23,7 @@ the same architecture.
 Basic composition
 -----------------
 
-The three slots are always cell-line featurizer, drug featurizer, then
+The three slots are always sample featurizer, drug featurizer, then
 predictor:
 
 .. tab-set::
@@ -34,14 +34,14 @@ predictor:
 
       .. code-block:: text
 
-         cell-line featurizer : drug featurizer : predictor
+         sample featurizer : drug featurizer : predictor
 
    .. tab-item:: YAML
       :sync: yaml
 
       .. code-block:: yaml
 
-         cell_line_featurizer: <name>
+         sample_featurizer: <name>
          drug_featurizer: <name>
          predictor: <name>
 
@@ -53,7 +53,7 @@ predictor:
          from drevalpy.models import config
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(name="<name>"),
+             sample_featurizer=config.SampleFeaturizerConfig(name="<name>"),
              drug_featurizer=config.DrugFeaturizerConfig(name="<name>"),
              predictor=config.PredictorConfig(name="<name>"),
          )
@@ -76,7 +76,7 @@ and an elastic-net predictor:
 
       .. code-block:: yaml
 
-         cell_line_featurizer: scaledGeneExpression
+         sample_featurizer: scaledGeneExpression
          drug_featurizer: fingerprints
          predictor: elasticNet
 
@@ -88,14 +88,14 @@ and an elastic-net predictor:
          from drevalpy.models import config
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="scaledGeneExpression"
              ),
              drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
              predictor=config.PredictorConfig(name="elasticNet"),
          )
 
-Read it from left to right: scale gene expression for each cell line, compute
+Read it from left to right: scale gene expression for each sample, compute
 drug fingerprints, then fit an elastic-net predictor. The architecture is
 fully determined by those three names.
 
@@ -118,19 +118,19 @@ Other single-view stacks follow the same pattern:
 
       .. code-block:: yaml
 
-         cell_line_featurizer: normalizedProteomics
+         sample_featurizer: normalizedProteomics
          drug_featurizer: fingerprints
          predictor: randomForest
 
       .. code-block:: yaml
 
-         cell_line_featurizer: landmarkGenes
+         sample_featurizer: landmarkGenes
          drug_featurizer: fingerprints
          predictor: xgboost
 
       .. code-block:: yaml
 
-         cell_line_featurizer: scaledGeneExpression
+         sample_featurizer: scaledGeneExpression
          predictor: singleDrugElasticNet
 
    .. tab-item:: ModelConfig
@@ -143,7 +143,7 @@ Other single-view stacks follow the same pattern:
       .. code-block:: python
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="normalizedProteomics"
              ),
              drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
@@ -153,7 +153,7 @@ Other single-view stacks follow the same pattern:
       .. code-block:: python
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="landmarkGenes"
              ),
              drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
@@ -163,7 +163,7 @@ Other single-view stacks follow the same pattern:
       .. code-block:: python
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="scaledGeneExpression"
              ),
              predictor=config.PredictorConfig(name="singleDrugElasticNet"),
@@ -179,7 +179,7 @@ create a single estimator per drug. Nothing states the training scope either:
 Featurizers that can operate on multiple omics layers
 -----------------------------------------------------
 
-The ``raw`` and ``pca`` cell-line featurizers are flexible towards which omics
+The ``raw`` and ``pca`` sample featurizers are flexible towards which omics
 layer to read. Put that view in brackets as part of the featurizer's
 qualified name:
 
@@ -200,7 +200,7 @@ qualified name:
 
       .. code-block:: yaml
 
-         cell_line_featurizer:
+         sample_featurizer:
            name: raw
            view: expression
          drug_featurizer: fingerprints
@@ -208,7 +208,7 @@ qualified name:
 
       .. code-block:: yaml
 
-         cell_line_featurizer:
+         sample_featurizer:
            name: pca
            view: methylation
          drug_featurizer: fingerprints
@@ -216,7 +216,7 @@ qualified name:
 
       .. code-block:: yaml
 
-         cell_line_featurizer:
+         sample_featurizer:
            name: raw
            view: proteomics
          drug_featurizer: fingerprints
@@ -232,7 +232,7 @@ qualified name:
       .. code-block:: python
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="raw",
                  view="expression",
              ),
@@ -243,7 +243,7 @@ qualified name:
       .. code-block:: python
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="pca",
                  view="methylation",
              ),
@@ -254,7 +254,7 @@ qualified name:
       .. code-block:: python
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="raw",
                  view="proteomics",
              ),
@@ -287,7 +287,7 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
 
       .. code-block:: yaml
 
-         cell_line_featurizer:
+         sample_featurizer:
            name: concatFeaturizers
            featurizers:
              - name: raw
@@ -299,7 +299,7 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
 
       .. code-block:: yaml
 
-         cell_line_featurizer:
+         sample_featurizer:
            - landmarkGenes
            - normalizedProteomics
          drug_featurizer: fingerprints
@@ -315,7 +315,7 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
       .. code-block:: python
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="concatFeaturizers",
                  featurizers=(
                      {"name": "raw", "view": "expression"},
@@ -329,7 +329,7 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
       .. code-block:: python
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="concatFeaturizers",
                  featurizers=(
                      "landmarkGenes",
@@ -340,7 +340,7 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
              predictor=config.PredictorConfig(name="lightgbm"),
          )
 
-The left slot can concatenate several cell-line featurizers; the middle slot
+The left slot can concatenate several sample featurizers; the middle slot
 can concatenate drug featurizers the same way when needed. The right slot is
 always a single predictor name.
 
@@ -374,7 +374,7 @@ names (``alpha``, ``n_components``, …); DrEvalPy prefixes them for tuning.
 
       .. code-block:: yaml
 
-         cell_line_featurizer:
+         sample_featurizer:
            name: pca
            view: expression
            hyperparameter_space:
@@ -407,7 +407,7 @@ names (``alpha``, ``n_components``, …); DrEvalPy prefixes them for tuning.
          from drevalpy.models import config
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="pca",
                  view="expression",
                  hyperparameter_space={
@@ -449,7 +449,7 @@ dotted and mirror the composed stack:
 .. code-block:: text
 
    predictor.<registryName>.<param>
-   cell_line_featurizer.<qualifiedFeaturizer>.<param>
+   sample_featurizer.<qualifiedFeaturizer>.<param>
    drug_featurizer.<qualifiedFeaturizer>.<param>
 
 The featurizer selector is the same qualified name as in a recipe, including
@@ -460,7 +460,7 @@ For the example above, that yields:
 
    predictor.elasticNet.alpha
    predictor.elasticNet.l1_ratio
-   cell_line_featurizer.pca[expression].n_components
+   sample_featurizer.pca[expression].n_components
 
 The same base featurizer on different views stays independently tunable
 (``pca[expression]`` vs ``pca[proteomics]``). Repeating the same qualified

@@ -27,18 +27,18 @@ from tests.components.predictors.literature._helpers import two_by_two_batch
 #: Every test below builds torch tensors through ``make_pair_loader``.
 pytestmark = pytest.mark.slow
 
-CELL_LINE_VALUES = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+SAMPLE_VALUES = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
 DRUG_VALUES = np.array([[10.0], [20.0]], dtype=np.float32)
 
 
 def _batch(*, with_drug_pair_idx: bool = True) -> ModelInputBatch:
-    """Build a four-pair batch over two cell lines and two drugs.
+    """Build a four-pair batch over two samples and two drugs.
 
     :param with_drug_pair_idx: Whether to populate ``drug_pair_idx``.
     :returns: Featurized ``ModelInputBatch``.
     """
     return two_by_two_batch(
-        cell_line_blocks={"view": numeric_feature_block(CELL_LINE_VALUES)},
+        sample_blocks={"view": numeric_feature_block(SAMPLE_VALUES)},
         drug_blocks={"view": numeric_feature_block(DRUG_VALUES)},
         drug_pair_idx=np.array([0, 1, 0, 1]) if with_drug_pair_idx else None,
     )
@@ -53,7 +53,7 @@ def _spec(batch_size: int = 2):
     import torch
 
     return PairEvalSpec(
-        cell_line_blocks=(CELL_LINE_VALUES,),
+        sample_blocks=(SAMPLE_VALUES,),
         drug_blocks=(DRUG_VALUES,),
         batch_size=batch_size,
         device=torch.device("cpu"),
@@ -144,12 +144,12 @@ class TestPredictPairs:
         empty = two_by_two_batch(
             response=ResponseBatch(
                 response=np.empty(0),
-                cell_line_ids=np.empty(0, dtype=str),
+                sample_ids=np.empty(0, dtype=str),
                 drug_ids=np.empty(0, dtype=str),
             ),
-            cell_line_blocks={"view": numeric_feature_block(CELL_LINE_VALUES)},
+            sample_blocks={"view": numeric_feature_block(SAMPLE_VALUES)},
             drug_blocks={"view": numeric_feature_block(DRUG_VALUES)},
-            cell_line_pair_idx=np.empty(0, dtype=np.intp),
+            sample_pair_idx=np.empty(0, dtype=np.intp),
             drug_pair_idx=np.empty(0, dtype=np.intp),
         )
 
@@ -168,7 +168,7 @@ class TestConcatenatedForward:
             forward=concatenated_forward(_WidthModel()),
         )
 
-        # 2 cell-line columns + 1 drug column.
+        # 2 sample columns + 1 drug column.
         np.testing.assert_allclose(predictions, np.full(4, 3.0))
 
     def test_without_it_each_block_is_passed_separately(self) -> None:

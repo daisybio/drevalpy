@@ -64,7 +64,7 @@ class Visualization(ABC):
         """Compute the visualization data from the result (store internally).
 
         :param result: An ExperimentResult or ModelResult to visualize.
-        :param dataset: Optional dataset for looking up drug/cell-line metadata.
+        :param dataset: Optional dataset for looking up drug/sample metadata.
         """
         ...
 

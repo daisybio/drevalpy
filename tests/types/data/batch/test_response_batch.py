@@ -12,10 +12,10 @@ from drevalpy.types.data.batch.response_batch import ResponseBatch
 
 @pytest.fixture()
 def batch() -> ResponseBatch:
-    """Two measured pairs across two cell lines and two drugs."""
+    """Two measured pairs across two samples and two drugs."""
     return ResponseBatch(
         response=np.array([1.0, 2.0]),
-        cell_line_ids=np.array(["cl1", "cl2"]),
+        sample_ids=np.array(["cl1", "cl2"]),
         drug_ids=np.array(["d1", "d2"]),
     )
 
@@ -23,13 +23,13 @@ def batch() -> ResponseBatch:
 class TestConstruction:
     def test_fields_are_stored_verbatim(self, batch: ResponseBatch):
         np.testing.assert_array_equal(batch.response, np.array([1.0, 2.0]))
-        assert batch.cell_line_ids.tolist() == ["cl1", "cl2"]
+        assert batch.sample_ids.tolist() == ["cl1", "cl2"]
         assert batch.drug_ids.tolist() == ["d1", "d2"]
 
     def test_arrays_are_not_copied(self):
         response = np.array([1.0])
 
-        batch = ResponseBatch(response=response, cell_line_ids=np.array(["cl1"]), drug_ids=np.array(["d1"]))
+        batch = ResponseBatch(response=response, sample_ids=np.array(["cl1"]), drug_ids=np.array(["d1"]))
 
         assert batch.response is response
 
@@ -45,7 +45,7 @@ class TestLength:
     def test_an_empty_batch_has_length_zero(self):
         empty = ResponseBatch(
             response=np.array([]),
-            cell_line_ids=np.array([]),
+            sample_ids=np.array([]),
             drug_ids=np.array([]),
         )
 
@@ -55,7 +55,7 @@ class TestLength:
         """NaN marks an unmeasured pair; filtering happens in the predictors, not here."""
         with_nan = ResponseBatch(
             response=np.array([1.0, np.nan]),
-            cell_line_ids=np.array(["cl1", "cl2"]),
+            sample_ids=np.array(["cl1", "cl2"]),
             drug_ids=np.array(["d1", "d2"]),
         )
 
@@ -69,5 +69,5 @@ class TestImmutability:
 
     def test_slots_replace_the_instance_dict(self, batch: ResponseBatch):
         """``slots=True`` keeps these per-pair containers cheap to allocate."""
-        assert ResponseBatch.__slots__ == ("response", "cell_line_ids", "drug_ids")
+        assert ResponseBatch.__slots__ == ("response", "sample_ids", "drug_ids")
         assert not hasattr(batch, "__dict__")

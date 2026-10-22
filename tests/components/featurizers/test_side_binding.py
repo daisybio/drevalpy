@@ -21,12 +21,12 @@ from drevalpy.components.featurizers._side_binding import (
     register_for_sides,
 )
 from drevalpy.components.featurizers.base import Featurizer
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
-from drevalpy.registry.cell_line_featurizer import metadata as cell_line_metadata
+from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.drug_featurizer import metadata as drug_metadata
+from drevalpy.registry.sample_featurizer import metadata as sample_metadata
+from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from tests.registry._helpers import isolated_component_registries
 
@@ -66,13 +66,13 @@ def _bind(name: str, **kwargs) -> type:
 
 
 def test_known_sides_lists_both_entity_sides() -> None:
-    assert known_sides() == ("cell_line", "drug")
+    assert known_sides() == ("drug", "sample")
 
 
 @pytest.mark.parametrize(
     ("implementation_name", "side", "expected"),
     [
-        ("SharedIdentityFeaturizer", "cell_line", "CellLineIdentityFeaturizer"),
+        ("SharedIdentityFeaturizer", "sample", "SampleIdentityFeaturizer"),
         ("SharedIdentityFeaturizer", "drug", "DrugIdentityFeaturizer"),
         ("PlainFeaturizer", "drug", "DrugPlainFeaturizer"),
     ],
@@ -89,25 +89,25 @@ def test_derived_class_name_rejects_an_unknown_side() -> None:
 def test_register_for_sides_registers_on_both_sides() -> None:
     _bind("probeBoth", description="Probe.")
 
-    assert "probeBoth" in cell_line_featurizer_registry.list_names()
+    assert "probeBoth" in sample_featurizer_registry.list_names()
     assert "probeBoth" in drug_featurizer_registry.list_names()
 
 
 def test_register_for_sides_gives_each_side_its_own_class_and_side_value() -> None:
     _bind("probeSides", description="Probe.")
 
-    cell_line_cls = cell_line_featurizer_registry.get("probeSides")
+    sample_cls = sample_featurizer_registry.get("probeSides")
     drug_cls = drug_featurizer_registry.get("probeSides")
 
-    assert cell_line_cls is not drug_cls
-    assert cell_line_cls.side == "cell_line"
+    assert sample_cls is not drug_cls
+    assert sample_cls.side == "sample"
     assert drug_cls.side == "drug"
 
 
 def test_register_for_sides_binds_each_side_to_its_base_class() -> None:
     _bind("probeBases", description="Probe.")
 
-    assert issubclass(cell_line_featurizer_registry.get("probeBases"), CellLineFeaturizer)
+    assert issubclass(sample_featurizer_registry.get("probeBases"), SampleFeaturizer)
     assert issubclass(drug_featurizer_registry.get("probeBases"), DrugFeaturizer)
 
 
@@ -128,9 +128,9 @@ def test_register_for_sides_injects_the_derived_classes_into_the_module() -> Non
 
 
 def test_register_for_sides_accepts_a_per_side_description() -> None:
-    _bind("probeDescribed", description={"cell_line": "For cell lines.", "drug": "For drugs."})
+    _bind("probeDescribed", description={"sample": "For samples.", "drug": "For drugs."})
 
-    assert cell_line_metadata("probeDescribed")["description"] == "For cell lines."
+    assert sample_metadata("probeDescribed")["description"] == "For samples."
     assert drug_metadata("probeDescribed")["description"] == "For drugs."
 
 
@@ -138,7 +138,7 @@ def test_register_for_sides_can_bind_a_single_side() -> None:
     _bind("probeOneSide", description="Probe.", sides=("drug",))
 
     assert "probeOneSide" in drug_featurizer_registry.list_names()
-    assert "probeOneSide" not in cell_line_featurizer_registry.list_names()
+    assert "probeOneSide" not in sample_featurizer_registry.list_names()
 
 
 def test_register_for_sides_rejects_an_unknown_side() -> None:

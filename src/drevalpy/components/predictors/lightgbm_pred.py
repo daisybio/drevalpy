@@ -20,7 +20,7 @@ from drevalpy.registry.predictor import register
 @register(
     "lightgbm",
     description="LightGBM regressor on concatenated dense features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class LightGBMPredictor(BoostedTreesPredictor):

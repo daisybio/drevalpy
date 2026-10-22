@@ -1,4 +1,4 @@
-"""Tests for the leave-cell-line-out splitter."""
+"""Tests for the leave-sample-out splitter."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ from drevalpy.registry.splitter import splitter_registry
 from tests.data.splitters._helpers import MockMuDataset, covered_pairs, first_measured_pairs
 
 
-class TestLeaveCellLineOut:
+class TestLeaveSampleOut:
     def test_produces_folds(self, mock_dataset: MockMuDataset) -> None:
         splitter = splitter_registry.get("LCO")
         folds = splitter(mock_dataset, n_splits=3)
         assert len(folds) == 3
 
-    def test_no_cell_line_in_both_train_and_test(self, mock_dataset: MockMuDataset) -> None:
+    def test_no_sample_in_both_train_and_test(self, mock_dataset: MockMuDataset) -> None:
         splitter = splitter_registry.get("LCO")
         folds = splitter(mock_dataset, n_splits=3)
         for fold in folds:

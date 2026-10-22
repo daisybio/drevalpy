@@ -87,7 +87,7 @@ def _fit_evidence(
 
 
 def _two_by_two(
-    cell_line_blocks: dict[str, Any],
+    sample_blocks: dict[str, Any],
     drug_blocks: dict[str, Any],
     checkpoint_dir: UPath,
     *,
@@ -95,23 +95,23 @@ def _two_by_two(
 ) -> ModelInputBatch:
     response = ResponseBatch(
         response=np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32),
-        cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
+        sample_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
     )
     return ModelInputBatch.from_response(
         response,
-        cell_line=FeaturizerResult.from_blocks(cell_line_blocks, np.array(["cl1", "cl2"])),
+        sample=FeaturizerResult.from_blocks(sample_blocks, np.array(["cl1", "cl2"])),
         drug=FeaturizerResult(
             np.array(["d1", "d2"]),
             drug_blocks,
             tuple(name for name, block in drug_blocks.items() if block.values.dtype.kind in "biufc"),
         ),
-        cell_line_pair_idx=np.array([0, 0, 1, 1]),
+        sample_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
         early_stopping_response=(
             ResponseBatch(
                 response=np.array([1.5, 2.5], dtype=np.float32),
-                cell_line_ids=np.array(["cl1", "cl2"]),
+                sample_ids=np.array(["cl1", "cl2"]),
                 drug_ids=np.array(["d1", "d2"]),
             )
             if early_stopping
@@ -122,29 +122,29 @@ def _two_by_two(
 
 
 def _early_stopping_batch(
-    cell_line_blocks: dict[str, Any],
+    sample_blocks: dict[str, Any],
     drug_blocks: dict[str, Any],
     checkpoint_dir: UPath,
 ) -> ModelInputBatch:
     training = ResponseBatch(
         response=np.array([-1.0, 0.5, 1.5, 3.0], dtype=np.float32),
-        cell_line_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
+        sample_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
     )
     validation = ResponseBatch(
         response=np.array([0.25, 2.25], dtype=np.float32),
-        cell_line_ids=np.array(["val-1", "val-2"]),
+        sample_ids=np.array(["val-1", "val-2"]),
         drug_ids=np.array(["d1", "d2"]),
     )
     return ModelInputBatch.from_response(
         training,
-        cell_line=FeaturizerResult.from_blocks(cell_line_blocks, np.array(["train-1", "train-2", "val-1", "val-2"])),
+        sample=FeaturizerResult.from_blocks(sample_blocks, np.array(["train-1", "train-2", "val-1", "val-2"])),
         drug=FeaturizerResult(
             np.array(["d1", "d2"]),
             drug_blocks,
             tuple(name for name, block in drug_blocks.items() if block.values.dtype.kind in "biufc"),
         ),
-        cell_line_pair_idx=np.array([0, 0, 1, 1]),
+        sample_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
@@ -156,12 +156,12 @@ def _omics_batch(checkpoint_dir: UPath) -> ModelInputBatch:
     cell_ids = np.array([*(f"train-{idx}" for idx in range(6)), "val-0", "val-1"])
     training = ResponseBatch(
         response=np.array([0.0, 0.02, 0.3, 0.7, 0.98, 1.0], dtype=np.float32),
-        cell_line_ids=cell_ids[:6],
+        sample_ids=cell_ids[:6],
         drug_ids=np.repeat("d1", 6),
     )
     validation = ResponseBatch(
         response=np.array([0.15, 0.85], dtype=np.float32),
-        cell_line_ids=cell_ids[6:],
+        sample_ids=cell_ids[6:],
         drug_ids=np.repeat("d1", 2),
     )
     widths = {"gene_expression": 6, "mutations": 5, "copy_number_variation_gistic": 4}
@@ -170,7 +170,7 @@ def _omics_batch(checkpoint_dir: UPath) -> ModelInputBatch:
     }
     return ModelInputBatch.from_response(
         training,
-        cell_line=FeaturizerResult.from_blocks(blocks, cell_ids),
+        sample=FeaturizerResult.from_blocks(blocks, cell_ids),
         drug=FeaturizerResult(
             np.array(["d1"]),
             {
@@ -179,7 +179,7 @@ def _omics_batch(checkpoint_dir: UPath) -> ModelInputBatch:
             },
             ("identity",),
         ),
-        cell_line_pair_idx=np.arange(6),
+        sample_pair_idx=np.arange(6),
         drug_pair_idx=np.zeros(6, dtype=np.int64),
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
@@ -264,7 +264,7 @@ def _druggnn(seed: int, root: UPath) -> dict[str, Any]:
     hp = {"epochs": 4, "batch_size": 2, "hidden_dim": 8, "dropout": 0.0, "learning_rate": 0.5}
     _seed(seed)
     pristine = DrugGNNPredictor(hp)
-    initial = _parameters(pristine._build_model(batch.cell_line.blocks["gene_expression"].values, graphs))
+    initial = _parameters(pristine._build_model(batch.sample.blocks["gene_expression"].values, graphs))
     _seed(seed)
     selected = DrugGNNPredictor(hp)
     selected.fit(batch)
@@ -281,10 +281,10 @@ def _druggnn(seed: int, root: UPath) -> dict[str, Any]:
 
     _seed(seed)
     final = DrugGNNPredictor(hp)
-    cell_matrix = batch.cell_line.blocks["gene_expression"].values
+    cell_matrix = batch.sample.blocks["gene_expression"].values
     final._model = final._build_model(cell_matrix, graphs)
     train_loader = final._graph_loader(
-        batch.cell_line_pair_idx,
+        batch.sample_pair_idx,
         final._resolve_drug_pair_idx(batch),
         cell_matrix,
         graphs,

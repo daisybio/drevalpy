@@ -33,7 +33,7 @@ def test_public_round_trip_for_custom_spec() -> None:
     config = from_spec("pca[expression]:identity:randomForest")
     public = public_hyperparameters_from_config(config)
     rebuilt = apply_public_hyperparameters_to_config(config, public)
-    assert rebuilt.featurizer_values("cell_line", "pca[expression]")["n_components"] == 128
+    assert rebuilt.featurizer_values("sample", "pca[expression]")["n_components"] == 128
 
 
 def test_tuned_config_strips_structured_keys() -> None:
@@ -41,20 +41,20 @@ def test_tuned_config_strips_structured_keys() -> None:
     merged = defaults_from_merged_space(merge_model_config_spaces(config))
     tuned = apply_merged_to_model_config(config, merged)
     public = public_hyperparameters_from_config(tuned)
-    assert "cell_line_featurizer.pca[expression].n_components" not in public
+    assert "sample_featurizer.pca[expression].n_components" not in public
 
 
 def test_unknown_public_view_key_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unknown hyperparameter"):
         apply_public_hyperparameters_to_config(
-            from_spec("MultiViewRandomForest"), {"cell_line_views": ["gene_expression"]}
+            from_spec("MultiViewRandomForest"), {"sample_views": ["gene_expression"]}
         )
 
 
 def test_methylation_pca_alias_round_trip() -> None:
     config = from_spec("MultiViewRandomForest")
     rebuilt = apply_public_hyperparameters_to_config(config, {"methylation_pca_components": 9})
-    assert rebuilt.featurizer_values("cell_line", "pca[methylation]")["n_components"] == 9
+    assert rebuilt.featurizer_values("sample", "pca[methylation]")["n_components"] == 9
 
 
 def test_cli_named_model_resolves_to_spec() -> None:

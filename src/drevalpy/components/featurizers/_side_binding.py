@@ -33,12 +33,12 @@ from drevalpy.types.enums.literature_reference import LiteratureReference
 
 #: Entity side -> (derived-class name prefix, ``module:ClassName`` of the side base).
 _SIDE_BASES: dict[str, tuple[str, str]] = {
-    "cell_line": ("CellLine", "drevalpy.components.featurizers.cell_line.base:CellLineFeaturizer"),
+    "sample": ("Sample", "drevalpy.components.featurizers.sample.base:SampleFeaturizer"),
     "drug": ("Drug", "drevalpy.components.featurizers.drug.base:DrugFeaturizer"),
 }
 
 #: Marker stripped out of a shared implementation's name to make room for the side
-#: prefix: ``SharedIdentityFeaturizer`` -> ``CellLineIdentityFeaturizer``.
+#: prefix: ``SharedIdentityFeaturizer`` -> ``SampleIdentityFeaturizer``.
 _SHARED_PREFIX = "Shared"
 
 
@@ -53,7 +53,7 @@ def known_sides() -> tuple[str, ...]:
 def _side_base(side: str) -> type[Any]:
     """Import and return the featurizer base class for *side*.
 
-    :param side: Entity side, ``"cell_line"`` or ``"drug"``.
+    :param side: Entity side, ``"sample"`` or ``"drug"``.
     :returns: That side's ``Featurizer`` subclass.
     :raises ValueError: If *side* is not a known entity side.
     """
@@ -68,7 +68,7 @@ def _side_base(side: str) -> type[Any]:
 def _side_register(side: str) -> Callable[..., Callable[[type[Any]], type[Any]]]:
     """Return the ``register`` decorator factory of the *side* registry.
 
-    :param side: Entity side, ``"cell_line"`` or ``"drug"``.
+    :param side: Entity side, ``"sample"`` or ``"drug"``.
     :returns: That registry's ``register`` function.
     """
     return __import__(f"drevalpy.registry.{side}_featurizer", fromlist=["register"]).register
@@ -78,7 +78,7 @@ def derived_class_name(implementation_name: str, side: str) -> str:
     """Return the class name for the *side* binding of an implementation.
 
     :param implementation_name: ``__name__`` of the shared implementation class.
-    :param side: Entity side, ``"cell_line"`` or ``"drug"``.
+    :param side: Entity side, ``"sample"`` or ``"drug"``.
     :returns: Side-prefixed class name.
     :raises ValueError: If *side* is not a known entity side.
     """
@@ -96,7 +96,7 @@ def _derive(implementation: type[Any], side: str) -> type[Any]:
     metaclass rather than through ``type`` directly.
 
     :param implementation: Side-agnostic implementation class.
-    :param side: Entity side, ``"cell_line"`` or ``"drug"``.
+    :param side: Entity side, ``"sample"`` or ``"drug"``.
     :returns: Freshly created, not-yet-registered subclass.
     """
     base = _side_base(side)
@@ -114,7 +114,7 @@ def register_for_sides(
     contract: FeatureContract | FeatureFormat | None = None,
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
-    sides: Iterable[str] = ("cell_line", "drug"),
+    sides: Iterable[str] = ("sample", "drug"),
 ) -> Callable[[type[Any]], type[Any]]:
     """Register one side-agnostic implementation under *name* on every side.
 

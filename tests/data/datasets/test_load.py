@@ -249,18 +249,18 @@ class TestCachedFileIsRejectedWhenTooOld:
     """
 
     def test_a_dataset_without_the_quality_layers_is_rejected(self) -> None:
-        dataset = build_synthetic_dataset(n_cell_lines=4, n_drugs=3)
+        dataset = build_synthetic_dataset(n_samples=4, n_drugs=3)
         del dataset.response.layers["relevance_score"]
 
         assert not _carries_curve_quality(dataset)
 
     def test_a_dataset_with_the_quality_layers_is_accepted(self) -> None:
-        assert _carries_curve_quality(build_synthetic_dataset(n_cell_lines=4, n_drugs=3))
+        assert _carries_curve_quality(build_synthetic_dataset(n_samples=4, n_drugs=3))
 
     def test_a_stale_cached_file_is_deleted_and_reported(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        dataset = build_synthetic_dataset(n_cell_lines=4, n_drugs=3)
+        dataset = build_synthetic_dataset(n_samples=4, n_drugs=3)
         del dataset.response.layers["relevance_score"]
         path = UPath(tmp_path) / "stale.h5mu"
         dataset.save(path)
@@ -273,7 +273,7 @@ class TestCachedFileIsRejectedWhenTooOld:
 
     def test_a_usable_cached_file_is_returned_and_kept(self, tmp_path: Path) -> None:
         path = UPath(tmp_path) / "fresh.h5mu"
-        build_synthetic_dataset(n_cell_lines=4, n_drugs=3).save(path)
+        build_synthetic_dataset(n_samples=4, n_drugs=3).save(path)
 
         assert _load_from_cache(path) is not None
         assert path.is_file()
@@ -287,7 +287,7 @@ class TestCachedFileIsRejectedWhenTooOld:
 
     def test_a_truncated_cached_file_is_deleted(self, tmp_path: Path) -> None:
         path = UPath(tmp_path) / "truncated.h5mu"
-        build_synthetic_dataset(n_cell_lines=4, n_drugs=3).save(path)
+        build_synthetic_dataset(n_samples=4, n_drugs=3).save(path)
         path.write_bytes(path.read_bytes()[:200])
 
         assert _load_from_cache(path) is None
@@ -297,7 +297,7 @@ class TestCachedFileIsRejectedWhenTooOld:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         path = UPath(tmp_path) / "locked.h5mu"
-        build_synthetic_dataset(n_cell_lines=4, n_drugs=3).save(path)
+        build_synthetic_dataset(n_samples=4, n_drugs=3).save(path)
 
         def deny(_path: object) -> None:
             raise PermissionError("denied")

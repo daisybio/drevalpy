@@ -22,7 +22,7 @@ def test_isolated_predictor_registry_registers_with_contracts() -> None:
     @registry.register(
         "localPred",
         description="local",
-        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        sample_contract=FeatureFormat.NUMERIC_MATRIX,
         drug_contract=FeatureFormat.GRAPH,
     )
     class LocalPred(FeatureFreePredictor):
@@ -33,5 +33,5 @@ def test_isolated_predictor_registry_registers_with_contracts() -> None:
             return np.zeros(batch.n_pairs, dtype=np.float64)
 
     assert registry.get("localPred") is LocalPred
-    assert vars(LocalPred)["cell_line_contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert vars(LocalPred)["sample_contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     assert vars(LocalPred)["drug_contract"] == FeatureContract(format=FeatureFormat.GRAPH)

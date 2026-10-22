@@ -12,16 +12,16 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.shared.identity import (
-    CellLineIdentityFeaturizer,
     DrugIdentityFeaturizer,
+    SampleIdentityFeaturizer,
     SharedIdentityFeaturizer,
 )
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 from tests.conftest import MockFeatureSource
 
 _SIDE_CLASSES = [
-    pytest.param(CellLineIdentityFeaturizer, id="cell-line"),
+    pytest.param(SampleIdentityFeaturizer, id="sample"),
     pytest.param(DrugIdentityFeaturizer, id="drug"),
 ]
 
@@ -72,17 +72,17 @@ def test_identity_round_trips_state(featurizer_cls: type) -> None:
 
 
 def test_identity_registers_one_class_per_side() -> None:
-    assert get_cell_line_featurizer("identity") is CellLineIdentityFeaturizer
+    assert get_sample_featurizer("identity") is SampleIdentityFeaturizer
     assert get_drug_featurizer("identity") is DrugIdentityFeaturizer
-    assert CellLineIdentityFeaturizer is not DrugIdentityFeaturizer
+    assert SampleIdentityFeaturizer is not DrugIdentityFeaturizer
 
 
 def test_identity_side_is_stamped_per_binding() -> None:
-    assert CellLineIdentityFeaturizer.side == "cell_line"
+    assert SampleIdentityFeaturizer.side == "sample"
     assert DrugIdentityFeaturizer.side == "drug"
 
 
 def test_identity_bindings_derive_from_the_shared_implementation() -> None:
-    assert issubclass(CellLineIdentityFeaturizer, SharedIdentityFeaturizer)
+    assert issubclass(SampleIdentityFeaturizer, SharedIdentityFeaturizer)
     assert issubclass(DrugIdentityFeaturizer, SharedIdentityFeaturizer)
     assert SharedIdentityFeaturizer.side == ""

@@ -93,7 +93,7 @@ Parameters:
 - ``output_dir`` — where to write the HTML report
 - ``title`` — report title (default ``"Drug Response Evaluation"``)
 - ``reference_model`` — if set, normalize metrics against this model
-- ``dataset`` — optional ``Dataset`` for drug/cell-line metadata in plots
+- ``dataset`` — optional ``Dataset`` for drug/sample metadata in plots
 
 The report uses `MultiQC <https://multiqc.info/>`_ internally. Evaluation
 concepts (normalized metrics, critical difference) are documented in

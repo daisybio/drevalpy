@@ -23,11 +23,11 @@ _logger = get_logger(__name__)
 class Predictor(TunableComponentMixin, ABC):
     """Train and predict drug response from a ``ModelInputBatch``.
 
-    Predictors take featurizer outputs and predict a response for each drug/cell-line pair in the batch.
+    Predictors take featurizer outputs and predict a response for each drug/sample pair in the batch.
     Subclasses must be registered to the predictor registry using ``@register``,
     so that they can be discovered and used in models.
 
-    ``cell_line_contract`` and ``drug_contract`` may be declared on the class body or
+    ``sample_contract`` and ``drug_contract`` may be declared on the class body or
     passed to ``@register``. When both are given the decorator argument wins.
 
     The HPO-space and checkpoint hooks come from ``TunableComponentMixin`` in
@@ -35,13 +35,13 @@ class Predictor(TunableComponentMixin, ABC):
     ``is_fitted`` below is predictor-only and stays here.
     """
 
-    cell_line_contract: ClassVar[FeatureContract]
+    sample_contract: ClassVar[FeatureContract]
     drug_contract: ClassVar[FeatureContract]
     supports_early_stopping: ClassVar[bool] = False
     requires_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
     scope: ClassVar[ModelScope] = ModelScope.MULTI_DRUG
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ()
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ()
     required_drug_blocks: ClassVar[tuple[str, ...]] = ()
     nan_threshold: ClassVar[float] = 0.2
 
@@ -51,14 +51,14 @@ class Predictor(TunableComponentMixin, ABC):
         A ``FeatureFormat`` shorthand is widened to a ``FeatureContract`` so the
         class body and the ``@register`` arguments accept the same spellings.
         Subclasses that declare nothing are registered with the decorator's
-        ``cell_line_contract=`` / ``drug_contract=`` instead.
+        ``sample_contract=`` / ``drug_contract=`` instead.
 
         :param kwargs: Forwarded to ``ABC.__init_subclass__``.
         :raises TypeError: If a class-body contract is neither a ``FeatureContract``
             nor a ``FeatureFormat``.
         """
         super().__init_subclass__(**kwargs)
-        for attr_name in ("cell_line_contract", "drug_contract"):
+        for attr_name in ("sample_contract", "drug_contract"):
             if attr_name not in cls.__dict__:
                 continue
             try:
@@ -80,7 +80,7 @@ class Predictor(TunableComponentMixin, ABC):
     def fit(self, batch: ModelInputBatch) -> None:
         """Validate the batch, filter NaN pairs, and delegate to ``_fit``.
 
-        :param batch: Featurized cell-line/drug pairs with training responses.
+        :param batch: Featurized sample/drug pairs with training responses.
         :raises ValueError: If *batch* has no response values.
         """
         if batch.response is None:
@@ -100,15 +100,15 @@ class Predictor(TunableComponentMixin, ABC):
             cl_idx, drug_idx = batch._pair_indices_for(response)
             stopping = replace(
                 batch,
-                cell_line_ids=response.cell_line_ids,
+                sample_ids=response.sample_ids,
                 drug_ids=response.drug_ids,
                 response=response.response,
-                cell_line_pair_idx=cl_idx,
+                sample_pair_idx=cl_idx,
                 drug_pair_idx=drug_idx,
                 early_stopping_response=None,
             )
             keep = self._valid_pair_mask(stopping) & ~np.isnan(response.response)
-            response = type(response)(response.response[keep], response.cell_line_ids[keep], response.drug_ids[keep])
+            response = type(response)(response.response[keep], response.sample_ids[keep], response.drug_ids[keep])
         if self.requires_early_stopping and (response is None or len(response) == 0):
             raise ValueError(f"{type(self).__name__} requires a usable early-stopping holdout")
         return replace(batch, early_stopping_response=response)
@@ -117,13 +117,13 @@ class Predictor(TunableComponentMixin, ABC):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Subclass fitting logic (response is guaranteed non-None).
 
-        :param batch: Featurized cell-line/drug pairs with training responses.
+        :param batch: Featurized sample/drug pairs with training responses.
         """
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict response, returning NaN for pairs with NaN features.
 
-        :param batch: Featurized cell-line/drug pairs to score.
+        :param batch: Featurized sample/drug pairs to score.
 
         :returns: One predicted response per pair in *batch*.
         """
@@ -139,7 +139,7 @@ class Predictor(TunableComponentMixin, ABC):
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Subclass prediction logic on pre-validated (non-NaN) pairs.
 
-        :param batch: Featurized cell-line/drug pairs to score.
+        :param batch: Featurized sample/drug pairs to score.
 
         :returns: One predicted response per pair in *batch*.
         """
@@ -157,7 +157,7 @@ class Predictor(TunableComponentMixin, ABC):
         valid = np.ones(batch.n_pairs, dtype=bool)
         if batch.n_pairs == 0:
             return valid
-        for table, indices in ((batch.cell_line, batch.cell_line_pair_idx), (batch.drug, batch.drug_pair_idx)):
+        for table, indices in ((batch.sample, batch.sample_pair_idx), (batch.drug, batch.drug_pair_idx)):
             if table is None or indices is None:
                 continue
             for block in table.blocks.values():

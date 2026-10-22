@@ -1,11 +1,11 @@
 """Public exports for featurizers."""
 
 from .base import Featurizer
-from .cell_line.base import CellLineFeaturizer
 from .drug.base import DrugFeaturizer
+from .sample.base import SampleFeaturizer
 
 __all__ = [
     "Featurizer",
-    "CellLineFeaturizer",
+    "SampleFeaturizer",
     "DrugFeaturizer",
 ]

@@ -29,15 +29,15 @@ def require_pair_matrix(
     *,
     side: str,
 ) -> np.ndarray:
-    """Return a pair-aligned dense matrix for the cell-line or drug side.
+    """Return a pair-aligned dense matrix for the sample or drug side.
 
     :param batch: batch.
     :param side: side.
     :returns: Result.
     :raises ValueError: Raised on invalid input.
     """
-    if side == "cell_line":
-        return pair_align(batch.cell_line.matrix, batch.cell_line_pair_idx)
+    if side == "sample":
+        return pair_align(batch.sample.matrix, batch.sample_pair_idx)
     if side == "drug":
         if batch.drug is None:
             msg = "drug features are required"
@@ -48,17 +48,17 @@ def require_pair_matrix(
 
 
 def block_pair_matrix(batch: ModelInputBatch, block_name: str) -> np.ndarray:
-    """Return a pair-aligned named cell-line block matrix.
+    """Return a pair-aligned named sample block matrix.
 
     :param batch: batch.
     :param block_name: block name.
     :returns: Result.
     :raises ValueError: Raised on invalid input.
     """
-    if block_name not in batch.cell_line.blocks:
-        msg = f"Required cell-line block {block_name!r} is missing"
+    if block_name not in batch.sample.blocks:
+        msg = f"Required sample block {block_name!r} is missing"
         raise ValueError(msg)
-    return pair_align(batch.cell_line.blocks[block_name].values, batch.cell_line_pair_idx)
+    return pair_align(batch.sample.blocks[block_name].values, batch.sample_pair_idx)
 
 
 def category_means(design: np.ndarray, y: np.ndarray) -> np.ndarray:

@@ -21,10 +21,10 @@ from tests.synthetic import (
     CHEMBERTA_DIM,
     CNV_MODALITY,
     FINGERPRINT_BITS,
-    N_CELL_LINES,
     N_DRUGS,
     N_GENES,
     N_PATHWAYS,
+    N_SAMPLES,
     OMICS_MODALITIES,
     build_synthetic_dataset,
 )
@@ -65,12 +65,12 @@ class TestRoundTrip:
     def test_repr(self, mudataset: Dataset):
         r = repr(mudataset)
         assert "Dataset" in r
-        assert "Cell lines:" in r
+        assert "Samples:" in r
 
-    def test_cell_line_ids(self, mudataset: Dataset):
-        ids = mudataset.cell_line_ids
+    def test_sample_ids(self, mudataset: Dataset):
+        ids = mudataset.sample_ids
         assert ids.ndim == 1
-        assert len(ids) == N_CELL_LINES
+        assert len(ids) == N_SAMPLES
         assert ids.dtype.kind in ("U", "O")
 
     def test_drug_ids(self, mudataset: Dataset):
@@ -85,7 +85,7 @@ class TestResponse:
 
     def test_response_matrix_shape(self, mudataset: Dataset):
         mat = mudataset.response_matrix
-        assert mat.shape == (N_CELL_LINES, N_DRUGS)
+        assert mat.shape == (N_SAMPLES, N_DRUGS)
         assert mat.dtype == np.float32
 
     def test_response_matrix_is_nan_sparse(self, mudataset: Dataset):
@@ -95,7 +95,7 @@ class TestResponse:
 
     def test_response_layer_auc(self, mudataset: Dataset):
         auc = mudataset.get_response_layer("AUC")
-        assert auc.shape == (N_CELL_LINES, N_DRUGS)
+        assert auc.shape == (N_SAMPLES, N_DRUGS)
         assert auc.dtype == np.float32
 
     def test_builtin_measure_layer_matches_x(self, mudataset: Dataset):
@@ -107,36 +107,36 @@ class TestResponse:
             mudataset.get_response_layer("nonexistent")
 
 
-class TestCellLineFeatures:
-    """Test cell-line feature retrieval."""
+class TestSampleFeatures:
+    """Test sample feature retrieval."""
 
     def test_gene_expression(self, mudataset: Dataset):
-        ids = mudataset.cell_line_ids[:5]
-        features = mudataset.get_cell_line_features("gene_expression", ids)
+        ids = mudataset.sample_ids[:5]
+        features = mudataset.get_sample_features("gene_expression", ids)
         assert features.shape == (5, N_GENES)
         assert features.dtype == np.float32
 
     def test_missing_ids_get_nan(self, mudataset: Dataset):
         ids = np.array(["FAKE_ID_1", "FAKE_ID_2"])
-        features = mudataset.get_cell_line_features("gene_expression", ids)
+        features = mudataset.get_sample_features("gene_expression", ids)
         assert features.shape == (2, N_GENES)
         assert np.all(np.isnan(features))
 
     def test_pathway_features(self, mudataset: Dataset):
-        ids = mudataset.cell_line_ids[:3]
-        features = mudataset.get_cell_line_features("pathway_features", ids)
+        ids = mudataset.sample_ids[:3]
+        features = mudataset.get_sample_features("pathway_features", ids)
         assert features.shape == (3, N_PATHWAYS)
         assert features.dtype == np.float32
 
     def test_gene_names_are_real_symbols(self, mudataset: Dataset):
-        names = mudataset.get_cell_line_feature_names("gene_expression")
+        names = mudataset.get_sample_feature_names("gene_expression")
         assert names is not None
         assert len(names) == N_GENES
         assert all(name.isupper() or any(ch.isdigit() for ch in name) for name in names)
 
     def test_unknown_modality_raises(self, mudataset: Dataset):
         with pytest.raises(KeyError, match="nonexistent"):
-            mudataset.get_cell_line_features("nonexistent", mudataset.cell_line_ids[:1])
+            mudataset.get_sample_features("nonexistent", mudataset.sample_ids[:1])
 
 
 class TestDrugFeatures:
@@ -181,13 +181,13 @@ class TestDrugGraphs:
 class TestMetadata:
     """Test metadata access."""
 
-    def test_cell_line_meta(self, mudataset: Dataset):
-        meta = mudataset.cell_line_meta
+    def test_sample_meta(self, mudataset: Dataset):
+        meta = mudataset.sample_meta
         assert "cell_line_name" in meta.columns
         assert "tissue" in meta.columns
 
     def test_get_tissue(self, mudataset: Dataset):
-        tissues = mudataset.get_tissue(mudataset.cell_line_ids[:5])
+        tissues = mudataset.get_tissue(mudataset.sample_ids[:5])
         assert len(tissues) == 5
 
     def test_get_tissue_unknown_id(self, mudataset: Dataset):
@@ -195,24 +195,24 @@ class TestMetadata:
         assert len(tissues) == 1
 
     def test_enough_tissues_for_leave_tissue_out(self, mudataset: Dataset):
-        tissues = np.unique(mudataset.get_tissue(mudataset.cell_line_ids))
+        tissues = np.unique(mudataset.get_tissue(mudataset.sample_ids))
         assert len(tissues) >= 3
 
 
 class TestSubsetting:
     """Test subsetting operations."""
 
-    def test_subset_cell_lines(self, mudataset: Dataset):
-        ids = mudataset.cell_line_ids[:10]
-        sub = mudataset.subset_cell_lines(ids)
-        assert len(sub.cell_line_ids) == 10
+    def test_subset_samples(self, mudataset: Dataset):
+        ids = mudataset.sample_ids[:10]
+        sub = mudataset.subset_samples(ids)
+        assert len(sub.sample_ids) == 10
         assert sub.response_matrix.shape == (10, N_DRUGS)
 
     def test_subset_drugs(self, mudataset: Dataset):
         ids = mudataset.drug_ids[:5]
         sub = mudataset.subset_drugs(ids)
         assert len(sub.drug_ids) == 5
-        assert sub.response_matrix.shape == (N_CELL_LINES, 5)
+        assert sub.response_matrix.shape == (N_SAMPLES, 5)
 
     def test_subset_drugs_filters_drug_graphs(self, mudataset: Dataset):
         retained = mudataset.drug_ids[:1]
@@ -223,9 +223,9 @@ class TestSubsetting:
         assert sub.entities_with_modality("drug_graph", side="drug") == frozenset(map(str, retained))
         assert sub.get_drug_graphs(np.array([removed])) == [None]
 
-    @pytest.mark.parametrize("method", ["subset_cell_lines", "subset_drugs"])
+    @pytest.mark.parametrize("method", ["subset_samples", "subset_drugs"])
     def test_subset_does_not_alias_drug_graphs(self, mudataset: Dataset, method: str):
-        ids = mudataset.cell_line_ids[:1] if method == "subset_cell_lines" else mudataset.drug_ids[:1]
+        ids = mudataset.sample_ids[:1] if method == "subset_samples" else mudataset.drug_ids[:1]
         sub = getattr(mudataset, method)(ids)
         drug_id = str(sub.drug_ids[0])
         parent_value = mudataset.mdata.uns["drug_graphs"][drug_id]["x"][0].copy()
@@ -234,17 +234,17 @@ class TestSubsetting:
 
         np.testing.assert_array_equal(mudataset.mdata.uns["drug_graphs"][drug_id]["x"][0], parent_value)
 
-    @pytest.mark.parametrize("method", ["subset_cell_lines", "subset_drugs"])
+    @pytest.mark.parametrize("method", ["subset_samples", "subset_drugs"])
     def test_subset_preserves_randomization_metadata(self, mudataset: Dataset, method: str):
         mudataset.randomization = ("permutation", "gene_expression")
-        ids = mudataset.cell_line_ids[:1] if method == "subset_cell_lines" else mudataset.drug_ids[:1]
+        ids = mudataset.sample_ids[:1] if method == "subset_samples" else mudataset.drug_ids[:1]
 
         sub = getattr(mudataset, method)(ids)
 
         assert sub.randomization == mudataset.randomization
 
     def test_subset_preserves_uns(self, mudataset: Dataset):
-        sub = mudataset.subset_cell_lines(mudataset.cell_line_ids[:5])
+        sub = mudataset.subset_samples(mudataset.sample_ids[:5])
         assert "drug_graphs" in sub.mdata.uns
 
 
@@ -282,10 +282,10 @@ class TestPrecompute:
 
         assert [call["hyperparameters"] for call in records] == [{}, {"n_components": 2}]
 
-    def test_cell_line_side_precomputes_every_cell_line(self, mudataset: Dataset, records: list[dict]):
+    def test_sample_side_precomputes_every_sample(self, mudataset: Dataset, records: list[dict]):
         mudataset.precompute(stub_featurizer(records), [])
 
-        assert records[0]["n_entities"] == N_CELL_LINES
+        assert records[0]["n_entities"] == N_SAMPLES
 
     def test_drug_side_precomputes_every_drug(self, mudataset: Dataset, records: list[dict]):
         mudataset.precompute(stub_featurizer(records, side="drug"), [])
@@ -296,7 +296,7 @@ class TestPrecompute:
         mudataset.precompute(stub_fit_transform_featurizer(records), [])
 
         assert records[0] == {"call": "fit"}
-        assert records[1]["shape"] == (N_CELL_LINES, 3)
+        assert records[1]["shape"] == (N_SAMPLES, 3)
 
     def test_view_is_forwarded_to_the_featurizer_constructor(self, mudataset: Dataset, records: list[dict]):
         seen: list[dict] = []
@@ -358,8 +358,8 @@ class TestPrecomputeSingle:
         assert records == []
 
     def test_precompute_all_visits_every_registered_featurizer(self, mudataset: Dataset, monkeypatch):
-        from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
         from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+        from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
         visited: list[str] = []
         monkeypatch.setattr(
@@ -370,7 +370,7 @@ class TestPrecomputeSingle:
 
         mudataset.precompute_all(n_variants=1)
 
-        expected = len(cell_line_featurizer_registry.list_names()) + len(drug_featurizer_registry.list_names())
+        expected = len(sample_featurizer_registry.list_names()) + len(drug_featurizer_registry.list_names())
         assert len(visited) == expected
 
 
@@ -382,12 +382,12 @@ class TestSourceAvailability:
 
         assert mudataset._has_source_data(("canonical_smiles",), drug_cls) is True
 
-    def test_cell_line_modality_is_resolved_through_the_accessor_map(self, mudataset: Dataset, records: list[dict]):
-        cell_line_cls = stub_featurizer(records)
+    def test_sample_modality_is_resolved_through_the_accessor_map(self, mudataset: Dataset, records: list[dict]):
+        sample_cls = stub_featurizer(records)
 
-        assert mudataset._has_source_data(("copy_number_variation_gistic",), cell_line_cls) is True
+        assert mudataset._has_source_data(("copy_number_variation_gistic",), sample_cls) is True
 
-    def test_missing_cell_line_modality_is_reported_absent(self, mudataset: Dataset, records: list[dict]):
+    def test_missing_sample_modality_is_reported_absent(self, mudataset: Dataset, records: list[dict]):
         assert mudataset._has_source_data(("absent_modality",), stub_featurizer(records)) is False
 
     def test_drug_view_is_looked_up_in_response_varm(self, mudataset: Dataset, records: list[dict]):

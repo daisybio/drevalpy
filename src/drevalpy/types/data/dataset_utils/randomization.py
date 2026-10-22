@@ -179,8 +179,8 @@ class RandomizationMixin:
     ) -> Dataset:
         """Return a copy of this Dataset with specified views randomized.
 
-        For cell-line views (modalities or obsm keys), rows are permuted across
-        cell lines. For drug views (varm keys), rows are permuted across drugs.
+        For sample views (modalities or obsm keys), rows are permuted across
+        samples. For drug views (varm keys), rows are permuted across drugs.
         For uns dict keys, values are reassigned to shuffled keys.
 
         Args:

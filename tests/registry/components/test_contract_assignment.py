@@ -65,17 +65,17 @@ class TestAssignContract:
         class Predictor:
             pass
 
-        assign_contract(Predictor, "cell_line_contract", MATRIX)
+        assign_contract(Predictor, "sample_contract", MATRIX)
         assign_contract(Predictor, "drug_contract", GRAPH)
 
-        assert (Predictor.cell_line_contract, Predictor.drug_contract) == (MATRIX, GRAPH)
+        assert (Predictor.sample_contract, Predictor.drug_contract) == (MATRIX, GRAPH)
 
     def test_rejects_a_component_that_declares_nothing(self):
         class Component:
             pass
 
-        with pytest.raises(ValueError, match="no cell_line_contract declared"):
-            assign_contract(Component, "cell_line_contract", None)
+        with pytest.raises(ValueError, match="no sample_contract declared"):
+            assign_contract(Component, "sample_contract", None)
 
     def test_the_error_names_the_class_and_both_ways_to_fix_it(self):
         class Component:

@@ -41,15 +41,15 @@ def test_normalize_rejects_a_recipe_string() -> None:
 def test_normalize_list_shorthand() -> None:
     payload = normalize_featurizer_config(
         ["scaledGeneExpression", "raw[mutations]"],
-        default_registry="cell_line",
+        default_registry="sample",
     )
     assert payload["name"] == "concatFeaturizers"
-    assert payload["registry"] == "cell_line"
+    assert payload["registry"] == "sample"
     children = payload["featurizers"]
     assert children[0]["name"] == "scaledGeneExpression"
     assert children[1]["name"] == "raw"
     assert children[1]["view"] == "mutations"
-    assert all(child["registry"] == "cell_line" for child in children)
+    assert all(child["registry"] == "sample" for child in children)
 
 
 def test_normalize_list_with_parameterized_child() -> None:
@@ -58,7 +58,7 @@ def test_normalize_list_with_parameterized_child() -> None:
             "scaledGeneExpression",
             {"pca[methylation]": {"n_components": 64}},
         ],
-        default_registry="cell_line",
+        default_registry="sample",
     )
     children = payload["featurizers"]
     assert children[1]["name"] == "pca"
@@ -68,12 +68,12 @@ def test_normalize_list_with_parameterized_child() -> None:
 
 def test_normalize_rejects_empty_list() -> None:
     with pytest.raises(ValueError, match="non-empty"):
-        normalize_featurizer_config([], default_registry="cell_line")
+        normalize_featurizer_config([], default_registry="sample")
 
 
 def test_a_recipe_and_the_equivalent_yaml_normalize_alike() -> None:
     """The two notations are documented as interchangeable, down to the resolved view."""
-    from_recipe = _normalize_recipe("raw[expression]+pca[methylation]", default_registry="cell_line")
+    from_recipe = _normalize_recipe("raw[expression]+pca[methylation]", default_registry="sample")
     from_yaml = normalize_featurizer_config(
         {
             "name": "concatFeaturizers",
@@ -82,7 +82,7 @@ def test_a_recipe_and_the_equivalent_yaml_normalize_alike() -> None:
                 {"name": "pca", "view": "methylation"},
             ],
         },
-        default_registry="cell_line",
+        default_registry="sample",
     )
     assert from_recipe == from_yaml
     assert [child["view"] for child in from_recipe["featurizers"]] == ["expression", "methylation"]
@@ -102,31 +102,31 @@ def test_normalize_records_the_registry_on_every_child() -> None:
 
 def test_normalize_resolves_a_view_alias_written_out_in_full() -> None:
     """A spelled-out view is passed through unchanged (alias resolution removed)."""
-    payload = normalize_featurizer_config({"name": "raw", "view": "expression"}, default_registry="cell_line")
+    payload = normalize_featurizer_config({"name": "raw", "view": "expression"}, default_registry="sample")
     assert payload == {
         "name": "raw",
         "view": "expression",
-        "registry": "cell_line",
+        "registry": "sample",
     }
 
 
 def test_normalize_leaves_an_already_canonical_view_alone() -> None:
-    payload = normalize_featurizer_config({"name": "pca", "view": "proteomics"}, default_registry="cell_line")
+    payload = normalize_featurizer_config({"name": "pca", "view": "proteomics"}, default_registry="sample")
     assert payload["view"] == "proteomics"
 
 
 def test_normalize_leaves_a_custom_view_untouched() -> None:
     """A view may name a matrix shipped with a dataset, which is no alias and no typo."""
-    payload = normalize_featurizer_config({"name": "raw", "view": "custom_test_view"}, default_registry="cell_line")
+    payload = normalize_featurizer_config({"name": "raw", "view": "custom_test_view"}, default_registry="sample")
     assert payload["view"] == "custom_test_view"
 
 
 def test_a_bracket_and_an_explicit_view_field_are_indistinguishable() -> None:
     """A bracket is shorthand for the field, so neither is treated more strictly than the other."""
     for view in ("expression", "custom_test_view"):
-        assert _normalize_recipe(f"raw[{view}]", default_registry="cell_line") == normalize_featurizer_config(
+        assert _normalize_recipe(f"raw[{view}]", default_registry="sample") == normalize_featurizer_config(
             {"name": "raw", "view": view},
-            default_registry="cell_line",
+            default_registry="sample",
         )
 
 
@@ -139,7 +139,7 @@ def test_normalize_leaves_a_view_alone_for_featurizers_that_are_not_view_paramet
 def test_normalize_one_key_mapping_with_brackets() -> None:
     payload = normalize_featurizer_config(
         {"pca[methylation]": {"n_components": 64}},
-        default_registry="cell_line",
+        default_registry="sample",
     )
     assert payload["name"] == "pca"
     assert payload["view"] == "methylation"
@@ -148,9 +148,9 @@ def test_normalize_one_key_mapping_with_brackets() -> None:
 
 def test_normalize_rejects_bare_raw_or_pca() -> None:
     with pytest.raises(ValueError, match="requires an explicit view"):
-        _normalize_recipe("raw", default_registry="cell_line")
+        _normalize_recipe("raw", default_registry="sample")
     with pytest.raises(ValueError, match="requires an explicit view"):
-        _normalize_recipe("pca", default_registry="cell_line")
+        _normalize_recipe("pca", default_registry="sample")
 
 
 _EXPLICIT_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5}}
@@ -176,7 +176,7 @@ def test_one_key_body_folds_loose_values(
     :param expected_space_default: Expected ``n_components`` default, when relevant.
     :param expected_options: Expected ``options`` mapping, when relevant.
     """
-    payload = normalize_featurizer_config({"pca[methylation]": body}, default_registry="cell_line")
+    payload = normalize_featurizer_config({"pca[methylation]": body}, default_registry="sample")
     if expected_space_default is not None:
         assert payload["hyperparameter_space"]["n_components"]["default"] == expected_space_default
     if expected_options is not None:
@@ -185,14 +185,14 @@ def test_one_key_body_folds_loose_values(
 
 def test_non_atom_one_key_falls_back_to_the_registry_error() -> None:
     """A key that is not a single atom is looked up verbatim, so the registry reports it."""
-    with pytest.raises(ValueError, match="Unknown Cell line featurizer: 'a\\+b'"):
-        normalize_featurizer_config({"a+b": {"foo": 1}}, default_registry="cell_line")
+    with pytest.raises(ValueError, match="Unknown Sample featurizer: 'a\\+b'"):
+        normalize_featurizer_config({"a+b": {"foo": 1}}, default_registry="sample")
 
 
 def test_unparsable_one_key_falls_back_to_the_registry_error() -> None:
     """A key the grammar rejects outright is also looked up verbatim, not reported as syntax."""
-    with pytest.raises(ValueError, match="Unknown Cell line featurizer: 'raw\\['"):
-        normalize_featurizer_config({"raw[": {"foo": 1}}, default_registry="cell_line")
+    with pytest.raises(ValueError, match="Unknown Sample featurizer: 'raw\\['"):
+        normalize_featurizer_config({"raw[": {"foo": 1}}, default_registry="sample")
 
 
 def test_one_key_loose_values_resolve_against_the_drug_registry() -> None:
@@ -204,19 +204,19 @@ def test_one_key_loose_values_resolve_against_the_drug_registry() -> None:
 
 def test_named_mapping_without_a_view_is_rejected() -> None:
     with pytest.raises(ValueError, match="requires an explicit view"):
-        normalize_featurizer_config({"name": "pca"}, default_registry="cell_line")
+        normalize_featurizer_config({"name": "pca"}, default_registry="sample")
 
 
 def test_named_mapping_with_a_blank_view_is_rejected() -> None:
     with pytest.raises(ValueError, match="requires an explicit view"):
-        normalize_featurizer_config({"name": "pca", "view": "  "}, default_registry="cell_line")
+        normalize_featurizer_config({"name": "pca", "view": "  "}, default_registry="sample")
 
 
 def test_one_key_with_a_bracket_records_the_view_without_judging_it() -> None:
     """A bracketed key is read structurally, so a view lands on whatever featurizer was named."""
     payload = normalize_featurizer_config(
         {"scaledGeneExpression[gene_expression]": {"foo": 1}},
-        default_registry="cell_line",
+        default_registry="sample",
     )
     assert payload["name"] == "scaledGeneExpression"
     assert payload["view"] == "gene_expression"
@@ -225,18 +225,18 @@ def test_one_key_with_a_bracket_records_the_view_without_judging_it() -> None:
 
 def test_one_key_body_must_be_a_mapping() -> None:
     with pytest.raises(ValueError, match="must be a mapping when provided"):
-        normalize_featurizer_config({"scaledGeneExpression": 5}, default_registry="cell_line")
+        normalize_featurizer_config({"scaledGeneExpression": 5}, default_registry="sample")
 
 
 def test_one_key_body_may_be_null() -> None:
-    payload = normalize_featurizer_config({"scaledGeneExpression": None}, default_registry="cell_line")
-    assert payload == {"name": "scaledGeneExpression", "registry": "cell_line"}
+    payload = normalize_featurizer_config({"scaledGeneExpression": None}, default_registry="sample")
+    assert payload == {"name": "scaledGeneExpression", "registry": "sample"}
 
 
 def test_one_key_body_may_declare_children() -> None:
     payload = normalize_featurizer_config(
         {"concatFeaturizers": {"featurizers": ["scaledGeneExpression", "raw[mutations]"]}},
-        default_registry="cell_line",
+        default_registry="sample",
     )
     assert payload["name"] == "concatFeaturizers"
     assert [child["name"] for child in payload["featurizers"]] == ["scaledGeneExpression", "raw"]
@@ -246,10 +246,10 @@ def test_children_must_be_a_list() -> None:
     with pytest.raises(ValueError, match="featurizers must be a list when set"):
         normalize_featurizer_config(
             {"name": "concatFeaturizers", "featurizers": "scaledGeneExpression"},
-            default_registry="cell_line",
+            default_registry="sample",
         )
 
 
 def test_mapping_without_name_or_one_key_shape_is_rejected() -> None:
     with pytest.raises(ValueError, match="list, one-key mapping, or dict with 'name'"):
-        normalize_featurizer_config({"view": "methylation", "options": {}}, default_registry="cell_line")
+        normalize_featurizer_config({"view": "methylation", "options": {}}, default_registry="sample")

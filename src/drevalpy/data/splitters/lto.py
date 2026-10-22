@@ -18,7 +18,7 @@ def leave_tissue_out(
 ) -> list[SplitMasks]:
     """Generate LTO folds where each tissue appears in exactly one test set."""
     observed = observed_mask(mudataset)
-    tissues = mudataset.get_tissue(mudataset.cell_line_ids)
+    tissues = mudataset.get_tissue(mudataset.sample_ids)
     unique_tissues = np.unique(tissues)
     folds = group_folds(
         len(unique_tissues),

@@ -71,7 +71,7 @@ A typical extension directory:
 .. code-block:: text
 
    my_extensions/
-     custom_featurizer.py    # @register_cell_line_featurizer(...)
+     custom_featurizer.py    # @register_sample_featurizer(...)
      custom_predictor.py     # @register_predictor(...)
      custom_splitter.py      # @register_splitter(...)
      custom_zoo.yaml         # zoo presets referencing the new components

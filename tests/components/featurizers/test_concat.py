@@ -1,7 +1,7 @@
 """Tests for the shared concat featurizer mixin.
 
 Mirrors :mod:`drevalpy.components.featurizers._concat`. The two registered
-wrappers around this mixin have their own tests in ``cell_line/test_concat.py``
+wrappers around this mixin have their own tests in ``sample/test_concat.py``
 and ``drug/test_concat.py``; this file exercises the mixin's own guards and its
 state round-trip.
 """
@@ -12,14 +12,14 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
-from drevalpy.components.featurizers.cell_line.raw import RawCellLineFeaturizer
 from drevalpy.components.featurizers.drug.drug_graph import DrugGraphFeaturizer
-from drevalpy.components.featurizers.shared.concat import CellLineConcatFeaturizer
-from drevalpy.models.config import CellLineFeaturizerConfig
+from drevalpy.components.featurizers.sample.raw import RawSampleFeaturizer
+from drevalpy.components.featurizers.shared.concat import SampleConcatFeaturizer
+from drevalpy.models.config import SampleFeaturizerConfig
 from tests.conftest import MockFeatureSource
 
 
-def _cell_line_features() -> MockFeatureSource:
+def _sample_features() -> MockFeatureSource:
     return MockFeatureSource(
         features={
             "cl1": {
@@ -44,17 +44,17 @@ def test_concat_rejects_non_numeric_children() -> None:
 
 def test_concat_rejects_an_empty_featurizer_list() -> None:
     with pytest.raises(ValueError, match="non-empty list"):
-        CellLineConcatFeaturizer(featurizers=[])
+        SampleConcatFeaturizer(featurizers=[])
 
 
 def test_concat_accepts_pre_built_featurizer_instances() -> None:
-    featurizer = CellLineConcatFeaturizer(
+    featurizer = SampleConcatFeaturizer(
         featurizers=[
-            RawCellLineFeaturizer(view="gene_expression"),
-            RawCellLineFeaturizer(view="mutations"),
+            RawSampleFeaturizer(view="gene_expression"),
+            RawSampleFeaturizer(view="mutations"),
         ],
     )
-    features = _cell_line_features()
+    features = _sample_features()
     ids = np.array(["cl1", "cl2"], dtype=str)
 
     featurizer.fit(features, entity_ids=ids)
@@ -64,28 +64,28 @@ def test_concat_accepts_pre_built_featurizer_instances() -> None:
 
 
 def test_concat_transform_before_fit_raises() -> None:
-    featurizer = CellLineConcatFeaturizer(
-        featurizers=[CellLineFeaturizerConfig(name="raw", view="gene_expression")],
+    featurizer = SampleConcatFeaturizer(
+        featurizers=[SampleFeaturizerConfig(name="raw", view="gene_expression")],
     )
 
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        featurizer.transform_blocks(_cell_line_features(), np.array(["cl1"], dtype=str))
+        featurizer.transform_blocks(_sample_features(), np.array(["cl1"], dtype=str))
 
 
 def test_concat_round_trips_state_into_a_fresh_instance() -> None:
-    features = _cell_line_features()
+    features = _sample_features()
     ids = np.array(["cl1", "cl2"], dtype=str)
-    featurizer = CellLineConcatFeaturizer(
+    featurizer = SampleConcatFeaturizer(
         featurizers=[
-            CellLineFeaturizerConfig(name="raw", view="gene_expression"),
-            CellLineFeaturizerConfig(name="raw", view="mutations"),
+            SampleFeaturizerConfig(name="raw", view="gene_expression"),
+            SampleFeaturizerConfig(name="raw", view="mutations"),
         ],
     ).fit(features, entity_ids=ids)
 
-    restored = CellLineConcatFeaturizer(
+    restored = SampleConcatFeaturizer(
         featurizers=[
-            CellLineFeaturizerConfig(name="raw", view="gene_expression"),
-            CellLineFeaturizerConfig(name="raw", view="mutations"),
+            SampleFeaturizerConfig(name="raw", view="gene_expression"),
+            SampleFeaturizerConfig(name="raw", view="mutations"),
         ],
     )
     restored.set_state(featurizer.get_state())
@@ -99,8 +99,8 @@ def test_concat_round_trips_state_into_a_fresh_instance() -> None:
 
 
 def test_concat_set_state_ignores_unrelated_keys() -> None:
-    featurizer = CellLineConcatFeaturizer(
-        featurizers=[CellLineFeaturizerConfig(name="raw", view="gene_expression")],
+    featurizer = SampleConcatFeaturizer(
+        featurizers=[SampleFeaturizerConfig(name="raw", view="gene_expression")],
     )
 
     featurizer.set_state({"child_states": "not-a-dict", "block_dims": None, "output_dim": "seven"})
@@ -111,7 +111,7 @@ def test_concat_set_state_ignores_unrelated_keys() -> None:
 
 def test_concat_mixin_refuses_standalone_view_resolution() -> None:
     with pytest.raises(TypeError, match="has no input views of its own"):
-        CellLineConcatFeaturizer.resolve_input_views()
+        SampleConcatFeaturizer.resolve_input_views()
 
 
 def test_materialize_children_is_a_no_op_without_children_or_configs() -> None:

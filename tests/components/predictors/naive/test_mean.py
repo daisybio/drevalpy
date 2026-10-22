@@ -20,14 +20,14 @@ def test_naive_mean_predictor_ignores_ids_and_matrices() -> None:
     predictor = NaiveMeanPredictor()
     fit_batch = naive_batch(
         response=np.array([1.0, 5.0]),
-        cell_line_ids=np.array(["wrong_a", "wrong_b"]),
+        sample_ids=np.array(["wrong_a", "wrong_b"]),
         drug_ids=np.array(["wrong_x", "wrong_y"]),
     )
     predictor.fit(fit_batch)
     preds = predictor.predict(
         naive_batch(
             n_pairs=3,
-            cell_line_ids=np.array(["a", "b", "c"]),
+            sample_ids=np.array(["a", "b", "c"]),
             drug_ids=np.array(["x", "y", "z"]),
         )
     )

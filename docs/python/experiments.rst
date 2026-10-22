@@ -201,7 +201,7 @@ Whether you can customize the space depends on how you construct the class:
 
       .. code-block:: yaml
 
-         cell_line_featurizer:
+         sample_featurizer:
            name: pca
            view: expression
            hyperparameter_space:
@@ -240,7 +240,7 @@ Whether you can customize the space depends on how you construct the class:
          from drevalpy.models import ModelSpec, config
 
          cfg = config.ModelConfig(
-             cell_line_featurizer=config.CellLineFeaturizerConfig(
+             sample_featurizer=config.SampleFeaturizerConfig(
                  name="pca",
                  view="expression",
                  hyperparameter_space={
@@ -277,7 +277,7 @@ Whether you can customize the space depends on how you construct the class:
 Specs use local parameter names (``alpha``, ``n_components``, …). During
 search, Optuna sees dotted qualified keys to prevent name
 collisions, for example ``predictor.elasticNet.alpha`` and
-``cell_line_featurizer.pca[expression].n_components``. See
+``sample_featurizer.pca[expression].n_components``. See
 :doc:`/concepts/from_components_to_models` for the full key rules and
 :doc:`models` for how to construct ``ModelSpec`` values from YAML or
 ``ModelConfig``.

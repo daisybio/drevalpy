@@ -18,7 +18,7 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.model_input_build import build_model_input_batch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource, FeatureSource
+from drevalpy.types.data.feature_source import DrugFeatureSource, FeatureSource, SampleFeatureSource
 
 if TYPE_CHECKING:
     from sklearn.base import TransformerMixin
@@ -39,7 +39,7 @@ class _ModelPipeline:
         self._resolved = resolved
         self._response_prototype = response_transformation
         self._response_transform = None
-        self._cell_line_featurizer = None
+        self._sample_featurizer = None
         self._drug_featurizer = None
         self._predictor = None
         self.state = PipelineState.UNTRAINED
@@ -53,13 +53,13 @@ class _ModelPipeline:
         """Invalidate previous state before constructing components for one fit."""
         self.state = PipelineState.UNTRAINED
         self._response_transform = None
-        self._cell_line_featurizer = self._drug_featurizer = self._predictor = None
-        self._cell_line_featurizer, self._drug_featurizer, self._predictor = build_components(self.resolved)
+        self._sample_featurizer = self._drug_featurizer = self._predictor = None
+        self._sample_featurizer, self._drug_featurizer, self._predictor = build_components(self.resolved)
 
     def _batch(
         self,
         response: ResponseBatch,
-        cell_line_input: FeatureSource,
+        sample_input: FeatureSource,
         drug_input: FeatureSource | None,
         *,
         fitting: bool = False,
@@ -68,7 +68,7 @@ class _ModelPipeline:
     ) -> ModelInputBatch:
         results = []
         for attr, featurizer, source in (
-            ("cell_line_ids", self._cell_line_featurizer, cell_line_input),
+            ("sample_ids", self._sample_featurizer, sample_input),
             ("drug_ids", self._drug_featurizer, drug_input),
         ):
             ids = getattr(response, attr)
@@ -80,7 +80,7 @@ class _ModelPipeline:
         cl, drug = results
         return build_model_input_batch(
             response,
-            cell_line=cl,
+            sample=cl,
             drug=drug if self._drug_featurizer is not None else None,
             early_stopping_response=output_earlystopping,
             training_context=training_context,
@@ -89,7 +89,7 @@ class _ModelPipeline:
     def _fit_featurizers_and_predictor(
         self,
         output: ResponseBatch,
-        cell_line_input: FeatureSource,
+        sample_input: FeatureSource,
         drug_input: FeatureSource | None = None,
         *,
         output_earlystopping: ResponseBatch | None = None,
@@ -98,25 +98,23 @@ class _ModelPipeline:
         """Fit fresh components using only usable training responses.
 
         :param output: Training responses.
-        :param cell_line_input: Cell-line feature source.
+        :param sample_input: Sample feature source.
         :param drug_input: Optional drug feature source.
         :param output_earlystopping: Disjoint stopping responses.
         :param training_context: Checkpoint and logging context.
         :returns: This pipeline in EMPTY or FITTED state; failures leave it UNTRAINED.
         """
-        output = usable_responses(
-            output, cell_line_input, drug_input, self._cell_line_featurizer, self._drug_featurizer
-        )
+        output = usable_responses(output, sample_input, drug_input, self._sample_featurizer, self._drug_featurizer)
         if len(output) == 0:
             self.state = PipelineState.EMPTY
             return self
         if output_earlystopping is not None:
             output_earlystopping = usable_responses(
-                output_earlystopping, cell_line_input, drug_input, self._cell_line_featurizer, self._drug_featurizer
+                output_earlystopping, sample_input, drug_input, self._sample_featurizer, self._drug_featurizer
             )
         batch = self._batch(
             output,
-            cell_line_input,
+            sample_input,
             drug_input,
             fitting=True,
             output_earlystopping=output_earlystopping,
@@ -145,9 +143,7 @@ class _ModelPipeline:
             "response_prototype": self._response_prototype,
             "response_transform": self._response_transform,
             "predictor": self._predictor.get_state(),
-            "cell_line_featurizer": (
-                self._cell_line_featurizer.get_state() if self._cell_line_featurizer is not None else {}
-            ),
+            "sample_featurizer": (self._sample_featurizer.get_state() if self._sample_featurizer is not None else {}),
             "drug_featurizer": self._drug_featurizer.get_state() if self._drug_featurizer is not None else {},
         }
 
@@ -167,7 +163,7 @@ class _ModelPipeline:
             raise ValueError("predictor state is not a mapping")
         self._predictor.set_state(predictor_state)
         for key, featurizer in (
-            ("cell_line_featurizer", self._cell_line_featurizer),
+            ("sample_featurizer", self._sample_featurizer),
             ("drug_featurizer", self._drug_featurizer),
         ):
             value = state.get(key, {})
@@ -192,29 +188,29 @@ class _ModelPipeline:
         :param response_transformation: Optional *already fitted* transformer applied to
             the extracted responses. Pass it only for training-time extractions; the
             prediction and evaluation paths must read the raw matrix.
-        :returns: Flat ResponseBatch of (cell_line, drug, response) triples.
+        :returns: Flat ResponseBatch of (sample, drug, response) triples.
         """
         response = ResponseBatch.from_dataset(mudataset, scope, observed_only=True)
         return ResponseBatch(
             apply_target_transform(response_transformation, response.response),
-            response.cell_line_ids,
+            response.sample_ids,
             response.drug_ids,
         )
 
     def _build_features_from_mudataset(
         self,
         mudataset: Dataset,
-        cell_line_ids: np.ndarray,
+        sample_ids: np.ndarray,
         drug_ids: np.ndarray,
     ) -> tuple[FeatureSource, FeatureSource | None]:
         """Construct FeatureSource adapters from Dataset for the relevant entities.
 
         :param mudataset: Source of feature data.
-        :param cell_line_ids: Unique cell-line IDs needed.
+        :param sample_ids: Unique sample IDs needed.
         :param drug_ids: Unique drug IDs needed.
-        :returns: Tuple of (cell_line_source, drug_source).
+        :returns: Tuple of (sample_source, drug_source).
         """
-        cl_source = CellLineFeatureSource(mudataset, cell_line_ids)
+        cl_source = SampleFeatureSource(mudataset, sample_ids)
         drug_source = DrugFeatureSource(mudataset, drug_ids) if self._drug_featurizer is not None else None
         return cl_source, drug_source
 
@@ -245,8 +241,8 @@ class _ModelPipeline:
         all_cl_ids = unique_entity_ids(
             np.concatenate(
                 [
-                    output.cell_line_ids,
-                    output_earlystopping.cell_line_ids if output_earlystopping else np.array([], dtype=str),
+                    output.sample_ids,
+                    output_earlystopping.sample_ids if output_earlystopping else np.array([], dtype=str),
                 ]
             )
         )
@@ -259,11 +255,11 @@ class _ModelPipeline:
             )
         )
 
-        cell_line_input, drug_input = self._build_features_from_mudataset(mudataset, all_cl_ids, all_drug_ids)
+        sample_input, drug_input = self._build_features_from_mudataset(mudataset, all_cl_ids, all_drug_ids)
 
         self._fit_featurizers_and_predictor(
             output,
-            cell_line_input,
+            sample_input,
             drug_input,
             output_earlystopping=output_earlystopping,
             training_context=training_context,
@@ -280,7 +276,7 @@ class _ModelPipeline:
         get NaN predictions (maintaining alignment with scope.pairs).
 
         :param mudataset: Source of feature data and entity IDs.
-        :param scope: Entity scope with cell-line/drug indices for prediction.
+        :param scope: Entity scope with sample/drug indices for prediction.
         :returns: Predicted response values aligned to scope.pairs.
         :raises RuntimeError: If the predictor has not been fitted.
         """
@@ -290,14 +286,14 @@ class _ModelPipeline:
             raise RuntimeError("Model has not been trained; call train() or load() before predict()")
         validate_fit_scopes(mudataset, scope, None)
         response = ResponseBatch.from_dataset(mudataset, scope)
-        cell_line_input, drug_input = self._build_features_from_mudataset(
+        sample_input, drug_input = self._build_features_from_mudataset(
             mudataset,
-            unique_entity_ids(response.cell_line_ids),
+            unique_entity_ids(response.sample_ids),
             unique_entity_ids(response.drug_ids),
         )
         if len(response) == 0:
             return np.empty(0, dtype=float)
-        batch = self._batch(response, cell_line_input, drug_input)
+        batch = self._batch(response, sample_input, drug_input)
         predictions = np.asarray(self._predictor.predict(batch))
         if predictions.shape != (len(response),):
             raise ValueError(

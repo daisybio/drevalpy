@@ -17,16 +17,16 @@ from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.models.config import FeaturizerConfig, PredictorConfig
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
-from drevalpy.registry.cell_line_featurizer import register as register_cell_line_featurizer
 from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.predictor import register as register_predictor
+from drevalpy.registry.sample_featurizer import register as register_sample_featurizer
+from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
 
 @pytest.fixture(autouse=True)
 def _clear_registries() -> Iterator[None]:
-    cell_line_featurizer_registry.clear()
+    sample_featurizer_registry.clear()
     drug_featurizer_registry.clear()
     predictor_registry.clear()
     yield
@@ -61,7 +61,7 @@ def test_predictor_registration_rejects_space_without_default() -> None:
         @register_predictor(
             "badSpacePred",
             description="missing default",
-            cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+            sample_contract=FeatureFormat.NUMERIC_MATRIX,
             drug_contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class BadSpacePred(MatrixPredictor):
@@ -79,7 +79,7 @@ def test_predictor_registration_rejects_space_without_default() -> None:
 def test_featurizer_registration_rejects_space_without_default() -> None:
     with pytest.raises(ValueError, match="missing 'default'"):
 
-        @register_cell_line_featurizer(
+        @register_sample_featurizer(
             "badSpaceFeat",
             description="missing default",
             contract=FeatureFormat.NUMERIC_MATRIX,

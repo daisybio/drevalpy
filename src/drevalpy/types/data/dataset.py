@@ -1,7 +1,7 @@
 """MuData-backed dataset class for drevalpy.
 
 ``Dataset`` wraps a MuData object and provides typed access to response data,
-cell-line and drug features, metadata, and auxiliary model data backed by an
+sample and drug features, metadata, and auxiliary model data backed by an
 .h5mu file.
 
 ``mudata`` and ``pandas`` are imported lazily. This module is on the critical
@@ -41,8 +41,8 @@ logger = get_logger(__name__)
 class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
     """Single entry point for all dataset access in drevalpy.
 
-    Wraps a MuData object containing a "response" modality (cell_line x drug
-    matrix with pEC50 as X) plus any number of cell-line feature modalities
+    Wraps a MuData object containing a "response" modality (sample x drug
+    matrix with pEC50 as X) plus any number of sample feature modalities
     (gene_expression, proteomics, etc.). Every other curve metric - ``LN_IC50``,
     ``AUC``, ``IC50``, the goodness-of-fit columns - is a named layer; see
     :func:`drevalpy.curation.curate`.
@@ -132,7 +132,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             or an int N to draw N configs from the featurizer's HP space.
         :param view: View name for view-parameterized featurizers (e.g., "gene_expression").
         """
-        from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource
+        from drevalpy.types.data.feature_source import DrugFeatureSource, SampleFeatureSource
 
         if isinstance(hyperparameters, int):
             configs = _sample_hp_configs(featurizer_cls, hyperparameters)
@@ -143,10 +143,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         if default_config not in configs:
             configs.insert(0, default_config)
 
-        side = getattr(featurizer_cls, "side", "cell_line")
-        if side == "cell_line":
-            entity_ids = self.cell_line_ids
-            source = CellLineFeatureSource(self, entity_ids)
+        side = getattr(featurizer_cls, "side", "sample")
+        if side == "sample":
+            entity_ids = self.sample_ids
+            source = SampleFeatureSource(self, entity_ids)
         else:
             entity_ids = self.drug_ids
             source = DrugFeatureSource(self, entity_ids)
@@ -170,7 +170,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
     def precompute_all(self, n_variants: int = 10) -> None:
         """Pre-compute all fixed featurizers with N HP variants each.
 
-        Iterates all registered featurizers (cell-line + drug), skips those
+        Iterates all registered featurizers (sample + drug), skips those
         not marked for precomputation, and pre-computes N drawn HP
         configurations for the rest. Featurizers without any HP space get a
         single default-params variant.
@@ -178,10 +178,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         :param n_variants: Number of HP configurations to draw for featurizers
             that have a tunable HP space.
         """
-        from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
         from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+        from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
-        for registry in (cell_line_featurizer_registry, drug_featurizer_registry):
+        for registry in (sample_featurizer_registry, drug_featurizer_registry):
             for name in registry.list_names():
                 self._precompute_single(registry.get(name), n_variants)
 
@@ -214,7 +214,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
 
     def _has_source_data(self, source_views: tuple[str, ...], cls: type) -> bool:
         """Check if the dataset has the raw source data needed for a featurizer."""
-        side = getattr(cls, "side", "cell_line")
+        side = getattr(cls, "side", "sample")
         return all(self._has_single_source(view, side) for view in source_views)
 
     def _has_single_source(self, view: str, side: str) -> bool:
@@ -222,7 +222,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         if view == "canonical_smiles":
             response = self._mdata.mod.get("response")
             return response is not None and "canonical_smiles" in response.var.columns
-        if side == "cell_line":
+        if side == "sample":
             return backing_modality(view, self._mdata.mod) is not None
         response = self._mdata.mod.get("response")
         return response is not None and response.varm is not None and view in response.varm
@@ -252,24 +252,24 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
 
     @property
     def response(self) -> md.AnnData:
-        """Return the response AnnData (cell_lines x drugs)."""
+        """Return the response AnnData (samples x drugs)."""
         return self._mdata.mod["response"]
 
     @property
     def response_matrix(self) -> np.ndarray:
-        """pEC50 response matrix (n_cell_lines x n_drugs).
+        """pEC50 response matrix (n_samples x n_drugs).
 
         ``X`` holds pEC50. Use :meth:`get_response_layer` for any other measure,
         for example ``get_response_layer("LN_IC50")``.
 
         Returns:
-            Dense float32 array of shape (n_cell_lines, n_drugs).
+            Dense float32 array of shape (n_samples, n_drugs).
         """
         return np.asarray(to_dense(self.response.X), dtype=np.float32)
 
     @property
-    def cell_line_ids(self) -> np.ndarray:
-        """Cell line identifiers (obs_names of the response modality).
+    def sample_ids(self) -> np.ndarray:
+        """Sample identifiers (obs_names of the response modality).
 
         Returns:
             1-D string array of cellosaurus IDs.
@@ -292,7 +292,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
             name: Layer name within the response AnnData.
 
         Returns:
-            Dense float32 array of shape (n_cell_lines, n_drugs).
+            Dense float32 array of shape (n_samples, n_drugs).
 
         Raises:
             KeyError: If the layer does not exist.
@@ -317,8 +317,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
     # ------------------------------------------------------------------
 
     @property
-    def cell_line_meta(self) -> pd.DataFrame:
-        """Global cell-line metadata (cell_line_name, tissue, etc.).
+    def sample_meta(self) -> pd.DataFrame:
+        """Global sample metadata (cell_line_name, tissue, etc.).
 
         Returns:
             DataFrame indexed by cellosaurus_id from mdata.obs.
@@ -326,7 +326,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         return self._mdata.obs
 
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
-        """Get tissue labels for the given cell line IDs.
+        """Get tissue labels for the given sample IDs.
 
         Args:
             ids: 1-D array of cellosaurus IDs.
@@ -350,31 +350,31 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
     # Subsetting
     # ------------------------------------------------------------------
 
-    def subset_cell_lines(self, ids: np.ndarray) -> Dataset:
-        """Return a new Dataset restricted to the given cell lines.
+    def subset_samples(self, ids: np.ndarray) -> Dataset:
+        """Return a new Dataset restricted to the given samples.
 
-        Only keeps cell lines present in the response modality. Other modalities
+        Only keeps samples present in the response modality. Other modalities
         are also subset to their intersection with *ids*.
 
         Args:
             ids: 1-D array of cellosaurus IDs to keep.
 
         Returns:
-            Independent Dataset containing the selected cell lines.
+            Independent Dataset containing the selected samples.
         """
         import mudata as md
 
         ids = np.asarray(ids, dtype=str)
         response_mask = np.isin(self.response.obs_names, ids)
-        kept_cell_lines = self.response.obs_names[response_mask]
+        kept_samples = self.response.obs_names[response_mask]
 
         new_mods = {
-            name: adata[np.isin(adata.obs_names, kept_cell_lines)].copy() for name, adata in self._mdata.mod.items()
+            name: adata[np.isin(adata.obs_names, kept_samples)].copy() for name, adata in self._mdata.mod.items()
         }
 
         md.set_options(pull_on_update=False)
         new_mdata = md.MuData(new_mods)
-        new_mdata.obs = self._mdata.obs.loc[self._mdata.obs.index.isin(kept_cell_lines)].copy()
+        new_mdata.obs = self._mdata.obs.loc[self._mdata.obs.index.isin(kept_samples)].copy()
         new_mdata.uns.update(copy.deepcopy(dict(self._mdata.uns)))
         return Dataset(new_mdata, name=self._name, randomization=self.randomization)
 
@@ -382,7 +382,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         """Return a new Dataset restricted to the given drugs.
 
         Only the response modality has a drug axis; it is subset on var.
-        Other modalities (cell-line features) are kept unchanged.
+        Other modalities (sample features) are kept unchanged.
 
         Args:
             ids: 1-D array of PubChem drug IDs to keep.
@@ -437,7 +437,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
 
     def __repr__(self) -> str:
         """Return a formatted summary."""
-        n_cl = len(self.cell_line_ids)
+        n_cl = len(self.sample_ids)
         n_dr = len(self.drug_ids)
         response = self.response_matrix
         n_measured = int(np.sum(~np.isnan(response)))
@@ -446,7 +446,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         lines = [
             "Dataset",
             f"    Name: {self._name}",
-            f"    Cell lines: {n_cl}",
+            f"    Samples: {n_cl}",
             f"    Drugs: {n_dr}",
             f"    Measured pairs: {n_measured}",
             f"    Randomization: {self.randomization[0]} ({self.randomization[1]})"

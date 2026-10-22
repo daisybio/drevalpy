@@ -36,7 +36,7 @@ class _OneVector(MeanEffectsStateMixin, _Host):
 class _ThreeVectors(MeanEffectsStateMixin, _Host):
     """Three 1-D effect arrays, like ``NaiveMeanEffectsPredictor``."""
 
-    state_effects: ClassVar[tuple[str, ...]] = ("tissue_effects", "cell_line_effects", "drug_effects")
+    state_effects: ClassVar[tuple[str, ...]] = ("tissue_effects", "sample_effects", "drug_effects")
 
 
 class _OneMatrix(MeanEffectsStateMixin, _Host):
@@ -56,7 +56,7 @@ class TestInitialisation:
     def test_declares_every_effect_attribute_as_none(self):
         model = _ThreeVectors()
 
-        assert (model._tissue_effects, model._cell_line_effects, model._drug_effects) == (None, None, None)
+        assert (model._tissue_effects, model._sample_effects, model._drug_effects) == (None, None, None)
 
     def test_an_effect_free_host_is_unfitted_until_the_mean_is_set(self):
         assert _MeanOnly().is_fitted() is False
@@ -73,7 +73,7 @@ class TestIsFitted:
         model = _ThreeVectors()
         model._dataset_mean = 0.5
         model._tissue_effects = np.zeros(1)
-        model._cell_line_effects = np.zeros(1)
+        model._sample_effects = np.zeros(1)
 
         assert model.is_fitted() is False
 
@@ -111,13 +111,13 @@ class TestGetState:
         model = _ThreeVectors()
         model._dataset_mean = 0.5
         model._tissue_effects = np.zeros(1)
-        model._cell_line_effects = np.zeros(1)
+        model._sample_effects = np.zeros(1)
         model._drug_effects = np.zeros(1)
 
         assert list(model.get_state()) == [
             "dataset_mean",
             "tissue_effects",
-            "cell_line_effects",
+            "sample_effects",
             "drug_effects",
         ]
 
@@ -151,14 +151,14 @@ class TestSetState:
         model = _ThreeVectors()
         model._dataset_mean = -1.5
         model._tissue_effects = np.array([0.1])
-        model._cell_line_effects = np.array([0.2, 0.3])
+        model._sample_effects = np.array([0.2, 0.3])
         model._drug_effects = np.array([0.4, 0.5, 0.6])
 
         restored = _ThreeVectors()
         restored.set_state(model.get_state())
 
         assert restored.is_fitted() is True
-        np.testing.assert_allclose(restored._cell_line_effects, [0.2, 0.3])
+        np.testing.assert_allclose(restored._sample_effects, [0.2, 0.3])
         np.testing.assert_allclose(restored._drug_effects, [0.4, 0.5, 0.6])
 
     def test_restores_a_matrix_as_two_dimensional(self):

@@ -1,7 +1,7 @@
 DrEvalPy
 ========
 
-Python cancer cell line drug response prediction suite.
+Python cancer sample drug response prediction suite.
 
 - `PyPI <https://pypi.org/project/drevalpy/>`_
 - `GitHub <https://github.com/daisybio/drevalpy>`_

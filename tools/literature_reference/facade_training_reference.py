@@ -122,15 +122,15 @@ def _feature_evidence(model: DRPModel, dataset: Any, scope: Any) -> dict[str, An
     if not MODERN_FACADE:
         stack = model._stack
         raw = stack._extract_response_pairs(dataset, scope)
-        cell_ids = np.unique(raw.cell_line_ids)
+        cell_ids = np.unique(raw.sample_ids)
         drug_ids = np.unique(raw.drug_ids)
         cell_source, drug_source = stack._build_features_from_mudataset(dataset, cell_ids, drug_ids)
         batch = stack._batch(raw, cell_source, drug_source)
         return {
-            "cell_line": _result_identity(
-                type("LegacyResult", (), {"blocks": batch.cell_line_blocks})(),
-                entity_ids=batch.cell_line_entity_ids,
-                matrix=batch.cell_line_features,
+            "sample": _result_identity(
+                type("LegacyResult", (), {"blocks": batch.sample_blocks})(),
+                entity_ids=batch.sample_entity_ids,
+                matrix=batch.sample_features,
             ),
             "drug": _result_identity(
                 type("LegacyResult", (), {"blocks": batch.drug_blocks})(),
@@ -142,11 +142,11 @@ def _feature_evidence(model: DRPModel, dataset: Any, scope: Any) -> dict[str, An
         }
     pipeline = model._pipeline
     raw = pipeline._extract_response_pairs(dataset, scope)
-    cell_ids = np.unique(raw.cell_line_ids)
+    cell_ids = np.unique(raw.sample_ids)
     drug_ids = np.unique(raw.drug_ids)
     cell_source, drug_source = pipeline._build_features_from_mudataset(dataset, cell_ids, drug_ids)
     batch = pipeline._batch(raw, cell_source, drug_source)
-    return {"cell_line": _result_identity(batch.cell_line), "drug": _result_identity(batch.drug)}
+    return {"sample": _result_identity(batch.sample), "drug": _result_identity(batch.drug)}
 
 
 def _one(name: str, seed: int) -> dict[str, Any]:

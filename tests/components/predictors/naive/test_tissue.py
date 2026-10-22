@@ -25,7 +25,7 @@ def test_naive_tissue_mean_requires_tissue_features() -> None:
     predictor = NaiveTissueMeanPredictor()
     batch = naive_batch(
         response=np.array([1.0]),
-        cell_line_features=np.empty((1, 0), dtype=np.float64),
+        sample_features=np.empty((1, 0), dtype=np.float64),
     )
     with pytest.raises(ValueError, match="requires tissue"):
         predictor.fit(batch)
@@ -38,16 +38,16 @@ def test_naive_tissue_mean_predicts_from_matrix_not_ids() -> None:
     predictor.fit(
         naive_batch(
             response=np.array([2.0, 4.0]),
-            cell_line_features=tissue_features,
-            cell_line_pair_idx=np.array([0, 1], dtype=np.int64),
-            cell_line_ids=np.array(["ignore_a", "ignore_b"]),
+            sample_features=tissue_features,
+            sample_pair_idx=np.array([0, 1], dtype=np.int64),
+            sample_ids=np.array(["ignore_a", "ignore_b"]),
         )
     )
     preds = predictor.predict(
         naive_batch(
-            cell_line_features=tissue_features,
-            cell_line_pair_idx=np.array([0, 1], dtype=np.int64),
-            cell_line_ids=np.array(["other_a", "other_b"]),
+            sample_features=tissue_features,
+            sample_pair_idx=np.array([0, 1], dtype=np.int64),
+            sample_ids=np.array(["other_a", "other_b"]),
         )
     )
     assert preds.tolist() == [2.0, 4.0]
@@ -63,18 +63,18 @@ def test_naive_tissue_drug_mean_interaction_table() -> None:
     predictor.fit(
         naive_batch(
             response=np.array([1.0, 3.0, 5.0]),
-            cell_line_features=tissue_entity,
+            sample_features=tissue_entity,
             drug_features=drug_entity,
-            cell_line_pair_idx=np.array([0, 0, 1], dtype=np.int64),
+            sample_pair_idx=np.array([0, 0, 1], dtype=np.int64),
             drug_pair_idx=np.array([0, 1, 0], dtype=np.int64),
         )
     )
     dataset_mean = 3.0
     preds = predictor.predict(
         naive_batch(
-            cell_line_features=tissue_entity,
+            sample_features=tissue_entity,
             drug_features=drug_entity,
-            cell_line_pair_idx=np.array([0, 0, 1, 1], dtype=np.int64),
+            sample_pair_idx=np.array([0, 0, 1, 1], dtype=np.int64),
             drug_pair_idx=np.array([0, 1, 0, 1], dtype=np.int64),
         )
     )
@@ -88,8 +88,8 @@ def test_naive_tissue_mean_state_roundtrip() -> None:
     predictor = NaiveTissueMeanPredictor()
     batch = naive_batch(
         response=np.array([2.0, 8.0]),
-        cell_line_features=tissue_features,
-        cell_line_pair_idx=np.array([0, 1], dtype=np.int64),
+        sample_features=tissue_features,
+        sample_pair_idx=np.array([0, 1], dtype=np.int64),
     )
     predictor.fit(batch)
     restored = NaiveTissueMeanPredictor()

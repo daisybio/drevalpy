@@ -63,7 +63,7 @@ class TestColumns:
     def test_it_returns_a_dataframe(self, metrics: pd.DataFrame) -> None:
         assert isinstance(metrics, pd.DataFrame)
 
-    @pytest.mark.parametrize("column", ["cell_line", "drug"])
+    @pytest.mark.parametrize("column", ["sample", "drug"])
     def test_label_columns_are_present(self, metrics: pd.DataFrame, column: str) -> None:
         assert column in metrics.columns
 
@@ -128,7 +128,7 @@ class TestLabels:
     """``Name`` is split back into the labels the caller supplied."""
 
     def test_the_name_column_is_split_on_the_separator(self, metrics: pd.DataFrame) -> None:
-        assert metrics.loc[0, "cell_line"] == "CL_A"
+        assert metrics.loc[0, "sample"] == "CL_A"
         assert metrics.loc[0, "drug"] == "DrugX"
 
     def test_native_identifiers_survive_unchanged(self) -> None:
@@ -138,7 +138,7 @@ class TestLabels:
 
         result = postprocess([(native, {})])
 
-        assert result["cell_line"].tolist() == ["ACH-000001", "SIDM00400", "ACH-000001"]
+        assert result["sample"].tolist() == ["ACH-000001", "SIDM00400", "ACH-000001"]
         assert result["drug"].tolist() == ["DRUG_1047", "DRUG_1047", "BRD-K02251932"]
 
 

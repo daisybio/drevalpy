@@ -176,9 +176,9 @@ class TestNormalize:
         assert NORMALIZED_METRIC not in metrics
 
     def test_treats_pairs_missing_from_the_reference_as_zero(self) -> None:
-        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4, n_cell_lines=2, n_drugs=2)
-        other = make_run_result(model_name="ElasticNet", n_pairs=4, n_cell_lines=2, n_drugs=2)
-        other.cell_line_ids = np.array(["CL_9", "CL_9", "CL_9", "CL_9"])
+        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4, n_samples=2, n_drugs=2)
+        other = make_run_result(model_name="ElasticNet", n_pairs=4, n_samples=2, n_drugs=2)
+        other.sample_ids = np.array(["CL_9", "CL_9", "CL_9", "CL_9"])
 
         normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
 
@@ -293,7 +293,7 @@ class TestNormalize:
         reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=8)
         other = make_run_result(model_name="ElasticNet", n_pairs=8)
         for run in (reference, other):
-            run.cell_line_ids = intern_ids(run.cell_line_ids)
+            run.sample_ids = intern_ids(run.sample_ids)
             run.drug_ids = intern_ids(run.drug_ids)
 
         normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
@@ -301,32 +301,32 @@ class TestNormalize:
         np.testing.assert_allclose(normalized_run.predictions, other.predictions - reference.predictions)
 
     def test_normalizes_only_the_pairs_the_reference_covers(self) -> None:
-        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4, n_cell_lines=2, n_drugs=2)
-        other = make_run_result(model_name="ElasticNet", n_pairs=4, n_cell_lines=2, n_drugs=2)
-        other.cell_line_ids = np.array(["CL_0", "CL_9", "CL_0", "CL_9"])
+        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4, n_samples=2, n_drugs=2)
+        other = make_run_result(model_name="ElasticNet", n_pairs=4, n_samples=2, n_drugs=2)
+        other.sample_ids = np.array(["CL_0", "CL_9", "CL_0", "CL_9"])
         other.drug_ids = np.array(["D_0", "D_0", "D_1", "D_1"])
 
         normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
 
         ref_by_pair = dict(
             zip(
-                zip(reference.cell_line_ids, reference.drug_ids, strict=True),
+                zip(reference.sample_ids, reference.drug_ids, strict=True),
                 reference.predictions,
                 strict=True,
             )
         )
         expected = other.predictions - np.array(
-            [ref_by_pair.get((cl, dr), 0.0) for cl, dr in zip(other.cell_line_ids, other.drug_ids, strict=True)]
+            [ref_by_pair.get((cl, dr), 0.0) for cl, dr in zip(other.sample_ids, other.drug_ids, strict=True)]
         )
         np.testing.assert_allclose(normalized_run.predictions, expected)
 
     def test_a_duplicated_reference_pair_resolves_to_its_last_prediction(self) -> None:
         reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=2)
-        reference.cell_line_ids = np.array(["CL_0", "CL_0"])
+        reference.sample_ids = np.array(["CL_0", "CL_0"])
         reference.drug_ids = np.array(["D_0", "D_0"])
         reference.predictions = np.array([1.0, 5.0])
         other = make_run_result(model_name="ElasticNet", n_pairs=1)
-        other.cell_line_ids = np.array(["CL_0"])
+        other.sample_ids = np.array(["CL_0"])
         other.drug_ids = np.array(["D_0"])
         other.predictions = np.array([7.0])
         other.ground_truth = np.array([7.0])
@@ -497,7 +497,7 @@ class TestLoadLogging:
 
     def test_interned_ids_count_their_shared_strings(self) -> None:
         run = make_run_result(n_pairs=8)
-        run.cell_line_ids = intern_ids(run.cell_line_ids)
+        run.sample_ids = intern_ids(run.sample_ids)
         run.drug_ids = intern_ids(run.drug_ids)
 
         assert _run_array_bytes(run) > run.predictions.nbytes + run.ground_truth.nbytes

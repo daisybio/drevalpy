@@ -106,19 +106,19 @@ def _registry_for(cls) -> Any:
     :param cls: Class carrying a ``registry_name``.
     :returns: The matching registry, or ``None`` if the class is not a component.
     """
-    from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
     from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
     from drevalpy.registry.predictor._registry import predictor_registry
+    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
 
     side = getattr(cls, "side", None)
-    if side == "cell_line":
-        return cell_line_featurizer_registry
+    if side == "sample":
+        return sample_featurizer_registry
     if side == "drug":
         return drug_featurizer_registry
-    if hasattr(cls, "cell_line_contract"):
+    if hasattr(cls, "sample_contract"):
         return predictor_registry
     if hasattr(cls, "contract"):
-        return cell_line_featurizer_registry
+        return sample_featurizer_registry
     return None
 
 
@@ -167,8 +167,8 @@ def _shared_featurizer_modules() -> list[str]:
     return _discover_modules(pkg.__path__[0], pkg.__name__)
 
 
-def _cell_line_featurizer_modules() -> list[str]:
-    import drevalpy.components.featurizers.cell_line as pkg
+def _sample_featurizer_modules() -> list[str]:
+    import drevalpy.components.featurizers.sample as pkg
 
     return _discover_modules(pkg.__path__[0], pkg.__name__)
 
@@ -192,7 +192,7 @@ def _native_predictor_modules() -> list[str]:
 def register_native_components() -> None:
     """Register dependency-light native components (featurizers + non-literature predictors)."""
     _import_modules(_shared_featurizer_modules())
-    _import_modules(_cell_line_featurizer_modules())
+    _import_modules(_sample_featurizer_modules())
     _import_modules(_drug_featurizer_modules())
     _import_modules(_native_predictor_modules())
 
@@ -247,13 +247,13 @@ def register_builtin_components() -> None:
 
     Safe to call multiple times. Detects cleared registries and re-populates.
     """
-    from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
     from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
     from drevalpy.registry.predictor._registry import predictor_registry
+    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
 
     all_populated = (
         predictor_registry.list_names()
-        and cell_line_featurizer_registry.list_names()
+        and sample_featurizer_registry.list_names()
         and drug_featurizer_registry.list_names()
     )
     if all_populated:
@@ -281,7 +281,7 @@ def ensure_predictor_registered(name: str) -> None:
     """No-op with eager loading -- all predictors are registered at startup."""
 
 
-def ensure_cell_line_featurizer_registered(name: str) -> None:
+def ensure_sample_featurizer_registered(name: str) -> None:
     """No-op with eager loading -- all featurizers are registered at startup."""
 
 
@@ -296,11 +296,11 @@ def is_known_builtin_predictor(name: str) -> bool:
     return name in predictor_registry.list_names()
 
 
-def is_known_builtin_cell_line_featurizer(name: str) -> bool:
-    """Return whether *name* is a registered cell-line featurizer."""
-    from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
+def is_known_builtin_sample_featurizer(name: str) -> bool:
+    """Return whether *name* is a registered sample featurizer."""
+    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
 
-    return name in cell_line_featurizer_registry.list_names()
+    return name in sample_featurizer_registry.list_names()
 
 
 def is_known_builtin_drug_featurizer(name: str) -> bool:
@@ -315,10 +315,10 @@ def is_known_builtin_drug_featurizer(name: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _get_builtin_cell_line_featurizer_names() -> frozenset[str]:
-    from drevalpy.registry.cell_line_featurizer._registry import cell_line_featurizer_registry
+def _get_builtin_sample_featurizer_names() -> frozenset[str]:
+    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
 
-    return frozenset(cell_line_featurizer_registry.list_names())
+    return frozenset(sample_featurizer_registry.list_names())
 
 
 def _get_builtin_drug_featurizer_names() -> frozenset[str]:
@@ -361,6 +361,6 @@ class _LazyFrozenset:
         return repr(self._resolve())
 
 
-BUILTIN_CELL_LINE_FEATURIZER_NAMES = _LazyFrozenset(_get_builtin_cell_line_featurizer_names)
+BUILTIN_SAMPLE_FEATURIZER_NAMES = _LazyFrozenset(_get_builtin_sample_featurizer_names)
 BUILTIN_DRUG_FEATURIZER_NAMES = _LazyFrozenset(_get_builtin_drug_featurizer_names)
 BUILTIN_PREDICTOR_NAMES = _LazyFrozenset(_get_builtin_predictor_names)

@@ -41,12 +41,12 @@ def randomization(
     :returns: List of randomized datasets.
     """
     config = model_spec.config
-    cell_line_views = config.cell_line_views()
+    sample_views = config.sample_views()
     drug_views = config.drug_views()
 
     builders = {
-        "SVRC": lambda: _single_view_tests(cell_line_views, "SVRC"),
-        "SVCC": lambda: _complement_view_tests(cell_line_views, "SVCC"),
+        "SVRC": lambda: _single_view_tests(sample_views, "SVRC"),
+        "SVCC": lambda: _complement_view_tests(sample_views, "SVCC"),
         "SVRD": lambda: _single_view_tests(drug_views, "SVRD"),
         "SVCD": lambda: _complement_view_tests(drug_views, "SVCD"),
     }

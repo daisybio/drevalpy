@@ -17,8 +17,8 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
+from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.testing.batch import build_synthetic_batch
 from drevalpy.testing.conformance import (
@@ -35,12 +35,12 @@ from drevalpy.testing.conformance import (
 )
 from drevalpy.testing.synthetic import build_synthetic_dataset
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource
+from drevalpy.types.data.feature_source import DrugFeatureSource, SampleFeatureSource
 
 BLOCK = "probe"
 
 
-class GoodFeaturizer(CellLineFeaturizer):
+class GoodFeaturizer(SampleFeaturizer):
     """Conforming featurizer: hashed features, no view, honest state."""
 
     entity_id_only: ClassVar[bool] = True
@@ -187,8 +187,8 @@ def batch(dataset):
 
 
 class TestFeatureSourceFor:
-    def test_a_cell_line_featurizer_gets_a_cell_line_source(self, dataset):
-        assert isinstance(feature_source_for(GoodFeaturizer, dataset), CellLineFeatureSource)
+    def test_a_sample_featurizer_gets_a_sample_source(self, dataset):
+        assert isinstance(feature_source_for(GoodFeaturizer, dataset), SampleFeatureSource)
 
     def test_a_drug_featurizer_gets_a_drug_source(self, dataset):
         assert isinstance(feature_source_for(GoodDrugFeaturizer, dataset), DrugFeatureSource)
@@ -317,10 +317,10 @@ class TestChecksAgainstShippedComponents:
 
     @pytest.mark.parametrize("check", FEATURIZER_CHECKS)
     @pytest.mark.parametrize("name", ["identity", "tissue", "constant"])
-    def test_builtin_cell_line_featurizers_conform(self, check, name, dataset):
-        from drevalpy.registry import cell_line_featurizer
+    def test_builtin_sample_featurizers_conform(self, check, name, dataset):
+        from drevalpy.registry import sample_featurizer
 
-        check(cell_line_featurizer.get(name), dataset)
+        check(sample_featurizer.get(name), dataset)
 
     @pytest.mark.parametrize("check", PREDICTOR_CHECKS)
     @pytest.mark.parametrize("name", ["ridge", "lasso", "elasticNet", "knn"])

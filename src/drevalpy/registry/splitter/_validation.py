@@ -60,10 +60,10 @@ def _validate_partition(
 
 
 def _validate_lco(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
-    """LCO: no cell line row belongs to more than one split."""
+    """LCO: no sample row belongs to more than one split."""
     if _has_axis_overlap(fold, axis=1):
         raise SplitValidationError(
-            f"LCO validation failed (fold {fold_index}): cell line indices appear in more than one split."
+            f"LCO validation failed (fold {fold_index}): sample indices appear in more than one split."
         )
 
 
@@ -77,7 +77,7 @@ def _validate_ldo(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -
 
 def _validate_lto(fold: SplitMasks, mudataset: MuDataLike, *, fold_index: int) -> None:
     """LTO: no tissue belongs to more than one split."""
-    cl_ids = mudataset.cell_line_ids
+    cl_ids = mudataset.sample_ids
     tissues = mudataset.get_tissue(cl_ids)
     tissue_sets = [
         set(tissues[np.where(mask.mask.any(axis=1))[0]].tolist()) for mask in (fold.train, fold.val, fold.test)

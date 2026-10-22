@@ -37,12 +37,12 @@ REPO_ROOT = UPath(__file__).resolve().parents[2]
 EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
     "BlockPredictor": ("drevalpy.components.predictors.abstract.block", "BlockPredictor"),
     "BlockSpec": ("drevalpy.types.data.batch.feature_block", "BlockSpec"),
-    "CellLineFeatureSource": ("drevalpy.types.data.feature_source", "CellLineFeatureSource"),
-    "CellLineFeaturizer": ("drevalpy.components.featurizers.cell_line.base", "CellLineFeaturizer"),
+    "SampleFeatureSource": ("drevalpy.types.data.feature_source", "SampleFeatureSource"),
+    "SampleFeaturizer": ("drevalpy.components.featurizers.sample.base", "SampleFeaturizer"),
     "Dataset": ("drevalpy.types.data.dataset", "Dataset"),
-    "DenseViewCellLineFeaturizer": (
-        "drevalpy.components.featurizers.cell_line.base",
-        "DenseViewCellLineFeaturizer",
+    "DenseViewSampleFeaturizer": (
+        "drevalpy.components.featurizers.sample.base",
+        "DenseViewSampleFeaturizer",
     ),
     "DenseViewDrugFeaturizer": ("drevalpy.components.featurizers.drug.base", "DenseViewDrugFeaturizer"),
     "DenseViewFeaturizer": ("drevalpy.components.featurizers._dense_view", "DenseViewFeaturizer"),
@@ -84,7 +84,7 @@ EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
     "metadata_feature_block": ("drevalpy.types.data.batch.feature_block", "metadata_feature_block"),
     "numeric_feature_block": ("drevalpy.types.data.batch.feature_block", "numeric_feature_block"),
     "ragged_feature_block": ("drevalpy.types.data.batch.feature_block", "ragged_feature_block"),
-    "register_cell_line_featurizer": ("drevalpy.registry.cell_line_featurizer", "register"),
+    "register_sample_featurizer": ("drevalpy.registry.sample_featurizer", "register"),
     "register_drug_featurizer": ("drevalpy.registry.drug_featurizer", "register"),
     "register_for_sides": ("drevalpy.components.featurizers._side_binding", "register_for_sides"),
     "register_predictor": ("drevalpy.registry.predictor", "register"),
@@ -133,7 +133,7 @@ class TestAliasesPointAtTheRealSymbols:
 
     def test_the_five_register_aliases_are_distinct(self):
         registrars = {
-            plugin.register_cell_line_featurizer,
+            plugin.register_sample_featurizer,
             plugin.register_drug_featurizer,
             plugin.register_predictor,
             plugin.register_splitter,
@@ -226,16 +226,16 @@ class TestFacadeIsSelfContained:
         """A plugin importing nothing but the facade must be able to declare a component."""
         script = (
             "from drevalpy.plugin import (\n"
-            "    CellLineFeaturizer, FeatureFormat, BlockSpec, FeaturizerResult, numeric_feature_block,\n"
-            "    register_cell_line_featurizer,\n"
+            "    SampleFeaturizer, FeatureFormat, BlockSpec, FeaturizerResult, numeric_feature_block,\n"
+            "    register_sample_featurizer,\n"
             ")\n"
             "import numpy as np\n"
             "from typing import ClassVar\n"
             "\n"
-            "@register_cell_line_featurizer(\n"
+            "@register_sample_featurizer(\n"
             "    'facadeProbe', description='probe', contract=FeatureFormat.NUMERIC_MATRIX\n"
             ")\n"
-            "class Probe(CellLineFeaturizer):\n"
+            "class Probe(SampleFeaturizer):\n"
             "    '''Probe.'''\n"
             "    entity_id_only: ClassVar[bool] = True\n"
             "    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (\n"
@@ -253,8 +253,8 @@ class TestFacadeIsSelfContained:
             "    def output_dim(self):\n"
             "        return 1\n"
             "\n"
-            "from drevalpy.registry import cell_line_featurizer\n"
-            "print('facadeProbe' in cell_line_featurizer.list())\n"
+            "from drevalpy.registry import sample_featurizer\n"
+            "print('facadeProbe' in sample_featurizer.list())\n"
         )
 
         result = run_trusted_python(script)

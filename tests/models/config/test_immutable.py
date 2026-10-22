@@ -8,12 +8,12 @@ import pytest
 from pydantic import ValidationError
 
 from drevalpy.models.config import (
-    CellLineFeaturizerConfig,
     DrugFeaturizerConfig,
     FeaturizerConfig,
     ModelConfig,
     PredictorConfig,
     ResolvedModelConfig,
+    SampleFeaturizerConfig,
 )
 from drevalpy.models.zoo import get_zoo_config
 from drevalpy.registry._builtins import register_builtin_components
@@ -22,7 +22,7 @@ from drevalpy.registry._builtins import register_builtin_components
 def test_model_config_rejects_field_assignment() -> None:
     register_builtin_components()
     config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+        sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
         drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
         predictor=PredictorConfig(name="elasticNet"),
     )
@@ -48,7 +48,7 @@ def test_featurizer_config_rejects_deep_options_mutation() -> None:
 
 def test_concat_children_are_tuple_not_list() -> None:
     register_builtin_components()
-    config = CellLineFeaturizerConfig.model_validate(
+    config = SampleFeaturizerConfig.model_validate(
         ["scaledGeneExpression", {"pca[methylation]": {"n_components": 32}}],
     )
     assert config.name == "concatFeaturizers"
@@ -56,14 +56,14 @@ def test_concat_children_are_tuple_not_list() -> None:
     assert config.featurizers is not None
     assert config.featurizers[1].name == "pca"
     with pytest.raises(TypeError):
-        config.featurizers[0] = CellLineFeaturizerConfig(name="raw", view="expression")  # type: ignore[index]
+        config.featurizers[0] = SampleFeaturizerConfig(name="raw", view="expression")  # type: ignore[index]
 
 
 def test_predictor_shorthand_writes_hyperparameter_space_defaults() -> None:
     register_builtin_components()
     config = ModelConfig.model_validate(
         {
-            "cell_line_featurizer": "scaledGeneExpression",
+            "sample_featurizer": "scaledGeneExpression",
             "drug_featurizer": "fingerprints",
             "predictor": {"randomForest": {"n_estimators": 10}},
         }
@@ -81,9 +81,9 @@ def test_zoo_config_copy_isolation() -> None:
     second = get_zoo_config("MultiViewLightGBM")
     assert first == second
     assert first is not second
-    assert first.cell_line_featurizer is not None
-    assert first.cell_line_featurizer.featurizers is not None
-    child = first.cell_line_featurizer.featurizers[1]
+    assert first.sample_featurizer is not None
+    assert first.sample_featurizer.featurizers is not None
+    child = first.sample_featurizer.featurizers[1]
     assert child.hyperparameter_space is not None
     with pytest.raises(TypeError):
         child.hyperparameter_space["n_components"] = {"default": 8}  # type: ignore[index]
@@ -102,7 +102,7 @@ def test_frozen_mapping_fields_are_deeply_frozen_views() -> None:
     )
     resolved = ResolvedModelConfig(
         template=ModelConfig(
-            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+            sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
             predictor=PredictorConfig(name="elasticNet"),
         ),
@@ -131,7 +131,7 @@ def test_frozen_mapping_default_is_frozen() -> None:
     register_builtin_components()
     resolved = ResolvedModelConfig(
         template=ModelConfig(
-            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+            sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
             predictor=PredictorConfig(name="elasticNet"),
         ),

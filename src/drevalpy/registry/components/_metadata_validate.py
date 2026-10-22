@@ -7,7 +7,7 @@ from typing import Any
 from drevalpy.components.contracts.contracts import FeatureContract
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
-_CONTRACT_FIELDS = frozenset({"contract", "cell_line_contract", "drug_contract"})
+_CONTRACT_FIELDS = frozenset({"contract", "sample_contract", "drug_contract"})
 
 
 def _is_valid_url(url: str) -> bool:

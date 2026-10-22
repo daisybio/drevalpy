@@ -29,7 +29,7 @@ def _aligned_fetch(
         ids: 1-D array of requested entity IDs.
         data: 2-D source array to fetch rows from.
         strict: If True, raise KeyError for missing IDs instead of warning.
-        entity_label: Human-readable label for error messages (e.g. "cell line").
+        entity_label: Human-readable label for error messages (e.g. "sample").
 
     Returns:
         Float32 array of shape (len(ids), data.shape[1]).

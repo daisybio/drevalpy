@@ -40,7 +40,7 @@ TESTS_ROOT = REPO_ROOT / "tests"
 #: the tooling rather than the library.
 EXEMPT_MODULES: frozenset[str] = frozenset(
     {
-        "components/featurizers/cell_line/gene_lists/_make_gene_lists.py",
+        "components/featurizers/sample/gene_lists/_make_gene_lists.py",
     }
 )
 

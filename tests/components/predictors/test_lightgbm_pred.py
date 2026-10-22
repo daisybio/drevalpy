@@ -34,7 +34,7 @@ def test_lightgbm_predictor_registry_name() -> None:
 def test_lightgbm_predictor_requires_numeric_matrix_contracts() -> None:
     cls = get_predictor("lightgbm")
 
-    assert cls.cell_line_contract.format == FeatureFormat.NUMERIC_MATRIX
+    assert cls.sample_contract.format == FeatureFormat.NUMERIC_MATRIX
     assert cls.drug_contract.format == FeatureFormat.NUMERIC_MATRIX
 
 

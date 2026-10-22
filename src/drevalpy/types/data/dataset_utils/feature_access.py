@@ -1,4 +1,4 @@
-"""Mixin providing cell-line and drug feature access from MuData."""
+"""Mixin providing sample and drug feature access from MuData."""
 
 from __future__ import annotations
 
@@ -16,11 +16,11 @@ if TYPE_CHECKING:
 
 
 class FeatureAccessMixin:
-    """Mixin that provides cell-line and drug feature access methods.
+    """Mixin that provides sample and drug feature access methods.
 
     Expects ``self._mdata`` to be a MuData object with a "response" modality.
 
-    Cell-line omics are addressed by their **public** name (the name configs,
+    Sample omics are addressed by their **public** name (the name configs,
     recipes and predictors use). Published ``.h5mu`` files do not necessarily
     store them under that name, so every lookup of ``self._mdata.mod`` by a
     caller-supplied name goes through
@@ -49,12 +49,12 @@ class FeatureAccessMixin:
             raise KeyError(f"Modality '{name}' not found. Available: {available}")
         return modality
 
-    def get_cell_line_features(self, modality: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
-        """Get a feature matrix for the specified cell lines from a modality.
+    def get_sample_features(self, modality: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
+        """Get a feature matrix for the specified samples from a modality.
 
         Args:
             modality: Public name of the modality (e.g. "gene_expression").
-            ids: 1-D array of cell line IDs to retrieve.
+            ids: 1-D array of sample IDs to retrieve.
             strict: If True, raise KeyError for missing IDs instead of warning.
 
         Returns:
@@ -72,10 +72,10 @@ class FeatureAccessMixin:
 
         adata = self._mdata.mod[self._omics_modality(modality)]
         x = np.asarray(to_dense(adata.X))
-        return _aligned_fetch(pd.Index(adata.obs_names), ids, x, strict=strict, entity_label="cell line")
+        return _aligned_fetch(pd.Index(adata.obs_names), ids, x, strict=strict, entity_label="sample")
 
     def _get_obsm_features(self, key: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
-        """Retrieve cell-line features stored in response.obsm."""
+        """Retrieve sample features stored in response.obsm."""
         import pandas as pd
 
         response = self._mdata.mod["response"]
@@ -83,10 +83,10 @@ class FeatureAccessMixin:
             raise KeyError(f"obsm key '{key}' not found in response modality.")
 
         obsm_data = np.asarray(response.obsm[key])
-        return _aligned_fetch(pd.Index(response.obs_names), ids, obsm_data, strict=strict, entity_label="cell line")
+        return _aligned_fetch(pd.Index(response.obs_names), ids, obsm_data, strict=strict, entity_label="sample")
 
-    def get_cell_line_feature_names(self, view: str) -> tuple[str, ...] | None:
-        """Return the feature (column) names for a cell-line view.
+    def get_sample_feature_names(self, view: str) -> tuple[str, ...] | None:
+        """Return the feature (column) names for a sample view.
 
         Args:
             view: Public name of the modality.
@@ -185,12 +185,12 @@ class FeatureAccessMixin:
         graphs = self._mdata.uns["drug_graphs"]
         return [graphs.get(drug_id) for drug_id in ids]
 
-    def entities_with_modality(self, modality: str, *, side: str = "cell_line") -> frozenset[str]:
+    def entities_with_modality(self, modality: str, *, side: str = "sample") -> frozenset[str]:
         """Return entity IDs that have actual feature data for a modality.
 
         Args:
             modality: Modality or view name (e.g. "gene_expression", "fingerprints").
-            side: Either "cell_line" or "drug".
+            side: Either "sample" or "drug".
 
         Returns:
             Frozenset of entity IDs that have non-NaN data for the modality.
@@ -198,12 +198,12 @@ class FeatureAccessMixin:
         Raises:
             KeyError: If the modality/view is not found.
         """
-        if side == "cell_line":
-            return self._cell_line_entities_for_modality(modality)
+        if side == "sample":
+            return self._sample_entities_for_modality(modality)
         return self._drug_entities_for_view(modality)
 
-    def _cell_line_entities_for_modality(self, modality: str) -> frozenset[str]:
-        """Cell line IDs present in a given modality."""
+    def _sample_entities_for_modality(self, modality: str) -> frozenset[str]:
+        """Sample IDs present in a given modality."""
         response = self._mdata.mod["response"]
         if modality == "pathway_features":
             if "pathway_features" not in response.obsm:

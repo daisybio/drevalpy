@@ -13,18 +13,18 @@ import pytest
 
 from drevalpy.components.featurizers._constant import ConstantFeaturizerMixin
 from drevalpy.components.featurizers.shared.constant import (
-    CellLineConstantFeaturizer,
     DrugConstantFeaturizer,
+    SampleConstantFeaturizer,
     SharedConstantFeaturizer,
 )
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
-from drevalpy.registry.cell_line_featurizer import metadata as cell_line_metadata
 from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
 from drevalpy.registry.drug_featurizer import metadata as drug_metadata
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
+from drevalpy.registry.sample_featurizer import metadata as sample_metadata
 from tests.conftest import MockFeatureSource
 
 _SIDE_CLASSES = [
-    pytest.param(CellLineConstantFeaturizer, id="cell-line"),
+    pytest.param(SampleConstantFeaturizer, id="sample"),
     pytest.param(DrugConstantFeaturizer, id="drug"),
 ]
 
@@ -52,16 +52,16 @@ def test_constant_uses_the_shared_mixin(featurizer_cls: type) -> None:
 
 
 def test_constant_registers_one_class_per_side() -> None:
-    assert get_cell_line_featurizer("constant") is CellLineConstantFeaturizer
+    assert get_sample_featurizer("constant") is SampleConstantFeaturizer
     assert get_drug_featurizer("constant") is DrugConstantFeaturizer
-    assert CellLineConstantFeaturizer is not DrugConstantFeaturizer
+    assert SampleConstantFeaturizer is not DrugConstantFeaturizer
 
 
 def test_constant_side_is_stamped_per_binding() -> None:
-    assert CellLineConstantFeaturizer.side == "cell_line"
+    assert SampleConstantFeaturizer.side == "sample"
     assert DrugConstantFeaturizer.side == "drug"
 
 
 def test_constant_descriptions_are_worded_per_side() -> None:
-    assert "cell-line" in cell_line_metadata("constant")["description"]
+    assert "sample" in sample_metadata("constant")["description"]
     assert "drug" in drug_metadata("constant")["description"]

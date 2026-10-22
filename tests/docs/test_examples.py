@@ -45,11 +45,11 @@ if str(DOCS) not in sys.path:
 _VERIFY_SCRIPT = (
     "import json, sys\n"
     f"sys.path.insert(0, {str(DOCS)!r})\n"
-    "from drevalpy.registry import cell_line_featurizer, drug_featurizer, predictor\n"
-    "before = [len(cell_line_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
+    "from drevalpy.registry import sample_featurizer, drug_featurizer, predictor\n"
+    "before = [len(sample_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
     "from _examples import verify_documented_examples\n"
     "registered = {k: list(v) for k, v in verify_documented_examples().items()}\n"
-    "after = [len(cell_line_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
+    "after = [len(sample_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
     "sys.stdout.write(json.dumps({'registered': registered, 'before': before, 'after': after}))\n"
 )
 
@@ -127,9 +127,9 @@ def test_every_example_module_is_listed_in_the_driver() -> None:
 #: do. Kept as a regression guard because every one of them was published.
 DEAD_REFERENCES = (
     "drevalpy.components.core",
-    "drevalpy.components.featurizers.cell_line.base",
+    "drevalpy.components.featurizers.sample.base",
     "drevalpy.components.predictors.abstract",
-    "drevalpy.registry.cell_line_featurizer import register",
+    "drevalpy.registry.sample_featurizer import register",
     "drevalpy.registry.predictor import register",
     "drevalpy.visualization.base import Visualization",
 )

@@ -71,7 +71,7 @@ class FakeDataset:
         self._response = response if response is not None else np.full(_SHAPE, 6.0)
 
     @property
-    def cell_line_ids(self) -> np.ndarray:
+    def sample_ids(self) -> np.ndarray:
         """Row identifiers."""
         return np.array([f"CL_{i}" for i in range(_SHAPE[0])])
 
@@ -86,7 +86,7 @@ class FakeDataset:
         return self._response
 
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
-        """One tissue for every cell line."""
+        """One tissue for every sample."""
         return np.array(["Lung"] * len(ids))
 
     def response_layer_names(self) -> list[str]:

@@ -120,11 +120,11 @@ class TestNativeIdentifiersSurvive:
     def natively_curated(self) -> anndata.AnnData:
         """``curate`` over the same data relabelled with native identifiers."""
         native = build_dose_response_df()
-        native["cell_line"] = native["cell_line"].map({"CL_A": "ACH-1", "CL_B": "SIDM00400", "CL_C": "2004"})
+        native["sample"] = native["sample"].map({"CL_A": "ACH-1", "CL_B": "SIDM00400", "CL_C": "2004"})
         native["drug"] = native["drug"].map({"DrugX": "DRUG_1047", "DrugY": "BRD-K02251932"})
         return curate(native, max_workers=1, fit_speed="fast")
 
-    def test_the_cell_line_labels_are_the_obs_index(self, natively_curated: anndata.AnnData) -> None:
+    def test_the_sample_labels_are_the_obs_index(self, natively_curated: anndata.AnnData) -> None:
         assert set(natively_curated.obs_names) == {"ACH-1", "SIDM00400", "2004"}
 
     def test_the_drug_labels_are_the_var_index(self, natively_curated: anndata.AnnData) -> None:

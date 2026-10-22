@@ -20,13 +20,13 @@ from drevalpy.testing import (
 )
 
 from .toy_block_predictor import BLOCK, ToyBlockRidgePredictor
-from .toy_cell_line_featurizer import ToyCellLineFeaturizer
 from .toy_drug_featurizer import ToyDrugHashFeaturizer
 from .toy_mean_predictor import ToyMeanPredictor
 from .toy_ridge_predictor import ToyRidgePredictor
+from .toy_sample_featurizer import ToySampleFeaturizer
 from .toy_visualization import ToyResidualHistogram
 
-FEATURIZERS = (ToyCellLineFeaturizer, ToyDrugHashFeaturizer)
+FEATURIZERS = (ToySampleFeaturizer, ToyDrugHashFeaturizer)
 PREDICTORS = (ToyMeanPredictor, ToyRidgePredictor, ToyBlockRidgePredictor)
 
 
@@ -34,12 +34,12 @@ def check_components() -> None:
     """Run every shipped check against every toy featurizer and predictor.
 
     ``build_synthetic_dataset`` returns a response-only dataset by default; the
-    ``omics`` argument adds the cell-line modality ``ToyCellLineFeaturizer``
+    ``omics`` argument adds the sample modality ``ToySampleFeaturizer``
     reads. ``build_synthetic_batch`` skips featurization entirely and draws the
     feature matrices, which is what makes a predictor testable on its own.
     """
     dataset = build_synthetic_dataset(omics=["gene_expression"])
-    batch = build_synthetic_batch(dataset, cell_line_block_names=(BLOCK,))
+    batch = build_synthetic_batch(dataset, sample_block_names=(BLOCK,))
     for check in FEATURIZER_CHECKS:
         for featurizer in FEATURIZERS:
             check(featurizer, dataset)
@@ -75,7 +75,7 @@ def check_visualization() -> None:
         fold_index=0,
         predictions=rng.normal(size=32),
         ground_truth=rng.normal(size=32),
-        cell_line_ids=np.array([f"CVCL_S{index:03d}" for index in range(32)]),
+        sample_ids=np.array([f"CVCL_S{index:03d}" for index in range(32)]),
         drug_ids=np.array(["100000"] * 32),
     )
     plot = ToyResidualHistogram()

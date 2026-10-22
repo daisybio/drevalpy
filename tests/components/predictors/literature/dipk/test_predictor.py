@@ -41,7 +41,7 @@ from tests.components.predictors.literature._helpers import (
 def _dipk_batch() -> ModelInputBatch:
     """Build a batch with the three blocks DIPK consumes.
 
-    :returns: Featurized ``ModelInputBatch`` with two cell lines and two drugs.
+    :returns: Featurized ``ModelInputBatch`` with two samples and two drugs.
     """
     molgnet = np.empty(2, dtype=object)
     molgnet[:] = [
@@ -49,7 +49,7 @@ def _dipk_batch() -> ModelInputBatch:
         np.arange(4, dtype=np.float32).reshape(2, 2),
     ]
     return two_by_two_batch(
-        cell_line_blocks={
+        sample_blocks={
             "gene_expression": numeric_feature_block(np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)),
             "bionic_features": numeric_feature_block(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)),
         },
@@ -65,19 +65,19 @@ def _trainable_dipk_batch(tmp_path: Path) -> ModelInputBatch:
     drug_ids = np.array(["d1", "d2"])
     response = ResponseBatch(
         response=np.array([-1.0, 0.5, 1.5, 3.0], dtype=np.float32),
-        cell_line_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
+        sample_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
     )
     validation = ResponseBatch(
         response=np.array([0.25, 2.25], dtype=np.float32),
-        cell_line_ids=np.array(["val-1", "val-2"]),
+        sample_ids=np.array(["val-1", "val-2"]),
         drug_ids=np.array(["d1", "d2"]),
     )
     molgnet = np.empty(2, dtype=object)
     molgnet[:] = [rng.normal(size=(2, 768)).astype(np.float32), rng.normal(size=(3, 768)).astype(np.float32)]
     return ModelInputBatch.from_response(
         response,
-        cell_line=FeaturizerResult.from_blocks(
+        sample=FeaturizerResult.from_blocks(
             {
                 "gene_expression": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
                 "bionic_features": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
@@ -85,7 +85,7 @@ def _trainable_dipk_batch(tmp_path: Path) -> ModelInputBatch:
             cell_ids,
         ),
         drug=FeaturizerResult.from_blocks({"molgnet_features": ragged_feature_block(molgnet)}, drug_ids),
-        cell_line_pair_idx=np.array([0, 0, 1, 1]),
+        sample_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=tmp_path),
@@ -152,7 +152,7 @@ class TestBuildPairs:
         predictor = DIPKPredictor()
         batch = _dipk_batch()
 
-        pairs = predictor._build_pairs(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
+        pairs = predictor._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
 
         assert len(pairs) == 4
         assert set(pairs[0]) == {"molgnet_features", "gene_expression", "bionic_features"}
@@ -161,9 +161,9 @@ class TestBuildPairs:
         predictor = DIPKPredictor()
         batch = _dipk_batch()
 
-        pairs = predictor._build_pairs(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
+        pairs = predictor._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
 
-        # Pair 2 is (cell line 1, drug 0).
+        # Pair 2 is (sample 1, drug 0).
         torch.testing.assert_close(pairs[2]["gene_expression"], torch.tensor([0.3, 0.4]))
         assert pairs[2]["molgnet_features"].shape == (3, 2)
 
@@ -172,7 +172,7 @@ class TestBuildPairs:
         batch = _dipk_batch()
 
         pairs = predictor._build_pairs(
-            batch.cell_line_pair_idx,
+            batch.sample_pair_idx,
             batch.drug_pair_idx,
             batch,
             response=np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32),

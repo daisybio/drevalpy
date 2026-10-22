@@ -15,7 +15,7 @@ from drevalpy.types.enums.prediction_mode import PredictionMode
 from tests.conftest import MockFeatureSource
 
 
-def _cell_line_input() -> MockFeatureSource:
+def _sample_input() -> MockFeatureSource:
     return MockFeatureSource(
         features={
             "cl1": {"gene_expression": np.array([0.1, 0.2, 0.3])},
@@ -24,10 +24,10 @@ def _cell_line_input() -> MockFeatureSource:
     )
 
 
-def _fitted_stack(cell_line_input: MockFeatureSource) -> tuple[object, SingleDrugSklearnPredictor]:
+def _fitted_stack(sample_input: MockFeatureSource) -> tuple[object, SingleDrugSklearnPredictor]:
     """Fit a per-drug elastic-net stack on two drugs over three genes.
 
-    :param cell_line_input: Feature source the stack fits its featurizers on.
+    :param sample_input: Feature source the stack fits its featurizers on.
     :returns: ``(stack, predictor)``, with the predictor narrowed to the per-drug type.
     """
     config = from_spec(
@@ -38,10 +38,10 @@ def _fitted_stack(cell_line_input: MockFeatureSource) -> tuple[object, SingleDru
     stack.reset()
     response = ResponseBatch(
         response=np.array([1.0, 1.0, 10.0, 10.0]),
-        cell_line_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
+        sample_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
         drug_ids=np.array(["d1", "d1", "d2", "d2"]),
     )
-    stack._fit_featurizers_and_predictor(response, cell_line_input)
+    stack._fit_featurizers_and_predictor(response, sample_input)
     predictor = stack._predictor
     assert isinstance(predictor, SingleDrugSklearnPredictor)
     return stack, predictor
@@ -52,21 +52,21 @@ def _fitted_predictor() -> SingleDrugSklearnPredictor:
 
     :returns: The fitted predictor.
     """
-    return _fitted_stack(_cell_line_input())[1]
+    return _fitted_stack(_sample_input())[1]
 
 
 def test_identity_routes_estimators_without_entering_design_matrix() -> None:
-    cell_line_input = _cell_line_input()
+    sample_input = _sample_input()
 
-    stack, predictor = _fitted_stack(cell_line_input)
+    stack, predictor = _fitted_stack(sample_input)
 
     assert set(predictor._estimators) == {"d1", "d2"}
     assert {estimator.n_features_in_ for estimator in predictor._estimators.values()} == {3}
 
     predictions = predictor.predict(
         stack._batch(
-            ResponseBatch(response=None, cell_line_ids=np.array(["cl1", "cl1"]), drug_ids=np.array(["d1", "d2"])),
-            cell_line_input,
+            ResponseBatch(response=None, sample_ids=np.array(["cl1", "cl1"]), drug_ids=np.array(["d1", "d2"])),
+            sample_input,
             None,
         )
     )

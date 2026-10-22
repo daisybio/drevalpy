@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from drevalpy.testing.batch import (
-    N_CELL_LINE_FEATURES,
     N_DRUG_FEATURES,
+    N_SAMPLE_FEATURES,
     build_synthetic_batch,
     observed_pairs,
 )
@@ -39,13 +39,13 @@ class TestObservedPairs:
     def test_ids_are_drawn_from_the_dataset(self, dataset):
         pairs = observed_pairs(dataset)
 
-        assert set(pairs.cell_line_ids) <= set(dataset.cell_line_ids)
+        assert set(pairs.sample_ids) <= set(dataset.sample_ids)
         assert set(pairs.drug_ids) <= set(dataset.drug_ids)
 
     def test_all_three_arrays_are_the_same_length(self, dataset):
         pairs = observed_pairs(dataset)
 
-        assert len(pairs.cell_line_ids) == len(pairs.drug_ids) == len(pairs.response)
+        assert len(pairs.sample_ids) == len(pairs.drug_ids) == len(pairs.response)
 
 
 class TestBatchShape:
@@ -56,24 +56,24 @@ class TestBatchShape:
         assert batch.n_pairs == int((~np.isnan(dataset.response_matrix)).sum())
 
     def test_feature_matrices_have_the_default_widths(self, batch):
-        assert batch.cell_line.matrix.shape[1] == N_CELL_LINE_FEATURES
+        assert batch.sample.matrix.shape[1] == N_SAMPLE_FEATURES
         assert batch.drug is not None
         assert batch.drug.matrix.shape[1] == N_DRUG_FEATURES
 
     def test_feature_widths_are_configurable(self, dataset):
-        narrow = build_synthetic_batch(dataset, n_cell_line_features=3, n_drug_features=2)
+        narrow = build_synthetic_batch(dataset, n_sample_features=3, n_drug_features=2)
 
-        assert narrow.cell_line.matrix.shape[1] == 3
+        assert narrow.sample.matrix.shape[1] == 3
         assert narrow.drug is not None
         assert narrow.drug.matrix.shape[1] == 2
 
     def test_feature_rows_are_per_entity_not_per_pair(self, batch, dataset):
-        assert batch.cell_line.matrix.shape[0] == len(dataset.cell_line_ids)
+        assert batch.sample.matrix.shape[0] == len(dataset.sample_ids)
         assert batch.drug is not None
         assert batch.drug.matrix.shape[0] == len(dataset.drug_ids)
 
     def test_pair_indices_address_the_feature_rows(self, batch):
-        assert batch.cell_line_pair_idx.max() < batch.cell_line.matrix.shape[0]
+        assert batch.sample_pair_idx.max() < batch.sample.matrix.shape[0]
         assert batch.drug_pair_idx is not None
         assert batch.drug is not None
         assert batch.drug_pair_idx.max() < batch.drug.matrix.shape[0]
@@ -81,43 +81,43 @@ class TestBatchShape:
     def test_the_design_matrix_is_pair_aligned(self, batch):
         matrix = batch.to_feature_matrix()
 
-        assert matrix.shape == (batch.n_pairs, N_CELL_LINE_FEATURES + N_DRUG_FEATURES)
+        assert matrix.shape == (batch.n_pairs, N_SAMPLE_FEATURES + N_DRUG_FEATURES)
 
     def test_features_are_finite(self, batch):
-        assert np.isfinite(batch.cell_line.matrix).all()
+        assert np.isfinite(batch.sample.matrix).all()
         assert batch.drug is not None
         assert np.isfinite(batch.drug.matrix).all()
 
 
 class TestDrugFreeBatch:
     def test_no_drug_features_are_produced(self, dataset):
-        cell_line_only = build_synthetic_batch(dataset, n_drug_features=None)
+        sample_only = build_synthetic_batch(dataset, n_drug_features=None)
 
-        assert cell_line_only.drug is None
-        assert cell_line_only.drug_pair_idx is None
+        assert sample_only.drug is None
+        assert sample_only.drug_pair_idx is None
 
-    def test_the_design_matrix_covers_the_cell_line_side_only(self, dataset):
-        cell_line_only = build_synthetic_batch(dataset, n_drug_features=None)
+    def test_the_design_matrix_covers_the_sample_side_only(self, dataset):
+        sample_only = build_synthetic_batch(dataset, n_drug_features=None)
 
-        assert cell_line_only.to_feature_matrix().shape[1] == N_CELL_LINE_FEATURES
+        assert sample_only.to_feature_matrix().shape[1] == N_SAMPLE_FEATURES
 
 
 class TestNamedBlocks:
     def test_no_blocks_are_exposed_by_default(self, batch):
-        assert set(batch.cell_line.blocks) == {"features"}
+        assert set(batch.sample.blocks) == {"features"}
         assert batch.drug is not None
         assert set(batch.drug.blocks) == {"features"}
 
     def test_requested_blocks_hold_the_feature_matrix(self, dataset):
         with_blocks = build_synthetic_batch(
             dataset,
-            cell_line_block_names=["identity"],
+            sample_block_names=["identity"],
             drug_block_names=["fingerprints"],
         )
 
         np.testing.assert_array_equal(
-            with_blocks.cell_line.blocks["identity"].values,
-            with_blocks.cell_line.matrix,
+            with_blocks.sample.blocks["identity"].values,
+            with_blocks.sample.matrix,
         )
         np.testing.assert_array_equal(
             with_blocks.drug.blocks["fingerprints"].values,
@@ -154,11 +154,11 @@ class TestDeterminism:
         first = build_synthetic_batch(dataset)
         second = build_synthetic_batch(dataset)
 
-        np.testing.assert_array_equal(first.cell_line.matrix, second.cell_line.matrix)
+        np.testing.assert_array_equal(first.sample.matrix, second.sample.matrix)
         np.testing.assert_array_equal(first.response, second.response)
 
     def test_a_different_seed_gives_different_features(self, dataset):
         first = build_synthetic_batch(dataset, seed=1)
         second = build_synthetic_batch(dataset, seed=2)
 
-        assert not np.array_equal(first.cell_line.matrix, second.cell_line.matrix)
+        assert not np.array_equal(first.sample.matrix, second.sample.matrix)

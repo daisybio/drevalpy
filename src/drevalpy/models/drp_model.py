@@ -75,9 +75,9 @@ class DRPModel(_DRPLoggingMixin):
         return public_hyperparameters_from_config(self.config)
 
     @property
-    def cell_line_views(self) -> list[str]:
-        """Raw cell-line views consumed by the resolved model."""
-        return self.config.cell_line_views()
+    def sample_views(self) -> list[str]:
+        """Raw sample views consumed by the resolved model."""
+        return self.config.sample_views()
 
     @property
     def drug_views(self) -> list[str]:

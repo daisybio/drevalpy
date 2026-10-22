@@ -20,7 +20,7 @@ runner = make_runner()
 #: ``(command, registry attribute, a name that registry always contains)``.
 REGISTRY_COMMANDS = [
     pytest.param("predictors", "predictor", "naiveMean", id="predictors"),
-    pytest.param("cell-line-featurizers", "cell_line_featurizer", "identity", id="cell-line-featurizers"),
+    pytest.param("sample-featurizers", "sample_featurizer", "identity", id="sample-featurizers"),
     pytest.param("drug-featurizers", "drug_featurizer", "fingerprints", id="drug-featurizers"),
     pytest.param("splitters", "splitter", "LPO", id="splitters"),
     pytest.param("visualizations", "visualization", "heatmap", id="visualizations"),

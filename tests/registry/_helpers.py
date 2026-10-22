@@ -13,14 +13,14 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from drevalpy.registry._builtins import register_builtin_components
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
 from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.predictor import predictor_registry
+from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
 
 def clear_component_registries() -> None:
-    """Empty the cell-line featurizer, drug featurizer and predictor registries."""
-    cell_line_featurizer_registry.clear()
+    """Empty the sample featurizer, drug featurizer and predictor registries."""
+    sample_featurizer_registry.clear()
     drug_featurizer_registry.clear()
     predictor_registry.clear()
 

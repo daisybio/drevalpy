@@ -13,7 +13,7 @@ from drevalpy.components.featurizers.base import Featurizer
 @register_for_sides(
     "concatFeaturizers",
     description={
-        "cell_line": "Concatenate dense outputs from multiple cell-line featurizers.",
+        "sample": "Concatenate dense outputs from multiple sample featurizers.",
         "drug": "Concatenate dense outputs from multiple drug featurizers.",
     },
     contract=FeatureFormat.NUMERIC_MATRIX,

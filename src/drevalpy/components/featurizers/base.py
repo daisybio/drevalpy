@@ -32,10 +32,10 @@ class Featurizer(
 ):
     """Transform feature tables into per-entity representation payloads.
 
-    Cell-line featurizers consume cell-line features; drug featurizers consume
+    Sample featurizers consume sample features; drug featurizers consume
     drug features. Subclasses must be registered
-    to the cell-line or drug featurizer registry using
-    ``@register`` (from the cell_line_featurizer or drug_featurizer registry), so that
+    to the sample or drug featurizer registry using
+    ``@register`` (from the sample_featurizer or drug_featurizer registry), so that
     they can be discovered and used in models.
 
     Each subclass declares which raw feature views it reads via ``input_views``

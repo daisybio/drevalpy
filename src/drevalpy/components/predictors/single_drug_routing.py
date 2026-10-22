@@ -14,7 +14,7 @@ ROUTING_DRUG_FEATURIZER = "identity"
 Not a choice: a single-drug predictor fits one estimator per drug, so it needs the drug's
 identity to dispatch each pair to the right one. The identity featurizer emits exactly that,
 and its output is used as a routing key rather than as features, which is why the design
-matrix below is cell-line columns only.
+matrix below is sample columns only.
 """
 
 

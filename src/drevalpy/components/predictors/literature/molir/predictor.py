@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 @register(
     "molir",
     description="MOLIR single-drug multi-omics model.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=MOLIR_REFERENCE,
 )
@@ -55,13 +55,13 @@ class MOLIRPredictor(BlockPredictor):
     """MOLIR predictor: per-drug multi-omics late integration model."""
 
     scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = (
+    required_sample_blocks: ClassVar[tuple[str, ...]] = (
         "gene_expression",
         "mutations",
         "copy_number_variation_gistic",
     )
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
-    required_cell_line_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
         BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
         BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
@@ -83,7 +83,7 @@ class MOLIRPredictor(BlockPredictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Train per-drug MOLIR models.
 
-        :param batch: Training batch with all required cell-line omics blocks.
+        :param batch: Training batch with all required sample omics blocks.
         """
         require_known_training_keys(routing_keys(batch))
         self._models = {}
@@ -107,7 +107,7 @@ class MOLIRPredictor(BlockPredictor):
 
         if batch.n_pairs >= self._hyperparameters["mini_batch"]:
             model.fit(
-                train=matrices.split(batch.cell_line_pair_idx, np.asarray(batch.response, dtype=np.float32)),
+                train=matrices.split(batch.sample_pair_idx, np.asarray(batch.response, dtype=np.float32)),
                 val=validation_split(matrices, batch),
                 model_checkpoint_dir=str(batch.training_context.checkpoint_dir),
             )

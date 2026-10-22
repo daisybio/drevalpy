@@ -27,7 +27,7 @@ shapes need more than a moved import:
   base class where it contributes nothing (``DataLoader`` accepts any object with
   ``__getitem__``/``__len__``) or move the class into its own private module and
   re-export it lazily, as
-  ``featurizers/cell_line/_proteomics_transformer.py`` does.
+  ``featurizers/sample/_proteomics_transformer.py`` does.
 * A module-scope **side effect** that must happen before the library is imported
   anywhere must stay at module scope. ``xgboost_pred.py`` still calls
   ``_set_xgboost_thread_defaults()`` eagerly: deferring it to the import site let
@@ -106,7 +106,7 @@ DEFERRED_TRAINING_SYMBOLS = (
         "train_gene_expession_autoencoder",
     ),
     (
-        "drevalpy.components.featurizers.cell_line._proteomics_transformer",
+        "drevalpy.components.featurizers.sample._proteomics_transformer",
         "ProteomicsMedianCenterAndImputeTransformer",
     ),
 )
@@ -117,12 +117,12 @@ DEFERRED_TRAINING_SYMBOLS = (
 #: kind of indirection a rename would silently break.
 LAZY_RE_EXPORTS = (
     (
-        "drevalpy.components.featurizers.cell_line.normalized_proteomics",
+        "drevalpy.components.featurizers.sample.normalized_proteomics",
         "ProteomicsMedianCenterAndImputeTransformer",
     ),
-    ("drevalpy.components.featurizers.cell_line.dipk_gene_expression", "GeneExpressionEncoder"),
-    ("drevalpy.components.featurizers.cell_line.dipk_gene_expression", "encode_gene_expression"),
-    ("drevalpy.components.featurizers.cell_line.dipk_gene_expression", "train_gene_expession_autoencoder"),
+    ("drevalpy.components.featurizers.sample.dipk_gene_expression", "GeneExpressionEncoder"),
+    ("drevalpy.components.featurizers.sample.dipk_gene_expression", "encode_gene_expression"),
+    ("drevalpy.components.featurizers.sample.dipk_gene_expression", "train_gene_expession_autoencoder"),
 )
 
 _CHILD_SCRIPT = textwrap.dedent(f"""
@@ -136,7 +136,7 @@ _CHILD_SCRIPT = textwrap.dedent(f"""
         "leaked": sorted(name for name in {FORBIDDEN_STARTUP_IMPORTS!r} if name in sys.modules),
         "skipped": sorted(get_skipped_builtin_modules()),
         "n_predictors": len(drevalpy.registry.predictor.list()),
-        "n_cell_line_featurizers": len(drevalpy.registry.cell_line_featurizer.list()),
+        "n_sample_featurizers": len(drevalpy.registry.sample_featurizer.list()),
         "n_drug_featurizers": len(drevalpy.registry.drug_featurizer.list()),
     }}))
     """)
@@ -182,7 +182,7 @@ class TestAFreshImport:
         ("key", "expected"),
         [
             ("n_predictors", 27),
-            ("n_cell_line_featurizers", 17),
+            ("n_sample_featurizers", 17),
             ("n_drug_featurizers", 10),
         ],
     )
@@ -216,8 +216,8 @@ def test_lazy_re_export_resolves(module_name: str, symbol: str) -> None:
 @pytest.mark.parametrize(
     "module_name",
     [
-        "drevalpy.components.featurizers.cell_line.normalized_proteomics",
-        "drevalpy.components.featurizers.cell_line.dipk_gene_expression",
+        "drevalpy.components.featurizers.sample.normalized_proteomics",
+        "drevalpy.components.featurizers.sample.dipk_gene_expression",
     ],
 )
 def test_lazy_re_export_still_raises_for_unknown_names(module_name: str) -> None:

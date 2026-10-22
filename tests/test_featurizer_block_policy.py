@@ -9,9 +9,9 @@ import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.registry._builtins import register_builtin_components
-from drevalpy.registry.cell_line_featurizer import list as list_cell_line_featurizers
 from drevalpy.registry.drug_featurizer import list as list_drug_featurizers
 from drevalpy.registry.predictor import list as list_predictors
+from drevalpy.registry.sample_featurizer import list as list_sample_featurizers
 from drevalpy.types.data.batch.feature_block import (
     graph_feature_block,
     merge_feature_blocks,
@@ -28,7 +28,7 @@ def _register() -> None:
 
 
 def test_registry_discovery_counts() -> None:
-    assert len(list_cell_line_featurizers()) == 17
+    assert len(list_sample_featurizers()) == 17
     assert len(list_drug_featurizers()) == 10
     assert len(list_predictors()) == 27
 
@@ -47,7 +47,7 @@ def test_predictors_do_not_consume_raw_batch_inputs() -> None:
     predictors_root = DREVALPY / "components" / "predictors"
     for path in predictors_root.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
-        for needle in ("batch.cell_line_input", "batch.drug_input"):
+        for needle in ("batch.sample_input", "batch.drug_input"):
             if needle in text:
                 hits.append(f"{path.relative_to(REPO)}:{needle}")
     assert not hits, hits

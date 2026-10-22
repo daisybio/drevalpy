@@ -7,9 +7,9 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, FeaturizerConfig
+from drevalpy.models.config import DrugFeaturizerConfig, FeaturizerConfig, SampleFeaturizerConfig
 from drevalpy.models.config._block_specs import resolve_output_block_specs
-from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry
+from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from tests.models.config._stubs import register_featurizer_stub
 from tests.registry._helpers import isolated_component_registries
@@ -21,9 +21,9 @@ def _clear_registries() -> Iterator[None]:
 
 
 def test_view_fallback_emits_named_block() -> None:
-    register_featurizer_stub("viewCell", side="cell_line")
+    register_featurizer_stub("viewCell", side="sample")
 
-    config = CellLineFeaturizerConfig(name="viewCell", view="gene_expression")
+    config = SampleFeaturizerConfig(name="viewCell", view="gene_expression")
 
     assert resolve_output_block_specs(config) == (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
 
@@ -41,20 +41,20 @@ def test_declared_output_block_specs_win() -> None:
 
 
 def test_nested_concat_flattens_child_blocks() -> None:
-    from drevalpy.components.featurizers.shared.concat import CellLineConcatFeaturizer
+    from drevalpy.components.featurizers.shared.concat import SampleConcatFeaturizer
 
-    register_featurizer_stub("denseCellLine", side="cell_line")
-    cell_line_featurizer_registry.register_existing("concatFeaturizers", CellLineConcatFeaturizer)
+    register_featurizer_stub("denseSample", side="sample")
+    sample_featurizer_registry.register_existing("concatFeaturizers", SampleConcatFeaturizer)
 
-    config = CellLineFeaturizerConfig.model_validate(
+    config = SampleFeaturizerConfig.model_validate(
         {
             "name": "concatFeaturizers",
             "featurizers": [
-                {"name": "denseCellLine", "view": "gene_expression"},
+                {"name": "denseSample", "view": "gene_expression"},
                 {
                     "name": "concatFeaturizers",
                     "featurizers": [
-                        {"name": "denseCellLine", "view": "mutations"},
+                        {"name": "denseSample", "view": "mutations"},
                     ],
                 },
             ],
@@ -72,14 +72,14 @@ def test_sparsego_expression_and_mutations_block_names() -> None:
     register_builtin_components()
     expression = FeaturizerConfig(
         name="sparsegoOntology",
-        registry="cell_line",
+        registry="sample",
         hyperparameter_space={
             "input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": "expression"}
         },
     )
     mutations = FeaturizerConfig(
         name="sparsegoOntology",
-        registry="cell_line",
+        registry="sample",
         hyperparameter_space={
             "input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": "mutations"}
         },

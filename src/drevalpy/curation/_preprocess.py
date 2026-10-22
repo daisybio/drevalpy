@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
-_REQUIRED_COLUMNS = ["drug", "cell_line", "concentration", "intensity"]
+_REQUIRED_COLUMNS = ["drug", "sample", "concentration", "intensity"]
 
 
 def preprocess(df: pd.DataFrame) -> list[tuple[pd.DataFrame, dict]]:
@@ -14,7 +14,7 @@ def preprocess(df: pd.DataFrame) -> list[tuple[pd.DataFrame, dict]]:
     Parameters
     ----------
     df
-        Long-form DataFrame with columns: drug, cell_line, concentration,
+        Long-form DataFrame with columns: drug, sample, concentration,
         intensity, and optionally replicate.
 
     Returns:
@@ -27,8 +27,8 @@ def preprocess(df: pd.DataFrame) -> list[tuple[pd.DataFrame, dict]]:
 
     has_replicate = "replicate" in df.columns
 
-    df["mindose"] = df.groupby(["cell_line", "drug"])["concentration"].transform("min")
-    df["maxdose"] = df.groupby(["cell_line", "drug"])["concentration"].transform("max")
+    df["mindose"] = df.groupby(["sample", "drug"])["concentration"].transform("min")
+    df["maxdose"] = df.groupby(["sample", "drug"])["concentration"].transform("max")
 
     groupby: list[str] = []
     if df["maxdose"].nunique() > 1:
@@ -36,7 +36,7 @@ def preprocess(df: pd.DataFrame) -> list[tuple[pd.DataFrame, dict]]:
     if df["mindose"].nunique() > 1:
         groupby.append("mindose")
     if has_replicate:
-        df["nreplicates"] = df.groupby(["cell_line", "drug"])["replicate"].transform("nunique")
+        df["nreplicates"] = df.groupby(["sample", "drug"])["replicate"].transform("nunique")
         if df["nreplicates"].nunique() > 1:
             groupby.append("nreplicates")
 
@@ -71,7 +71,7 @@ def _prepare_wide(
         n_replicates = 1
         pivot_columns = ["concentration"]
 
-    dup_subset = ["cell_line", "drug"] + pivot_columns
+    dup_subset = ["sample", "drug"] + pivot_columns
     if curve_df.duplicated(subset=dup_subset).any():
         warnings.warn(
             f"Duplicate entries found for {tuple(dup_subset)} combinations. Aggregating using mean of 'intensity'.",
@@ -80,7 +80,7 @@ def _prepare_wide(
         )
         curve_df = curve_df.groupby(dup_subset, as_index=False)["intensity"].mean()
 
-    wide = curve_df.pivot(index=["cell_line", "drug"], columns=pivot_columns, values="intensity")
+    wide = curve_df.pivot(index=["sample", "drug"], columns=pivot_columns, values="intensity")
 
     if has_replicate:
         control_df = pd.DataFrame(

@@ -1,6 +1,6 @@
 """SRMF block predictor – Similarity Regularization Matrix Factorization.
 
-Original publication: Wang, L., Li, X., Zhang, L. et al. Improved anticancer drug response prediction in cell lines
+Original publication: Wang, L., Li, X., Zhang, L. et al. Improved anticancer drug response prediction in samples
 using matrix factorization with similarity regularization. BMC Cancer 17, 513 (2017).
 https://doi.org/10.1186/s12885-017-3500-5.
 Matlab code adapted from https://github.com/linwang1982/SRMF.
@@ -28,14 +28,14 @@ if TYPE_CHECKING:
 @register(
     "srmf",
     description="SRMF matrix factorization model.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=SRMF_REFERENCE,
 )
 class SRMFPredictor(BlockPredictor):
     """Registered SRMF predictor using similarity-regularized matrix factorization."""
 
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("fingerprints",)
     supports_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
@@ -112,26 +112,26 @@ class SRMFPredictor(BlockPredictor):
         """
         import pandas as pd
 
-        cell_lines = batch.cell_line.entity_ids
+        samples = batch.sample.entity_ids
         if batch.drug is None:
             msg = "SRMF requires drug features"
             raise ValueError(msg)
 
         drugs = batch.drug.entity_ids
-        response_matrix = self._response_matrix(batch, cell_lines, drugs)
+        response_matrix = self._response_matrix(batch, samples, drugs)
         observed = ~np.isnan(response_matrix)
         response_matrix_filled = np.where(observed, response_matrix, 0.0)
 
-        # _cmf works in (drugs x cell_lines) orientation, hence the transpositions.
+        # _cmf works in (drugs x samples) orientation, hence the transpositions.
         best_u, best_v = self._cmf(
             w=observed.T,
             int_mat=response_matrix_filled.T,
             drug_mat=self._drug_similarity(batch.drug.blocks["fingerprints"].values),
-            cell_mat=np.corrcoef(batch.cell_line.blocks["gene_expression"].values, rowvar=True),
+            cell_mat=np.corrcoef(batch.sample.blocks["gene_expression"].values, rowvar=True),
         )
 
         self._best_u = pd.DataFrame(best_u, index=[str(d) for d in drugs])
-        self._best_v = pd.DataFrame(best_v, index=[str(c) for c in cell_lines])
+        self._best_v = pd.DataFrame(best_v, index=[str(c) for c in samples])
         self._training_mean = float(np.nanmean(batch.response))
 
     @staticmethod
@@ -153,17 +153,17 @@ class SRMFPredictor(BlockPredictor):
     @staticmethod
     def _response_matrix(
         batch: ModelInputBatch,
-        cell_lines: np.ndarray,
+        samples: np.ndarray,
         drugs: np.ndarray,
     ) -> np.ndarray:
-        """Pivot the pair-level response into a cell-line x drug matrix.
+        """Pivot the pair-level response into a sample x drug matrix.
 
         Duplicate pairs are averaged, matching the grouped mean the original pandas
         implementation took. Unobserved cells stay ``NaN`` so the caller can derive the
         weight mask from them.
 
         :param batch: Training batch with response data.
-        :param cell_lines: Cell-line entity ids, in row order.
+        :param samples: Sample entity ids, in row order.
         :param drugs: Drug entity ids, in column order.
         :returns: Response matrix with ``NaN`` for unobserved pairs.
         :raises ValueError: If batch has no response data.
@@ -172,12 +172,12 @@ class SRMFPredictor(BlockPredictor):
             msg = "SRMF requires training response data"
             raise ValueError(msg)
 
-        cl_id_to_idx = {str(cid): i for i, cid in enumerate(cell_lines)}
+        cl_id_to_idx = {str(cid): i for i, cid in enumerate(samples)}
         dr_id_to_idx = {str(did): i for i, did in enumerate(drugs)}
         sums: dict[tuple[int, int], float] = {}
         counts: dict[tuple[int, int], int] = {}
         for pair_idx in range(batch.n_pairs):
-            cl_idx = cl_id_to_idx.get(str(batch.cell_line_ids[pair_idx]))
+            cl_idx = cl_id_to_idx.get(str(batch.sample_ids[pair_idx]))
             dr_idx = dr_id_to_idx.get(str(batch.drug_ids[pair_idx]))
             if cl_idx is None or dr_idx is None:
                 continue
@@ -185,7 +185,7 @@ class SRMFPredictor(BlockPredictor):
             sums[key] = sums.get(key, 0.0) + batch.response[pair_idx]
             counts[key] = counts.get(key, 0) + 1
 
-        matrix = np.full((len(cell_lines), len(drugs)), np.nan, dtype=np.float64)
+        matrix = np.full((len(samples), len(drugs)), np.nan, dtype=np.float64)
         for (ci, di), total in sums.items():
             matrix[ci, di] = total / counts[(ci, di)]
         return matrix
@@ -200,10 +200,10 @@ class SRMFPredictor(BlockPredictor):
         :param batch: Featurized pairs to score.
         :returns: One predicted response per pair.
         """
-        drug_ids, cell_line_ids = batch.drug_ids.astype(str), batch.cell_line_ids.astype(str)
+        drug_ids, sample_ids = batch.drug_ids.astype(str), batch.sample_ids.astype(str)
         best_u = np.ascontiguousarray(self._best_u.reindex(drug_ids).to_numpy())
-        best_v = np.ascontiguousarray(self._best_v.reindex(cell_line_ids).to_numpy())
-        known = np.isin(drug_ids, self._best_u.index) & np.isin(cell_line_ids, self._best_v.index)
+        best_v = np.ascontiguousarray(self._best_v.reindex(sample_ids).to_numpy())
+        known = np.isin(drug_ids, self._best_u.index) & np.isin(sample_ids, self._best_v.index)
         # A mean response is a prediction fallback, not a latent coordinate:
         # multiplying mean-filled vectors would return K * mean**2.
         return np.where(known, np.einsum("ij,ji->i", best_u, best_v.T), self._training_mean)
@@ -273,11 +273,11 @@ class SRMFPredictor(BlockPredictor):
     ) -> tuple[np.ndarray, np.ndarray]:
         """Collective matrix factorization with similarity regularization.
 
-        :param w: Binary weight matrix (drugs x cell_lines).
-        :param int_mat: Response interaction matrix (drugs x cell_lines).
+        :param w: Binary weight matrix (drugs x samples).
+        :param int_mat: Response interaction matrix (drugs x samples).
         :param drug_mat: Drug-drug similarity matrix.
-        :param cell_mat: Cell-line similarity matrix.
-        :returns: Best drug and cell-line latent factors.
+        :param cell_mat: Sample similarity matrix.
+        :returns: Best drug and sample latent factors.
         """
         rng = np.random.default_rng(self._seed)
         m, n = w.shape
@@ -320,11 +320,11 @@ class SRMFPredictor(BlockPredictor):
         """Compute SRMF loss including similarity regularization.
 
         :param u: Drug latent factors.
-        :param v: Cell-line latent factors.
+        :param v: Sample latent factors.
         :param w: Binary weight matrix.
         :param int_mat: Response interaction matrix.
         :param drug_mat: Drug-drug similarity matrix.
-        :param cell_mat: Cell-line similarity matrix.
+        :param cell_mat: Sample similarity matrix.
         :returns: Total loss value.
         """
         loss = np.sum((w * (int_mat - np.dot(u, v.T))) ** 2)

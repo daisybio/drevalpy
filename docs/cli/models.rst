@@ -63,7 +63,7 @@ under your extensions directory:
 .. code-block:: yaml
 
    MyCustomEN:
-     cell_line_featurizer:
+     sample_featurizer:
        name: pca
        view: expression
      drug_featurizer: fingerprints

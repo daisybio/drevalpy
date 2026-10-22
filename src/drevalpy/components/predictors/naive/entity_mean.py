@@ -13,7 +13,7 @@ from drevalpy.registry.predictor import register
     "naiveDrugMean",
     tags=("baseline",),
     description="Predict per-drug mean response with global fallback.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NaiveDrugMeanPredictor(SingleEntityNaivePredictor):
@@ -23,13 +23,13 @@ class NaiveDrugMeanPredictor(SingleEntityNaivePredictor):
 
 
 @register(
-    "naiveCellLineMean",
+    "naiveSampleMean",
     tags=("baseline",),
-    description="Predict per-cell-line mean response with global fallback.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    description="Predict per-sample mean response with global fallback.",
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
-class NaiveCellLineMeanPredictor(SingleEntityNaivePredictor):
-    """Naive cell line mean predictor component."""
+class NaiveSampleMeanPredictor(SingleEntityNaivePredictor):
+    """Naive sample mean predictor component."""
 
-    _feature_side: ClassVar[str] = "cell_line"
+    _feature_side: ClassVar[str] = "sample"

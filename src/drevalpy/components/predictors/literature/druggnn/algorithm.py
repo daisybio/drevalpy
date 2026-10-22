@@ -14,7 +14,7 @@ class DrugGraphNet(nn.Module):
         """Initialize the network.
 
         :param num_node_features: Number of features for each node in the drug graph.
-        :param num_cell_features: Number of features for the cell line.
+        :param num_cell_features: Number of features for the sample.
         :param hidden_dim: The hidden dimension size.
         :param dropout: The dropout rate.
         """
@@ -40,7 +40,7 @@ class DrugGraphNet(nn.Module):
         """Forward pass of the network.
 
         :param drug_graph: The drug graph.
-        :param cell_features: The cell line features.
+        :param cell_features: The sample features.
 
         :returns: return: The output of the network.
         """
@@ -61,7 +61,7 @@ class DrugGraphNet(nn.Module):
         drug_embedding = global_mean_pool(x, batch)
         drug_embedding = self.drug_embed_fc(drug_embedding)
 
-        # Process cell line features
+        # Process sample features
         cell_embedding = nn.functional.relu(self.cell_fc1(cell_features))
         cell_embedding = nn.functional.dropout(cell_embedding, p=self.dropout, training=self.training)
         cell_embedding = self.cell_fc2(cell_embedding)
@@ -90,7 +90,7 @@ class DrugGNNModule(pl.LightningModule):
         """Initialize the LightningModule.
 
         :param num_node_features: Number of features for each node in the drug graph.
-        :param num_cell_features: Number of features for the cell line.
+        :param num_cell_features: Number of features for the sample.
         :param hidden_dim: The hidden dimension size.
         :param dropout: The dropout rate.
         :param learning_rate: The learning rate.

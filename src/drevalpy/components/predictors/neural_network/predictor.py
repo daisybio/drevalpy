@@ -29,8 +29,8 @@ if TYPE_CHECKING:
 
 @register(
     "neuralNetwork",
-    description="Dense feed-forward network on concatenated cell-line and drug features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    description="Dense feed-forward network on concatenated sample and drug features.",
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NeuralNetworkPredictor(MatrixPredictor):
@@ -113,8 +113,8 @@ class NeuralNetworkPredictor(MatrixPredictor):
         :returns: Total feature dimensionality per pair.
         """
         dim = 0
-        if batch.cell_line.matrix.size > 0 and batch.cell_line.matrix.ndim == 2:
-            dim += batch.cell_line.matrix.shape[1]
+        if batch.sample.matrix.size > 0 and batch.sample.matrix.ndim == 2:
+            dim += batch.sample.matrix.shape[1]
         if batch.drug is not None and batch.drug.matrix.size > 0 and batch.drug.matrix.ndim == 2:
             dim += batch.drug.matrix.shape[1]
         return dim
@@ -132,7 +132,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
         """Build a lazy pair loader from entity matrices and pair indices.
 
         :param batch: Batch providing entity-level feature matrices.
-        :param cell_pair_idx: Cell-line pair indices.
+        :param cell_pair_idx: Sample pair indices.
         :param drug_pair_idx: Drug pair indices (or None).
         :param response: Optional response array.
         :param shuffle: Whether to shuffle.
@@ -144,8 +144,8 @@ class NeuralNetworkPredictor(MatrixPredictor):
             batch_size = 1
 
         specs: list[tuple[np.ndarray, np.ndarray]] = []
-        if batch.cell_line.matrix.size > 0:
-            specs.append((batch.cell_line.matrix, cell_pair_idx))
+        if batch.sample.matrix.size > 0:
+            specs.append((batch.sample.matrix, cell_pair_idx))
         if batch.drug is not None and batch.drug.matrix.size > 0 and drug_pair_idx is not None:
             specs.append((batch.drug.matrix, drug_pair_idx))
 
@@ -169,7 +169,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
         batch_size = min(int(self._hyperparameters.get("batch_size", 16)), batch.n_pairs)
         train_loader = self._build_pair_loader(
             batch,
-            batch.cell_line_pair_idx,
+            batch.sample_pair_idx,
             batch.drug_pair_idx,
             y,
             shuffle=True,
@@ -239,7 +239,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
 
         loader = self._build_pair_loader(
             batch,
-            batch.cell_line_pair_idx,
+            batch.sample_pair_idx,
             batch.drug_pair_idx,
             response=None,
             shuffle=False,

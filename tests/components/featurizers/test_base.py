@@ -28,17 +28,17 @@ from drevalpy.components.contracts.contracts import FeatureContract, FeatureForm
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.registry._builtins import register_builtin_components
-from drevalpy.registry.cell_line_featurizer import (
-    get as get_cell_line_featurizer,
-)
-from drevalpy.registry.cell_line_featurizer import (
-    list as list_cell_line_featurizers,
-)
 from drevalpy.registry.drug_featurizer import (
     get as get_drug_featurizer,
 )
 from drevalpy.registry.drug_featurizer import (
     list as list_drug_featurizers,
+)
+from drevalpy.registry.sample_featurizer import (
+    get as get_sample_featurizer,
+)
+from drevalpy.registry.sample_featurizer import (
+    list as list_sample_featurizers,
 )
 from drevalpy.types.data.batch.feature_block import (
     FeaturizerResult,
@@ -63,12 +63,12 @@ def _register_components() -> None:
 
 def _featurizer_names(registry: str) -> list[str]:
     register_builtin_components()
-    return list_cell_line_featurizers() if registry == "cell_line" else list_drug_featurizers()
+    return list_sample_featurizers() if registry == "sample" else list_drug_featurizers()
 
 
-@pytest.mark.parametrize("registry", ["cell_line", "drug"])
+@pytest.mark.parametrize("registry", ["sample", "drug"])
 def test_every_featurizer_declares_input_views(registry: str) -> None:
-    get = get_cell_line_featurizer if registry == "cell_line" else get_drug_featurizer
+    get = get_sample_featurizer if registry == "sample" else get_drug_featurizer
     names = _featurizer_names(registry)
     assert names
     for name in names:
@@ -81,18 +81,18 @@ def test_every_featurizer_declares_input_views(registry: str) -> None:
         assert all(isinstance(view, str) and view.strip() for view in views), name
 
 
-@pytest.mark.parametrize("registry", ["cell_line", "drug"])
+@pytest.mark.parametrize("registry", ["sample", "drug"])
 def test_entity_id_only_featurizers_need_no_views(registry: str) -> None:
-    get = get_cell_line_featurizer if registry == "cell_line" else get_drug_featurizer
+    get = get_sample_featurizer if registry == "sample" else get_drug_featurizer
     entity_id_only = [name for name in _featurizer_names(registry) if get(name).entity_id_only]
     assert entity_id_only
     for name in entity_id_only:
         assert get(name).resolve_input_views() == (), name
 
 
-@pytest.mark.parametrize("registry", ["cell_line", "drug"])
+@pytest.mark.parametrize("registry", ["sample", "drug"])
 def test_concat_featurizer_refuses_standalone_view_resolution(registry: str) -> None:
-    get = get_cell_line_featurizer if registry == "cell_line" else get_drug_featurizer
+    get = get_sample_featurizer if registry == "sample" else get_drug_featurizer
     cls = get("concatFeaturizers")
     with pytest.raises(TypeError, match="has no input views of its own"):
         cls.resolve_input_views()
@@ -100,14 +100,14 @@ def test_concat_featurizer_refuses_standalone_view_resolution(registry: str) -> 
 
 @pytest.mark.parametrize("name", ["raw", "pca"])
 def test_view_parameterized_featurizers_require_an_explicit_view(name: str) -> None:
-    cls = get_cell_line_featurizer(name)
+    cls = get_sample_featurizer(name)
     assert cls.requires_view
     assert cls.resolve_input_views(view="mutations") == ("mutations",)
     with pytest.raises(TypeError, match="requires an explicit view"):
         cls.resolve_input_views()
 
 
-_CELL_LINE_CONTRACTS = [
+_SAMPLE_CONTRACTS = [
     ("landmarkGenes", FeatureFormat.NUMERIC_MATRIX),
     ("landmarkGenesReduced", FeatureFormat.NUMERIC_MATRIX),
     ("pathways", FeatureFormat.NUMERIC_MATRIX),
@@ -130,12 +130,12 @@ _DRUG_CONTRACTS = [
 ]
 
 
-@pytest.mark.parametrize(("name", "expected_format"), _CELL_LINE_CONTRACTS)
-def test_cell_line_literature_featurizer_contracts(
+@pytest.mark.parametrize(("name", "expected_format"), _SAMPLE_CONTRACTS)
+def test_sample_literature_featurizer_contracts(
     name: str,
     expected_format: FeatureFormat,
 ) -> None:
-    cls = get_cell_line_featurizer(name)
+    cls = get_sample_featurizer(name)
     contract = featurizer_contract(cls)
     assert isinstance(contract, FeatureContract)
     assert contract.format == expected_format
@@ -160,7 +160,7 @@ _NO_FIXTURE_SOURCE = {"bionic", "sparsegoOntology"}
 
 @pytest.mark.parametrize(
     ("name", "getter"),
-    [(name, get_cell_line_featurizer) for name, _ in _CELL_LINE_CONTRACTS]
+    [(name, get_sample_featurizer) for name, _ in _SAMPLE_CONTRACTS]
     + [(name, get_drug_featurizer) for name, _ in _DRUG_CONTRACTS],
 )
 def test_literature_featurizer_source_views_exist_in_the_fixture(
@@ -473,11 +473,11 @@ def test_transform_features_pads_object_rows_and_preserves_metadata() -> None:
 # ----------------------------------------------------------------------
 
 
-class _StoredCellLine(DoublingFeaturizer):
-    """Cell-line-side featurizer with a storage key, for variant round-trips."""
+class _StoredSample(DoublingFeaturizer):
+    """Sample-side featurizer with a storage key, for variant round-trips."""
 
-    storage_key = "stored_cell_line"
-    side = "cell_line"
+    storage_key = "stored_sample"
+    side = "sample"
 
 
 class _StoredDrug(DoublingFeaturizer):
@@ -492,21 +492,21 @@ def test_fetch_returns_none_when_no_variant_matches() -> None:
 
     dataset = synthetic_mudataset_gene_expression_fingerprints()
 
-    assert _StoredCellLine().fetch(dataset.mdata, dataset.cell_line_ids) is None
+    assert _StoredSample().fetch(dataset.mdata, dataset.sample_ids) is None
 
 
-def test_store_then_fetch_round_trips_a_cell_line_variant() -> None:
+def test_store_then_fetch_round_trips_a_sample_variant() -> None:
     from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    featurizer = _StoredCellLine()
+    featurizer = _StoredSample()
     payload = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
 
-    featurizer.store(dataset.mdata, dataset.cell_line_ids, payload, {"scale": 2})
+    featurizer.store(dataset.mdata, dataset.sample_ids, payload, {"scale": 2})
 
-    assert list(_StoredCellLine.list_stored_variants(dataset.mdata)) == ["stored_cell_line_0"]
+    assert list(_StoredSample.list_stored_variants(dataset.mdata)) == ["stored_sample_0"]
     np.testing.assert_allclose(
-        featurizer.fetch(dataset.mdata, dataset.cell_line_ids, {"scale": 2}),
+        featurizer.fetch(dataset.mdata, dataset.sample_ids, {"scale": 2}),
         payload,
     )
 
@@ -527,15 +527,15 @@ def test_store_allocates_a_fresh_index_per_hyperparameter_setting() -> None:
     from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    featurizer = _StoredCellLine()
+    featurizer = _StoredSample()
     payload = np.zeros((2, 2), dtype=np.float32)
 
-    featurizer.store(dataset.mdata, dataset.cell_line_ids, payload, {"scale": 2})
-    featurizer.store(dataset.mdata, dataset.cell_line_ids, payload, {"scale": 4})
+    featurizer.store(dataset.mdata, dataset.sample_ids, payload, {"scale": 2})
+    featurizer.store(dataset.mdata, dataset.sample_ids, payload, {"scale": 4})
 
-    assert list(_StoredCellLine.list_stored_variants(dataset.mdata)) == [
-        "stored_cell_line_0",
-        "stored_cell_line_1",
+    assert list(_StoredSample.list_stored_variants(dataset.mdata)) == [
+        "stored_sample_0",
+        "stored_sample_1",
     ]
 
 
@@ -546,13 +546,13 @@ def test_fetch_prefers_a_modality_over_obsm() -> None:
 
     class _ModalityBacked(DoublingFeaturizer):
         storage_key = "gene_expression"
-        side = "cell_line"
+        side = "sample"
 
     from drevalpy.components.featurizers.storage import register_variant
 
-    register_variant(dataset.mdata, "gene_expression", "gene_expression", None, side="cell_line")
+    register_variant(dataset.mdata, "gene_expression", "gene_expression", None, side="sample")
 
-    matrix = _ModalityBacked().fetch(dataset.mdata, dataset.cell_line_ids)
+    matrix = _ModalityBacked().fetch(dataset.mdata, dataset.sample_ids)
 
     assert matrix is not None
     assert matrix.shape == (2, 3)

@@ -1,9 +1,9 @@
 """Unified registry module -- all registries, extension loading, plugin discovery."""
 
-from . import cell_line_featurizer as cell_line_featurizer
 from . import dataset as dataset
 from . import drug_featurizer as drug_featurizer
 from . import predictor as predictor
+from . import sample_featurizer as sample_featurizer
 from . import splitter as splitter
 from . import visualization as visualization
 from ._builtins import get_skipped_builtin_modules as get_skipped_builtin_modules

@@ -11,10 +11,10 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.models.config import (
-    CellLineFeaturizerConfig,
     DrugFeaturizerConfig,
     ModelConfig,
     PredictorConfig,
+    SampleFeaturizerConfig,
 )
 from drevalpy.models.config._hp_key_validation import (
     _predictor_accepted_keys,
@@ -33,7 +33,7 @@ def _registry() -> None:
 def config() -> ModelConfig:
     """A PCA / fingerprints / elastic-net stack, all three slots tunable."""
     return ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="pca", view="gene_expression"),
+        sample_featurizer=SampleFeaturizerConfig(name="pca", view="gene_expression"),
         drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
         predictor=PredictorConfig(name="elasticNet"),
     )
@@ -50,7 +50,7 @@ class TestValidateMergedMapping:
         [
             pytest.param("predictor.elasticNet.alpha", id="tunable-predictor-param"),
             pytest.param("predictor.elasticNet.max_iter", id="non-tunable-predictor-param"),
-            pytest.param("cell_line_featurizer.pca[gene_expression].n_components", id="cell-line-featurizer-param"),
+            pytest.param("sample_featurizer.pca[gene_expression].n_components", id="sample-featurizer-param"),
             pytest.param("drug_featurizer.fingerprints.radius", id="drug-featurizer-param"),
         ],
     )
@@ -60,7 +60,7 @@ class TestValidateMergedMapping:
     def test_accepts_several_keys_at_once(self, config: ModelConfig) -> None:
         merged = {
             "predictor.elasticNet.alpha": 0.5,
-            "cell_line_featurizer.pca[gene_expression].n_components": 32,
+            "sample_featurizer.pca[gene_expression].n_components": 32,
             "drug_featurizer.fingerprints.n_bits": 1024,
         }
 
@@ -72,7 +72,7 @@ class TestValidateMergedMapping:
             pytest.param("predictor.elasticNet.not_a_knob", id="unknown-predictor-param"),
             pytest.param("predictor.randomForest.n_estimators", id="another-predictors-param"),
             pytest.param("alpha", id="unqualified-key"),
-            pytest.param("cell_line_featurizer.pca.n_components", id="missing-view-qualifier"),
+            pytest.param("sample_featurizer.pca.n_components", id="missing-view-qualifier"),
             pytest.param("drug_featurizer.fingerprints[smiles].radius", id="unexpected-view-qualifier"),
         ],
     )
@@ -83,52 +83,52 @@ class TestValidateMergedMapping:
     def test_the_indexed_form_reports_the_migration_error(self, config: ModelConfig) -> None:
         """The indexed check runs before the membership check, so the hint wins."""
         with pytest.raises(ValueError, match="no longer supported"):
-            validate_merged_mapping(config, {"cell_line_featurizer.pca.0.n_components": 32})
+            validate_merged_mapping(config, {"sample_featurizer.pca.0.n_components": 32})
 
     def test_expands_concat_children_into_leaf_selectors(self) -> None:
         config = ModelConfig.model_validate(
             {
-                "cell_line_featurizer": ["scaledGeneExpression", {"pca[methylation]": {"n_components": 32}}],
+                "sample_featurizer": ["scaledGeneExpression", {"pca[methylation]": {"n_components": 32}}],
                 "drug_featurizer": "fingerprints",
                 "predictor": "elasticNet",
             }
         )
 
-        assert validate_merged_mapping(config, {"cell_line_featurizer.pca[methylation].n_components": 8}) is None
+        assert validate_merged_mapping(config, {"sample_featurizer.pca[methylation].n_components": 8}) is None
 
     def test_the_concat_parent_itself_is_not_addressable(self) -> None:
         config = ModelConfig.model_validate(
             {
-                "cell_line_featurizer": ["scaledGeneExpression", {"pca[methylation]": {"n_components": 32}}],
+                "sample_featurizer": ["scaledGeneExpression", {"pca[methylation]": {"n_components": 32}}],
                 "drug_featurizer": "fingerprints",
                 "predictor": "elasticNet",
             }
         )
 
         with pytest.raises(ValueError, match="Unknown hyperparameter"):
-            validate_merged_mapping(config, {"cell_line_featurizer.concatFeaturizers.n_components": 8})
+            validate_merged_mapping(config, {"sample_featurizer.concatFeaturizers.n_components": 8})
 
     def test_a_featurizer_without_a_declared_space_accepts_nothing(self, config: ModelConfig) -> None:
         no_knobs = ModelConfig(
-            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression", view="gene_expression"),
+            sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression", view="gene_expression"),
             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
             predictor=PredictorConfig(name="elasticNet"),
         )
 
         with pytest.raises(ValueError, match="Unknown hyperparameter"):
             validate_merged_mapping(
-                no_knobs, {"cell_line_featurizer.scaledGeneExpression[gene_expression].n_components": 8}
+                no_knobs, {"sample_featurizer.scaledGeneExpression[gene_expression].n_components": 8}
             )
 
     def test_a_feature_free_stack_accepts_no_featurizer_keys(self) -> None:
         config = ModelConfig(
-            cell_line_featurizer=None,
+            sample_featurizer=None,
             drug_featurizer=None,
             predictor=PredictorConfig(name="naiveMean"),
         )
 
         with pytest.raises(ValueError, match="Unknown hyperparameter"):
-            validate_merged_mapping(config, {"cell_line_featurizer.pca[gene_expression].n_components": 8})
+            validate_merged_mapping(config, {"sample_featurizer.pca[gene_expression].n_components": 8})
 
 
 class TestPredictorAcceptedKeys:

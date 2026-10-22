@@ -44,13 +44,13 @@ _COLON = pp.Suppress(_SLOT_SEP)
 
 _FEATURIZER_RECIPE = _FEATURIZERS + pp.StringEnd()
 _MODEL_RECIPE = (
-    _SLOT("cell_line") + _COLON + _SLOT("drug") + _COLON + _NAME("predictor")
-    | _SLOT("cell_line") + _COLON + _NAME("predictor")
+    _SLOT("sample") + _COLON + _SLOT("drug") + _COLON + _NAME("predictor")
+    | _SLOT("sample") + _COLON + _NAME("predictor")
     | _NAME("predictor")
 ) + pp.StringEnd()
 
 _FEATURIZER_SYNTAX = "atoms must be non-empty and shaped 'name' or 'name[view]', joined by '+'"
-_MODEL_SYNTAX = "expected 'predictor', 'cellLineFeaturizer:predictor', or 'cellLineFeaturizer:drugFeaturizer:predictor'"
+_MODEL_SYNTAX = "expected 'predictor', 'sampleFeaturizer:predictor', or 'sampleFeaturizer:drugFeaturizer:predictor'"
 
 
 def parse_featurizer_atoms(token: str) -> list[tuple[str, str | None]]:
@@ -114,7 +114,7 @@ def parse_model_recipe(spec: str) -> dict[str, Any]:
     mistaken for a slot separator.
 
     :param spec: ``predictor``, ``cell:predictor``, or ``cell:drug:predictor``.
-    :returns: ``cell_line_featurizer``, ``drug_featurizer`` and ``predictor`` entries; the two
+    :returns: ``sample_featurizer``, ``drug_featurizer`` and ``predictor`` entries; the two
         featurizer slots are ``None`` when the recipe omits them.
     :raises ValueError: If *spec* is empty or not a well-formed model recipe.
     """
@@ -126,35 +126,35 @@ def parse_model_recipe(spec: str) -> dict[str, Any]:
     except pp.ParseBaseException as exc:
         msg = f"Malformed model recipe {spec!r}: {_MODEL_SYNTAX}"
         raise ValueError(msg) from exc
-    cell_line = parsed.get("cell_line")
+    sample = parsed.get("sample")
     drug = parsed.get("drug")
     return {
-        "cell_line_featurizer": expand_featurizer_recipe(cell_line) if cell_line is not None else None,
+        "sample_featurizer": expand_featurizer_recipe(sample) if sample is not None else None,
         "drug_featurizer": expand_featurizer_recipe(drug) if drug is not None else None,
         "predictor": parsed["predictor"],
     }
 
 
-def format_model_recipe(cell_line: str | None, drug: str | None, predictor: str) -> str:
+def format_model_recipe(sample: str | None, drug: str | None, predictor: str) -> str:
     """Join component names back into a model recipe.
 
     Writes the grammar that ``parse_model_recipe`` reads, and the only place the slot
     separator is written out. A recipe names its slots left to right, so a drug slot without
-    a cell-line slot has nowhere to go.
+    a sample slot has nowhere to go.
 
-    :param cell_line: Cell-line featurizer name, or ``None`` for feature-free predictors.
+    :param sample: Sample featurizer name, or ``None`` for feature-free predictors.
     :param drug: Drug featurizer name, or ``None`` when omitted.
     :param predictor: Predictor name.
     :returns: Model recipe of one to three colon-separated parts.
-    :raises ValueError: If *predictor* is empty, or *drug* is set without *cell_line*.
+    :raises ValueError: If *predictor* is empty, or *drug* is set without *sample*.
     """
     if not predictor:
         msg = "predictor is required"
         raise ValueError(msg)
-    if cell_line is None and drug is None:
+    if sample is None and drug is None:
         return predictor
-    if cell_line is None:
-        msg = "cell_line is required when drug is set"
+    if sample is None:
+        msg = "sample is required when drug is set"
         raise ValueError(msg)
-    parts = [cell_line, predictor] if drug is None else [cell_line, drug, predictor]
+    parts = [sample, predictor] if drug is None else [sample, drug, predictor]
     return _SLOT_SEP.join(parts)

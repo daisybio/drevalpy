@@ -171,7 +171,7 @@ class TestEndToEnd:
         fold = split(synthetic_dataset, "LCO", n_splits=2)[0]
         pairs = fold.test.pairs
 
-        np.testing.assert_array_equal(result.cell_line_ids, synthetic_dataset.cell_line_ids[pairs[:, 0]])
+        np.testing.assert_array_equal(result.sample_ids, synthetic_dataset.sample_ids[pairs[:, 0]])
         np.testing.assert_array_equal(result.drug_ids, synthetic_dataset.drug_ids[pairs[:, 1]])
 
     def test_ground_truth_is_read_from_the_response_matrix(self, result: RunResult, synthetic_dataset) -> None:
@@ -536,7 +536,7 @@ def test_direct_masks_are_validated_before_training(stub_model, synthetic_datase
     elif defect == "pair_overlap":
         masks = replace(masks, test=SplitMask(masks.train.mask.copy()))
     else:
-        # Distinct responses still leak the same cell line in LCO mode.
+        # Distinct responses still leak the same sample in LCO mode.
         masks.train.mask[0, 0] = False
         masks.test.mask[0, 0] = True
 

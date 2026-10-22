@@ -115,7 +115,7 @@ class TestEndToEndUsage:
             check(predictor.get("ridge"), batch)
 
     def test_a_featurizer_can_be_checked_with_no_arguments_at_all(self):
-        from drevalpy.registry import cell_line_featurizer
+        from drevalpy.registry import sample_featurizer
 
         for check in testing.FEATURIZER_CHECKS:
-            check(cell_line_featurizer.get("identity"))
+            check(sample_featurizer.get("identity"))

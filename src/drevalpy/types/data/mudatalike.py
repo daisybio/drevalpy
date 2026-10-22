@@ -19,8 +19,8 @@ class MuDataLike(Protocol):
     """
 
     @property
-    def cell_line_ids(self) -> np.ndarray:
-        """1-D array of cell line identifiers (obs_names of the response modality)."""
+    def sample_ids(self) -> np.ndarray:
+        """1-D array of sample identifiers (obs_names of the response modality)."""
         ...
 
     @property
@@ -30,11 +30,11 @@ class MuDataLike(Protocol):
 
     @property
     def response_matrix(self) -> np.ndarray:
-        """2-D float array (n_cell_lines x n_drugs). NaN where no measurement."""
+        """2-D float array (n_samples x n_drugs). NaN where no measurement."""
         ...
 
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
-        """Return tissue labels for the given cell line IDs."""
+        """Return tissue labels for the given sample IDs."""
         ...
 
     def response_layer_names(self) -> list[str]:
@@ -42,5 +42,5 @@ class MuDataLike(Protocol):
         ...
 
     def get_response_layer(self, name: str) -> np.ndarray:
-        """2-D float array (n_cell_lines x n_drugs) for a named response layer."""
+        """2-D float array (n_samples x n_drugs) for a named response layer."""
         ...

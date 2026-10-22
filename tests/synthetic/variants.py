@@ -4,7 +4,7 @@ The main fixture in :mod:`tests.synthetic.builders` has **complete** modality
 coverage, which keeps the common case fast and keeps unrelated failures out of
 the model gate. :func:`build_partial_coverage_dataset` covers the other side:
 it reproduces the ragged coverage the published datasets have (the smaller toy
-dataset carries gene expression for 88 of its 90 cell lines), which drives the
+dataset carries gene expression for 88 of its 90 samples), which drives the
 NaN-filtering path in ``PredictorBase.fit`` and therefore
 ``ModelInputBatch.subset_pairs`` with a multi-drug mask.
 """
@@ -18,15 +18,15 @@ import pytest
 from _pytest.mark import ParameterSet
 
 from drevalpy.types.data.dataset import Dataset
-from tests.synthetic.builders import N_CELL_LINES, build_synthetic_dataset
+from tests.synthetic.builders import N_SAMPLES, build_synthetic_dataset
 
-#: Cell lines covered per public omics name in the partial-coverage variant.
+#: Samples covered per public omics name in the partial-coverage variant.
 #: Any omics view left out keeps full coverage.
 PARTIAL_COVERAGE: Final[dict[str, int]] = {
-    "gene_expression": N_CELL_LINES - 2,
-    "proteomics": N_CELL_LINES - 3,
-    "methylation": N_CELL_LINES - 6,
-    "copy_number_variation_gistic": N_CELL_LINES - 2,
+    "gene_expression": N_SAMPLES - 2,
+    "proteomics": N_SAMPLES - 3,
+    "methylation": N_SAMPLES - 6,
+    "copy_number_variation_gistic": N_SAMPLES - 2,
 }
 
 #: Global models the fixture drives end to end.
@@ -61,7 +61,7 @@ EXCLUDED_MODELS: Final[dict[str, str]] = {
 #: Empty on purpose: the three copy-number models that used to live here
 #: (``MultiViewNeuralNetwork``, ``MOLIR``, ``SuperFELTR``) were blocked only
 #: because the library passed the public omics name straight to
-#: ``Dataset.get_cell_line_features``. The read sites now resolve through
+#: ``Dataset.get_sample_features``. The read sites now resolve through
 #: ``OMICS_ACCESSORS``, so all three pass and their markers are retired. The hook
 #: stays so the next genuine defect gets a strict marker rather than a skip.
 MODEL_DEFECTS: Final[dict[str, str]] = {}
@@ -71,7 +71,7 @@ SAVE_LOAD_DEFECTS: Final[dict[str, str]] = {}
 
 
 def build_partial_coverage_dataset() -> Dataset:
-    """Build a dataset whose omics modalities cover only some of the cell lines.
+    """Build a dataset whose omics modalities cover only some of the samples.
 
     :returns: Dataset that drives the predictors' NaN-filtering path.
     """

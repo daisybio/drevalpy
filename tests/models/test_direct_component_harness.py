@@ -20,7 +20,7 @@ from tests.models.synthetic_fixtures import (
 _NAIVE_PRESETS = (
     "NaivePredictor",
     "NaiveDrugMeanPredictor",
-    "NaiveCellLineMeanPredictor",
+    "NaiveSampleMeanPredictor",
 )
 _SKLEARN_PRESETS = (
     "ElasticNet",
@@ -73,7 +73,7 @@ def test_multi_drug_sklearn_rejects_missing_drug_featurizer() -> None:
         validate(
             from_dict(
                 {
-                    "cell_line_featurizer": "scaledGeneExpression",
+                    "sample_featurizer": "scaledGeneExpression",
                     "predictor": "elasticNet",
                 }
             )
@@ -86,7 +86,7 @@ def test_single_drug_sklearn_auto_injects_identity() -> None:
     register_builtin_components()
     config = from_dict(
         {
-            "cell_line_featurizer": "scaledGeneExpression",
+            "sample_featurizer": "scaledGeneExpression",
             "predictor": "singleDrugElasticNet",
         }
     )

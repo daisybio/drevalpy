@@ -17,7 +17,7 @@ class ResolvedModelConfig(BaseModel):
     The ``template`` is the unfitted recipe's ``ModelConfig``. ``values`` holds
     fully resolved concrete hyperparameters keyed by qualified names such as
     ``predictor.elasticNet.alpha`` or
-    ``cell_line_featurizer.pca[expression].n_components``.
+    ``sample_featurizer.pca[expression].n_components``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -49,20 +49,20 @@ class ResolvedModelConfig(BaseModel):
     def featurizer_values(self, registry: str, selector: str) -> dict[str, Any]:
         """Return concrete local hyperparameters for one featurizer leaf.
 
-        :param registry: ``cell_line`` or ``drug``.
+        :param registry: ``sample`` or ``drug``.
         :param selector: Qualified featurizer selector (for example ``pca[expression]``).
         :returns: Mapping of featurizer-local parameter names to values.
         """
-        slot = "cell_line_featurizer" if registry == "cell_line" else "drug_featurizer"
+        slot = "sample_featurizer" if registry == "sample" else "drug_featurizer"
         prefix = f"{slot}.{selector}."
         return {key.removeprefix(prefix): value for key, value in self.values.items() if key.startswith(prefix)}
 
-    def cell_line_views(self) -> list[str]:
-        """Return the raw view names required by the cell-line featurizer tree.
+    def sample_views(self) -> list[str]:
+        """Return the raw view names required by the sample featurizer tree.
 
-        :returns: View names required by the cell-line featurizer tree.
+        :returns: View names required by the sample featurizer tree.
         """
-        return self.template.cell_line_views(resolved=self)
+        return self.template.sample_views(resolved=self)
 
     def drug_views(self) -> list[str]:
         """Return the raw view names required by the drug featurizer tree.

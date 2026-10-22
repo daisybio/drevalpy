@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.data.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.data.utils import CELL_LINE_NAME_COLUMN, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.conftest import MockFeatureSource
@@ -13,12 +13,12 @@ from tests.conftest import MockFeatureSource
 def multi_drug_response() -> ResponseBatch:
     return ResponseBatch(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
-        cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
+        sample_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
     )
 
 
-def cell_line_gene_expression() -> MockFeatureSource:
+def sample_gene_expression() -> MockFeatureSource:
     return MockFeatureSource(
         features={
             "cl1": {"gene_expression": np.array([0.1, 0.2, 0.3])},
@@ -36,10 +36,10 @@ def drug_fingerprints() -> MockFeatureSource:
     )
 
 
-def identity_cell_line_features(*, with_tissue: bool = False) -> MockFeatureSource:
+def identity_sample_features(*, with_tissue: bool = False) -> MockFeatureSource:
     features = {
-        "cl1": {CELL_LINE_IDENTIFIER: np.array(["cl1"])},
-        "cl2": {CELL_LINE_IDENTIFIER: np.array(["cl2"])},
+        "cl1": {CELL_LINE_NAME_COLUMN: np.array(["cl1"])},
+        "cl2": {CELL_LINE_NAME_COLUMN: np.array(["cl2"])},
     }
     if with_tissue:
         features["cl1"][TISSUE_IDENTIFIER] = np.array(["Lung"])
@@ -56,7 +56,7 @@ def identity_drug_features() -> MockFeatureSource:
     )
 
 
-#: Column-name prefix and value offset (in tenths) for each cell-line view. The
+#: Column-name prefix and value offset (in tenths) for each sample view. The
 #: offset only has to make the views distinguishable; ``gene_expression``'s value
 #: of 1 is what reproduces the matrix this module has always built.
 _VIEW_SPECS = {
@@ -84,16 +84,16 @@ def synthetic_mudataset(
     fingerprint_width: int = 2,
     extra_views: tuple[str, ...] = (),
 ):
-    """Build a two-cell-line, two-drug ``Dataset`` with the requested views.
+    """Build a two-sample, two-drug ``Dataset`` with the requested views.
 
     The one builder behind every synthetic ``Dataset`` in the suite. Callers that
     needed a wider gene-expression matrix or additional omics modalities used to
     write out their own AnnData/MuData assembly, which is what made those test
     files read as clones of each other.
 
-    :param n_features_per_view: Columns in each cell-line modality.
+    :param n_features_per_view: Columns in each sample modality.
     :param fingerprint_width: Columns of the ``morgan_fingerprint`` in ``response.varm``.
-    :param extra_views: Further cell-line modalities to attach, named after the
+    :param extra_views: Further sample modalities to attach, named after the
         views a featurizer reads; see :data:`_VIEW_SPECS`.
     :returns: The assembled ``Dataset``.
     """
@@ -124,7 +124,7 @@ def synthetic_mudataset(
 
 
 def synthetic_mudataset_gene_expression_fingerprints():
-    """Build a minimal Dataset with gene_expression + fingerprints for 2 cell lines and 2 drugs.
+    """Build a minimal Dataset with gene_expression + fingerprints for 2 samples and 2 drugs.
 
     :returns: A ``Dataset`` with a 3-gene expression modality and 2-wide fingerprints.
     """
@@ -132,7 +132,7 @@ def synthetic_mudataset_gene_expression_fingerprints():
 
 
 def synthetic_mudataset_identity():
-    """Build a minimal Dataset for identity (cell_line_id + drug_id) models."""
+    """Build a minimal Dataset for identity (sample_id + drug_id) models."""
     import anndata as ad
     import mudata as md
     import pandas as pd

@@ -17,13 +17,13 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
 
-N_CELL_LINE_FEATURES = 8
+N_SAMPLE_FEATURES = 8
 N_DRUG_FEATURES = 4
 SEED = 20260813
 
 
 def observed_pairs(dataset: Dataset) -> ResponseBatch:
-    """Return every measured cell-line/drug pair in *dataset*.
+    """Return every measured sample/drug pair in *dataset*.
 
     Args:
         dataset: Dataset whose response matrix is read.
@@ -35,7 +35,7 @@ def observed_pairs(dataset: Dataset) -> ResponseBatch:
     rows, columns = np.nonzero(~np.isnan(matrix))
     return ResponseBatch(
         response=matrix[rows, columns].astype(np.float64),
-        cell_line_ids=np.asarray(dataset.cell_line_ids)[rows],
+        sample_ids=np.asarray(dataset.sample_ids)[rows],
         drug_ids=np.asarray(dataset.drug_ids)[columns],
     )
 
@@ -43,9 +43,9 @@ def observed_pairs(dataset: Dataset) -> ResponseBatch:
 def build_synthetic_batch(
     dataset: Dataset,
     *,
-    cell_line_block_names: Sequence[str] = (),
+    sample_block_names: Sequence[str] = (),
     drug_block_names: Sequence[str] = (),
-    n_cell_line_features: int = N_CELL_LINE_FEATURES,
+    n_sample_features: int = N_SAMPLE_FEATURES,
     n_drug_features: int | None = N_DRUG_FEATURES,
     seed: int = SEED,
 ) -> ModelInputBatch:
@@ -58,12 +58,12 @@ def build_synthetic_batch(
 
     Args:
         dataset: Dataset supplying the entity ids and the measured pairs.
-        cell_line_block_names: Names to expose the cell-line matrix under, for
+        sample_block_names: Names to expose the sample matrix under, for
             predictors that read named blocks rather than a flat matrix.
         drug_block_names: Names to expose the drug matrix under.
-        n_cell_line_features: Width of the drawn cell-line feature matrix.
+        n_sample_features: Width of the drawn sample feature matrix.
         n_drug_features: Width of the drawn drug feature matrix, or ``None`` for
-            a cell-line-only batch.
+            a sample-only batch.
         seed: Seed for the drawn features and noise.
 
     Returns:
@@ -71,11 +71,11 @@ def build_synthetic_batch(
     """
     rng = np.random.default_rng(seed)
     response = observed_pairs(dataset)
-    cell_line_entity_ids = np.asarray(dataset.cell_line_ids)
+    sample_entity_ids = np.asarray(dataset.sample_ids)
     drug_entity_ids = np.asarray(dataset.drug_ids)
 
-    cell_line_features = rng.normal(size=(len(cell_line_entity_ids), n_cell_line_features)).astype(np.float32)
-    cell_line_pair_idx = _row_index(cell_line_entity_ids, response.cell_line_ids)
+    sample_features = rng.normal(size=(len(sample_entity_ids), n_sample_features)).astype(np.float32)
+    sample_pair_idx = _row_index(sample_entity_ids, response.sample_ids)
 
     drug_features = None
     drug_pair_idx = None
@@ -83,9 +83,9 @@ def build_synthetic_batch(
         drug_features = rng.normal(size=(len(drug_entity_ids), n_drug_features)).astype(np.float32)
         drug_pair_idx = _row_index(drug_entity_ids, response.drug_ids)
 
-    cell_line_blocks = {"features": numeric_feature_block(cell_line_features)}
-    cell_line_blocks.update({name: numeric_feature_block(cell_line_features) for name in cell_line_block_names})
-    cell_line_result = FeaturizerResult(cell_line_entity_ids, cell_line_blocks, ("features",))
+    sample_blocks = {"features": numeric_feature_block(sample_features)}
+    sample_blocks.update({name: numeric_feature_block(sample_features) for name in sample_block_names})
+    sample_result = FeaturizerResult(sample_entity_ids, sample_blocks, ("features",))
     drug_result = None
     if drug_features is not None:
         drug_blocks_map = {"features": numeric_feature_block(drug_features)}
@@ -93,10 +93,10 @@ def build_synthetic_batch(
         drug_result = FeaturizerResult(drug_entity_ids, drug_blocks_map, ("features",))
 
     return ModelInputBatch.from_response(
-        _learnable_response(response, cell_line_features, cell_line_pair_idx, rng),
-        cell_line=cell_line_result,
+        _learnable_response(response, sample_features, sample_pair_idx, rng),
+        sample=sample_result,
         drug=drug_result,
-        cell_line_pair_idx=cell_line_pair_idx,
+        sample_pair_idx=sample_pair_idx,
         drug_pair_idx=drug_pair_idx,
     )
 
@@ -109,8 +109,8 @@ def _row_index(entity_ids: np.ndarray, pair_ids: np.ndarray) -> np.ndarray:
 
 def _learnable_response(
     response: ResponseBatch,
-    cell_line_features: np.ndarray,
-    cell_line_pair_idx: np.ndarray,
+    sample_features: np.ndarray,
+    sample_pair_idx: np.ndarray,
     rng: np.random.Generator,
 ) -> ResponseBatch:
     """Replace the response with a noisy linear function of the drawn features.
@@ -118,10 +118,10 @@ def _learnable_response(
     Without this the drawn features carry no signal, and a check asserting that
     a predictor learned something could only ever assert that it ran.
     """
-    weights = rng.normal(size=cell_line_features.shape[1])
-    signal = cell_line_features[cell_line_pair_idx] @ weights
+    weights = rng.normal(size=sample_features.shape[1])
+    signal = sample_features[sample_pair_idx] @ weights
     return ResponseBatch(
         response=(signal + rng.normal(scale=0.1, size=len(response))).astype(np.float64),
-        cell_line_ids=response.cell_line_ids,
+        sample_ids=response.sample_ids,
         drug_ids=response.drug_ids,
     )

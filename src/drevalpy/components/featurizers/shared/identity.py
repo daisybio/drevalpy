@@ -22,7 +22,7 @@ from drevalpy.types.data.feature_source import FeatureSource
 @register_for_sides(
     "identity",
     description={
-        "cell_line": "One-hot encoding of cell-line entity identifiers.",
+        "sample": "One-hot encoding of sample entity identifiers.",
         "drug": "One-hot encoding of drug entity identifiers.",
     },
     contract=FeatureFormat.NUMERIC_MATRIX,

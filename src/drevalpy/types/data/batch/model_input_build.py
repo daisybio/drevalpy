@@ -20,7 +20,7 @@ def _indices(table: FeaturizerResult, ids: np.ndarray, side: str) -> np.ndarray:
 def build_model_input_batch(
     response: ResponseBatch,
     *,
-    cell_line: FeaturizerResult,
+    sample: FeaturizerResult,
     drug: FeaturizerResult | None = None,
     early_stopping_response: ResponseBatch | None = None,
     training_context: TrainingContext | None = None,
@@ -28,7 +28,7 @@ def build_model_input_batch(
     """Map pair identifiers once, retaining each canonical feature result.
 
     :param response: Requested pair IDs and targets.
-    :param cell_line: Cell-line entity results.
+    :param sample: Sample entity results.
     :param drug: Optional drug entity results.
     :param early_stopping_response: Optional disjoint stopping pairs.
     :param training_context: Runtime metadata.
@@ -36,9 +36,9 @@ def build_model_input_batch(
     """
     return ModelInputBatch.from_response(
         response,
-        cell_line=cell_line,
+        sample=sample,
         drug=drug,
-        cell_line_pair_idx=_indices(cell_line, response.cell_line_ids, "cell-line"),
+        sample_pair_idx=_indices(sample, response.sample_ids, "sample"),
         drug_pair_idx=None if drug is None else _indices(drug, response.drug_ids, "drug"),
         early_stopping_response=early_stopping_response,
         training_context=training_context,

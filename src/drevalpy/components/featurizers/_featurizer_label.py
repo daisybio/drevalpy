@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.registry.cell_line_featurizer import get as get_cell_line_featurizer
+from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 
 def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
@@ -37,7 +37,7 @@ def requires_explicit_view(name: str) -> bool:
     :returns: Result.
     """
     try:
-        cls = get_cell_line_featurizer(name)
+        cls = get_sample_featurizer(name)
     except (ValueError, ImportError):
         return False
     return bool(getattr(cls, "requires_view", False))

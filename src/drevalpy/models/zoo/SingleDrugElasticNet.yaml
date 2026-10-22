@@ -1,2 +1,2 @@
-cell_line_featurizer: scaledGeneExpression
+sample_featurizer: scaledGeneExpression
 predictor: singleDrugElasticNet

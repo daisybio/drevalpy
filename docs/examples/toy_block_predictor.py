@@ -1,8 +1,8 @@
-"""Block predictor example: ridge on one named cell-line block.
+"""Block predictor example: ridge on one named sample block.
 
 ``BlockPredictor`` is the interface for predictors that must keep the sides (or
 individual featurizer outputs) apart instead of flattening everything into one
-matrix. ``required_cell_line_blocks`` names the blocks the stack has to supply;
+matrix. ``required_sample_blocks`` names the blocks the stack has to supply;
 composition rejects a recipe whose featurizers emit none of them.
 """
 
@@ -26,13 +26,13 @@ BLOCK = "gene_expression"
 @register_predictor(
     "toyBlockRidge",
     description="Ridge regression on a named gene-expression block plus the drug features.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ToyBlockRidgePredictor(BlockPredictor):
     """Read one named block instead of the flattened design matrix."""
 
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = (BLOCK,)
+    required_sample_blocks: ClassVar[tuple[str, ...]] = (BLOCK,)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Create an untrained predictor.
@@ -60,9 +60,9 @@ class ToyBlockRidgePredictor(BlockPredictor):
         """Expand the entity-level block to one row per pair.
 
         Blocks are indexed by entity, not by pair, so they have to be expanded
-        through ``cell_line_pair_idx`` before a pair-level model can use them.
+        through ``sample_pair_idx`` before a pair-level model can use them.
         """
-        matrix = batch.cell_line.blocks[BLOCK].values[batch.cell_line_pair_idx]
+        matrix = batch.sample.blocks[BLOCK].values[batch.sample_pair_idx]
         if batch.drug is not None and batch.drug_pair_idx is not None:
             matrix = np.hstack([matrix, batch.drug.matrix[batch.drug_pair_idx]])
         return matrix

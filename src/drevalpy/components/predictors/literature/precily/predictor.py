@@ -43,14 +43,14 @@ if TYPE_CHECKING:
 @register(
     "precily",
     description="Precily pathway + SMILESVec model.",
-    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=PRECILY_REFERENCE,
 )
 class PrecilyPredictor(BlockPredictor):
     """Registered Precily predictor consuming ModelInputBatch directly."""
 
-    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("pathways",)
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ("pathways",)
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("smilesvec",)
     supports_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
@@ -87,7 +87,7 @@ class PrecilyPredictor(BlockPredictor):
         :returns: Tuple of ``(pathways, smilesvec)`` matrices.
         """
         return (
-            batch.cell_line.blocks["pathways"].values,
+            batch.sample.blocks["pathways"].values,
             batch.drug.blocks["smilesvec"].values,
         )
 
@@ -118,7 +118,7 @@ class PrecilyPredictor(BlockPredictor):
         self._model = model
 
         train_loader = make_pair_loader(
-            (pathway_entity, batch.cell_line_pair_idx),
+            (pathway_entity, batch.sample_pair_idx),
             (drug_entity, require_drug_pair_idx(batch.drug_pair_idx)),
             response=np.asarray(batch.response, dtype=np.float32),
             batch_size=self._hyperparameters["batch_size"],
@@ -180,7 +180,7 @@ class PrecilyPredictor(BlockPredictor):
             self._model,
             batch,
             PairEvalSpec(
-                cell_line_blocks=(pathway_entity,),
+                sample_blocks=(pathway_entity,),
                 drug_blocks=(drug_entity,),
                 batch_size=self._hyperparameters.get("batch_size", 128),
                 device=self._device,

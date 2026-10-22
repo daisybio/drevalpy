@@ -49,25 +49,25 @@ def transform_entities(
 
 def usable_responses(
     response: ResponseBatch,
-    cell_line_input: FeatureSource,
+    sample_input: FeatureSource,
     drug_input: FeatureSource | None,
-    cell_line_featurizer: Featurizer | None,
+    sample_featurizer: Featurizer | None,
     drug_featurizer: Featurizer | None,
 ) -> ResponseBatch:
     """Select observed pairs eligible under each component's missing-input policy.
 
     :param response: Requested targets and pair identifiers.
-    :param cell_line_input: Raw cell-line features.
+    :param sample_input: Raw sample features.
     :param drug_input: Optional raw drug features.
-    :param cell_line_featurizer: Cell-line eligibility policy.
+    :param sample_featurizer: Sample eligibility policy.
     :param drug_featurizer: Optional drug eligibility policy.
     :returns: Aligned observed, usable pairs in their original order.
     """
     keep = ~np.isnan(response.response)
     for ids, featurizer, source in (
-        (response.cell_line_ids, cell_line_featurizer, cell_line_input),
+        (response.sample_ids, sample_featurizer, sample_input),
         (response.drug_ids, drug_featurizer, drug_input),
     ):
         if featurizer is not None:
             keep &= featurizer._detect_valid(source, ids)
-    return ResponseBatch(response.response[keep], response.cell_line_ids[keep], response.drug_ids[keep])
+    return ResponseBatch(response.response[keep], response.sample_ids[keep], response.drug_ids[keep])
