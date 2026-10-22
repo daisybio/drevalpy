@@ -53,6 +53,11 @@ Defaults and results that changed
   table. The report has a second summary table, "Model Summary Table per Drug".
 - One ``--seed`` (``seed=`` in Python, default 42) drives the splits, the hyperparameter search,
   the randomization tests and the seeding of every model fit.
+- After tuning, the final model now trains with the tuned value of a power-of-two
+  hyperparameter (``fingerprints.n_bits``, ``bpe_pharmaformer.max_length``). Earlier builds of
+  the v2 branch trained it with the exponent, for example 9 fingerprint bits instead of 512, and
+  stored that value in ``best_hyperparameters`` and the checkpoint. Re-run tuned experiments
+  that use these featurizers.
 
 New commands and functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
