@@ -100,10 +100,7 @@ class ViolinVisualization(PlotlyVisualization):
         """Return a MultiQC violin Section using native violin plot API."""
         if self._data is None:
             raise RuntimeError("Call compute() before to_multiqc()")
-        try:
-            from multiqc.plots import violin as mqc_violin
-        except ImportError as e:
-            raise ImportError("multiqc is required for to_multiqc(). Install with: pip install drevalpy[report]") from e
+        from multiqc.plots import violin as mqc_violin
 
         metric_names = sorted({m for metrics in self._data.values() for m in metrics if _is_finite(metrics[m])})
         if not metric_names:

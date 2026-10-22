@@ -94,12 +94,7 @@ def create_report(
     :param reference_model: If set, normalize metrics against this model.
     :param dataset: Optional dataset for drug/sample metadata in plots.
     """
-    try:
-        import multiqc
-    except ImportError as e:
-        raise ImportError(
-            "multiqc is required for report generation. Install it with: pip install drevalpy[report]"
-        ) from e
+    import multiqc
 
     import drevalpy.visualization.plots  # noqa: F401
     from drevalpy.registry.visualization import visualization_registry

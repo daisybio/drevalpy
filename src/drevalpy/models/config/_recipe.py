@@ -56,7 +56,7 @@ _MODEL_SYNTAX = "expected 'predictor', 'sampleFeaturizer:predictor', or 'sampleF
 def parse_featurizer_atoms(token: str) -> list[tuple[str, str | None]]:
     """Parse a featurizer recipe into its atoms.
 
-    :param token: Recipe string such as ``"raw[expression]+scaledGeneExpression"``.
+    :param token: Recipe string such as ``"raw[gene_expression]+scaledGeneExpression"``.
     :returns: One ``(name, view)`` pair per atom, with *view* ``None`` when unbracketed.
     :raises ValueError: If *token* is not a well-formed featurizer recipe.
     """
@@ -90,7 +90,7 @@ def expand_featurizer_recipe(token: str) -> dict[str, Any]:
     The result names config fields only, so callers can treat it exactly like a mapping that was
     written out by hand, and it is checked no more strictly than one.
 
-    :param token: Recipe string such as ``"raw[expression]+scaledGeneExpression"``.
+    :param token: Recipe string such as ``"raw[gene_expression]+scaledGeneExpression"``.
     :returns: Featurizer or concat-featurizer field mapping.
     :raises ValueError: If *token* is blank or is not a well-formed recipe.
     """

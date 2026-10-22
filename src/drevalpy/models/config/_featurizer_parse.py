@@ -36,7 +36,7 @@ def _finalize_view(config: dict[str, Any]) -> None:
 
     Every notation funnels through here, so this is the single place a view is required and the
     single place an alias is resolved. Doing it here rather than while reading a recipe is what
-    makes ``raw[expression]`` and a spelled-out ``view: expression`` mean the same thing.
+    makes ``raw[gene_expression]`` and a spelled-out ``view: gene_expression`` mean the same thing.
 
     Only featurizers that are parametric in a view are touched.
 
@@ -48,7 +48,7 @@ def _finalize_view(config: dict[str, Any]) -> None:
         return
     view = config.get("view")
     if view is None or (isinstance(view, str) and not view.strip()):
-        msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[expression]"
+        msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[gene_expression]"
         raise ValueError(msg)
 
 

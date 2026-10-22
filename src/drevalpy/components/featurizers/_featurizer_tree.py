@@ -31,9 +31,9 @@ def iter_featurizer_leaves(
 def ensure_unique_qualified_featurizers(featurizer: FeaturizerConfig, registry: str) -> None:
     """Raise ``ValueError`` when a registry slot repeats a qualified selector.
 
-    Duplicate means the same qualified selector (for example ``raw[expression]``)
+    Duplicate means the same qualified selector (for example ``raw[gene_expression]``)
     appears more than once under one registry. The same base name on different
-    views (``raw[expression]+raw[mutations]``) is allowed.
+    views (``raw[gene_expression]+raw[mutations]``) is allowed.
 
     :param featurizer: Featurizer tree to validate (concat parents are walked).
     :param registry: Registry slot name used in error messages.

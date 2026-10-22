@@ -216,10 +216,7 @@ class HeatmapVisualization(PlotlyVisualization):
         """Return a MultiQC heatmap Section using native heatmap plot API."""
         if self._result is None:
             raise RuntimeError("Call compute() before to_multiqc()")
-        try:
-            from multiqc.plots import heatmap as mqc_heatmap
-        except ImportError as e:
-            raise ImportError("multiqc is required for to_multiqc(). Install with: pip install drevalpy[report]") from e
+        from multiqc.plots import heatmap as mqc_heatmap
 
         metric_names = sorted({m for model in self._result.models for m in model.aggregate_metrics})
         model_names = [m.model_name for m in self._result.models]

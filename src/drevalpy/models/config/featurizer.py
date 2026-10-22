@@ -26,7 +26,7 @@ class FeaturizerConfig(BaseModel):
     constructor values, and ``hyperparameter_space`` declaring what tuning may vary.
     ``featurizers`` makes the node a tree, holding children for ``concatFeaturizers``.
     Combine several views by nesting one single-``view`` child per view under a concat
-    node, which is what the ``raw[expression]+raw[mutations]`` shorthand expands to.
+    node, which is what the ``raw[gene_expression]+raw[mutations]`` shorthand expands to.
 
     Accepts the same notations users write in the docs' recipe strings and YAML (a bare
     name, a ``name[view]`` label, a list, or a one-key mapping) and normalizes them into
@@ -143,7 +143,7 @@ class FeaturizerConfig(BaseModel):
         :raises ValueError: If the featurizer needs an explicit view and none is set.
         """
         if requires_explicit_view(self.name) and not self.view:
-            msg = f"Featurizer {self.name!r} requires an explicit view, e.g. {self.name}[expression]"
+            msg = f"Featurizer {self.name!r} requires an explicit view, e.g. {self.name}[gene_expression]"
             raise ValueError(msg)
         return self
 
@@ -168,7 +168,7 @@ class FeaturizerConfig(BaseModel):
 
     @model_validator(mode="after")
     def _require_unique_qualified_children(self) -> FeaturizerConfig:
-        """Reject a concat tree that repeats the same qualified leaf, e.g. ``raw[expression]``.
+        """Reject a concat tree that repeats the same qualified leaf, e.g. ``raw[gene_expression]``.
 
         Duplicates would silently emit the same feature block twice. The same base name on
         different views is fine.
