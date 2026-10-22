@@ -102,7 +102,7 @@ RandomForestAEMolGNet:
   patience_autoencoder:
     - 50
   batch_size_autoencoder:
-    - 32
+    - 1024
   autoencoder_log2_transform:
     - true
   autoencoder_validation_fraction:

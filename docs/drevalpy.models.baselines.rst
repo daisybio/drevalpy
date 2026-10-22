@@ -244,7 +244,7 @@ The four parameters DIPK also has keep DIPK's names, so that a configuration rea
 both models:
 
 - ``epochs_autoencoder`` (default 2000), ``lr_autoencoder`` (1e-4), ``patience_autoencoder`` (50),
-  ``batch_size_autoencoder`` (32).
+  ``batch_size_autoencoder`` (1024).
 
 The parameters that only exist here are prefixed ``autoencoder_``:
 

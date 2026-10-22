@@ -535,5 +535,5 @@ def test_hyperparameters_are_declared() -> None:
     first = grid[0]
     # ParameterGrid unpacks each yaml list into single values.
     assert first["drug_views"] == MOLGNET_POOLED_VIEW
-    assert first["batch_size_autoencoder"] == 32
+    assert first["batch_size_autoencoder"] == 1024
     assert first["gene_list"] == "gene_expression_intersection"

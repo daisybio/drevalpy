@@ -140,7 +140,7 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         """Build the underlying model and read the autoencoder configuration.
 
         Recognised autoencoder hyperparameters, all optional:
-        ``epochs_autoencoder`` (2000), ``batch_size_autoencoder`` (32),
+        ``epochs_autoencoder`` (2000), ``batch_size_autoencoder`` (1024),
         ``patience_autoencoder`` (50), ``lr_autoencoder`` (1e-4),
         ``autoencoder_log2_transform`` (true), ``autoencoder_validation_fraction`` (0.1, only used
         when no early stopping data is given),
@@ -152,7 +152,7 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         hpams = self.hyperparameters
         self._ae_log2 = bool(hpams.get("autoencoder_log2_transform", True))
         self._ae_epochs = int(hpams.get("epochs_autoencoder", 2000))
-        self._ae_batch_size = int(hpams.get("batch_size_autoencoder", 32))
+        self._ae_batch_size = int(hpams.get("batch_size_autoencoder", 1024))
         self._ae_patience = int(hpams.get("patience_autoencoder", 50))
         self._ae_lr = float(hpams.get("lr_autoencoder", 1e-4))
         self._ae_val_fraction = float(hpams.get("autoencoder_validation_fraction", 0.1))
