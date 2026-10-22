@@ -9,10 +9,10 @@ from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.tuning.search_space import (
     apply_merged_to_model_config,
     defaults_from_merged_space,
+    draw_from_optuna_trial,
     extract_defaults,
     merge_model_config_spaces,
     merge_search_spaces,
-    sample_from_optuna_trial,
     split_hyperparameters,
 )
 from drevalpy.registry._builtins import register_builtin_components
@@ -107,7 +107,7 @@ def test_extract_defaults() -> None:
     }
 
 
-class TestSampleFromOptunaTrial:
+class TestDrawFromOptunaTrial:
     """One spec kind per case; the four suggest_* branches shared one skeleton."""
 
     @pytest.mark.parametrize(
@@ -132,14 +132,14 @@ class TestSampleFromOptunaTrial:
             pytest.param(42, lambda v: v == 42, id="non-mapping-is-passed-through"),
         ],
     )
-    def test_each_spec_kind_samples_inside_its_own_domain(self, spec, is_in_range) -> None:
+    def test_each_spec_kind_draws_inside_its_own_domain(self, spec, is_in_range) -> None:
         trial = optuna.create_study().ask()
 
-        sampled = sample_from_optuna_trial(trial, {"param": spec})
+        drawn = draw_from_optuna_trial(trial, {"param": spec})
 
-        assert is_in_range(sampled["param"])
+        assert is_in_range(drawn["param"])
 
-    def test_the_qualified_key_survives_sampling(self) -> None:
+    def test_the_qualified_key_survives_drawing(self) -> None:
         """Dotted selectors are what ``split_hyperparameters`` later routes on."""
         space = {
             "predictor.randomForest.n_estimators": {"type": "int", "low": 10, "high": 20, "default": 15},
@@ -147,6 +147,6 @@ class TestSampleFromOptunaTrial:
         }
         trial = optuna.create_study().ask()
 
-        sampled = sample_from_optuna_trial(trial, space)
+        drawn = draw_from_optuna_trial(trial, space)
 
-        assert set(sampled) == set(space)
+        assert set(drawn) == set(space)

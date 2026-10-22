@@ -59,12 +59,12 @@ class TestSampling:
             pytest.param("hidden_dim", 8, 32, id="pow2-range"),
         ],
     )
-    def test_sampled_values_respect_the_declared_bounds(self, key, low, high):
+    def test_drawn_values_respect_the_declared_bounds(self, key, low, high):
         (config,) = _sample_hp_configs(_MIXED, 1)
 
         assert low <= config[key] <= high
 
-    def test_integer_parameters_are_sampled_as_integers(self):
+    def test_integer_parameters_are_drawn_as_integers(self):
         (config,) = _sample_hp_configs(_MIXED, 1)
 
         assert isinstance(config["n_components"], int)

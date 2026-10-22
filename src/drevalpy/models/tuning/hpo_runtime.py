@@ -40,13 +40,13 @@ def _trial_checkpoint_dir(base_dir: str | Path | None, trial_number: int) -> Pat
 
 def _construct_trial_model(
     model_spec: ModelSpec,
-    sampled: dict[str, Any],
+    drawn: dict[str, Any],
     response_transformation: TransformerMixin | None = None,
 ) -> DRPModel:
     from drevalpy.models.drp_model import DRPModel
     from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
 
-    config = resolve_model_config(model_spec.config, sampled)
+    config = resolve_model_config(model_spec.config, drawn)
     return DRPModel(
         model_spec, public_hyperparameters_from_config(config), response_transformation=response_transformation
     )

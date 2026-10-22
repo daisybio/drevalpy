@@ -30,71 +30,71 @@ def generate_triplets_indices(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generates triplets for the MOLIR model.
 
-    The positive and negative range are determined by the standard deviation of the response values. A sample is
+    The positive and negative range are determined by the standard deviation of the response values. A pair is
     considered positive if its response value is within the positive range of the label. The positive range is ±10%
-    of the standard deviation of all response values. A sample is considered negative if its response value is at
-    least one standard deviation away from the response value of the sample.
+    of the standard deviation of all response values. A pair is considered negative if its response value is at
+    least one standard deviation away from the response value of the pair.
 
     :param y: response values
     :param positive_range: positive range for the triplet loss
     :param negative_range: negative range for the triplet loss
     :param random_seed: Explicit isolated seed, or None to use the global NumPy stream, which drevalpy seeds per fit.
 
-    :returns: returns: positive and negative sample indices for each sample
+    :returns: returns: positive and negative pair indices for each pair
     """
     rng = np.random if random_seed is None else np.random.default_rng(random_seed)
-    positive_sample_indices = []
-    negative_sample_indices = []
+    positive_pair_indices = []
+    negative_pair_indices = []
     # Iterate over each label in the dataset
     for idx_current_label, current_label in enumerate(y):
         positive_class_indices = _get_positive_class_indices(current_label, idx_current_label, y, positive_range)
-        positive_sample_idx = rng.choice(positive_class_indices, 1)[0]
+        positive_pair_idx = rng.choice(positive_class_indices, 1)[0]
         negative_class_indices = _get_negative_class_indices(current_label, y, negative_range)
-        negative_sample_idx = rng.choice(negative_class_indices, 1)[0]
-        positive_sample_indices.append(positive_sample_idx)
-        negative_sample_indices.append(negative_sample_idx)
-    return np.array(positive_sample_indices), np.array(negative_sample_indices)
+        negative_pair_idx = rng.choice(negative_class_indices, 1)[0]
+        positive_pair_indices.append(positive_pair_idx)
+        negative_pair_indices.append(negative_pair_idx)
+    return np.array(positive_pair_indices), np.array(negative_pair_indices)
 
 
 def _get_positive_class_indices(label: np.float32, idx_label: int, y: np.ndarray, positive_range: float) -> np.ndarray:
-    """Find the samples that are within the positive range of the label except the label itself.
+    """Find the pairs that are within the positive range of the label except the label itself.
 
-    If there is no similar sample within the positive range, the method returns the closest sample to the label.
+    If there is no similar pair within the positive range, the method returns the closest pair to the label.
 
     :param label: response of interest
     :param idx_label: index of the response of interest
     :param y: all responses
     :param positive_range: 0.1 * the standard deviation of all training responses
 
-    :returns: Indices of samples considered positive examples for the response of interest.
+    :returns: Indices of pairs considered positive examples for the response of interest.
     """
-    indices_similar_samples = np.where(np.logical_and(label - positive_range <= y, y <= label + positive_range))[0]
-    indices_similar_samples = np.delete(indices_similar_samples, np.where(indices_similar_samples == idx_label))
-    if len(indices_similar_samples) == 0 and len(y) > 1:
-        # return the closest samples to the label except the label itself
-        indices_similar_samples = np.array([np.argsort(np.abs(y - label))[1]])
-    elif len(indices_similar_samples) == 0:
-        # this happens only when there is just one sample in the validation dataset
-        indices_similar_samples = np.where(y == label)[0]
-    return indices_similar_samples
+    indices_similar_pairs = np.where(np.logical_and(label - positive_range <= y, y <= label + positive_range))[0]
+    indices_similar_pairs = np.delete(indices_similar_pairs, np.where(indices_similar_pairs == idx_label))
+    if len(indices_similar_pairs) == 0 and len(y) > 1:
+        # return the closest pairs to the label except the label itself
+        indices_similar_pairs = np.array([np.argsort(np.abs(y - label))[1]])
+    elif len(indices_similar_pairs) == 0:
+        # this happens only when there is just one pair in the validation dataset
+        indices_similar_pairs = np.where(y == label)[0]
+    return indices_similar_pairs
 
 
 def _get_negative_class_indices(label: np.float32, y: np.ndarray, negative_range: float) -> np.ndarray:
-    """Finds dissimilar samples to the label.
+    """Finds dissimilar pairs to the label.
 
-    If there is no dissimilar sample within the negative range, the method returns the sample that is the furthest away.
+    If there is no dissimilar pair within the negative range, the method returns the pair that is the furthest away.
 
     :param label: reponse of interest
     :param y: all responses
     :param negative_range: 1 * the standard deviation of all training responses
 
-    :returns: Indices of samples considered negative examples for the response of interest.
+    :returns: Indices of pairs considered negative examples for the response of interest.
     """
-    dissimilar_samples = np.where(np.logical_or(label - negative_range >= y, y >= label + negative_range))[0]
-    if len(dissimilar_samples) == 0:
-        # return the sample that is the furthest away from the label
-        dissimilar_samples = np.argsort(np.abs(y - label))[-1:]
-    return dissimilar_samples
+    dissimilar_pairs = np.where(np.logical_or(label - negative_range >= y, y >= label + negative_range))[0]
+    if len(dissimilar_pairs) == 0:
+        # return the pair that is the furthest away from the label
+        dissimilar_pairs = np.argsort(np.abs(y - label))[-1:]
+    return dissimilar_pairs
 
 
 class MOLIEncoder(nn.Module):

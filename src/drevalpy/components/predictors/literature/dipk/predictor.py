@@ -102,20 +102,20 @@ class DIPKPredictor(BlockPredictor):
             dropout_rate=hp["dropout_rate"],
         ).to(self._device)
 
-    def _build_samples(
+    def _build_pairs(
         self,
         cell_line_pair_idx: np.ndarray,
         drug_pair_idx: np.ndarray,
         batch: ModelInputBatch,
         response: np.ndarray | None = None,
     ) -> list[dict[str, torch.Tensor]]:
-        """Construct per-sample dictionaries from batch blocks using pair indices.
+        """Construct per-pair dictionaries from batch blocks using pair indices.
 
         :param cell_line_pair_idx: Indices mapping pairs to cell-line entities.
         :param drug_pair_idx: Indices mapping pairs to drug entities.
         :param batch: Model input batch with feature blocks.
         :param response: Optional response values per pair.
-        :returns: List of sample dictionaries with tensor values.
+        :returns: List of pair dictionaries with tensor values.
         """
         import torch
 
@@ -123,20 +123,20 @@ class DIPKPredictor(BlockPredictor):
         bionic_block = batch.cell_line.blocks["bionic_features"].values
         drug_block = batch.drug.blocks["molgnet_features"].values
 
-        samples: list[dict[str, torch.Tensor]] = []
+        pairs: list[dict[str, torch.Tensor]] = []
         for i in range(len(cell_line_pair_idx)):
             cl_idx = cell_line_pair_idx[i]
             dr_idx = drug_pair_idx[i]
 
-            sample: dict[str, torch.Tensor] = {
+            pair: dict[str, torch.Tensor] = {
                 "molgnet_features": torch.tensor(np.asarray(drug_block[dr_idx], dtype=np.float32)),
                 "gene_expression": torch.tensor(np.asarray(gene_block[cl_idx], dtype=np.float32)),
                 "bionic_features": torch.tensor(np.asarray(bionic_block[cl_idx], dtype=np.float32)),
             }
             if response is not None:
-                sample["ic50"] = torch.tensor([response[i]], dtype=torch.float32)
-            samples.append(sample)
-        return samples
+                pair["ic50"] = torch.tensor([response[i]], dtype=torch.float32)
+            pairs.append(pair)
+        return pairs
 
     def _build_loaders(self, batch: ModelInputBatch) -> tuple[DataLoader, DataLoader]:
         """Build the training and early-stopping loaders.
@@ -152,7 +152,7 @@ class DIPKPredictor(BlockPredictor):
             msg = "DIPK requires early stopping data"
             raise ValueError(msg)
 
-        train_samples = self._build_samples(
+        train_pairs = self._build_pairs(
             batch.cell_line_pair_idx,
             batch.drug_pair_idx,
             batch,
@@ -164,7 +164,7 @@ class DIPKPredictor(BlockPredictor):
         if drug_pair_idx_es is None:
             msg = "DIPK requires drug pair indices for early stopping"
             raise ValueError(msg)
-        es_samples = self._build_samples(
+        es_pairs = self._build_pairs(
             cl_pair_idx_es,
             drug_pair_idx_es,
             batch,
@@ -172,22 +172,22 @@ class DIPKPredictor(BlockPredictor):
         )
 
         return (
-            self._loader(train_samples, train=True, shuffle=True),
-            self._loader(es_samples, train=True, shuffle=True),
+            self._loader(train_pairs, train=True, shuffle=True),
+            self._loader(es_pairs, train=True, shuffle=True),
         )
 
-    def _loader(self, samples: list[dict[str, torch.Tensor]], *, train: bool, shuffle: bool) -> DataLoader:
-        """Wrap *samples* in a padding-collated DataLoader.
+    def _loader(self, pairs: list[dict[str, torch.Tensor]], *, train: bool, shuffle: bool) -> DataLoader:
+        """Wrap *pairs* in a padding-collated DataLoader.
 
-        :param samples: Per-sample dictionaries from :meth:`_build_samples`.
+        :param pairs: Per-pair dictionaries from :meth:`_build_pairs`.
         :param train: Whether the collated batches carry target values.
         :param shuffle: Whether to shuffle each epoch.
-        :returns: A DataLoader over the samples.
+        :returns: A DataLoader over the pairs.
         """
         from torch.utils.data import DataLoader
 
         return DataLoader(
-            _DIPKDataset(samples),
+            _DIPKDataset(pairs),
             batch_size=self._hyperparameters["batch_size"],
             shuffle=shuffle,
             collate_fn=_CollateFn(train=train),
@@ -290,8 +290,8 @@ class DIPKPredictor(BlockPredictor):
             msg = "DIPK requires drug features for prediction"
             raise ValueError(msg)
 
-        samples = self._build_samples(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
-        test_loader = self._loader(samples, train=False, shuffle=False)
+        pairs = self._build_pairs(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
+        test_loader = self._loader(pairs, train=False, shuffle=False)
 
         self._model.eval()
         chunks: list[np.ndarray] = []
@@ -354,23 +354,23 @@ class _CollateFn:
         self.train = train
 
     def __call__(self, batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
-        """Collate a list of sample dicts into padded batch tensors.
+        """Collate a list of pair dicts into padded batch tensors.
 
-        :param batch: List of per-sample dictionaries.
+        :param batch: List of per-pair dictionaries.
         :returns: Collated batch dictionary.
         """
         import torch
 
-        max_atoms = max(sample["molgnet_features"].size(0) for sample in batch)
+        max_atoms = max(pair["molgnet_features"].size(0) for pair in batch)
 
         padded_molgnet: list[torch.Tensor] = []
         masks: list[torch.Tensor] = []
 
-        for sample in batch:
-            num_atoms = sample["molgnet_features"].size(0)
+        for pair in batch:
+            num_atoms = pair["molgnet_features"].size(0)
             padding_size = max_atoms - num_atoms
             padded = torch.cat(
-                [sample["molgnet_features"], torch.zeros(padding_size, sample["molgnet_features"].size(1))],
+                [pair["molgnet_features"], torch.zeros(padding_size, pair["molgnet_features"].size(1))],
                 dim=0,
             )
             padded_molgnet.append(padded)
@@ -392,7 +392,7 @@ class _CollateFn:
 
 
 class _DIPKDataset:
-    """Simple list-backed dataset for DIPK samples.
+    """Simple list-backed dataset for DIPK pairs.
 
     Deliberately not a ``torch.utils.data.Dataset`` subclass: that base class
     contributes only ``__add__``, which nothing here uses, and inheriting from it
@@ -401,24 +401,24 @@ class _DIPKDataset:
     treats any object with ``__getitem__`` and ``__len__`` as a map-style dataset.
     """
 
-    def __init__(self, samples: list[dict[str, torch.Tensor]]) -> None:
-        """Initialize dataset from a list of sample dicts.
+    def __init__(self, pairs: list[dict[str, torch.Tensor]]) -> None:
+        """Initialize dataset from a list of pair dicts.
 
-        :param samples: Pre-built sample dictionaries.
+        :param pairs: Pre-built pair dictionaries.
         """
-        self._samples = samples
+        self._pairs = pairs
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        """Return sample at the given index.
+        """Return pair at the given index.
 
-        :param idx: Sample index.
-        :returns: Sample dictionary.
+        :param idx: Pair index.
+        :returns: Pair dictionary.
         """
-        return self._samples[idx]
+        return self._pairs[idx]
 
     def __len__(self) -> int:
-        """Return number of samples.
+        """Return number of pairs.
 
         :returns: Dataset length.
         """
-        return len(self._samples)
+        return len(self._pairs)

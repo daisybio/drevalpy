@@ -18,7 +18,7 @@ from drevalpy.models.tuning.hpo_runtime import (
     run_optuna_study,
 )
 from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
-from drevalpy.models.tuning.search_space import resolve_model_config, sample_from_optuna_trial
+from drevalpy.models.tuning.search_space import draw_from_optuna_trial, resolve_model_config
 from drevalpy.types import SplitMask
 from drevalpy.types.data.dataset import Dataset
 
@@ -112,8 +112,8 @@ def hpam_tune(
     failures = _TrialFailures()
 
     def objective_with_metrics(trial: Any) -> float:
-        sampled = sample_from_optuna_trial(trial, structured_space)
-        trial_model = _construct_trial_model(model_spec, sampled, response_transformation)
+        drawn = draw_from_optuna_trial(trial, structured_space)
+        trial_model = _construct_trial_model(model_spec, drawn, response_transformation)
 
         try:
             metrics, predictions = _mu_evaluate_trial_all_metrics(
@@ -134,7 +134,7 @@ def hpam_tune(
             return float("nan")
 
         if metrics:
-            all_trial_data.append((sampled, metrics, predictions))
+            all_trial_data.append((drawn, metrics, predictions))
 
         if wandb_project:
             _log_trial_to_wandb(
@@ -143,7 +143,7 @@ def hpam_tune(
                 model_name=model_name,
                 split_index=split_index,
                 trial_number=trial.number,
-                sampled=sampled,
+                drawn=drawn,
                 metrics=metrics,
                 metric=metric,
             )
@@ -208,7 +208,7 @@ def _log_trial_to_wandb(
     model_name: str,
     split_index: int | None,
     trial_number: int,
-    sampled: dict[str, Any],
+    drawn: dict[str, Any],
     metrics: dict[str, float],
     metric: str,
 ) -> None:
@@ -220,7 +220,7 @@ def _log_trial_to_wandb(
 
     run_name = f"{model_name}_split{split_index}_trial{trial_number}"
     run_config = dict(wandb_base_config or {})
-    run_config.update(sampled)
+    run_config.update(drawn)
     run = wandb.init(
         project=wandb_project,
         name=run_name,

@@ -85,7 +85,7 @@ class TestDefaults:
 
         assert worker.kwargs["hyperparameter_tuning"] is True
         assert worker.kwargs["hpo_metric"] == "RMSE"
-        assert worker.kwargs["hpo_num_samples"] == 16
+        assert worker.kwargs["hpo_num_trials"] == 16
         assert worker.kwargs["hpo_random_state"] is None
 
     def test_forwards_experiment_defaults(self, worker: Recorder, tmp_path: UPath) -> None:
@@ -160,10 +160,10 @@ class TestOptionForwarding:
         assert worker.kwargs["randomization_random_state"] == 17
 
     def test_hpo_tuning_options(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "--hpo-metric", "Pearson", "--hpo-num-samples", "3", "--hpo-random-state", "7")
+        _invoke(tmp_path, "--hpo-metric", "Pearson", "--hpo-trials", "3", "--hpo-random-state", "7")
 
         assert worker.kwargs["hpo_metric"] == "Pearson"
-        assert worker.kwargs["hpo_num_samples"] == 3
+        assert worker.kwargs["hpo_num_trials"] == 3
         assert worker.kwargs["hpo_random_state"] == 7
 
     def test_robustness_trials(self, worker: Recorder, tmp_path: UPath) -> None:
@@ -183,8 +183,8 @@ class TestOptionForwarding:
 
         assert result.exit_code == 2
 
-    def test_non_integer_hpo_samples_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
-        result = _invoke(tmp_path, "--hpo-num-samples", "many")
+    def test_non_integer_hpo_trials_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--hpo-trials", "many")
 
         assert result.exit_code == 2
 

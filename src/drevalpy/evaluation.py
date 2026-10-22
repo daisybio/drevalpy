@@ -33,15 +33,15 @@ def _check_constant_prediction(y_pred: np.ndarray) -> bool:
     return bool(np.all(np.isclose(y_pred, y_pred[0], atol=tol)))
 
 
-def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
-    """Check if target is constant or sample size is too small.
+def _check_constant_target_or_few_pairs(y_true: np.ndarray) -> bool:
+    """Check if target is constant or there are too few pairs.
 
     :param y_true: Observed response values.
 
-    :returns: Whether the sample is too small or the target has no variation.
+    :returns: Whether there are too few pairs or the target has no variation.
     """
     tol = 1e-6
-    # Check for insufficient sample size or no variation in target
+    # Check for too few pairs or no variation in target
     return len(y_true) < 2 or bool(np.all(np.isclose(y_true, y_true[0], atol=tol)))
 
 
@@ -60,7 +60,7 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 
     if _check_constant_prediction(y_pred):
         return 0.0
-    if _check_constant_target_or_small_sample(y_true):
+    if _check_constant_target_or_few_pairs(y_true):
         return np.nan
 
     from scipy.stats import pearsonr
@@ -83,7 +83,7 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
         raise ValueError("predictions, response must have the same length")
     if _check_constant_prediction(y_pred):
         return 0.0
-    if _check_constant_target_or_small_sample(y_true):
+    if _check_constant_target_or_few_pairs(y_true):
         return np.nan
 
     from scipy.stats import spearmanr
@@ -106,7 +106,7 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
         raise ValueError("predictions, response must have the same length")
     if _check_constant_prediction(y_pred):
         return 0.0
-    if _check_constant_target_or_small_sample(y_true):
+    if _check_constant_target_or_few_pairs(y_true):
         return np.nan
 
     from scipy.stats import kendalltau
@@ -209,7 +209,7 @@ def score_predictions(
     :param response: Targets in exactly the same order, including NaNs.
     :param metrics: Requested metric names; None selects every registered metric.
     :param empty_as_dict: Return {} when no pair is usable (experiment convention).
-    :returns: Requested scores, with NaN for insufficient samples.
+    :returns: Requested scores, with NaN for too few pairs.
     :raises ValueError: If inputs are not equally shaped one-dimensional arrays or a metric is unknown.
     """
     predictions, response = np.asarray(predictions), np.asarray(response)

@@ -70,7 +70,7 @@ predictions and metrics.
    * - ``hpo_metric``
      - ``"RMSE"``
      - Metric to optimize (also ``MSE``, ``MAE``, ``R^2``, ``Pearson``, ``Spearman``, ``Kendall``).
-   * - ``hpo_num_samples``
+   * - ``hpo_num_trials``
      - ``16``
      - Number of Optuna trials per fold.
    * - ``seed``
@@ -117,7 +117,7 @@ For parallel or custom workflows, split first and execute folds individually:
            fold,
            hyperparameter_tuning=True,
            hpo_metric="RMSE",
-           hpo_num_samples=16,
+           hpo_num_trials=16,
        )
        results.append(result)
 
@@ -151,7 +151,7 @@ Optuna
 ~~~~~~
 
 Hyperparameter search is Optuna-only. Each study uses a ``TPESampler`` seeded
-with ``hpo_random_state`` (``seed`` when unset), runs ``hpo_num_samples`` trials
+with ``hpo_random_state`` (``seed`` when unset), runs ``hpo_num_trials`` trials
 sequentially in the calling process, and optimizes ``hpo_metric`` on the
 validation scope. To tune folds in parallel, run them as separate processes (see
 ``drevalpy single`` in :doc:`/cli/experiments`).

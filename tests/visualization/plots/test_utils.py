@@ -61,12 +61,12 @@ class TestModelColorPalette:
 
 
 class TestComputeSsmd:
-    def test_is_zero_for_identical_samples(self):
+    def test_is_zero_for_identical_inputs(self):
         values = [1.0, 2.0, 3.0]
 
         assert compute_ssmd(values, values) == 0.0
 
-    def test_is_positive_when_the_first_sample_is_larger(self):
+    def test_is_positive_when_the_first_input_is_larger(self):
         assert compute_ssmd([2.0, 3.0, 4.0], [1.0, 2.0, 3.0]) > 0
 
     def test_is_antisymmetric(self):
@@ -81,7 +81,7 @@ class TestComputeSsmd:
 
         assert compute_ssmd(a, b) == pytest.approx(expected)
 
-    def test_is_nan_when_both_samples_are_constant(self):
+    def test_is_nan_when_both_inputs_are_constant(self):
         assert math.isnan(compute_ssmd([2.0, 2.0], [1.0, 1.0]))
 
     def test_accepts_integer_sequences(self):

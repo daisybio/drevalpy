@@ -77,7 +77,7 @@ fold identities, while ``n_runs`` counts every execution. Use
 
 Reports and ordinary aggregates use the default selection, keeping diagnostic
 variants out of leaderboards, critical-difference plots, scatter plots and
-group correlations. Their sample IDs use the full execution identity so two
+group correlations. Their report keys use the full execution identity so two
 variants cannot overwrite each other. Normalization matches every variant to
 the ordinary reference execution with the same fold identity. If a reference
 model has more than one ordinary execution for a fold, normalization rejects the

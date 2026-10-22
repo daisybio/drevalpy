@@ -143,7 +143,7 @@ class TestForwarding:
         assert forwarded == {
             "hyperparameter_tuning": True,
             "hpo_metric": "RMSE",
-            "hpo_num_samples": 16,
+            "hpo_num_trials": 16,
             "hpo_random_state": None,
             "seed": 42,
         }
@@ -154,10 +154,10 @@ class TestForwarding:
         assert worker.kwargs["hyperparameter_tuning"] is False
 
     def test_forwards_overridden_hpo_options(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
-        _invoke(split_file, tmp_path, "--hpo-metric", "Pearson", "--hpo-num-samples", "2", "--hpo-random-state", "9")
+        _invoke(split_file, tmp_path, "--hpo-metric", "Pearson", "--hpo-trials", "2", "--hpo-random-state", "9")
 
         assert worker.kwargs["hpo_metric"] == "Pearson"
-        assert worker.kwargs["hpo_num_samples"] == 2
+        assert worker.kwargs["hpo_num_trials"] == 2
         assert worker.kwargs["hpo_random_state"] == 9
 
     def test_seed_is_forwarded(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:

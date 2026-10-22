@@ -125,11 +125,11 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
 
         For independent featurizers (those with ``_compute_from_source``), calls
         that method directly, bypassing fit/transform. Always includes the
-        default HP config in addition to sampled variants.
+        default HP config in addition to drawn variants.
 
         :param featurizer_cls: Registered featurizer class (knows its own side).
         :param hyperparameters: Either a list of explicit HP dicts,
-            or an int N to sample N configs from the featurizer's HP space.
+            or an int N to draw N configs from the featurizer's HP space.
         :param view: View name for view-parameterized featurizers (e.g., "gene_expression").
         """
         from drevalpy.types.data.feature_source import CellLineFeatureSource, DrugFeatureSource
@@ -171,11 +171,11 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         """Pre-compute all fixed featurizers with N HP variants each.
 
         Iterates all registered featurizers (cell-line + drug), skips those
-        not marked for precomputation, and pre-computes N sampled HP
+        not marked for precomputation, and pre-computes N drawn HP
         configurations for the rest. Featurizers without any HP space get a
         single default-params variant.
 
-        :param n_variants: Number of HP configurations to sample for featurizers
+        :param n_variants: Number of HP configurations to draw for featurizers
             that have a tunable HP space.
         """
         from drevalpy.registry.cell_line_featurizer import cell_line_featurizer_registry

@@ -104,7 +104,7 @@ def test_lightgbm_hyperparameter_space_declares_bounded_specs() -> None:
     assert all(spec["low"] <= spec["default"] <= spec["high"] for spec in space.values())
 
 
-def test_lightgbm_samples_the_learning_rate_log_uniformly() -> None:
+def test_lightgbm_draws_the_learning_rate_log_uniformly() -> None:
     assert LightGBMPredictor.get_hyperparameter_space()["learning_rate"]["log"] is True
 
 

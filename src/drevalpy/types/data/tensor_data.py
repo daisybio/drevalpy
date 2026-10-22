@@ -21,7 +21,7 @@ class IndexedPairDataset:
 
     Instead of materializing a full pair-level feature matrix upfront, this
     dataset stores compact entity-level matrices and performs the lookup
-    per-sample in ``__getitem__``.
+    per-pair in ``__getitem__``.
 
     Deliberately not a ``torch.utils.data.Dataset`` subclass: that base class
     contributes only ``__add__``, which nothing here uses, and inheriting from it

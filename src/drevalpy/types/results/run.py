@@ -97,7 +97,7 @@ class RunResult:
 
     @property
     def execution_id(self) -> str:
-        """Unambiguous serialized execution identity for report sample keys."""
+        """Unambiguous serialized execution identity for report data keys."""
         return json.dumps(self.execution_key, separators=(",", ":"))
 
     def __repr__(self) -> str:

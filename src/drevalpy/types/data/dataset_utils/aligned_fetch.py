@@ -38,8 +38,8 @@ def _aligned_fetch(
     missing_mask = positions == -1
     if missing_mask.any():
         n_missing = int(missing_mask.sum())
-        sample = ids[missing_mask][:5].tolist()
-        msg = f"{n_missing} of {len(ids)} {entity_label} IDs not found (first few: {sample}). Returning NaN rows."
+        examples = ids[missing_mask][:5].tolist()
+        msg = f"{n_missing} of {len(ids)} {entity_label} IDs not found (first few: {examples}). Returning NaN rows."
         if strict:
             raise KeyError(msg)
         logger.warning(msg)

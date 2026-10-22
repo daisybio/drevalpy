@@ -7,10 +7,10 @@ from .public_flat import (
 from .search_space import (
     apply_merged_to_model_config,
     defaults_from_merged_space,
+    draw_from_optuna_trial,
     extract_defaults,
     merge_model_config_spaces,
     merge_search_spaces,
-    sample_from_optuna_trial,
     split_hyperparameters,
 )
 
@@ -23,7 +23,7 @@ __all__ = [
     "merge_model_config_spaces",
     "merge_search_spaces",
     "public_hyperparameters_from_config",
-    "sample_from_optuna_trial",
+    "draw_from_optuna_trial",
     "split_hyperparameters",
     "validate_hpo_metric",
 ]

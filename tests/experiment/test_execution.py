@@ -27,7 +27,7 @@ def _execution(monkeypatch, *, stopping=True, seed=17):
         masks,
         hyperparameter_tuning=False,
         hpo_metric="RMSE",
-        hpo_num_samples=2,
+        hpo_num_trials=2,
         hpo_random_state=9,
         seed=5,
     )
@@ -87,7 +87,7 @@ def test_original_overlap_is_rejected_before_execution(monkeypatch):
             replace(original, test=original.train),
             hyperparameter_tuning=False,
             hpo_metric="RMSE",
-            hpo_num_samples=2,
+            hpo_num_trials=2,
             hpo_random_state=9,
             seed=5,
         )

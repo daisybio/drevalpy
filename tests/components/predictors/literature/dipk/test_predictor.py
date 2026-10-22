@@ -1,7 +1,7 @@
 """Tests for the DIPK block predictor.
 
 The training loop itself needs the network-gated BIONIC and MolGNet artifacts, so
-what is exercised here is everything around it: sample construction, the collate
+what is exercised here is everything around it: per-pair dict construction, the collate
 function, the list-backed dataset, and the state/guard paths. Those are also the
 parts that carry the ``torch`` imports this module defers (see
 ``tests/test_import_cost_policy.py``), so they are worth pinning directly.
@@ -147,42 +147,42 @@ class TestTinyDIPKFit:
         np.testing.assert_allclose(restored.predict(batch), predictions, rtol=1e-6, atol=1e-7)
 
 
-class TestBuildSamples:
-    def test_one_sample_per_pair_with_the_three_blocks(self) -> None:
+class TestBuildPairs:
+    def test_one_dict_per_pair_with_the_three_blocks(self) -> None:
         predictor = DIPKPredictor()
         batch = _dipk_batch()
 
-        samples = predictor._build_samples(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
+        pairs = predictor._build_pairs(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
 
-        assert len(samples) == 4
-        assert set(samples[0]) == {"molgnet_features", "gene_expression", "bionic_features"}
+        assert len(pairs) == 4
+        assert set(pairs[0]) == {"molgnet_features", "gene_expression", "bionic_features"}
 
     def test_pair_indices_select_the_entity_rows(self) -> None:
         predictor = DIPKPredictor()
         batch = _dipk_batch()
 
-        samples = predictor._build_samples(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
+        pairs = predictor._build_pairs(batch.cell_line_pair_idx, batch.drug_pair_idx, batch)
 
         # Pair 2 is (cell line 1, drug 0).
-        torch.testing.assert_close(samples[2]["gene_expression"], torch.tensor([0.3, 0.4]))
-        assert samples[2]["molgnet_features"].shape == (3, 2)
+        torch.testing.assert_close(pairs[2]["gene_expression"], torch.tensor([0.3, 0.4]))
+        assert pairs[2]["molgnet_features"].shape == (3, 2)
 
     def test_a_response_adds_the_target_entry(self) -> None:
         predictor = DIPKPredictor()
         batch = _dipk_batch()
 
-        samples = predictor._build_samples(
+        pairs = predictor._build_pairs(
             batch.cell_line_pair_idx,
             batch.drug_pair_idx,
             batch,
             response=np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32),
         )
 
-        assert samples[3]["ic50"].tolist() == [4.0]
+        assert pairs[3]["ic50"].tolist() == [4.0]
 
 
 class TestCollateFn:
-    def _samples(self) -> list[dict[str, torch.Tensor]]:
+    def _pairs(self) -> list[dict[str, torch.Tensor]]:
         return [
             {
                 "molgnet_features": torch.ones(3, 2),
@@ -199,30 +199,30 @@ class TestCollateFn:
         ]
 
     def test_ragged_atoms_are_zero_padded_to_the_longest_molecule(self) -> None:
-        collated = _CollateFn(train=False)(self._samples())
+        collated = _CollateFn(train=False)(self._pairs())
 
         assert collated["molgnet_features"].shape == (2, 3, 2)
         assert collated["molgnet_features"][1, 1:].abs().sum().item() == 0.0
 
     def test_the_mask_marks_only_the_real_atoms(self) -> None:
-        collated = _CollateFn(train=False)(self._samples())
+        collated = _CollateFn(train=False)(self._pairs())
 
         assert collated["molgnet_mask"].dtype is torch.bool
         assert collated["molgnet_mask"][1].tolist() == [True, False, False]
 
     def test_targets_are_included_only_in_training_mode(self) -> None:
-        train = _CollateFn(train=True)(self._samples())
-        predict = _CollateFn(train=False)(self._samples())
+        train = _CollateFn(train=True)(self._pairs())
+        predict = _CollateFn(train=False)(self._pairs())
 
         assert train["ic50_values"].flatten().tolist() == [5.0, 6.0]
         assert "ic50_values" not in predict
 
 
 class TestDIPKDataset:
-    def test_length_is_the_sample_count(self) -> None:
+    def test_length_is_the_pair_count(self) -> None:
         assert len(_DIPKDataset([{"a": torch.zeros(1)}, {"a": torch.ones(1)}])) == 2
 
-    def test_indexing_returns_the_stored_sample(self) -> None:
+    def test_indexing_returns_the_stored_pair(self) -> None:
         second = {"a": torch.ones(1)}
 
         assert _DIPKDataset([{"a": torch.zeros(1)}, second])[1] is second

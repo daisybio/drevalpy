@@ -15,7 +15,7 @@ def run_cmd(
     output_dir: Annotated[str, typer.Option("--output-dir", "-o", help="Output directory for results.")] = "results",
     hpo: Annotated[bool, typer.Option("--hpo/--no-hpo", help="Enable hyperparameter tuning.")] = True,
     hpo_metric: Annotated[str, typer.Option("--hpo-metric", help="Metric to optimize.")] = "RMSE",
-    hpo_num_samples: Annotated[int, typer.Option("--hpo-num-samples", help="Number of HPO trials.")] = 16,
+    hpo_num_trials: Annotated[int, typer.Option("--hpo-trials", help="Number of HPO trials.")] = 16,
     seed: Annotated[
         int, typer.Option("--seed", help="Root seed for splits, HPO, feature randomization, and model fits.")
     ] = 42,
@@ -55,7 +55,7 @@ def run_cmd(
         randomization_random_state=randomization_random_state,
         hyperparameter_tuning=hpo,
         hpo_metric=hpo_metric,
-        hpo_num_samples=hpo_num_samples,
+        hpo_num_trials=hpo_num_trials,
         hpo_random_state=hpo_random_state,
         robustness_trials=robustness_trials,
     )

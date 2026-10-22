@@ -312,8 +312,8 @@ class TestPrecompute:
 
         assert seen == [{"view": "methylation"}]
 
-    def test_int_hyperparameters_are_sampled(self, mudataset: Dataset, records: list[dict]):
-        """An int asks for N sampled configs; the empty HP space short-circuits Optuna."""
+    def test_int_hyperparameters_are_drawn(self, mudataset: Dataset, records: list[dict]):
+        """An int asks for N drawn configs; the empty HP space short-circuits Optuna."""
         mudataset.precompute(stub_featurizer(records), 2)
 
         assert len(records) == 2

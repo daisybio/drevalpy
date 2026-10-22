@@ -224,13 +224,13 @@ def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
     return {key: spec["default"] for key, spec in space.items()}
 
 
-def sample_from_optuna_trial(trial: Any, space_dict: dict[str, Any]) -> dict[str, Any]:
-    """Sample hyperparameters from an Optuna trial using the structured search space.
+def draw_from_optuna_trial(trial: Any, space_dict: dict[str, Any]) -> dict[str, Any]:
+    """Draw hyperparameters from an Optuna trial using the structured search space.
 
     :param trial: An ``optuna.Trial`` instance.
     :param space_dict: Structured hyperparameter space with entries like
         ``{"alpha": {"type": "float", "low": 0.001, "high": 10.0, "log": True}}``.
-    :returns: Flat dict of sampled concrete hyperparameter values.
+    :returns: Flat dict of drawn concrete hyperparameter values.
     :raises ValueError: If a parameter spec has an unknown type.
     """
     result: dict[str, Any] = {}

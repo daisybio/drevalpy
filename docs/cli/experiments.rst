@@ -47,7 +47,7 @@ Models are passed as positional arguments. Options:
    * - ``--hpo-metric``
      - ``RMSE``
      - Metric to optimize (``MSE``, ``MAE``, ``R^2``, ``Pearson``, ``Spearman``, ``Kendall``).
-   * - ``--hpo-num-samples``
+   * - ``--hpo-trials``
      - ``16``
      - Number of Optuna trials per fold.
    * - ``--seed``
@@ -84,7 +84,7 @@ Example with custom HPO settings:
        --dataset GDSC1 \
        --split-mode LPO \
        --hpo-metric Pearson \
-       --hpo-num-samples 32 \
+       --hpo-trials 32 \
        --hpo-random-state 123
 
 ``drevalpy single`` — per-fold execution
@@ -96,7 +96,7 @@ For parallel or distributed workflows, run individual folds separately:
 
    drevalpy single ElasticNet data/GDSC1.h5mu splits/fold_0.npz results/fold_0.npz \
        --hpo-metric RMSE \
-       --hpo-num-samples 16
+       --hpo-trials 16
 
 Arguments:
 
@@ -106,7 +106,7 @@ Arguments:
 4. Output path (``.npz`` result file)
 
 Options are the same HPO flags (``--hpo``, ``--hpo-metric``,
-``--hpo-num-samples``, ``--hpo-random-state``) and ``--seed`` as
+``--hpo-trials``, ``--hpo-random-state``) and ``--seed`` as
 ``drevalpy run``, plus the following that are specific to per-fold execution:
 
 .. list-table::
@@ -143,7 +143,7 @@ Hyperparameter tuning
 Tuning is **on by default** (``--hpo``). When enabled, models with a search
 space are tuned with `Optuna <https://optuna.org/>`_ before final fold
 evaluation. Search is Optuna-only: a ``TPESampler`` seeded with
-``--hpo-random-state`` (``--seed`` when unset) runs ``--hpo-num-samples`` trials
+``--hpo-random-state`` (``--seed`` when unset) runs ``--hpo-trials`` trials
 sequentially in the process and optimizes ``--hpo-metric``. Use ``--no-hpo`` for
 defaults-only runs, and run folds as separate ``drevalpy single`` processes to
 parallelize.

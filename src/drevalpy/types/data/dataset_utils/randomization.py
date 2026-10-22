@@ -84,7 +84,7 @@ def _randomize_graph(graph: dict[str, np.ndarray], rng: np.random.Generator) -> 
     """Apply invariant randomization to a single drug graph.
 
     Preserves degree distribution (edge_index), and replaces node/edge
-    features with Gaussian samples matching per-row mean and std.
+    features with Gaussian draws matching per-row mean and std.
     """
     result: dict[str, np.ndarray] = {}
     for key, val in graph.items():
@@ -186,7 +186,7 @@ class RandomizationMixin:
         Args:
             views: View names to randomize.
             randomization_type: "permutation" shuffles rows; "invariant" replaces
-                each row with a random sample matching its mean and std.
+                each row with a random draw matching its mean and std.
             random_state: Seed for reproducibility.
             randomization: Optional (mode, view) tuple to attach to the new dataset.
 

@@ -29,7 +29,7 @@ def test_xgboost_caps_the_tree_depth_below_the_shared_ceiling() -> None:
     assert XGBoostPredictor.get_hyperparameter_space()["max_depth"]["high"] == 8
 
 
-def test_xgboost_samples_the_learning_rate_uniformly() -> None:
+def test_xgboost_draws_the_learning_rate_uniformly() -> None:
     assert "log" not in XGBoostPredictor.get_hyperparameter_space()["learning_rate"]
 
 

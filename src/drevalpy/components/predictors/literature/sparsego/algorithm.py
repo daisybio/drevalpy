@@ -60,7 +60,7 @@ def _sparse_connectivity_indices(
             col_ind = indices.fmod(in_features)
         else:
             warnings.warn(
-                "Matrix too large to sample non-zero indices without replacement, sparsity will be approximate",
+                "Matrix too large to draw non-zero indices without replacement, sparsity will be approximate",
                 RuntimeWarning,
                 stacklevel=3,
             )
@@ -81,8 +81,8 @@ class SparseLinearNew(nn.Module):
     matrix. Only the connections specified in the connectivity tensor are learned;
     all other weights are permanently zero.
 
-    :param in_features: Size of each input sample.
-    :param out_features: Size of each output sample.
+    :param in_features: Size of each input row.
+    :param out_features: Size of each output row.
     :param bias: If True, adds a learnable bias. Default: True.
     :param sparsity: Sparsity of weight matrix if connectivity is None. Default: 0.9.
     :param connectivity: LongTensor of shape ``(2, nnz)`` with non-zero weight indices for
@@ -99,8 +99,8 @@ class SparseLinearNew(nn.Module):
     ):
         """Initialize SparseLinearNew layer.
 
-        :param in_features: Size of each input sample.
-        :param out_features: Size of each output sample.
+        :param in_features: Size of each input row.
+        :param out_features: Size of each output row.
         :param bias: If True, adds a learnable bias. Default: True.
         :param sparsity: Sparsity of weight matrix if connectivity is None. Default: 0.9.
         :param connectivity: LongTensor of shape (2, nnz) specifying non-zero weight positions.

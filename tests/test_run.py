@@ -297,7 +297,7 @@ class TestForwardedArguments:
             "LCO",
             hyperparameter_tuning=True,
             hpo_metric="MSE",
-            hpo_num_samples=4,
+            hpo_num_trials=4,
             hpo_random_state=7,
         )
 
@@ -305,7 +305,7 @@ class TestForwardedArguments:
         assert kwargs == {
             "hyperparameter_tuning": True,
             "hpo_metric": "MSE",
-            "hpo_num_samples": 4,
+            "hpo_num_trials": 4,
             "hpo_random_state": 7,
             "seed": 42,
             "response_transformation": None,

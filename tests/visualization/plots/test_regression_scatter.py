@@ -161,7 +161,7 @@ class TestCompute:
 
         assert ax.get_xlim() == ax.get_ylim()
 
-    def test_annotates_the_sample_count_and_the_fit(self, computed):
+    def test_annotates_the_pair_count_and_the_fit(self, computed):
         text = computed._fig.axes[0].texts[0].get_text()
 
         assert f"n = {N_FOLDS * N_PAIRS:,}" in text

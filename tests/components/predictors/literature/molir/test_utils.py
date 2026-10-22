@@ -23,7 +23,7 @@ def test_utils_reexports_the_realign_helper_from_omics() -> None:
     assert utils._realign_omic_matrix is _omics._realign_omic_matrix
 
 
-def test_generate_triplets_indices_picks_near_and_far_samples() -> None:
+def test_generate_triplets_indices_picks_near_and_far_pairs() -> None:
     y = np.array([0.0, 0.05, 5.0])
 
     positive, negative = utils.generate_triplets_indices(y, positive_range=0.1, negative_range=1.0, random_seed=0)
@@ -35,8 +35,8 @@ def test_generate_triplets_indices_picks_near_and_far_samples() -> None:
     assert negative[0] == negative[1] == 2
 
 
-def test_generate_triplets_indices_falls_back_to_the_sample_itself_for_a_single_response() -> None:
-    """A one-element validation split has no other sample to draw a triplet from."""
+def test_generate_triplets_indices_falls_back_to_the_pair_itself_for_a_single_response() -> None:
+    """A one-element validation split has no other pair to draw a triplet from."""
     positive, negative = utils.generate_triplets_indices(
         np.array([2.0]), positive_range=0.1, negative_range=1.0, random_seed=0
     )
@@ -45,7 +45,7 @@ def test_generate_triplets_indices_falls_back_to_the_sample_itself_for_a_single_
     assert negative.tolist() == [0]
 
 
-def test_generate_triplets_indices_falls_back_to_the_closest_sample() -> None:
+def test_generate_triplets_indices_falls_back_to_the_closest_pair() -> None:
     """No response sits inside the positive range, so the nearest one is used."""
     y = np.array([0.0, 3.0, 10.0])
 

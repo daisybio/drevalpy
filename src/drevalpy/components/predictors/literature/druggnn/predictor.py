@@ -63,7 +63,7 @@ class _DrugGNNDataset:
         self._response = torch.as_tensor(response, dtype=torch.float32)
 
     def __len__(self) -> int:
-        """Return the number of samples.
+        """Return the number of pairs.
 
         :returns: Dataset length.
         """
@@ -72,7 +72,7 @@ class _DrugGNNDataset:
     def __getitem__(self, idx: int):
         """Return (drug_graph, cell_features, response) for the given index.
 
-        :param idx: Sample index.
+        :param idx: Pair index.
         :returns: Tuple of drug graph, cell tensor, and response scalar.
         """
         cl_idx = self._cl_pair_idx[idx]

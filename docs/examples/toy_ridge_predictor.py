@@ -50,7 +50,7 @@ class ToyRidgePredictor(MatrixPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Declare the search space HPO samples from.
+        """Declare the search space HPO draws from.
 
         Every entry needs a ``default``, which is what the predictor uses when
         nothing is tuned; registration rejects a space that omits one.

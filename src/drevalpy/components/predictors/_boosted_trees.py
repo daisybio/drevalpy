@@ -36,7 +36,7 @@ SHARED_DEFAULTS: dict[str, Any] = {
 #: Search-space specs for every knob either predictor tunes. A subclass selects
 #: the ones it exposes and adjusts individual fields; it never restates a spec.
 #: ``learning_rate`` carries no ``log`` flag here because the two predictors
-#: disagree on it - LightGBM samples it log-uniformly, XGBoost uniformly.
+#: disagree on it - LightGBM draws it log-uniformly, XGBoost uniformly.
 SHARED_SPACE: dict[str, dict[str, Any]] = {
     "n_estimators": {"type": "int", "low": 50, "high": 300, "default": 100},
     "max_depth": {"type": "int", "low": 3, "high": 12, "default": 6},

@@ -11,7 +11,7 @@ Both are now bounded by ``models x groups`` and by the rendered image
 respectively. The tests below assert that empirically rather than by inspecting
 the source: they grow the number of *predictions* while holding models and groups
 fixed, and require the retained bytes and the report payload not to follow. A
-reintroduced per-sample payload fails here even if it is spelled differently.
+reintroduced per-pair payload fails here even if it is spelled differently.
 
 This lives at the ``tests/`` root alongside the other cross-cutting guards
 (``test_architecture_policy.py``, ``test_layering_policy.py``) because it pins a
@@ -38,12 +38,12 @@ N_MODELS = 4
 N_DRUGS = 5
 N_CELL_LINES = 4
 
-#: An 8x growth in predictions. Anything retaining per-sample state grows with
+#: An 8x growth in predictions. Anything retaining per-pair state grows with
 #: this; the plots under test must not.
 SMALL_ROWS = 100
 LARGE_ROWS = 800
 
-#: The per-sample implementations cost ~240 B per point, so an 8x row increase
+#: The per-pair implementations cost ~240 B per point, so an 8x row increase
 #: moved ~1.3 MB in this fixture. Allowing 2x plus a fixed 64 kB is far below
 #: that and far above the noise of a float32 matrix or a PNG re-render.
 GROWTH_TOLERANCE = 2.0
@@ -152,7 +152,7 @@ def _assert_bounded(small: int, large: int, label: str) -> None:
     assert large <= limit, (
         f"{label} grew from {small:,} to {large:,} bytes for a {ratio:.0f}x increase in predictions "
         f"({SMALL_ROWS} -> {LARGE_ROWS} rows per fold) with models and groups held fixed. "
-        "Visualization payloads must scale with models x groups, not with the number of samples - "
+        "Visualization payloads must scale with models x groups, not with the number of pairs - "
         "see the docstring of this module."
     )
 
@@ -228,7 +228,7 @@ class TestGuardIsMeaningful:
         large = per_point * LARGE_ROWS * 2
 
         with pytest.raises(AssertionError, match="must scale with models x groups"):
-            _assert_bounded(small, large, "hypothetical per-sample payload")
+            _assert_bounded(small, large, "hypothetical per-pair payload")
 
     def test_the_bound_accepts_a_constant_payload(self):
         _assert_bounded(10_000, 10_000, "hypothetical constant payload")

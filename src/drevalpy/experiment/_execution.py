@@ -73,7 +73,7 @@ class ExecutionSpec:
     identity: RunIdentity
     hyperparameter_tuning: bool
     hpo_metric: str
-    hpo_num_samples: int
+    hpo_num_trials: int
     hpo_random_state: int
     seed: int
     metadata: Mapping[str, Any]
@@ -94,7 +94,7 @@ def build_execution(
     *,
     hyperparameter_tuning: bool,
     hpo_metric: str,
-    hpo_num_samples: int,
+    hpo_num_trials: int,
     hpo_random_state: int,
     seed: int,
 ) -> ExecutionSpec:
@@ -105,7 +105,7 @@ def build_execution(
     :param folds: Original training/validation/test partition.
     :param hyperparameter_tuning: Whether to search parameters.
     :param hpo_metric: Selection metric.
-    :param hpo_num_samples: Number of trials.
+    :param hpo_num_trials: Number of trials.
     :param hpo_random_state: Sampler seed.
     :param seed: Root seed from which every fit's RNG seed is derived.
     :returns: Immutable execution decisions.
@@ -128,7 +128,7 @@ def build_execution(
         "hpo": {
             "enabled": hyperparameter_tuning,
             "metric": hpo_metric,
-            "num_samples": hpo_num_samples,
+            "num_trials": hpo_num_trials,
             "random_state": hpo_random_state,
         },
         "seed": seed,
@@ -148,7 +148,7 @@ def build_execution(
         identity,
         hyperparameter_tuning,
         hpo_metric,
-        hpo_num_samples,
+        hpo_num_trials,
         hpo_random_state,
         seed,
         metadata,

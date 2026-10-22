@@ -28,7 +28,7 @@ def run(
     randomization_type: str = "permutation",
     hyperparameter_tuning: bool = True,
     hpo_metric: str = "RMSE",
-    hpo_num_samples: int = 16,
+    hpo_num_trials: int = 16,
     hpo_random_state: int | None = None,
     robustness_trials: int = 0,
     randomization_random_state: int | None = None,
@@ -44,7 +44,7 @@ def run(
     :param randomization_type: "permutation" or "invariant".
     :param hyperparameter_tuning: Whether to run HPO.
     :param hpo_metric: Metric to optimize during HPO.
-    :param hpo_num_samples: Number of HPO trials.
+    :param hpo_num_trials: Number of HPO trials.
     :param hpo_random_state: Random seed for the HPO sampler; defaults to ``seed``.
     :param robustness_trials: Number of robustness permutations (0 = disabled).
     :param randomization_random_state: Root seed for reproducible feature randomization; defaults to ``seed``.
@@ -83,7 +83,7 @@ def run(
                 split_masks,
                 hyperparameter_tuning=hyperparameter_tuning,
                 hpo_metric=hpo_metric,
-                hpo_num_samples=hpo_num_samples,
+                hpo_num_trials=hpo_num_trials,
                 hpo_random_state=hpo_random_state,
                 seed=seed,
                 response_transformation=response_transformation,

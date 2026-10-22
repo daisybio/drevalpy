@@ -413,7 +413,7 @@ class TestResponseTransformation:
 
 
 class TestHyperparameterTuning:
-    def test_tuning_records_one_trial_per_sampled_configuration(
+    def test_tuning_records_one_trial_per_drawn_configuration(
         self,
         synthetic_dataset,
         folds: list[SplitMasks],
@@ -454,7 +454,7 @@ class TestHyperparameterTuning:
             folds[0],
             hyperparameter_tuning=True,
             hpo_metric="MSE",
-            hpo_num_samples=3,
+            hpo_num_trials=3,
             hpo_random_state=11,
         )
 

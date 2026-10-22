@@ -93,8 +93,8 @@ class ViolinVisualization(PlotlyVisualization):
         self._data = {}
         for model in result.models:
             for run in model.select_runs():
-                sample_name = run.execution_id
-                self._data[sample_name] = dict(run.metrics)
+                execution_id = run.execution_id
+                self._data[execution_id] = dict(run.metrics)
 
     def to_multiqc(self) -> list[Section]:
         """Return a MultiQC violin Section using native violin plot API."""
