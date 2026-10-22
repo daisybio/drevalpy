@@ -13,7 +13,7 @@ from upath import UPath
 
 from drevalpy.cli.main import app
 from drevalpy.types import SplitMask, SplitMasks
-from tests.cli._helpers import HELP_ENV, make_runner, plain
+from tests.cli._helpers import HELP_ENV, make_runner, plain, write_synthetic_fold
 
 runner = make_runner()
 
@@ -179,3 +179,35 @@ class TestGeneration:
         result = _invoke(splits_dir, tmp_path / "out", "-n", "several")
 
         assert result.exit_code == 2
+
+
+class TestOnRealFiles:
+    """A shuffled split trains through ``single`` and is recorded under its robustness trial.
+
+    The case trains a model on real synthetic data, which costs over 0.2s.
+    """
+
+    pytestmark = pytest.mark.slow
+
+    def test_single_records_the_robustness_trial(self, tmp_path: UPath) -> None:
+        from drevalpy.types.results import RunResult
+
+        dataset, fold = write_synthetic_fold(runner, tmp_path)
+        shuffled = runner.invoke(app, ["experiments", "robustness", str(fold.parent), str(tmp_path / "rob"), "-n", "2"])
+        result = runner.invoke(
+            app,
+            [
+                "single",
+                "ElasticNet",
+                str(dataset),
+                str(tmp_path / "rob" / "fold_0_trial_1.npz"),
+                str(tmp_path / "r.npz"),
+                "--no-hpo",
+            ],
+        )
+
+        assert shuffled.exit_code == 0, shuffled.output
+        assert result.exit_code == 0, result.output
+        run = RunResult.load(str(tmp_path / "r.npz"))
+        assert run.robustness_trial == 1
+        assert run.randomization is None

@@ -82,6 +82,48 @@ class TestRoundTrip:
         assert ids.dtype.kind in ("U", "O")
 
 
+class TestRandomizationRoundTrip:
+    """A randomized dataset reads back with the label and provenance it was saved with.
+
+    Writing and reading an ``.h5mu`` file costs over 0.2s, so the class is in the extended tier.
+    """
+
+    pytestmark = pytest.mark.slow
+
+    @pytest.fixture(scope="class")
+    def reloaded(self, tmp_path_factory: pytest.TempPathFactory) -> Dataset:
+        randomized = build_synthetic_dataset().with_randomized_views(
+            ["gene_expression"], random_state=3, randomization=("SVRC", "gene_expression")
+        )
+        randomized.mdata.uns["randomization_provenance"] = {
+            "root_seed": 42,
+            "effective_seed": 3,
+            "type": "permutation",
+            "views": ["gene_expression"],
+        }
+        path = UPath(tmp_path_factory.mktemp("randomized")) / "randomized.h5mu"
+        randomized.save(path)
+        return Dataset.load(path)
+
+    def test_the_label_survives(self, reloaded: Dataset):
+        assert reloaded.randomization == ("SVRC", "gene_expression")
+
+    def test_the_provenance_is_json_compatible_and_unchanged(self, reloaded: Dataset):
+        provenance = reloaded.mdata.uns["randomization_provenance"]
+
+        assert provenance == {
+            "root_seed": 42,
+            "effective_seed": 3,
+            "type": "permutation",
+            "views": ["gene_expression"],
+        }
+        assert isinstance(provenance["views"], list)
+
+    def test_an_unrandomized_dataset_reads_back_without_a_label(self, mudataset: Dataset):
+        assert mudataset.randomization is None
+        assert "randomization_provenance" not in mudataset.mdata.uns
+
+
 class TestResponse:
     """Test response matrix access."""
 

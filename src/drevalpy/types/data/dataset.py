@@ -25,6 +25,7 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 
 from .dataset_utils._dense import to_dense
+from .dataset_utils._stored_identity import plain_value, stored_randomization
 from .dataset_utils.feature_access import FeatureAccessMixin
 from .dataset_utils.randomization import RandomizationMixin
 from .dataset_utils.sampling import _sample_hp_configs
@@ -92,12 +93,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, MuDataLike):
         stored_name = mdata.uns.get("dataset_name")
         name = stored_name if isinstance(stored_name, str) else resolved.stem
 
-        randomization = None
-        stored_rand = mdata.uns.get("randomization")
-        if isinstance(stored_rand, (list, tuple)) and len(stored_rand) == 2:
-            randomization = (str(stored_rand[0]), str(stored_rand[1]))
+        if "randomization_provenance" in mdata.uns:
+            mdata.uns["randomization_provenance"] = plain_value(mdata.uns["randomization_provenance"])
 
-        return cls(mdata, name=name, randomization=randomization)
+        return cls(mdata, name=name, randomization=stored_randomization(mdata.uns))
 
     def save(self, path: str | Path) -> None:
         """Write this Dataset to an .h5mu file, preserving name and randomization.

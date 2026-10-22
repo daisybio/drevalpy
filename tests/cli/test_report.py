@@ -141,6 +141,11 @@ class TestDatasetEnrichment:
 
         assert seen == []
 
+    def test_help_says_the_dataset_is_not_read(self, worker: Recorder) -> None:
+        result = runner.invoke(app, ["report", "--help"], env=HELP_ENV)
+
+        assert "the file is not read" in " ".join(plain(result.output).split())
+
     def test_the_ignored_dataset_is_logged(
         self, worker: Recorder, experiment_dir: UPath, tmp_path: UPath, caplog: pytest.LogCaptureFixture
     ) -> None:

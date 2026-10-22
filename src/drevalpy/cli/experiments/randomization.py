@@ -28,7 +28,7 @@ def randomization_cmd(
     """
     from rich.progress import Progress
 
-    from drevalpy.data import Dataset
+    from drevalpy.data import load
     from drevalpy.experiment._randomization import randomization
     from drevalpy.models import ModelSpec
 
@@ -37,7 +37,7 @@ def randomization_cmd(
 
     effective_modes = modes if modes else ["SVRC"]
     model_spec = ModelSpec.from_name(model)
-    ds = Dataset.load(dataset)
+    ds = load(dataset)
     randomized = randomization(
         model_spec, ds, effective_modes, randomization_type=randomization_type, random_state=random_state
     )
@@ -47,7 +47,7 @@ def randomization_cmd(
         for rds in randomized:
             mode_tag, view_tag = rds.randomization or ("unknown", "0")
             out_path = out / f"{mode_tag}:{view_tag}.h5mu"
-            rds.mdata.write(str(out_path))
+            rds.save(str(out_path))
             progress.advance(task)
 
     typer.echo(f"Wrote {len(randomized)} randomized datasets to {out}")

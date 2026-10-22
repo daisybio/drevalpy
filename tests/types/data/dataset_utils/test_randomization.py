@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from drevalpy.types.data.dataset_utils.randomization import (
     _degree_preserving_rewire,
@@ -169,3 +170,15 @@ class TestOrchestratorPassesType:
             assert kwargs["randomization_type"] == "invariant"
         else:
             assert args[1] == "invariant"
+
+
+class TestMissingView:
+    """Randomizing a view the dataset does not hold must fail rather than label an unchanged copy."""
+
+    def test_an_unknown_view_raises_key_error(self, synthetic_dataset):
+        with pytest.raises(KeyError, match="no_such_view"):
+            synthetic_dataset.with_randomized_views(["no_such_view"], randomization=("SVRD", "no_such_view"))
+
+    def test_a_missing_view_among_present_ones_still_raises(self, synthetic_dataset):
+        with pytest.raises(KeyError, match="no_such_view"):
+            synthetic_dataset.with_randomized_views(["gene_expression", "no_such_view"])

@@ -20,7 +20,7 @@ def report_cmd(
         str | None, typer.Option("--reference-model", "-r", help="Normalize metrics against this model.")
     ] = None,
     dataset_path: Annotated[
-        str | None, typer.Option("--dataset", "-d", help="Path to dataset .h5mu for metadata enrichment.")
+        str | None, typer.Option("--dataset", "-d", help="Accepted for pipeline compatibility; the file is not read.")
     ] = None,
 ) -> None:
     """Generate a MultiQC report from an ExperimentResult."""

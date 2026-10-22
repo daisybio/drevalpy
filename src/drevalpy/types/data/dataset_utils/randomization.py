@@ -157,7 +157,7 @@ def _randomize_single_view(
     elif view in new_uns:
         _randomize_uns_view(new_uns[view], view, new_uns, rng, randomization_type)
     else:
-        logger.warning("View '%s' not found in any storage location. Skipping randomization.", view)
+        raise KeyError(f"View '{view}' not found in any storage location of the dataset.")
 
 
 class RandomizationMixin:

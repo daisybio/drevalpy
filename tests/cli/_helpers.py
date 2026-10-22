@@ -90,8 +90,8 @@ class FakeDataset:
     """Stand-in for :class:`drevalpy.types.data.dataset.Dataset`.
 
     Only the attributes the CLI touches are implemented: ``name`` for the echoed
-    summary, ``mdata`` for the write-out and ``randomization`` for the filename
-    that ``experiments randomization`` derives.
+    summary, ``save`` (which writes through ``mdata``) for the write-out and
+    ``randomization`` for the filename that ``experiments randomization`` derives.
     """
 
     def __init__(
@@ -108,6 +108,14 @@ class FakeDataset:
         self.name = name
         self.randomization = randomization
         self.mdata = FakeMuData()
+
+    def save(self, path: str) -> None:
+        """Write the placeholder file the way :meth:`Dataset.save` writes its MuData.
+
+        Args:
+            path: Destination the command chose for this dataset.
+        """
+        self.mdata.write(path)
 
 
 class Recorder:
@@ -143,3 +151,22 @@ class Recorder:
         """Keyword arguments of the single recorded call."""
         assert self.call_count == 1, f"expected exactly one call, got {self.call_count}"
         return self.calls[0][1]
+
+
+def write_synthetic_fold(runner: CliRunner, directory: UPath) -> tuple[UPath, UPath]:
+    """Write a synthetic dataset and its first LPO fold through the CLI, as a user would.
+
+    Args:
+        runner: Runner that invokes the ``drevalpy`` app.
+        directory: Existing directory that receives ``synthetic.h5mu`` and ``folds/fold_0.npz``.
+
+    Returns:
+        The dataset path and the first fold's path.
+    """
+    from drevalpy.cli.main import app
+
+    dataset = directory / "synthetic.h5mu"
+    assert runner.invoke(app, ["data", "synthetic", "--output", str(dataset)]).exit_code == 0
+    folds = directory / "folds"
+    assert runner.invoke(app, ["data", "split", str(dataset), str(folds), "-n", "2"]).exit_code == 0
+    return dataset, folds / "fold_0.npz"

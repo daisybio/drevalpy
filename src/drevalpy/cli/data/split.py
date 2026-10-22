@@ -24,9 +24,9 @@ def split_dataset(
     """
     from rich.progress import Progress
 
-    from drevalpy.data import Dataset, split
+    from drevalpy.data import load, split
 
-    ds = Dataset.load(dataset)
+    ds = load(dataset)
     out = UPath(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 

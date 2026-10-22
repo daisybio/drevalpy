@@ -33,17 +33,33 @@ def _make_fold(fold_index: int) -> SplitMasks:
 
 
 @pytest.fixture()
-def splitter(monkeypatch: pytest.MonkeyPatch) -> Recorder:
-    """Patch :func:`drevalpy.data.split` and ``Dataset.load``.
+def loader(monkeypatch: pytest.MonkeyPatch) -> Recorder:
+    """Patch :func:`drevalpy.data.load`, which resolves a registered name or a path.
+
+    Args:
+        monkeypatch: Fixture used to replace the source-module worker.
+
+    Returns:
+        Recorder standing in for the dataset loader.
+    """
+    recorder = Recorder(return_value=FakeDataset())
+    patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", recorder)
+    patch_worker(monkeypatch, "drevalpy.data", "load", recorder)
+    return recorder
+
+
+@pytest.fixture()
+def splitter(monkeypatch: pytest.MonkeyPatch, loader: Recorder) -> Recorder:
+    """Patch :func:`drevalpy.data.split` and :func:`drevalpy.data.load`.
 
     Args:
         monkeypatch: Fixture used to replace the source-module workers.
+        loader: Dataset loader stub, so no file is read.
 
     Returns:
         Recorder standing in for the splitter, returning three real folds.
     """
     recorder = Recorder(return_value=[_make_fold(i) for i in range(N_FOLDS)])
-    monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: FakeDataset()))
     patch_worker(monkeypatch, "drevalpy.data", "split", recorder)
     return recorder
 
@@ -80,6 +96,14 @@ class TestForwarding:
         _invoke(tmp_path)
 
         assert isinstance(splitter.args[0], FakeDataset)
+
+    def test_resolves_the_dataset_argument_like_run_does(
+        self, splitter: Recorder, loader: Recorder, tmp_path: UPath
+    ) -> None:
+        """A registered name is as valid as a path, so the argument reaches ``load`` verbatim."""
+        _invoke(tmp_path)
+
+        assert loader.args == ("TOYv1",)
 
     def test_defaults(self, splitter: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path)
@@ -146,7 +170,7 @@ class TestOutput:
         assert f"Wrote {N_FOLDS} folds to {tmp_path / 'folds'}" in plain(result.output)
 
     def test_empty_fold_list_still_reports_zero(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
-        monkeypatch.setattr("drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: FakeDataset()))
+        patch_worker(monkeypatch, "drevalpy.data", "load", Recorder(return_value=FakeDataset()))
         patch_worker(monkeypatch, "drevalpy.data", "split", Recorder(return_value=[]))
 
         result = _invoke(tmp_path)
@@ -160,12 +184,30 @@ class TestLcoAlias:
     def test_lco_writes_lso_folds(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath, synthetic_dataset: Dataset
     ) -> None:
-        monkeypatch.setattr(
-            "drevalpy.types.data.dataset.Dataset.load", classmethod(lambda cls, path: synthetic_dataset)
-        )
+        patch_worker(monkeypatch, "drevalpy.data", "load", Recorder(return_value=synthetic_dataset))
 
         result = _invoke(tmp_path, "--mode", "LCO", "--n-splits", "2")
 
         assert result.exit_code == 0, result.output
         folds = [SplitMasks.load(str(tmp_path / "folds" / f"fold_{i}.npz")) for i in range(2)]
         assert {fold.metadata["split_mode"] for fold in folds} == {"LSO"}
+
+
+class TestNameResolution:
+    """A dataset in the cache directory is reachable by its name, as ``run --dataset`` reaches it.
+
+    Writing and reading a real ``.h5mu`` file costs over 0.2s.
+    """
+
+    pytestmark = pytest.mark.slow
+
+    def test_a_cached_dataset_splits_by_name(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
+        from drevalpy.data import synthetic
+
+        monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path / "cache"))
+        synthetic().save(tmp_path / "cache" / "CACHED.h5mu")
+
+        result = runner.invoke(app, ["data", "split", "CACHED", str(tmp_path / "folds"), "-n", "2"])
+
+        assert result.exit_code == 0, result.output
+        assert sorted(p.name for p in (tmp_path / "folds").glob("*.npz")) == ["fold_0.npz", "fold_1.npz"]

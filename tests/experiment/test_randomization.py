@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from drevalpy.data import synthetic
 from drevalpy.experiment._randomization import (
     _complement_view_tests,
     _single_view_tests,
@@ -33,7 +34,8 @@ class _StubConfig:
 class _StubDataset:
     """Records randomized children with the Dataset surface the helper writes."""
 
-    def __init__(self) -> None:
+    def __init__(self, missing: tuple[str, ...] = ()) -> None:
+        self.missing = missing
         self.calls: list[tuple[list[str], dict[str, Any]]] = []
         self.mdata = SimpleNamespace(uns={})
         self.tag = "dataset"
@@ -41,6 +43,9 @@ class _StubDataset:
 
     def with_randomized_views(self, views: list[str], **kwargs: Any) -> _StubDataset:
         self.calls.append((list(views), kwargs))
+        for view in views:
+            if view in self.missing:
+                raise KeyError(f"View '{view}' not found in any storage location of the dataset.")
         child = _StubDataset()
         child.tag = f"dataset({','.join(views)})"
         child.randomization = kwargs["randomization"]
@@ -170,6 +175,42 @@ class TestRandomization:
         by_view = {kwargs["randomization"][1]: kwargs["random_state"] for _, kwargs in forward.calls}
         reversed_by_view = {kwargs["randomization"][1]: kwargs["random_state"] for _, kwargs in reverse.calls}
         assert by_view == reversed_by_view
+
+    def test_a_test_on_a_view_the_dataset_lacks_is_skipped_with_a_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        dataset = _StubDataset(missing=("fp",))
+
+        with caplog.at_level("WARNING", logger="drevalpy.experiment._randomization"):
+            results = randomization(_stub_model(samples=["expr"], drugs=["fp"]), dataset, ["SVRC", "SVRD"])
+
+        assert [result.randomization for result in results] == [("SVRC", "expr")]
+        assert "Skipping the SVRD randomization test of 'fp'" in caplog.text
+
+    def test_a_complement_test_with_nothing_to_randomize_is_skipped_with_a_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        dataset = _StubDataset()
+
+        with caplog.at_level("WARNING", logger="drevalpy.experiment._randomization"):
+            results = randomization(_stub_model(samples=["expr"], drugs=["fp", "smiles"]), dataset, ["SVCC", "SVCD"])
+
+        assert [result.randomization for result in results] == [("SVCD", "fp"), ("SVCD", "smiles")]
+        assert "Skipping the SVCC randomization test of 'expr': no other view to randomize" in caplog.text
+
+    def test_a_real_model_on_a_dataset_without_its_drug_view_yields_no_drug_tests(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """``drevalpy.data.synthetic`` stores SMILES, not the fingerprint ElasticNet derives from them."""
+        with caplog.at_level("WARNING", logger="drevalpy.experiment._randomization"):
+            results = randomization(
+                ModelSpec.from_name("ElasticNet"),
+                synthetic(n_samples=6, n_drugs=2, n_tissues=2),
+                ["SVRD", "SVCD", "SVCC"],
+            )
+
+        assert results == []
+        assert "'morgan_fingerprint'" in caplog.text
 
     def test_unknown_modes_are_ignored(self) -> None:
         dataset = _StubDataset()
