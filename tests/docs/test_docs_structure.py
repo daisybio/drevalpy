@@ -6,8 +6,7 @@ twice: against the real ``docs/`` tree, and against tiny trees written to
 guard from passing only because the pages it should police are stubs.
 
 "Built" pages are the ``.rst`` files Sphinx reads: everything under ``docs/``
-that ``exclude_patterns`` in ``docs/conf.py`` does not match. Pages parked in
-the old tree are therefore outside every rule here.
+that ``exclude_patterns`` in ``docs/conf.py`` does not match.
 """
 
 from __future__ import annotations

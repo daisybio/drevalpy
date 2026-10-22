@@ -40,11 +40,7 @@ EXTEND_PAGES = DOCS / "how-to" / "extend"
 if str(DOCS) not in sys.path:
     sys.path.insert(0, str(DOCS))
 
-#: TEMPORARY(D3): the literal includes still sit on this page of the old tree, which
-#: ``docs/conf.py`` excludes from the build. D3 moves them to ``how-to/extend/``; set
-#: this to ``()`` then. With it empty, only built pages count as including an example.
-#: A path that no longer exists (the old tree is deleted) is ignored.
-TEMPORARY_INCLUDERS: tuple[Path, ...] = ()
+from _snippets import collect  # noqa: E402
 
 _LITERALINCLUDE = re.compile(r"^\s*\.\. literalinclude:: (\S+)\s*$", re.MULTILINE)
 
@@ -77,8 +73,8 @@ def verification() -> dict[str, Any]:
 
 
 def _includer_pages() -> list[Path]:
-    """Return the pages whose ``literalinclude`` lines count: built pages plus the temporary allowance."""
-    return built_pages(DOCS, exclude_patterns(DOCS)) + [path for path in TEMPORARY_INCLUDERS if path.is_file()]
+    """Return the pages whose ``literalinclude`` lines count: the built pages."""
+    return built_pages(DOCS, exclude_patterns(DOCS))
 
 
 def _literalincludes(pages: list[Path]) -> list[tuple[Path, Path]]:
@@ -166,7 +162,7 @@ def _extend_pages() -> list[Path]:
 
 
 def test_extend_pages_do_not_teach_dead_import_paths() -> None:
-    pages = _extend_pages() + [path for path in TEMPORARY_INCLUDERS if path.is_file()]
+    pages = _extend_pages()
     found = [
         f"{page.relative_to(DOCS).as_posix()}: {reference}"
         for page in pages
@@ -177,15 +173,9 @@ def test_extend_pages_do_not_teach_dead_import_paths() -> None:
 
 
 def test_extend_pages_with_python_route_plugin_authors_through_the_supported_surface() -> None:
-    """Once the extend pages show Python, they must teach ``drevalpy.plugin`` and ``drevalpy.testing``.
-
-    Vacuous while the pages are stubs, so the check cannot fail the Wave 1 tree.
-    """
-    from _snippets import collect
-
+    """The extend pages show Python, so they must teach ``drevalpy.plugin`` and ``drevalpy.testing``."""
     pages = _extend_pages()
-    if not any(snippet.language == "python" for page in pages for snippet in collect(page)):
-        pytest.skip("the extend pages show no Python yet")
+    assert any(snippet.language == "python" for page in pages for snippet in collect(page))
     text = "\n".join(page.read_text(encoding="utf-8") for page in pages)
     assert "drevalpy.plugin" in text
     assert "drevalpy.testing" in text

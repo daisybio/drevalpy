@@ -1,4 +1,4 @@
-"""Sample featurizer example: standardize one raw omics view.
+"""Sample featurizer example: standardize one raw sample view.
 
 Shows the three hooks every featurizer implements -- ``_fit``,
 ``_transform_features`` and the ``output_dim`` property -- plus the ``input_views``

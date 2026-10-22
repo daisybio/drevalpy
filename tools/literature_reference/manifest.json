@@ -146,9 +146,6 @@
     }
   },
   "results": {
-    "../../docs/project/literature_audit/differences.md": {
-      "sha256": "efd98eee25f62a5e6634de56d885ff165a104dd25124f706378ac51639da669f"
-    },
     "octave-version.txt": {
       "sha256": "b138deb2a4876d4dddab7e07791bd6ece9652557672bd576fb25dfef1d0c5c5a"
     },
@@ -159,7 +156,7 @@
   "runtime_inventories": ["octave-version.txt"],
   "harnesses": {
     "tools/literature_reference/README.md": {
-      "sha256": "c6a090b7cb74afc97b2cece7b9168ae0eaabc64373e84fa7450973bde39fd5b9"
+      "sha256": "82805ef0a71d2b2120fcd6b1f1eed598afc60294da4192b097fe3672e5da9343"
     },
     "tools/literature_reference/capture_v2_baseline.py": {
       "sha256": "22a811dd3a681216c403f3d494101f35d41218c3bd8a8d67524aa38275161eb3"

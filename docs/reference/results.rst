@@ -80,7 +80,7 @@ A run file is a compressed ``.npz`` archive.
      - A JSON string with the keys below
 
 ``RunResult.load`` raises ``ValueError`` for a file that has ``cell_line_ids`` and no
-``sample_ids``, which was written before cell lines were renamed to samples.
+``sample_ids``, which an earlier version of DrEvalPy wrote.
 
 .. list-table::
    :header-rows: 1

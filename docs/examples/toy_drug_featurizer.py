@@ -2,7 +2,7 @@
 
 Shows the two declarations the sample example does not: a ``contract`` on the
 class body rather than in the decorator, and ``entity_id_only``, which is how a
-featurizer states that it reads no raw feature view. Leaving both
+featurizer states that it reads no raw view. Leaving both
 ``entity_id_only`` and ``input_views`` unset makes registration raise.
 """
 
@@ -32,7 +32,7 @@ N_COLUMNS = 8
 class ToyDrugHashFeaturizer(DrugFeaturizer):
     """Hash each drug id into a fixed-width vector.
 
-    A stand-in for a real embedding: it reads no feature view, so it works
+    A stand-in for a real embedding: it reads no view, so it works
     against any dataset, including a response-only one.
     """
 

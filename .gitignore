@@ -87,7 +87,6 @@ instance/
 
 # Sphinx documentation
 docs/_build/
-docs/python/api/_autosummary/
 docs/reference/_autosummary/
 docs/reference/_generated_*.rst
 

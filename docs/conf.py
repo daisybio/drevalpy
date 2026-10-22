@@ -99,16 +99,7 @@ exclude_patterns = [
     "_generated_io.py",
     "_model_zoo.py",
     "examples",
-    "readme.rst",
     "reference/_generated_*.rst",
-    # Old tree, read in place by the Wave 2 writers and deleted in Wave 3.
-    "concepts",
-    "python",
-    "cli",
-    "getting_started",
-    "project/v2_*",
-    "project/architecture_audit",
-    "project/literature_audit",
 ]
 
 # reference/glossary.rst includes GLOSSARY.md without its H1, so its sections start at H2.

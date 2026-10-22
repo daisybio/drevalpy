@@ -6,7 +6,7 @@ architecture equivalence or reproduce upstream training pipelines.
 
 The frozen provenance is pinned in [`manifest.json`](manifest.json), and the
 per-model source comparison is in
-[`docs/project/literature_audit/differences.md`](../../docs/project/literature_audit/differences.md).
+[`docs/explanation/literature_models.rst`](../../docs/explanation/literature_models.rst).
 The v2 kernel runner covers MOLIR, SuperFELTR, DIPK autoencoder modules,
 GraphDRP's shared GCN stack, PharmaFormer, and SparseGO's sparse layer. SRMF
 and Precily have separate authoritative runners because SRMF is MATLAB/Octave

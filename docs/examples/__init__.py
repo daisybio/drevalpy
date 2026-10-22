@@ -1,9 +1,9 @@
-"""Runnable plugin examples that the extensions guide includes verbatim.
+"""Runnable plugin examples that the extend how-tos and tutorials include verbatim.
 
 Every module here is a real, importable plugin component. The docs build imports
 all of them and runs the conformance checks over them before rendering a single
-page, and ``docs/python/extensions.rst`` pulls each file in with
-``literalinclude``. So the code on the page is code that ran: an example that
+page, and the pages under ``docs/how-to/extend/`` and ``docs/tutorials/`` pull each file
+in with ``literalinclude``. So the code on the page is code that ran: an example that
 stops working fails ``sphinx-build`` instead of quietly rotting.
 
 Importing a module here executes its ``@register_*`` decorator and mutates the
