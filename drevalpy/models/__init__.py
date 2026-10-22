@@ -20,6 +20,7 @@ __all__ = [
     "SingleDrugRandomForest",
     "SingleDrugElasticNet",
     "SingleDrugMorgoth",
+    "SingleDrugKNN",
     "SRMF",
     "EnsembleMF",
     "GradientBoosting",
@@ -52,7 +53,7 @@ from .baselines.naive_pred import (
     NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
 )
-from .baselines.singledrug_baselines import SingleDrugElasticNet, SingleDrugRandomForest
+from .baselines.singledrug_baselines import SingleDrugElasticNet, SingleDrugKNN, SingleDrugRandomForest
 from .baselines.sklearn_models import (
     AdaBoostDecisionTree,
     ElasticNetModel,
@@ -81,6 +82,7 @@ SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "SingleDrugElasticNet": SingleDrugElasticNet,
     "SingleDrugRandomForest": SingleDrugRandomForest,
     "SingleDrugMorgoth": SingleDrugMorgoth,
+    "SingleDrugKNN": SingleDrugKNN,
     "MOLIR": MOLIR,
     "SuperFELTR": SuperFELTR,
 }
