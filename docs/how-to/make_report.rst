@@ -95,6 +95,10 @@ or leaderboard. Some plots log a warning and skip a part of themselves, such as 
 critical difference diagram when only two models share the folds. ``drevalpy list visualizations`` shows the plots and their requirements;
 see :doc:`/how-to/list_available`.
 
+The log shows one line per plot with the time it took. ``drevalpy -v report ...`` also logs the
+timing and memory of each model of a per-model plot, which is useful to find out which plot is slow
+or runs out of memory.
+
 Plots that you register with the visualization registry join the report when their requirements
 are met; see :doc:`/how-to/extend/write_visualization`.
 

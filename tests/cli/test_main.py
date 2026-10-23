@@ -309,6 +309,28 @@ class TestLogging:
         assert result.exit_code == 0
         assert any(isinstance(h, RichHandler) for h in logger.handlers)
 
+    @pytest.mark.parametrize(
+        ("flags", "level"),
+        [([], logging.INFO), (["-v"], logging.DEBUG), (["--verbose"], logging.DEBUG), (["-q"], logging.WARNING)],
+    )
+    def test_verbosity_flags_set_the_log_level(self, flags: list[str], level: int) -> None:
+        result = runner.invoke(app, [*flags, "run", "-h"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+        assert logging.getLogger("drevalpy").level == level
+
+    def test_quiet_flag_long_form(self) -> None:
+        result = runner.invoke(app, ["--quiet", "run", "-h"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+        assert logging.getLogger("drevalpy").level == logging.WARNING
+
+    def test_verbose_and_quiet_together_are_a_usage_error(self) -> None:
+        result = runner.invoke(app, ["-v", "-q", "run", "-h"], env=HELP_ENV)
+
+        assert result.exit_code == 2
+        assert "mutually exclusive" in plain(result.output)
+
 
 class TestCliMain:
     """``cli_main`` is the console-script wrapper around ``app()``."""

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import html
+import logging
 import time
+from itertools import groupby
+from operator import itemgetter
 from typing import TYPE_CHECKING
 
 from upath import UPath as Path
@@ -110,6 +113,30 @@ def _applicable_results(
             yield viz_cls, experiment
 
 
+def _add_plot(viz: Visualization, target: ExperimentResult | ModelResult, experiment: ExperimentResult) -> None:
+    """Compute one visualization on one result and append its MultiQC module.
+
+    The per-target timing and memory lines are logged at DEBUG; :func:`create_report` logs the
+    INFO summary for the whole visualization.
+
+    :param viz: Visualization instance to compute.
+    :param target: The experiment, or one model of it.
+    :param experiment: The experiment being reported, to tell an experiment-level target from a model.
+    """
+    if target is experiment:
+        label = anchor = viz.registry_name
+    else:
+        label, anchor = f"{viz.registry_name} ({target.model_name})", f"{viz.registry_name}_{target.model_name}"
+    started = time.monotonic()
+    rss_before = rss_gb()
+    log_stage(logger, f"plot {label}: computing", level=logging.DEBUG)
+    viz.compute(target)
+    sections = viz.to_multiqc()
+    if sections:
+        _add_module(sections, label, anchor)
+    logger.debug("plot %s: done in %.1fs, rss %+.2f GB", label, time.monotonic() - started, rss_gb() - rss_before)
+
+
 def create_report(
     result: ExperimentResult | ModelResult | RunResult,
     output_dir: str | Path,
@@ -145,20 +172,14 @@ def create_report(
 
     multiqc.reset()
 
-    for viz_cls, target in _applicable_results(experiment):
-        viz = viz_cls()
-        if target is experiment:
-            label = anchor = viz.registry_name
-        else:
-            label, anchor = f"{viz.registry_name} ({target.model_name})", f"{viz.registry_name}_{target.model_name}"
-        started = time.monotonic()
-        rss_before = rss_gb()
-        log_stage(logger, f"plot {label}: computing")
-        viz.compute(target)
-        sections = viz.to_multiqc()
-        if sections:
-            _add_module(sections, label, anchor)
-        logger.info("plot %s: done in %.1fs, rss %+.2f GB", label, time.monotonic() - started, rss_gb() - rss_before)
+    for viz_cls, pairs in groupby(_applicable_results(experiment), key=itemgetter(0)):
+        viz_started = time.monotonic()
+        n_targets = 0
+        for _, target in pairs:
+            _add_plot(viz_cls(), target, experiment)
+            n_targets += 1
+        scope = "" if n_targets == 1 and target is experiment else f"{n_targets} model{'s' * (n_targets != 1)} "
+        logger.info("plot %s: %sdone in %.1fs", viz_cls.registry_name, scope, time.monotonic() - viz_started)
 
     if experiment.failures:
         _add_failures_module(experiment.failures)

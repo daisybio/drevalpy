@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any
 
 import typer
@@ -51,12 +52,26 @@ def main_callback(
         list[str] | None,
         typer.Option("--extensions-dir", "-e", help="Directory with .py/.yaml extension files."),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Log debug detail, such as per-model timings."),
+    ] = False,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Log warnings and errors only.")] = False,
 ) -> None:
-    """Global options applied before any subcommand."""
+    """Global options applied before any subcommand.
+
+    :param extensions_dir: Directories with extension files to load.
+    :param verbose: Log at DEBUG instead of INFO.
+    :param quiet: Log at WARNING instead of INFO.
+    :raises typer.BadParameter: If both *verbose* and *quiet* are given.
+    """
     from drevalpy.log import setup_logging
     from drevalpy.registry import load_extensions
 
-    setup_logging()
+    if verbose and quiet:
+        msg = "--verbose and --quiet are mutually exclusive."
+        raise typer.BadParameter(msg)
+    setup_logging(logging.DEBUG if verbose else logging.WARNING if quiet else logging.INFO)
     load_extensions()
     if extensions_dir:
         load_extensions(directories=extensions_dir)

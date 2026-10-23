@@ -331,29 +331,46 @@ class TestLogging:
         messages = [r.getMessage() for r in caplog.records]
         assert any(f"Normalizing against reference model '{REFERENCE_MODEL}'" in m for m in messages)
 
-    def test_names_each_plot_before_computing_it(self, experiment, tmp_path, only_stub_is_applicable, caplog):
+    def test_info_logs_one_summary_line_for_an_experiment_plot(
+        self, experiment, tmp_path, only_stub_is_applicable, caplog
+    ):
         with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
             create_report(experiment, tmp_path / "logged_plot")
 
-        assert any(r.getMessage().startswith("plot stub_viz: computing | rss=") for r in caplog.records)
+        messages = [r.getMessage() for r in caplog.records]
+        assert sum(m.startswith("plot stub_viz: done in") for m in messages) == 1
+        assert not any("computing" in m for m in messages)
 
-    def test_reports_progress_for_each_model_of_a_model_plot(self, experiment, tmp_path, monkeypatch, caplog):
+    def test_info_logs_one_summary_line_for_a_model_plot_and_none_per_model(
+        self, experiment, tmp_path, monkeypatch, caplog
+    ):
         _make_applicable(monkeypatch, _StubViz, "ModelResult")
 
         with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
             create_report(experiment, tmp_path / "logged_models")
 
         messages = [r.getMessage() for r in caplog.records]
-        for name in experiment.model_names:
-            assert any(m.startswith(f"plot stub_viz ({name}): computing") for m in messages)
+        assert sum(m.startswith(f"plot stub_viz: {experiment.n_models} models done in") for m in messages) == 1
+        assert not any("stub_viz (" in m for m in messages)
 
-    def test_reports_elapsed_time_and_memory_delta_after_each_plot(
-        self, experiment, tmp_path, only_stub_is_applicable, caplog
+    def test_debug_logs_computing_and_timing_for_each_model_of_a_model_plot(
+        self, experiment, tmp_path, monkeypatch, caplog
     ):
-        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
-            create_report(experiment, tmp_path / "logged_done")
+        _make_applicable(monkeypatch, _StubViz, "ModelResult")
 
-        assert any("plot stub_viz: done in" in r.getMessage() for r in caplog.records)
+        with caplog.at_level(logging.DEBUG, logger="drevalpy.visualization.report"):
+            create_report(experiment, tmp_path / "logged_models_debug")
+
+        messages = [r.getMessage() for r in caplog.records]
+        for name in experiment.model_names:
+            assert any(m.startswith(f"plot stub_viz ({name}): computing | rss=") for m in messages)
+            assert any(m.startswith(f"plot stub_viz ({name}): done in") and "rss +" in m for m in messages)
+
+    def test_debug_logs_computing_for_an_experiment_plot(self, experiment, tmp_path, only_stub_is_applicable, caplog):
+        with caplog.at_level(logging.DEBUG, logger="drevalpy.visualization.report"):
+            create_report(experiment, tmp_path / "logged_plot_debug")
+
+        assert any(r.getMessage().startswith("plot stub_viz: computing | rss=") for r in caplog.records)
 
     def test_logs_the_module_and_section_counts_before_writing(self, logged_stub_report: _BuiltReport) -> None:
         messages = [r.getMessage() for r in logged_stub_report.records]

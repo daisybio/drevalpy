@@ -252,13 +252,17 @@ notebook these messages stay hidden until you ask for them. The command line doe
    .. tab-item:: CLI
       :sync: cli
 
-      ``drevalpy`` sets up logging itself, so the messages appear without further steps.
+      ``drevalpy`` sets up logging itself, so the messages appear without further steps. The global
+      option ``--verbose`` (``-v``) adds debug detail, such as the timing of every plot of the report,
+      and ``--quiet`` (``-q``) shows only warnings and errors. Put either one before the subcommand,
+      as in ``drevalpy -v report ...``. They cannot be combined.
 
    .. tab-item:: Python
       :sync: python
 
       Call ``setup_logging`` once, before the first ``drevalpy.run``. Pass ``level`` to change the
-      default ``logging.INFO``, for example ``setup_logging(logging.WARNING)`` to show only warnings.
+      default ``logging.INFO``, for example ``setup_logging(logging.WARNING)`` to show only warnings
+      or ``setup_logging(logging.DEBUG)`` for debug detail.
 
       .. code-block:: python
 

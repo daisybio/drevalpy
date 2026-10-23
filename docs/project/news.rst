@@ -97,6 +97,9 @@ Errors and logging
   ``UnknownNameError`` (also a ``ValueError`` and a ``KeyError``), ``InputNotFoundError`` (also a
   ``FileNotFoundError``) and ``InvalidInputError`` (also a ``ValueError``) cover the common cases, so
   existing ``except`` clauses keep working.
+- ``drevalpy`` takes the global options ``--verbose`` / ``-v`` (debug logging) and ``--quiet`` /
+  ``-q`` (warnings only). By default the report logs one line per plot instead of one per model of
+  every per-model plot; ``-v`` brings the per-model timings back.
 - The randomization tests write their datasets to files named ``<mode>__<view>.h5mu``.
 - ``drevalpy run`` has no short ``-r`` for ``--randomization-mode``; repeat the long flag. A
   mode, ``--fit-speed`` or ``--join`` value that does not exist is rejected with the list of valid
