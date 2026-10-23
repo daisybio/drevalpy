@@ -129,6 +129,9 @@ evaluates more strictly. Each of these is recorded as a deviation in the evidenc
 - **Best epoch.** DrugGNN restores the weights of its best validation epoch; 1.6.1 kept
   the last epoch.
 - **MOLIR loss.** 2.0 weights the triplet term of the loss by ``gamma``; 1.6.1 did not.
+- **Per-drug seeds.** 2.0 seeds each drug's model of a single-drug predictor from the
+  root seed and the drug, so the results do not depend on how many drugs are trained in
+  parallel. 1.6.1 trained the drugs one after another from one shared random stream.
 - **EnsembleMF.** A pair without features is predicted as missing, not as a number.
 - **MultiViewRandomForest.** 1.6.1 built the design matrix from the sample views only,
   so it predicted the same value for a sample with every drug. 2.0 includes the drug
