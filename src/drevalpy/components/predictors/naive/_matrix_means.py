@@ -10,10 +10,10 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 def pair_align(entity_matrix: np.ndarray, pair_idx: np.ndarray | None) -> np.ndarray:
     """Index an entity-level feature matrix to pair rows.
 
-    :param entity_matrix: entity matrix.
-    :param pair_idx: pair idx.
-    :returns: Result.
-    :raises ValueError: Raised on invalid input.
+    :param entity_matrix: Feature matrix with one row per entity; a 1D vector is treated as a single column.
+    :param pair_idx: For each pair, the row of ``entity_matrix`` that belongs to it.
+    :returns: Matrix with one row per pair.
+    :raises ValueError: If ``pair_idx`` is None.
     """
     matrix = np.asarray(entity_matrix)
     if matrix.ndim == 1:
@@ -31,10 +31,10 @@ def require_pair_matrix(
 ) -> np.ndarray:
     """Return a pair-aligned dense matrix for the sample or drug side.
 
-    :param batch: batch.
-    :param side: side.
-    :returns: Result.
-    :raises ValueError: Raised on invalid input.
+    :param batch: Featurized batch whose sample or drug matrix is aligned.
+    :param side: ``"sample"`` or ``"drug"``.
+    :returns: Matrix with one row per pair.
+    :raises ValueError: If ``side`` is unknown or the drug side is requested but the batch has no drug features.
     """
     if side == "sample":
         return pair_align(batch.sample.matrix, batch.sample_pair_idx)
@@ -50,10 +50,10 @@ def require_pair_matrix(
 def block_pair_matrix(batch: ModelInputBatch, block_name: str) -> np.ndarray:
     """Return a pair-aligned named sample block matrix.
 
-    :param batch: batch.
-    :param block_name: block name.
-    :returns: Result.
-    :raises ValueError: Raised on invalid input.
+    :param batch: Featurized batch.
+    :param block_name: Name of the sample block to align.
+    :returns: Matrix with one row per pair.
+    :raises ValueError: If the sample side has no block named ``block_name``.
     """
     if block_name not in batch.sample.blocks:
         msg = f"Required sample block {block_name!r} is missing"
@@ -64,10 +64,10 @@ def block_pair_matrix(batch: ModelInputBatch, block_name: str) -> np.ndarray:
 def category_means(design: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Return per-column means for a one-hot design matrix.
 
-    :param design: design.
-    :param y: y.
-    :returns: Result.
-    :raises ValueError: Raised on invalid input.
+    :param design: One-hot design matrix with one row per pair.
+    :param y: Response of each pair.
+    :returns: Mean response of the pairs in each column; 0 for a column without pairs.
+    :raises ValueError: If ``design`` is not 2D or its row count differs from the length of ``y``.
     """
     matrix = np.asarray(design, dtype=np.float64)
     if matrix.ndim != 2:
@@ -89,10 +89,10 @@ def category_means(design: np.ndarray, y: np.ndarray) -> np.ndarray:
 def additive_effects(design: np.ndarray, y: np.ndarray, *, baseline: float) -> np.ndarray:
     """Return additive effects relative to *baseline* for observed one-hot columns.
 
-    :param design: design.
-    :param y: y.
-    :param baseline: baseline.
-    :returns: Result.
+    :param design: One-hot design matrix with one row per pair.
+    :param y: Response of each pair.
+    :param baseline: Value subtracted from the column means, normally the overall mean response.
+    :returns: Mean offset per column; 0 for a column without pairs.
     """
     matrix = np.asarray(design, dtype=np.float64)
     if matrix.ndim != 2 or matrix.shape[1] == 0:
@@ -105,11 +105,11 @@ def additive_effects(design: np.ndarray, y: np.ndarray, *, baseline: float) -> n
 def predict_with_effects(design: np.ndarray, effects: np.ndarray, *, baseline: float) -> np.ndarray:
     """Predict baseline + design @ effects for a one-hot design matrix.
 
-    :param design: design.
-    :param effects: effects.
-    :param baseline: baseline.
-    :returns: Result.
-    :raises ValueError: Raised on invalid input.
+    :param design: One-hot design matrix with one row per pair.
+    :param effects: Effect of each design column.
+    :param baseline: Intercept added to every prediction.
+    :returns: Predicted response per pair.
+    :raises ValueError: If ``design`` is not 2D or the number of effects differs from its column count.
     """
     matrix = np.asarray(design, dtype=np.float64)
     coeffs = np.asarray(effects, dtype=np.float64).reshape(-1)
@@ -127,9 +127,9 @@ def predict_with_effects(design: np.ndarray, effects: np.ndarray, *, baseline: f
 def state_float_vector(state: dict[str, object], key: str) -> np.ndarray | None:
     """Restore a 1D float vector stored under *key*.
 
-    :param state: state.
-    :param key: key.
-    :returns: Result.
+    :param state: Mapping produced by ``get_state``.
+    :param key: Entry to read.
+    :returns: The entry as a float64 vector, or None when ``key`` is absent.
     """
     value = state.get(key)
     if value is None:
@@ -140,9 +140,9 @@ def state_float_vector(state: dict[str, object], key: str) -> np.ndarray | None:
 def state_float_matrix(state: dict[str, object], key: str) -> np.ndarray | None:
     """Restore a 2D float matrix stored under *key*.
 
-    :param state: state.
-    :param key: key.
-    :returns: Result.
+    :param state: Mapping produced by ``get_state``.
+    :param key: Entry to read.
+    :returns: The entry as a float64 matrix (a 1D entry becomes one column), or None when ``key`` is absent.
     """
     value = state.get(key)
     if value is None:

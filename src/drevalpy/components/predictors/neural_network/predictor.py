@@ -44,7 +44,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize instance state.
 
-        :param hyperparameters: hyperparameters.
+        :param hyperparameters: Optional overrides of ``get_default_hyperparameters``.
         """
         super().__init__(hyperparameters)
         self._model: FeedForwardNetwork | None = None

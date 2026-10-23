@@ -28,7 +28,7 @@ def generate_triplets_indices(
     negative_range: float,
     random_seed: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Generates triplets for the MOLIR model.
+    """Generate triplets for the MOLIR model.
 
     The positive and negative range are determined by the standard deviation of the response values. A pair is
     considered positive if its response value is within the positive range of the label. The positive range is ±10%
@@ -40,7 +40,7 @@ def generate_triplets_indices(
     :param negative_range: negative range for the triplet loss
     :param random_seed: Explicit isolated seed, or None to use the global NumPy stream, which drevalpy seeds per fit.
 
-    :returns: returns: positive and negative pair indices for each pair
+    :returns: positive and negative pair indices for each pair
     """
     rng = np.random if random_seed is None else np.random.default_rng(random_seed)
     positive_pair_indices = []
@@ -80,7 +80,7 @@ def _get_positive_class_indices(label: np.float32, idx_label: int, y: np.ndarray
 
 
 def _get_negative_class_indices(label: np.float32, y: np.ndarray, negative_range: float) -> np.ndarray:
-    """Finds dissimilar pairs to the label.
+    """Find dissimilar pairs to the label.
 
     If there is no dissimilar pair within the negative range, the method returns the pair that is the furthest away.
 
@@ -105,7 +105,7 @@ class MOLIEncoder(nn.Module):
     """
 
     def __init__(self, input_size: int, output_size: int, dropout_rate: float) -> None:
-        """Initializes the encoder for the MOLIR model.
+        """Initialize the encoder for the MOLIR model.
 
         :param input_size: input size determined by feature selection.
         :param output_size: output size of the encoder, set as hyperparameter.
@@ -124,7 +124,7 @@ class MOLIEncoder(nn.Module):
 
         :param x: omic input features
 
-        :returns: returns: encoded omic features
+        :returns: encoded omic features
         """
         return self.encode(x)
 
@@ -137,7 +137,7 @@ class MOLIRegressor(nn.Module):
     """
 
     def __init__(self, input_size: int, dropout_rate: float) -> None:
-        """Initializes the regressor for the MOLIR model.
+        """Initialize the regressor for the MOLIR model.
 
         :param input_size: determined by the output sizes of the encoders.
         :param dropout_rate: set as hyperparameter.
@@ -150,7 +150,7 @@ class MOLIRegressor(nn.Module):
 
         :param x: concatenated encoded features
 
-        :returns: returns: predicted drug response
+        :returns: predicted drug response
         """
         return self.regressor(x)
 
@@ -166,7 +166,7 @@ class MOLIModel(pl.LightningModule):
     def __init__(
         self, hpams: dict[str, int | float], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
     ) -> None:
-        """Initializes the MOLIR model.
+        """Initialize the MOLIR model.
 
         The MOLIR model uses a combined loss function of a triplet margin loss for the concatenated representation
         and an MSE loss for the regression loss.
@@ -210,7 +210,7 @@ class MOLIModel(pl.LightningModule):
         patience: int = 5,
         model_checkpoint_dir: str | Path | None = None,
     ) -> None:
-        """Trains the MOLIR model.
+        """Train the MOLIR model.
 
         First, the ranges for the triplet loss are determined using the standard deviation of the training responses.
         Then, the training and validation data loaders are created. The model is trained using the Lightning Trainer
@@ -266,7 +266,7 @@ class MOLIModel(pl.LightningModule):
         :param mutations: mutation data
         :param copy_number: copy number variation data
 
-        :returns: returns: predicted drug response
+        :returns: predicted drug response
         """
         # convert to torch tensors
         gene_expression_tensor = torch.from_numpy(gene_expression).float().to(self.device)
@@ -281,13 +281,13 @@ class MOLIModel(pl.LightningModule):
     def _encode_and_concatenate(
         self, gene_expression: torch.Tensor, mutations: torch.Tensor, copy_number: torch.Tensor
     ) -> torch.Tensor:
-        """Encodes the input modalities, concatenates, and normalizes the resulting embeddings.
+        """Encode the input modalities, concatenates, and normalizes the resulting embeddings.
 
         :param gene_expression: gene expression data
         :param mutations: mutation data
         :param copy_number: copy number variation data
 
-        :returns: returns: concatenated, normalized embeddings
+        :returns: concatenated, normalized embeddings
         """
         z_ex = self.expression_encoder(gene_expression)
         z_mu = self.mutation_encoder(mutations)
@@ -304,20 +304,20 @@ class MOLIModel(pl.LightningModule):
         :param x_mutation: mutation input
         :param x_cna: copy number variation input
 
-        :returns: returns: predicted drug response
+        :returns: predicted drug response
         """
         z = self._encode_and_concatenate(x_gene, x_mutation, x_cna)
         preds = self.regressor(z)
         return preds
 
     def _compute_loss(self, z: torch.Tensor, preds: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Computes the combined triplet loss and regression loss.
+        """Compute the combined triplet loss and regression loss.
 
         :param z: concatenated, normalized embeddings on which the triplet loss is calculated
         :param preds: predicted drug response on which the regression loss is calculated
         :param y: true drug response
 
-        :returns: returns: combined loss
+        :returns: combined loss
         """
         positive_indices, negative_indices = generate_triplets_indices(
             y.cpu().detach().numpy(), self.positive_range, self.negative_range
@@ -328,12 +328,12 @@ class MOLIModel(pl.LightningModule):
         return self.gamma * triplet_loss + regression_loss
 
     def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Training step of the MOLIR model.
+        """Compute and log the training loss of one batch.
 
         :param batch: batch of gene expression, mutations, copy number variation, and response
         :param batch_idx: index of the batch
 
-        :returns: returns: combined loss
+        :returns: combined loss
         """
         gene_expression, mutations, copy_number, response = batch
         response = response.squeeze(-1)
@@ -351,12 +351,12 @@ class MOLIModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Validation step of the MOLIR model.
+        """Compute and log the validation loss of one batch.
 
         :param batch: batch of gene expression, mutations, copy number variation, and response
         :param batch_idx: index of the batch
 
-        :returns: returns: combined loss
+        :returns: combined loss
         """
         gene_expression, mutations, copy_number, response = batch
         response = response.squeeze(-1)
@@ -374,9 +374,9 @@ class MOLIModel(pl.LightningModule):
         return val_loss
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        """Overwrites the configure_optimizers method from PyTorch Lightning.
+        """Create the optimizer for Lightning.
 
-        :returns: returns: optimizers for the MOLIR expression, mutation, copy number variation encoders, and regressor
+        :returns: optimizers for the MOLIR expression, mutation, copy number variation encoders, and regressor
         """
         optimizer = torch.optim.Adagrad(
             [

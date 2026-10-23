@@ -8,7 +8,7 @@ import torch.nn.functional as functional
 class FeatureExtractor(nn.Module):
     """Feature extractor for gene expression and drug SMILES."""
 
-    def __init__(self, gene_input_size: int, gene_hidden_size: int, drug_hidden_size: int):
+    def __init__(self, gene_input_size: int, gene_hidden_size: int, drug_hidden_size: int) -> None:
         """Initialize the feature extractor.
 
         :param gene_input_size: Input size for gene expression features
@@ -26,7 +26,7 @@ class FeatureExtractor(nn.Module):
         :param gene_expr: Gene expression features [batch_size, gene_input_size]
         :param smiles: BPE-encoded SMILES features [batch_size, 128]
 
-        :returns: return: Combined features [batch_size, gene_hidden_size + drug_hidden_size]
+        :returns: Combined features [batch_size, gene_hidden_size + drug_hidden_size]
         """
         gene_out = functional.relu(self.gene_fc1(gene_expr))
         gene_out = functional.relu(self.gene_fc2(gene_out))
@@ -46,7 +46,7 @@ class TransModel(nn.Module):
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
         num_layers: int = 3,
-    ):
+    ) -> None:
         """Initialize the transformer model.
 
         :param feature_dim: Dimension of each feature in the sequence
@@ -77,7 +77,7 @@ class TransModel(nn.Module):
 
         :param x: Input tensor [batch_size, seq_len, feature_dim]
 
-        :returns: return: Output predictions [batch_size, 1]
+        :returns: Output predictions [batch_size, 1]
         """
         x = self.transformer_encoder(x)
         x = torch.flatten(x, 1)
@@ -97,7 +97,7 @@ class CombinedModel(nn.Module):
         num_layers: int = 3,
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
-    ):
+    ) -> None:
         """Initialize the combined model.
 
         :param gene_input_size: Input size for gene expression features
@@ -128,7 +128,7 @@ class CombinedModel(nn.Module):
         :param gene_expr: Gene expression features [batch_size, gene_input_size]
         :param smiles: BPE-encoded SMILES features [batch_size, 128]
 
-        :returns: return: Output predictions [batch_size, 1]
+        :returns: Output predictions [batch_size, 1]
         """
         features = self.feature_extractor(gene_expr, smiles)
         batch_size = features.size(0)

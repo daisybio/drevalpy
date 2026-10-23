@@ -28,8 +28,8 @@ class SingleEntityNaivePredictor(MeanEffectsStateMixin, BlockPredictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
-        :param batch: batch.
-        :raises RuntimeError: If batch.response is None.
+        :param batch: Training batch; its responses give the dataset mean and the per-entity effects.
+        :raises RuntimeError: If ``batch.response`` is None.
         """
         y = batch.response
         if y is None:
@@ -41,9 +41,9 @@ class SingleEntityNaivePredictor(MeanEffectsStateMixin, BlockPredictor):
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
-        :param batch: batch.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
+        :param batch: Pairs to score.
+        :returns: Dataset mean plus the effect of each pair's entity.
+        :raises RuntimeError: If the predictor has not been fitted.
         """
         if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"

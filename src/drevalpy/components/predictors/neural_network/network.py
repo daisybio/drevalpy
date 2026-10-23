@@ -16,9 +16,10 @@ class FeedForwardNetwork(pl.LightningModule):
     def __init__(self, hyperparameters: dict[str, Any], input_dim: int) -> None:
         """Initialize instance state.
 
-        :param hyperparameters: hyperparameters.
-        :param input_dim: input dim.
-        :raises TypeError: Raised on invalid input.
+        :param hyperparameters: Must contain ``units_per_layer`` (list of ints, the hidden layer widths) and
+            ``dropout_prob`` (float).
+        :param input_dim: Width of the concatenated feature rows.
+        :raises TypeError: If ``units_per_layer`` is not a list of ints or ``dropout_prob`` is not a float.
         """
         super().__init__()
         self.save_hyperparameters()
@@ -52,8 +53,8 @@ class FeedForwardNetwork(pl.LightningModule):
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         """Predict responses from a batch of concatenated feature rows.
 
-        :param features: features.
-        :returns: Result.
+        :param features: Concatenated sample and drug features of shape [batch, input_dim].
+        :returns: Predicted responses of shape [batch].
         """
         hidden = features
         for index in range(len(self.fully_connected_layers) - 2):
@@ -66,6 +67,7 @@ class FeedForwardNetwork(pl.LightningModule):
         return self.fully_connected_layers[-1](hidden).squeeze(dim=-1)
 
     def _loss_and_log(self, features: torch.Tensor, response: torch.Tensor, name: str) -> torch.Tensor:
+        """Compute the MSE loss and log it under *name*."""
         predictions = self(features)
         loss = self.loss(predictions, response)
         self.log(name, loss, on_step=True, on_epoch=True, prog_bar=True)
@@ -88,9 +90,9 @@ class FeedForwardNetwork(pl.LightningModule):
     def training_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Compute and log training loss for one batch.
 
-        :param batch: batch.
-        :param batch_idx: batch idx.
-        :returns: Result.
+        :param batch: Feature tensors followed by the response tensor.
+        :param batch_idx: Index of the batch within the epoch; unused.
+        :returns: The MSE loss.
         """
         _ = batch_idx
         features, response = self._unpack_batch(batch)
@@ -99,9 +101,9 @@ class FeedForwardNetwork(pl.LightningModule):
     def validation_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Compute and log validation loss for one batch.
 
-        :param batch: batch.
-        :param batch_idx: batch idx.
-        :returns: Result.
+        :param batch: Feature tensors followed by the response tensor.
+        :param batch_idx: Index of the batch within the epoch; unused.
+        :returns: The MSE loss.
         """
         _ = batch_idx
         features, response = self._unpack_batch(batch)
@@ -110,6 +112,6 @@ class FeedForwardNetwork(pl.LightningModule):
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Build the Adam optimizer used by the original predictor.
 
-        :returns: Result.
+        :returns: An Adam optimizer over all parameters, with default settings.
         """
         return torch.optim.Adam(self.parameters())

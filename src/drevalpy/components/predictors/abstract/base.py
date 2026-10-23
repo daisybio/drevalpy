@@ -53,7 +53,7 @@ class Predictor(TunableComponentMixin, ABC):
         Subclasses that declare nothing are registered with the decorator's
         ``sample_contract=`` / ``drug_contract=`` instead.
 
-        :param kwargs: Forwarded to ``ABC.__init_subclass__``.
+        :param **kwargs: Forwarded to ``ABC.__init_subclass__``.
         :raises TypeError: If a class-body contract is neither a ``FeatureContract``
             nor a ``FeatureFormat``.
         """

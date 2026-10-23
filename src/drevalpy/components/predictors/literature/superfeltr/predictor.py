@@ -8,15 +8,15 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
-from drevalpy.components.predictors.literature._single_drug_omics import (
+from drevalpy.components.predictors.literature._omic_helpers import (
     OmicFeatureNames,
-    SingleDrugOmicsPredictor,
     aligned_pair_matrices,
     feature_names_payload,
     omic_feature_names,
     omic_matrices,
     validation_split,
 )
+from drevalpy.components.predictors.literature._single_drug_omics import SingleDrugOmicsPredictor
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.utils.torch_io import load_state_dict as _load_torch_state_dict

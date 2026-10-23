@@ -23,7 +23,7 @@ import torch.nn as nn
 class PrecilyNetwork(nn.Module):
     """Feed-forward regressor predicting LN(IC50) from pathway + drug features."""
 
-    def __init__(self, input_dim: int, dropout: float = 0.1):
+    def __init__(self, input_dim: int, dropout: float = 0.1) -> None:
         """Initialize the Precily network.
 
         :param input_dim: total feature dimension (pathways + drug features)

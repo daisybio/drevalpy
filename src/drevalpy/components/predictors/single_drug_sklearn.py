@@ -26,7 +26,7 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize instance state.
 
-        :param hyperparameters: hyperparameters.
+        :param hyperparameters: Optional hyperparameter overrides, passed to the base class.
         """
         super().__init__(hyperparameters)
         self._estimators: dict[str, Any] = {}
@@ -49,8 +49,8 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
-        :param batch: batch.
-        :raises RuntimeError: If batch.response is None.
+        :param batch: Training batch; one estimator is fitted on the pairs of each known drug.
+        :raises RuntimeError: If ``batch.response`` is None.
         """
         x = self._sample_matrix(batch)
         if batch.response is None:
@@ -68,8 +68,8 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
-        :param batch: batch.
-        :returns: Result.
+        :param batch: Pairs to score.
+        :returns: One prediction per pair; NaN for pairs of drugs without a fitted estimator.
         """
         x = self._sample_matrix(batch)
         keys = routing_keys(batch)
@@ -85,15 +85,15 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state.
 
-        :returns: Result.
+        :returns: The per-drug estimators plus the shared hyperparameter and mode entries.
         """
         return {"estimators": dict(self._estimators), **self._shared_state()}
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
-        :raises PredictorStateError: Raised on invalid input.
+        :param state: Mapping produced by ``get_state``.
+        :raises PredictorStateError: If the per-drug estimators or the hyperparameters are missing.
         """
         estimators = state_mapping(state, "estimators")
         if not estimators:
@@ -106,6 +106,6 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
     def is_fitted(self) -> bool:
         """Return whether the component has been fit.
 
-        :returns: Result.
+        :returns: True once at least one per-drug estimator exists.
         """
         return bool(self._estimators)

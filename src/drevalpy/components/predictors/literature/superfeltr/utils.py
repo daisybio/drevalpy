@@ -27,7 +27,7 @@ class SuperFELTEncoder(pl.LightningModule):
     def __init__(
         self, input_size: int, hpams: dict[str, int | float | dict], omic_type: str, ranges: tuple[float, float]
     ) -> None:
-        """Initializes the SuperFELTEncoder.
+        """Initialize the SuperFELTEncoder.
 
         Save_hyperparameters is turned on to facilitate loading the model from a checkpoint.
 
@@ -66,9 +66,9 @@ class SuperFELTEncoder(pl.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass of the SuperFELTEncoder.
 
-        :param x: input tensor
+        :param x: Omic features of shape [batch, input_size].
 
-        :returns: encoded tensor
+        :returns: Encoded features of shape [batch, output_size].
         """
         return self.encode(x)
 
@@ -107,11 +107,11 @@ class SuperFELTEncoder(pl.LightningModule):
     def _get_omic_data(self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor) -> torch.Tensor:
         """Get the omic data based on the omic type.
 
-        :param data_expr: expression data
-        :param data_mut: mutation data
-        :param data_cnv: copy number variation data
+        :param data_expr: Gene expression features of the batch.
+        :param data_mut: Mutation features of the batch.
+        :param data_cnv: Copy number variation features of the batch.
 
-        :returns: the omic data
+        :returns: The one of the three inputs that matches the encoder's omic type.
 
         :raises ValueError: if the omic type is not recognized
         """
@@ -126,7 +126,7 @@ class SuperFELTEncoder(pl.LightningModule):
         return data
 
     def _compute_loss(self, encoded: torch.Tensor, response: torch.Tensor) -> torch.Tensor:
-        """Computes the triplet loss.
+        """Compute the triplet loss.
 
         :param encoded: encoded data
         :param response: response data
@@ -184,7 +184,7 @@ class SuperFELTRegressor(pl.LightningModule):
         hpams: dict[str, int | float | dict],
         encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
     ) -> None:
-        """Initializes the SuperFELTRegressor.
+        """Initialize the SuperFELTRegressor.
 
         The encoders are put in eval mode because they were fitted before.
 
@@ -223,7 +223,7 @@ class SuperFELTRegressor(pl.LightningModule):
         reactivate the frozen encoders' BatchNorm updates and Dropout.
 
         :param mode: Whether to put the regressor into training mode.
-        :returns: self
+        :returns: This regressor, so calls can be chained.
         """
         super().train(mode)
         for encoder in self.encoders:
@@ -233,20 +233,20 @@ class SuperFELTRegressor(pl.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass of the SuperFELTRegressor.
 
-        :param x: input tensor
+        :param x: Concatenated encoder outputs of shape [batch, input_size].
 
-        :returns: predicted response
+        :returns: Predicted response of shape [batch, 1].
         """
         return self.regressor(x)
 
     def predict(self, data_expr: np.ndarray, data_mut: np.ndarray, data_cnv: np.ndarray) -> np.ndarray:
-        """Predicts the response for the given input.
+        """Predict the response for the given input.
 
-        :param data_expr: expression data
-        :param data_mut: mutation data
-        :param data_cnv: copy number variation data
+        :param data_expr: Gene expression features, one row per pair.
+        :param data_mut: Mutation features, one row per pair.
+        :param data_cnv: Copy number variation features, one row per pair.
 
-        :returns: predicted response
+        :returns: Predicted response per pair.
         """
         data_expr_tensor, data_mut_tensor, data_cnv_tensor = map(
             lambda data: torch.from_numpy(data).float().to(self.device), [data_expr, data_mut, data_cnv]
@@ -280,13 +280,13 @@ class SuperFELTRegressor(pl.LightningModule):
     def _encode_and_concatenate(
         self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor
     ) -> torch.Tensor:
-        """Encodes the omic data and concatenates the encoded tensors.
+        """Encode the omic data and concatenates the encoded tensors.
 
-        :param data_expr: expression data
-        :param data_mut: mutation data
-        :param data_cnv: copy number variation data
+        :param data_expr: Gene expression features of the batch.
+        :param data_mut: Mutation features of the batch.
+        :param data_cnv: Copy number variation features of the batch.
 
-        :returns: concatenated encoded tensor
+        :returns: Encoder outputs concatenated along the feature axis, in the order expression, mutation, copy number.
         """
         encoded_expr = self._encoder(0).encode(data_expr)
         encoded_mut = self._encoder(1).encode(data_mut)
@@ -336,7 +336,7 @@ def train_superfeltr_model(
     patience: int = 5,
     model_checkpoint_dir: str | Path | None = None,
 ) -> pl.callbacks.ModelCheckpoint:
-    """Trains one encoder or the regressor using lazy pair-level lookup.
+    """Train one encoder or the regressor using lazy pair-level lookup.
 
     :param model: either one of the encoders or the regressor
     :param hpams: hyperparameters for the model

@@ -80,13 +80,6 @@ class SparseLinearNew(nn.Module):
     Applies a linear transformation y = xA^T + b where A is a sparse weight
     matrix. Only the connections specified in the connectivity tensor are learned;
     all other weights are permanently zero.
-
-    :param in_features: Size of each input row.
-    :param out_features: Size of each output row.
-    :param bias: If True, adds a learnable bias. Default: True.
-    :param sparsity: Sparsity of weight matrix if connectivity is None. Default: 0.9.
-    :param connectivity: LongTensor of shape ``(2, nnz)`` with non-zero weight indices for
-        GO-structured layers.
     """
 
     def __init__(
@@ -96,14 +89,15 @@ class SparseLinearNew(nn.Module):
         bias: bool = True,
         sparsity: float = 0.9,
         connectivity: torch.Tensor | None = None,
-    ):
+    ) -> None:
         """Initialize SparseLinearNew layer.
 
         :param in_features: Size of each input row.
         :param out_features: Size of each output row.
         :param bias: If True, adds a learnable bias. Default: True.
-        :param sparsity: Sparsity of weight matrix if connectivity is None. Default: 0.9.
-        :param connectivity: LongTensor of shape (2, nnz) specifying non-zero weight positions.
+        :param sparsity: Fraction of zero weights when ``connectivity`` is None; ignored otherwise.
+        :param connectivity: LongTensor of shape ``(2, nnz)`` with the non-zero weight positions, e.g. from the GO
+            hierarchy. When given, the layer learns only these connections.
         """
         _validate_sparse_linear_dimensions(in_features, out_features, sparsity, connectivity)
 
@@ -180,18 +174,6 @@ class SparseGONetwork(nn.Module):
     predicts the drug response.
 
     Adapted from sparseGO_nn in https://github.com/KatynaSada/SparseGO
-
-    :param layer_connections: List of (parent, child) pair arrays per layer, output of pairs_in_layers().
-    :param num_neurons_per_GO: Number of neurons per GO term (default 6).
-    :param num_neurons_per_final_GO: Number of neurons in the final GO layer.
-    :param num_neurons_drug: List of hidden layer sizes for the drug ANN branch.
-    :param num_neurons_final: Number of neurons in the final combined layer.
-    :param drug_dim: Dimensionality of the drug fingerprint vector.
-    :param gene2id_mapping: Mapping from gene names to ontology indices matching expression columns.
-    :param p_drop_final: Dropout rate for the final combined layers.
-    :param p_drop_genes: Dropout rate for the gene input layer.
-    :param p_drop_terms: Dropout rate for GO term layers.
-    :param p_drop_drugs: Dropout rate for drug ANN layers.
     """
 
     def __init__(
@@ -207,10 +189,10 @@ class SparseGONetwork(nn.Module):
         p_drop_genes: float = 0.1,
         p_drop_terms: float = 0.1,
         p_drop_drugs: float = 0.1,
-    ):
+    ) -> None:
         """Initialize SparseGONetwork.
 
-        :param layer_connections: List of (parent, child) pair arrays per layer.
+        :param layer_connections: List of (parent, child) pair arrays per layer, as returned by ``pairs_in_layers``.
         :param num_neurons_per_go: Number of neurons per GO term.
         :param num_neurons_per_final_go: Number of neurons in the final GO layer.
         :param num_neurons_drug: List of hidden layer sizes for the drug ANN branch.

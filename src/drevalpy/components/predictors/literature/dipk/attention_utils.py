@@ -7,15 +7,14 @@ from torch import nn
 class MultiHeadAttentionLayer(nn.Module):
     """Custom multi-head attention layer for the DIPK model."""
 
-    def __init__(self, hid_dim: int, n_heads: int, dropout: float, device: str | torch.device | int | None):
+    def __init__(self, hid_dim: int, n_heads: int, dropout: float, device: str | torch.device | int | None) -> None:
         """Initialize the multi-head attention layer.
 
-        :param hid_dim: dimension of hidden layer
-        :param n_heads: number of heads
-        :param dropout: dropout rate
-        :param device: which device to use, e.g. "cuda" or "cpu"
-
-        :raises ValueError: if hidden dimension is not divisible by the number of heads
+        :param hid_dim: Width of the query, key, value and output projections; split evenly across the heads.
+        :param n_heads: Number of attention heads.
+        :param dropout: Dropout probability applied to the attention weights.
+        :param device: Device on which the attention scaling constant is created, e.g. "cuda" or "cpu".
+        :raises ValueError: If ``hid_dim`` is not divisible by ``n_heads``.
         """
         super().__init__()
 
@@ -43,12 +42,11 @@ class MultiHeadAttentionLayer(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass of the multi-head attention layer.
 
-        :param query: query tensor
-        :param key: key tensor
-        :param value: value tensor
-        :param mask: mask tensor
-
-        :returns: returns: output tensor and attention tensor
+        :param query: Query tensor of shape [batch, query_len, hid_dim].
+        :param key: Key tensor of shape [batch, key_len, hid_dim].
+        :param value: Value tensor with the same shape as ``key``.
+        :param mask: Optional mask; positions equal to 0 are excluded from attention.
+        :returns: The attended output of shape [batch, query_len, hid_dim] and the per-head attention weights.
         """
         batch_size = query.size(0)
 

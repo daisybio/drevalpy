@@ -243,7 +243,7 @@ class SRMFPredictor(BlockPredictor):
         drug_mat: np.ndarray,
         cell_mat: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Collective matrix factorization with similarity regularization.
+        """Factorize the response matrix jointly with drug and sample similarity regularization.
 
         :param w: Binary weight matrix (drugs x samples).
         :param int_mat: Response interaction matrix (drugs x samples).

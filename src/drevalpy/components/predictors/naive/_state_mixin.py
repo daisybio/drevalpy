@@ -32,7 +32,7 @@ class MeanEffectsStateMixin:
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize instance state.
 
-        :param hyperparameters: hyperparameters.
+        :param hyperparameters: Optional hyperparameter overrides, passed to the next base class.
         """
         super().__init__(hyperparameters)
         self._dataset_mean = None
@@ -50,7 +50,7 @@ class MeanEffectsStateMixin:
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state.
 
-        :returns: Result.
+        :returns: The dataset mean and each effect array as lists, or an empty mapping when unfitted.
         """
         arrays = self._fitted_arrays()
         if arrays is None:
@@ -63,7 +63,7 @@ class MeanEffectsStateMixin:
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
+        :param state: Mapping from ``get_state``; entries that are missing leave the current value untouched.
         """
         mean = state_float(state, "dataset_mean")
         if mean is not None:
@@ -77,6 +77,6 @@ class MeanEffectsStateMixin:
     def is_fitted(self) -> bool:
         """Return whether the component has been fit.
 
-        :returns: Result.
+        :returns: True once the dataset mean and every effect array are set.
         """
         return self._fitted_arrays() is not None

@@ -24,6 +24,7 @@ from drevalpy.utils.torch_io import load_state_dict, save_state_dict
 # training stack on the critical path of every `import drevalpy`. Guarded by
 # tests/test_import_cost_policy.py.
 if TYPE_CHECKING:
+    import torch
     from torch_geometric.loader import DataLoader
 
     from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
@@ -70,7 +71,7 @@ class _DrugGNNDataset:
         """
         return len(self._response)
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> tuple[Any, torch.Tensor, torch.Tensor]:
         """Return (drug_graph, cell_features, response) for the given index.
 
         :param idx: Pair index.

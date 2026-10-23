@@ -29,8 +29,8 @@ class NaiveMeanPredictor(MeanEffectsStateMixin, FeatureFreePredictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
-        :param batch: batch.
-        :raises RuntimeError: If batch.response is None.
+        :param batch: Training batch; only its responses are used.
+        :raises RuntimeError: If ``batch.response`` is None.
         """
         if batch.response is None:
             raise RuntimeError("batch.response is required for fit")
@@ -39,9 +39,9 @@ class NaiveMeanPredictor(MeanEffectsStateMixin, FeatureFreePredictor):
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
-        :param batch: batch.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
+        :param batch: Pairs to score.
+        :returns: The dataset mean for every pair.
+        :raises RuntimeError: If the predictor has not been fitted.
         """
         if self._dataset_mean is None:
             msg = "Call fit before predict"

@@ -37,9 +37,9 @@ class NaiveTissueMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
-        :param batch: batch.
-        :raises ValueError: Raised on invalid input.
-        :raises RuntimeError: If batch.response is None.
+        :param batch: Training batch.
+        :raises ValueError: If the tissue featurizer produced no columns.
+        :raises RuntimeError: If ``batch.response`` is None.
         """
         design = require_pair_matrix(batch, side="sample")
         if design.shape[1] == 0:
@@ -54,10 +54,10 @@ class NaiveTissueMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
-        :param batch: batch.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
-        :raises ValueError: Raised on invalid input.
+        :param batch: Pairs to score.
+        :returns: Dataset mean plus the effect of each pair's tissue.
+        :raises RuntimeError: If the predictor has not been fitted.
+        :raises ValueError: If the tissue featurizer produced no columns.
         """
         if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"
@@ -90,9 +90,9 @@ class NaiveTissueDrugMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
-        :param batch: batch.
-        :raises ValueError: Raised on invalid input.
-        :raises RuntimeError: If batch.response is None.
+        :param batch: Training batch.
+        :raises ValueError: If the tissue or drug featurizer produced no columns.
+        :raises RuntimeError: If ``batch.response`` is None.
         """
         tissue = require_pair_matrix(batch, side="sample")
         drugs = require_pair_matrix(batch, side="drug")
@@ -116,10 +116,10 @@ class NaiveTissueDrugMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
-        :param batch: batch.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
-        :raises ValueError: Raised on invalid input.
+        :param batch: Pairs to score.
+        :returns: Dataset mean plus the effect of each pair's tissue-drug combination.
+        :raises RuntimeError: If the predictor has not been fitted.
+        :raises ValueError: If the tissue or drug featurizer produced no columns.
         """
         if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"

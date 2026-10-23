@@ -46,9 +46,10 @@ def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarr
     - ``gene2id_mapping_ont``: Pre-computed gene-to-id mapping dict.
     - ``ontology_gene_order``: Ordered list of gene names matching expression columns.
 
+    Raises ``ValueError`` (via ``resolve_ontology_metadata``) if required ontology info is missing.
+
     :param metadata: Metadata mapping from the active sample block.
     :returns: Tuple of (layer_connections, gene2id_mapping, gene_order).
-    :raises ValueError: If required ontology info is missing from metadata.
     """
     from .utils import resolve_ontology_metadata
 

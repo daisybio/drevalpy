@@ -39,6 +39,7 @@ class NaiveMeanEffectsPredictor(MeanEffectsStateMixin, BlockPredictor):
     _drug_effects: np.ndarray | None
 
     def _cell_and_tissue(self, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray]:
+        """Return pair-aligned sample identity and tissue matrices; the tissue matrix has no columns if absent."""
         if "identity" in batch.sample.blocks:
             cell = block_pair_matrix(batch, "identity")
         else:
@@ -52,8 +53,9 @@ class NaiveMeanEffectsPredictor(MeanEffectsStateMixin, BlockPredictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
-        :param batch: batch.
-        :raises RuntimeError: If batch.response is None.
+        :param batch: Training batch; tissue effects are fitted first, then sample effects on the residual, then drug
+            effects.
+        :raises RuntimeError: If ``batch.response`` is None.
         """
         y = batch.response
         if y is None:
@@ -73,9 +75,9 @@ class NaiveMeanEffectsPredictor(MeanEffectsStateMixin, BlockPredictor):
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
-        :param batch: batch.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
+        :param batch: Pairs to score.
+        :returns: Dataset mean plus the tissue, sample and drug effects of each pair.
+        :raises RuntimeError: If the predictor has not been fitted.
         """
         if (
             self._dataset_mean is None

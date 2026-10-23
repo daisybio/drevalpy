@@ -98,12 +98,12 @@ def load_ontology(ontology_file: str | Path | StringIO, gene2id_mapping: dict) -
     - Column 2: child term or gene
     - Column 3: 'default' for term-term connections, 'gene' for term-gene annotations
 
+    Raises ``ValueError`` (from the helpers it calls) if a term has no annotated genes, the ontology has no root or
+    several roots, or it has several connected components.
+
     :param ontology_file: Path to the ontology file (e.g. sparseGO_ont.txt).
     :param gene2id_mapping: Dictionary mapping gene names to integer IDs.
-
     :returns: Tuple of (directed graph, term-term pairs array, gene-term pairs array).
-    :raises ValueError: If a term has no annotated genes, the ontology has no root, several roots, or
-        several connected components.
     """
     directed_graph, terms_pairs, genes_terms_pairs, gene_set, term_direct_gene_map = _read_ontology_edges(
         ontology_file, gene2id_mapping

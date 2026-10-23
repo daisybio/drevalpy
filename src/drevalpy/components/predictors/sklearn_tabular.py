@@ -22,7 +22,7 @@ class SklearnTabularPredictor(MatrixPredictor):
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize instance state.
 
-        :param hyperparameters: hyperparameters.
+        :param hyperparameters: Optional hyperparameter overrides, passed to the base class.
         """
         super().__init__(hyperparameters)
         merged = dict(self._hyperparameters)
@@ -52,7 +52,7 @@ class SklearnTabularPredictor(MatrixPredictor):
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state.
 
-        :returns: Result.
+        :returns: The fitted estimator plus the shared hyperparameter and mode entries.
         """
         return {"estimator": self._estimator, **self._shared_state()}
 
@@ -66,8 +66,8 @@ class SklearnTabularPredictor(MatrixPredictor):
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
-        :raises PredictorStateError: Raised on invalid input.
+        :param state: Mapping produced by ``get_state``.
+        :raises PredictorStateError: If the estimator or the hyperparameters are missing.
         """
         estimator = state.get("estimator")
         if estimator is None:
@@ -122,6 +122,6 @@ class SklearnTabularPredictor(MatrixPredictor):
     def is_fitted(self) -> bool:
         """Return whether the component has been fit.
 
-        :returns: Result.
+        :returns: True once an estimator has been fitted.
         """
         return self._estimator is not None

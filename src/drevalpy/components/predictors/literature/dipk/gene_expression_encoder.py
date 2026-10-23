@@ -24,13 +24,15 @@ class GeneExpressionEncoder(nn.Module):
     DIPK model https://github.com/user15632/DIPK.
     """
 
-    def __init__(self, input_dim, latent_dim=512, h_dims=None, drop_out_rate=0.3):
+    def __init__(
+        self, input_dim: int, latent_dim: int = 512, h_dims: list[int] | None = None, drop_out_rate: float = 0.3
+    ) -> None:
         """Initialize the gene expression encoder.
 
-        :param input_dim: input dimension
-        :param latent_dim: latent dimension
-        :param h_dims: hidden dimensions
-        :param drop_out_rate: dropout rate
+        :param input_dim: Number of input genes.
+        :param latent_dim: Size of the latent embedding returned by the bottleneck.
+        :param h_dims: Widths of the hidden layers between input and bottleneck; defaults to [2048, 1024].
+        :param drop_out_rate: Dropout probability after each hidden layer.
         """
         super().__init__()
         if h_dims is None:
@@ -51,12 +53,11 @@ class GeneExpressionEncoder(nn.Module):
         self.bottleneck = nn.Linear(hidden_dims[-1], latent_dim)
         self.latent_dim = latent_dim
 
-    def forward(self, input):
-        """Forward pass of the gene expression encoder.
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        """Encode gene expression into the latent space.
 
-        :param input: input data
-
-        :returns: return: encoded data
+        :param input: Gene expression tensor of shape [batch, input_dim].
+        :returns: Latent embedding of shape [batch, latent_dim].
         """
         result = self.encoder(input)
         embedding = functional.relu(self.bottleneck(result))
@@ -66,13 +67,16 @@ class GeneExpressionEncoder(nn.Module):
 class GeneExpressionDecoder(nn.Module):
     """Gene expression decoder."""
 
-    def __init__(self, input_dim, latent_dim=512, h_dims=None, drop_out_rate=0.3):
+    def __init__(
+        self, input_dim: int, latent_dim: int = 512, h_dims: list[int] | None = None, drop_out_rate: float = 0.3
+    ) -> None:
         """Initialize the gene expression decoder.
 
-        :param input_dim: input dimension
-        :param latent_dim: latent dimension
-        :param h_dims: hidden dimensions
-        :param drop_out_rate: dropout rate
+        :param input_dim: Number of genes to reconstruct.
+        :param latent_dim: Size of the latent embedding that is decoded.
+        :param h_dims: Widths of the hidden layers of the matching encoder; the decoder mirrors them. Defaults to
+            [2048, 1024].
+        :param drop_out_rate: Dropout probability after each hidden layer.
         """
         super().__init__()
         if h_dims is None:
@@ -94,12 +98,11 @@ class GeneExpressionDecoder(nn.Module):
         self.decoder = nn.Sequential(*modules)
         self.decoder_output = nn.Linear(hidden_dims[-2], hidden_dims[-1])
 
-    def forward(self, embedding):
-        """Forward pass of the gene expression decoder.
+    def forward(self, embedding: torch.Tensor) -> torch.Tensor:
+        """Reconstruct gene expression from a latent embedding.
 
-        :param embedding: input data
-
-        :returns: return: decoded data
+        :param embedding: Latent embedding of shape [batch, latent_dim].
+        :returns: Reconstructed gene expression of shape [batch, input_dim].
         """
         result = self.decoder_input(embedding)
         result = self.decoder(result)
@@ -110,12 +113,11 @@ class GeneExpressionDecoder(nn.Module):
 class CollateFn:
     """Collate function for the DataLoader, either for training or testing."""
 
-    def __call__(self, batch):
-        """Collate the batch.
+    def __call__(self, batch: list[torch.Tensor]) -> torch.Tensor:
+        """Stack the gene expression vectors of a batch.
 
-        :param batch: batch of PyG Data objects
-
-        :returns: returns: PyG Batch, gene features, and bionic features
+        :param batch: Gene expression vectors, one per sample.
+        :returns: Tensor of shape [len(batch), n_genes].
         """
         batch_data = torch.stack(batch)
         return batch_data
@@ -124,27 +126,26 @@ class CollateFn:
 class DataSet(Dataset, ABC):
     """Dataset class for gene expression data."""
 
-    def __init__(self, data):
+    def __init__(self, data: torch.Tensor) -> None:
         """Initialize the dataset.
 
-        :param data: data
+        :param data: Gene expression tensor with one row per sample.
         """
         self._data = data
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> torch.Tensor:
         """Return the data at the given index.
 
-        :param idx: index
-
-        :returns: return: data
+        :param idx: Row index.
+        :returns: Gene expression vector of that row.
         """
         data = self._data[idx]
         return data
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the length of the dataset.
 
-        :returns: return: length of the dataset
+        :returns: Number of rows.
         """
         return len(self._data)
 
@@ -154,11 +155,10 @@ def train_gene_expession_autoencoder(
 ) -> GeneExpressionEncoder:
     """Train the autoencoder model for gene expression data with early stopping.
 
-    :param gene_expression_input: gene expression data
-    :param gene_expression_input_early_stopping: validation data for early stopping
-    :param epochs_autoencoder: number of epochs for training the autoencoder
-
-    :returns: return: trained encoder model
+    :param gene_expression_input: Training gene expression, one row per sample.
+    :param gene_expression_input_early_stopping: Held-out gene expression used to monitor the reconstruction loss.
+    :param epochs_autoencoder: Maximum number of epochs; training stops earlier after 3 epochs without improvement.
+    :returns: The trained encoder in eval mode.
     """
     lr = 1e-4
     batch_size = 1024
@@ -245,10 +245,9 @@ def train_gene_expession_autoencoder(
 def encode_gene_expression(gene_expression_input: np.ndarray, encoder: GeneExpressionEncoder) -> np.ndarray:
     """Encode gene expression data.
 
-    :param gene_expression_input: gene expression data
-    :param encoder: trained encoder model
-
-    :returns: return: encoded gene expression data
+    :param gene_expression_input: Gene expression of shape [n_samples, n_genes], or a single vector of shape [n_genes].
+    :param encoder: Trained encoder.
+    :returns: Latent embeddings with the leading dimension of the input.
     """
     encoder.eval()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

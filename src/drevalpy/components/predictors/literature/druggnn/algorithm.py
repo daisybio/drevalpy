@@ -4,19 +4,23 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 from torch.optim import Adam
+from torch_geometric.data import Batch
 from torch_geometric.nn import GCNConv, global_mean_pool
 
 
 class DrugGraphNet(nn.Module):
     """Neural network for DrugGNN."""
 
-    def __init__(self, num_node_features, num_cell_features, hidden_dim=64, dropout=0.2):
+    def __init__(
+        self, num_node_features: int, num_cell_features: int, hidden_dim: int = 64, dropout: float = 0.2
+    ) -> None:
         """Initialize the network.
 
         :param num_node_features: Number of features for each node in the drug graph.
         :param num_cell_features: Number of features for the sample.
-        :param hidden_dim: The hidden dimension size.
-        :param dropout: The dropout rate.
+        :param hidden_dim: Width of the first graph convolution and of the drug and sample embeddings; later layers
+            scale from it.
+        :param dropout: Dropout probability between layers.
         """
         super().__init__()
         self.dropout = dropout
@@ -36,13 +40,12 @@ class DrugGraphNet(nn.Module):
         self.combiner_fc2 = nn.Linear(hidden_dim, 32)
         self.output_fc = nn.Linear(32, 1)
 
-    def forward(self, drug_graph, cell_features):
-        """Forward pass of the network.
+    def forward(self, drug_graph: Batch, cell_features: torch.Tensor) -> torch.Tensor:
+        """Predict one response per pair from a drug graph and sample features.
 
-        :param drug_graph: The drug graph.
-        :param cell_features: The sample features.
-
-        :returns: return: The output of the network.
+        :param drug_graph: Batched drug graphs, one graph per pair.
+        :param cell_features: Sample feature matrix of shape [n_pairs, num_cell_features].
+        :returns: Predicted responses of shape [n_pairs].
         """
         # Process drug graph
         x, edge_index, batch = drug_graph.x, drug_graph.edge_index, drug_graph.batch
@@ -86,14 +89,14 @@ class DrugGNNModule(pl.LightningModule):
         hidden_dim: int = 64,
         dropout: float = 0.2,
         learning_rate: float = 0.001,
-    ):
+    ) -> None:
         """Initialize the LightningModule.
 
         :param num_node_features: Number of features for each node in the drug graph.
         :param num_cell_features: Number of features for the sample.
-        :param hidden_dim: The hidden dimension size.
-        :param dropout: The dropout rate.
-        :param learning_rate: The learning rate.
+        :param hidden_dim: Hidden dimension passed to :class:`DrugGraphNet`.
+        :param dropout: Dropout probability passed to :class:`DrugGraphNet`.
+        :param learning_rate: Learning rate of the Adam optimizer.
         """
         super().__init__()
         self.save_hyperparameters()
@@ -105,23 +108,21 @@ class DrugGNNModule(pl.LightningModule):
         )
         self.criterion = nn.MSELoss()
 
-    def forward(self, batch):
-        """Forward pass of the module.
+    def forward(self, batch: tuple[Batch, torch.Tensor, torch.Tensor]) -> torch.Tensor:
+        """Predict responses for a loader batch.
 
-        :param batch: The batch.
-
-        :returns: return: The output of the model.
+        :param batch: Tuple of batched drug graphs, sample features and responses; the responses are ignored.
+        :returns: Predicted responses of shape [n_pairs].
         """
         drug_graph, cell_features, _ = batch
         return self.model(drug_graph, cell_features)
 
-    def training_step(self, batch, batch_idx):
-        """A single training step.
+    def training_step(self, batch: tuple[Batch, torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+        """Compute and log the MSE training loss of one batch.
 
-        :param batch: The batch.
-        :param batch_idx: The batch index.
-
-        :returns: return: The loss.
+        :param batch: Tuple of batched drug graphs, sample features and responses.
+        :param batch_idx: Index of the batch within the epoch; unused.
+        :returns: The MSE loss.
         """
         drug_graph, cell_features, responses = batch
         outputs = self.model(drug_graph, cell_features)
@@ -130,31 +131,32 @@ class DrugGNNModule(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch, batch_idx):
-        """A single validation step.
+    def validation_step(self, batch: tuple[Batch, torch.Tensor, torch.Tensor], batch_idx: int) -> None:
+        """Compute and log the MSE validation loss of one batch.
 
-        :param batch: The batch.
-        :param batch_idx: The batch index.
+        :param batch: Tuple of batched drug graphs, sample features and responses.
+        :param batch_idx: Index of the batch within the epoch; unused.
         """
         drug_graph, cell_features, responses = batch
         outputs = self.model(drug_graph, cell_features)
         loss = self.criterion(outputs, responses)
         self.log("val_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
-    def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        """A single prediction step.
+    def predict_step(
+        self, batch: tuple[Batch, torch.Tensor, torch.Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> torch.Tensor:
+        """Predict responses for one batch.
 
-        :param batch: The batch.
-        :param batch_idx: The batch index.
-        :param dataloader_idx: The dataloader index.
-
-        :returns: return: The output of the model.
+        :param batch: Tuple of batched drug graphs, sample features and responses.
+        :param batch_idx: Index of the batch within the loader; unused.
+        :param dataloader_idx: Index of the dataloader; unused.
+        :returns: Predicted responses of shape [n_pairs].
         """
         return self.forward(batch)
 
-    def configure_optimizers(self):
-        """Configure the optimizer.
+    def configure_optimizers(self) -> Adam:
+        """Create the optimizer.
 
-        :returns: return: The optimizer.
+        :returns: An Adam optimizer over all parameters.
         """
         return Adam(self.parameters(), lr=self.hparams.learning_rate)

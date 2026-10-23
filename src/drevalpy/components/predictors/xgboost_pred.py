@@ -66,7 +66,7 @@ class XGBoostPredictor(BoostedTreesPredictor):
 
     tuned_hyperparameters: ClassVar[tuple[str, ...]] = ("n_estimators", "max_depth", "learning_rate")
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         """Return an unfitted XGBoost regressor.
 
         :returns: Unfitted ``XGBRegressor`` configured from hyperparameters.
@@ -80,8 +80,8 @@ class XGBoostPredictor(BoostedTreesPredictor):
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
-        :raises PredictorStateError: Raised on invalid input.
+        :param state: Mapping produced by ``get_state``.
+        :raises PredictorStateError: If the restored state contains no fitted estimator.
         """
         _set_xgboost_thread_defaults()
         super().set_state(state)

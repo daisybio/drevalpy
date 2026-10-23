@@ -52,7 +52,7 @@ class LightGBMPredictor(BoostedTreesPredictor):
         "reg_lambda",
     )
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         """Return an unfitted LightGBM regressor.
 
         :returns: Unfitted ``LGBMRegressor`` configured from hyperparameters.

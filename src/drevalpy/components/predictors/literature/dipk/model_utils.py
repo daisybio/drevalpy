@@ -13,10 +13,10 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class AttentionLayer(nn.Module):
     """Custom attention layer for the DIPK model."""
 
-    def __init__(self, heads: int = 1):
+    def __init__(self, heads: int = 1) -> None:
         """Initialize the attention layer with a multi-head attention layer with a specified number of heads.
 
-        :param heads: number of heads for the multi-head attention layer
+        :param heads: Number of heads of each multi-head attention layer.
         """
         super().__init__()
         self.fc_layer_0 = nn.Linear(features_dim_gene, 768)
@@ -29,12 +29,12 @@ class AttentionLayer(nn.Module):
     ) -> torch.Tensor:
         """Forward pass of the attention layer.
 
-        :param molgnet_features: MolGNet features
+        :param molgnet_features: MolGNet atom features of shape [batch, n_atoms, 768]; used as key and value.
         :param mask: mask for the MolGNet features, as molecules have varying sizes (valid atom features are True)
         :param gene_expression: gene expression features of the graph data
         :param bionic: bionic network features of the graph data
 
-        :returns: returns: tensor of MolGNet features after attention layer
+        :returns: tensor of MolGNet features after attention layer
         """
         gene_expression = nn.functional.relu(self.fc_layer_0(gene_expression))  # Shape: [batch_size, feature_dim_gene]
         bionic = nn.functional.relu(self.fc_layer_1(bionic))  # Shape: [batch_size, feature_dim_bionic]
@@ -61,12 +61,12 @@ class AttentionLayer(nn.Module):
 class DenseLayers(nn.Module):
     """Custom dense layers for the DIPK model."""
 
-    def __init__(self, fc_layer_num: int, fc_layer_dim: list[int], dropout_rate: float):
+    def __init__(self, fc_layer_num: int, fc_layer_dim: list[int], dropout_rate: float) -> None:
         """Initialize the dense layers of the DIPK model which follow the attention layer.
 
-        :param fc_layer_num: number of fully connected layers
-        :param fc_layer_dim: list of dimensions for each fully connected layer
-        :param dropout_rate: dropout rate for all fully connected layers
+        :param fc_layer_num: Number of fully connected layers (and dropout layers) that are applied.
+        :param fc_layer_dim: Output widths of the stacked linear layers; at least six entries are read.
+        :param dropout_rate: Dropout probability after each fully connected layer.
         """
         super().__init__()
         self.fc_layer_num = fc_layer_num
@@ -92,7 +92,7 @@ class DenseLayers(nn.Module):
         :param gene: gene expression features (GEF) of the graph data
         :param bionic: biological network features (BNF) of the graph data
 
-        :returns: returns: output tensor after the dense layers
+        :returns: output tensor after the dense layers
         """
         if len(x.shape) == 1:  # happens if the batch size is 1
             x = torch.unsqueeze(x, 0)
@@ -111,13 +111,13 @@ class DenseLayers(nn.Module):
 class Predictor(nn.Module):
     """Whole DIPK model."""
 
-    def __init__(self, heads: int, fc_layer_num: int, fc_layer_dim: list[int], dropout_rate: float):
+    def __init__(self, heads: int, fc_layer_num: int, fc_layer_dim: list[int], dropout_rate: float) -> None:
         """Initialize the DIPK model with the specified hyperparameters.
 
-        :param heads: number of heads for the multi-head attention layer
-        :param fc_layer_num: number of fully connected layers for the dense layers
-        :param fc_layer_dim: number of neurons for each fully connected layer
-        :param dropout_rate: dropout rate for all fully connected layers
+        :param heads: Number of heads of each multi-head attention layer.
+        :param fc_layer_num: Number of fully connected layers that are applied in the dense layers.
+        :param fc_layer_dim: Output widths of the stacked linear layers in the dense layers.
+        :param dropout_rate: Dropout probability after each fully connected layer.
         """
         super().__init__()
         self.attention_layer = AttentionLayer(heads=heads)
@@ -137,7 +137,7 @@ class Predictor(nn.Module):
         :param bionic: biological network features (BNF) of the graph data
         :param molgnet_mask: mask for the MolGNet features, as molecules have varying sizes
 
-        :returns: returns: output tensor of the DIPK model
+        :returns: output tensor of the DIPK model
         """
         molgnet_drug_features = self.attention_layer(molgnet_drug_features, molgnet_mask, gene_expression, bionic)
         f = self.dense_layers(molgnet_drug_features, gene_expression, bionic)
