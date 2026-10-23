@@ -86,4 +86,5 @@ class BoostedTreesPredictor(SklearnTabularPredictor):
             **self.boosting_default_overrides,
             **self.boosting_extra_defaults,
         }
-        return {name: type(default)(self._h.get(name, default)) for name, default in defaults.items()}
+        resolved = {**defaults, **self._h}
+        return {name: type(default)(resolved[name]) for name, default in defaults.items()}

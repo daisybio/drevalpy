@@ -2,39 +2,24 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
 from drevalpy.components.predictors.literature._single_drug_omics import (
-    OmicFeatureNames,
+    SingleDrugOmicsPredictor,
     aligned_pair_matrices,
-    feature_names_from_payload,
     feature_names_payload,
-    iter_drug_subsets,
     omic_feature_names,
     omic_matrices,
     validation_split,
 )
-from drevalpy.components.predictors.single_drug_routing import (
-    require_known_training_keys,
-    routing_keys,
-)
-from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.utils.torch_io import load_state_dict as _load_torch_state_dict
-from drevalpy.utils.torch_io import (
-    load_trusted_mapping,
-    save_state_dict,
-    save_trusted_mapping,
-)
+from drevalpy.utils.torch_io import save_state_dict, save_trusted_mapping
 
 # MOLIModel lives in .utils, which imports pytorch_lightning at module scope. This
 # module is imported eagerly by register_builtin_components(), so the import is
@@ -51,46 +36,10 @@ if TYPE_CHECKING:
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=MOLIR_REFERENCE,
 )
-class MOLIRPredictor(BlockPredictor):
+class MOLIRPredictor(SingleDrugOmicsPredictor):
     """MOLIR predictor: per-drug multi-omics late integration model."""
 
-    scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
-    required_sample_blocks: ClassVar[tuple[str, ...]] = (
-        "gene_expression",
-        "mutations",
-        "copy_number_variation_gistic",
-    )
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
-    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
-    )
-    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX),)
-    validate_drug_graphs: ClassVar[bool] = False
-    supports_early_stopping: ClassVar[bool] = True
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
-
-    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
-        """Initialize predictor with optional hyperparameter overrides.
-
-        :param hyperparameters: Optional hyperparameter overrides.
-        """
-        super().__init__(hyperparameters)
-        self._models: dict[str, MOLIModel] = {}
-        self._feature_names: dict[str, OmicFeatureNames] = {}
-
-    def _fit(self, batch: ModelInputBatch) -> None:
-        """Train per-drug MOLIR models.
-
-        :param batch: Training batch with all required sample omics blocks.
-        """
-        require_known_training_keys(routing_keys(batch))
-        self._models = {}
-        self._feature_names = {}
-
-        for drug_id, sub in iter_drug_subsets(batch):
-            self._fit_single_drug(drug_id, sub)
+    _models: dict[str, MOLIModel]
 
     def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> None:
         """Fit a single-drug MOLIR model.
@@ -129,26 +78,6 @@ class MOLIRPredictor(BlockPredictor):
             input_dim_cnv=widths[2],
         )
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
-        """Predict drug responses for pairs, routing to per-drug models.
-
-        :param batch: Featurized pairs to score.
-        :returns: One predicted response per pair.
-        """
-        keys = routing_keys(batch)
-        predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
-        for drug_id in np.unique(keys):
-            if drug_id == "":
-                continue
-            model = self._models.get(str(drug_id))
-            if model is None:
-                continue
-            mask = keys == drug_id
-            sub = batch.subset_pairs(mask)
-            preds = self._predict_single_drug(str(drug_id), model, sub)
-            predictions[mask] = np.asarray(preds, dtype=np.float64).ravel()
-        return predictions
-
     def _predict_single_drug(self, drug_id: str, model: MOLIModel, batch: ModelInputBatch) -> np.ndarray:
         """Predict for a single drug model.
 
@@ -163,61 +92,24 @@ class MOLIRPredictor(BlockPredictor):
 
         return np.atleast_1d(model.predict(*aligned_pair_matrices(batch, feature_names)))
 
-    def is_fitted(self) -> bool:
-        """Report whether trained models exist.
+    def _serialize_model(self, drug_id: str, model: MOLIModel) -> bytes:
+        """Serialize one drug's model with the feature names it was trained on.
 
-        :returns: True when at least one per-drug model has been fitted.
+        :param drug_id: Drug identifier.
+        :param model: The drug's fitted model.
+        :returns: Serialized payload bytes.
         """
-        return bool(self._models)
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted state for all per-drug models.
-
-        :returns: Mapping with algorithm blobs and hyperparameters.
-        """
-        if not self._models:
-            return {}
-        algorithms: dict[str, bytes] = {}
-        for drug_id, model in self._models.items():
-            payload: dict[str, Any] = {
-                "hyperparameters": dict(self._hyperparameters),
-                "model_state": save_state_dict(model.state_dict()),
-                "input_dims": {
-                    "expr": model.expression_encoder.encode[0].in_features,
-                    "mut": model.mutation_encoder.encode[0].in_features,
-                    "cnv": model.cna_encoder.encode[0].in_features,
-                },
-                **feature_names_payload(self._feature_names.get(drug_id)),
-            }
-            algorithms[drug_id] = save_trusted_mapping(payload)
-        return {
-            "algorithms": algorithms,
-            "predictor_hyperparameters": dict(self._hyperparameters),
+        payload: dict[str, Any] = {
+            "hyperparameters": dict(self._hyperparameters),
+            "model_state": save_state_dict(model.state_dict()),
+            "input_dims": {
+                "expr": model.expression_encoder.encode[0].in_features,
+                "mut": model.mutation_encoder.encode[0].in_features,
+                "cnv": model.cna_encoder.encode[0].in_features,
+            },
+            **feature_names_payload(self._feature_names.get(drug_id)),
         }
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted state from serialized algorithm blobs.
-
-        :param state: State mapping from ``get_state``.
-        :raises PredictorStateError: If state is malformed.
-        """
-        algorithms_blob = state.get("algorithms")
-        if not isinstance(algorithms_blob, dict):
-            msg = "MOLIRPredictor state requires an 'algorithms' mapping"
-            raise PredictorStateError(msg)
-        hyperparameters = state.get("predictor_hyperparameters")
-        if isinstance(hyperparameters, dict):
-            self._hyperparameters = dict(hyperparameters)
-
-        self._models = {}
-        self._feature_names = {}
-        for drug_id, blob in algorithms_blob.items():
-            if not isinstance(blob, (bytes, bytearray)):
-                msg = f"MOLIRPredictor algorithm payload for {drug_id!r} must be bytes"
-                raise PredictorStateError(msg)
-            payload = load_trusted_mapping(bytes(blob))
-            self._feature_names[str(drug_id)] = feature_names_from_payload(payload)
-            self._models[str(drug_id)] = self._restore_model(payload)
+        return save_trusted_mapping(payload)
 
     def _restore_model(self, payload: dict[str, Any]) -> MOLIModel:
         """Rebuild one per-drug model from its deserialized payload.
@@ -227,16 +119,14 @@ class MOLIRPredictor(BlockPredictor):
         """
         from drevalpy.components.predictors.literature.molir.utils import MOLIModel
 
-        input_dims = payload.get("input_dims", {})
+        input_dims = payload["input_dims"]
         model = MOLIModel(
-            hpams=payload.get("hyperparameters", dict(self._hyperparameters)),
+            hpams=payload["hyperparameters"],
             input_dim_expr=input_dims["expr"],
             input_dim_mut=input_dims["mut"],
             input_dim_cnv=input_dims["cnv"],
         )
-        model_state_bytes = payload.get("model_state")
-        if isinstance(model_state_bytes, (bytes, bytearray)):
-            model.load_state_dict(_load_torch_state_dict(bytes(model_state_bytes)))
+        model.load_state_dict(_load_torch_state_dict(bytes(payload["model_state"])))
         return model
 
     @classmethod

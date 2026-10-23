@@ -10,7 +10,7 @@ import torch
 from torch import nn
 from upath import UPath as Path
 
-from drevalpy.components.predictors.literature._lightning_training import LightningRun, run_lightning_fit
+from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
 from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
 from drevalpy.components.predictors.literature.molir.utils import (
     generate_triplets_indices,
@@ -361,14 +361,13 @@ def train_superfeltr_model(
         else nullcontext(model_checkpoint_dir)
     )
     with directory as checkpoint_dir:
-        checkpoint = run_lightning_fit(
-            model,
-            train_loader,
-            val_loader,
-            LightningRun(
-                max_epochs=hpams["epochs"],
-                patience=patience,
-                checkpoint_dir=checkpoint_dir,
+        checkpoint = cast(
+            "pl.callbacks.ModelCheckpoint",
+            run_lightning_fit(
+                model,
+                train_loader,
+                val_loader,
+                LightningRun(max_epochs=hpams["epochs"], patience=patience, checkpoint_dir=checkpoint_dir),
             ),
         )
         if model_checkpoint_dir is None and checkpoint.best_model_path:

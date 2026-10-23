@@ -9,9 +9,14 @@ from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearn
 from drevalpy.components.predictors.sklearn_models import (
     AdaBoostPredictor,
     ElasticNetPredictor,
+    GradientBoostingPredictor,
+    KNNPredictor,
+    LassoPredictor,
     RandomForestPredictor,
+    RidgePredictor,
     SingleDrugElasticNetPredictor,
     SingleDrugRandomForestPredictor,
+    SVRPredictor,
 )
 from drevalpy.models import ModelSpec
 from drevalpy.models.config import ModelConfig, from_spec
@@ -49,6 +54,45 @@ def test_ridge_zoo_preset_exists() -> None:
     config = from_spec("Ridge")
     assert isinstance(config, ModelConfig)
     assert config.predictor.name == "ridge"
+
+
+@pytest.mark.parametrize(
+    "predictor_class",
+    [
+        ElasticNetPredictor,
+        LassoPredictor,
+        RidgePredictor,
+        RandomForestPredictor,
+        SVRPredictor,
+        GradientBoostingPredictor,
+        AdaBoostPredictor,
+        KNNPredictor,
+    ],
+)
+def test_every_estimator_is_built_from_declared_defaults_alone(predictor_class: type[Predictor]) -> None:
+    """``_make_estimator`` indexes its keys, so a key without a declared default would raise ``KeyError``."""
+    assert predictor_class()._make_estimator() is not None
+
+
+def test_random_forest_defaults_follow_the_declared_space() -> None:
+    estimator = RandomForestPredictor()._make_estimator()
+
+    assert estimator.max_depth == RandomForestPredictor.get_hyperparameter_space()["max_depth"]["default"] == 15
+    assert estimator.criterion == "squared_error"
+
+
+def test_random_forest_accepts_an_unbounded_depth() -> None:
+    assert RandomForestPredictor({"max_depth": None})._make_estimator().max_depth is None
+
+
+def test_adaboost_learning_rate_is_a_declared_non_tunable_default() -> None:
+    assert AdaBoostPredictor.non_tunable_hyperparameters["learning_rate"] == 1.0
+    assert AdaBoostPredictor()._make_estimator().learning_rate == 1.0
+
+
+def test_gradient_boosting_iterations_follow_max_iter() -> None:
+    assert GradientBoostingPredictor()._make_estimator().max_iter == 100
+    assert GradientBoostingPredictor({"max_iter": 7})._make_estimator().max_iter == 7
 
 
 def test_adaboost_default_depth_matches_space() -> None:

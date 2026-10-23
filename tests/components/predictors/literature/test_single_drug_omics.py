@@ -20,6 +20,7 @@ from drevalpy.components.predictors.literature._single_drug_omics import (
     OMIC_BLOCK_NAMES,
     OmicFeatureNames,
     OmicMatrices,
+    SingleDrugOmicsPredictor,
     aligned_pair_matrices,
     checkpoint_dir_for_drug,
     early_stopping_indices,
@@ -28,11 +29,16 @@ from drevalpy.components.predictors.literature._single_drug_omics import (
     iter_drug_subsets,
     omic_feature_names,
     omic_matrices,
+    restore_algorithms,
     validation_split,
 )
+from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
+from drevalpy.components.predictors.literature.superfeltr.predictor import SuperFELTRPredictor
+from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors.literature._helpers import two_by_two_batch
 
 EXPRESSION = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float32)
@@ -281,3 +287,66 @@ def test_the_recorded_feature_names_are_frozen() -> None:
 
     with pytest.raises(AttributeError):
         names.gene_expression = ("other",)  # type: ignore[misc]
+
+
+class TestRestoreAlgorithms:
+    @staticmethod
+    def _state(**overrides: object) -> dict[str, object]:
+        state: dict[str, object] = {
+            "algorithms": {"d1": save_trusted_mapping({"ranges": (0.0, 1.0)})},
+            "predictor_hyperparameters": {"epochs": 3},
+        }
+        state.update(overrides)
+        return state
+
+    def test_payloads_and_hyperparameters_are_decoded_per_drug(self) -> None:
+        hyperparameters, payloads = restore_algorithms(self._state(), "Toy")
+
+        assert hyperparameters == {"epochs": 3}
+        assert payloads == {"d1": {"ranges": (0.0, 1.0)}}
+
+    @pytest.mark.parametrize(
+        ("overrides", "message"),
+        [
+            pytest.param({"algorithms": None}, "requires an 'algorithms' mapping", id="no-algorithms"),
+            pytest.param({"predictor_hyperparameters": None}, "requires predictor_hyperparameters", id="no-hyper"),
+            pytest.param({"algorithms": {"d1": "text"}}, "'d1' must be bytes", id="not-bytes"),
+            pytest.param({"algorithms": {"d1": b"junk"}}, "'d1' could not be deserialized", id="undecodable"),
+        ],
+    )
+    def test_malformed_state_is_a_predictor_state_error(self, overrides: dict[str, object], message: str) -> None:
+        with pytest.raises(PredictorStateError, match=message):
+            restore_algorithms(self._state(**overrides), "Toy")
+
+
+@pytest.mark.parametrize("predictor_cls", [MOLIRPredictor, SuperFELTRPredictor])
+class TestSingleDrugOmicsShell:
+    def test_both_predictors_share_the_shell(self, predictor_cls: type[SingleDrugOmicsPredictor]) -> None:
+        assert issubclass(predictor_cls, SingleDrugOmicsPredictor)
+        assert predictor_cls.required_sample_blocks == OMIC_BLOCK_NAMES
+
+    def test_an_unfitted_predictor_has_no_state(self, predictor_cls: type[SingleDrugOmicsPredictor]) -> None:
+        predictor = predictor_cls()
+
+        assert predictor.is_fitted() is False
+        assert predictor.get_state() == {}
+
+    def test_a_payload_missing_a_required_entry_is_a_predictor_state_error(
+        self, predictor_cls: type[SingleDrugOmicsPredictor]
+    ) -> None:
+        state = {"algorithms": {"d1": save_trusted_mapping({})}, "predictor_hyperparameters": {}}
+
+        with pytest.raises(PredictorStateError, match="payload for 'd1' is missing"):
+            predictor_cls().set_state(state)
+
+    def test_a_failed_restore_leaves_the_predictor_untouched(
+        self, predictor_cls: type[SingleDrugOmicsPredictor]
+    ) -> None:
+        predictor = predictor_cls({"epochs": 7})
+        state = {"algorithms": {"d1": save_trusted_mapping({})}, "predictor_hyperparameters": {"epochs": 1}}
+
+        with pytest.raises(PredictorStateError):
+            predictor.set_state(state)
+
+        assert predictor._hyperparameters["epochs"] == 7
+        assert predictor.is_fitted() is False

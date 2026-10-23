@@ -33,10 +33,14 @@ ALL_REFERENCES = (
     pytest.param(SPARSEGO_REFERENCE, id="sparsego"),
 )
 
-WITH_DOI = (
+DOIS = (
+    pytest.param(DRUGGNN_REFERENCE, "10.1109/TCBB.2021.3060430", id="druggnn"),
+    pytest.param(PRECILY_REFERENCE, "10.1038/s41467-022-33291-z", id="precily"),
+    pytest.param(SRMF_REFERENCE, "10.1186/s12885-017-3500-5", id="srmf"),
     pytest.param(MOLIR_REFERENCE, "10.1186/s12859-023-05166-7", id="molir"),
     pytest.param(SUPERFELTR_REFERENCE, "10.1186/s12859-023-05166-7", id="superfeltr"),
     pytest.param(PHARMAFORMER_REFERENCE, "10.1038/s41698-025-01082-6", id="pharmaformer"),
+    pytest.param(DIPK_REFERENCE, "10.1093/bib/bbae153", id="dipk"),
     pytest.param(SPARSEGO_REFERENCE, "10.1016/j.ebiom.2023.104767", id="sparsego"),
 )
 
@@ -64,22 +68,22 @@ def test_every_reference_records_a_concrete_model_specific_deviation() -> None:
     assert all("may differ" not in note for note in deviations)
 
 
-@pytest.mark.parametrize(("reference", "doi"), WITH_DOI)
-def test_references_with_a_published_doi_record_it(reference: LiteratureReference, doi: str) -> None:
+@pytest.mark.parametrize(("reference", "doi"), DOIS)
+def test_every_reference_records_its_published_doi(reference: LiteratureReference, doi: str) -> None:
     assert reference.citation_doi == doi
 
 
 @pytest.mark.parametrize(
-    "reference",
+    ("reference", "cited"),
     [
-        pytest.param(DRUGGNN_REFERENCE, id="druggnn"),
-        pytest.param(PRECILY_REFERENCE, id="precily"),
-        pytest.param(SRMF_REFERENCE, id="srmf"),
-        pytest.param(DIPK_REFERENCE, id="dipk"),
+        pytest.param(MOLIR_REFERENCE, ("MOLI", "10.1093/bioinformatics/btz318"), id="molir"),
+        pytest.param(SUPERFELTR_REFERENCE, ("Super.FELT", "10.1186/s12859-021-04146-z"), id="superfeltr"),
     ],
 )
-def test_code_only_references_leave_the_doi_empty(reference: LiteratureReference) -> None:
-    assert reference.citation_doi == ""
+def test_benchmark_doi_references_name_the_original_model_in_the_citation(
+    reference: LiteratureReference, cited: tuple[str, str]
+) -> None:
+    assert all(part in reference.citation_text for part in cited)
 
 
 def test_repo_urls_are_unique_across_references() -> None:

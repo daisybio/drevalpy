@@ -47,18 +47,18 @@ class ElasticNetPredictor(SklearnTabularPredictor):
         "random_state": 0,
     }
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         from sklearn.linear_model import ElasticNet, Lasso, Ridge
 
-        l1_ratio = float(self._h.get("l1_ratio", 0.5))
-        alpha = float(self._h.get("alpha", DEFAULT_ELASTICNET_ALPHA))
-        max_iter = int(self._h.get("max_iter", 2000))
-        tol = float(self._h.get("tol", 1e-2))
-        random_state = self._h.get("random_state")
+        l1_ratio = float(self._h["l1_ratio"])
+        alpha = float(self._h["alpha"])
+        max_iter = int(self._h["max_iter"])
+        tol = float(self._h["tol"])
+        random_state = self._h["random_state"]
         if l1_ratio == 0.0:
             # Ridge is not coordinate descent and has no ``selection`` parameter.
             return Ridge(alpha=alpha, max_iter=max_iter, tol=tol, random_state=random_state)
-        selection = str(self._h.get("selection", "random"))
+        selection = str(self._h["selection"])
         if l1_ratio == 1.0:
             return Lasso(
                 alpha=alpha,
@@ -78,9 +78,9 @@ class ElasticNetPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
+        """Return the tunable hyperparameter space.
 
-        :returns: Result.
+        :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
             "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": DEFAULT_ELASTICNET_ALPHA},
@@ -114,22 +114,22 @@ class LassoPredictor(SklearnTabularPredictor):
         "random_state": 0,
     }
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         from sklearn.linear_model import Lasso
 
         return Lasso(
-            alpha=float(self._h.get("alpha", 1.0)),
-            max_iter=int(self._h.get("max_iter", 2000)),
-            tol=float(self._h.get("tol", 1e-2)),
-            selection=str(self._h.get("selection", "random")),
-            random_state=self._h.get("random_state"),
+            alpha=float(self._h["alpha"]),
+            max_iter=int(self._h["max_iter"]),
+            tol=float(self._h["tol"]),
+            selection=str(self._h["selection"]),
+            random_state=self._h["random_state"],
         )
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
+        """Return the tunable hyperparameter space.
 
-        :returns: Result.
+        :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
             "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
@@ -145,16 +145,16 @@ class LassoPredictor(SklearnTabularPredictor):
 class RidgePredictor(SklearnTabularPredictor):
     """Ridge predictor component."""
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         from sklearn.linear_model import Ridge
 
-        return Ridge(alpha=float(self._h.get("alpha", 1.0)))
+        return Ridge(alpha=float(self._h["alpha"]))
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
+        """Return the tunable hyperparameter space.
 
-        :returns: Result.
+        :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
             "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
@@ -171,29 +171,30 @@ class RandomForestPredictor(SklearnTabularPredictor):
     """Random forest predictor component."""
 
     non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
+        "criterion": "squared_error",
         "n_jobs": -1,
         "random_state": None,
     }
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         from sklearn.ensemble import RandomForestRegressor
 
-        max_depth_raw = self._h.get("max_depth", 20)
+        max_depth_raw = self._h["max_depth"]
         max_depth = None if max_depth_raw is None else int(max_depth_raw)
         return RandomForestRegressor(
-            n_estimators=int(self._h.get("n_estimators", 100)),
-            criterion=str(self._h.get("criterion", "squared_error")),
-            max_samples=float(self._h.get("max_samples", 0.2)),
+            n_estimators=int(self._h["n_estimators"]),
+            criterion=str(self._h["criterion"]),
+            max_samples=float(self._h["max_samples"]),
             max_depth=max_depth,
-            n_jobs=int(self._h.get("n_jobs", -1)),
-            random_state=self._h.get("random_state"),
+            n_jobs=int(self._h["n_jobs"]),
+            random_state=self._h["random_state"],
         )
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
+        """Return the tunable hyperparameter space.
 
-        :returns: Result.
+        :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
             "n_estimators": {"type": "int", "low": 50, "high": 200, "default": 100},
@@ -219,27 +220,27 @@ class SingleDrugRandomForestPredictor(SingleDrugSklearnPredictor, RandomForestPr
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class SVRPredictor(SklearnTabularPredictor):
-    """Svrpredictor component."""
+    """Support vector regression predictor component."""
 
     non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
         "max_iter": -1,
     }
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         from sklearn.svm import SVR
 
         return SVR(
-            C=float(self._h.get("C", 1.0)),
-            epsilon=float(self._h.get("epsilon", 0.1)),
-            kernel=str(self._h.get("kernel", "rbf")),
-            max_iter=int(self._h.get("max_iter", -1)),
+            C=float(self._h["C"]),
+            epsilon=float(self._h["epsilon"]),
+            kernel=str(self._h["kernel"]),
+            max_iter=int(self._h["max_iter"]),
         )
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
+        """Return the tunable hyperparameter space.
 
-        :returns: Result.
+        :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
             "C": {"type": "float", "low": 1e-3, "high": 100.0, "log": True, "default": 1.0},
@@ -257,21 +258,20 @@ class SVRPredictor(SklearnTabularPredictor):
 class GradientBoostingPredictor(SklearnTabularPredictor):
     """Gradient boosting predictor component."""
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         from sklearn.ensemble import HistGradientBoostingRegressor
 
-        max_iter = int(self._h.get("max_iter", self._h.get("n_estimators", 100)))
         return HistGradientBoostingRegressor(
-            max_depth=int(self._h.get("max_depth", 6)),
-            learning_rate=float(self._h.get("learning_rate", 0.1)),
-            max_iter=max_iter,
+            max_depth=int(self._h["max_depth"]),
+            learning_rate=float(self._h["learning_rate"]),
+            max_iter=int(self._h["max_iter"]),
         )
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
+        """Return the tunable hyperparameter space.
 
-        :returns: Result.
+        :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
             "max_depth": {"type": "int", "low": 3, "high": 12, "default": 6},
@@ -287,35 +287,36 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class AdaBoostPredictor(SklearnTabularPredictor):
-    """Ada boost predictor component."""
+    """AdaBoost predictor component."""
 
     # min_samples_split / min_samples_leaf showed no runtime or accuracy signal in
     # benchmark sweeps; they stay overridable but are excluded from tuning so the
     # trial budget goes to max_depth and n_estimators.
     non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
+        "learning_rate": 1.0,
         "min_samples_split": 2,
         "min_samples_leaf": 1,
     }
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         from sklearn.ensemble import AdaBoostRegressor
         from sklearn.tree import DecisionTreeRegressor
 
         return AdaBoostRegressor(
             estimator=DecisionTreeRegressor(
-                max_depth=int(self._h.get("max_depth", 4)),
-                min_samples_split=int(self._h.get("min_samples_split", 2)),
-                min_samples_leaf=int(self._h.get("min_samples_leaf", 1)),
+                max_depth=int(self._h["max_depth"]),
+                min_samples_split=int(self._h["min_samples_split"]),
+                min_samples_leaf=int(self._h["min_samples_leaf"]),
             ),
-            n_estimators=int(self._h.get("n_estimators", 50)),
-            learning_rate=float(self._h.get("learning_rate", 1.0)),
+            n_estimators=int(self._h["n_estimators"]),
+            learning_rate=float(self._h["learning_rate"]),
         )
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
+        """Return the tunable hyperparameter space.
 
-        :returns: Result.
+        :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
             "n_estimators": {"type": "int", "low": 25, "high": 100, "default": 50},
@@ -330,21 +331,21 @@ class AdaBoostPredictor(SklearnTabularPredictor):
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class KNNPredictor(SklearnTabularPredictor):
-    """Knnpredictor component."""
+    """K-nearest neighbors predictor component."""
 
-    def _make_estimator(self):
+    def _make_estimator(self) -> Any:
         from sklearn.neighbors import KNeighborsRegressor
 
         return KNeighborsRegressor(
-            n_neighbors=int(self._h.get("n_neighbors", 5)),
-            weights=str(self._h.get("weights", "distance")),
+            n_neighbors=int(self._h["n_neighbors"]),
+            weights=str(self._h["weights"]),
         )
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
+        """Return the tunable hyperparameter space.
 
-        :returns: Result.
+        :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
             "n_neighbors": {"type": "int", "low": 3, "high": 15, "default": 5},

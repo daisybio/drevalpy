@@ -1,11 +1,11 @@
 """Tests for the shared Lightning fit wrapper.
 
-``literature/_lightning_training.py`` replaced the trainer MOLIR's ``MOLIModel.fit``
-and SuperFELTR's ``train_superfeltr_model`` each assembled by hand. What it decides,
-and therefore what is pinned here: the monitored metric follows whether a validation
-loader was supplied, the checkpoint lands in a randomised subdirectory of the caller's
-directory, and MOLIR's two divergences (``save_weights_only`` and a pinned single
-device) are honoured as fields rather than forks.
+``_lightning_training.py`` replaced the trainer that the neural network, DrugGNN, MOLIR
+and SuperFELTR each assembled by hand. What it decides, and therefore what is pinned
+here: the monitored metric follows whether a validation loader was supplied, the
+checkpoint lands in a randomised subdirectory of the caller's directory, and the
+callers' divergences (``save_weights_only``, pinned devices, accelerator, precision,
+logger, progress bar, no checkpointing) are honoured as fields rather than forks.
 
 Every test runs a one-epoch fit of a tiny module, so the whole file is extended tier.
 """
@@ -19,7 +19,7 @@ import pytest
 import pytorch_lightning as pl
 from upath import UPath
 
-from drevalpy.components.predictors.literature._lightning_training import (
+from drevalpy.components.predictors._lightning_training import (
     LightningRun,
     _loggers,
     _versioned_name,
@@ -202,6 +202,68 @@ def test_the_progress_bar_is_silenced(tmp_path, capsys) -> None:
     run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path))
 
     assert "it/s" not in capsys.readouterr().err
+
+
+def _spy_trainer(monkeypatch) -> list[dict[str, object]]:
+    """Record the keyword arguments of every ``pl.Trainer`` built, then build a real one."""
+    seen: list[dict[str, object]] = []
+    real_trainer = pl.Trainer
+
+    def spy(*args, **kwargs):
+        seen.append(dict(kwargs))
+        return real_trainer(*args, **kwargs)
+
+    monkeypatch.setattr(pl, "Trainer", spy)
+    return seen
+
+
+def test_trainer_settings_follow_the_run(tmp_path, monkeypatch) -> None:
+    seen = _spy_trainer(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=False)
+    run = _run(tmp_path, accelerator="cpu", devices=1, precision=32, log_every_n_steps=1, logger=False)
+
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, run)
+
+    (kwargs,) = seen
+    assert kwargs["accelerator"] == "cpu"
+    assert kwargs["devices"] == 1
+    assert kwargs["precision"] == 32
+    assert kwargs["log_every_n_steps"] == 1
+    assert kwargs["logger"] is False
+    assert kwargs["enable_progress_bar"] is False
+
+
+def test_the_progress_bar_can_be_enabled(tmp_path, monkeypatch) -> None:
+    seen = _spy_trainer(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=False)
+
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, enable_progress_bar=True))
+
+    assert seen[0]["enable_progress_bar"] is True
+
+
+def test_without_checkpointing_no_callback_is_attached_and_none_is_returned(tmp_path, monkeypatch) -> None:
+    seen = _spy_trainer(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=True)
+
+    checkpoint = run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, checkpoint=False))
+
+    assert checkpoint is None
+    assert seen[0]["callbacks"] == []
+    assert seen[0]["enable_checkpointing"] is False
+    assert not list(UPath(tmp_path).rglob("*.ckpt"))
+
+
+def test_early_stopping_uses_the_requested_patience(tmp_path, monkeypatch) -> None:
+    seen = _spy_trainer(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=True)
+
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, patience=7))
+
+    callbacks: list[object] = list(seen[0]["callbacks"])  # type: ignore[call-overload]
+    (stopping,) = [c for c in callbacks if isinstance(c, pl.callbacks.EarlyStopping)]
+    assert stopping.patience == 7
+    assert stopping.monitor == "val_loss"
 
 
 class TestLoggerSelection:

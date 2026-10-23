@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_REFERENCE
 from drevalpy.components.predictors.state_errors import PredictorStateError
@@ -122,6 +123,8 @@ class DrugGNNPredictor(BlockPredictor):
             "hidden_dim": 64,
             "dropout": 0.2,
             "batch_size": 8,
+            "precision": 32,
+            "log_every_n_steps": 50,
         }
 
     @classmethod
@@ -178,7 +181,7 @@ class DrugGNNPredictor(BlockPredictor):
             sample_matrix,
             drug_graphs,
             batch.response,
-            batch_size=int(self._hyperparameters.get("batch_size", 1024)),
+            batch_size=int(self._hyperparameters["batch_size"]),
             shuffle=True,
         )
         val_loader = self._build_val_loader(batch, sample_matrix, drug_graphs)
@@ -191,48 +194,48 @@ class DrugGNNPredictor(BlockPredictor):
         :param drug_graphs: Array of drug graph objects.
         :returns: An untrained ``DrugGNNModule``.
         """
+        return self._new_module(int(drug_graphs[0].num_node_features), int(sample_matrix.shape[1]))
+
+    def _new_module(self, num_node_features: int, num_cell_features: int) -> DrugGNNModule:
+        """Create an untrained module of the given widths from the current hyperparameters.
+
+        :param num_node_features: Width of each drug graph node's features.
+        :param num_cell_features: Width of the sample feature vector.
+        :returns: An untrained ``DrugGNNModule``, whose widths are recorded on the predictor.
+        """
         from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
 
-        self._num_node_features = int(drug_graphs[0].num_node_features)
-        self._num_cell_features = int(sample_matrix.shape[1])
+        self._num_node_features = num_node_features
+        self._num_cell_features = num_cell_features
         return DrugGNNModule(
-            num_node_features=self._num_node_features,
-            num_cell_features=self._num_cell_features,
-            hidden_dim=int(self._hyperparameters.get("hidden_dim", 64)),
-            dropout=float(self._hyperparameters.get("dropout", 0.2)),
-            learning_rate=float(self._hyperparameters.get("learning_rate", 0.001)),
+            num_node_features=num_node_features,
+            num_cell_features=num_cell_features,
+            hidden_dim=int(self._hyperparameters["hidden_dim"]),
+            dropout=float(self._hyperparameters["dropout"]),
+            learning_rate=float(self._hyperparameters["learning_rate"]),
         )
 
     def _run_training(self, train_loader: DataLoader, val_loader: DataLoader | None) -> None:
         """Fit the model, early-stopping on the validation loss when one is available.
 
         :param train_loader: Training loader.
-        :param val_loader: Validation loader, or ``None``.
+        :param val_loader: Validation loader, or ``None``, in which case nothing is checkpointed.
         """
-        import pytorch_lightning as pl
-
         with tempfile.TemporaryDirectory() as directory:
-            callbacks: list[pl.callbacks.Callback] = []
-            checkpoint = None
-            if val_loader is not None:
-                checkpoint = pl.callbacks.ModelCheckpoint(
-                    dirpath=directory, monitor="val_loss", mode="min", save_top_k=1
-                )
-                callbacks = [pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5), checkpoint]
-
-            trainer = pl.Trainer(
-                max_epochs=int(self._hyperparameters.get("epochs", 100)),
-                accelerator="auto",
-                devices="auto",
-                callbacks=callbacks,
-                logger=False,
-                enable_checkpointing=checkpoint is not None,
-                enable_progress_bar=True,
-                log_every_n_steps=int(self._hyperparameters.get("log_every_n_steps", 50)),
-                precision=self._hyperparameters.get("precision", 32),
+            checkpoint = run_lightning_fit(
+                self._model,
+                train_loader,
+                val_loader,
+                LightningRun(
+                    max_epochs=int(self._hyperparameters["epochs"]),
+                    checkpoint_dir=directory,
+                    precision=self._hyperparameters["precision"],
+                    log_every_n_steps=int(self._hyperparameters["log_every_n_steps"]),
+                    logger=False,
+                    enable_progress_bar=True,
+                    checkpoint=val_loader is not None,
+                ),
             )
-            trainer.fit(self._model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-
             if checkpoint is not None and checkpoint.best_model_path:
                 self._model.load_state_dict(load_state_dict(checkpoint.best_model_path)["state_dict"])
 
@@ -297,7 +300,7 @@ class DrugGNNPredictor(BlockPredictor):
             sample_matrix,
             drug_graphs,
             es.response,
-            batch_size=int(self._hyperparameters.get("batch_size", 32)),
+            batch_size=int(self._hyperparameters["batch_size"]),
         )
 
     # ------------------------------------------------------------------
@@ -325,7 +328,7 @@ class DrugGNNPredictor(BlockPredictor):
             batch.sample.blocks["gene_expression"].values,
             batch.drug.blocks["drug_graph"].values,
             np.zeros(batch.n_pairs, dtype=np.float32),
-            batch_size=int(self._hyperparameters.get("batch_size", 32)),
+            batch_size=int(self._hyperparameters["batch_size"]),
         )
 
         trainer = pl.Trainer(accelerator="auto", devices="auto", enable_progress_bar=False, logger=False)
@@ -353,7 +356,8 @@ class DrugGNNPredictor(BlockPredictor):
     def get_state(self) -> dict[str, object]:
         """Serialize fitted predictor state.
 
-        :returns: Mapping with binary payload blob and architecture metadata.
+        :returns: Mapping with the weight blob, the widths the network was built for and the
+            hyperparameters; empty before fitting.
         """
         if self._model is None:
             return {}
@@ -362,42 +366,30 @@ class DrugGNNPredictor(BlockPredictor):
             "architecture": {
                 "num_node_features": self._num_node_features,
                 "num_cell_features": self._num_cell_features,
-                "hidden_dim": int(self._hyperparameters.get("hidden_dim", 64)),
-                "dropout": float(self._hyperparameters.get("dropout", 0.2)),
-                "learning_rate": float(self._hyperparameters.get("learning_rate", 0.001)),
             },
-            "hyperparameters": dict(self._hyperparameters),
+            "predictor_hyperparameters": dict(self._hyperparameters),
         }
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore predictor from get_state output.
 
         :param state: Serialized state previously returned by get_state.
-        :raises PredictorStateError: If payload is missing or invalid.
+        :raises PredictorStateError: If the weights, architecture or hyperparameters are missing or invalid.
         """
-        from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
-
+        owner = self.__class__.__name__
         model_state_blob = state.get("model_state")
         if not isinstance(model_state_blob, (bytes, bytearray)):
-            msg = f"{self.__class__.__name__} state requires model_state bytes"
+            msg = f"{owner} state requires model_state bytes"
+            raise PredictorStateError(msg)
+        architecture = state.get("architecture")
+        if not isinstance(architecture, dict) or not {"num_node_features", "num_cell_features"} <= architecture.keys():
+            msg = f"{owner} state requires an architecture dict with num_node_features and num_cell_features"
+            raise PredictorStateError(msg)
+        hyperparameters = state.get("predictor_hyperparameters")
+        if not isinstance(hyperparameters, dict):
+            msg = f"{owner} state requires predictor_hyperparameters"
             raise PredictorStateError(msg)
 
-        architecture = state.get("architecture")
-        if not isinstance(architecture, dict):
-            raise PredictorStateError(f"{self.__class__.__name__} state requires architecture dict")
-
-        hyperparameters = state.get("hyperparameters")
-        if isinstance(hyperparameters, dict):
-            self._hyperparameters = dict(hyperparameters)
-
-        self._num_node_features = int(architecture["num_node_features"])
-        self._num_cell_features = int(architecture["num_cell_features"])
-
-        self._model = DrugGNNModule(
-            num_node_features=self._num_node_features,
-            num_cell_features=self._num_cell_features,
-            hidden_dim=int(architecture.get("hidden_dim", 64)),
-            dropout=float(architecture.get("dropout", 0.2)),
-            learning_rate=float(architecture.get("learning_rate", 0.001)),
-        )
+        self._hyperparameters = dict(hyperparameters)
+        self._model = self._new_module(int(architecture["num_node_features"]), int(architecture["num_cell_features"]))
         self._model.load_state_dict(load_state_dict(bytes(model_state_blob)))

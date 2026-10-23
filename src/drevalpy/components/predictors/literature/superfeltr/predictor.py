@@ -2,39 +2,25 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
 from drevalpy.components.predictors.literature._single_drug_omics import (
     OmicFeatureNames,
+    SingleDrugOmicsPredictor,
     aligned_pair_matrices,
-    feature_names_from_payload,
     feature_names_payload,
-    iter_drug_subsets,
     omic_feature_names,
     omic_matrices,
     validation_split,
 )
-from drevalpy.components.predictors.single_drug_routing import (
-    require_known_training_keys,
-    routing_keys,
-)
-from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.utils.torch_io import load_state_dict as _load_torch_state_dict
-from drevalpy.utils.torch_io import (
-    load_trusted_mapping,
-    save_state_dict,
-    save_trusted_mapping,
-)
+from drevalpy.utils.torch_io import save_state_dict, save_trusted_mapping
 
 # .utils imports pytorch_lightning at module scope, and this module is imported
 # eagerly by register_builtin_components(), so the encoder/regressor imports are
@@ -89,46 +75,10 @@ class _DrugModel:
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=SUPERFELTR_REFERENCE,
 )
-class SuperFELTRPredictor(BlockPredictor):
+class SuperFELTRPredictor(SingleDrugOmicsPredictor):
     """SuperFELTR predictor: per-drug multi-omics with independent encoders."""
 
-    scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
-    required_sample_blocks: ClassVar[tuple[str, ...]] = (
-        "gene_expression",
-        "mutations",
-        "copy_number_variation_gistic",
-    )
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
-    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
-    )
-    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX),)
-    validate_drug_graphs: ClassVar[bool] = False
-    supports_early_stopping: ClassVar[bool] = True
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
-
-    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
-        """Initialize predictor with optional hyperparameter overrides.
-
-        :param hyperparameters: Optional hyperparameter overrides.
-        """
-        super().__init__(hyperparameters)
-        self._drug_models: dict[str, _DrugModel] = {}
-        self._feature_names: dict[str, OmicFeatureNames] = {}
-
-    def _fit(self, batch: ModelInputBatch) -> None:
-        """Train per-drug SuperFELTR models.
-
-        :param batch: Training batch with all required sample omics blocks.
-        """
-        require_known_training_keys(routing_keys(batch))
-        self._drug_models = {}
-        self._feature_names = {}
-
-        for drug_id, sub in iter_drug_subsets(batch):
-            self._fit_single_drug(drug_id, sub)
+    _models: dict[str, _DrugModel]
 
     def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> None:
         """Fit a single-drug SuperFELTR model including encoders and regressor.
@@ -138,7 +88,7 @@ class SuperFELTRPredictor(BlockPredictor):
         """
         self._feature_names[drug_id] = omic_feature_names(batch)
         if batch.n_pairs == 0:
-            self._drug_models[drug_id] = _DrugModel()
+            self._models[drug_id] = _DrugModel()
             return
 
         matrices = omic_matrices(batch)
@@ -156,7 +106,7 @@ class SuperFELTRPredictor(BlockPredictor):
         encoders = self._fit_encoders(matrices.widths(), ranges, train, val, checkpoint_dir, trainable)
         regressor, best_checkpoint = self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)
 
-        self._drug_models[drug_id] = _DrugModel(
+        self._models[drug_id] = _DrugModel(
             expr_encoder=encoders[0],
             mut_encoder=encoders[1],
             cnv_encoder=encoders[2],
@@ -265,79 +215,37 @@ class SuperFELTRPredictor(BlockPredictor):
         """
         return sum(int(hpams[key]) for key in _ENCODER_DIM_KEYS)
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
-        """Predict drug responses for pairs, routing to per-drug models.
-
-        :param batch: Featurized pairs to score.
-        :returns: One predicted response per pair.
-        """
-        keys = routing_keys(batch)
-        predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
-        for drug_id in np.unique(keys):
-            if drug_id == "":
-                continue
-            dm = self._drug_models.get(str(drug_id))
-            if dm is None or dm.regressor is None:
-                continue
-            mask = keys == drug_id
-            sub = batch.subset_pairs(mask)
-            preds = self._predict_single_drug(str(drug_id), dm, sub)
-            predictions[mask] = np.asarray(preds, dtype=np.float64).ravel()
-        return predictions
-
-    def _predict_single_drug(self, drug_id: str, dm: _DrugModel, batch: ModelInputBatch) -> np.ndarray:
+    def _predict_single_drug(self, drug_id: str, model: _DrugModel, batch: ModelInputBatch) -> np.ndarray:
         """Predict for a single drug model.
 
         :param drug_id: Drug identifier for feature alignment.
-        :param dm: Per-drug model container.
+        :param model: Per-drug model container.
         :param batch: Subset batch for this drug.
-        :returns: Predicted responses.
+        :returns: Predicted responses, ``NaN`` when the drug's regressor was never fitted.
         """
         feature_names = self._feature_names.get(drug_id)
-        if feature_names is None or dm.regressor is None:
+        if feature_names is None or model.regressor is None:
             return np.full(batch.n_pairs, np.nan)
 
-        return np.atleast_1d(dm.regressor.predict(*aligned_pair_matrices(batch, feature_names)))
+        return np.atleast_1d(model.regressor.predict(*aligned_pair_matrices(batch, feature_names)))
 
-    def is_fitted(self) -> bool:
-        """Report whether trained models exist.
-
-        :returns: True when at least one per-drug model has been fitted.
-        """
-        return bool(self._drug_models)
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted state for all per-drug models.
-
-        :returns: Mapping with algorithm blobs and hyperparameters.
-        """
-        if not self._drug_models:
-            return {}
-        algorithms: dict[str, bytes] = {}
-        for drug_id, dm in self._drug_models.items():
-            fn = self._feature_names.get(drug_id)
-            algorithms[drug_id] = self._serialize_drug_model(dm, fn)
-        return {
-            "algorithms": algorithms,
-            "predictor_hyperparameters": dict(self._hyperparameters),
-        }
-
-    def _serialize_drug_model(self, dm: _DrugModel, fn: OmicFeatureNames | None) -> bytes:
+    def _serialize_model(self, drug_id: str, model: _DrugModel) -> bytes:
         """Serialize a single per-drug model to bytes.
 
-        :param dm: Per-drug model container.
-        :param fn: Associated feature name record.
+        :param drug_id: Drug identifier, used to look up the recorded feature names.
+        :param model: Per-drug model container.
         :returns: Serialized payload bytes.
         """
+        fn = self._feature_names.get(drug_id)
         payload: dict[str, Any] = {
             "hyperparameters": dict(self._hyperparameters),
-            "ranges": dm.ranges,
-            "input_dims": self._compute_input_dims(dm, fn),
+            "ranges": model.ranges,
+            "input_dims": self._compute_input_dims(model, fn),
             **feature_names_payload(fn),
         }
 
         for attr in ("expr_encoder", "mut_encoder", "cnv_encoder", "regressor"):
-            module = getattr(dm, attr, None)
+            module = getattr(model, attr, None)
             if module is not None and hasattr(module, "state_dict"):
                 payload[f"{attr}_state"] = save_state_dict(module.state_dict())
 
@@ -358,43 +266,16 @@ class SuperFELTRPredictor(BlockPredictor):
             for key, value, encoder in zip(keys, names, (dm.expr_encoder, dm.mut_encoder, dm.cnv_encoder), strict=True)
         }
 
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted state from serialized algorithm blobs.
-
-        :param state: State mapping from ``get_state``.
-        :raises PredictorStateError: If state is malformed.
-        """
-        algorithms_blob = state.get("algorithms")
-        if not isinstance(algorithms_blob, dict):
-            msg = "SuperFELTRPredictor state requires an 'algorithms' mapping"
-            raise PredictorStateError(msg)
-        hyperparameters = state.get("predictor_hyperparameters")
-        if isinstance(hyperparameters, dict):
-            self._hyperparameters = dict(hyperparameters)
-
-        self._drug_models = {}
-        self._feature_names = {}
-        for drug_id, blob in algorithms_blob.items():
-            if not isinstance(blob, (bytes, bytearray)):
-                msg = f"SuperFELTRPredictor payload for {drug_id!r} must be bytes"
-                raise PredictorStateError(msg)
-            payload = load_trusted_mapping(bytes(blob))
-            self._feature_names[str(drug_id)] = feature_names_from_payload(payload)
-            self._drug_models[str(drug_id)] = self._deserialize_drug_model(payload)
-
-    def _deserialize_drug_model(self, payload: dict[str, Any]) -> _DrugModel:
+    def _restore_model(self, payload: dict[str, Any]) -> _DrugModel:
         """Reconstruct a _DrugModel from a deserialized payload.
 
         :param payload: Deserialized drug model payload.
-        :returns: Reconstructed per-drug model.
+        :returns: Reconstructed per-drug model; its modules stay ``None`` for a drug that was never fitted.
         """
-        hpams = payload.get("hyperparameters", dict(self._hyperparameters))
-        ranges = payload.get("ranges", (0.0, 1.0))
-        if isinstance(ranges, list):
-            ranges = tuple(ranges)
-
-        input_dims = payload.get("input_dims", {})
-        widths = tuple(input_dims.get(key) for key in ("expression", "mutation", "cnv"))
+        hpams = payload["hyperparameters"]
+        ranges = tuple(payload["ranges"])
+        input_dims = payload["input_dims"]
+        widths = tuple(input_dims[key] for key in ("expression", "mutation", "cnv"))
 
         dm = _DrugModel(ranges=ranges)
         if all(isinstance(width, int) for width in widths):

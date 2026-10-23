@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import io
-import secrets
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from upath import UPath as Path
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
+from drevalpy.components.predictors._state_helpers import load_payload_state
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.tensor_data import make_pair_loader
-from drevalpy.utils.torch_io import load_state_dict, load_trusted_mapping, save_torch_payload
+from drevalpy.utils.torch_io import load_state_dict, save_torch_payload
 
 # torch, pytorch_lightning and .network (which imports lightning) are imported
 # inside the methods that need them. This module is imported eagerly by
@@ -24,6 +24,8 @@ from drevalpy.utils.torch_io import load_state_dict, load_trusted_mapping, save_
 # lightning on the critical path of every `import drevalpy`. Guarded by
 # tests/test_import_cost_policy.py.
 if TYPE_CHECKING:
+    from torch.utils.data import DataLoader
+
     from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 
 
@@ -51,9 +53,9 @@ class NeuralNetworkPredictor(MatrixPredictor):
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Get default hyperparameters.
+        """Return the default hyperparameters.
 
-        :returns: Result.
+        :returns: Layer widths, dropout, epoch budget, mini-batch size and early-stopping patience.
         """
         return {
             "units_per_layer": [512, 256, 128],
@@ -65,9 +67,9 @@ class NeuralNetworkPredictor(MatrixPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
+        """Return the tunable hyperparameter space.
 
-        :returns: Result.
+        :returns: Search-space specs for dropout, epoch budget and mini-batch size.
         """
         return {
             "dropout_prob": {"type": "float", "low": 0.0, "high": 0.5, "default": 0.2},
@@ -75,10 +77,11 @@ class NeuralNetworkPredictor(MatrixPredictor):
             "batch_size": {"type": "int", "low": 8, "high": 64, "default": 16},
         }
 
-    def _materialize(self, input_dim: int) -> None:
+    def _materialize(self, input_dim: int) -> FeedForwardNetwork:
         """Allocate the network once input dimensionality is known.
 
         :param input_dim: Flattened feature width for one response pair.
+        :returns: The freshly initialized network, also stored on the predictor.
         """
         from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 
@@ -91,11 +94,12 @@ class NeuralNetworkPredictor(MatrixPredictor):
             input_dim=input_dim,
         )
         self._is_fitted = False
+        return self._model
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data using lazy pair-level lookup.
 
-        :param batch: batch.
+        :param batch: Training batch with the response and optional early-stopping pairs.
         """
         input_dim = self._compute_input_dim(batch)
         self._materialize(input_dim)
@@ -128,7 +132,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
         *,
         shuffle: bool,
         drop_last: bool,
-    ):
+    ) -> DataLoader:
         """Build a lazy pair loader from entity matrices and pair indices.
 
         :param batch: Batch providing entity-level feature matrices.
@@ -139,7 +143,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
         :param drop_last: Whether to drop last incomplete batch.
         :returns: DataLoader.
         """
-        batch_size = min(int(self._hyperparameters.get("batch_size", 16)), len(cell_pair_idx))
+        batch_size = min(int(self._hyperparameters["batch_size"]), len(cell_pair_idx))
         if batch_size < 1:
             batch_size = 1
 
@@ -157,16 +161,33 @@ class NeuralNetworkPredictor(MatrixPredictor):
             drop_last=drop_last,
         )
 
-    def _train_with_optional_early_stopping(self, batch: ModelInputBatch) -> None:
-        import pytorch_lightning as pl
-        from pytorch_lightning.callbacks import EarlyStopping
+    def _validation_loader(self, batch: ModelInputBatch) -> DataLoader | None:
+        """Build the early-stopping loader, if the batch carries usable validation pairs.
 
+        :param batch: Training batch.
+        :returns: A validation loader, or ``None`` when there are no early-stopping responses.
+        """
+        es_resp = batch.early_stopping_response
+        if es_resp is None or len(es_resp) == 0 or es_resp.response is None:
+            return None
+        y_val = np.asarray(es_resp.response, dtype=np.float32).reshape(-1)
+        if len(y_val) == 0:
+            return None
+        es_cell_idx, es_drug_idx = batch._pair_indices_for(es_resp)
+        return self._build_pair_loader(batch, es_cell_idx, es_drug_idx, y_val, shuffle=False, drop_last=False)
+
+    def _train_with_optional_early_stopping(self, batch: ModelInputBatch) -> None:
+        """Train the network, early-stopping on validation loss when validation pairs exist.
+
+        :param batch: Training batch.
+        :raises RuntimeError: If the network has not been materialized.
+        """
         if self._model is None:
             msg = "Neural network predictor must be materialized before training"
             raise RuntimeError(msg)
 
         y = np.asarray(batch.response, dtype=np.float32).reshape(-1)
-        batch_size = min(int(self._hyperparameters.get("batch_size", 16)), batch.n_pairs)
+        batch_size = min(int(self._hyperparameters["batch_size"]), batch.n_pairs)
         train_loader = self._build_pair_loader(
             batch,
             batch.sample_pair_idx,
@@ -175,56 +196,21 @@ class NeuralNetworkPredictor(MatrixPredictor):
             shuffle=True,
             drop_last=batch_size < batch.n_pairs,
         )
-
-        val_loader = None
-        es_resp = batch.early_stopping_response
-        if es_resp is not None and len(es_resp) > 0 and es_resp.response is not None:
-            es_cell_idx, es_drug_idx = batch._pair_indices_for(es_resp)
-            y_val = np.asarray(es_resp.response, dtype=np.float32).reshape(-1)
-            if len(y_val) > 0:
-                val_loader = self._build_pair_loader(
-                    batch,
-                    es_cell_idx,
-                    es_drug_idx,
-                    y_val,
-                    shuffle=False,
-                    drop_last=False,
-                )
-
-        monitor = "val_loss" if val_loader is not None else "train_loss"
-        patience = int(self._hyperparameters.get("patience", 5))
-        callbacks: list[pl.Callback] = [
-            EarlyStopping(monitor=monitor, mode="min", patience=patience),
-        ]
-
-        checkpoint_dir = batch.training_context.checkpoint_dir
-        unique_subfolder = Path(checkpoint_dir) / ("run_" + secrets.token_hex(8))
-        unique_subfolder.mkdir(parents=True, exist_ok=True)
-        checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=unique_subfolder,
-            monitor=monitor,
-            mode="min",
-            save_top_k=1,
-            filename="best",
+        checkpoint = run_lightning_fit(
+            self._model,
+            train_loader,
+            self._validation_loader(batch),
+            LightningRun(
+                max_epochs=int(self._hyperparameters["max_epochs"]),
+                patience=int(self._hyperparameters["patience"]),
+                checkpoint_dir=batch.training_context.checkpoint_dir,
+                accelerator="cpu",
+                devices=1,
+                logger=False,
+            ),
         )
-        callbacks.append(checkpoint_callback)
-
-        trainer = pl.Trainer(
-            max_epochs=int(self._hyperparameters.get("max_epochs", 50)),
-            accelerator="cpu",
-            devices=1,
-            callbacks=callbacks,
-            enable_progress_bar=False,
-            logger=False,
-        )
-        if val_loader is None:
-            trainer.fit(self._model, train_dataloaders=train_loader)
-        else:
-            trainer.fit(self._model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-
-        if checkpoint_callback.best_model_path:
-            checkpoint = load_state_dict(checkpoint_callback.best_model_path)
-            self._model.load_state_dict(checkpoint["state_dict"])
+        if checkpoint is not None and checkpoint.best_model_path:
+            self._model.load_state_dict(load_state_dict(checkpoint.best_model_path)["state_dict"])
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict using lazy pair-level lookup (no full feature expansion).
@@ -270,23 +256,23 @@ class NeuralNetworkPredictor(MatrixPredictor):
         return np.asarray(preds, dtype=np.float64).reshape(-1)
 
     def is_fitted(self) -> bool:
-        """Return whether the component has been fit.
+        """Return whether the network has been fit.
 
-        :returns: Result.
+        :returns: ``True`` after a successful fit or state restore.
         """
         return self._is_fitted
 
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state.
 
-        :returns: Result.
+        :returns: Mapping with one serialized ``checkpoint`` blob, empty before fitting.
         """
         if not self._is_fitted or self._model is None:
             return {}
         buffer = io.BytesIO()
         save_torch_payload(
             {
-                "hyperparameters": dict(self._hyperparameters),
+                "predictor_hyperparameters": dict(self._hyperparameters),
                 "state_dict": self._model.state_dict(),
                 "input_dim": self._input_dim,
             },
@@ -297,38 +283,14 @@ class NeuralNetworkPredictor(MatrixPredictor):
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
-        :raises PredictorStateError: Raised on invalid input.
+        :param state: Mapping holding the serialized ``checkpoint`` blob.
+        :raises PredictorStateError: If the blob is missing, undecodable or lacks ``input_dim`` or ``state_dict``.
         """
-        checkpoint = state.get("checkpoint")
-        if not isinstance(checkpoint, (bytes, bytearray)):
-            msg = "NeuralNetworkPredictor state requires a checkpoint byte blob"
+        payload = load_payload_state(state, "NeuralNetworkPredictor", key="checkpoint")
+        missing = [key for key in ("input_dim", "state_dict") if payload.get(key) is None]
+        if missing:
+            msg = f"NeuralNetworkPredictor checkpoint is missing {', '.join(missing)}"
             raise PredictorStateError(msg)
-        try:
-            data = load_trusted_mapping(checkpoint)
-        except Exception as exc:
-            msg = "NeuralNetworkPredictor checkpoint could not be deserialized"
-            raise PredictorStateError(msg) from exc
-        if not isinstance(data, dict):
-            msg = "NeuralNetworkPredictor checkpoint payload must be a mapping"
-            raise PredictorStateError(msg)
-        hyperparameters = data.get("hyperparameters")
-        if not isinstance(hyperparameters, dict):
-            msg = "NeuralNetworkPredictor checkpoint is missing hyperparameters"
-            raise PredictorStateError(msg)
-        input_dim = data.get("input_dim")
-        if input_dim is None:
-            msg = "NeuralNetworkPredictor checkpoint is missing input_dim"
-            raise PredictorStateError(msg)
-        state_dict = data.get("state_dict")
-        if state_dict is None:
-            msg = "NeuralNetworkPredictor checkpoint is missing state_dict"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(hyperparameters)
-        self._input_dim = int(input_dim)
-        self._materialize(self._input_dim)
-        if self._model is None:
-            msg = "NeuralNetworkPredictor failed to materialize from checkpoint"
-            raise PredictorStateError(msg)
-        self._model.load_state_dict(state_dict)
+        self._hyperparameters = dict(payload["predictor_hyperparameters"])
+        self._materialize(int(payload["input_dim"])).load_state_dict(payload["state_dict"])
         self._is_fitted = True

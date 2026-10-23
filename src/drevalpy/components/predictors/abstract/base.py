@@ -70,7 +70,8 @@ class Predictor(TunableComponentMixin, ABC):
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Store hyperparameters merged with class defaults.
 
-        :param hyperparameters: Optional overrides applied on top of
+        :param hyperparameters: Optional overrides applied on top of the defaults from
+            ``get_default_hyperparameters``.
         """
         self._hyperparameters: dict[str, Any] = {
             **self.get_default_hyperparameters(),
@@ -94,7 +95,12 @@ class Predictor(TunableComponentMixin, ABC):
         self._fit(self._filter_early_stopping(batch))
 
     def _filter_early_stopping(self, batch: ModelInputBatch) -> ModelInputBatch:
-        """Remove unusable stopping pairs and enforce the predictor requirement."""
+        """Remove unusable stopping pairs and enforce the predictor requirement.
+
+        :param batch: Training batch, possibly carrying an early-stopping response.
+        :returns: *batch* with the early-stopping response restricted to pairs with valid features and response.
+        :raises ValueError: If the predictor requires early stopping and no usable pair remains.
+        """
         response = batch.early_stopping_response
         if response is not None:
             cl_idx, drug_idx = batch._pair_indices_for(response)
@@ -167,7 +173,11 @@ class Predictor(TunableComponentMixin, ABC):
 
     @staticmethod
     def _valid_feature_rows(rows: np.ndarray) -> np.ndarray:
-        """Identify numeric NaNs and object placeholders across trailing dimensions."""
+        """Identify numeric NaNs and object placeholders across trailing dimensions.
+
+        :param rows: Feature rows, one per pair.
+        :returns: Boolean array, ``True`` for rows without NaN or ``None`` entries.
+        """
         if rows.dtype.kind in "biufc":
             return ~np.isnan(rows).reshape(len(rows), -1).any(axis=1)
         if rows.dtype == object:

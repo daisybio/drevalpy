@@ -38,7 +38,7 @@ class TestTinySuperFELTRFit:
             }
         )
         predictor.fit(batch)
-        fitted = predictor._drug_models["d1"]
+        fitted = predictor._models["d1"]
         assert fitted.best_checkpoint is not None
         assert np.isfinite(float(fitted.best_checkpoint.best_model_score))
         assert_training_checkpoint_score("superfeltr", seed, fitted.best_checkpoint.best_model_score)

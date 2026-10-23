@@ -12,6 +12,7 @@ from torch_geometric.data import Data
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
+from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import graph_feature_block, numeric_feature_block
@@ -96,6 +97,41 @@ def test_druggnn_round_trip_state() -> None:
     assert restored._model is not None
     restored_weight = next(restored._model.parameters()).detach().cpu()
     assert torch.allclose(original_weight, restored_weight)
+
+
+def test_druggnn_declares_trainer_defaults_and_matching_space_defaults() -> None:
+    defaults = DrugGNNPredictor.get_default_hyperparameters()
+    assert defaults["precision"] == 32
+    assert defaults["log_every_n_steps"] == 50
+    for name, spec in DrugGNNPredictor.get_hyperparameter_space().items():
+        assert defaults[name] == spec["default"]
+
+
+def test_druggnn_state_holds_hyperparameters_and_widths() -> None:
+    predictor = DrugGNNPredictor(hyperparameters={"epochs": 1, "batch_size": 2})
+    predictor.fit(_druggnn_batch())
+    state = predictor.get_state()
+    assert state["architecture"] == {"num_node_features": 9, "num_cell_features": 3}
+    assert state["predictor_hyperparameters"] == predictor._hyperparameters
+
+
+@pytest.mark.parametrize("missing", ["model_state", "architecture", "predictor_hyperparameters"])
+def test_druggnn_set_state_requires_every_entry(missing: str) -> None:
+    predictor = DrugGNNPredictor(hyperparameters={"epochs": 1, "batch_size": 2})
+    predictor.fit(_druggnn_batch())
+    state = predictor.get_state()
+    del state[missing]
+    with pytest.raises(PredictorStateError, match=missing.split("_")[0]):
+        DrugGNNPredictor().set_state(state)
+
+
+def test_druggnn_set_state_rejects_incomplete_architecture() -> None:
+    predictor = DrugGNNPredictor(hyperparameters={"epochs": 1, "batch_size": 2})
+    predictor.fit(_druggnn_batch())
+    state = predictor.get_state()
+    state["architecture"] = {"num_node_features": 9}
+    with pytest.raises(PredictorStateError, match="architecture"):
+        DrugGNNPredictor().set_state(state)
 
 
 class TestTinyDrugGNNFit:

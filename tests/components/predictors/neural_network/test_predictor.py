@@ -17,6 +17,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors._helpers import neural_batch
 
 
@@ -74,16 +75,8 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     assert np.isfinite(preds).all()
 
 
-def test_neural_network_configured_is_not_fitted_before_training() -> None:
-    register_builtin_components()
-    predictor = NeuralNetworkPredictor(
-        hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]},
-    )
-    assert predictor._model is None
-    assert predictor.is_fitted() is False
-
-
 def test_neural_network_configured_is_not_fitted() -> None:
+    register_builtin_components()
     predictor = NeuralNetworkPredictor(
         hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]},
     )
@@ -121,21 +114,6 @@ def _matrix_batch() -> ModelInputBatch:
     )
 
 
-def test_neural_network_state_round_trip() -> None:
-    predictor = NeuralNetworkPredictor(hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]})
-    predictor.fit(_matrix_batch())
-    restored = NeuralNetworkPredictor(hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]})
-    restored.set_state(predictor.get_state())
-    assert restored.is_fitted()
-    assert restored._input_dim == predictor._input_dim
-
-
-def test_neural_network_set_state_rejects_invalid_checkpoint() -> None:
-    predictor = NeuralNetworkPredictor()
-    with pytest.raises(PredictorStateError):
-        predictor.set_state({"checkpoint": b"invalid"})
-
-
 def test_neural_network_early_stopping_wires_validation_loader() -> None:
     predictor = NeuralNetworkPredictor(
         hyperparameters={"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]},
@@ -164,11 +142,30 @@ def test_neural_network_round_trip_state() -> None:
     restored = NeuralNetworkPredictor()
     restored.set_state(predictor.get_state())
     assert restored.is_fitted()
-    restored_preds = restored.predict(neural_batch())
-    assert np.allclose(preds, restored_preds)
+    assert restored._input_dim == predictor._input_dim
+    assert restored._hyperparameters == predictor._hyperparameters
+    assert np.allclose(preds, restored.predict(neural_batch()))
 
 
-def test_neural_network_set_state_raises_on_invalid_payload() -> None:
-    predictor = NeuralNetworkPredictor()
+@pytest.mark.parametrize(
+    "state",
+    [
+        pytest.param({}, id="missing-checkpoint"),
+        pytest.param({"checkpoint": "not-bytes"}, id="not-bytes"),
+        pytest.param({"checkpoint": b"not-a-torch-checkpoint"}, id="undecodable"),
+        pytest.param(
+            {"checkpoint": save_trusted_mapping({"input_dim": 3, "state_dict": {}})}, id="no-predictor-hyperparameters"
+        ),
+    ],
+)
+def test_neural_network_set_state_rejects_invalid_checkpoint(state: dict[str, object]) -> None:
     with pytest.raises(PredictorStateError):
-        predictor.set_state({"checkpoint": b"not-a-torch-checkpoint"})
+        NeuralNetworkPredictor().set_state(state)
+
+
+@pytest.mark.parametrize("missing", ["input_dim", "state_dict"])
+def test_neural_network_set_state_requires_input_dim_and_state_dict(missing: str) -> None:
+    payload: dict[str, object] = {"predictor_hyperparameters": {}, "input_dim": 3, "state_dict": {}}
+    del payload[missing]
+    with pytest.raises(PredictorStateError, match=missing):
+        NeuralNetworkPredictor().set_state({"checkpoint": save_trusted_mapping(payload)})
