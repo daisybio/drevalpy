@@ -10,13 +10,25 @@ import typer
 from rich.logging import RichHandler
 from upath import UPath
 
+import drevalpy
 from drevalpy.cli.main import _DrEvalGroup, app, cli_main
 from drevalpy.errors import DrEvalError, InputNotFoundError, InvalidInputError, UnknownNameError
 from tests.cli._helpers import HELP_ENV, Recorder, make_runner, plain
 
 runner = make_runner()
 
-EXPECTED_COMMANDS = ("run", "single", "aggregate", "curate", "report", "data", "experiments", "list")
+EXPECTED_COMMANDS = (
+    "run",
+    "single",
+    "train",
+    "predict",
+    "aggregate",
+    "curate",
+    "report",
+    "data",
+    "experiments",
+    "list",
+)
 
 
 class TestHelp:
@@ -57,13 +69,41 @@ class TestHelp:
         assert result.exit_code == 2
 
 
+class TestVersion:
+    """``--version`` is an eager root option that prints ``drevalpy <version>``."""
+
+    def test_prints_the_package_version(self) -> None:
+        result = runner.invoke(app, ["--version"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+        assert result.output.strip() == f"drevalpy {drevalpy.__version__}"
+
+    def test_does_not_need_a_subcommand_or_load_extensions(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        loader = Recorder()
+        monkeypatch.setattr("drevalpy.registry.load_extensions", loader)
+
+        result = runner.invoke(app, ["--version"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+        assert loader.call_count == 0
+
+    def test_wins_over_a_subcommand(self) -> None:
+        result = runner.invoke(app, ["--version", "run"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+        assert result.output.strip() == f"drevalpy {drevalpy.__version__}"
+
+    def test_is_listed_in_the_help(self) -> None:
+        assert "--version" in plain(runner.invoke(app, ["--help"], env=HELP_ENV).output)
+
+
 class TestRegistration:
     """The commands wired up in ``main`` are the ones click knows about."""
 
     def test_registered_command_names(self) -> None:
         registered = {command.name for command in app.registered_commands}
 
-        assert registered == {"run", "single", "aggregate", "curate", "report"}
+        assert registered == {"run", "single", "train", "predict", "aggregate", "curate", "report"}
 
     def test_registered_group_names(self) -> None:
         registered = {group.name for group in app.registered_groups}

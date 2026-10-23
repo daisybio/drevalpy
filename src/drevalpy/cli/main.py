@@ -13,9 +13,11 @@ from drevalpy.cli.catalog import list_app
 from drevalpy.cli.curate import curate_cmd
 from drevalpy.cli.data import data_app
 from drevalpy.cli.experiments import experiments_app
+from drevalpy.cli.predict import predict_cmd
 from drevalpy.cli.report import report_cmd
 from drevalpy.cli.run import run_cmd
 from drevalpy.cli.single import single_cmd
+from drevalpy.cli.train import train_cmd
 from drevalpy.errors import DrEvalError
 
 
@@ -46,6 +48,19 @@ app = typer.Typer(
 )
 
 
+def _print_version(value: bool) -> None:
+    """Print ``drevalpy <version>`` and stop when ``--version`` was given.
+
+    :param value: Whether the flag was passed.
+    :raises typer.Exit: After printing the version.
+    """
+    if value:
+        from drevalpy import __version__
+
+        typer.echo(f"drevalpy {__version__}")
+        raise typer.Exit
+
+
 @app.callback()
 def main_callback(
     extensions_dir: Annotated[
@@ -57,12 +72,17 @@ def main_callback(
         typer.Option("--verbose", "-v", help="Log debug detail, such as per-model timings."),
     ] = False,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Log warnings and errors only.")] = False,
+    version: Annotated[
+        bool,
+        typer.Option("--version", callback=_print_version, is_eager=True, help="Show the version and exit."),
+    ] = False,
 ) -> None:
     """Global options applied before any subcommand.
 
     :param extensions_dir: Directories with extension files to load.
     :param verbose: Log at DEBUG instead of INFO.
     :param quiet: Log at WARNING instead of INFO.
+    :param version: Handled by an eager callback that prints the version and exits; unused here.
     :raises typer.BadParameter: If both *verbose* and *quiet* are given.
     """
     from drevalpy.log import setup_logging
@@ -82,6 +102,8 @@ app.add_typer(experiments_app, name="experiments")
 app.add_typer(list_app, name="list")
 app.command("run")(run_cmd)
 app.command("single")(single_cmd)
+app.command("train")(train_cmd)
+app.command("predict")(predict_cmd)
 app.command("aggregate")(aggregate_cmd)
 app.command("curate")(curate_cmd)
 app.command("report")(report_cmd)

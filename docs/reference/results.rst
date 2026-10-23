@@ -2,7 +2,8 @@ Results layout
 ===============
 
 ``drevalpy run`` and ``drevalpy aggregate`` write an ``ExperimentResult`` directory.
-``drevalpy single`` and ``drevalpy.single`` produce one ``RunResult`` file.
+``drevalpy single`` and ``drevalpy.single`` produce one ``RunResult`` file, and so does
+``drevalpy predict``.
 ``ExperimentResult.load(directory)`` reads a directory and ``ExperimentResult.save(directory)``
 writes one. ``RunResult.load(path)`` and ``RunResult.save(path)`` do the same for a file.
 
@@ -171,6 +172,36 @@ In ``execution``, ``scopes`` maps each of ``training``, ``stopping``, ``validati
 ``final_training`` and ``test`` to ``null`` or to an object with ``shape``, ``count``,
 ``pair_seed`` and ``sha256``. ``hpo`` holds ``enabled``, ``metric``, ``num_trials`` and
 ``random_state``.
+
+.. _predictions-file:
+
+Predictions file
+----------------
+
+``drevalpy predict MODEL_DIR -d DATASET -o OUT`` applies a model saved by ``drevalpy train`` to
+every pair of the dataset that has an observed response. It writes a run file, so ``RunResult.load``
+reads it and the arrays are those of `Run file`_. The differences are in the content:
+
+- ``predictions``, ``ground_truth``, ``sample_ids`` and ``drug_ids`` hold one entry for each
+  observed pair of the dataset, in the row-major order of the response matrix. Predictions are in
+  the units of the response, because the model inverts its response transformation. A pair the model
+  cannot predict, for example because its features are missing, has ``NaN``.
+- ``model_name`` is the model, ``dataset_name`` is the dataset that was predicted, which need not be
+  the dataset the model was trained on, and ``best_hyperparameters`` are the model's
+  hyperparameters.
+- ``metrics`` score the predictions against the observed responses of the same pairs. For the
+  dataset the model was trained on they are in-sample scores.
+- ``split_mode`` and ``fold_id`` are empty, ``fold_index`` is ``0``, and ``fold_metadata`` and
+  ``trials`` are empty. The file is not a fold of an experiment, so ``drevalpy aggregate`` and
+  ``drevalpy report``, which expect fold files, should not be given it.
+
+The file uses the run-file layout rather than a table so that no new reader is needed and the ids,
+predictions and observed responses stay aligned in one archive. To get a table, build one from the
+arrays, for example with ``pandas.DataFrame``.
+
+The model directory that ``drevalpy train`` writes holds ``model.zip``, the checkpoint of
+``DRPModel.save``, and ``metadata.json`` with the model name, dataset name, ``seed``,
+``response_transformation``, ``hyperparameter_tuning`` and ``drevalpy_version``.
 
 Split file
 ----------

@@ -5,6 +5,7 @@ from importlib.metadata import version
 from . import registry as registry
 from ._run import run as run
 from ._single import single as single
+from ._train import train as train
 from .data import split as split
 from .data import synthetic as synthetic
 from .data.datasets import load as load

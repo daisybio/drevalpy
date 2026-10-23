@@ -94,8 +94,8 @@ Map imports and objects
        Old split files do not load.
    * - ``drevalpy.utils.get_response_transformation``
      - Unchanged, in ``drevalpy.utils``. It accepts ``"None"``, ``"standard"``,
-       ``"minmax"`` and ``"robust"``. ``drug_mean`` and ``drug_tissue_mean`` are
-       gone.
+       ``"minmax"``, ``"robust"``, ``"drug_mean"`` and ``"drug_tissue_mean"``. The
+       last two return a ``drevalpy.utils.response_transform.GroupMeanCenterer``.
    * - ``drevalpy.evaluation.AVAILABLE_METRICS``
      - Unchanged: the same seven metrics.
    * - ``drevalpy.evaluation.evaluate(dataset, metric)``
@@ -107,7 +107,7 @@ Map imports and objects
        ``drevalpy report`` command. Plots are visualization components; see
        :doc:`/how-to/make_report`.
    * - ``--version`` on the command line
-     - ``drevalpy.__version__``
+     - Unchanged: ``drevalpy --version``. In Python, read ``drevalpy.__version__``.
    * - ``except KeyError`` around ``MODEL_FACTORY[name]``
      - ``ModelSpec.from_name`` raises ``UnknownModelError``, an
        ``UnknownNameError`` from ``drevalpy.errors``. It is also a ``KeyError``
@@ -161,7 +161,8 @@ Map the ``drug_response_experiment`` parameters
    * - ``model_checkpoint_dir``
      - Removed from ``run``. Save a model with ``DRPModel.save``.
    * - ``final_model_on_full_data``
-     - Removed. Nothing replaces it.
+     - ``drevalpy.train(model, dataset)`` trains on all pairs and returns the fitted
+       ``DRPModel``. See :doc:`/how-to/train_save_load`.
    * - ``wandb_project``
      - ``wandb_project`` of ``drevalpy.run`` and ``drevalpy.single``. See
        :doc:`/how-to/run_experiment`.

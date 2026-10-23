@@ -17,3 +17,13 @@ def _restore_drevalpy_logger() -> Iterator[None]:
     yield
     logger.handlers[:] = handlers
     logger.setLevel(level)
+
+
+@pytest.fixture(scope="session")
+def dataset_file(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """Write the small synthetic dataset to an ``.h5mu`` file once and return its path."""
+    from drevalpy.data import synthetic
+
+    path = tmp_path_factory.mktemp("cli_dataset") / "toy.h5mu"
+    synthetic().save(path)
+    return str(path)

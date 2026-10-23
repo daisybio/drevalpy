@@ -16,6 +16,7 @@ else is imported from the subpackages in the next section.
 
    drevalpy.run
    drevalpy.single
+   drevalpy.train
    drevalpy.load
    drevalpy.split
    drevalpy.synthetic

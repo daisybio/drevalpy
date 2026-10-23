@@ -119,8 +119,8 @@ Map the ``drevalpy`` flags
        yourself.
    * - ``--response_transformation``
      - ``--response-transformation`` with ``none`` (default), ``standard``,
-       ``minmax`` or ``robust``. The 1.x values ``drug_mean`` and
-       ``drug_tissue_mean`` are gone.
+       ``minmax``, ``robust``, ``drug_mean`` or ``drug_tissue_mean``. See
+       :doc:`/how-to/run_experiment`.
    * - ``--multiprocessing``
      - Removed (it started Ray). Run folds in parallel with ``single``; see
        :doc:`/how-to/run_folds_in_parallel`.
@@ -128,7 +128,7 @@ Map the ``drevalpy`` flags
      - Removed from the command line. Checkpoints are zip archives written
        with ``DRPModel.save``; see :doc:`/how-to/train_save_load`.
    * - ``--final_model_on_full_data``
-     - Removed. See `Replace the pipeline scripts`_.
+     - ``drevalpy train`` and ``drevalpy predict``. See `Replace the pipeline scripts`_.
    * - ``--no_hyperparameter_tuning``
      - ``--no-hpo``. The default is ``--hpo``.
    * - ``--custom_splitter_path``, ``--custom_split_name``
@@ -138,8 +138,8 @@ Map the ``drevalpy`` flags
      - Removed. ``split`` drops pairs that fail the curve-quality rule, by default two
        thresholds; change it with ``--min-relevance-score`` and ``--min-abs-fold-change``,
        or switch it off with ``--no-quality-filter``. That is a filter on pairs, not on drugs.
-   * - ``--version``, ``-v``
-     - Removed. Read ``drevalpy.__version__`` in Python.
+   * - ``--version``
+     - ``drevalpy --version`` prints ``drevalpy <version>``. ``-v`` is now ``--verbose``.
 
 New options that 1.x did not have: ``--seed`` (default ``42``),
 ``--hpo-random-state`` and ``--randomization-random-state``.
@@ -182,8 +182,12 @@ command covers the job.
        the randomized datasets.
    * - ``drevalpy-make-final-split-pkls``, ``drevalpy-tune-final-model``,
        ``drevalpy-train-final-model``
-     - Removed. There is no final production model on the full data. To keep a
-       trained model, save it from Python; see :doc:`/how-to/train_save_load`.
+     - ``drevalpy train MODEL --dataset DATASET --output MODEL_DIR`` trains on all
+       pairs of the dataset. It tunes on a random 10% validation slice, sets aside
+       the early-stopping set that a run uses and applies
+       ``--response-transformation``, so no split or hyperparameter files are
+       needed. ``drevalpy predict MODEL_DIR --dataset DATASET --output FILE``
+       applies the saved model. See :doc:`/how-to/train_save_load`.
    * - ``drevalpy-consolidate-single-drug``
      - Removed. A single-drug model is one model in v2 and needs no
        consolidation.
