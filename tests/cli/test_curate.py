@@ -38,8 +38,7 @@ def build_dose_response_df() -> pd.DataFrame:
 
     ``DrugX`` gets a genuine sigmoid so the fit converges; ``DrugY`` is flat.
 
-    Returns:
-        Long-format frame with ``drug``/``sample``/``concentration``/``intensity``.
+    :returns: Long-format frame with ``drug``/``sample``/``concentration``/``intensity``.
     """
     rng = np.random.default_rng(42)
     conc_arr = np.array(CONCENTRATIONS)
@@ -69,7 +68,7 @@ def dose_response_df() -> pd.DataFrame:
 
 @pytest.fixture()
 def input_csv(dose_response_df: pd.DataFrame, tmp_path: UPath) -> UPath:
-    """The dose-response frame written as CSV."""
+    """Write the dose-response frame as CSV."""
     path = tmp_path / "input.csv"
     dose_response_df.to_csv(path, index=False)
     return path
@@ -79,11 +78,8 @@ def input_csv(dose_response_df: pd.DataFrame, tmp_path: UPath) -> UPath:
 def worker(monkeypatch: pytest.MonkeyPatch) -> Recorder:
     """Patch :func:`drevalpy.curation.curate` with a recorder returning a 1x1 AnnData.
 
-    Args:
-        monkeypatch: Fixture used to replace the source-module worker.
-
-    Returns:
-        Recorder standing in for the curve fitter.
+    :param monkeypatch: Fixture used to replace the source-module worker.
+    :returns: Recorder standing in for the curve fitter.
     """
     recorder = Recorder(return_value=anndata.AnnData(X=np.zeros((1, 1), dtype=np.float32)))
     patch_worker(monkeypatch, "drevalpy.curation", "curate", recorder)

@@ -22,8 +22,7 @@ from tests.cli._helpers import plain
 def wide_console(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pin the console width so wrapping cannot split the asserted text.
 
-    Args:
-        monkeypatch: Fixture used to set the environment rich reads.
+    :param monkeypatch: Fixture used to set the environment rich reads.
     """
     monkeypatch.setenv("COLUMNS", "300")
     monkeypatch.setenv("NO_COLOR", "1")
@@ -39,11 +38,8 @@ class Flavour(Enum):
 def output(capsys: pytest.CaptureFixture[str]) -> str:
     """Return the captured stdout with escape codes removed.
 
-    Args:
-        capsys: Fixture holding the captured streams.
-
-    Returns:
-        Plain-text stdout.
+    :param capsys: Fixture holding the captured streams.
+    :returns: Plain-text stdout.
     """
     return plain(capsys.readouterr().out)
 
@@ -81,7 +77,7 @@ class TestRenderFrame:
 
     @pytest.fixture()
     def frame(self) -> pd.DataFrame:
-        """A two-row frame shaped like a registry table."""
+        """Build a two-row frame shaped like a registry table."""
         return pd.DataFrame(
             {
                 "Name": ["alpha", "beta"],

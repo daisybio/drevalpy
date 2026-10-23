@@ -39,8 +39,7 @@ class ToyResidualHistogram(ImageVisualization):
         ``compute`` must assign ``self._fig``; the inherited ``to_png``,
         ``to_multiqc`` and ``show`` all raise until it does.
 
-        Args:
-            result: The model whose folds are pooled.
+        :param result: The model whose folds are pooled.
         """
         residuals = [np.asarray(run.predictions) - np.asarray(run.ground_truth) for run in result.runs]
         pooled = np.concatenate(residuals) if residuals else np.empty(0)

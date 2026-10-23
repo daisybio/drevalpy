@@ -33,9 +33,8 @@ class StubEntryPoint:
     def __init__(self, name: str, value: str) -> None:
         """Record the declared name and target.
 
-        Args:
-            name: Entry-point name, as it appears in the distribution metadata.
-            value: Dotted object reference the plugin declared.
+        :param name: Entry-point name, as it appears in the distribution metadata.
+        :param value: Dotted object reference the plugin declared.
         """
         self.name = name
         self.value = value
@@ -45,11 +44,8 @@ class StubEntryPoint:
 def declared(monkeypatch: pytest.MonkeyPatch) -> list[StubEntryPoint]:
     """Replace entry-point discovery with a list the test can fill.
 
-    Args:
-        monkeypatch: Fixture used to patch the ``importlib.metadata`` boundary.
-
-    Returns:
-        The mutable list of entry points the command will see.
+    :param monkeypatch: Fixture used to patch the ``importlib.metadata`` boundary.
+    :returns: The mutable list of entry points the command will see.
     """
     entries: list[StubEntryPoint] = []
     monkeypatch.setattr(importlib.metadata, "entry_points", lambda **_: entries)
@@ -60,11 +56,8 @@ def declared(monkeypatch: pytest.MonkeyPatch) -> list[StubEntryPoint]:
 def ledgers(monkeypatch: pytest.MonkeyPatch) -> dict[str, dict[str, str]]:
     """Give the command empty loaded/failed/skipped ledgers it can be handed.
 
-    Args:
-        monkeypatch: Fixture used to replace the registry accessors.
-
-    Returns:
-        Mapping with ``loaded``, ``failed`` and ``skipped`` dicts, each mutable
+    :param monkeypatch: Fixture used to replace the registry accessors.
+    :returns: Mapping with ``loaded``, ``failed`` and ``skipped`` dicts, each mutable
         and read by the command on every invocation.
     """
     from drevalpy import registry
@@ -79,11 +72,8 @@ def ledgers(monkeypatch: pytest.MonkeyPatch) -> dict[str, dict[str, str]]:
 def invoke(*argv: str) -> Any:
     """Run ``drevalpy list plugins`` and return the click result.
 
-    Args:
-        *argv: Extra arguments appended after ``plugins``.
-
-    Returns:
-        The ``click.testing.Result`` of the invocation.
+    :param *argv: Extra arguments appended after ``plugins``.
+    :returns: The ``click.testing.Result`` of the invocation.
     """
     return runner.invoke(app, ["list", "plugins", *argv], env=HELP_ENV)
 
@@ -91,11 +81,8 @@ def invoke(*argv: str) -> Any:
 def text(*argv: str) -> str:
     """Return the plain-text output of ``drevalpy list plugins``.
 
-    Args:
-        *argv: Extra arguments appended after ``plugins``.
-
-    Returns:
-        Output with escape codes stripped.
+    :param *argv: Extra arguments appended after ``plugins``.
+    :returns: Output with escape codes stripped.
     """
     return plain(invoke(*argv).output)
 

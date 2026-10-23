@@ -39,8 +39,7 @@ class ToyBlockRidgePredictor(BlockPredictor):
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Create an untrained predictor.
 
-        Args:
-            hyperparameters: Overrides merged onto the declared defaults.
+        :param hyperparameters: Overrides merged onto the declared defaults.
         """
         super().__init__(hyperparameters)
         self._estimator: Ridge | None = None

@@ -32,11 +32,8 @@ COMMAND_NAMES = [param.values[0] for param in REGISTRY_COMMANDS]
 def invoke(*argv: str) -> str:
     """Run ``drevalpy list`` and return its plain-text output.
 
-    Args:
-        *argv: Arguments after ``list``.
-
-    Returns:
-        Output with escape codes stripped.
+    :param *argv: Arguments after ``list``.
+    :returns: Output with escape codes stripped.
     """
     return plain(runner.invoke(app, ["list", *argv], env=HELP_ENV).output)
 

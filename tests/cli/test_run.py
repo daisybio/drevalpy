@@ -25,8 +25,7 @@ class StubExperiment:
     def __init__(self, failures: tuple[RunFailure, ...] = ()) -> None:
         """Start with an empty save log.
 
-        Args:
-            failures: Failures the stub reports, like `ExperimentResult.failures`.
+        :param failures: Failures the stub reports, like `ExperimentResult.failures`.
         """
         self.saved: list[str] = []
         self.failures = failures
@@ -34,8 +33,7 @@ class StubExperiment:
     def save(self, path: str) -> None:
         """Record the directory the command asked for.
 
-        Args:
-            path: Destination directory chosen by the command.
+        :param path: Destination directory chosen by the command.
         """
         self.saved.append(path)
 
@@ -54,12 +52,9 @@ def constructed() -> list[str]:
 def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str]) -> Recorder:
     """Patch both lazy imports of ``run_cmd`` and hand back the ``run`` recorder.
 
-    Args:
-        monkeypatch: Fixture used to replace the source-module workers.
-        constructed: List that receives every requested model name.
-
-    Returns:
-        Recorder standing in for :func:`drevalpy.run`.
+    :param monkeypatch: Fixture used to replace the source-module workers.
+    :param constructed: List that receives every requested model name.
+    :returns: Recorder standing in for :func:`drevalpy.run`.
     """
 
     def fake_construct_model(name: str) -> SimpleNamespace:

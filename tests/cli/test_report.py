@@ -21,7 +21,7 @@ runner = make_runner()
 
 @pytest.fixture()
 def experiment_dir(tmp_path: UPath) -> UPath:
-    """A real saved ``ExperimentResult`` tree, so ``load`` stays unpatched."""
+    """Save a real ``ExperimentResult`` tree, so ``load`` stays unpatched."""
     path = tmp_path / "experiment"
     make_experiment_result(n_models=2, n_folds=2).save(path)
     return path
@@ -31,11 +31,8 @@ def experiment_dir(tmp_path: UPath) -> UPath:
 def worker(monkeypatch: pytest.MonkeyPatch) -> Recorder:
     """Patch :func:`drevalpy.visualization.report.create_report`.
 
-    Args:
-        monkeypatch: Fixture used to replace the source-module worker.
-
-    Returns:
-        Recorder standing in for the report writer.
+    :param monkeypatch: Fixture used to replace the source-module worker.
+    :returns: Recorder standing in for the report writer.
     """
     recorder = Recorder()
     patch_worker(monkeypatch, "drevalpy.visualization.report", "create_report", recorder)

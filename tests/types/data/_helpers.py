@@ -62,15 +62,12 @@ def _recording_store(records: list[dict[str, Any]]) -> Any:
 def stub_featurizer(records: list[dict[str, Any]], **overrides: Any) -> type:
     """Build an independent featurizer class whose ``store`` appends to *records*.
 
-    Args:
-        records: List that receives one dict per ``store`` call.
-        overrides: Class attributes to replace, e.g. ``side="drug"`` or
-            ``precompute=False``. ``compute`` may be set to a callable taking
-            ``(source, entity_ids)`` to control what ``_compute_from_source``
-            returns or raises.
-
-    Returns:
-        A class exposing ``_compute_from_source``, so ``precompute`` takes the
+    :param records: List that receives one dict per ``store`` call.
+    :param overrides: Class attributes to replace, e.g. ``side="drug"`` or
+        ``precompute=False``. ``compute`` may be set to a callable taking
+        ``(source, entity_ids)`` to control what ``_compute_from_source``
+        returns or raises.
+    :returns: A class exposing ``_compute_from_source``, so ``precompute`` takes the
         independent-featurizer shortcut.
     """
     compute = overrides.pop("compute", None)
@@ -87,13 +84,10 @@ def stub_featurizer(records: list[dict[str, Any]], **overrides: Any) -> type:
 def stub_fit_transform_featurizer(records: list[dict[str, Any]], **overrides: Any) -> type:
     """Build a stub without ``_compute_from_source``, forcing the fit/transform path.
 
-    Args:
-        records: List that receives ``{"call": "fit"}`` when ``fit`` runs and one
-            dict per ``store`` call.
-        overrides: Class attributes to replace, as in :func:`stub_featurizer`.
-
-    Returns:
-        A class exposing ``fit``/``transform`` but no ``_compute_from_source``.
+    :param records: List that receives ``{"call": "fit"}`` when ``fit`` runs and one
+        dict per ``store`` call.
+    :param overrides: Class attributes to replace, as in :func:`stub_featurizer`.
+    :returns: A class exposing ``fit``/``transform`` but no ``_compute_from_source``.
     """
 
     def fit(self: Any, source: Any, *, entity_ids: np.ndarray | None = None) -> Any:

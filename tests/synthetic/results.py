@@ -38,11 +38,8 @@ DEFAULT_SPLIT_MODE: Final = "LPO"
 def make_metrics(*, seed: int = 0) -> dict[str, float]:
     """Build a metrics dict covering every metric the package reports.
 
-    Args:
-        seed: Seed for the deterministic pseudo-random values.
-
-    Returns:
-        Mapping of metric name to score, holding every key in
+    :param seed: Seed for the deterministic pseudo-random values.
+    :returns: Mapping of metric name to score, holding every key in
         :data:`drevalpy.evaluation.AVAILABLE_METRICS` - the same key set a run
         carries in production, before and after normalization.
     """
@@ -73,32 +70,29 @@ def make_run_result(
     ``n_pairs <= n_samples * n_drugs`` and the two counts are coprime; the
     defaults satisfy both.
 
-    Args:
-        model_name: Value for ``RunResult.model_name``.
-        dataset_name: Value for ``RunResult.dataset_name``. Every run in one
-            experiment must agree on this.
-        fold_index: Zero-based fold number.
-        fold_id: Value for ``RunResult.fold_id``. Defaults to
-            ``f"fold_{fold_index}"``, which is what ``normalize()`` matches runs
-            on across models.
-        split_mode: Value for ``RunResult.split_mode``. Every run in one
-            experiment must agree on this.
-        n_pairs: Number of sample/drug pairs in the fold.
-        n_samples: Number of distinct sample ids to cycle through.
-        n_drugs: Number of distinct drug ids to cycle through.
-        metrics: Metrics dict. Defaults to :func:`make_metrics`.
-        best_hyperparameters: Value for ``RunResult.best_hyperparameters``.
-        fold_metadata: Value for ``RunResult.fold_metadata``. Add a
-            ``"robustness_trial"`` key here to make an experiment report
-            ``has_robustness``.
-        randomization: Value for ``RunResult.randomization``. Set it to make an
-            experiment report ``has_randomization``.
-        seed: Seed for predictions, ground truth and default metrics. Defaults
-            to ``fold_index``, so folds of one model differ but the same fold of
-            two models does not.
-
-    Returns:
-        A fully populated ``RunResult``.
+    :param model_name: Value for ``RunResult.model_name``.
+    :param dataset_name: Value for ``RunResult.dataset_name``. Every run in one
+        experiment must agree on this.
+    :param fold_index: Zero-based fold number.
+    :param fold_id: Value for ``RunResult.fold_id``. Defaults to
+        ``f"fold_{fold_index}"``, which is what ``normalize()`` matches runs
+        on across models.
+    :param split_mode: Value for ``RunResult.split_mode``. Every run in one
+        experiment must agree on this.
+    :param n_pairs: Number of sample/drug pairs in the fold.
+    :param n_samples: Number of distinct sample ids to cycle through.
+    :param n_drugs: Number of distinct drug ids to cycle through.
+    :param metrics: Metrics dict. Defaults to :func:`make_metrics`.
+    :param best_hyperparameters: Value for ``RunResult.best_hyperparameters``.
+    :param fold_metadata: Value for ``RunResult.fold_metadata``. Add a
+        ``"robustness_trial"`` key here to make an experiment report
+        ``has_robustness``.
+    :param randomization: Value for ``RunResult.randomization``. Set it to make an
+        experiment report ``has_randomization``.
+    :param seed: Seed for predictions, ground truth and default metrics. Defaults
+        to ``fold_index``, so folds of one model differ but the same fold of
+        two models does not.
+    :returns: A fully populated ``RunResult``.
     """
     effective_seed = fold_index if seed is None else seed
     rng = np.random.default_rng(effective_seed)
@@ -132,15 +126,12 @@ def make_model_result(
 ) -> ModelResult:
     """Build one model's folds.
 
-    Args:
-        model_name: Value for ``ModelResult.model_name``.
-        dataset_name: Value for ``ModelResult.dataset_name``.
-        n_folds: Number of runs to generate.
-        split_mode: ``split_mode`` for every generated run.
-        n_pairs: Number of pairs per fold.
-
-    Returns:
-        A ``ModelResult`` holding ``n_folds`` runs.
+    :param model_name: Value for ``ModelResult.model_name``.
+    :param dataset_name: Value for ``ModelResult.dataset_name``.
+    :param n_folds: Number of runs to generate.
+    :param split_mode: ``split_mode`` for every generated run.
+    :param n_pairs: Number of pairs per fold.
+    :returns: A ``ModelResult`` holding ``n_folds`` runs.
     """
     return ModelResult(
         model_name=model_name,
@@ -171,24 +162,21 @@ def make_experiment_result(
 ) -> ExperimentResult:
     """Build a complete experiment with equal fold counts across models.
 
-    Args:
-        n_models: Number of models. Ignored when ``model_names`` is given. Names
-            beyond :data:`DEFAULT_MODEL_NAMES` are generated as ``"Model_{i}"``.
-        n_folds: Number of folds per model. Every model gets the same count,
-            which ``critical_difference`` requires.
-        model_names: Explicit model names. The first entry should be
-            :data:`REFERENCE_MODEL` if the caller intends to call
-            ``normalize()``.
-        dataset_name: Shared ``dataset_name`` for every run.
-        split_mode: Shared ``split_mode`` for every run.
-        n_pairs: Number of pairs per fold.
-        with_randomization: Attach randomization metadata to every run, making
-            the experiment report ``has_randomization``.
-        with_robustness: Attach a ``"robustness_trial"`` key to every run's
-            ``fold_metadata``, making the experiment report ``has_robustness``.
-
-    Returns:
-        An ``ExperimentResult`` grouping ``n_models`` models of ``n_folds``
+    :param n_models: Number of models. Ignored when ``model_names`` is given. Names
+        beyond :data:`DEFAULT_MODEL_NAMES` are generated as ``"Model_{i}"``.
+    :param n_folds: Number of folds per model. Every model gets the same count,
+        which ``critical_difference`` requires.
+    :param model_names: Explicit model names. The first entry should be
+        :data:`REFERENCE_MODEL` if the caller intends to call
+        ``normalize()``.
+    :param dataset_name: Shared ``dataset_name`` for every run.
+    :param split_mode: Shared ``split_mode`` for every run.
+    :param n_pairs: Number of pairs per fold.
+    :param with_randomization: Attach randomization metadata to every run, making
+        the experiment report ``has_randomization``.
+    :param with_robustness: Attach a ``"robustness_trial"`` key to every run's
+        ``fold_metadata``, making the experiment report ``has_robustness``.
+    :returns: An ``ExperimentResult`` grouping ``n_models`` models of ``n_folds``
         folds each.
     """
     names = _resolve_model_names(n_models) if model_names is None else model_names

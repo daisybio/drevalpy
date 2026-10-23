@@ -37,11 +37,8 @@ def _make_fold(fold_index: int) -> SplitMasks:
 def loader(monkeypatch: pytest.MonkeyPatch) -> Recorder:
     """Patch :func:`drevalpy.data.load`, which resolves a registered name or a path.
 
-    Args:
-        monkeypatch: Fixture used to replace the source-module worker.
-
-    Returns:
-        Recorder standing in for the dataset loader.
+    :param monkeypatch: Fixture used to replace the source-module worker.
+    :returns: Recorder standing in for the dataset loader.
     """
     recorder = Recorder(return_value=FakeDataset())
     patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", recorder)
@@ -53,12 +50,9 @@ def loader(monkeypatch: pytest.MonkeyPatch) -> Recorder:
 def splitter(monkeypatch: pytest.MonkeyPatch, loader: Recorder) -> Recorder:
     """Patch :func:`drevalpy.data.split` and :func:`drevalpy.data.load`.
 
-    Args:
-        monkeypatch: Fixture used to replace the source-module workers.
-        loader: Dataset loader stub, so no file is read.
-
-    Returns:
-        Recorder standing in for the splitter, returning three real folds.
+    :param monkeypatch: Fixture used to replace the source-module workers.
+    :param loader: Dataset loader stub, so no file is read.
+    :returns: Recorder standing in for the splitter, returning three real folds.
     """
     recorder = Recorder(return_value=[_make_fold(i) for i in range(N_FOLDS)])
     patch_worker(monkeypatch, "drevalpy.data", "split", recorder)

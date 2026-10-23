@@ -48,8 +48,7 @@ EXEMPT_MODULES: frozenset[str] = frozenset(
 def _discover_modules() -> list[str]:
     """Return every non-``__init__`` module path, relative to the package root.
 
-    Returns:
-        Sorted POSIX-style relative paths, excluding :data:`EXEMPT_MODULES`.
+    :returns: Sorted POSIX-style relative paths, excluding :data:`EXEMPT_MODULES`.
     """
     modules = []
     for py_file in sorted(PACKAGE_ROOT.rglob("*.py")):
@@ -65,11 +64,8 @@ def _discover_modules() -> list[str]:
 def _candidate_test_paths(relative_module: str) -> list[Path]:
     """Return the acceptable mirrored test paths for one module.
 
-    Args:
-        relative_module: Module path relative to the package root.
-
-    Returns:
-        ``[test_<name>.py]`` for a public module; for a private module also the
+    :param relative_module: Module path relative to the package root.
+    :returns: ``[test_<name>.py]`` for a public module; for a private module also the
         underscore-stripped spelling, in the order they should be reported.
     """
     rel = Path(relative_module)

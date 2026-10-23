@@ -31,11 +31,8 @@ def constructed() -> list[str]:
 def loader(monkeypatch: pytest.MonkeyPatch) -> Recorder:
     """Patch :func:`drevalpy.data.load`, which resolves a registered name or a path.
 
-    Args:
-        monkeypatch: Fixture used to replace the source-module worker.
-
-    Returns:
-        Recorder standing in for the dataset loader.
+    :param monkeypatch: Fixture used to replace the source-module worker.
+    :returns: Recorder standing in for the dataset loader.
     """
     recorder = Recorder(return_value=FakeDataset())
     patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", recorder)
@@ -47,13 +44,10 @@ def loader(monkeypatch: pytest.MonkeyPatch) -> Recorder:
 def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str], loader: Recorder) -> Recorder:
     """Patch every lazy import of ``randomization_cmd``.
 
-    Args:
-        monkeypatch: Fixture used to replace the source-module workers.
-        constructed: List that receives every requested model name.
-        loader: Dataset loader stub, so no file is read.
-
-    Returns:
-        Recorder standing in for
+    :param monkeypatch: Fixture used to replace the source-module workers.
+    :param constructed: List that receives every requested model name.
+    :param loader: Dataset loader stub, so no file is read.
+    :returns: Recorder standing in for
         :func:`drevalpy.experiment.randomization`, returning two
         datasets whose ``randomization`` tags drive the output filenames.
     """
@@ -241,7 +235,7 @@ class TestOnRealFiles:
 
     @pytest.fixture()
     def written(self, tmp_path: UPath) -> tuple[UPath, UPath, UPath]:
-        """The synthetic dataset, its first fold and the SVRC file the command wrote for ElasticNet."""
+        """Write the synthetic dataset and first fold, then the SVRC file the command writes for ElasticNet."""
         dataset, fold = write_synthetic_fold(runner, tmp_path)
         result = runner.invoke(
             app, ["experiments", "randomization", "ElasticNet", str(dataset), str(tmp_path / "rand")]

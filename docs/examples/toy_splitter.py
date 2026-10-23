@@ -32,16 +32,13 @@ def toy_leave_sample_out(
 ) -> list[SplitMasks]:
     """Split so that every sample is tested exactly once.
 
-    Args:
-        mudataset: Dataset whose response matrix is split.
-        n_splits: Number of folds.
-        validation_ratio: Ignored; this splitter always holds out a fifth of the
-            training samples, which is what makes it worth registering
-            separately from the built-in ``LSO``.
-        random_state: Seed for the fold assignment.
-
-    Returns:
-        One :class:`~drevalpy.plugin.SplitMasks` per fold, each carrying
+    :param mudataset: Dataset whose response matrix is split.
+    :param n_splits: Number of folds.
+    :param validation_ratio: Ignored; this splitter always holds out a fifth of the
+        training samples, which is what makes it worth registering
+        separately from the built-in ``LSO``.
+    :param random_state: Seed for the fold assignment.
+    :returns: One :class:`~drevalpy.plugin.SplitMasks` per fold, each carrying
         train/test/validation masks shaped like the response matrix.
     """
     _ = validation_ratio

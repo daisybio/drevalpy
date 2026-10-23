@@ -58,15 +58,11 @@ class ModuleSize(NamedTuple):
 def load_gate_config(pyproject: UPath) -> GateConfig:
     """Read the size-gate configuration from ``pyproject.toml``.
 
-    Args:
-        pyproject: Path to the ``pyproject.toml`` holding the config table.
+    Exits with an error message if ``pyproject`` does not exist.
 
-    Returns:
-        The resolved configuration, with defaults applied when the table or any
+    :param pyproject: Path to the ``pyproject.toml`` holding the config table.
+    :returns: The resolved configuration, with defaults applied when the table or any
         of its keys are absent.
-
-    Raises:
-        SystemExit: If ``pyproject`` does not exist.
     """
     if not pyproject.is_file():
         _fail(f"{pyproject} not found; run the gate from the repository root.")
@@ -83,14 +79,10 @@ def load_gate_config(pyproject: UPath) -> GateConfig:
 def count_statements(source: str) -> int:
     """Count the AST statement nodes in a module's source.
 
-    Args:
-        source: Python source text.
+    ``ast.parse`` raises ``SyntaxError`` if ``source`` does not parse.
 
-    Returns:
-        The number of ``ast.stmt`` nodes, at every nesting depth.
-
-    Raises:
-        SyntaxError: If ``source`` does not parse.
+    :param source: Python source text.
+    :returns: The number of ``ast.stmt`` nodes, at every nesting depth.
     """
     return sum(1 for node in ast.walk(ast.parse(source)) if isinstance(node, ast.stmt))
 
@@ -98,17 +90,13 @@ def count_statements(source: str) -> int:
 def measure_package(package_root: UPath) -> dict[str, int]:
     """Count statements for every module in a package tree.
 
-    Args:
-        package_root: Directory of the package to walk.
+    Exits with an error message if ``package_root`` is not a directory or a module in it
+    does not parse.
 
-    Returns:
-        Mapping of module path to statement count. Paths are relative to
+    :param package_root: Directory of the package to walk.
+    :returns: Mapping of module path to statement count. Paths are relative to
         ``package_root``'s parent, so a key reads ``drevalpy/a/b.py`` whether the
         gate was pointed at ``drevalpy`` or at an absolute path ending in it.
-
-    Raises:
-        SystemExit: If ``package_root`` is not a directory, or a module in it
-            does not parse.
     """
     if not package_root.is_dir():
         _fail(f"{package_root} is not a directory; run the gate from the repository root.")
@@ -125,12 +113,9 @@ def measure_package(package_root: UPath) -> dict[str, int]:
 def evaluate(sizes: dict[str, int], config: GateConfig) -> list[ModuleSize]:
     """Pair every measured module with the ceiling it is held to.
 
-    Args:
-        sizes: Mapping of module path to statement count.
-        config: Resolved gate configuration.
-
-    Returns:
-        One entry per measured module, sorted by path.
+    :param sizes: Mapping of module path to statement count.
+    :param config: Resolved gate configuration.
+    :returns: One entry per measured module, sorted by path.
     """
     results = []
     for path in sorted(sizes):
@@ -143,11 +128,8 @@ def evaluate(sizes: dict[str, int], config: GateConfig) -> list[ModuleSize]:
 def find_violations(results: list[ModuleSize]) -> list[ModuleSize]:
     """Select the modules that exceed their effective ceiling.
 
-    Args:
-        results: Output of :func:`evaluate`.
-
-    Returns:
-        The failing entries, in the order given.
+    :param results: Output of :func:`evaluate`.
+    :returns: The failing entries, in the order given.
     """
     return [item for item in results if item.statements > item.ceiling]
 
@@ -155,12 +137,9 @@ def find_violations(results: list[ModuleSize]) -> list[ModuleSize]:
 def find_ratchetable(results: list[ModuleSize], max_module_statements: int) -> list[ModuleSize]:
     """Select exempted modules whose recorded ceiling is now needlessly high.
 
-    Args:
-        results: Output of :func:`evaluate`.
-        max_module_statements: The global ceiling exemptions are measured against.
-
-    Returns:
-        Exempted entries that now clear the global ceiling, or have shrunk well
+    :param results: Output of :func:`evaluate`.
+    :param max_module_statements: The global ceiling exemptions are measured against.
+    :returns: Exempted entries that now clear the global ceiling, or have shrunk well
         below their own recorded ceiling.
     """
     return [
@@ -174,12 +153,9 @@ def find_ratchetable(results: list[ModuleSize], max_module_statements: int) -> l
 def render_report(results: list[ModuleSize], config: GateConfig) -> tuple[str, bool]:
     """Build the human-readable gate report.
 
-    Args:
-        results: Output of :func:`evaluate`.
-        config: Resolved gate configuration.
-
-    Returns:
-        The report text and whether the gate passed.
+    :param results: Output of :func:`evaluate`.
+    :param config: Resolved gate configuration.
+    :returns: The report text and whether the gate passed.
     """
     violations = find_violations(results)
     lines: list[str] = []
@@ -220,11 +196,8 @@ def render_report(results: list[ModuleSize], config: GateConfig) -> tuple[str, b
 def main(argv: list[str] | None = None) -> int:
     """Run the size gate.
 
-    Args:
-        argv: Command-line arguments, defaulting to ``sys.argv[1:]``.
-
-    Returns:
-        ``0`` if every module meets its ceiling, ``1`` otherwise.
+    :param argv: Command-line arguments, defaulting to ``sys.argv[1:]``.
+    :returns: ``0`` if every module meets its ceiling, ``1`` otherwise.
     """
     parser = argparse.ArgumentParser(description="Enforce a per-module statement ceiling.")
     parser.add_argument("--package", default=DEFAULT_PACKAGE, help="Package directory to walk.")

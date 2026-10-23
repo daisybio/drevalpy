@@ -30,9 +30,8 @@ class ToyMeanPredictor(FeatureFreePredictor):
     def __init__(self, hyperparameters: dict[str, object] | None = None) -> None:
         """Create an untrained predictor.
 
-        Args:
-            hyperparameters: Overrides merged onto the declared defaults. This
-                predictor has none, but the signature is part of the interface.
+        :param hyperparameters: Overrides merged onto the declared defaults. This
+            predictor has none, but the signature is part of the interface.
         """
         super().__init__(hyperparameters)
         self._mean: float | None = None

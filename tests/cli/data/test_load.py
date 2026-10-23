@@ -19,7 +19,7 @@ runner = make_runner()
 
 @pytest.fixture()
 def dataset() -> FakeDataset:
-    """The dataset stub the patched loader returns."""
+    """Provide the dataset stub the patched loader returns."""
     return FakeDataset(name="TOYv1")
 
 
@@ -27,12 +27,9 @@ def dataset() -> FakeDataset:
 def loader(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Recorder:
     """Patch :func:`drevalpy.data.load`.
 
-    Args:
-        monkeypatch: Fixture used to replace the source-module worker.
-        dataset: Stub the loader hands back.
-
-    Returns:
-        Recorder standing in for the dataset loader.
+    :param monkeypatch: Fixture used to replace the source-module worker.
+    :param dataset: Stub the loader hands back.
+    :returns: Recorder standing in for the dataset loader.
     """
     recorder = Recorder(return_value=dataset)
     patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", recorder)

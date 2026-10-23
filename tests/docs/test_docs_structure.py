@@ -110,8 +110,7 @@ def _cli_command_groups() -> tuple[str, ...]:
     when a new sub-app lands, which is exactly what happened to the ``list``
     group. Imported lazily so collecting this module does not pull in the CLI.
 
-    Returns:
-        Every registered sub-app name, e.g. ``("data", "experiments", "list")``.
+    :returns: Every registered sub-app name, e.g. ``("data", "experiments", "list")``.
     """
     from drevalpy.cli.main import app
 
@@ -135,11 +134,8 @@ def exclude_patterns(docs: Path) -> list[str]:
 
     Running ``conf.py`` regenerates the reference files, which a policy test must not do.
 
-    Args:
-        docs: The docs root.
-
-    Returns:
-        The patterns, as Sphinx would see them.
+    :param docs: The docs root.
+    :returns: The patterns, as Sphinx would see them.
     """
     tree = ast.parse((docs / "conf.py").read_text(encoding="utf-8"))
     for node in tree.body:
@@ -154,12 +150,9 @@ def built_pages(docs: Path, patterns: Iterable[str]) -> list[Path]:
 
     A pattern excludes a file or a directory and everything below it.
 
-    Args:
-        docs: The docs root.
-        patterns: ``exclude_patterns`` from ``conf.py``.
-
-    Returns:
-        Paths of the built pages.
+    :param docs: The docs root.
+    :param patterns: ``exclude_patterns`` from ``conf.py``.
+    :returns: Paths of the built pages.
     """
     patterns = list(patterns)
     pages = []
@@ -219,13 +212,10 @@ def toctree_targets(page: Path, docs: Path, docnames: set[str]) -> set[str]:
     Understands ``Title <target>`` entries, absolute (``/x``) and relative
     targets, and ``:glob:`` trees. External links and ``self`` are dropped.
 
-    Args:
-        page: The page to read.
-        docs: The docs root, which relative targets resolve against.
-        docnames: Every built docname, for resolving ``:glob:`` entries.
-
-    Returns:
-        Docnames, which may not exist (Sphinx's own build reports those).
+    :param page: The page to read.
+    :param docs: The docs root, which relative targets resolve against.
+    :param docnames: Every built docname, for resolving ``:glob:`` entries.
+    :returns: Docnames, which may not exist (Sphinx's own build reports those).
     """
     directory = page.parent.relative_to(docs).as_posix()
     directory = "" if directory == "." else directory
@@ -364,11 +354,8 @@ def interface_violations(page: Path) -> list[str]:
     - ``python``: no bash block runs ``drevalpy``.
     - ``cli``: no python block.
 
-    Args:
-        page: A tutorial or how-to page.
-
-    Returns:
-        One message per violation, each starting ``path:line``.
+    :param page: A tutorial or how-to page.
+    :returns: One message per violation, each starting ``path:line``.
     """
     interface = page_interface(page)
     if interface not in INTERFACES:

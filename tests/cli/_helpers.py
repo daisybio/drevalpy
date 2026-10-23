@@ -33,8 +33,7 @@ HELP_ENV = {"COLUMNS": "200", "NO_COLOR": "1", "TERM": "dumb"}
 def make_runner() -> CliRunner:
     """Build a fresh ``CliRunner``.
 
-    Returns:
-        A runner with click's default exception catching enabled, so failures
+    :returns: A runner with click's default exception catching enabled, so failures
         surface as ``result.exit_code`` plus ``result.exception``.
     """
     return CliRunner()
@@ -43,11 +42,8 @@ def make_runner() -> CliRunner:
 def plain(text: str) -> str:
     """Strip terminal escape codes so help-text assertions are colour-agnostic.
 
-    Args:
-        text: Captured CLI output.
-
-    Returns:
-        ``text`` without ANSI escape sequences.
+    :param text: Captured CLI output.
+    :returns: ``text`` without ANSI escape sequences.
     """
     return _ANSI_ESCAPE.sub("", text)
 
@@ -62,11 +58,10 @@ def patch_worker(monkeypatch: pytest.MonkeyPatch, module_name: str, attribute: s
     :func:`importlib.import_module` patches the object that a command body's
     ``from drevalpy._run import run`` actually reads.
 
-    Args:
-        monkeypatch: Fixture performing the (reverted) assignment.
-        module_name: Dotted name of the module owning the worker.
-        attribute: Name of the worker within that module.
-        value: Replacement callable.
+    :param monkeypatch: Fixture performing the (reverted) assignment.
+    :param module_name: Dotted name of the module owning the worker.
+    :param attribute: Name of the worker within that module.
+    :param value: Replacement callable.
     """
     monkeypatch.setattr(importlib.import_module(module_name), attribute, value)
 
@@ -81,8 +76,7 @@ class FakeMuData:
     def write(self, path: str) -> None:
         """Record ``path`` and create a placeholder file there.
 
-        Args:
-            path: Destination the command chose for this dataset.
+        :param path: Destination the command chose for this dataset.
         """
         self.written.append(path)
         UPath(path).write_text("stub-h5mu")
@@ -103,9 +97,8 @@ class FakeDataset:
     ) -> None:
         """Create a dataset stub.
 
-        Args:
-            name: Value exposed as ``Dataset.name``.
-            randomization: Value exposed as ``Dataset.randomization``.
+        :param name: Value exposed as ``Dataset.name``.
+        :param randomization: Value exposed as ``Dataset.randomization``.
         """
         self.name = name
         self.randomization = randomization
@@ -114,8 +107,7 @@ class FakeDataset:
     def save(self, path: str | UPath) -> None:
         """Write the placeholder file the way :meth:`Dataset.save` writes its MuData.
 
-        Args:
-            path: Destination the command chose for this dataset.
+        :param path: Destination the command chose for this dataset.
         """
         self.mdata.write(str(path))
 
@@ -126,8 +118,7 @@ class Recorder:
     def __init__(self, return_value: Any = None) -> None:
         """Create a recorder.
 
-        Args:
-            return_value: Value handed back to the caller on every invocation.
+        :param return_value: Value handed back to the caller on every invocation.
         """
         self.return_value = return_value
         self.calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
@@ -158,12 +149,9 @@ class Recorder:
 def write_synthetic_fold(runner: CliRunner, directory: UPath) -> tuple[UPath, UPath]:
     """Write a synthetic dataset and its first LPO fold through the CLI, as a user would.
 
-    Args:
-        runner: Runner that invokes the ``drevalpy`` app.
-        directory: Existing directory that receives ``synthetic.h5mu`` and ``folds/fold_0.npz``.
-
-    Returns:
-        The dataset path and the first fold's path.
+    :param runner: Runner that invokes the ``drevalpy`` app.
+    :param directory: Existing directory that receives ``synthetic.h5mu`` and ``folds/fold_0.npz``.
+    :returns: The dataset path and the first fold's path.
     """
     from drevalpy.cli.main import app
 

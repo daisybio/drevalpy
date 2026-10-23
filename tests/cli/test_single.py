@@ -28,8 +28,7 @@ class StubRunResult:
     def save(self, path: str) -> None:
         """Record the destination the command derived.
 
-        Args:
-            path: Output file path chosen by the command.
+        :param path: Output file path chosen by the command.
         """
         self.saved.append(path)
 
@@ -52,7 +51,7 @@ def _write_split(path: UPath, *, metadata: dict[str, object] | None = None) -> N
 
 @pytest.fixture()
 def split_file(tmp_path: UPath) -> UPath:
-    """A fold .npz whose metadata deliberately lacks ``split_mode``."""
+    """Write a fold .npz whose metadata deliberately lacks ``split_mode``."""
     path = tmp_path / "fold_0.npz"
     _write_split(path)
     return path
@@ -60,7 +59,7 @@ def split_file(tmp_path: UPath) -> UPath:
 
 @pytest.fixture()
 def dataset() -> FakeDataset:
-    """The dataset stub ``Dataset.load`` is made to return."""
+    """Provide the dataset stub ``Dataset.load`` is made to return."""
     return FakeDataset()
 
 
@@ -71,12 +70,9 @@ def worker(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Recorder:
     ``SplitMasks.load`` is left real so the ``split_mode`` injection is asserted
     against the genuine round-trip rather than a stub's attribute.
 
-    Args:
-        monkeypatch: Fixture used to replace the source-module workers.
-        dataset: Stub returned by the patched ``Dataset.load``.
-
-    Returns:
-        Recorder standing in for :func:`drevalpy.single`.
+    :param monkeypatch: Fixture used to replace the source-module workers.
+    :param dataset: Stub returned by the patched ``Dataset.load``.
+    :returns: Recorder standing in for :func:`drevalpy.single`.
     """
     recorder = Recorder(return_value=StubRunResult())
     monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type(f"Stub{name}", (), {}))

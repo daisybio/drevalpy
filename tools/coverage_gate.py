@@ -51,15 +51,11 @@ class FileCoverage(NamedTuple):
 def load_gate_config(pyproject: UPath) -> GateConfig:
     """Read the coverage-gate configuration from ``pyproject.toml``.
 
-    Args:
-        pyproject: Path to the ``pyproject.toml`` holding the config table.
+    Exits with an error message if ``pyproject`` does not exist.
 
-    Returns:
-        The resolved configuration, with defaults applied when the table or any
+    :param pyproject: Path to the ``pyproject.toml`` holding the config table.
+    :returns: The resolved configuration, with defaults applied when the table or any
         of its keys are absent.
-
-    Raises:
-        SystemExit: If ``pyproject`` does not exist.
     """
     if not pyproject.is_file():
         _fail(f"{pyproject} not found; run the gate from the repository root.")
@@ -76,15 +72,11 @@ def load_gate_config(pyproject: UPath) -> GateConfig:
 def load_file_percentages(coverage_json: UPath) -> dict[str, float]:
     """Read per-file coverage percentages from a ``coverage.json`` report.
 
-    Args:
-        coverage_json: Path to the JSON report written by ``--cov-report=json``.
+    Exits with an error message if the report is missing or cannot be parsed.
 
-    Returns:
-        Mapping of normalized module path to percent covered, with any leading
+    :param coverage_json: Path to the JSON report written by ``--cov-report=json``.
+    :returns: Mapping of normalized module path to percent covered, with any leading
         ``src/`` removed so keys match the package-relative exemption keys.
-
-    Raises:
-        SystemExit: If the report is missing or cannot be parsed.
     """
     if not coverage_json.is_file():
         _fail(
@@ -104,12 +96,9 @@ def load_file_percentages(coverage_json: UPath) -> dict[str, float]:
 def evaluate(percentages: dict[str, float], config: GateConfig) -> list[FileCoverage]:
     """Pair every measured module with the floor it is held to.
 
-    Args:
-        percentages: Mapping of module path to percent covered.
-        config: Resolved gate configuration.
-
-    Returns:
-        One entry per measured module, sorted by path.
+    :param percentages: Mapping of module path to percent covered.
+    :param config: Resolved gate configuration.
+    :returns: One entry per measured module, sorted by path.
     """
     results = []
     for path in sorted(percentages):
@@ -122,11 +111,8 @@ def evaluate(percentages: dict[str, float], config: GateConfig) -> list[FileCove
 def find_violations(results: list[FileCoverage]) -> list[FileCoverage]:
     """Select the modules that fall below their effective floor.
 
-    Args:
-        results: Output of :func:`evaluate`.
-
-    Returns:
-        The failing entries, in the order given.
+    :param results: Output of :func:`evaluate`.
+    :returns: The failing entries, in the order given.
     """
     return [item for item in results if item.percent < item.floor]
 
@@ -134,12 +120,9 @@ def find_violations(results: list[FileCoverage]) -> list[FileCoverage]:
 def find_ratchetable(results: list[FileCoverage], min_file_coverage: float) -> list[FileCoverage]:
     """Select exempted modules whose recorded floor is now needlessly low.
 
-    Args:
-        results: Output of :func:`evaluate`.
-        min_file_coverage: The global floor exemptions are measured against.
-
-    Returns:
-        Exempted entries that clear the global floor, or sit comfortably above
+    :param results: Output of :func:`evaluate`.
+    :param min_file_coverage: The global floor exemptions are measured against.
+    :returns: Exempted entries that clear the global floor, or sit comfortably above
         their own recorded floor.
     """
     return [
@@ -152,12 +135,9 @@ def find_ratchetable(results: list[FileCoverage], min_file_coverage: float) -> l
 def render_report(results: list[FileCoverage], config: GateConfig) -> tuple[str, bool]:
     """Build the human-readable gate report.
 
-    Args:
-        results: Output of :func:`evaluate`.
-        config: Resolved gate configuration.
-
-    Returns:
-        The report text and whether the gate passed.
+    :param results: Output of :func:`evaluate`.
+    :param config: Resolved gate configuration.
+    :returns: The report text and whether the gate passed.
     """
     violations = find_violations(results)
     lines: list[str] = []
@@ -195,11 +175,8 @@ def render_report(results: list[FileCoverage], config: GateConfig) -> tuple[str,
 def main(argv: list[str] | None = None) -> int:
     """Run the coverage gate.
 
-    Args:
-        argv: Command-line arguments, defaulting to ``sys.argv[1:]``.
-
-    Returns:
-        ``0`` if every module meets its floor, ``1`` otherwise.
+    :param argv: Command-line arguments, defaulting to ``sys.argv[1:]``.
+    :returns: ``0`` if every module meets its floor, ``1`` otherwise.
     """
     parser = argparse.ArgumentParser(description="Enforce a per-module coverage floor.")
     parser.add_argument("--coverage-json", default=DEFAULT_COVERAGE_JSON, help="Path to the coverage JSON report.")
