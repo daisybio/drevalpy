@@ -67,10 +67,51 @@ Defaults and results that changed
   the randomization tests and the seeding of every model fit. ``drevalpy data split`` and
   ``drevalpy experiments randomization`` take ``--seed`` as well.
 - Leaderboard titles state the real number of folds, for example "5-Fold Leave-Sample-Out".
+- **Models use the 1.6.x gene lists.** The sklearn models, ``SimpleNeuralNetwork``, ``DrugGNN``,
+  ``PharmaFormer``, ``DIPK``, ``EnsembleMF`` and ``SingleDrugKNN`` read the 867 landmark genes, ``PaccMann``
+  its network-propagation list, ``RandomForestAEMolGNet`` the TCGA autoencoder list, and the ``MultiView*``
+  models, ``MOLIR`` and ``SuperFELTR`` the lists of their views, instead of every gene of the view. Scores
+  differ from a model that reads the whole view. The lists ship inside the package and
+  :ref:`reference/datasets:Gene lists` describes them.
+- **A missing gene is an error.** If a dataset lacks genes of a list, the featurizer raises an
+  ``InvalidInputError`` that names the list, the view and the number of missing genes, instead of silently
+  keeping a smaller selection. ``gene_list=None`` (``gene_list_stem`` for ``landmarkGenes``) keeps the whole
+  view. ``PDX_Bruna`` and ``BeatAML2`` lack genes of several lists; see :doc:`/how-to/bring_your_own_data`.
+- **Default hyperparameters follow 1.6.1** for the sklearn, boosted-tree, neural-network, ``PharmaFormer`` and
+  ``SparseGO`` presets, and ``GradientBoosting`` is seeded with ``random_state=42``. The values are in
+  :doc:`/reference/hyperparameters`.
+- **The DIPK autoencoder and the PharmaFormer scalers are fitted on each training sample once**, not once per
+  sample-drug pair, as in 1.6.1. The DIPK autoencoder z-scores every sample on its own, trains for 1000 epochs
+  by default, and takes ``lr_autoencoder``, ``patience_autoencoder`` and ``batch_size_autoencoder``.
+- **One rule for constant values.** The pooled metrics and the grouped Pearson correlation treat a vector as
+  constant when ``max`` and ``min`` are within ``numpy.isclose`` of each other (``atol=1e-6``), whatever the
+  order of the values.
+- **The mean-effects baseline works without tissue labels.** ``NaiveMeanEffectsPredictor`` on a dataset with no
+  tissue information predicts the dataset mean plus the sample and drug effects.
+- **The leaderboard has four panels:** the Pearson correlation (normalized when the report is), the RMSE, the raw
+  Pearson correlation and the Pearson correlation within each drug. The normalization reference stays in the
+  leaderboard and the critical difference diagram as a baseline row.
+
+New models
+~~~~~~~~~~
+
+Four models from the 1.6.x line are zoo presets: ``SingleDrugKNN`` (a nearest-neighbour model per drug with
+mRMR feature selection), ``RandomForestAEMolGNet`` (a random forest on DIPK's autoencoder and MolGNet
+features), ``EnsembleMF`` and ``PaccMann``. Every 1.6.1 model has a preset of the same name, except
+``NaiveCellLineMeanPredictor``, which is ``NaiveSampleMeanPredictor``. The table is at
+:ref:`how-to/migrate/index:Map 1.x model names to v2`, and :doc:`/explanation/literature_models` describes
+``EnsembleMF`` and ``PaccMann``.
 
 New commands and functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- ``drevalpy train MODEL --dataset DATASET --output MODEL_DIR`` trains a final model on all pairs of a
+  dataset, and ``drevalpy predict MODEL_DIR --dataset DATASET --output FILE`` applies it. In Python they are
+  ``drevalpy.train`` and the saved ``DRPModel``. See :doc:`/how-to/train_save_load`.
+- ``drevalpy --version`` prints the installed version.
+- The response transformations ``drug_mean`` and ``drug_tissue_mean`` subtract the mean of each drug, or of
+  each drug and tissue, from the response. ``NaiveMeanEffectsPredictor`` is always fitted on the
+  untransformed response.
 - ``drevalpy.synthetic()`` and ``drevalpy data synthetic --output toy.h5mu`` build a small
   simulated dataset, by default 60 samples, 8 drugs and 6 tissues with a gene expression view.
   It needs no download, and its drugs differ so much in average potency that pooled scores
@@ -147,6 +188,10 @@ Other changes since 1.6.0
   preset or a recipe such as ``pca[gene_expression]:elasticNet``.
 - MultiQC is a regular dependency, so ``drevalpy report`` works without an extra. PyTorch
   comes with the ``cpu``, ``cu126`` or ``cu130`` extra.
+- Datasets that you download by name are checked against a pinned ``sha256``. ``TOYv1`` is republished and
+  holds every gene of the shipped gene lists, so every preset runs on it.
+- Precily downloads the MSigDB C2 CP v6.1 gene sets on first use when a dataset has no
+  ``uns["pathways_gmt"]``, and keeps them in the cache directory.
 - Datasets that you download by name are cached in the system cache directory, which
   ``DREVALPY_CACHE_DIR`` overrides, instead of a ``--path_data`` directory.
 - Extension files, zoo files and plugins add components, split modes, datasets and

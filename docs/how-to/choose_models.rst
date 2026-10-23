@@ -107,12 +107,23 @@ featurizer and a predictor. Ask three questions of a preset.
    whose view the dataset lacks fails when it trains, with an error that lists the views the
    dataset has. Check the dataset before you start: the ``Modalities`` lines of a printed
    dataset show its views, as in :doc:`/how-to/load_and_split`. The drug featurizer
-   ``fingerprints`` needs the SMILES of the drugs, which datasets carry.
+   ``fingerprints`` needs the SMILES of the drugs, which datasets carry. Most presets also
+   keep a shipped gene list, such as ``landmark_genes``, and stop with an error that names
+   the list if the view lacks genes of it; see :doc:`/how-to/bring_your_own_data`.
 
 **Is it a single-drug or a multi-drug model?**
    A multi-drug model trains once on all drugs. A single-drug model, such as
    ``SingleDrugElasticNet``, fits one estimator per drug and uses only the features of the
    samples. ``Scope`` in ``drevalpy list zoo-presets`` shows which a preset is.
+
+**Is it a literature model or an ablation?**
+   ``DrugGNN``, ``Precily``, ``SRMF``, ``MOLIR``, ``SuperFELTR``, ``PharmaFormer``, ``DIPK``,
+   ``SparseGO``, ``EnsembleMF`` and ``PaccMann`` reimplement published methods, and
+   :doc:`/explanation/literature_models` lists how each differs from its paper.
+   ``RandomForestAEMolGNet`` gives a random forest the autoencoder and MolGNet features of
+   ``DIPK``, which separates the effect of the features from that of the network.
+   ``SingleDrugKNN`` is a k-nearest-neighbours model that fits one estimator per drug, with
+   mRMR feature selection.
 
 **What does it need installed or downloaded?**
    Predictors built on PyTorch, such as the neural networks, need one of the PyTorch extras

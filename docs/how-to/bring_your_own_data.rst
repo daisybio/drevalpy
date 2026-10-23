@@ -321,6 +321,85 @@ the response, and name the modality after the feature: ``gene_expression``, ``me
              Modalities:
                  gene_expression: 6 × 4
 
+Match the gene lists of the presets
+-----------------------------------
+
+Most zoo presets keep a shipped gene list instead of the whole view, so that a model reads the
+same genes on every dataset. The lists are those of drevalpy 1.6.x:
+
+- ``landmark_genes`` (867 genes) for the sklearn models, ``SimpleNeuralNetwork``,
+  ``DrugGNN``, ``PharmaFormer``, ``DIPK``, ``EnsembleMF`` and ``SingleDrugKNN``;
+- ``gene_list_paccmann_network_prop`` for ``PaccMann`` and ``tcga_autoencoder_genes_available``
+  for ``RandomForestAEMolGNet``;
+- ``drug_target_genes_all_drugs`` in the ``mutations`` view for the ``MultiView*`` models;
+- the ``*_intersection`` lists of each view for ``MOLIR`` and ``SuperFELTR``.
+
+If your view lacks any gene of the list, the model stops instead of training on a smaller
+selection, and the error names the list, the view and the number of missing genes. The
+``gene_expression`` view of the example holds four made-up genes, so ``Ridge`` fails:
+
+.. tab-set::
+   :sync-group: interface
+
+   .. tab-item:: CLI
+      :sync: cli
+
+      .. snippet: skip
+
+      .. code-block:: bash
+
+         drevalpy run Ridge --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo
+
+      .. code-block:: text
+
+         Error: view 'gene_expression' lacks 867 of 867 genes in 'landmark_genes' (missing: INSIG1, FOXO3, CDH3, ORC1, ITGAE, ...). Pass gene_list=None to use every gene of the view.
+
+      To keep all genes of the view, compose the model from a recipe: a featurizer in a recipe
+      has ``gene_list=None``, so it reads the whole view.
+
+      .. code-block:: bash
+
+         drevalpy run "scaledGeneExpression:fingerprints:ridge" \
+             --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo
+
+   .. tab-item:: Python
+      :sync: python
+
+      .. code-block:: python
+
+         from drevalpy import ModelSpec
+         from drevalpy.errors import InvalidInputError
+         from drevalpy.models.config import from_spec
+
+         dataset = drevalpy.load("my_screen_expression.h5mu")
+         try:
+             drevalpy.run([ModelSpec.from_name("Ridge")], dataset, "LPO", hyperparameter_tuning=False, on_error="raise")
+         except InvalidInputError as error:
+             print(error)
+
+         ridge = ModelSpec("RawRidge", from_spec("scaledGeneExpression:fingerprints:ridge"))
+         print(drevalpy.run([ridge], dataset, "LPO", hyperparameter_tuning=False))
+
+      The first call prints the error:
+
+      .. code-block:: text
+
+         view 'gene_expression' lacks 867 of 867 genes in 'landmark_genes' (missing: INSIG1, FOXO3, CDH3, ORC1, ITGAE, ...). Pass gene_list=None to use every gene of the view.
+
+      A recipe passes no gene list, so the second call trains on the four genes.
+
+There are two ways to proceed. Add the missing genes to the view, or opt out of the list. A
+featurizer that takes ``gene_list`` keeps the whole view when it is ``None`` (``landmarkGenes``
+takes ``gene_list_stem`` instead). A recipe string sets no list, as above, and a zoo file in an
+extension directory sets the option by name (``gene_list: null``); see :doc:`/reference/recipes`
+and :doc:`/reference/datasets`. Opting out changes what the model reads, so its scores are no
+longer those of the preset.
+
+``PDX_Bruna`` and ``BeatAML2`` lack some genes of several lists, including ``landmark_genes``, so
+the presets raise this error on them unless you opt out; the gene-list section of
+:doc:`/reference/datasets` has the details. The built-in screens and ``TOYv1`` hold the genes of
+the lists their presets use. The naive baselines need no list.
+
 Share the dataset by name
 -------------------------
 

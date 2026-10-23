@@ -73,11 +73,18 @@ A reference model removes what the easy part of the problem explains. With ``--r
 pair from both the observed response and the prediction of every other model, fold by fold,
 and recomputes the metrics. Each model is then scored on what it adds beyond the reference.
 
-The reference model is not in the normalized report; the other models are. Name a model that
+The reference model is not in the normalized report, except as a baseline row of the leaderboard
+and the critical difference diagram; the other models are. Name a model that
 is in the experiment, as it is named there. Otherwise the command stops with an error that lists
 the models that are available. Without a reference model the report is not normalized, and
 every metric is on the scale of the response. The experiment summary shows which case you have:
 ``Normalized by: None``.
+
+The leaderboard ranks the models on up to four panels: the Pearson correlation (normalized when
+the report is), the RMSE, the raw Pearson correlation of the unnormalized predictions and the
+Pearson correlation within each drug. The raw panel is left out of a report that is not
+normalized, where it would repeat the first, and the per-drug panel when no model has a
+defined value.
 
 ``NaiveMeanEffectsPredictor`` is a good reference because it already predicts the mean plus the
 effects of the sample and the drug; see :doc:`/how-to/choose_models`. Normalizing needs a

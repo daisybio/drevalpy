@@ -55,7 +55,7 @@ syntax.
 
          drevalpy list zoo-presets
 
-      The table has 29 rows, one per zoo name, with the recipe, scope, prediction mode and
+      The table has 33 rows, one per zoo name, with the recipe, scope, prediction mode and
       origin of each:
 
       .. code-block:: text
@@ -67,6 +67,7 @@ syntax.
           DIPK                   concatFeaturizers:molgnet:dipk              multi_drug   regression        built-in
           DrugGNN                landmarkGenes:drugGraph:drugGNN             multi_drug   regression        built-in
           ElasticNet             scaledGeneExpression:fingerprints:elasticNet multi_drug  regression        built-in
+          EnsembleMF             scaledGeneExpression:fingerprints:ensembleMF multi_drug  regression        built-in
           ...
 
       The three parts of a recipe come from the next three lists:
@@ -78,7 +79,7 @@ syntax.
          drevalpy list predictors
 
       The ``predictors`` table, for example, begins like this and ends with the line
-      ``27 entries``:
+      ``30 entries``:
 
       .. code-block:: text
 
@@ -113,9 +114,9 @@ syntax.
 
       .. code-block:: text
 
-         29 ['AdaBoostDecisionTree', 'DIPK', 'DrugGNN', 'ElasticNet']
+         33 ['AdaBoostDecisionTree', 'DIPK', 'DrugGNN', 'ElasticNet']
          ['naiveMeanEffects', 'naiveDrugMean', 'naiveSampleMean', 'naiveMean']
-         ['constant', 'identity', 'concatFeaturizers', 'bionic']
+         ['constant', 'identity', 'concatFeaturizers', 'dipkGeneExpression']
          ['constant', 'identity', 'concatFeaturizers', 'bpePharmaformer']
 
 Naive baselines appear twice: as zoo names such as ``NaiveDrugMeanPredictor``, which you pass to

@@ -185,13 +185,13 @@ The shipped lists, by the view they apply to:
      - Genes and purpose
    * - ``landmark_genes``
      - 867 L1000 landmark genes; the expression input of the sklearn models, SimpleNN,
-       DrugGNN, PharmaFormer, EnsembleMF and SingleDrugKNN in 1.6.1
+       DrugGNN, PharmaFormer, DIPK, EnsembleMF and SingleDrugKNN
    * - ``landmark_genes_reduced``
      - The landmark genes also measured in the copy-number, mutation and proteomics
        intersections
    * - ``gene_expression_intersection``
      - Genes in the expression view of every cell-line screen (CTRPv1, CTRPv2, GDSC1, GDSC2); the
-       input of DIPK
+       expression input of MOLIR
    * - ``gene_list_paccmann_network_prop``
      - 1,955 genes of the PaccMann network-propagation selection that the cell-line screens measure
    * - ``gene_list_paccmann_network_prop_reduced``

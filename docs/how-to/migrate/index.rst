@@ -160,6 +160,10 @@ column is a zoo preset; check yours with ``drevalpy list zoo-presets``.
    * - ``RandomForest``
      - ``RandomForest``
      -
+   * - ``RandomForestAEMolGNet``
+     - ``RandomForestAEMolGNet``
+     - Autoencoder embedding of the ``tcga_autoencoder_genes_available`` genes and pooled MolGNet
+       embeddings of the drug, fed to a random forest. A 1.x checkpoint does not load.
    * - ``GradientBoosting``
      - ``GradientBoosting``
      -
@@ -191,6 +195,10 @@ column is a zoo preset; check yours with ``drevalpy list zoo-presets``.
    * - ``SingleDrugRandomForest``
      - ``SingleDrugRandomForest``
      - Single-drug model, as above.
+   * - ``SingleDrugKNN``
+     - ``SingleDrugKNN``
+     - Single-drug model, as above. mRMR feature selection on the landmark genes, then a
+       nearest-neighbour regressor per drug.
    * - ``DrugGNN``
      - ``DrugGNN``
      -

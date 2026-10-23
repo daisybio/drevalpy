@@ -96,7 +96,9 @@ Three consequences follow from the definition:
   difference is unchanged. Normalization matters for :math:`R^2` and the
   correlations.
 - The reference model itself is dropped from the normalized result, since its
-  residual is zero by construction.
+  residual is zero by construction. Only the leaderboard and the critical
+  difference diagram of the report still list it, as the baseline that the other
+  models are ranked against.
 - Normalization is explicit. ``drevalpy.run`` never adds the reference model for
   you: it must be among the models you ran, and normalization fails with a clear
   error if it is missing, if the result is already normalized, or if the
