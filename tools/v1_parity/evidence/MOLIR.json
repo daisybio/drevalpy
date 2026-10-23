@@ -1,0 +1,1191 @@
+{
+  "case": {
+    "inputs_sha256": "2cadacbae38c030c7f7d068a142820465c99db0b34638426934101e961e9a654",
+    "meta": {
+      "forward": {
+        "small": {
+          "dropout_rate": 0.3,
+          "h": [
+            6,
+            5,
+            4
+          ],
+          "widths": [
+            13,
+            9,
+            11
+          ]
+        },
+        "wide": {
+          "dropout_rate": 0.5,
+          "h": [
+            8,
+            3,
+            5
+          ],
+          "widths": [
+            20,
+            7,
+            8
+          ]
+        }
+      },
+      "lists": {
+        "copy_number_variation_gistic": "copy_number_variation_gistic_intersection",
+        "gene_expression": "gene_expression_intersection",
+        "mutations": "mutations_intersection"
+      },
+      "n_drugs": 2,
+      "variants": {
+        "default": {
+          "early_stopping": true,
+          "hyperparameters": {},
+          "seed": 3
+        },
+        "gamma": {
+          "early_stopping": false,
+          "hyperparameters": {
+            "gamma": 0.5
+          },
+          "scope": "deviation",
+          "seed": 5
+        },
+        "no_es": {
+          "early_stopping": false,
+          "hyperparameters": {
+            "epochs": 3
+          },
+          "seed": 4
+        },
+        "ragged": {
+          "early_stopping": true,
+          "features_only": true,
+          "hyperparameters": {
+            "epochs": 1
+          },
+          "ragged": true,
+          "scope": "deviation",
+          "seed": 7
+        },
+        "select": {
+          "early_stopping": true,
+          "features_only": true,
+          "hyperparameters": {
+            "epochs": 1,
+            "n_gene_expression_features": 50
+          },
+          "scope": "deviation",
+          "seed": 6
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "gamma, D00: expression parameters after training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.3043641149997711,
+      "max_rel_diff": 1.9817376222365324,
+      "name": "gamma/D00/params_expression",
+      "passed": false,
+      "pearson": 0.9780140534134805,
+      "scope": "deviation",
+      "shape_v1": [
+        13644
+      ],
+      "shape_v2": [
+        13644
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "gamma, D00: mutation parameters after training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.3251018524169922,
+      "max_rel_diff": 1.9748003734152946,
+      "name": "gamma/D00/params_mutation",
+      "passed": false,
+      "pearson": 0.9769204616384628,
+      "scope": "deviation",
+      "shape_v1": [
+        13740
+      ],
+      "shape_v2": [
+        13740
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "gamma, D00: cnv parameters after training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.30784091353416443,
+      "max_rel_diff": 1.9263565279571793,
+      "name": "gamma/D00/params_cnv",
+      "passed": false,
+      "pearson": 0.9783546890525326,
+      "scope": "deviation",
+      "shape_v1": [
+        10800
+      ],
+      "shape_v2": [
+        10800
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "gamma, D00: regressor parameters after training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.000741124153137207,
+      "max_rel_diff": 0.010801031862622606,
+      "name": "gamma/D00/params_regressor",
+      "passed": false,
+      "pearson": 0.9999981076613952,
+      "scope": "deviation",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "gamma, D00: test predictions after the seeded short training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.03646394610404968,
+      "max_rel_diff": 0.3922425842621706,
+      "name": "gamma/D00/predictions",
+      "passed": false,
+      "pearson": 0.9952588168665383,
+      "scope": "deviation",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "gamma, D01: expression parameters after training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.13140302896499634,
+      "max_rel_diff": 1.9315412484581982,
+      "name": "gamma/D01/params_expression",
+      "passed": false,
+      "pearson": 0.9958177002061689,
+      "scope": "deviation",
+      "shape_v1": [
+        13644
+      ],
+      "shape_v2": [
+        13644
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "gamma, D01: mutation parameters after training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.1342151165008545,
+      "max_rel_diff": 1.9998912751639648,
+      "name": "gamma/D01/params_mutation",
+      "passed": false,
+      "pearson": 0.9958087760885603,
+      "scope": "deviation",
+      "shape_v1": [
+        13740
+      ],
+      "shape_v2": [
+        13740
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "gamma, D01: cnv parameters after training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.12838241457939148,
+      "max_rel_diff": 1.94644273280458,
+      "name": "gamma/D01/params_cnv",
+      "passed": false,
+      "pearson": 0.9954987566714675,
+      "scope": "deviation",
+      "shape_v1": [
+        10800
+      ],
+      "shape_v2": [
+        10800
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "gamma, D01: regressor parameters after training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.0003644898533821106,
+      "max_rel_diff": 0.5166736457320039,
+      "name": "gamma/D01/params_regressor",
+      "passed": false,
+      "pearson": 0.9999992220420835,
+      "scope": "deviation",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "gamma, D01: test predictions after the seeded short training",
+      "detail": "",
+      "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
+      "max_abs_diff": 0.03697475790977478,
+      "max_rel_diff": 1.3493446687920652,
+      "name": "gamma/D01/predictions",
+      "passed": false,
+      "pearson": 0.997142389236214,
+      "scope": "deviation",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "select: selected genes of the samples of the last drug",
+      "detail": "non-numeric arrays differ: 1.6.1='NRAS' v2='FKBP4'; 1.6.1='VPS35' v2='PSMD4'; 1.6.1='ADH5' v2='VPS35'",
+      "explanation": "1.6.1 ranks the variance of the expression columns after arcsinh and standardization, where every column has variance 1 up to float rounding, so the top-k columns are decided by rounding noise; v2 ranks the variance of the arcsinh values before standardizing (documented in `literature_models.rst`). The variant keeps 50 of the 2269 genes; measured on 2026-10-23, the two sides share 2 of their 50 genes (about 1 by chance).",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "select/selected_genes",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [
+        50
+      ],
+      "shape_v2": [
+        50
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "forward",
+      "description": "select: features expression of the samples of the last drug",
+      "detail": "",
+      "explanation": "1.6.1 ranks the variance of the expression columns after arcsinh and standardization, where every column has variance 1 up to float rounding, so the top-k columns are decided by rounding noise; v2 ranks the variance of the arcsinh values before standardizing (documented in `literature_models.rst`). The variant keeps 50 of the 2269 genes; measured on 2026-10-23, the two sides share 2 of their 50 genes (about 1 by chance).",
+      "max_abs_diff": 5.78955306852879,
+      "max_rel_diff": 1.9981146531592797,
+      "name": "select/features_expression",
+      "passed": false,
+      "pearson": 0.04262746538281398,
+      "scope": "deviation",
+      "shape_v1": [
+        29,
+        50
+      ],
+      "shape_v2": [
+        29,
+        50
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "forward",
+      "description": "ragged: features expression of the samples of the last drug",
+      "detail": "",
+      "explanation": "1.6.1 trains one model per drug and fits the scaler (and the variance selection) inside `train` on the samples of that drug's training pairs. v2 featurizes once, on the distinct samples of all training pairs, and then splits the pairs by drug. With a drug that lacks some of the training samples (the last drug here misses the first six), the scaler of that drug differs from the shared one; the case compares the features of the samples of the last drug; measured on 2026-10-23, the standardized expression differs by up to 2.8.",
+      "max_abs_diff": 2.830474702726505,
+      "max_rel_diff": 1.9982381861231335,
+      "name": "ragged/features_expression",
+      "passed": false,
+      "pearson": 0.9883051875070494,
+      "scope": "deviation",
+      "shape_v1": [
+        23,
+        2269
+      ],
+      "shape_v2": [
+        23,
+        2269
+      ]
+    }
+  ],
+  "findings": [
+    "REAL BUG (v2, not fixed here): a preset-built MOLIR cannot finish a fit. `build_components` adds `prediction_mode: PredictionMode.REGRESSION` to the predictor hyperparameters, `MOLIModel.__init__` calls `save_hyperparameters()`, so the checkpoint written with `save_weights_only=True` stores the enum, and the reload of the best epoch (`utils.torch_io.load_state_dict`, `weights_only=True`) raises `UnpicklingError: Unsupported global: drevalpy.types.enums.prediction_mode.PredictionMode`. The predictor tests construct the predictor without `prediction_mode` and do not see it. The case allow-lists the enum (`prediction_mode_checkpoints`) to compare the training; SuperFELTR is built the same way.",
+    "The `MOLIModel` of v2 is the 1.6.1 network: a `state_dict` of one loads into the other with `strict=True`, and eval and train mode (batch statistics, dropout, the `normalize(dim=0)` over the batch) agree at the `forward` class.",
+    "1.6.1 draws the triplets from `np.random.default_rng(None)` (unseeded: runs are not reproducible), v2 from the global NumPy stream seeded per fit. The case passes the same explicit seed sequence to both (the `random_seed` argument both functions have), so the training steps compare the algorithm and not the draws. A free-running 1.6.1 fit cannot be reproduced at all.",
+    "v2 weights the triplet term by `gamma`; 1.6.1 ignores `gamma` (variant `gamma`, deviation). With gamma 1 (variants `default`, `no_es`) the training agrees at the `train` class.",
+    "v2 selects the highest-variance expression genes before standardization, 1.6.1 after it (variant `select`, deviation). With `n_gene_expression_features` at least the gene count both keep all genes in the column order of the list and agree exactly. Scaling and selection use the training rows only on both sides.",
+    "v2 fits the scaler and the selection once on the samples of all training pairs; 1.6.1 fits them per drug on that drug's samples (variant `ragged`, deviation). The two agree when every drug has the same training samples, which is the case for the complete response matrix of the other variants.",
+    "The v2 preset (commit 174ceea7, B5) carries the three `*_intersection` gene lists of the 1.6.1 defaults (`MOLIR.default_gene_lists`); the case does not override them and the selected columns agree. Mutation and copy number columns pass through unchanged on both sides."
+  ],
+  "generated": "2026-10-23",
+  "model": "MOLIR",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "small network, eval mode output",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "forward/small/eval",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        1
+      ],
+      "shape_v2": [
+        7,
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "small network, train mode output",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "forward/small/train",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        1
+      ],
+      "shape_v2": [
+        7,
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "wide network, eval mode output",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "forward/wide/eval",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        1
+      ],
+      "shape_v2": [
+        7,
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "wide network, train mode output",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "forward/wide/train",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        1
+      ],
+      "shape_v2": [
+        7,
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default: selected genes of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "default/selected_genes",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        2269
+      ],
+      "shape_v2": [
+        2269
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default: features expression of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.303152669280166e-07,
+      "max_rel_diff": 0.07386365266960608,
+      "name": "default/features_expression",
+      "passed": true,
+      "pearson": 0.9999999999999823,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2269
+      ],
+      "shape_v2": [
+        29,
+        2269
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default: features mutations of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/features_mutations",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2743
+      ],
+      "shape_v2": [
+        29,
+        2743
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default: features cnv of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/features_cnv",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2695
+      ],
+      "shape_v2": [
+        29,
+        2695
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D00: expression parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1920928955078125e-07,
+      "max_rel_diff": 0.0002107968875194261,
+      "name": "default/D00/params_expression",
+      "passed": true,
+      "pearson": 0.9999999999999977,
+      "scope": "parity",
+      "shape_v1": [
+        13644
+      ],
+      "shape_v2": [
+        13644
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D00: mutation parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 6.397701144109375e-05,
+      "name": "default/D00/params_mutation",
+      "passed": true,
+      "pearson": 0.9999999999999991,
+      "scope": "parity",
+      "shape_v1": [
+        13740
+      ],
+      "shape_v2": [
+        13740
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D00: cnv parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 0.0001274128814423138,
+      "name": "default/D00/params_cnv",
+      "passed": true,
+      "pearson": 0.9999999999999994,
+      "scope": "parity",
+      "shape_v1": [
+        10800
+      ],
+      "shape_v2": [
+        10800
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D00: regressor parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.3283064365386963e-10,
+      "max_rel_diff": 1.7994242921919561e-07,
+      "name": "default/D00/params_regressor",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D00: test predictions after the seeded short training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.4901161193847656e-07,
+      "max_rel_diff": 1.8652717915506544e-06,
+      "name": "default/D00/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999333,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D01: expression parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1920928955078125e-07,
+      "max_rel_diff": 0.00018468453379996515,
+      "name": "default/D01/params_expression",
+      "passed": true,
+      "pearson": 0.9999999999999961,
+      "scope": "parity",
+      "shape_v1": [
+        13644
+      ],
+      "shape_v2": [
+        13644
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D01: mutation parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1920928955078125e-07,
+      "max_rel_diff": 0.00011309293007625694,
+      "name": "default/D01/params_mutation",
+      "passed": true,
+      "pearson": 0.9999999999999979,
+      "scope": "parity",
+      "shape_v1": [
+        13740
+      ],
+      "shape_v2": [
+        13740
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D01: cnv parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 0.00037564966809036177,
+      "name": "default/D01/params_cnv",
+      "passed": true,
+      "pearson": 0.9999999999999987,
+      "scope": "parity",
+      "shape_v1": [
+        10800
+      ],
+      "shape_v2": [
+        10800
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D01: regressor parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.450580596923828e-09,
+      "max_rel_diff": 6.117992833383195e-08,
+      "name": "default/D01/params_regressor",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default, D01: test predictions after the seeded short training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1920928955078125e-07,
+      "max_rel_diff": 5.142124904270775e-07,
+      "name": "default/D01/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999611,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_es: selected genes of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "no_es/selected_genes",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        2269
+      ],
+      "shape_v2": [
+        2269
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_es: features expression of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.569067805273221e-07,
+      "max_rel_diff": 0.0043519739531802885,
+      "name": "no_es/features_expression",
+      "passed": true,
+      "pearson": 0.9999999999999818,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2269
+      ],
+      "shape_v2": [
+        29,
+        2269
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_es: features mutations of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_es/features_mutations",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2743
+      ],
+      "shape_v2": [
+        29,
+        2743
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_es: features cnv of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_es/features_cnv",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2695
+      ],
+      "shape_v2": [
+        29,
+        2695
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es, D00: expression parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1920928955078125e-07,
+      "max_rel_diff": 0.0007681228996639462,
+      "name": "no_es/D00/params_expression",
+      "passed": true,
+      "pearson": 0.9999999999999984,
+      "scope": "parity",
+      "shape_v1": [
+        13644
+      ],
+      "shape_v2": [
+        13644
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es, D00: mutation parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 8.781707955646886e-05,
+      "name": "no_es/D00/params_mutation",
+      "passed": true,
+      "pearson": 0.9999999999999996,
+      "scope": "parity",
+      "shape_v1": [
+        13740
+      ],
+      "shape_v2": [
+        13740
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es, D00: cnv parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 5.2287034906824504e-05,
+      "name": "no_es/D00/params_cnv",
+      "passed": true,
+      "pearson": 0.9999999999999996,
+      "scope": "parity",
+      "shape_v1": [
+        10800
+      ],
+      "shape_v2": [
+        10800
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "no_es, D00: regressor parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_es/D00/params_regressor",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es, D00: test predictions after the seeded short training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.4586915969848633e-07,
+      "max_rel_diff": 3.7960953823030404e-06,
+      "name": "no_es/D00/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999528,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es, D01: expression parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.940696716308594e-08,
+      "max_rel_diff": 0.00020307395953606303,
+      "name": "no_es/D01/params_expression",
+      "passed": true,
+      "pearson": 0.9999999999999979,
+      "scope": "parity",
+      "shape_v1": [
+        13644
+      ],
+      "shape_v2": [
+        13644
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es, D01: mutation parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 2.573874086079709e-05,
+      "name": "no_es/D01/params_mutation",
+      "passed": true,
+      "pearson": 0.9999999999999992,
+      "scope": "parity",
+      "shape_v1": [
+        13740
+      ],
+      "shape_v2": [
+        13740
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es, D01: cnv parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.450580596923828e-09,
+      "max_rel_diff": 1.8103900873383903e-05,
+      "name": "no_es/D01/params_cnv",
+      "passed": true,
+      "pearson": 0.9999999999999997,
+      "scope": "parity",
+      "shape_v1": [
+        10800
+      ],
+      "shape_v2": [
+        10800
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es, D01: regressor parameters after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 4.656612873077393e-10,
+      "max_rel_diff": 8.44790523207494e-08,
+      "name": "no_es/D01/params_regressor",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es, D01: test predictions after the seeded short training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.6391277313232422e-07,
+      "max_rel_diff": 1.8408485977335807e-06,
+      "name": "no_es/D01/predictions",
+      "passed": true,
+      "pearson": 0.9999999999996847,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "gamma: selected genes of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "gamma/selected_genes",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        2269
+      ],
+      "shape_v2": [
+        2269
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "gamma: features expression of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.569067805273221e-07,
+      "max_rel_diff": 0.0043519739531802885,
+      "name": "gamma/features_expression",
+      "passed": true,
+      "pearson": 0.9999999999999818,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2269
+      ],
+      "shape_v2": [
+        29,
+        2269
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "gamma: features mutations of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "gamma/features_mutations",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2743
+      ],
+      "shape_v2": [
+        29,
+        2743
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "gamma: features cnv of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "gamma/features_cnv",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2695
+      ],
+      "shape_v2": [
+        29,
+        2695
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "select: features mutations of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "select/features_mutations",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2743
+      ],
+      "shape_v2": [
+        29,
+        2743
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "select: features cnv of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "select/features_cnv",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        29,
+        2695
+      ],
+      "shape_v2": [
+        29,
+        2695
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged: selected genes of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ragged/selected_genes",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        2269
+      ],
+      "shape_v2": [
+        2269
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged: features mutations of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "ragged/features_mutations",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        23,
+        2743
+      ],
+      "shape_v2": [
+        23,
+        2743
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged: features cnv of the samples of the last drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "ragged/features_cnv",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        23,
+        2695
+      ],
+      "shape_v2": [
+        23,
+        2695
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "lightgbm": "4.7.0",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu",
+    "xgboost": "3.4.1"
+  },
+  "v2": {
+    "commit": "174ceea7bf7e9e4d79080da0abe81a48c1667cb0",
+    "dirty": false,
+    "drevalpy": "2.0.0",
+    "lightgbm": "4.7.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0",
+    "xgboost": "3.2.0"
+  },
+  "verdict": "train"
+}

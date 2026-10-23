@@ -1,0 +1,673 @@
+{
+  "case": {
+    "inputs_sha256": "b7c3b793c457767ef5a87d503785b439de8674953e0814223317137b4840fb69",
+    "meta": {
+      "forward": {
+        "one_hidden": {
+          "dropout_prob": 0.1,
+          "units_per_layer": [
+            8
+          ]
+        },
+        "two_hidden": {
+          "dropout_prob": 0.3,
+          "units_per_layer": [
+            10,
+            6
+          ]
+        }
+      },
+      "gene_list": "landmark_genes",
+      "variants": {
+        "default": {
+          "batch_size": 16,
+          "dropout_prob": 0.3,
+          "early_stopping": true,
+          "max_epochs": 4,
+          "patience": 5,
+          "seed": 3,
+          "units_per_layer": [
+            12,
+            6
+          ]
+        },
+        "es_plain": {
+          "batch_size": 16,
+          "dropout_prob": 0.2,
+          "early_stopping": true,
+          "max_epochs": 4,
+          "patience": 2,
+          "seed": 4,
+          "units_per_layer": [
+            8
+          ]
+        },
+        "no_es": {
+          "batch_size": 16,
+          "dropout_prob": 0.1,
+          "early_stopping": false,
+          "max_epochs": 3,
+          "patience": 5,
+          "seed": 5,
+          "units_per_layer": [
+            8
+          ]
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "default: fully_connected_layers.0.bias after training",
+      "detail": "",
+      "explanation": "A linear bias in front of a batch norm layer has an exactly zero gradient, so what Adam sees is float32 rounding noise, and Adam rescales it to a full learning-rate step (the same mechanism as in the PaccMann case). The running mean behind that bias, and through it the eval-mode predictions, inherit the drift: the EMA has not yet forgotten the bias after a few steps. The weights, the batch norm scale and the second layer do not depend on the bias in train mode and agree at the `train` class. Variants without a batch norm layer in the forward path (a single hidden layer: 1.6.1 and v2 both skip it) reproduce the predictions. Measured on 2026-10-23 (variant `default`): training v2 itself on expression scaled by 1 + 3e-7 moves its test predictions by 6.0e-4, the bias by 6.1e-3 and the running mean by 3.2e-3, against 5.0e-4, 4.3e-3 and 1.6e-3 between 1.6.1 and v2.",
+      "max_abs_diff": 0.004308862145990133,
+      "max_rel_diff": 0.40376980687817116,
+      "name": "default/params/fully_connected_layers.0.bias",
+      "passed": false,
+      "pearson": 0.9948536516768596,
+      "scope": "deviation",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "default: batch_norm_layers.0.running_mean after training",
+      "detail": "",
+      "explanation": "A linear bias in front of a batch norm layer has an exactly zero gradient, so what Adam sees is float32 rounding noise, and Adam rescales it to a full learning-rate step (the same mechanism as in the PaccMann case). The running mean behind that bias, and through it the eval-mode predictions, inherit the drift: the EMA has not yet forgotten the bias after a few steps. The weights, the batch norm scale and the second layer do not depend on the bias in train mode and agree at the `train` class. Variants without a batch norm layer in the forward path (a single hidden layer: 1.6.1 and v2 both skip it) reproduce the predictions. Measured on 2026-10-23 (variant `default`): training v2 itself on expression scaled by 1 + 3e-7 moves its test predictions by 6.0e-4, the bias by 6.1e-3 and the running mean by 3.2e-3, against 5.0e-4, 4.3e-3 and 1.6e-3 between 1.6.1 and v2.",
+      "max_abs_diff": 0.00156312994658947,
+      "max_rel_diff": 0.5122168810297395,
+      "name": "default/params/batch_norm_layers.0.running_mean",
+      "passed": false,
+      "pearson": 0.9998892685702917,
+      "scope": "deviation",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "train",
+      "description": "default: test predictions after the seeded short training",
+      "detail": "",
+      "explanation": "A linear bias in front of a batch norm layer has an exactly zero gradient, so what Adam sees is float32 rounding noise, and Adam rescales it to a full learning-rate step (the same mechanism as in the PaccMann case). The running mean behind that bias, and through it the eval-mode predictions, inherit the drift: the EMA has not yet forgotten the bias after a few steps. The weights, the batch norm scale and the second layer do not depend on the bias in train mode and agree at the `train` class. Variants without a batch norm layer in the forward path (a single hidden layer: 1.6.1 and v2 both skip it) reproduce the predictions. Measured on 2026-10-23 (variant `default`): training v2 itself on expression scaled by 1 + 3e-7 moves its test predictions by 6.0e-4, the bias by 6.1e-3 and the running mean by 3.2e-3, against 5.0e-4, 4.3e-3 and 1.6e-3 between 1.6.1 and v2.",
+      "max_abs_diff": 0.0005004703998565674,
+      "max_rel_diff": 0.005663866445918258,
+      "name": "default/predictions",
+      "passed": false,
+      "pearson": 0.9999992588557676,
+      "scope": "deviation",
+      "shape_v1": [
+        44
+      ],
+      "shape_v2": [
+        44
+      ]
+    }
+  ],
+  "findings": [
+    "With a batch norm layer in the forward path (`units_per_layer` with two or more entries) a seeded fit does not reproduce the 1.6.1 eval-mode predictions to the `train` class (deviation steps of variant `default`); the cause is the zero gradient of the bias in front of the batch norm layer, not a logic difference (see `BATCH_NORM_EXPLANATION`). It is a property of the architecture that v2 inherits unchanged.",
+    "The network is the 1.6.1 network, so a `state_dict` of one loads into the other with `strict=True` and the forward pass agrees at the `forward` class in eval and in train mode.",
+    "The scaler is the 1.6.1 one: arcsinh, then a `StandardScaler` fit on the distinct training samples (`np.unique(output.cell_line_ids)`); the v2 `scaledGeneExpression` fits on the distinct samples too (`fit_on_unique_ids`).",
+    "The v2 preset (working tree of 2026-10-23, after the B5 edits) sets `gene_list: landmark_genes` on `scaledGeneExpression`, the 1.6.1 default (`SimpleNeuralNetwork.gene_list`). The case does not override it: the v2 side reads the list from the preset, the 1.6.1 side from its class default, and the selected columns agree. Before B5 the preset had no gene list.",
+    "The v2 predictor defaults (after the B5 edits) are the first grid point of 1.6.1: `units_per_layer` [32, 16, 8, 4], `dropout_prob` 0.3, `max_epochs` 100; before them they were [512, 256, 128], 0.2 and 50. The batch size (16) and the patience (5) were hard-coded in 1.6.1 and are v2 hyperparameters. The case sets all of them explicitly on both sides, so it does not depend on the defaults.",
+    "1.6.1 loaders use 8 persistent worker processes; the case makes them single-process, which does not change the main-process RNG order. The drop-last rule agrees (`len > batch_size` against `batch_size < n_pairs` after clipping the batch size to the number of pairs)."
+  ],
+  "generated": "2026-10-23",
+  "model": "SimpleNeuralNetwork",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "two_hidden network, eval mode output",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "forward/two_hidden/eval",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "two_hidden network, train mode output",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "forward/two_hidden/train",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "one_hidden network, eval mode output",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "forward/one_hidden/eval",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "one_hidden network, train mode output",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "forward/one_hidden/train",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default: ids of the samples whose features enter the network",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "default/sample_ids",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        19
+      ],
+      "shape_v2": [
+        19
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "default: arcsinh + StandardScaler expression of those samples",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/features_sample",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        19,
+        867
+      ],
+      "shape_v2": [
+        19,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default: fingerprints of the drugs",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/features_drug",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        5,
+        10
+      ],
+      "shape_v2": [
+        5,
+        10
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default: fully_connected_layers.0.weight after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.2351741790771484e-08,
+      "max_rel_diff": 0.0002994635696057497,
+      "name": "default/params/fully_connected_layers.0.weight",
+      "passed": true,
+      "pearson": 0.9999999999999974,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        877
+      ],
+      "shape_v2": [
+        12,
+        877
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "default: fully_connected_layers.1.weight after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.4901161193847656e-08,
+      "max_rel_diff": 3.3983274791478627e-07,
+      "name": "default/params/fully_connected_layers.1.weight",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        6,
+        12
+      ],
+      "shape_v2": [
+        6,
+        12
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "default: batch_norm_layers.0.weight after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/params/batch_norm_layers.0.weight",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "es_plain: ids of the samples whose features enter the network",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "es_plain/sample_ids",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        19
+      ],
+      "shape_v2": [
+        19
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "es_plain: arcsinh + StandardScaler expression of those samples",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "es_plain/features_sample",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        19,
+        867
+      ],
+      "shape_v2": [
+        19,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "es_plain: fingerprints of the drugs",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "es_plain/features_drug",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        5,
+        10
+      ],
+      "shape_v2": [
+        5,
+        10
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "es_plain: fully_connected_layers.0.weight after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.029141902923584e-08,
+      "max_rel_diff": 0.000259044199872667,
+      "name": "es_plain/params/fully_connected_layers.0.weight",
+      "passed": true,
+      "pearson": 0.9999999999999643,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        877
+      ],
+      "shape_v2": [
+        8,
+        877
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "es_plain: fully_connected_layers.0.bias after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.313225746154785e-10,
+      "max_rel_diff": 9.712338029766762e-08,
+      "name": "es_plain/params/fully_connected_layers.0.bias",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "es_plain: batch_norm_layers.0.running_mean after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "es_plain/params/batch_norm_layers.0.running_mean",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "es_plain: batch_norm_layers.0.weight after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "es_plain/params/batch_norm_layers.0.weight",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "es_plain: test predictions after the seeded short training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.960464477539062e-07,
+      "max_rel_diff": 0.00039712744481583217,
+      "name": "es_plain/predictions",
+      "passed": true,
+      "pearson": 0.9999999999998329,
+      "scope": "parity",
+      "shape_v1": [
+        44
+      ],
+      "shape_v2": [
+        44
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_es: ids of the samples whose features enter the network",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "no_es/sample_ids",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        19
+      ],
+      "shape_v2": [
+        19
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "no_es: arcsinh + StandardScaler expression of those samples",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_es/features_sample",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        19,
+        867
+      ],
+      "shape_v2": [
+        19,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_es: fingerprints of the drugs",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_es/features_drug",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        5,
+        10
+      ],
+      "shape_v2": [
+        5,
+        10
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es: fully_connected_layers.0.weight after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.35740265250206e-07,
+      "max_rel_diff": 0.0019878320583097404,
+      "name": "no_es/params/fully_connected_layers.0.weight",
+      "passed": true,
+      "pearson": 0.9999999999999646,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        877
+      ],
+      "shape_v2": [
+        8,
+        877
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "no_es: fully_connected_layers.0.bias after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_es/params/fully_connected_layers.0.bias",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "no_es: batch_norm_layers.0.running_mean after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_es/params/batch_norm_layers.0.running_mean",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "no_es: batch_norm_layers.0.weight after training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_es/params/batch_norm_layers.0.weight",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "train",
+      "description": "no_es: test predictions after the seeded short training",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.980232238769531e-07,
+      "max_rel_diff": 1.1073951850457354e-05,
+      "name": "no_es/predictions",
+      "passed": true,
+      "pearson": 0.999999999999898,
+      "scope": "parity",
+      "shape_v1": [
+        44
+      ],
+      "shape_v2": [
+        44
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "lightgbm": "4.7.0",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu",
+    "xgboost": "3.4.1"
+  },
+  "v2": {
+    "commit": "174ceea7bf7e9e4d79080da0abe81a48c1667cb0",
+    "dirty": false,
+    "drevalpy": "2.0.0",
+    "lightgbm": "4.7.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0",
+    "xgboost": "3.2.0"
+  },
+  "verdict": "train"
+}
