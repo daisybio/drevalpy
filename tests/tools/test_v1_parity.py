@@ -184,7 +184,9 @@ class TestCompareArrays:
         assert compare_arrays(_spec("statistical"), a, noisy).passed
         assert not compare_arrays(_spec("statistical"), a, shifted).passed
         assert not compare_arrays(_spec("statistical"), a, uncorrelated).passed
-        assert compare_arrays(_spec("statistical"), a, noisy).pearson > 0.99
+        pearson = compare_arrays(_spec("statistical"), a, noisy).pearson
+        assert pearson is not None
+        assert pearson > 0.99
 
     def test_constant_arrays_pass_statistical_only_when_equal(self):
         const = np.full(10, 2.0)
