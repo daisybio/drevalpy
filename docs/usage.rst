@@ -145,6 +145,12 @@ Example:
 
    If set, we will use raytune for fitting. [default: ``False``]
 
+.. option:: --n_jobs INTEGER
+
+   Number of drugs a Single-Drug Model is trained for in parallel, in separate worker processes. Each worker uses a
+   single thread, so up to ``n_jobs`` CPUs are used. On a GPU, the drugs are trained one after another. Has no effect on
+   Multi-Drug Models and cannot be combined with ``--multiprocessing``. [default: ``1``]
+
 .. option:: --model_checkpoint_dir TEXT
 
    Directory to save model checkpoints. [default: ``TEMPORARY``]
