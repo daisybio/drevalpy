@@ -53,7 +53,7 @@ def test_unknown_public_view_key_is_rejected() -> None:
 
 def test_methylation_pca_alias_round_trip() -> None:
     config = from_spec("MultiViewRandomForest")
-    rebuilt = apply_public_hyperparameters_to_config(config, {"methylation_pca_components": 9})
+    rebuilt = apply_public_hyperparameters_to_config(config, {"methylation_n_components": 9})
     assert rebuilt.featurizer_values("sample", "pca[methylation]")["n_components"] == 9
 
 

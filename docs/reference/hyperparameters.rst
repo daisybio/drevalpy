@@ -91,7 +91,7 @@ Keys that DrEvalPy accepts
 
 - A qualified key.
 - A short parameter name such as ``alpha``, if exactly one component of the model has it.
-- An alias. ``methylation_n_components`` and ``methylation_pca_components`` both name
+- An alias. ``methylation_n_components`` (the 1.x name) names
   ``sample_featurizer.pca[methylation].n_components``.
 
 .. list-table::

@@ -21,14 +21,10 @@ from drevalpy.models.config._accepted_keys import featurizer_accepted_keys, leaf
 from drevalpy.registry.featurizer import Side
 from drevalpy.registry.predictor import get as get_predictor
 
-_METHYLATION_COMPONENTS_KEY = featurizer_prefix("sample", "pca[methylation]", "n_components")
-
 #: Short keys that name a qualified key, each applied only to stacks that have the target.
 _KEY_ALIASES = {
     # 1.x MultiViewRandomForest / MultiViewXGBoost / MultiViewLightGBM hyperparameter.
-    "methylation_n_components": _METHYLATION_COMPONENTS_KEY,
-    # Alternate spelling of ``methylation_n_components``, accepted for compatibility.
-    "methylation_pca_components": _METHYLATION_COMPONENTS_KEY,
+    "methylation_n_components": featurizer_prefix("sample", "pca[methylation]", "n_components"),
 }
 
 

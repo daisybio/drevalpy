@@ -74,7 +74,7 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
             {
                 "units_per_layer": [2, 2],
                 "max_epochs": 1,
-                "methylation_pca_components": 2,
+                "methylation_n_components": 2,
             },
             MULTIVIEW_EXTRA_VIEWS,
         ),
