@@ -304,7 +304,7 @@ class RangeFile(io.RawIOBase):
         return len(chunk)
 
 
-_ZENODO_FILES = {}
+_ZENODO_FILES: dict[str, str] = {}
 
 
 def zenodo_files():
