@@ -356,12 +356,15 @@ def train_superfeltr_model(
     # Initialize the Lightning trainer
     trainer = pl.Trainer(
         max_epochs=hpams["epochs"],
-        logger=loggers if loggers else True,  # Use default logger if no wandb
+        # no default logger: parallel drugs would race for the same lightning_logs/version_N directory
+        logger=loggers if loggers else False,
         callbacks=[
             early_stop_callback,
             checkpoint_callback,
             TQDMProgressBar(refresh_rate=0),
         ],
+        accelerator="cpu",  # the model is too small to profit from a GPU
+        devices=1,
     )
     if val_loader is None:
         trainer.fit(model, train_loader)
