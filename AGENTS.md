@@ -1,80 +1,12 @@
-# Agent notes
+# Contributor and agent notes
 
-## Commands
+Commands, test tiers and markers, coverage reproduction, prek and the Sphinx build
+are documented once, in the "How to test the project" and "How to submit changes"
+sections of `docs/project/contributing.rst`. This file holds only the conventions
+that are not there.
 
-```bash
-uv run prek run --all-files      # all hooks: ruff, whitespace/format, complexipy, fast tests
-uv run prek install              # run hooks on commit
-uv run pytest                    # fast tier (addopts default: -m "not slow and not network")
-uv run pytest -m slow            # extended tier
-uv run pytest -m "not network"   # fast + extended, i.e. what CI runs
-uv run --group docs sphinx-build -W docs docs/_build
-```
-
-Coverage is enforced in CI, not by the hooks. Reproduce it yourself before pushing
-a change that adds or moves shipped code:
-
-```bash
-uv run pytest -m "not network" --cov --cov-report=json --cov-report=term-missing
-uv run python tools/coverage_gate.py
-uv run python tools/size_gate.py
-```
-
-`tools/size_gate.py` caps AST statements per module against
-`[tool.drevalpy.size_gate].max_module_statements`, which is what keeps the split
-modules in `models/` and `components/featurizers/` from growing back. It runs
-as a prek hook too, and needs no test run. Its exemptions follow the coverage
-gate's ethos: a recorded ceiling is a _measured_ count, lowered as a module shrinks
-and never raised to let a regression through.
-
-Repowise needs **both** coverage reports, which is the opposite of what a single
-`.coverage` ingest suggests - measured against repowise 0.42.0:
-
-```bash
-uv run pytest -m "not network" --cov --cov-context=test   # writes .coverage + coverage.json
-repowise coverage add .coverage                           # per-test map ONLY
-uv run coverage lcov -o coverage.lcov
-repowise coverage add coverage.lcov && rm coverage.lcov   # per-file line coverage
-repowise coverage status                                  # expect both sections
-```
-
-`repowise coverage add .coverage` reports only `Built the test-to-code map: N test->file record(s)` and leaves `repowise coverage status`'s line-coverage figure
-untouched at whatever a previous lcov ingest left - it does **not** carry per-file
-coverage, despite `--help` presenting `.coverage` as the richer input. So the lcov
-round-trip is not a fallback; it is required for the coverage-derived health
-markers. The two ingests are independent and both persist in `.repowise/`.
-
-`--cov-context=test` is what records the per-test map (`coverage run --contexts=test`, the command repowise's `--help` prints, is not a valid
-coverage.py option - measured against 7.15.2). The map is what
-`repowise impacted-tests` and the `missing_tests` / `tests_to_run` fields of
-`repowise risk` read; both are verified working here.
-
-`repowise coverage add` does **not** read coverage.py's JSON report (`--format`
-takes `lcov|cobertura|clover|repowise-json`, and `repowise-json` is Repowise's
-own schema).
-
-Without an ingest Repowise guesses from filenames, and its `has_test_file` probe
-does not recognise `test_init.py`, so every re-export barrel is reported as an
-untested hotspot. One artifact survives **both** ingest paths: lcov emits no `DA:`
-lines for a zero-statement file, and `.coverage` does not fix it, so the eleven
-one-line `__init__.py` files under `components/featurizers/{sample,drug}`,
-`components/featurizers/shared` and the eight literature model packages read 0%
-rather than 100% and each takes a full `-2.00` `coverage_gradient` penalty, 22
-points in total. Ignore those; the other `__init__.py` files carry genuine partial
-coverage and are real debt.
-
-### Per-PR risk check
-
-```bash
-repowise risk --target <path> --changed-file <path> [--changed-file <path> ...]
-```
-
-Note the singular, repeatable `--changed-file`. The response leads with a
-directive naming `will_break`, `missing_cochanges`, `missing_tests` and
-`tests_to_run`; the last two are populated only once the test-to-code map above is
-ingested. `repowise impacted-tests <revspec>` answers the narrower "which tests
-cover these changed lines" - it takes a **git revspec**, not a path, and a
-single-commit argument diffs that commit against its parent.
+The package sits under `src/`; `drevalpy/...` paths in this file are relative to
+`src/`.
 
 ## Docs
 
@@ -87,14 +19,14 @@ tutorial and how-to pages, so check a changed page with
 
 ## Tests
 
-- Markers: a test is `slow` if it costs >= 0.2s; `network` means it downloads
-  remote artifacts and cannot run on a machine without internet access.
-  A command-line `-m` **replaces** the one in `addopts` rather than adding to it.
-- Apply `slow` with `pytestmark` at file or class level, not per test, and drop
-  the marker again when an optimisation brings the test back under 0.2s.
-- Do **not** add `pytest-xdist`; it measured slower than serial. `--dist loadfile`/`loadscope` and random ordering are also unsafe: the component
-  registries are process-global and the `BUILTIN_*_NAMES` sets in
-  `drevalpy/registry/_builtins.py` are lazy singletons that cache on first access.
+- Markers (`slow`, `network`) and the rule that a command-line `-m` replaces the one
+  in `addopts` are in `contributing.rst`. Apply `slow` with `pytestmark` at file or
+  class level, not per test, and drop it again when an optimisation brings the test
+  back under 0.2s.
+- Do **not** add `pytest-xdist` or enable `--dist loadfile`/`loadscope` or random
+  ordering: the component registries are process-global and the `BUILTIN_*_NAMES`
+  sets in `drevalpy/registry/_builtins.py` are lazy singletons that cache on first
+  access.
 - Any test that calls `load_extensions` or a `register_*` decorator must evict on
   teardown via `restore_component_registries()` / `isolated_component_registries()`
   from `tests/registry/_helpers.py`, plus `clear_external_zoo()` when an external
@@ -106,8 +38,6 @@ tutorial and how-to pages, so check a changed page with
   longer match. Allowlist only text about data that really are cell lines.
 
 ## Test layout
-
-The package sits under `src/`; `drevalpy/...` paths in this file are relative to `src/`.
 
 `tests/` mirrors `src/drevalpy/`, one test file per module, enforced by
 `tests/test_module_mirror_policy.py`. Rules in order of precedence:
@@ -288,6 +218,15 @@ that does not exist must still raise `AttributeError`.
 
 ## Coverage gate
 
+Reproduce the gates locally after a change that adds or moves shipped code
+(`contributing.rst` has the pytest command; `tools/size_gate.py` needs no test run
+and also runs as a prek hook):
+
+```bash
+uv run python tools/coverage_gate.py
+uv run python tools/size_gate.py
+```
+
 Three floors, all in the `tests` job of `.github/workflows/run_tests.yml`:
 `[tool.coverage.report].fail_under` for the aggregate, `tools/coverage_gate.py` per
 module against `[tool.drevalpy.coverage_gate].min_file_coverage`, and
@@ -307,37 +246,11 @@ comment saying why the module cannot reach the floor.
 - The same rules run the size gate in the other direction: lower a recorded
   ceiling as a module shrinks, never raise it to admit a regression.
 
-## Repowise false positives
+## Docstrings
 
-Checked directly, all artifacts of how the code is wired rather than debt:
-
-- Both "Break Cycle" plans from `repowise health --refactoring-targets`. In
-  `models` the only back edge is the `TYPE_CHECKING`-guarded import at
-  `drevalpy/models/mixins/_persistence_io.py:20-21`, which is already the
-  correct pattern; in `visualization/plots` none of `heatmap.py`, `violin.py`
-  imports `plots/__init__.py` - it is barrel attribution.
-- `repowise dead-code`'s `unused_export` hits for `LassoPredictor`,
-  `SVRPredictor`, `GradientBoostingPredictor` and `KNNPredictor` (reported at
-  100% confidence) and the `unreachable_file` hit for
-  `components/featurizers/sample/gene_lists/_make_gene_lists.py`. No static
-  importer exists because `registry/_builtins.py::_discover_modules` registers by
-  directory scan. `docs/conf.py` is a Sphinx entry point, not dead either.
-- `coverage_gradient` on `sparsego/*`, `dipk/predictor.py` and `data/datasets/*` -
-  the same debt already recorded with reasons in
-  `[tool.drevalpy.coverage_gate.exemptions]`, counted a second time.
-  Work it through the gate's exemption list, not the health score.
-
-`hotspot_health` is a local review aid, not a number to gate on. One tree measures
-three ways: **10.0** on the `fetch-depth: 1` checkout `actions/checkout` does by
-default (every commit-history marker silently vanishes), **6.13** on a full clone
-with no coverage ingested, **6.25** in a working tree with coverage ingested. 68% of
-total finding impact comes from markers derived from commit history
-(`co_change_scatter`, `hidden_coupling`, `churn_risk`, `prior_defect`,
-`change_entropy`, `function_hotspot`, `code_age_volatility`, `knowledge_loss`), so
-the score also drifts as unrelated commits land and cannot be moved by editing the
-working tree. `tools/size_gate.py` is the CI ratchet instead. Use
-`repowise health --trend` to review, and read a drop as a prompt to look rather
-than as a failure.
+Use Sphinx field lists (`:param x:`, `:returns:`, `:raises:`), checked by pydoclint
+(`[tool.pydoclint]` in `pyproject.toml`). Put types in annotations, not in the
+docstring, and write no placeholder fields such as `:returns: Result.`.
 
 ## Path handling
 

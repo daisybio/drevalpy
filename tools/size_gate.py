@@ -15,12 +15,8 @@ higher ceiling. Every exemption is technical debt: split the module and delete t
 entry. A recorded ceiling may be lowered as a module shrinks, never raised to let
 a regression through - the same rule ``tools/coverage_gate.py`` follows.
 
-This is deliberately *not* a code-health score. Repowise's ``hotspot_health``
-would be the richer signal, but two thirds of its impact is derived from commit
-history, which makes it drift with repository activity rather than with the change
-under review, and it reads a full 10.0 on the shallow checkout CI does by default.
-What this gate measures instead is computable from the working tree alone, so it
-means the same thing locally and in CI.
+This is deliberately *not* a code-health score. What it measures is computable from
+the working tree alone, so it means the same thing locally and in CI.
 
 Usage::
 

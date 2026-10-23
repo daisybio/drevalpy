@@ -260,17 +260,7 @@ min_file_coverage = 60
 # a module from accumulating a fourth unrelated concern's worth of small methods.
 #
 # Statements, not lines, so the count does not move with formatting or with the
-# Google-style docstrings this codebase requires.
-#
-# Deliberately not a repowise hotspot-health floor, which is what the health plan
-# asked for. Measured on this repo: `repowise health` reads 10.0 on the
-# `fetch-depth: 1` checkout actions/checkout does by default (every commit-history
-# marker silently vanishes), 6.13 on a full clone with no coverage ingested, and
-# 6.25 in this working tree with coverage ingested - three different numbers for one
-# tree. 68% of its finding impact is derived from commit history, so the score also
-# drifts as unrelated commits land. A CI floor on it would fire on innocent PRs and
-# pass vacuously on the default checkout. Run `repowise health --trend` locally
-# instead; see AGENTS.md.
+# docstrings this codebase requires.
 [tool.drevalpy.size_gate]
 max_module_statements = 150
 
