@@ -185,12 +185,6 @@ class ModelInputBatch:
             return np.empty((n_pairs, 0), dtype=np.float32)
         return arrays[0] if len(arrays) == 1 else np.concatenate(arrays, axis=1)
 
-    def early_stopping_feature_matrix(self) -> np.ndarray | None:
-        """Project stopping pairs when a nonempty stopping set is available."""
-        if self.early_stopping_response is None or len(self.early_stopping_response) == 0:
-            return None
-        return self.feature_matrix_for(self.early_stopping_response)
-
     def to_feature_matrix(self) -> np.ndarray:
         """Return the dense design matrix in the batch's requested pair order."""
         return self._feature_matrix(self.sample_pair_idx, self.drug_pair_idx, n_pairs=self.n_pairs)

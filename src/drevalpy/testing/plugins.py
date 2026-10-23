@@ -22,9 +22,7 @@ from drevalpy.registry import (
     splitter,
     visualization,
 )
-
-#: Entry-point group third-party plugins declare themselves under.
-ENTRY_POINT_GROUP = "drevalpy.plugins"
+from drevalpy.registry._plugins import ENTRY_POINT_GROUP
 
 #: The registries a plugin can contribute to, keyed by the name used in reports.
 _REGISTRIES: Mapping[str, ModuleType] = {

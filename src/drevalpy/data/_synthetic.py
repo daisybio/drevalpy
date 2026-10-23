@@ -409,8 +409,8 @@ def synthetic(
     modalities: dict[str, ad.AnnData] = {"response": response}
     modalities.update({resolve_omics_accessor(public_name): modality for public_name, modality in built.items()})
 
-    md.set_options(pull_on_update=False)
-    mdata = md.MuData(modalities)
+    with md.set_options(pull_on_update=False):
+        mdata = md.MuData(modalities)
     mdata.obs = response.obs.copy()
     dataset = Dataset(mdata, name=name)
     add_uns_payloads(dataset, uns_payloads, payload_genes(built, n_features) if uns_payloads else [])

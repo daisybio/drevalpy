@@ -24,69 +24,70 @@ import pytest
 from upath import UPath
 
 from drevalpy import plugin
+from tests._barrel_surface import DeclaredSurface
 from tests._trusted_subprocess import run_trusted_python
 
 REPO_ROOT = UPath(__file__).resolve().parents[2]
 
-#: Where each exported name is defined, as ``alias -> (module, attribute)``.
-#: Written out rather than derived from ``__module__`` so a symbol silently
-#: moving between modules is a test failure and not a silently updated
-#: expectation. The five per-registry ``register_*`` are all spelled ``register``
-#: in their own module; ``register_for_sides`` is a featurizer-only decorator
-#: that keeps its own name.
-EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
-    "BlockPredictor": ("drevalpy.components.predictors.abstract.block", "BlockPredictor"),
-    "BlockSpec": ("drevalpy.types.data.batch.feature_block", "BlockSpec"),
-    "SampleFeatureSource": ("drevalpy.types.data.feature_source", "SampleFeatureSource"),
-    "SampleFeaturizer": ("drevalpy.components.featurizers.sample.base", "SampleFeaturizer"),
-    "Dataset": ("drevalpy.types.data.dataset", "Dataset"),
-    "DenseViewSampleFeaturizer": (
-        "drevalpy.components.featurizers.sample.base",
-        "DenseViewSampleFeaturizer",
-    ),
-    "DenseViewDrugFeaturizer": ("drevalpy.components.featurizers.drug.base", "DenseViewDrugFeaturizer"),
-    "DenseViewFeaturizer": ("drevalpy.components.featurizers._dense_view", "DenseViewFeaturizer"),
-    "DrugFeatureSource": ("drevalpy.types.data.feature_source", "DrugFeatureSource"),
-    "DrugFeaturizer": ("drevalpy.components.featurizers.drug.base", "DrugFeaturizer"),
-    "ExperimentResult": ("drevalpy.types.results", "ExperimentResult"),
-    "FeatureBlock": ("drevalpy.types.data.batch.feature_block", "FeatureBlock"),
-    "FeatureContract": ("drevalpy.components.contracts.contracts", "FeatureContract"),
-    "FeatureFormat": ("drevalpy.components.contracts.contracts", "FeatureFormat"),
-    "FeatureFreePredictor": ("drevalpy.components.predictors.abstract.feature_free", "FeatureFreePredictor"),
-    "FeatureSource": ("drevalpy.types.data.feature_source", "FeatureSource"),
-    "Featurizer": ("drevalpy.components.featurizers.base", "Featurizer"),
-    "FeaturizerResult": ("drevalpy.types.data.batch.feature_block", "FeaturizerResult"),
-    "FeaturizerStorageMixin": ("drevalpy.components.featurizers.storage", "FeaturizerStorageMixin"),
-    "HPOStrategy": ("drevalpy.components.featurizers.base", "HPOStrategy"),
-    "ImageVisualization": ("drevalpy.visualization.base", "ImageVisualization"),
-    "LiteratureReference": ("drevalpy.types.enums.literature_reference", "LiteratureReference"),
-    "MatrixPredictor": ("drevalpy.components.predictors.abstract.matrix", "MatrixPredictor"),
-    "ModelInputBatch": ("drevalpy.types.data.batch.model_input_batch", "ModelInputBatch"),
-    "ModelResult": ("drevalpy.types.results", "ModelResult"),
-    "ModelScope": ("drevalpy.types.enums.model_scope", "ModelScope"),
-    "MuDataLike": ("drevalpy.types.data.mudatalike", "MuDataLike"),
-    "PlotRequirement": ("drevalpy.visualization.requirements", "PlotRequirement"),
-    "PredictionMode": ("drevalpy.types.enums.prediction_mode", "PredictionMode"),
-    "Predictor": ("drevalpy.components.predictors.abstract.base", "Predictor"),
-    "ResponseBatch": ("drevalpy.types.data.batch.response_batch", "ResponseBatch"),
-    "RunResult": ("drevalpy.types.results", "RunResult"),
-    "Section": ("drevalpy.visualization.base", "Section"),
-    "SplitMask": ("drevalpy.types.data.split_mask", "SplitMask"),
-    "SplitMasks": ("drevalpy.types.data.split_masks", "SplitMasks"),
-    "SplitValidationError": ("drevalpy.registry.splitter", "SplitValidationError"),
-    "Splitter": ("drevalpy.registry.splitter", "Splitter"),
-    "TrainingContext": ("drevalpy.components.contracts.training_context", "TrainingContext"),
-    "Validation": ("drevalpy.registry.splitter", "Validation"),
-    "Visualization": ("drevalpy.visualization.base", "Visualization"),
-    "curve_quality_mask": ("drevalpy.data.quality", "curve_quality_mask"),
-    "graph_feature_block": ("drevalpy.types.data.batch.feature_block", "graph_feature_block"),
-    "merge_feature_blocks": ("drevalpy.types.data.batch.feature_block", "merge_feature_blocks"),
-    "metadata_feature_block": ("drevalpy.types.data.batch.feature_block", "metadata_feature_block"),
-    "numeric_feature_block": ("drevalpy.types.data.batch.feature_block", "numeric_feature_block"),
-    "ragged_feature_block": ("drevalpy.types.data.batch.feature_block", "ragged_feature_block"),
+#: Where each exported name is defined, as ``alias -> module``. Written out
+#: rather than derived from ``__module__`` so a symbol silently moving between
+#: modules is a test failure and not a silently updated expectation.
+EXPECTED_ORIGINS: dict[str, str] = {
+    "BlockPredictor": "drevalpy.components.predictors.abstract.block",
+    "BlockSpec": "drevalpy.types.data.batch.feature_block",
+    "Dataset": "drevalpy.types.data.dataset",
+    "DenseViewDrugFeaturizer": "drevalpy.components.featurizers.drug.base",
+    "DenseViewFeaturizer": "drevalpy.components.featurizers._dense_view",
+    "DenseViewSampleFeaturizer": "drevalpy.components.featurizers.sample.base",
+    "DrugFeatureSource": "drevalpy.types.data.feature_source",
+    "DrugFeaturizer": "drevalpy.components.featurizers.drug.base",
+    "ExperimentResult": "drevalpy.types.results",
+    "FeatureBlock": "drevalpy.types.data.batch.feature_block",
+    "FeatureContract": "drevalpy.components.contracts.contracts",
+    "FeatureFormat": "drevalpy.components.contracts.contracts",
+    "FeatureFreePredictor": "drevalpy.components.predictors.abstract.feature_free",
+    "FeatureSource": "drevalpy.types.data.feature_source",
+    "Featurizer": "drevalpy.components.featurizers.base",
+    "FeaturizerResult": "drevalpy.types.data.batch.feature_block",
+    "FeaturizerStorageMixin": "drevalpy.components.featurizers.storage",
+    "HPOStrategy": "drevalpy.components.featurizers.base",
+    "ImageVisualization": "drevalpy.visualization.base",
+    "LiteratureReference": "drevalpy.types.enums.literature_reference",
+    "MatrixPredictor": "drevalpy.components.predictors.abstract.matrix",
+    "ModelInputBatch": "drevalpy.types.data.batch.model_input_batch",
+    "ModelResult": "drevalpy.types.results",
+    "ModelScope": "drevalpy.types.enums.model_scope",
+    "MuDataLike": "drevalpy.types.data.mudatalike",
+    "PlotRequirement": "drevalpy.visualization.requirements",
+    "PredictionMode": "drevalpy.types.enums.prediction_mode",
+    "Predictor": "drevalpy.components.predictors.abstract.base",
+    "ResponseBatch": "drevalpy.types.data.batch.response_batch",
+    "RunResult": "drevalpy.types.results",
+    "SampleFeatureSource": "drevalpy.types.data.feature_source",
+    "SampleFeaturizer": "drevalpy.components.featurizers.sample.base",
+    "Section": "drevalpy.visualization.base",
+    "SplitMask": "drevalpy.types.data.split_mask",
+    "SplitMasks": "drevalpy.types.data.split_masks",
+    "SplitValidationError": "drevalpy.registry.splitter",
+    "Splitter": "drevalpy.registry.splitter",
+    "TrainingContext": "drevalpy.components.contracts.training_context",
+    "Validation": "drevalpy.registry.splitter",
+    "Visualization": "drevalpy.visualization.base",
+    "curve_quality_mask": "drevalpy.data.quality",
+    "graph_feature_block": "drevalpy.types.data.batch.feature_block",
+    "merge_feature_blocks": "drevalpy.types.data.batch.feature_block",
+    "metadata_feature_block": "drevalpy.types.data.batch.feature_block",
+    "numeric_feature_block": "drevalpy.types.data.batch.feature_block",
+    "ragged_feature_block": "drevalpy.types.data.batch.feature_block",
+    "register_for_sides": "drevalpy.components.featurizers._side_binding",
+}
+
+#: The five per-registry ``register_*`` are all spelled ``register`` in their own
+#: module, so the shared surface check cannot compare them by name:
+#: ``alias -> (module, attribute)``.
+RENAMED_ORIGINS: dict[str, tuple[str, str]] = {
     "register_sample_featurizer": ("drevalpy.registry.sample_featurizer", "register"),
     "register_drug_featurizer": ("drevalpy.registry.drug_featurizer", "register"),
-    "register_for_sides": ("drevalpy.components.featurizers._side_binding", "register_for_sides"),
     "register_predictor": ("drevalpy.registry.predictor", "register"),
     "register_splitter": ("drevalpy.registry.splitter", "register"),
     "register_visualization": ("drevalpy.registry.visualization", "register"),
@@ -98,13 +99,16 @@ def pyproject() -> dict:
     return tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 
-class TestPublicSurface:
-    @pytest.mark.parametrize("name", sorted(plugin.__all__))
-    def test_every_exported_name_resolves(self, name):
-        assert hasattr(plugin, name)
+class TestPluginSurface(DeclaredSurface):
+    barrel = plugin
+    origins = EXPECTED_ORIGINS
+    unpinned_names = tuple(RENAMED_ORIGINS)
 
-    def test_all_is_sorted_and_unique(self):
-        assert list(plugin.__all__) == sorted(set(plugin.__all__))
+    @pytest.mark.parametrize(("alias", "origin"), sorted(RENAMED_ORIGINS.items()))
+    def test_renamed_alias_is_the_same_object(self, alias, origin):
+        module_name, attribute = origin
+
+        assert getattr(plugin, alias) is getattr(importlib.import_module(module_name), attribute)
 
     def test_nothing_public_is_left_out_of_all(self):
         public = {name for name in vars(plugin) if not name.startswith("_")}
@@ -117,19 +121,6 @@ class TestPublicSurface:
         own = [name for name in plugin.__all__ if getattr(vars(plugin)[name], "__module__", "") == "drevalpy.plugin"]
 
         assert own == []
-
-
-class TestAliasesPointAtTheRealSymbols:
-    @pytest.mark.parametrize(("alias", "origin"), sorted(EXPECTED_ORIGINS.items()))
-    def test_alias_is_the_same_object(self, alias, origin):
-        module_name, attribute = origin
-        module = importlib.import_module(module_name)
-
-        assert getattr(plugin, alias) is getattr(module, attribute)
-
-    def test_every_export_has_a_recorded_origin(self):
-        """Adding an export without recording where it comes from fails here."""
-        assert sorted(EXPECTED_ORIGINS) == sorted(plugin.__all__)
 
     def test_the_five_register_aliases_are_distinct(self):
         registrars = {

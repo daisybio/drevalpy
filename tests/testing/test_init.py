@@ -13,47 +13,49 @@ import shutil
 import pytest
 
 from drevalpy import testing
+from tests._barrel_surface import DeclaredSurface
 from tests._trusted_subprocess import run_trusted_python
 
-#: ``alias -> (submodule, attribute)`` for every re-export.
-EXPECTED_ORIGINS: dict[str, tuple[str, str]] = {
-    "ENTRY_POINT_GROUP": ("drevalpy.testing.plugins", "ENTRY_POINT_GROUP"),
-    "FEATURIZER_CHECKS": ("drevalpy.testing.conformance", "FEATURIZER_CHECKS"),
-    "PREDICTOR_CHECKS": ("drevalpy.testing.conformance", "PREDICTOR_CHECKS"),
-    "ConformanceError": ("drevalpy.testing.conformance", "ConformanceError"),
-    "PluginCheckError": ("drevalpy.testing.plugins", "PluginCheckError"),
-    "PluginReport": ("drevalpy.testing.plugins", "PluginReport"),
-    "build_synthetic_batch": ("drevalpy.testing.batch", "build_synthetic_batch"),
+#: ``alias -> module that defines it`` for every re-export whose name is the
+#: defining module's own. ``ENTRY_POINT_GROUP`` is recorded against the registry
+#: module that owns it, which ``testing.plugins`` imports it from.
+EXPECTED_ORIGINS: dict[str, str] = {
+    "ConformanceError": "drevalpy.testing.conformance",
+    "ENTRY_POINT_GROUP": "drevalpy.registry._plugins",
+    "FEATURIZER_CHECKS": "drevalpy.testing.conformance",
+    "PREDICTOR_CHECKS": "drevalpy.testing.conformance",
+    "PluginCheckError": "drevalpy.testing.plugins",
+    "PluginReport": "drevalpy.testing.plugins",
+    "build_synthetic_batch": "drevalpy.testing.batch",
+    "check_featurizer_fit_transform": "drevalpy.testing.conformance",
+    "check_featurizer_instantiates": "drevalpy.testing.conformance",
+    "check_featurizer_state_round_trip": "drevalpy.testing.conformance",
+    "check_plugin": "drevalpy.testing.plugins",
+    "check_predictor_fit_predict": "drevalpy.testing.conformance",
+    "check_predictor_instantiates": "drevalpy.testing.conformance",
+    "check_predictor_state_round_trip": "drevalpy.testing.conformance",
+    "feature_source_for": "drevalpy.testing.conformance",
+    "observed_pairs": "drevalpy.testing.batch",
+}
+
+#: ``build_synthetic_dataset`` is ``drevalpy.data._synthetic.synthetic`` under a
+#: new name, so the shared surface check cannot compare it by name.
+RENAMED_ORIGINS: dict[str, tuple[str, str]] = {
     "build_synthetic_dataset": ("drevalpy.data._synthetic", "synthetic"),
-    "check_featurizer_fit_transform": ("drevalpy.testing.conformance", "check_featurizer_fit_transform"),
-    "check_featurizer_instantiates": ("drevalpy.testing.conformance", "check_featurizer_instantiates"),
-    "check_featurizer_state_round_trip": ("drevalpy.testing.conformance", "check_featurizer_state_round_trip"),
-    "check_plugin": ("drevalpy.testing.plugins", "check_plugin"),
-    "check_predictor_fit_predict": ("drevalpy.testing.conformance", "check_predictor_fit_predict"),
-    "check_predictor_instantiates": ("drevalpy.testing.conformance", "check_predictor_instantiates"),
-    "check_predictor_state_round_trip": ("drevalpy.testing.conformance", "check_predictor_state_round_trip"),
-    "feature_source_for": ("drevalpy.testing.conformance", "feature_source_for"),
-    "observed_pairs": ("drevalpy.testing.batch", "observed_pairs"),
 }
 
 
-class TestPublicSurface:
-    @pytest.mark.parametrize("name", sorted(testing.__all__))
-    def test_every_exported_name_resolves(self, name):
-        assert hasattr(testing, name)
+class TestTestingSurface(DeclaredSurface):
+    barrel = testing
+    origins = EXPECTED_ORIGINS
+    unpinned_names = tuple(RENAMED_ORIGINS)
+    callable_names = tuple(RENAMED_ORIGINS)
 
-    def test_all_is_sorted_and_unique(self):
-        assert list(testing.__all__) == sorted(set(testing.__all__))
-
-    def test_every_export_has_a_recorded_origin(self):
-        assert sorted(EXPECTED_ORIGINS) == sorted(testing.__all__)
-
-    @pytest.mark.parametrize(("alias", "origin"), sorted(EXPECTED_ORIGINS.items()))
-    def test_alias_is_the_same_object(self, alias, origin):
+    @pytest.mark.parametrize(("alias", "origin"), sorted(RENAMED_ORIGINS.items()))
+    def test_renamed_alias_is_the_same_object(self, alias, origin):
         module_name, attribute = origin
-        module = importlib.import_module(module_name)
 
-        assert getattr(testing, alias) is getattr(module, attribute)
+        assert getattr(testing, alias) is getattr(importlib.import_module(module_name), attribute)
 
 
 class TestItShipsInTheWheel:

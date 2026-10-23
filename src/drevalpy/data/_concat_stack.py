@@ -120,9 +120,7 @@ def stack_view(
 
     columns = _view_columns(view, adatas, names, join)
     uns = merge_uns([adata.uns for adata in adatas], names=names, where=f"view '{view}'", strict=_is_unit_key)
-    rows = [
-        adata.obs.set_axis(prefixed(name, adata.obs_names), axis=0) for adata, name in zip(adatas, names, strict=True)
-    ]
+    rows = _prefixed_obs(adatas, names)
     matrix = _vstack([_select_columns(adata, adata.X, columns) for adata in adatas])
     var = adatas[0].var.loc[columns].copy()
     return ad.AnnData(X=matrix, obs=stack_obs(rows), var=var, layers=_stack_layers(view, adatas, columns), uns=uns)
@@ -168,9 +166,7 @@ def stack_response(
 
     var = union_var([adata.var for adata in adatas])
     offsets = [var.index.get_indexer(adata.var_names) for adata in adatas]
-    rows = [
-        adata.obs.set_axis(prefixed(name, adata.obs_names), axis=0) for adata, name in zip(adatas, names, strict=True)
-    ]
+    rows = _prefixed_obs(adatas, names)
     layer_names = list(dict.fromkeys(name for adata in adatas for name in _layer_names(adata)))
     layers = {}
     for layer in layer_names:

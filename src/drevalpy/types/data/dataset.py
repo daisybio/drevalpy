@@ -88,8 +88,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
         import mudata as md
 
         resolved = Path(path)
-        md.set_options(pull_on_update=False)
-        mdata = md.read_h5mu(resolved)
+        with md.set_options(pull_on_update=False):
+            mdata = md.read_h5mu(resolved)
 
         stored_name = mdata.uns.get("dataset_name")
         name = stored_name if isinstance(stored_name, str) else resolved.stem
@@ -104,6 +104,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
 
         :param path: Output file path.
         """
+        import mudata as md
+
         resolved = Path(path)
         resolved.parent.mkdir(parents=True, exist_ok=True)
 
@@ -113,7 +115,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
         elif "randomization" in self._mdata.uns:
             del self._mdata.uns["randomization"]
 
-        self._mdata.write(str(resolved))
+        with md.set_options(pull_on_update=False):
+            self._mdata.write(str(resolved))
 
     def precompute(
         self,
@@ -362,8 +365,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
             name: adata[np.isin(adata.obs_names, kept_samples)].copy() for name, adata in self._mdata.mod.items()
         }
 
-        md.set_options(pull_on_update=False)
-        new_mdata = md.MuData(new_mods)
+        with md.set_options(pull_on_update=False):
+            new_mdata = md.MuData(new_mods)
         new_mdata.obs = self._mdata.obs.loc[self._mdata.obs.index.isin(kept_samples)].copy()
         new_mdata.uns.update(copy.deepcopy(dict(self._mdata.uns)))
         return Dataset(new_mdata, name=self._name, randomization=self.randomization)
@@ -390,8 +393,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
             for name, adata in self._mdata.mod.items()
         }
 
-        md.set_options(pull_on_update=False)
-        new_mdata = md.MuData(new_mods)
+        with md.set_options(pull_on_update=False):
+            new_mdata = md.MuData(new_mods)
         new_mdata.obs = self._mdata.obs.copy()
         new_uns = copy.deepcopy(dict(self._mdata.uns))
         graphs = new_uns.get("drug_graphs")

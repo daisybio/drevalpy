@@ -1,12 +1,13 @@
-"""Dataset registry: Pydantic models, config I/O, and registration API.
+"""Lazy re-export of the dataset registry and :func:`load`.
 
-The user config lives at ``<config_dir>/drevalpy.json`` (override with
-``DREVALPY_CONFIG_DIR``). Sources and datasets registered there are merged
-with the built-in registry at import time.
+The registry classes, the config I/O functions and the ``registry`` singleton are defined in
+:mod:`drevalpy.registry.dataset` and resolved on first attribute access, which avoids a circular
+import. The user config lives at ``<config_dir>/drevalpy.json`` (override with
+``DREVALPY_CONFIG_DIR``).
 
 Usage::
 
-    from drevalpy.data import registry
+    from drevalpy.data.datasets import registry
 
     registry  # displays Rich table via __repr__
     registry.dataset_names  # programmatic access

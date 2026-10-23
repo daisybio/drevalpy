@@ -173,8 +173,8 @@ works the same after the CLI and the Python route above.
              "CC(=O)NC1=CC=C(C=C1)O",
          ]
 
-         md.set_options(pull_on_update=False)
-         mdata = md.MuData({"response": response})
+         with md.set_options(pull_on_update=False):
+             mdata = md.MuData({"response": response})
          mdata.obs = response.obs.copy()
          Dataset(mdata, name="MyScreen").save("my_screen.h5mu")
 
@@ -197,8 +197,8 @@ works the same after the CLI and the Python route above.
              "CC(=O)NC1=CC=C(C=C1)O",
          ]
 
-         md.set_options(pull_on_update=False)
-         mdata = md.MuData({"response": response})
+         with md.set_options(pull_on_update=False):
+             mdata = md.MuData({"response": response})
          mdata.obs = response.obs.copy()
          Dataset(mdata, name="MyScreen").save("my_screen.h5mu")
 

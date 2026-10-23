@@ -180,8 +180,8 @@ def concat(
     modalities.update(_stack_all_views(datasets, names, join))
     uns = merge_uns([dataset.mdata.uns for dataset in datasets], names=names, where="the dataset", skip=_OWN_UNS_KEYS)
 
-    md.set_options(pull_on_update=False)
-    mdata = md.MuData(modalities)
+    with md.set_options(pull_on_update=False):
+        mdata = md.MuData(modalities)
     mdata.obs = _stack_obs(datasets, names).reindex(mdata.obs_names)
     mdata.uns.update(uns)
     mdata.uns["dataset_name"] = name if name is not None else "+".join(names)

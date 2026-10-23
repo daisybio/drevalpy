@@ -54,7 +54,7 @@ def _extra_response(dataset: Dataset, seed: int = 0) -> ad.AnnData:
     """A response-shaped modality like the curated ``response_rr1``."""
     source = dataset.response
     extra = ad.AnnData(
-        X=source.X + seed,
+        X=np.asarray(source.X) + seed,
         obs=pd.DataFrame(index=source.obs_names),
         var=pd.DataFrame(index=source.var_names),
         uns={"x_column": "pEC50", "rr_seed": seed},
@@ -130,8 +130,8 @@ class TestViews:
             f"SECOND::{i}" for i in second.sample_ids
         ]
         assert list(view.var_names) == MANY
-        np.testing.assert_array_equal(view.X[:10], first.mdata.mod["gene_expression"].X)
-        np.testing.assert_array_equal(view.X[10:], second.mdata.mod["gene_expression"].X)
+        np.testing.assert_array_equal(np.asarray(view.X)[:10], np.asarray(first.mdata.mod["gene_expression"].X))
+        np.testing.assert_array_equal(np.asarray(view.X)[10:], np.asarray(second.mdata.mod["gene_expression"].X))
 
     def test_exact_join_rejects_different_feature_names(self) -> None:
         second = drevalpy.synthetic(name="SECOND", n_samples=8, feature_names=FEW)
@@ -155,7 +155,7 @@ class TestViews:
 
         assert list(view.var_names) == ["FEATURE0002", "FEATURE0007"]
         expected = second.mdata.mod["gene_expression"][:, ["FEATURE0002", "FEATURE0007"]].X
-        np.testing.assert_array_equal(view.X[8:], expected)
+        np.testing.assert_array_equal(np.asarray(view.X)[8:], np.asarray(expected))
 
     def test_inner_join_without_shared_features_raises(self) -> None:
         second = drevalpy.synthetic(name="SECOND", n_samples=8, feature_names=["A", "B"])
@@ -214,14 +214,17 @@ class TestViews:
         first, second = _first(), _second()
         for dataset in (first, second):
             view = dataset.mdata.mod["gene_expression"]
-            view.layers["counts"] = view.X * 2
+            view.layers["counts"] = np.asarray(view.X) * 2
         first.mdata.mod["gene_expression"].layers["only_first"] = first.mdata.mod["gene_expression"].X
 
         with caplog.at_level(logging.WARNING):
             view = concat([first, second]).mdata.mod["gene_expression"]
 
+        assert view.layers is not None
         assert set(view.layers.keys()) - {None} == {"counts"}
-        np.testing.assert_array_equal(view.layers["counts"][10:], second.mdata.mod["gene_expression"].X * 2)
+        np.testing.assert_array_equal(
+            np.asarray(view.layers["counts"])[10:], np.asarray(second.mdata.mod["gene_expression"].X) * 2
+        )
         assert "only_first" in caplog.text
 
     def test_a_sample_without_a_view_row_stays_a_row_of_the_result(self) -> None:
@@ -328,8 +331,9 @@ class TestExtraResponses:
         assert extra.obs_names[10] == "SECOND::SYNTH-000"
         assert extra.uns["x_column"] == "pEC50"
         assert "rr_seed" not in extra.uns
+        assert extra.layers is not None
         assert "LN_IC50" in extra.layers
-        np.testing.assert_array_equal(extra.X[:10, :4], first.mdata.mod["response_rr1"].X)
+        np.testing.assert_array_equal(np.asarray(extra.X)[:10, :4], np.asarray(first.mdata.mod["response_rr1"].X))
 
     def test_a_modality_missing_in_one_input_is_dropped_with_a_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         first = _first()

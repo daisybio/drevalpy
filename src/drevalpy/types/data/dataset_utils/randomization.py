@@ -217,8 +217,8 @@ class RandomizationMixin:
         for view in views:
             _randomize_single_view(self, view, new_mods, new_uns, rng, randomization_type)
 
-        md.set_options(pull_on_update=False)
-        new_mdata = md.MuData(new_mods)
+        with md.set_options(pull_on_update=False):
+            new_mdata = md.MuData(new_mods)
         new_mdata.obs = self._mdata.obs.copy()
         for key, val in new_uns.items():
             new_mdata.uns[key] = val

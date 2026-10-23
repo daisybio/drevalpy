@@ -1,89 +1,38 @@
-"""Tests for the splitter registry surface and cross-mode fold validation.
+"""Tests for the :mod:`drevalpy.data.splitters` package surface.
 
-The individual splitters live in ``test_lpo.py`` / ``test_lso.py`` /
-``test_ldo.py`` / ``test_lto.py``.
+The barrel re-exports the registry types and the five built-in splitters, and
+binds ``get_splitter`` to the registry singleton. Only the surface is asserted:
+the registry's behaviour is tested in ``tests/registry/splitter/`` and each
+splitter beside its module (``test_lpo.py`` and its siblings). The assertions
+themselves live in ``tests/_barrel_surface.py``.
 """
 
 from __future__ import annotations
 
-import numpy as np
-import pytest
+from drevalpy.data import splitters
+from tests._barrel_surface import DeclaredSurface
 
-from drevalpy.registry.splitter import (
-    SplitValidationError,
-    splitter_registry,
-)
-from drevalpy.registry.splitter import get as get_splitter
-from drevalpy.registry.splitter._validation import validate_folds
-from drevalpy.types import SplitMask, SplitMasks
-from tests.data.splitters._helpers import MockMuDataset, build_mask
+#: ``get_splitter`` is a bound method of the singleton, so no module holds the
+#: very object the barrel does; resolving and calling it is what is pinned.
+BOUND_NAMES = ("get_splitter",)
 
-
-class TestSplitterRegistry:
-    def test_builtin_modes_registered(self):
-        assert "LPO" in splitter_registry.modes
-        assert "LSO" in splitter_registry.modes
-        assert "LDO" in splitter_registry.modes
-        assert "LTO" in splitter_registry.modes
-
-    def test_get_returns_callable(self):
-        splitter = splitter_registry.get("LPO")
-        assert callable(splitter)
-
-    def test_get_unknown_raises(self):
-        with pytest.raises(ValueError, match="Unknown"):
-            splitter_registry.get("NONEXISTENT")
-
-    def test_resolve_string(self):
-        splitter = splitter_registry.resolve("LSO")
-        assert callable(splitter)
-
-    def test_resolve_callable_passthrough(self):
-        def my_fn(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
-            return []
-
-        assert splitter_registry.resolve(my_fn) is my_fn
-
-    def test_get_splitter_alias(self):
-        assert get_splitter("LPO") is splitter_registry.get("LPO")
-
-    def test_repr_shows_modes(self):
-        output = repr(splitter_registry)
-        assert "LPO" in output
-        assert "LSO" in output
+#: ``exported name -> module that defines it``.
+EXPECTED_ORIGINS: dict[str, str] = {
+    "SplitValidationError": "drevalpy.registry.splitter._validation",
+    "Splitter": "drevalpy.registry.splitter._registry",
+    "SplitterRegistry": "drevalpy.registry.splitter._registry",
+    "Validation": "drevalpy.registry.splitter._validation",
+    "leave_drug_out": "drevalpy.data.splitters.ldo",
+    "leave_pair_out": "drevalpy.data.splitters.lpo",
+    "leave_sample_out": "drevalpy.data.splitters.lso",
+    "leave_study_out": "drevalpy.data.splitters.lsto",
+    "leave_tissue_out": "drevalpy.data.splitters.lto",
+    "splitter_registry": "drevalpy.registry.splitter._registry",
+}
 
 
-class TestValidation:
-    def test_lso_valid_passes(self, mock_dataset: MockMuDataset):
-        folds = splitter_registry.get("LSO")(mock_dataset, n_splits=3)
-        validate_folds(folds, "LSO", mock_dataset)
-
-    def test_lso_invalid_raises(self, mock_dataset: MockMuDataset):
-        shape = mock_dataset.response_matrix.shape
-        bad_fold = SplitMasks(
-            train=build_mask(shape, (0, 0), (1, 1)),
-            test=build_mask(shape, (0, 2)),
-            val=SplitMask(np.zeros(shape, dtype=bool)),
-        )
-        with pytest.raises(SplitValidationError, match="LSO"):
-            validate_folds([bad_fold], "LSO", mock_dataset)
-
-    def test_ldo_invalid_raises(self, mock_dataset: MockMuDataset):
-        shape = mock_dataset.response_matrix.shape
-        bad_fold = SplitMasks(
-            train=build_mask(shape, (0, 0), (1, 0)),
-            test=build_mask(shape, (2, 0)),
-            val=SplitMask(np.zeros(shape, dtype=bool)),
-        )
-        with pytest.raises(SplitValidationError, match="LDO"):
-            validate_folds([bad_fold], "LDO", mock_dataset)
-
-    def test_lpo_invalid_raises(self, mock_dataset: MockMuDataset):
-        shape = mock_dataset.response_matrix.shape
-        bad_fold = SplitMasks(
-            train=build_mask(shape, (0, 0), (1, 1)),
-            test=build_mask(shape, (0, 0)),
-            val=SplitMask(np.zeros(shape, dtype=bool)),
-        )
-        with pytest.raises(SplitValidationError, match="LPO"):
-            validate_folds([bad_fold], "LPO", mock_dataset)
+class TestSplittersSurface(DeclaredSurface):
+    barrel = splitters
+    origins = EXPECTED_ORIGINS
+    unpinned_names = BOUND_NAMES
+    callable_names = BOUND_NAMES

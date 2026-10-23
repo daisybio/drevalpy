@@ -49,7 +49,7 @@ def fake_plugin_package(monkeypatch):
     import types
 
     from drevalpy.registry import sample_featurizer
-    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
+    from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
     registry_name = f"fakePluginFeaturizer{next(_REGISTRY_NAME_COUNTER)}"
     package = types.ModuleType(PLUGIN_NAME)
