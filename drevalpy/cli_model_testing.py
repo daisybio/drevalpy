@@ -321,7 +321,7 @@ def run_final_split(
 
 def _load_final_split(
     train_data: str, val_data: str, early_stopping_data: str
-) -> tuple[DrugResponseDataset, DrugResponseDataset, DrugResponseDataset]:
+) -> tuple[DrugResponseDataset, DrugResponseDataset, DrugResponseDataset] | tuple[dict, dict, dict]:
     """Load the pickles of run_final_split."""
     with open(train_data, "rb") as train_file:
         train_dataset = pickle.load(train_file)
@@ -333,6 +333,7 @@ def _load_final_split(
 
 
 def _tune_final_model(
+    drug_id: str | None,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset,
@@ -392,6 +393,15 @@ def run_tune_final_model(
     )
     if model_class.is_single_drug_model:
         # the datasets are {drug_id: dataset} dicts, see run_final_split
+        if (
+            not isinstance(train_dataset, dict)
+            or not isinstance(validation_dataset, dict)
+            or not isinstance(early_stopping_dataset, dict)
+        ):
+            raise ValueError(
+                "For single drug models, the train/validation/early_stopping datasets must be dicts of "
+                "{drug_id: dataset}."
+            )
         validation_dataset = run_per_drug(
             tune,
             {
@@ -401,6 +411,15 @@ def run_tune_final_model(
             n_jobs=n_jobs,
         )
     else:
+        if (
+            not isinstance(train_dataset, DrugResponseDataset)
+            or not isinstance(validation_dataset, DrugResponseDataset)
+            or not isinstance(early_stopping_dataset, DrugResponseDataset)
+        ):
+            raise ValueError(
+                "For multi-drug models, the train/validation/early_stopping datasets must be DrugResponseDataset "
+                "instances."
+            )
         validation_dataset = tune(None, train_dataset, validation_dataset, early_stopping_dataset)
     with open(f"final_prediction_dataset_{model_name}_" f"{str(hpam_combi).split('.yaml')[0]}.pkl", "wb") as f:
         pickle.dump(validation_dataset, f)
@@ -496,6 +515,15 @@ def run_train_final_model(
     )
     if model_class.is_single_drug_model:
         # the datasets are {drug_id: dataset} dicts, see run_final_split
+        if (
+            not isinstance(train_dataset, dict)
+            or not isinstance(validation_dataset, dict)
+            or not isinstance(es_dataset, dict)
+        ):
+            raise ValueError(
+                "For single drug models, the train/validation/early_stopping datasets must be dicts of "
+                "{drug_id: dataset}."
+            )
         run_per_drug(
             train,
             {
@@ -510,6 +538,15 @@ def run_train_final_model(
             n_jobs=n_jobs,
         )
     else:
+        if (
+            not isinstance(train_dataset, DrugResponseDataset)
+            or not isinstance(validation_dataset, DrugResponseDataset)
+            or not isinstance(es_dataset, DrugResponseDataset)
+        ):
+            raise ValueError(
+                "For multi-drug models, the train/validation/early_stopping datasets must be DrugResponseDataset "
+                "instances."
+            )
         train(None, train_dataset, validation_dataset, es_dataset, best_hpam_dict["best_hpam_combi"])
 
 
