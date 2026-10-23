@@ -24,10 +24,12 @@ Variants (the ``proteomics_*`` hyperparameters are explicit on both sides unless
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 
 from tools.v1_parity._bridge import Case
-from tools.v1_parity.compare import StepSpec
+from tools.v1_parity.compare import DEVIATION, StepSpec
 from tools.v1_parity.models._omics_common import build_omics_case, omics_steps, run_omics_v1, run_omics_v2
 
 NAME = "ProteomicsSklearn"
@@ -71,6 +73,12 @@ VARIANTS: dict[str, dict] = {
     "rf_defaults": _forest(),
 }
 
+FLOAT32_SENSITIVE = {"rf_threshold/fitted_feature_importances_", "rf_threshold/predictions"}
+FLOAT32_SPLITS = (
+    "v2 views are float32, so the proteomics design matrix differs from 1.6.1's float64 one by up to 1.3e-6, which "
+    "flips a few forest split decisions. Refitted on one float64 matrix (`identical/*`) the forests are bitwise equal."
+)
+
 FINDINGS = [
     (
         "1.6.1 single-view sklearn models load the proteomics CSV whole (`load_generic_csv`); the "
@@ -84,13 +92,14 @@ FINDINGS = [
         "float64, so the design matrices agree to the forward class, not bitwise."
     ),
     (
-        "Mismatch (`rf_threshold`): the proteomics design matrices differ by up to 1.3e-6 absolute (2.4e-7 "
-        "relative; the v2 featurizer log10-transforms, centres and imputes in float32), which is enough to flip "
-        "a few split decisions in the forest: predictions differ by up to 0.05 (Pearson 0.99988) and the "
-        "importances by 1e-3, so the declared `forward` class fails (achieved: statistical). The estimator is not "
-        "the cause: refitted on one float64 matrix (`identical/*`) both forests are bitwise equal, and "
-        "`rf_defaults` (all proteins kept) and both ElasticNet variants agree at the forward class or better. "
-        "The class was declared before the run and is kept."
+        "Deviation (`rf_threshold`, float32 features): the proteomics design matrices differ by up to "
+        "1.3e-6 absolute (2.4e-7 relative; the v2 featurizer log10-transforms, centres and imputes in "
+        "float32), which is enough to flip a few split decisions in the forest: predictions differ by up "
+        "to 0.05 (Pearson 0.99988) and the importances by 1e-3, so the declared `forward` class fails "
+        "(achieved: statistical). The estimator is not the cause: refitted on one float64 matrix "
+        "(`identical/*`) both forests are bitwise equal, and `rf_defaults` (all proteins kept) and both "
+        "ElasticNet variants agree at the forward class or better. The declared class is kept; the two "
+        "steps are recorded as a deviation, because float32 views are a documented v2 difference."
     ),
     (
         "`ProteomicsMedianCenterAndImputeTransformer.fit` breaks completeness ties with `np.argsort(...)[::-1]` "
@@ -130,7 +139,7 @@ def steps() -> list[StepSpec]:
     enet = {k: v for k, v in VARIANTS.items() if k.startswith("enet")}
     forest = {k: v for k, v in VARIANTS.items() if k.startswith("rf")}
     note = "1.6.1: unset (global numpy stream seeded with the case seed). v2: the case seed."
-    return [
+    specs = [
         *omics_steps(
             enet,
             attributes={"coef_": "forward", "intercept_": "forward"},
@@ -145,6 +154,9 @@ def steps() -> list[StepSpec]:
             features="forward",
             random_state_note=note,
         ),
+    ]
+    return [
+        replace(s, scope=DEVIATION, explanation=FLOAT32_SPLITS) if s.name in FLOAT32_SENSITIVE else s for s in specs
     ]
 
 

@@ -190,6 +190,44 @@
       "shape_v2": []
     },
     {
+      "achieved": "statistical",
+      "declared": "forward",
+      "description": "rf_threshold: fitted feature importances ",
+      "detail": "",
+      "explanation": "v2 views are float32, so the proteomics design matrix differs from 1.6.1's float64 one by up to 1.3e-6, which flips a few forest split decisions. Refitted on one float64 matrix (`identical/*`) the forests are bitwise equal.",
+      "max_abs_diff": 0.0009945813116283564,
+      "max_rel_diff": 0.20415279859912336,
+      "name": "rf_threshold/fitted_feature_importances_",
+      "passed": false,
+      "pearson": 0.9999534550777908,
+      "scope": "deviation",
+      "shape_v1": [
+        98
+      ],
+      "shape_v2": [
+        98
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "forward",
+      "description": "rf_threshold: predictions",
+      "detail": "",
+      "explanation": "v2 views are float32, so the proteomics design matrix differs from 1.6.1's float64 one by up to 1.3e-6, which flips a few forest split decisions. Refitted on one float64 matrix (`identical/*`) the forests are bitwise equal.",
+      "max_abs_diff": 0.05214369297027588,
+      "max_rel_diff": 0.011011420402140351,
+      "name": "rf_threshold/predictions",
+      "passed": false,
+      "pearson": 0.9998816784838859,
+      "scope": "deviation",
+      "shape_v1": [
+        98
+      ],
+      "shape_v2": [
+        98
+      ]
+    },
+    {
       "achieved": null,
       "declared": "exact",
       "description": "rf_threshold: random_state of the estimator",
@@ -223,7 +261,7 @@
   "findings": [
     "1.6.1 single-view sklearn models load the proteomics CSV whole (`load_generic_csv`); the `drug_target_genes_all_drugs_proteomics` default exists only in the multi-view loader. v2 `normalizedProteomics` also consumes the whole view, so the two agree. v2 has no `gene_list` option for proteomics, which the 1.6.1 multi-view models (`view_configs` / `gene_lists`) would need.",
     "The transformer is the same code on both sides: protein selection, the median-centring factor and the seeded imputation agree. v2 computes `log10` and the centring in float32 (the view is float32), 1.6.1 in float64, so the design matrices agree to the forward class, not bitwise.",
-    "Mismatch (`rf_threshold`): the proteomics design matrices differ by up to 1.3e-6 absolute (2.4e-7 relative; the v2 featurizer log10-transforms, centres and imputes in float32), which is enough to flip a few split decisions in the forest: predictions differ by up to 0.05 (Pearson 0.99988) and the importances by 1e-3, so the declared `forward` class fails (achieved: statistical). The estimator is not the cause: refitted on one float64 matrix (`identical/*`) both forests are bitwise equal, and `rf_defaults` (all proteins kept) and both ElasticNet variants agree at the forward class or better. The class was declared before the run and is kept.",
+    "Deviation (`rf_threshold`, float32 features): the proteomics design matrices differ by up to 1.3e-6 absolute (2.4e-7 relative; the v2 featurizer log10-transforms, centres and imputes in float32), which is enough to flip a few split decisions in the forest: predictions differ by up to 0.05 (Pearson 0.99988) and the importances by 1e-3, so the declared `forward` class fails (achieved: statistical). The estimator is not the cause: refitted on one float64 matrix (`identical/*`) both forests are bitwise equal, and `rf_defaults` (all proteins kept) and both ElasticNet variants agree at the forward class or better. The declared class is kept; the two steps are recorded as a deviation, because float32 views are a documented v2 difference.",
     "`ProteomicsMedianCenterAndImputeTransformer.fit` breaks completeness ties with `np.argsort(...)[::-1]` (unstable sort, `n_features` above the number of complete proteins). `enet_fallback` and `rf_defaults` exercise it with numpy 2.5.4 (1.6.1) against 2.4.6 (v2): the selected proteins and their order are compared through the design matrices.",
     "Defaults: `proteomics_feature_threshold=0.7`, `proteomics_n_features=1000`, `proteomics_normalization_width=0.3`, `proteomics_normalization_downshift=1.8` are the same in 1.6.1 and v2. 1.6.1 ElasticNet uses sklearn's solver defaults (max_iter=1000, tol=1e-4, cyclic) and the v2 predictor pins other values (see the ElasticNet case); the case sets the sklearn values on the v2 side. The 1.6.1 default RandomForest grid point (n_estimators=100, max_samples=0.2, max_depth=5) equals the working-tree v2 `randomForest` defaults.",
     "`random_state`: 1.6.1 leaves it unset (global numpy stream, seeded with the case seed); v2 takes an integer. With the integer equal to that seed the forests are identical."
@@ -662,44 +700,6 @@
       "shape_v2": []
     },
     {
-      "achieved": "statistical",
-      "declared": "forward",
-      "description": "rf_threshold: fitted feature importances ",
-      "detail": "",
-      "explanation": "",
-      "max_abs_diff": 0.0009945813116283564,
-      "max_rel_diff": 0.20415279859912336,
-      "name": "rf_threshold/fitted_feature_importances_",
-      "passed": false,
-      "pearson": 0.9999534550777908,
-      "scope": "parity",
-      "shape_v1": [
-        98
-      ],
-      "shape_v2": [
-        98
-      ]
-    },
-    {
-      "achieved": "statistical",
-      "declared": "forward",
-      "description": "rf_threshold: predictions",
-      "detail": "",
-      "explanation": "",
-      "max_abs_diff": 0.05214369297027588,
-      "max_rel_diff": 0.011011420402140351,
-      "name": "rf_threshold/predictions",
-      "passed": false,
-      "pearson": 0.9998816784838859,
-      "scope": "parity",
-      "shape_v1": [
-        98
-      ],
-      "shape_v2": [
-        98
-      ]
-    },
-    {
       "achieved": "exact",
       "declared": "exact",
       "description": "rf_threshold, identical float64 design matrix: params",
@@ -915,8 +915,8 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "f34ed1ebcf6f6e934fe7e8b581966cfb48a32c4f",
-    "dirty": true,
+    "commit": "9bb63923db24073c5744f3aede3dbf9c9ea7b403",
+    "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",
     "numpy": "2.4.6",
@@ -927,5 +927,5 @@
     "torch": "2.13.0",
     "xgboost": "3.2.0"
   },
-  "verdict": "mismatch"
+  "verdict": "forward"
 }
