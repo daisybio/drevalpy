@@ -154,6 +154,34 @@ class TestVarmKeyResolution:
             dataset.get_drug_features("pca", np.array(["absent"]), strict=True)
 
 
+class TestRaggedDrugView:
+    @staticmethod
+    def _ragged() -> np.ndarray:
+        """One MolGNet-style node-feature array per drug, with differing atom counts."""
+        ragged = np.empty((2, 1), dtype=object)
+        ragged[0, 0] = np.ones((2, 3), dtype=np.float32)
+        ragged[1, 0] = np.ones((3, 3), dtype=np.float32)
+        return ragged
+
+    def test_a_ragged_view_is_a_clear_input_error_not_a_bare_value_error(self):
+        from drevalpy.errors import InvalidInputError
+
+        dataset = _dataset(varm={"molgnet_features": self._ragged()})
+
+        with pytest.raises(InvalidInputError, match="molgnet_features.*object array.*computes it from the SMILES"):
+            dataset.get_drug_features("molgnet_features", DRUGS)
+
+    def test_the_molgnet_featurizer_surfaces_the_error_instead_of_computing_over_it(self):
+        from drevalpy.components.featurizers.drug.molgnet import MolGNetDrugFeaturizer
+        from drevalpy.errors import InvalidInputError
+        from drevalpy.types.data.feature_source import DrugFeatureSource
+
+        dataset = _dataset(varm={"molgnet_features": self._ragged()})
+
+        with pytest.raises(InvalidInputError, match="object array"):
+            MolGNetDrugFeaturizer().fit(DrugFeatureSource(dataset, DRUGS), entity_ids=DRUGS)
+
+
 class TestDrugGraphs:
     def test_graphs_are_aligned_to_the_requested_ids(self):
         dataset = _dataset(uns={"drug_graphs": {"d1": {"x": np.zeros(1)}}})

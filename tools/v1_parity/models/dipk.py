@@ -130,12 +130,12 @@ FINDINGS = [
     "BIONIC: the PPI table and the gene list are the real artifacts in both versions (replaced here by a synthetic "
     "table). The aggregation is identical when every gene of the list has an embedding; with gaps v2 and 1.6.1 "
     "average different gene sets (deviation `ppi_gaps/*`, see the explanation there).",
-    "v2 cannot read a precomputed ragged `molgnet_features` view: `Dataset.get_drug_features` goes through "
-    "`_aligned_fetch`, which needs a 2-D float matrix, and raises `ValueError: setting an array element with a "
-    "sequence` for the object array of per-drug tensors (the featurizer only catches `KeyError`). A `.h5mu` "
-    "cannot store such a ragged `varm` entry either, so v2 always computes MolGNet from the SMILES with the "
-    "`MolGNet.pt` artifact during the fit. 1.6.1 reads one `MolGNet_<drug>.csv` per drug. The case feeds the "
-    "same tensors through the patched `_compute_molgnet_embedding`.",
+    "v2 does not read a precomputed ragged `molgnet_features` view: no curated `.h5mu` dataset stores one (the "
+    "`response` modality has no `varm` entries) and a `.h5mu` cannot hold per-drug arrays of differing length, so "
+    "v2 always computes MolGNet from the SMILES with the `MolGNet.pt` artifact during the fit. A ragged object "
+    "array put into `varm` by hand now raises `InvalidInputError` from `Dataset.get_drug_features` (it used to "
+    "escape as `ValueError: setting an array element with a sequence`). 1.6.1 reads one `MolGNet_<drug>.csv` per "
+    "drug. The case feeds the same tensors through the patched `_compute_molgnet_embedding`.",
     "Training loop: Adam without weight decay, MSE on the squeezed outputs, the best validation epoch "
     "checkpointed and reloaded, early stop when the epochs without improvement reach `patience`, the "
     "early-stopping loader shuffled, as in 1.6.1. The seeded runs agree at the `train` class once the "

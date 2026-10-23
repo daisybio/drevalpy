@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.modalities import backing_modality, public_omics_name
 
 from ._dense import to_dense
@@ -117,6 +118,8 @@ class FeatureAccessMixin:
         :param strict: If True, raise KeyError for missing IDs instead of warning.
         :returns: Float32 array of shape (len(ids), n_features), rows aligned to *ids*.
         :raises KeyError: If the varm key does not exist, or if *strict* and IDs are missing.
+        :raises InvalidInputError: If the view is an object array of per-drug arrays (such as ragged MolGNet node
+            features), which has no matrix form.
         """
         import pandas as pd
 
@@ -127,6 +130,17 @@ class FeatureAccessMixin:
         response = self._mdata.mod["response"]
         ids = np.asarray(ids, dtype=str)
         varm_data = np.asarray(response.varm[varm_key])
+        if varm_data.dtype == object:
+            try:
+                varm_data = varm_data.astype(np.float32)
+            except (ValueError, TypeError) as err:
+                msg = (
+                    f"Drug view '{varm_key}' in response.varm is an object array (one array per drug, such as "
+                    "ragged per-atom node features) and cannot be read as a (n_drugs, n_features) matrix. A .h5mu "
+                    "file cannot store such a view; remove the key so the featurizer computes it from the SMILES "
+                    "instead."
+                )
+                raise InvalidInputError(msg) from err
         return _aligned_fetch(pd.Index(response.var_names), ids, varm_data, strict=strict, entity_label="drug")
 
     def get_drug_feature_names(self, view: str) -> tuple[str, ...] | None:
