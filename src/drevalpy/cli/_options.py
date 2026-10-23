@@ -20,6 +20,8 @@ class ResponseTransformation(StrEnum):
     STANDARD = "standard"
     MINMAX = "minmax"
     ROBUST = "robust"
+    DRUG_MEAN = "drug_mean"
+    DRUG_TISSUE_MEAN = "drug_tissue_mean"
 
 
 class RandomizationMode(StrEnum):
@@ -36,7 +38,7 @@ ResponseTransformationOption = Annotated[
     typer.Option(
         "--response-transformation",
         case_sensitive=False,
-        help="Response scaling fitted on the training scope.",
+        help="Response transformation fitted on the training scope.",
     ),
 ]
 Hpo = Annotated[bool, typer.Option("--hpo/--no-hpo", help="Enable hyperparameter tuning.")]

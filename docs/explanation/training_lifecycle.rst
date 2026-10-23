@@ -93,8 +93,10 @@ The same discipline applies to the preprocessing that sits around a model:
   :doc:`models_from_components`).
 - *Pairs a featurizer rejects* are dropped before fitting. Their number can
   differ between folds.
-- *The response transform* (none, standard, minmax or robust) is fitted on the
-  training targets only, using a fresh copy for each fit. The predictor learns in
+- *The response transform* (none, standard, minmax, robust, drug_mean or
+  drug_tissue_mean) is fitted on the training targets only, using a fresh copy for
+  each fit. The two group means also take the drug of each pair, and the tissue of
+  its sample, from the dataset being fitted or predicted. The predictor learns in
   transformed units and its predictions are converted back to the original units
   before scoring, so metrics are always reported in the units of the data.
 

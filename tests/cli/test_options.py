@@ -26,6 +26,7 @@ from drevalpy.cli._options import (
     resolve_response_transformation,
 )
 from drevalpy.cli._summary import GroupBy
+from drevalpy.utils.response_transform import GroupMeanCenterer
 from tests.cli._helpers import make_runner
 
 runner = make_runner()
@@ -135,6 +136,8 @@ class TestResponseTransformation:
             pytest.param("standard", StandardScaler, id="standard"),
             pytest.param("minmax", MinMaxScaler, id="minmax"),
             pytest.param("robust", RobustScaler, id="robust"),
+            pytest.param("drug_mean", GroupMeanCenterer, id="drug_mean"),
+            pytest.param("drug_tissue_mean", GroupMeanCenterer, id="drug_tissue_mean"),
         ],
     )
     def test_each_choice_resolves_to_its_transformer(self, option: str, expected: type) -> None:
@@ -155,6 +158,18 @@ class TestResponseTransformation:
         transformer = resolve_response_transformation(ResponseTransformation.STANDARD)
 
         assert not hasattr(transformer, "mean_")
+
+    @pytest.mark.parametrize(
+        ("choice", "levels"),
+        [
+            pytest.param(ResponseTransformation.DRUG_MEAN, ("drug",), id="drug_mean"),
+            pytest.param(ResponseTransformation.DRUG_TISSUE_MEAN, ("drug", "tissue"), id="drug_tissue_mean"),
+        ],
+    )
+    def test_the_group_means_centre_on_their_levels(
+        self, choice: ResponseTransformation, levels: tuple[str, ...]
+    ) -> None:
+        assert resolve_response_transformation(choice).levels == levels
 
     def test_each_call_builds_a_new_transformer(self) -> None:
         first = resolve_response_transformation(ResponseTransformation.MINMAX)

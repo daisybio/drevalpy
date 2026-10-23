@@ -25,6 +25,10 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+#: The model every normalized metric is measured against (``ExperimentResult.normalize``). It always trains
+#: on the original response scale, so a response transformation cannot move the ruler along with the models.
+NORMALIZATION_REFERENCE = "NaiveMeanEffectsPredictor"
+
 
 def _validate_models(models: list[ModelSpec]) -> None:
     if any(not isinstance(model, ModelSpec) for model in models):
@@ -162,7 +166,8 @@ def run(
     :param robustness_trials: Number of robustness permutations (0 = disabled).
     :param randomization_random_state: Root seed for reproducible feature randomization; defaults to ``seed``.
     :param seed: Root seed driving the splits, the HPO and randomization defaults, and every model fit.
-    :param response_transformation: Optional unfitted target transformer, cloned for every fit.
+    :param response_transformation: Optional unfitted target transformer, cloned for every fit. The normalization
+        reference ``NaiveMeanEffectsPredictor`` is always fitted on the untransformed response.
     :param quality: Curve-quality rule passed to the splitter; ``None`` means ``CurveQuality.default()``.
     :param wandb_project: Weights & Biases project to log to; ``None`` disables tracking.
     :param on_error: ``"record"`` keeps going when a run raises, logs a warning and stores a ``RunFailure`` on
@@ -190,7 +195,6 @@ def run(
         hpo_num_trials=hpo_num_trials,
         hpo_random_state=hpo_random_state,
         seed=seed,
-        response_transformation=response_transformation,
         wandb_project=wandb_project,
     )
     randomize = (
@@ -199,7 +203,11 @@ def run(
         else None
     )
     for model in models:
-        _run_model(outcomes, model, ds, folds, fit, randomize, randomization_modes)
+        exempt = model.name == NORMALIZATION_REFERENCE and response_transformation is not None
+        if exempt:
+            logger.info("%s trains on the untransformed response: it is the normalization reference", model.name)
+        model_fit = partial(fit, response_transformation=None if exempt else response_transformation)
+        _run_model(outcomes, model, ds, folds, model_fit, randomize, randomization_modes)
 
     if outcomes.failures and not outcomes.runs:
         raise ExperimentFailedError(outcomes.failures)

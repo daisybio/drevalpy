@@ -27,6 +27,7 @@ from drevalpy.models import ModelSpec
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results import ExperimentResult
 from drevalpy.types.results.failure import ExperimentFailedError
+from drevalpy.utils.response_transform import GroupMeanCenterer, get_response_transformation
 from tests.synthetic.results import DEFAULT_DATASET_NAME, make_run_result
 
 #: The orchestrator lives in the private ``drevalpy._run`` module so that the
@@ -295,6 +296,88 @@ class TestRobustness:
         run([_stub_model("A")], dataset, "LSO", robustness_trials=2, hyperparameter_tuning=False)
 
         assert [masks.metadata["fold_index"] for masks in recorder.masks] == [0, 0, 0, 1, 1, 1]
+
+
+class TestNormalizationReference:
+    """The reference of the normalized metrics is fitted on the original response scale."""
+
+    def _transformations(self, recorder: _SingleRecorder) -> dict[str, Any]:
+        return {args[0].name: kwargs["response_transformation"] for args, kwargs in recorder.calls}
+
+    def test_the_reference_is_exempt_and_the_other_models_are_not(
+        self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _set_folds(monkeypatch, 1)
+        transformer = GroupMeanCenterer()
+
+        run(
+            [_stub_model("NaiveMeanEffectsPredictor"), _stub_model("A")],
+            dataset,
+            "LSO",
+            hyperparameter_tuning=False,
+            response_transformation=transformer,
+        )
+
+        seen = self._transformations(recorder)
+        assert seen["NaiveMeanEffectsPredictor"] is None
+        assert seen["A"] is transformer
+
+    def test_the_exemption_holds_for_every_fold(
+        self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _set_folds(monkeypatch, 3)
+
+        run(
+            [_stub_model("NaiveMeanEffectsPredictor")],
+            dataset,
+            "LSO",
+            hyperparameter_tuning=False,
+            response_transformation=GroupMeanCenterer(),
+        )
+
+        assert [kwargs["response_transformation"] for _, kwargs in recorder.calls] == [None] * 3
+
+    def test_without_a_transformation_nothing_changes(
+        self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _set_folds(monkeypatch, 1)
+
+        run([_stub_model("NaiveMeanEffectsPredictor")], dataset, "LSO", hyperparameter_tuning=False)
+
+        assert self._transformations(recorder) == {"NaiveMeanEffectsPredictor": None}
+
+
+class TestNormalizationReferenceEndToEnd:
+    """Real fits: the reference keeps its predictions under a group mean while the other models move."""
+
+    @staticmethod
+    def _predictions(synthetic_dataset: Any, response_transformation: Any) -> dict[str, np.ndarray]:
+        result = run(
+            [ModelSpec.from_name("NaiveMeanEffectsPredictor"), ModelSpec.from_name("NaivePredictor")],
+            synthetic_dataset,
+            "LSO",
+            hyperparameter_tuning=False,
+            response_transformation=response_transformation,
+        )
+        return {
+            model.model_name: np.concatenate([run_result.predictions for run_result in model.runs])
+            for model in result.models
+        }
+
+    @pytest.mark.parametrize("name", ["drug_mean", "drug_tissue_mean", "standard"])
+    def test_the_reference_ignores_the_response_transformation(self, synthetic_dataset: Any, name: str) -> None:
+        reference = self._predictions(synthetic_dataset, None)
+        transformed = self._predictions(synthetic_dataset, get_response_transformation(name))
+
+        np.testing.assert_array_equal(transformed["NaiveMeanEffectsPredictor"], reference["NaiveMeanEffectsPredictor"])
+
+    def test_the_other_models_are_still_transformed(self, synthetic_dataset: Any) -> None:
+        reference = self._predictions(synthetic_dataset, None)
+        transformed = self._predictions(synthetic_dataset, get_response_transformation("drug_mean"))
+
+        # Without a transformation NaivePredictor predicts one value per fold; with drug_mean one per drug.
+        assert np.unique(transformed["NaivePredictor"]).size > np.unique(reference["NaivePredictor"]).size
+        assert not np.allclose(transformed["NaivePredictor"], reference["NaivePredictor"])
 
 
 class TestForwardedArguments:

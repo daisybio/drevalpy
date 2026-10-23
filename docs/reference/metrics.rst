@@ -160,10 +160,24 @@ the original response scale.
      - ``sklearn.preprocessing.MinMaxScaler``
    * - ``robust``
      - ``sklearn.preprocessing.RobustScaler``
+   * - ``drug_mean``
+     - ``drevalpy.utils.response_transform.GroupMeanCenterer(("drug",))``
+   * - ``drug_tissue_mean``
+     - ``drevalpy.utils.response_transform.GroupMeanCenterer(("drug", "tissue"))``
 
-The command-line option is ``--response-transformation none|standard|minmax|robust``, matched
+The command-line option is ``--response-transformation none|standard|minmax|robust|drug_mean|drug_tissue_mean``, matched
 without regard to case. In Python, ``drevalpy.run`` and ``drevalpy.single`` take
 ``response_transformation=`` as an unfitted scikit-learn transformer, which is cloned for each
 fit, and ``None`` for no transformation. ``drevalpy.utils.get_response_transformation(name)``
-turns ``"standard"``, ``"minmax"`` or ``"robust"`` into such a transformer and ``None`` or
-``"None"`` into ``None``; any other name raises ``ValueError``.
+turns ``"standard"``, ``"minmax"``, ``"robust"``, ``"drug_mean"`` or ``"drug_tissue_mean"`` into
+such a transformer and ``None`` or ``"None"`` into ``None``; any other name raises ``ValueError``.
+
+``drug_mean`` and ``drug_tissue_mean`` subtract a group mean instead of rescaling. The means come
+from the training pairs of the fit, and the same group mean is added back to each prediction.
+``drug_tissue_mean`` uses the mean of the pair's (drug, tissue) combination, falls back to the
+mean of its drug when that combination was not in the training pairs, and to the global training
+mean when the drug is unseen as well. The drug comes from the pair and the tissue from the sample
+metadata of the dataset being fitted or predicted, so ``drug_tissue_mean`` needs a ``tissue``
+sample column. For a single-drug model the offset of a drug is a constant shift of that drug's own
+responses. ``drevalpy run`` always fits ``NaiveMeanEffectsPredictor``, the reference of the
+normalized metrics, on the untransformed response.

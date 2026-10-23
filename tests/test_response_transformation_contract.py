@@ -27,6 +27,12 @@ Two properties make that contract falsifiable end to end:
   Optuna objective swallows trial exceptions, so the only visible symptom was an
   empty trial list. Both are asserted.
 
+A third property covers the non-affine case. ``drug_mean`` and ``drug_tissue_mean`` are not
+equivariant for a model that sees several drugs, so the affine identity above must *break*
+for them (the contrast keeps that identity honest), while a model that sees one drug at a time,
+here ``SingleDrugElasticNet``, still returns the same predictions: for it the group offset is a
+constant shift of the drug's own targets, which its unpenalized intercept absorbs.
+
 Between the two sits the fit itself: the scaler's statistics must come from the
 training scope alone, which is the one place the design can leak held-out
 responses into training.
@@ -50,6 +56,7 @@ from drevalpy.models.tuning.hpo import hpam_tune
 from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results.run import RunResult
+from drevalpy.utils.response_transform import GroupMeanCenterer
 
 
 def _fitted_transform(prototype, dataset, scope):
@@ -294,3 +301,97 @@ class TestHpoRoundTrip:
     def test_the_callers_prototype_is_left_unfitted(self, tuning: dict[str, Any]) -> None:
         """Each pipeline fits its own clone."""
         assert not hasattr(tuning["prototype"], "mean_")
+
+
+def _drug_means(mudataset, scope) -> dict[str, float]:
+    """Return the mean raw response per drug id inside *scope*."""
+    rows, cols = scope.pairs[:, 0], scope.pairs[:, 1]
+    values = mudataset.response_matrix[rows, cols]
+    drugs = np.asarray(mudataset.drug_ids)[cols]
+    keep = ~np.isnan(values)
+    return {str(drug): float(values[keep & (drugs == drug)].mean()) for drug in np.unique(drugs[keep])}
+
+
+class TestGroupMeanTransformations:
+    """``drug_mean`` and ``drug_tissue_mean`` fit on the training scope and are undone on the way out."""
+
+    @pytest.fixture(scope="class")
+    def runs(self, synthetic_dataset, fold: SplitMasks) -> dict[str, RunResult]:
+        """Naive-mean and KNN runs raw, with ``drug_mean`` and with ``drug_tissue_mean``."""
+        out = {}
+        for model in ("NaivePredictor", "KNNRegressor"):
+            spec = ModelSpec.from_name(model)
+            out[model] = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+            for name in ("drug_mean", "drug_tissue_mean"):
+                out[f"{model}/{name}"] = single(
+                    spec,
+                    synthetic_dataset,
+                    fold,
+                    hyperparameter_tuning=False,
+                    response_transformation=GroupMeanCenterer(("drug",) if name == "drug_mean" else ("drug", "tissue")),
+                )
+        return out
+
+    def test_the_naive_mean_of_the_residuals_is_the_training_drug_mean(
+        self, runs: dict[str, RunResult], synthetic_dataset, fold: SplitMasks
+    ) -> None:
+        """Residuals have mean zero, so the inverse transform alone puts back each drug's training mean."""
+        means = _drug_means(synthetic_dataset, fold.train_val)
+        result = runs["NaivePredictor/drug_mean"]
+
+        expected = [means[str(drug)] for drug in result.drug_ids]
+        np.testing.assert_allclose(result.predictions, expected, rtol=1e-6)
+
+    def test_the_group_means_are_those_of_the_training_scope(self, synthetic_dataset, fold: SplitMasks) -> None:
+        fitted = _fitted_transform(GroupMeanCenterer(), synthetic_dataset, fold.train)
+
+        means = _drug_means(synthetic_dataset, fold.train)
+        np.testing.assert_allclose(fitted.level_means_[0], [means[key] for key in fitted.level_keys_[0]], rtol=1e-6)
+
+    def test_the_transformation_changes_the_predictions_of_a_multi_drug_model(self, runs: dict[str, RunResult]) -> None:
+        raw = runs["KNNRegressor"].predictions
+
+        assert not np.allclose(runs["KNNRegressor/drug_mean"].predictions, raw, rtol=1e-3)
+        assert not np.allclose(runs["KNNRegressor/drug_tissue_mean"].predictions, raw, rtol=1e-3)
+
+    def test_the_ground_truth_is_never_transformed(self, runs: dict[str, RunResult]) -> None:
+        for name in ("drug_mean", "drug_tissue_mean"):
+            np.testing.assert_array_equal(runs[f"KNNRegressor/{name}"].ground_truth, runs["KNNRegressor"].ground_truth)
+
+    def test_predictions_come_back_on_the_original_scale(self, runs: dict[str, RunResult]) -> None:
+        """A missing inverse would leave residuals around zero instead of values around the response mean."""
+        raw = runs["KNNRegressor"].predictions
+
+        for name in ("drug_mean", "drug_tissue_mean"):
+            assert abs(runs[f"KNNRegressor/{name}"].predictions.mean() - raw.mean()) < raw.std()
+
+    def test_a_single_drug_model_is_indifferent_to_the_drug_offset(self, synthetic_dataset, fold: SplitMasks) -> None:
+        spec = ModelSpec.from_name("SingleDrugElasticNet")
+        raw = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+        centred = single(
+            spec,
+            synthetic_dataset,
+            fold,
+            hyperparameter_tuning=False,
+            response_transformation=GroupMeanCenterer(),
+        )
+
+        np.testing.assert_allclose(centred.predictions, raw.predictions, rtol=1e-4, atol=1e-4)
+
+    def test_a_hyperparameter_trial_completes(self, synthetic_dataset, fold: SplitMasks) -> None:
+        trial_model = DRPModel(
+            ModelSpec.from_name("ElasticNet"),
+            {"alpha": 0.1, "l1_ratio": 0.5},
+            response_transformation=GroupMeanCenterer(("drug", "tissue")),
+        )
+
+        metrics, _ = _mu_evaluate_trial_all_metrics(
+            trial_model,
+            mudataset=synthetic_dataset,
+            train_scope=fold.train,
+            val_scope=fold.val,
+            early_stopping_scope=None,
+            model_checkpoint_dir=None,
+        )
+
+        assert np.isfinite(metrics["RMSE"])

@@ -172,11 +172,22 @@ sampler alone.
 Scale the response
 ------------------
 
-``--response-transformation`` scales the response before the models train, with ``standard``,
-``minmax`` or ``robust`` scaling. The default is ``none``. The scaler is fitted on the training
-pairs of each fold, and the predictions are transformed back, so the scores stay in the units of
-the response. In Python, pass an unfitted scikit-learn transformer to ``response_transformation``;
-DrEvalPy clones and fits it for every fit.
+``--response-transformation`` transforms the response before the models train, with ``standard``,
+``minmax`` or ``robust`` scaling, or with ``drug_mean`` or ``drug_tissue_mean``, which subtract the
+mean of each drug, or of each drug and tissue. The default is ``none``. The transformation is
+fitted on the training pairs of each fold, and the predictions are transformed back, so the
+scores stay in the units of the response. In Python, pass an unfitted transformer to
+``response_transformation``, such as a scikit-learn scaler or
+``drevalpy.utils.get_response_transformation("drug_mean")``; DrEvalPy clones and fits it for
+every fit.
+
+The scalers rescale every drug alike. ``drug_mean`` and ``drug_tissue_mean`` instead remove the
+drug main effect, so a model that sees several drugs learns the residual sample-drug structure.
+A (drug, tissue) combination that the training pairs do not contain is centred on the mean of its
+drug, and an unseen drug on the global training mean. ``drug_tissue_mean`` reads the tissue from
+the sample metadata, so the dataset needs a ``tissue`` column. ``NaiveMeanEffectsPredictor``, the
+reference of the normalized metrics, is always fitted on the untransformed response, so runs with
+different transformations stay on the same normalization scale.
 
 .. tab-set::
    :sync-group: interface

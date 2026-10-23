@@ -11,7 +11,12 @@ from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.models._components import build_components
 from drevalpy.models._feature_preparation import transform_entities, usable_responses
-from drevalpy.models._target_transform import apply_target_transform, fit_target_transform, validate_fit_scopes
+from drevalpy.models._target_transform import (
+    apply_target_transform,
+    fit_target_transform,
+    group_labels,
+    validate_fit_scopes,
+)
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.types import SplitMask
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -192,7 +197,11 @@ class _ModelPipeline:
         """
         response = ResponseBatch.from_dataset(mudataset, scope, observed_only=True)
         return ResponseBatch(
-            apply_target_transform(response_transformation, response.response),
+            apply_target_transform(
+                response_transformation,
+                response.response,
+                groups=group_labels(response_transformation, mudataset, response),
+            ),
             response.sample_ids,
             response.drug_ids,
         )
@@ -228,7 +237,9 @@ class _ModelPipeline:
         if len(raw) == 0:
             self.state = PipelineState.EMPTY
             return
-        self._response_transform = fit_target_transform(self._response_prototype, raw.response)
+        self._response_transform = fit_target_transform(
+            self._response_prototype, raw.response, group_labels(self._response_prototype, dataset, raw)
+        )
         mudataset = dataset
         response_transformation = self._response_transform
         output = self._extract_response_pairs(mudataset, scope, response_transformation)
@@ -301,4 +312,9 @@ class _ModelPipeline:
                 f"Predictor {type(self._predictor).__name__} returned shape {predictions.shape}; "
                 f"expected one value per requested response position ({len(response)},)"
             )
-        return apply_target_transform(self._response_transform, predictions, inverse=True)
+        return apply_target_transform(
+            self._response_transform,
+            predictions,
+            groups=group_labels(self._response_transform, mudataset, response),
+            inverse=True,
+        )

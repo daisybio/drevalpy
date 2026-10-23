@@ -54,7 +54,7 @@ Defaults and results that changed
 
 - ``--response-transformation`` defaults to ``none`` in ``drevalpy run`` and ``drevalpy single``,
   so the response is not standardized unless you ask for it. The values are ``none``, ``standard``,
-  ``minmax`` and ``robust``.
+  ``minmax`` and ``robust``, plus the 1.x group means ``drug_mean`` and ``drug_tissue_mean``.
 - ``ExperimentResult.summary_table`` is a method, not a property. Call ``summary_table()`` for
   the pooled metrics, or ``summary_table(group_by="drug")``, ``"sample"`` or ``"study"``
   to compute each metric within every drug, sample or study and average over the groups. A group where
