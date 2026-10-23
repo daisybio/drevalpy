@@ -8,9 +8,8 @@ from drevalpy.components.contracts.contracts import contracts_compatible, featur
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.single_drug_routing import ROUTING_DRUG_FEATURIZER
 from drevalpy.models.config._block_specs import resolve_output_block_specs
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.enums.model_scope import ModelScope
 
@@ -64,25 +63,13 @@ def _validate_single_drug_pairing(config: ModelConfig, pred_cls: type[Any]) -> N
 def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> None:
     required_sample, required_drug = predictor_contracts(pred_cls)
     sides = (
-        (
-            "sample",
-            config.sample_featurizer,
-            required_sample,
-            get_sample_featurizer,
-            "Sample",
-        ),
-        (
-            "drug",
-            config.drug_featurizer,
-            required_drug,
-            get_drug_featurizer,
-            "Drug",
-        ),
+        ("sample", config.sample_featurizer, required_sample, "Sample"),
+        ("drug", config.drug_featurizer, required_drug, "Drug"),
     )
-    for side, featurizer, required, getter, label in sides:
+    for side, featurizer, required, label in sides:
         if featurizer is None:
             continue
-        contract = featurizer_contract(getter(featurizer.name))
+        contract = featurizer_contract(get_featurizer(side, featurizer.name))
         if not contracts_compatible(contract, required):
             msg = (
                 f"{label} featurizer contract {contract!r} is incompatible with predictor {side}_contract {required!r}"

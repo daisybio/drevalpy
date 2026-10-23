@@ -2,8 +2,8 @@
 
 ``validate_merged_mapping`` is the single public entry of
 ``drevalpy.models.config._hp_key_validation``; the accepted-key index it builds
-is asserted through it rather than separately. The key grammar it delegates to
-is covered in ``tests/models/test_hp_key_grammar.py``.
+is asserted through it rather than separately. The per-component key sets are in
+``test_accepted_keys.py`` and the key grammar in ``tests/models/test_hp_key_grammar.py``.
 """
 
 from __future__ import annotations
@@ -16,10 +16,7 @@ from drevalpy.models.config import (
     PredictorConfig,
     SampleFeaturizerConfig,
 )
-from drevalpy.models.config._hp_key_validation import (
-    _predictor_accepted_keys,
-    validate_merged_mapping,
-)
+from drevalpy.models.config._hp_key_validation import validate_merged_mapping
 from drevalpy.registry._builtins import register_builtin_components
 
 
@@ -129,54 +126,3 @@ class TestValidateMergedMapping:
 
         with pytest.raises(ValueError, match="Unknown hyperparameter"):
             validate_merged_mapping(config, {"sample_featurizer.pca[gene_expression].n_components": 8})
-
-
-class TestPredictorAcceptedKeys:
-    """``non_tunable_hyperparameters`` is accepted in either declared shape."""
-
-    def test_merges_defaults_and_space(self) -> None:
-        class Predictor:
-            @staticmethod
-            def get_default_hyperparameters() -> dict[str, object]:
-                return {"alpha": 1.0}
-
-            @staticmethod
-            def get_hyperparameter_space() -> dict[str, object]:
-                return {"l1_ratio": {"default": 0.5}}
-
-        assert _predictor_accepted_keys(Predictor) == {"alpha", "l1_ratio"}
-
-    @pytest.mark.parametrize(
-        "non_tunable",
-        [
-            pytest.param({"max_iter": 1000}, id="mapping"),
-            pytest.param(frozenset({"max_iter"}), id="frozenset"),
-            pytest.param(["max_iter"], id="list"),
-            pytest.param(("max_iter",), id="tuple"),
-        ],
-    )
-    def test_includes_non_tunable_hyperparameters(self, non_tunable: object) -> None:
-        class Predictor:
-            non_tunable_hyperparameters = non_tunable
-
-            @staticmethod
-            def get_default_hyperparameters() -> dict[str, object]:
-                return {"alpha": 1.0}
-
-            @staticmethod
-            def get_hyperparameter_space() -> dict[str, object]:
-                return {}
-
-        assert _predictor_accepted_keys(Predictor) == {"alpha", "max_iter"}
-
-    def test_tolerates_an_absent_declaration(self) -> None:
-        class Predictor:
-            @staticmethod
-            def get_default_hyperparameters() -> dict[str, object]:
-                return {}
-
-            @staticmethod
-            def get_hyperparameter_space() -> dict[str, object]:
-                return {}
-
-        assert _predictor_accepted_keys(Predictor) == set()

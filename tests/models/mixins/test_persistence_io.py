@@ -140,33 +140,18 @@ class TestLoadModelPayload:
         with pytest.raises(CorruptedCheckpointError, match=f"missing {PAYLOAD_MEMBER!r}"):
             load_model_payload(str(archive))
 
-    def test_rejects_a_pre_rename_version_3_checkpoint(self, tmp_path) -> None:
-        payload = {
-            "format": FORMAT_NAME,
-            "version": 3,
-            "model_name": "ElasticNet",
-            "config": {"cell_line_featurizer": {"name": "GeneExpression"}},
-            "state": {"cell_line": {}},
-        }
-        archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
+    def test_current_format_version_is_1(self) -> None:
+        assert FORMAT_VERSION == 1
 
-        with pytest.raises(UnsupportedCheckpointFormatError, match=r"predates the cell line -> sample rename") as info:
-            load_model_payload(str(archive))
-        assert "format 5" in str(info.value)
-        assert "retrain" in str(info.value)
-
-    def test_rejects_a_version_4_checkpoint_without_feature_names(self, tmp_path) -> None:
+    def test_rejects_another_version_and_says_how_to_recover(self, tmp_path) -> None:
         payload = elastic_net_payload({})
-        payload["version"] = 4
+        payload["version"] = 5
         archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
 
-        with pytest.raises(UnsupportedCheckpointFormatError, match=r"predates feature-name checks") as info:
+        with pytest.raises(UnsupportedCheckpointFormatError, match=r"unsupported checkpoint format/version") as info:
             load_model_payload(str(archive))
-        assert "format 5" in str(info.value)
+        assert f"version {FORMAT_VERSION}" in str(info.value)
         assert "retrain the model and save it again" in str(info.value)
-
-    def test_current_format_version_is_5(self) -> None:
-        assert FORMAT_VERSION == 5
 
     def test_rejects_a_non_mapping_state(self, tmp_path) -> None:
         archive = write_archive(UPath(tmp_path) / "elastic_net.zip", elastic_net_payload("bad"))
@@ -199,7 +184,7 @@ class TestLoadModelPayload:
                 id="unknown-format",
             ),
             pytest.param(
-                {"format": FORMAT_NAME, "version": 1, "model_name": "ElasticNet", "config": {}, "state": {}},
+                {"format": FORMAT_NAME, "version": 0, "model_name": "ElasticNet", "config": {}, "state": {}},
                 UnsupportedCheckpointFormatError,
                 "unsupported checkpoint format/version",
                 id="older-version",

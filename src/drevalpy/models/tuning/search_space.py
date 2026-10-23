@@ -6,8 +6,6 @@ from collections.abc import Mapping
 from typing import Any
 
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
-from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.models._hp_key_grammar import (
     DRUG_SLOT,
     PREDICTOR_SLOT,
@@ -17,11 +15,11 @@ from drevalpy.models._hp_key_grammar import (
     predictor_prefix,
 )
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
+from drevalpy.models.config._accepted_keys import leaf_selector
 from drevalpy.models.config._hp_key_validation import validate_merged_mapping
 from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.registry.featurizer import Side, get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 
 def _effective_space(config_space: Mapping[str, Any] | None, cls: type[Any]) -> dict[str, Any]:
@@ -30,17 +28,9 @@ def _effective_space(config_space: Mapping[str, Any] | None, cls: type[Any]) -> 
     return dict(cls.get_hyperparameter_space())
 
 
-def _leaf_selector(featurizer: FeaturizerConfig) -> str:
-    return qualified_featurizer_selector(featurizer.name, featurizer.view)
-
-
-def _accepted_featurizer_selectors(featurizer: FeaturizerConfig, registry: str) -> list[str]:
-    return [_leaf_selector(leaf) for leaf in iter_featurizer_leaves(featurizer, registry)]
-
-
 def _merge_concat_child_spaces(
     featurizer: FeaturizerConfig,
-    registry: str,
+    registry: Side,
 ) -> dict[str, Any]:
     merged: dict[str, Any] = {}
     for child_cfg in featurizer.featurizers or ():
@@ -49,29 +39,23 @@ def _merge_concat_child_spaces(
             if is_featurizer_slot_key(key):
                 merged[key] = spec
             else:
-                selector = _leaf_selector(child_cfg)
+                selector = leaf_selector(child_cfg)
                 merged[featurizer_prefix(registry, selector, key)] = spec
     return merged
 
 
-def _leaf_featurizer_spaces(featurizer: FeaturizerConfig, registry: str) -> dict[str, Any]:
-    cls = (
-        get_sample_featurizer(featurizer.name)
-        if registry == "sample"
-        else get_drug_featurizer(
-            featurizer.name,
-        )
-    )
+def _leaf_featurizer_spaces(featurizer: FeaturizerConfig, registry: Side) -> dict[str, Any]:
+    cls = get_featurizer(registry, featurizer.name)
     space = _effective_space(
         dict(featurizer.hyperparameter_space) if featurizer.hyperparameter_space is not None else None,
         cls,
     )
-    selector = _leaf_selector(featurizer)
+    selector = leaf_selector(featurizer)
     return {featurizer_prefix(registry, selector, key): value for key, value in space.items()}
 
 
 def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
-    registry = str(featurizer.registry)
+    registry = featurizer.registry
     if featurizer.name == "concatFeaturizers":
         return _merge_concat_child_spaces(featurizer, registry)
     return _leaf_featurizer_spaces(featurizer, registry)

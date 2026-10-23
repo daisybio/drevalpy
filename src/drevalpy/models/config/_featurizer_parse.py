@@ -15,8 +15,7 @@ from typing import Any
 from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.models.config._recipe import CONCAT_FEATURIZER_NAME, expand_featurizer_recipe
 from drevalpy.models.config._space_defaults import split_space_and_options
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
+from drevalpy.registry.featurizer import Side, get_featurizer
 
 _RESERVED_FEATURIZER_KEYS = frozenset(
     {
@@ -50,18 +49,6 @@ def _finalize_view(config: dict[str, Any]) -> None:
     if view is None or (isinstance(view, str) and not view.strip()):
         msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[gene_expression]"
         raise ValueError(msg)
-
-
-def _featurizer_class(name: str, registry: str) -> type[Any]:
-    """Look up a featurizer class in the registry the config is written against.
-
-    :param name: Featurizer registry name.
-    :param registry: ``sample`` or ``drug``.
-    :returns: The registered featurizer class.
-    """
-    if registry == "sample":
-        return get_sample_featurizer(name)
-    return get_drug_featurizer(name)
 
 
 def _assemble_featurizer_dict(
@@ -169,7 +156,7 @@ def _split_one_key_payload(
     payload: dict[str, Any],
     *,
     name: str,
-    default_registry: str,
+    default_registry: Side,
 ) -> tuple[list[Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
     """Split a one-key mapping body into template fields.
 
@@ -190,7 +177,7 @@ def _split_one_key_payload(
     body.pop("view", None)
     if body:
         derived_space, derived_options = split_space_and_options(
-            _featurizer_class(name, default_registry),
+            get_featurizer(default_registry, name),
             body,
         )
         if derived_space:

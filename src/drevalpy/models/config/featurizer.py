@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -13,8 +13,10 @@ from drevalpy.components.featurizers._featurizer_tree import ensure_unique_quali
 from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 from drevalpy.models.config._recipe import expand_featurizer_recipe
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
+from drevalpy.registry.featurizer import get_featurizer
+
+if TYPE_CHECKING:
+    from drevalpy.components.featurizers.base import Featurizer
 
 
 class FeaturizerConfig(BaseModel):
@@ -180,7 +182,7 @@ class FeaturizerConfig(BaseModel):
         ensure_unique_qualified_featurizers(self, str(self.registry))
         return self
 
-    def create_instance(self, hyperparameters: Mapping[str, Any] | None = None):
+    def create_instance(self, hyperparameters: Mapping[str, Any] | None = None) -> Featurizer:
         """Instantiate the configured featurizer from the registry.
 
         Turns this declarative template into a live object: resolves ``name`` in the
@@ -194,10 +196,7 @@ class FeaturizerConfig(BaseModel):
             or config payloads under the ``featurizers`` key.
         :returns: Featurizer instance for this config.
         """
-        if self.registry == "sample":
-            cls = get_sample_featurizer(self.name)
-        else:
-            cls = get_drug_featurizer(self.name)
+        cls = get_featurizer(self.registry, self.name)
         hp = thaw_value(dict(self.options or {}))
         hp.update(thaw_value(dict(hyperparameters or {})))
         if self.view is not None:

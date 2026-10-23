@@ -8,14 +8,13 @@ from typing import Any
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.models._hp_key_grammar import featurizer_prefix, predictor_prefix
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.models.config._accepted_keys import leaf_selector
+from drevalpy.registry.featurizer import Side, get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 from .hyperparameter_keys import (
     HyperparameterOwnershipIndex,
     HyperparameterTarget,
-    _leaf_selector,
     build_ownership_index,
 )
 
@@ -42,26 +41,14 @@ def _predictor_export_params(config: ModelConfig, predictor_cls: type[Any]) -> l
     return sorted(keys)
 
 
-def _featurizer_export_params(featurizer: FeaturizerConfig, registry: str) -> list[str]:
-    cls = get_sample_featurizer(featurizer.name) if registry == "sample" else get_drug_featurizer(featurizer.name)
-    space = (
-        dict(featurizer.hyperparameter_space)
-        if featurizer.hyperparameter_space is not None
-        else dict(cls.get_hyperparameter_space())
-    )
-    return sorted(space)
+def _featurizer_space(featurizer: FeaturizerConfig, registry: Side) -> dict[str, Any]:
+    if featurizer.hyperparameter_space is not None:
+        return dict(featurizer.hyperparameter_space)
+    return dict(get_featurizer(registry, featurizer.name).get_hyperparameter_space())
 
 
-def _featurizer_value(featurizer: FeaturizerConfig, param: str, registry: str) -> Any | None:
-    cls = get_sample_featurizer(featurizer.name) if registry == "sample" else get_drug_featurizer(featurizer.name)
-    space = (
-        dict(featurizer.hyperparameter_space)
-        if featurizer.hyperparameter_space is not None
-        else dict(cls.get_hyperparameter_space())
-    )
-    if param not in space:
-        return None
-    return space[param]["default"]
+def _featurizer_value(space: dict[str, Any], param: str) -> Any | None:
+    return space[param]["default"] if param in space else None
 
 
 def _append_export_entry(
@@ -105,22 +92,24 @@ def _collect_featurizer_export_entries(
     concrete: dict[str, Any],
 ) -> list[tuple[HyperparameterTarget, Any]]:
     entries: list[tuple[HyperparameterTarget, Any]] = []
-    for registry, slot_config in (
+    sides: tuple[tuple[Side, FeaturizerConfig | None], ...] = (
         ("sample", config.sample_featurizer),
         ("drug", config.drug_featurizer),
-    ):
+    )
+    for registry, slot_config in sides:
         if slot_config is None:
             continue
         for leaf in iter_featurizer_leaves(slot_config, registry):
-            selector = _leaf_selector(leaf)
-            for param in _featurizer_export_params(leaf, registry):
+            selector = leaf_selector(leaf)
+            space = _featurizer_space(leaf, registry)
+            for param in sorted(space):
                 qualified = featurizer_prefix(registry, selector, param)
                 _append_export_entry(
                     entries,
                     qualified=qualified,
                     index=index,
                     concrete=concrete,
-                    default_value=_featurizer_value(leaf, param, registry),
+                    default_value=_featurizer_value(space, param),
                 )
     return entries
 

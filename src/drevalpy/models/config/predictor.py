@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -11,6 +11,9 @@ from drevalpy.components.contracts.hyperparameter_space import validate_hyperpar
 from drevalpy.models.config._predictor_parse import normalize_predictor_config
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.predictor import get as get_predictor
+
+if TYPE_CHECKING:
+    from drevalpy.components.predictors.abstract.base import Predictor
 
 
 class PredictorConfig(BaseModel):
@@ -54,7 +57,7 @@ class PredictorConfig(BaseModel):
             )
         return self
 
-    def create_instance(self, hyperparameters: Mapping[str, Any] | None = None):
+    def create_instance(self, hyperparameters: Mapping[str, Any] | None = None) -> Predictor:
         """Instantiate the configured predictor from the registry.
 
         :param hyperparameters: Concrete constructor values for this predictor.

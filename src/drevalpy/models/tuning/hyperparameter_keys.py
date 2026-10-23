@@ -17,9 +17,19 @@ from drevalpy.models._hp_key_grammar import (
     split_prefixed_key,
 )
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.models.config._accepted_keys import featurizer_accepted_keys, leaf_selector, predictor_accepted_keys
+from drevalpy.registry.featurizer import Side
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
+
+_METHYLATION_COMPONENTS_KEY = featurizer_prefix("sample", "pca[methylation]", "n_components")
+
+#: Short keys that name a qualified key, each applied only to stacks that have the target.
+_KEY_ALIASES = {
+    # 1.x MultiViewRandomForest / MultiViewXGBoost / MultiViewLightGBM hyperparameter.
+    "methylation_n_components": _METHYLATION_COMPONENTS_KEY,
+    # Alternate spelling of ``methylation_n_components``, accepted for compatibility.
+    "methylation_pca_components": _METHYLATION_COMPONENTS_KEY,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +44,8 @@ class HyperparameterTarget:
     def qualified_key(self) -> str:
         """Return the fully qualified public key for this target.
 
-        :returns: Result.
+        :returns: ``predictor.<name>.<param>`` for the predictor slot, else
+            ``<side>_featurizer.<selector>.<param>``.
         """
         if self.slot == PREDICTOR_SLOT:
             return predictor_prefix(self.selector, self.param)
@@ -55,50 +66,21 @@ class HyperparameterOwnershipIndex:
     alias_to_qualified: dict[str, str]
 
 
-def _leaf_selector(featurizer: FeaturizerConfig) -> str:
-    from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
-
-    return qualified_featurizer_selector(featurizer.name, featurizer.view)
-
-
-def _predictor_accepted_keys(predictor_cls: type[Any]) -> set[str]:
-    keys = set(predictor_cls.get_default_hyperparameters())
-    keys.update(predictor_cls.get_hyperparameter_space())
-    non_tunable = getattr(predictor_cls, "non_tunable_hyperparameters", None)
-    if isinstance(non_tunable, dict):
-        keys.update(non_tunable)
-    elif isinstance(non_tunable, (set, frozenset, list, tuple)):
-        keys.update(str(key) for key in non_tunable)
-    return keys
-
-
-def _featurizer_accepted_keys(featurizer: FeaturizerConfig, registry: str) -> set[str]:
-    cls = get_sample_featurizer(featurizer.name) if registry == "sample" else get_drug_featurizer(featurizer.name)
-    return set(cls.get_hyperparameter_space())
-
-
 def _append_featurizer_targets(
     targets: list[HyperparameterTarget],
     featurizer: FeaturizerConfig,
     *,
     slot: str,
-    registry: str,
+    registry: Side,
 ) -> None:
-    selector = _leaf_selector(featurizer)
-    for param in sorted(_featurizer_accepted_keys(featurizer, registry)):
+    selector = leaf_selector(featurizer)
+    for param in sorted(featurizer_accepted_keys(featurizer, registry)):
         targets.append(HyperparameterTarget(slot=slot, selector=selector, param=param))
 
 
 def _alias_targets(targets: tuple[HyperparameterTarget, ...]) -> dict[str, str]:
-    aliases: dict[str, str] = {}
-    qualified_set = {target.qualified_key for target in targets}
-
-    methylation_key = featurizer_prefix("sample", "pca[methylation]", "n_components")
-    if methylation_key in qualified_set:
-        aliases["methylation_n_components"] = methylation_key
-        aliases["methylation_pca_components"] = methylation_key
-
-    return aliases
+    qualified = {target.qualified_key for target in targets}
+    return {alias: key for alias, key in _KEY_ALIASES.items() if key in qualified}
 
 
 def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
@@ -110,7 +92,7 @@ def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
     targets: list[HyperparameterTarget] = []
 
     predictor_cls = get_predictor(config.predictor.name)
-    for param in sorted(_predictor_accepted_keys(predictor_cls)):
+    for param in sorted(predictor_accepted_keys(predictor_cls)):
         targets.append(
             HyperparameterTarget(
                 slot=PREDICTOR_SLOT,

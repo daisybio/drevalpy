@@ -66,11 +66,6 @@ def test_a_builtin_preset_that_fails_validation_is_skipped_with_a_warning(
     assert "Broken.yaml" in caplog.text
 
 
-@pytest.mark.parametrize("name", list_zoo_names(include_external=False))
-def test_every_zoo_preset_validates(name: str) -> None:
-    validate(get_zoo_config(name))
-
-
 def test_list_zoo_names_filters_by_scope() -> None:
     from drevalpy.types.enums.model_scope import ModelScope
 

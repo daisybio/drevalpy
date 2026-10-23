@@ -2,24 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING
 
 from drevalpy.components.featurizers._leaf_kwargs import featurizer_leaf_kwargs
 from drevalpy.models.config.featurizer import FeaturizerConfig
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
+from drevalpy.registry.featurizer import Side, get_featurizer
 
 if TYPE_CHECKING:
     from drevalpy.models.config.resolved import ResolvedModelConfig
 
 
-def _featurizer_cls(config: FeaturizerConfig, *, registry: str) -> type[Any]:
-    if registry == "sample":
-        return get_sample_featurizer(config.name)
-    return get_drug_featurizer(config.name)
-
-
-def entity_id_only_from_featurizer_config(config: FeaturizerConfig, *, registry: str) -> bool:
+def entity_id_only_from_featurizer_config(config: FeaturizerConfig, *, registry: Side) -> bool:
     """Return True when the featurizer only needs entity identifiers, not omics or drug views.
 
     :param config: Featurizer config node to inspect.
@@ -31,13 +24,13 @@ def entity_id_only_from_featurizer_config(config: FeaturizerConfig, *, registry:
         if not children:
             return False
         return all(entity_id_only_from_featurizer_config(child, registry=registry) for child in children)
-    return bool(getattr(_featurizer_cls(config, registry=registry), "entity_id_only", False))
+    return bool(getattr(get_featurizer(registry, config.name), "entity_id_only", False))
 
 
 def _concat_child_views(
     config: FeaturizerConfig,
     *,
-    registry: Literal["sample", "drug"],
+    registry: Side,
     resolved: ResolvedModelConfig | None,
 ) -> list[str]:
     views: list[str] = []
@@ -49,7 +42,7 @@ def _concat_child_views(
 def views_from_featurizer_config(
     config: FeaturizerConfig,
     *,
-    registry: Literal["sample", "drug"],
+    registry: Side,
     resolved: ResolvedModelConfig | None = None,
 ) -> list[str]:
     """Ask each featurizer in the tree which raw views it reads.
@@ -61,6 +54,6 @@ def views_from_featurizer_config(
     """
     if config.name == "concatFeaturizers":
         return _concat_child_views(config, registry=registry, resolved=resolved)
-    cls = _featurizer_cls(config, registry=registry)
+    cls = get_featurizer(registry, config.name)
     kwargs = featurizer_leaf_kwargs(config, registry=registry, resolved=resolved)
     return list(cls.resolve_input_views(**kwargs))

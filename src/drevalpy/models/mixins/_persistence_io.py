@@ -30,12 +30,8 @@ if TYPE_CHECKING:
     from drevalpy.models.drp_model import DRPModel
 
 FORMAT_NAME = "drevalpy-model"
-FORMAT_VERSION = 5
+FORMAT_VERSION = 1
 PAYLOAD_MEMBER = "payload.joblib"
-_RETIRED_VERSIONS = {
-    3: "predates the cell line -> sample rename and its configuration and state keys are no longer readable",
-    4: "predates feature-name checks at predict and its featurizers store no feature names",
-}
 
 
 class ModelCheckpointError(DrEvalError):
@@ -157,20 +153,22 @@ def save_model(model: DRPModel, path: str | Path) -> None:
     _write_archive_atomically(resolve_checkpoint_path(target), payload)
 
 
-def _resolved_config_from_checkpoint_payload(payload: dict[str, Any]) -> ResolvedModelConfig:
-    version = payload.get("version")
-    if version in _RETIRED_VERSIONS:
-        raise UnsupportedCheckpointFormatError(
-            f"unsupported checkpoint format/version: {payload.get('format')!r}/{version!r}; "
-            f"this checkpoint {_RETIRED_VERSIONS[version]} (format {FORMAT_VERSION}); "
-            "retrain the model and save it again"
-        )
-    if version == FORMAT_VERSION:
-        return ResolvedModelConfig.model_validate(payload["config"])
-    raise UnsupportedCheckpointFormatError(
+def _unsupported_format(payload: dict[str, Any]) -> UnsupportedCheckpointFormatError:
+    """Build the error for a checkpoint whose format name or version this release cannot read.
+
+    :param payload: Decoded checkpoint payload.
+    :returns: Error naming the stored format and version, and the version this release writes.
+    """
+    return UnsupportedCheckpointFormatError(
         f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}; "
-        "retrain with the current model API because older checkpoints omit target transformation state"
+        f"this release reads {FORMAT_NAME!r} version {FORMAT_VERSION}; retrain the model and save it again"
     )
+
+
+def _resolved_config_from_checkpoint_payload(payload: dict[str, Any]) -> ResolvedModelConfig:
+    if payload.get("version") != FORMAT_VERSION:
+        raise _unsupported_format(payload)
+    return ResolvedModelConfig.model_validate(payload["config"])
 
 
 def load_model_payload(path: str | Path) -> tuple[str, ResolvedModelConfig, dict[str, object]]:
@@ -192,10 +190,7 @@ def load_model_payload(path: str | Path) -> tuple[str, ResolvedModelConfig, dict
     if not isinstance(payload, dict):
         raise CorruptedCheckpointError("checkpoint payload is not a mapping")
     if payload.get("format") != FORMAT_NAME:
-        raise UnsupportedCheckpointFormatError(
-            f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}; "
-            "retrain with the current model API because older checkpoints omit target transformation state"
-        )
+        raise _unsupported_format(payload)
     model_name = payload.get("model_name")
     if not isinstance(model_name, str) or not model_name:
         raise CorruptedCheckpointError("checkpoint model_name is missing or invalid")

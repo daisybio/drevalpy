@@ -7,15 +7,8 @@ from typing import Any
 from drevalpy.components.contracts.contracts import featurizer_contract
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.models.config.featurizer import FeaturizerConfig
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
+from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.types.data.batch.feature_block import BlockSpec
-
-
-def _lookup_featurizer_class(config: FeaturizerConfig) -> type[Any]:
-    if config.registry == "sample":
-        return get_sample_featurizer(config.name)
-    return get_drug_featurizer(config.name)
 
 
 def _fallback_block_specs(cls: type[Any], config: FeaturizerConfig) -> tuple[BlockSpec, ...]:
@@ -41,7 +34,7 @@ def resolve_output_block_specs(config: FeaturizerConfig) -> tuple[BlockSpec, ...
     :param config: Featurizer config node to inspect.
     :returns: Block specs emitted by the featurizer tree.
     """
-    cls = _lookup_featurizer_class(config)
+    cls = get_featurizer(config.registry, config.name)
     if issubclass(cls, ConcatFeaturizersMixin):
         specs: list[BlockSpec] = []
         for child in config.featurizers or ():

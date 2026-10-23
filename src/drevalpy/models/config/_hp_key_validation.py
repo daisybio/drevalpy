@@ -11,40 +11,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.models._hp_key_grammar import (
     featurizer_prefix,
     predictor_prefix,
     reject_indexed_featurizer_key,
 )
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
+from drevalpy.models.config._accepted_keys import featurizer_accepted_keys, leaf_selector, predictor_accepted_keys
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
 
 if TYPE_CHECKING:
-    from drevalpy.models.config.featurizer import FeaturizerConfig
     from drevalpy.models.config.model import ModelConfig
-
-
-def _leaf_selector(featurizer: FeaturizerConfig) -> str:
-    return qualified_featurizer_selector(featurizer.name, featurizer.view)
-
-
-def _predictor_accepted_keys(predictor_cls: type[Any]) -> set[str]:
-    keys = set(predictor_cls.get_default_hyperparameters())
-    keys.update(predictor_cls.get_hyperparameter_space())
-    non_tunable = getattr(predictor_cls, "non_tunable_hyperparameters", None)
-    if isinstance(non_tunable, dict):
-        keys.update(non_tunable)
-    elif isinstance(non_tunable, (set, frozenset, list, tuple)):
-        keys.update(str(key) for key in non_tunable)
-    return keys
-
-
-def _featurizer_accepted_keys(featurizer: FeaturizerConfig, registry: str) -> set[str]:
-    cls = get_sample_featurizer(featurizer.name) if registry == "sample" else get_drug_featurizer(featurizer.name)
-    return set(cls.get_hyperparameter_space())
 
 
 def _build_validation_index(config: ModelConfig) -> dict[str, Any]:
@@ -55,19 +32,19 @@ def _build_validation_index(config: ModelConfig) -> dict[str, Any]:
     accepted: dict[str, Any] = {}
 
     predictor_cls = get_predictor(config.predictor.name)
-    for param in _predictor_accepted_keys(predictor_cls):
+    for param in predictor_accepted_keys(predictor_cls):
         accepted[predictor_prefix(config.predictor.name, param)] = True
 
     if config.sample_featurizer is not None:
         for leaf in iter_featurizer_leaves(config.sample_featurizer, "sample"):
-            selector = _leaf_selector(leaf)
-            for param in _featurizer_accepted_keys(leaf, "sample"):
+            selector = leaf_selector(leaf)
+            for param in featurizer_accepted_keys(leaf, "sample"):
                 accepted[featurizer_prefix("sample", selector, param)] = True
 
     if config.drug_featurizer is not None:
         for leaf in iter_featurizer_leaves(config.drug_featurizer, "drug"):
-            selector = _leaf_selector(leaf)
-            for param in _featurizer_accepted_keys(leaf, "drug"):
+            selector = leaf_selector(leaf)
+            for param in featurizer_accepted_keys(leaf, "drug"):
                 accepted[featurizer_prefix("drug", selector, param)] = True
 
     return accepted

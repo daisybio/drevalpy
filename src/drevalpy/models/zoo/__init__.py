@@ -24,12 +24,19 @@ _EXTERNAL_ZOO: dict[str, ModelConfig] = {}
 
 
 def _load_builtin_entries() -> dict[str, ModelConfig]:
+    """Parse every ``*.yaml`` preset shipped in this directory.
+
+    A preset that fails validation is logged and skipped, so one broken file cannot hide
+    the others.
+
+    :returns: Mapping of preset name (the file stem) to its model config.
+    """
     entries: dict[str, ModelConfig] = {}
     for path in sorted(_BUILTIN_ZOO_DIR.glob("*.yaml")):
         try:
             config = from_yaml(path)
         except ValueError as exc:
-            # tests/models/zoo/test_init.py fails on a skipped preset; users only get the warning.
+            # tests/models/test_model_config_native.py fails on a skipped preset; users only get the warning.
             logger.warning("Skipping built-in zoo preset %s, which fails validation: %s", path.name, exc)
             continue
         entries[path.stem] = config

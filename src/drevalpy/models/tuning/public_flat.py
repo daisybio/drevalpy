@@ -31,14 +31,10 @@ def apply_public_hyperparameters_to_config(
     if not mapping:
         return resolve_model_config(config)
 
-    normalized = dict(mapping)
-    if "methylation_n_components" not in normalized and "methylation_pca_components" in normalized:
-        normalized["methylation_n_components"] = normalized.pop("methylation_pca_components")
-
     index = build_ownership_index(config)
     qualified = resolve_to_qualified_mapping(
         config,
-        normalized,
+        mapping,
         index,
         reserved_keys=frozenset(),
     )
@@ -51,7 +47,7 @@ def public_hyperparameters_from_config(
     """Export a model config into a collision-aware public hyperparameter mapping.
 
     :param config: Template or resolved configuration.
-    :returns: Result.
+    :returns: Public hyperparameter mapping; short keys where unambiguous, qualified keys otherwise.
     """
     if isinstance(config, ResolvedModelConfig):
         return export_public_mapping_from_resolved(config)
