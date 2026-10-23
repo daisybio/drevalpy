@@ -28,10 +28,11 @@ class SourceEntry(BaseModel):
 
 
 class DatasetEntry(BaseModel):
-    """A registered dataset pointing to a source and filename."""
+    """A registered dataset pointing to a source and filename, with an optional SHA-256 of the file."""
 
     source: str
     file: str
+    sha256: str | None = None
 
 
 class DrevalConfig(BaseModel):
@@ -56,5 +57,5 @@ class DrevalConfig(BaseModel):
         """Serialize to JSON-compatible dict."""
         return {
             "sources": {name: entry.to_raw() for name, entry in self.sources.items()},
-            "datasets": {name: entry.model_dump() for name, entry in self.datasets.items()},
+            "datasets": {name: entry.model_dump(exclude_none=True) for name, entry in self.datasets.items()},
         }

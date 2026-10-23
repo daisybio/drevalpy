@@ -268,7 +268,7 @@ class TestDatasets:
         printed = invoke("datasets", "TOYv1")
 
         assert all(field in printed for field in ("Source", "File", "Origin", "URL"))
-        assert dataset_registry.sources["orakl"].url in printed.replace("\n", "")
+        assert dataset_registry.sources[dataset_registry.datasets["TOYv1"].source].url in printed.replace("\n", "")
 
     def test_single_entry_does_not_print_the_whole_table(self) -> None:
         assert "GDSC1" not in invoke("datasets", "TOYv1")

@@ -53,7 +53,8 @@ ignored.
 ----------------------
 
 The cache directory. It holds one ``<name>.h5mu`` file per downloaded dataset and the
-``artifacts/<name>`` entries. :doc:`datasets` describes how ``load`` uses it.
+``artifacts/<name>`` entries. :doc:`datasets` describes how ``load`` uses it, including how a
+cached dataset whose registry entry has a ``sha256`` is replaced when its hash differs.
 
 ``DREVALPY_CONFIG_DIR``
 -----------------------

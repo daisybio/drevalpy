@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
 from importlib import resources
 from pathlib import Path
 
 import pytest
 from upath import UPath
 
-from drevalpy.data.datasets._load import _carries_curve_quality, _load_from_cache, load
-from drevalpy.errors import InputNotFoundError
+from drevalpy.data.datasets import _load as load_module
+from drevalpy.data.datasets._load import _carries_curve_quality, _file_sha256, _load_from_cache, load
+from drevalpy.errors import InputNotFoundError, InvalidInputError
 from drevalpy.registry.dataset import DatasetRegistry as Registry
 from drevalpy.registry.dataset import DrevalConfig, SourceEntry, get_config_path
 from drevalpy.registry.dataset import dataset_registry as registry
@@ -333,3 +336,161 @@ class TestLoadOfAnUnknownDataset:
 
         with pytest.raises(InputNotFoundError, match="Cannot locate .h5mu for dataset 'no_such_dataset'"):
             load("no_such_dataset")
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+class TestChecksummedDownloads:
+    """A registry entry with a ``sha256`` makes the cache refreshable and the download verifiable."""
+
+    @pytest.fixture
+    def published(self, tmp_path: Path) -> Path:
+        path = tmp_path / "published" / "Checked.h5mu"
+        path.parent.mkdir()
+        build_synthetic_dataset(n_samples=4, n_drugs=3).save(UPath(path))
+        return path
+
+    @pytest.fixture
+    def downloads(self, tmp_path: Path, published: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+        """Point ``load`` at a registry with one dataset and a download that copies *published*."""
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        monkeypatch.setenv("DREVALPY_CACHE_DIR", str(cache))
+        monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path / "config"))
+        monkeypatch.setattr(load_module, "dataset_registry", Registry())
+        calls: list[str] = []
+
+        def fake_download(remote: object, local_path: UPath, label: str) -> UPath:
+            calls.append(label)
+            shutil.copyfile(published, local_path)
+            return local_path
+
+        monkeypatch.setattr(load_module, "download_file", fake_download)
+        return calls
+
+    def _register(self, tmp_path: Path, sha256: str | None) -> None:
+        entry: dict = {"source": "src", "file": "Checked.h5mu"}
+        if sha256 is not None:
+            entry["sha256"] = sha256
+        config_path = tmp_path / "config" / "datasets.json"
+        config_path.parent.mkdir(exist_ok=True)
+        config_path.write_text(
+            json.dumps({"sources": {"src": "https://example.org/data"}, "datasets": {"Checked": entry}})
+        )
+        load_module.dataset_registry.reload()
+
+    def test_file_sha256_matches_hashlib_and_is_remembered(
+        self, published: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = UPath(published)
+        assert _file_sha256(path) == _sha256(published)
+
+        monkeypatch.setattr(UPath, "open", None)
+        assert _file_sha256(path) == _sha256(published)
+
+    def test_file_sha256_follows_a_replaced_file(self, tmp_path: Path) -> None:
+        path = UPath(tmp_path) / "f.bin"
+        path.write_bytes(b"one")
+        first = _file_sha256(path)
+        path.write_bytes(b"three")
+
+        assert _file_sha256(path) != first
+
+    def test_a_download_with_the_right_hash_is_kept_and_loaded(
+        self, tmp_path: Path, published: Path, downloads: list[str]
+    ) -> None:
+        self._register(tmp_path, _sha256(published))
+
+        assert load("Checked") is not None
+        assert downloads == ["Checked"]
+        assert (tmp_path / "cache" / "Checked.h5mu").is_file()
+
+    def test_a_download_with_the_wrong_hash_raises_and_is_deleted(
+        self, tmp_path: Path, published: Path, downloads: list[str]
+    ) -> None:
+        wrong = "0" * 64
+        self._register(tmp_path, wrong)
+
+        with pytest.raises(InvalidInputError) as excinfo:
+            load("Checked")
+
+        message = str(excinfo.value)
+        assert "https://example.org/data/Checked.h5mu" in message
+        assert wrong in message
+        assert _sha256(published) in message
+        assert not (tmp_path / "cache" / "Checked.h5mu").exists()
+
+    def test_a_cached_file_with_the_right_hash_is_used_without_downloading(
+        self, tmp_path: Path, published: Path, downloads: list[str]
+    ) -> None:
+        shutil.copyfile(published, tmp_path / "cache" / "Checked.h5mu")
+        self._register(tmp_path, _sha256(published))
+
+        assert load("Checked") is not None
+        assert downloads == []
+
+    def test_a_cached_file_with_another_hash_is_replaced(
+        self, tmp_path: Path, published: Path, downloads: list[str], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        old = tmp_path / "old.h5mu"
+        build_synthetic_dataset(n_samples=5, n_drugs=2).save(UPath(old))
+        shutil.copyfile(old, tmp_path / "cache" / "Checked.h5mu")
+        self._register(tmp_path, _sha256(published))
+
+        with caplog.at_level("INFO"):
+            load("Checked")
+
+        assert downloads == ["Checked"]
+        assert _sha256(tmp_path / "cache" / "Checked.h5mu") == _sha256(published)
+        assert "does not match the registered sha256" in caplog.text
+
+    def test_without_a_hash_a_cached_file_is_taken_as_it_is(
+        self, tmp_path: Path, published: Path, downloads: list[str]
+    ) -> None:
+        old = tmp_path / "old.h5mu"
+        build_synthetic_dataset(n_samples=5, n_drugs=2).save(UPath(old))
+        shutil.copyfile(old, tmp_path / "cache" / "Checked.h5mu")
+        self._register(tmp_path, None)
+
+        assert load("Checked") is not None
+        assert downloads == []
+        assert _sha256(tmp_path / "cache" / "Checked.h5mu") == _sha256(old)
+
+    def test_without_a_hash_a_download_is_not_verified(
+        self, tmp_path: Path, published: Path, downloads: list[str]
+    ) -> None:
+        self._register(tmp_path, None)
+
+        assert load("Checked") is not None
+        assert downloads == ["Checked"]
+
+    def test_the_hash_check_precedes_parsing(self, tmp_path: Path, published: Path, downloads: list[str]) -> None:
+        (tmp_path / "cache" / "Checked.h5mu").write_bytes(b"not an h5mu file")
+        self._register(tmp_path, _sha256(published))
+
+        assert load("Checked") is not None
+        assert downloads == ["Checked"]
+
+    def test_load_from_cache_deletes_a_file_with_another_hash(self, tmp_path: Path) -> None:
+        path = UPath(tmp_path) / "f.h5mu"
+        build_synthetic_dataset(n_samples=4, n_drugs=3).save(path)
+
+        assert _load_from_cache(path, "0" * 64) is None
+        assert not path.is_file()
+
+    def test_load_from_cache_accepts_an_uppercase_expected_hash(self, tmp_path: Path) -> None:
+        path = UPath(tmp_path) / "f.h5mu"
+        build_synthetic_dataset(n_samples=4, n_drugs=3).save(path)
+
+        assert _load_from_cache(path, _sha256(Path(path)).upper()) is not None
+
+
+def test_toyv1_is_pinned_to_the_gen4_artifact() -> None:
+    entry = registry.datasets["TOYv1"]
+
+    assert entry.source == "orakl_gen4"
+    assert registry.sources["orakl_gen4"].url.endswith("/drevalpy_h5mu/gen4")
+    assert entry.sha256 is not None
+    assert len(entry.sha256) == 64

@@ -93,3 +93,17 @@ def test_config_round_trips_through_raw() -> None:
     )
 
     assert DrevalConfig.from_raw(config.to_raw()) == config
+
+
+def test_dataset_entry_hash_is_optional_and_round_trips() -> None:
+    digest = "ab" * 32
+    plain = DatasetEntry(source="s3", file="toy.h5mu")
+    pinned = DatasetEntry(source="s3", file="toy.h5mu", sha256=digest)
+    config = DrevalConfig(sources={"s3": SourceEntry(url="s3://bucket/")}, datasets={"Plain": plain, "Pinned": pinned})
+
+    assert plain.sha256 is None
+    assert config.to_raw()["datasets"] == {
+        "Plain": {"source": "s3", "file": "toy.h5mu"},
+        "Pinned": {"source": "s3", "file": "toy.h5mu", "sha256": digest},
+    }
+    assert DrevalConfig.from_raw(config.to_raw()) == config

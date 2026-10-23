@@ -8,8 +8,9 @@ Built-in datasets
 -----------------
 
 ``drevalpy list datasets`` prints the registered datasets with the columns Name, Source, File
-and Origin. These rows are built in. They all come from the source ``orakl``, the base URL
-``s3://orakl-open-source-data/drevalpy_h5mu/gen3``, and their file is ``<Name>.h5mu``.
+and Origin. These rows are built in. The screens come from the source ``orakl``, the base URL
+``s3://orakl-open-source-data/drevalpy_h5mu/gen3``, and ``TOYv1`` from ``orakl_gen4``, the base URL
+``s3://orakl-open-source-data/drevalpy_h5mu/gen4``. Their file is ``<Name>.h5mu``.
 
 .. list-table::
    :header-rows: 1
@@ -67,6 +68,10 @@ Loading
 #. The file ``<cache dir>/<name>.h5mu``.
 #. A registered name: its cached file, else a download into the cache directory.
 #. A path to an existing ``.h5mu`` file.
+
+A registry entry may carry a ``sha256``, as ``TOYv1`` does. A download that does not match it
+raises an error and is deleted, and a cached file that does not match it is deleted and
+downloaded again; a cached file that matches is used without network access.
 
 The cache directory is set by ``DREVALPY_CACHE_DIR``; see :doc:`environment`. A cached file is
 deleted and downloaded again if it cannot be parsed, or if it lacks the curve-quality layers

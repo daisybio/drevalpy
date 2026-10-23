@@ -16,7 +16,7 @@ Load a built-in dataset
 
 Built-in datasets are loaded by name. The first load downloads the file into the cache
 directory; later loads read it from there. ``drevalpy list datasets`` shows the registered names;
-see :doc:`/how-to/list_available`. ``TOYv1`` is a small dataset of 2.3 MB, well suited to try
+see :doc:`/how-to/list_available`. ``TOYv1`` is a small dataset of 8 MB, well suited to try
 this out. ``GDSC1``, ``CTRPv2`` and the other screens are much larger.
 
 .. tab-set::
@@ -64,10 +64,10 @@ this out. ``GDSC1``, ``CTRPv2`` and the other screens are much larger.
              Measured pairs: 384
              Randomization: None
              Modalities:
-                 gene_expression: 32 × 300
-                 mutations: 32 × 300
-                 copy_number_variation_gistic: 32 × 300
-                 proteomics: 32 × 300
+                 gene_expression: 32 × 11711
+                 mutations: 32 × 2998
+                 copy_number_variation_gistic: 32 × 2952
+                 proteomics: 32 × 758
                  response_rr1: 32 × 300
                  response_rr2: 32 × 300
 
