@@ -185,9 +185,10 @@ The shipped lists, by the view they apply to:
      - The landmark genes also measured in the copy-number, mutation and proteomics
        intersections
    * - ``gene_expression_intersection``
-     - Genes in the expression view of every registered dataset; the input of DIPK
+     - Genes in the expression view of every cell-line screen (CTRPv1, CTRPv2, GDSC1, GDSC2); the
+       input of DIPK
    * - ``gene_list_paccmann_network_prop``
-     - 1,957 genes of the PaccMann network-propagation selection
+     - 1,955 genes of the PaccMann network-propagation selection that the cell-line screens measure
    * - ``gene_list_paccmann_network_prop_reduced``
      - The PaccMann list restricted to the reduced gene universe
    * - ``tcga_autoencoder_genes_available``
@@ -209,6 +210,13 @@ of a list and raises ``UnknownNameError`` for a name that is not shipped, listin
 ``InvalidInputError`` for the missing genes. ``GENE_LISTS_BY_VIEW`` assigns each list to its view.
 ``_make_gene_lists.py`` and ``_make_autoencoder_gene_list.py`` in the same directory regenerate the
 CSVs; the second needs the network and the dataset files.
+
+The lists are those of drevalpy 1.6, minus the genes the re-curated cell-line screens no longer
+measure: ``PRRC2B`` from ``gene_expression_intersection``, ``PRRC2B`` and ``S100A7L2`` from
+``gene_list_paccmann_network_prop`` and 40 genes from
+``copy_number_variation_gistic_intersection``. PDX_Bruna and BeatAML2 lack further genes of
+several lists, including ``landmark_genes``, so presets that use those lists raise the
+missing-genes error on them; pass ``gene_list=None`` to use their whole expression view.
 
 Global annotations
 ~~~~~~~~~~~~~~~~~~
