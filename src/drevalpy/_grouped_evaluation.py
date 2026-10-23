@@ -202,16 +202,17 @@ def grouped_scores(
 
     sums = PearsonSums(len(groups))
     sums.add(codes, y_pred, y_true)
-    order = bounds = None
+    grouping: tuple[np.ndarray, np.ndarray] | None = None
     scores: dict[str, np.ndarray] = {}
     for name in names:
         vectorised = _vectorised_scores(name, codes, len(groups), y_pred, y_true, sums)
         if vectorised is not None:
             scores[name] = np.asarray(vectorised, dtype=np.float64)
             continue
-        if order is None:
+        if grouping is None:
             order = np.argsort(codes, kind="stable")
-            bounds = np.searchsorted(codes[order], np.arange(len(groups) + 1))
+            grouping = (order, np.searchsorted(codes[order], np.arange(len(groups) + 1)))
+        order, bounds = grouping
         scores[name] = np.array(
             [
                 _group_score(name, y_pred[order[lo:hi]], y_true[order[lo:hi]])

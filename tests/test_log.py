@@ -1,9 +1,9 @@
 """Tests for the centralized Rich-backed logging setup.
 
-``drevalpy.log`` calls :func:`~drevalpy.log.setup_logging` at import time, so the
-``drevalpy`` logger is already configured before any test runs, and pytest adds
-handlers of its own to the *root* logger. Every test here therefore restores the
-``drevalpy`` logger it touches and asserts on that logger only, never on global
+Importing ``drevalpy.log`` attaches only a ``NullHandler``; the Rich handler appears when
+:func:`~drevalpy.log.setup_logging` is called. Pytest adds handlers of its own to the *root*
+logger, and other tests may have called ``setup_logging`` already. Every test here therefore
+restores the ``drevalpy`` logger it touches and asserts on that logger only, never on global
 handler counts.
 """
 
@@ -16,6 +16,7 @@ import pytest
 from rich.logging import RichHandler
 
 from drevalpy.log import get_logger, setup_logging
+from tests._trusted_subprocess import run_trusted_python
 
 
 @pytest.fixture
@@ -49,10 +50,17 @@ class TestGetLogger:
 
 
 class TestSetupLogging:
-    def test_import_time_call_already_attached_a_rich_handler(self) -> None:
-        logger = logging.getLogger("drevalpy")
+    def test_import_attaches_no_rich_handler(self) -> None:
+        script = (
+            "import logging, drevalpy\n"
+            "handlers = logging.getLogger('drevalpy').handlers\n"
+            "assert not any(type(h).__name__ == 'RichHandler' for h in handlers), handlers\n"
+            "assert any(isinstance(h, logging.NullHandler) for h in handlers), handlers\n"
+        )
 
-        assert any(isinstance(h, RichHandler) for h in logger.handlers)
+        result = run_trusted_python(script)
+
+        assert result.returncode == 0, result.stderr
 
     def test_attaches_a_rich_handler_when_none_is_present(self, drevalpy_logger: logging.Logger) -> None:
         drevalpy_logger.handlers[:] = []
@@ -104,13 +112,14 @@ class TestSetupLogging:
 
         assert drevalpy_logger.handlers == existing
 
-    def test_updates_the_level_of_an_already_configured_logger(self, drevalpy_logger: logging.Logger) -> None:
+    def test_keeps_the_null_handler_next_to_the_rich_handler(self, drevalpy_logger: logging.Logger) -> None:
         sentinel = logging.NullHandler()
         drevalpy_logger.handlers[:] = [sentinel]
 
         setup_logging(logging.ERROR)
 
-        assert drevalpy_logger.handlers == [sentinel]
+        assert [type(h) for h in drevalpy_logger.handlers] == [logging.NullHandler, RichHandler]
+        assert drevalpy_logger.handlers[0] is sentinel
         assert drevalpy_logger.level == logging.ERROR
 
     def test_emitted_records_reach_handlers_at_the_configured_level(

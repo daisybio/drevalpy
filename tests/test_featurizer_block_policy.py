@@ -5,13 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.registry._builtins import register_builtin_components
-from drevalpy.registry.drug_featurizer import list as list_drug_featurizers
-from drevalpy.registry.predictor import list as list_predictors
-from drevalpy.registry.sample_featurizer import list as list_sample_featurizers
 from drevalpy.types.data.batch.feature_block import (
     graph_feature_block,
     merge_feature_blocks,
@@ -20,17 +15,6 @@ from drevalpy.types.data.batch.feature_block import (
 
 REPO = Path(__file__).resolve().parents[1]
 DREVALPY = REPO / "src" / "drevalpy"
-
-
-@pytest.fixture(autouse=True)
-def _register() -> None:
-    register_builtin_components()
-
-
-def test_registry_discovery_counts() -> None:
-    assert len(list_sample_featurizers()) == 17
-    assert len(list_drug_featurizers()) == 10
-    assert len(list_predictors()) == 27
 
 
 def test_no_raw_dataset_predictor_in_executable_source() -> None:

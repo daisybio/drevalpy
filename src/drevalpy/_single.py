@@ -71,7 +71,7 @@ def single(
 def _execute(
     execution: ExecutionSpec,
     dataset: Dataset,
-    response_transformation=None,
+    response_transformation: TransformerMixin | None = None,
     wandb_project: str | None = None,
 ) -> RunResult:
     """Execute established scopes; model pipelines own all fitted transforms."""

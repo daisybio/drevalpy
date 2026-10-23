@@ -34,6 +34,10 @@ class PearsonSums:
     __slots__ = ("_count", "_max_x", "_max_y", "_min_x", "_min_y", "_sx", "_sxx", "_sxy", "_sy", "_syy", "n_groups")
 
     def __init__(self, n_groups: int) -> None:
+        """Create empty accumulators for a fixed number of groups.
+
+        :param n_groups: Size of the group axis; codes passed to :meth:`add` index into it.
+        """
         self.n_groups = n_groups
         self._count = np.zeros(n_groups, dtype=np.int64)
         self._sx = np.zeros(n_groups, dtype=np.float64)

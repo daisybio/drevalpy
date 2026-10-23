@@ -10,7 +10,7 @@ See ``tests/test_import_cost_policy.py``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -176,7 +176,7 @@ MINIMIZATION_METRICS = ["MSE", "RMSE", "MAE"]
 MAXIMIZATION_METRICS = ["R^2", "Pearson", "Spearman", "Kendall"]
 
 
-def get_mode(metric: str):
+def get_mode(metric: str) -> Literal["min", "max"]:
     """Return whether lower or higher metric values are better.
 
     :param metric: Metric name (for example ``"RMSE"`` or ``"Pearson"``).
