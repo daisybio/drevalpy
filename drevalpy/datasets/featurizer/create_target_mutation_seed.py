@@ -170,7 +170,7 @@ class Limiter:
 
 
 PUBCHEM_LIM, CHEMBL_LIM, EPMC_LIM = Limiter(0.22), Limiter(0.1), Limiter(0.1)
-FAILED_REQUESTS = []  # (service, url) of requests that still failed after all retries
+FAILED_REQUESTS: list[tuple[str, str]] = []  # (service, url) of requests that still failed after all retries
 
 
 def get_json(url, limiter=None, data=None, headers=None, retries=5, timeout=45):
@@ -412,7 +412,7 @@ def collect_drugs(datasets, data_path, remote):
 
 
 # ---------------------------------------------------------------------------- targets (ChEMBL/PubChem)
-_TARGET_GENES = {}
+_TARGET_GENES: dict[str, set[str]] = {}
 
 
 def target_genes(target_chembl_id):
