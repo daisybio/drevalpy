@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.registry import splitter as splitter_facade
 from drevalpy.registry.splitter._registry import SplitterRegistry, splitter_registry
 from drevalpy.registry.splitter._validation import SplitValidationError
@@ -135,7 +136,7 @@ def test_get_returns_the_wrapped_splitter(registry: SplitterRegistry, register_v
 
 
 def test_get_rejects_an_unknown_mode(registry: SplitterRegistry) -> None:
-    with pytest.raises(ValueError, match=r"Unknown split mode 'nope'\. Registered: \[\]"):
+    with pytest.raises(UnknownNameError, match=r"Unknown split mode 'nope'\. Registered: \[\]"):
         registry.get("nope")
 
 

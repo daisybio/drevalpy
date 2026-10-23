@@ -11,6 +11,7 @@ from rich.markup import escape
 
 from drevalpy._single import single
 from drevalpy.data import CurveQuality, concat, load, split
+from drevalpy.errors import InvalidInputError
 from drevalpy.experiment._randomization import randomization
 from drevalpy.experiment._robustness import robustness
 from drevalpy.log import get_logger
@@ -26,7 +27,7 @@ def _validate_models(models: list[ModelSpec]) -> None:
     if any(not isinstance(model, ModelSpec) for model in models):
         raise TypeError("run() expects ModelSpec values")
     if len({model.name for model in models}) != len(models):
-        raise ValueError("Model names must be unique within an experiment")
+        raise InvalidInputError("Model names must be unique within an experiment")
 
 
 def _resolve_dataset(dataset: Dataset | str | Sequence[Dataset | str]) -> Dataset:
@@ -34,7 +35,7 @@ def _resolve_dataset(dataset: Dataset | str | Sequence[Dataset | str]) -> Datase
     if isinstance(dataset, str) or not isinstance(dataset, Sequence):
         return load(dataset) if isinstance(dataset, str) else dataset
     if not dataset:
-        raise ValueError("dataset must not be an empty sequence")
+        raise InvalidInputError("dataset must not be an empty sequence")
     datasets = [load(item) if isinstance(item, str) else item for item in dataset]
     return datasets[0] if len(datasets) == 1 else concat(datasets)
 
@@ -167,7 +168,7 @@ def run(
     :raises ExperimentFailedError: If ``on_error="record"`` and no run produced a result.
     """
     if on_error not in ("record", "raise"):
-        raise ValueError(f"on_error must be 'record' or 'raise', got {on_error!r}")
+        raise InvalidInputError(f"on_error must be 'record' or 'raise', got {on_error!r}")
     _validate_models(models)
     ds = _resolve_dataset(dataset)
     folds = split(ds, split_mode, random_state=seed, quality=quality)

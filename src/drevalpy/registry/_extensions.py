@@ -26,6 +26,8 @@ from typing import Any
 
 from upath import UPath as Path
 
+from drevalpy.errors import InputNotFoundError, InvalidInputError
+
 #: Environment variable naming extension directories, joined with :data:`os.pathsep`.
 EXTENSIONS_DIR_ENV_VAR = "DREVALPY_EXTENSIONS_DIR"
 
@@ -109,12 +111,12 @@ def load_extension_module(module_name: str) -> None:
     """Import a Python module so its registration decorators run.
 
     :param module_name: Dotted import path of an installed or ``PYTHONPATH`` module.
-    :raises ValueError: If *module_name* is empty.
+    :raises InvalidInputError: If *module_name* is empty.
     :raises ImportError: If the module cannot be imported or registration fails mid-load.
     """
     if not module_name:
         msg = "module_name must be a non-empty string"
-        raise ValueError(msg)
+        raise InvalidInputError(msg)
     snapshot = _snapshot_all_registries()
     try:
         importlib.import_module(module_name)
@@ -134,13 +136,13 @@ def load_extension_file(path: Path | str) -> None:
     still registered, the second call does nothing.
 
     :param path: Path to a ``.py`` file containing ``@register_*`` decorators.
-    :raises FileNotFoundError: If *path* does not exist.
+    :raises InputNotFoundError: If *path* does not exist.
     :raises ImportError: If the file cannot be executed or registration fails mid-load.
     """
     file_path = Path(path).resolve()
     if not file_path.is_file():
         msg = f"Extension file not found: {file_path}"
-        raise FileNotFoundError(msg)
+        raise InputNotFoundError(msg)
     module_name = _extension_module_name(file_path)
     previous = _LOADED_FILES.get(module_name)
     if previous is not None and module_name in sys.modules and _is_still_registered(previous):
@@ -208,12 +210,12 @@ def load_extension_dir(path: Path | str) -> None:
     or the zoo loader. Loading the same directory twice is harmless.
 
     :param path: Directory containing extension modules (non-recursive).
-    :raises FileNotFoundError: If *path* is not a directory.
+    :raises InputNotFoundError: If *path* is not a directory.
     """
     dir_path = Path(path).resolve()
     if not dir_path.is_dir():
         msg = f"Extension directory not found: {dir_path}"
-        raise FileNotFoundError(msg)
+        raise InputNotFoundError(msg)
 
     snapshot = _snapshot_all_registries()
     try:

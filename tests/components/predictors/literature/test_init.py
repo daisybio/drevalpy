@@ -21,7 +21,7 @@ import pytest
 
 from drevalpy.models import ModelSpec
 from drevalpy.models.config import ModelConfig, from_spec, validate
-from drevalpy.registry._builtins import ensure_predictor_registered, register_builtin_components
+from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -129,7 +129,6 @@ def test_literature_predictor_modules_avoid_removed_adapter_modules() -> None:
 
 
 def test_literature_predictor_lazy_package_import() -> None:
-    ensure_predictor_registered("dipk")
     precily_module = "drevalpy.components.predictors.literature.precily.predictor"
     saved = sys.modules.pop(precily_module, None)
     try:

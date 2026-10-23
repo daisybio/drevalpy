@@ -7,6 +7,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from drevalpy.errors import DrEvalError
 from drevalpy.models import ModelSpec
 from drevalpy.models.config import from_spec
 from drevalpy.models.tuning.config import HPOConfig
@@ -98,3 +99,8 @@ def test_best_hyperparameters_carry_the_decoded_pow2_value_the_trials_trained_wi
     assert best["n_bits"] == best_trial_params["drug_featurizer.fingerprints.n_bits"]
     assert best["n_bits"] in {512, 1024, 2048}
     assert spec.resolve(best).values["drug_featurizer.fingerprints.n_bits"] == best["n_bits"]
+
+
+def test_hpo_trials_failed_error_is_a_drevalpy_runtime_error() -> None:
+    assert issubclass(HPOTrialsFailedError, DrEvalError)
+    assert issubclass(HPOTrialsFailedError, RuntimeError)

@@ -8,7 +8,6 @@ import torch
 
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
 from drevalpy.components.predictors.literature.molir.utils import MOLIModel
-from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from tests.components.predictors.literature._helpers import (
     assert_corrected_training_result,
@@ -60,7 +59,6 @@ def test_gamma_weights_triplet_loss_and_its_embedding_gradient() -> None:
 
 
 def test_molir_predictor_registry_name() -> None:
-    ensure_predictor_registered("molir")
     assert get_predictor("molir") is MOLIRPredictor
 
 

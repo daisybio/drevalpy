@@ -6,6 +6,7 @@ from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
 from drevalpy.data._transfer import download_file
+from drevalpy.errors import InputNotFoundError
 from drevalpy.log import get_logger
 from drevalpy.registry.dataset._registry import dataset_registry
 from drevalpy.types.data.dataset import Dataset
@@ -99,7 +100,7 @@ def load(dataset_name: str) -> Dataset:
 
     :param dataset_name: Registered dataset name, or path to a .h5mu file.
     :returns: Loaded Dataset.
-    :raises FileNotFoundError: If the .h5mu file cannot be found or downloaded.
+    :raises InputNotFoundError: If the .h5mu file cannot be found or downloaded.
     """
     h5mu_path = resolve_h5mu_path(dataset_name)
     if h5mu_path.is_file():
@@ -121,7 +122,7 @@ def load(dataset_name: str) -> Dataset:
     if candidate_path.is_file() and candidate_path.suffix == ".h5mu":
         return Dataset.load(candidate_path)
 
-    raise FileNotFoundError(
+    raise InputNotFoundError(
         f"Cannot locate .h5mu for dataset '{dataset_name}'. "
         f"Checked: {h5mu_path}, registry ({dataset_registry.dataset_names}), and direct path."
     )

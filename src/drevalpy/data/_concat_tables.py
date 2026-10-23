@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from drevalpy.errors import InvalidInputError
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -81,7 +83,7 @@ def _check_smiles(frames: Sequence[pd.DataFrame]) -> None:
     counts = pd.concat(with_smiles).dropna().groupby(level=0).nunique()
     conflicting = list(counts.index[counts > 1])
     if conflicting:
-        raise ValueError(
+        raise InvalidInputError(
             f"{SMILES_COLUMN} differs between datasets for {len(conflicting)} drug IDs: {listed(conflicting)}. "
             "One drug ID needs one structure; use curated files that share it."
         )
@@ -98,7 +100,7 @@ def union_var(frames: Sequence[pd.DataFrame]) -> pd.DataFrame:
         first non-null value wins.
 
     Raises:
-        ValueError: If a drug has different ``canonical_smiles`` in different inputs.
+        InvalidInputError: If a drug has different ``canonical_smiles`` in different inputs.
     """
     import pandas as pd
 

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from upath import UPath as Path
 
+from drevalpy.errors import DrEvalError
 from drevalpy.experiment._tracking import log_summary, require_tracking, tracking_run
 from drevalpy.log import get_logger
 from drevalpy.models.spec import ModelSpec
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class HPOTrialsFailedError(RuntimeError):
+class HPOTrialsFailedError(DrEvalError, RuntimeError):
     """Every hyperparameter trial raised, so tuning produced no information.
 
     Falling back to defaults here would report a tuning result for a run where

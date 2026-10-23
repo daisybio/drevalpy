@@ -21,6 +21,7 @@ from drevalpy.curation import (
     build_anndata,
     curate,
 )
+from drevalpy.errors import InvalidInputError
 from tests.curation.conftest import build_dose_response_df
 
 
@@ -48,15 +49,15 @@ class TestFitOptionValidation:
         assert DEFAULT_FIT_SPEED in FIT_SPEEDS
 
     def test_mle_is_rejected_before_any_fitting(self, dose_response_df: pd.DataFrame) -> None:
-        with pytest.raises(ValueError, match="fit_mle"):
+        with pytest.raises(InvalidInputError, match="fit_mle"):
             curate(dose_response_df, max_workers=1, fit_type="MLE", fit_speed="fast")
 
     def test_unknown_fit_type_names_the_supported_ones(self, dose_response_df: pd.DataFrame) -> None:
-        with pytest.raises(ValueError, match=r"expected one of \['OLS'\]"):
+        with pytest.raises(InvalidInputError, match=r"expected one of \['OLS'\]"):
             curate(dose_response_df, max_workers=1, fit_type="nonsense", fit_speed="fast")
 
     def test_unknown_fit_speed_is_rejected(self, dose_response_df: pd.DataFrame) -> None:
-        with pytest.raises(ValueError, match="fit_speed='turbo'"):
+        with pytest.raises(InvalidInputError, match="fit_speed='turbo'"):
             curate(dose_response_df, max_workers=1, fit_speed="turbo")
 
 

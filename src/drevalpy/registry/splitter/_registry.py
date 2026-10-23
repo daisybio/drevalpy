@@ -14,6 +14,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Protocol
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.types import MuDataLike, SplitMasks
 
 from ._validation import Validation, canonical_validation, validate_folds
@@ -156,11 +157,11 @@ class SplitterRegistry:
 
         :param mode: Registered mode name or alias.
         :returns: Splitter callable (with validation baked in).
-        :raises ValueError: If mode is not registered.
+        :raises UnknownNameError: If mode is not registered.
         """
         splitter = self._splitters.get(self.canonical(mode))
         if splitter is None:
-            raise ValueError(f"Unknown split mode {mode!r}. Registered: {self.modes}")
+            raise UnknownNameError(f"Unknown split mode {mode!r}. Registered: {self.modes}")
         return splitter
 
     def resolve(self, splitter: str | Splitter) -> Splitter:

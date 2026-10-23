@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.log import get_logger
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.modalities import public_omics_name
@@ -30,26 +31,28 @@ def _check_names(datasets: Sequence[Dataset], name: str | None) -> list[str]:
     names = [dataset.name for dataset in datasets]
     duplicated = sorted({item for item in names if names.count(item) > 1})
     if duplicated:
-        raise ValueError(f"Dataset names must be unique to tell the studies apart, got duplicates: {duplicated}")
+        raise InvalidInputError(f"Dataset names must be unique to tell the studies apart, got duplicates: {duplicated}")
     bad = [item for item in names if not item or STUDY_SEPARATOR in item]
     if bad or name == "":
-        raise ValueError(f"Dataset names must be non-empty and must not contain {STUDY_SEPARATOR!r}: {bad or [name]}")
+        raise InvalidInputError(
+            f"Dataset names must be non-empty and must not contain {STUDY_SEPARATOR!r}: {bad or [name]}"
+        )
     return names
 
 
 def _check_inputs(datasets: Sequence[Dataset], join: str, name: str | None) -> list[str]:
     """Validate the arguments of :func:`concat` and return the input names."""
     if join not in ("exact", "inner"):
-        raise ValueError(f"join must be 'exact' or 'inner', got {join!r}")
+        raise InvalidInputError(f"join must be 'exact' or 'inner', got {join!r}")
     if len(datasets) < 2:
-        raise ValueError(f"concat needs at least two datasets, got {len(datasets)}")
+        raise InvalidInputError(f"concat needs at least two datasets, got {len(datasets)}")
     names = _check_names(datasets, name)
     randomized = [dataset.name for dataset in datasets if dataset.randomization is not None]
     if randomized:
-        raise ValueError(f"Randomized datasets cannot be concatenated: {randomized}")
+        raise InvalidInputError(f"Randomized datasets cannot be concatenated: {randomized}")
     already = [dataset.name for dataset in datasets if set(_NEW_OBS_COLUMNS) & set(dataset.mdata.obs.columns)]
     if already:
-        raise ValueError(f"Datasets {already} already have a 'study' or 'source_sample_id' column in obs")
+        raise InvalidInputError(f"Datasets {already} already have a 'study' or 'source_sample_id' column in obs")
     return names
 
 
@@ -113,7 +116,7 @@ def _stack_all_views(
     for key, slots in _groups(datasets, _is_view).values():
         lacking = _missing_in(slots, names)
         if lacking and join == "exact":
-            raise ValueError(
+            raise InvalidInputError(
                 f"View '{key}' is missing in {lacking}; pass join='inner' to drop views that not every dataset has"
             )
         if lacking:
@@ -164,7 +167,7 @@ def concat(
         The concatenated dataset.
 
     Raises:
-        ValueError: If fewer than two datasets are given, names are not unique, an input
+        InvalidInputError: If fewer than two datasets are given, names are not unique, an input
             is randomized, feature names or units differ between inputs, or one drug ID
             has two different SMILES strings.
     """

@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from drevalpy.errors import InputNotFoundError
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import clear_external_zoo, get_zoo_config, list_zoo_names, load_external_zoo_file
@@ -257,7 +258,7 @@ class TestLoadExtensionsEnvVar:
     def test_missing_env_directory_raises(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, str(tmp_path / "missing"))
 
-        with pytest.raises(FileNotFoundError, match="Extension directory not found"):
+        with pytest.raises(InputNotFoundError, match="Extension directory not found"):
             load_extensions()
 
 

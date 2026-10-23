@@ -10,7 +10,6 @@ from drevalpy.components.predictors.literature.pharmaformer.predictor import (
     PharmaFormerPredictor,
     _build_combined_model,
 )
-from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -25,7 +24,6 @@ from tests.components.predictors.literature._helpers import (
 
 
 def test_pharmaformer_predictor_registry_name() -> None:
-    ensure_predictor_registered("pharmaFormer")
     assert get_predictor("pharmaFormer") is PharmaFormerPredictor
 
 

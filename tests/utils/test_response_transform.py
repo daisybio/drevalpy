@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.utils.response_transform import get_response_transformation
 
 
@@ -46,7 +47,7 @@ def test_returned_transformer_is_usable() -> None:
 
 
 def test_unknown_option_is_rejected() -> None:
-    with pytest.raises(ValueError, match="Unknown response transformation quantile"):
+    with pytest.raises(UnknownNameError, match="Unknown response transformation quantile"):
         get_response_transformation("quantile")
 
 

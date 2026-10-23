@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from drevalpy.data._concat_uns import merge_uns, same
+from drevalpy.errors import InvalidInputError
 
 NAMES = ["A", "B"]
 
@@ -71,7 +72,7 @@ class TestMergeUns:
             merge_uns([{"u": "tpm"}, {"u": "fpkm"}], names=NAMES, where="view 'v'", strict=lambda key: key == "u")
 
     def test_a_strict_key_recorded_by_one_input_raises(self) -> None:
-        with pytest.raises(ValueError, match="B=not recorded"):
+        with pytest.raises(InvalidInputError, match="B=not recorded"):
             merge_uns([{"u": "tpm"}, {}], names=NAMES, where="x", strict=lambda key: True)
 
     def test_long_values_are_shortened_in_the_message(self) -> None:

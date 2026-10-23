@@ -9,6 +9,8 @@ from typing import Any
 
 from upath import UPath as Path
 
+from drevalpy.errors import DrEvalError
+
 #: File name, inside an experiment directory, of the recorded failures.
 FAILURES_FILE = "failures.json"
 
@@ -126,20 +128,22 @@ def read_failures(directory: Path) -> list[RunFailure]:
     return [RunFailure.from_dict(item) for item in json.loads(path.read_text())] if path.exists() else []
 
 
-class ExperimentFailedError(RuntimeError):
-    """Raised by ``run`` when every run of an experiment failed.
-
-    Attributes:
-        failures: The recorded failures, one per run.
-    """
+class ExperimentFailedError(DrEvalError, RuntimeError):
+    """Raised by ``run`` when every run of an experiment failed."""
 
     def __init__(self, failures: tuple[RunFailure, ...] | list[RunFailure]) -> None:
         """Create the error from the failures that left no result.
 
-        Args:
-            failures: The recorded failures.
+        :param failures: The recorded failures, one per run; kept as the ``failures`` attribute.
         """
         self.failures: tuple[RunFailure, ...] = tuple(failures)
-        shown = "\n".join(f"  {failure}" for failure in self.failures[:5])
-        more = f"\n  ... and {len(self.failures) - 5} more" if len(self.failures) > 5 else ""
-        super().__init__(f"All {len(self.failures)} run(s) failed:\n{shown}{more}")
+        super().__init__(f"{len(self.failures)} run(s) failed")
+
+    def __str__(self) -> str:
+        """List every failure under a count, one indented line each.
+
+        :returns: ``N run(s) failed:`` followed by one ``  <failure>`` line per failure.
+        """
+        lines = [f"{len(self.failures)} run(s) failed:"]
+        lines.extend(f"  {failure}" for failure in self.failures)
+        return "\n".join(lines)

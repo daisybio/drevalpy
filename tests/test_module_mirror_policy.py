@@ -1,9 +1,9 @@
 """Policy test: every module in ``drevalpy`` has a mirrored test file.
 
-The mirroring convention is documented in ``AGENTS.md``. This guard enforces it
-so a new source module cannot land without a test file at the mirrored location.
+The mirroring convention is one test file per source module under ``tests/``. This guard
+enforces it so a new source module cannot land without a test file at the mirrored location.
 
-Naming, following ``AGENTS.md`` rules 1-4:
+Naming:
 
 * A public module ``drevalpy/a/b/c.py`` requires ``tests/a/b/test_c.py``.
 * A private module ``_c.py`` is satisfied by *either* ``test__c.py`` or the
@@ -13,7 +13,7 @@ Naming, following ``AGENTS.md`` rules 1-4:
 * ``__init__.py`` is not checked here. Package surfaces are tested in
   ``test_init.py`` where they re-export something worth pinning, but plenty of
   ``__init__.py`` files hold nothing but imports, and demanding a file for each
-  would push the suite towards exactly the stub mirrors ``AGENTS.md`` forbids.
+  would push the suite towards exactly the stub mirrors the convention forbids.
 
 Only the package tree is walked, so the repository's other Python - ``tools/``,
 ``docs/`` generators, ``tests/`` itself - is out of scope by construction. The
@@ -102,5 +102,5 @@ def test_module_has_mirrored_test(relative_module: str) -> None:
     expected = " or ".join(str(candidate.relative_to(REPO_ROOT)) for candidate in candidates)
     pytest.fail(
         f"Missing test mirror for drevalpy/{relative_module}: expected {expected}. "
-        "See the test-layout section of AGENTS.md; do not add a stub to satisfy this guard."
+        "Add a real test file at that path; do not add a stub to satisfy this guard."
     )

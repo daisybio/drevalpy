@@ -15,6 +15,7 @@ from upath import UPath
 import drevalpy
 from drevalpy import data
 from drevalpy.data._concat import concat
+from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
 
 pytestmark = pytest.mark.slow
@@ -143,7 +144,7 @@ class TestViews:
     def test_exact_join_rejects_a_different_order(self) -> None:
         second = drevalpy.synthetic(name="SECOND", n_samples=8, feature_names=MANY[::-1])
 
-        with pytest.raises(ValueError, match="different order"):
+        with pytest.raises(InvalidInputError, match="different order"):
             concat([_first(), second])
 
     def test_inner_join_keeps_the_shared_features_in_the_first_inputs_order(self) -> None:
@@ -372,32 +373,32 @@ class TestUns:
 
 class TestRejectedInputs:
     def test_fewer_than_two_datasets(self) -> None:
-        with pytest.raises(ValueError, match="at least two"):
+        with pytest.raises(InvalidInputError, match="at least two"):
             concat([_first()])
 
     def test_duplicate_names(self) -> None:
-        with pytest.raises(ValueError, match="unique"):
+        with pytest.raises(InvalidInputError, match="unique"):
             concat([_first(), drevalpy.synthetic(name="FIRST", n_samples=6)])
 
     def test_a_name_containing_the_separator(self) -> None:
-        with pytest.raises(ValueError, match="must not contain"):
+        with pytest.raises(InvalidInputError, match="must not contain"):
             concat([_first(), drevalpy.synthetic(name="A::B", n_samples=6)])
 
     def test_a_randomized_input(self) -> None:
         randomized = _second()
         randomized.randomization = ("permutation", "gene_expression")
 
-        with pytest.raises(ValueError, match=r"Randomized datasets cannot be concatenated: \['SECOND'\]"):
+        with pytest.raises(InvalidInputError, match=r"Randomized datasets cannot be concatenated: \['SECOND'\]"):
             concat([_first(), randomized])
 
     def test_an_already_concatenated_input(self) -> None:
         combined = concat([_first(), _second()])
 
-        with pytest.raises(ValueError, match="already have a 'study'"):
+        with pytest.raises(InvalidInputError, match="already have a 'study'"):
             concat([combined, drevalpy.synthetic(name="THIRD", n_samples=6)])
 
     def test_unknown_join(self) -> None:
-        with pytest.raises(ValueError, match="join must be"):
+        with pytest.raises(InvalidInputError, match="join must be"):
             concat([_first(), _second()], join="outer")  # type: ignore[arg-type]
 
 

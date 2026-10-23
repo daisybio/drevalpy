@@ -2,7 +2,7 @@
 
 Mirrors the private module
 ``drevalpy.components.predictors.naive._single_entity`` with the leading
-underscore stripped (``AGENTS.md`` rule 4). ``entity_mean.py`` derives both of
+underscore stripped. ``entity_mean.py`` derives both of
 its predictors from this base and adds nothing but a ``_feature_side``, so the
 lifecycle behaviour is asserted here and ``test_entity_mean.py`` keeps only the
 per-side wiring.

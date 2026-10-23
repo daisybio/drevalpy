@@ -12,7 +12,7 @@ from torch_geometric.data import Data
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
-from drevalpy.registry._builtins import ensure_predictor_registered, register_builtin_components
+from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import graph_feature_block, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -56,7 +56,6 @@ def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
 
 
 def test_druggnn_predictor_registry_name() -> None:
-    ensure_predictor_registered("drugGNN")
     assert get_predictor("drugGNN") is DrugGNNPredictor
 
 

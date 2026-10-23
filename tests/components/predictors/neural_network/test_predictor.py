@@ -12,7 +12,7 @@ from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models import DRPModel, ModelSpec
-from drevalpy.registry._builtins import ensure_predictor_registered, register_builtin_components
+from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -26,7 +26,6 @@ def _register_components() -> None:
 
 
 def test_neural_network_predictor_registry_name() -> None:
-    ensure_predictor_registered("neuralNetwork")
     assert get_predictor("neuralNetwork") is NeuralNetworkPredictor
 
 

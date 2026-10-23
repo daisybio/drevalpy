@@ -22,6 +22,7 @@ import numpy as np
 import pytest
 
 from drevalpy import run
+from drevalpy.errors import InvalidInputError
 from drevalpy.models import ModelSpec
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.results import ExperimentResult
@@ -488,7 +489,7 @@ class TestDatasetSequences:
         assert recorder.datasets == [dataset, dataset]
 
     def test_an_empty_sequence_is_rejected(self, recorder: _SingleRecorder) -> None:
-        with pytest.raises(ValueError, match="empty sequence"):
+        with pytest.raises(InvalidInputError, match="empty sequence"):
             run([_stub_model("M")], [], "LSO")
 
     def test_the_concatenated_dataset_is_the_one_split(
@@ -686,7 +687,7 @@ class TestFailures:
         assert len(recorder.calls) == 1
 
     def test_an_unknown_on_error_is_rejected(self, recorder: _SingleRecorder, dataset: _FakeDataset) -> None:
-        with pytest.raises(ValueError, match="on_error"):
+        with pytest.raises(InvalidInputError, match="on_error"):
             run([_stub_model("A")], dataset, "LSO", on_error="ignore")  # type: ignore[arg-type]
 
     def test_a_clean_run_has_no_failures(self, recorder: _SingleRecorder, dataset: _FakeDataset) -> None:

@@ -1,7 +1,7 @@
 """Tests for the MolGNet graph conversion and network.
 
 Mirrors :mod:`drevalpy.components.featurizers.drug._molgnet_network` (underscore
-stripped, per the AGENTS.md private-module rule). The module was at zero coverage
+stripped, as private-module tests are named). The module was at zero coverage
 because nothing imported it outside the checkpoint path; nothing here needs the
 checkpoint, only a randomly initialised, deliberately tiny ``MolGNet``.
 """

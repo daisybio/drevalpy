@@ -218,3 +218,74 @@ def test_without_a_tracking_run_nothing_is_logged(tmp_path, monkeypatch) -> None
     _drive(_CountingModel(), _run(tmp_path, epochs=2, patience=2), [2.0, 1.0])
 
     assert fake.runs == []
+
+
+def _linear_model_and_loader():
+    import torch
+    from torch import nn
+
+    model = nn.Linear(1, 1, bias=False)
+    with torch.no_grad():
+        model.weight.fill_(0.0)
+    loader = [(torch.tensor([[1.0]]), torch.tensor([[2.0]])), (torch.tensor([[2.0]]), torch.tensor([[4.0]]))]
+    return model, loader
+
+
+def _squared_error(model):
+    def batch_loss(batch):
+        inputs, targets = batch
+        return ((model(inputs) - targets) ** 2).mean()
+
+    return batch_loss
+
+
+def test_run_epoch_in_train_mode_updates_the_parameters_and_returns_the_mean_loss() -> None:
+    import torch
+
+    from drevalpy.components.predictors.literature._early_stopping import run_epoch
+
+    model, loader = _linear_model_and_loader()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    model.eval()
+
+    mean_loss = run_epoch(model, loader, _squared_error(model), optimizer)
+
+    assert model.training
+    assert mean_loss == pytest.approx((4.0 + _second_loss()) / 2)
+    assert model.weight.item() != 0.0
+
+
+def _second_loss() -> float:
+    # After the first SGD step on (x=1, y=2): grad = 2 * (0 - 2) * 1 = -4, w = 0.4.
+    # Second batch (x=2, y=4): prediction 0.8, loss (0.8 - 4) ** 2.
+    return (0.8 - 4.0) ** 2
+
+
+def test_run_epoch_in_eval_mode_leaves_parameters_and_gradients_untouched() -> None:
+    from drevalpy.components.predictors.literature._early_stopping import run_epoch
+
+    model, loader = _linear_model_and_loader()
+    model.train()
+    grad_modes: list[bool] = []
+
+    def batch_loss(batch):
+        import torch
+
+        grad_modes.append(torch.is_grad_enabled())
+        return _squared_error(model)(batch)
+
+    mean_loss = run_epoch(model, loader, batch_loss, None)
+
+    assert not model.training
+    assert mean_loss == pytest.approx((4.0 + 16.0) / 2)
+    assert model.weight.item() == 0.0
+    assert model.weight.grad is None
+    assert grad_modes == [False, False]
+
+
+def test_run_epoch_over_an_empty_loader_returns_zero() -> None:
+    from drevalpy.components.predictors.literature._early_stopping import run_epoch
+
+    model, _ = _linear_model_and_loader()
+
+    assert run_epoch(model, [], _squared_error(model), None) == 0.0

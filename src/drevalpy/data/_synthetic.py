@@ -66,6 +66,7 @@ from drevalpy.data._synthetic_omics import (
     view_feature_names,
 )
 from drevalpy.data.utils import TISSUE_IDENTIFIER
+from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.modalities import resolve_omics_accessor
 
@@ -372,15 +373,15 @@ def synthetic(
         CurveCurator quality layers, plus any requested omics modality and extra.
 
     Raises:
-        ValueError: If *n_drugs* exceeds :data:`MAX_SYNTHETIC_DRUGS`, if a name in
-            *sample_views*, *drug_views*, *uns_payloads* or *extra_layers* is
-            unknown, or if the packaged gene list is shorter than *n_features*.
+        InvalidInputError: If *n_drugs* exceeds :data:`MAX_SYNTHETIC_DRUGS`.
+        ValueError: If a name in *sample_views*, *drug_views*, *uns_payloads* or
+            *extra_layers* is unknown, or if the packaged gene list is shorter than *n_features*.
     """
     import mudata as md
 
     if n_drugs > MAX_SYNTHETIC_DRUGS:
         msg = f"n_drugs={n_drugs} is above the limit of {MAX_SYNTHETIC_DRUGS} synthetic drugs"
-        raise ValueError(msg)
+        raise InvalidInputError(msg)
     check_choices("extra_layers", extra_layers, _EXTRA_LAYERS)
 
     rng = np.random.default_rng(seed)

@@ -6,6 +6,7 @@ import re
 
 import pytest
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.models import ModelSpec
 from drevalpy.models.config import from_spec
 from drevalpy.models.spec import UnknownModelError
@@ -87,7 +88,7 @@ def test_from_name_accepts_a_feature_free_predictor_token() -> None:
 )
 def test_from_name_error_names_both_readings_and_the_recipe_reason(name: str, reason: str) -> None:
     with pytest.raises(
-        ValueError, match=f"{re.escape(repr(name))} is not a zoo name and not a valid recipe: .*{reason}"
+        UnknownNameError, match=f"{re.escape(repr(name))} is not a zoo name and not a valid recipe: .*{reason}"
     ) as caught:
         ModelSpec.from_name(name)
 

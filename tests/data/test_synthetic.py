@@ -18,6 +18,7 @@ from drevalpy.data._synthetic import (
     synthetic,
 )
 from drevalpy.data.utils import TISSUE_IDENTIFIER
+from drevalpy.errors import InvalidInputError
 from drevalpy.testing import build_synthetic_dataset
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.results import ExperimentResult
@@ -121,7 +122,7 @@ class TestDrugs:
         assert synthetic(n_drugs=MAX_SYNTHETIC_DRUGS).response_matrix.shape[1] == MAX_SYNTHETIC_DRUGS
 
     def test_one_drug_above_the_limit_raises_naming_it(self):
-        with pytest.raises(ValueError, match=str(MAX_SYNTHETIC_DRUGS)):
+        with pytest.raises(InvalidInputError, match=str(MAX_SYNTHETIC_DRUGS)):
             synthetic(n_drugs=MAX_SYNTHETIC_DRUGS + 1)
 
 

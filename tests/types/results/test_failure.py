@@ -7,6 +7,7 @@ import json
 
 import pytest
 
+from drevalpy.errors import DrEvalError
 from drevalpy.types.results.failure import ExperimentFailedError, RunFailure
 
 
@@ -85,10 +86,13 @@ class TestExperimentFailedError:
         error = ExperimentFailedError(failures)
 
         assert isinstance(error, RuntimeError)
+        assert isinstance(error, DrEvalError)
         assert error.failures == tuple(failures)
-        assert "All 2 run(s) failed" in str(error)
 
-    def test_truncates_a_long_message(self) -> None:
-        error = ExperimentFailedError([_failure(fold_index=i) for i in range(8)])
+    def test_message_counts_the_failures_and_lists_every_one_indented(self) -> None:
+        failures = [_failure(fold_index=i) for i in range(8)]
 
-        assert "and 3 more" in str(error)
+        lines = str(ExperimentFailedError(failures)).splitlines()
+
+        assert lines[0] == "8 run(s) failed:"
+        assert lines[1:] == [f"  {failure}" for failure in failures]

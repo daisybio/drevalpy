@@ -2,7 +2,7 @@
 
 Mirrors the private module
 ``drevalpy.components.predictors.naive._matrix_means`` with the leading
-underscore stripped (``AGENTS.md`` rule 4: the ``naive`` package exposes no
+underscore stripped (the ``naive`` package exposes no
 public module for these helpers). All eight functions are exercised here
 directly rather than only indirectly through ``effects.py`` / ``mean.py``.
 """

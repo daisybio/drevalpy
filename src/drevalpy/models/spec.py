@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.tuning.public_flat import (
@@ -14,7 +15,7 @@ from drevalpy.models.tuning.public_flat import (
 from drevalpy.models.tuning.search_space import merge_model_config_spaces, resolve_model_config
 
 
-class UnknownModelError(ValueError):
+class UnknownModelError(UnknownNameError):
     """A model name that is neither a zoo name nor a valid recipe.
 
     Attributes:

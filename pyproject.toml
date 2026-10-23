@@ -78,6 +78,7 @@ dev = [
     "types-PyYAML",
     "jupyter>=1.1.1",
     "vulture>=2.16",
+    "pydoclint>=0.11.0",
 ]
 docs = [
     "sphinx>=4.0.2",
@@ -164,6 +165,13 @@ max-complexity = 10
 
 [tool.ruff.format]
 docstring-code-format = true
+
+[tool.pydoclint]
+style = "sphinx"
+arg-type-hints-in-docstring = false
+check-return-types = false
+skip-checking-short-docstrings = true
+check-class-attributes = false
 
 [tool.ty]
 

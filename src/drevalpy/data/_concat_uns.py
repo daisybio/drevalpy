@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.log import get_logger
 
 logger = get_logger(__name__)
@@ -80,7 +81,7 @@ def merge_uns(
         A new dict holding copies of the agreed values.
 
     Raises:
-        ValueError: If a strict key differs between inputs, or is recorded by only some.
+        InvalidInputError: If a strict key differs between inputs, or is recorded by only some.
     """
     keys = [key for key in dict.fromkeys(key for uns in uns_list for key in uns) if key not in skip]
     merged: dict[str, Any] = {}
@@ -91,7 +92,7 @@ def merge_uns(
             merged[key] = copy.deepcopy(values[0])
         elif strict(key):
             seen = ", ".join(f"{name}={_short(value)}" for name, value in zip(names, values, strict=True))
-            raise ValueError(f"{where}: uns[{key!r}] must be equal in every dataset, got {seen}")
+            raise InvalidInputError(f"{where}: uns[{key!r}] must be equal in every dataset, got {seen}")
         else:
             dropped.append(key)
     if dropped:

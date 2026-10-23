@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.registry import visualization as visualization_facade
 from drevalpy.registry.visualization._registry import VisualizationRegistry, visualization_registry
 from drevalpy.visualization.requirements import PlotRequirement
@@ -122,7 +123,7 @@ def test_get_returns_the_registered_class(registry: VisualizationRegistry, violi
 
 
 def test_get_rejects_an_unknown_name(registry: VisualizationRegistry, violin: type[Any]) -> None:
-    with pytest.raises(ValueError, match=r"Unknown visualization 'heatmap'\. Registered: \['violin'\]"):
+    with pytest.raises(UnknownNameError, match=r"Unknown visualization 'heatmap'\. Registered: \['violin'\]"):
         registry.get("heatmap")
 
 
@@ -300,3 +301,15 @@ def test_module_applicable_delegates_to_the_singleton() -> None:
     experiment = _RecordingExperiment(answer=False)
 
     assert visualization_facade.applicable(experiment) == []  # type: ignore[arg-type]
+
+
+def test_result_type_returns_the_registered_kind(registry: VisualizationRegistry, violin: type[Any]) -> None:
+    registry.register("per_model", result_type="ModelResult")(type("PerModel", (), {}))
+
+    assert registry.result_type("violin") == "ExperimentResult"
+    assert registry.result_type("per_model") == "ModelResult"
+
+
+def test_result_type_rejects_an_unknown_name(registry: VisualizationRegistry) -> None:
+    with pytest.raises(UnknownNameError, match="Unknown visualization 'heatmap'"):
+        registry.result_type("heatmap")

@@ -7,7 +7,7 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureContract
-from drevalpy.registry._builtins import _registry_for, ensure_predictor_registered
+from drevalpy.registry._builtins import _registry_for
 from drevalpy.registry.drug_featurizer import (
     get as get_drug_featurizer,
 )
@@ -82,14 +82,12 @@ print("ok")
 
 def test_literature_predictors_register_from_split_modules() -> None:
     for name in ("precily", "srmf", "molir", "superfeltr", "pharmaFormer", "dipk", "sparsego"):
-        ensure_predictor_registered(name)
         cls = get_predictor(name)
         assert cls.registry_name == name
 
 
 def test_naive_predictors_register_from_package() -> None:
     for name in ("naiveMean", "naiveDrugMean", "naiveMeanEffects"):
-        ensure_predictor_registered(name)
         cls = get_predictor(name)
         assert cls.registry_name == name
 

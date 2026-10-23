@@ -25,9 +25,10 @@ from drevalpy.experiment._tracking import log_metrics
 from drevalpy.utils.torch_io import load_state_dict, save_torch_payload
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     import torch
+    from torch.optim import Optimizer
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,41 @@ def train_with_early_stopping(
     _log(run, f"{run.model_name}: Reloading the best model")
     model.load_state_dict(load_state_dict(checkpoint_path, map_location=device))
     model.to(device)
+
+
+def run_epoch(
+    model: torch.nn.Module,
+    loader: Iterable[Any],
+    batch_loss: Callable[[Any], torch.Tensor],
+    optimizer: Optimizer | None,
+) -> float:
+    """Run one training or evaluation epoch over *loader*.
+
+    With an *optimizer* the model is in train mode and each batch loss is back-propagated and stepped;
+    without one the model is in eval mode and no gradients are recorded.
+
+    :param model: Module to train or evaluate.
+    :param loader: Iterable of batches, each passed unchanged to *batch_loss*.
+    :param batch_loss: Computes the loss tensor of one batch, moving the batch to the device itself.
+    :param optimizer: Optimizer to step after each batch, or ``None`` for an evaluation epoch.
+    :returns: Mean batch loss, or ``0.0`` for an empty *loader*.
+    """
+    import torch
+
+    training = optimizer is not None
+    model.train(training)
+    total = 0.0
+    count = 0
+    with torch.enable_grad() if training else torch.no_grad():
+        for batch in loader:
+            loss = batch_loss(batch)
+            if optimizer is not None:
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+            total += loss.detach().item()
+            count += 1
+    return total / max(count, 1)
 
 
 def _prepare_checkpoint_path(run: EarlyStoppingRun) -> UPath:

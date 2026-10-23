@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from drevalpy.errors import UnknownNameError
+
 if TYPE_CHECKING:
     from sklearn.base import TransformerMixin
 
@@ -23,7 +25,7 @@ def get_response_transformation(
 
     :returns: Fitted-ready sklearn transformer, or ``None`` for no transformation.
 
-    :raises ValueError: If *response_transformation* is not recognized.
+    :raises UnknownNameError: If *response_transformation* is not recognized.
 
     :param response_transformation: response transformation.
     :returns: Result of the operation.
@@ -38,6 +40,6 @@ def get_response_transformation(
         return MinMaxScaler()
     if response_transformation == "robust":
         return RobustScaler()
-    raise ValueError(
+    raise UnknownNameError(
         f"Unknown response transformation {response_transformation}. Choose from 'None', 'standard', 'minmax', 'robust'"
     )

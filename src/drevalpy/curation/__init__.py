@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from drevalpy.curation._anndata import build_anndata
+from drevalpy.errors import InvalidInputError
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor
@@ -96,7 +97,7 @@ def curate(
 
     Raises:
     ------
-    ValueError
+    InvalidInputError
         If ``fit_type`` or ``fit_speed`` is not supported.
     """
     from drevalpy.curation._fit import fit_groups
@@ -123,13 +124,13 @@ def _validate_fit_options(*, fit_type: str, fit_speed: str) -> None:
 
     :param fit_type: Requested fitting method.
     :param fit_speed: Requested fitting thoroughness.
-    :raises ValueError: If either option is not supported.
+    :raises InvalidInputError: If either option is not supported.
     """
     if fit_type not in SUPPORTED_FIT_TYPES:
-        raise ValueError(
+        raise InvalidInputError(
             f"fit_type={fit_type!r} is not supported; expected one of {list(SUPPORTED_FIT_TYPES)}. "
             "MLE fitting is unavailable because the pinned curve_curator release rejects the "
             "'weights' argument that curve fitting passes to _Model.fit_mle()."
         )
     if fit_speed not in FIT_SPEEDS:
-        raise ValueError(f"fit_speed={fit_speed!r} is not supported; expected one of {list(FIT_SPEEDS)}.")
+        raise InvalidInputError(f"fit_speed={fit_speed!r} is not supported; expected one of {list(FIT_SPEEDS)}.")

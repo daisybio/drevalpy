@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 
 from drevalpy.components.predictors.literature.superfeltr.predictor import SuperFELTRPredictor
-from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
@@ -18,7 +17,6 @@ from tests.components.predictors.literature._helpers import (
 
 
 def test_superfeltr_predictor_registry_name() -> None:
-    ensure_predictor_registered("superfeltr")
     assert get_predictor("superfeltr") is SuperFELTRPredictor
 
 

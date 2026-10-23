@@ -6,7 +6,7 @@ so each of those test files had written out the same twelve-keyword
 ``ModelInputBatch.from_response`` call. What actually differs per predictor is
 which feature blocks it consumes, and that is all a caller passes here.
 
-Plain ``_``-prefixed module, per the test-layout rules in ``AGENTS.md``: the
+Plain ``_``-prefixed module: the
 underscore keeps it out of collection, and the mirror policy walks ``drevalpy/``
 only, so no mirrored test is demanded for it.
 """

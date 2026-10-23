@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import joblib
 from upath import UPath as Path
 
+from drevalpy.errors import DrEvalError
 from drevalpy.models.config.resolved import ResolvedModelConfig
 
 if TYPE_CHECKING:
@@ -37,7 +38,7 @@ _RETIRED_VERSIONS = {
 }
 
 
-class ModelCheckpointError(Exception):
+class ModelCheckpointError(DrEvalError):
     """Base error for DRPModel checkpoint problems."""
 
 

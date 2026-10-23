@@ -17,7 +17,6 @@ from drevalpy.components.predictors.literature.sparsego.predictor import (
     _resolve_active_view,
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -49,7 +48,6 @@ def _batch(sample_block_names: tuple[str, ...], *, metadata: dict | None = None)
 
 
 def test_sparsego_predictor_registry_name() -> None:
-    ensure_predictor_registered("sparsego")
     assert get_predictor("sparsego") is SparseGOPredictor
 
 

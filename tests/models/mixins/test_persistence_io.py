@@ -14,6 +14,7 @@ import zipfile
 import pytest
 from upath import UPath
 
+from drevalpy.errors import DrEvalError
 from drevalpy.models import DRPModel, ModelSpec, load_model
 from drevalpy.models.mixins._persistence_io import (
     FORMAT_NAME,
@@ -336,5 +337,6 @@ class TestErrorHierarchy:
         assert issubclass(error_type, ModelCheckpointError)
         assert issubclass(error_type, ValueError)
 
-    def test_base_error_is_not_a_value_error(self) -> None:
+    def test_base_error_is_a_drevalpy_error_but_not_a_value_error(self) -> None:
+        assert issubclass(ModelCheckpointError, DrEvalError)
         assert not issubclass(ModelCheckpointError, ValueError)

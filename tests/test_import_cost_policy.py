@@ -6,8 +6,8 @@ visualization. Those modules are therefore on the critical path of
 ``import drevalpy`` - and of every CLI invocation - so a single module-scope
 ``import torch`` costs every caller a third of a second whether or not they ever
 train a model. Deferring the libraries below took ``import drevalpy`` from
-**3.59s to 0.21s** end to end, against a 0.02s bare interpreter - the same
-figures recorded in ``AGENTS.md``. (An intermediate measurement, taken once
+**3.59s to 0.21s** end to end, against a 0.02s bare interpreter. (An intermediate
+measurement, taken once
 ``pytorch_lightning`` was already deferred, still had the remaining libraries
 accounting for 2.0s of a 2.2s import, which is why every entry below earns its
 place rather than just the two largest.)

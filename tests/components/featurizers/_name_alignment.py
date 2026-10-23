@@ -1,7 +1,6 @@
 """Shared check that a fitted featurizer reads its view by feature name.
 
-Plain module (no ``__init__.py``) imported by dotted path, per the test layout
-rules in ``AGENTS.md``.
+Plain module (no ``__init__.py``) imported by dotted path.
 """
 
 from __future__ import annotations

@@ -9,6 +9,7 @@ import pytest
 import scipy.sparse as sp
 
 from drevalpy.data._concat_stack import stack_response, stack_view
+from drevalpy.errors import InvalidInputError
 
 NAMES = ["A", "B"]
 
@@ -46,7 +47,9 @@ class TestStackView:
         first = _view(["s1"], ["g1", "g2"], np.zeros((1, 2), dtype=np.float32))
         second = _view(["s1"], ["g1", "g9"], np.zeros((1, 2), dtype=np.float32))
 
-        with pytest.raises(ValueError, match=r"1 features of A missing in B \(e\.g\. g2\); 1 only in B \(e\.g\. g9\)"):
+        with pytest.raises(
+            InvalidInputError, match=r"1 features of A missing in B \(e\.g\. g2\); 1 only in B \(e\.g\. g9\)"
+        ):
             stack_view("v", [first, second], NAMES, "exact")
 
     def test_units_are_checked_for_unit_keys_only(self) -> None:

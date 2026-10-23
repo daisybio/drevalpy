@@ -23,7 +23,6 @@ from drevalpy.components.predictors.literature.dipk.predictor import (
     _DIPKDataset,
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block, ragged_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -93,7 +92,6 @@ def _trainable_dipk_batch(tmp_path: Path) -> ModelInputBatch:
 
 
 def test_dipk_predictor_registry_name() -> None:
-    ensure_predictor_registered("dipk")
     assert get_predictor("dipk") is DIPKPredictor
 
 

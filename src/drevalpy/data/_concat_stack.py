@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.log import get_logger
 from drevalpy.types.data.dataset_utils._dense import to_dense
 
@@ -45,7 +46,9 @@ def _vstack(blocks: Sequence[Any]) -> Any:
     return np.vstack(blocks)
 
 
-def _feature_mismatch(view: str, names: Sequence[str], index: int, first: pd.Index, other: pd.Index) -> ValueError:
+def _feature_mismatch(
+    view: str, names: Sequence[str], index: int, first: pd.Index, other: pd.Index
+) -> InvalidInputError:
     """The error for a view whose feature names differ from the first input's."""
     missing = list(first.difference(other, sort=False))
     extra = list(other.difference(first, sort=False))
@@ -55,7 +58,7 @@ def _feature_mismatch(view: str, names: Sequence[str], index: int, first: pd.Ind
             detail += f"; {len(extra)} only in {names[index]} (e.g. {listed(extra)})"
     else:
         detail = "the same features in a different order"
-    return ValueError(f"View '{view}' has different feature names in {names[0]} and {names[index]}: {detail}")
+    return InvalidInputError(f"View '{view}' has different feature names in {names[0]} and {names[index]}: {detail}")
 
 
 def _view_columns(
@@ -72,7 +75,7 @@ def _view_columns(
     for adata in adatas[1:]:
         shared = shared[shared.isin(adata.var_names)]
     if len(shared) == 0:
-        raise ValueError(f"View '{view}' has no feature names shared by {', '.join(names)}")
+        raise InvalidInputError(f"View '{view}' has no feature names shared by {', '.join(names)}")
     return shared
 
 
@@ -110,7 +113,7 @@ def stack_view(
         equal in every input under both joins.
 
     Raises:
-        ValueError: If feature names differ under ``"exact"``, none are shared under
+        InvalidInputError: If feature names differ under ``"exact"``, none are shared under
             ``"inner"``, or recorded units differ.
     """
     import anndata as ad
@@ -158,7 +161,7 @@ def stack_response(
         or the layer.
 
     Raises:
-        ValueError: If a drug has different ``canonical_smiles`` in different inputs,
+        InvalidInputError: If a drug has different ``canonical_smiles`` in different inputs,
             or a strict ``uns`` key differs.
     """
     import anndata as ad

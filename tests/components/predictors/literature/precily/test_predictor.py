@@ -7,7 +7,6 @@ import pytest
 
 from drevalpy.components.predictors.literature.precily.predictor import PrecilyPredictor
 from drevalpy.experiment._tracking import tracking_run
-from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from tests._fake_wandb import install_fake_wandb
@@ -22,7 +21,6 @@ from tests.components.predictors.literature._helpers import (
 
 
 def test_precily_predictor_registry_name() -> None:
-    ensure_predictor_registered("precily")
     assert get_predictor("precily") is PrecilyPredictor
 
 

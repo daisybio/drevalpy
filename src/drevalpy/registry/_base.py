@@ -6,6 +6,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.log import get_logger
 
 if TYPE_CHECKING:
@@ -35,12 +36,12 @@ class Registry(ABC):
 
         :param name: Registry name of the component.
         :returns: Registered component class.
-        :raises ValueError: If *name* is not registered.
+        :raises UnknownNameError: If *name* is not registered.
         """
         with self._lock:
             if name not in self._store:
                 available = list(self._store.keys())
-                raise ValueError(f"Unknown {self._label}: {name!r}. Available: {available}")
+                raise UnknownNameError(f"Unknown {self._label}: {name!r}. Available: {available}")
             return self._store[name]
 
     def list_names(self) -> list[str]:

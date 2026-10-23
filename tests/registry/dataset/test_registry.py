@@ -13,6 +13,7 @@ import json
 import pytest
 from upath import UPath
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.registry import dataset as dataset_facade
 from drevalpy.registry.dataset._models import DatasetEntry, SourceEntry
 from drevalpy.registry.dataset._registry import DatasetRegistry, dataset_registry
@@ -145,7 +146,7 @@ def test_register_source_sees_an_entry_written_by_another_process(
 
 
 def test_register_dataset_requires_a_known_source(registry: DatasetRegistry) -> None:
-    with pytest.raises(KeyError, match="Source 'ghost' not registered"):
+    with pytest.raises(UnknownNameError, match="Source 'ghost' not registered"):
         registry.register_dataset("Toy", "ghost", "toy.h5mu")
 
 
@@ -213,7 +214,7 @@ def test_register_dataset_override_replaces_and_persists(registry: DatasetRegist
 
 
 def test_register_dataset_unknown_source_wins_over_override(registry: DatasetRegistry) -> None:
-    with pytest.raises(KeyError, match="Source 'ghost' not registered"):
+    with pytest.raises(UnknownNameError, match="Source 'ghost' not registered"):
         registry.register_dataset("Toy", "ghost", "toy.h5mu", override=True)
 
 
@@ -227,14 +228,14 @@ def test_unregister_dataset_removes_a_custom_entry(registry: DatasetRegistry) ->
 
 
 def test_unregister_dataset_rejects_an_unknown_name(registry: DatasetRegistry) -> None:
-    with pytest.raises(KeyError, match="Dataset 'Toy' not in custom registry"):
+    with pytest.raises(UnknownNameError, match="Dataset 'Toy' not in custom registry"):
         registry.unregister_dataset("Toy")
 
 
 def test_unregister_dataset_refuses_a_builtin(registry: DatasetRegistry) -> None:
     registry.register_dataset(_BUILTIN_DATASET, _BUILTIN_SOURCE, "override.h5mu", override=True)
 
-    with pytest.raises(KeyError, match="is built-in and cannot be unregistered"):
+    with pytest.raises(UnknownNameError, match="is built-in and cannot be unregistered"):
         registry.unregister_dataset(_BUILTIN_DATASET)
 
 
@@ -247,14 +248,14 @@ def test_unregister_source_removes_a_custom_entry(registry: DatasetRegistry) -> 
 
 
 def test_unregister_source_rejects_an_unknown_name(registry: DatasetRegistry) -> None:
-    with pytest.raises(KeyError, match="Source 'local' not in custom registry"):
+    with pytest.raises(UnknownNameError, match="Source 'local' not in custom registry"):
         registry.unregister_source("local")
 
 
 def test_unregister_source_refuses_a_builtin(registry: DatasetRegistry) -> None:
     registry.register_source(_BUILTIN_SOURCE, "file:///override", override=True)
 
-    with pytest.raises(KeyError, match="is built-in and cannot be unregistered"):
+    with pytest.raises(UnknownNameError, match="is built-in and cannot be unregistered"):
         registry.unregister_source(_BUILTIN_SOURCE)
 
 

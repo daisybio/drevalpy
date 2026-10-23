@@ -8,6 +8,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from drevalpy.errors import UnknownNameError
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -68,10 +70,12 @@ class VisualizationRegistry:
     def get(self, name: str) -> type[Any]:
         """Return the visualization class registered under name.
 
-        :raises ValueError: If name is not registered.
+        :param name: Registered visualization name.
+        :returns: The visualization class.
+        :raises UnknownNameError: If name is not registered.
         """
         if name not in self._store:
-            raise ValueError(f"Unknown visualization {name!r}. Registered: {self.names}")
+            raise UnknownNameError(f"Unknown visualization {name!r}. Registered: {self.names}")
         return self._store[name]
 
     def applicable(self, experiment: ExperimentResult) -> list[type[Any]]:
@@ -91,6 +95,16 @@ class VisualizationRegistry:
         """Return the description for a registered visualization."""
         return self._descriptions.get(name, "")
 
+    def result_type(self, name: str) -> str:
+        """Return the kind of result a registered visualization consumes.
+
+        :param name: Registered visualization name.
+        :returns: ``"ExperimentResult"`` or ``"ModelResult"``, as given at registration.
+        :raises UnknownNameError: If *name* is not registered.
+        """
+        self.get(name)
+        return self._result_types[name]
+
     def get_metadata(self, name: str) -> dict[str, Any]:
         """Return the metadata record for the visualization registered under *name*.
 
@@ -99,7 +113,7 @@ class VisualizationRegistry:
 
         :param name: Registered visualization name.
         :returns: Metadata dict for catalog listings.
-        :raises ValueError: If *name* is not registered.
+        :raises UnknownNameError: If *name* is not registered.
         """
         cls = self.get(name)
         return {

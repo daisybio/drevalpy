@@ -9,7 +9,8 @@ from pathlib import Path
 import pytest
 from upath import UPath
 
-from drevalpy.data.datasets._load import _carries_curve_quality, _load_from_cache
+from drevalpy.data.datasets._load import _carries_curve_quality, _load_from_cache, load
+from drevalpy.errors import InputNotFoundError
 from drevalpy.registry.dataset import DatasetRegistry as Registry
 from drevalpy.registry.dataset import DrevalConfig, SourceEntry, get_config_path
 from drevalpy.registry.dataset import dataset_registry as registry
@@ -322,3 +323,13 @@ class TestCachedFileIsRejectedWhenTooOld:
         with pytest.raises(ImportError):
             _load_from_cache(path)
         assert path.is_file()
+
+
+class TestLoadOfAnUnknownDataset:
+    def test_a_name_that_is_neither_cached_registered_nor_a_path_raises_input_not_found(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
+
+        with pytest.raises(InputNotFoundError, match="Cannot locate .h5mu for dataset 'no_such_dataset'"):
+            load("no_such_dataset")

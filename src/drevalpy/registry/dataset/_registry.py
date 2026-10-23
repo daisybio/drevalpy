@@ -6,6 +6,8 @@ import json
 from importlib import resources
 from typing import TYPE_CHECKING, Any
 
+from drevalpy.errors import UnknownNameError
+
 from ._io import config_lock, load_config, save_config
 from ._models import DatasetEntry, DrevalConfig, SourceEntry
 
@@ -156,11 +158,11 @@ class DatasetRegistry:
         :param source: Source name (must be registered).
         :param file: Filename of the .h5mu file at the source URL.
         :param override: Replace an existing dataset of the same name instead of raising.
-        :raises KeyError: If the source is not registered.
+        :raises UnknownNameError: If the source is not registered.
         :raises ValueError: If *name* is already registered with a different entry and *override* is false.
         """
         if source not in self.sources:
-            raise KeyError(f"Source '{source}' not registered. Register it first with register_source().")
+            raise UnknownNameError(f"Source '{source}' not registered. Register it first with register_source().")
 
         entry = DatasetEntry(source=source, file=file)
         with config_lock():
@@ -179,15 +181,15 @@ class DatasetRegistry:
         """Remove a custom dataset registration.
 
         :param name: Dataset name to remove.
-        :raises KeyError: If the dataset is not in the custom registry.
+        :raises UnknownNameError: If the dataset is not in the custom registry.
         """
         self._ensure_loaded()
         with config_lock():
             config = load_config()
             if name not in config.datasets:
-                raise KeyError(f"Dataset '{name}' not in custom registry.")
+                raise UnknownNameError(f"Dataset '{name}' not in custom registry.")
             if name in self._builtin.datasets:  # type: ignore[union-attr]
-                raise KeyError(f"Dataset '{name}' is built-in and cannot be unregistered.")
+                raise UnknownNameError(f"Dataset '{name}' is built-in and cannot be unregistered.")
             del config.datasets[name]
             save_config(config)
             self._custom = config
@@ -196,16 +198,16 @@ class DatasetRegistry:
         """Remove a custom source registration.
 
         :param name: Source name to remove.
-        :raises KeyError: If the source is not in the custom registry.
+        :raises UnknownNameError: If the source is not in the custom registry.
         :raises ValueError: If datasets still reference this source.
         """
         self._ensure_loaded()
         with config_lock():
             config = load_config()
             if name not in config.sources:
-                raise KeyError(f"Source '{name}' not in custom registry.")
+                raise UnknownNameError(f"Source '{name}' not in custom registry.")
             if name in self._builtin.sources:  # type: ignore[union-attr]
-                raise KeyError(f"Source '{name}' is built-in and cannot be unregistered.")
+                raise UnknownNameError(f"Source '{name}' is built-in and cannot be unregistered.")
 
             referencing = [ds for ds, entry in config.datasets.items() if entry.source == name]
             if referencing:

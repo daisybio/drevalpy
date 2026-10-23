@@ -10,7 +10,6 @@ import pytest
 
 from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.registry._builtins import ensure_predictor_registered
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from tests.components.predictors.literature._helpers import (
@@ -22,7 +21,6 @@ from tests.components.predictors.literature._helpers import (
 
 
 def test_srmf_predictor_registry_name() -> None:
-    ensure_predictor_registered("srmf")
     assert get_predictor("srmf") is SRMFPredictor
 
 

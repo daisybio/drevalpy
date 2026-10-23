@@ -12,6 +12,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.registry._base import Registry
 
 
@@ -71,7 +72,9 @@ def test_get_returns_registered_class(registry: _ExampleRegistry) -> None:
 
 
 def test_get_unknown_name_lists_available(registry: _ExampleRegistry) -> None:
-    with pytest.raises(ValueError, match=r"Unknown Example component: 'missing'\. Available: \['alpha', 'beta'\]"):
+    with pytest.raises(
+        UnknownNameError, match=r"Unknown Example component: 'missing'\. Available: \['alpha', 'beta'\]"
+    ):
         registry.get("missing")
 
 

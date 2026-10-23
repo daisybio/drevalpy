@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from drevalpy.data._concat_tables import listed, prefixed, stack_obs, union_var
+from drevalpy.errors import InvalidInputError
 
 
 class TestHelpers:
@@ -94,7 +95,7 @@ class TestUnionVar:
         first = self._frame(["1", "2", "3"], canonical_smiles=["C", "N", "O"])
         second = self._frame(["1", "2", "3"], canonical_smiles=["CC", "NN", "O"])
 
-        with pytest.raises(ValueError, match=r"2 drug IDs: 1, 2"):
+        with pytest.raises(InvalidInputError, match=r"2 drug IDs: 1, 2"):
             union_var([first, second])
 
     def test_a_null_smiles_is_not_a_conflict(self) -> None:

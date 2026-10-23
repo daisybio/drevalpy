@@ -11,7 +11,7 @@ from drevalpy.components.predictors._boosted_trees import BoostedTreesPredictor
 from drevalpy.components.predictors.lightgbm_pred import LightGBMPredictor
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.registry._builtins import ensure_predictor_registered, register_builtin_components
+from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 from tests.components.predictors._helpers import neural_batch
 
@@ -26,8 +26,6 @@ def _register_components() -> None:
 
 
 def test_lightgbm_predictor_registry_name() -> None:
-    ensure_predictor_registered("lightgbm")
-
     assert get_predictor("lightgbm") is LightGBMPredictor
 
 

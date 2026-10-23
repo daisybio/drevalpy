@@ -6,7 +6,7 @@ throwaway featurizer or predictor whose only real content is its contract. Those
 registrations were written out per test, which is what made ``test_validation.py``
 and ``test_block_specs.py`` read as near-clones of each other.
 
-Plain ``_``-prefixed module, per the test-layout rules in ``AGENTS.md``: the
+Plain ``_``-prefixed module: the
 underscore keeps it out of collection, and the mirror policy walks ``drevalpy/``
 only, so no mirrored test is demanded for it.
 
