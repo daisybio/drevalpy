@@ -257,7 +257,7 @@ min_file_coverage = 60
 # unit-tested against synthetic .h5mu files in tmp_path, needing neither
 # credentials nor a warm cache. What remains uncovered is the download itself; do
 # not chase the last points, it would mean pulling hundreds of megabytes in CI.
-"drevalpy/data/datasets/__init__.py" = 44
+"drevalpy/data/datasets/__init__.py" = 50
 
 # Per-module statement ceiling, enforced by tools/size_gate.py. This is the ratchet
 # that keeps the split modules in models/ and components/featurizers/ from

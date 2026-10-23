@@ -8,15 +8,25 @@ from collections.abc import Iterator
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def _restore_drevalpy_logger() -> Iterator[None]:
-    """Undo the Rich handler and log level the root callback sets up through ``setup_logging``."""
+def _restoring_drevalpy_logger() -> Iterator[None]:
     logger = logging.getLogger("drevalpy")
     handlers = list(logger.handlers)
     level = logger.level
     yield
     logger.handlers[:] = handlers
     logger.setLevel(level)
+
+
+@pytest.fixture(autouse=True)
+def _restore_drevalpy_logger() -> Iterator[None]:
+    """Undo the Rich handler and log level the root callback sets up through ``setup_logging``."""
+    yield from _restoring_drevalpy_logger()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _restore_drevalpy_logger_after_module() -> Iterator[None]:
+    """Do the same for module- and class-scoped fixtures, which run before the per-test snapshot."""
+    yield from _restoring_drevalpy_logger()
 
 
 @pytest.fixture(scope="session")
