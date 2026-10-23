@@ -1,9 +1,9 @@
 {
   "case": {
-    "inputs_sha256": "f7bfe28a2d8f19464a7d6c2f532b60e9455b1393eb0e85c37daa538e1597cda3",
+    "inputs_sha256": "a2d6dcd8d05c209f1f0796b479fb208550cb2f95aa7e9f36f6696db8698f4ee7",
     "meta": {
       "variants": {
-        "natural_order": {
+        "fit_order": {
           "all_samples": false,
           "hyperparameters": {
             "K": 3,
@@ -13,7 +13,7 @@
             "max_iter": 6,
             "seed": 7
           },
-          "sorted_drugs": false
+          "order_only": true
         },
         "plain": {
           "all_samples": false,
@@ -271,89 +271,10 @@
       "shape_v2": [
         23
       ]
-    },
-    {
-      "achieved": null,
-      "declared": "exact",
-      "description": "natural_order: drug order of the arrays passed to _cmf",
-      "detail": "non-numeric arrays differ: 1.6.1='D00' v2='D02'; 1.6.1='D01' v2='D03'; 1.6.1='D02' v2='D04'",
-      "explanation": "v2 fits on the entities in first-seen order of the training pairs (`unique_entity_ids`), 1.6.1 on `np.unique(...)`, i.e. sorted ids. The initial factors are drawn row by row (`rng.standard_normal((m, K))`), so the draw a drug gets depends on its position, and the whole alternating optimization starts from a different point. The factors are compared by drug id. The other variants hand the solver the arrays in sorted order (harness patch) to compare the rest.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "natural_order/solver_drug_order",
-      "passed": false,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [
-        5
-      ],
-      "shape_v2": [
-        5
-      ]
-    },
-    {
-      "achieved": "statistical",
-      "declared": "train",
-      "description": "natural_order: latent factors of the drugs (compared by drug id)",
-      "detail": "",
-      "explanation": "v2 fits on the entities in first-seen order of the training pairs (`unique_entity_ids`), 1.6.1 on `np.unique(...)`, i.e. sorted ids. The initial factors are drawn row by row (`rng.standard_normal((m, K))`), so the draw a drug gets depends on its position, and the whole alternating optimization starts from a different point. The factors are compared by drug id. The other variants hand the solver the arrays in sorted order (harness patch) to compare the rest.",
-      "max_abs_diff": 0.02888725811559345,
-      "max_rel_diff": 0.8282243073565937,
-      "name": "natural_order/best_u",
-      "passed": false,
-      "pearson": 0.9999754192452758,
-      "scope": "deviation",
-      "shape_v1": [
-        5,
-        3
-      ],
-      "shape_v2": [
-        5,
-        3
-      ]
-    },
-    {
-      "achieved": "statistical",
-      "declared": "train",
-      "description": "natural_order: latent factors of the samples",
-      "detail": "",
-      "explanation": "v2 fits on the entities in first-seen order of the training pairs (`unique_entity_ids`), 1.6.1 on `np.unique(...)`, i.e. sorted ids. The initial factors are drawn row by row (`rng.standard_normal((m, K))`), so the draw a drug gets depends on its position, and the whole alternating optimization starts from a different point. The factors are compared by drug id. The other variants hand the solver the arrays in sorted order (harness patch) to compare the rest.",
-      "max_abs_diff": 0.013003867469320696,
-      "max_rel_diff": 0.38235680583163334,
-      "name": "natural_order/best_v",
-      "passed": false,
-      "pearson": 0.9999771222403062,
-      "scope": "deviation",
-      "shape_v1": [
-        19,
-        3
-      ],
-      "shape_v2": [
-        19,
-        3
-      ]
-    },
-    {
-      "achieved": "statistical",
-      "declared": "train",
-      "description": "natural_order: test predictions for pairs with a factorized sample and drug",
-      "detail": "",
-      "explanation": "v2 fits on the entities in first-seen order of the training pairs (`unique_entity_ids`), 1.6.1 on `np.unique(...)`, i.e. sorted ids. The initial factors are drawn row by row (`rng.standard_normal((m, K))`), so the draw a drug gets depends on its position, and the whole alternating optimization starts from a different point. The factors are compared by drug id. The other variants hand the solver the arrays in sorted order (harness patch) to compare the rest.",
-      "max_abs_diff": 0.01811761128583156,
-      "max_rel_diff": 0.028526953502215225,
-      "name": "natural_order/predictions_known",
-      "passed": false,
-      "pearson": 0.9998089396620173,
-      "scope": "deviation",
-      "shape_v1": [
-        16
-      ],
-      "shape_v2": [
-        16
-      ]
     }
   ],
   "findings": [
+    "Fixed (v2): SRMF fitted in the first-seen order of the entities, 1.6.1 in sorted id order (`np.unique`). The initial factors are drawn row by row from the seeded generator, so the order decides the start point of the whole optimization. v2 now sorts samples and drugs by id before the solver; variant `fit_order` compares the factors in stored order, and the harness no longer reorders the arrays.",
     "The solver is the 1.6.1 one and agrees to rounding when both sides factorize the same samples and drugs (variants `similarity` and `plain`): same seeded `default_rng` initialization, same alternating updates, same stopping rule. The response pivot, the Jaccard similarity of the fingerprints and the Pearson correlation of the expression are identical.",
     "1.6.1 is transductive in the sample set: `train` factorizes `np.unique(cell_line_input.identifiers)`, i.e. every sample of the dataset, also those that occur only in validation or test pairs, and the sample similarity is computed over all of them. v2 factorizes the samples of the training batch. The drugs are the same in practice (every drug is trained). Variant `transductive` shows the effect: sample set, similarity, initial factors and all factors differ.",
     "Prediction fallback: 1.6.1 fills the latent vector of an unknown sample or drug with the training mean (`np.full((n, K), mean)`), so its prediction is `u . mean` or `K * mean^2`; v2 returns the training mean (documented). With a transductive sample set 1.6.1 rarely hits the fallback for samples.",
@@ -851,6 +772,86 @@
       "scope": "parity",
       "shape_v1": [],
       "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "fit_order: drug order of the arrays passed to _cmf",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "fit_order/solver_drug_order",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "fit_order: latent factors of the drugs (compared by drug id)",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "fit_order/best_u",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        5,
+        3
+      ],
+      "shape_v2": [
+        5,
+        3
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "fit_order: latent factors of the samples",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "fit_order/best_v",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        19,
+        3
+      ],
+      "shape_v2": [
+        19,
+        3
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "train",
+      "description": "fit_order: test predictions for pairs with a factorized sample and drug",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "fit_order/predictions_known",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
     }
   ],
   "v1": {
@@ -867,8 +868,8 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "174ceea7bf7e9e4d79080da0abe81a48c1667cb0",
-    "dirty": false,
+    "commit": "e233ea486643a0c8ede748f7adf0e9c088a49583",
+    "dirty": true,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",
     "numpy": "2.4.6",

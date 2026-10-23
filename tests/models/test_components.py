@@ -90,16 +90,6 @@ def _spy_on_best_epoch_reload(monkeypatch: pytest.MonkeyPatch, model_name: str) 
     return reloaded
 
 
-def _without_molir_gene_lists(spec):
-    """Return *spec* with the MOLIR omics featurizer reading every gene of its views."""
-    from drevalpy.models import ModelSpec
-    from drevalpy.models.config import ModelConfig
-
-    payload = spec.config.model_dump(mode="python")
-    payload["sample_featurizer"]["options"].pop("gene_lists")
-    return ModelSpec(spec.name, ModelConfig.model_validate(payload))
-
-
 @pytest.mark.slow
 @pytest.mark.parametrize("model_name", ["MOLIR", "SuperFELTR"])
 def test_fit_with_early_stopping_scope_reloads_the_best_epoch(
@@ -123,10 +113,7 @@ def test_fit_with_early_stopping_scope_reloads_the_best_epoch(
 
     reloaded = _spy_on_best_epoch_reload(monkeypatch, model_name)
     dataset = _three_omics_dataset()
-    spec = small_data_spec(model_name)
-    if model_name == "MOLIR":
-        spec = _without_molir_gene_lists(spec)
-    model = DRPModel(spec, hyperparameters)
+    model = DRPModel(small_data_spec(model_name), hyperparameters)
     model.train(dataset, SplitMask(train), early_stopping_scope=SplitMask(stop), model_checkpoint_dir=tmp_path)
 
     assert reloaded, "the fit never reached the best-epoch reload"

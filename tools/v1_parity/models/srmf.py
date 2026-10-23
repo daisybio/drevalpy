@@ -19,8 +19,9 @@ Steps, per variant:
     Predictions for the test pairs with a sample that has no response in training (deviation).
 
 Variants: ``similarity`` (drug and sample similarity regularization, 1.6.1 is given only the features of the
-training samples), ``plain`` (``lambda_d`` 0, the 1.6.1 default) and ``transductive`` (as ``similarity``, but
-1.6.1 is given the features of every sample, which is what its pipeline does).
+training samples), ``plain`` (``lambda_d`` 0, the 1.6.1 default), ``transductive`` (as ``similarity``, but
+1.6.1 is given the features of every sample, which is what its pipeline does) and ``fit_order`` (the order of
+the entities the solver sees, which fixes the seeded initial factors; both sides fit in sorted id order).
 """
 
 from __future__ import annotations
@@ -52,22 +53,15 @@ VARIANTS: dict[str, dict[str, Any]] = {
         "hyperparameters": {"K": 3, "lambda_l": 0.05, "lambda_d": 0.1, "lambda_c": 0.08, "max_iter": 6, "seed": 9},
         "all_samples": True,
     },
-    "natural_order": {
+    "fit_order": {
         "hyperparameters": {"K": 3, "lambda_l": 0.05, "lambda_d": 0.1, "lambda_c": 0.08, "max_iter": 6, "seed": 7},
         "all_samples": False,
-        "sorted_drugs": False,
+        "order_only": True,
     },
 }
-NATURAL_QUANTITIES = ("solver_drug_order", "best_u", "best_v", "predictions_known")
+ORDER_QUANTITIES = ("solver_drug_order", "best_u", "best_v", "predictions_known")
 
 SAME_WHEN_TRANSDUCTIVE = ("factor_drug_ids", "drug_similarity", "training_mean")
-ORDER_EXPLANATION = (
-    "v2 fits on the entities in first-seen order of the training pairs (`unique_entity_ids`), 1.6.1 on "
-    "`np.unique(...)`, i.e. sorted ids. The initial factors are drawn row by row (`rng.standard_normal((m, K))`), so "
-    "the draw a drug gets depends on its position, and the whole alternating optimization starts from a different "
-    "point. The factors are compared by drug id. The other variants hand the solver the arrays in sorted order "
-    "(harness patch) to compare the rest."
-)
 UNSEEN_EXPLANATION = (
     "A test pair with a sample that has no response in training. v2 fits the factors on the samples of the "
     "training batch only and predicts the training mean for a sample or a drug it has no factor for (documented in "
@@ -84,6 +78,10 @@ TRANSDUCTIVE_EXPLANATION = (
 )
 
 FINDINGS = [
+    "Fixed (v2): SRMF fitted in the first-seen order of the entities, 1.6.1 in sorted id order (`np.unique`). The "
+    "initial factors are drawn row by row from the seeded generator, so the order decides the start point of the "
+    "whole optimization. v2 now sorts samples and drugs by id before the solver; variant `fit_order` compares the "
+    "factors in stored order, and the harness no longer reorders the arrays.",
     "The solver is the 1.6.1 one and agrees to rounding when both sides factorize the same samples and drugs "
     "(variants `similarity` and `plain`): same seeded `default_rng` initialization, same alternating updates, "
     "same stopping rule. The response pivot, the Jaccard similarity of the fingerprints and the Pearson "
@@ -127,8 +125,8 @@ def steps() -> list[StepSpec]:
     """
     specs: list[StepSpec] = []
     for variant, setting in VARIANTS.items():
-        if not setting.get("sorted_drugs", True):
-            specs += _natural_steps(variant)
+        if setting.get("order_only"):
+            specs += _order_steps(variant)
             continue
         transductive = setting["all_samples"]
         table = [
@@ -169,7 +167,7 @@ def _unseen_step(variant: str) -> StepSpec:
     )
 
 
-def _natural_steps(variant: str) -> list[StepSpec]:
+def _order_steps(variant: str) -> list[StepSpec]:
     texts = {
         "solver_drug_order": "drug order of the arrays passed to _cmf",
         "best_u": "latent factors of the drugs (compared by drug id)",
@@ -180,11 +178,9 @@ def _natural_steps(variant: str) -> list[StepSpec]:
         StepSpec(
             f"{variant}/{quantity}",
             "exact" if quantity == "solver_drug_order" else "train",
-            scope=DEVIATION,
             description=f"{variant}: {texts[quantity]}",
-            explanation=ORDER_EXPLANATION,
         )
-        for quantity in NATURAL_QUANTITIES
+        for quantity in ORDER_QUANTITIES
     ]
 
 
@@ -202,20 +198,11 @@ def _known_mask(case: Case) -> np.ndarray:
     return np.isin(test[:, 0], train[:, 0]) & np.isin(test[:, 1], train[:, 1])
 
 
-def _by_id(frame: Any) -> Any:
-    """Return a factor frame with its rows in sorted id order, which is how 1.6.1 stores them.
-
-    :param frame: ``best_u`` or ``best_v`` DataFrame.
-    :returns: The same rows sorted by id.
-    """
-    return frame.loc[sorted(frame.index, key=str)]
-
-
 def _arrays(variant: str, call: dict[str, Any], factors: Any, mean: float, preds: np.ndarray, case: Case) -> dict:
     known = _known_mask(case)
-    best_u, best_v = _by_id(factors[0]), _by_id(factors[1])
+    best_u, best_v = factors
     preds = np.asarray(preds, dtype=np.float64)
-    if not case.meta["variants"][variant].get("sorted_drugs", True):
+    if case.meta["variants"][variant].get("order_only"):
         return {
             f"{variant}/solver_drug_order": np.array([str(i) for i in call["drug_order"]]),
             f"{variant}/best_u": best_u.to_numpy(dtype=np.float64),
@@ -275,41 +262,23 @@ def run_v1(case: Case) -> dict[str, np.ndarray]:
     return out
 
 
-def _sorted_solver(solver: Any, call: dict[str, Any], sink: dict[str, Any], equalize: bool) -> Any:
-    """Wrap ``SRMFPredictor._cmf`` to record its arguments and optionally present them in sorted id order.
-
-    The fit order of v2 is the first-seen order of the pairs, 1.6.1 sorts the ids (``np.unique``); the
-    seeded initial factors are drawn row by row, so the order decides which row gets which draw. With
-    *equalize* the arrays are permuted to sorted order for the solver and the factors are permuted back.
+def _recording_solver(solver: Any, call: dict[str, Any]) -> Any:
+    """Wrap ``SRMFPredictor._cmf`` to record the arguments the solver is given.
 
     :param solver: Original unbound ``_cmf``.
-    :param call: Receives the arguments the solver saw and the order of the ids passed in.
-    :param sink: Holds the entity ids of the fit batch.
-    :param equalize: Whether to sort for the solver.
+    :param call: Receives the keyword arguments of the call.
     :returns: The replacement function.
     """
 
-    def record(self: Any, *, w: Any, int_mat: Any, drug_mat: Any, cell_mat: Any) -> Any:
-        drug_ids, sample_ids = sink["drug_ids"], sink["sample_ids"]
-        call["drug_order"], call["sample_order"] = drug_ids, sample_ids
-        if not equalize:
-            call.update(w=w, int_mat=int_mat, drug_mat=drug_mat, cell_mat=cell_mat)
-            return solver(self, w=w, int_mat=int_mat, drug_mat=drug_mat, cell_mat=cell_mat)
-        d, s = np.argsort(drug_ids.astype(str), kind="stable"), np.argsort(sample_ids.astype(str), kind="stable")
-        call.update(w=w[d][:, s], int_mat=int_mat[d][:, s], drug_mat=drug_mat[d][:, d], cell_mat=cell_mat[s][:, s])
-        call["sample_order"] = sample_ids[s]
-        u, v = solver(self, **{k: call[k] for k in ("w", "int_mat", "drug_mat", "cell_mat")})
-        u_back, v_back = np.empty_like(u), np.empty_like(v)
-        u_back[d], v_back[s] = u, v
-        return u_back, v_back
+    def record(self: Any, **kwargs: Any) -> Any:
+        call.update(kwargs)
+        return solver(self, **kwargs)
 
     return record
 
 
 def run_v2(case: Case) -> dict[str, np.ndarray]:
     """Run every variant with the v2 ``SRMF`` preset.
-
-    The sorted variants present the arrays to the solver in sorted id order (see :func:`_sorted_solver`).
 
     :param case: The shared case.
     :returns: Arrays keyed like those of :func:`run_v1`.
@@ -321,22 +290,16 @@ def run_v2(case: Case) -> dict[str, np.ndarray]:
     out: dict[str, np.ndarray] = {}
     for variant, setting in case.meta["variants"].items():
         call: dict[str, Any] = {}
-        sink: dict[str, Any] = {}
-        solver, fit = SRMFPredictor._cmf, SRMFPredictor._fit
-
-        def remember(self: Any, batch: Any, *, _fit: Any = fit, _sink: dict[str, Any] = sink) -> None:
-            _sink["drug_ids"], _sink["sample_ids"] = batch.drug.entity_ids, batch.sample.entity_ids
-            _fit(self, batch)
-
-        SRMFPredictor._cmf = _sorted_solver(solver, call, sink, setting.get("sorted_drugs", True))
-        SRMFPredictor._fit = remember
+        solver = SRMFPredictor._cmf
+        SRMFPredictor._cmf = _recording_solver(solver, call)
         try:
             model = v2_model(NAME, _hyperparameters(setting))
             model.train(data.dataset, data.train)
         finally:
-            SRMFPredictor._cmf, SRMFPredictor._fit = solver, fit
+            SRMFPredictor._cmf = solver
         predictions = model.predict(data.dataset, data.test)
         predictor = model._pipeline._predictor
+        call["drug_order"], call["sample_order"] = predictor._best_u.index, predictor._best_v.index
         out.update(
             _arrays(variant, call, (predictor._best_u, predictor._best_v), predictor._training_mean, predictions, case)
         )

@@ -1,10 +1,10 @@
 How the literature models differ from their papers
 ==================================================
 
-DrEvalPy includes eight literature models: DrugGNN (from GraphDRP), Precily, SRMF,
-MOLIR, SuperFELTR, PharmaFormer, DIPK and SparseGO. They are reimplementations in
-the same framework as every other model, trained and scored under the same split
-modes. A reimplementation is not a copy, and results from DrEvalPy will not match
+DrEvalPy includes ten literature models: DrugGNN (from GraphDRP), Precily, SRMF,
+MOLIR, SuperFELTR, PharmaFormer, DIPK, SparseGO, EnsembleMF and PaccMann. They are
+reimplementations in the same framework as every other model, trained and scored under
+the same split modes. A reimplementation is not a copy, and results from DrEvalPy will not match
 a paper's table digit for digit. This page lists what was changed relative to the
 published method and why, so that you know what a score represents.
 
@@ -96,6 +96,8 @@ for samples and drugs and regularizes them with similarity matrices.
   expression, and the model uses the response in whatever units the experiment
   provides. Because the method is regularized, response scaling can change the
   solution. The regularization defaults are the local ones.
+- Samples and drugs are factorized in sorted identifier order, as in drevalpy 1.6.1,
+  so a seeded fit starts from the same initial factors for the same entities.
 - The published method predicts only for samples and drugs represented in the
   fitted factors. Here, a sample or a drug that was not seen in training receives
   the training mean response: if *either* the sample or the drug is unknown, the
@@ -116,7 +118,8 @@ It is a single-drug model: one network is trained for each drug.
   the highest variance are kept, in place of the published variance thresholds
   and gene-set intersections. Variance is selected *before* z-scoring, since
   after z-scoring all variances are about one. Scaling and selection use the
-  training rows only.
+  training rows only. DrEvalPy 1.6.1 selected after z-scoring, so its kept genes
+  were decided by floating-point rounding.
 - Mutation and copy-number inputs are used as the dataset provides them, and are not
   re-binarized. When you compare datasets, make sure these views mean the same
   thing in both.
@@ -165,6 +168,9 @@ molecular string.
   training loss. Here a standard scaler and a min-max scaler, and the vocabulary,
   are fitted on the training data only, and training stops on the early-stopping
   scope and restores the best weights.
+- The scaler is fitted on each training sample once, not once per sample-drug pair,
+  so a sample that was measured with many drugs does not weigh more. An earlier
+  DrEvalPy release fitted it on every pair; this was corrected to follow DrEvalPy 1.6.1.
 
 DIPK
 ----

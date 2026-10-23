@@ -89,12 +89,15 @@ class SRMFPredictor(BlockPredictor):
         """
         import pandas as pd
 
-        samples = batch.sample.entity_ids
         if batch.drug is None:
             msg = "SRMF requires drug features"
             raise ValueError(msg)
 
-        drugs = batch.drug.entity_ids
+        # Sorted ids, as drevalpy 1.6.1 (np.unique): the seeded initial factors are drawn row by row.
+        sample_order, drug_order = (
+            np.argsort(ids.astype(str), kind="stable") for ids in (batch.sample.entity_ids, batch.drug.entity_ids)
+        )
+        samples, drugs = batch.sample.entity_ids[sample_order], batch.drug.entity_ids[drug_order]
         response_matrix = self._response_matrix(batch, samples, drugs)
         observed = ~np.isnan(response_matrix)
         response_matrix_filled = np.where(observed, response_matrix, 0.0)
@@ -103,8 +106,8 @@ class SRMFPredictor(BlockPredictor):
         best_u, best_v = self._cmf(
             w=observed.T,
             int_mat=response_matrix_filled.T,
-            drug_mat=self._drug_similarity(batch.drug.blocks["fingerprints"].values),
-            cell_mat=np.corrcoef(batch.sample.blocks["gene_expression"].values, rowvar=True),
+            drug_mat=self._drug_similarity(batch.drug.blocks["fingerprints"].values[drug_order]),
+            cell_mat=np.corrcoef(batch.sample.blocks["gene_expression"].values[sample_order], rowvar=True),
         )
 
         self._best_u = pd.DataFrame(best_u, index=[str(d) for d in drugs])

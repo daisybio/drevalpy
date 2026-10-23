@@ -123,14 +123,17 @@ def synthetic_mudataset(
     return Dataset(md.MuData(modalities), name="test")
 
 
+_GENE_LIST_OPTIONS = ("gene_list", "gene_lists")
+
+
 def _without_gene_lists(node):
-    """Return *node* with every ``gene_list`` featurizer option dropped, recursively.
+    """Return *node* with every ``gene_list`` and ``gene_lists`` featurizer option dropped, recursively.
 
     :param node: A dumped model config, or any part of one.
-    :returns: A copy of *node* with no ``gene_list`` key left in any mapping.
+    :returns: A copy of *node* with neither key left in any mapping.
     """
     if isinstance(node, dict):
-        return {key: _without_gene_lists(value) for key, value in node.items() if key != "gene_list"}
+        return {key: _without_gene_lists(value) for key, value in node.items() if key not in _GENE_LIST_OPTIONS}
     if isinstance(node, (list, tuple)):
         return [_without_gene_lists(value) for value in node]
     return node
