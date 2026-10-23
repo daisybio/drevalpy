@@ -169,10 +169,201 @@
         23,
         30
       ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: params_expression",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 2.6281906366348267,
+      "max_rel_diff": 1.9897280626354132,
+      "name": "shared_stream/D00/params_expression",
+      "passed": false,
+      "pearson": 0.5052206728856368,
+      "scope": "deviation",
+      "shape_v1": [
+        210
+      ],
+      "shape_v2": [
+        210
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: params_mutation",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.34262605011463165,
+      "max_rel_diff": 1.9999171088154963,
+      "name": "shared_stream/D00/params_mutation",
+      "passed": false,
+      "pearson": 0.8160779642916434,
+      "scope": "deviation",
+      "shape_v1": [
+        175
+      ],
+      "shape_v2": [
+        175
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: params_cnv",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.3320688009262085,
+      "max_rel_diff": 1.9763151413368123,
+      "name": "shared_stream/D00/params_cnv",
+      "passed": false,
+      "pearson": 0.8458775265205543,
+      "scope": "deviation",
+      "shape_v1": [
+        140
+      ],
+      "shape_v2": [
+        140
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: params_regressor",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.44231218099594116,
+      "max_rel_diff": 1.8344589245421898,
+      "name": "shared_stream/D00/params_regressor",
+      "passed": false,
+      "pearson": 0.24577920424407543,
+      "scope": "deviation",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: predictions",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.7303125113248825,
+      "max_rel_diff": 0.962933504974855,
+      "name": "shared_stream/D00/predictions",
+      "passed": false,
+      "pearson": -0.3572273092184074,
+      "scope": "deviation",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: params_expression",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 2.715074300765991,
+      "max_rel_diff": 1.9955671734483413,
+      "name": "shared_stream/D01/params_expression",
+      "passed": false,
+      "pearson": 0.6030853224230164,
+      "scope": "deviation",
+      "shape_v1": [
+        210
+      ],
+      "shape_v2": [
+        210
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: params_mutation",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.35573986172676086,
+      "max_rel_diff": 1.9978355343658956,
+      "name": "shared_stream/D01/params_mutation",
+      "passed": false,
+      "pearson": 0.8030002740141252,
+      "scope": "deviation",
+      "shape_v1": [
+        175
+      ],
+      "shape_v2": [
+        175
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: params_cnv",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.3363497108221054,
+      "max_rel_diff": 1.9670252932517889,
+      "name": "shared_stream/D01/params_cnv",
+      "passed": false,
+      "pearson": 0.7924262601817691,
+      "scope": "deviation",
+      "shape_v1": [
+        140
+      ],
+      "shape_v2": [
+        140
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: params_regressor",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.44698581099510193,
+      "max_rel_diff": 1.9923511227223978,
+      "name": "shared_stream/D01/params_regressor",
+      "passed": false,
+      "pearson": -0.045198853456501535,
+      "scope": "deviation",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: predictions",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 1.419995129108429,
+      "max_rel_diff": 1.548871849513794,
+      "name": "shared_stream/D01/predictions",
+      "passed": false,
+      "pearson": 0.463232285910698,
+      "scope": "deviation",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
     }
   ],
   "findings": [
     "Fixed (v2): a preset-built SuperFELTR could not finish a fit or predict, for the same reason as MOLIR: the `PredictionMode` enum in the predictor hyperparameters ended up in the Lightning checkpoints and `load_from_checkpoint` raised `UnpicklingError`. `build_components` now passes a plain string.",
+    "Per-drug seeding: v2 seeds the model of every drug from `drug_seed(root seed, drug id)`, so that the result does not depend on the order or the process the drugs are fitted in (`n_jobs`). 1.6.1 trains the drugs one after the other from one RNG stream. The case pins the v2 root seed (`pinned_root_seed`) and reseeds `random`, NumPy and torch on the 1.6.1 side with the same `drug_seed` value before each drug's training, so that the training steps compare the algorithm at the `train` class. The `shared_stream` deviation steps record the unpatched 1.6.1 run against v2.",
     "The networks are the 1.6.1 networks: the encoders (linear, batch norm, ReLU, dropout), the regression head and the whole `predict` path load a 1.6.1 `state_dict` with `strict=True` and agree at the `forward` class.",
     "The regressor holds its three encoders differently. 1.6.1 keeps them in a plain tuple: they are not parameters of the module, not in its `state_dict`, and Lightning's `train()` does not reach them. v2 registers them (`nn.ModuleList`), freezes them (`requires_grad_(False)`) and overrides `train()` to keep them in eval mode. The optimizer sees only the head in both, and the encoders stay in eval mode in both, so the training agrees; the compared parameters are the head's (`regressor.*`).",
     "1.6.1 draws the triplets of the encoder fits from an unseeded generator, v2 from the global NumPy stream seeded per fit. The case passes the same explicit seed sequence to both, in the same call order (expression, mutation and copy number encoder, drug after drug).",
@@ -501,7 +692,7 @@
       "max_rel_diff": 0.0,
       "name": "default/D00/params_expression",
       "passed": true,
-      "pearson": 0.9999999999999998,
+      "pearson": 1.0,
       "scope": "parity",
       "shape_v1": [
         210
@@ -539,7 +730,7 @@
       "max_rel_diff": 0.0,
       "name": "default/D00/params_cnv",
       "passed": true,
-      "pearson": 1.0,
+      "pearson": 0.9999999999999999,
       "scope": "parity",
       "shape_v1": [
         140
@@ -577,7 +768,7 @@
       "max_rel_diff": 0.0,
       "name": "default/D00/predictions",
       "passed": true,
-      "pearson": 0.9999999999999999,
+      "pearson": 1.0,
       "scope": "parity",
       "shape_v1": [
         7
@@ -596,7 +787,7 @@
       "max_rel_diff": 0.0,
       "name": "default/D01/params_expression",
       "passed": true,
-      "pearson": 1.0,
+      "pearson": 0.9999999999999998,
       "scope": "parity",
       "shape_v1": [
         210
@@ -653,7 +844,7 @@
       "max_rel_diff": 0.0,
       "name": "default/D01/params_regressor",
       "passed": true,
-      "pearson": 0.9999999999999998,
+      "pearson": 1.0,
       "scope": "parity",
       "shape_v1": [
         16
@@ -672,7 +863,7 @@
       "max_rel_diff": 0.0,
       "name": "default/D01/predictions",
       "passed": true,
-      "pearson": 0.9999999999999998,
+      "pearson": 1.0,
       "scope": "parity",
       "shape_v1": [
         7
@@ -849,7 +1040,7 @@
       "max_rel_diff": 0.0,
       "name": "no_es/D00/params_cnv",
       "passed": true,
-      "pearson": 0.9999999999999999,
+      "pearson": 1.0,
       "scope": "parity",
       "shape_v1": [
         140
@@ -887,7 +1078,7 @@
       "max_rel_diff": 0.0,
       "name": "no_es/D00/predictions",
       "passed": true,
-      "pearson": 0.9999999999999998,
+      "pearson": 0.9999999999999999,
       "scope": "parity",
       "shape_v1": [
         7
@@ -925,7 +1116,7 @@
       "max_rel_diff": 0.0,
       "name": "no_es/D01/params_mutation",
       "passed": true,
-      "pearson": 1.0,
+      "pearson": 0.9999999999999999,
       "scope": "parity",
       "shape_v1": [
         175
@@ -1126,8 +1317,8 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
-    "dirty": false,
+    "commit": "986196369785ddc980b6d8219de4c795ac6afce2",
+    "dirty": true,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",
     "numpy": "2.4.6",

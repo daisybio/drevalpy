@@ -88,11 +88,11 @@
       "description": "gamma, D00: expression parameters after training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.3043641149997711,
-      "max_rel_diff": 1.9817376222365324,
+      "max_abs_diff": 0.3890659213066101,
+      "max_rel_diff": 1.9929054669939792,
       "name": "gamma/D00/params_expression",
       "passed": false,
-      "pearson": 0.9780140534134805,
+      "pearson": 0.9627767748969377,
       "scope": "deviation",
       "shape_v1": [
         13644
@@ -107,11 +107,11 @@
       "description": "gamma, D00: mutation parameters after training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.3251018524169922,
-      "max_rel_diff": 1.9748003734152946,
+      "max_abs_diff": 0.3926330804824829,
+      "max_rel_diff": 1.996753245747131,
       "name": "gamma/D00/params_mutation",
       "passed": false,
-      "pearson": 0.9769204616384628,
+      "pearson": 0.9630543403975939,
       "scope": "deviation",
       "shape_v1": [
         13740
@@ -126,11 +126,11 @@
       "description": "gamma, D00: cnv parameters after training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.30784091353416443,
-      "max_rel_diff": 1.9263565279571793,
+      "max_abs_diff": 0.4058154225349426,
+      "max_rel_diff": 1.9722024934296356,
       "name": "gamma/D00/params_cnv",
       "passed": false,
-      "pearson": 0.9783546890525326,
+      "pearson": 0.9624259771656004,
       "scope": "deviation",
       "shape_v1": [
         10800
@@ -145,11 +145,11 @@
       "description": "gamma, D00: regressor parameters after training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.000741124153137207,
-      "max_rel_diff": 0.010801031862622606,
+      "max_abs_diff": 0.001058526337146759,
+      "max_rel_diff": 0.06186238195770072,
       "name": "gamma/D00/params_regressor",
       "passed": false,
-      "pearson": 0.9999981076613952,
+      "pearson": 0.9999954822803991,
       "scope": "deviation",
       "shape_v1": [
         16
@@ -159,16 +159,16 @@
       ]
     },
     {
-      "achieved": "statistical",
+      "achieved": null,
       "declared": "train",
       "description": "gamma, D00: test predictions after the seeded short training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.03646394610404968,
-      "max_rel_diff": 0.3922425842621706,
+      "max_abs_diff": 0.04867294430732727,
+      "max_rel_diff": 0.9235942546430873,
       "name": "gamma/D00/predictions",
       "passed": false,
-      "pearson": 0.9952588168665383,
+      "pearson": 0.9815910944099471,
       "scope": "deviation",
       "shape_v1": [
         7
@@ -183,11 +183,11 @@
       "description": "gamma, D01: expression parameters after training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.13140302896499634,
-      "max_rel_diff": 1.9315412484581982,
+      "max_abs_diff": 0.004164710640907288,
+      "max_rel_diff": 1.9887658014497678,
       "name": "gamma/D01/params_expression",
       "passed": false,
-      "pearson": 0.9958177002061689,
+      "pearson": 0.9999723131571654,
       "scope": "deviation",
       "shape_v1": [
         13644
@@ -202,11 +202,11 @@
       "description": "gamma, D01: mutation parameters after training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.1342151165008545,
-      "max_rel_diff": 1.9998912751639648,
+      "max_abs_diff": 0.009623706340789795,
+      "max_rel_diff": 1.8673813848328755,
       "name": "gamma/D01/params_mutation",
       "passed": false,
-      "pearson": 0.9958087760885603,
+      "pearson": 0.999930910145698,
       "scope": "deviation",
       "shape_v1": [
         13740
@@ -221,11 +221,11 @@
       "description": "gamma, D01: cnv parameters after training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.12838241457939148,
-      "max_rel_diff": 1.94644273280458,
+      "max_abs_diff": 0.013531655073165894,
+      "max_rel_diff": 1.961522480079102,
       "name": "gamma/D01/params_cnv",
       "passed": false,
-      "pearson": 0.9954987566714675,
+      "pearson": 0.9999134111100438,
       "scope": "deviation",
       "shape_v1": [
         10800
@@ -240,11 +240,11 @@
       "description": "gamma, D01: regressor parameters after training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.0003644898533821106,
-      "max_rel_diff": 0.5166736457320039,
+      "max_abs_diff": 0.0003324449062347412,
+      "max_rel_diff": 0.0021606300587372978,
       "name": "gamma/D01/params_regressor",
       "passed": false,
-      "pearson": 0.9999992220420835,
+      "pearson": 0.999999862839241,
       "scope": "deviation",
       "shape_v1": [
         16
@@ -259,11 +259,11 @@
       "description": "gamma, D01: test predictions after the seeded short training",
       "detail": "",
       "explanation": "v2 weights the triplet term of the loss by gamma (`gamma * triplet + regression`, the correction recorded in `training-corrections.json::molir_gamma_weighting`); 1.6.1 reads `gamma` into `self.gamma` and never uses it (`triplet + regression`). With gamma 1 the two losses are the same, with another value the gradients of the encoders differ from the first step on. The variant sets gamma 0.5 on both sides; measured on 2026-10-23, the test predictions differ by up to 0.019 (drug D00, range 0.30) and 0.012 (D01, range 0.50), correlation 0.9989 and 0.9996.",
-      "max_abs_diff": 0.03697475790977478,
-      "max_rel_diff": 1.3493446687920652,
+      "max_abs_diff": 0.019313588738441467,
+      "max_rel_diff": 1.3989505547553427,
       "name": "gamma/D01/predictions",
       "passed": false,
-      "pearson": 0.997142389236214,
+      "pearson": 0.9997099278101147,
       "scope": "deviation",
       "shape_v1": [
         7
@@ -332,12 +332,204 @@
         23,
         2269
       ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: params_expression",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.38280990719795227,
+      "max_rel_diff": 1.9999253762381306,
+      "name": "shared_stream/D00/params_expression",
+      "passed": false,
+      "pearson": 0.7855655256322346,
+      "scope": "deviation",
+      "shape_v1": [
+        13644
+      ],
+      "shape_v2": [
+        13644
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: params_mutation",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.3471648097038269,
+      "max_rel_diff": 1.9998984963708313,
+      "name": "shared_stream/D00/params_mutation",
+      "passed": false,
+      "pearson": 0.7912815562499633,
+      "scope": "deviation",
+      "shape_v1": [
+        13740
+      ],
+      "shape_v2": [
+        13740
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: params_cnv",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.36450985074043274,
+      "max_rel_diff": 1.9997034514701308,
+      "name": "shared_stream/D00/params_cnv",
+      "passed": false,
+      "pearson": 0.7862408340599668,
+      "scope": "deviation",
+      "shape_v1": [
+        10800
+      ],
+      "shape_v2": [
+        10800
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: params_regressor",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.34630607068538666,
+      "max_rel_diff": 1.7817791550409297,
+      "name": "shared_stream/D00/params_regressor",
+      "passed": false,
+      "pearson": 0.09909672934032436,
+      "scope": "deviation",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D00: predictions",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.39354945719242096,
+      "max_rel_diff": 1.4838971665179996,
+      "name": "shared_stream/D00/predictions",
+      "passed": false,
+      "pearson": 0.25217421453264244,
+      "scope": "deviation",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: params_expression",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.0790073499083519,
+      "max_rel_diff": 1.9999038235838327,
+      "name": "shared_stream/D01/params_expression",
+      "passed": false,
+      "pearson": 0.7917054523624432,
+      "scope": "deviation",
+      "shape_v1": [
+        13644
+      ],
+      "shape_v2": [
+        13644
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: params_mutation",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.10344448685646057,
+      "max_rel_diff": 1.999950393877085,
+      "name": "shared_stream/D01/params_mutation",
+      "passed": false,
+      "pearson": 0.7938404166284418,
+      "scope": "deviation",
+      "shape_v1": [
+        13740
+      ],
+      "shape_v2": [
+        13740
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: params_cnv",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.10032188892364502,
+      "max_rel_diff": 1.9997672392745907,
+      "name": "shared_stream/D01/params_cnv",
+      "passed": false,
+      "pearson": 0.7925444899594437,
+      "scope": "deviation",
+      "shape_v1": [
+        10800
+      ],
+      "shape_v2": [
+        10800
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: params_regressor",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.434834748506546,
+      "max_rel_diff": 1.8697774551784827,
+      "name": "shared_stream/D01/params_regressor",
+      "passed": false,
+      "pearson": -0.10278465948155627,
+      "scope": "deviation",
+      "shape_v1": [
+        16
+      ],
+      "shape_v2": [
+        16
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "train",
+      "description": "unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, D01: predictions",
+      "detail": "",
+      "explanation": "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's model does not depend on the order or the process it is fitted in, and the results are the same for every `n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart.",
+      "max_abs_diff": 0.6698627173900604,
+      "max_rel_diff": 1.6832634796324402,
+      "name": "shared_stream/D01/predictions",
+      "passed": false,
+      "pearson": 0.6062964483192093,
+      "scope": "deviation",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
     }
   ],
   "findings": [
     "Fixed (v2): a preset-built MOLIR could not finish a fit with an early-stopping scope. `build_components` put the `PredictionMode` enum into the predictor hyperparameters, `save_hyperparameters()` stored it in the checkpoint, and the `weights_only=True` reload of the best epoch raised `UnpicklingError`. It now passes the mode as a plain string; the case needs no allow-list.",
     "The `MOLIModel` of v2 is the 1.6.1 network: a `state_dict` of one loads into the other with `strict=True`, and eval and train mode (batch statistics, dropout, the `normalize(dim=0)` over the batch) agree at the `forward` class.",
     "1.6.1 draws the triplets from `np.random.default_rng(None)` (unseeded: runs are not reproducible), v2 from the global NumPy stream seeded per fit. The case passes the same explicit seed sequence to both (the `random_seed` argument both functions have), so the training steps compare the algorithm and not the draws. A free-running 1.6.1 fit cannot be reproduced at all.",
+    "Per-drug seeding: v2 seeds the model of every drug from `drug_seed(root seed, drug id)`, so that the result does not depend on the order or the process the drugs are fitted in (`n_jobs`). 1.6.1 trains the drugs one after the other from one RNG stream. The case pins the v2 root seed (`pinned_root_seed`) and reseeds `random`, NumPy and torch on the 1.6.1 side with the same `drug_seed` value before each drug's training, so that the training steps compare the algorithm at the `train` class. The `shared_stream` deviation steps record the unpatched 1.6.1 run against v2.",
+    "The MOLIR training is sensitive to rounding at some root seeds: with the root seed 11 all training steps meet the `train` class (the pinned value). With 12345 and 20261023 the `D00` encoders of `no_es` (12345) or `default` (20261023) end a few parameters apart by one learning-rate-sized step (up to 6e-4 in the mutation and expression encoders, 167 of 13740 mutation parameters above 1e-5; the predictions differ by up to 2.5e-4), although the initial weights, the batches and the triplets are the same. That is the Adagrad first step (`lr * sign(g)`) taken on a gradient that is close to zero, where the float32 rounding differences of the two implementations (the features agree at the `forward` class, 1e-6) decide the sign. SuperFELTR (Adam) meets the class at both. The declared class is not loosened; the root seed is a free choice of the harness and the other seeds are recorded here instead of hidden.",
     "v2 weights the triplet term by `gamma`; 1.6.1 ignores `gamma` (variant `gamma`, deviation). With gamma 1 (variants `default`, `no_es`) the training agrees at the `train` class.",
     "v2 selects the highest-variance expression genes before standardization, 1.6.1 after it (variant `select`, deviation). With `n_gene_expression_features` at least the gene count both keep all genes in the column order of the list and agree exactly. Scaling and selection use the training rows only on both sides.",
     "v2 fits the scaler and the selection once on the samples of all training pairs; 1.6.1 fits them per drug on that drug's samples (variant `ragged`, deviation). The two agree when every drug has the same training samples, which is the case for the complete response matrix of the other variants.",
@@ -519,11 +711,11 @@
       "description": "default, D00: expression parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 1.1920928955078125e-07,
-      "max_rel_diff": 0.0002107968875194261,
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 0.00028494087476848553,
       "name": "default/D00/params_expression",
       "passed": true,
-      "pearson": 0.9999999999999977,
+      "pearson": 0.9999999999999997,
       "scope": "parity",
       "shape_v1": [
         13644
@@ -538,11 +730,11 @@
       "description": "default, D00: mutation parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 5.960464477539063e-08,
-      "max_rel_diff": 6.397701144109375e-05,
+      "max_abs_diff": 7.450580596923828e-09,
+      "max_rel_diff": 9.618714170289716e-06,
       "name": "default/D00/params_mutation",
       "passed": true,
-      "pearson": 0.9999999999999991,
+      "pearson": 1.0,
       "scope": "parity",
       "shape_v1": [
         13740
@@ -557,11 +749,11 @@
       "description": "default, D00: cnv parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 5.960464477539063e-08,
-      "max_rel_diff": 0.0001274128814423138,
+      "max_abs_diff": 2.7939677238464355e-09,
+      "max_rel_diff": 9.592510168060779e-06,
       "name": "default/D00/params_cnv",
       "passed": true,
-      "pearson": 0.9999999999999994,
+      "pearson": 1.0,
       "scope": "parity",
       "shape_v1": [
         10800
@@ -571,13 +763,13 @@
       ]
     },
     {
-      "achieved": "forward",
+      "achieved": "exact",
       "declared": "train",
       "description": "default, D00: regressor parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 2.3283064365386963e-10,
-      "max_rel_diff": 1.7994242921919561e-07,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
       "name": "default/D00/params_regressor",
       "passed": true,
       "pearson": 1.0,
@@ -595,11 +787,11 @@
       "description": "default, D00: test predictions after the seeded short training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 1.4901161193847656e-07,
-      "max_rel_diff": 1.8652717915506544e-06,
+      "max_abs_diff": 5.21540641784668e-08,
+      "max_rel_diff": 0.00013803983435219878,
       "name": "default/D00/predictions",
       "passed": true,
-      "pearson": 0.9999999999999333,
+      "pearson": 0.9999999999999754,
       "scope": "parity",
       "shape_v1": [
         7
@@ -615,10 +807,10 @@
       "detail": "",
       "explanation": "",
       "max_abs_diff": 1.1920928955078125e-07,
-      "max_rel_diff": 0.00018468453379996515,
+      "max_rel_diff": 0.002008767354144932,
       "name": "default/D01/params_expression",
       "passed": true,
-      "pearson": 0.9999999999999961,
+      "pearson": 0.9999999999999972,
       "scope": "parity",
       "shape_v1": [
         13644
@@ -634,10 +826,10 @@
       "detail": "",
       "explanation": "",
       "max_abs_diff": 1.1920928955078125e-07,
-      "max_rel_diff": 0.00011309293007625694,
+      "max_rel_diff": 9.96446009233733e-05,
       "name": "default/D01/params_mutation",
       "passed": true,
-      "pearson": 0.9999999999999979,
+      "pearson": 0.9999999999999986,
       "scope": "parity",
       "shape_v1": [
         13740
@@ -653,10 +845,10 @@
       "detail": "",
       "explanation": "",
       "max_abs_diff": 5.960464477539063e-08,
-      "max_rel_diff": 0.00037564966809036177,
+      "max_rel_diff": 1.6140344404874423e-05,
       "name": "default/D01/params_cnv",
       "passed": true,
-      "pearson": 0.9999999999999987,
+      "pearson": 0.9999999999999989,
       "scope": "parity",
       "shape_v1": [
         10800
@@ -671,8 +863,8 @@
       "description": "default, D01: regressor parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 7.450580596923828e-09,
-      "max_rel_diff": 6.117992833383195e-08,
+      "max_abs_diff": 3.725290298461914e-09,
+      "max_rel_diff": 7.90591580705644e-08,
       "name": "default/D01/params_regressor",
       "passed": true,
       "pearson": 1.0,
@@ -690,11 +882,11 @@
       "description": "default, D01: test predictions after the seeded short training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 1.1920928955078125e-07,
-      "max_rel_diff": 5.142124904270775e-07,
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 2.4360239217549117e-06,
       "name": "default/D01/predictions",
       "passed": true,
-      "pearson": 0.9999999999999611,
+      "pearson": 0.9999999999999997,
       "scope": "parity",
       "shape_v1": [
         7
@@ -792,10 +984,10 @@
       "detail": "",
       "explanation": "",
       "max_abs_diff": 1.1920928955078125e-07,
-      "max_rel_diff": 0.0007681228996639462,
+      "max_rel_diff": 0.00022137444010714524,
       "name": "no_es/D00/params_expression",
       "passed": true,
-      "pearson": 0.9999999999999984,
+      "pearson": 0.9999999999999991,
       "scope": "parity",
       "shape_v1": [
         13644
@@ -810,11 +1002,11 @@
       "description": "no_es, D00: mutation parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 5.960464477539063e-08,
-      "max_rel_diff": 8.781707955646886e-05,
+      "max_abs_diff": 1.234002411365509e-07,
+      "max_rel_diff": 0.0002717397839067524,
       "name": "no_es/D00/params_mutation",
       "passed": true,
-      "pearson": 0.9999999999999996,
+      "pearson": 0.9999999999999981,
       "scope": "parity",
       "shape_v1": [
         13740
@@ -830,7 +1022,7 @@
       "detail": "",
       "explanation": "",
       "max_abs_diff": 5.960464477539063e-08,
-      "max_rel_diff": 5.2287034906824504e-05,
+      "max_rel_diff": 9.879289199255384e-06,
       "name": "no_es/D00/params_cnv",
       "passed": true,
       "pearson": 0.9999999999999996,
@@ -867,11 +1059,11 @@
       "description": "no_es, D00: test predictions after the seeded short training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 2.4586915969848633e-07,
-      "max_rel_diff": 3.7960953823030404e-06,
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 1.0321069107943546e-06,
       "name": "no_es/D00/predictions",
       "passed": true,
-      "pearson": 0.9999999999999528,
+      "pearson": 0.9999999999999767,
       "scope": "parity",
       "shape_v1": [
         7
@@ -886,11 +1078,11 @@
       "description": "no_es, D01: expression parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 8.940696716308594e-08,
-      "max_rel_diff": 0.00020307395953606303,
+      "max_abs_diff": 5.960464477539063e-08,
+      "max_rel_diff": 0.00027214817161017924,
       "name": "no_es/D01/params_expression",
       "passed": true,
-      "pearson": 0.9999999999999979,
+      "pearson": 0.9999999999999989,
       "scope": "parity",
       "shape_v1": [
         13644
@@ -905,11 +1097,11 @@
       "description": "no_es, D01: mutation parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 5.960464477539063e-08,
-      "max_rel_diff": 2.573874086079709e-05,
+      "max_abs_diff": 1.1920928955078125e-07,
+      "max_rel_diff": 7.010686915867375e-05,
       "name": "no_es/D01/params_mutation",
       "passed": true,
-      "pearson": 0.9999999999999992,
+      "pearson": 0.9999999999999984,
       "scope": "parity",
       "shape_v1": [
         13740
@@ -924,11 +1116,11 @@
       "description": "no_es, D01: cnv parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 7.450580596923828e-09,
-      "max_rel_diff": 1.8103900873383903e-05,
+      "max_abs_diff": 1.1920928955078125e-07,
+      "max_rel_diff": 1.9591088767223206e-05,
       "name": "no_es/D01/params_cnv",
       "passed": true,
-      "pearson": 0.9999999999999997,
+      "pearson": 0.9999999999999971,
       "scope": "parity",
       "shape_v1": [
         10800
@@ -943,11 +1135,11 @@
       "description": "no_es, D01: regressor parameters after training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 4.656612873077393e-10,
-      "max_rel_diff": 8.44790523207494e-08,
+      "max_abs_diff": 3.725290298461914e-09,
+      "max_rel_diff": 8.104789744328734e-08,
       "name": "no_es/D01/params_regressor",
       "passed": true,
-      "pearson": 1.0,
+      "pearson": 0.9999999999999999,
       "scope": "parity",
       "shape_v1": [
         16
@@ -962,11 +1154,11 @@
       "description": "no_es, D01: test predictions after the seeded short training",
       "detail": "",
       "explanation": "",
-      "max_abs_diff": 1.6391277313232422e-07,
-      "max_rel_diff": 1.8408485977335807e-06,
+      "max_abs_diff": 8.195638656616211e-08,
+      "max_rel_diff": 5.0181817850037566e-06,
       "name": "no_es/D01/predictions",
       "passed": true,
-      "pearson": 0.9999999999996847,
+      "pearson": 0.9999999999999882,
       "scope": "parity",
       "shape_v1": [
         7
@@ -1175,8 +1367,8 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
-    "dirty": false,
+    "commit": "986196369785ddc980b6d8219de4c795ac6afce2",
+    "dirty": true,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",
     "numpy": "2.4.6",

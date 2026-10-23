@@ -15,7 +15,10 @@ Steps:
     in 1.6.1 (``experiment.make_model_list``) and in the v2 ``SingleDrugOmicsPredictor``. 1.6.1's loaders are made
     single-process (``inline_loaders``). The triplets of both sides are drawn from the same explicit seed sequence
     (``seeded_triplets``): 1.6.1 draws them from an unseeded generator, v2 from the global NumPy stream, so a
-    free-running comparison is not possible.
+    free-running comparison is not possible. Both sides seed every drug from ``drug_seed(root, drug)`` (v2 does it
+    itself with a pinned root, the 1.6.1 side is reseeded before each drug).
+``shared_stream/<drug>/{params_*,predictions}``
+    Deviation: the ``default`` variant trained on 1.6.1 as it is, all drugs from one RNG stream, against v2.
 
 Variants: ``default`` (gamma 1, early-stopping samples), ``no_es`` (the training loss is monitored), ``gamma``
 (gamma 0.5: v2 weights the triplet term, 1.6.1 ignores gamma), ``select`` (fewer expression features than genes:
@@ -37,10 +40,13 @@ from tools.v1_parity.models._three_omics import (
     DRUGS,
     N_DRUGS,
     OMIC_GROUPS,
+    SHARED_STREAM_VARIANT,
     build_three_omics_case,
     grouped_params,
+    pinned_root_seed,
     run_v1_drugs,
     seeded_triplets,
+    shared_stream_specs,
     used_sample_ids,
     v1_cell_lines,
     v2_three_omics_dataset,
@@ -131,6 +137,21 @@ FINDINGS = [
     "global NumPy stream seeded per fit. The case passes the same explicit seed sequence to both (the "
     "`random_seed` argument both functions have), so the training steps compare the algorithm and not the "
     "draws. A free-running 1.6.1 fit cannot be reproduced at all.",
+    "Per-drug seeding: v2 seeds the model of every drug from `drug_seed(root seed, drug id)`, so that the result "
+    "does not depend on the order or the process the drugs are fitted in (`n_jobs`). 1.6.1 trains the drugs one "
+    "after the other from one RNG stream. The case pins the v2 root seed (`pinned_root_seed`) and reseeds "
+    "`random`, NumPy and torch on the 1.6.1 side with the same `drug_seed` value before each drug's training, so "
+    "that the training steps compare the algorithm at the `train` class. The `shared_stream` deviation steps record "
+    "the unpatched 1.6.1 run against v2.",
+    "The MOLIR training is sensitive to rounding at some root seeds: with the root seed 11 all training steps meet "
+    "the `train` class (the pinned value). With 12345 and 20261023 the `D00` encoders of `no_es` (12345) or "
+    "`default` (20261023) end a few parameters apart by one learning-rate-sized step (up to 6e-4 in the mutation "
+    "and expression encoders, 167 of 13740 mutation parameters above 1e-5; the predictions differ by up to 2.5e-4), "
+    "although the initial weights, the batches and the triplets are the same. That is the Adagrad first step "
+    "(`lr * sign(g)`) taken on a gradient that is close to zero, where the float32 rounding differences of the two "
+    "implementations (the features agree at the `forward` class, 1e-6) decide the sign. SuperFELTR (Adam) meets the "
+    "class at both. The declared class is not loosened; the root seed is a free choice of the harness and the "
+    "other seeds are recorded here instead of hidden.",
     "v2 weights the triplet term by `gamma`; 1.6.1 ignores `gamma` (variant `gamma`, deviation). With gamma 1 "
     "(variants `default`, `no_es`) the training agrees at the `train` class.",
     "v2 selects the highest-variance expression genes before standardization, 1.6.1 after it (variant `select`, "
@@ -244,7 +265,7 @@ def steps() -> list[StepSpec]:
                     explanation=GAMMA_EXPLANATION if scope == DEVIATION else "",
                 )
             )
-    return specs
+    return [*specs, *shared_stream_specs(DRUGS, OMIC_GROUPS)]
 
 
 def _probe_outputs(network_class: Any, case: Case) -> dict[str, np.ndarray]:
@@ -353,6 +374,17 @@ def run_v1(case: Case) -> dict[str, np.ndarray]:
         for drug, model in trained["models"].items():
             out.update({f"{variant}/{drug}/{k}": v for k, v in grouped_params(model.model.state_dict()).items()})
         out.update({f"{variant}/{key}": value for key, value in predictions.items()})
+        if variant == SHARED_STREAM_VARIANT:
+            seed_all(setting["seed"])
+            with inline_loaders(utils), seeded_triplets(utils):
+                shared, shared_trained = run_v1_drugs(
+                    case, setting, cell_lines, make_model, _capture_v1_fit, reseed=False
+                )
+            for drug, model in shared_trained["models"].items():
+                out.update(
+                    {f"shared_stream/{drug}/{k}": v for k, v in grouped_params(model.model.state_dict()).items()}
+                )
+            out.update({f"shared_stream/{key}": value for key, value in shared.items()})
         out.update(_feature_outputs(variant, case, setting, trained["sink"][DRUGS[-1]]))
     return out
 
@@ -379,7 +411,7 @@ def run_v2(case: Case) -> dict[str, np.ndarray]:
         model = v2_model(NAME, _hyperparameters(setting))
         captured: dict[str, Any] = {}
         seed_all(setting["seed"])
-        with capture_fit(MOLIRPredictor, captured), seeded_triplets(utils):
+        with capture_fit(MOLIRPredictor, captured), seeded_triplets(utils), pinned_root_seed():
             model.train(dataset, fit_scope, early_stopping_scope=stop_scope)
         predictions = np.asarray(model.predict(dataset, test), dtype=np.float64)
 

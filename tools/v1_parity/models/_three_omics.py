@@ -12,7 +12,9 @@ The ``ragged`` pair split drops training samples of the last drug to show the di
 
 from __future__ import annotations
 
+import hashlib
 import itertools
+import json
 import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -20,7 +22,8 @@ from typing import Any
 
 import numpy as np
 
-from tools.v1_parity._bridge import Case, tabular_case_arrays
+from tools.v1_parity._bridge import Case, seed_all, tabular_case_arrays
+from tools.v1_parity.compare import DEVIATION, StepSpec
 
 VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 DEFAULT_LISTS = {
@@ -35,6 +38,19 @@ DRUGS = [f"D{i:02d}" for i in range(N_DRUGS)]
 #: Samples held out for early stopping (every ``STOP_EVERY``-th training sample), the same for every drug.
 STOP_EVERY = 4
 RAGGED_DROPPED = 6
+#: Root seed of the per-drug seeds. v2 draws it from the global RNG; the case pins it so that 1.6.1 can use it too.
+#: Not arbitrary for MOLIR: see the finding on training sensitivity in ``molir.FINDINGS``.
+ROOT_SEED = 11
+#: The variant that also records the unpatched 1.6.1 behaviour (all drugs from one shared RNG stream).
+SHARED_STREAM_VARIANT = "default"
+SHARED_STREAM_EXPLANATION = (
+    "1.6.1 trains the per-drug models one after the other and draws all of them from one RNG stream, seeded once "
+    "per run: the initial weights, dropout and loader shuffles of a drug depend on the drugs trained before it. v2 "
+    "seeds every drug from `drug_seed(root seed, drug id)` (`single_drug_routing.run_per_drug`), so that a drug's "
+    "model does not depend on the order or the process it is fitted in, and the results are the same for every "
+    "`n_jobs`. The parity steps give the 1.6.1 side the same per-drug seed before each drug; this step compares "
+    "the unpatched 1.6.1 run (one `seed_all` per run) with v2, and records how far the two streams are apart."
+)
 OMIC_GROUPS = {
     "expression": "expression_encoder",
     "mutation": "mutation_encoder",
@@ -275,6 +291,8 @@ def run_v1_drugs(
     cell_lines: Any,
     make_model: Callable[[], Any],
     capture: Callable[[dict[str, Any], str], Any],
+    *,
+    reseed: bool = True,
 ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     """Train and predict one 1.6.1 model per drug, in the order of ``experiment.make_model_list``.
 
@@ -285,6 +303,8 @@ def run_v1_drugs(
     :param cell_lines: The three-view ``FeatureDataset``.
     :param make_model: Builds a fresh, built 1.6.1 model.
     :param capture: Context manager factory given the sink dictionary and the drug id; it records the fit inputs.
+    :param reseed: Seed ``random``, numpy and torch with ``reference_drug_seed(ROOT_SEED, drug)`` before each drug's
+        training, as v2 does. ``False`` keeps the caller's single stream, the 1.6.1 behaviour.
     :returns: ``(predictions per drug, {drug: trained model})``; the predictions are keyed ``<drug>/predictions``.
     """
     pairs, stop = variant_pairs(case, setting)
@@ -311,6 +331,8 @@ def run_v1_drugs(
         stop_set = subset(of_drug & stop) if setting["early_stopping"] else None
         test_rows = case.arrays["test_pairs"][case.arrays["test_pairs"][:, 1] == drug_index]
         model = make_model()
+        if reseed:
+            seed_all(reference_drug_seed(ROOT_SEED, str(drug)))
         with tempfile.TemporaryDirectory() as checkpoints, capture(sink, str(drug)):
             model.train(
                 fit_set,
@@ -323,3 +345,70 @@ def run_v1_drugs(
         out[f"{drug}/predictions"] = np.atleast_1d(np.asarray(predictions, dtype=np.float64))
         models[str(drug)] = model
     return out, {"models": models, "sink": sink}
+
+
+def reference_drug_seed(root_seed: int, drug_id: str) -> int:
+    """Return the per-drug seed of v2 (``drevalpy.utils.seed.drug_seed``), without importing drevalpy.
+
+    The 1.6.1 interpreter cannot import the v2 package, so the formula is repeated here; :func:`pinned_root_seed`
+    checks the copy against the real function on the v2 side.
+
+    :param root_seed: Root seed.
+    :param drug_id: Drug identifier.
+    :returns: 32-bit unsigned seed.
+    """
+    key = json.dumps([root_seed, drug_id], separators=(",", ":"))
+    return int.from_bytes(hashlib.sha256(key.encode()).digest()[:4], "big")
+
+
+@contextmanager
+def pinned_root_seed(root_seed: int = ROOT_SEED) -> Iterator[None]:
+    """Make the v2 per-drug fit use a fixed root seed instead of one drawn from the global RNG.
+
+    ``run_per_drug`` derives each drug's seed as ``drug_seed(random.getrandbits(32), drug_id)``. Wrapping
+    ``drug_seed`` in the routing module keeps everything else of the fit unchanged and gives the 1.6.1 side a seed
+    it can reproduce (:func:`reference_drug_seed`).
+
+    :param root_seed: Root seed to use for every drug.
+    :yields: Nothing; the patch is undone on exit.
+    """
+    from drevalpy.components.predictors import single_drug_routing
+    from drevalpy.utils.seed import drug_seed
+
+    for probe in ("D00", "D01", "x"):
+        if drug_seed(root_seed, probe) != reference_drug_seed(root_seed, probe):
+            raise RuntimeError("drug_seed no longer matches reference_drug_seed; update the harness copy")
+
+    original = single_drug_routing.drug_seed
+    single_drug_routing.drug_seed = lambda _root, drug_id: original(root_seed, drug_id)
+    try:
+        yield
+    finally:
+        single_drug_routing.drug_seed = original
+
+
+def shared_stream_specs(
+    drugs: list[str], groups: dict[str, str], variant: str = SHARED_STREAM_VARIANT
+) -> list[StepSpec]:
+    """Declare the deviation steps that compare the unpatched 1.6.1 run with the v2 run of *variant*.
+
+    :param drugs: Drug ids.
+    :param groups: Network parts whose trained parameters are compared (keys of ``OMIC_GROUPS``).
+    :param variant: Variant whose v2 outputs are the reference.
+    :returns: Deviation steps named ``shared_stream/<drug>/<quantity>``; the declared class is the one that the
+        reseeded parity steps meet.
+    """
+    specs = []
+    for drug in drugs:
+        for quantity in (*(f"params_{group}" for group in groups), "predictions"):
+            specs.append(
+                StepSpec(
+                    f"shared_stream/{drug}/{quantity}",
+                    "train",
+                    v2_key=f"{variant}/{drug}/{quantity}",
+                    scope=DEVIATION,
+                    description=f"unpatched 1.6.1 shared RNG stream against v2 per-drug seeds, {drug}: {quantity}",
+                    explanation=SHARED_STREAM_EXPLANATION,
+                )
+            )
+    return specs

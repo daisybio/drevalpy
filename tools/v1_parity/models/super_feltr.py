@@ -13,7 +13,11 @@ Steps:
 ``<variant>/<drug>/{params_*,predictions}``
     A short seeded CPU training per drug (three encoders with the triplet loss and Adam, then the regression head
     with Adagrad) and the test predictions. 1.6.1's loaders are made single-process (``inline_loaders``); the
-    triplets of both sides come from the same explicit seed sequence (``seeded_triplets``).
+    triplets of both sides come from the same explicit seed sequence (``seeded_triplets``). Both sides seed
+    every drug from ``drug_seed(root, drug)`` (v2 itself, with a pinned root; the 1.6.1 side is reseeded before
+    each drug).
+``shared_stream/<drug>/{params_*,predictions}``
+    Deviation: the ``default`` variant trained on 1.6.1 as it is, all drugs from one RNG stream, against v2.
 
 Variants: ``default`` (early-stopping samples), ``no_es``, ``ragged`` (the last drug lacks some training samples:
 1.6.1 selects per drug, v2 once) and ``binary`` (0/1 mutations, whose variances tie, so the selection depends on how
@@ -33,10 +37,13 @@ from tools.v1_parity.models._three_omics import (
     DRUGS,
     N_DRUGS,
     OMIC_GROUPS,
+    SHARED_STREAM_VARIANT,
     VIEWS,
     build_three_omics_case,
+    pinned_root_seed,
     run_v1_drugs,
     seeded_triplets,
+    shared_stream_specs,
     used_sample_ids,
     v1_cell_lines,
     v2_three_omics_dataset,
@@ -109,6 +116,12 @@ FINDINGS = [
     "Fixed (v2): a preset-built SuperFELTR could not finish a fit or predict, for the same reason as MOLIR: the "
     "`PredictionMode` enum in the predictor hyperparameters ended up in the Lightning checkpoints and "
     "`load_from_checkpoint` raised `UnpicklingError`. `build_components` now passes a plain string.",
+    "Per-drug seeding: v2 seeds the model of every drug from `drug_seed(root seed, drug id)`, so that the result "
+    "does not depend on the order or the process the drugs are fitted in (`n_jobs`). 1.6.1 trains the drugs one "
+    "after the other from one RNG stream. The case pins the v2 root seed (`pinned_root_seed`) and reseeds "
+    "`random`, NumPy and torch on the 1.6.1 side with the same `drug_seed` value before each drug's training, so "
+    "that the training steps compare the algorithm at the `train` class. The `shared_stream` deviation steps record "
+    "the unpatched 1.6.1 run against v2.",
     "The networks are the 1.6.1 networks: the encoders (linear, batch norm, ReLU, dropout), the regression head and "
     "the whole `predict` path load a 1.6.1 `state_dict` with `strict=True` and agree at the `forward` class.",
     "The regressor holds its three encoders differently. 1.6.1 keeps them in a plain tuple: they are not "
@@ -230,7 +243,7 @@ def steps() -> list[StepSpec]:
                     description=f"{variant}, {drug}: test predictions after the seeded short training",
                 )
             )
-    return specs
+    return [*specs, *shared_stream_specs(DRUGS, OMIC_GROUPS)]
 
 
 def _probe_outputs(module: Any, case: Case) -> dict[str, np.ndarray]:
@@ -371,6 +384,16 @@ def run_v1(case: Case) -> dict[str, np.ndarray]:
             out.update(_trained_params(variant, drug, encoders, model.regressor))
         out.update({f"{variant}/{key}": value for key, value in predictions.items()})
         out.update(_feature_outputs(variant, case, setting, trained["sink"][DRUGS[-1]]))
+        if variant == SHARED_STREAM_VARIANT:
+            seed_all(setting["seed"])
+            with inline_loaders(molir_utils), seeded_triplets(utils):
+                shared, shared_trained = run_v1_drugs(
+                    case, setting, cell_lines, make_model, _capture_v1_train, reseed=False
+                )
+            for drug, model in shared_trained["models"].items():
+                encoders = (model.expr_encoder, model.mut_encoder, model.cnv_encoder)
+                out.update(_trained_params("shared_stream", drug, encoders, model.regressor))
+            out.update({f"shared_stream/{key}": value for key, value in shared.items()})
     return out
 
 
@@ -396,7 +419,7 @@ def run_v2(case: Case) -> dict[str, np.ndarray]:
         model = v2_model(NAME, _hpams(setting))
         captured: dict[str, Any] = {}
         seed_all(setting["seed"])
-        with capture_fit(SuperFELTRPredictor, captured), seeded_triplets(utils):
+        with capture_fit(SuperFELTRPredictor, captured), seeded_triplets(utils), pinned_root_seed():
             model.train(dataset, fit_scope, early_stopping_scope=stop_scope)
             predictions = np.asarray(model.predict(dataset, test), dtype=np.float64)
 
