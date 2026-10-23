@@ -820,7 +820,7 @@ def drug_rules(key, info, r, matched, smap, rmap, review_pmids, pathway_of, emai
                 emit(max(cands, key=lambda g: len(per_gene[g]["eids"])), "civic_predictive_pathway")
         # indirect, confirmed by CIViC evidence of the expected direction for this drug
         if indirect:
-            for g in indirect[0]:
+            for g in sorted(indirect[0]):  # a set of strings: sort, or the row order depends on PYTHONHASHSEED
                 if g in per_gene and indirect[1] in per_gene[g]["status"]:
                     emit(g, "civic_predictive_indirect", force_status=indirect[1])
                     emitted_indirect = True
