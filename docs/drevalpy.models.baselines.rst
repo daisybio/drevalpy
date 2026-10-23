@@ -147,8 +147,14 @@ Single-Drug Baselines
 -----------------------------------------------------------
 
 Single-drug variants of the sklearn models. These models are trained separately for each drug, using only
-cell line features (no drug features). Available models: ``SingleDrugRandomForest`` and
-``SingleDrugElasticNet``. Both support flexible inputs for the cell line view.
+cell line features (no drug features). Available models: ``SingleDrugRandomForest``,
+``SingleDrugElasticNet`` and ``SingleDrugKNN``. All support flexible inputs for the cell line view.
+
+``SingleDrugKNN`` searches, for a test cell line, the most similar training cell lines and averages their
+responses to the same drug. The distance is computed on the ``mrmr_k`` features (default 20) that are most relevant
+for the response of this drug, selected by mRMR (:class:`drevalpy.models.utils.MRMRSelector`) on the training rows
+only. ``mrmr_k: null`` uses all features of the gene list. In contrast to the pooled ``KNNRegressor``, drug
+identity does not enter the distance.
 
 .. automodule:: drevalpy.models.baselines.singledrug_baselines
    :members:
@@ -185,6 +191,134 @@ A LightGBM regressor that accepts multiple cell line views, configured like the 
 It requires the ``lightgbm`` package.
 
 .. automodule:: drevalpy.models.baselines.multi_view_lightgbm
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Random Forest on DIPK's features
+-------------------------------------------------------------
+
+``RandomForestAEMolGNet`` takes two of the three learned inputs of the published
+:doc:`DIPK <drevalpy.models.DIPK>` model -- an autoencoder embedding of gene expression and a
+MolGNet embedding of the drug molecule -- and feeds them to a ``RandomForestRegressor`` instead of
+DIPK's neural network. DIPK's third input, the BIONIC network features, is not used at all.
+
+Why this model exists
+^^^^^^^^^^^^^^^^^^^^^
+
+DIPK outperforms a Random Forest baseline, but it changes two things at once: the features become
+learned embeddings *and* the predictor becomes a neural network. A benchmark cannot tell from that
+comparison which of the two changes carries the improvement. This model holds the features fixed
+and swaps only the predictor, so the two effects separate. It is therefore primarily an ablation
+of DIPK, and only secondarily a model of its own.
+
+What it does
+^^^^^^^^^^^^
+
+1. **Cell lines.** Gene expression is restricted to ``gene_list`` (default
+   ``tcga_autoencoder_genes_available``, see below) and transformed to
+   ``log2(x + 1)`` for the TPM datasets (CCLE, CTRPv1, CTRPv2; the others are already log scaled). In every
+   fold a ``GeneExpressionEncoder`` -- the same autoencoder class DIPK uses -- is trained from
+   scratch on the training cell lines and then encodes all cell lines into 512 latent features.
+2. **Drugs.** The node-level MolGNet embeddings shipped with each dataset under
+   ``DIPK_features/Drugs/MolGNet_<drug>.csv`` are pooled over the atoms of the molecule. The
+   default ``mean_max`` concatenates the per-dimension mean and maximum, giving 1536 features.
+3. **Prediction.** Both blocks are concatenated and handed to the Random Forest, exactly like any
+   other flexible-input sklearn baseline.
+
+The dataset must therefore carry DIPK's feature files; on a dataset without them the model raises
+``FileNotFoundError`` rather than falling back to fingerprints.
+
+Differences from ``DIPK``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+============================  ==========================================  ==================================
+Aspect                        ``DIPK``                                    ``RandomForestAEMolGNet``
+============================  ==========================================  ==================================
+Predictor                     attention network + fully connected head    ``RandomForestRegressor``
+Drug features                 node-level MolGNet, pooled by attention     node-level MolGNet, mean+max pooled
+BIONIC network features       used as a third input                       not used
+============================  ==========================================  ==================================
+
+Both models fit the autoencoder inside each fold and only on training cell lines, so neither leaks
+test expression into the encoder.
+
+Autoencoder hyperparameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The four parameters DIPK also has keep DIPK's names, so that a configuration reads the same for
+both models:
+
+- ``epochs_autoencoder`` (default 2000), ``lr_autoencoder`` (1e-4), ``patience_autoencoder`` (50),
+  ``batch_size_autoencoder`` (1024).
+
+The cell lines of the early stopping split validate the autoencoder. The one parameter that only exists
+here is ``autoencoder_cache_dir`` (unset): see below.
+
+Gene list
+^^^^^^^^^
+
+**Motivation.** The default list ``tcga_autoencoder_genes_available`` is much larger than the 2,270 genes of
+``gene_expression_intersection``. It was chosen for four reasons:
+
+* The TCGA-pretrained encoder and the encoder trained from scratch on the cell lines must see the *same* feature
+  space. With different gene sets, the effect of pretraining and the effect of the gene set would be confounded.
+* The space is *deployment-optimal*: every gene is measurable by Ion Torrent RNA-seq (Ion AmpliSeq Transcriptome Human
+  Gene Expression Panel), so new samples can be scored with the same model.
+* Noise genes (not expressed or constant in the cell lines) are removed, but there is deliberately **no
+  top-variance selection**: it would discard driver genes with a low variance. The reduction is left to the
+  autoencoder bottleneck. Known landmark and clinical driver genes are protected from the noise filter.
+* Every gene must exist in the expression data of all datasets (CTRPv2, GDSC1, PDX_Bruna, BeatAML2), so that all datasets share one space.
+
+**Construction.** The list is a chain of set operations. Nothing in the chain uses the pretrained autoencoder or
+response data, and only the last list is written, to ``<data_path>/meta/gene_lists/tcga_autoencoder_genes_available.csv``:
+
+1. ``expression_intersection``: genes in the expression data of all datasets.
+2. ``panel_intersection``: intersected with the genes of the Ion Torrent panel.
+3. ``expressed_genes``: noise filter on the linear TPM expression of a TPM dataset (default CTRPv2),
+   applied as ``log2(x + 1)``: a gene is dropped if its mean is below 0.5 or its variance below 1e-3, unless it is in
+   the protect list (the 867 landmark genes of ``meta/gene_lists/landmark_genes.csv`` plus 26 clinical driver genes,
+   893 genes; override with ``--protect <csv with column Symbol>``). The thresholds only make sense for linear TPM;
+   the script raises an error if the noise dataset looks log scaled already.
+4. ``tcga_autoencoder_genes_available``: minus the genes without a locus in the TCGA gene annotation
+   (``gencode.v23.probemap.tsv``), which cannot be mapped to TCGA expression.
+
+If the file is not in the metadata, the model creates it when it loads a dataset: from the expression of that dataset
+alone, saved as ``tcga_autoencoder_genes_available_<dataset>.csv``. The noise filter then uses the dataset itself if it
+is a TPM dataset, otherwise CTRPv2 if present, otherwise it is skipped. The lists of different datasets differ, so
+models trained on one dataset and applied to another need the shared file.
+
+**Inputs.** By default the script downloads the gene content of the panel: the public *AmpliSeq for Illumina
+Transcriptome RNA Manifest* (dated 2019-03-13, anonymous, 20,802 genes; the ``[Targets]`` section, column ``Gene``)
+
+.. code-block:: text
+
+    https://support.illumina.com/content/dam/illumina-support/documents/downloads/productfiles/ampliseq-for-illumina/ampliseq-for-illumina-transcriptome-rna-manifest-20190313.zip
+
+It has the same genes as the Ion AmpliSeq Transcriptome Human Gene Expression Panel (user guide
+`MAN0010742 <https://assets.thermofisher.com/TFS-Assets/LSG/manuals/MAN0010742_AmpliSeqTranscriptomeHumanGeneExpr_UG.pdf>`_,
+over 20,000 genes); the 10 ERCC spike-in controls of the Thermo Fisher BED file are not part of it and are not in the
+data anyway, so the result is identical. Alternatively, pass the Thermo Fisher target file with ``--panel``
+(``hg19_AmpliSeq_Transcriptome_21K_v1.bed``, ERCC variant; semicolon separated, no header, gene symbol in the seventh
+column, adjustable with ``--panel_symbol_column``). The TCGA probemap (GENCODE v23, Xena Toil hub) is downloaded automatically; pass
+``--probemap <gencode.v23.probemap.tsv>`` to use a local copy instead.
+
+.. code-block:: bash
+
+    python -m drevalpy.datasets.featurizer.create_autoencoder_gene_list --data_path data
+
+Reusing an encoder across models
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The encoder depends only on the training cell lines, the gene list and the autoencoder
+hyperparameters -- not on the drug features. Setting ``autoencoder_cache_dir`` (or the
+``DREVAL_AE_CACHE`` environment variable) makes models that share those train the encoder once per
+fold and reuse it. Apart from saving time this makes such models pairwise comparable: with an
+identical encoder, any difference between them cannot come from the encoder. Caching is off unless
+one of the two is set, and the cache key covers the gene *order* as well as the gene names, since
+the same genes in a different order produce a different encoder.
+
+.. automodule:: drevalpy.models.baselines.ae_molgnet_random_forest
    :members:
    :undoc-members:
    :show-inheritance:

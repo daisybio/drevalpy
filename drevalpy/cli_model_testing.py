@@ -3,38 +3,154 @@
 import json
 import pathlib
 import pickle
-from argparse import Namespace
-from typing import Any
+from functools import partial
 
 import joblib
+import numpy as np
 import pandas as pd
 import yaml
+from sklearn.base import TransformerMixin
 
-from drevalpy.experiment import get_model_name_and_drug_id
+from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.models.drp_model import DRPModel
 
 
-def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
-    """Load data and prepare it for final CV-fold training and prediction."""
-    from drevalpy.experiment import get_datasets_from_cv_split, get_model_name_and_drug_id
-    from drevalpy.models import MODEL_FACTORY
-    from drevalpy.utils import get_response_transformation
-
-    model_name, drug_id = get_model_name_and_drug_id(arguments.model_name)
-    model_class = MODEL_FACTORY[model_name]
-    model = model_class()
-    with open(arguments.split_dataset_path, "rb") as split_file:
-        split = pickle.load(split_file)
-    train_dataset, validation_dataset, es_dataset, test_dataset = get_datasets_from_cv_split(
-        split, model_class, model_name, drug_id
+def _test_split(
+    drug_id: str | None,
+    split: dict,
+    cross_study_datasets: list,
+    hpam_combi: dict,
+    *,
+    mode: str,
+    model_class: "type[DRPModel]",
+    split_id: str,
+    test_mode: str,
+    path_data: str,
+    response_transform: TransformerMixin | None,
+    rand_test_view: dict,
+    randomization_type: str,
+    robustness_trial: int | None,
+    model_checkpoint_dir: str,
+) -> None:
+    """Train on a CV split and predict its test set in the given mode, for single drug models for one drug."""
+    from drevalpy.experiment import (
+        cross_study_prediction,
+        generate_data_saving_path,
+        get_datasets_from_cv_split,
+        randomize_train_predict,
+        robustness_train_predict,
+        train_and_predict,
     )
 
-    train_dataset.add_rows(validation_dataset)
-    train_dataset.shuffle(random_state=42)
-    with open(arguments.hyperparameters_path) as f:
-        best_hpam_dict = yaml.safe_load(f)
-    best_hpams = best_hpam_dict[f"{arguments.model_name}_{arguments.split_id}"]["best_hpam_combi"]
-    response_transform = get_response_transformation(arguments.response_transformation)
-    return model, drug_id, best_hpams, train_dataset, test_dataset, es_dataset, response_transform
+    selected_model = model_class()
+    train_set, validation_set, es_set, test_set = get_datasets_from_cv_split(
+        split, model_class, model_class.get_model_name(), drug_id
+    )
+    train_set.add_rows(validation_set)
+    train_set.shuffle(random_state=42)
+
+    if mode == "full":
+        predictions_path = generate_data_saving_path(
+            model_name=selected_model.get_model_name(),
+            drug_id=drug_id,
+            result_path="",
+            suffix="predictions",
+        )
+        hpam_path = generate_data_saving_path(
+            model_name=selected_model.get_model_name(),
+            drug_id=drug_id,
+            result_path="",
+            suffix="best_hpams",
+        )
+        hpam_path = pathlib.Path(hpam_path) / f"best_hpams_{split_id}.json"
+        with open(hpam_path, "w", encoding="utf-8") as f:
+            json.dump(hpam_combi, f)
+
+        test_set = train_and_predict(
+            model=selected_model,
+            hpams=hpam_combi,
+            path_data=path_data,
+            train_dataset=train_set,
+            prediction_dataset=test_set,
+            early_stopping_dataset=es_set,
+            response_transformation=response_transform,
+            model_checkpoint_dir=model_checkpoint_dir,
+        )
+        prediction_dataset = pathlib.Path(predictions_path) / f"predictions_{split_id}.csv"
+        test_set.to_csv(prediction_dataset)
+        for cross_study_dataset in cross_study_datasets:
+            split_index = split_id.split("split_")[1]
+            cross_study_prediction(
+                dataset=cross_study_dataset,
+                model=selected_model,
+                test_mode=test_mode,
+                train_dataset=train_set,
+                path_data=path_data,
+                early_stopping_dataset=(es_set if selected_model.early_stopping else None),
+                response_transformation=response_transform,
+                path_out=str(pathlib.Path(predictions_path).parent),
+                split_index=split_index,
+                single_drug_id=drug_id,
+            )
+    elif mode == "randomization":
+        rand_path = generate_data_saving_path(
+            model_name=selected_model.get_model_name(),
+            drug_id=drug_id,
+            result_path="",
+            suffix="randomization",
+        )
+        randomization_test_file = (
+            pathlib.Path(rand_path) / f'randomization_{rand_test_view["test_name"]}_{split_id}.csv'
+        )
+        randomize_train_predict(
+            view=rand_test_view["view"],
+            test_name=rand_test_view["test_name"],
+            randomization_type=randomization_type,
+            randomization_test_file=str(randomization_test_file),
+            model=selected_model,
+            hpam_set=hpam_combi,
+            path_data=path_data,
+            train_dataset=train_set,
+            test_dataset=test_set,
+            early_stopping_dataset=es_set,
+            response_transformation=response_transform,
+            model_checkpoint_dir=model_checkpoint_dir,
+        )
+    elif mode == "robustness":
+        rob_path = generate_data_saving_path(
+            model_name=selected_model.get_model_name(),
+            drug_id=drug_id,
+            result_path="",
+            suffix="robustness",
+        )
+        robustness_test_file = pathlib.Path(rob_path) / f"robustness_{robustness_trial}_{split_id}.csv"
+        robustness_train_predict(
+            trial=robustness_trial,
+            trial_file=str(robustness_test_file),
+            train_dataset=train_set,
+            test_dataset=test_set,
+            early_stopping_dataset=es_set,
+            model=selected_model,
+            hpam_set=hpam_combi,
+            path_data=path_data,
+            response_transformation=response_transform,
+            model_checkpoint_dir=model_checkpoint_dir,
+        )
+    else:
+        raise ValueError(f"Invalid mode: {mode}. Choose full, randomization, or robustness.")
+
+
+def _consolidate_drug_predictions(model_name: str) -> None:
+    """Concatenate the per-drug CSVs in <model_name>/drugs/<drug_id>/<suffix>/ into <model_name>/<suffix>/."""
+    drugs_path = pathlib.Path(model_name, "drugs")
+    predictions: dict[pathlib.Path, list[pd.DataFrame]] = {}
+    for csv_file in sorted(drugs_path.glob("*/*/*.csv")):
+        # drop the drug id: <drug_id>/<suffix>/<file>.csv -> <suffix>/<file>.csv
+        consolidated_file = pathlib.Path(model_name, *csv_file.relative_to(drugs_path).parts[1:])
+        predictions.setdefault(consolidated_file, []).append(pd.read_csv(csv_file, index_col=0))
+    for consolidated_file, drug_predictions in predictions.items():
+        consolidated_file.parent.mkdir(parents=True, exist_ok=True)
+        pd.concat(drug_predictions, axis=0).to_csv(consolidated_file)
 
 
 def run_train_and_predict_final(
@@ -52,132 +168,70 @@ def run_train_and_predict_final(
     robustness_trial: int | None = None,
     cross_study_datasets: list[str] | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
+    n_jobs: int = 1,
 ) -> None:
-    """Train and predict on the CV test set (full, randomization, or robustness mode)."""
-    from drevalpy.experiment import (
-        cross_study_prediction,
-        generate_data_saving_path,
-        randomize_train_predict,
-        robustness_train_predict,
-        train_and_predict,
-    )
+    """
+    Train and predict on the CV test set (full, randomization, or robustness mode).
 
-    args = Namespace(
+    Single drug models are trained per drug, n_jobs drugs in parallel. Their predictions are saved per drug and
+    consolidated over all drugs.
+    """
+    from drevalpy.experiment import run_per_drug, split_by_drug
+    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.utils import get_response_transformation
+
+    model_class = MODEL_FACTORY[model_name]
+    with open(split_dataset_path, "rb") as split_file:
+        split = pickle.load(split_file)
+    with open(hyperparameters_path) as f:
+        best_hpam_dict = yaml.safe_load(f)[f"{model_name}_{split_id}"]
+
+    loaded_cross_study_datasets = []
+    for cs_ds in cross_study_datasets or []:
+        if cs_ds == "NONE.csv":
+            continue
+        with open(cs_ds, "rb") as cs_file:
+            cross_study_dataset = pickle.load(cs_file)
+        cross_study_dataset.remove_nan_responses()
+        loaded_cross_study_datasets.append(cross_study_dataset)
+
+    rand_test_view = {}
+    if randomization_views_path is not None:
+        with open(randomization_views_path) as f:
+            rand_test_view = yaml.safe_load(f)
+
+    test_split = partial(
+        _test_split,
         mode=mode,
-        model_name=model_name,
+        model_class=model_class,
         split_id=split_id,
-        split_dataset_path=split_dataset_path,
-        hyperparameters_path=hyperparameters_path,
-        response_transformation=response_transformation,
         test_mode=test_mode,
         path_data=path_data,
-        randomization_views_path=randomization_views_path,
+        response_transform=get_response_transformation(response_transformation),
+        rand_test_view=rand_test_view,
         randomization_type=randomization_type,
         robustness_trial=robustness_trial,
-        cross_study_datasets=cross_study_datasets,
         model_checkpoint_dir=model_checkpoint_dir,
     )
-
-    selected_model, drug_id, hpam_combi, train_set, test_set, es_set, transformation = _prep_data_for_final_prediction(
-        args
-    )
-    if args.mode == "full":
-        predictions_path = generate_data_saving_path(
-            model_name=selected_model.get_model_name(),
-            drug_id=drug_id,
-            result_path="",
-            suffix="predictions",
-        )
-        hpam_path = generate_data_saving_path(
-            model_name=selected_model.get_model_name(),
-            drug_id=drug_id,
-            result_path="",
-            suffix="best_hpams",
-        )
-        hpam_path = pathlib.Path(hpam_path) / f"best_hpams_{args.split_id}.json"
-        with open(hpam_path, "w", encoding="utf-8") as f:
-            json.dump(hpam_combi, f)
-
-        test_set = train_and_predict(
-            model=selected_model,
-            hpams=hpam_combi,
-            path_data=args.path_data,
-            train_dataset=train_set,
-            prediction_dataset=test_set,
-            early_stopping_dataset=es_set,
-            response_transformation=transformation,
-            model_checkpoint_dir=args.model_checkpoint_dir,
-        )
-        prediction_dataset = pathlib.Path(predictions_path) / f"predictions_{args.split_id}.csv"
-        test_set.to_csv(prediction_dataset)
-        if args.cross_study_datasets:
-            for cs_ds in args.cross_study_datasets:
-                if cs_ds == "NONE.csv":
-                    continue
-                split_index = args.split_id.split("split_")[1]
-                with open(cs_ds, "rb") as cs_file:
-                    cross_study_dataset = pickle.load(cs_file)
-                cross_study_dataset.remove_nan_responses()
-                cross_study_prediction(
-                    dataset=cross_study_dataset,
-                    model=selected_model,
-                    test_mode=args.test_mode,
-                    train_dataset=train_set,
-                    path_data=args.path_data,
-                    early_stopping_dataset=(es_set if selected_model.early_stopping else None),
-                    response_transformation=transformation,
-                    path_out=str(pathlib.Path(predictions_path).parent),
-                    split_index=split_index,
-                    single_drug_id=drug_id,
+    if model_class.is_single_drug_model:
+        drug_ids = np.unique(np.concatenate([ds.drug_ids for ds in split.values() if ds is not None]))
+        splits_per_drug = split_by_drug(split, drug_ids)
+        cross_study_per_drug = split_by_drug({cs.dataset_name: cs for cs in loaded_cross_study_datasets}, drug_ids)
+        run_per_drug(
+            test_split,
+            {
+                drug: (
+                    splits_per_drug[drug],
+                    list(cross_study_per_drug[drug].values()),
+                    best_hpam_dict["best_hpam_combi_per_drug"][drug],
                 )
-    elif args.mode == "randomization":
-        with open(args.randomization_views_path) as f:
-            rand_test_view = yaml.safe_load(f)
-        rand_path = generate_data_saving_path(
-            model_name=selected_model.get_model_name(),
-            drug_id=drug_id,
-            result_path="",
-            suffix="randomization",
+                for drug in splits_per_drug
+            },
+            n_jobs=n_jobs,
         )
-        randomization_test_file = (
-            pathlib.Path(rand_path) / f'randomization_{rand_test_view["test_name"]}_{args.split_id}.csv'
-        )
-        randomize_train_predict(
-            view=rand_test_view["view"],
-            test_name=rand_test_view["test_name"],
-            randomization_type=args.randomization_type,
-            randomization_test_file=str(randomization_test_file),
-            model=selected_model,
-            hpam_set=hpam_combi,
-            path_data=args.path_data,
-            train_dataset=train_set,
-            test_dataset=test_set,
-            early_stopping_dataset=es_set,
-            response_transformation=transformation,
-            model_checkpoint_dir=args.model_checkpoint_dir,
-        )
-    elif args.mode == "robustness":
-        rob_path = generate_data_saving_path(
-            model_name=selected_model.get_model_name(),
-            drug_id=drug_id,
-            result_path="",
-            suffix="robustness",
-        )
-        robustness_test_file = pathlib.Path(rob_path) / f"robustness_{args.robustness_trial}_{args.split_id}.csv"
-        robustness_train_predict(
-            trial=args.robustness_trial,
-            trial_file=str(robustness_test_file),
-            train_dataset=train_set,
-            test_dataset=test_set,
-            early_stopping_dataset=es_set,
-            model=selected_model,
-            hpam_set=hpam_combi,
-            path_data=args.path_data,
-            response_transformation=transformation,
-            model_checkpoint_dir=args.model_checkpoint_dir,
-        )
+        _consolidate_drug_predictions(model_name)
     else:
-        raise ValueError(f"Invalid mode: {args.mode}. Choose full, randomization, or robustness.")
+        test_split(None, split, loaded_cross_study_datasets, best_hpam_dict["best_hpam_combi"])
 
 
 def run_randomization_split(*, model_name: str, randomization_mode: str) -> None:
@@ -207,6 +261,22 @@ def run_randomization_split(*, model_name: str, randomization_mode: str) -> None
                 yaml.dump(rand_dict, f)
 
 
+def _make_final_split(
+    response_data: DrugResponseDataset, model_class: "type[DRPModel]", test_mode: str, val_ratio: float
+) -> tuple:
+    """Split the response data into train, validation, and early stopping data for a final model."""
+    from drevalpy.datasets.dataset import split_early_stopping_data
+    from drevalpy.experiment import make_train_val_split
+
+    train_dataset, validation_dataset = make_train_val_split(response_data, test_mode=test_mode, val_ratio=val_ratio)
+
+    if model_class.early_stopping:
+        validation_dataset, early_stopping_dataset = split_early_stopping_data(validation_dataset, test_mode)
+    else:
+        early_stopping_dataset = None
+    return train_dataset, validation_dataset, early_stopping_dataset
+
+
 def run_final_split(
     *,
     response: str,
@@ -215,25 +285,31 @@ def run_final_split(
     test_mode: str = "LPO",
     val_ratio: float = 0.1,
 ) -> None:
-    """Create train/validation/early-stopping pickles for a final production model."""
-    from drevalpy.datasets.dataset import split_early_stopping_data
-    from drevalpy.experiment import make_train_val_split
+    """
+    Create train/validation/early-stopping pickles for a final production model.
+
+    For single drug models, each pickle is a {drug_id: dataset} dict, split per drug.
+    """
+    from drevalpy.experiment import split_by_drug
     from drevalpy.models import MODEL_FACTORY
 
     with open(response, "rb") as response_file:
         response_data = pickle.load(response_file)
     response_data.remove_nan_responses()
-    class_name, drug_id = get_model_name_and_drug_id(model_name)
-    model_class = MODEL_FACTORY[class_name]
+    model_class = MODEL_FACTORY[model_name]
     if model_class.is_single_drug_model:
-        response_data.mask(response_data.drug_ids == drug_id)
-
-    train_dataset, validation_dataset = make_train_val_split(response_data, test_mode=test_mode, val_ratio=val_ratio)
-
-    if model_class.early_stopping:
-        validation_dataset, early_stopping_dataset = split_early_stopping_data(validation_dataset, test_mode)
+        response_per_drug = split_by_drug({"full": response_data}, np.unique(response_data.drug_ids))
+        splits_per_drug = {
+            drug: _make_final_split(datasets["full"], model_class, test_mode, val_ratio)
+            for drug, datasets in response_per_drug.items()
+        }
+        train_dataset = {drug: datasets[0] for drug, datasets in splits_per_drug.items()}
+        validation_dataset = {drug: datasets[1] for drug, datasets in splits_per_drug.items()}
+        early_stopping_dataset = {drug: datasets[2] for drug, datasets in splits_per_drug.items()}
     else:
-        early_stopping_dataset = None
+        train_dataset, validation_dataset, early_stopping_dataset = _make_final_split(
+            response_data, model_class, test_mode, val_ratio
+        )
 
     with open("training_dataset.pkl", "wb") as f:
         pickle.dump(train_dataset, f)
@@ -241,6 +317,46 @@ def run_final_split(
         pickle.dump(validation_dataset, f)
     with open("early_stopping_dataset.pkl", "wb") as f:
         pickle.dump(early_stopping_dataset, f)
+
+
+def _load_final_split(
+    train_data: str, val_data: str, early_stopping_data: str
+) -> tuple[DrugResponseDataset, DrugResponseDataset, DrugResponseDataset] | tuple[dict, dict, dict]:
+    """Load the pickles of run_final_split."""
+    with open(train_data, "rb") as train_file:
+        train_dataset = pickle.load(train_file)
+    with open(val_data, "rb") as val_file:
+        validation_dataset = pickle.load(val_file)
+    with open(early_stopping_data, "rb") as es_file:
+        early_stopping_dataset = pickle.load(es_file)
+    return train_dataset, validation_dataset, early_stopping_dataset
+
+
+def _tune_final_model(
+    drug_id: str | None,
+    train_dataset: DrugResponseDataset,
+    validation_dataset: DrugResponseDataset,
+    early_stopping_dataset: DrugResponseDataset,
+    *,
+    model_class: "type[DRPModel]",
+    hpams: dict,
+    path_data: str,
+    response_transform: TransformerMixin | None,
+    model_checkpoint_dir: str,
+) -> DrugResponseDataset:
+    """Train a final model candidate and predict the validation set, for single drug models for one drug."""
+    from drevalpy.experiment import train_and_predict
+
+    return train_and_predict(
+        model=model_class(),
+        hpams=hpams,
+        path_data=path_data,
+        train_dataset=train_dataset,
+        prediction_dataset=validation_dataset,
+        early_stopping_dataset=early_stopping_dataset,
+        response_transformation=response_transform,
+        model_checkpoint_dir=model_checkpoint_dir,
+    )
 
 
 def run_tune_final_model(
@@ -253,71 +369,81 @@ def run_tune_final_model(
     response_transformation: str = "None",
     path_data: str = "data",
     model_checkpoint_dir: str = "TEMPORARY",
+    n_jobs: int = 1,
 ) -> None:
-    """Tune hyperparameters for the final model on full data."""
-    from drevalpy.experiment import get_model_name_and_drug_id, train_and_predict
+    """Tune hyperparameters for the final model on full data. Single drug models: n_jobs drugs in parallel."""
+    from drevalpy.experiment import run_per_drug
     from drevalpy.models import MODEL_FACTORY
     from drevalpy.utils import get_response_transformation
 
-    with open(train_data, "rb") as train_file:
-        train_dataset = pickle.load(train_file)
-    with open(val_data, "rb") as val_file:
-        validation_dataset = pickle.load(val_file)
-    with open(early_stopping_data, "rb") as es_file:
-        early_stopping_dataset = pickle.load(es_file)
-    response_transform = get_response_transformation(response_transformation)
-
-    resolved_name, _drug_id = get_model_name_and_drug_id(model_name)
-    model_class = MODEL_FACTORY[resolved_name]
+    train_dataset, validation_dataset, early_stopping_dataset = _load_final_split(
+        train_data, val_data, early_stopping_data
+    )
+    model_class = MODEL_FACTORY[model_name]
     with open(hpam_combi) as f:
         hpams = yaml.safe_load(f)
-    model = model_class()
 
-    validation_dataset = train_and_predict(
-        model=model,
+    tune = partial(
+        _tune_final_model,
+        model_class=model_class,
         hpams=hpams,
         path_data=path_data,
-        train_dataset=train_dataset,
-        prediction_dataset=validation_dataset,
-        early_stopping_dataset=early_stopping_dataset,
-        response_transformation=response_transform,
+        response_transform=get_response_transformation(response_transformation),
         model_checkpoint_dir=model_checkpoint_dir,
     )
-    with open(f"final_prediction_dataset_{resolved_name}_" f"{str(hpam_combi).split('.yaml')[0]}.pkl", "wb") as f:
+    if model_class.is_single_drug_model:
+        # the datasets are {drug_id: dataset} dicts, see run_final_split
+        if (
+            not isinstance(train_dataset, dict)
+            or not isinstance(validation_dataset, dict)
+            or not isinstance(early_stopping_dataset, dict)
+        ):
+            raise ValueError(
+                "For single drug models, the train/validation/early_stopping datasets must be dicts of "
+                "{drug_id: dataset}."
+            )
+        validation_dataset = run_per_drug(
+            tune,
+            {
+                drug: (train_dataset[drug], validation_dataset[drug], early_stopping_dataset[drug])
+                for drug in train_dataset
+            },
+            n_jobs=n_jobs,
+        )
+    else:
+        if (
+            not isinstance(train_dataset, DrugResponseDataset)
+            or not isinstance(validation_dataset, DrugResponseDataset)
+            or not isinstance(early_stopping_dataset, DrugResponseDataset)
+        ):
+            raise ValueError(
+                "For multi-drug models, the train/validation/early_stopping datasets must be DrugResponseDataset "
+                "instances."
+            )
+        validation_dataset = tune(None, train_dataset, validation_dataset, early_stopping_dataset)
+    with open(f"final_prediction_dataset_{model_name}_" f"{str(hpam_combi).split('.yaml')[0]}.pkl", "wb") as f:
         pickle.dump(validation_dataset, f)
 
 
-def run_train_final_model(
+def _train_final_model(
+    drug_id: str | None,
+    train_dataset: DrugResponseDataset,
+    validation_dataset: DrugResponseDataset,
+    es_dataset: DrugResponseDataset,
+    best_hpam: dict,
     *,
-    train_data: str,
-    val_data: str,
-    early_stopping_data: str,
-    response_transformation: str = "None",
-    model_name: str,
-    path_data: str = "data",
-    model_checkpoint_dir: str = "TEMPORARY",
-    best_hpam_combi: str,
+    model_class: "type[DRPModel]",
+    path_data: str,
+    response_transform: TransformerMixin | None,
+    model_checkpoint_dir: str,
 ) -> None:
-    """Train and save the final production model."""
-    from drevalpy.experiment import generate_data_saving_path, get_model_name_and_drug_id
-    from drevalpy.models import MODEL_FACTORY
-    from drevalpy.utils import get_response_transformation
+    """Train and save the final production model, for single drug models for one drug."""
+    from drevalpy.experiment import generate_data_saving_path
 
-    resolved_name, _drug_id = get_model_name_and_drug_id(model_name)
     final_model_path = generate_data_saving_path(
-        model_name=resolved_name, drug_id=_drug_id, result_path="", suffix="final_model"
+        model_name=model_class.get_model_name(), drug_id=drug_id, result_path="", suffix="final_model"
     )
-    response_transform = get_response_transformation(response_transformation)
-    with open(train_data, "rb") as train_file:
-        train_dataset = pickle.load(train_file)
-    with open(val_data, "rb") as val_file:
-        validation_dataset = pickle.load(val_file)
-    with open(early_stopping_data, "rb") as es_file:
-        es_dataset = pickle.load(es_file)
-
-    with open(best_hpam_combi) as f:
-        best_hpam = yaml.safe_load(f)[f"{model_name}_final"]["best_hpam_combi"]
-    model = MODEL_FACTORY[resolved_name]()
+    model = model_class()
     model.build_model(hyperparameters=best_hpam)
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
@@ -356,6 +482,72 @@ def run_train_final_model(
     model.save(final_model_path)
     if response_transform:
         joblib.dump(response_transform, pathlib.Path(final_model_path) / "response_transform.pkl")
+
+
+def run_train_final_model(
+    *,
+    train_data: str,
+    val_data: str,
+    early_stopping_data: str,
+    response_transformation: str = "None",
+    model_name: str,
+    path_data: str = "data",
+    model_checkpoint_dir: str = "TEMPORARY",
+    best_hpam_combi: str,
+    n_jobs: int = 1,
+) -> None:
+    """Train and save the final production model. Single drug models: n_jobs drugs in parallel."""
+    from drevalpy.experiment import run_per_drug
+    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.utils import get_response_transformation
+
+    train_dataset, validation_dataset, es_dataset = _load_final_split(train_data, val_data, early_stopping_data)
+    with open(best_hpam_combi) as f:
+        best_hpam_dict = yaml.safe_load(f)[f"{model_name}_final"]
+    model_class = MODEL_FACTORY[model_name]
+
+    train = partial(
+        _train_final_model,
+        model_class=model_class,
+        path_data=path_data,
+        response_transform=get_response_transformation(response_transformation),
+        model_checkpoint_dir=model_checkpoint_dir,
+    )
+    if model_class.is_single_drug_model:
+        # the datasets are {drug_id: dataset} dicts, see run_final_split
+        if (
+            not isinstance(train_dataset, dict)
+            or not isinstance(validation_dataset, dict)
+            or not isinstance(es_dataset, dict)
+        ):
+            raise ValueError(
+                "For single drug models, the train/validation/early_stopping datasets must be dicts of "
+                "{drug_id: dataset}."
+            )
+        run_per_drug(
+            train,
+            {
+                drug: (
+                    train_dataset[drug],
+                    validation_dataset[drug],
+                    es_dataset[drug],
+                    best_hpam_dict["best_hpam_combi_per_drug"][drug],
+                )
+                for drug in train_dataset
+            },
+            n_jobs=n_jobs,
+        )
+    else:
+        if (
+            not isinstance(train_dataset, DrugResponseDataset)
+            or not isinstance(validation_dataset, DrugResponseDataset)
+            or not isinstance(es_dataset, DrugResponseDataset)
+        ):
+            raise ValueError(
+                "For multi-drug models, the train/validation/early_stopping datasets must be DrugResponseDataset "
+                "instances."
+            )
+        train(None, train_dataset, validation_dataset, es_dataset, best_hpam_dict["best_hpam_combi"])
 
 
 def run_consolidate_results(

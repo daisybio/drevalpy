@@ -12,12 +12,14 @@ __all__ = [
     "NaiveMeanEffectsPredictor",
     "ElasticNetModel",
     "RandomForest",
+    "RandomForestAEMolGNet",
     "SVMRegressor",
     "SimpleNeuralNetwork",
     "MultiViewNeuralNetwork",
     "MultiViewRandomForest",
     "SingleDrugRandomForest",
     "SingleDrugElasticNet",
+    "SingleDrugKNN",
     "SRMF",
     "EnsembleMF",
     "GradientBoosting",
@@ -36,6 +38,7 @@ __all__ = [
     "PaccMann",
 ]
 
+from .baselines.ae_molgnet_random_forest import RandomForestAEMolGNet
 from .baselines.multi_view_lightgbm import MultiViewLightGBM
 from .baselines.multi_view_random_forest import MultiViewRandomForest
 from .baselines.multi_view_xgboost import MultiViewXGBoost
@@ -47,7 +50,7 @@ from .baselines.naive_pred import (
     NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
 )
-from .baselines.singledrug_baselines import SingleDrugElasticNet, SingleDrugRandomForest
+from .baselines.singledrug_baselines import SingleDrugElasticNet, SingleDrugKNN, SingleDrugRandomForest
 from .baselines.sklearn_models import (
     AdaBoostDecisionTree,
     ElasticNetModel,
@@ -75,6 +78,7 @@ from .SuperFELTR.superfeltr import SuperFELTR
 SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "SingleDrugElasticNet": SingleDrugElasticNet,
     "SingleDrugRandomForest": SingleDrugRandomForest,
+    "SingleDrugKNN": SingleDrugKNN,
     "MOLIR": MOLIR,
     "SuperFELTR": SuperFELTR,
 }
@@ -95,6 +99,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "GradientBoosting": GradientBoosting,
     "KNNRegressor": KNNRegressor,
     "RandomForest": RandomForest,
+    "RandomForestAEMolGNet": RandomForestAEMolGNet,
     "MultiViewRandomForest": MultiViewRandomForest,
     "SVR": SVMRegressor,
     # Other Baselines
