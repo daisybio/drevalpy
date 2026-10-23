@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from drevalpy.components.predictors.abstract.base import Predictor
@@ -79,6 +80,22 @@ def test_random_forest_defaults_follow_the_declared_space() -> None:
 
     assert estimator.max_depth == RandomForestPredictor.get_hyperparameter_space()["max_depth"]["default"] == 15
     assert estimator.criterion == "squared_error"
+
+
+def test_random_forest_is_seeded_with_42_unless_told_otherwise() -> None:
+    assert RandomForestPredictor()._make_estimator().random_state == 42
+    assert RandomForestPredictor({"random_state": 7})._make_estimator().random_state == 7
+    assert RandomForestPredictor({"random_state": None})._make_estimator().random_state is None
+
+
+def test_random_forest_fits_are_reproducible_by_default() -> None:
+    rng = np.random.default_rng(0)
+    x, y = rng.normal(size=(40, 5)), rng.normal(size=40)
+
+    first = RandomForestPredictor({"n_estimators": 5, "n_jobs": 1})._make_estimator().fit(x, y).predict(x)
+    second = RandomForestPredictor({"n_estimators": 5, "n_jobs": 1})._make_estimator().fit(x, y).predict(x)
+
+    np.testing.assert_array_equal(first, second)
 
 
 def test_random_forest_accepts_an_unbounded_depth() -> None:

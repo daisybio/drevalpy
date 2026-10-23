@@ -173,7 +173,7 @@ class RandomForestPredictor(SklearnTabularPredictor):
     non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
         "criterion": "squared_error",
         "n_jobs": -1,
-        "random_state": None,
+        "random_state": 42,
     }
 
     def _make_estimator(self) -> Any:
