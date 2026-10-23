@@ -48,6 +48,24 @@ def test_every_builtin_zoo_file_is_listed() -> None:
     assert list_zoo_names(include_external=False) == sorted(path.stem for path in _BUILTIN_ZOO_DIR.glob("*.yaml"))
 
 
+def test_a_builtin_preset_that_fails_validation_is_skipped_with_a_warning(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import shutil
+
+    from drevalpy.models import zoo
+
+    shutil.copy(zoo._BUILTIN_ZOO_DIR / "Ridge.yaml", tmp_path / "Ridge.yaml")
+    (tmp_path / "Broken.yaml").write_text("name: Broken\npredictor:\n  name: noSuchPredictor\n")
+    monkeypatch.setattr(zoo, "_BUILTIN_ZOO_DIR", tmp_path)
+
+    with caplog.at_level("WARNING", logger="drevalpy"):
+        entries = zoo._load_builtin_entries()
+
+    assert list(entries) == ["Ridge"]
+    assert "Broken.yaml" in caplog.text
+
+
 @pytest.mark.parametrize("name", list_zoo_names(include_external=False))
 def test_every_zoo_preset_validates(name: str) -> None:
     validate(get_zoo_config(name))

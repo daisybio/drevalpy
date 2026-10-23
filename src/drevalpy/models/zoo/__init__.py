@@ -6,6 +6,7 @@ from typing import Any
 
 from upath import UPath as Path
 
+from drevalpy.log import get_logger
 from drevalpy.models.config import ModelConfig, ResolvedModelConfig
 from drevalpy.models.config.io import from_yaml
 from drevalpy.models.tuning.public_flat import apply_public_hyperparameters_to_config
@@ -18,6 +19,7 @@ from ._external_load import (
 )
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
+logger = get_logger(__name__)
 _EXTERNAL_ZOO: dict[str, ModelConfig] = {}
 
 
@@ -26,7 +28,9 @@ def _load_builtin_entries() -> dict[str, ModelConfig]:
     for path in sorted(_BUILTIN_ZOO_DIR.glob("*.yaml")):
         try:
             config = from_yaml(path)
-        except ValueError:
+        except ValueError as exc:
+            # tests/models/zoo/test_init.py fails on a skipped preset; users only get the warning.
+            logger.warning("Skipping built-in zoo preset %s, which fails validation: %s", path.name, exc)
             continue
         entries[path.stem] = config
     return entries

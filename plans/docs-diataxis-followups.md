@@ -40,11 +40,6 @@ Things the docs restructure (`plans/docs-diataxis.md`) found or deliberately lef
   compatibility. Remove it when nf-core/drugresponseeval stops passing it.
 - **`docs/readme.rst`** still describes DrEvalPy as a "cancer cell line" suite. The plan
   deletes the page in Wave 3.
-- **The zoo loader silently drops a preset that fails validation** (code).
-  `models/zoo/__init__.py::_load_builtin_entries` wraps the validation in a bare
-  `except ValueError: continue`, so a zoo file whose components no longer fit (for example after
-  the enforced `required_*_blocks` check) disappears from `drevalpy list zoo-presets` and from
-  `ModelSpec.from_name` without a message. Log the reason or fail the load.
 - **`tissue:identity:elasticNet` predicts a constant on GDSC2 + CTRPv2 LStO without tuning**
   (code). Its Pearson correlation is then undefined. The cross-study how-to pages therefore
   use the naive baselines for their examples.
