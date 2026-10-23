@@ -36,6 +36,7 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         standardize: bool = True,
         minmax_scale: bool = False,
         arcsinh: bool = True,
+        fit_on_pairs: bool = False,
     ) -> None:
         """Configure the landmark-gene selection and preprocessing.
 
@@ -44,12 +45,15 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         :param standardize: Z-score the selected genes with a scaler fit on the training samples.
         :param minmax_scale: Min-max scale after standardization; only applied when *standardize* is set.
         :param arcsinh: Apply ``arcsinh`` to the selected genes before scaling.
+        :param fit_on_pairs: Fit the scalers on the training pairs, so a sample counts once per pair, as the
+            DrEvalPy 1.6.1 PaccMann did, instead of once per sample.
         """
         super().__init__(view=view)
         self._gene_list_stem = gene_list_stem
         self._standardize = standardize
         self._minmax_scale = minmax_scale
         self._arcsinh = arcsinh
+        self._fit_on_pairs = fit_on_pairs
         self._scaler: StandardScaler | None = None
         self._minmax: MinMaxScaler | None = None
 
@@ -60,6 +64,25 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         :returns: Gene names in gene-list order.
         """
         return select_genes(source, self._view, self._gene_list_stem)
+
+    def _fit_entity_ids(
+        self,
+        source: FeatureSource,
+        entity_ids: np.ndarray | None,
+        pair_expanded_ids: np.ndarray | None,
+        pair_expanded_es_ids: np.ndarray | None,
+    ) -> np.ndarray:
+        """Fit on the training pairs when ``fit_on_pairs`` is set, else on the given samples.
+
+        :param source: Feature source providing view matrices.
+        :param entity_ids: Explicit fit IDs, or ``None`` for all identifiers.
+        :param pair_expanded_ids: Training sample IDs with duplicates per response pair.
+        :param pair_expanded_es_ids: Unused early-stopping IDs.
+        :returns: IDs whose rows the scalers read.
+        """
+        if self._fit_on_pairs and pair_expanded_ids is not None:
+            return pair_expanded_ids
+        return super()._fit_entity_ids(source, entity_ids, pair_expanded_ids, pair_expanded_es_ids)
 
     def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
         """Fit the optional scalers on the landmark-gene columns.
@@ -148,6 +171,7 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
             "standardize": self._standardize,
             "minmax_scale": self._minmax_scale,
             "arcsinh": self._arcsinh,
+            "fit_on_pairs": self._fit_on_pairs,
             "scaler": self._scaler,
             "minmax": self._minmax,
             "fitted": True,
@@ -163,6 +187,8 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
             self._minmax_scale = bool(state["minmax_scale"])
         if "arcsinh" in state:
             self._arcsinh = bool(state["arcsinh"])
+        if "fit_on_pairs" in state:
+            self._fit_on_pairs = bool(state["fit_on_pairs"])
 
     def _restore_landmark_fit_state(self, state: dict[str, object]) -> None:
         from sklearn.preprocessing import MinMaxScaler, StandardScaler

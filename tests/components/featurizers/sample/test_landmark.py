@@ -184,3 +184,36 @@ def test_landmark_does_not_need_genes_outside_its_list(small_lists: tuple[str, .
         featurizer.transform(without_extra, without_extra.identifiers),
         featurizer.transform(fit_source, fit_source.identifiers),
     )
+
+
+def _pair_fit(fit_on_pairs: bool, small_lists: tuple[str, ...]) -> LandmarkGenesFeaturizer:
+    features = _source(small_lists, {"cl1": [1, 2, 3, 4], "cl2": [5, 8, 9, 20]})
+    pairs = np.array(["cl1", "cl1", "cl1", "cl2"])
+    return LandmarkGenesFeaturizer(arcsinh=False, fit_on_pairs=fit_on_pairs).fit(
+        features, entity_ids=np.array(["cl1", "cl2"]), pair_expanded_ids=pairs
+    )
+
+
+def test_landmark_fit_on_pairs_weights_each_sample_by_its_pair_count(small_lists: tuple[str, ...]) -> None:
+    per_pair = _pair_fit(True, small_lists)
+    per_sample = _pair_fit(False, small_lists)
+
+    np.testing.assert_allclose(per_pair._scaler.mean_, [2.0, 3.5, 4.5, 8.0])
+    np.testing.assert_allclose(per_sample._scaler.mean_, [3.0, 5.0, 6.0, 12.0])
+
+
+def test_landmark_fit_on_pairs_falls_back_to_the_samples_without_pairs(small_lists: tuple[str, ...]) -> None:
+    features = _source(small_lists, {"cl1": [1, 2, 3, 4], "cl2": [5, 8, 9, 20]})
+
+    featurizer = LandmarkGenesFeaturizer(arcsinh=False, fit_on_pairs=True).fit(
+        features, entity_ids=np.array(["cl1", "cl2"])
+    )
+
+    np.testing.assert_allclose(featurizer._scaler.mean_, [3.0, 5.0, 6.0, 12.0])
+
+
+def test_landmark_fit_on_pairs_survives_a_state_round_trip(small_lists: tuple[str, ...]) -> None:
+    restored = LandmarkGenesFeaturizer()
+    restored.set_state(_pair_fit(True, small_lists).get_state())
+
+    assert restored._fit_on_pairs is True
