@@ -337,6 +337,50 @@ SingleDrugElasticNet:
   proteomics_normalization_downshift:
     - 1.8
 
+# MORGOTH (https://github.com/volkamerlab/MORGOTH; Rolli et al., Digital Discovery 2026, 5(4), 1746-1764,
+# doi:10.1039/D5DD00284B). Multivariate random forest that learns class and response value jointly.
+# Optional package: pip install morgoth. The trees are pure Python; fast_split swaps the package's
+# quadratic split search for an equivalent vectorized one. mrmr_k (default 100, as in the paper)
+# selects that many genes from the gene list on the training fold only; null = full list (slow for
+# large lists). Threshold (quantile or absolute) and mRMR are derived
+# on the training fold only. max_features takes 'sqrt', 'log2' or a fraction in (0, 1]; sample_weights
+# none/simple/linear; no upsampling. impact_classification: share of the classification in the split
+# criterion (0 = regression only, 1 = classification only); tree_weights: class-aware aggregation
+# over the trees. n_jobs = number of processes of the package's hard-wired pool (-1 = all cores).
+SingleDrugMorgoth:
+  n_estimators:
+    - 500
+  min_samples_leaf:
+    - 10
+  max_features:
+    - sqrt
+  max_depth:
+    - 20
+  n_jobs:
+    - -1
+  random_state:
+    - 0
+  criterion_class:
+    - gini
+  criterion_reg:
+    - mse
+  fast_split:
+    - true
+  impact_classification:
+    - 0.5
+  tree_weights:
+    - true
+  sample_weights:
+    - simple
+  sensitivity_threshold_mode:
+    - quantile
+  sensitivity_quantile:
+    - 0.2
+  sensitive_side:
+    - low
+  mrmr_k:
+    - 100
+
 # One kNN per drug on the mrmr_k genes most relevant for this drug's response (mRMR, fitted on the training rows
 # only). mrmr_k: null/0 = no selection (all genes of gene_list).
 SingleDrugKNN:
