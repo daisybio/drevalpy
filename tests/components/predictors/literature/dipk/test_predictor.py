@@ -27,6 +27,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block, ragged_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_trainable_parameters_changed,
@@ -253,10 +254,12 @@ class TestGuards:
         assert predictor.is_fitted() is False
         assert predictor.get_state() == {}
 
-    def test_set_state_requires_hyperparameters(self) -> None:
-        with pytest.raises(PredictorStateError, match="hyperparameters dict"):
-            DIPKPredictor().set_state({"payload": b"x"})
+    def test_set_state_requires_a_payload_blob(self) -> None:
+        with pytest.raises(PredictorStateError, match="payload byte blob"):
+            DIPKPredictor().set_state({"payload": "not-bytes"})
 
-    def test_set_state_requires_payload_bytes(self) -> None:
-        with pytest.raises(PredictorStateError, match="payload bytes"):
-            DIPKPredictor().set_state({"hyperparameters": {}, "payload": "not-bytes"})
+    def test_set_state_requires_the_model_state(self) -> None:
+        payload = save_trusted_mapping({"predictor_hyperparameters": DIPKPredictor.get_default_hyperparameters()})
+
+        with pytest.raises(PredictorStateError, match="missing model_state"):
+            DIPKPredictor().set_state({"payload": payload})

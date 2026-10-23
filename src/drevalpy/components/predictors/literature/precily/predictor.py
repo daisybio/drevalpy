@@ -13,7 +13,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors._state_helpers import load_payload_state
 from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.literature._early_stopping import run_epoch
 from drevalpy.components.predictors.literature._metadata import PRECILY_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import (
     PairEvalSpec,
@@ -23,22 +25,19 @@ from drevalpy.components.predictors.literature._pair_predict import (
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.experiment._tracking import log_metrics
+from drevalpy.log import get_logger
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.tensor_data import make_pair_loader
-from drevalpy.utils.torch_io import (
-    load_state_dict,
-    load_trusted_mapping,
-    save_state_dict,
-    save_trusted_mapping,
-)
+from drevalpy.utils.torch_io import load_state_dict, save_state_dict, save_trusted_mapping
 
 if TYPE_CHECKING:
-    from torch import nn, optim
-    from torch.utils.data import DataLoader
+    import torch
 
     from .model_utils import PrecilyNetwork
+
+logger = get_logger(__name__)
 
 
 @register(
@@ -108,13 +107,14 @@ class PrecilyPredictor(BlockPredictor):
 
         :param batch: Training batch with pathways and smilesvec blocks.
         """
+        import torch
         import torch.nn as nn
         import torch.optim as optim
 
         pathway_entity, drug_entity = self._entity_blocks(batch)
         model = self._build_model(
             pathway_entity.shape[1] + drug_entity.shape[1],
-            self._hyperparameters.get("dropout", 0.1),
+            self._hyperparameters["dropout"],
         )
         self._model = model
 
@@ -128,43 +128,16 @@ class PrecilyPredictor(BlockPredictor):
 
         loss_func = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=self._hyperparameters["learning_rate"])
+
+        def batch_loss(loader_batch: tuple[torch.Tensor, ...]) -> torch.Tensor:
+            pathway_inputs, drug_inputs, targets = (tensor.to(self._device) for tensor in loader_batch)
+            return loss_func(model(torch.cat([pathway_inputs, drug_inputs], dim=1)), targets)
+
         epochs = self._hyperparameters["epochs"]
         for epoch in range(epochs):
-            epoch_loss = self._run_epoch(model, train_loader, loss_func, optimizer)
-            print(f"Precily: Epoch [{epoch + 1}/{epochs}] Training Loss: {epoch_loss:.4f}")
+            epoch_loss = run_epoch(model, train_loader, batch_loss, optimizer)
+            logger.info("Precily: Epoch [%d/%d] Training Loss: %.4f", epoch + 1, epochs, epoch_loss)
             log_metrics({"epoch": epoch + 1, "train_loss": epoch_loss})
-
-    def _run_epoch(
-        self,
-        model: PrecilyNetwork,
-        loader: DataLoader,
-        loss_func: nn.Module,
-        optimizer: optim.Optimizer,
-    ) -> float:
-        """Run one training epoch over *loader*.
-
-        :param model: Network being trained.
-        :param loader: Training loader yielding pathway, drug and target tensors.
-        :param loss_func: Loss function.
-        :param optimizer: Optimizer to step.
-        :returns: Mean epoch loss.
-        """
-        import torch
-
-        model.train()
-        epoch_loss = 0.0
-        batch_count = 0
-        for pathway_inputs, drug_inputs, targets in loader:
-            x = torch.cat([pathway_inputs.to(self._device), drug_inputs.to(self._device)], dim=1)
-            loss = loss_func(model(x), targets.to(self._device))
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            epoch_loss += loss.detach().item()
-            batch_count += 1
-        return epoch_loss / max(batch_count, 1)
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Run Precily inference on the given batch.
@@ -184,7 +157,7 @@ class PrecilyPredictor(BlockPredictor):
             PairEvalSpec(
                 sample_blocks=(pathway_entity,),
                 drug_blocks=(drug_entity,),
-                batch_size=self._hyperparameters.get("batch_size", 128),
+                batch_size=self._hyperparameters["batch_size"],
                 device=self._device,
             ),
             forward=concatenated_forward(self._model),
@@ -224,22 +197,12 @@ class PrecilyPredictor(BlockPredictor):
         :param state: Serialized state containing a payload byte blob.
         :raises PredictorStateError: If payload is missing or invalid.
         """
-        blob = state.get("payload")
-        if not isinstance(blob, (bytes, bytearray)):
-            msg = "PrecilyPredictor state requires a payload byte blob"
-            raise PredictorStateError(msg)
-        try:
-            payload = load_trusted_mapping(bytes(blob))
-        except Exception as exc:
-            msg = "PrecilyPredictor payload could not be deserialized"
-            raise PredictorStateError(msg) from exc
-        hyperparameters = payload.get("predictor_hyperparameters")
-        if not isinstance(hyperparameters, dict):
-            msg = "PrecilyPredictor payload is missing predictor_hyperparameters"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(hyperparameters)
+        payload = load_payload_state(state, "Precily")
         input_dim = payload.get("input_dim")
         model_state = payload.get("model_state")
-        if isinstance(input_dim, int) and isinstance(model_state, (bytes, bytearray)):
-            self._model = self._build_model(input_dim, float(hyperparameters.get("dropout", 0.1)))
-            self._model.load_state_dict(load_state_dict(bytes(model_state)))
+        if not isinstance(input_dim, int) or not isinstance(model_state, (bytes, bytearray)):
+            msg = "Precily payload is missing input_dim or model_state"
+            raise PredictorStateError(msg)
+        self._hyperparameters = dict(payload["predictor_hyperparameters"])
+        self._model = self._build_model(input_dim, float(self._hyperparameters["dropout"]))
+        self._model.load_state_dict(load_state_dict(bytes(model_state)))

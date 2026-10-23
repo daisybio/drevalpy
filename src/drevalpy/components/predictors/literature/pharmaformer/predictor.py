@@ -13,9 +13,11 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors._state_helpers import load_payload_state
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
+    run_epoch,
     train_with_early_stopping,
 )
 from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE
@@ -30,22 +32,23 @@ from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.tensor_data import make_pair_loader
-from drevalpy.utils.torch_io import (
-    load_state_dict,
-    load_trusted_mapping,
-    save_state_dict,
-    save_trusted_mapping,
-)
+from drevalpy.utils.torch_io import load_state_dict, save_state_dict, save_trusted_mapping
 
 if TYPE_CHECKING:
     import torch
-    from torch import nn, optim
     from torch.utils.data import DataLoader
 
     from .model_utils import CombinedModel
 
 
 def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any], device: torch.device) -> CombinedModel:
+    """Construct the combined PharmaFormer network on *device*.
+
+    :param gene_input_size: Width of the gene expression block.
+    :param hyperparameters: Hyperparameters holding the architecture keys.
+    :param device: Device the network is moved to.
+    :returns: Initialized network.
+    """
     from .model_utils import CombinedModel
 
     return CombinedModel(
@@ -54,60 +57,10 @@ def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any],
         drug_hidden_size=hyperparameters["drug_hidden_size"],
         feature_dim=hyperparameters["feature_dim"],
         nhead=hyperparameters["nhead"],
-        num_layers=hyperparameters.get("num_layers", 3),
-        dim_feedforward=hyperparameters.get("dim_feedforward", 2048),
-        dropout=hyperparameters.get("dropout", 0.1),
+        num_layers=hyperparameters["num_layers"],
+        dim_feedforward=hyperparameters["dim_feedforward"],
+        dropout=hyperparameters["dropout"],
     ).to(device)
-
-
-def _run_epoch(
-    model: CombinedModel,
-    loader: DataLoader,
-    loss_func: nn.Module,
-    optimizer: optim.Optimizer | None,
-    device: torch.device,
-) -> float:
-    """Run one train or validation epoch.
-
-    :param model: Combined PharmaFormer model.
-    :param loader: Training or validation data loader.
-    :param loss_func: Loss function.
-    :param optimizer: Optimizer for training; ``None`` for eval-only.
-    :param device: Torch device.
-    :returns: Mean epoch loss.
-    """
-    import torch
-
-    is_training = optimizer is not None
-    if is_training:
-        model.train()
-    else:
-        model.eval()
-
-    epoch_loss = 0.0
-    batch_count = 0
-
-    context = torch.enable_grad() if is_training else torch.no_grad()
-    with context:
-        for gene_inputs, smiles_inputs, batch_targets in loader:
-            gene_inputs = gene_inputs.to(device)
-            smiles_inputs = smiles_inputs.to(device)
-            batch_targets = batch_targets.to(device)
-
-            outputs = model(gene_inputs, smiles_inputs)
-            loss = loss_func(outputs.squeeze(), batch_targets)
-
-            if is_training and optimizer is not None:
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                epoch_loss += loss.detach().item()
-            else:
-                epoch_loss += loss.item()
-
-            batch_count += 1
-
-    return epoch_loss / max(batch_count, 1)
 
 
 @register(
@@ -234,17 +187,21 @@ class PharmaFormerPredictor(BlockPredictor):
         loss_func = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=self._hyperparameters["lr"])
 
+        def batch_loss(loader_batch: tuple[torch.Tensor, ...]) -> torch.Tensor:
+            gene_inputs, smiles_inputs, targets = (tensor.to(self._device) for tensor in loader_batch)
+            return loss_func(model(gene_inputs, smiles_inputs).squeeze(), targets)
+
         train_with_early_stopping(
             model,
             EarlyStoppingRun(
                 epochs=self._hyperparameters["epochs"],
-                patience=self._hyperparameters.get("patience", 10),
+                patience=self._hyperparameters["patience"],
                 checkpoint_dir=batch.training_context.checkpoint_dir,
                 model_name="PharmaFormer",
                 verbose=True,
             ),
-            train_epoch=lambda: _run_epoch(model, train_loader, loss_func, optimizer, self._device),
-            val_epoch=lambda: _run_epoch(model, val_loader, loss_func, None, self._device),
+            train_epoch=lambda: run_epoch(model, train_loader, batch_loss, optimizer),
+            val_epoch=lambda: run_epoch(model, val_loader, batch_loss, None),
             device=self._device,
         )
 
@@ -266,7 +223,7 @@ class PharmaFormerPredictor(BlockPredictor):
             PairEvalSpec(
                 sample_blocks=(gene_entity,),
                 drug_blocks=(drug_entity,),
-                batch_size=self._hyperparameters.get("batch_size", 64),
+                batch_size=self._hyperparameters["batch_size"],
                 device=self._device,
             ),
         )
@@ -298,24 +255,13 @@ class PharmaFormerPredictor(BlockPredictor):
         :param state: Serialized state containing a payload byte blob.
         :raises PredictorStateError: If payload is missing or invalid.
         """
-        blob = state.get("payload")
-        if not isinstance(blob, (bytes, bytearray)):
-            msg = "PharmaFormerPredictor state requires a payload byte blob"
-            raise PredictorStateError(msg)
-        try:
-            payload = load_trusted_mapping(bytes(blob))
-        except Exception as exc:
-            msg = "PharmaFormerPredictor payload could not be deserialized"
-            raise PredictorStateError(msg) from exc
-        hyperparameters = payload.get("predictor_hyperparameters")
-        if not isinstance(hyperparameters, dict):
-            msg = "PharmaFormerPredictor payload is missing predictor_hyperparameters"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(hyperparameters)
+        payload = load_payload_state(state, "PharmaFormer")
         gene_input_size = payload.get("gene_input_size")
         model_state = payload.get("model_state")
-        if isinstance(gene_input_size, int) and isinstance(model_state, (bytes, bytearray)):
-            self._gene_input_size = gene_input_size
-            self._model = _build_combined_model(gene_input_size, self._hyperparameters, self._device)
-            self._model.load_state_dict(load_state_dict(bytes(model_state)))
-            self._model.to(self._device)
+        if not isinstance(gene_input_size, int) or not isinstance(model_state, (bytes, bytearray)):
+            msg = "PharmaFormer payload is missing gene_input_size or model_state"
+            raise PredictorStateError(msg)
+        self._hyperparameters = dict(payload["predictor_hyperparameters"])
+        self._gene_input_size = gene_input_size
+        self._model = _build_combined_model(gene_input_size, self._hyperparameters, self._device)
+        self._model.load_state_dict(load_state_dict(bytes(model_state)))

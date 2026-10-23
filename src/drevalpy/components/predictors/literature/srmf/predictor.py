@@ -13,13 +13,14 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors._state_helpers import load_payload_state
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.utils.torch_io import load_trusted_mapping, save_trusted_mapping
+from drevalpy.utils.torch_io import save_trusted_mapping
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -51,30 +52,6 @@ class SRMFPredictor(BlockPredictor):
         self._best_u: pd.DataFrame = pd.DataFrame()
         self._best_v: pd.DataFrame = pd.DataFrame()
         self._training_mean: float = 0.0
-
-    @property
-    def _k(self) -> int:
-        return int(self._hyperparameters.get("K", 45))
-
-    @property
-    def _lambda_l(self) -> float:
-        return float(self._hyperparameters.get("lambda_l", 0.01))
-
-    @property
-    def _lambda_d(self) -> float:
-        return float(self._hyperparameters.get("lambda_d", 0.0))
-
-    @property
-    def _lambda_c(self) -> float:
-        return float(self._hyperparameters.get("lambda_c", 0.01))
-
-    @property
-    def _max_iter(self) -> int:
-        return int(self._hyperparameters.get("max_iter", 50))
-
-    @property
-    def _seed(self) -> int:
-        return int(self._hyperparameters.get("seed", 1))
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
@@ -240,25 +217,20 @@ class SRMFPredictor(BlockPredictor):
         :param state: Serialized state containing a payload byte blob.
         :raises PredictorStateError: If payload is missing or invalid.
         """
-        blob = state.get("payload")
-        if not isinstance(blob, (bytes, bytearray)):
-            msg = f"{self.__class__.__name__} state requires a payload byte blob"
-            raise PredictorStateError(msg)
-        try:
-            payload = load_trusted_mapping(bytes(blob))
-        except Exception as exc:
-            msg = f"{self.__class__.__name__} payload could not be deserialized"
-            raise PredictorStateError(msg) from exc
-        hyperparameters = payload.get("predictor_hyperparameters")
-        if not isinstance(hyperparameters, dict):
-            msg = f"{self.__class__.__name__} payload is missing predictor_hyperparameters"
-            raise PredictorStateError(msg)
         import pandas as pd
 
-        self._hyperparameters = dict(hyperparameters)
-        self._best_u = pd.DataFrame(**payload["best_u"])
-        self._best_v = pd.DataFrame(**payload["best_v"])
-        self._training_mean = float(payload.get("training_mean", 0.0))
+        payload = load_payload_state(state, "SRMF")
+        try:
+            best_u = pd.DataFrame(**payload["best_u"])
+            best_v = pd.DataFrame(**payload["best_v"])
+            training_mean = float(payload["training_mean"])
+        except (KeyError, TypeError) as exc:
+            msg = "SRMF payload is missing best_u, best_v or training_mean"
+            raise PredictorStateError(msg) from exc
+        self._hyperparameters = dict(payload["predictor_hyperparameters"])
+        self._best_u = best_u
+        self._best_v = best_v
+        self._training_mean = training_mean
 
     # ------------------------------------------------------------------
     # SRMF algorithm internals
@@ -279,10 +251,13 @@ class SRMFPredictor(BlockPredictor):
         :param cell_mat: Sample similarity matrix.
         :returns: Best drug and sample latent factors.
         """
-        rng = np.random.default_rng(self._seed)
+        hp = self._hyperparameters
+        k = int(hp["K"])
+        lambda_l, lambda_d, lambda_c = float(hp["lambda_l"]), float(hp["lambda_d"]), float(hp["lambda_c"])
+        rng = np.random.default_rng(int(hp["seed"]))
         m, n = w.shape
-        u0 = np.sqrt(1 / self._k) * rng.standard_normal(size=(m, self._k))
-        v0 = np.sqrt(1 / self._k) * rng.standard_normal(size=(n, self._k))
+        u0 = np.sqrt(1 / k) * rng.standard_normal(size=(m, k))
+        v0 = np.sqrt(1 / k) * rng.standard_normal(size=(n, k))
 
         best_u, best_v = u0, v0
 
@@ -290,9 +265,9 @@ class SRMFPredictor(BlockPredictor):
         best_loss = last_loss
         wr = w * int_mat
 
-        for _ in range(self._max_iter):
-            u = self._alg_update(u0, v0, w, wr, drug_mat, self._lambda_l, self._lambda_d)
-            v = self._alg_update(v0, u, w.T, wr.T, cell_mat, self._lambda_l, self._lambda_c)
+        for _ in range(int(hp["max_iter"])):
+            u = self._alg_update(u0, v0, w, wr, drug_mat, lambda_l, lambda_d)
+            v = self._alg_update(v0, u, w.T, wr.T, cell_mat, lambda_l, lambda_c)
             curr_loss = self._compute_loss(u, v, w, int_mat, drug_mat, cell_mat)
 
             if curr_loss < best_loss:
@@ -328,9 +303,10 @@ class SRMFPredictor(BlockPredictor):
         :returns: Total loss value.
         """
         loss = np.sum((w * (int_mat - np.dot(u, v.T))) ** 2)
-        loss += self._lambda_l * (np.sum(u**2) + np.sum(v**2))
-        loss += self._lambda_d * np.sum((drug_mat - np.dot(u, u.T)) ** 2)
-        loss += self._lambda_c * np.sum((cell_mat - np.dot(v, v.T)) ** 2)
+        hp = self._hyperparameters
+        loss += float(hp["lambda_l"]) * (np.sum(u**2) + np.sum(v**2))
+        loss += float(hp["lambda_d"]) * np.sum((drug_mat - np.dot(u, u.T)) ** 2)
+        loss += float(hp["lambda_c"]) * np.sum((cell_mat - np.dot(v, v.T)) ** 2)
         return loss
 
     @staticmethod

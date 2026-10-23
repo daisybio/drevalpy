@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors._state_helpers import load_payload_state
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import (
@@ -27,7 +28,7 @@ from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.tensor_data import make_pair_loader
-from drevalpy.utils.torch_io import load_state_dict, load_trusted_mapping, save_state_dict, save_trusted_mapping
+from drevalpy.utils.torch_io import load_state_dict, save_state_dict, save_trusted_mapping
 
 if TYPE_CHECKING:
     from torch.utils.data import DataLoader
@@ -138,28 +139,32 @@ class SparseGOPredictor(BlockPredictor):
         """
         return {}
 
-    def _build_network(self) -> None:
+    def _build_network(self) -> SparseGONetwork:
         """Construct the SparseGONetwork from stored ontology metadata and hyperparameters.
 
+        :returns: The new network, also stored on ``self._model``.
         :raises ValueError: If ontology metadata is not available.
         """
         from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork
 
         if self._layer_connections is None or self._gene2id_mapping_ont is None:
             raise ValueError("SparseGO ontology metadata must be provided before building the network.")
-        self._model = SparseGONetwork(
+        hp = self._hyperparameters
+        model = SparseGONetwork(
             layer_connections=self._layer_connections,
-            num_neurons_per_go=self._hyperparameters.get("num_neurons_per_GO", 6),
-            num_neurons_per_final_go=self._hyperparameters.get("num_neurons_per_final_GO", 6),
-            num_neurons_drug=self._hyperparameters.get("num_neurons_drug", [200, 100, 50]),
-            num_neurons_final=self._hyperparameters.get("num_neurons_final", 12),
-            drug_dim=self._hyperparameters.get("drug_dim", 2048),
+            num_neurons_per_go=hp["num_neurons_per_GO"],
+            num_neurons_per_final_go=hp["num_neurons_per_final_GO"],
+            num_neurons_drug=hp["num_neurons_drug"],
+            num_neurons_final=hp["num_neurons_final"],
+            drug_dim=hp["drug_dim"],
             gene2id_mapping=self._gene2id_mapping_ont,
-            p_drop_final=self._hyperparameters.get("p_drop_final", 0.0),
-            p_drop_genes=self._hyperparameters.get("p_drop_genes", 0.1),
-            p_drop_terms=self._hyperparameters.get("p_drop_terms", 0.1),
-            p_drop_drugs=self._hyperparameters.get("p_drop_drugs", 0.1),
+            p_drop_final=hp["p_drop_final"],
+            p_drop_genes=hp["p_drop_genes"],
+            p_drop_terms=hp["p_drop_terms"],
+            p_drop_drugs=hp["p_drop_drugs"],
         ).to(self._device)
+        self._model = model
+        return model
 
     def _entity_matrices(self, batch: ModelInputBatch, active_view: str) -> tuple[np.ndarray, np.ndarray]:
         """Return the entity-level sample and fingerprint matrices as float32.
@@ -185,7 +190,7 @@ class SparseGOPredictor(BlockPredictor):
             (cell_entity, batch.sample_pair_idx),
             (drug_entity, require_drug_pair_idx(batch.drug_pair_idx)),
             response=np.asarray(batch.response, dtype=np.float32).reshape(-1, 1),
-            batch_size=self._hyperparameters.get("batch_size", 10000),
+            batch_size=self._hyperparameters["batch_size"],
             shuffle=True,
         )
 
@@ -193,7 +198,7 @@ class SparseGOPredictor(BlockPredictor):
         """Train SparseGO on the batch.
 
         :param batch: Training batch with responses and sample/drug blocks.
-        :raises ValueError: If ontology metadata is missing or network build fails.
+        :raises ValueError: If ontology metadata is missing.
         """
         active_view = _resolve_active_view(batch)
         block = batch.sample.blocks[active_view]
@@ -206,12 +211,8 @@ class SparseGOPredictor(BlockPredictor):
 
         blocks = self._entity_matrices(batch, active_view)
         self._hyperparameters["drug_dim"] = int(blocks[1].shape[1])
-        self._build_network()
-        if self._model is None:
-            msg = "SparseGO network build failed"
-            raise ValueError(msg)
-
-        self._run_training(self._model, self._build_train_loader(batch, blocks))
+        model = self._build_network()
+        self._run_training(model, self._build_train_loader(batch, blocks))
 
     def _run_training(self, model: SparseGONetwork, loader: DataLoader) -> None:
         """Run the SGD training loop with the paper's per-epoch learning-rate decay.
@@ -222,17 +223,17 @@ class SparseGOPredictor(BlockPredictor):
         import torch
         import torch.nn as nn
 
-        lr = self._hyperparameters.get("learning_rate", 0.1)
-        decay_rate = self._hyperparameters.get("decay_rate", 0.002)
+        lr = self._hyperparameters["learning_rate"]
+        decay_rate = self._hyperparameters["decay_rate"]
         criterion = nn.MSELoss()
         optimizer = torch.optim.SGD(
             model.parameters(),
             lr=lr,
-            momentum=self._hyperparameters.get("momentum", 0.9),
+            momentum=self._hyperparameters["momentum"],
         )
 
         model.train()
-        for epoch in range(self._hyperparameters.get("epochs", 100)):
+        for epoch in range(self._hyperparameters["epochs"]):
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr * (1 / (1 + decay_rate * epoch))
 
@@ -260,7 +261,7 @@ class SparseGOPredictor(BlockPredictor):
             PairEvalSpec(
                 sample_blocks=(cell_entity,),
                 drug_blocks=(drug_entity,),
-                batch_size=self._hyperparameters.get("batch_size", 10000),
+                batch_size=self._hyperparameters["batch_size"],
                 device=self._device,
             ),
             forward=concatenated_forward(self._model),
@@ -298,30 +299,18 @@ class SparseGOPredictor(BlockPredictor):
         :param state: Serialized state containing a payload byte blob.
         :raises PredictorStateError: If the payload is missing or invalid.
         """
-        blob = state.get("payload")
-        if not isinstance(blob, (bytes, bytearray)):
-            msg = "SparseGOPredictor state requires a payload byte blob"
-            raise PredictorStateError(msg)
-        try:
-            payload = load_trusted_mapping(bytes(blob))
-        except Exception as exc:
-            msg = "SparseGOPredictor payload could not be deserialized"
-            raise PredictorStateError(msg) from exc
-
-        hyperparameters = payload.get("predictor_hyperparameters")
-        if not isinstance(hyperparameters, dict):
-            msg = "SparseGOPredictor payload is missing predictor_hyperparameters"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(hyperparameters)
-
-        preload = payload.get("preload")
-        if isinstance(preload, dict):
-            self._layer_connections = preload.get("layer_connections")
-            self._gene2id_mapping_ont = preload.get("gene2id_mapping_ont")
-            self._ontology_gene_order = preload.get("ontology_gene_order")
-
-        self._build_network()
-
+        payload = load_payload_state(state, "SparseGO")
         model_state = payload.get("model_state")
-        if isinstance(model_state, (bytes, bytearray)) and self._model is not None:
-            self._model.load_state_dict(load_state_dict(bytes(model_state)))
+        preload = payload.get("preload")
+        if not isinstance(model_state, (bytes, bytearray)):
+            msg = "SparseGO payload is missing model_state"
+            raise PredictorStateError(msg)
+        if not isinstance(preload, dict):
+            msg = "SparseGO payload is missing preload"
+            raise PredictorStateError(msg)
+
+        self._hyperparameters = dict(payload["predictor_hyperparameters"])
+        self._layer_connections = preload["layer_connections"]
+        self._gene2id_mapping_ont = preload["gene2id_mapping_ont"]
+        self._ontology_gene_order = preload["ontology_gene_order"]
+        self._build_network().load_state_dict(load_state_dict(bytes(model_state)))

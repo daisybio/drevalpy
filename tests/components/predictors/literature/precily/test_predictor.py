@@ -6,9 +6,11 @@ import numpy as np
 import pytest
 
 from drevalpy.components.predictors.literature.precily.predictor import PrecilyPredictor
+from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.experiment._tracking import tracking_run
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from drevalpy.utils.torch_io import save_trusted_mapping
 from tests._fake_wandb import install_fake_wandb
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
@@ -60,6 +62,31 @@ class TestTinyPrecilyFit:
         restored = PrecilyPredictor()
         restored.set_state(predictor.get_state())
         np.testing.assert_allclose(expected, restored.predict(batch), rtol=1e-5, atol=1e-5)
+
+
+def test_set_state_requires_the_model_state() -> None:
+    payload = save_trusted_mapping(
+        {"predictor_hyperparameters": PrecilyPredictor.get_default_hyperparameters(), "input_dim": 8}
+    )
+
+    with pytest.raises(PredictorStateError, match="missing input_dim or model_state"):
+        PrecilyPredictor().set_state({"payload": payload})
+
+
+def test_epoch_losses_are_logged_not_printed(caplog, capsys) -> None:
+    batch = two_by_two_batch(
+        sample_blocks={"pathways": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
+        drug_blocks={"smilesvec": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
+    )
+
+    with caplog.at_level("INFO", logger="drevalpy"):
+        PrecilyPredictor({"epochs": 2, "batch_size": 4, "dropout": 0.0, "learning_rate": 0.01}).fit(batch)
+
+    assert [record.getMessage()[:25] for record in caplog.records if "Training Loss" in record.getMessage()] == [
+        "Precily: Epoch [1/2] Trai",
+        "Precily: Epoch [2/2] Trai",
+    ]
+    assert capsys.readouterr().out == ""
 
 
 def test_epochs_are_logged_to_the_active_tracking_run(monkeypatch) -> None:

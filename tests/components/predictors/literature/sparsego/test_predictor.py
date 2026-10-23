@@ -20,6 +20,7 @@ from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_trainable_parameters_changed,
@@ -216,3 +217,19 @@ class TestGuards:
     def test_set_state_rejects_an_undeserializable_payload(self) -> None:
         with pytest.raises(PredictorStateError, match="could not be deserialized"):
             SparseGOPredictor().set_state({"payload": b"not a torch checkpoint"})
+
+    def test_set_state_requires_the_model_state(self) -> None:
+        payload = save_trusted_mapping(
+            {"predictor_hyperparameters": SparseGOPredictor.get_default_hyperparameters(), "preload": {}}
+        )
+
+        with pytest.raises(PredictorStateError, match="missing model_state"):
+            SparseGOPredictor().set_state({"payload": payload})
+
+    def test_set_state_requires_the_ontology_preload(self) -> None:
+        payload = save_trusted_mapping(
+            {"predictor_hyperparameters": SparseGOPredictor.get_default_hyperparameters(), "model_state": b"x"}
+        )
+
+        with pytest.raises(PredictorStateError, match="missing preload"):
+            SparseGOPredictor().set_state({"payload": payload})

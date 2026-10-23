@@ -10,10 +10,12 @@ from drevalpy.components.predictors.literature.pharmaformer.predictor import (
     PharmaFormerPredictor,
     _build_combined_model,
 )
+from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_trainable_parameters_changed,
@@ -25,6 +27,15 @@ from tests.components.predictors.literature._helpers import (
 
 def test_pharmaformer_predictor_registry_name() -> None:
     assert get_predictor("pharmaFormer") is PharmaFormerPredictor
+
+
+def test_set_state_requires_the_model_state() -> None:
+    payload = save_trusted_mapping(
+        {"predictor_hyperparameters": PharmaFormerPredictor.get_default_hyperparameters(), "gene_input_size": 6}
+    )
+
+    with pytest.raises(PredictorStateError, match="missing gene_input_size or model_state"):
+        PharmaFormerPredictor().set_state({"payload": payload})
 
 
 def _trainable_batch(tmp_path) -> ModelInputBatch:

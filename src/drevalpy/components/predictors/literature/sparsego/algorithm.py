@@ -263,20 +263,6 @@ class SparseGONetwork(nn.Module):
         self.add_module("final_aux_tanh", nn.Tanh())
         self.add_module("final_linear_layer_output", nn.Linear(1, 1))
 
-    def _m(self, name: str) -> nn.Module:
-        """Get a registered submodule by name.
-
-        :param name: Module name as registered via add_module.
-
-        :returns: The submodule.
-
-        :raises ValueError: if the module is not found.
-        """
-        module = self._modules[name]
-        if module is None:
-            raise ValueError(f"Module '{name}' not found")
-        return module
-
     def _genes_layer(self, genes_terms_pairs: np.ndarray, p_drop_genes: float, gene2id: dict) -> dict:
         """Build the first sparse layer connecting genes to GO terms.
 

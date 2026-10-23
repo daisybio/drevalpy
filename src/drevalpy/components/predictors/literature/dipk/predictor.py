@@ -14,9 +14,11 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors._state_helpers import load_payload_state
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
+    run_epoch,
     train_with_early_stopping,
 )
 from drevalpy.components.predictors.literature._metadata import DIPK_REFERENCE
@@ -25,11 +27,10 @@ from drevalpy.models.config import PredictionMode
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.utils.torch_io import load_state_dict, save_state_dict
+from drevalpy.utils.torch_io import load_state_dict, save_state_dict, save_trusted_mapping
 
 if TYPE_CHECKING:
     import torch
-    from torch import nn, optim
     from torch.utils.data import DataLoader
 
     from .model_utils import Predictor as DIPKNetwork
@@ -198,6 +199,7 @@ class DIPKPredictor(BlockPredictor):
 
         :param batch: Featurized batch with gene_expression, bionic_features, molgnet_features blocks.
         """
+        import torch
         from torch import nn, optim
 
         train_loader, es_loader = self._build_loaders(batch)
@@ -209,6 +211,10 @@ class DIPKPredictor(BlockPredictor):
         loss_func = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=hp["lr"])
 
+        def batch_loss(dl_batch: dict[str, torch.Tensor]) -> torch.Tensor:
+            prediction = self._forward(model, dl_batch)
+            return loss_func(torch.squeeze(prediction), torch.squeeze(dl_batch["ic50_values"].to(self._device)))
+
         train_with_early_stopping(
             model,
             EarlyStoppingRun(
@@ -217,49 +223,10 @@ class DIPKPredictor(BlockPredictor):
                 checkpoint_dir=batch.training_context.checkpoint_dir,
                 model_name="DIPK",
             ),
-            train_epoch=lambda: self._run_epoch(model, train_loader, loss_func, optimizer),
-            val_epoch=lambda: self._run_epoch(model, es_loader, loss_func, None),
+            train_epoch=lambda: run_epoch(model, train_loader, batch_loss, optimizer),
+            val_epoch=lambda: run_epoch(model, es_loader, batch_loss, None),
             device=self._device,
         )
-
-    def _run_epoch(
-        self,
-        model: DIPKNetwork,
-        loader: DataLoader,
-        loss_func: nn.Module,
-        optimizer: optim.Optimizer | None,
-    ) -> float:
-        """Run one train or validation epoch.
-
-        :param model: The DIPK network.
-        :param loader: Training or validation loader.
-        :param loss_func: Loss function.
-        :param optimizer: Optimizer for training; ``None`` for eval-only.
-        :returns: Mean epoch loss.
-        """
-        import torch
-
-        is_training = optimizer is not None
-        model.train(is_training)
-
-        epoch_loss = 0.0
-        batch_count = 0
-        context = torch.enable_grad() if is_training else torch.no_grad()
-        with context:
-            for dl_batch in loader:
-                prediction = self._forward(model, dl_batch)
-                loss = loss_func(torch.squeeze(prediction), torch.squeeze(dl_batch["ic50_values"].to(self._device)))
-
-                if optimizer is not None:
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-                    epoch_loss += loss.detach().item()
-                else:
-                    epoch_loss += loss.item()
-                batch_count += 1
-
-        return epoch_loss / max(batch_count, 1)
 
     def _forward(self, model: DIPKNetwork, dl_batch: dict[str, torch.Tensor]) -> torch.Tensor:
         """Move one collated batch onto the device and run the network.
@@ -314,33 +281,30 @@ class DIPKPredictor(BlockPredictor):
     def get_state(self) -> dict[str, object]:
         """Serialize fitted model state for persistence.
 
-        :returns: Mapping with binary payload and hyperparameters.
+        :returns: Mapping with a binary payload blob when fitted, else empty.
         """
         if self._model is None:
             return {}
-        return {
-            "payload": save_state_dict(self._model.state_dict()),
-            "hyperparameters": dict(self._hyperparameters),
+        payload: dict[str, Any] = {
+            "predictor_hyperparameters": dict(self._hyperparameters),
+            "model_state": save_state_dict(self._model.state_dict()),
         }
+        return {"payload": save_trusted_mapping(payload)}
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore fitted model from serialized state.
 
         :param state: State mapping from ``get_state``.
-        :raises PredictorStateError: If state is malformed.
+        :raises PredictorStateError: If the payload is missing, invalid or lacks ``model_state``.
         """
-        hp = state.get("hyperparameters")
-        if not isinstance(hp, dict):
-            msg = "DIPKPredictor state requires hyperparameters dict"
+        payload = load_payload_state(state, "DIPK")
+        model_state = payload.get("model_state")
+        if not isinstance(model_state, (bytes, bytearray)):
+            msg = "DIPK payload is missing model_state"
             raise PredictorStateError(msg)
-        self._hyperparameters = dict(hp)
-        model_bytes = state.get("payload")
-        if not isinstance(model_bytes, (bytes, bytearray)):
-            msg = "DIPKPredictor state requires payload bytes"
-            raise PredictorStateError(msg)
+        self._hyperparameters = dict(payload["predictor_hyperparameters"])
         self._model = self._build_model()
-        self._model.load_state_dict(load_state_dict(bytes(model_bytes)))
-        self._model.to(self._device)
+        self._model.load_state_dict(load_state_dict(bytes(model_state)))
 
 
 class _CollateFn:

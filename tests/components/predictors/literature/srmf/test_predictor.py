@@ -12,6 +12,7 @@ from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredict
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_training_predictions,
@@ -28,6 +29,13 @@ def test_structured_predictor_set_state_raises_on_invalid_blob() -> None:
     predictor = SRMFPredictor()
     with pytest.raises(PredictorStateError):
         predictor.set_state({"payload": b"invalid"})
+
+
+def test_set_state_requires_the_latent_factors() -> None:
+    payload = save_trusted_mapping({"predictor_hyperparameters": SRMFPredictor.get_default_hyperparameters()})
+
+    with pytest.raises(PredictorStateError, match="missing best_u"):
+        SRMFPredictor().set_state({"payload": payload})
 
 
 def test_unseen_entity_pairs_fall_back_to_the_training_mean() -> None:
