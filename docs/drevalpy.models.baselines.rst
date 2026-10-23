@@ -163,24 +163,129 @@ Where the tables come from. All scripts are in ``drevalpy/datasets/featurizer/``
   Without arguments the script uses every ``<data_path>/*/cell_line_names.csv`` and ``mutations.csv``, so the matrix
   covers all datasets in ``data_path``.
 - ``curated_drug_target_variant.csv`` is built by ``drevalpy/datasets/featurizer/create_curated_drug_target_table.py``
-  from the hand-kept seed ``target_mutation_seed.csv`` (drug, ``pubchem_id``, main target gene, sensitizing status,
-  rationale in ``notes``). It does not read any response data, so the table is the same for every dataset and the
-  evaluation does not depend on how it was curated. The script only drops entries that the status matrix cannot
-  represent: drivers that are fusions or amplifications (ALK, MET, ERBB2, FGFR1, FGFR4). It also writes
-  ``curated_drug_target_report.csv`` with the outcome per seed entry.
-- Origin of ``target_mutation_seed.csv`` (95 drugs, column ``origin``): 48 rows (``existing``) are the hand-curated
-  entries of the first release of the table, made for CTRPv2. 47 rows (``draft``) were added later for drugs of GDSC1
-  that act on one of the genes of the status matrix. Every row gives the main target gene and the sensitizing status
-  from the known mechanism of action, with the rationale in ``notes``. The rows carry no literature reference each, and
-  the ``draft`` rows were not validated against the response data on purpose. Drugs that GDSC1 lists under a code name
-  use that code name as ``pubchem_id``. To add a drug, append a row to the seed with a unique ``pubchem_id`` and run the
-  curation script again; the column ``origin`` is only bookkeeping and is not written to the curated table.
-  Flow: seed -> ``create_curated_drug_target_table.py`` (drops entries on fusion or amplification drivers, validates
-  status values and duplicates) -> ``curated_drug_target_variant.csv`` and ``curated_drug_target_report.csv`` -> read by
-  ``TargetMutationFeatures`` at model build time.
+  from the seed table ``target_mutation_seed.csv`` (next bullet). It does not read any response data, so the table is
+  the same for every dataset and the evaluation does not depend on how it was curated. The seed can hold several
+  biomarker genes per drug, the model uses one, so the script keeps exactly one row per drug. Candidates are the rows
+  whose gene the status matrix can represent; drivers that are fusions or amplifications (ALK, MET, ERBB2, FGFR1,
+  FGFR4) and genes outside the matrix are dropped. Among the candidates the row with the best CIViC ``evidence_level``
+  wins (A before E, rules without a level last), then the one with the most ``n_evidence_items``, then the first in the
+  seed. The script also writes ``curated_drug_target_report.csv`` with the outcome per seed row (``kept``, ``other row
+  of the drug selected``, ``not representable (fusion or amplification)`` or ``gene not in the status matrix``) and
+  checks the status values. If the seed file given with ``--seed`` (default: the shipped file) does not exist, the
+  script builds it first with ``create_target_mutation_seed.py`` (internet needed, about 15 minutes).
+- ``target_mutation_seed.csv`` links each drug to a biomarker gene and the alteration state associated with
+  sensitivity. It is derived from public databases by ``create_target_mutation_seed.py``, see
+  :ref:`target-mutation-seed` below. Drugs that a dataset lists under a code name and that have no entry in the
+  databases get no row and therefore only zeros in the block.
 - ``check_curated_drug_target_table.py`` is an optional diagnostic. For every drug it compares the AUC of the
   sensitizing group with all other cell lines (Cohen d, Mann-Whitney) in the given datasets and writes
   ``curated_drug_target_check.csv``. It changes nothing; it shows where an entry is not supported by the data.
+
+.. _target-mutation-seed:
+
+Creating the seed table
+~~~~~~~~~~~~~~~~~~~~~~~
+
+``create_target_mutation_seed.py`` creates ``target_mutation_seed.csv``. The script needs no input table: it reads the
+drug lists of the datasets that drevalpy provides and derives targets and biomarkers from public databases and
+literature at run time. No per-drug rule is supplied to the script, and no drug-response data is read.
+
+.. code-block:: bash
+
+    python -m drevalpy.datasets.featurizer.create_target_mutation_seed --data_path data --out target_mutation_seed.csv
+
+- ``--data_path`` (default ``data``): drevalpy data directory; ``<data_path>/<dataset>/drug_names.csv`` is used if
+  present.
+- ``--datasets`` (default: all drevalpy datasets): datasets to use, e.g. ``--datasets GDSC1 CTRPv2``.
+- ``--out`` (default ``target_mutation_seed.csv``): output file.
+- ``--no_remote``: do not fetch datasets that are not in ``--data_path``.
+- ``--min_pchembl`` (default ``7.0``): potency cutoff of the binding-activity target fallback (step 3).
+- ``--workers`` (default ``3``): parallel target look-ups.
+- ``--max_drugs``: process only the first N drugs (testing).
+- ``--email``: optional contact address passed to Europe PMC.
+
+It needs internet access to ``civicdb.org``, ``pubchem.ncbi.nlm.nih.gov``, ``www.ebi.ac.uk`` (ChEMBL, Europe PMC) and,
+for datasets that are not stored locally, ``zenodo.org``. For all 9 datasets (about 1,190 distinct drugs) it runs for
+roughly 15 minutes, dominated by the rate-limited PubChem and ChEMBL requests.
+
+What the script does:
+
+1. **Collects the drugs.** For every dataset in ``AVAILABLE_DATASETS`` (the derived ``CTRPv2_clean*`` variants are
+   skipped) the file ``drug_names.csv`` is read. A dataset that is not in ``--data_path`` is not downloaded: only that
+   one file is fetched from its Zenodo archive by HTTP range requests (for the TOY datasets from the nf-core test-data
+   repository). Drugs are merged by ``pubchem_id``, so the ``pubchem_id`` of the output is the one of the datasets.
+2. **Pulls all predictive evidence from CIViC** (GraphQL): every ``PREDICTIVE`` evidence item with significance
+   ``SENSITIVITYRESPONSE`` or ``RESISTANCE``, linking a therapy to a molecular profile (gene and variant) with an
+   evidence level and a PubMed ID. **Reviews are not used as evidence:** the publication type of every cited PubMed ID
+   is read from Europe PMC, and an item whose source is a review is skipped (counted in ``review_items_excluded``).
+   Sources without a PubMed ID (a DOI or conference abstract) cannot be typed and are kept.
+3. **Finds the target genes of the drug.** The ChEMBL molecule is found via the PubChem CID (for drugs without a
+   numeric CID by exact name). ``chembl_mechanism`` uses the targets of the mechanism-of-action records of the molecule
+   and of its parent. Only if there is no such record, ``chembl_binding_activity`` uses the human targets with potent
+   binding-assay activity (pChEMBL >= ``--min_pchembl``) and at least half as many measurements as the most-measured
+   target.
+4. **Matches the drug to a CIViC therapy** by any of its dataset names, then by PubChem and ChEMBL synonyms (for
+   example MK-1775 and adavosertib). A name that differs from ``drug_name`` is recorded in ``source``.
+5. **Direct rules.** Every target gene with CIViC sensitivity evidence for the drug yields one row. If none has, one
+   gene of the same pathway bucket (``RAS_MAPK``, ``PI3K_AKT``) as a target is used. Evidence on other genes
+   (combination partners, context) is ignored. For fusion profiles ``A::B`` only the 3' gene counts.
+6. **Indirect rules** (synthetic-lethal or dependence biomarkers that are not the target): PARP1/PARP2 inhibitors give
+   BRCA1, BRCA2, PALB2, ATM, RAD51C, RAD51D or BARD1 ``LoF``; MDM2/MDM4 inhibitors give TP53 ``wildtype``;
+   ATR/CHEK1/CHEK2/WEE1 inhibitors give TP53 ``LoF``. A rule is only written if it is confirmed: either CIViC has
+   evidence for the drug on that gene in the expected direction (``civic_predictive_indirect``), or, for compounds that
+   CIViC does not list, Europe PMC returns a primary paper that names the compound in its title
+   (``mechanism_literature``). Reviews and drug-screen papers (GDSC, CCLE) are rejected by title pattern.
+7. **Classifies the status** from the CIViC profile text, aware of the gene role: ``wildtype`` stays ``wildtype``;
+   loss of function, loss and inactivating give ``LoF``, and so does a plain mutation, deletion, frameshift or
+   truncation of a canonical tumour suppressor; everything else is ``activating``.
+8. **Writes the table** and prints a summary, including a warning if web requests still failed after retries (run
+   the script again to complete the affected drugs).
+
+The script embeds three small class-level tables, not per-drug rules: ``PATHWAY``, ``TSG`` (tumour suppressors) and
+``INDIRECT_MAP`` (step 6).
+
+Columns of the seed:
+
+========================= ===========================================================================================
+column                    description
+========================= ===========================================================================================
+``drug_name``             first name found in the datasets.
+``pubchem_id``            PubChem CID as used in the drevalpy datasets.
+``datasets``              drevalpy datasets containing the drug, separated by ``;``.
+``biomarker_gene``        gene whose alteration state is associated with sensitivity.
+``sensitive_status``      ``activating``, ``LoF`` or ``wildtype``.
+``target_genes``          target genes from ChEMBL, separated by ``;``.
+``target_source``         ``chembl_mechanism`` or ``chembl_binding_activity``.
+``evidence_type``         ``civic_predictive_target``, ``civic_predictive_pathway``, ``civic_predictive_indirect`` or
+                          ``mechanism_literature`` (steps 5 and 6).
+``evidence_level``        best CIViC level of the evidence used: A validated, B clinical, C case study, D preclinical,
+                          E inferential; empty for ``mechanism_literature``.
+``n_evidence_items``      number of CIViC evidence items used for this drug and gene (1 for ``mechanism_literature``).
+``review_items_excluded`` number of evidence items not used because their source is a review.
+``source``                the evidence: CIViC evidence IDs (at most five), level and PubMed IDs, or the paper that
+                          confirms a ``mechanism_literature`` rule.
+========================= ===========================================================================================
+
+The shipped seed was created on 2026-10-23 from all 9 datasets: 186 rules for 115 drugs (150 target, 5 pathway, 19
+indirect, 12 mechanism-literature; 151 ``activating``, 34 ``LoF``, 1 ``wildtype``). Of the 174 CIViC-based rules 42
+have best level A, 48 B, 23 C and 61 D or E. After the choice of one row per drug and the removal of genes that the
+status matrix cannot represent, 66 drugs remain in the curated table.
+
+Limitations:
+
+- The result depends on the live databases and changes with their releases; record the run date with the output.
+- Only drugs with evidence receive a rule: 606 of the 1,190 drugs have no target in ChEMBL (mostly combination
+  preparations and internal codes), and a rule needs CIViC evidence on a target gene or an indirect class.
+- ChEMBL records some targets at family or complex level (FKBP1A for the mTOR inhibitors sirolimus and temsirolimus,
+  which therefore get no MTOR rule). The PI3Kbeta to PTEN class is not derived because it holds for beta-selective
+  inhibitors only. Nutlin-3 has an MDM2 target, but CIViC does not list it and its discovery paper does not name it in
+  the title, so it gets no rule.
+- ``mechanism_literature`` rules rest on a mechanism principle; the cited paper characterizes the compound but does
+  not test the biomarker in the listed direction. Filter on ``evidence_level`` where only well-supported rules are
+  wanted.
+- Screens are excluded by title only. A check of the cited PubMed IDs found no large pharmacogenomic screen (GDSC,
+  CCLE, CTRP), but a paper whose title gives no hint that it re-analyses such data would not be detected.
+- Synonym matching uses PubChem and ChEMBL name synonyms; the matched name is recorded in ``source``.
 
 Naive Predictors
 --------------------------------------------

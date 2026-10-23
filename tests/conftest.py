@@ -348,8 +348,6 @@ def ensure_target_mutation_features(data_dir) -> None:
     curated = drugs.iloc[: len(drugs) // 2].copy()
     curated["biomarker_gene"] = [genes[i % len(genes)] for i in range(len(curated))]
     curated["sensitive_status"] = np.where(curated["biomarker_gene"] == "TP53", "wildtype", "activating")
-    curated["selectivity"] = "selective"
-    curated["notes"] = "synthetic test entry"
 
     rng = np.random.default_rng(seed=42)
     covered = cell_lines.iloc[: max(len(cell_lines) - 3, 1)]
@@ -363,7 +361,5 @@ def ensure_target_mutation_features(data_dir) -> None:
     )
     target_dir.mkdir(parents=True, exist_ok=True)
     print("Creating synthetic target mutation tables...")
-    curated[["drug_name", "biomarker_gene", "sensitive_status", "selectivity", "notes", "pubchem_id"]].to_csv(
-        curated_file, index=False
-    )
+    curated[["drug_name", "biomarker_gene", "sensitive_status", "pubchem_id"]].to_csv(curated_file, index=False)
     status.to_csv(status_file, index=False)

@@ -8,52 +8,114 @@ import pandas as pd
 import pytest
 from scipy.stats import norm
 
+from drevalpy.datasets.featurizer import create_curated_drug_target_table as curated_script
 from drevalpy.datasets.featurizer.check_curated_drug_target_table import check_candidate, summarize
 from drevalpy.datasets.featurizer.create_curated_drug_target_table import NOT_REPRESENTABLE, SEED_FILE, curate
 
 
-def _seed(rows: list[tuple[str, str, str]]) -> pd.DataFrame:
+def _seed(rows: list[tuple[str, str, str, str, str]]) -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
-                "drug_name": f"drug{i}",
-                "pubchem_id": str(i),
+                "drug_name": f"drug{pid}",
+                "pubchem_id": pid,
                 "biomarker_gene": gene,
                 "sensitive_status": status,
-                "selectivity": "selective",
-                "notes": "",
-                "origin": origin,
+                "evidence_type": "civic_predictive_target",
+                "evidence_level": level,
+                "n_evidence_items": items,
             }
-            for i, (gene, status, origin) in enumerate(rows)
+            for pid, gene, status, level, items in rows
         ]
     )
 
 
 def test_curate_drops_unrepresentable_and_unknown_genes():
     """Fusion drivers and genes outside the matrix are dropped, nothing else."""
-    seed = _seed([("BRAF", "activating", "existing"), ("ALK", "activating", "draft"), ("XYZ", "LoF", "draft")])
+    seed = _seed(
+        [("1", "BRAF", "activating", "A", "1"), ("2", "ALK", "activating", "A", "1"), ("3", "XYZ", "LoF", "A", "1")]
+    )
     curated, report = curate(seed, {"BRAF", "KRAS"})
     assert curated["biomarker_gene"].tolist() == ["BRAF"]
     assert report["outcome"].tolist()[0] == "kept"
     assert report["outcome"].str.startswith(("not representable", "gene not")).tolist() == [False, True, True]
 
 
+def test_curate_keeps_one_row_per_drug():
+    """Representable genes first, then the best evidence level, then the most evidence items, then the seed order."""
+    seed = _seed(
+        [
+            ("1", "ALK", "activating", "A", "9"),  # not representable, however good
+            ("1", "KRAS", "activating", "D", "9"),
+            ("1", "BRAF", "activating", "B", "1"),  # best level among the representable
+            ("2", "KRAS", "activating", "B", "1"),
+            ("2", "BRAF", "activating", "B", "5"),  # same level, more items
+            ("3", "KRAS", "wildtype", "", ""),  # literature rule without level
+            ("3", "BRAF", "LoF", "E", "1"),
+            ("4", "KRAS", "activating", "C", "2"),
+            ("4", "BRAF", "activating", "C", "2"),  # complete tie: the first row stays
+        ]
+    )
+    curated, report = curate(seed, {"BRAF", "KRAS"})
+    assert curated["pubchem_id"].tolist() == ["1", "2", "3", "4"]
+    assert curated["biomarker_gene"].tolist() == ["BRAF", "BRAF", "BRAF", "KRAS"]
+    assert curated["pubchem_id"].is_unique
+    assert report["outcome"].tolist() == [
+        "not representable (fusion or amplification)",
+        "other row of the drug selected",
+        "kept",
+        "other row of the drug selected",
+        "kept",
+        "other row of the drug selected",
+        "kept",
+        "kept",
+        "other row of the drug selected",
+    ]
+
+
 def test_curate_rejects_bad_seed():
-    """An unknown status or a duplicate drug is an error."""
+    """An unknown status is an error."""
     with pytest.raises(ValueError):
-        curate(_seed([("BRAF", "gain", "existing")]), {"BRAF"})
-    seed = _seed([("BRAF", "activating", "existing"), ("KRAS", "activating", "existing")])
-    seed["pubchem_id"] = "1"
-    with pytest.raises(ValueError):
-        curate(seed, {"BRAF", "KRAS"})
+        curate(_seed([("1", "BRAF", "gain", "A", "1")]), {"BRAF"})
+
+
+def test_missing_seed_is_built(tmp_path, monkeypatch):
+    """
+    A seed file that does not exist is built with create_target_mutation_seed.py first.
+
+    :param tmp_path: pytest temporary directory
+    :param monkeypatch: pytest monkeypatch fixture
+    """
+    directory = tmp_path / "meta" / "target_mutation"
+    directory.mkdir(parents=True)
+    pd.DataFrame({"gene": ["BRAF", "KRAS"]}).to_csv(directory / "functional_status_matrix.csv", index=False)
+    seed_file = tmp_path / "seed.csv"
+    calls = []
+
+    def fake_build(argv):
+        calls.append(argv)
+        _seed([("1", "BRAF", "activating", "A", "1")]).to_csv(argv[argv.index("--out") + 1], index=False)
+
+    monkeypatch.setattr(curated_script.create_target_mutation_seed, "main", fake_build)
+    monkeypatch.setattr(sys, "argv", ["x", "--data_path", str(tmp_path), "--seed", str(seed_file)])
+    curated_script.main()
+    assert calls == [["--data_path", str(tmp_path), "--out", str(seed_file)]]
+    assert pd.read_csv(directory / "curated_drug_target_variant.csv")["biomarker_gene"].tolist() == ["BRAF"]
+    curated_script.main()  # the seed exists now, it is not built again
+    assert len(calls) == 1
 
 
 def test_shipped_seed_is_valid():
-    """The shipped seed passes the checks."""
-    seed = pd.read_csv(SEED_FILE, dtype=str)
+    """The shipped seed passes the checks and yields one row per drug."""
+    seed = pd.read_csv(SEED_FILE, dtype=str, keep_default_na=False)
     curated, report = curate(seed, set(seed["biomarker_gene"]))
-    assert len(curated) == (~seed["biomarker_gene"].isin(NOT_REPRESENTABLE)).sum()
-    assert report["outcome"].isin(["kept", "not representable (fusion or amplification)"]).all()
+    assert curated["pubchem_id"].is_unique
+    assert len(curated) == seed.loc[~seed["biomarker_gene"].isin(NOT_REPRESENTABLE), "pubchem_id"].nunique()
+    assert (
+        report["outcome"]
+        .isin(["kept", "other row of the drug selected", "not representable (fusion or amplification)"])
+        .all()
+    )
 
 
 def test_candidate_verdicts():

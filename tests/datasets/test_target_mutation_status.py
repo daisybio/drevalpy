@@ -203,9 +203,9 @@ def test_curation_and_check_scripts_end_to_end(tmp_path, monkeypatch):
             "pubchem_id": ["1", "2"],
             "biomarker_gene": ["BRAF", "ALK"],
             "sensitive_status": ["activating", "activating"],
-            "selectivity": ["selective", "selective"],
-            "notes": ["", ""],
-            "origin": ["existing", "draft"],
+            "evidence_type": ["civic_predictive_target", "civic_predictive_target"],
+            "evidence_level": ["A", "A"],
+            "n_evidence_items": ["1", "1"],
         }
     )
     seed.to_csv(tmp_path / "seed.csv", index=False)
