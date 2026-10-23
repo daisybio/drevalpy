@@ -174,6 +174,17 @@ graph embeddings of the drug with an attention head.
 - The autoencoder masks 20% of its input during training. It returns the weights
   of its final epoch, including when it stopped early, as in the published
   pre-training.
+- The autoencoder is fitted on each training sample once, not once per
+  sample-drug pair, with the early-stopping samples as its validation set. Each
+  sample profile is z-scored on its own (sample standard deviation) after the gene
+  selection. A log2(x + 1) step is added first only when the expression view
+  records a linear unit such as TPM; the curated datasets are already
+  log2(TPM + 1). Its learning rate, patience and batch size are the
+  ``lr_autoencoder``, ``patience_autoencoder`` and ``batch_size_autoencoder``
+  hyperparameters, and ``epochs_autoencoder`` defaults to 1000. Only mini-batches
+  are moved to the GPU. An earlier DrEvalPy release fitted the autoencoder on every
+  pair, repeating each sample once per drug it was measured with; this was
+  corrected to follow DrEvalPy 1.6.1.
 - The published predictor evaluates the test set at every epoch. Here the predictor
   stops on the early-stopping scope and restores the weights of the best epoch.
 - The pretrained molecular embeddings and the protein-interaction table are

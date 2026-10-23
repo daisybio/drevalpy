@@ -33,7 +33,7 @@ class BionicSampleFeaturizer(DenseViewSampleFeaturizer):
     source_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
     precompute: ClassVar[bool] = True
 
-    def __init__(self, *, view: str | None = None, gene_add_num: int = 512, aggregation: str = "mean") -> None:
+    def __init__(self, *, view: str | None = None, gene_add_num: int = 256, aggregation: str = "mean") -> None:
         """Configure the gene aggregation of the on-the-fly BIONIC features.
 
         :param view: Name of the view holding pre-computed features; ``None`` uses the declared input view.
@@ -51,7 +51,7 @@ class BionicSampleFeaturizer(DenseViewSampleFeaturizer):
         :returns: HP space mapping.
         """
         return {
-            "gene_add_num": {"type": "categorical", "choices": [128, 256, 512, 1024], "default": 512},
+            "gene_add_num": {"type": "categorical", "choices": [128, 256, 512, 1024], "default": 256},
             "aggregation": {"type": "categorical", "choices": ["mean", "max", "sum"], "default": "mean"},
         }
 
@@ -92,7 +92,7 @@ class BionicSampleFeaturizer(DenseViewSampleFeaturizer):
 def _load_ppi_data() -> tuple[np.ndarray, list[str], set[str]]:
     """Load PPI features and gene list from the artifact cache (auto-downloads if needed).
 
-    :returns: Tuple of (ppi_features array, gene_names list, gene_list_sel set).
+    :returns: Tuple of (float64 ppi_features array, gene_names list, gene_list_sel set).
     """
     import pandas as pd
 
@@ -100,7 +100,7 @@ def _load_ppi_data() -> tuple[np.ndarray, list[str], set[str]]:
     gene_list_path = get_artifact("gene_list_sel.txt")
 
     ppi_df = pd.read_csv(ppi_path, index_col=0, sep="\t")
-    ppi_features = ppi_df.values.astype(np.float32)
+    ppi_features = ppi_df.to_numpy(dtype=np.float64)
     ppi_gene_names = list(ppi_df.index)
 
     with open(gene_list_path, encoding="utf-8") as f:
@@ -118,8 +118,12 @@ def _aggregate_ppi_for_sample(
     embed_dim: int,
     aggregation: str,
 ) -> np.ndarray:
-    """Aggregate PPI vectors of top-expressed eligible genes for one sample."""
-    sorted_indices = np.argsort(-expr_row)
+    """Aggregate PPI vectors of top-expressed eligible genes for one sample.
+
+    Ties are broken by column order (stable sort), like the stable ``sorted`` of drevalpy 1.6.1, and
+    the PPI vectors are aggregated in float64 before the cast to float32.
+    """
+    sorted_indices = np.argsort(-expr_row, kind="stable")
     selected: list[np.ndarray] = []
     for idx in sorted_indices:
         if len(selected) >= gene_add_num:

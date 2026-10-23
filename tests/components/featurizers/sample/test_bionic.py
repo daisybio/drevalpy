@@ -29,6 +29,29 @@ def test_hyperparameter_space_exposes_gene_add_num_and_aggregation() -> None:
     assert set(BionicSampleFeaturizer.get_hyperparameter_space()) == {"gene_add_num", "aggregation"}
 
 
+def test_gene_add_num_defaults_to_256_like_1_6_1() -> None:
+    defaults = BionicSampleFeaturizer.get_default_hyperparameters()
+
+    assert defaults["gene_add_num"] == 256
+    assert BionicSampleFeaturizer()._gene_add_num == 256
+
+
+def test_aggregate_breaks_ties_by_column_order() -> None:
+    lookup = {name: np.array([float(i)], dtype=np.float32) for i, name in enumerate("abcd")}
+
+    vector = _aggregate_ppi_for_sample(
+        np.zeros(4),
+        tuple("abcd"),
+        set("abcd"),
+        lookup,
+        gene_add_num=2,
+        embed_dim=1,
+        aggregation="mean",
+    )
+
+    np.testing.assert_allclose(vector, [0.5])
+
+
 @pytest.mark.parametrize(
     ("aggregation", "expected"),
     [

@@ -7,14 +7,17 @@ and the encode path rather than to reach a useful reconstruction.
 
 from __future__ import annotations
 
+import inspect
 import logging
 import random
 
 import numpy as np
 import pytest
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 
+from drevalpy.components.predictors.literature.dipk import gene_expression_encoder as gee
 from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
     CollateFn,
     DataSet,
@@ -213,3 +216,124 @@ class TestAutoencoderFinalWeightsContract:
         assert any(
             not torch.equal(validation_snapshots[0][name], validation_snapshots[-1][name]) for name in returned_state
         )
+
+
+_CPU = torch.device("cpu")
+
+
+def test_training_keeps_the_full_matrices_in_host_memory(monkeypatch) -> None:
+    captured: list[torch.Tensor] = []
+    original_dataset = gee.DataSet
+
+    def _capturing_dataset(data):
+        captured.append(data)
+        return original_dataset(data)
+
+    monkeypatch.setattr(gee, "DataSet", _capturing_dataset)
+
+    train_gene_expession_autoencoder(_matrix(8), _matrix(3, seed=1), epochs_autoencoder=1)
+
+    assert len(captured) == 1
+    assert captured[0].device == _CPU
+    assert captured[0].dtype == torch.float32
+
+
+def test_only_batch_sized_tensors_are_moved_to_the_device(monkeypatch) -> None:
+    """Every data tensor handed to ``Tensor.to`` is at most one mini-batch, the matrices stay on the host."""
+    n_genes, batch_size = 13, 4
+    moved_rows: list[int] = []
+    original_to = torch.Tensor.to
+
+    def _recording_to(self, *args, **kwargs):
+        # Data tensors have n_genes columns; the network weights are told apart by their wide side.
+        if self.ndim == 2 and self.shape[1] == n_genes and self.shape[0] != 2048:
+            moved_rows.append(self.shape[0])
+        return original_to(self, *args, **kwargs)
+
+    monkeypatch.setattr(torch.Tensor, "to", _recording_to)
+    rng = np.random.default_rng(0)
+    train = rng.normal(size=(20, n_genes)).astype(np.float32)
+    validation = rng.normal(size=(9, n_genes)).astype(np.float32)
+
+    train_gene_expession_autoencoder(train, validation, epochs_autoencoder=2, batch_size=batch_size)
+
+    assert moved_rows
+    assert max(moved_rows) <= batch_size
+
+
+def test_training_accepts_float64_input_and_a_validation_set_smaller_than_the_batch() -> None:
+    train = _matrix(8).astype(np.float64)
+
+    encoder = train_gene_expession_autoencoder(train, _matrix(3, seed=1), epochs_autoencoder=2)
+
+    assert not encoder.training
+    assert encode_gene_expression(_matrix(3), encoder).shape == (3, encoder.latent_dim)
+
+
+def test_trainer_defaults_are_the_1_6_1_values() -> None:
+    parameters = inspect.signature(train_gene_expession_autoencoder).parameters
+
+    assert parameters["lr"].default == 1e-4
+    assert parameters["batch_size"].default == 1024
+    assert parameters["patience"].default == 3
+    assert all(parameters[name].kind is inspect.Parameter.KEYWORD_ONLY for name in ("lr", "batch_size", "patience"))
+
+
+def test_learning_rate_and_batch_size_reach_the_optimizer_and_loader(monkeypatch) -> None:
+    seen: dict = {}
+    original_adam, original_loader = gee.optim.Adam, gee.DataLoader
+
+    def _capturing_adam(params, lr):
+        seen["lr"] = lr
+        return original_adam(params, lr=lr)
+
+    def _capturing_loader(dataset, batch_size, **kwargs):
+        seen["batch_size"] = batch_size
+        return original_loader(dataset, batch_size=batch_size, **kwargs)
+
+    monkeypatch.setattr(gee.optim, "Adam", _capturing_adam)
+    monkeypatch.setattr(gee, "DataLoader", _capturing_loader)
+
+    train_gene_expession_autoencoder(_matrix(8), _matrix(4, seed=1), epochs_autoencoder=1, lr=5e-3, batch_size=4)
+
+    assert seen == {"lr": 5e-3, "batch_size": 4}
+
+
+class _ConstantEncoder(nn.Module):
+    """Encoder stand-in whose output never changes, so the validation loss is constant."""
+
+    latent_dim = 4
+
+    def __init__(self, input_dim: int) -> None:
+        super().__init__()
+        self.unused = nn.Parameter(torch.zeros(1))
+
+    def forward(self, batch: torch.Tensor) -> torch.Tensor:
+        return torch.zeros(batch.shape[0], self.latent_dim, device=batch.device)
+
+
+class _ConstantDecoder(nn.Module):
+    """Decoder stand-in whose output never changes."""
+
+    def __init__(self, input_dim: int) -> None:
+        super().__init__()
+        self.unused = nn.Parameter(torch.zeros(1))
+        self.input_dim = input_dim
+
+    def forward(self, embedding: torch.Tensor) -> torch.Tensor:
+        return torch.zeros(embedding.shape[0], self.input_dim, device=embedding.device)
+
+
+def test_patience_controls_when_early_stopping_triggers(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(gee, "GeneExpressionEncoder", _ConstantEncoder)
+    monkeypatch.setattr(gee, "GeneExpressionDecoder", _ConstantDecoder)
+
+    for patience in (1, 3):
+        caplog.clear()
+        with caplog.at_level(logging.INFO):
+            train_gene_expession_autoencoder(
+                _matrix(8), _matrix(4, seed=1), epochs_autoencoder=20, patience=patience, batch_size=4
+            )
+        epochs = [message for message in caplog.messages if message.startswith("DIPK Autoenc. Epoch:")]
+        # Epoch 0 improves on the initial infinity, every later epoch counts towards patience.
+        assert len(epochs) == patience + 1

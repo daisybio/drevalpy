@@ -12,6 +12,7 @@ import torch.optim as optim
 from torch.nn import functional
 from torch.utils.data import DataLoader, Dataset
 
+from drevalpy.components.predictors.literature.dipk._autoencoder_batches import validation_loss
 from drevalpy.experiment._tracking import log_metrics
 
 logger = logging.getLogger(__name__)
@@ -151,17 +152,28 @@ class DataSet(Dataset, ABC):
 
 
 def train_gene_expession_autoencoder(
-    gene_expression_input: np.ndarray, gene_expression_input_early_stopping: np.ndarray, epochs_autoencoder: int = 100
+    gene_expression_input: np.ndarray,
+    gene_expression_input_early_stopping: np.ndarray,
+    epochs_autoencoder: int = 100,
+    *,
+    lr: float = 1e-4,
+    batch_size: int = 1024,
+    patience: int = 3,
 ) -> GeneExpressionEncoder:
     """Train the autoencoder model for gene expression data with early stopping.
 
+    Both matrices stay in host memory; only mini-batches are moved to the device. Callers that train
+    on unique samples (a few hundred rows) need a smaller *batch_size* than the default 1024, which
+    suits the response-row matrix, to get a comparable number of gradient steps.
+
     :param gene_expression_input: Training gene expression, one row per sample.
     :param gene_expression_input_early_stopping: Held-out gene expression used to monitor the reconstruction loss.
-    :param epochs_autoencoder: Maximum number of epochs; training stops earlier after 3 epochs without improvement.
+    :param epochs_autoencoder: Maximum number of epochs.
+    :param lr: Learning rate of the Adam optimizer.
+    :param batch_size: Mini-batch size for training and for the chunked validation pass.
+    :param patience: Number of epochs without improvement after which training stops.
     :returns: The trained encoder in eval mode.
     """
-    lr = 1e-4
-    batch_size = 1024
     noising = True
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -172,18 +184,17 @@ def train_gene_expession_autoencoder(
     params = [{"params": encoder.parameters()}, {"params": decoder.parameters()}]
     optimizer = optim.Adam(params, lr=lr)
 
-    # load data
+    # load data: the full matrices stay on the host, the loop below moves each mini-batch
     my_collate = CollateFn()
-    gene_expression_tensor = torch.tensor(gene_expression_input, dtype=torch.float32).to(device)
+    gene_expression_tensor = torch.from_numpy(np.asarray(gene_expression_input, dtype=np.float32))
     train_loader = DataLoader(
         DataSet(gene_expression_tensor), batch_size=batch_size, shuffle=True, collate_fn=my_collate
     )
 
-    # prepare early stopping validation data
-    gene_expression_val_tensor = torch.tensor(gene_expression_input_early_stopping, dtype=torch.float32).to(device)
+    # prepare early stopping validation data (kept on the host, evaluated in chunks)
+    gene_expression_val_tensor = torch.from_numpy(np.asarray(gene_expression_input_early_stopping, dtype=np.float32))
 
     # early stopping parameters
-    patience = 3
     best_val_loss = float("inf")
     epochs_without_improvement = 0
 
@@ -215,9 +226,7 @@ def train_gene_expession_autoencoder(
         # validation
         encoder.eval()
         decoder.eval()
-        with torch.no_grad():
-            val_output = decoder(encoder(gene_expression_val_tensor))
-            val_loss = loss_func(val_output, gene_expression_val_tensor).item()
+        val_loss = validation_loss(encoder, decoder, gene_expression_val_tensor, batch_size, device)
 
         logger.info("DIPK Autoenc. Epoch: %d, Train Loss: %s, Val Loss: %s", epoch_index, epoch_loss, val_loss)
         log_metrics(
