@@ -22,7 +22,7 @@ def register(
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
-    """Decorator: register a predictor.
+    """Return a decorator that registers a predictor.
 
     :param name: Registry name used in ``ModelConfig`` and recipes.
     :param description: Short human-readable summary for catalog listings.
@@ -48,9 +48,10 @@ def register(
 def get(name: str) -> type[Any]:
     """Return the predictor class registered under *name*.
 
+    Raises ``UnknownNameError`` (a ``ValueError``) if *name* is not registered.
+
     :param name: Registry name of the predictor.
     :returns: Predictor class registered under *name*.
-    :raises ValueError: If *name* is not registered.
     """
     return predictor_registry.get(name)
 

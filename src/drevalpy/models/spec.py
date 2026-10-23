@@ -18,9 +18,8 @@ from drevalpy.models.tuning.search_space import merge_model_config_spaces, resol
 class UnknownModelError(UnknownNameError):
     """A model name that is neither a zoo name nor a valid recipe.
 
-    Attributes:
-        name: The name as given.
-        detail: Why reading *name* as a recipe failed, without the recipe itself repeated.
+    :ivar name: The name as given.
+    :ivar detail: Why reading *name* as a recipe failed, without the recipe itself repeated.
     """
 
     def __init__(self, name: str, detail: str) -> None:

@@ -45,15 +45,16 @@ class VisualizationRegistry(TableReprMixin):
         requirements: frozenset[Any] = frozenset(),
         override: bool = False,
     ) -> Callable[[type[Any]], type[Any]]:
-        """Decorator to register a visualization class.
+        """Return a decorator that registers a visualization class.
+
+        Applying the decorator raises ``ValueError`` if *name* is already registered and *override* is false.
 
         :param name: Unique name for this visualization.
         :param description: Human-readable description.
         :param result_type: "ExperimentResult" or "ModelResult".
-        :param requirements: frozenset of PlotRequirement values.
+        :param requirements: ``PlotRequirement`` values the experiment must satisfy for the plot to apply.
         :param override: Replace an already-registered name instead of raising.
-        :returns: Class decorator.
-        :raises ValueError: If *name* is already registered and *override* is false.
+        :returns: Class decorator that registers the decorated class under *name*.
         """
 
         def decorator(cls: type[Any]) -> type[Any]:
@@ -99,9 +100,10 @@ class VisualizationRegistry(TableReprMixin):
     def result_type(self, name: str) -> str:
         """Return the kind of result a registered visualization consumes.
 
+        Raises ``UnknownNameError`` if *name* is not registered.
+
         :param name: Registered visualization name.
         :returns: ``"ExperimentResult"`` or ``"ModelResult"``, as given at registration.
-        :raises UnknownNameError: If *name* is not registered.
         """
         self.get(name)
         return self._result_types[name]
@@ -110,11 +112,10 @@ class VisualizationRegistry(TableReprMixin):
         """Return the metadata record for the visualization registered under *name*.
 
         Mirrors ``get_metadata`` on the component registries so every registry can
-        be introspected the same way.
+        be introspected the same way. Raises ``UnknownNameError`` if *name* is not registered.
 
         :param name: Registered visualization name.
         :returns: Metadata dict for catalog listings.
-        :raises UnknownNameError: If *name* is not registered.
         """
         cls = self.get(name)
         return {

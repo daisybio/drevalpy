@@ -34,9 +34,9 @@ class FeaturizerRegistry(ComponentRegistry):
     def __init__(self, registry_id: str, label: str, display_name: str, *, side: str = "") -> None:
         """Initialize with an optional side designation.
 
-        :param registry_id: Stable identifier.
-        :param label: Human-readable label.
-        :param display_name: Catalog name.
+        :param registry_id: Stable identifier used in validation messages.
+        :param label: Human-readable label for unknown/duplicate errors.
+        :param display_name: Catalog registry name written into component metadata.
         :param side: Entity side ("sample" or "drug").
         """
         super().__init__(registry_id, label, display_name)

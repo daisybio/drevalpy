@@ -179,7 +179,7 @@ def load_model_payload(path: str | Path) -> tuple[str, ResolvedModelConfig, dict
     :raises FileNotFoundError: If the archive does not exist.
     :raises UnsupportedCheckpointFormatError: If the format or version is unsupported.
     :raises CorruptedCheckpointError: If the payload structure is invalid.
-    """
+    """  # noqa: DOC503
     target = _as_path(path)
     _reject_directory_path(target)
     archive_path = resolve_checkpoint_path(target)
@@ -223,6 +223,7 @@ def load_model(path: str | Path) -> DRPModel:
 
     :param path: Archive file path; ``.zip`` is appended when missing.
     :returns: Fitted ``DRPModel`` instance.
+    :raises CorruptedCheckpointError: If the pipeline state cannot be restored or leaves the predictor unfitted.
     """
     from drevalpy.models.drp_model import DRPModel
     from drevalpy.models.spec import ModelSpec

@@ -23,13 +23,13 @@ def assign_contract(cls: type[Any], attr_name: str, contract: FeatureContract | 
 
     A class-body declaration is a valid way to state a contract: it is used
     whenever the registration decorator was given none. When both are present the
-    decorator wins, since it is the more specific of the two.
+    decorator wins, since it is the more specific of the two. A ``ValueError`` is raised
+    (by :func:`declared_contract`) if neither declares *attr_name*.
 
     :param cls: Class being registered.
     :param attr_name: Attribute name such as ``contract`` or ``sample_contract``.
     :param contract: Already-normalized feature contract from the decorator, or
         ``None`` to fall back to the class declaration.
-    :raises ValueError: If neither the decorator nor the class declares *attr_name*.
     """
     if contract is None:
         contract = declared_contract(cls, attr_name)

@@ -25,6 +25,7 @@ from drevalpy.types import SplitMask
 from drevalpy.types.data.dataset import Dataset
 
 if TYPE_CHECKING:
+    import optuna
     from sklearn.base import TransformerMixin
 
 logger = get_logger(__name__)
@@ -82,6 +83,8 @@ def hpam_tune(
     """Tune hyperparameters using Dataset + SplitMask with Optuna.
 
     Returns the best hyperparameter mapping and per-trial results with all metrics.
+    Raises ``ImportError`` if *wandb_project* is set and ``wandb`` is not installed, and
+    ``HPOTrialsFailedError`` if every trial raised, so no tuning information was produced.
 
     :param model_spec: Named model recipe to tune.
     :param mudataset: Full dataset with all features.
@@ -97,10 +100,7 @@ def hpam_tune(
     :param wandb_base_config: Base W&B config; each trial's drawn hyperparameters are added to it.
     :returns: Tuple of (best_params, trial_results) where trial_results is a
         list of (hyperparameters, metrics_dict, predictions) tuples for each completed trial.
-    :raises ValueError: Raised when ``hpo_config.metric`` disagrees with ``metric``.
-    :raises ImportError: Raised when ``wandb_project`` is set and ``wandb`` is not installed.
-    :raises HPOTrialsFailedError: Raised when every trial raised an exception, so no
-        tuning information was produced.
+    :raises ValueError: If ``hpo_config.metric`` disagrees with ``metric``.
     """
     validate_hpo_metric(metric)
     cfg = hpo_config or HPOConfig.from_metric(metric)
@@ -160,7 +160,7 @@ def hpam_tune(
     return best_params, all_trial_data
 
 
-def _report_trial_failures(study, failures: _TrialFailures) -> None:
+def _report_trial_failures(study: optuna.Study, failures: _TrialFailures) -> None:
     """Raise when no trial survived; warn when only some did.
 
     :param study: Completed Optuna study, used for the number of trials actually run.
@@ -185,7 +185,7 @@ def _report_trial_failures(study, failures: _TrialFailures) -> None:
     raise HPOTrialsFailedError(msg) from failures.first
 
 
-def _resolve_best_params(study, model_spec: ModelSpec) -> dict[str, Any]:
+def _resolve_best_params(study: optuna.Study, model_spec: ModelSpec) -> dict[str, Any]:
     """Extract best hyperparameters from a completed Optuna study."""
     from optuna.trial import FixedTrial
 

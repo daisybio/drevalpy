@@ -30,10 +30,11 @@ def validate_folds(
 ) -> None:
     """Validate all folds against the declared validation constraints.
 
+    Raises ``SplitValidationError`` if any fold violates the constraint.
+
     :param folds: List of SplitMasks produced by a splitter.
     :param validation: Which leakage constraint to check.
     :param mudataset: The dataset used for splitting (needed for tissue resolution).
-    :raises SplitValidationError: If any fold violates the constraint.
     """
     validation = canonical_validation(validation)
     validator = _VALIDATORS[validation]

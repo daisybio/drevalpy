@@ -55,7 +55,7 @@ def validate_merged_mapping(config: ModelConfig, merged: dict[str, Any]) -> None
 
     :param config: The model configuration template.
     :param merged: Merged mapping of qualified keys to values.
-    :raises ValueError: Raised on invalid input.
+    :raises ValueError: If a key is not accepted by the model stack.
     """
     accepted = _build_validation_index(config)
     for key in merged:

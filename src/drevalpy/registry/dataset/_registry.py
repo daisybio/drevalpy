@@ -175,13 +175,13 @@ class DatasetRegistry(TableReprMixin):
         """Register a custom source (base URL + optional fsspec storage options).
 
         Registering an entry identical to the one already in effect (built-in or custom) is a no-op
-        and writes nothing.
+        and writes nothing. Raises ``ValueError`` if *name* is already registered with a different
+        entry and *override* is false.
 
         :param name: Source name (used to reference from dataset entries).
         :param base_url: Base URL (any fsspec-compatible protocol: https, s3, gs, az, ...).
         :param storage_options: Optional dict passed to fsspec for auth/config.
         :param override: Replace an existing source of the same name instead of raising.
-        :raises ValueError: If *name* is already registered with a different entry and *override* is false.
         """
         entry = SourceEntry(url=base_url, storage_options=storage_options or {})
         self._register("sources", name, entry, override=override)
@@ -190,14 +190,14 @@ class DatasetRegistry(TableReprMixin):
         """Register a custom dataset under an existing source.
 
         Registering an entry identical to the one already in effect (built-in or custom) is a no-op
-        and writes nothing.
+        and writes nothing. Raises ``ValueError`` if *name* is already registered with a different
+        entry and *override* is false.
 
         :param name: Dataset name (used with ``drevalpy.data.load``).
         :param source: Source name (must be registered).
         :param file: Filename of the .h5mu file at the source URL.
         :param override: Replace an existing dataset of the same name instead of raising.
         :raises UnknownNameError: If the source is not registered.
-        :raises ValueError: If *name* is already registered with a different entry and *override* is false.
         """
         if source not in self.sources:
             raise UnknownNameError(f"Source '{source}' not registered. Register it first with register_source().")
@@ -206,17 +206,19 @@ class DatasetRegistry(TableReprMixin):
     def unregister_dataset(self, name: str) -> None:
         """Remove a custom dataset registration.
 
+        Raises ``UnknownNameError`` if the dataset is not in the custom registry.
+
         :param name: Dataset name to remove.
-        :raises UnknownNameError: If the dataset is not in the custom registry.
         """
         self._unregister("datasets", name)
 
     def unregister_source(self, name: str) -> None:
         """Remove a custom source registration.
 
+        Raises ``UnknownNameError`` if the source is not in the custom registry, and
+        ``ValueError`` if datasets still reference it.
+
         :param name: Source name to remove.
-        :raises UnknownNameError: If the source is not in the custom registry.
-        :raises ValueError: If datasets still reference this source.
         """
 
         def reject_referenced(config: DrevalConfig) -> None:

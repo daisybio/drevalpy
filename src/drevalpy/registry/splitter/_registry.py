@@ -85,7 +85,7 @@ class SplitterRegistry(TableReprMixin):
         override: bool = False,
         aliases: tuple[str, ...] = (),
     ) -> Callable[[Splitter], Splitter]:
-        """Decorator to register a splitter function under a mode name.
+        """Return a decorator that registers a splitter function under a mode name.
 
         The first three parameters are required. The splitter is automatically
         wrapped so that validation runs after every call.
@@ -93,7 +93,8 @@ class SplitterRegistry(TableReprMixin):
         Registering a mode name that is already taken raises, matching the
         visualization registry: a silent overwrite means one package quietly
         changes another package's split semantics. Pass ``override=True`` when
-        replacing a mode is the intent.
+        replacing a mode is the intent. Raises ``ValueError`` if *mode* is already registered
+        and *override* is false, or if an alias collides with another mode or alias.
 
         :param mode: Mode name (e.g. "LPO", "LSO", or a custom name).
         :param description: Human-readable description of the splitting approach.
@@ -102,8 +103,6 @@ class SplitterRegistry(TableReprMixin):
         :param aliases: Alternative names that resolve to *mode*. Results, metadata and
             file names always use *mode*, never the alias the caller typed.
         :returns: Decorator that registers and returns the wrapped function.
-        :raises ValueError: If *mode* is already registered and *override* is false, or
-            if an alias collides with another mode or alias.
 
         Example::
 
@@ -187,11 +186,10 @@ class SplitterRegistry(TableReprMixin):
         """Return the metadata record for the splitter registered under *mode*.
 
         Mirrors ``get_metadata`` on the component registries so every registry can
-        be introspected the same way.
+        be introspected the same way. Raises ``UnknownNameError`` if *mode* is not registered.
 
         :param mode: Registered mode name.
         :returns: Metadata dict for catalog listings.
-        :raises ValueError: If *mode* is not registered.
         """
         self.get(mode)
         mode = self.canonical(mode)

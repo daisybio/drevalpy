@@ -1,8 +1,15 @@
 """Dataset registry: register, discover, and manage dataset sources and entries."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ._io import config_lock, get_config_path, load_config, save_config
 from ._models import DatasetEntry, DrevalConfig, SourceEntry
 from ._registry import DatasetRegistry, dataset_registry
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 __all__ = [
     "DatasetEntry",
@@ -44,6 +51,6 @@ def list() -> list[str]:
     return dataset_registry.dataset_names
 
 
-def table():
+def table() -> pd.DataFrame:
     """Return registry contents as a DataFrame."""
     return dataset_registry.to_dataframe()

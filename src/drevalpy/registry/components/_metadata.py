@@ -33,8 +33,8 @@ def _reference_fields(cls: type[Any]) -> dict[str, str]:
 def base_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
     """Return shared discovery fields for a registered component.
 
-    :param registry_name: registry name.
-    :param name: name.
+    :param registry_name: Identifier of the registry that holds the class.
+    :param name: Name the class is registered under.
     :param cls: Registered component class.
     :returns: Catalog metadata dict.
     """
@@ -52,8 +52,8 @@ def base_component_metadata(registry_name: str, name: str, cls: type[Any]) -> di
 def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
     """Like `base_component_metadata` plus featurizer output format.
 
-    :param registry_name: registry name.
-    :param name: name.
+    :param registry_name: Identifier of the registry that holds the class.
+    :param name: Name the class is registered under.
     :param cls: Registered featurizer class.
     :returns: Catalog metadata dict.
     """
@@ -66,8 +66,8 @@ def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any])
 def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
     """Like `base_component_metadata` plus predictor input interface.
 
-    :param registry_name: registry name.
-    :param name: name.
+    :param registry_name: Identifier of the registry that holds the class.
+    :param name: Name the class is registered under.
     :param cls: Registered predictor class.
     :returns: Catalog metadata dict.
     """

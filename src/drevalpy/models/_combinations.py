@@ -15,9 +15,8 @@ from drevalpy.models.spec import ModelSpec, UnknownModelError
 class SkippedCombination:
     """A combination of components that was not turned into a model spec.
 
-    Attributes:
-        recipe: The recipe that was tried, such as ``"raw[gene_expression]:fingerprints:naiveTissueMean"``.
-        reason: Why it was skipped, as reported by config validation.
+    :ivar recipe: The recipe that was tried, such as ``"raw[gene_expression]:fingerprints:naiveTissueMean"``.
+    :ivar reason: Why it was skipped, as reported by config validation.
     """
 
     recipe: str
@@ -28,9 +27,8 @@ class SkippedCombination:
 class Combinations:
     """The outcome of :func:`combinations`.
 
-    Attributes:
-        specs: One model spec per valid combination, named by its full recipe string.
-        skipped: The invalid combinations, each with the reason, so the caller can print them.
+    :ivar specs: One model spec per valid combination, named by its full recipe string.
+    :ivar skipped: The invalid combinations, each with the reason, so the caller can print them.
     """
 
     specs: list[ModelSpec]
@@ -51,19 +49,14 @@ def combinations(
     as skipped with the first line of the reason. Model names are the full recipe strings
     including views, so they are unique; duplicate recipes are dropped.
 
-    Args:
-        sample: Sample featurizer recipes, such as ``"pca[gene_expression]"`` or
-            ``"raw[gene_expression]+tissue"``. Empty means no sample featurizer.
-        drug: Drug featurizer recipes, such as ``"fingerprints"``. Empty means no drug
-            featurizer; a recipe cannot name a drug featurizer without a sample featurizer.
-        predictors: Predictor names, such as ``"elasticNet"``.
-
-    Returns:
-        The valid specs and the skipped combinations.
-
-    Raises:
-        ValueError: If *predictors* is empty, *drug* is given without *sample*, an entry is
-            not a plain recipe token, or no combination is valid.
+    :param sample: Sample featurizer recipes, such as ``"pca[gene_expression]"`` or
+        ``"raw[gene_expression]+tissue"``. Empty means no sample featurizer.
+    :param drug: Drug featurizer recipes, such as ``"fingerprints"``. Empty means no drug
+        featurizer; a recipe cannot name a drug featurizer without a sample featurizer.
+    :param predictors: Predictor names, such as ``"elasticNet"``.
+    :returns: The valid specs and the skipped combinations.
+    :raises InvalidInputError: If *predictors* is empty, *drug* is given without *sample*, an
+        entry is not a plain recipe token, or no combination is valid.
     """
     sample_tokens = _tokens("sample", sample)
     drug_tokens = _tokens("drug", drug)

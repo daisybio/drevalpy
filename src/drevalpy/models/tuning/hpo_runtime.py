@@ -72,8 +72,15 @@ def _mu_evaluate_trial_all_metrics(
     model_checkpoint_dir: str | Path | None,
     trial_number: int = 0,
 ) -> tuple[dict[str, float], np.ndarray]:
-    """Train a trial model and compute all validation metrics.
+    """Train a trial model, then score its validation predictions on every metric.
 
+    :param trial_model: Unfitted model built from the hyperparameters of this trial.
+    :param mudataset: Full dataset with all features.
+    :param train_scope: Training SplitMask.
+    :param val_scope: Validation SplitMask for scoring.
+    :param early_stopping_scope: Optional early-stopping scope.
+    :param model_checkpoint_dir: Directory for per-trial checkpoints; ``None`` uses a temporary directory.
+    :param trial_number: Optuna trial number, used to name the trial's checkpoint directory.
     :returns: Tuple of (metrics_dict, predictions_array).
     """
     from contextlib import nullcontext
@@ -98,8 +105,8 @@ def run_optuna_study(
 ) -> optuna.Study:
     """Create and run an Optuna study.
 
-    :param objective: The objective function.
-    :param cfg: HPO configuration.
+    :param objective: Function that Optuna calls once per trial; it returns the score to optimize.
+    :param cfg: HPO configuration giving the number of trials, the optimization direction and the sampler seed.
     :returns: Completed Optuna study.
     """
     import optuna

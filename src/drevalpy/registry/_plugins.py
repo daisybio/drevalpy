@@ -99,8 +99,8 @@ def discover_plugins() -> None:
     loading anything, so a plugin that imports drevalpy does not recurse -- and so
     a strict-mode failure does not re-run discovery on the next call.
 
-    :raises Exception: The first plugin failure, when ``DREVALPY_STRICT_PLUGINS``
-        is set. Otherwise failures are recorded in :func:`get_failed_plugins`.
+    When ``DREVALPY_STRICT_PLUGINS`` is set, the first plugin failure propagates. Otherwise
+    failures are recorded in :func:`get_failed_plugins`.
     """
     global _discovered
     if _discovered:

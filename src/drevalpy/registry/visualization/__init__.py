@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any
 from ._registry import VisualizationRegistry, visualization_registry
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import pandas as pd
 
     from drevalpy.types.results import ExperimentResult
@@ -29,17 +31,17 @@ def register(
     description: str = "",
     *,
     result_type: str = "ExperimentResult",
-    requirements=frozenset(),
+    requirements: frozenset[Any] = frozenset(),
     override: bool = False,
-):
-    """Decorator to register a visualization class.
+) -> Callable[[type[Any]], type[Any]]:
+    """Return a decorator that registers a visualization class.
 
     :param name: Unique name for this visualization.
     :param description: Human-readable description.
     :param result_type: ``"ExperimentResult"`` or ``"ModelResult"``.
-    :param requirements: frozenset of ``PlotRequirement`` values.
+    :param requirements: ``PlotRequirement`` values the experiment must satisfy for the plot to apply.
     :param override: Replace an already-registered name instead of raising.
-    :returns: Class decorator.
+    :returns: Class decorator that registers the decorated class under *name*.
     """
     return visualization_registry.register(
         name,

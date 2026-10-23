@@ -86,8 +86,8 @@ def _alias_targets(targets: tuple[HyperparameterTarget, ...]) -> dict[str, str]:
 def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
     """Build ownership indexes for every accepted public hyperparameter.
 
-    :param config: config.
-    :returns: Result.
+    :param config: Model configuration whose predictor and featurizer leaves own the hyperparameters.
+    :returns: The index with every target, plus lookups by qualified key, by short name and by alias.
     """
     targets: list[HyperparameterTarget] = []
 
@@ -194,12 +194,12 @@ def resolve_to_qualified_mapping(
 ) -> dict[str, Any]:
     """Resolve a public mapping to qualified keys with strict collision checks.
 
-    :param config: config.
-    :param mapping: mapping.
-    :param index: index.
-    :param reserved_keys: reserved keys.
-    :returns: Result.
-    :raises ValueError: Raised on invalid input.
+    :param config: Model configuration the keys are resolved against.
+    :param mapping: Hyperparameters keyed by short, qualified or alias names.
+    :param index: Ownership index built for *config*.
+    :param reserved_keys: Keys to leave out of the result, such as non-hyperparameter options.
+    :returns: The values of *mapping* under qualified keys, without the reserved keys.
+    :raises ValueError: If a key is unknown or ambiguous, or two keys address the same hyperparameter.
     """
     qualified: dict[str, Any] = {}
     seen_targets: dict[HyperparameterTarget, str] = {}

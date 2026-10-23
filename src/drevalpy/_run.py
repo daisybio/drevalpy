@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from rich.markup import escape
 
@@ -19,6 +19,9 @@ from drevalpy.models.spec import ModelSpec
 from drevalpy.types import Dataset, SplitMasks
 from drevalpy.types.results import ExperimentResult, RunResult
 from drevalpy.types.results.failure import ExperimentFailedError, RunFailure
+
+if TYPE_CHECKING:
+    from sklearn.base import TransformerMixin
 
 logger = get_logger(__name__)
 
@@ -139,7 +142,7 @@ def run(
     robustness_trials: int = 0,
     randomization_random_state: int | None = None,
     seed: int = 42,
-    response_transformation=None,
+    response_transformation: TransformerMixin | None = None,
     quality: CurveQuality | None = None,
     wandb_project: str | None = None,
     on_error: Literal["record", "raise"] = "record",
@@ -166,6 +169,7 @@ def run(
         the result; ``"raise"`` re-raises the first error. ``KeyboardInterrupt`` always propagates.
     :returns: ExperimentResult grouping all model results, with the recorded failures.
     :raises ExperimentFailedError: If ``on_error="record"`` and no run produced a result.
+    :raises InvalidInputError: If ``on_error`` is neither ``"record"`` nor ``"raise"``.
     """
     if on_error not in ("record", "raise"):
         raise InvalidInputError(f"on_error must be 'record' or 'raise', got {on_error!r}")

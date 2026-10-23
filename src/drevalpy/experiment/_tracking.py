@@ -32,7 +32,7 @@ def tracking_run(
     :param tags: Tags attached to the run.
     :returns: A context manager that starts the run on entry, finishing any previous run
         first, and finishes it on exit. A run left by an exception is marked failed.
-    """
+    """  # noqa: DOC405, DOC501, DOC503
     if project is None:
         yield
         return
@@ -52,8 +52,9 @@ def tracking_run(
 def require_tracking(project: str | None) -> None:
     """Fail now, rather than inside the first trial, when tracking cannot work.
 
+    Raises ``ImportError`` if *project* is set and ``wandb`` is not installed.
+
     :param project: W&B project, or ``None`` when tracking is off.
-    :raises ImportError: If *project* is set and ``wandb`` is not installed.
     """
     if project is not None:
         _import_wandb()

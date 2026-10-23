@@ -17,8 +17,8 @@ def _is_valid_url(url: str) -> bool:
 def validate_literature_reference(reference: LiteratureReference) -> list[str]:
     """Return invalid-field names for a literature reference, or an empty list.
 
-    :param reference: reference.
-    :returns: Result.
+    :param reference: Literature reference attached to a registered class.
+    :returns: Names of the invalid fields (``repo_url``, ``citation``, ``deviations``).
     """
     invalid: list[str] = []
     if not reference.repo_url or not _is_valid_url(reference.repo_url):
@@ -107,8 +107,8 @@ def _format_validation_error(
 ) -> str:
     """Format a registry metadata validation error.
 
-    :param registry_id: Registry identifier.
-    :param name: Component registry name.
+    :param registry_id: Identifier of the registry, named in the message.
+    :param name: Registry name of the component, named in the message.
     :param missing: Required metadata fields that are absent.
     :param invalid: Metadata fields with invalid values.
     :returns: Human-readable validation error message.
@@ -132,11 +132,11 @@ def validate_registered_class(
 
     Used by ``register_existing`` when decorator kwargs are unavailable.
 
-    :param registry_id: registry id.
+    :param registry_id: Registry identifier, used in the error message.
     :param name: Component registry name.
     :param cls: Previously registered component class.
     :param required_fields: Field names required on the class body for this registry.
-    :raises ValueError: Raised on invalid input.
+    :raises ValueError: If a required field is missing or a shared or contract field is invalid.
     """
     missing = _missing_fields(cls, required_fields)
     invalid = _invalid_shared_fields(cls)

@@ -113,9 +113,10 @@ def reject_indexed_featurizer_key(key: str) -> None:
 def split_prefixed_key(key: str) -> tuple[str, str, str] | None:
     """Parse ``<slot>.<selector>.<param>`` into registry, selector, and param.
 
+    Keys that use the withdrawn indexed notation are rejected with a ``ValueError``.
+
     :param key: Qualified hyperparameter key from a flat config.
     :returns: ``(registry, selector, param)`` tuple, or ``None`` when unparsable.
-    :raises ValueError: When *key* uses the withdrawn indexed notation.
     """
     reject_indexed_featurizer_key(key)
     match = _QUALIFIED_FEATURIZER_KEY_RE.match(key)

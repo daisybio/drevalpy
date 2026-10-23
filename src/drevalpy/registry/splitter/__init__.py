@@ -8,6 +8,8 @@ from ._registry import Splitter, SplitterRegistry, splitter_registry
 from ._validation import SplitValidationError, Validation
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import pandas as pd
 
 __all__ = [
@@ -31,8 +33,8 @@ def register(
     *,
     override: bool = False,
     aliases: tuple[str, ...] = (),
-):
-    """Decorator to register a splitter function under a mode name.
+) -> Callable[[Splitter], Splitter]:
+    """Return a decorator that registers a splitter function under a mode name.
 
     :param mode: Mode name (e.g. ``"LPO"``, or a custom name).
     :param description: Human-readable description of the splitting approach.

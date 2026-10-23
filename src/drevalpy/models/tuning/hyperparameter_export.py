@@ -153,7 +153,7 @@ def export_public_mapping(
 
     :param config: Template model configuration.
     :param values: Optional concrete qualified values from a resolved config.
-    :returns: Result.
+    :returns: Hyperparameters keyed by short name, or by qualified key where several components share the name.
     """
     index = build_ownership_index(config)
     return _compact_export_entries(_collect_export_entries(config, index, values=values))

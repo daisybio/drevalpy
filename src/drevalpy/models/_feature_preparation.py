@@ -31,6 +31,7 @@ def transform_entities(
     :param train_ids: Training pair identifiers; None skips fitting.
     :param es_ids: Optional stopping pair identifiers.
     :returns: Canonical features in stable unique entity order.
+    :raises ValueError: If a featurizer is configured but *source* is ``None`` and the featurizer needs it.
     """
     if featurizer is None:
         return FeaturizerResult(unique_entity_ids(ids), {}, ())

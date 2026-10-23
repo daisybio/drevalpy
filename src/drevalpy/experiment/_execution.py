@@ -109,6 +109,7 @@ def build_execution(
     :param hpo_random_state: Sampler seed.
     :param seed: Root seed from which every fit's RNG seed is derived.
     :returns: Immutable execution decisions.
+    :raises TypeError: If *model* is not a ``ModelSpec``.
     """
     if not isinstance(model, ModelSpec):
         raise TypeError("Experiment models must be ModelSpec values")

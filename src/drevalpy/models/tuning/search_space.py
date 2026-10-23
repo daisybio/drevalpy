@@ -71,10 +71,10 @@ def _predictor_spaces(predictor: PredictorConfig) -> dict[str, Any]:
 
 
 def merge_model_config_spaces(config: ModelConfig) -> dict[str, Any]:
-    """Merge all component spaces for a declarative model config.
+    """Merge the hyperparameter spaces of all components of a model config.
 
-    :param config: config.
-    :returns: Result.
+    :param config: Model configuration whose sample featurizer, drug featurizer and predictor spaces are merged.
+    :returns: One space whose keys carry the qualified prefix of the component that owns them.
     """
     merged: dict[str, Any] = {}
     if config.sample_featurizer is not None:
@@ -92,10 +92,10 @@ def merge_search_spaces(
 ) -> dict[str, Any]:
     """Merge component spaces into a single dict with dot-notation prefixed keys.
 
-    :param sample_featurizer_space: sample featurizer space.
-    :param drug_featurizer_space: drug featurizer space.
-    :param predictor_space: predictor space.
-    :returns: Result.
+    :param sample_featurizer_space: Space of the sample featurizer, or ``None`` if there is none.
+    :param drug_featurizer_space: Space of the drug featurizer, or ``None`` if there is none.
+    :param predictor_space: Space of the predictor, or ``None`` if there is none.
+    :returns: The spaces with every key prefixed by its slot (``sample``, ``drug`` or ``predictor``).
     """
     merged: dict[str, Any] = {}
     if sample_featurizer_space:
@@ -115,8 +115,9 @@ def split_hyperparameters(
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Invert merged search spaces into per-role hyperparameter dicts.
 
-    :param merged_config: merged config.
-    :returns: Result.
+    :param merged_config: Hyperparameters with slot-prefixed keys, as built by :func:`merge_search_spaces`.
+    :returns: The sample featurizer, drug featurizer and predictor hyperparameters, each without its prefix.
+        Keys without a known prefix go to the predictor.
     """
     sample_hp: dict[str, Any] = {}
     drug_hp: dict[str, Any] = {}
@@ -177,10 +178,10 @@ def extract_defaults(
 ) -> dict[str, Any]:
     """Pull ``default`` values from spec dicts, returning a merged flat dict.
 
-    :param sample_featurizer_space: sample featurizer space.
-    :param drug_featurizer_space: drug featurizer space.
-    :param predictor_space: predictor space.
-    :returns: Result.
+    :param sample_featurizer_space: Space of the sample featurizer, or ``None`` if there is none.
+    :param drug_featurizer_space: Space of the drug featurizer, or ``None`` if there is none.
+    :param predictor_space: Space of the predictor, or ``None`` if there is none.
+    :returns: The ``default`` of every entry, keyed by slot prefix and hyperparameter name.
     """
     defaults: dict[str, Any] = {}
 
@@ -201,8 +202,8 @@ def extract_defaults(
 def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
     """Extract default values from a merged structured search space.
 
-    :param space: space.
-    :returns: Result.
+    :param space: Merged space in which every entry has a ``default``.
+    :returns: The ``default`` of every entry, under the same key.
     """
     validate_hyperparameter_space(space, context="merged hyperparameter space")
     return {key: spec["default"] for key, spec in space.items()}

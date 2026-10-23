@@ -10,7 +10,7 @@ See ``tests/test_import_cost_policy.py``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
@@ -234,7 +234,7 @@ def score_predictions(
 
 
 def evaluate(
-    predictions_or_dataset=None,
+    predictions_or_dataset: Any = None,
     response: np.ndarray | pd.Series | None = None,
     metric: list[str] | str = "Pearson",
     *,

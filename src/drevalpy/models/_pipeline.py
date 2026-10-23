@@ -279,6 +279,7 @@ class _ModelPipeline:
         :param scope: Entity scope with sample/drug indices for prediction.
         :returns: Predicted response values aligned to scope.pairs.
         :raises RuntimeError: If the predictor has not been fitted.
+        :raises ValueError: If the predictor returns anything but one value per pair.
         """
         if self.state == PipelineState.EMPTY:
             return np.full(len(scope), np.nan)

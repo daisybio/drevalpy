@@ -13,7 +13,7 @@ from drevalpy.types.data.split_mask import SplitMask
 def validate_fit_scopes(dataset: Dataset, scope: SplitMask, stopping: SplitMask | None) -> None:
     """Check dataset-backed selections without imposing split-mode entity rules.
 
-    :param dataset: Source data.
+    :param dataset: Dataset that *scope* and *stopping* index into.
     :param scope: Training or prediction positions.
     :param stopping: Optional disjoint stopping positions.
     :raises TypeError: If inputs do not meet the public model contract.

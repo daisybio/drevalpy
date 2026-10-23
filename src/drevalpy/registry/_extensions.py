@@ -193,11 +193,12 @@ def load_extension_dir(path: Path | str) -> None:
 
     Python files are imported in sorted order (skipping ``__init__.py``).
     YAML files are inspected and dispatched to either the dataset registry
-    or the zoo loader. Loading the same directory twice is harmless.
+    or the zoo loader. Loading the same directory twice is harmless. If any file fails to
+    load, all registries are restored to their state before the call and the error propagates.
 
     :param path: Directory containing extension modules (non-recursive).
     :raises InputNotFoundError: If *path* is not a directory.
-    """
+    """  # noqa: DOC503
     dir_path = Path(path).resolve()
     if not dir_path.is_dir():
         msg = f"Extension directory not found: {dir_path}"
