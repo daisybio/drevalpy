@@ -30,11 +30,11 @@ from .models import MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
 
-# File name under which train_final_model stores the fitted response transformation next to the model.
+#: File name under which train_final_model stores the fitted response transformation next to the model.
 RESPONSE_TRANSFORMATION_FILE = "response_transformation.pkl"
 
-# Baseline that defines the reference scale of all ``Normalized *`` metrics. It is always run and is
-# therefore never trained on a transformed response, see drug_response_experiment.
+#: Baseline that defines the reference scale of all ``Normalized *`` metrics. It is always run and is
+#: therefore never trained on a transformed response, see drug_response_experiment.
 NORMALIZATION_BASELINE = "NaiveMeanEffectsPredictor"
 
 
