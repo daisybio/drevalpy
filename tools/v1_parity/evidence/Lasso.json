@@ -1,0 +1,349 @@
+{
+  "case": {
+    "inputs_sha256": "243641f674fb9f3123de7600bf86396ee17d16caf59c64cd33dc21db0599ffeb",
+    "meta": {
+      "gene_list": "pre-selected: all 50 synthetic genes",
+      "n_test_pairs": 152,
+      "n_train_pairs": 257,
+      "variants": {
+        "aligned": {
+          "v1": {
+            "alpha": 0.1
+          },
+          "v2": {
+            "alpha": 0.1,
+            "max_iter": 10000,
+            "random_state": 0,
+            "selection": "random",
+            "tol": 0.001
+          }
+        },
+        "defaults": {
+          "explanation": "1.6.1 first grid point is alpha=1 with max_iter=10000/tol=1e-3; the v2 preset has the same alpha=1.0 default but max_iter=2000/tol=1e-2/random_state=0. At alpha=1 on standardized features both fits are the intercept only.",
+          "scope": "deviation",
+          "v1": {
+            "alpha": 1.0
+          },
+          "v2": {}
+        },
+        "preset_solver": {
+          "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random_state=0; 1.6.1 uses max_iter=10000, tol=1e-3 and the global numpy stream. Same objective, looser convergence.",
+          "scope": "deviation",
+          "v1": {
+            "alpha": 0.1
+          },
+          "v1_variant": "aligned",
+          "v2": {
+            "alpha": 0.1
+          }
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "aligned: random_state of the estimator",
+      "detail": "non-numeric arrays differ: 1.6.1='None' v2='0'",
+      "explanation": "1.6.1 leaves random_state unset (global stream, seeded with the case seed); v2 gets the same integer, which starts the identical stream, so the random coordinate order is the same.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "aligned/random_state",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "preset_solver: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 10000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.001, \"type\": \"Lasso\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Lasso\", \"warm_start\": false}'",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random_state=0; 1.6.1 uses max_iter=10000, tol=1e-3 and the global numpy stream. Same objective, looser convergence.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "preset_solver/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "preset_solver: predictions",
+      "detail": "",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random_state=0; 1.6.1 uses max_iter=10000, tol=1e-3 and the global numpy stream. Same objective, looser convergence.",
+      "max_abs_diff": 0.06177235709702922,
+      "max_rel_diff": 1.620092595582606,
+      "name": "preset_solver/predictions",
+      "passed": true,
+      "pearson": 0.9996228825527035,
+      "scope": "deviation",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 10000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.001, \"type\": \"Lasso\", \"warm_start\": false}' v2='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Lasso\", \"warm_start\": false}'",
+      "explanation": "1.6.1 first grid point is alpha=1 with max_iter=10000/tol=1e-3; the v2 preset has the same alpha=1.0 default but max_iter=2000/tol=1e-2/random_state=0. At alpha=1 on standardized features both fits are the intercept only.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "statistical",
+      "description": "defaults: predictions",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is alpha=1 with max_iter=10000/tol=1e-3; the v2 preset has the same alpha=1.0 default but max_iter=2000/tol=1e-2/random_state=0. At alpha=1 on standardized features both fits are the intercept only.",
+      "max_abs_diff": 1.4676484139108936e-08,
+      "max_rel_diff": 1.833266172955357e-08,
+      "name": "defaults/predictions",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    }
+  ],
+  "findings": [
+    "1.6.1 builds `Lasso(alpha, max_iter=10000, tol=1e-3, selection='random')` with `random_state` unset (global numpy stream); the v2 `lasso` predictor pins `max_iter=2000, tol=1e-2, selection='random', random_state=0`. Every setting is overridable; with the 1.6.1 values and `random_state` equal to the global seed the fitted coefficients agree to float32 precision (class forward). B5 should set max_iter=10000 and tol=1e-3 if the 1.6.1 solver is to be matched.",
+    "The 1.6.1 default (first grid point) and the v2 default are both alpha=1.0, so the default is unchanged (the 1.6.1 grid is 1, 0.8, 0.6, 0.4, 0.1, 0.01, 5); the v2 search space is log-uniform in [1e-4, 10].",
+    "1.6.1 selects the `landmark_genes` list while loading; the v2 `Lasso` preset consumes the whole gene expression view (`scaledGeneExpression` without `gene_list`). Compared on a pre-selected matrix; the list wiring belongs to B5.",
+    "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64."
+  ],
+  "generated": "2026-10-23",
+  "model": "Lasso",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "aligned: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "aligned/features_train",
+      "passed": true,
+      "pearson": 0.999999999999978,
+      "scope": "parity",
+      "shape_v1": [
+        257,
+        82
+      ],
+      "shape_v2": [
+        257,
+        82
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "aligned: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "aligned/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999785,
+      "scope": "parity",
+      "shape_v1": [
+        152,
+        82
+      ],
+      "shape_v2": [
+        152,
+        82
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "aligned: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "aligned/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "aligned: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.6059021334946522e-07,
+      "max_rel_diff": 2.6006669164729364e-06,
+      "name": "aligned/fitted_coef_",
+      "passed": true,
+      "pearson": 0.9999999999999886,
+      "scope": "parity",
+      "shape_v1": [
+        82
+      ],
+      "shape_v2": [
+        82
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "aligned: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.704496650719818e-09,
+      "max_rel_diff": 2.5311131647784695e-08,
+      "name": "aligned/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "aligned: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.734424501386727e-07,
+      "max_rel_diff": 3.362708752410992e-05,
+      "name": "aligned/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999807,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "aligned, identical float64 design matrix: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "aligned/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "aligned, identical float64 design matrix: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "aligned/identical/fitted_coef_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        82
+      ],
+      "shape_v2": [
+        82
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "aligned, identical float64 design matrix: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "aligned/identical/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "aligned, identical float64 design matrix: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "aligned/identical/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu"
+  },
+  "v2": {
+    "commit": "74cac1247b8f1390955a45da7ed1327a15e2d85e",
+    "dirty": true,
+    "drevalpy": "2.0.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0"
+  },
+  "verdict": "forward"
+}

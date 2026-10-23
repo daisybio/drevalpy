@@ -83,7 +83,8 @@ def tabular_inputs(
 def capture_matrix_predictor(sink: dict[str, Any]) -> Iterator[None]:
     """Record the design matrices and the fitted estimator of any sklearn tabular predictor.
 
-    Fills ``sink["features_train"]``, ``sink["features_test"]`` and ``sink["estimator"]``.
+    Fills ``sink["features_train"]``, ``sink["features_test"]``, ``sink["estimator"]`` and an
+    unfitted twin in ``sink["fresh_estimator"]``.
 
     :param sink: Dictionary receiving the captured values.
     :yields: Nothing; the patches are active inside the ``with`` block.
@@ -92,6 +93,7 @@ def capture_matrix_predictor(sink: dict[str, Any]) -> Iterator[None]:
 
     def keep_estimator(predictor: Any, store: dict[str, Any]) -> None:
         store["estimator"] = predictor._estimator
+        store["fresh_estimator"] = predictor._make_estimator()
 
     with (
         record_calls(SklearnTabularPredictor, "_fit_matrix", sink, "features_train", after=keep_estimator),

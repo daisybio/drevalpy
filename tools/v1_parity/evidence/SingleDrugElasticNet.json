@@ -1,0 +1,1305 @@
+{
+  "case": {
+    "inputs_sha256": "ec584937a41ffe67eafdf37921fd79ece77d3db107ac8afc03fa387c90a06002",
+    "meta": {
+      "gene_list": "pre-selected: all 30 synthetic genes",
+      "n_test_pairs": 45,
+      "n_train_pairs": 97,
+      "variants": {
+        "defaults": {
+          "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+          "pairs": "shared",
+          "scope": "deviation",
+          "v1": {
+            "alpha": 1.0,
+            "l1_ratio": 0.2
+          },
+          "v2": {}
+        },
+        "ragged_enet": {
+          "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+          "scope": "deviation",
+          "v1": {
+            "alpha": 0.1,
+            "l1_ratio": 0.5
+          },
+          "v2": {
+            "alpha": 0.1,
+            "l1_ratio": 0.5,
+            "max_iter": 1000,
+            "selection": "cyclic",
+            "tol": 0.0001
+          }
+        },
+        "shared_enet": {
+          "pairs": "shared",
+          "v1": {
+            "alpha": 0.1,
+            "l1_ratio": 0.5
+          },
+          "v2": {
+            "alpha": 0.1,
+            "l1_ratio": 0.5,
+            "max_iter": 1000,
+            "selection": "cyclic",
+            "tol": 0.0001
+          }
+        },
+        "shared_preset_solver": {
+          "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+          "pairs": "shared",
+          "scope": "deviation",
+          "v1": {
+            "alpha": 0.1,
+            "l1_ratio": 0.5
+          },
+          "v2": {
+            "alpha": 0.1,
+            "l1_ratio": 0.5
+          }
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "shared_enet: random_state of the estimator",
+      "detail": "non-numeric arrays differ: 1.6.1='None' v2='0'",
+      "explanation": "1.6.1 leaves random_state unset; v2 passes the case seed (irrelevant for the cyclic solver), so the recorded values differ.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_enet/D00/random_state",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "exact",
+      "description": "ragged_enet, D00: features train",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": 0.571746072017576,
+      "max_rel_diff": 1.888023275305997,
+      "name": "ragged_enet/D00/features_train",
+      "passed": false,
+      "pearson": 0.9933906433679436,
+      "scope": "deviation",
+      "shape_v1": [
+        25,
+        30
+      ],
+      "shape_v2": [
+        25,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged_enet, D00: params",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ragged_enet/D00/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "ragged_enet, D00: predictions",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": 0.14399647107936275,
+      "max_rel_diff": 1.968921751863564,
+      "name": "ragged_enet/D00/predictions",
+      "passed": false,
+      "pearson": 0.9758121790363781,
+      "scope": "deviation",
+      "shape_v1": [
+        14
+      ],
+      "shape_v2": [
+        14
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "ragged_enet, D01: features train",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": 0.9101767626908517,
+      "max_rel_diff": 1.9562083270729798,
+      "name": "ragged_enet/D01/features_train",
+      "passed": false,
+      "pearson": 0.9877597926579843,
+      "scope": "deviation",
+      "shape_v1": [
+        23,
+        30
+      ],
+      "shape_v2": [
+        23,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged_enet, D01: params",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ragged_enet/D01/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "ragged_enet, D01: predictions",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": 0.07914861875137524,
+      "max_rel_diff": 0.07231109513774914,
+      "name": "ragged_enet/D01/predictions",
+      "passed": true,
+      "pearson": 0.9956659166208673,
+      "scope": "deviation",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "exact",
+      "description": "ragged_enet, D02: features train",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": 0.7395066244034325,
+      "max_rel_diff": 1.9813634069415962,
+      "name": "ragged_enet/D02/features_train",
+      "passed": false,
+      "pearson": 0.9908088495064136,
+      "scope": "deviation",
+      "shape_v1": [
+        25,
+        30
+      ],
+      "shape_v2": [
+        25,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged_enet, D02: params",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ragged_enet/D02/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "ragged_enet, D02: predictions",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": 0.24724998766705797,
+      "max_rel_diff": 0.14155218457713087,
+      "name": "ragged_enet/D02/predictions",
+      "passed": false,
+      "pearson": 0.9751436905208618,
+      "scope": "deviation",
+      "shape_v1": [
+        10
+      ],
+      "shape_v2": [
+        10
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "exact",
+      "description": "ragged_enet, D03: features train",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": 0.93639813677121,
+      "max_rel_diff": 1.9395849066613466,
+      "name": "ragged_enet/D03/features_train",
+      "passed": false,
+      "pearson": 0.9930319415096857,
+      "scope": "deviation",
+      "shape_v1": [
+        24,
+        30
+      ],
+      "shape_v2": [
+        24,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged_enet, D03: params",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ragged_enet/D03/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "ragged_enet, D03: predictions",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the scalers, hence the features and the coefficients, differ.",
+      "max_abs_diff": 0.08231100824806231,
+      "max_rel_diff": 1.361371932754211,
+      "name": "ragged_enet/D03/predictions",
+      "passed": false,
+      "pearson": 0.9863000053577706,
+      "scope": "deviation",
+      "shape_v1": [
+        9
+      ],
+      "shape_v2": [
+        9
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "shared_preset_solver, D00: features train",
+      "detail": "",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_preset_solver/D00/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "shared_preset_solver, D00: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_preset_solver/D00/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "shared_preset_solver, D00: predictions",
+      "detail": "",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": 0.01881310756048782,
+      "max_rel_diff": 0.11057699332002291,
+      "name": "shared_preset_solver/D00/predictions",
+      "passed": true,
+      "pearson": 0.9993178541639297,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "shared_preset_solver, D01: features train",
+      "detail": "",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_preset_solver/D01/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "shared_preset_solver, D01: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_preset_solver/D01/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "shared_preset_solver, D01: predictions",
+      "detail": "",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": 0.00811488065386623,
+      "max_rel_diff": 0.006590455842247556,
+      "name": "shared_preset_solver/D01/predictions",
+      "passed": true,
+      "pearson": 0.9998986997034691,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "shared_preset_solver, D02: features train",
+      "detail": "",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_preset_solver/D02/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "shared_preset_solver, D02: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_preset_solver/D02/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "shared_preset_solver, D02: predictions",
+      "detail": "",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": 0.00822415770519025,
+      "max_rel_diff": 0.009458490950070715,
+      "name": "shared_preset_solver/D02/predictions",
+      "passed": true,
+      "pearson": 0.9999383608369082,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "shared_preset_solver, D03: features train",
+      "detail": "",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_preset_solver/D03/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "shared_preset_solver, D03: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_preset_solver/D03/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "shared_preset_solver, D03: predictions",
+      "detail": "",
+      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
+      "max_abs_diff": 0.024549908922778085,
+      "max_rel_diff": 0.04044611538389502,
+      "name": "shared_preset_solver/D03/predictions",
+      "passed": true,
+      "pearson": 0.9991466731730757,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "defaults, D00: features train",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D00/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults, D00: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.2, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D00/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "defaults, D00: predictions",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": 0.6545320629587492,
+      "max_rel_diff": 1.829021532606337,
+      "name": "defaults/D00/predictions",
+      "passed": false,
+      "pearson": 0.673195156597982,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "defaults, D01: features train",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D01/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults, D01: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.2, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D01/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "defaults, D01: predictions",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": 0.7916701688239416,
+      "max_rel_diff": 0.4612762454409274,
+      "name": "defaults/D01/predictions",
+      "passed": false,
+      "pearson": 0.853233063879643,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "defaults, D02: features train",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D02/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults, D02: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.2, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D02/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "defaults, D02: predictions",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": 1.1500959976718015,
+      "max_rel_diff": 0.48399669132565154,
+      "name": "defaults/D02/predictions",
+      "passed": false,
+      "pearson": 0.5061621046857359,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "defaults, D03: features train",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D03/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults, D03: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.2, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D03/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "defaults, D03: predictions",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
+      "max_abs_diff": 0.7321896257224719,
+      "max_rel_diff": 0.7587698361576889,
+      "name": "defaults/D03/predictions",
+      "passed": false,
+      "pearson": 0.548095688095504,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    }
+  ],
+  "findings": [
+    "1.6.1 trains `SingleDrugElasticNet` once per drug on `scale_gene_expression` features whose `StandardScaler` is fitted on the training samples of that drug; v2 fits `scaledGeneExpression` once over all training pairs and routes by drug. The two agree (class forward) when every drug has the same training samples (`shared_enet`), and differ when the drugs were measured on different samples (`ragged_enet`). This is the intended 'globally fitted single-drug featurizers' deviation of the plan (4.4).",
+    "1.6.1 builds `ElasticNet(alpha, l1_ratio)` with sklearn's solver defaults; l1_ratio 0 or 1 select Ridge or Lasso. v2 pins max_iter=2000, tol=1e-2, selection='random', random_state=0 (overridable). With sklearn's values set explicitly the per-drug coefficients agree to float32 precision.",
+    "Defaults: 1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grids l1_ratio 0.2/0.5/0.9, alpha 1/0.8/0.6/0.4/0.1/0.01/5); v2 defaults are l1_ratio=0.5, alpha=0.1. B5 should decide whether to match.",
+    "The v2 preset uses the whole gene view (`scaledGeneExpression` without `gene_list`) while 1.6.1 selects `landmark_genes`. Compared on a pre-selected matrix; the list wiring belongs to B5.",
+    "v2 features are float32; the `identical` steps feed both estimators the same float64 matrix and are exact."
+  ],
+  "generated": "2026-10-23",
+  "model": "SingleDrugElasticNet",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D00: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_enet/D00/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D00: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "shared_enet/D00/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_enet, D00: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_enet/D00/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D00: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1779803894482188e-07,
+      "max_rel_diff": 4.270900371975008e-06,
+      "name": "shared_enet/D00/fitted_coef_",
+      "passed": true,
+      "pearson": 0.9999999999998093,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D00: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 3.6496203392744064e-08,
+      "max_rel_diff": 1.1793214018345074e-07,
+      "name": "shared_enet/D00/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.060524046531569e-07,
+      "max_rel_diff": 1.2887077766836032e-05,
+      "name": "shared_enet/D00/predictions",
+      "passed": true,
+      "pearson": 0.999999999999138,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D01: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_enet/D01/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D01: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "shared_enet/D01/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_enet, D01: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_enet/D01/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D01: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 3.2764307433819084e-08,
+      "max_rel_diff": 3.041289074099107e-07,
+      "name": "shared_enet/D01/fitted_coef_",
+      "passed": true,
+      "pearson": 0.9999999999999902,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D01: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.783536031842232e-08,
+      "max_rel_diff": 1.18469238237089e-07,
+      "name": "shared_enet/D01/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D01: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.561405618717316e-07,
+      "max_rel_diff": 2.2925175935055654e-07,
+      "name": "shared_enet/D01/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999253,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D02: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_enet/D02/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D02: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "shared_enet/D02/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_enet, D02: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_enet/D02/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D02: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.075657611569584e-08,
+      "max_rel_diff": 3.1719833407889896e-06,
+      "name": "shared_enet/D02/fitted_coef_",
+      "passed": true,
+      "pearson": 0.999999999999983,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D02: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.392372980419282e-08,
+      "max_rel_diff": 6.338979423219876e-08,
+      "name": "shared_enet/D02/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D02: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.699948524753637e-07,
+      "max_rel_diff": 3.13482446675509e-07,
+      "name": "shared_enet/D02/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999623,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D03: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_enet/D03/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D03: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "shared_enet/D03/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_enet, D03: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_enet/D03/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D03: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.359298375199998e-08,
+      "max_rel_diff": 4.9118310974184743e-05,
+      "name": "shared_enet/D03/fitted_coef_",
+      "passed": true,
+      "pearson": 0.99999999999984,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D03: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.2034433949370538e-08,
+      "max_rel_diff": 6.568028548203416e-08,
+      "name": "shared_enet/D03/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_enet, D03: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.814327557665308e-07,
+      "max_rel_diff": 6.903921695404449e-07,
+      "name": "shared_enet/D03/predictions",
+      "passed": true,
+      "pearson": 0.9999999999998784,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_enet, identical float64 matrix of D00: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_enet/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_enet, identical float64 matrix of D00: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_enet/identical/fitted_coef_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_enet, identical float64 matrix of D00: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_enet/identical/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_enet, identical float64 matrix of D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_enet/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu"
+  },
+  "v2": {
+    "commit": "74cac1247b8f1390955a45da7ed1327a15e2d85e",
+    "dirty": true,
+    "drevalpy": "2.0.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0"
+  },
+  "verdict": "forward"
+}

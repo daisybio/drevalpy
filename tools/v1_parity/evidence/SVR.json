@@ -1,0 +1,644 @@
+{
+  "case": {
+    "inputs_sha256": "d78c5586687e5e01d07450c91f922f72e9e0facf2abf4735794e651fd5718bed",
+    "meta": {
+      "gene_list": "pre-selected: all 50 synthetic genes",
+      "n_test_pairs": 152,
+      "n_train_pairs": 257,
+      "variants": {
+        "capped": {
+          "v1": {
+            "C": 10.0,
+            "epsilon": 0.01,
+            "kernel": "rbf",
+            "max_iter": 500
+          },
+          "v2": {
+            "C": 10.0,
+            "epsilon": 0.01,
+            "kernel": "rbf",
+            "max_iter": 500
+          }
+        },
+        "defaults": {
+          "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is C=0.001, epsilon=0.001, max_iter=500; the v2 preset declares C=1.0, epsilon=0.1 and max_iter=-1 (no iteration cap, not tunable).",
+          "scope": "deviation",
+          "v1": {
+            "C": 0.001,
+            "epsilon": 0.001,
+            "kernel": "rbf",
+            "max_iter": 500
+          },
+          "v2": {}
+        },
+        "linear": {
+          "v1": {
+            "C": 0.1,
+            "epsilon": 0.01,
+            "kernel": "linear",
+            "max_iter": 100000
+          },
+          "v2": {
+            "C": 0.1,
+            "epsilon": 0.01,
+            "kernel": "linear",
+            "max_iter": 100000
+          }
+        },
+        "rbf": {
+          "v1": {
+            "C": 1.0,
+            "epsilon": 0.1,
+            "kernel": "rbf",
+            "max_iter": 100000
+          },
+          "v2": {
+            "C": 1.0,
+            "epsilon": 0.1,
+            "kernel": "rbf",
+            "max_iter": 100000
+          }
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"C\": 0.001, \"cache_size\": 200, \"coef0\": 0.0, \"degree\": 3, \"epsilon\": 0.001, \"gamma\": \"scale\", \"kernel\": \"rbf\", \"max_iter\": 500, \"shrinking\": true, \"tol\": 0.001, \"type\": \"SVR\", \"verbose\": false}' v2='{\"C\": 1.0, \"cache_size\": 200, \"coef0\": 0.0, \"degree\": 3, \"epsilon\": 0.1, \"gamma\": \"scale\", \"kernel\": \"rbf\", \"max_iter\": -1, \"shrinking\": true, \"tol\": 0.001, \"type\": \"SVR\", \"verbose\": false}'",
+      "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is C=0.001, epsilon=0.001, max_iter=500; the v2 preset declares C=1.0, epsilon=0.1 and max_iter=-1 (no iteration cap, not tunable).",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "defaults: predictions",
+      "detail": "",
+      "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is C=0.001, epsilon=0.001, max_iter=500; the v2 preset declares C=1.0, epsilon=0.1 and max_iter=-1 (no iteration cap, not tunable).",
+      "max_abs_diff": 2.7304668976774997,
+      "max_rel_diff": 1.9604122909736503,
+      "name": "defaults/predictions",
+      "passed": false,
+      "pearson": 0.9223973593046475,
+      "scope": "deviation",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    }
+  ],
+  "findings": [
+    "Default hyperparameters: 1.6.1 first grid point kernel=rbf, C=0.001, epsilon=0.001, max_iter=500 (grid C 0.001..100, epsilon 0.001..1); v2 declares kernel=rbf, C=1.0, epsilon=0.1 (log-uniform spaces C 1e-3..100, epsilon 1e-3..1) and `max_iter=-1` as a non-tunable value. The `defaults` variant measures the effect: with C=0.001 the 1.6.1 default is close to a constant predictor. B5 decides whether to move the v2 defaults.",
+    "1.6.1 caps libsvm at 500 iterations in every grid point, which stops before convergence on realistic data (ConvergenceWarning); v2 runs to convergence unless `max_iter` is set. The `capped` variant checks that an explicit cap is applied identically.",
+    "End to end, the predictions only agree statistically (class statistical): SMO stops at libsvm's default tol=1e-3, its working-set selection is discontinuous in the kernel values, and the float32 features of v2 (1e-7 relative) steer it to a different, equally valid solution (different n_iter_, differences up to the solver tolerance, e.g. 2e-3 absolute for the linear kernel). The `identical` steps feed both estimators the same float64 matrix and are exact, so the algorithm and hyperparameters are the same. The `capped` variant (max_iter=500, same path) agrees to float32 precision.",
+    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without `gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5.",
+    "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64."
+  ],
+  "generated": "2026-10-23",
+  "model": "SVR",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "rbf: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "rbf/features_train",
+      "passed": true,
+      "pearson": 0.999999999999978,
+      "scope": "parity",
+      "shape_v1": [
+        257,
+        82
+      ],
+      "shape_v2": [
+        257,
+        82
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "rbf: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "rbf/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999785,
+      "scope": "parity",
+      "shape_v1": [
+        152,
+        82
+      ],
+      "shape_v2": [
+        152,
+        82
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "rbf: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "rbf/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "rbf: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.000483998795327234,
+      "max_rel_diff": 0.015033137328686969,
+      "name": "rbf/predictions",
+      "passed": true,
+      "pearson": 0.9999999899944642,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "rbf, identical float64 design matrix: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "rbf/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "rbf, identical float64 design matrix: fitted support ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "rbf/identical/fitted_support_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        224
+      ],
+      "shape_v2": [
+        224
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "rbf, identical float64 design matrix: fitted dual coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "rbf/identical/fitted_dual_coef_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        1,
+        224
+      ],
+      "shape_v2": [
+        1,
+        224
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "rbf, identical float64 design matrix: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "rbf/identical/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "rbf, identical float64 design matrix: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "rbf/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "linear: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "linear/features_train",
+      "passed": true,
+      "pearson": 0.999999999999978,
+      "scope": "parity",
+      "shape_v1": [
+        257,
+        82
+      ],
+      "shape_v2": [
+        257,
+        82
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "linear: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "linear/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999785,
+      "scope": "parity",
+      "shape_v1": [
+        152,
+        82
+      ],
+      "shape_v2": [
+        152,
+        82
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "linear: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "linear/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "linear: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0018051520137953858,
+      "max_rel_diff": 0.31958472769800367,
+      "name": "linear/predictions",
+      "passed": true,
+      "pearson": 0.9999998905845382,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "linear, identical float64 design matrix: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "linear/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "linear, identical float64 design matrix: fitted support ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "linear/identical/fitted_support_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        248
+      ],
+      "shape_v2": [
+        248
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "linear, identical float64 design matrix: fitted dual coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "linear/identical/fitted_dual_coef_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        1,
+        248
+      ],
+      "shape_v2": [
+        1,
+        248
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "linear, identical float64 design matrix: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "linear/identical/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "linear, identical float64 design matrix: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "linear/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "capped: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "capped/features_train",
+      "passed": true,
+      "pearson": 0.999999999999978,
+      "scope": "parity",
+      "shape_v1": [
+        257,
+        82
+      ],
+      "shape_v2": [
+        257,
+        82
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "capped: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "capped/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999785,
+      "scope": "parity",
+      "shape_v1": [
+        152,
+        82
+      ],
+      "shape_v2": [
+        152,
+        82
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "capped: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "capped/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "capped: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 4.3851146935836027e-07,
+      "max_rel_diff": 0.00011614145076453933,
+      "name": "capped/predictions",
+      "passed": true,
+      "pearson": 0.999999999999994,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "capped, identical float64 design matrix: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "capped/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "capped, identical float64 design matrix: fitted support ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "capped/identical/fitted_support_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        243
+      ],
+      "shape_v2": [
+        243
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "capped, identical float64 design matrix: fitted dual coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "capped/identical/fitted_dual_coef_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        1,
+        243
+      ],
+      "shape_v2": [
+        1,
+        243
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "capped, identical float64 design matrix: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "capped/identical/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "capped, identical float64 design matrix: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "capped/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu"
+  },
+  "v2": {
+    "commit": "74cac1247b8f1390955a45da7ed1327a15e2d85e",
+    "dirty": true,
+    "drevalpy": "2.0.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0"
+  },
+  "verdict": "statistical"
+}

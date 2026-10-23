@@ -1,0 +1,647 @@
+{
+  "case": {
+    "inputs_sha256": "342bc659b7c96c8ecafc132f9867012b5fb8b862859aff9dc769a7d891d53c81",
+    "meta": {
+      "gene_list": "pre-selected: all 30 synthetic genes",
+      "n_test_pairs": 7328,
+      "n_train_pairs": 13046,
+      "variants": {
+        "defaults": {
+          "explanation": "Hyperparameter defaults differ in max_depth: 1.6.1 first grid point is max_iter=100, learning_rate=0.1, max_depth=5 (grid 5/10/30, learning_rate 0.1/0.01); the v2 preset declares max_iter=100, learning_rate=0.1, max_depth=6.",
+          "np_seed": 42,
+          "scope": "deviation",
+          "v1": {
+            "learning_rate": 0.1,
+            "max_depth": 5,
+            "max_iter": 100
+          },
+          "v2": {}
+        },
+        "large": {
+          "explanation": "With more than 10000 training pairs sklearn early-stops on a validation split drawn from random_state. 1.6.1 pins random_state=42; v2 leaves it unset, so the split comes from the global numpy stream and differs from run to run unless the caller seeds it.",
+          "scope": "deviation",
+          "v1": {
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "max_iter": 50
+          },
+          "v1_variant": "large_seed42",
+          "v2": {
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "max_iter": 50
+          }
+        },
+        "large_seed42": {
+          "np_seed": 42,
+          "v1": {
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "max_iter": 50
+          },
+          "v2": {
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "max_iter": 50
+          }
+        },
+        "small": {
+          "train_limit": 3000,
+          "v1": {
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "max_iter": 50
+          },
+          "v2": {
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "max_iter": 50
+          }
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "small: random_state of the estimator",
+      "detail": "non-numeric arrays differ: 1.6.1='42' v2='None'",
+      "explanation": "1.6.1 pins random_state=42; v2 leaves it unset (None), which draws from the global numpy stream. The large_seed42 variant seeds that stream with 42 to reproduce 1.6.1; B5 should pin random_state=42 in the predictor.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "small/random_state",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "large_seed42: random_state of the estimator",
+      "detail": "non-numeric arrays differ: 1.6.1='42' v2='None'",
+      "explanation": "1.6.1 pins random_state=42; v2 leaves it unset (None), which draws from the global numpy stream. The large_seed42 variant seeds that stream with 42 to reproduce 1.6.1; B5 should pin random_state=42 in the predictor.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "large_seed42/random_state",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large: params",
+      "detail": "",
+      "explanation": "With more than 10000 training pairs sklearn early-stops on a validation split drawn from random_state. 1.6.1 pins random_state=42; v2 leaves it unset, so the split comes from the global numpy stream and differs from run to run unless the caller seeds it.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "large/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "large: predictions",
+      "detail": "",
+      "explanation": "With more than 10000 training pairs sklearn early-stops on a validation split drawn from random_state. 1.6.1 pins random_state=42; v2 leaves it unset, so the split comes from the global numpy stream and differs from run to run unless the caller seeds it.",
+      "max_abs_diff": 0.4710444972802066,
+      "max_rel_diff": 1.825608519142723,
+      "name": "large/predictions",
+      "passed": true,
+      "pearson": 0.9989718305690386,
+      "scope": "deviation",
+      "shape_v1": [
+        7328
+      ],
+      "shape_v2": [
+        7328
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"categorical_features\": \"from_dtype\", \"early_stopping\": \"auto\", \"interaction_cst\": null, \"l2_regularization\": 0.0, \"learning_rate\": 0.1, \"loss\": \"squared_error\", \"max_bins\": 255, \"max_depth\": 5, \"max_features\": 1.0, \"max_iter\": 100, \"max_leaf_nodes\": 31, \"min_samples_leaf\": 20, \"monotonic_cst\": null, \"n_iter_no_change\": 10, \"quantile\": null, \"scoring\": \"loss\", \"tol\": 1e-07, \"type\": \"HistGr",
+      "explanation": "Hyperparameter defaults differ in max_depth: 1.6.1 first grid point is max_iter=100, learning_rate=0.1, max_depth=5 (grid 5/10/30, learning_rate 0.1/0.01); the v2 preset declares max_iter=100, learning_rate=0.1, max_depth=6.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "defaults: predictions",
+      "detail": "",
+      "explanation": "Hyperparameter defaults differ in max_depth: 1.6.1 first grid point is max_iter=100, learning_rate=0.1, max_depth=5 (grid 5/10/30, learning_rate 0.1/0.01); the v2 preset declares max_iter=100, learning_rate=0.1, max_depth=6.",
+      "max_abs_diff": 0.9438630904902716,
+      "max_rel_diff": 1.730421157382032,
+      "name": "defaults/predictions",
+      "passed": true,
+      "pearson": 0.9986873163857456,
+      "scope": "deviation",
+      "shape_v1": [
+        7328
+      ],
+      "shape_v2": [
+        7328
+      ]
+    }
+  ],
+  "findings": [
+    "1.6.1 (#500) builds `HistGradientBoostingRegressor(max_iter, learning_rate, max_depth, validation_fraction=0.1, n_iter_no_change=10, random_state=42)`; the v2 `gradientBoosting` predictor passes max_depth, learning_rate and max_iter only. For fewer than 10000 training pairs sklearn does not early-stop and the two are identical (`small`). With more pairs early stopping is on and v2 draws its validation split from the global numpy stream instead of random_state=42: B5 must add `random_state=42`, `validation_fraction=0.1` and `n_iter_no_change=10` (the last two equal sklearn's defaults).",
+    "Default hyperparameters: 1.6.1 first grid point max_iter=100, learning_rate=0.1, max_depth=5 (grid max_depth 5/10/30); v2 declares max_iter=100, learning_rate=0.1, max_depth=6 (space 3..12). Only max_depth differs.",
+    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without `gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5.",
+    "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64. HistGradientBoosting bins the features itself in float64, and the bin boundaries agree."
+  ],
+  "generated": "2026-10-23",
+  "model": "GradientBoosting",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "small: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.512418787047892e-07,
+      "max_rel_diff": 0.0009233032465096782,
+      "name": "small/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999722,
+      "scope": "parity",
+      "shape_v1": [
+        3000,
+        46
+      ],
+      "shape_v2": [
+        3000,
+        46
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "small: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.964850161634729e-07,
+      "max_rel_diff": 0.006340740128338182,
+      "name": "small/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999721,
+      "scope": "parity",
+      "shape_v1": [
+        7328,
+        46
+      ],
+      "shape_v2": [
+        7328,
+        46
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "small/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small: fitted n iter ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "small/fitted_n_iter_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small: fitted train score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "small/fitted_train_score_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        0
+      ],
+      "shape_v2": [
+        0
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small: fitted validation score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "small/fitted_validation_score_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        0
+      ],
+      "shape_v2": [
+        0
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "small/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7328
+      ],
+      "shape_v2": [
+        7328
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small, identical float64 design matrix: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "small/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small, identical float64 design matrix: fitted n iter ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "small/identical/fitted_n_iter_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small, identical float64 design matrix: fitted train score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "small/identical/fitted_train_score_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        0
+      ],
+      "shape_v2": [
+        0
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small, identical float64 design matrix: fitted validation score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "small/identical/fitted_validation_score_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        0
+      ],
+      "shape_v2": [
+        0
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small, identical float64 design matrix: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "small/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7328
+      ],
+      "shape_v2": [
+        7328
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "large_seed42: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.583807161675281e-07,
+      "max_rel_diff": 0.0037457817349004054,
+      "name": "large_seed42/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999776,
+      "scope": "parity",
+      "shape_v1": [
+        13046,
+        46
+      ],
+      "shape_v2": [
+        13046,
+        46
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "large_seed42: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.999767938609125e-07,
+      "max_rel_diff": 0.0037457817349004054,
+      "name": "large_seed42/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999778,
+      "scope": "parity",
+      "shape_v1": [
+        7328,
+        46
+      ],
+      "shape_v2": [
+        7328,
+        46
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "large_seed42/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42: fitted n iter ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "large_seed42/fitted_n_iter_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42: fitted train score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "large_seed42/fitted_train_score_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        51
+      ],
+      "shape_v2": [
+        51
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42: fitted validation score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "large_seed42/fitted_validation_score_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        51
+      ],
+      "shape_v2": [
+        51
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "large_seed42/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7328
+      ],
+      "shape_v2": [
+        7328
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42, identical float64 design matrix: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "large_seed42/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42, identical float64 design matrix: fitted n iter ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "large_seed42/identical/fitted_n_iter_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42, identical float64 design matrix: fitted train score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "large_seed42/identical/fitted_train_score_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        51
+      ],
+      "shape_v2": [
+        51
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42, identical float64 design matrix: fitted validation score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "large_seed42/identical/fitted_validation_score_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        51
+      ],
+      "shape_v2": [
+        51
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large_seed42, identical float64 design matrix: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "large_seed42/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7328
+      ],
+      "shape_v2": [
+        7328
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu"
+  },
+  "v2": {
+    "commit": "74cac1247b8f1390955a45da7ed1327a15e2d85e",
+    "dirty": true,
+    "drevalpy": "2.0.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0"
+  },
+  "verdict": "forward"
+}

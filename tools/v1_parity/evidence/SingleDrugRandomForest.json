@@ -1,0 +1,987 @@
+{
+  "case": {
+    "inputs_sha256": "6827acbcd8e383567ea585b6f6a386ea9657b8a6d542294c1bf1bfd535bc4b49",
+    "meta": {
+      "gene_list": "pre-selected: all 30 synthetic genes",
+      "n_test_pairs": 45,
+      "n_train_pairs": 97,
+      "variants": {
+        "defaults": {
+          "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+          "pairs": "shared",
+          "scope": "deviation",
+          "v1": {
+            "criterion": "squared_error",
+            "max_depth": 5,
+            "max_samples": 0.2,
+            "n_estimators": 100,
+            "n_jobs": -1
+          },
+          "v2": {}
+        },
+        "ragged_forest": {
+          "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+          "scope": "deviation",
+          "v1": {
+            "criterion": "squared_error",
+            "max_depth": 6,
+            "max_samples": 0.5,
+            "n_estimators": 30,
+            "n_jobs": 1
+          },
+          "v2": {
+            "criterion": "squared_error",
+            "max_depth": 6,
+            "max_samples": 0.5,
+            "n_estimators": 30,
+            "n_jobs": 1,
+            "random_state": 0
+          }
+        },
+        "shared_forest": {
+          "pairs": "shared",
+          "v1": {
+            "criterion": "squared_error",
+            "max_depth": 6,
+            "max_samples": 0.5,
+            "n_estimators": 30,
+            "n_jobs": 1
+          },
+          "v2": {
+            "criterion": "squared_error",
+            "max_depth": 6,
+            "max_samples": 0.5,
+            "n_estimators": 30,
+            "n_jobs": 1,
+            "random_state": 0
+          }
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "shared_forest: random_state of the estimator",
+      "detail": "non-numeric arrays differ: 1.6.1='None' v2='0'",
+      "explanation": "1.6.1 leaves random_state unset (global stream, seeded with the case seed); v2 gets the same integer, which starts the identical stream.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_forest/D00/random_state",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "exact",
+      "description": "ragged_forest, D00: features train",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": 0.571746072017576,
+      "max_rel_diff": 1.888023275305997,
+      "name": "ragged_forest/D00/features_train",
+      "passed": false,
+      "pearson": 0.9933906433679436,
+      "scope": "deviation",
+      "shape_v1": [
+        25,
+        30
+      ],
+      "shape_v2": [
+        25,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged_forest, D00: params",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ragged_forest/D00/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "statistical",
+      "description": "ragged_forest, D00: predictions",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "ragged_forest/D00/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "deviation",
+      "shape_v1": [
+        14
+      ],
+      "shape_v2": [
+        14
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "ragged_forest, D01: features train",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": 0.9101767626908517,
+      "max_rel_diff": 1.9562083270729798,
+      "name": "ragged_forest/D01/features_train",
+      "passed": false,
+      "pearson": 0.9877597926579843,
+      "scope": "deviation",
+      "shape_v1": [
+        23,
+        30
+      ],
+      "shape_v2": [
+        23,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged_forest, D01: params",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ragged_forest/D01/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "statistical",
+      "description": "ragged_forest, D01: predictions",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "ragged_forest/D01/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "deviation",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "exact",
+      "description": "ragged_forest, D02: features train",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": 0.7395066244034325,
+      "max_rel_diff": 1.9813634069415962,
+      "name": "ragged_forest/D02/features_train",
+      "passed": false,
+      "pearson": 0.9908088495064136,
+      "scope": "deviation",
+      "shape_v1": [
+        25,
+        30
+      ],
+      "shape_v2": [
+        25,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged_forest, D02: params",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ragged_forest/D02/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "statistical",
+      "description": "ragged_forest, D02: predictions",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "ragged_forest/D02/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "deviation",
+      "shape_v1": [
+        10
+      ],
+      "shape_v2": [
+        10
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "exact",
+      "description": "ragged_forest, D03: features train",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": 0.93639813677121,
+      "max_rel_diff": 1.9395849066613466,
+      "name": "ragged_forest/D03/features_train",
+      "passed": false,
+      "pearson": 0.9930319415096857,
+      "scope": "deviation",
+      "shape_v1": [
+        24,
+        30
+      ],
+      "shape_v2": [
+        24,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ragged_forest, D03: params",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ragged_forest/D03/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "statistical",
+      "description": "ragged_forest, D03: predictions",
+      "detail": "",
+      "explanation": "1.6.1 fits the StandardScaler on the training samples of each drug; v2 fits it once on all training samples (plan 4.4, globally fitted single-drug featurizers). With drug-specific subsets of samples the features differ. A forest is invariant to per-column scaling, so the predictions can still agree closely.",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "ragged_forest/D03/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "deviation",
+      "shape_v1": [
+        9
+      ],
+      "shape_v2": [
+        9
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "defaults, D00: features train",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D00/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults, D00: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"bootstrap\": true, \"ccp_alpha\": 0.0, \"criterion\": \"squared_error\", \"max_depth\": 5, \"max_features\": 1.0, \"max_leaf_nodes\": null, \"max_samples\": 0.2, \"min_impurity_decrease\": 0.0, \"min_samples_leaf\": 1, \"min_samples_split\": 2, \"min_weight_fraction_leaf\": 0.0, \"monotonic_cst\": null, \"n_estimators\": 100, \"n_jobs\": -1, \"oob_score\": false, \"type\": \"RandomForestRegressor\", \"verbose\": 0, \"warm_sta",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D00/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "defaults, D00: predictions",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": 0.08848928403109313,
+      "max_rel_diff": 0.41552201628736307,
+      "name": "defaults/D00/predictions",
+      "passed": false,
+      "pearson": 0.7226617412789307,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "defaults, D01: features train",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D01/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults, D01: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"bootstrap\": true, \"ccp_alpha\": 0.0, \"criterion\": \"squared_error\", \"max_depth\": 5, \"max_features\": 1.0, \"max_leaf_nodes\": null, \"max_samples\": 0.2, \"min_impurity_decrease\": 0.0, \"min_samples_leaf\": 1, \"min_samples_split\": 2, \"min_weight_fraction_leaf\": 0.0, \"monotonic_cst\": null, \"n_estimators\": 100, \"n_jobs\": -1, \"oob_score\": false, \"type\": \"RandomForestRegressor\", \"verbose\": 0, \"warm_sta",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D01/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "defaults, D01: predictions",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": 0.09740857264027003,
+      "max_rel_diff": 0.12322205985932293,
+      "name": "defaults/D01/predictions",
+      "passed": false,
+      "pearson": 0.5600659844797657,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "defaults, D02: features train",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D02/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults, D02: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"bootstrap\": true, \"ccp_alpha\": 0.0, \"criterion\": \"squared_error\", \"max_depth\": 5, \"max_features\": 1.0, \"max_leaf_nodes\": null, \"max_samples\": 0.2, \"min_impurity_decrease\": 0.0, \"min_samples_leaf\": 1, \"min_samples_split\": 2, \"min_weight_fraction_leaf\": 0.0, \"monotonic_cst\": null, \"n_estimators\": 100, \"n_jobs\": -1, \"oob_score\": false, \"type\": \"RandomForestRegressor\", \"verbose\": 0, \"warm_sta",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D02/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "defaults, D02: predictions",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": 0.18407588977366696,
+      "max_rel_diff": 0.14532114133783408,
+      "name": "defaults/D02/predictions",
+      "passed": false,
+      "pearson": 0.8174240136567925,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "exact",
+      "description": "defaults, D03: features train",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D03/features_train",
+      "passed": false,
+      "pearson": 0.9999999999999711,
+      "scope": "deviation",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "defaults, D03: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"bootstrap\": true, \"ccp_alpha\": 0.0, \"criterion\": \"squared_error\", \"max_depth\": 5, \"max_features\": 1.0, \"max_leaf_nodes\": null, \"max_samples\": 0.2, \"min_impurity_decrease\": 0.0, \"min_samples_leaf\": 1, \"min_samples_split\": 2, \"min_weight_fraction_leaf\": 0.0, \"monotonic_cst\": null, \"n_estimators\": 100, \"n_jobs\": -1, \"oob_score\": false, \"type\": \"RandomForestRegressor\", \"verbose\": 0, \"warm_sta",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D03/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "statistical",
+      "description": "defaults, D03: predictions",
+      "detail": "",
+      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "max_abs_diff": 0.06266804648097604,
+      "max_rel_diff": 0.256239552902399,
+      "name": "defaults/D03/predictions",
+      "passed": false,
+      "pearson": 0.9362544790964796,
+      "scope": "deviation",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    }
+  ],
+  "findings": [
+    "1.6.1 trains `SingleDrugRandomForest` once per drug with `random_state` unset (global numpy stream); v2 pins `random_state` in the predictor and builds one forest per drug from it. With `random_state` equal to the integer the global stream is seeded with before each drug, the per-drug forests are identical (feature importances and predictions exact).",
+    "Same scaler deviation as `SingleDrugElasticNet`: 1.6.1 standardizes with the training samples of the drug, v2 with all training samples (plan 4.4). With a shared sample set the features agree to float32 precision.",
+    "Defaults: 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30); v2 declares n_estimators=100, max_samples=0.2, max_depth=15. Only max_depth differs. B5 should decide whether to match.",
+    "The v2 preset uses the whole gene view (`scaledGeneExpression` without `gene_list`) while 1.6.1 selects `landmark_genes`. Compared on a pre-selected matrix; the list wiring belongs to B5."
+  ],
+  "generated": "2026-10-23",
+  "model": "SingleDrugRandomForest",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_forest, D00: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_forest/D00/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_forest, D00: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "shared_forest/D00/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D00: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_forest/D00/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D00: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/D00/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/D00/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_forest, D01: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_forest/D01/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_forest, D01: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "shared_forest/D01/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D01: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_forest/D01/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D01: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/D01/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D01: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/D01/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_forest, D02: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_forest/D02/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_forest, D02: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "shared_forest/D02/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D02: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_forest/D02/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D02: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/D02/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D02: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/D02/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_forest, D03: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "shared_forest/D03/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "shared_forest, D03: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "shared_forest/D03/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D03: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_forest/D03/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D03: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/D03/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, D03: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/D03/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, identical float64 matrix of D00: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_forest/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, identical float64 matrix of D00: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/identical/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_forest, identical float64 matrix of D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "shared_forest/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu"
+  },
+  "v2": {
+    "commit": "74cac1247b8f1390955a45da7ed1327a15e2d85e",
+    "dirty": true,
+    "drevalpy": "2.0.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0"
+  },
+  "verdict": "forward"
+}
