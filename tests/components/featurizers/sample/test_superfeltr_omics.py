@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
+import pytest
 
 from drevalpy.components.featurizers.sample.superfeltr_omics import SuperFELTROmicsFeaturizer
+from drevalpy.errors import InvalidInputError
 from tests.components.featurizers._name_alignment import assert_aligns_by_name, random_views
-from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant
+from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant, use_gene_lists
 from tests.conftest import MockFeatureSource
 
 
@@ -126,3 +130,43 @@ def test_superfeltr_omics_reads_every_view_by_name() -> None:
     )
     for drop_view in views:
         assert_aligns_by_name(lambda: SuperFELTROmicsFeaturizer(n_features_per_view=3), views, drop_view=drop_view)
+
+
+def _omics() -> MockFeatureSource:
+    views = ("gene_expression", "mutations", "copy_number_variation_gistic")
+    return MockFeatureSource(
+        {f"cl{i}": {view: np.array([i, 1, i + 1, 3 * i], dtype=np.float32) for view in views} for i in range(3)},
+        meta_info={view: [f"{view}{j}" for j in range(4)] for view in views},
+    )
+
+
+def test_superfeltr_omics_gene_lists_restrict_the_variance_selection_per_view(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    use_gene_lists(monkeypatch, tmp_path, {"two": ["mutations3", "mutations0"]})
+    ids = np.array(["cl0", "cl1", "cl2"])
+    featurizer = SuperFELTROmicsFeaturizer(n_features_per_view=1, gene_lists={"mutations": "two"}).fit(
+        _omics(), entity_ids=ids
+    )
+
+    blocks = featurizer.transform_blocks(_omics(), ids)
+
+    assert blocks["mutations"].feature_names == ("mutations3",)
+    assert blocks["gene_expression"].feature_names == ("gene_expression3",)
+    restored = SuperFELTROmicsFeaturizer()
+    restored.set_state(featurizer.get_state())
+    assert restored.get_state()["gene_lists"] == {"mutations": "two"}
+    np.testing.assert_allclose(restored.transform(_omics(), ids), blocks["gene_expression"].values)
+
+
+def test_superfeltr_omics_gene_lists_raise_when_a_view_lacks_genes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    use_gene_lists(monkeypatch, tmp_path, {"bad": ["gene_expression0", "nope"]})
+    with pytest.raises(InvalidInputError, match="lacks 1 of 2 genes in 'bad'"):
+        SuperFELTROmicsFeaturizer(gene_lists={"gene_expression": "bad"}).fit(_omics(), entity_ids=np.array(["cl0"]))
+
+
+def test_superfeltr_omics_gene_lists_reject_unknown_views() -> None:
+    with pytest.raises(InvalidInputError, match="unknown views"):
+        SuperFELTROmicsFeaturizer(gene_lists={"proteomics": "x"})

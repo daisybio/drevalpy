@@ -5,8 +5,15 @@ Plain module (no ``__init__.py``) imported by dotted path.
 
 from __future__ import annotations
 
-import numpy as np
+from collections.abc import Mapping, Sequence
+from pathlib import Path
 
+import numpy as np
+import pandas as pd
+import pytest
+from upath import UPath
+
+from drevalpy.components.featurizers.sample import gene_lists
 from drevalpy.components.featurizers.storage import register_variant
 from drevalpy.types.data.feature_source import SampleFeatureSource
 from tests.models.synthetic_fixtures import synthetic_mudataset
@@ -87,3 +94,15 @@ def assert_uses_precomputed_variant(
     assert set(blocks) == set(expected_blocks)
     for name in expected_blocks:
         np.testing.assert_allclose(blocks[name].values, PRECOMPUTED)
+
+
+def use_gene_lists(monkeypatch: pytest.MonkeyPatch, directory: Path, lists: Mapping[str, Sequence[str]]) -> None:
+    """Replace the shipped gene lists by small stand-ins for the rest of the test.
+
+    :param monkeypatch: The test's monkeypatch fixture.
+    :param directory: Empty directory to write the stand-in CSVs to.
+    :param lists: List name to its gene symbols.
+    """
+    for name, symbols in lists.items():
+        pd.DataFrame({"Symbol": list(symbols)}).to_csv(directory / f"{name}.csv", index=False)
+    monkeypatch.setattr(gene_lists, "GENE_LISTS_DIR", UPath(directory))

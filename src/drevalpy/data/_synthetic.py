@@ -80,6 +80,8 @@ if TYPE_CHECKING:
 N_SAMPLES: Final = 60
 N_DRUGS: Final = 8
 N_TISSUES: Final = 6
+#: Minimum view width and the number of genes the pathway and ontology payloads cover. Each
+#: view is at least as wide as the union of its shipped gene lists, which is far above this.
 N_FEATURES: Final = 16
 
 #: A curve-metric layer name the curation pipeline really emits. ``response.X``
@@ -319,7 +321,7 @@ def synthetic(
     zoo's other models read: fingerprints, graphs, pathway sets and ontologies.
 
     Raises ``ValueError`` if a name in *sample_views*, *drug_views*, *uns_payloads* or
-    *extra_layers* is unknown, or if the packaged gene list is shorter than *n_features*.
+    *extra_layers* is unknown, or if a payload needs more landmark genes than are packaged.
 
     :param name: Dataset name recorded on the returned object.
     :param n_samples: Number of samples on the ``obs`` axis.
@@ -345,10 +347,13 @@ def synthetic(
         ``LN_IC50``: any of ``AUC`` and ``IC50``.
     :param feature_names: Column names for every omics modality, or a mapping from
         public omics name to its column names. Defaults to the first
-        *n_features* landmark gene symbols, or methylation site ids for
+        union of the gene lists shipped for the view (``GENE_LISTS_BY_VIEW``), so any
+        shipped ``gene_list`` finds all its genes, or the methylation sites of
         ``methylation``.
-    :param n_features: Number of generated column names when *feature_names* does
-        not name a view.
+    :param n_features: Minimum number of generated column names when *feature_names* does
+        not name a view. The shipped lists set a floor (about 11,600 expression genes),
+        so a smaller value changes nothing; a larger one adds placeholder names. It also
+        sets how many genes the pathway and ontology payloads cover.
     :param missing_fraction: Share of response pairs left unmeasured. Every sample
         and drug keeps at least one measurement regardless.
     :param low_quality_fraction: Share of response pairs whose curve-quality

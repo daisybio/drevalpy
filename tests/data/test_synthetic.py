@@ -7,6 +7,7 @@ import pytest
 
 import drevalpy
 from drevalpy import ModelSpec
+from drevalpy.components.featurizers.sample.gene_lists import GENE_LISTS_BY_VIEW, resolve_gene_list, view_gene_union
 from drevalpy.data._synthetic import (
     DATASET_NAME,
     MAX_SYNTHETIC_DRUGS,
@@ -183,15 +184,20 @@ class TestOmics:
 
         matrix = with_omics.get_sample_features("gene_expression", np.asarray(with_omics.sample_ids))
 
-        assert matrix.shape == (N_SAMPLES, N_FEATURES)
+        assert matrix.shape == (N_SAMPLES, len(view_gene_union("gene_expression")))
 
     def test_feature_names_are_exposed(self):
         with_omics = build_synthetic_dataset(omics=["gene_expression"], feature_names=["A", "B"])
 
         assert with_omics.get_sample_feature_names("gene_expression") == ("A", "B")
 
-    def test_the_feature_width_is_configurable(self):
+    def test_the_feature_width_cannot_drop_below_the_shipped_lists(self):
         with_omics = build_synthetic_dataset(omics=["gene_expression"], n_features=3)
+
+        assert with_omics.mdata.mod["gene_expression"].shape[1] == len(view_gene_union("gene_expression"))
+
+    def test_explicit_feature_names_set_the_width(self):
+        with_omics = build_synthetic_dataset(omics=["gene_expression"], feature_names=["A", "B", "C"])
 
         assert with_omics.mdata.mod["gene_expression"].shape[1] == 3
 
@@ -242,21 +248,22 @@ class TestOmicsViews:
             "copy_number_variation",
         }
 
-    def test_gene_views_are_named_by_landmark_symbols(self, every_view):
-        from drevalpy.components.featurizers.sample.gene_lists import (
-            gene_names_from_list_csv,
-            resolve_gene_list_path,
-        )
+    @pytest.mark.parametrize("view", sorted(GENE_LISTS_BY_VIEW))
+    def test_every_shipped_list_is_a_subset_of_its_view(self, every_view, view):
+        names = set(every_view.get_sample_feature_names(view))
 
-        symbols = gene_names_from_list_csv(resolve_gene_list_path("landmark_genes"))
+        for list_name in GENE_LISTS_BY_VIEW[view]:
+            assert set(resolve_gene_list(list_name)) <= names, list_name
 
-        for view in ("gene_expression", "proteomics", "mutations", "copy_number_variation_gistic"):
-            assert every_view.get_sample_feature_names(view) == tuple(symbols[:12])
+    def test_gene_views_start_with_the_landmark_symbols(self, every_view):
+        landmark = resolve_gene_list("landmark_genes")
+
+        assert every_view.get_sample_feature_names("gene_expression")[: len(landmark)] == landmark
 
     def test_methylation_is_named_by_genomic_sites(self, every_view):
         names = every_view.get_sample_feature_names("methylation")
 
-        assert len(set(names)) == 12
+        assert len(set(names)) == len(names)
         assert all(name.startswith("chr") for name in names)
 
     def test_mutations_are_binary_calls(self, every_view):
@@ -283,9 +290,9 @@ class TestOmicsViews:
         dataset = synthetic(omics=["gene_expression", "methylation"], feature_names={"methylation": ["s1", "s2", "s3"]})
 
         assert dataset.get_sample_feature_names("methylation") == ("s1", "s2", "s3")
-        assert len(dataset.get_sample_feature_names("gene_expression")) == N_FEATURES
+        assert len(dataset.get_sample_feature_names("gene_expression")) == len(view_gene_union("gene_expression"))
 
-    def test_the_landmark_featurizer_selects_every_default_gene(self):
+    def test_the_landmark_featurizer_selects_the_whole_landmark_list(self):
         from drevalpy.components.featurizers.sample.landmark import LandmarkGenesFeaturizer
         from drevalpy.types.data.feature_source import SampleFeatureSource
 
@@ -295,11 +302,16 @@ class TestOmicsViews:
 
         featurizer.fit(SampleFeatureSource(dataset, ids), entity_ids=ids)
 
-        assert featurizer.output_dim == N_FEATURES
+        assert featurizer.output_dim == len(resolve_gene_list("landmark_genes"))
 
-    def test_more_features_than_symbols_asks_for_feature_names(self):
-        with pytest.raises(ValueError, match="feature_names"):
-            synthetic(n_features=100_000)
+    def test_more_features_than_the_shipped_lists_pads_with_placeholder_names(self):
+        width = len(view_gene_union("proteomics")) + 3
+
+        names = synthetic(omics=["proteomics"], n_features=width).get_sample_feature_names("proteomics")
+
+        assert names is not None
+        assert len(names) == width
+        assert names[-3:] == ("SYNTHGENE0", "SYNTHGENE1", "SYNTHGENE2")
 
 
 class TestExtras:
@@ -363,8 +375,8 @@ class TestExtras:
         assert len(rows) == 2
         assert all(len(row) - 2 >= 5 for row in rows)
 
-    def test_the_ontology_covers_every_gene(self, full):
-        genes = set(full.get_sample_feature_names("gene_expression"))
+    def test_the_ontology_covers_the_first_n_features_genes(self, full):
+        genes = set(full.get_sample_feature_names("gene_expression")[:N_FEATURES])
         ontology = full.get_uns("sparsego")
 
         assert {line.split("\t")[1] for line in ontology["gene2ind"].splitlines()} == genes
@@ -440,8 +452,8 @@ class TestSuiteBuilder:
     def test_it_keeps_the_feature_widths(self, built):
         ids = np.asarray(built.sample_ids)
 
-        assert built.get_sample_features("gene_expression", ids).shape == (24, 16)
-        assert built.get_sample_features("methylation", ids).shape == (24, 20)
+        assert built.get_sample_features("gene_expression", ids).shape == (24, len(view_gene_union("gene_expression")))
+        assert built.get_sample_features("methylation", ids).shape == (24, len(view_gene_union("methylation")))
 
 
 class TestDeterminism:

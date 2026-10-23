@@ -6,10 +6,12 @@ expression and proteomics stay continuous (proteomics floored above zero, as
 intensities are), mutations are 0/1 calls on the upper quartile, methylation is a
 beta value in ``(0, 1)`` and copy number is a GISTIC-style integer in ``[-2, 2]``.
 
-Feature names are real where the shipped data has a source for them: gene symbols
-come from the packaged ``landmark_genes.csv``, so the ``landmarkGenes`` featurizer
-selects a non-empty subset, and methylation sites are genomic windows. ``pandas``
-and ``anndata`` are imported inside the functions that need them, because
+Feature names are real where the shipped data has a source for them: every view holds
+all genes of the gene lists shipped for it (``GENE_LISTS_BY_VIEW``), so a featurizer
+given any shipped ``gene_list`` finds every gene, and methylation sites are genomic
+windows. A view is therefore at least as wide as the union of its lists, whatever
+*n_features* asks for; *n_features* only widens it further, with placeholder names.
+``pandas`` and ``anndata`` are imported inside the functions that need them, because
 :mod:`drevalpy.data` sits on the critical path of ``import drevalpy``.
 """
 
@@ -19,6 +21,8 @@ from collections.abc import Collection, Mapping, Sequence
 from typing import TYPE_CHECKING, Final
 
 import numpy as np
+
+from drevalpy.errors import InvalidInputError
 
 if TYPE_CHECKING:
     import anndata as ad
@@ -38,6 +42,9 @@ _VAR_AXIS: Final[Mapping[str, str]] = {
     "methylation": "cpg",
     "copy_number_variation_gistic": "gene",
 }
+
+#: Prefix of the names that pad a view wider than its shipped gene lists.
+_PLACEHOLDER_GENE: Final = "SYNTHGENE"
 
 _OMICS_BASE: Final = 6.0
 _OMICS_NOISE_SD: Final = 0.5
@@ -66,17 +73,14 @@ def gene_symbols(n: int) -> list[str]:
 
     :param n: Number of symbols to return.
     :returns: Ordered, de-duplicated gene symbols.
-    :raises ValueError: If the packaged list holds fewer than *n* symbols.
+    :raises InvalidInputError: If the packaged list holds fewer than *n* symbols.
     """
-    from drevalpy.components.featurizers.sample.gene_lists import (
-        gene_names_from_list_csv,
-        resolve_gene_list_path,
-    )
+    from drevalpy.components.featurizers.sample.gene_lists import resolve_gene_list
 
-    symbols = list(dict.fromkeys(gene_names_from_list_csv(resolve_gene_list_path("landmark_genes"))))
+    symbols = list(resolve_gene_list("landmark_genes"))
     if len(symbols) < n:
         msg = f"landmark_genes.csv only provides {len(symbols)} symbols, need {n}; pass feature_names instead"
-        raise ValueError(msg)
+        raise InvalidInputError(msg)
     return symbols[:n]
 
 
@@ -118,7 +122,26 @@ def view_feature_names(
         return list(feature_names[public_name])
     if feature_names is not None and not isinstance(feature_names, Mapping):
         return list(feature_names)
-    return cpg_ids(n_features) if _VAR_AXIS.get(public_name) == "cpg" else gene_symbols(n_features)
+    return shipped_feature_names(public_name, n_features)
+
+
+def shipped_feature_names(public_name: str, n_features: int) -> list[str]:
+    """Return the genes the shipped lists of a view name, widened to at least *n_features*.
+
+    :param public_name: Public omics name of the view.
+    :param n_features: Minimum width; placeholder names pad the genes when the lists are narrower.
+    :returns: The union of the view's shipped gene lists, then placeholders.
+    """
+    from drevalpy.components.featurizers.sample.gene_lists import view_gene_union
+
+    names = list(view_gene_union(public_name))
+    missing = n_features - len(names)
+    if missing <= 0:
+        return names
+    if _VAR_AXIS.get(public_name) == "cpg":
+        taken = set(names)
+        return names + [site for site in cpg_ids(n_features + len(names)) if site not in taken][:missing]
+    return names + [f"{_PLACEHOLDER_GENE}{index}" for index in range(missing)]
 
 
 def _shape_values(public_name: str, signal: np.ndarray) -> np.ndarray:
@@ -175,12 +198,12 @@ def payload_genes(modalities: Mapping[str, ad.AnnData], n_features: int) -> list
     """Pick the gene list the pathway and ontology payloads are written over.
 
     :param modalities: Built omics modalities keyed by public name.
-    :param n_features: Number of symbols to take when no gene view was built.
-    :returns: The var names of the first gene-axis view, else landmark gene symbols.
+    :param n_features: Number of genes to take.
+    :returns: The first *n_features* var names of the first gene-axis view, else landmark gene symbols.
     """
     for public_name, modality in modalities.items():
         if _VAR_AXIS.get(public_name, "gene") == "gene":
-            return list(modality.var_names)
+            return list(modality.var_names[:n_features])
     return gene_symbols(n_features)
 
 

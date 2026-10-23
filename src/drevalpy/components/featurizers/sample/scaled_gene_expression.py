@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
+from drevalpy.components.featurizers.sample.gene_lists import select_genes
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.feature_source import FeatureSource
 
@@ -24,15 +25,35 @@ class ScaledGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
     requires_fit: ClassVar[bool] = True
     fit_on_unique_ids: ClassVar[bool] = True
 
-    def __init__(self, *, view: str = "gene_expression") -> None:
+    def __init__(self, *, view: str = "gene_expression", gene_list: str | None = None) -> None:
         """Bind the gene-expression view to scale.
 
         :param view: Name of the view to arcsinh-transform and standardize.
+        :param gene_list: Name of a shipped gene list to keep, in list order; the view must hold every
+            gene of it. ``None`` keeps the whole view.
         """
         from sklearn.preprocessing import StandardScaler
 
         super().__init__(view=view)
+        self._gene_list = gene_list
         self._scaler = StandardScaler()
+
+    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...] | None:
+        """Bind the transform to the genes of the gene list, or to the whole view without one.
+
+        :param source: Feature source providing view matrices.
+        :returns: Gene names in gene-list order, or every feature name of the view.
+        """
+        if self._gene_list is None:
+            return super()._names_to_fit(source)
+        return select_genes(source, self._view, self._gene_list)
+
+    def _fetch_hyperparameters(self) -> dict[str, Any] | None:
+        """Match a stored variant only when it was built for the same gene list.
+
+        :returns: The gene-list setting, or ``None`` for the whole view.
+        """
+        return None if self._gene_list is None else {"gene_list": self._gene_list}
 
     def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
         """Fit the scaler on arcsinh-transformed training rows.
@@ -68,6 +89,7 @@ class ScaledGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
             return {}
         return {
             "gene_expression_scaler": self._scaler,
+            "gene_list": self._gene_list,
             **self._dense_state(),
             "fitted": True,
         }
@@ -82,4 +104,7 @@ class ScaledGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         scaler = state.get("gene_expression_scaler")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler
+        gene_list = state.get("gene_list")
+        if gene_list is None or isinstance(gene_list, str):
+            self._gene_list = gene_list
         self._restore_dense_state(state)

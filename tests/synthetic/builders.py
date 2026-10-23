@@ -23,6 +23,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Final
 
+from drevalpy.components.featurizers.sample.gene_lists import view_gene_union
 from drevalpy.data._synthetic import synthetic
 from drevalpy.data._synthetic_drugs import (
     BPE_LENGTH,
@@ -32,7 +33,7 @@ from drevalpy.data._synthetic_drugs import (
     SMILESVEC_DIM,
     UNS_PAYLOADS,
 )
-from drevalpy.data._synthetic_omics import N_PATHWAYS, SAMPLE_VIEWS, cpg_ids
+from drevalpy.data._synthetic_omics import N_PATHWAYS, SAMPLE_VIEWS
 from drevalpy.data._synthetic_omics import gene_symbols as synthetic_gene_symbols
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.modalities import OMICS_ACCESSORS, resolve_omics_accessor
@@ -70,8 +71,9 @@ N_DRUGS: Final = 8
 #: enough for the single-drug models.
 N_TISSUES: Final = 6
 
-N_GENES: Final = 16
-N_METHYLATION_SITES: Final = 20
+#: Widths of the views the builder produces: each holds every gene of the lists shipped for it.
+N_GENES: Final = len(view_gene_union("gene_expression"))
+N_METHYLATION_SITES: Final = len(view_gene_union("methylation"))
 
 #: A curve-metric layer name curation really emits. ``response.X`` holds pEC50 -
 #: curation does not duplicate it as a layer - so this one is derived from ``X``.
@@ -123,8 +125,6 @@ def build_synthetic_dataset(
         drug_views=DRUG_VIEWS,
         uns_payloads=UNS_PAYLOADS,
         extra_layers=RESPONSE_LAYERS[1:],
-        feature_names={"methylation": cpg_ids(N_METHYLATION_SITES)},
-        n_features=N_GENES,
         missing_fraction=_MISSING_FRACTION,
         seed=seed,
     )

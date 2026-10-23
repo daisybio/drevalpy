@@ -8,23 +8,13 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
-from drevalpy.components.featurizers.sample.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
+from drevalpy.components.featurizers.sample.gene_lists import select_genes
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
 
 if TYPE_CHECKING:
     from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
-
-def _landmark_gene_names(source: FeatureSource, view: str, gene_list_stem: str) -> tuple[str, ...]:
-    names = source.get_feature_names(view)
-    if names is None:
-        msg = f"FeatureSource has no feature names for view {view!r}"
-        raise ValueError(msg)
-    available = {str(gene) for gene in names}
-    selected_genes = gene_names_from_list_csv(resolve_gene_list_path(gene_list_stem))
-    return tuple(gene for gene in selected_genes if gene in available)
 
 
 @register(
@@ -50,7 +40,7 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         """Configure the landmark-gene selection and preprocessing.
 
         :param view: Name of the gene-expression view to read.
-        :param gene_list_stem: Stem of the gene-list CSV naming the genes to keep.
+        :param gene_list_stem: Name of the shipped gene list to keep; the view must hold every gene of it.
         :param standardize: Z-score the selected genes with a scaler fit on the training samples.
         :param minmax_scale: Min-max scale after standardization; only applied when *standardize* is set.
         :param arcsinh: Apply ``arcsinh`` to the selected genes before scaling.
@@ -64,12 +54,12 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         self._minmax: MinMaxScaler | None = None
 
     def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...]:
-        """Bind the transform to the landmark genes the view holds.
+        """Bind the transform to the genes of the list, in list order.
 
         :param source: Feature source providing view matrices.
-        :returns: Landmark gene names in gene-list order.
+        :returns: Gene names in gene-list order.
         """
-        return _landmark_gene_names(source, self._view, self._gene_list_stem)
+        return select_genes(source, self._view, self._gene_list_stem)
 
     def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
         """Fit the optional scalers on the landmark-gene columns.
@@ -77,13 +67,9 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         :param source: Feature source providing view matrices.
         :param entity_ids: Sample identifiers to fit on.
         :returns: Number of selected genes.
-        :raises ValueError: If no gene of the list is in the view.
         """
-        if not self._view_names:
-            msg = f"No genes from {self._gene_list_stem!r} matched view {self._view!r}"
-            raise ValueError(msg)
         self._fit_scalers(self._transform_genes(self._raw_matrix(source, entity_ids)))
-        return len(self._view_names)
+        return len(self._view_names or ())
 
     def _fit_scalers(self, matrix: np.ndarray) -> None:
         """Fit the standard and optional min-max scalers on *matrix*.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from drevalpy.components.featurizers.sample.gene_lists import view_gene_union
 from drevalpy.data._synthetic_omics import (
     N_PATHWAYS,
     SAMPLE_VIEWS,
@@ -17,6 +18,7 @@ from drevalpy.data._synthetic_omics import (
     payload_genes,
     view_feature_names,
 )
+from drevalpy.errors import InvalidInputError
 from drevalpy.testing import build_synthetic_dataset
 
 pytestmark = pytest.mark.slow
@@ -37,7 +39,7 @@ class TestNames:
         assert len(set(gene_symbols(20))) == 20
 
     def test_too_many_symbols_ask_for_explicit_names(self):
-        with pytest.raises(ValueError, match="pass feature_names"):
+        with pytest.raises(InvalidInputError, match="pass feature_names"):
             gene_symbols(100_000)
 
     def test_cpg_ids_are_distinct_genomic_windows(self):
@@ -46,16 +48,25 @@ class TestNames:
         assert len(set(ids)) == 30
         assert ids[0] == "chr1:1000000-1000800"
 
-    @pytest.mark.parametrize(
-        ("view", "expected_prefix"),
-        [("gene_expression", ""), ("proteomics", ""), ("methylation", "chr"), ("unregistered_view", "")],
-    )
-    def test_default_names_follow_the_views_axis(self, view, expected_prefix):
+    @pytest.mark.parametrize("view", ["gene_expression", "proteomics", "mutations", "methylation"])
+    def test_default_names_are_the_shipped_genes_of_the_view(self, view):
         names = view_feature_names(view, None, 4)
 
-        assert len(names) == 4
-        assert all(name.startswith(expected_prefix) for name in names)
-        assert (names == cpg_ids(4)) == (view == "methylation")
+        assert names == list(view_gene_union(view))
+        assert len(set(names)) == len(names)
+        assert all(name.startswith("chr") for name in names) == (view == "methylation")
+
+    @pytest.mark.parametrize(
+        ("view", "prefix"), [("proteomics", "SYNTHGENE"), ("methylation", "chr"), ("other", "SYNTHGENE")]
+    )
+    def test_a_wider_request_pads_after_the_shipped_genes(self, view, prefix):
+        shipped = list(view_gene_union(view))
+
+        names = view_feature_names(view, None, len(shipped) + 4)
+
+        assert names[: len(shipped)] == shipped
+        assert len(names) == len(set(names)) == len(shipped) + 4
+        assert all(name.startswith(prefix) for name in names[len(shipped) :])
 
     def test_one_list_applies_to_every_view(self):
         assert view_feature_names("methylation", ["a", "b"], 9) == ["a", "b"]
@@ -64,7 +75,7 @@ class TestNames:
         mapping = {"methylation": ["m1"]}
 
         assert view_feature_names("methylation", mapping, 9) == ["m1"]
-        assert view_feature_names("proteomics", mapping, 3) == gene_symbols(3)
+        assert view_feature_names("proteomics", mapping, 3) == list(view_gene_union("proteomics"))
 
 
 class TestCoverage:
@@ -136,11 +147,11 @@ class TestOmicsAnndata:
 
 
 class TestPayloadGenes:
-    def test_the_first_gene_axis_view_names_the_genes(self):
+    def test_the_first_gene_axis_view_names_the_first_n_genes(self):
         data = build_synthetic_dataset(omics=["methylation", "proteomics"], n_features=5)
         built = {name: data.mdata.mod[name] for name in ("methylation", "proteomics")}
 
-        assert payload_genes(built, 5) == gene_symbols(5)
+        assert payload_genes(built, 5) == list(view_gene_union("proteomics"))[:5]
 
     def test_without_a_gene_view_it_falls_back_to_landmark_symbols(self):
         assert payload_genes({}, 7) == gene_symbols(7)

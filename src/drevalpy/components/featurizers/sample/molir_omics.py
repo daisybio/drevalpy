@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, ClassVar
 
 import numpy as np
@@ -9,6 +10,7 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._feature_names import align_to_fitted
 from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
+from drevalpy.components.featurizers.sample.gene_lists import checked_view_gene_lists, select_genes
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
@@ -32,19 +34,43 @@ class MOLIROmicsFeaturizer(DenseViewSampleFeaturizer):
     input_views: ClassVar[tuple[str, ...]] = _VIEWS
     fit_on_unique_ids: ClassVar[bool] = True
 
-    def __init__(self, *, n_gene_expression_features: int = 1000) -> None:
+    def __init__(
+        self, *, n_gene_expression_features: int = 1000, gene_lists: Mapping[str, str | None] | None = None
+    ) -> None:
         """Store the variance-selection feature count and initialize scalers.
 
         :param n_gene_expression_features: Number of gene-expression features to keep.
+        :param gene_lists: Shipped gene-list name per view, keyed by view name; each named view must hold
+            every gene of its list. A view left out or mapped to ``None`` keeps all its genes. A key that is not
+        one of the three input views is rejected with ``InvalidInputError``.
         """
         from sklearn.preprocessing import StandardScaler
 
         super().__init__()
+        self._gene_lists = checked_view_gene_lists(gene_lists, _VIEWS)
         self._n_features = int(n_gene_expression_features)
         self._scaler = StandardScaler()
         self._mask: np.ndarray = np.array([], dtype=bool)
         self._selected_feature_names: tuple[str, ...] = ()
         self._feature_names: dict[str, tuple[str, ...] | None] = {}
+
+    def _view_gene_names(self, source: FeatureSource, view: str) -> tuple[str, ...] | None:
+        """Return the feature names *view* is read in: its gene list, or every feature of the view.
+
+        :param source: Feature source providing view matrices.
+        :param view: One of the input views.
+        :returns: Ordered feature names, or ``None`` when the source has none.
+        """
+        name = self._gene_lists.get(view)
+        return source.get_feature_names(view) if name is None else select_genes(source, view, name)
+
+    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...] | None:
+        """Bind the gene-expression transform to the genes of its list, if it has one.
+
+        :param source: Feature source providing view matrices.
+        :returns: Ordered gene-expression feature names, or ``None`` when the source has none.
+        """
+        return self._view_gene_names(source, self._view)
 
     def _on_precomputed_fit(self, source: FeatureSource) -> None:
         """Accept every stored column and record the per-view feature names.
@@ -69,11 +95,11 @@ class MOLIROmicsFeaturizer(DenseViewSampleFeaturizer):
         self._mask = np.zeros(len(variances), dtype=bool)
         self._mask[np.argsort(variances)[::-1][: min(self._n_features, len(variances))]] = True
 
-        ge_names = source.get_feature_names("gene_expression")
+        ge_names = self._view_names
         self._selected_feature_names = () if ge_names is None else tuple(np.array(ge_names)[self._mask])
         self._feature_names = {
             "gene_expression": self._selected_feature_names,
-            **{view: source.get_feature_names(view) for view in _VIEWS[1:]},
+            **{view: self._view_gene_names(source, view) for view in _VIEWS[1:]},
         }
         return int(self._mask.sum())
 
@@ -149,6 +175,7 @@ class MOLIROmicsFeaturizer(DenseViewSampleFeaturizer):
             "selected_feature_names": self._selected_feature_names,
             "feature_names": self._feature_names,
             "n_gene_expression_features": self._n_features,
+            "gene_lists": self._gene_lists,
         }
 
     def set_state(self, state: dict[str, object]) -> None:
@@ -170,4 +197,7 @@ class MOLIROmicsFeaturizer(DenseViewSampleFeaturizer):
         names = state.get("feature_names")
         if isinstance(names, dict):
             self._feature_names = {str(key): value for key, value in names.items()}
+        gene_lists = state.get("gene_lists")
+        if isinstance(gene_lists, dict):
+            self._gene_lists = dict(gene_lists)
         self._restore_dense_state(state)

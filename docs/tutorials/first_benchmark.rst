@@ -15,8 +15,8 @@ minute. You need DrEvalPy installed (see :doc:`/how-to/install`). Pick the **CLI
 Create a dataset
 ----------------
 
-The simulated dataset has 60 samples, 8 drugs and a ``gene_expression`` view of 16 features per
-sample. About 5 % of the sample-drug combinations are missing, as in a real screen.
+The simulated dataset has 60 samples, 8 drugs and a ``gene_expression`` view of about 11,600 gene
+features per sample. About 5 % of the sample-drug combinations are missing, as in a real screen.
 
 .. tab-set::
    :sync-group: interface

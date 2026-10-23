@@ -132,12 +132,13 @@ some of the studies have is dropped with a warning. A unit mismatch still raises
    .. tab-item:: Python
       :sync: python
 
-      The third study here measured only 12 of the 16 genes. The default ``join="exact"``
+      The third study here measured only the first 12 genes of the first study's view. The default ``join="exact"``
       refuses it, naming the view, the two studies and some of the missing features:
 
       .. code-block:: python
 
-         narrow = drevalpy.synthetic(name="SCREEN_C", n_features=12)
+         genes = screen_a.get_sample_feature_names("gene_expression")
+         narrow = drevalpy.synthetic(name="SCREEN_C", feature_names=genes[:12])
          try:
              concat([screen_a, narrow])
          except ValueError as error:
@@ -147,7 +148,7 @@ some of the studies have is dropped with a warning. A unit mismatch still raises
 
       .. code-block:: text
 
-         View 'gene_expression' has different feature names in SCREEN_A and SCREEN_C: 4 features of SCREEN_A missing in SCREEN_C
+         View 'gene_expression' has different feature names in SCREEN_A and SCREEN_C: 11640 features of SCREEN_A missing in SCREEN_C
          SCREEN_A+SCREEN_C (120, 12)
 
 Leave one study out

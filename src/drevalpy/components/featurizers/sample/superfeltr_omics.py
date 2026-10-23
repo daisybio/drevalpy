@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any, ClassVar
 
 import numpy as np
@@ -10,6 +10,7 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers._feature_names import align_to_fitted
 from drevalpy.components.featurizers.sample.base import SampleFeaturizer
+from drevalpy.components.featurizers.sample.gene_lists import checked_view_gene_lists, select_genes
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
@@ -36,11 +37,15 @@ class SuperFELTROmicsFeaturizer(SampleFeaturizer):
     )
     input_views: ClassVar[tuple[str, ...]] = _VIEWS
 
-    def __init__(self, *, n_features_per_view: int = 1000) -> None:
+    def __init__(self, *, n_features_per_view: int = 1000, gene_lists: Mapping[str, str | None] | None = None) -> None:
         """Store per-view variance-selection feature count and initialize selectors.
 
         :param n_features_per_view: Number of features to keep per omics view.
+        :param gene_lists: Shipped gene-list name per view, keyed by view name; each named view must hold
+            every gene of its list. A view left out or mapped to ``None`` keeps all its genes. A key that is not
+        one of the three input views is rejected with ``InvalidInputError``.
         """
+        self._gene_lists = checked_view_gene_lists(gene_lists, _VIEWS)
         self._n_features = int(n_features_per_view)
         self._masks: dict[str, np.ndarray] = {}
         self._feature_names: dict[str, tuple[str, ...]] = {}
@@ -72,7 +77,10 @@ class SuperFELTROmicsFeaturizer(SampleFeaturizer):
             self._feature_names = {"gene_expression": tuple(names) if names else ()}
             return self
         for view in _VIEWS:
-            self._source_names[view] = source.get_feature_names(view)
+            name = self._gene_lists.get(view)
+            self._source_names[view] = (
+                source.get_feature_names(view) if name is None else select_genes(source, view, name)
+            )
             matrix = self._view_matrix(source, view, ids)
             variances = np.var(matrix, axis=0)
             mask = np.zeros(len(variances), dtype=bool)
@@ -154,6 +162,7 @@ class SuperFELTROmicsFeaturizer(SampleFeaturizer):
             "feature_names": self._feature_names,
             "source_feature_names": self._source_names,
             "n_features_per_view": self._n_features,
+            "gene_lists": self._gene_lists,
         }
 
     def set_state(self, state: dict[str, object]) -> None:
@@ -164,6 +173,9 @@ class SuperFELTROmicsFeaturizer(SampleFeaturizer):
         masks = state.get("masks")
         if isinstance(masks, dict) and all(isinstance(value, np.ndarray) for value in masks.values()):
             self._masks = {str(key): value for key, value in masks.items()}
+        gene_lists = state.get("gene_lists")
+        if isinstance(gene_lists, dict):
+            self._gene_lists = dict(gene_lists)
         names = state.get("feature_names")
         if isinstance(names, dict):
             self._feature_names = {str(key): tuple(value) for key, value in names.items()}

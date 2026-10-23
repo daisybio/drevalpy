@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.sample.pharmaformer_gene_expression import (
     PharmaFormerGeneExpressionFeaturizer,
 )
+from drevalpy.errors import InvalidInputError
 from tests.components.featurizers._name_alignment import assert_aligns_by_name, random_views
-from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant
+from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant, use_gene_lists
 from tests.conftest import MockFeatureSource
 
 
@@ -65,3 +68,34 @@ def test_pharmaformer_gene_expression_reads_columns_by_name() -> None:
         random_views({"gene_expression": list("abcdef")}),
         fit_kwargs=lambda ids: {"pair_expanded_ids": ids},
     )
+
+
+def test_pharmaformer_gene_expression_gene_list_selects_and_round_trips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    use_gene_lists(monkeypatch, tmp_path, {"mine": ["b"]})
+    features = _features()
+    ids = np.array(["cl0", "cl1", "cl0"])
+    featurizer = PharmaFormerGeneExpressionFeaturizer(gene_list="mine").fit(features, pair_expanded_ids=ids)
+
+    blocks = featurizer.transform_blocks(features, np.array(["cl0", "cl2"]))
+
+    assert featurizer.output_dim == 1
+    assert blocks["gene_expression"].feature_names == ("b",)
+    restored = PharmaFormerGeneExpressionFeaturizer()
+    restored.set_state(featurizer.get_state())
+    assert restored._gene_list == "mine"
+    np.testing.assert_allclose(restored.transform(features, np.array(["cl0", "cl2"])), blocks["gene_expression"].values)
+
+
+def test_pharmaformer_gene_expression_gene_list_raises_when_genes_are_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    use_gene_lists(monkeypatch, tmp_path, {"mine": ["a", "z"]})
+    with pytest.raises(InvalidInputError, match="lacks 1 of 2 genes in 'mine'"):
+        PharmaFormerGeneExpressionFeaturizer(gene_list="mine").fit(_features(), pair_expanded_ids=np.array(["cl0"]))
+
+
+def test_pharmaformer_gene_expression_matches_a_stored_variant_only_for_its_own_gene_list() -> None:
+    assert PharmaFormerGeneExpressionFeaturizer()._fetch_hyperparameters() is None
+    assert PharmaFormerGeneExpressionFeaturizer(gene_list="mine")._fetch_hyperparameters() == {"gene_list": "mine"}

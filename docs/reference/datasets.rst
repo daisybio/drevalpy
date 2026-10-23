@@ -150,6 +150,66 @@ A file may store the modality under the public name or under the key in the seco
 DrEvalPy uses whichever the file has. Recipes and configs use the public names; see
 :doc:`recipes`.
 
+Gene lists
+~~~~~~~~~~
+
+A gene list is a CSV of gene symbols that ships inside DrEvalPy, in
+``drevalpy/components/featurizers/sample/gene_lists/``. It is the only source: a dataset never
+carries gene lists, so a list name selects the same genes on every dataset. A featurizer that
+takes a ``gene_list`` keeps exactly the genes of that list, in the order of the list, so two
+datasets with different gene columns give the same feature order.
+
+The featurizers ``scaledGeneExpression``, ``pharmaFormerGeneExpression`` and ``dipkGeneExpression``
+take ``gene_list: <name>``; ``None``, the default, keeps the whole view. ``molirOmics`` and
+``superfeltrOmics`` take ``gene_lists`` mapping a view name to a list name. ``landmarkGenes`` takes
+``gene_list_stem`` (default ``landmark_genes``) and ``landmarkGenesReduced`` always uses
+``landmark_genes_reduced``.
+
+A list that names genes the view lacks is an error, not a smaller selection::
+
+   Error: view 'gene_expression' lacks 812 of 867 genes in 'landmark_genes' (missing: ...).
+   Pass gene_list=None to use every gene of the view.
+
+The shipped lists, by the view they apply to:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - List
+     - Genes and purpose
+   * - ``landmark_genes``
+     - 867 L1000 landmark genes; the expression input of the sklearn models, SimpleNN,
+       DrugGNN, PharmaFormer, EnsembleMF and SingleDrugKNN in 1.6.1
+   * - ``landmark_genes_reduced``
+     - The landmark genes also measured in the copy-number, mutation and proteomics
+       intersections
+   * - ``gene_expression_intersection``
+     - Genes in the expression view of every registered dataset; the input of DIPK
+   * - ``gene_list_paccmann_network_prop``
+     - 1,957 genes of the PaccMann network-propagation selection
+   * - ``gene_list_paccmann_network_prop_reduced``
+     - The PaccMann list restricted to the reduced gene universe
+   * - ``tcga_autoencoder_genes_available``
+     - 10,946 genes measured in CTRPv2, GDSC1, PDX_Bruna and BeatAML2, covered by the Ion AmpliSeq
+       panel, expressed above noise level and present in the TCGA gene annotation; the input of
+       the TCGA-pretrained autoencoder
+   * - ``drug_target_genes_all_drugs``, ``drug_target_genes_reduced``
+     - Drug-target genes; the mutation and copy-number input of the multi-view models
+   * - ``mutations_intersection``, ``copy_number_variation_gistic_intersection``,
+       ``methylation_intersection``, ``proteomics_intersection``
+     - Features shared by every dataset that has the view; the MOLIR inputs
+   * - ``landmark_genes_proteomics``, ``drug_target_genes_all_drugs_proteomics``,
+       ``gene_list_paccmann_network_prop_proteomics``
+     - The curated lists restricted to the proteomics intersection
+
+``drevalpy.components.featurizers.sample.gene_lists.resolve_gene_list(name)`` returns the symbols
+of a list and raises ``UnknownNameError`` for a name that is not shipped, listing those that are.
+``select_genes(source, view, name)`` applies a list to a feature source and raises
+``InvalidInputError`` for the missing genes. ``GENE_LISTS_BY_VIEW`` assigns each list to its view.
+``_make_gene_lists.py`` and ``_make_autoencoder_gene_list.py`` in the same directory regenerate the
+CSVs; the second needs the network and the dataset files.
+
 Global annotations
 ~~~~~~~~~~~~~~~~~~
 
@@ -299,6 +359,11 @@ same underlying screen, and different seeds permute the drug effects.
        ``methylation`` and ``copy_number_variation_gistic``. A list, or a mapping from name to the
        number of covered samples. ``None`` or an empty sequence adds none, leaving the response
        only
+   * - ``feature_names``, ``n_features``
+     - Column names. By default each view holds every gene of the gene lists shipped for it, so any
+       ``gene_list`` finds its genes: about 11,600 for ``gene_expression``. ``n_features`` is a
+       minimum and only adds placeholder names beyond that; it also sets how many genes the
+       ``pathways_gmt`` and ``sparsego`` payloads cover
    * - ``sample_views``
      - Views in ``response.obsm``: ``pathway_features``
    * - ``drug_views``
@@ -312,6 +377,6 @@ same underlying screen, and different seeds permute the drug effects.
 
 ``drevalpy data synthetic --output FILE`` writes the default dataset: 60 samples named
 ``SYNTH-000`` onward, 8 drugs with IDs from ``100000``, 456 measured pairs and only a
-16-feature ``gene_expression`` modality. Its ``obs`` has only the ``tissue`` column. The command
+``gene_expression`` modality with every gene of the shipped expression gene lists. Its ``obs`` has only the ``tissue`` column. The command
 has the options ``--seed``, ``--n-samples``, ``--n-drugs``, ``--n-tissues`` and ``--name``
 (default ``SYNTHETIC``); give two files different names to concatenate them.

@@ -20,7 +20,7 @@ Create a dataset
 
    dataset = drevalpy.synthetic()
 
-The dataset has 60 samples, 8 drugs and a ``gene_expression`` view of 16 features per sample.
+The dataset has 60 samples, 8 drugs and a ``gene_expression`` view of about 11,600 gene features per sample.
 It also holds the SMILES string of each drug, which the built-in ``fingerprints`` featurizer
 needs.
 
