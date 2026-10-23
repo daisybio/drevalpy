@@ -12,7 +12,8 @@ import numpy as np
 import pytest
 from scipy.stats import pearsonr
 
-from drevalpy._grouped_pearson import CONSTANT_TOLERANCE, PearsonSums, grouped_pearson
+from drevalpy._grouped_pearson import PearsonSums, grouped_pearson
+from drevalpy.evaluation import CONSTANT_ATOL, is_constant, pearson
 
 
 class TestGroupedPearson:
@@ -109,9 +110,70 @@ class TestConstantDetection:
         assert np.isnan(grouped_pearson(np.zeros(50, dtype=int), 1, x, np.arange(50.0))[0])
 
     def test_a_range_within_the_tolerance_counts_as_constant(self):
-        x = 5.0 + np.array([0.0, CONSTANT_TOLERANCE / 10] * 2)
+        x = 5.0 + np.array([0.0, CONSTANT_ATOL / 10] * 2)
 
         assert np.isnan(grouped_pearson(np.zeros(4, dtype=int), 1, x, np.arange(4.0))[0])
+
+    def test_a_half_unit_range_at_a_1e5_offset_counts_as_constant(self):
+        # the relative tolerance of np.isclose makes the old ``range <= 1e-6`` rule stricter here
+        x = 1e5 + np.array([0.0, 0.5] * 2)
+
+        assert np.isnan(grouped_pearson(np.zeros(4, dtype=int), 1, x, np.arange(4.0))[0])
+
+    def test_a_two_unit_range_at_a_1e5_offset_varies(self):
+        x = 1e5 + np.array([0.0, 2.0] * 2)
+
+        assert np.isfinite(grouped_pearson(np.zeros(4, dtype=int), 1, x, np.arange(4.0))[0])
+
+    def test_an_empty_group_does_not_vary(self):
+        sums = PearsonSums(2)
+        sums.add(np.array([0, 0]), np.array([1.0, 2.0]), np.array([3.0, 5.0]))
+
+        assert sums.varies().tolist() == [True, False]
+        assert sums.y_varies().tolist() == [True, False]
+
+    def test_each_group_is_judged_on_its_own_range(self):
+        codes = np.array([0, 0, 1, 1, 2, 2])
+        x = np.array([0.0, 5e-7, 0.0, 2e-6, 1e5, 1e5 + 0.5])
+
+        result = grouped_pearson(codes, 3, x, np.array([0.0, 1.0] * 3))
+
+        assert np.isnan(result).tolist() == [True, False, True]
+
+
+SERIES = {
+    "constant": np.full(6, 3.0),
+    "zero_and_5e-7": np.array([0.0, 5e-7, 0.0, 5e-7, 0.0, 5e-7]),
+    "zero_and_2e-6": np.array([0.0, 2e-6, 0.0, 2e-6, 0.0, 2e-6]),
+    "1e5_offset_tiny_range": 1e5 + np.array([0.0, 1e-7, 0.0, 1e-7, 0.0, 1e-7]),
+    "1e5_offset_half_range": 1e5 + np.array([0.0, 0.5, 0.0, 0.5, 0.0, 0.5]),
+    "1e5_offset_wide_range": 1e5 + np.array([0.0, 5.0, 0.0, 5.0, 0.0, 5.0]),
+    "negative_1e5_offset": -1e5 + np.array([0.0, 0.5, 0.0, 0.5, 0.0, 0.5]),
+    "varying": np.arange(6.0),
+}
+
+
+class TestAgreementWithPooledRule:
+    @pytest.mark.parametrize("name", SERIES)
+    def test_grouped_and_pooled_agree_on_which_series_is_constant(self, name):
+        series, varying = SERIES[name], np.arange(6.0)
+        codes = np.zeros(6, dtype=int)
+
+        assert np.isnan(grouped_pearson(codes, 1, series, varying)[0]) == is_constant(series)
+        assert np.isnan(grouped_pearson(codes, 1, varying, series)[0]) == is_constant(series)
+        assert (pearson(series, varying) == 0.0) == is_constant(series)
+        assert np.isnan(pearson(varying, series)) == is_constant(series)
+
+    @pytest.mark.parametrize("name", SERIES)
+    def test_the_grouped_verdict_is_unchanged_by_any_order(self, name):
+        rng = np.random.default_rng(0)
+        series, varying = SERIES[name], np.arange(6.0)
+        codes = np.zeros(6, dtype=int)
+        expected = np.isnan(grouped_pearson(codes, 1, series, varying)[0])
+
+        for _ in range(20):
+            order = rng.permutation(6)
+            assert np.isnan(grouped_pearson(codes, 1, series[order], varying[order])[0]) == expected
 
 
 class TestStreaming:

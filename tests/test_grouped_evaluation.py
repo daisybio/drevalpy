@@ -11,7 +11,6 @@ import numpy as np
 import pytest
 
 from drevalpy._grouped_evaluation import (
-    CONSTANT_TOLERANCE,
     GROUPINGS,
     _group_score,
     defined_labels,
@@ -19,7 +18,7 @@ from drevalpy._grouped_evaluation import (
     grouped_scores,
     mean_over_groups,
 )
-from drevalpy.evaluation import AVAILABLE_METRICS
+from drevalpy.evaluation import AVAILABLE_METRICS, CONSTANT_ATOL
 from tests.synthetic import make_run_result
 
 
@@ -185,7 +184,7 @@ class TestUndefinedGroups:
         assert scores["Pearson"][3] == pytest.approx(0.8)
 
     def test_a_nearly_constant_prediction_counts_as_constant(self):
-        predictions = 5.0 + np.array([0.0, CONSTANT_TOLERANCE / 10, 0.0, CONSTANT_TOLERANCE / 10])
+        predictions = 5.0 + np.array([0.0, CONSTANT_ATOL / 10, 0.0, CONSTANT_ATOL / 10])
 
         _, scores = grouped_scores(np.zeros(4, dtype=int), predictions, np.arange(4.0), ["Pearson", "Spearman"])
 

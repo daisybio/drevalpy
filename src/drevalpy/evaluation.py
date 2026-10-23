@@ -21,6 +21,37 @@ warning_shown = False
 constant_prediction_warning_shown = False
 
 
+#: Absolute tolerance of the constant check; ``np.isclose`` adds its default relative tolerance (``1e-5``).
+CONSTANT_ATOL = 1e-6
+
+
+def ranges_are_constant(high: np.ndarray | float, low: np.ndarray | float) -> np.ndarray:
+    """Decide elementwise whether a series with maximum ``high`` and minimum ``low`` is constant.
+
+    This is the one rule behind :func:`is_constant` and the grouped correlations in
+    :mod:`drevalpy._grouped_pearson`: ``np.isclose(high, low, atol=CONSTANT_ATOL)``, so the
+    default relative tolerance applies and a series offset by ``1e5`` may span about ``1``
+    and still count as constant. Because it only looks at the maximum and minimum, the
+    verdict does not depend on the order of the values.
+
+    :param high: Maximum of each series.
+    :param low: Minimum of each series.
+
+    :returns: Boolean array (or scalar) of the same shape as the inputs.
+    """
+    return np.isclose(high, low, atol=CONSTANT_ATOL)
+
+
+def is_constant(values: np.ndarray) -> bool:
+    """Check whether all values are equal within tolerance, independently of their order.
+
+    :param values: Non-empty array of values.
+
+    :returns: Whether the maximum and minimum of ``values`` are close, see :func:`ranges_are_constant`.
+    """
+    return bool(ranges_are_constant(np.max(values), np.min(values)))
+
+
 def _check_constant_prediction(y_pred: np.ndarray) -> bool:
     """Check if predictions are constant.
 
@@ -28,9 +59,7 @@ def _check_constant_prediction(y_pred: np.ndarray) -> bool:
 
     :returns: Whether all predictions are equal within tolerance.
     """
-    tol = 1e-6
-    # no variation in predictions
-    return bool(np.all(np.isclose(y_pred, y_pred[0], atol=tol)))
+    return is_constant(y_pred)
 
 
 def _check_constant_target_or_few_pairs(y_true: np.ndarray) -> bool:
@@ -40,9 +69,7 @@ def _check_constant_target_or_few_pairs(y_true: np.ndarray) -> bool:
 
     :returns: Whether there are too few pairs or the target has no variation.
     """
-    tol = 1e-6
-    # Check for too few pairs or no variation in target
-    return len(y_true) < 2 or bool(np.all(np.isclose(y_true, y_true[0], atol=tol)))
+    return len(y_true) < 2 or is_constant(y_true)
 
 
 def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:

@@ -3,9 +3,9 @@
 Everything works on ``np.bincount`` sums, so computing one correlation per drug or sample
 is a handful of vectorised passes and folds can be folded in one at a time without ever
 coexisting in memory. Which groups are undefined is decided here: fewer than
-:data:`MIN_GROUP_SIZE` observations, or a variable whose range is at most
-:data:`CONSTANT_TOLERANCE`. See :mod:`drevalpy._grouped_evaluation` for how that rule is
-applied to every metric.
+:data:`MIN_GROUP_SIZE` observations, or a variable that
+:func:`drevalpy.evaluation.ranges_are_constant` calls constant. See
+:mod:`drevalpy._grouped_evaluation` for how that rule is applied to every metric.
 """
 
 from __future__ import annotations
@@ -14,11 +14,10 @@ from typing import Final
 
 import numpy as np
 
+from drevalpy.evaluation import ranges_are_constant
+
 #: Correlation is undefined below this many observations in a group.
 MIN_GROUP_SIZE: Final[int] = 2
-
-#: A variable whose range within a group is at most this is treated as constant.
-CONSTANT_TOLERANCE: Final[float] = 1e-6
 
 
 class PearsonSums:
@@ -86,18 +85,18 @@ class PearsonSums:
         return self._count
 
     def y_varies(self) -> np.ndarray:
-        """Whether ``y`` has a range above :data:`CONSTANT_TOLERANCE` in each group.
+        """Whether ``y`` is non-constant in each group, by :func:`drevalpy.evaluation.ranges_are_constant`.
 
         :returns: Boolean array of length ``n_groups``; ``False`` for empty groups.
         """
-        return self._max_y - self._min_y > CONSTANT_TOLERANCE
+        return (self._count > 0) & ~ranges_are_constant(self._max_y, self._min_y)
 
     def varies(self) -> np.ndarray:
-        """Whether both variables have a range above :data:`CONSTANT_TOLERANCE` in each group.
+        """Whether both variables are non-constant in each group, by :func:`drevalpy.evaluation.ranges_are_constant`.
 
         :returns: Boolean array of length ``n_groups``; ``False`` for empty groups.
         """
-        return (self._max_x - self._min_x > CONSTANT_TOLERANCE) & self.y_varies()
+        return (self._count > 0) & ~ranges_are_constant(self._max_x, self._min_x) & self.y_varies()
 
     def sum_squares_of_y(self) -> np.ndarray:
         """Total sum of squares of ``y`` about its group mean.

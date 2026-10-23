@@ -5,7 +5,7 @@ import pytest
 from flaky import flaky
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from drevalpy.evaluation import evaluate, kendall, pearson, score_predictions, spearman
+from drevalpy.evaluation import evaluate, is_constant, kendall, pearson, score_predictions, spearman
 
 
 def test_evaluate() -> None:
@@ -285,3 +285,39 @@ def test_empty_scoring_conventions_share_the_same_mask():
     predictions, targets = np.array([np.nan, 2.0]), np.array([1.0, np.nan])
     assert score_predictions(predictions, targets, empty_as_dict=True) == {}
     assert all(np.isnan(v) for v in score_predictions(predictions, targets).values())
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        (np.full(5, 2.5), True),
+        (np.array([0.0, 5e-7]), True),
+        (np.array([0.0, 2e-6]), False),
+        (np.array([1e5, 1e5 + 0.5]), True),
+        (np.array([1e5, 1e5 + 5.0]), False),
+        (np.array([-1e5, -1e5 + 0.5]), True),
+        (np.array([1.0, 2.0, 3.0]), False),
+        (np.array([7.0]), True),
+    ],
+)
+def test_is_constant_edge_cases(values: np.ndarray, expected: bool) -> None:
+    assert is_constant(values) is expected
+
+
+def test_is_constant_does_not_depend_on_order() -> None:
+    """Comparing every value with ``values[0]`` used to make the verdict depend on the first one."""
+    rng = np.random.default_rng(0)
+    for values in (np.array([0.0, 5e-7, 5e-7, 0.0]), 1e5 + np.array([0.0, 0.9, 0.3]), np.array([-1e5, 1e5, 0.0])):
+        verdicts = {is_constant(rng.permutation(values)) for _ in range(30)}
+        assert len(verdicts) == 1
+
+
+@pytest.mark.parametrize("correlation", [pearson, spearman, kendall])
+def test_correlation_verdicts_do_not_depend_on_order(correlation) -> None:
+    rng = np.random.default_rng(1)
+    near_constant = 1e5 + np.array([0.0, 0.9, 0.3, 0.6])
+    varying = np.arange(4.0)
+    for _ in range(20):
+        order = rng.permutation(4)
+        assert correlation(near_constant[order], varying[order]) == 0.0
+        assert np.isnan(correlation(varying[order], near_constant[order]))

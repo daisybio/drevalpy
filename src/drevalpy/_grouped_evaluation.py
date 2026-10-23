@@ -15,7 +15,7 @@ comparison plots in :mod:`drevalpy.visualization.plots._group_metrics` both call
   on a run of a single, non-concatenated dataset the ``"study"`` grouping has no groups, or
 * it has fewer than two usable pairs (correlations and ``R^2``), or
 * a correlation (``Pearson``, ``Spearman``, ``Kendall``) has predictions or response with
-  no variance, i.e. a range of at most :data:`CONSTANT_TOLERANCE`, or
+  no variance, i.e. is constant by :func:`drevalpy.evaluation.is_constant`, or
 * ``R^2`` has a response with no variance.
 
 A model that predicts a constant within each group - the per-drug mean baseline, for
@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Final, Literal
 
 import numpy as np
 
-from drevalpy._grouped_pearson import CONSTANT_TOLERANCE, MIN_GROUP_SIZE, PearsonSums
+from drevalpy._grouped_pearson import MIN_GROUP_SIZE, PearsonSums
 
 if TYPE_CHECKING:
     from drevalpy.types.results import RunResult
@@ -105,11 +105,11 @@ def _group_score(name: str, y_pred: np.ndarray, y_true: np.ndarray) -> float:
     :param y_true: Observed response of the same pairs.
     :returns: The score, or NaN under the rule in the module docstring.
     """
-    from drevalpy.evaluation import AVAILABLE_METRICS
+    from drevalpy.evaluation import AVAILABLE_METRICS, is_constant
 
-    if name in _NEEDS_VARYING_RESPONSE and (len(y_true) < MIN_GROUP_SIZE or np.ptp(y_true) <= CONSTANT_TOLERANCE):
+    if name in _NEEDS_VARYING_RESPONSE and (len(y_true) < MIN_GROUP_SIZE or is_constant(y_true)):
         return float("nan")
-    if name in _CORRELATIONS and np.ptp(y_pred) <= CONSTANT_TOLERANCE:
+    if name in _CORRELATIONS and is_constant(y_pred):
         return float("nan")
     return float(AVAILABLE_METRICS[name](y_pred=y_pred, y_true=y_true))
 
