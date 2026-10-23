@@ -1,10 +1,16 @@
 """For the nf-core/drugresponseeval subworkflow run_cv."""
 
 import pickle
+from functools import partial
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import yaml
+from sklearn.base import TransformerMixin
+
+from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.models import DRPModel
 
 
 def run_load_response(
@@ -113,37 +119,35 @@ def run_hpam_split(
             yaml.dump(hpam_combi, yaml_file, default_flow_style=False)
 
 
-def run_train_and_predict_cv(
+def _train_and_predict_cv_split(
+    drug_id: str | None,
+    split: dict,
     *,
-    model_name: str,
-    path_data: str = "data",
-    test_mode: str = "LPO",
-    hyperparameters: str,
-    cv_data: str,
-    response_transformation: str = "None",
-    model_checkpoint_dir: str = "TEMPORARY",
-) -> None:
-    """Train on a CV split and pickle validation predictions."""
-    from drevalpy.experiment import get_datasets_from_cv_split, get_model_name_and_drug_id, train_and_predict
-    from drevalpy.models import MODEL_FACTORY
-    from drevalpy.utils import get_response_transformation
+    model_class: "type[DRPModel]",
+    hpams: dict,
+    path_data: str,
+    response_transform: TransformerMixin | None,
+    model_checkpoint_dir: str,
+) -> DrugResponseDataset:
+    """
+    Train on a CV split and predict its validation set, for single drug models for one drug.
 
-    resolved_name, drug_id = get_model_name_and_drug_id(model_name)
-    model_class = MODEL_FACTORY[resolved_name]
-    with open(cv_data, "rb") as f:
-        split = pickle.load(f)
+    :param drug_id: drug id for single drug models, None for global models
+    :param split: CV split
+    :param model_class: model to train
+    :param hpams: hyperparameters to use
+    :param path_data: path to the data directory
+    :param response_transform: normalizer to use for the response data
+    :param model_checkpoint_dir: directory to save model checkpoints
+    :returns: validation dataset with predictions
+    """
+    from drevalpy.experiment import get_datasets_from_cv_split, train_and_predict
 
     train_dataset, validation_dataset, es_dataset, _test_dataset = get_datasets_from_cv_split(
-        split, model_class, resolved_name, drug_id
+        split, model_class, model_class.get_model_name(), drug_id
     )
-
-    response_transform = get_response_transformation(response_transformation)
-    with open(hyperparameters) as f:
-        hpams = yaml.safe_load(f)
-    model = model_class()
-
-    validation_dataset = train_and_predict(
-        model=model,
+    return train_and_predict(
+        model=model_class(),
         hpams=hpams,
         path_data=path_data,
         train_dataset=train_dataset,
@@ -153,8 +157,50 @@ def run_train_and_predict_cv(
         model_checkpoint_dir=model_checkpoint_dir,
     )
 
+
+def run_train_and_predict_cv(
+    *,
+    model_name: str,
+    path_data: str = "data",
+    test_mode: str = "LPO",
+    hyperparameters: str,
+    cv_data: str,
+    response_transformation: str = "None",
+    model_checkpoint_dir: str = "TEMPORARY",
+    n_jobs: int = 1,
+) -> None:
+    """Train on a CV split and pickle validation predictions, for single drug models a {drug_id: predictions} dict."""
+    from drevalpy.experiment import run_per_drug, split_by_drug
+    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.utils import get_response_transformation
+
+    model_class = MODEL_FACTORY[model_name]
+    with open(cv_data, "rb") as f:
+        split = pickle.load(f)
+
+    response_transform = get_response_transformation(response_transformation)
+    with open(hyperparameters) as f:
+        hpams = yaml.safe_load(f)
+
+    train_and_predict_split = partial(
+        _train_and_predict_cv_split,
+        model_class=model_class,
+        hpams=hpams,
+        path_data=path_data,
+        response_transform=response_transform,
+        model_checkpoint_dir=model_checkpoint_dir,
+    )
+    if model_class.is_single_drug_model:
+        drug_ids = np.unique(np.concatenate([ds.drug_ids for ds in split.values() if ds is not None]))
+        splits_per_drug = split_by_drug(split, drug_ids)
+        validation_dataset = run_per_drug(
+            train_and_predict_split, {drug: (s,) for drug, s in splits_per_drug.items()}, n_jobs=n_jobs
+        )
+    else:
+        validation_dataset = train_and_predict_split(None, split)
+
     with open(
-        f"prediction_dataset_{resolved_name}_{str(cv_data).split('.pkl')[0]}_"
+        f"prediction_dataset_{model_name}_{str(cv_data).split('.pkl')[0]}_"
         f"{str(hyperparameters).split('.yaml')[0]}.pkl",
         "wb",
     ) as f:
@@ -173,24 +219,22 @@ def _best_metric(metric, current_metric, best_metric, minimization_metrics, maxi
     return False
 
 
-def run_evaluate_and_find_max(
-    *,
-    model_name: str,
-    split_id: str,
-    hpam_yamls: list[str],
-    pred_datas: list[str],
-    optim_metric: str = "RMSE",
-) -> None:
-    """Pick the best hyperparameter YAML for one CV split."""
+def _find_best_hpam_combi(
+    pred_datas: list, hpam_combis: list[dict], optim_metric: str
+) -> tuple[dict | None, float | None]:
+    """
+    Find the hyperparameter combination with the best predictions.
+
+    :param pred_datas: predictions per hyperparameter combination
+    :param hpam_combis: hyperparameter combinations, in the order of pred_datas
+    :param optim_metric: metric to optimize
+    :returns: best hyperparameter combination and its result
+    """
     from drevalpy.evaluation import MAXIMIZATION_METRICS, MINIMIZATION_METRICS, evaluate
 
     best_hpam_combi = None
     best_result = None
-    for i in range(0, len(pred_datas)):
-        with open(pred_datas[i], "rb") as pred_file:
-            pred_data = pickle.load(pred_file)
-        with open(hpam_yamls[i]) as yaml_file:
-            hpam_combi = yaml.safe_load(yaml_file)
+    for pred_data, hpam_combi in zip(pred_datas, hpam_combis, strict=True):
         results = evaluate(pred_data, optim_metric)
         if best_result is None:
             best_result = results[optim_metric]
@@ -204,6 +248,41 @@ def run_evaluate_and_find_max(
         ):
             best_result = results[optim_metric]
             best_hpam_combi = hpam_combi
-    final_result = {f"{model_name}_{split_id}": {"best_hpam_combi": best_hpam_combi, "best_result": best_result}}
+    return best_hpam_combi, best_result
+
+
+def run_evaluate_and_find_max(
+    *,
+    model_name: str,
+    split_id: str,
+    hpam_yamls: list[str],
+    pred_datas: list[str],
+    optim_metric: str = "RMSE",
+) -> None:
+    """Pick the best hyperparameter YAML for one CV split, for single drug models per drug."""
+    from drevalpy.models import MODEL_FACTORY
+
+    pred_data_list = []
+    hpam_combis = []
+    for i in range(0, len(pred_datas)):
+        with open(pred_datas[i], "rb") as pred_file:
+            pred_data_list.append(pickle.load(pred_file))
+        with open(hpam_yamls[i]) as yaml_file:
+            hpam_combis.append(yaml.safe_load(yaml_file))
+
+    if MODEL_FACTORY[model_name].is_single_drug_model:
+        # the predictions are {drug_id: predictions} dicts, see run_train_and_predict_cv
+        best_per_drug = {
+            drug: _find_best_hpam_combi([pred_data[drug] for pred_data in pred_data_list], hpam_combis, optim_metric)
+            for drug in pred_data_list[0]
+        }
+        result = {
+            "best_hpam_combi_per_drug": {drug: best[0] for drug, best in best_per_drug.items()},
+            "best_result_per_drug": {drug: best[1] for drug, best in best_per_drug.items()},
+        }
+    else:
+        best_hpam_combi, best_result = _find_best_hpam_combi(pred_data_list, hpam_combis, optim_metric)
+        result = {"best_hpam_combi": best_hpam_combi, "best_result": best_result}
+    final_result = {f"{model_name}_{split_id}": result}
     with open(f"best_hpam_combi_{split_id}.yaml", "w") as yaml_file:
         yaml.dump(final_result, yaml_file, default_flow_style=False)

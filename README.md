@@ -132,6 +132,12 @@ drevalpy report --run_id my_first_run --dataset_name TOYv1
 
 This will create an index.html file in the results directory which you can open in your web browser.
 
+Single-Drug Models such as SingleDrugElasticNet fit one model per drug. With `--n_jobs`, the drugs are trained in parallel, here on 4 CPUs:
+
+```bash
+drevalpy --run_id my_sd_run --models SingleDrugElasticNet --baselines NaiveMeanEffectsPredictor --dataset_name TOYv1 --test_mode LCO --n_jobs 4
+```
+
 You can also run a drug response experiment using Python:
 
 ```python
