@@ -8,11 +8,16 @@ tests can point them at fixture files; nothing here reads the host's real
 from __future__ import annotations
 
 import logging
+import sys
 
 import pytest
 from upath import UPath
 
 from drevalpy.visualization import _progress
+from tests._import_shims import block_imports
+
+#: Windows has no ``resource`` module, so the rusage fallback reports 0 there.
+needs_rusage = pytest.mark.skipif(sys.platform == "win32", reason="no resource module on Windows")
 
 _STATUS = """Name:\tpython3
 VmPeak:\t 8388608 kB
@@ -68,12 +73,15 @@ class TestRss:
     def test_peak_rss_comes_from_vmhwm(self, status_file: str) -> None:
         assert _progress.peak_rss_gb(status_file) == pytest.approx(3.0)
 
+    @needs_rusage
     def test_rss_falls_back_to_rusage_without_proc(self, tmp_path: UPath) -> None:
         assert _progress.rss_gb(str(UPath(tmp_path) / "absent")) > 0
 
+    @needs_rusage
     def test_peak_falls_back_to_rusage_without_proc(self, tmp_path: UPath) -> None:
         assert _progress.peak_rss_gb(str(UPath(tmp_path) / "absent")) > 0
 
+    @needs_rusage
     def test_rusage_is_normalised_to_kib_on_linux(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(_progress.sys, "platform", "linux")
 
@@ -82,8 +90,14 @@ class TestRss:
         monkeypatch.setattr(_progress.sys, "platform", "darwin")
         assert linux == pytest.approx(_progress._rusage_max_rss_gb() * 1024)
 
+    @needs_rusage
     def test_the_live_proc_path_still_reports_a_positive_rss(self) -> None:
         assert _progress.rss_gb() > 0
+
+    def test_rusage_reports_zero_without_the_resource_module(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        block_imports(monkeypatch, "resource")
+
+        assert _progress._rusage_max_rss_gb() == 0.0
 
 
 class TestMemoryLimit:

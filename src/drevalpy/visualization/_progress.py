@@ -13,7 +13,6 @@ in tests rather than at the host's real ``/proc`` and cgroup trees.
 from __future__ import annotations
 
 import logging
-import resource
 import sys
 
 from upath import UPath
@@ -33,10 +32,15 @@ _UNLIMITED_GB = 1024.0 * 1024.0
 def _rusage_max_rss_gb() -> float:
     """Peak RSS from :func:`resource.getrusage`, normalised across platforms.
 
-    ``ru_maxrss`` is KiB on Linux but bytes on macOS.
+    ``ru_maxrss`` is KiB on Linux but bytes on macOS. Windows has no :mod:`resource`
+    module, so there it reports 0.
 
     :returns: Peak resident set size of this process in GB.
     """
+    try:
+        import resource
+    except ImportError:
+        return 0.0
     raw = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     divisor = _BYTES_PER_GB if sys.platform == "darwin" else _KIB_PER_GB
     return raw / divisor

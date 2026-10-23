@@ -184,10 +184,17 @@ class TestEditableInstallDoesNotLeak:
 
     def test_the_repo_top_level_directories_are_not_importable(self, tmp_path):
         """Run from outside the repo, so only the installed paths are in play."""
+        # Only the repo's own directories count: a third-party wheel may ship a top-level
+        # ``docs`` of its own (pydoclint 0.11 does).
         script = (
             "import importlib.util as u\n"
+            "def paths(spec):\n"
+            "    return [spec.origin or '', *(spec.submodule_search_locations or [])]\n"
             "print(u.find_spec('drevalpy') is not None)\n"
-            "print([name for name in ('tests', 'tools', 'docs') if u.find_spec(name) is not None])\n"
+            f"root = {str(REPO_ROOT)!r}\n"
+            "print([name for name in ('tests', 'tools', 'docs')\n"
+            "       if (spec := u.find_spec(name)) is not None\n"
+            "       and any(p.startswith(root) and 'site-packages' not in p for p in paths(spec))])\n"
         )
 
         result = run_trusted_python(script, cwd=str(tmp_path))
