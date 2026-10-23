@@ -1,0 +1,2638 @@
+{
+  "case": {
+    "inputs_sha256": "7c816291b7699490ffda527eec4a98b8d47860be4001408bd19dacad04bd2f68",
+    "meta": {
+      "gene_list": "landmark_genes",
+      "variants": {
+        "clamped": {
+          "mrmr_k": 20,
+          "n_neighbors": 50,
+          "weights": "uniform"
+        },
+        "default": {
+          "mrmr_k": 20,
+          "n_neighbors": 3,
+          "weights": "distance"
+        },
+        "no_mrmr": {
+          "mrmr_k": 0,
+          "n_neighbors": 5,
+          "weights": "distance"
+        },
+        "uniform": {
+          "mrmr_k": 8,
+          "n_neighbors": 10,
+          "weights": "uniform"
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [],
+  "findings": [
+    "1.6.1 selects `landmark_genes` while loading the CSVs and fits one `StandardScaler` on the unique training cell lines of the drug, then runs `Pipeline(mrmr, knn)`. v2 selects the list in the `landmarkGenes` featurizer (standardize=false, arcsinh) and runs `Pipeline(StandardScaler, MRMRSelector, NeighborCappedKNN)` per drug, so the scaler is fitted on the training pairs of the drug, the same rows (one pair per sample and drug).",
+    "v2 holds features as float32 end to end, 1.6.1 as float64. The end-to-end feature, distance and prediction steps therefore agree to float32 precision (class forward), not exactly; the mRMR selection and the neighbour sets are compared exactly. The `identical` steps feed both estimators the same float64 matrix and are exact.",
+    "The 1.6.1 default (first grid point) is n_neighbors=3, v2's `SingleDrugKNN` preset declares the same default and extends the tunable range to 20 (1.6.1 grid: 3, 5, 10, 20).",
+    "v2 clamps `n_neighbors` inside the estimator when it is fitted (`NeighborCappedKNN`); 1.6.1 clamps in `train` through `set_params`. Both give `min(n_neighbors, n_rows)`."
+  ],
+  "generated": "2026-10-23",
+  "model": "SingleDrugKNN",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D00: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.940106475703203e-07,
+      "max_rel_diff": 0.0023430415517829224,
+      "name": "default/D00/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999667,
+      "scope": "parity",
+      "shape_v1": [
+        22,
+        867
+      ],
+      "shape_v2": [
+        22,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D00: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0922695059534249e-06,
+      "max_rel_diff": 0.005502639571589558,
+      "name": "default/D00/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999727,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        867
+      ],
+      "shape_v2": [
+        12,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D00: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D00/selected",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D00: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D00/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D00: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D00/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        3
+      ],
+      "shape_v2": [
+        12,
+        3
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D00: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.935430253956042e-07,
+      "max_rel_diff": 1.4811135625322637e-07,
+      "name": "default/D00/distances",
+      "passed": true,
+      "pearson": 0.9999999999999379,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        3
+      ],
+      "shape_v2": [
+        12,
+        3
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.117975542314525e-08,
+      "max_rel_diff": 3.7153240947189527e-09,
+      "name": "default/D00/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999961,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D01: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0166151853674421e-06,
+      "max_rel_diff": 0.0014658003684541597,
+      "name": "default/D01/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999689,
+      "scope": "parity",
+      "shape_v1": [
+        28,
+        867
+      ],
+      "shape_v2": [
+        28,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D01: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.899096721748379e-07,
+      "max_rel_diff": 0.0009511693504775235,
+      "name": "default/D01/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999736,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        867
+      ],
+      "shape_v2": [
+        7,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D01: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D01/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D01: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D01/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D01: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D01/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        3
+      ],
+      "shape_v2": [
+        7,
+        3
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D01: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.26965539648927e-07,
+      "max_rel_diff": 1.1414421477701584e-07,
+      "name": "default/D01/distances",
+      "passed": true,
+      "pearson": 0.9999999999999687,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        3
+      ],
+      "shape_v2": [
+        7,
+        3
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D01: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 4.297590372459581e-08,
+      "max_rel_diff": 5.995215732865908e-09,
+      "name": "default/D01/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999993,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D02: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.288627375036995e-07,
+      "max_rel_diff": 0.0019293807659282775,
+      "name": "default/D02/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999682,
+      "scope": "parity",
+      "shape_v1": [
+        22,
+        867
+      ],
+      "shape_v2": [
+        22,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D02: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.179202111067923e-06,
+      "max_rel_diff": 0.0010639673336401176,
+      "name": "default/D02/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999731,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        867
+      ],
+      "shape_v2": [
+        13,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D02: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D02/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D02: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D02/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D02: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D02/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        3
+      ],
+      "shape_v2": [
+        13,
+        3
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D02: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.379867683037332e-07,
+      "max_rel_diff": 1.0704713144665204e-07,
+      "name": "default/D02/distances",
+      "passed": true,
+      "pearson": 0.9999999999999116,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        3
+      ],
+      "shape_v2": [
+        13,
+        3
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D02: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0909118497437476e-08,
+      "max_rel_diff": 3.26028407910284e-09,
+      "name": "default/D02/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999997,
+      "scope": "parity",
+      "shape_v1": [
+        13
+      ],
+      "shape_v2": [
+        13
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D03: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1282115184307884e-06,
+      "max_rel_diff": 0.002501668066582471,
+      "name": "default/D03/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999671,
+      "scope": "parity",
+      "shape_v1": [
+        20,
+        867
+      ],
+      "shape_v2": [
+        20,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D03: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0655510660484424e-06,
+      "max_rel_diff": 0.005416911765478219,
+      "name": "default/D03/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999717,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        867
+      ],
+      "shape_v2": [
+        12,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D03: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D03/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D03: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D03/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, D03: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/D03/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        3
+      ],
+      "shape_v2": [
+        12,
+        3
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D03: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.010238756739341e-07,
+      "max_rel_diff": 1.970044410359684e-07,
+      "name": "default/D03/distances",
+      "passed": true,
+      "pearson": 0.9999999999998646,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        3
+      ],
+      "shape_v2": [
+        12,
+        3
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "default, D03: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.6289634469378598e-08,
+      "max_rel_diff": 3.751160789401914e-09,
+      "name": "default/D03/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999994,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D00: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.940106475703203e-07,
+      "max_rel_diff": 0.0023430415517829224,
+      "name": "uniform/D00/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999667,
+      "scope": "parity",
+      "shape_v1": [
+        22,
+        867
+      ],
+      "shape_v2": [
+        22,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D00: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0922695059534249e-06,
+      "max_rel_diff": 0.005502639571589558,
+      "name": "uniform/D00/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999727,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        867
+      ],
+      "shape_v2": [
+        12,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D00: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D00/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D00: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D00/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D00: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D00/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        10
+      ],
+      "shape_v2": [
+        12,
+        10
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D00: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.561721506732511e-07,
+      "max_rel_diff": 2.7935506078593356e-07,
+      "name": "uniform/D00/distances",
+      "passed": true,
+      "pearson": 0.999999999999946,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        10
+      ],
+      "shape_v2": [
+        12,
+        10
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "uniform, D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D00/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D01: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0166151853674421e-06,
+      "max_rel_diff": 0.0014658003684541597,
+      "name": "uniform/D01/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999689,
+      "scope": "parity",
+      "shape_v1": [
+        28,
+        867
+      ],
+      "shape_v2": [
+        28,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D01: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.899096721748379e-07,
+      "max_rel_diff": 0.0009511693504775235,
+      "name": "uniform/D01/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999736,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        867
+      ],
+      "shape_v2": [
+        7,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D01: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D01/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D01: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D01/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D01: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D01/neighbors",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        10
+      ],
+      "shape_v2": [
+        7,
+        10
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D01: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.743949524905645e-07,
+      "max_rel_diff": 2.1542194408688077e-07,
+      "name": "uniform/D01/distances",
+      "passed": true,
+      "pearson": 0.9999999999999548,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        10
+      ],
+      "shape_v2": [
+        7,
+        10
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "uniform, D01: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D01/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D02: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.288627375036995e-07,
+      "max_rel_diff": 0.0019293807659282775,
+      "name": "uniform/D02/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999682,
+      "scope": "parity",
+      "shape_v1": [
+        22,
+        867
+      ],
+      "shape_v2": [
+        22,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D02: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.179202111067923e-06,
+      "max_rel_diff": 0.0010639673336401176,
+      "name": "uniform/D02/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999731,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        867
+      ],
+      "shape_v2": [
+        13,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D02: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D02/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D02: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D02/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D02: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D02/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        10
+      ],
+      "shape_v2": [
+        13,
+        10
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D02: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.090991010512028e-07,
+      "max_rel_diff": 2.636625610203277e-07,
+      "name": "uniform/D02/distances",
+      "passed": true,
+      "pearson": 0.9999999999999515,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        10
+      ],
+      "shape_v2": [
+        13,
+        10
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "uniform, D02: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D02/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        13
+      ],
+      "shape_v2": [
+        13
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D03: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1282115184307884e-06,
+      "max_rel_diff": 0.002501668066582471,
+      "name": "uniform/D03/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999671,
+      "scope": "parity",
+      "shape_v1": [
+        20,
+        867
+      ],
+      "shape_v2": [
+        20,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D03: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0655510660484424e-06,
+      "max_rel_diff": 0.005416911765478219,
+      "name": "uniform/D03/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999717,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        867
+      ],
+      "shape_v2": [
+        12,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D03: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D03/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D03: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D03/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, D03: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D03/neighbors",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        10
+      ],
+      "shape_v2": [
+        12,
+        10
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "uniform, D03: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.38814944334365e-07,
+      "max_rel_diff": 3.5759682140631777e-07,
+      "name": "uniform/D03/distances",
+      "passed": true,
+      "pearson": 0.9999999999999359,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        10
+      ],
+      "shape_v2": [
+        12,
+        10
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "uniform, D03: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/D03/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D00: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.940106475703203e-07,
+      "max_rel_diff": 0.0023430415517829224,
+      "name": "no_mrmr/D00/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999667,
+      "scope": "parity",
+      "shape_v1": [
+        22,
+        867
+      ],
+      "shape_v2": [
+        22,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D00: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0922695059534249e-06,
+      "max_rel_diff": 0.005502639571589558,
+      "name": "no_mrmr/D00/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999727,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        867
+      ],
+      "shape_v2": [
+        12,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D00: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D00/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        867
+      ],
+      "shape_v2": [
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D00: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D00/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D00: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D00/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        5
+      ],
+      "shape_v2": [
+        12,
+        5
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D00: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 3.2829153866487104e-06,
+      "max_rel_diff": 7.762257347890517e-08,
+      "name": "no_mrmr/D00/distances",
+      "passed": true,
+      "pearson": 0.9999999999989749,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        5
+      ],
+      "shape_v2": [
+        12,
+        5
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 4.939673559078983e-08,
+      "max_rel_diff": 2.6714978861116084e-09,
+      "name": "no_mrmr/D00/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D01: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0166151853674421e-06,
+      "max_rel_diff": 0.0014658003684541597,
+      "name": "no_mrmr/D01/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999689,
+      "scope": "parity",
+      "shape_v1": [
+        28,
+        867
+      ],
+      "shape_v2": [
+        28,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D01: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.899096721748379e-07,
+      "max_rel_diff": 0.0009511693504775235,
+      "name": "no_mrmr/D01/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999736,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        867
+      ],
+      "shape_v2": [
+        7,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D01: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D01/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        867
+      ],
+      "shape_v2": [
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D01: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D01/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D01: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D01/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        5
+      ],
+      "shape_v2": [
+        7,
+        5
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D01: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.3865536178391267e-06,
+      "max_rel_diff": 5.616960185220267e-08,
+      "name": "no_mrmr/D01/distances",
+      "passed": true,
+      "pearson": 0.9999999999980415,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        5
+      ],
+      "shape_v2": [
+        7,
+        5
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D01: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 3.034129925083562e-08,
+      "max_rel_diff": 4.956957436687321e-09,
+      "name": "no_mrmr/D01/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999996,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D02: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.288627375036995e-07,
+      "max_rel_diff": 0.0019293807659282775,
+      "name": "no_mrmr/D02/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999682,
+      "scope": "parity",
+      "shape_v1": [
+        22,
+        867
+      ],
+      "shape_v2": [
+        22,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D02: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.179202111067923e-06,
+      "max_rel_diff": 0.0010639673336401176,
+      "name": "no_mrmr/D02/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999731,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        867
+      ],
+      "shape_v2": [
+        13,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D02: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D02/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        867
+      ],
+      "shape_v2": [
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D02: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D02/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D02: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D02/neighbors",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        5
+      ],
+      "shape_v2": [
+        13,
+        5
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D02: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.8592885072953322e-06,
+      "max_rel_diff": 6.617576925277978e-08,
+      "name": "no_mrmr/D02/distances",
+      "passed": true,
+      "pearson": 0.9999999999976896,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        5
+      ],
+      "shape_v2": [
+        13,
+        5
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D02: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.027563012456767e-08,
+      "max_rel_diff": 2.8457931051533213e-09,
+      "name": "no_mrmr/D02/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999994,
+      "scope": "parity",
+      "shape_v1": [
+        13
+      ],
+      "shape_v2": [
+        13
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D03: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1282115184307884e-06,
+      "max_rel_diff": 0.002501668066582471,
+      "name": "no_mrmr/D03/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999671,
+      "scope": "parity",
+      "shape_v1": [
+        20,
+        867
+      ],
+      "shape_v2": [
+        20,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D03: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0655510660484424e-06,
+      "max_rel_diff": 0.005416911765478219,
+      "name": "no_mrmr/D03/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999717,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        867
+      ],
+      "shape_v2": [
+        12,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D03: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D03/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        867
+      ],
+      "shape_v2": [
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D03: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D03/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, D03: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/D03/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        5
+      ],
+      "shape_v2": [
+        12,
+        5
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D03: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.1208562586139124e-06,
+      "max_rel_diff": 5.1238751819686703e-08,
+      "name": "no_mrmr/D03/distances",
+      "passed": true,
+      "pearson": 0.9999999999988501,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        5
+      ],
+      "shape_v2": [
+        12,
+        5
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "no_mrmr, D03: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.6806117386636288e-08,
+      "max_rel_diff": 2.2930502804907614e-09,
+      "name": "no_mrmr/D03/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999994,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D00: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.940106475703203e-07,
+      "max_rel_diff": 0.0023430415517829224,
+      "name": "clamped/D00/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999667,
+      "scope": "parity",
+      "shape_v1": [
+        22,
+        867
+      ],
+      "shape_v2": [
+        22,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D00: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0922695059534249e-06,
+      "max_rel_diff": 0.005502639571589558,
+      "name": "clamped/D00/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999727,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        867
+      ],
+      "shape_v2": [
+        12,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D00: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D00/selected",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D00: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D00/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D00: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D00/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        22
+      ],
+      "shape_v2": [
+        12,
+        22
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D00: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.305835089179482e-07,
+      "max_rel_diff": 1.4811135625322637e-07,
+      "name": "clamped/D00/distances",
+      "passed": true,
+      "pearson": 0.9999999999999751,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        22
+      ],
+      "shape_v2": [
+        12,
+        22
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "clamped, D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D00/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D01: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0166151853674421e-06,
+      "max_rel_diff": 0.0014658003684541597,
+      "name": "clamped/D01/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999689,
+      "scope": "parity",
+      "shape_v1": [
+        28,
+        867
+      ],
+      "shape_v2": [
+        28,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D01: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.899096721748379e-07,
+      "max_rel_diff": 0.0009511693504775235,
+      "name": "clamped/D01/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999736,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        867
+      ],
+      "shape_v2": [
+        7,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D01: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D01/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D01: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D01/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D01: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D01/neighbors",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        28
+      ],
+      "shape_v2": [
+        7,
+        28
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D01: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.646271432155572e-07,
+      "max_rel_diff": 1.3686283494036884e-07,
+      "name": "clamped/D01/distances",
+      "passed": true,
+      "pearson": 0.9999999999999715,
+      "scope": "parity",
+      "shape_v1": [
+        7,
+        28
+      ],
+      "shape_v2": [
+        7,
+        28
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "clamped, D01: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D01/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7
+      ],
+      "shape_v2": [
+        7
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D02: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 9.288627375036995e-07,
+      "max_rel_diff": 0.0019293807659282775,
+      "name": "clamped/D02/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999682,
+      "scope": "parity",
+      "shape_v1": [
+        22,
+        867
+      ],
+      "shape_v2": [
+        22,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D02: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.179202111067923e-06,
+      "max_rel_diff": 0.0010639673336401176,
+      "name": "clamped/D02/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999731,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        867
+      ],
+      "shape_v2": [
+        13,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D02: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D02/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D02: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D02/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D02: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D02/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        22
+      ],
+      "shape_v2": [
+        13,
+        22
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D02: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0556099905301153e-06,
+      "max_rel_diff": 1.3038116382998087e-07,
+      "name": "clamped/D02/distances",
+      "passed": true,
+      "pearson": 0.999999999999957,
+      "scope": "parity",
+      "shape_v1": [
+        13,
+        22
+      ],
+      "shape_v2": [
+        13,
+        22
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "clamped, D02: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D02/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        13
+      ],
+      "shape_v2": [
+        13
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D03: scaled train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1282115184307884e-06,
+      "max_rel_diff": 0.002501668066582471,
+      "name": "clamped/D03/scaled_train",
+      "passed": true,
+      "pearson": 0.9999999999999671,
+      "scope": "parity",
+      "shape_v1": [
+        20,
+        867
+      ],
+      "shape_v2": [
+        20,
+        867
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D03: scaled test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0655510660484424e-06,
+      "max_rel_diff": 0.005416911765478219,
+      "name": "clamped/D03/scaled_test",
+      "passed": true,
+      "pearson": 0.9999999999999717,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        867
+      ],
+      "shape_v2": [
+        12,
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D03: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D03/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D03: n neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D03/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, D03: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D03/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        20
+      ],
+      "shape_v2": [
+        12,
+        20
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "clamped, D03: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.010238756739341e-07,
+      "max_rel_diff": 1.970044410359684e-07,
+      "name": "clamped/D03/distances",
+      "passed": true,
+      "pearson": 0.9999999999999575,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        20
+      ],
+      "shape_v2": [
+        12,
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "forward",
+      "description": "clamped, D03: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/D03/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, identical float64 input to both estimators: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/identical/selected",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, identical float64 input to both estimators: n_neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/identical/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, identical float64 input to both estimators: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/identical/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        3
+      ],
+      "shape_v2": [
+        12,
+        3
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, identical float64 input to both estimators: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/identical/distances",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        3
+      ],
+      "shape_v2": [
+        12,
+        3
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "default, identical float64 input to both estimators: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "default/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, identical float64 input to both estimators: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/identical/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, identical float64 input to both estimators: n_neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/identical/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, identical float64 input to both estimators: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/identical/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        10
+      ],
+      "shape_v2": [
+        12,
+        10
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, identical float64 input to both estimators: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/identical/distances",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        10
+      ],
+      "shape_v2": [
+        12,
+        10
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "uniform, identical float64 input to both estimators: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "uniform/identical/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, identical float64 input to both estimators: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/identical/selected",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        867
+      ],
+      "shape_v2": [
+        867
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, identical float64 input to both estimators: n_neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/identical/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, identical float64 input to both estimators: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/identical/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        5
+      ],
+      "shape_v2": [
+        12,
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, identical float64 input to both estimators: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/identical/distances",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        5
+      ],
+      "shape_v2": [
+        12,
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "no_mrmr, identical float64 input to both estimators: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "no_mrmr/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, identical float64 input to both estimators: selected",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/identical/selected",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        20
+      ],
+      "shape_v2": [
+        20
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, identical float64 input to both estimators: n_neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/identical/n_neighbors",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, identical float64 input to both estimators: neighbors",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/identical/neighbors",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        22
+      ],
+      "shape_v2": [
+        12,
+        22
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, identical float64 input to both estimators: distances",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/identical/distances",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        12,
+        22
+      ],
+      "shape_v2": [
+        12,
+        22
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "clamped, identical float64 input to both estimators: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "clamped/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        12
+      ],
+      "shape_v2": [
+        12
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu"
+  },
+  "v2": {
+    "commit": "a05767d20ff95c8bfa3cb3ddf290907f83ed4e55",
+    "dirty": true,
+    "drevalpy": "2.0.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0"
+  },
+  "verdict": "forward"
+}

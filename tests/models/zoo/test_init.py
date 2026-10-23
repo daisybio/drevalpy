@@ -223,6 +223,22 @@ def test_single_drug_sklearn_zoo_entries_use_identity_for_routing() -> None:
     validate(random_forest)
 
 
+def test_single_drug_knn_zoo_entry_standardizes_per_drug() -> None:
+    config = get_zoo_config("SingleDrugKNN")
+
+    assert config.predictor.name == "singleDrugKnn"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "landmarkGenes"
+    assert config.sample_featurizer.options == {"gene_list_stem": "landmark_genes"}
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "identity"
+    assert config.scope.value == "single_drug"
+    resolved = ModelSpec.from_name("SingleDrugKNN").resolve()
+    assert resolved.featurizer_values("sample", "landmarkGenes")["standardize"] is False
+    assert resolved.predictor_values() == {"n_neighbors": 3, "weights": "distance"}
+    validate(config)
+
+
 def test_multi_drug_sklearn_predictor_without_drug_featurizer_fails() -> None:
     from pydantic import ValidationError
 
@@ -274,6 +290,7 @@ def test_single_drug_zoo_membership() -> None:
     single_names = list_zoo_names(include_external=False, scope=ModelScope.SINGLE_DRUG)
     assert set(single_names) == {
         "SingleDrugElasticNet",
+        "SingleDrugKNN",
         "SingleDrugRandomForest",
         "MOLIR",
         "SuperFELTR",

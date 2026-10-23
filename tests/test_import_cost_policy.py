@@ -181,7 +181,7 @@ class TestAFreshImport:
     @pytest.mark.parametrize(
         ("key", "expected"),
         [
-            ("n_predictors", 27),
+            ("n_predictors", 28),
             ("n_sample_featurizers", 17),
             ("n_drug_featurizers", 10),
         ],

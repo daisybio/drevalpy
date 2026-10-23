@@ -351,3 +351,43 @@ class KNNPredictor(SklearnTabularPredictor):
             "n_neighbors": {"type": "int", "low": 3, "high": 15, "default": 5},
             "weights": {"type": "categorical", "choices": ["uniform", "distance"], "default": "distance"},
         }
+
+
+@register(
+    "singleDrugKnn",
+    description="K-nearest neighbors per drug on the genes selected by mRMR for that drug.",
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
+)
+class SingleDrugKNNPredictor(SingleDrugSklearnPredictor, KNNPredictor):
+    """Per-drug kNN on the ``mrmr_k`` features most relevant for that drug's response.
+
+    The distance is computed on the columns the mRMR selection keeps, not on the full
+    profile. Standardization, selection and neighbour search are fitted on the training
+    pairs of one drug only. A drug with fewer training pairs than ``n_neighbors`` uses as
+    many neighbours as it has pairs.
+    """
+
+    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {"mrmr_k": 20}
+
+    def _make_estimator(self) -> Any:
+        from sklearn.pipeline import Pipeline
+        from sklearn.preprocessing import StandardScaler
+
+        from drevalpy.components.predictors._mrmr import MRMRSelector, NeighborCappedKNN
+
+        mrmr_k = self._h["mrmr_k"]
+        selector = MRMRSelector(k=int(mrmr_k)) if mrmr_k else "passthrough"
+        knn = NeighborCappedKNN(n_neighbors=int(self._h["n_neighbors"]), weights=str(self._h["weights"]))
+        return Pipeline([("scale", StandardScaler()), ("mrmr", selector), ("knn", knn)])
+
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return the tunable hyperparameter space.
+
+        :returns: Search-space specs with a declared default for each tunable parameter.
+        """
+        return {
+            "n_neighbors": {"type": "int", "low": 3, "high": 20, "default": 3},
+            "weights": {"type": "categorical", "choices": ["uniform", "distance"], "default": "distance"},
+        }

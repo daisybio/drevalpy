@@ -72,7 +72,7 @@ from drevalpy.registry.drug_featurizer import drug_featurizer_registry
 from drevalpy.registry.predictor import predictor_registry
 assert len(sample_featurizer_registry.list_metadata()) == 17
 assert len(drug_featurizer_registry.list_metadata()) == 10
-assert len(predictor_registry.list_metadata()) == 27
+assert len(predictor_registry.list_metadata()) == 28
 print("ok")
 """
         completed = run_trusted_python(script)

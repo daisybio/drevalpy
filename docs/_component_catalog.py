@@ -26,7 +26,7 @@ GENERATED_CATALOGS = {
     "drug": DOCS_DIR / "reference" / "_generated_drug_featurizers.rst",
     "predictor": DOCS_DIR / "reference" / "_generated_predictors.rst",
 }
-EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample": 17, "drug": 10, "predictor": 27}
+EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample": 17, "drug": 10, "predictor": 28}
 EXPECTED_PREDICTOR_INTERFACE_COUNTS = {"feature_free": 1, "matrix": 13, "block": 13}
 
 

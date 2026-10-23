@@ -42,6 +42,7 @@ EXPECTED = {
         "ridge",
         "randomForest",
         "singleDrugRandomForest",
+        "singleDrugKnn",
         "svr",
         "gradientBoosting",
         "adaboost",

@@ -131,3 +131,71 @@ def test_untuned_zoo_elasticnet_does_not_predict_a_constant_on_the_synthetic_dat
     predictions = model.predict(dataset, fold.test)
 
     assert np.nanstd(predictions) > 0.05
+
+
+def test_single_drug_knn_builds_scaler_mrmr_and_capped_knn() -> None:
+    from drevalpy.components.predictors._mrmr import MRMRSelector, NeighborCappedKNN
+    from drevalpy.components.predictors.sklearn_models import SingleDrugKNNPredictor
+
+    assert issubclass(SingleDrugKNNPredictor, SingleDrugSklearnPredictor)
+    assert issubclass(SingleDrugKNNPredictor, KNNPredictor)
+    assert SingleDrugKNNPredictor.scope is ModelScope.SINGLE_DRUG
+    pipeline = SingleDrugKNNPredictor()._make_estimator()
+
+    assert [name for name, _ in pipeline.steps] == ["scale", "mrmr", "knn"]
+    assert isinstance(pipeline.named_steps["mrmr"], MRMRSelector)
+    assert pipeline.named_steps["mrmr"].k == 20
+    assert isinstance(pipeline.named_steps["knn"], NeighborCappedKNN)
+    assert (pipeline.named_steps["knn"].n_neighbors, pipeline.named_steps["knn"].weights) == (3, "distance")
+
+
+@pytest.mark.parametrize("mrmr_k", [0, None])
+def test_single_drug_knn_without_mrmr_k_skips_the_selection(mrmr_k: int | None) -> None:
+    from drevalpy.components.predictors.sklearn_models import SingleDrugKNNPredictor
+
+    pipeline = SingleDrugKNNPredictor({"mrmr_k": mrmr_k})._make_estimator()
+    assert pipeline.named_steps["mrmr"] == "passthrough"
+
+
+def test_single_drug_knn_space_reaches_twenty_neighbors_and_leaves_mrmr_k_untuned() -> None:
+    from drevalpy.components.predictors.sklearn_models import SingleDrugKNNPredictor
+
+    space = SingleDrugKNNPredictor.get_hyperparameter_space()
+    assert (space["n_neighbors"]["high"], space["n_neighbors"]["default"]) == (20, 3)
+    assert "mrmr_k" not in space
+    assert SingleDrugKNNPredictor.non_tunable_hyperparameters["mrmr_k"] == 20
+
+
+def test_single_drug_knn_standardizes_and_selects_per_drug() -> None:
+    """Each drug gets its own scaler, its own genes and as many neighbours as it has pairs."""
+    import numpy as np
+
+    from drevalpy.components.predictors.sklearn_models import SingleDrugKNNPredictor
+    from drevalpy.models._pipeline import _ModelPipeline
+    from drevalpy.types.data.batch.response_batch import ResponseBatch
+    from tests.conftest import MockFeatureSource
+
+    rng = np.random.RandomState(0)
+    ids = [f"cl{i}" for i in range(6)]
+    expression = rng.normal(size=(6, 4))
+    source = MockFeatureSource(features={i: {"gene_expression": row} for i, row in zip(ids, expression, strict=True)})
+    # d1 has six pairs and responds to gene 2; d2 has two pairs, fewer than n_neighbors.
+    response = ResponseBatch(
+        response=np.concatenate([expression[:, 2], [1.0, 2.0]]),
+        sample_ids=np.array([*ids, "cl0", "cl1"]),
+        drug_ids=np.array(["d1"] * 6 + ["d2"] * 2),
+    )
+    config = from_spec("scaledGeneExpression:identity:singleDrugKnn", hyperparameters={"mrmr_k": 2, "n_neighbors": 20})
+    stack = _ModelPipeline(config)
+    stack.reset()
+    stack._fit_featurizers_and_predictor(response, source)
+
+    predictor = stack._predictor
+    assert isinstance(predictor, SingleDrugKNNPredictor)
+    first, second = predictor._estimators["d1"], predictor._estimators["d2"]
+    assert first.named_steps["mrmr"].selected_[0] == 2
+    assert first.named_steps["knn"].n_neighbors == 6
+    assert second.named_steps["knn"].n_neighbors == 2
+    assert not np.allclose(first.named_steps["scale"].mean_, second.named_steps["scale"].mean_)
+    query = ResponseBatch(response=None, sample_ids=np.array(["cl0", "cl0"]), drug_ids=np.array(["d1", "d2"]))
+    assert np.isfinite(predictor.predict(stack._batch(query, source, None))).all()
