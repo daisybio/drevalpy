@@ -177,14 +177,17 @@ def run_v2(case: Case) -> dict[str, np.ndarray]:
     :returns: Arrays keyed ``<variant>/<quantity>``.
     """
     from drevalpy.models.drp_model import DRPModel
-    from drevalpy.models.spec import ModelSpec
-    from tools.v1_parity._v2_runner import capture_matrix_predictor, tabular_inputs
+    from tools.v1_parity._v2_runner import capture_matrix_predictor, synthetic_gene_spec, tabular_inputs
 
     data = tabular_inputs(case)
     out: dict[str, np.ndarray] = {}
     for variant, setting in case.meta["variants"].items():
-        hyperparameters = {"alpha": setting["alpha"], "l1_ratio": setting["l1_ratio"], **setting["v2_extra"]}
-        model = DRPModel(ModelSpec.from_name(NAME), hyperparameters)
+        hyperparameters = {
+            "alpha": setting["alpha"],
+            "l1_ratio": setting["l1_ratio"],
+            **setting["v2_extra"],
+        }
+        model = DRPModel(synthetic_gene_spec(NAME), hyperparameters)
         sink: dict[str, Any] = {}
         with capture_matrix_predictor(sink):
             model.train(data.dataset, data.train)

@@ -275,8 +275,7 @@ def run_single_drug_v2(case: Case, preset: str, predictor_class: Any) -> dict[st
     :returns: Arrays keyed ``<variant>/<drug>/<quantity>`` and ``<variant>/identical/<quantity>``.
     """
     from drevalpy.models.drp_model import DRPModel
-    from drevalpy.models.spec import ModelSpec
-    from tools.v1_parity._v2_runner import tabular_inputs
+    from tools.v1_parity._v2_runner import synthetic_gene_spec, tabular_inputs
 
     out: dict[str, np.ndarray] = {}
     for variant, setting in case.meta["variants"].items():
@@ -287,7 +286,7 @@ def run_single_drug_v2(case: Case, preset: str, predictor_class: Any) -> dict[st
         queries: dict[int, np.ndarray] = {}
         np.random.seed(setting.get("np_seed", case.seed))  # noqa: NPY002 - random_state is set explicitly
         with _recording_estimators(predictor_class, fits, queries):
-            model = DRPModel(ModelSpec.from_name(preset), dict(setting["v2"]))
+            model = DRPModel(synthetic_gene_spec(preset), dict(setting["v2"]))
             model.train(data.dataset, data.train)
             predictions = np.asarray(model.predict(data.dataset, data.test))
         estimators = model._pipeline._predictor._estimators

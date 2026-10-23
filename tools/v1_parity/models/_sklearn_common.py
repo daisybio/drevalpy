@@ -290,9 +290,8 @@ def run_sklearn_v2(case: Case, preset: str) -> dict[str, np.ndarray]:
     :returns: Arrays keyed ``<variant>/<quantity>``.
     """
     from drevalpy.models.drp_model import DRPModel
-    from drevalpy.models.spec import ModelSpec
     from drevalpy.types.data.split_mask import SplitMask
-    from tools.v1_parity._v2_runner import capture_matrix_predictor, tabular_inputs
+    from tools.v1_parity._v2_runner import capture_matrix_predictor, synthetic_gene_spec, tabular_inputs
 
     shape = (len(case.arrays["sample_ids"]), len(case.arrays["drug_ids"]))
     out: dict[str, np.ndarray] = {}
@@ -301,7 +300,7 @@ def run_sklearn_v2(case: Case, preset: str) -> dict[str, np.ndarray]:
         train = data.train
         if "train_limit" in setting:
             train = SplitMask.from_pairs(case.arrays["train_pairs"][: setting["train_limit"]], shape)
-        model = DRPModel(ModelSpec.from_name(preset), dict(setting["v2"]))
+        model = DRPModel(synthetic_gene_spec(preset), dict(setting["v2"]))
         sink: dict[str, Any] = {}
         np.random.seed(setting.get("np_seed", case.seed))  # noqa: NPY002 - same global stream as the 1.6.1 side
         with capture_matrix_predictor(sink):

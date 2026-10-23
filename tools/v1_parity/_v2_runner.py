@@ -79,6 +79,27 @@ def tabular_inputs(
     )
 
 
+def synthetic_gene_spec(preset: str) -> Any:
+    """Build a zoo preset whose ``scaledGeneExpression`` keeps every gene of the view.
+
+    The synthetic gene names are in none of the shipped lists, and the 1.6.1 in-memory inputs are already
+    restricted to them, so the v2 side drops the preset's gene list.
+
+    :param preset: Zoo preset name.
+    :returns: The model spec.
+    """
+    from importlib.resources import files
+
+    import yaml
+
+    from drevalpy.models.config.io import from_dict
+    from drevalpy.models.spec import ModelSpec
+
+    config = yaml.safe_load(files("drevalpy.models.zoo").joinpath(f"{preset}.yaml").read_text())
+    config["sample_featurizer"]["scaledGeneExpression"]["gene_list"] = None
+    return ModelSpec(preset, from_dict(config))
+
+
 @contextmanager
 def capture_matrix_predictor(sink: dict[str, Any]) -> Iterator[None]:
     """Record the design matrices and the fitted estimator of any sklearn tabular predictor.
