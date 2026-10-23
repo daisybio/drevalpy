@@ -40,61 +40,47 @@ def _extension_module_name(file_path: Path) -> str:
     return f"drevalpy_user_extension_{file_path.stem}_{digest}"
 
 
-def _get_registries() -> tuple[Any, Any, Any, Any, Any, Any]:
-    """Lazily import all registry singletons to avoid circular imports."""
-    from drevalpy.registry.dataset._registry import dataset_registry
-    from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
-    from drevalpy.registry.predictor._registry import predictor_registry
-    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
-    from drevalpy.registry.splitter._registry import splitter_registry
-    from drevalpy.registry.visualization._registry import visualization_registry
+def _get_registries() -> dict[str, Any]:
+    """Lazily import the registries that extension loading can add to, to avoid circular imports.
 
-    return (
-        predictor_registry,
-        sample_featurizer_registry,
-        drug_featurizer_registry,
-        splitter_registry,
-        visualization_registry,
-        dataset_registry,
-    )
+    :returns: Registry singletons keyed by the kind names used in registry snapshots.
+    """
+    from drevalpy.registry.featurizer import drug_featurizer_registry, sample_featurizer_registry
+    from drevalpy.registry.predictor import predictor_registry
+    from drevalpy.registry.splitter import splitter_registry
+    from drevalpy.registry.visualization import visualization_registry
+
+    return {
+        "predictor": predictor_registry,
+        "sample_featurizer": sample_featurizer_registry,
+        "drug_featurizer": drug_featurizer_registry,
+        "splitter": splitter_registry,
+        "visualization": visualization_registry,
+    }
 
 
 def _snapshot_all_registries() -> dict[str, frozenset[str]]:
-    """Capture current state of all in-memory registries for rollback."""
-    (
-        predictor_registry,
-        sample_featurizer_registry,
-        drug_featurizer_registry,
-        splitter_registry,
-        visualization_registry,
-        _dataset_registry,
-    ) = _get_registries()
+    """Capture current state of all in-memory registries for rollback.
 
+    :returns: Registered names per registry kind.
+    """
+    registries = _get_registries()
     return {
-        "predictor": frozenset(predictor_registry.list_names()),
-        "sample_featurizer": frozenset(sample_featurizer_registry.list_names()),
-        "drug_featurizer": frozenset(drug_featurizer_registry.list_names()),
-        "splitter": frozenset(splitter_registry.modes),
-        "visualization": frozenset(visualization_registry.names),
+        "predictor": frozenset(registries["predictor"].list_names()),
+        "sample_featurizer": frozenset(registries["sample_featurizer"].list_names()),
+        "drug_featurizer": frozenset(registries["drug_featurizer"].list_names()),
+        "splitter": frozenset(registries["splitter"].modes),
+        "visualization": frozenset(registries["visualization"].names),
     }
 
 
 def _restore_all_registries(snapshot: dict[str, frozenset[str]]) -> None:
-    """Roll back all in-memory registries to a prior snapshot."""
-    (
-        predictor_registry,
-        sample_featurizer_registry,
-        drug_featurizer_registry,
-        splitter_registry,
-        visualization_registry,
-        _dataset_registry,
-    ) = _get_registries()
+    """Roll back all in-memory registries to a prior snapshot.
 
-    predictor_registry.retain_only(snapshot["predictor"])
-    sample_featurizer_registry.retain_only(snapshot["sample_featurizer"])
-    drug_featurizer_registry.retain_only(snapshot["drug_featurizer"])
-    splitter_registry.retain_only(snapshot["splitter"])
-    visualization_registry.retain_only(snapshot["visualization"])
+    :param snapshot: Names to keep per registry kind, as returned by :func:`_snapshot_all_registries`.
+    """
+    for kind, registry in _get_registries().items():
+        registry.retain_only(snapshot[kind])
 
 
 def _added_since(snapshot: dict[str, frozenset[str]]) -> dict[str, frozenset[str]]:
@@ -266,9 +252,8 @@ def load_extensions(
         load_extension_module(module_name)
     for file_path in files or []:
         load_extension_file(file_path)
-    if directories is None:
-        directories = extension_dirs_from_env()
-    for directory in directories:
+    dirs = extension_dirs_from_env() if directories is None else directories
+    for directory in dirs:
         load_extension_dir(directory)
     if zoo_files:
         from drevalpy.models.zoo import load_external_zoo_file

@@ -100,14 +100,14 @@ class TestRegistryDispatchOnRescan:
     """
 
     def test_a_sample_featurizer_goes_back_to_the_sample_registry(self) -> None:
-        from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
+        from drevalpy.registry.featurizer import sample_featurizer_registry
 
         cls = get_sample_featurizer(list_sample_featurizers()[0])
 
         assert _registry_for(cls) is sample_featurizer_registry
 
     def test_a_drug_featurizer_goes_back_to_the_drug_registry(self) -> None:
-        from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
+        from drevalpy.registry.featurizer import drug_featurizer_registry
 
         cls = get_drug_featurizer(list_drug_featurizers()[0])
 
@@ -120,7 +120,7 @@ class TestRegistryDispatchOnRescan:
 
     def test_the_side_takes_precedence_over_a_predictor_contract(self) -> None:
         """A class carrying both is a featurizer: ``side`` is only ever stamped by a featurizer registry."""
-        from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
+        from drevalpy.registry.featurizer import drug_featurizer_registry
 
         class Ambiguous:
             side = "drug"
@@ -129,7 +129,7 @@ class TestRegistryDispatchOnRescan:
         assert _registry_for(Ambiguous) is drug_featurizer_registry
 
     def test_a_sideless_featurizer_falls_back_to_the_sample_registry(self) -> None:
-        from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
+        from drevalpy.registry.featurizer import sample_featurizer_registry
 
         class Sideless:
             contract = object()

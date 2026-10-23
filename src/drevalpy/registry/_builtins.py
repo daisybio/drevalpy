@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import importlib
 import traceback
+from collections.abc import Callable, Iterator
+from types import ModuleType
 from typing import Any
 
 from drevalpy.log import get_logger
@@ -96,7 +98,7 @@ def _import_modules(module_names: list[str]) -> None:
         )
 
 
-def _registry_for(cls) -> Any:
+def _registry_for(cls: type[Any]) -> Any:
     """Return the registry a previously registered class belongs to.
 
     Which registry a class came from is recoverable from the attributes
@@ -106,9 +108,8 @@ def _registry_for(cls) -> Any:
     :param cls: Class carrying a ``registry_name``.
     :returns: The matching registry, or ``None`` if the class is not a component.
     """
-    from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
+    from drevalpy.registry.featurizer import drug_featurizer_registry, sample_featurizer_registry
     from drevalpy.registry.predictor._registry import predictor_registry
-    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
 
     side = getattr(cls, "side", None)
     if side == "sample":
@@ -122,8 +123,11 @@ def _registry_for(cls) -> Any:
     return None
 
 
-def _reregister_from_module(module) -> None:
-    """Re-register classes from an already-imported module."""
+def _reregister_from_module(module: ModuleType) -> None:
+    """Re-register classes from an already-imported module.
+
+    :param module: Imported component module whose registered classes are restored.
+    """
     import inspect
 
     for value in vars(module).values():
@@ -248,9 +252,8 @@ def register_builtin_components() -> None:
 
     Safe to call multiple times. Detects cleared registries and re-populates.
     """
-    from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
+    from drevalpy.registry.featurizer import drug_featurizer_registry, sample_featurizer_registry
     from drevalpy.registry.predictor._registry import predictor_registry
-    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
 
     all_populated = (
         predictor_registry.list_names()
@@ -268,47 +271,15 @@ def register_builtin_components() -> None:
     logger.debug("Built-in registration complete.")
 
 
-def reregister_builtin_components() -> None:
-    """Force re-registration of all builtins (used after `clear()` in tests)."""
-    register_builtin_components()
-
-
-# ---------------------------------------------------------------------------
-# Compatibility helpers
-# ---------------------------------------------------------------------------
-
-
-def ensure_predictor_registered(name: str) -> None:
-    """No-op with eager loading -- all predictors are registered at startup."""
-
-
-def ensure_sample_featurizer_registered(name: str) -> None:
-    """No-op with eager loading -- all featurizers are registered at startup."""
-
-
-def ensure_drug_featurizer_registered(name: str) -> None:
-    """No-op with eager loading -- all featurizers are registered at startup."""
-
-
 def is_known_builtin_predictor(name: str) -> bool:
-    """Return whether *name* is a registered predictor."""
+    """Return whether *name* is a registered predictor.
+
+    :param name: Predictor registry name to look up.
+    :returns: ``True`` when a predictor is registered under *name*.
+    """
     from drevalpy.registry.predictor._registry import predictor_registry
 
     return name in predictor_registry.list_names()
-
-
-def is_known_builtin_sample_featurizer(name: str) -> bool:
-    """Return whether *name* is a registered sample featurizer."""
-    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
-
-    return name in sample_featurizer_registry.list_names()
-
-
-def is_known_builtin_drug_featurizer(name: str) -> bool:
-    """Return whether *name* is a registered drug featurizer."""
-    from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
-
-    return name in drug_featurizer_registry.list_names()
 
 
 # ---------------------------------------------------------------------------
@@ -317,13 +288,13 @@ def is_known_builtin_drug_featurizer(name: str) -> bool:
 
 
 def _get_builtin_sample_featurizer_names() -> frozenset[str]:
-    from drevalpy.registry.sample_featurizer._registry import sample_featurizer_registry
+    from drevalpy.registry.featurizer import sample_featurizer_registry
 
     return frozenset(sample_featurizer_registry.list_names())
 
 
 def _get_builtin_drug_featurizer_names() -> frozenset[str]:
-    from drevalpy.registry.drug_featurizer._registry import drug_featurizer_registry
+    from drevalpy.registry.featurizer import drug_featurizer_registry
 
     return frozenset(drug_featurizer_registry.list_names())
 
@@ -337,28 +308,28 @@ def _get_builtin_predictor_names() -> frozenset[str]:
 class _LazyFrozenset:
     """Module-level lazy frozenset that computes on first access."""
 
-    def __init__(self, getter):
+    def __init__(self, getter: Callable[[], frozenset[str]]) -> None:
         self._getter = getter
-        self._value = None
+        self._value: frozenset[str] | None = None
 
-    def _resolve(self):
+    def _resolve(self) -> frozenset[str]:
         if self._value is None:
             self._value = self._getter()
         return self._value
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self._resolve())
 
-    def __contains__(self, item):
+    def __contains__(self, item: object) -> bool:
         return item in self._resolve()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._resolve())
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return self._resolve() == other
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self._resolve())
 
 

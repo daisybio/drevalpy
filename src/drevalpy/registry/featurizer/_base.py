@@ -1,12 +1,13 @@
-"""Shared FeaturizerRegistry class for sample and drug featurizer registries."""
+"""Featurizer registries: the shared class, one instance per entity side, and the lookup by side."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
 from drevalpy.components.contracts.hyperparameter_space import validate_component_hyperparameter_space
+from drevalpy.errors import UnknownNameError
 from drevalpy.registry.components._base import ComponentRegistry
 from drevalpy.registry.components._contract_assignment import assign_contract
 from drevalpy.registry.components._metadata import featurizer_component_metadata
@@ -16,6 +17,12 @@ from drevalpy.registry.components._registration_metadata import (
 )
 from drevalpy.registry.featurizer._validate import validate_featurizer_input_views
 from drevalpy.types.enums.literature_reference import LiteratureReference
+
+if TYPE_CHECKING:
+    from drevalpy.components.featurizers.base import Featurizer
+
+#: The entity side a featurizer is registered for.
+Side = Literal["sample", "drug"]
 
 
 class FeaturizerRegistry(ComponentRegistry):
@@ -87,3 +94,42 @@ class FeaturizerRegistry(ComponentRegistry):
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return featurizer_component_metadata(self._display_name, name, cls)
+
+
+class SampleFeaturizerRegistry(FeaturizerRegistry):
+    """Registry for sample featurizers."""
+
+    def __init__(self) -> None:
+        """Initialize with the fixed sample identity."""
+        super().__init__("sample_featurizer", "Sample featurizer", "sample_featurizers", side="sample")
+
+
+class DrugFeaturizerRegistry(FeaturizerRegistry):
+    """Registry for drug featurizers."""
+
+    def __init__(self) -> None:
+        """Initialize with the fixed drug identity."""
+        super().__init__("drug_featurizer", "Drug featurizer", "drug_featurizers", side="drug")
+
+
+sample_featurizer_registry = SampleFeaturizerRegistry()
+drug_featurizer_registry = DrugFeaturizerRegistry()
+
+_REGISTRIES: dict[str, FeaturizerRegistry] = {
+    "sample": sample_featurizer_registry,
+    "drug": drug_featurizer_registry,
+}
+
+
+def get_featurizer(side: Side, name: str) -> type[Featurizer]:
+    """Return the featurizer class registered under *name* for one entity side.
+
+    :param side: ``"sample"`` or ``"drug"``.
+    :param name: Registry name of the featurizer.
+    :returns: Featurizer class registered under *name* on that side.
+    :raises UnknownNameError: If *side* is not ``"sample"`` or ``"drug"``, or *name* is not registered on it.
+    """
+    registry = _REGISTRIES.get(side)
+    if registry is None:
+        raise UnknownNameError(f"Unknown featurizer side {side!r}. Available: {list(_REGISTRIES)}")
+    return registry.get(name)

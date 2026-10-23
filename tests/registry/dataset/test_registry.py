@@ -296,10 +296,6 @@ def test_repr_renders_without_an_index(registry: DatasetRegistry) -> None:
     assert not rendered.startswith("0")
 
 
-def test_repr_html_emits_a_table(registry: DatasetRegistry) -> None:
-    assert "<table" in registry._repr_html_()
-
-
 def test_module_singleton_exposes_the_builtin_datasets() -> None:
     assert _BUILTIN_DATASET in dataset_registry.builtin_datasets
 

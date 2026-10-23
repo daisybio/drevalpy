@@ -8,11 +8,11 @@ from typing import Any, ClassVar
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
 from drevalpy.registry.components._base import ComponentRegistry
 from drevalpy.registry.components._contract_assignment import assign_contract
+from drevalpy.registry.components._metadata import predictor_component_metadata
 from drevalpy.registry.components._registration_metadata import (
     apply_registration_metadata,
     normalize_registration_metadata,
 )
-from drevalpy.registry.predictor._metadata import predictor_component_metadata
 from drevalpy.registry.predictor._validate import validate_predictor_registration
 from drevalpy.types.enums.literature_reference import LiteratureReference
 

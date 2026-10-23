@@ -13,7 +13,10 @@ import pandas as pd
 import pytest
 
 from drevalpy.errors import UnknownNameError
-from drevalpy.registry._base import Registry
+from drevalpy.registry._base import Registry, TableReprMixin
+from drevalpy.registry.dataset import dataset_registry
+from drevalpy.registry.splitter import splitter_registry
+from drevalpy.registry.visualization import visualization_registry
 
 
 class _ExampleRegistry(Registry):
@@ -149,4 +152,14 @@ def test_repr_is_the_dataframe_without_the_index(registry: _ExampleRegistry) -> 
 
 
 def test_repr_html_emits_a_table(registry: _ExampleRegistry) -> None:
+    assert "<table" in registry._repr_html_()
+
+
+@pytest.mark.parametrize(
+    "registry",
+    [dataset_registry, splitter_registry, visualization_registry],
+    ids=["dataset", "splitter", "visualization"],
+)
+def test_registries_outside_the_component_hierarchy_share_the_table_repr(registry: TableReprMixin) -> None:
+    assert isinstance(registry, TableReprMixin)
     assert "<table" in registry._repr_html_()

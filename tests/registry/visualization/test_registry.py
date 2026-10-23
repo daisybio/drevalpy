@@ -208,10 +208,6 @@ def test_repr_of_an_empty_registry_is_just_the_header(registry: VisualizationReg
     assert repr(registry) == "Empty DataFrame\nColumns: []\nIndex: []"
 
 
-def test_repr_html_emits_a_table(registry: VisualizationRegistry, violin: type[Any]) -> None:
-    assert "<table" in registry._repr_html_()
-
-
 def test_to_dataframe_lists_the_registry_columns(registry: VisualizationRegistry, violin: type[Any]) -> None:
     frame = registry.to_dataframe()
 

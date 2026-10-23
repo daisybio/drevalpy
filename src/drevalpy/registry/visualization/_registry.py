@@ -9,6 +9,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from drevalpy.errors import UnknownNameError
+from drevalpy.registry._base import TableReprMixin
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from drevalpy.types.results import ExperimentResult
 
 
-class VisualizationRegistry:
+class VisualizationRegistry(TableReprMixin):
     """Registry mapping names to Visualization classes with requirement metadata."""
 
     def __init__(self) -> None:
@@ -164,14 +165,6 @@ class VisualizationRegistry:
                 self._descriptions.pop(name, None)
                 self._requirements.pop(name, None)
                 self._result_types.pop(name, None)
-
-    def __repr__(self) -> str:
-        """Return a tabular string representation."""
-        return self.to_dataframe().to_string(index=False)
-
-    def _repr_html_(self) -> str:
-        """HTML table for Jupyter notebooks."""
-        return self.to_dataframe().to_html(index=False)
 
 
 visualization_registry = VisualizationRegistry()

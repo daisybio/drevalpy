@@ -15,7 +15,26 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class Registry(ABC):
+class TableReprMixin(ABC):
+    """Notebook and console representations built from a registry's ``to_dataframe``."""
+
+    @abstractmethod
+    def to_dataframe(self) -> pd.DataFrame:
+        """Return the registry contents as a pandas DataFrame.
+
+        :returns: One row per registered entry.
+        """
+
+    def __repr__(self) -> str:
+        """Return a tabular string representation."""
+        return self.to_dataframe().to_string(index=False)
+
+    def _repr_html_(self) -> str:
+        """Return an HTML table for Jupyter notebooks."""
+        return self.to_dataframe().to_html(index=False)
+
+
+class Registry(TableReprMixin, ABC):
     """Thread-safe name-to-class registry with shared store and metadata listing."""
 
     def __init__(self, registry_id: str, label: str, display_name: str) -> None:
@@ -47,7 +66,7 @@ class Registry(ABC):
     def list_names(self) -> list[str]:
         """Return all registered names.
 
-        :returns: Sorted list of registry names currently stored.
+        :returns: Registry names currently stored, in registration order.
         """
         with self._lock:
             return list(self._store.keys())
@@ -98,7 +117,10 @@ class Registry(ABC):
         """
 
     def to_dataframe(self) -> pd.DataFrame:
-        """Return registry contents as a pandas DataFrame."""
+        """Return registry contents as a pandas DataFrame.
+
+        :returns: One row per registered name, with Name, Description and Tags columns.
+        """
         import pandas as pd
 
         rows = []
@@ -112,11 +134,3 @@ class Registry(ABC):
                 }
             )
         return pd.DataFrame(rows)
-
-    def __repr__(self) -> str:
-        """Return a tabular string representation."""
-        return self.to_dataframe().to_string(index=False)
-
-    def _repr_html_(self) -> str:
-        """HTML table for Jupyter notebooks."""
-        return self.to_dataframe().to_html(index=False)

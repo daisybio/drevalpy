@@ -15,6 +15,7 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any, Protocol
 
 from drevalpy.errors import UnknownNameError
+from drevalpy.registry._base import TableReprMixin
 from drevalpy.types import MuDataLike, SplitMasks
 
 from ._validation import Validation, canonical_validation, validate_folds
@@ -60,7 +61,7 @@ def _wrap_with_validation(fn: Splitter, mode: str, validation: Validation) -> Sp
     return wrapper  # type: ignore[return-value]
 
 
-class SplitterRegistry:
+class SplitterRegistry(TableReprMixin):
     """Registry mapping mode names to validated splitter callables."""
 
     def __init__(self) -> None:
@@ -236,14 +237,6 @@ class SplitterRegistry:
                 self._descriptions.pop(mode, None)
                 self._validations.pop(mode, None)
         self._aliases = {alias: mode for alias, mode in self._aliases.items() if mode in self._splitters}
-
-    def __repr__(self) -> str:
-        """Return a tabular string representation."""
-        return self.to_dataframe().to_string(index=False)
-
-    def _repr_html_(self) -> str:
-        """HTML table for Jupyter notebooks."""
-        return self.to_dataframe().to_html(index=False)
 
 
 splitter_registry = SplitterRegistry()

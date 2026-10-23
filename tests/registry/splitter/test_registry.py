@@ -296,12 +296,6 @@ def test_repr_renders_without_an_index(registry: SplitterRegistry, register_vali
     assert not rendered.startswith("0")
 
 
-def test_repr_html_emits_a_table(registry: SplitterRegistry, register_valid: Callable[..., Any]) -> None:
-    register_valid()
-
-    assert "<table" in registry._repr_html_()
-
-
 def test_the_singleton_holds_every_builtin_mode() -> None:
     assert set(_BUILTIN_MODES).issubset(splitter_registry.modes)
 
