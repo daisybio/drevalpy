@@ -108,6 +108,11 @@ Map imports and objects
        :doc:`/how-to/make_report`.
    * - ``--version`` on the command line
      - ``drevalpy.__version__``
+   * - ``except KeyError`` around ``MODEL_FACTORY[name]``
+     - ``ModelSpec.from_name`` raises ``UnknownModelError``, an
+       ``UnknownNameError`` from ``drevalpy.errors``. It is also a ``KeyError``
+       and a ``ValueError``, so the old ``except`` clause still catches it.
+       ``DrEvalError`` is the base class of the library's errors.
 
 Map the ``drug_response_experiment`` parameters
 -----------------------------------------------

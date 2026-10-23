@@ -7,9 +7,30 @@ News
 🧬 DrEvalPy 2.0.0 :date:`2026-10-22`
 --------------------------------------------------------------
 v2 is a rewrite of the interface, not an upgrade in place. It is not released yet:
-``pip install drevalpy`` still installs 1.6.0. Nothing that 1.x wrote loads in v2, so re-run
-experiments and retrain models. :doc:`/how-to/migrate/index` maps every 1.x option, function and
-model to its v2 counterpart. This entry lists what changed for users.
+``pip install drevalpy`` still installs 1.6.0. :doc:`/how-to/migrate/index` maps every 1.x
+option, function and model to its v2 counterpart. This entry lists what changed for users.
+
+Breaking changes from 1.6.0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **Nothing that 1.x wrote loads in v2.** Re-run experiments and retrain models. Result files,
+  splits and model checkpoints are in new formats; the checkpoint format version restarts at 1.
+  :ref:`how-to/migrate/index:Which 1.x files still load` lists what each loader says.
+- **The command line is one script.** ``drevalpy`` has the subcommands ``run``, ``single``,
+  ``aggregate``, ``curate``, ``report``, ``data``, ``experiments`` and ``list``, and the 17
+  ``drevalpy-*`` scripts are removed. Options are renamed; see :doc:`/how-to/migrate/cli`.
+- **The report takes no dataset.** ``drevalpy report --dataset`` is removed, because the report never
+  read the file. A pipeline that still passes it, such as nf-core/drugresponseeval, must drop the flag.
+- **The Python API is new.** ``MODEL_FACTORY``, ``drug_response_experiment`` and
+  ``DrugResponseDataset`` are replaced by ``ModelSpec``, ``drevalpy.run`` and ``Dataset``; see
+  :doc:`/how-to/migrate/python`. A 1.x ``DRPModel`` subclass becomes a featurizer and a predictor;
+  see :doc:`/how-to/migrate/models`.
+- **Importing the package no longer configures logging.** Call ``drevalpy.log.setup_logging()`` to
+  see progress and warnings from a script or notebook. The command line does it for you.
+- **"Cell line" is "sample"** in every name, as described next.
+- **Tuning is a serial Optuna search**, not a grid. Ray and the ``multiprocessing`` extra are
+  gone; run folds in parallel with ``drevalpy single`` instead
+  (:doc:`/how-to/run_folds_in_parallel`).
 
 Samples instead of cell lines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -24,25 +45,16 @@ that said "cell line" now says "sample".
   ``NaiveCellLineMeanPredictor`` is ``NaiveSampleMeanPredictor``.
 - The split mode leave-cell-line-out (LCO) is leave-sample-out (LSO). ``LCO`` is still accepted
   as an alias, for example in ``--split-mode LCO``, and results always record ``LSO``.
-- The tuning option ``--hpo-num-samples`` (``hpo_num_samples``) is ``--hpo-trials``
-  (``hpo_num_trials``), because "sample" now only means the biological source. Release 1.6.0
-  never had the old name.
 - A dataset needs a unique observation index and a ``tissue`` column. The columns
   ``cellosaurus_id`` and ``cell_line_name`` are optional and only make sense for datasets whose
   samples are cell lines. See :doc:`/reference/datasets`.
-- Model checkpoints are format 5. Loading an older checkpoint raises an error that says to
-  retrain the model; see the breaking changes below. Loading a result file that has ``cell_line_ids`` raises an error that says
-  to re-run the experiment, and so does a dataset with precomputed featurizer variants stored
-  under ``cell_line_featurizer_variants``.
 
 Defaults and results that changed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- ``drevalpy single`` no longer standardizes the response: ``--response-transformation``
-  defaults to ``none``. Earlier builds of the v2 branch defaulted to ``standard``; pass
-  ``--response-transformation standard`` to keep that behavior. ``drevalpy run`` has the same
-  option, with the same default. The values are ``none``, ``standard``, ``minmax`` and
-  ``robust``.
+- ``--response-transformation`` defaults to ``none`` in ``drevalpy run`` and ``drevalpy single``,
+  so the response is not standardized unless you ask for it. The values are ``none``, ``standard``,
+  ``minmax`` and ``robust``.
 - ``ExperimentResult.summary_table`` is a method, not a property. Call ``summary_table()`` for
   the pooled metrics, or ``summary_table(group_by="drug")``, ``"sample"`` or ``"study"``
   to compute each metric within every drug, sample or study and average over the groups. A group where
@@ -52,22 +64,9 @@ Defaults and results that changed
 - ``drevalpy run`` and ``drevalpy aggregate`` take ``--group-by drug|sample|study`` and print that
   table. The report has a second summary table, "Model Summary Table per Drug".
 - One ``--seed`` (``seed=`` in Python, default 42) drives the splits, the hyperparameter search,
-  the randomization tests and the seeding of every model fit.
-- After tuning, the final model now trains with the tuned value of a power-of-two
-  hyperparameter (``fingerprints.n_bits``, ``bpe_pharmaformer.max_length``). Earlier builds of
-  the v2 branch trained it with the exponent, for example 9 fingerprint bits instead of 512, and
-  stored that value in ``best_hyperparameters`` and the checkpoint. Re-run tuned experiments
-  that use these featurizers.
-- A dataset that ``drevalpy experiments randomization`` writes now trains through
-  ``drevalpy single``. The file keeps its randomization label, so the run records it and
-  ``drevalpy aggregate`` keeps it apart from the ordinary runs. Earlier builds of the v2 branch
-  could not train these files with ``single``.
-- A randomization test that would change nothing is skipped with a warning and produces no
-  run: ``SVRD`` or ``SVCD`` on a dataset without the drug view, and ``SVCC`` or ``SVCD`` on a
-  model with a single view. Earlier builds of the v2 branch trained on an unchanged copy of the
-  dataset and labelled the run as randomized. ``experiments randomization`` then writes 0 files
-  and exits with status 0, and ``Dataset.with_randomized_views`` raises ``KeyError`` for a view
-  the dataset does not store.
+  the randomization tests and the seeding of every model fit. ``drevalpy data split`` and
+  ``drevalpy experiments randomization`` take ``--seed`` as well.
+- Leaderboard titles state the real number of folds, for example "5-Fold Leave-Sample-Out".
 
 New commands and functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -80,8 +79,6 @@ New commands and functions
 - ``drevalpy data split`` and ``drevalpy experiments randomization`` accept a registered
   dataset name as well as a file, like ``drevalpy run --dataset``. ``drevalpy single`` reads
   only a file.
-- ``drevalpy report --dataset`` is accepted for pipeline compatibility; the report does not
-  read the file.
 - ``drevalpy list zoo-presets`` and ``drevalpy list datasets`` show the model presets you can
   pass to ``run`` and the datasets you can load by name.
 - ``DREVALPY_EXTENSIONS_DIR`` is read by ``load_extensions()`` in Python, not only by the
@@ -89,6 +86,18 @@ New commands and functions
 - ``register_source`` and ``register_dataset`` raise ``ValueError`` when the name is already
   registered with a different entry, including a built-in one. Pass ``override=True`` to
   replace it. Registering an identical entry again does nothing.
+
+Errors and logging
+~~~~~~~~~~~~~~~~~~
+
+- A mistake in a command, such as an unknown model name or a missing file, prints
+  ``Error: <message>`` and exits with status 1, without a traceback. An unexpected failure still
+  shows its traceback.
+- The new module ``drevalpy.errors`` holds the library's errors. ``DrEvalError`` is the base class;
+  ``UnknownNameError`` (also a ``ValueError`` and a ``KeyError``), ``InputNotFoundError`` (also a
+  ``FileNotFoundError``) and ``InvalidInputError`` (also a ``ValueError``) cover the common cases, so
+  existing ``except`` clauses keep working.
+- The randomization tests write their datasets to files named ``<mode>__<view>.h5mu``.
 
 Cross-study evaluation, component grids and recorded failures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -106,8 +115,7 @@ Cross-study evaluation, component grids and recorded failures
   featurizers and predictors, and report the skipped ones with the reason. ``ModelSpec.from_name``,
   ``drevalpy run`` and ``drevalpy single`` accept a recipe such as
   ``pca[gene_expression]:fingerprints:ridge`` wherever they accepted a zoo name, and the model is
-  named by the recipe. A name that is neither raises ``ValueError`` (``UnknownModelError``)
-  instead of ``KeyError``. See :doc:`/how-to/evaluate_component_grids`.
+  named by the recipe. See :doc:`/how-to/evaluate_component_grids`.
 - **Recorded failures.** A run that raises no longer aborts the experiment. ``drevalpy.run``
   logs a warning, keeps the failure in ``ExperimentResult.failures`` and writes ``failures.json``;
   ``on_error="raise"`` restores the old behavior. ``drevalpy run`` prints the failures and exits
@@ -120,49 +128,13 @@ Cross-study evaluation, component grids and recorded failures
   under ``quality``. See :doc:`/reference/datasets`.
 - **Weights & Biases.** ``--wandb-project`` on ``drevalpy run`` and ``drevalpy single``, and
   ``wandb_project=`` in Python, log one W&B run per tuning trial and a final run per fold with the
-  test metrics. The 1.x ``--wandb_project`` option is back under this name.
-- **Randomization tests** build their randomized datasets once per model and reuse them for every
-  fold.
-- **Curated datasets** give each drug ID one canonical SMILES and each InChIKey one drug ID, which
-  ``concat`` relies on.
-
-Breaking changes in the 2.0.0 development builds
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-- **Checkpoint format 5.** Featurizers store the feature names of their views and align dense views
-  by name when predicting. A missing feature raises ``FeatureMismatchError`` instead of being
-  filled, and ``pca`` no longer zero-fills. Format 4 checkpoints are rejected with a message to
-  retrain the model.
-- **Predictor inputs are checked when the model is built.** The blocks a predictor names in
-  ``required_sample_blocks`` and ``required_drug_blocks`` must be emitted by the featurizers; before,
-  only ``required_*_block_specs`` was enforced. A recipe that fails this check raises ``ValueError``
-  when the configuration is built.
-- **``MuDataLike`` has a seventh member**, ``sample_column(column, ids)``. A hand-written test double
-  or dataset class used with a splitter needs it, or ``isinstance`` checks against the protocol fail.
-- **``CrossStudyTableVisualization`` and the ``cross_study_table`` plot are removed.** ``drevalpy list
-  visualizations`` shows six plots. Use ``LStO`` and ``--group-by study`` instead.
-- **ElasticNet's default ``alpha`` is 0.1.** The hyperparameter space is unchanged, but the
-  default no longer predicts a constant on the simulated dataset. Untuned ElasticNet scores
-  differ from earlier builds.
-- **``drevalpy.synthetic()`` can build more.** The new ``sample_views``, ``drug_views``,
-  ``uns_payloads`` and ``extra_layers`` add the views and layers that the zoo models read, and
-  ``omics`` accepts any of the five omics names. ``drevalpy.testing.build_synthetic_dataset`` calls it.
-  ``drevalpy data synthetic`` gains ``--name``, so two files can be concatenated.
-- **A splitter no longer needs to filter on curve quality.** ``split`` blanks the failing pairs
-  first. A splitter that calls ``curve_quality_mask`` still works, but it reads the quality layers
-  even when the run used ``CurveQuality.off()``.
+  test metrics.
 
 Other changes since 1.6.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - A dataset is one ``.h5mu`` file. A model is a featurizer and a predictor, chosen by a zoo
-  preset or a recipe such as ``pca[gene_expression]:elasticNet``. ``MODEL_FACTORY`` and
-  ``construct_model`` are gone; use ``ModelSpec.from_name`` and ``drevalpy.run``.
-- ``drevalpy`` is the only script. Its subcommands are ``run``, ``single``, ``aggregate``,
-  ``curate``, ``report``, ``data``, ``experiments`` and ``list``; the 17 ``drevalpy-*`` scripts
-  are removed.
-- Hyperparameter tuning is a serial Optuna search. Ray and the ``multiprocessing`` extra are
-  gone; run folds in parallel with ``drevalpy single`` instead.
+  preset or a recipe such as ``pca[gene_expression]:elasticNet``.
 - MultiQC is a regular dependency, so ``drevalpy report`` works without an extra. PyTorch
   comes with the ``cpu``, ``cu126`` or ``cu130`` extra.
 - Datasets that you download by name are cached in the system cache directory, which
@@ -181,50 +153,16 @@ redirected.
 
 📄 Our paper is finally published! :date:`2026-05-12`
 --------------------------------------------------------------
-After a long, long journey, our paper is finally published at `Nature Communications <https://doi.org/10.1038/s41467-026-72903-w>`__!
-You can now officially cite us with:
-
-.. note::
-
-    **Critical evaluation of drug response prediction models with DrEval.**
-    Judith Bernett,  Pascal Iversen,  Mario Picciani,  Mathias Wilhelm,  Katharina Baum,  Markus List.
-    *Nat Commun* **17**, 4238 (2026); doi: https://doi.org/10.1038/s41467-026-72903-w
+Our paper is published in `Nature Communications <https://doi.org/10.1038/s41467-026-72903-w>`__; see :doc:`citing` to cite it.
 
 📄 Our preprint is out! :date:`2025-05-29`
 --------------------------------------------------------------
-Check out our preprint on `bioRxiv <https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1>`_!
-
-.. note::
-
-    **From Hype to Health Check: Critical Evaluation of Drug Response Prediction Models with DrEval.**
-    Judith Bernett,  Pascal Iversen,  Mario Picciani,  Mathias Wilhelm,  Katharina Baum,  Markus List.
-    *bioRxiv* 2025.05.26.655288; doi: https://doi.org/10.1101/2025.05.26.655288
-
+The preprint is on `bioRxiv <https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1>`__.
 
 🚀 We have launched the DrEval Challenge 🚀 :date:`2024-11-26`
 --------------------------------------------------------------
-
-| We think that it is possible to design a meaningful drug response prediction model that outperforms simple baseline models.
-|
-| The DrEval challenge is simple:
-|
-| 1. Integrate your model into DrEval by following the Contributor Guide.
-| 2. Compare your model to the baseline models provided in the DrEval package, either using the standalone or the Nextflow pipeline.
-| 3. Let us know your results!
-|    3.1. 🎊If you significantly outperform the RandomForest baseline model in the LSO setting or the GradientBoosting model in the LDO setting, we will personally send you chocolate or another snack of your choosing 🍫.
-|    3.2. 🥺If you perform significantly worse than the NaiveDrugMeanPredictor, you will have to send us chocolate.
+Beat the baseline models in DrEval and tell us the result; the best get chocolate.
 
 📜 Origin Story 💊 :date:`2023-11-20`
 --------------------------------------------------------------
-
-    *Long ago, the people of science lived in harmony. Researchers collaborated, data flowed freely, and models were tested with integrity.
-    But then, the H-Index Nation attacked.
-    Suddenly, impact factors ruled all, flashy results overshadowed rigorous testing, and biased benchmarks spread like wildfire. Science, once a beacon of knowledge, became clouded by competition and questionable practices.
-    Only a fair and unbiased framework could restore balance.
-    And when the field needed it most—drevalpy was born.
-    A framework designed to test drug response prediction models with fairness and transparency, cutting through bias and restoring the integrity of scientific evaluation.
-    Though the fight against bad practices is long, with drevalpy, balance may yet be restored.*
-
-..
-   <!-- DrEvalPy is on PyPI :date:`2024-05-29` -->
-   --------------------------------------
+DrEvalPy was born to test drug response prediction models with fairness and transparency.

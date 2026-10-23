@@ -68,7 +68,7 @@ With pip, once v2 is released:
 pip install "drevalpy[cpu]"
 ```
 
-With Docker, the image of the latest release:
+With Docker, once v2 is released:
 
 ```bash
 docker pull ghcr.io/daisybio/drevalpy:latest

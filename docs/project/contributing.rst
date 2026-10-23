@@ -207,4 +207,26 @@ on the line before a block changes how it runs:
    Run the block only under ``pytest -m network``, for example one that downloads a
    built-in dataset.
 
+Docstrings
+~~~~~~~~~~
+
+Docstrings in ``src/`` use Sphinx field lists, and ``pydoclint`` checks them against the
+signature. Describe the parameters with ``:param name:``, the return value with ``:returns:`` and
+the exceptions that the function raises itself with ``:raises Type:``:
+
+.. code-block:: python
+
+   def scale(values: np.ndarray, factor: float) -> np.ndarray:
+       """Multiply the values by a factor.
+
+       :param values: Response values of one fold.
+       :param factor: Multiplier; must be positive.
+       :returns: A new array with the scaled values.
+       :raises InvalidInputError: If the factor is not positive.
+       """
+
+Put types in the annotations only, not in the docstring. Every field must say something that the
+name and the type do not. Leave a field out rather than write a placeholder such as
+``:returns: Result.`` or ``:param x: x.``; a one-line docstring is enough for a private helper.
+
 .. _Diátaxis: https://diataxis.fr/

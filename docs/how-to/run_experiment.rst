@@ -239,6 +239,33 @@ an account.
 
          drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False, wandb_project="drevalpy-demo")
 
+See progress and warnings
+-------------------------
+
+DrEvalPy reports what it is doing through the ``logging`` module: warnings such as a failed run,
+and progress messages. Importing the package does not configure logging, so in a script or
+notebook these messages stay hidden until you ask for them. The command line does it for you.
+
+.. tab-set::
+   :sync-group: interface
+
+   .. tab-item:: CLI
+      :sync: cli
+
+      ``drevalpy`` sets up logging itself, so the messages appear without further steps.
+
+   .. tab-item:: Python
+      :sync: python
+
+      Call ``setup_logging`` once, before the first ``drevalpy.run``. Pass ``level`` to change the
+      default ``logging.INFO``, for example ``setup_logging(logging.WARNING)`` to show only warnings.
+
+      .. code-block:: python
+
+         from drevalpy.log import setup_logging
+
+         setup_logging()
+
 Read the results
 ----------------
 

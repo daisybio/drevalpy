@@ -171,9 +171,9 @@ in two steps: ``concat`` joins the datasets of several studies into one dataset
 in which every sample carries the name of its study, and the **leave-study-out
 (LStO)** split mode holds out one study per fold. The model trains on the other
 studies and is scored on the study it has not seen. The question is whether a
-model transfers between laboratories, assays and cell line collections, which a
+model transfers between laboratories, assays and sample collections, which a
 random split inside one study cannot show. Unlike LSO, LTO and LDO, LStO does
-not keep the held-out entities out of training: a cell line or drug of the test
+not keep the held-out entities out of training: a sample or drug of the test
 study can also be in a training study, under that study's name. The studies are
 the unit that never overlaps, so the test is about the study, not about new
 samples or drugs. The commands are in :doc:`/how-to/run_cross_study`.

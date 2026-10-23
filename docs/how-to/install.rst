@@ -84,9 +84,9 @@ With the built-in ``venv`` module:
 Use Docker
 ----------
 
-Each published release also builds an image with the CPU build of PyTorch. The image is
-published only when a release is published, so there is no tag that follows the ``main``
-branch; ``latest`` is the newest release.
+Once v2 is released, each published release also builds an image with the CPU build of PyTorch.
+The image is published only when a release is published, so there is no tag that follows the
+``main`` branch; ``latest`` is the newest release.
 
 .. snippet: skip
 
