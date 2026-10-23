@@ -431,7 +431,8 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
             max_epochs=self.epochs,
-            logger=loggers if loggers else True,  # Use default logger if no wandb
+            # no default logger: parallel drugs would race for the same lightning_logs/version_N directory
+            logger=loggers if loggers else False,
             callbacks=[
                 early_stop_callback,
                 self.checkpoint_callback,
