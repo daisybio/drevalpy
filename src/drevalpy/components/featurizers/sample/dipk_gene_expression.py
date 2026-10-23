@@ -2,11 +2,11 @@
 
 The autoencoder in
 ``drevalpy.components.predictors.literature.dipk.gene_expression_encoder``
-defines ``torch.nn.Module`` subclasses, so importing it costs ~0.32s of ``torch``.
+defines ``torch.nn.Module`` subclasses, so importing it imports ``torch``.
 ``drevalpy.registry`` imports this module to register the
 ``dipkGeneExpression`` featurizer on ``import drevalpy``, so the three symbols are
-pulled in inside the methods that use them and re-exported lazily below for the
-historical import path. See ``tests/test_import_cost_policy.py``.
+pulled in inside the methods that use them and re-exported lazily below so this
+module path keeps resolving. See ``tests/test_import_cost_policy.py``.
 """
 
 from __future__ import annotations

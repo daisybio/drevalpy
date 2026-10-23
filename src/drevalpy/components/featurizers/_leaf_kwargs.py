@@ -7,8 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
 from drevalpy.models.config.featurizer import FeaturizerConfig
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
+from drevalpy.registry.featurizer import get_featurizer
 
 if TYPE_CHECKING:
     from drevalpy.models.config.resolved import ResolvedModelConfig
@@ -33,8 +32,7 @@ def featurizer_leaf_kwargs(
     kwargs: dict[str, Any] = dict(leaf.options or {})
     space = dict(leaf.hyperparameter_space or {})
     if not space:
-        cls = get_sample_featurizer(leaf.name) if registry == "sample" else get_drug_featurizer(leaf.name)
-        space = dict(cls.get_hyperparameter_space())
+        space = dict(get_featurizer(registry, leaf.name).get_hyperparameter_space())
     for key, spec in space.items():
         if isinstance(spec, Mapping) and "default" in spec:
             kwargs.setdefault(key, spec["default"])

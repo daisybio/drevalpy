@@ -360,6 +360,15 @@ def test_default_hyperparameter_space_is_empty() -> None:
     assert DoublingFeaturizer.get_default_hyperparameters() == {}
 
 
+def test_default_empty_transform_features_transforms_zero_entities() -> None:
+    source = StubSource(np.zeros((2, 3), dtype=np.float32), np.array(["A", "B"]))
+
+    result = DoublingFeaturizer()._empty_transform_features(source)
+
+    assert len(result.entity_ids) == 0
+    assert result.matrix.shape == (0, 3)
+
+
 def test_default_transform_concatenates_numeric_blocks_only() -> None:
     class _MixedBlocks(Featurizer):
         input_views = ("test_view",)
@@ -373,9 +382,6 @@ def test_default_transform_concatenates_numeric_blocks_only() -> None:
                 "categories": metadata_feature_block(np.asarray(["a"], dtype=str)),
             }
             return FeaturizerResult.from_blocks(blocks, entity_ids)
-
-        def _empty_transform_features(self, source) -> FeaturizerResult:
-            return self._transform_features(source, np.array([], dtype=str))
 
         @property
         def output_dim(self) -> int:
@@ -399,9 +405,6 @@ def test_default_transform_returns_an_empty_matrix_without_numeric_blocks() -> N
         def _transform_features(self, source, entity_ids) -> FeaturizerResult:
             blocks = {"categories": metadata_feature_block(np.asarray(["a"], dtype=str))}
             return FeaturizerResult.from_blocks(blocks, entity_ids)
-
-        def _empty_transform_features(self, source) -> FeaturizerResult:
-            return self._transform_features(source, np.array([], dtype=str))
 
         @property
         def output_dim(self) -> int:

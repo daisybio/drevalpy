@@ -159,14 +159,6 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
             ("bpe_smiles",),
         )
 
-    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
-        """Return fitted schema and metadata without transforming any entities.
-
-        :param source: Feature metadata source.
-        :returns: Zero-row matrix and blocks.
-        """
-        return self._transform_features(source, np.array([], dtype=str))
-
     @property
     def output_dim(self) -> int:
         """Return output feature dimension.

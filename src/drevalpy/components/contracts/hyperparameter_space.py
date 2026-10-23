@@ -1,11 +1,8 @@
 """Validate structured hyperparameter search-space specs, and the tunable-component hooks.
 
 :class:`TunableComponentMixin` lives beside the validator it calls rather than in
-either component package. ``Featurizer`` and ``Predictor`` are siblings under
-``components/``, so any home inside one of them would have inverted a dependency
-between the two; this module is already the shared leaf both of them import
-``validate_hyperparameter_space`` from, and
-:func:`validate_component_hyperparameter_space` already duck-types over both kinds.
+either component package: ``Featurizer`` and ``Predictor`` are siblings under
+``components/``, so a home inside one of them would make the other depend on it.
 """
 
 from __future__ import annotations

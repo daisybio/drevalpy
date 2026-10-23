@@ -3,7 +3,7 @@
 ``ProteomicsMedianCenterAndImputeTransformer`` lives in
 ``_proteomics_transformer`` because it subclasses ``sklearn.base.BaseEstimator``,
 which cannot be deferred past the ``class`` statement. It is re-exported here
-through ``__getattr__`` so the historical import path - and any checkpoint
+through ``__getattr__`` so this module path - and any checkpoint
 pickled against it - keeps resolving without importing ``sklearn`` at
 registration time. See ``tests/test_import_cost_policy.py``.
 """

@@ -5,9 +5,7 @@ imports it: the name starts with an underscore, so neither the built-in componen
 discovery in :mod:`drevalpy.registry._builtins` nor the recursive API docs pick it up.
 It exists so the origin of every shipped CSV stays reproducible.
 
-It replaces the ``make_gene_lists.ipynb`` notebook that used to live here. That notebook
-also intersected the retired v1 toy datasets, which were synthetic subsets of the real
-screens and no longer exist, so only registered datasets are used now (see
+Only registered datasets are intersected (see
 ``drevalpy/data/datasets/available_datasets.json``).
 
 ``CCLE`` was the sole proteomics source, and it is currently **not registered**: the
@@ -26,9 +24,9 @@ repository; point ``--data-path`` at a local data directory.
 
 Three curated lists are read back from this directory rather than derived:
 ``landmark_genes.csv``, ``drug_target_genes_all_drugs.csv`` and
-``gene_list_paccmann_network_prop.csv``. The original notebook did not record where they
-came from ("Todo: how did we get here?"), so this script does not claim to reproduce them
-either - it only documents that everything else is derived from them.
+``gene_list_paccmann_network_prop.csv``. Their origin is not recorded, so this script
+does not claim to reproduce them - it only documents that everything else is derived
+from them.
 
 Outputs
 -------
@@ -63,7 +61,7 @@ from collections.abc import Iterable
 import pandas as pd
 from upath import UPath
 
-#: Every registered dataset, in the order the notebook listed them.
+#: Every registered dataset.
 ALL_DATASETS: tuple[str, ...] = ("BeatAML2", "CTRPv1", "CTRPv2", "GDSC1", "GDSC2", "PDX_Bruna")
 
 #: Datasets that carry each omic. Only these are intersected for that omic, because a

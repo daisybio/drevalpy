@@ -50,9 +50,6 @@ class _Probe(Featurizer):
         """No blocks; the probe is only ever inspected as a class."""
         return FeaturizerResult.from_blocks({}, len(entity_ids))
 
-    def _empty_transform_features(self, source) -> FeaturizerResult:
-        return FeaturizerResult.from_blocks({}, 0)
-
     @property
     def output_dim(self) -> int:
         """Fixed width."""

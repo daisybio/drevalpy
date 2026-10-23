@@ -139,14 +139,6 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(entity_ids, {"drug_graph": graph_feature_block(matrix)}, ("drug_graph",))
 
-    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
-        """Return fitted schema and metadata without transforming any entities.
-
-        :param source: Feature metadata source.
-        :returns: Zero-row matrix and blocks.
-        """
-        return self._transform_features(source, np.array([], dtype=str))
-
     @property
     def output_dim(self) -> int:
         """Return node feature width inferred during ``fit``.

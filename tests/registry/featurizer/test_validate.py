@@ -34,10 +34,6 @@ class _ConcreteSampleFeaturizer(SampleFeaturizer):
         values = np.zeros((len(entity_ids), 1), dtype=np.float32)
         return FeaturizerResult(values, {"probe": numeric_feature_block(values)})
 
-    def _empty_transform_features(self, source):
-        values = np.empty((0, 1), dtype=np.float32)
-        return FeaturizerResult(values, {"probe": numeric_feature_block(values)})
-
     @property
     def output_dim(self) -> int:
         return 1
@@ -68,7 +64,7 @@ def test_declared_input_views_allow_registration() -> None:
 
 
 def test_a_featurizer_with_unimplemented_abstract_methods_is_rejected() -> None:
-    with pytest.raises(ValueError, match=r"does not implement _empty_transform_features, _fit, _transform_features"):
+    with pytest.raises(ValueError, match=r"does not implement _fit, _transform_features"):
 
         @register_sample_featurizer(
             "abstractFeaturizer",

@@ -58,14 +58,6 @@ class ConstantFeaturizerMixin:
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(entity_ids, {"constant": numeric_feature_block(matrix)}, ("constant",))
 
-    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
-        """Return fitted schema and metadata without transforming any entities.
-
-        :param source: Feature metadata source.
-        :returns: Zero-row matrix and blocks.
-        """
-        return self._transform_features(source, np.array([], dtype=str))
-
     @property
     def output_dim(self) -> int:
         """Return output feature dimension after fitting.

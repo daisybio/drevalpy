@@ -139,14 +139,6 @@ class ConcatFeaturizersMixin:
         child_blocks = [child.transform_features(features, entity_ids).blocks for _, child in self._children]
         return FeaturizerResult.from_blocks(merge_feature_blocks(*child_blocks), entity_ids)
 
-    def _empty_transform_features(self, source) -> FeaturizerResult:
-        """Compose empty child schemas and retain global metadata.
-
-        :param source: Feature metadata source.
-        :returns: Combined empty numeric blocks.
-        """
-        return self._transform_features(source, np.array([], dtype=str))
-
     @property
     def output_dim(self) -> int:
         """Return output feature dimension after fitting.

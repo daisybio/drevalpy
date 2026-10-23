@@ -31,9 +31,6 @@ class _Declared(Featurizer):
     def _transform_features(self, source, entity_ids) -> FeaturizerResult:
         return FeaturizerResult.from_blocks({}, len(entity_ids))
 
-    def _empty_transform_features(self, source) -> FeaturizerResult:
-        return FeaturizerResult.from_blocks({}, 0)
-
     @property
     def output_dim(self) -> int:
         return 0

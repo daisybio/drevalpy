@@ -1,17 +1,14 @@
 """The sklearn transformer behind the ``normalizedProteomics`` featurizer.
 
-This class lives in its own module purely so that ``sklearn`` stays off the
-startup path. It subclasses ``BaseEstimator`` and ``TransformerMixin``, and a
-base class has to exist when the ``class`` statement runs - unlike a call inside
-a method, it cannot be deferred. Since ``drevalpy.registry`` imports every public
-module under ``featurizers/sample/`` to register its featurizers on
-``import drevalpy``, leaving the class in ``normalized_proteomics.py`` put the
-whole ~0.39s ``sklearn`` import (it reaches ``scipy.stats`` through
-``sklearn.utils``) on the critical path of every CLI invocation.
+This class lives in its own module so that ``sklearn`` stays off the startup path.
+It subclasses ``BaseEstimator`` and ``TransformerMixin``, and a base class has to
+exist when the ``class`` statement runs, so the import cannot be deferred into a
+method. ``drevalpy.registry`` imports every public module under
+``featurizers/sample/`` on ``import drevalpy``, so the class must not be defined in
+``normalized_proteomics.py``.
 
-``normalized_proteomics`` re-exports the class lazily, so the historical import
-path keeps working - including for checkpoints pickled before the split, which
-record the class by its old module name.
+``normalized_proteomics`` re-exports the class lazily, so its module path keeps
+resolving, including for pickled checkpoints that record that path.
 
 See ``tests/test_import_cost_policy.py``.
 """

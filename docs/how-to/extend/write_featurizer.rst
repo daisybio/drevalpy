@@ -57,7 +57,8 @@ and splice NaN rows back into the result. You implement the hooks underneath:
        block name to ``FeatureBlock``, and the names of the blocks that make up the flat matrix.
        ``FeaturizerResult.matrix`` is a property derived from those, not a constructor argument.
    * - ``_empty_transform_features(source)``
-     - Return a zero-row ``FeaturizerResult`` with the fitted output schema.
+     - Optional. The default calls ``_transform_features`` with no entity ids, which gives a zero-row
+       ``FeaturizerResult`` with the fitted output schema. Override it only when that call cannot work.
    * - ``output_dim`` (property)
      - Feature width after fitting.
    * - ``get_state`` / ``set_state``
@@ -108,8 +109,8 @@ instead of ``input_views``. It works against any dataset, including a response-o
 Compute a dense matrix from one view
 ------------------------------------
 
-``DenseViewFeaturizer`` implements ``_fit``, ``_transform_features`` and
-``_empty_transform_features`` for the shape every dense featurizer shares: use a pre-computed
+``DenseViewFeaturizer`` implements ``_fit`` and ``_transform_features`` for the shape every
+dense featurizer shares: use a pre-computed
 matrix when the dataset carries one, otherwise compute it from the view, then emit one numeric
 block. A subclass overrides only its own step, usually ``_compute_matrix``. Other hooks are
 ``_fit_state`` (learn state and return the output width), ``_fit_entity_ids``,
@@ -195,10 +196,6 @@ built this way.
        def _transform_features(self, source, entity_ids):
            ones = np.ones((len(entity_ids), 1), dtype=np.float32)
            return FeaturizerResult(entity_ids, {"ones": numeric_feature_block(ones)}, ("ones",))
-
-       def _empty_transform_features(self, source):
-           ones = np.empty((0, 1), dtype=np.float32)
-           return FeaturizerResult(np.empty(0, dtype=str), {"ones": numeric_feature_block(ones)}, ("ones",))
 
        @property
        def output_dim(self):

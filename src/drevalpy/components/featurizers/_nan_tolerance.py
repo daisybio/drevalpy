@@ -29,7 +29,8 @@ _logger = get_logger(__name__)
 class NanToleranceMixin:
     """Decide which entities are usable and keep NaN rows out of the transform."""
 
-    #: Fraction of invalid entities above which a warning is logged.
+    #: Fraction of invalid entities above which a warning is logged. A fifth is a heuristic
+    #: for "a lot of the cohort is unusable"; subclasses may override it.
     nan_threshold: ClassVar[float] = 0.2
 
     #: Declared by ``FeaturizerDeclarationsMixin``; read here to pick the probe view.

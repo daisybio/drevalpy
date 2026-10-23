@@ -170,18 +170,22 @@ class Featurizer(
         :returns: Named blocks and their matrix projection, aligned to these identifiers.
         """
 
-    @abstractmethod
     def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
-        """Build zero-row outputs from fitted schema without invoking a backend.
+        """Build zero-row outputs that retain the fitted schema and metadata.
+
+        The default transforms an empty identifier array. Override it when that call
+        cannot produce the fitted schema, for example when a backend is needed to
+        build blocks.
 
         :param source: Feature names and global metadata, when needed.
         :returns: Empty representations retaining fitted dimensions and metadata.
         """
+        return self._transform_features(source, np.array([], dtype=str))
 
     @property
     @abstractmethod
     def output_dim(self) -> int:
         """Feature dimension after ``fit``.
 
-        :returns: Result.
+        :returns: Number of columns of the transformed feature matrix.
         """
