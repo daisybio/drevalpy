@@ -66,6 +66,10 @@ descriptors.
   computed per fold, from the dataset, and concatenated with the configured drug
   features, and one network is trained. Published weights cannot be applied to
   these features even if the widths happen to match.
+- The gene sets are the MSigDB C2 CP v6.1 collection, the one the published feature file was
+  built from. A dataset that stores its own gene sets in ``uns["pathways_gmt"]`` is scored
+  against those. Otherwise the collection is downloaded from MSigDB once, checked against a
+  pinned hash and kept in the cache directory.
 - Training is a fixed budget with 50 epochs, batch size 128 and shuffling,
   matching the budgets of the published final models, not the patience-based
   stopping of the published tuner. The default learning rate is 1e-3. PyTorch and Keras

@@ -10,6 +10,7 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.sample.base import SampleFeaturizer
+from drevalpy.data._msigdb import get_precily_gmt
 from drevalpy.log import get_logger
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
@@ -28,6 +29,10 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
 
     Set-dependent: GSVA enrichment scores depend on the distribution of all
     samples in the expression matrix, so they must be computed per-split.
+
+    The gene sets come from ``mdata.uns["pathways_gmt"]`` when the dataset carries them, and
+    otherwise from the MSigDB C2 CP v6.1 file that ``drevalpy.data._msigdb.get_precily_gmt``
+    downloads into the cache on first use.
     """
 
     input_views: ClassVar[tuple[str, ...]] = ("pathways",)
@@ -163,17 +168,17 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
         :param source: Feature source providing sample views.
         :param entity_ids: Sample IDs.
         :returns: Float32 array of shape (len(entity_ids), n_pathways).
-        :raises ValueError: If ``pathways_gmt`` is missing from ``mdata.uns``, the gene expression
-            view has no feature names, or the GSVA output lacks pathways from the fitted schema.
+        :raises ValueError: If the gene expression view has no feature names, or the GSVA output
+            lacks pathways from the fitted schema.
         """
         import gseapy as gp
 
         mdata = getattr(source, "mdata", None)
         if self._gmt_text is None:
-            if mdata is None or "pathways_gmt" not in mdata.uns:
-                msg = "Pathway features require pathways_gmt in mdata.uns"
-                raise ValueError(msg)
-            self._gmt_text = str(mdata.uns["pathways_gmt"])
+            if mdata is not None and "pathways_gmt" in mdata.uns:
+                self._gmt_text = str(mdata.uns["pathways_gmt"])
+            else:
+                self._gmt_text = get_precily_gmt().read_text(encoding="utf-8")
 
         import pandas as pd
 
