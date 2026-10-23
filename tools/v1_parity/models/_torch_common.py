@@ -195,22 +195,3 @@ def capture_fit(predictor_class: Any, sink: dict[str, Any]) -> Iterator[None]:
         yield
     finally:
         predictor_class._fit = original
-
-
-@contextmanager
-def prediction_mode_checkpoints() -> Iterator[None]:
-    """Let ``torch.load(weights_only=True)`` read checkpoints whose hyperparameters hold a ``PredictionMode``.
-
-    ``build_components`` adds ``prediction_mode`` to the hyperparameters of every predictor, and the MOLIR and
-    SuperFELTR networks store those in their Lightning checkpoints (``save_hyperparameters``). The reload of the
-    best epoch (``utils.torch_io.load_state_dict``, ``weights_only=True``) then fails on the enum. The cases work
-    around it so that the training can be compared; the failure is a finding of the cases.
-
-    :yields: Nothing; the allow-list entry is removed on exit.
-    """
-    import torch
-
-    from drevalpy.types.enums.prediction_mode import PredictionMode
-
-    with torch.serialization.safe_globals([PredictionMode]):
-        yield

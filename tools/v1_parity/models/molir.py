@@ -52,7 +52,6 @@ from tools.v1_parity.models._torch_common import (
     forward_pair,
     inline_loaders,
     load_weights,
-    prediction_mode_checkpoints,
     v2_model,
 )
 
@@ -121,13 +120,10 @@ RAGGED_EXPLANATION = (
 )
 
 FINDINGS = [
-    "REAL BUG (v2, not fixed here): a preset-built MOLIR cannot finish a fit. `build_components` adds "
-    "`prediction_mode: PredictionMode.REGRESSION` to the predictor hyperparameters, `MOLIModel.__init__` calls "
-    "`save_hyperparameters()`, so the checkpoint written with `save_weights_only=True` stores the enum, and the "
-    "reload of the best epoch (`utils.torch_io.load_state_dict`, `weights_only=True`) raises `UnpicklingError: "
-    "Unsupported global: drevalpy.types.enums.prediction_mode.PredictionMode`. The predictor tests construct the "
-    "predictor without `prediction_mode` and do not see it. The case allow-lists the enum "
-    "(`prediction_mode_checkpoints`) to compare the training; SuperFELTR is built the same way.",
+    "Fixed (v2): a preset-built MOLIR could not finish a fit with an early-stopping scope. `build_components` put "
+    "the `PredictionMode` enum into the predictor hyperparameters, `save_hyperparameters()` stored it in the "
+    "checkpoint, and the `weights_only=True` reload of the best epoch raised `UnpicklingError`. It now passes the "
+    "mode as a plain string; the case needs no allow-list.",
     "The `MOLIModel` of v2 is the 1.6.1 network: a `state_dict` of one loads into the other with `strict=True`, "
     "and eval and train mode (batch statistics, dropout, the `normalize(dim=0)` over the batch) agree at the "
     "`forward` class.",
@@ -383,7 +379,7 @@ def run_v2(case: Case) -> dict[str, np.ndarray]:
         model = v2_model(NAME, _hyperparameters(setting))
         captured: dict[str, Any] = {}
         seed_all(setting["seed"])
-        with capture_fit(MOLIRPredictor, captured), seeded_triplets(utils), prediction_mode_checkpoints():
+        with capture_fit(MOLIRPredictor, captured), seeded_triplets(utils):
             model.train(dataset, fit_scope, early_stopping_scope=stop_scope)
         predictions = np.asarray(model.predict(dataset, test), dtype=np.float64)
 

@@ -48,7 +48,6 @@ from tools.v1_parity.models._torch_common import (
     forward_pair,
     inline_loaders,
     load_weights,
-    prediction_mode_checkpoints,
     v2_model,
 )
 
@@ -107,12 +106,9 @@ RAGGED_EXPLANATION = (
 )
 
 FINDINGS = [
-    "REAL BUG (v2, not fixed here): a preset-built SuperFELTR cannot finish a fit or predict. `build_components` "
-    "adds `prediction_mode: PredictionMode.REGRESSION` to the predictor hyperparameters; the encoders and the "
-    "regressor are built with those `hpams` (`save_hyperparameters()` stores them in the Lightning checkpoint) and "
-    "reloaded with `load_from_checkpoint`, which then raises `UnpicklingError: Unsupported global: "
-    "drevalpy.types.enums.prediction_mode.PredictionMode` (same cause as MOLIR). The case allow-lists the enum "
-    "(`prediction_mode_checkpoints`) to compare the training.",
+    "Fixed (v2): a preset-built SuperFELTR could not finish a fit or predict, for the same reason as MOLIR: the "
+    "`PredictionMode` enum in the predictor hyperparameters ended up in the Lightning checkpoints and "
+    "`load_from_checkpoint` raised `UnpicklingError`. `build_components` now passes a plain string.",
     "The networks are the 1.6.1 networks: the encoders (linear, batch norm, ReLU, dropout), the regression head and "
     "the whole `predict` path load a 1.6.1 `state_dict` with `strict=True` and agree at the `forward` class.",
     "The regressor holds its three encoders differently. 1.6.1 keeps them in a plain tuple: they are not "
@@ -400,7 +396,7 @@ def run_v2(case: Case) -> dict[str, np.ndarray]:
         model = v2_model(NAME, _hpams(setting))
         captured: dict[str, Any] = {}
         seed_all(setting["seed"])
-        with capture_fit(SuperFELTRPredictor, captured), seeded_triplets(utils), prediction_mode_checkpoints():
+        with capture_fit(SuperFELTRPredictor, captured), seeded_triplets(utils):
             model.train(dataset, fit_scope, early_stopping_scope=stop_scope)
             predictions = np.asarray(model.predict(dataset, test), dtype=np.float64)
 

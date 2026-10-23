@@ -37,9 +37,11 @@ def build_components(config: ResolvedModelConfig) -> tuple[Featurizer | None, Fe
         else None
     )
     drug = _instantiate_featurizer(template.drug_featurizer, resolved) if template.drug_featurizer is not None else None
+    # A plain string: networks pass their hyperparameters to Lightning's ``save_hyperparameters``, and a checkpoint
+    # holding the enum cannot be reloaded with ``torch.load(weights_only=True)``.
     predictor_hp: dict[str, Any] = {
         **resolved.predictor_values(),
-        "prediction_mode": template.prediction_mode,
+        "prediction_mode": str(template.prediction_mode.value),
     }
     predictor = template.predictor.create_instance(predictor_hp)
     return sample, drug, predictor

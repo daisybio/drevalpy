@@ -172,7 +172,7 @@
     }
   ],
   "findings": [
-    "REAL BUG (v2, not fixed here): a preset-built SuperFELTR cannot finish a fit or predict. `build_components` adds `prediction_mode: PredictionMode.REGRESSION` to the predictor hyperparameters; the encoders and the regressor are built with those `hpams` (`save_hyperparameters()` stores them in the Lightning checkpoint) and reloaded with `load_from_checkpoint`, which then raises `UnpicklingError: Unsupported global: drevalpy.types.enums.prediction_mode.PredictionMode` (same cause as MOLIR). The case allow-lists the enum (`prediction_mode_checkpoints`) to compare the training.",
+    "Fixed (v2): a preset-built SuperFELTR could not finish a fit or predict, for the same reason as MOLIR: the `PredictionMode` enum in the predictor hyperparameters ended up in the Lightning checkpoints and `load_from_checkpoint` raised `UnpicklingError`. `build_components` now passes a plain string.",
     "The networks are the 1.6.1 networks: the encoders (linear, batch norm, ReLU, dropout), the regression head and the whole `predict` path load a 1.6.1 `state_dict` with `strict=True` and agree at the `forward` class.",
     "The regressor holds its three encoders differently. 1.6.1 keeps them in a plain tuple: they are not parameters of the module, not in its `state_dict`, and Lightning's `train()` does not reach them. v2 registers them (`nn.ModuleList`), freezes them (`requires_grad_(False)`) and overrides `train()` to keep them in eval mode. The optimizer sees only the head in both, and the encoders stay in eval mode in both, so the training agrees; the compared parameters are the head's (`regressor.*`).",
     "1.6.1 draws the triplets of the encoder fits from an unseeded generator, v2 from the global NumPy stream seeded per fit. The case passes the same explicit seed sequence to both, in the same call order (expression, mutation and copy number encoder, drug after drug).",
@@ -1126,8 +1126,8 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "174ceea7bf7e9e4d79080da0abe81a48c1667cb0",
-    "dirty": false,
+    "commit": "547764d6ec2b6f5fd43d53ade5845aa9ef4e525b",
+    "dirty": true,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",
     "numpy": "2.4.6",
