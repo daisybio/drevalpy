@@ -1615,8 +1615,7 @@ def run_per_drug(func: Callable[..., Any], drug_args: dict[str, tuple], n_jobs: 
     """
     Run ``func(drug_id, *args)`` for every drug, e.g., to train a single drug model per drug.
 
-    The drugs are distributed over n_jobs processes. On a GPU, they run one after another because
-    parallel models would compete for the GPU memory. An error for one drug is raised for all.
+    The drugs are distributed over n_jobs processes. An error for one drug is raised for all.
 
     :param func: function to run per drug, called as ``func(drug_id, *drug_args[drug_id])``
     :param drug_args: {drug_id: arguments of func for this drug}, e.g., the output of split_by_drug
@@ -1624,7 +1623,7 @@ def run_per_drug(func: Callable[..., Any], drug_args: dict[str, tuple], n_jobs: 
     :returns: {drug_id: return value of func}
     """
     progress = {drug: f"{i + 1}/{len(drug_args)}" for i, drug in enumerate(drug_args)}
-    if n_jobs == 1 or torch.cuda.is_available():
+    if n_jobs == 1:
         return {drug: _run_drug(func, drug, progress[drug], *args) for drug, args in drug_args.items()}
     with joblib.parallel_config(backend="loky", inner_max_num_threads=1):
         results = joblib.Parallel(n_jobs=n_jobs)(

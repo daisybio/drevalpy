@@ -363,6 +363,8 @@ def train_superfeltr_model(
             checkpoint_callback,
             TQDMProgressBar(refresh_rate=0),
         ],
+        accelerator="cpu",  # the model is too small to profit from a GPU
+        devices=1,
     )
     if val_loader is None:
         trainer.fit(model, train_loader)

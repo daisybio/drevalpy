@@ -438,6 +438,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
                 self.checkpoint_callback,
                 TQDMProgressBar(refresh_rate=0),
             ],
+            accelerator="cpu",  # the model is too small to profit from a GPU
             devices=1,
             enable_model_summary=False,
         )
