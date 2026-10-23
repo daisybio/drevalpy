@@ -163,7 +163,7 @@ def run(
     :param randomization_random_state: Root seed for reproducible feature randomization; defaults to ``seed``.
     :param seed: Root seed driving the splits, the HPO and randomization defaults, and every model fit.
     :param response_transformation: Optional unfitted target transformer, cloned for every fit.
-    :param quality: Curve-quality rule applied before the splitter; ``None`` means ``CurveQuality.default()``.
+    :param quality: Curve-quality rule passed to the splitter; ``None`` means ``CurveQuality.default()``.
     :param wandb_project: Weights & Biases project to log to; ``None`` disables tracking.
     :param on_error: ``"record"`` keeps going when a run raises, logs a warning and stores a ``RunFailure`` on
         the result; ``"raise"`` re-raises the first error. ``KeyboardInterrupt`` always propagates.

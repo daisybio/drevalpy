@@ -5,18 +5,20 @@ constraint the registry enforces after every call, so a splitter that leaks a
 sample into both train and test raises ``SplitValidationError`` rather than
 silently producing an optimistic score.
 
-``drevalpy.split`` and ``drevalpy.run`` apply the curve-quality rule before
-the splitter runs, so the response matrix a splitter reads already has ``NaN``
-for the pairs whose fitted dose-response curve fails it. This splitter adds one
-extra check of its own with :func:`~drevalpy.plugin.curve_quality_mask`.
+``drevalpy.split`` and ``drevalpy.run`` pass the curve-quality rule to the
+splitter as the required ``quality`` keyword. :func:`~drevalpy.plugin.observed_mask`
+turns it into the pairs the splitter may use. This splitter tightens the rule
+with an extra ``min_r2`` threshold of its own.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 from sklearn.model_selection import KFold
 
-from drevalpy.plugin import MuDataLike, SplitMask, SplitMasks, curve_quality_mask, register_splitter
+from drevalpy.plugin import CurveQuality, MuDataLike, SplitMask, SplitMasks, observed_mask, register_splitter
 
 
 @register_splitter(
@@ -29,6 +31,8 @@ def toy_leave_sample_out(
     n_splits: int = 5,
     validation_ratio: float = 0.1,
     random_state: int = 42,
+    *,
+    quality: CurveQuality,
 ) -> list[SplitMasks]:
     """Split so that every sample is tested exactly once.
 
@@ -38,16 +42,14 @@ def toy_leave_sample_out(
         training samples, which is what makes it worth registering
         separately from the built-in ``LSO``.
     :param random_state: Seed for the fold assignment.
+    :param quality: Curve-quality rule of the run; the extra ``min_r2`` threshold is added to it.
     :returns: One :class:`~drevalpy.plugin.SplitMasks` per fold, each carrying
         train/test/validation masks shaped like the response matrix.
     """
     _ = validation_ratio
-    # ``split`` has already blanked the pairs that fail the run's quality rule.
     # ``min_r2`` is an extra this splitter opts into. Asking for it reads the
     # ``R2`` layer, even when the run used ``CurveQuality.off()``.
-    response = mudataset.response_matrix.copy()
-    response[~curve_quality_mask(mudataset, min_relevance_score=None, min_abs_fold_change=None, min_r2=0.5)] = np.nan
-    observed = ~np.isnan(response)
+    observed = observed_mask(mudataset, replace(quality, min_r2=0.5))
     folds: list[SplitMasks] = []
     rng = np.random.default_rng(random_state)
 

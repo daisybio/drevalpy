@@ -175,21 +175,36 @@ class TestSplitQuality:
         assert loaded.metadata["quality"] == expected
         assert data.CurveQuality.from_metadata(loaded.metadata["quality"]) == (rule or data.CurveQuality.default())
 
-    def test_a_plugin_splitter_that_ignores_quality_sees_nan_on_failed_pairs(
-        self, low_quality_dataset: data.Dataset
-    ) -> None:
-        seen: list[np.ndarray] = []
+    def test_the_splitter_gets_the_unfiltered_dataset_and_the_rule(self, low_quality_dataset: data.Dataset) -> None:
+        seen: list[tuple[data.Dataset, data.CurveQuality]] = []
 
-        def plugin(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
-            seen.append(mudataset.response_matrix)
-            return leave_pair_out(mudataset, n_splits, validation_ratio, random_state)
+        def plugin(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
+            seen.append((mudataset, quality))
+            return leave_pair_out(mudataset, n_splits, validation_ratio, random_state, quality=quality)
 
         modes = frozenset(splitter_registry.modes)
         splitter_registry.register("P3_PLUGIN", "Records what it is given", validation="LPO")(plugin)
         try:
             data.split(low_quality_dataset, "P3_PLUGIN", n_splits=2)
+            data.split(low_quality_dataset, "P3_PLUGIN", n_splits=2, quality=data.CurveQuality.off())
+        finally:
+            splitter_registry.retain_only(modes)
+
+        assert seen[0][0] is low_quality_dataset
+        assert seen[0][1] == data.CurveQuality.default()
+        assert seen[1][1] == data.CurveQuality.off()
+
+    def test_a_splitter_that_ignores_the_rule_still_records_it(self, low_quality_dataset: data.Dataset) -> None:
+        def plugin(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
+            return leave_pair_out(mudataset, n_splits, validation_ratio, random_state, quality=data.CurveQuality.off())
+
+        modes = frozenset(splitter_registry.modes)
+        splitter_registry.register("P3_IGNORES", "Ignores the rule", validation="LPO")(plugin)
+        try:
+            folds = data.split(low_quality_dataset, "P3_IGNORES", n_splits=2)
         finally:
             splitter_registry.retain_only(modes)
 
         failed = ~data.CurveQuality.default().mask(low_quality_dataset)
-        assert np.isnan(seen[0][failed]).all()
+        assert _covered(folds)[failed].any()
+        assert folds[0].metadata["quality"] == data.CurveQuality.default().to_metadata()

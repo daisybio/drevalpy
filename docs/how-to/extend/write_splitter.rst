@@ -11,9 +11,10 @@ Register a splitter function
 ----------------------------
 
 Decorate a function with ``register_splitter(mode, description, validation, *, override=False,
-aliases=())``. The registry calls it positionally as
-``fn(mudataset, n_splits, validation_ratio, random_state)`` and expects a list of ``SplitMasks``,
-one per fold. Each ``SplitMasks`` holds ``train``, ``test`` and ``val`` masks shaped like the
+aliases=())``. The registry calls it as
+``fn(mudataset, n_splits, validation_ratio, random_state, quality=quality)`` and expects a list
+of ``SplitMasks``, one per fold. The ``quality`` keyword is required: registering a function
+without a ``quality`` parameter raises ``InvalidInputError`` (a ``ValueError``). Each ``SplitMasks`` holds ``train``, ``test`` and ``val`` masks shaped like the
 response matrix.
 
 The dataset argument is typed as ``MuDataLike`` from ``drevalpy.plugin``, a runtime-checkable
@@ -24,9 +25,9 @@ implement all seven, or ``isinstance`` checks against the protocol fail. ``sampl
 per-sample metadata column, such as ``study``, and raises ``KeyError`` for a column the dataset
 does not have.
 
-``drevalpy.split`` and ``drevalpy.run`` apply the curve-quality rule *before* the splitter, so the
-``response_matrix`` your function reads has ``NaN`` for every pair that failed the rule, and
-"not NaN" is again the right test for "usable". See `Filter on curve quality`_.
+``drevalpy.split`` and ``drevalpy.run`` hand your function the unfiltered dataset and the
+curve-quality rule as ``quality``, a ``CurveQuality`` from ``drevalpy.plugin``. Call
+``observed_mask(mudataset, quality)`` to get the pairs you may use. See `Filter on curve quality`_.
 
 .. literalinclude:: /examples/toy_splitter.py
    :language: python
@@ -70,7 +71,7 @@ and gets the canonical mode back.
    import numpy as np
 
    import drevalpy
-   from drevalpy.plugin import SplitMask, SplitMasks, register_splitter
+   from drevalpy.plugin import SplitMask, SplitMasks, observed_mask, register_splitter
    from drevalpy.testing import build_synthetic_dataset
 
 
@@ -80,8 +81,8 @@ and gets the canonical mode back.
        validation="LSO",
        aliases=("PARITY",),
    )
-   def even_odd(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
-       observed = ~np.isnan(mudataset.response_matrix)
+   def even_odd(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
+       observed = observed_mask(mudataset, quality)
        rows = np.arange(observed.shape[0])
        test_rows, train_rows = rows[rows % 2 == 0], rows[rows % 2 == 1]
 
@@ -111,18 +112,35 @@ Filter on curve quality
 -----------------------
 
 The datasets ship every fitted dose-response curve, including the meaningless ones, so treating
-"not NaN" as "usable" would train on junk. ``drevalpy.split`` and ``drevalpy.run`` therefore apply a
-``CurveQuality`` rule to the dataset before they call your splitter (see :doc:`/reference/datasets`).
-The function receives a view whose ``response_matrix`` is ``NaN`` for every pair that failed, with the
-response layers unchanged. Read ``~np.isnan(mudataset.response_matrix)`` and you get the pairs that
-passed. You do not call ``curve_quality_mask`` yourself, and the user's choice (``quality=`` in
-Python, ``--no-quality-filter`` on the command line) reaches your splitter without any code
-on your side.
+"has a response" as "usable" would train on junk. ``drevalpy.split`` and ``drevalpy.run`` therefore
+pass the user's ``CurveQuality`` rule to your splitter as ``quality`` (see :doc:`/reference/datasets`),
+together with the unfiltered dataset. ``observed_mask(mudataset, quality)`` returns the boolean
+sample-by-drug matrix of pairs that have a finite response *and* pass the rule. The user's choice
+(``quality=`` in Python, ``--no-quality-filter`` on the command line) reaches your splitter without
+further code. With ``CurveQuality.off()`` the mask is plain finiteness and no quality layer is read.
+A rule that needs a layer the dataset lacks raises ``UnknownNameError``, a ``KeyError``.
 
-``curve_quality_mask`` is still available when a splitter wants an extra criterion on top of the
-user's rule. Called bare, it applies the default rule, ``relevance_score >= -log10(0.05)`` and
-``abs(fold_change) >= 0.45``, which is redundant after ``split``. Every other quality metric is a
-keyword option, and its default ``None`` means "not checked":
+The rule is yours to interpret. ``split`` records the rule the user asked for in each fold's
+``quality`` metadata whatever the splitter does with it, so a splitter that deliberately ignores
+it, for instance to compare filtered and unfiltered pairs, should say so in its description.
+To tighten the rule, change it before the call:
+
+.. code-block:: python
+
+   from dataclasses import replace
+
+   from drevalpy.plugin import CurveQuality, observed_mask
+   from drevalpy.testing import build_synthetic_dataset
+
+   dataset = build_synthetic_dataset()
+   strict = observed_mask(dataset, replace(CurveQuality.default(), min_r2=0.8))
+   everything = observed_mask(dataset, CurveQuality.off())
+   assert strict.sum() <= everything.sum()
+
+``curve_quality_mask`` computes the same mask from keyword options when you want a rule of your
+own instead of the user's. Called bare, it applies the default rule, ``relevance_score >=
+-log10(0.05)`` and ``abs(fold_change) >= 0.45``. Every other quality metric is a keyword option
+(and a ``CurveQuality`` field), and its default ``None`` means "not checked":
 
 .. list-table::
    :header-rows: 1
@@ -153,7 +171,8 @@ A metric that is NaN always fails, because a curve CurveCurator could not score 
 training on. Requesting a metric whose layer is absent from the dataset raises ``KeyError``
 rather than being skipped silently. That includes the default rule: a splitter that calls
 ``curve_quality_mask`` reads the layers even when the run used ``CurveQuality.off()``, so it
-fails on a dataset that has none. Leave the call out unless you need the extra criterion.
+fails on a dataset that has none. Prefer ``observed_mask(mudataset, quality)`` unless you need a
+rule that ignores the user's.
 
 .. code-block:: python
 
@@ -166,4 +185,4 @@ Test the splitter
 -----------------
 
 Resolve your mode through the registry rather than calling the function directly, so the
-leakage check runs. :doc:`test_components` shows how to use ``drevalpy.testing`` for this.
+leakage check runs, and pass ``quality=CurveQuality.default()`` (or ``CurveQuality.off()``). :doc:`test_components` shows how to use ``drevalpy.testing`` for this.

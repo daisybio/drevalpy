@@ -86,9 +86,10 @@ def _hyperparameters(name: str, spec: Any) -> dict[str, Any]:
 
 
 def _split(dataset: Any) -> Any:
+    from drevalpy.data import CurveQuality
     from drevalpy.registry.splitter import get as get_splitter
 
-    return get_splitter("LTO")(dataset, n_splits=2, validation_ratio=0.4)[0]
+    return get_splitter("LTO")(dataset, n_splits=2, validation_ratio=0.4, quality=CurveQuality.off())[0]
 
 
 def _result_identity(result: Any, *, entity_ids: Any = None, matrix: Any = None) -> dict[str, Any] | None:

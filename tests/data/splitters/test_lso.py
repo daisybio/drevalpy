@@ -6,20 +6,21 @@ import numpy as np
 import pytest
 
 from drevalpy.data.quality import CurveQuality
-from drevalpy.data.splitters._quality_view import QualityMasked
 from drevalpy.registry.splitter import splitter_registry
 from tests.data.splitters._helpers import MockMuDataset, covered_pairs, first_measured_pairs
+
+QUALITY = CurveQuality.default()
 
 
 class TestLeaveSampleOut:
     def test_produces_folds(self, mock_dataset: MockMuDataset) -> None:
         splitter = splitter_registry.get("LSO")
-        folds = splitter(mock_dataset, n_splits=3)
+        folds = splitter(mock_dataset, n_splits=3, quality=QUALITY)
         assert len(folds) == 3
 
     def test_no_sample_in_both_train_and_test(self, mock_dataset: MockMuDataset) -> None:
         splitter = splitter_registry.get("LSO")
-        folds = splitter(mock_dataset, n_splits=3)
+        folds = splitter(mock_dataset, n_splits=3, quality=QUALITY)
         for fold in folds:
             train_rows = set(np.where(fold.train.mask.any(axis=1))[0].tolist())
             test_rows = set(np.where(fold.test.mask.any(axis=1))[0].tolist())
@@ -27,7 +28,7 @@ class TestLeaveSampleOut:
 
     def test_all_indices_within_bounds(self, mock_dataset: MockMuDataset) -> None:
         splitter = splitter_registry.get("LSO")
-        folds = splitter(mock_dataset, n_splits=3)
+        folds = splitter(mock_dataset, n_splits=3, quality=QUALITY)
         shape = mock_dataset.response_matrix.shape
         for fold in folds:
             assert fold.train.shape == shape
@@ -39,10 +40,8 @@ class TestLeaveSampleOut:
         failing = first_measured_pairs(mock_dataset, 3)
         splitter = splitter_registry.get("LSO")
 
-        without_filtering = covered_pairs(splitter(mock_dataset, n_splits=3))
-        with_filtering = covered_pairs(
-            splitter(QualityMasked(MockMuDataset(failing_pairs=failing), CurveQuality.default()), n_splits=3)
-        )
+        without_filtering = covered_pairs(splitter(mock_dataset, n_splits=3, quality=QUALITY))
+        with_filtering = covered_pairs(splitter(MockMuDataset(failing_pairs=failing), n_splits=3, quality=QUALITY))
 
         for row, column in failing:
             assert without_filtering[row, column]
@@ -56,8 +55,8 @@ class TestLcoAlias:
         assert splitter_registry.get("LCO") is splitter_registry.get("LSO")
 
     def test_the_alias_gives_the_same_folds(self, mock_dataset: MockMuDataset) -> None:
-        via_alias = splitter_registry.get("LCO")(mock_dataset, n_splits=3)
-        via_mode = splitter_registry.get("LSO")(mock_dataset, n_splits=3)
+        via_alias = splitter_registry.get("LCO")(mock_dataset, n_splits=3, quality=QUALITY)
+        via_mode = splitter_registry.get("LSO")(mock_dataset, n_splits=3, quality=QUALITY)
 
         assert len(via_alias) == len(via_mode)
         for old, new in zip(via_alias, via_mode, strict=True):
@@ -69,7 +68,7 @@ class TestLcoAlias:
         assert splitter_registry.get_metadata("LCO")["aliases"] == ["LCO"]
 
     def test_folds_report_the_canonical_mode(self, mock_dataset: MockMuDataset) -> None:
-        folds = splitter_registry.get("LCO")(mock_dataset, n_splits=3)
+        folds = splitter_registry.get("LCO")(mock_dataset, n_splits=3, quality=QUALITY)
 
         assert {fold.metadata["mode"] for fold in folds} == {"LSO"}
 

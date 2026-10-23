@@ -230,8 +230,8 @@ changed.
 Curve-quality filter
 --------------------
 
-``split`` and ``run`` keep only the pairs that pass a curve-quality rule, before the splitter
-runs. The rule is a ``drevalpy.data.CurveQuality``. The default is the CurveCurator rule:
+``split`` and ``run`` pass a curve-quality rule to the splitter, and the built-in split modes
+use only the pairs that pass it. The rule is a ``drevalpy.data.CurveQuality``. The default is the CurveCurator rule:
 
 .. code-block:: text
 
@@ -265,14 +265,15 @@ beyond the default two are ``max_p_value``, ``min_log_p_value``, ``min_f_value``
 ``max_abs_slope``, ``min_front``, ``max_back``, ``min_pec50`` and ``max_pec50``. ``mask(dataset)``
 returns the boolean pair mask.
 
-A rule that needs a response layer the dataset lacks raises ``KeyError``. A dataset without the
+A rule that needs a response layer the dataset lacks raises ``UnknownNameError`` (a ``KeyError``). A dataset without the
 quality layers, such as one with only a pEC50 matrix, therefore needs ``CurveQuality.off()``
 (``--no-quality-filter``). ``run`` and ``data split`` accept the three options above; ``single``
 reads the folds it is given and has none. ``--no-quality-filter`` cannot be combined with
 ``--min-relevance-score`` or ``--min-abs-fold-change``.
 
 ``drevalpy.data.curve_quality_mask`` remains and computes the same mask as ``CurveQuality`` with
-optional thresholds.
+optional thresholds. ``drevalpy.plugin.observed_mask(dataset, quality)`` is the mask a splitter
+reads: the pairs with a finite response that also pass ``quality``.
 
 Synthetic dataset
 -----------------

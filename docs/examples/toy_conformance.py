@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.plugin import ModelResult, RunResult
+from drevalpy.plugin import CurveQuality, ModelResult, RunResult
 from drevalpy.registry import splitter
 from drevalpy.testing import (
     FEATURIZER_CHECKS,
@@ -56,7 +56,7 @@ def check_splitter() -> None:
     check, so a splitter that leaked would raise here.
     """
     dataset = build_synthetic_dataset()
-    folds = splitter.get("TOY_LSO")(dataset, n_splits=3)
+    folds = splitter.get("TOY_LSO")(dataset, n_splits=3, quality=CurveQuality.default())
     if len(folds) != 3:
         msg = f"TOY_LSO produced {len(folds)} folds, expected 3"
         raise AssertionError(msg)

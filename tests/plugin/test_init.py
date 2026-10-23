@@ -35,6 +35,7 @@ REPO_ROOT = UPath(__file__).resolve().parents[2]
 EXPECTED_ORIGINS: dict[str, str] = {
     "BlockPredictor": "drevalpy.components.predictors.abstract.block",
     "BlockSpec": "drevalpy.types.data.batch.feature_block",
+    "CurveQuality": "drevalpy.data.quality",
     "Dataset": "drevalpy.types.data.dataset",
     "DenseViewDrugFeaturizer": "drevalpy.components.featurizers.drug.base",
     "DenseViewFeaturizer": "drevalpy.components.featurizers._dense_view",
@@ -78,6 +79,7 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "merge_feature_blocks": "drevalpy.types.data.batch.feature_block",
     "metadata_feature_block": "drevalpy.types.data.batch.feature_block",
     "numeric_feature_block": "drevalpy.types.data.batch.feature_block",
+    "observed_mask": "drevalpy.data.splitters._folds",
     "ragged_feature_block": "drevalpy.types.data.batch.feature_block",
     "register_for_sides": "drevalpy.components.featurizers._side_binding",
 }

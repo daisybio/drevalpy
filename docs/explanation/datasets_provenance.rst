@@ -80,9 +80,8 @@ uncertainty of the fitted parameters.
 Why pairs are filtered on curve quality
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-By default, ``split`` drops pairs whose curve fails two tests before any splitter
-runs: the multiple-testing corrected relevance score must be at least
-``-log10(0.05)``, and the absolute fold change must be at least 0.45. These are the thresholds that
+By default, the built-in split modes drop pairs whose curve fails two tests: the
+multiple-testing corrected relevance score must be at least ``-log10(0.05)``, and the absolute fold change must be at least 0.45. These are the thresholds that
 DrEvalPy passes to CurveCurator, so the rule agrees with CurveCurator's own
 verdict that a curve is regulated. Drugs that do nothing to a sample leave noise
 behind, and models are scored on pEC50 values only where the curve shows an

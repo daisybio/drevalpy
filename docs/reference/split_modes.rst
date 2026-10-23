@@ -77,7 +77,7 @@ Folds
      - Pairs with a finite response that pass the curve-quality rule in :doc:`datasets`
    * - Curve-quality rule
      - ``quality``, a ``CurveQuality``; ``None`` means ``CurveQuality.default()``. ``split``
-       applies it before the splitter, which only sees ``NaN`` for the pairs that fail
+       passes it to the splitter, and the built-in modes leave out the pairs that fail it
    * - Leakage check
      - Each fold is validated; a violation raises ``SplitValidationError``
    * - Returned value

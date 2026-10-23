@@ -5,20 +5,21 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.data.quality import CurveQuality
-from drevalpy.data.splitters._quality_view import QualityMasked
 from drevalpy.registry.splitter import splitter_registry
 from tests.data.splitters._helpers import MockMuDataset, covered_pairs, first_measured_pairs
+
+QUALITY = CurveQuality.default()
 
 
 class TestLeaveTissueOut:
     def test_produces_folds(self, mock_dataset: MockMuDataset) -> None:
         splitter = splitter_registry.get("LTO")
-        folds = splitter(mock_dataset, n_splits=3)
+        folds = splitter(mock_dataset, n_splits=3, quality=QUALITY)
         assert len(folds) == 3
 
     def test_no_tissue_in_both_train_and_test(self, mock_dataset: MockMuDataset) -> None:
         splitter = splitter_registry.get("LTO")
-        folds = splitter(mock_dataset, n_splits=3)
+        folds = splitter(mock_dataset, n_splits=3, quality=QUALITY)
         tissues = mock_dataset.get_tissue(mock_dataset.sample_ids)
         for fold in folds:
             train_rows = np.where(fold.train.mask.any(axis=1))[0]
@@ -32,10 +33,8 @@ class TestLeaveTissueOut:
         failing = first_measured_pairs(mock_dataset, 3)
         splitter = splitter_registry.get("LTO")
 
-        without_filtering = covered_pairs(splitter(mock_dataset, n_splits=3))
-        with_filtering = covered_pairs(
-            splitter(QualityMasked(MockMuDataset(failing_pairs=failing), CurveQuality.default()), n_splits=3)
-        )
+        without_filtering = covered_pairs(splitter(mock_dataset, n_splits=3, quality=QUALITY))
+        with_filtering = covered_pairs(splitter(MockMuDataset(failing_pairs=failing), n_splits=3, quality=QUALITY))
 
         for row, column in failing:
             assert without_filtering[row, column]

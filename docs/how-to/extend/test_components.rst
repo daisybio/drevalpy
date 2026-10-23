@@ -119,9 +119,10 @@ This block uses the built-in ``LSO``; substitute your own mode name.
 
 .. code-block:: python
 
+   from drevalpy.plugin import CurveQuality
    from drevalpy.registry import splitter
 
-   folds = splitter.get("LSO")(build_synthetic_dataset(), n_splits=3)
+   folds = splitter.get("LSO")(build_synthetic_dataset(), n_splits=3, quality=CurveQuality.default())
    assert len(folds) == 3
 
 Visualizations are checked the same manual way: call ``compute`` first, then the renderers (see

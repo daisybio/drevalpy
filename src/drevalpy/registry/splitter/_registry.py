@@ -2,7 +2,12 @@
 
 A splitter is any callable with the signature::
 
-    (mudataset: MuDataLike, n_splits: int, validation_ratio: float, random_state: int) -> list[SplitMasks]
+    (mudataset: MuDataLike, n_splits: int, validation_ratio: float, random_state: int,
+     *, quality: CurveQuality) -> list[SplitMasks]
+
+``quality`` is the curve-quality rule the caller asked for. A splitter receives the unfiltered
+dataset and decides which pairs to use, normally ``observed_mask(mudataset, quality)``; it may
+deliberately ignore the rule. Registering a function without a ``quality`` parameter raises.
 
 Register custom splitters with the ``@splitter_registry.register`` decorator.
 Validation runs automatically after each split -- no way to bypass it.
@@ -10,11 +15,12 @@ Validation runs automatically after each split -- no way to bypass it.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Protocol
 
-from drevalpy.errors import UnknownNameError
+from drevalpy.errors import InvalidInputError, UnknownNameError
 from drevalpy.registry._base import TableReprMixin
 from drevalpy.types import MuDataLike, SplitMasks
 
@@ -22,6 +28,8 @@ from ._validation import Validation, canonical_validation, validate_folds
 
 if TYPE_CHECKING:
     import pandas as pd
+
+    from drevalpy.data.quality import CurveQuality
 
 
 class Splitter(Protocol):
@@ -33,6 +41,8 @@ class Splitter(Protocol):
         n_splits: int = 5,
         validation_ratio: float = 0.1,
         random_state: int = 42,
+        *,
+        quality: CurveQuality,
     ) -> list[SplitMasks]:
         """Execute the splitter."""
         ...
@@ -47,8 +57,10 @@ def _wrap_with_validation(fn: Splitter, mode: str, validation: Validation) -> Sp
         n_splits: int = 5,
         validation_ratio: float = 0.1,
         random_state: int = 42,
+        *,
+        quality: CurveQuality,
     ) -> list[SplitMasks]:
-        folds = fn(mudataset, n_splits, validation_ratio, random_state)
+        folds = fn(mudataset, n_splits, validation_ratio, random_state, quality=quality)
         validate_folds(folds, validation, mudataset)
         for i, fold in enumerate(folds):
             fold.metadata.setdefault("mode", mode)
@@ -59,6 +71,21 @@ def _wrap_with_validation(fn: Splitter, mode: str, validation: Validation) -> Sp
         return folds
 
     return wrapper  # type: ignore[return-value]
+
+
+def _require_quality_parameter(fn: Splitter, mode: str) -> None:
+    """Reject a splitter that cannot receive the ``quality`` keyword.
+
+    :param fn: Splitter being registered.
+    :param mode: Mode name, for the message.
+    :raises InvalidInputError: If *fn* has neither a ``quality`` parameter nor ``**kwargs``.
+    """
+    parameters = inspect.signature(fn).parameters
+    if "quality" not in parameters and not any(p.kind is p.VAR_KEYWORD for p in parameters.values()):
+        raise InvalidInputError(
+            f"Splitter {mode!r} must accept a keyword parameter 'quality: CurveQuality'; "
+            "add `*, quality` to its signature and call observed_mask(mudataset, quality)."
+        )
 
 
 class SplitterRegistry(TableReprMixin):
@@ -94,7 +121,8 @@ class SplitterRegistry(TableReprMixin):
         visualization registry: a silent overwrite means one package quietly
         changes another package's split semantics. Pass ``override=True`` when
         replacing a mode is the intent. Raises ``ValueError`` if *mode* is already registered
-        and *override* is false, or if an alias collides with another mode or alias.
+        and *override* is false, if an alias collides with another mode or alias, or
+        (``InvalidInputError``) if the function has no ``quality`` parameter.
 
         :param mode: Mode name (e.g. "LPO", "LSO", or a custom name).
         :param description: Human-readable description of the splitting approach.
@@ -107,13 +135,14 @@ class SplitterRegistry(TableReprMixin):
         Example::
 
             @splitter_registry.register("MY_LSO", "Custom LSO with fraction", validation="LSO")
-            def my_lso(mudataset, n_splits=5, validation_ratio=0.1, random_state=42): ...
+            def my_lso(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality): ...
         """
 
         def decorator(fn: Splitter) -> Splitter:
             if mode in self._splitters and not override:
                 msg = f"Splitter mode {mode!r} already registered"
                 raise ValueError(msg)
+            _require_quality_parameter(fn, mode)
             self._check_aliases(mode, aliases)
             wrapped = _wrap_with_validation(fn, mode, validation)
             for alias in self.aliases_of(mode):

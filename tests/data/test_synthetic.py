@@ -17,6 +17,7 @@ from drevalpy.data._synthetic import (
     _punch_holes,
     synthetic,
 )
+from drevalpy.data.quality import CurveQuality
 from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.errors import InvalidInputError
 from drevalpy.testing import build_synthetic_dataset
@@ -505,7 +506,7 @@ class TestSplitterCompatibility:
     def test_every_builtin_splitter_accepts_it(self, dataset, mode):
         from drevalpy.registry import splitter
 
-        folds = splitter.get(mode)(dataset, n_splits=2, validation_ratio=0.1)
+        folds = splitter.get(mode)(dataset, n_splits=2, validation_ratio=0.1, quality=CurveQuality.default())
 
         assert len(folds) == 2
         for fold in folds:
@@ -517,7 +518,7 @@ class TestSplitterCompatibility:
 
         observed = ~np.isnan(dataset.response_matrix)
 
-        for fold in splitter.get("LPO")(dataset, n_splits=2, validation_ratio=0.1):
+        for fold in splitter.get("LPO")(dataset, n_splits=2, validation_ratio=0.1, quality=CurveQuality.default()):
             assert not (fold.train.mask & ~observed).any()
             assert not (fold.test.mask & ~observed).any()
 

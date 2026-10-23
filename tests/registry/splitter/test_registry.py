@@ -13,7 +13,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from drevalpy.errors import UnknownNameError
+from drevalpy.data.quality import CurveQuality
+from drevalpy.errors import InvalidInputError, UnknownNameError
 from drevalpy.registry import splitter as splitter_facade
 from drevalpy.registry.splitter._registry import SplitterRegistry, splitter_registry
 from drevalpy.registry.splitter._validation import SplitValidationError
@@ -21,6 +22,7 @@ from drevalpy.types.data.split_mask import SplitMask
 from drevalpy.types.data.split_masks import SplitMasks
 
 _SHAPE = (4, 3)
+QUALITY = CurveQuality.default()
 _BUILTIN_MODES = ("LSO", "LDO", "LPO", "LTO")
 
 
@@ -91,7 +93,7 @@ def register_valid(registry: SplitterRegistry) -> Callable[..., Any]:
 
     def _register(mode: str = "MY_LSO", description: str = "one clean fold"):
         @registry.register(mode, description, validation="LSO")
-        def splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+        def splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
             """Return a single leakage-free fold."""
             return [_lso_fold()]
 
@@ -160,12 +162,12 @@ def test_the_rejected_re_registration_leaves_the_original(
 
 def test_override_replaces_an_existing_mode(registry: SplitterRegistry) -> None:
     @registry.register("MY_LSO", "first", validation="LSO")
-    def first(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+    def first(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
         """Return a single leakage-free fold."""
         return [_lso_fold()]
 
     @registry.register("MY_LSO", "second", validation="LSO", override=True)
-    def second(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+    def second(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
         """Return a single leakage-free fold."""
         return [_lso_fold()]
 
@@ -212,7 +214,7 @@ def test_resolve_maps_a_mode_name_to_a_splitter(registry: SplitterRegistry, regi
 
 
 def test_resolve_passes_a_callable_through(registry: SplitterRegistry) -> None:
-    def splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+    def splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
         return []
 
     assert registry.resolve(splitter) is splitter  # type: ignore[arg-type]
@@ -220,18 +222,47 @@ def test_resolve_passes_a_callable_through(registry: SplitterRegistry) -> None:
 
 def test_the_wrapper_runs_validation(registry: SplitterRegistry, mudataset: _FakeMuDataset) -> None:
     @registry.register("LEAKY", "leaks a sample", validation="LSO")
-    def leaky(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+    def leaky(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
         """Return a fold whose train and test share a sample."""
         return [_leaking_fold()]
 
     with pytest.raises(SplitValidationError, match="LSO validation failed"):
-        leaky(mudataset)
+        leaky(mudataset, quality=QUALITY)
+
+
+def test_the_wrapper_passes_quality_to_the_splitter(registry: SplitterRegistry, mudataset: _FakeMuDataset) -> None:
+    seen: list[CurveQuality] = []
+
+    @registry.register("RECORDS", "records the rule", validation="LSO")
+    def records(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
+        seen.append(quality)
+        return [_lso_fold()]
+
+    records(mudataset, quality=CurveQuality.off())
+
+    assert seen == [CurveQuality.off()]
+
+
+def test_a_splitter_without_a_quality_parameter_is_rejected(registry: SplitterRegistry) -> None:
+    with pytest.raises(InvalidInputError, match="must accept a keyword parameter 'quality"):
+
+        @registry.register("OLD_STYLE", "no quality", validation="LSO")
+        def old_style(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+            return [_lso_fold()]
+
+    assert "OLD_STYLE" not in registry.modes
+
+
+def test_a_splitter_taking_kwargs_is_accepted(registry: SplitterRegistry) -> None:
+    registry.register("KWARGS", "takes **kwargs", validation="LSO")(lambda *args, **kwargs: [_lso_fold()])
+
+    assert "KWARGS" in registry.modes
 
 
 def test_the_wrapper_injects_default_metadata(register_valid: Callable[..., Any], mudataset: _FakeMuDataset) -> None:
     wrapped = register_valid()
 
-    folds = wrapped(mudataset, n_splits=3, validation_ratio=0.2, random_state=7)
+    folds = wrapped(mudataset, n_splits=3, validation_ratio=0.2, random_state=7, quality=QUALITY)
 
     assert folds[0].metadata == {
         "mode": "MY_LSO",
@@ -246,13 +277,13 @@ def test_the_wrapper_does_not_overwrite_splitter_metadata(
     registry: SplitterRegistry, mudataset: _FakeMuDataset
 ) -> None:
     @registry.register("ANNOTATED", "sets its own mode", validation="LSO")
-    def annotated(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+    def annotated(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
         """Return a fold that already declares its mode."""
         fold = _lso_fold()
         fold.metadata["mode"] = "custom"
         return [fold]
 
-    folds = annotated(mudataset)
+    folds = annotated(mudataset, quality=QUALITY)
 
     assert folds[0].metadata["mode"] == "custom"
 
@@ -348,7 +379,7 @@ def register_aliased(registry: SplitterRegistry) -> Callable[..., Any]:
 
     def _register(mode: str = "MY_LSO", aliases: tuple[str, ...] = ("OLD",), **kwargs: Any):
         @registry.register(mode, "aliased", validation="LSO", aliases=aliases, **kwargs)
-        def splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+        def splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
             """Return a single leakage-free fold."""
             return [_lso_fold()]
 
@@ -392,7 +423,7 @@ def test_an_aliased_splitter_reports_the_canonical_mode(
 ) -> None:
     register_aliased()
 
-    folds = registry.get("OLD")(mudataset)
+    folds = registry.get("OLD")(mudataset, quality=QUALITY)
 
     assert folds[0].metadata["mode"] == "MY_LSO"
 
@@ -497,12 +528,12 @@ def test_retain_only_forgets_the_aliases_of_dropped_modes(
 
 def test_a_legacy_validation_name_is_stored_canonically(registry: SplitterRegistry) -> None:
     @registry.register("LEGACY", "uses the old validation name", validation="LCO")  # type: ignore[arg-type]
-    def splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42):
+    def splitter(mudataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
         return [_leaking_fold()]
 
     assert registry.get_metadata("LEGACY")["validation"] == "LSO"
     with pytest.raises(SplitValidationError, match="LSO validation failed"):
-        splitter(_FakeMuDataset())
+        splitter(_FakeMuDataset(), quality=QUALITY)
 
 
 def test_builtin_lso_carries_the_lco_alias() -> None:

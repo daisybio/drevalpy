@@ -30,21 +30,20 @@ def split(
     :param n_splits: Number of CV folds.
     :param validation_ratio: Fraction of training data for validation.
     :param random_state: Seed for reproducibility.
-    :param quality: Curve-quality rule applied before the splitter; ``None`` means ``CurveQuality.default()``.
-        The splitter sees a view of *dataset* whose failed pairs are NaN, and the rule is recorded in each
-        fold's metadata under ``quality``.
+    :param quality: Curve-quality rule handed to the splitter as ``quality=``; ``None`` means
+        ``CurveQuality.default()``. The built-in splitters leave out the pairs that fail it. The rule is
+        recorded in each fold's metadata under ``quality`` as the one requested; a custom splitter may
+        deliberately ignore it.
     :returns: List of SplitMasks, one per fold.
     :raises ValueError: If two folds produce the same fold ID.
     """
     from drevalpy.registry.splitter import splitter_registry
 
-    from .splitters._quality_view import QualityMasked
-
     rule = quality or CurveQuality.default()
     mode = splitter_registry.canonical(mode)
     splitter = splitter_registry.get(mode)
     folds = splitter(
-        QualityMasked(dataset, rule), n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
+        dataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state, quality=rule
     )
 
     fold_ids: list[str] = []

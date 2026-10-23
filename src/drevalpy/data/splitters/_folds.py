@@ -14,24 +14,36 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.types import SplitMask, SplitMasks
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from drevalpy.data.quality import CurveQuality
     from drevalpy.types import MuDataLike
 
 
-def observed_mask(mudataset: MuDataLike) -> np.ndarray:
-    """Return the pairs with a finite response.
+def observed_mask(dataset: MuDataLike, quality: CurveQuality) -> np.ndarray:
+    """Return the pairs with a finite response that also pass the curve-quality rule.
 
-    The curve-quality rule is not applied here: :func:`drevalpy.data.split` blanks the
-    pairs that fail it before the splitter runs, so they are already NaN.
+    A splitter calls this with the ``quality`` it was given, so the user's choice
+    (``quality=`` in :func:`drevalpy.data.split`, ``--no-quality-filter`` on the command
+    line) reaches it. With :meth:`~drevalpy.data.quality.CurveQuality.off` the result is
+    plain finiteness and no response layer is read, so datasets without quality layers work.
 
-    :param mudataset: Dataset to read the response matrix from.
+    :param dataset: Dataset to read the response matrix and, for a rule, the quality layers from.
+    :param quality: Curve-quality rule a pair must pass.
     :returns: Boolean sample-by-drug mask of usable pairs.
+    :raises UnknownNameError: If *quality* needs a response layer *dataset* lacks (a ``KeyError``).
     """
-    return np.isfinite(mudataset.response_matrix)
+    try:
+        passed = quality.mask(dataset)
+    except KeyError as error:
+        raise UnknownNameError(
+            f"{error.args[0]} The curve-quality rule needs it; pass CurveQuality.off() to skip the filter."
+        ) from error
+    return np.isfinite(dataset.response_matrix) & passed
 
 
 def group_folds(

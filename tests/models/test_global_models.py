@@ -89,9 +89,10 @@ def _first_lto_fold(mudataset: Dataset) -> SplitMasks:
     :param mudataset: Dataset to split.
     :returns: The first fold's split masks.
     """
+    from drevalpy.data import CurveQuality
     from drevalpy.registry.splitter import get as get_splitter
 
-    return get_splitter("LTO")(mudataset, n_splits=2, validation_ratio=0.4)[0]
+    return get_splitter("LTO")(mudataset, n_splits=2, validation_ratio=0.4, quality=CurveQuality.off())[0]
 
 
 def _assert_round_trips(

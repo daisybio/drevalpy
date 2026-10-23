@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from drevalpy.data.splitters._folds import entity_masks, group_folds, observed_mask
 from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMasks
+
+if TYPE_CHECKING:
+    from drevalpy.data.quality import CurveQuality
 
 
 @register("LSO", "Leave-Sample-Out: test folds contain unseen samples", validation="LSO", aliases=("LCO",))
@@ -13,13 +18,14 @@ def leave_sample_out(
     n_splits: int = 5,
     validation_ratio: float = 0.1,
     random_state: int = 42,
+    *,
+    quality: CurveQuality,
 ) -> list[SplitMasks]:
     """Generate LSO folds where each sample appears in exactly one test set.
 
-    Every pair with a finite response is used; :func:`drevalpy.data.split` applies the curve-quality rule
-    beforehand by blanking failed pairs.
+    Every pair with a finite response that passes *quality* is used.
     """
-    observed = observed_mask(mudataset)
+    observed = observed_mask(mudataset, quality)
     folds = group_folds(
         observed.shape[0],
         n_splits=n_splits,

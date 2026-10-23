@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from drevalpy.data.splitters._folds import observed_mask, pair_masks
 from drevalpy.registry.splitter import register
 from drevalpy.types import MuDataLike, SplitMasks
+
+if TYPE_CHECKING:
+    from drevalpy.data.quality import CurveQuality
 
 
 @register("LStO", "Leave-Study-Out: test folds contain one unseen study", validation="LStO")
@@ -15,6 +20,8 @@ def leave_study_out(
     n_splits: int = 5,
     validation_ratio: float = 0.1,
     random_state: int = 42,
+    *,
+    quality: CurveQuality,
 ) -> list[SplitMasks]:
     """Generate LStO folds: one fold per study, tested on that study and trained on the others.
 
@@ -26,6 +33,7 @@ def leave_study_out(
     :param n_splits: Ignored; there is always one fold per study.
     :param validation_ratio: Fraction of the training pairs held out for validation.
     :param random_state: Seed for the validation draw.
+    :param quality: Curve-quality rule a pair must pass to be used.
     :returns: One ``SplitMasks`` per study.
     :raises KeyError: If the dataset has no ``study`` column; build one with ``drevalpy.data.concat``.
     :raises ValueError: If the dataset has fewer than two studies.
@@ -38,7 +46,7 @@ def leave_study_out(
     if len(unique_studies) < 2:
         raise ValueError(f"LStO needs at least two studies, found {len(unique_studies)}.")
 
-    observed = observed_mask(mudataset)
+    observed = observed_mask(mudataset, quality)
     rows, columns = np.where(observed)
     in_study = studies[rows][:, None] == unique_studies[None, :]
     folds = []

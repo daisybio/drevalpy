@@ -42,7 +42,8 @@ from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-from drevalpy.data.quality import curve_quality_mask
+from drevalpy.data.quality import CurveQuality, curve_quality_mask
+from drevalpy.data.splitters import observed_mask
 from drevalpy.registry.drug_featurizer import register as register_drug_featurizer
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.registry.sample_featurizer import register as register_sample_featurizer
@@ -84,6 +85,7 @@ from drevalpy.visualization.requirements import PlotRequirement
 __all__ = [
     "BlockPredictor",
     "BlockSpec",
+    "CurveQuality",
     "Dataset",
     "DenseViewDrugFeaturizer",
     "DenseViewFeaturizer",
@@ -127,6 +129,7 @@ __all__ = [
     "merge_feature_blocks",
     "metadata_feature_block",
     "numeric_feature_block",
+    "observed_mask",
     "ragged_feature_block",
     "register_drug_featurizer",
     "register_for_sides",

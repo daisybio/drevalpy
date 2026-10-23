@@ -217,7 +217,7 @@ validation data. The default ``random_state`` (``--seed`` on the command line) i
                  fold_id: 35d304f70093
 
 Each mask is a boolean matrix of the same shape as the response matrix: samples by drugs. The
-three masks of a fold do not overlap. Only pairs that pass the curve-quality rule in
+three masks of a fold do not overlap. With the built-in split modes, only pairs that pass the curve-quality rule in
 :doc:`/reference/datasets` are in any mask, so the three counts can add up to less than the
 number of measured pairs. The rule is the default one unless you pass ``quality=`` to ``split``
 (``CurveQuality.off()`` keeps every measured pair). On the command line, ``drevalpy data split``

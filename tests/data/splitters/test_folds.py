@@ -20,7 +20,7 @@ from drevalpy.data.splitters._folds import (
     pair_masks,
     rows_with_labels,
 )
-from drevalpy.data.splitters._quality_view import QualityMasked
+from drevalpy.errors import UnknownNameError
 from tests.data.splitters._helpers import MockMuDataset, first_measured_pairs
 
 FOLD_KWARGS = {"n_splits": 5, "validation_ratio": 0.1, "random_state": 42}
@@ -33,7 +33,7 @@ def dataset() -> MockMuDataset:
 
 @pytest.fixture(scope="module")
 def observed(dataset) -> np.ndarray:
-    return observed_mask(dataset)
+    return observed_mask(dataset, CurveQuality.default())
 
 
 class TestObservedMask:
@@ -44,35 +44,60 @@ class TestObservedMask:
     def test_marks_the_measured_pairs(self, dataset, observed):
         np.testing.assert_array_equal(observed, ~np.isnan(dataset.response_matrix))
 
-    def test_ignores_the_quality_layers(self):
-        """Quality is applied by ``split`` before the splitter; here only the response counts."""
+    def test_off_ignores_the_quality_layers(self):
         clean = MockMuDataset()
         failing = first_measured_pairs(clean, 3)
 
-        unfiltered = observed_mask(MockMuDataset(failing_pairs=failing))
+        unfiltered = observed_mask(MockMuDataset(failing_pairs=failing), CurveQuality.off())
 
-        np.testing.assert_array_equal(unfiltered, observed_mask(clean))
+        np.testing.assert_array_equal(unfiltered, observed_mask(clean, CurveQuality.off()))
 
-    def test_drops_pairs_that_the_quality_view_blanks(self):
+    def test_drops_the_pairs_that_fail_the_rule(self):
         clean = MockMuDataset()
         failing = first_measured_pairs(clean, 3)
 
-        filtered = observed_mask(QualityMasked(MockMuDataset(failing_pairs=failing), CurveQuality.default()))
+        filtered = observed_mask(MockMuDataset(failing_pairs=failing), CurveQuality.default())
 
         assert not any(filtered[row, column] for row, column in failing)
-        assert filtered.sum() == observed_mask(clean).sum() - len(failing)
+        assert filtered.sum() == observed_mask(clean, CurveQuality.default()).sum() - len(failing)
+
+    def test_off_works_on_a_dataset_without_quality_layers(self):
+        dataset = MockMuDataset()
+        dataset._layers = {}
+
+        np.testing.assert_array_equal(observed_mask(dataset, CurveQuality.off()), np.isfinite(dataset.response_matrix))
+
+    def test_a_rule_needing_a_missing_layer_raises(self):
+        with pytest.raises(UnknownNameError, match="R2"):
+            observed_mask(MockMuDataset(), CurveQuality(min_r2=0.5))
+
+    def test_the_missing_layer_error_is_still_a_key_error(self):
+        with pytest.raises(KeyError):
+            observed_mask(MockMuDataset(), CurveQuality(min_r2=0.5))
+
+    def test_the_layers_and_the_dataset_are_left_untouched(self):
+        failing = first_measured_pairs(MockMuDataset(), 3)
+        dataset = MockMuDataset(failing_pairs=failing)
+        response = dataset.response_matrix.copy()
+        layers = {name: dataset.get_response_layer(name).copy() for name in dataset.response_layer_names()}
+
+        observed_mask(dataset, CurveQuality.default())
+
+        np.testing.assert_array_equal(dataset.response_matrix, response)
+        for name, values in layers.items():
+            np.testing.assert_array_equal(dataset.get_response_layer(name), values)
 
     def test_infinite_responses_are_not_observed(self):
         dataset = MockMuDataset()
         row, column = first_measured_pairs(dataset, 1)[0]
         dataset.response_matrix[row, column] = np.inf
 
-        assert not observed_mask(dataset)[row, column]
+        assert not observed_mask(dataset, CurveQuality.off())[row, column]
 
     def test_does_not_mutate_the_response_matrix(self, dataset):
         before = dataset.response_matrix.copy()
 
-        observed_mask(dataset)
+        observed_mask(dataset, CurveQuality.off())
 
         np.testing.assert_array_equal(np.isnan(dataset.response_matrix), np.isnan(before))
 

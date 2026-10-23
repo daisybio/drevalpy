@@ -129,11 +129,13 @@ Cross-study evaluation, component grids and recorded failures
   ``on_error="raise"`` restores the old behavior. ``drevalpy run`` prints the failures and exits
   with status 1, and the report has a "Failed runs" table. If every run fails, ``run`` raises
   ``ExperimentFailedError``.
-- **Curve-quality rule.** ``drevalpy.data.CurveQuality`` describes the rule that ``split`` applies
-  before the splitter, with the default unchanged. ``drevalpy run`` and ``drevalpy data split`` take
+- **Curve-quality rule.** ``drevalpy.data.CurveQuality`` describes the rule that ``split`` hands
+  to the splitter, with the default unchanged. ``drevalpy run`` and ``drevalpy data split`` take
   ``--no-quality-filter``, ``--min-relevance-score`` and ``--min-abs-fold-change``, and
   ``CurveQuality.off()`` splits a dataset that has only a pEC50 matrix. Each fold records the rule
-  under ``quality``. See :doc:`/reference/datasets`.
+  under ``quality``. A splitter takes a required ``quality`` keyword and calls
+  ``observed_mask(dataset, quality)``; a splitter without it fails at registration. See
+  :doc:`/reference/datasets` and :doc:`/how-to/extend/write_splitter`.
 - **Weights & Biases.** ``--wandb-project`` on ``drevalpy run`` and ``drevalpy single``, and
   ``wandb_project=`` in Python, log one W&B run per tuning trial and a final run per fold with the
   test metrics.

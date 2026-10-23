@@ -210,7 +210,7 @@ The folds are ordered by study name, so with GDSC2 and CTRPv2 fold 0 tests on CT
 studies, each fold trains on two and tests on one. ``LStO`` raises ``KeyError`` on a dataset
 without a ``study`` column (the message points to ``concat``) and ``ValueError`` with fewer than
 two studies. Any other split mode also works on a concatenated dataset; it then mixes the studies
-in every fold. The curve-quality rule is applied before the split, as for every split mode; see
+in every fold. The built-in split modes, ``LStO`` included, apply the curve-quality rule; see
 :doc:`/reference/datasets`.
 
 Read the score of each study

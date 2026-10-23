@@ -67,8 +67,8 @@ splitting: a leave-sample-out split fails loudly if a test sample leaks into
 training. The same checks apply to the validation split used for tuning and
 early stopping (see :doc:`training_lifecycle`).
 
-Before a splitter runs, ``split`` drops the pairs whose fitted dose-response
-curve fails a curve-quality rule, so that models are trained and scored only on
+``split`` hands a curve-quality rule to the splitter, and the built-in splitters drop the
+pairs whose fitted dose-response curve fails it, so that models are trained and scored only on
 measurements that are distinguishable from noise. The default rule keeps pairs
 with a relevance score of at least ``-log10(0.05)`` and an absolute fold change
 of at least 0.45. It is a setting of the experiment, chosen once for all models,

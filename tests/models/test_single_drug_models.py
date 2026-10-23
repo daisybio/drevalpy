@@ -47,6 +47,7 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
     :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
     :param model_name: Model name, possibly with a ``[view]`` suffix.
     """
+    from drevalpy.data import CurveQuality
     from drevalpy.registry.splitter import get as get_splitter
     from drevalpy.utils.seed import seed_everything
 
@@ -55,7 +56,7 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
     whole_name = model_name
     model_name = _resolve_single_drug_model_name(whole_name)
 
-    split = get_splitter("LTO")(synthetic_dataset, n_splits=2, validation_ratio=0.4)[0]
+    split = get_splitter("LTO")(synthetic_dataset, n_splits=2, validation_ratio=0.4, quality=CurveQuality.off())[0]
 
     spec = _construct_single_drug_spec(whole_name, model_name)
     hpam_combi = dict(spec.default_hyperparameters)
