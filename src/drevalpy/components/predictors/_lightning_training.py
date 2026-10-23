@@ -34,12 +34,15 @@ class LightningRun:
     :param checkpoint_dir: Directory that receives a randomised ``version-<hex>`` subdirectory.
     :param patience: Epochs without improvement before early stopping.
     :param save_weights_only: Store model weights only, without optimizer state.
-    :param devices: Device count or spec, pinned by MOLIR and left to Lightning's auto-detection when ``None``.
+    :param devices: Device count or spec, pinned by MOLIR and SuperFELTR and left to Lightning's auto-detection
+        when ``None``.
     :param enable_model_summary: Print Lightning's model summary.
     :param accelerator: Lightning accelerator (``"cpu"`` pins the neural network to the CPU).
     :param precision: Numerical precision passed to the trainer.
     :param log_every_n_steps: Logging interval in training steps.
     :param logger: Attach the logger from :func:`_loggers`; ``False`` disables logging.
+    :param default_logger: Keep Lightning's default logger when no W&B run is active. ``False`` logs to W&B
+        only, so concurrent fits (one process per drug) do not race for the same ``lightning_logs`` version.
     :param enable_progress_bar: Show Lightning's progress bar.
     :param checkpoint: Early-stop on the monitored loss and keep the best epoch. When ``False`` neither
         callback is attached, which is the choice when there is no validation loader to monitor.
@@ -55,6 +58,7 @@ class LightningRun:
     precision: int | str = 32
     log_every_n_steps: int = 50
     logger: bool = True
+    default_logger: bool = True
     enable_progress_bar: bool = False
     checkpoint: bool = True
 
@@ -100,7 +104,7 @@ def run_lightning_fit(
         precision=run.precision,
         log_every_n_steps=run.log_every_n_steps,
         default_root_dir=str(run.checkpoint_dir),
-        logger=_loggers() if run.logger else False,
+        logger=_loggers(default=run.default_logger) if run.logger else False,
         callbacks=callbacks,
         enable_checkpointing=run.checkpoint,
         enable_model_summary=run.enable_model_summary,
@@ -114,15 +118,16 @@ def run_lightning_fit(
     return checkpoint_callback
 
 
-def _loggers() -> list[Any] | bool:
+def _loggers(*, default: bool = True) -> list[Any] | bool:
     """Resolve the Lightning ``logger`` argument.
 
-    :returns: A one-element list logging into the active W&B tracking run, or ``True`` for
-        Lightning's default logger when no run is active.
+    :param default: Whether Lightning's default logger stands in when no W&B run is active.
+    :returns: A one-element list logging into the active W&B tracking run, or ``default`` when no
+        run is active.
     """
     wandb_run = active_run()
     if wandb_run is None:
-        return True
+        return default
     from pytorch_lightning.loggers import WandbLogger
 
     return [WandbLogger(experiment=wandb_run, log_model=False)]

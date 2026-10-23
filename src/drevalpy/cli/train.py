@@ -13,6 +13,7 @@ from ._options import (
     HpoMetric,
     HpoNumTrials,
     HpoRandomState,
+    NJobs,
     ResponseTransformation,
     ResponseTransformationOption,
     resolve_response_transformation,
@@ -44,6 +45,7 @@ def train_cmd(
     no_quality_filter: NoQualityFilter = False,
     min_relevance_score: MinRelevanceScore = None,
     min_abs_fold_change: MinAbsFoldChange = None,
+    n_jobs: NJobs = 1,
 ) -> None:
     """Train a final model on all pairs of a dataset and save it."""
     from drevalpy import __version__
@@ -65,6 +67,7 @@ def train_cmd(
         response_transformation=transformer,
         quality=quality,
         seed=seed,
+        n_jobs=n_jobs,
     )
 
     out = UPath(output)

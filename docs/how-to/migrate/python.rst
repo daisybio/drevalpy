@@ -158,6 +158,10 @@ Map the ``drug_response_experiment`` parameters
    * - ``cross_study_datasets``
      - Pass a list of datasets to ``dataset`` and use the split mode ``"LStO"``, or build the
        dataset with ``drevalpy.data.concat``. See :doc:`/how-to/run_cross_study`.
+   * - ``n_jobs``
+     - ``n_jobs`` of ``drevalpy.run``, ``drevalpy.single`` and ``drevalpy.train``. It fits
+       the per-drug models of single-drug models in parallel and does not change the
+       results. See :doc:`/how-to/run_experiment`.
    * - ``model_checkpoint_dir``
      - Removed from ``run``. Save a model with ``DRPModel.save``.
    * - ``final_model_on_full_data``

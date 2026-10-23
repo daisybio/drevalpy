@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Literal
 from rich.markup import escape
 
 from drevalpy._single import single
+from drevalpy.components.contracts.training_context import check_n_jobs
 from drevalpy.data import CurveQuality, concat, load, split
 from drevalpy.errors import InvalidInputError
 from drevalpy.experiment._randomization import randomization
@@ -150,6 +151,7 @@ def run(
     quality: CurveQuality | None = None,
     wandb_project: str | None = None,
     on_error: Literal["record", "raise"] = "record",
+    n_jobs: int = 1,
 ) -> ExperimentResult:
     """Run the full experiment pipeline.
 
@@ -172,10 +174,14 @@ def run(
     :param wandb_project: Weights & Biases project to log to; ``None`` disables tracking.
     :param on_error: ``"record"`` keeps going when a run raises, logs a warning and stores a ``RunFailure`` on
         the result; ``"raise"`` re-raises the first error. ``KeyboardInterrupt`` always propagates.
+    :param n_jobs: Number of worker processes a single-drug model fits its per-drug models in, during tuning and in
+        every final fit; ``-1`` uses all CPUs. Results are identical for every value, and other models ignore it.
     :returns: ExperimentResult grouping all model results, with the recorded failures.
     :raises ExperimentFailedError: If ``on_error="record"`` and no run produced a result.
-    :raises InvalidInputError: If ``on_error`` is neither ``"record"`` nor ``"raise"``.
+    :raises InvalidInputError: If ``on_error`` is neither ``"record"`` nor ``"raise"``, or ``n_jobs`` is neither
+        positive nor ``-1``.
     """
+    check_n_jobs(n_jobs)
     if on_error not in ("record", "raise"):
         raise InvalidInputError(f"on_error must be 'record' or 'raise', got {on_error!r}")
     _validate_models(models)
@@ -196,6 +202,7 @@ def run(
         hpo_random_state=hpo_random_state,
         seed=seed,
         wandb_project=wandb_project,
+        n_jobs=n_jobs,
     )
     randomize = (
         partial(randomization, randomization_type=randomization_type, random_state=randomization_seed)

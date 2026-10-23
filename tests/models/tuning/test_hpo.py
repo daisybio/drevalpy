@@ -104,3 +104,22 @@ def test_best_hyperparameters_carry_the_decoded_pow2_value_the_trials_trained_wi
 def test_hpo_trials_failed_error_is_a_drevalpy_runtime_error() -> None:
     assert issubclass(HPOTrialsFailedError, DrEvalError)
     assert issubclass(HPOTrialsFailedError, RuntimeError)
+
+
+@patch("drevalpy.models.tuning.hpo._mu_evaluate_trial_all_metrics", return_value=({"RMSE": 0.1}, np.zeros(4)))
+def test_tuning_hands_n_jobs_to_every_trial(mock_evaluate) -> None:
+    spec = ModelSpec.from_name("ElasticNet")
+    dataset, train_scope, val_scope = _scopes(synthetic_mudataset_gene_expression_fingerprints())
+
+    hpam_tune(
+        model_spec=spec,
+        mudataset=dataset,
+        train_scope=train_scope,
+        val_scope=val_scope,
+        early_stopping_scope=None,
+        metric="RMSE",
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
+        n_jobs=4,
+    )
+
+    assert [call.kwargs["n_jobs"] for call in mock_evaluate.call_args_list] == [4, 4]

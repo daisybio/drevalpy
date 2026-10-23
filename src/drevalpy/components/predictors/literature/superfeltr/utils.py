@@ -367,7 +367,14 @@ def train_superfeltr_model(
                 model,
                 train_loader,
                 val_loader,
-                LightningRun(max_epochs=hpams["epochs"], patience=patience, checkpoint_dir=checkpoint_dir),
+                LightningRun(
+                    max_epochs=hpams["epochs"],
+                    patience=patience,
+                    checkpoint_dir=checkpoint_dir,
+                    devices=1,
+                    accelerator="cpu",  # the model is too small to profit from a GPU
+                    default_logger=False,
+                ),
             ),
         )
         if model_checkpoint_dir is None and checkpoint.best_model_path:

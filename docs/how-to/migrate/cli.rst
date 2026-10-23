@@ -124,6 +124,10 @@ Map the ``drevalpy`` flags
    * - ``--multiprocessing``
      - Removed (it started Ray). Run folds in parallel with ``single``; see
        :doc:`/how-to/run_folds_in_parallel`.
+   * - ``--n_jobs``
+     - ``--n-jobs`` on ``run``, ``single`` and ``train``. It fits the per-drug models of
+       single-drug models in parallel and does not change the results. See
+       :doc:`/how-to/run_experiment`.
    * - ``--model_checkpoint_dir``
      - Removed from the command line. Checkpoints are zip archives written
        with ``DRPModel.save``; see :doc:`/how-to/train_save_load`.

@@ -71,6 +71,7 @@ def _mu_evaluate_trial_all_metrics(
     early_stopping_scope: SplitMask | None,
     model_checkpoint_dir: str | Path | None,
     trial_number: int = 0,
+    n_jobs: int = 1,
 ) -> tuple[dict[str, float], np.ndarray]:
     """Train a trial model, then score its validation predictions on every metric.
 
@@ -81,6 +82,7 @@ def _mu_evaluate_trial_all_metrics(
     :param early_stopping_scope: Optional early-stopping scope.
     :param model_checkpoint_dir: Directory for per-trial checkpoints; ``None`` uses a temporary directory.
     :param trial_number: Optuna trial number, used to name the trial's checkpoint directory.
+    :param n_jobs: Worker processes a single-drug predictor fits its per-drug models in.
     :returns: Tuple of (metrics_dict, predictions_array).
     """
     from contextlib import nullcontext
@@ -93,6 +95,7 @@ def _mu_evaluate_trial_all_metrics(
             train_scope,
             early_stopping_scope=early_stopping_scope,
             model_checkpoint_dir=checkpoint_dir,
+            n_jobs=n_jobs,
         )
     predictions = trial_model.predict(mudataset, val_scope)
     return score_predictions(predictions, _extract_ground_truth(mudataset, val_scope), empty_as_dict=True), predictions

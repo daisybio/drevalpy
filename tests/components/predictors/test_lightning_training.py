@@ -289,6 +289,20 @@ class TestLoggerSelection:
         assert _loggers() is True
         assert recorded_loggers == []
 
+    def test_the_default_logger_can_be_declined(self, monkeypatch, recorded_loggers) -> None:
+        install_fake_wandb(monkeypatch)
+
+        assert _loggers(default=False) is False
+
+    def test_declining_the_default_logger_keeps_the_wandb_one(self, monkeypatch, recorded_loggers) -> None:
+        install_fake_wandb(monkeypatch)
+
+        with tracking_run("proj", name="r"):
+            loggers = _loggers(default=False)
+
+        assert isinstance(loggers, list)
+        assert len(loggers) == 1
+
     def test_wandb_never_imported_leaves_lightning_its_default_logger(self, monkeypatch, recorded_loggers) -> None:
         monkeypatch.delitem(sys.modules, "wandb", raising=False)
 
@@ -337,3 +351,12 @@ class TestVersionedName:
 
     def test_names_do_not_repeat(self) -> None:
         assert len({_versioned_name() for _ in range(50)}) == 50
+
+
+def test_dropping_the_default_logger_leaves_a_fit_without_one(tmp_path, monkeypatch) -> None:
+    seen = _spy_trainer(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=False)
+
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, default_logger=False))
+
+    assert seen[0]["logger"] is False

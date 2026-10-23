@@ -54,12 +54,7 @@ RANGES = (0.1, 1.0)
 
 @pytest.fixture(autouse=True)
 def _trainer_logs_in_tmp_path(monkeypatch, tmp_path) -> None:
-    """Keep Lightning's run logs inside ``tmp_path``.
-
-    The trainer is deliberately *not* pinned to CPU: ``SuperFELTRegressor``
-    registers its encoders in an ``nn.ModuleList``, so Lightning moves them along
-    with the regressor and the fit works on whatever accelerator is present.
-    """
+    """Run every fit with ``tmp_path`` as the working directory, so a stray log directory is visible."""
     monkeypatch.chdir(tmp_path)
 
 
@@ -473,3 +468,23 @@ def test_train_without_checkpoint_dir_uses_a_temporary_directory_and_keeps_best_
     assert checkpoint.best_model_path
     assert not Path(checkpoint.best_model_path).exists()
     assert not (tmp_path / "superfeltr_checkpoints").exists()
+
+
+def test_train_runs_on_the_cpu_without_a_default_logger(tmp_path, monkeypatch) -> None:
+    real_trainer = pl.Trainer
+    seen: list[dict[str, object]] = []
+
+    def spy(*args, **kwargs):
+        seen.append(dict(kwargs))
+        return real_trainer(*args, **kwargs)
+
+    monkeypatch.setattr(pl, "Trainer", spy)
+
+    train_superfeltr_model(
+        model=_encoder(), hpams=_hpams(), train=_split(), patience=1, model_checkpoint_dir=tmp_path / "ckpt"
+    )
+
+    (kwargs,) = seen
+    assert kwargs["accelerator"] == "cpu"
+    assert kwargs["logger"] is False
+    assert not (tmp_path / "lightning_logs").exists()

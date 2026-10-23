@@ -24,9 +24,14 @@ from drevalpy.components.predictors.literature._omic_helpers import (
     OmicFeatureNames,
     feature_names_from_payload,
     iter_drug_subsets,
+    omic_feature_names,
     restore_algorithms,
 )
-from drevalpy.components.predictors.single_drug_routing import require_known_training_keys, routing_keys
+from drevalpy.components.predictors.single_drug_routing import (
+    require_known_training_keys,
+    routing_keys,
+    run_per_drug,
+)
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.enums.model_scope import ModelScope
@@ -66,22 +71,27 @@ class SingleDrugOmicsPredictor(BlockPredictor):
         self._feature_names: dict[str, OmicFeatureNames] = {}
 
     def _fit(self, batch: ModelInputBatch) -> None:
-        """Train one model per drug.
+        """Train one model per drug, in ``batch.training_context.n_jobs`` worker processes.
 
         :param batch: Training batch with all required sample omics blocks.
         """
         require_known_training_keys(routing_keys(batch))
         self._models = {}
         self._feature_names = {}
-        for drug_id, sub in iter_drug_subsets(batch):
-            self._fit_single_drug(drug_id, sub)
+        fitted = run_per_drug(self._fit_single_drug, iter_drug_subsets(batch), batch.training_context.n_jobs)
+        feature_names = omic_feature_names(batch)
+        self._feature_names = {drug_id: feature_names for drug_id in fitted}
+        self._models = {drug_id: model for drug_id, model in fitted.items() if model is not None}
 
     @abstractmethod
-    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> None:
-        """Fit the model of one drug and record it in ``self._models``.
+    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> Any | None:
+        """Fit the model of one drug.
+
+        This may run in a worker process, so it returns the model instead of recording it on ``self``.
 
         :param drug_id: Identifier of the drug to train on.
         :param batch: Subset batch for this drug.
+        :returns: The fitted model, or ``None`` for a drug that gets no model.
         """
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:

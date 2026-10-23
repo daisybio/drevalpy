@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 from typing import TYPE_CHECKING
 
+from drevalpy.components.contracts.training_context import check_n_jobs
 from drevalpy.evaluation import score_predictions
 from drevalpy.experiment._execution import ExecutionSpec, build_execution
 from drevalpy.experiment._tracking import log_summary, tracking_run
@@ -38,6 +39,7 @@ def single(
     hpo_random_state: int | None = None,
     seed: int = 42,
     wandb_project: str | None = None,
+    n_jobs: int = 1,
 ) -> RunResult:
     """Train a single model on a single fold and predict on the test set.
 
@@ -53,8 +55,11 @@ def single(
     :param seed: Root seed; every HPO run and final fit is seeded from it and the execution identity.
     :param wandb_project: Weights & Biases project to log the trials and the final fit to; ``None`` disables
         tracking.
+    :param n_jobs: Number of worker processes a single-drug model fits its per-drug models in, during tuning and in the
+        final fit; ``-1`` uses all CPUs. The result does not depend on it, and other models ignore it.
     :returns: RunResult with predictions, ground truth, and metrics.
     """
+    check_n_jobs(n_jobs)
     execution = build_execution(
         model_spec,
         dataset,
@@ -65,7 +70,7 @@ def single(
         hpo_random_state=seed if hpo_random_state is None else hpo_random_state,
         seed=seed,
     )
-    return _execute(execution, dataset, response_transformation, wandb_project)
+    return _execute(execution, dataset, response_transformation, wandb_project, n_jobs)
 
 
 def _execute(
@@ -73,6 +78,7 @@ def _execute(
     dataset: Dataset,
     response_transformation: TransformerMixin | None = None,
     wandb_project: str | None = None,
+    n_jobs: int = 1,
 ) -> RunResult:
     """Execute established scopes; model pipelines own all fitted transforms."""
     model_spec, scopes, identity = execution.model, execution.scopes, execution.identity
@@ -106,6 +112,7 @@ def _execute(
             split_index=identity.fold_index,
             wandb_project=wandb_project,
             wandb_base_config=base_config,
+            n_jobs=n_jobs,
         )
         trials = [
             TrialResult(
@@ -136,6 +143,7 @@ def _execute(
                 scope=scopes.final_training,
                 early_stopping_scope=scopes.stopping,
                 model_checkpoint_dir=checkpoint_dir,
+                n_jobs=n_jobs,
             )
 
         predictions = model.predict(dataset=dataset, scope=scopes.test)

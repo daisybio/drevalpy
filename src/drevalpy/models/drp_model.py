@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from upath import UPath
 
-from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.contracts.training_context import TrainingContext, check_n_jobs
 from drevalpy.models._pipeline import _ModelPipeline
 from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
@@ -86,6 +86,7 @@ class DRPModel:
         *,
         early_stopping_scope: SplitMask | None = None,
         model_checkpoint_dir: str | UPath | None = None,
+        n_jobs: int = 1,
     ) -> None:
         """Start a fresh fit using training and optional disjoint stopping data.
 
@@ -94,7 +95,10 @@ class DRPModel:
         :param early_stopping_scope: Disjoint positions used only for stopping.
         :param model_checkpoint_dir: Directory for component training checkpoints. When omitted, a temporary
             directory is used for this fit and removed afterwards.
+        :param n_jobs: Number of worker processes a single-drug predictor fits its per-drug models in; ``-1`` uses
+            all CPUs. It changes the time a fit takes, not its result, and is ignored by every other model.
         """
+        check_n_jobs(n_jobs)
         self._pipeline.reset()
         directory = (
             tempfile.TemporaryDirectory(prefix="drevalpy-checkpoints-")
@@ -102,7 +106,9 @@ class DRPModel:
             else nullcontext(model_checkpoint_dir)
         )
         with directory as checkpoint_dir:
-            context = TrainingContext(checkpoint_dir=UPath(checkpoint_dir), logging_metadata={"model_name": self.name})
+            context = TrainingContext(
+                checkpoint_dir=UPath(checkpoint_dir), logging_metadata={"model_name": self.name}, n_jobs=n_jobs
+            )
             self._pipeline.fit(dataset, scope, early_stopping_scope, training_context=context)
 
     def predict(self, dataset: Dataset, scope: SplitMask) -> np.ndarray:

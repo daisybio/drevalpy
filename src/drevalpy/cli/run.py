@@ -13,6 +13,7 @@ from ._options import (
     HpoMetric,
     HpoNumTrials,
     HpoRandomState,
+    NJobs,
     RandomizationMode,
     ResponseTransformation,
     ResponseTransformationOption,
@@ -121,6 +122,7 @@ def run_cmd(
     min_relevance_score: MinRelevanceScore = None,
     min_abs_fold_change: MinAbsFoldChange = None,
     wandb_project: WandbProject = None,
+    n_jobs: NJobs = 1,
 ) -> None:
     """Run the full evaluation pipeline."""
     from drevalpy._run import run
@@ -146,6 +148,7 @@ def run_cmd(
         response_transformation=transformer,
         quality=quality_from_cli(no_quality_filter, min_relevance_score, min_abs_fold_change),
         wandb_project=wandb_project,
+        n_jobs=n_jobs,
     )
 
     result.save(str(out))

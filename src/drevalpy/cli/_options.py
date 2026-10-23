@@ -49,6 +49,14 @@ WandbProject = Annotated[
     str | None,
     typer.Option("--wandb-project", help="Weights & Biases project to log the trials and the final fit to."),
 ]
+NJobs = Annotated[
+    int,
+    typer.Option(
+        "--n-jobs",
+        help="Worker processes a single-drug model fits its per-drug models in; -1 uses all CPUs. "
+        "Other models ignore it. The results do not depend on it.",
+    ),
+]
 GroupByOption = Annotated[
     GroupBy | None,
     typer.Option(

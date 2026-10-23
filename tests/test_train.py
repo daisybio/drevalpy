@@ -28,8 +28,8 @@ class _RecordingModel(DRPModel):
 
     fits: list[dict[str, Any]] = []  # plain class-level log, reset by the fixture
 
-    def train(self, dataset, scope, *, early_stopping_scope=None, model_checkpoint_dir=None) -> None:
-        type(self).fits.append({"scope": scope, "early_stopping_scope": early_stopping_scope})
+    def train(self, dataset, scope, *, early_stopping_scope=None, model_checkpoint_dir=None, n_jobs=1) -> None:
+        type(self).fits.append({"scope": scope, "early_stopping_scope": early_stopping_scope, "n_jobs": n_jobs})
 
 
 @pytest.fixture
@@ -233,3 +233,29 @@ class TestInputs:
 
         with pytest.raises(InvalidInputError, match="at least 2"):
             drevalpy.train("NaivePredictor", dataset, hyperparameter_tuning=False, quality=CurveQuality.off())
+
+
+class TestNJobs:
+    """``n_jobs`` reaches the final fit; the tuner takes it from the same argument."""
+
+    def test_the_final_fit_receives_it(self, recorded_fits: list[dict[str, Any]], synthetic_dataset) -> None:
+        drevalpy.train("ElasticNet", synthetic_dataset, hyperparameter_tuning=False, n_jobs=2)
+
+        assert recorded_fits[0]["n_jobs"] == 2
+
+    def test_the_tuner_receives_it(self, synthetic_dataset, monkeypatch: pytest.MonkeyPatch) -> None:
+        seen: dict[str, Any] = {}
+
+        def fake_tune(**kwargs: Any):
+            seen.update(kwargs)
+            return {"alpha": 0.2}, []
+
+        monkeypatch.setattr(TRAIN_MODULE, "hpam_tune", fake_tune)
+
+        drevalpy.train("ElasticNet", synthetic_dataset, n_jobs=3)
+
+        assert seen["n_jobs"] == 3
+
+    def test_an_unusable_count_is_rejected(self, synthetic_dataset) -> None:
+        with pytest.raises(InvalidInputError, match="n_jobs"):
+            drevalpy.train("ElasticNet", synthetic_dataset, n_jobs=0)

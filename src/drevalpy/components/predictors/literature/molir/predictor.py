@@ -11,7 +11,6 @@ from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
 from drevalpy.components.predictors.literature._omic_helpers import (
     aligned_pair_matrices,
     feature_names_payload,
-    omic_feature_names,
     omic_matrices,
     validation_split,
 )
@@ -41,15 +40,15 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
 
     _models: dict[str, MOLIModel]
 
-    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> None:
+    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> MOLIModel | None:
         """Fit a single-drug MOLIR model.
 
         :param drug_id: Identifier of the drug to train on.
         :param batch: Subset batch for this drug.
+        :returns: The model, or ``None`` when the drug has no pairs.
         """
-        self._feature_names[drug_id] = omic_feature_names(batch)
         if batch.n_pairs == 0:
-            return
+            return None
 
         matrices = omic_matrices(batch)
         model = self._build_model(matrices.widths())
@@ -61,7 +60,7 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
                 model_checkpoint_dir=str(batch.training_context.checkpoint_dir),
             )
 
-        self._models[drug_id] = model
+        return model
 
     def _build_model(self, widths: tuple[int, int, int]) -> MOLIModel:
         """Construct an untrained MOLIR model sized to the three omic views.

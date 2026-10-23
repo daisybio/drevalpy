@@ -102,6 +102,7 @@ class TestDefaults:
         assert worker.kwargs["randomization_random_state"] is None
         assert worker.kwargs["robustness_trials"] == 0
         assert worker.kwargs["seed"] == 42
+        assert worker.kwargs["n_jobs"] == 1
 
     def test_forwards_no_response_transformation(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path)
@@ -188,6 +189,11 @@ class TestOptionForwarding:
         assert worker.kwargs["hpo_metric"] == "Pearson"
         assert worker.kwargs["hpo_num_trials"] == 3
         assert worker.kwargs["hpo_random_state"] == 7
+
+    def test_n_jobs(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--n-jobs", "3")
+
+        assert worker.kwargs["n_jobs"] == 3
 
     def test_robustness_trials(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path, "--robustness-trials", "4")

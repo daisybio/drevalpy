@@ -212,6 +212,47 @@ different transformations stay on the same normalization scale.
              models[1:], dataset, "LPO", hyperparameter_tuning=False, response_transformation=StandardScaler()
          )
 
+Train single-drug models in parallel
+------------------------------------
+
+A single-drug model, such as ``SingleDrugElasticNet``, ``SingleDrugRandomForest``, ``MOLIR`` or
+``SuperFELTR``, fits one separate model per drug. ``--n-jobs`` (default 1) fits these per-drug
+models in parallel worker processes; ``-1`` uses all CPUs. Every other model ignores it. The
+workers run single-threaded, so ``--n-jobs`` is the only knob for the number of CPUs in use, and
+a forest with its own ``n_jobs`` hyperparameter does not oversubscribe the machine.
+
+The option changes the speed, not the result: runs with the same seed give identical predictions
+for any value. Each drug is seeded from the root seed and its own identifier, not from the order
+in which the drugs are fitted. Starting workers has a cost, so ``--n-jobs`` pays off only when the
+fit of a drug takes longer than that, as it does on a full dataset. The examples are not run as
+tests because they need a dataset with several drugs and omics data.
+
+.. tab-set::
+   :sync-group: interface
+
+   .. tab-item:: CLI
+      :sync: cli
+
+      ``drevalpy run``, ``drevalpy single`` and ``drevalpy train`` take ``--n-jobs``.
+
+      .. snippet: skip
+
+      .. code-block:: bash
+
+         drevalpy run SingleDrugElasticNet \
+             --dataset gdsc.h5mu --split-mode LPO --no-hpo --n-jobs 4
+
+   .. tab-item:: Python
+      :sync: python
+
+      ``drevalpy.run``, ``drevalpy.single`` and ``drevalpy.train`` take ``n_jobs``.
+
+      .. snippet: skip
+
+      .. code-block:: python
+
+         drevalpy.run(["SingleDrugElasticNet"], dataset, "LPO", hyperparameter_tuning=False, n_jobs=4)
+
 Log to Weights & Biases
 -----------------------
 

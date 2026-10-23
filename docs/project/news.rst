@@ -180,6 +180,11 @@ Cross-study evaluation, component grids and recorded failures
 - **Weights & Biases.** ``--wandb-project`` on ``drevalpy run`` and ``drevalpy single``, and
   ``wandb_project=`` in Python, log one W&B run per tuning trial and a final run per fold with the
   test metrics.
+- **Parallel single-drug models.** ``--n-jobs`` on ``drevalpy run``, ``single`` and ``train``, and
+  ``n_jobs=`` in Python, fit the per-drug models of ``SingleDrugElasticNet``,
+  ``SingleDrugRandomForest``, ``SingleDrugKNN``, ``MOLIR`` and ``SuperFELTR`` in parallel
+  worker processes. The results are identical for every value. ``MOLIR`` and ``SuperFELTR`` train on
+  the CPU and write no default Lightning logs.
 
 Other changes since 1.6.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -89,3 +89,26 @@ def test_trial_with_no_joint_valid_pairs_keeps_empty_metric_dictionary() -> None
     )
     assert metrics == {}
     assert predictions.shape == (2,)
+
+
+def test_trial_hands_n_jobs_to_the_training_call() -> None:
+    import numpy as np
+
+    from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
+    from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
+
+    model = MagicMock()
+    model.predict.return_value = np.array([1.0, 2.0])
+    scopes = lso_split_masks()
+    kwargs = {
+        "mudataset": synthetic_mudataset_identity(),
+        "train_scope": scopes.train,
+        "val_scope": scopes.test,
+        "early_stopping_scope": None,
+        "model_checkpoint_dir": None,
+    }
+
+    _mu_evaluate_trial_all_metrics(model, n_jobs=3, **kwargs)
+    assert model.train.call_args.kwargs["n_jobs"] == 3
+    _mu_evaluate_trial_all_metrics(model, **kwargs)
+    assert model.train.call_args.kwargs["n_jobs"] == 1

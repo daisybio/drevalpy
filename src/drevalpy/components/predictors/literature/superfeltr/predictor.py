@@ -12,7 +12,6 @@ from drevalpy.components.predictors.literature._omic_helpers import (
     OmicFeatureNames,
     aligned_pair_matrices,
     feature_names_payload,
-    omic_feature_names,
     omic_matrices,
     validation_split,
 )
@@ -80,16 +79,15 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
 
     _models: dict[str, _DrugModel]
 
-    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> None:
+    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> _DrugModel:
         """Fit a single-drug SuperFELTR model including encoders and regressor.
 
         :param drug_id: Identifier of the drug to train on.
         :param batch: Subset batch for this drug.
+        :returns: The fitted model; an empty one when the drug has no pairs.
         """
-        self._feature_names[drug_id] = omic_feature_names(batch)
         if batch.n_pairs == 0:
-            self._models[drug_id] = _DrugModel()
-            return
+            return _DrugModel()
 
         matrices = omic_matrices(batch)
         response = np.asarray(batch.response, dtype=np.float32)
@@ -106,7 +104,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         encoders = self._fit_encoders(matrices.widths(), ranges, train, val, checkpoint_dir, trainable)
         regressor, best_checkpoint = self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)
 
-        self._models[drug_id] = _DrugModel(
+        return _DrugModel(
             expr_encoder=encoders[0],
             mut_encoder=encoders[1],
             cnv_encoder=encoders[2],

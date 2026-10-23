@@ -30,6 +30,7 @@ from sklearn.preprocessing import StandardScaler
 
 from drevalpy import single
 from drevalpy.data import split
+from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.registry.splitter import SplitValidationError
@@ -74,9 +75,13 @@ class _StubModel(DRPModel):
     def get_default_hyperparameters(cls) -> dict[str, Any]:
         return dict(cls.default_hyperparameters)
 
-    def train(self, dataset, scope, *, early_stopping_scope=None, model_checkpoint_dir="checkpoints"):
+    def train(self, dataset, scope, *, early_stopping_scope=None, model_checkpoint_dir="checkpoints", n_jobs=1):
         super().train(
-            dataset, scope, early_stopping_scope=early_stopping_scope, model_checkpoint_dir=model_checkpoint_dir
+            dataset,
+            scope,
+            early_stopping_scope=early_stopping_scope,
+            model_checkpoint_dir=model_checkpoint_dir,
+            n_jobs=n_jobs,
         )
         self.train_calls.append(
             {
@@ -84,6 +89,7 @@ class _StubModel(DRPModel):
                 "scope": scope,
                 "early_stopping_scope": early_stopping_scope,
                 "model_checkpoint_dir": model_checkpoint_dir,
+                "n_jobs": n_jobs,
                 "response_transformation": self._pipeline._response_transform,
             }
         )
@@ -544,6 +550,50 @@ def test_direct_masks_are_validated_before_training(stub_model, synthetic_datase
     with pytest.raises(SplitValidationError):
         single(stub_model.recipe, synthetic_dataset, masks, hyperparameter_tuning=False)
     assert stub_model.instances == []
+
+
+class TestNJobs:
+    """``n_jobs`` is a run setting: it reaches the tuner and the final fit, and is never part of the result."""
+
+    def test_the_final_fit_receives_it(self, synthetic_dataset, folds: list[SplitMasks], stub_model) -> None:
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False, n_jobs=3)
+
+        assert stub_model.instances[0].train_calls[0]["n_jobs"] == 3
+
+    def test_it_defaults_to_one_process(self, synthetic_dataset, folds: list[SplitMasks], stub_model) -> None:
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+
+        assert stub_model.instances[0].train_calls[0]["n_jobs"] == 1
+
+    def test_the_tuner_receives_it(
+        self, synthetic_dataset, folds: list[SplitMasks], stub_model, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen: dict[str, Any] = {}
+
+        def fake_tune(**kwargs: Any):
+            seen.update(kwargs)
+            return {"alpha": 0.2}, []
+
+        monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
+
+        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=True, n_jobs=2)
+
+        assert seen["n_jobs"] == 2
+
+    def test_the_result_does_not_record_it(self, synthetic_dataset, folds: list[SplitMasks], stub_model) -> None:
+        one = single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
+        two = single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False, n_jobs=2)
+
+        assert one.fold_metadata == two.fold_metadata
+
+    @pytest.mark.parametrize("n_jobs", [0, -2])
+    def test_an_unusable_count_is_rejected_before_any_fit(
+        self, synthetic_dataset, folds: list[SplitMasks], stub_model, n_jobs: int
+    ) -> None:
+        with pytest.raises(InvalidInputError, match="n_jobs"):
+            single(stub_model.recipe, synthetic_dataset, folds[0], n_jobs=n_jobs)
+
+        assert stub_model.instances == []
 
 
 class TestSeeding:

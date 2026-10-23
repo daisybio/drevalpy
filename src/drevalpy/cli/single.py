@@ -12,6 +12,7 @@ from ._options import (
     HpoMetric,
     HpoNumTrials,
     HpoRandomState,
+    NJobs,
     ResponseTransformation,
     ResponseTransformationOption,
     WandbProject,
@@ -32,6 +33,7 @@ def single_cmd(
     response_transformation: ResponseTransformationOption = ResponseTransformation.NONE,
     split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LSO, LDO).")] = "LPO",
     wandb_project: WandbProject = None,
+    n_jobs: NJobs = 1,
 ) -> None:
     """Train a model on one fold, predict on test set, and save results."""
     from drevalpy._single import single as run_single
@@ -60,6 +62,7 @@ def single_cmd(
         hpo_random_state=hpo_random_state,
         seed=seed,
         wandb_project=wandb_project,
+        n_jobs=n_jobs,
     )
 
     result.save(str(out))

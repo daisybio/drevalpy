@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.contracts.training_context import TrainingContext, check_n_jobs
+from drevalpy.errors import InvalidInputError
 
 
 def test_training_context_default_checkpoint_dir_is_a_unique_temp_path_not_the_cwd() -> None:
@@ -52,3 +53,18 @@ def test_training_context_is_frozen(tmp_path) -> None:
 
     with pytest.raises(dataclasses.FrozenInstanceError):
         context.checkpoint_dir = tmp_path / "other"
+
+
+def test_training_context_fits_in_one_process_by_default() -> None:
+    assert TrainingContext().n_jobs == 1
+
+
+@pytest.mark.parametrize("n_jobs", [1, 2, 16, -1])
+def test_check_n_jobs_accepts_a_worker_count_or_all_cpus(n_jobs: int) -> None:
+    check_n_jobs(n_jobs)
+
+
+@pytest.mark.parametrize("n_jobs", [0, -2, -8])
+def test_check_n_jobs_rejects_everything_else(n_jobs: int) -> None:
+    with pytest.raises(InvalidInputError, match="n_jobs must be a positive integer or -1"):
+        check_n_jobs(n_jobs)

@@ -244,6 +244,8 @@ class MOLIModel(pl.LightningModule):
                     checkpoint_dir=checkpoint_dir,
                     save_weights_only=True,
                     devices=1,
+                    accelerator="cpu",  # the model is too small to profit from a GPU
+                    default_logger=False,
                     enable_model_summary=False,
                 ),
             )

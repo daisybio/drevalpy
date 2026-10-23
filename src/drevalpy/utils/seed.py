@@ -54,3 +54,18 @@ def fit_seed(root_seed: int, identity: RunIdentity) -> int:
         separators=(",", ":"),
     )
     return int.from_bytes(hashlib.sha256(key.encode()).digest()[:4], "big")
+
+
+def drug_seed(root_seed: int, drug_id: str) -> int:
+    """Derive the RNG seed of one drug's fit from a root seed and the drug id.
+
+    A single-drug predictor fits one model per drug. Seeding each from the drug id, rather than
+    letting them share one RNG stream, makes a drug's model independent of which other drugs are
+    fitted and of the order or process they are fitted in.
+
+    :param root_seed: Seed drawn once per fit from the already seeded global RNG.
+    :param drug_id: Identifier of the drug.
+    :returns: Deterministic 32-bit unsigned integer, usable with every RNG backend.
+    """
+    key = json.dumps([root_seed, drug_id], separators=(",", ":"))
+    return int.from_bytes(hashlib.sha256(key.encode()).digest()[:4], "big")

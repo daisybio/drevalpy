@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor
 from drevalpy.components.predictors.sklearn_models import SingleDrugElasticNetPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
@@ -127,3 +128,42 @@ class TestState:
             predictor.set_state(state)
 
         assert set(predictor._estimators) == {"d1", "d2"}
+
+
+class TestNJobs:
+    """Fitting the drugs in worker processes gives the estimators of fitting them one after the other."""
+
+    @staticmethod
+    def _fit(n_jobs: int) -> SingleDrugSklearnPredictor:
+        sample_input = _sample_input()
+        stack = _ModelPipeline(
+            from_spec(
+                "scaledGeneExpression:identity:singleDrugElasticNet",
+                hyperparameters={"alpha": 0.1, "l1_ratio": 0.5},
+            )
+        )
+        stack.reset()
+        response = ResponseBatch(
+            response=np.array([1.0, 2.0, 10.0, 12.0]),
+            sample_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
+            drug_ids=np.array(["d1", "d1", "d2", "d2"]),
+        )
+        stack._fit_featurizers_and_predictor(response, sample_input, training_context=TrainingContext(n_jobs=n_jobs))
+        predictor = stack._predictor
+        assert isinstance(predictor, SingleDrugSklearnPredictor)
+        return predictor
+
+    def test_the_estimators_do_not_depend_on_it(self) -> None:
+        serial, parallel = self._fit(1), self._fit(2)
+
+        assert list(serial._estimators) == list(parallel._estimators) == ["d1", "d2"]
+        for drug_id, estimator in serial._estimators.items():
+            np.testing.assert_array_equal(estimator.coef_, parallel._estimators[drug_id].coef_)
+            assert estimator.intercept_ == parallel._estimators[drug_id].intercept_
+
+    def test_the_state_of_a_parallel_fit_restores_like_a_serial_one(self) -> None:
+        restored = SingleDrugElasticNetPredictor()
+        restored.set_state(self._fit(2).get_state())
+
+        assert restored.is_fitted() is True
+        assert set(restored._estimators) == {"d1", "d2"}

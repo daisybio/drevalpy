@@ -81,3 +81,47 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
         loaded_model = DRPModel.load(checkpoint)
         assert isinstance(loaded_model, DRPModel)
         np.testing.assert_allclose(preds, loaded_model.predict(synthetic_dataset, split.test), rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [model_param(name) for name in SUPPORTED_SINGLE_DRUG_MODELS if not name.endswith("[proteomics]")],
+)
+def test_n_jobs_changes_the_speed_not_the_model(synthetic_dataset: Dataset, model_name: str, tmp_path) -> None:
+    """Fitting the drugs in two worker processes gives the model of fitting them one after the other.
+
+    :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
+    :param model_name: Model name, possibly with a ``[view]`` suffix.
+    :param tmp_path: Directory the fitted models are saved to.
+    """
+    from drevalpy.data import CurveQuality
+    from drevalpy.registry.splitter import get as get_splitter
+    from drevalpy.utils.seed import seed_everything
+
+    name = _resolve_single_drug_model_name(model_name)
+    split = get_splitter("LTO")(synthetic_dataset, n_splits=2, validation_ratio=0.4, quality=CurveQuality.off())[0]
+    spec = _construct_single_drug_spec(model_name, name)
+    hpam_combi = dict(spec.default_hyperparameters)
+    _configure_single_drug_hpam(name, hpam_combi)
+    if name in ("MOLIR", "SuperFELTR"):
+        hpam_combi["mini_batch"] = 6  # at most the 7 pairs of a drug, so every drug really trains
+
+    predictions, restored = {}, {}
+    for n_jobs in (1, 2):
+        seed_everything(42)
+        model = DRPModel(spec, hpam_combi)
+        model.train(
+            synthetic_dataset,
+            split.train,
+            early_stopping_scope=split.early_stopping_mask()[0] if spec.supports_early_stopping else None,
+            model_checkpoint_dir=tmp_path / f"checkpoints_{n_jobs}",
+            n_jobs=n_jobs,
+        )
+        predictions[n_jobs] = model.predict(synthetic_dataset, split.test)
+        model.save(tmp_path / f"model_{n_jobs}")
+        restored[n_jobs] = DRPModel.load(tmp_path / f"model_{n_jobs}").predict(synthetic_dataset, split.test)
+
+    assert np.isfinite(predictions[1]).all()
+    np.testing.assert_array_equal(predictions[1], predictions[2])
+    np.testing.assert_array_equal(restored[1], restored[2])
+    np.testing.assert_allclose(predictions[2], restored[2], rtol=1e-5, atol=1e-5)

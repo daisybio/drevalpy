@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from drevalpy.components.contracts.training_context import check_n_jobs
 from drevalpy.data import CurveQuality, load
 from drevalpy.data.splitters import observed_mask
 from drevalpy.errors import InvalidInputError
@@ -71,6 +72,7 @@ def train(
     response_transformation: TransformerMixin | None = None,
     quality: CurveQuality | None = None,
     seed: int = 42,
+    n_jobs: int = 1,
 ) -> DRPModel:
     """Train a model on every usable pair of a dataset, for later use on new data.
 
@@ -93,8 +95,11 @@ def train(
     :param quality: Curve-quality rule a pair must pass to be used; ``None`` means
         ``CurveQuality.default()``, as for :func:`drevalpy.run`.
     :param seed: Root seed of the validation slice, the tuning and the final fit.
+    :param n_jobs: Number of worker processes a single-drug model fits its per-drug models in, during tuning and in the
+        final fit; ``-1`` uses all CPUs. The model does not depend on it, and other models ignore it.
     :returns: The fitted model.
     """
+    check_n_jobs(n_jobs)
     spec = ModelSpec.from_name(model) if isinstance(model, str) else model
     data = load(dataset) if isinstance(dataset, str) else dataset
     execution = _holdout_execution(spec, data, quality, seed)
@@ -116,6 +121,7 @@ def train(
                 random_state=seed if hpo_random_state is None else hpo_random_state,
             ),
             split_index=0,
+            n_jobs=n_jobs,
         )
     else:
         hyperparameters = spec.default_hyperparameters
@@ -124,5 +130,5 @@ def train(
     )
     fitted = DRPModel(spec, hyperparameters, response_transformation=response_transformation)
     seed_everything(fit_rng_seed)
-    fitted.train(data, scopes.final_training, early_stopping_scope=scopes.stopping)
+    fitted.train(data, scopes.final_training, early_stopping_scope=scopes.stopping, n_jobs=n_jobs)
     return fitted

@@ -79,6 +79,7 @@ def hpam_tune(
     split_index: int | None = None,
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
+    n_jobs: int = 1,
 ) -> tuple[dict[str, Any], list[tuple[dict[str, Any], dict[str, float], np.ndarray]]]:
     """Tune hyperparameters using Dataset + SplitMask with Optuna.
 
@@ -98,6 +99,7 @@ def hpam_tune(
     :param split_index: Fold index, used in the W&B run names.
     :param wandb_project: W&B project to log one run per trial to; ``None`` disables tracking.
     :param wandb_base_config: Base W&B config; each trial's drawn hyperparameters are added to it.
+    :param n_jobs: Worker processes a single-drug predictor fits its per-drug models in, for every trial.
     :returns: Tuple of (best_params, trial_results) where trial_results is a
         list of (hyperparameters, metrics_dict, predictions) tuples for each completed trial.
     :raises ValueError: If ``hpo_config.metric`` disagrees with ``metric``.
@@ -138,6 +140,7 @@ def hpam_tune(
                     early_stopping_scope=early_stopping_scope,
                     model_checkpoint_dir=model_checkpoint_dir,
                     trial_number=trial.number,
+                    n_jobs=n_jobs,
                 )
                 log_summary({"hpo_metric": metrics.get(metric, float("nan")), **_prefixed("val_", metrics)})
         except Exception as exc:

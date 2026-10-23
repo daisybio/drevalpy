@@ -94,6 +94,7 @@ class TestForwarding:
             "hpo_num_trials": 16,
             "hpo_random_state": None,
             "seed": 42,
+            "n_jobs": 1,
         }
 
     def test_forwards_overridden_options(self, worker: Recorder, tmp_path: UPath) -> None:

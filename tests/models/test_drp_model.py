@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from sklearn.preprocessing import StandardScaler
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.models import DRPModel
 from drevalpy.models._pipeline import PipelineState
 from tests.models.synthetic_fixtures import (
@@ -66,3 +67,29 @@ def test_train_without_a_checkpoint_dir_uses_a_temporary_one_and_removes_it(tmp_
     assert not seen[0].exists()
     assert not (tmp_path / "checkpoints").exists()
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(("n_jobs", "expected"), [(None, 1), (3, 3)])
+def test_train_puts_n_jobs_in_the_training_context(tmp_path, monkeypatch, n_jobs, expected) -> None:
+    dataset = synthetic_mudataset_gene_expression_fingerprints()
+    model = DRPModel(small_data_spec("ElasticNet"))
+    seen = []
+    original_fit = model._pipeline.fit
+
+    def spy(*args, training_context, **kwargs):
+        seen.append(training_context.n_jobs)
+        return original_fit(*args, training_context=training_context, **kwargs)
+
+    monkeypatch.setattr(model._pipeline, "fit", spy)
+
+    extra = {} if n_jobs is None else {"n_jobs": n_jobs}
+    model.train(dataset, lso_split_masks().train, model_checkpoint_dir=tmp_path, **extra)
+
+    assert seen == [expected]
+
+
+def test_train_rejects_an_unusable_n_jobs(tmp_path) -> None:
+    model = DRPModel(small_data_spec("ElasticNet"))
+
+    with pytest.raises(InvalidInputError, match="n_jobs"):
+        model.train(synthetic_mudataset_gene_expression_fingerprints(), lso_split_masks().train, n_jobs=0)

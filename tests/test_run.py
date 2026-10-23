@@ -405,6 +405,7 @@ class TestForwardedArguments:
             "seed": 42,
             "response_transformation": None,
             "wandb_project": None,
+            "n_jobs": 1,
         }
 
     def test_the_split_mode_reaches_split(
@@ -794,3 +795,23 @@ class TestFailures:
 
         assert (tmp_path / "failures.json").exists()
         assert loaded.failures == result.failures
+
+
+class TestNJobs:
+    def test_it_reaches_single(
+        self, recorder: _SingleRecorder, dataset: _FakeDataset, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _set_folds(monkeypatch, 1)
+
+        run([_stub_model("A")], dataset, "LSO", n_jobs=4)
+
+        assert recorder.calls[0][1]["n_jobs"] == 4
+
+    @pytest.mark.parametrize("n_jobs", [0, -3])
+    def test_an_unusable_count_is_rejected_before_anything_runs(
+        self, recorder: _SingleRecorder, dataset: _FakeDataset, n_jobs: int
+    ) -> None:
+        with pytest.raises(InvalidInputError, match="n_jobs"):
+            run([_stub_model("A")], dataset, "LSO", n_jobs=n_jobs)
+
+        assert recorder.calls == []

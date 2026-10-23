@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import pytorch_lightning as pl
 import torch
 
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
@@ -102,3 +103,26 @@ class TestTinyMOLIRFit:
         restored = MOLIRPredictor()
         restored.set_state(predictor.get_state())
         np.testing.assert_allclose(expected, restored.predict(batch), rtol=1e-5, atol=1e-5)
+
+
+class TestMOLIRTrainer:
+    pytestmark = pytest.mark.slow
+
+    def test_runs_on_the_cpu_without_a_default_logger(self, tmp_path, monkeypatch) -> None:
+        real_trainer = pl.Trainer
+        seen: list[dict[str, object]] = []
+
+        def spy(*args, **kwargs):
+            seen.append(dict(kwargs))
+            return real_trainer(*args, **kwargs)
+
+        monkeypatch.setattr(pl, "Trainer", spy)
+        monkeypatch.chdir(tmp_path)
+        hyperparameters = {"epochs": 1, "mini_batch": 6, "h_dim1": 2, "h_dim2": 2, "h_dim3": 2}
+
+        MOLIRPredictor(hyperparameters).fit(single_drug_omics_batch(tmp_path / "ckpt"))
+
+        (kwargs,) = seen
+        assert kwargs["accelerator"] == "cpu"
+        assert kwargs["logger"] is False
+        assert not (tmp_path / "lightning_logs").exists()

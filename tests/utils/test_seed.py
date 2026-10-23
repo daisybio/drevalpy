@@ -13,7 +13,7 @@ import pytest
 import torch
 
 from drevalpy.types.results._identity import RunIdentity
-from drevalpy.utils.seed import fit_seed, seed_everything
+from drevalpy.utils.seed import drug_seed, fit_seed, seed_everything
 
 
 class _FakeCuda:
@@ -173,3 +173,18 @@ class TestFitSeed:
     )
     def test_every_identity_field_changes_the_seed(self, change: dict) -> None:
         assert fit_seed(42, replace(self.identity, **change)) != fit_seed(42, self.identity)
+
+
+class TestDrugSeed:
+    def test_matches_a_recorded_value(self) -> None:
+        assert drug_seed(42, "Afatinib") == 3721085039
+
+    def test_is_a_32_bit_unsigned_int(self) -> None:
+        assert 0 <= drug_seed(42, "Afatinib") < 2**32
+
+    def test_root_seed_and_drug_change_the_seed(self) -> None:
+        assert drug_seed(1, "Afatinib") != drug_seed(2, "Afatinib")
+        assert drug_seed(1, "Afatinib") != drug_seed(1, "Erlotinib")
+
+    def test_the_boundary_between_root_seed_and_drug_is_unambiguous(self) -> None:
+        assert drug_seed(1, "23") != drug_seed(12, "3")

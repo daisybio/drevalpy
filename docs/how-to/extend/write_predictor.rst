@@ -166,6 +166,32 @@ does not change training, composition or checkpoints. ``repo_url`` is required;
        deviations="Uses ridge regression instead of the original network.",
    )
 
+Fit one model per drug
+----------------------
+
+A single-drug predictor fits one model per drug. With ``--n-jobs`` (``n_jobs`` in Python) above 1
+it fits them in parallel worker processes, one drug per worker, and
+``batch.training_context.n_jobs`` tells a predictor how many it may use. The helper
+``run_per_drug`` in ``drevalpy.components.predictors.single_drug_routing`` does the fan-out for
+the built-in single-drug predictors: it seeds each drug from the run seed and the drug id, so the
+fitted models do not depend on ``n_jobs``. If you write a predictor that fits per drug, call it
+with the per-drug fit function, the tasks (one per drug) and ``n_jobs``, and make sure that the
+fit works inside a worker:
+
+- **Do not start processes yourself.** Nested workers multiply the number of processes beyond
+  ``n_jobs``. Use ``num_workers=0`` for a PyTorch ``DataLoader``, and leave the thread count of
+  scikit-learn and PyTorch alone: the worker already limits it to one.
+- **Do not write to a fixed path that the drugs share.** Write checkpoints below
+  ``batch.training_context.checkpoint_dir``, the directory that ``DRPModel.train`` passes in, and
+  in a subdirectory of your own for each drug. Turn off the default logger of PyTorch Lightning, which
+  writes to ``lightning_logs/`` in the working directory and makes concurrent fits race for the
+  same version directory. The built-in neural predictors do it with
+  ``default_logger=False`` in their ``LightningRun``; Weights & Biases logging stays on when a
+  tracking run is active.
+- **Return the fitted model instead of storing it on ``self``.** A worker fits a copy of the
+  predictor, so an attribute that the fit function sets is lost. Collect the returned models in
+  the parent and keep them in the state that ``get_state`` returns.
+
 Check that it works
 -------------------
 

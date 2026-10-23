@@ -11,6 +11,7 @@ from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
     require_known_training_keys,
     routing_keys,
+    run_per_drug,
 )
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
@@ -49,7 +50,8 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
-        :param batch: Training batch; one estimator is fitted on the pairs of each known drug.
+        :param batch: Training batch; one estimator is fitted on the pairs of each known drug, in
+            ``batch.training_context.n_jobs`` worker processes.
         :raises RuntimeError: If ``batch.response`` is None.
         """
         x = self._sample_matrix(batch)
@@ -60,10 +62,19 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         require_known_training_keys(keys)
 
         self._estimators = {}
-        for drug_id, mask in iter_drug_masks(batch):
-            estimator = self._make_estimator()
-            estimator.fit(x[mask], y[mask])
-            self._estimators[drug_id] = estimator
+        tasks = ((drug_id, (x[mask], y[mask])) for drug_id, mask in iter_drug_masks(batch))
+        self._estimators = run_per_drug(self._fit_estimator, tasks, batch.training_context.n_jobs)
+
+    def _fit_estimator(self, _drug_id: str, data: tuple[np.ndarray, np.ndarray]) -> Any:
+        """Fit the estimator of one drug.
+
+        :param _drug_id: Drug identifier; the estimator does not depend on it.
+        :param data: Sample features and responses of the drug's pairs.
+        :returns: The fitted estimator.
+        """
+        estimator = self._make_estimator()
+        estimator.fit(*data)
+        return estimator
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.

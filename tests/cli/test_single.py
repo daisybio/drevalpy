@@ -143,7 +143,13 @@ class TestForwarding:
             "hpo_random_state": None,
             "seed": 42,
             "wandb_project": None,
+            "n_jobs": 1,
         }
+
+    def test_forwards_n_jobs(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+        _invoke(split_file, tmp_path, "--n-jobs", "2")
+
+        assert worker.kwargs["n_jobs"] == 2
 
     def test_no_hpo_disables_tuning(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         _invoke(split_file, tmp_path, "--no-hpo")
