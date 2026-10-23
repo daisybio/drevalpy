@@ -65,31 +65,31 @@
   },
   "deviations": [
     {
-      "achieved": null,
+      "achieved": "exact",
       "declared": "exact",
       "description": "defaults: params",
-      "detail": "non-numeric arrays differ: 1.6.1='{\"C\": 0.001, \"cache_size\": 200, \"coef0\": 0.0, \"degree\": 3, \"epsilon\": 0.001, \"gamma\": \"scale\", \"kernel\": \"rbf\", \"max_iter\": 500, \"shrinking\": true, \"tol\": 0.001, \"type\": \"SVR\", \"verbose\": false}' v2='{\"C\": 1.0, \"cache_size\": 200, \"coef0\": 0.0, \"degree\": 3, \"epsilon\": 0.1, \"gamma\": \"scale\", \"kernel\": \"rbf\", \"max_iter\": -1, \"shrinking\": true, \"tol\": 0.001, \"type\": \"SVR\", \"verbose\": false}'",
+      "detail": "",
       "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is C=0.001, epsilon=0.001, max_iter=500; the v2 preset declares C=1.0, epsilon=0.1 and max_iter=-1 (no iteration cap, not tunable).",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "defaults/params",
-      "passed": false,
+      "passed": true,
       "pearson": null,
       "scope": "deviation",
       "shape_v1": [],
       "shape_v2": []
     },
     {
-      "achieved": null,
+      "achieved": "forward",
       "declared": "statistical",
       "description": "defaults: predictions",
       "detail": "",
       "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is C=0.001, epsilon=0.001, max_iter=500; the v2 preset declares C=1.0, epsilon=0.1 and max_iter=-1 (no iteration cap, not tunable).",
-      "max_abs_diff": 2.7304668976774997,
-      "max_rel_diff": 1.9604122909736503,
+      "max_abs_diff": 6.341466241011062e-10,
+      "max_rel_diff": 9.428982806161308e-10,
       "name": "defaults/predictions",
-      "passed": false,
-      "pearson": 0.9223973593046475,
+      "passed": true,
+      "pearson": 0.9999999999999951,
       "scope": "deviation",
       "shape_v1": [
         152
@@ -622,23 +622,27 @@
     "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
     "drevalpy": "1.6.1",
     "expected_commit": "f5ff3c70",
+    "lightgbm": "4.7.0",
     "numpy": "2.5.4",
     "pandas": "2.3.3",
     "python": "3.12.13",
     "scikit-learn": "1.9.1",
     "scipy": "1.18.1",
-    "torch": "2.14.1+cpu"
+    "torch": "2.14.1+cpu",
+    "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "74cac1247b8f1390955a45da7ed1327a15e2d85e",
-    "dirty": true,
+    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "dirty": false,
     "drevalpy": "2.0.0",
+    "lightgbm": "4.7.0",
     "numpy": "2.4.6",
     "pandas": "2.3.3",
     "python": "3.13.13",
     "scikit-learn": "1.9.0",
     "scipy": "1.18.0",
-    "torch": "2.13.0"
+    "torch": "2.13.0",
+    "xgboost": "3.2.0"
   },
   "verdict": "statistical"
 }

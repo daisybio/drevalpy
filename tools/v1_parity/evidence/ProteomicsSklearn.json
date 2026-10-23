@@ -915,7 +915,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "9bb63923db24073c5744f3aede3dbf9c9ea7b403",
+    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

@@ -30,46 +30,46 @@
   },
   "deviations": [
     {
-      "achieved": null,
+      "achieved": "exact",
       "declared": "exact",
       "description": "ridge: params",
-      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": null, \"positive\": false, \"solver\": \"auto\", \"tol\": 0.0001, \"type\": \"Ridge\"}' v2='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 2000, \"positive\": false, \"solver\": \"auto\", \"tol\": 0.01, \"type\": \"Ridge\"}'",
+      "detail": "",
       "explanation": "v2 passes max_iter=2000, tol=1e-2 to Ridge; both are inert for the dense 'auto' (cholesky) solver 1.6.1 also uses, which the matching predictions confirm.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "ridge/params",
-      "passed": false,
+      "passed": true,
       "pearson": null,
       "scope": "deviation",
       "shape_v1": [],
       "shape_v2": []
     },
     {
-      "achieved": null,
+      "achieved": "exact",
       "declared": "exact",
       "description": "enet_preset: params",
-      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "detail": "",
       "explanation": "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "enet_preset/params",
-      "passed": false,
+      "passed": true,
       "pearson": null,
       "scope": "deviation",
       "shape_v1": [],
       "shape_v2": []
     },
     {
-      "achieved": "statistical",
+      "achieved": "forward",
       "declared": "statistical",
       "description": "enet_preset: coef",
       "detail": "",
       "explanation": "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults.",
-      "max_abs_diff": 0.02496562256842072,
-      "max_rel_diff": 0.1585251124590138,
+      "max_abs_diff": 5.8972535819934446e-08,
+      "max_rel_diff": 1.8473420859910973e-06,
       "name": "enet_preset/coef",
       "passed": true,
-      "pearson": 0.998757031653934,
+      "pearson": 0.9999999999999775,
       "scope": "deviation",
       "shape_v1": [
         72
@@ -79,16 +79,16 @@
       ]
     },
     {
-      "achieved": "statistical",
+      "achieved": "forward",
       "declared": "statistical",
       "description": "enet_preset: predictions",
       "detail": "",
       "explanation": "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults.",
-      "max_abs_diff": 0.00903114571790109,
-      "max_rel_diff": 0.0016169289203888152,
+      "max_abs_diff": 1.0526279092815116e-06,
+      "max_rel_diff": 1.6054724206104365e-07,
       "name": "enet_preset/predictions",
       "passed": true,
-      "pearson": 0.999982705798331,
+      "pearson": 0.9999999999999563,
       "scope": "deviation",
       "shape_v1": [
         56
@@ -308,23 +308,27 @@
     "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
     "drevalpy": "1.6.1",
     "expected_commit": "f5ff3c70",
+    "lightgbm": "4.7.0",
     "numpy": "2.5.4",
     "pandas": "2.3.3",
     "python": "3.12.13",
     "scikit-learn": "1.9.1",
     "scipy": "1.18.1",
-    "torch": "2.14.1+cpu"
+    "torch": "2.14.1+cpu",
+    "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "d84e1ffa5ad77f3952c56c90b45236857d8ddcac",
-    "dirty": true,
+    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "dirty": false,
     "drevalpy": "2.0.0",
+    "lightgbm": "4.7.0",
     "numpy": "2.4.6",
     "pandas": "2.3.3",
     "python": "3.13.13",
     "scikit-learn": "1.9.0",
     "scipy": "1.18.0",
-    "torch": "2.13.0"
+    "torch": "2.13.0",
+    "xgboost": "3.2.0"
   },
   "verdict": "train"
 }

@@ -891,23 +891,27 @@
     "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
     "drevalpy": "1.6.1",
     "expected_commit": "f5ff3c70",
+    "lightgbm": "4.7.0",
     "numpy": "2.5.4",
     "pandas": "2.3.3",
     "python": "3.12.13",
     "scikit-learn": "1.9.1",
     "scipy": "1.18.1",
-    "torch": "2.14.1+cpu"
+    "torch": "2.14.1+cpu",
+    "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "fb3e2a9ec1753a22b22020d5cd9e5c77f581acb5",
-    "dirty": true,
+    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
+    "dirty": false,
     "drevalpy": "2.0.0",
+    "lightgbm": "4.7.0",
     "numpy": "2.4.6",
     "pandas": "2.3.3",
     "python": "3.13.13",
     "scikit-learn": "1.9.0",
     "scipy": "1.18.0",
-    "torch": "2.13.0"
+    "torch": "2.13.0",
+    "xgboost": "3.2.0"
   },
   "verdict": "train"
 }

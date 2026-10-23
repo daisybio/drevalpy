@@ -868,8 +868,8 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "e233ea486643a0c8ede748f7adf0e9c088a49583",
-    "dirty": true,
+    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
+    "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",
     "numpy": "2.4.6",

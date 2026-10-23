@@ -120,8 +120,8 @@
     "With a batch norm layer in the forward path (`units_per_layer` with two or more entries) a seeded fit does not reproduce the 1.6.1 eval-mode predictions to the `train` class (deviation steps of variant `default`); the cause is the zero gradient of the bias in front of the batch norm layer, not a logic difference (see `BATCH_NORM_EXPLANATION`). It is a property of the architecture that v2 inherits unchanged.",
     "The network is the 1.6.1 network, so a `state_dict` of one loads into the other with `strict=True` and the forward pass agrees at the `forward` class in eval and in train mode.",
     "The scaler is the 1.6.1 one: arcsinh, then a `StandardScaler` fit on the distinct training samples (`np.unique(output.cell_line_ids)`); the v2 `scaledGeneExpression` fits on the distinct samples too (`fit_on_unique_ids`).",
-    "The v2 preset (working tree of 2026-10-23, after the B5 edits) sets `gene_list: landmark_genes` on `scaledGeneExpression`, the 1.6.1 default (`SimpleNeuralNetwork.gene_list`). The case does not override it: the v2 side reads the list from the preset, the 1.6.1 side from its class default, and the selected columns agree. Before B5 the preset had no gene list.",
-    "The v2 predictor defaults (after the B5 edits) are the first grid point of 1.6.1: `units_per_layer` [32, 16, 8, 4], `dropout_prob` 0.3, `max_epochs` 100; before them they were [512, 256, 128], 0.2 and 50. The batch size (16) and the patience (5) were hard-coded in 1.6.1 and are v2 hyperparameters. The case sets all of them explicitly on both sides, so it does not depend on the defaults.",
+    "The v2 preset (commit 174ceea7, B5) sets `gene_list: landmark_genes` on `scaledGeneExpression`, the 1.6.1 default (`SimpleNeuralNetwork.gene_list`). The case does not override it: the v2 side reads the list from the preset, the 1.6.1 side from its class default, and the selected columns agree. Before B5 the preset had no gene list.",
+    "The v2 predictor defaults (since B5 (174ceea7)) are the first grid point of 1.6.1: `units_per_layer` [32, 16, 8, 4], `dropout_prob` 0.3, `max_epochs` 100; before them they were [512, 256, 128], 0.2 and 50. The batch size (16) and the patience (5) were hard-coded in 1.6.1 and are v2 hyperparameters. The case sets all of them explicitly on both sides, so it does not depend on the defaults.",
     "1.6.1 loaders use 8 persistent worker processes; the case makes them single-process, which does not change the main-process RNG order. The drop-last rule agrees (`len > batch_size` against `batch_size < n_pairs` after clipping the batch size to the number of pairs)."
   ],
   "generated": "2026-10-23",
@@ -657,7 +657,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "174ceea7bf7e9e4d79080da0abe81a48c1667cb0",
+    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

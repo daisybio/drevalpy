@@ -58,31 +58,31 @@
       "shape_v2": []
     },
     {
-      "achieved": null,
+      "achieved": "exact",
       "declared": "exact",
       "description": "preset_solver: params",
-      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 10000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.001, \"type\": \"Lasso\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Lasso\", \"warm_start\": false}'",
+      "detail": "",
       "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random_state=0; 1.6.1 uses max_iter=10000, tol=1e-3 and the global numpy stream. Same objective, looser convergence.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "preset_solver/params",
-      "passed": false,
+      "passed": true,
       "pearson": null,
       "scope": "deviation",
       "shape_v1": [],
       "shape_v2": []
     },
     {
-      "achieved": "statistical",
+      "achieved": "forward",
       "declared": "statistical",
       "description": "preset_solver: predictions",
       "detail": "",
       "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random_state=0; 1.6.1 uses max_iter=10000, tol=1e-3 and the global numpy stream. Same objective, looser convergence.",
-      "max_abs_diff": 0.06177235709702922,
-      "max_rel_diff": 1.620092595582606,
+      "max_abs_diff": 6.734424501386727e-07,
+      "max_rel_diff": 3.362708752410992e-05,
       "name": "preset_solver/predictions",
       "passed": true,
-      "pearson": 0.9996228825527035,
+      "pearson": 0.9999999999999807,
       "scope": "deviation",
       "shape_v1": [
         152
@@ -92,15 +92,15 @@
       ]
     },
     {
-      "achieved": null,
+      "achieved": "exact",
       "declared": "exact",
       "description": "defaults: params",
-      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 10000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.001, \"type\": \"Lasso\", \"warm_start\": false}' v2='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Lasso\", \"warm_start\": false}'",
+      "detail": "",
       "explanation": "1.6.1 first grid point is alpha=1 with max_iter=10000/tol=1e-3; the v2 preset has the same alpha=1.0 default but max_iter=2000/tol=1e-2/random_state=0. At alpha=1 on standardized features both fits are the intercept only.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "defaults/params",
-      "passed": false,
+      "passed": true,
       "pearson": null,
       "scope": "deviation",
       "shape_v1": [],
@@ -327,23 +327,27 @@
     "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
     "drevalpy": "1.6.1",
     "expected_commit": "f5ff3c70",
+    "lightgbm": "4.7.0",
     "numpy": "2.5.4",
     "pandas": "2.3.3",
     "python": "3.12.13",
     "scikit-learn": "1.9.1",
     "scipy": "1.18.1",
-    "torch": "2.14.1+cpu"
+    "torch": "2.14.1+cpu",
+    "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "74cac1247b8f1390955a45da7ed1327a15e2d85e",
-    "dirty": true,
+    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "dirty": false,
     "drevalpy": "2.0.0",
+    "lightgbm": "4.7.0",
     "numpy": "2.4.6",
     "pandas": "2.3.3",
     "python": "3.13.13",
     "scikit-learn": "1.9.0",
     "scipy": "1.18.0",
-    "torch": "2.13.0"
+    "torch": "2.13.0",
+    "xgboost": "3.2.0"
   },
   "verdict": "forward"
 }

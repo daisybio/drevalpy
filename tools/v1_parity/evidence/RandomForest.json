@@ -88,15 +88,15 @@
       "shape_v2": []
     },
     {
-      "achieved": null,
+      "achieved": "exact",
       "declared": "exact",
       "description": "defaults: params",
-      "detail": "non-numeric arrays differ: 1.6.1='{\"bootstrap\": true, \"ccp_alpha\": 0.0, \"criterion\": \"squared_error\", \"max_depth\": 5, \"max_features\": 1.0, \"max_leaf_nodes\": null, \"max_samples\": 0.2, \"min_impurity_decrease\": 0.0, \"min_samples_leaf\": 1, \"min_samples_split\": 2, \"min_weight_fraction_leaf\": 0.0, \"monotonic_cst\": null, \"n_estimators\": 100, \"n_jobs\": -1, \"oob_score\": false, \"type\": \"RandomForestRegressor\", \"verbose\": 0, \"warm_sta",
+      "detail": "",
       "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state (see the random_state step). The forests are different models.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "defaults/params",
-      "passed": false,
+      "passed": true,
       "pearson": null,
       "scope": "deviation",
       "shape_v1": [],
@@ -108,11 +108,11 @@
       "description": "defaults: predictions",
       "detail": "",
       "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state (see the random_state step). The forests are different models.",
-      "max_abs_diff": 0.3378788972348621,
-      "max_rel_diff": 0.3339547856137934,
+      "max_abs_diff": 0.3264488694889345,
+      "max_rel_diff": 0.3033382035487601,
       "name": "defaults/predictions",
       "passed": true,
-      "pearson": 0.9950409506772997,
+      "pearson": 0.9959033496575924,
       "scope": "deviation",
       "shape_v1": [
         152
@@ -433,23 +433,27 @@
     "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
     "drevalpy": "1.6.1",
     "expected_commit": "f5ff3c70",
+    "lightgbm": "4.7.0",
     "numpy": "2.5.4",
     "pandas": "2.3.3",
     "python": "3.12.13",
     "scikit-learn": "1.9.1",
     "scipy": "1.18.1",
-    "torch": "2.14.1+cpu"
+    "torch": "2.14.1+cpu",
+    "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "74cac1247b8f1390955a45da7ed1327a15e2d85e",
-    "dirty": true,
+    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "dirty": false,
     "drevalpy": "2.0.0",
+    "lightgbm": "4.7.0",
     "numpy": "2.4.6",
     "pandas": "2.3.3",
     "python": "3.13.13",
     "scikit-learn": "1.9.0",
     "scipy": "1.18.0",
-    "torch": "2.13.0"
+    "torch": "2.13.0",
+    "xgboost": "3.2.0"
   },
   "verdict": "forward"
 }
