@@ -9,14 +9,21 @@ native identifiers and remap the indices in a later, cheap stage.
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated
 
 import typer
+
+from drevalpy.curation import DEFAULT_FIT_SPEED, FIT_SPEEDS
 
 if TYPE_CHECKING:
     import pandas as pd
 
 _TABLE_SUFFIXES = (".parquet", ".pq")
+
+FitSpeed = StrEnum("FitSpeed", {speed.upper(): speed for speed in FIT_SPEEDS}, module=__name__)
+FitSpeed.__doc__ = "Values of ``--fit-speed``, one per level in :data:`drevalpy.curation.FIT_SPEEDS`."
+_DEFAULT_FIT_SPEED = FitSpeed(DEFAULT_FIT_SPEED)
 
 
 def _read_frame(input_path: str) -> pd.DataFrame:
@@ -44,10 +51,9 @@ def curate_cmd(
     output: Annotated[str, typer.Argument(help="Output .h5ad file path.")],
     cores: Annotated[int, typer.Option("--cores", "-c", help="Number of CPU cores.")] = 4,
     normalize: Annotated[bool, typer.Option("--normalize", help="Apply normalization before fitting.")] = False,
-    fit_type: Annotated[str, typer.Option("--fit-type", help="Curve fitting method (OLS only).")] = "OLS",
     fit_speed: Annotated[
-        str, typer.Option("--fit-speed", help="fast/standard/exhaustive/basinhopping.")
-    ] = "exhaustive",
+        FitSpeed, typer.Option("--fit-speed", case_sensitive=False, help="Fitting thoroughness.")
+    ] = _DEFAULT_FIT_SPEED,
 ) -> None:
     """Fit dose-response curves from a CSV/Parquet file and write AnnData to .h5ad."""
     from upath import UPath
@@ -55,5 +61,5 @@ def curate_cmd(
     from drevalpy.curation import curate
 
     df = _read_frame(input_path)
-    adata = curate(df, max_workers=cores, normalize=normalize, fit_type=fit_type, fit_speed=fit_speed)
+    adata = curate(df, max_workers=cores, normalize=normalize, fit_speed=fit_speed.value)
     adata.write_h5ad(UPath(output))

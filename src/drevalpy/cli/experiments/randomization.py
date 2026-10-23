@@ -7,19 +7,21 @@ from typing import Annotated
 import typer
 from upath import UPath
 
+from drevalpy.cli._options import RandomizationMode
+
 
 def randomization_cmd(
     model: Annotated[str, typer.Argument(help="Model name (e.g. ElasticNet, SimpleNeuralNetwork).")],
     dataset: Annotated[str, typer.Argument(help="Registered dataset name or path to a .h5mu file.")],
     output_dir: Annotated[str, typer.Argument(help="Output directory for randomized .h5mu files.")],
     modes: Annotated[
-        list[str] | None,
-        typer.Option("--mode", "-m", help="Randomization mode(s): SVRC, SVCC, SVRD, SVCD."),
+        list[RandomizationMode] | None,
+        typer.Option("--mode", "-m", case_sensitive=False, help="Randomization mode(s): SVRC, SVCC, SVRD, SVCD."),
     ] = None,
     randomization_type: Annotated[
         str, typer.Option("--randomization-type", "-t", help="Randomization type: permutation or invariant.")
     ] = "permutation",
-    random_state: Annotated[int, typer.Option("--random-state", help="Random seed.")] = 42,
+    seed: Annotated[int, typer.Option("--seed", help="Random seed.")] = 42,
 ) -> None:
     """Generate randomized datasets for feature importance testing.
 
@@ -32,21 +34,21 @@ def randomization_cmd(
     from drevalpy.experiment._randomization import randomization
     from drevalpy.models import ModelSpec
 
-    out = UPath(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-
-    effective_modes = modes if modes else ["SVRC"]
+    effective_modes = [mode.value for mode in modes] if modes else [RandomizationMode.SVRC.value]
     model_spec = ModelSpec.from_name(model)
     ds = load(dataset)
     randomized = randomization(
-        model_spec, ds, effective_modes, randomization_type=randomization_type, random_state=random_state
+        model_spec, ds, effective_modes, randomization_type=randomization_type, random_state=seed
     )
+
+    out = UPath(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
 
     with Progress() as progress:
         task = progress.add_task("Writing randomized datasets", total=len(randomized))
         for rds in randomized:
             mode_tag, view_tag = rds.randomization or ("unknown", "0")
-            out_path = out / f"{mode_tag}:{view_tag}.h5mu"
+            out_path = out / f"{mode_tag}__{view_tag}.h5mu"
             rds.save(str(out_path))
             progress.advance(task)
 

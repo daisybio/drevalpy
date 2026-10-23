@@ -16,6 +16,7 @@ import pytest
 from upath import UPath
 
 from drevalpy.cli.main import app
+from drevalpy.curation import FIT_SPEEDS
 from tests.cli._helpers import HELP_ENV, Recorder, make_runner, patch_worker, plain
 
 runner = make_runner()
@@ -155,12 +156,7 @@ class TestFitOptions:
     def test_defaults(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
         runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad")])
 
-        assert worker.kwargs == {
-            "max_workers": 4,
-            "normalize": False,
-            "fit_type": "OLS",
-            "fit_speed": "exhaustive",
-        }
+        assert worker.kwargs == {"max_workers": 4, "normalize": False, "fit_speed": "exhaustive"}
 
     def test_overrides(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
         runner.invoke(
@@ -172,14 +168,34 @@ class TestFitOptions:
                 "--cores",
                 "2",
                 "--normalize",
-                "--fit-type",
-                "OLS",
                 "--fit-speed",
                 "fast",
             ],
         )
 
-        assert worker.kwargs == {"max_workers": 2, "normalize": True, "fit_type": "OLS", "fit_speed": "fast"}
+        assert worker.kwargs == {"max_workers": 2, "normalize": True, "fit_speed": "fast"}
+
+    @pytest.mark.parametrize("speed", FIT_SPEEDS)
+    def test_every_library_fit_speed_is_accepted(
+        self, worker: Recorder, input_csv: UPath, tmp_path: UPath, speed: str
+    ) -> None:
+        runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "--fit-speed", speed.upper()])
+
+        assert worker.kwargs["fit_speed"] == speed
+
+    def test_an_unknown_fit_speed_is_rejected_before_the_file_is_read(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = runner.invoke(
+            app, ["curate", str(tmp_path / "absent.csv"), str(tmp_path / "out.h5ad"), "--fit-speed", "slow"]
+        )
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
+
+    def test_the_removed_fit_type_option_is_rejected(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
+        result = runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "--fit-type", "OLS"])
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
 
     def test_cores_short_option(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
         runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "-c", "1"])

@@ -7,6 +7,8 @@ from typing import Annotated
 import typer
 from upath import UPath
 
+from drevalpy.errors import InputNotFoundError
+
 
 def robustness_cmd(
     splits_dir: Annotated[str, typer.Argument(help="Directory containing fold .npz files.")],
@@ -27,12 +29,11 @@ def robustness_cmd(
 
     inp = UPath(splits_dir)
     out = UPath(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
 
     fold_files = sorted(inp.glob("*.npz"))
     if not fold_files:
-        typer.echo(f"No .npz files found in {inp}", err=True)
-        raise typer.Exit(code=1)
+        raise InputNotFoundError(f"No .npz files found in {inp}")
+    out.mkdir(parents=True, exist_ok=True)
 
     total = 0
     with Progress() as progress:

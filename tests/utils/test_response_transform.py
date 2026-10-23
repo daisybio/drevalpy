@@ -12,7 +12,12 @@ from drevalpy.utils.response_transform import get_response_transformation
 
 @pytest.mark.parametrize(
     "option",
-    [pytest.param("None", id="literal-none-string"), pytest.param(None, id="none-object")],
+    [
+        pytest.param("None", id="literal-none-string"),
+        pytest.param("none", id="lowercase-none-string"),
+        pytest.param("NONE", id="uppercase-none-string"),
+        pytest.param(None, id="none-object"),
+    ],
 )
 def test_no_transformation_requested_returns_none(option: str | None) -> None:
     assert get_response_transformation(option) is None

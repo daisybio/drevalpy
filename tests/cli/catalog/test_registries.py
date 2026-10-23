@@ -142,28 +142,22 @@ class TestSplitterAliases:
 
 
 class TestUnknownEntry:
-    """An unregistered name fails with the registry's own message."""
+    """An unregistered name fails as an ``Error:`` line carrying the registry's own message."""
 
     @pytest.mark.parametrize(("command", "attribute", "entry"), REGISTRY_COMMANDS)
-    def test_exit_code_is_one(self, command: str, attribute: str, entry: str) -> None:
+    def test_fails_with_an_error_line_instead_of_a_traceback(self, command: str, attribute: str, entry: str) -> None:
         result = runner.invoke(app, ["list", command, "definitely-not-registered"], env=HELP_ENV)
 
         assert result.exit_code == 1
-
-    @pytest.mark.parametrize(("command", "attribute", "entry"), REGISTRY_COMMANDS)
-    def test_names_the_missing_entry(self, command: str, attribute: str, entry: str) -> None:
-        assert "definitely-not-registered" in invoke(command, "definitely-not-registered")
-
-    @pytest.mark.parametrize(("command", "attribute", "entry"), REGISTRY_COMMANDS)
-    def test_message_lists_the_valid_entries(self, command: str, attribute: str, entry: str) -> None:
-        """The registry's ValueError enumerates what *is* registered; keep that."""
-        assert entry in invoke(command, "definitely-not-registered")
-
-    @pytest.mark.parametrize(("command", "attribute", "entry"), REGISTRY_COMMANDS)
-    def test_does_not_raise_out_of_the_command(self, command: str, attribute: str, entry: str) -> None:
-        result = runner.invoke(app, ["list", command, "definitely-not-registered"], env=HELP_ENV)
-
         assert isinstance(result.exception, SystemExit)
+        assert plain(result.output).startswith("Error: ")
+
+    @pytest.mark.parametrize(("command", "attribute", "entry"), REGISTRY_COMMANDS)
+    def test_names_the_missing_entry_and_lists_the_valid_ones(self, command: str, attribute: str, entry: str) -> None:
+        printed = invoke(command, "definitely-not-registered")
+
+        assert "definitely-not-registered" in printed
+        assert entry in printed
 
 
 class TestEmptyRegistry:
@@ -249,7 +243,7 @@ class TestZooPresets:
         result = runner.invoke(app, ["list", "zoo-presets", "definitely-not-registered"], env=HELP_ENV)
 
         assert result.exit_code == 1
-        assert "definitely-not-registered" in plain(result.output)
+        assert plain(result.output).startswith("Error: Unknown zoo preset 'definitely-not-registered'")
         assert "ElasticNet" in plain(result.output)
 
 
@@ -286,7 +280,7 @@ class TestDatasets:
         result = runner.invoke(app, ["list", "datasets", "definitely-not-registered"], env=HELP_ENV)
 
         assert result.exit_code == 1
-        assert "definitely-not-registered" in plain(result.output)
+        assert plain(result.output).startswith("Error: Unknown dataset 'definitely-not-registered'")
         assert "TOYv1" in plain(result.output)
 
     def test_empty_registry_prints_a_hint(self, monkeypatch: pytest.MonkeyPatch) -> None:

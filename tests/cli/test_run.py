@@ -6,11 +6,12 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from upath import UPath
 
 from drevalpy.cli.main import app
 from drevalpy.data import CurveQuality
+from drevalpy.errors import InvalidInputError
 from drevalpy.models import Combinations, SkippedCombination
 from drevalpy.types.results.failure import ExperimentFailedError, RunFailure
 from tests.cli._helpers import HELP_ENV, Recorder, make_runner, patch_worker, plain
@@ -160,9 +161,21 @@ class TestOptionForwarding:
         assert worker.kwargs["split_mode"] == "LSO"
 
     def test_repeated_randomization_modes_become_a_list(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "-r", "SVRC", "-r", "SVCD")
+        _invoke(tmp_path, "--randomization-mode", "SVRC", "--randomization-mode", "svcd")
 
         assert worker.kwargs["randomization_modes"] == ["SVRC", "SVCD"]
+
+    def test_an_unknown_randomization_mode_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--randomization-mode", "SVXX")
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
+
+    def test_the_removed_short_randomization_flag_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "-r", "SVRC")
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
 
     def test_randomization_type(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path, "--randomization-type", "invariant")
@@ -205,33 +218,19 @@ class TestOptionForwarding:
 
 
 class TestResponseTransformation:
-    """``--response-transformation`` resolves to the sklearn transformer prototype."""
+    """``--response-transformation`` is forwarded as the unfitted prototype; the choices are in ``test_options``."""
 
-    @pytest.mark.parametrize(
-        ("option", "expected"),
-        [
-            pytest.param("standard", StandardScaler, id="standard"),
-            pytest.param("minmax", MinMaxScaler, id="minmax"),
-            pytest.param("robust", RobustScaler, id="robust"),
-        ],
-    )
-    def test_each_option_selects_its_transformer(
-        self, worker: Recorder, tmp_path: UPath, option: str, expected: type
-    ) -> None:
-        _invoke(tmp_path, "--response-transformation", option)
-
-        assert isinstance(worker.kwargs["response_transformation"], expected)
-
-    def test_the_prototype_is_handed_over_unfitted(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "--response-transformation", "standard")
-
-        assert not hasattr(worker.kwargs["response_transformation"], "mean_")
-
-    @pytest.mark.parametrize("option", ["none", "None"])
-    def test_none_disables_the_transformation(self, worker: Recorder, tmp_path: UPath, option: str) -> None:
-        _invoke(tmp_path, "--response-transformation", option)
+    def test_the_default_applies_no_transformation(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path)
 
         assert worker.kwargs["response_transformation"] is None
+
+    def test_a_choice_is_forwarded_as_its_unfitted_transformer(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--response-transformation", "standard")
+
+        transformer = worker.kwargs["response_transformation"]
+        assert isinstance(transformer, StandardScaler)
+        assert not hasattr(transformer, "mean_")
 
     def test_an_unknown_option_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
         result = _invoke(tmp_path, "--response-transformation", "logarithmic")
@@ -263,12 +262,6 @@ class TestGroupBy:
         result = _invoke(tmp_path)
 
         assert plain(result.output).strip().endswith("STUB-EXPERIMENT-REPR")
-
-    def test_an_unknown_grouping_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
-        result = _invoke(tmp_path, "--group-by", "tissue")
-
-        assert result.exit_code == 2
-        assert worker.call_count == 0
 
 
 class TestOutput:
@@ -303,6 +296,28 @@ class TestOutput:
         result = _invoke(tmp_path)
 
         assert "STUB-EXPERIMENT-REPR" in plain(result.output)
+
+
+class TestUnknownModel:
+    """A model that cannot be resolved fails before anything is created or run."""
+
+    def test_is_reported_without_a_traceback_and_nothing_runs(
+        self, worker: Recorder, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
+    ) -> None:
+        from drevalpy.models.spec import UnknownModelError
+
+        def unknown(name: str) -> None:
+            raise UnknownModelError(name, "no such model")
+
+        monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", unknown)
+
+        result = _invoke(tmp_path)
+
+        assert result.exit_code == 1
+        assert plain(result.output).startswith("Error: ")
+        assert "Traceback" not in result.output
+        assert worker.call_count == 0
+        assert not (tmp_path / "results").exists()
 
 
 class TestRepeatableDataset:
@@ -395,17 +410,18 @@ class TestGrid:
             "raw[gene_expression]:fingerprints:ridge",
         ]
 
-    def test_an_invalid_grid_is_a_usage_error(
+    def test_an_invalid_grid_is_reported_as_an_error(
         self, worker: Recorder, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
     ) -> None:
         def nothing_valid(**kwargs: Any) -> Combinations:
-            raise ValueError("no valid combination")
+            raise InvalidInputError("no valid combination")
 
         monkeypatch.setattr("drevalpy.models.combinations", nothing_valid)
 
         result = self._invoke_grid(tmp_path, "-P", "ridge")
 
-        assert result.exit_code == 2
+        assert result.exit_code == 1
+        assert "Error: no valid combination" in plain(result.output)
         assert worker.call_count == 0
 
     def test_featurizer_flags_without_a_predictor_are_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
@@ -495,4 +511,4 @@ class TestFailures:
         result = _invoke(tmp_path)
 
         assert result.exit_code == 1
-        assert "ElasticNet fold 1: RuntimeError: boom" in plain(result.output)
+        assert "Error: 1 run(s) failed:\n  ElasticNet fold 1: RuntimeError: boom" in plain(result.output)

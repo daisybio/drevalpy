@@ -21,18 +21,14 @@ def get_response_transformation(
 ) -> TransformerMixin | None:
     """Return the sklearn response transformer for a pipeline option.
 
-    :param response_transformation: One of ``"None"``, ``"standard"``, ``"minmax"``, or ``"robust"``.
-
-    :returns: Fitted-ready sklearn transformer, or ``None`` for no transformation.
-
+    :param response_transformation: ``None`` or ``"none"`` (in any letter case) for no transformation, or one of
+        ``"standard"``, ``"minmax"`` and ``"robust"``.
+    :returns: A new, unfitted sklearn transformer, or ``None`` for no transformation.
     :raises UnknownNameError: If *response_transformation* is not recognized.
-
-    :param response_transformation: response transformation.
-    :returns: Result of the operation.
     """
     from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-    if (response_transformation == "None") or (response_transformation is None):
+    if response_transformation is None or response_transformation.lower() == "none":
         return None
     if response_transformation == "standard":
         return StandardScaler()

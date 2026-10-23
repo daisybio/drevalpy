@@ -6,7 +6,7 @@ import pytest
 from upath import UPath
 
 from drevalpy.cli.main import app
-from tests.cli._helpers import HELP_ENV, make_runner, plain
+from tests.cli._helpers import HELP_ENV, FakeDataset, Recorder, make_runner, plain
 
 runner = make_runner()
 
@@ -24,6 +24,26 @@ class TestArguments:
 
     def test_output_is_required(self) -> None:
         result = runner.invoke(app, ["data", "concat"], env=HELP_ENV)
+
+        assert result.exit_code == 2
+
+
+class TestJoin:
+    @pytest.mark.parametrize("value", ["exact", "inner", "INNER"])
+    def test_the_choices_are_accepted_case_insensitively(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath, value: str
+    ) -> None:
+        recorder = Recorder(return_value=FakeDataset(name="BOTH"))
+        monkeypatch.setattr("drevalpy.data.load", lambda item: item)
+        monkeypatch.setattr("drevalpy.data.concat", recorder)
+
+        result = runner.invoke(app, ["data", "concat", "a", "b", str(tmp_path / "out.h5mu"), "--join", value])
+
+        assert result.exit_code == 0, result.output
+        assert recorder.kwargs["join"] == value.lower()
+
+    def test_an_unknown_choice_is_a_usage_error(self) -> None:
+        result = runner.invoke(app, ["data", "concat", "a", "b", "o.h5mu", "--join", "outer"], env=HELP_ENV)
 
         assert result.exit_code == 2
 
@@ -76,6 +96,7 @@ class TestWriting:
         inner = runner.invoke(app, ["data", "concat", first, str(narrow), str(out), "--join", "inner"])
 
         assert exact.exit_code == 1
+        assert plain(exact.output).startswith("Error: ")
         assert inner.exit_code == 0, inner.output
         assert drevalpy.load(str(out)).mdata.mod["gene_expression"].n_vars == 8
 
@@ -92,4 +113,6 @@ class TestWriting:
             app, ["data", "concat", inputs[0], str(tmp_path / "nope.h5mu"), str(tmp_path / "o.h5mu")]
         )
 
-        assert result.exit_code != 0
+        assert result.exit_code == 1
+        assert plain(result.output).startswith("Error: ")
+        assert "Traceback" not in result.output

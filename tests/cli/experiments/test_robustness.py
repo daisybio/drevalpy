@@ -80,7 +80,7 @@ class TestEmptyInput:
 
         result = _invoke(empty, tmp_path / "out")
 
-        assert f"No .npz files found in {empty}" in plain(result.output)
+        assert f"Error: No .npz files found in {empty}" in plain(result.output)
 
     def test_directory_without_npz_files_exits_one(self, tmp_path: UPath) -> None:
         splits = tmp_path / "splits"
@@ -91,15 +91,21 @@ class TestEmptyInput:
 
         assert result.exit_code == 1
 
-    def test_output_directory_is_still_created(self, tmp_path: UPath) -> None:
-        """``mkdir`` happens before the guard, so the dir exists even on failure."""
+    def test_output_directory_is_not_created(self, tmp_path: UPath) -> None:
         empty = tmp_path / "empty"
         empty.mkdir()
         out_dir = tmp_path / "out"
 
         _invoke(empty, out_dir)
 
-        assert out_dir.is_dir()
+        assert not out_dir.exists()
+
+    def test_missing_directory_is_reported_as_an_error(self, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path / "absent", tmp_path / "out")
+
+        assert result.exit_code == 1
+        assert f"Error: No .npz files found in {tmp_path / 'absent'}" in plain(result.output)
+        assert "Traceback" not in result.output
 
 
 class TestGeneration:

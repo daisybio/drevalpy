@@ -81,8 +81,9 @@ Map the ``drevalpy`` flags
      - ``--split-mode`` (``-s``). One mode per call, default ``LPO``. See
        :doc:`/reference/split_modes`.
    * - ``--randomization_mode``
-     - ``--randomization-mode`` (``-r``). Repeat the flag for several modes:
-       ``-r SVCC -r SVRC``. A space-separated list is read as model names.
+     - ``--randomization-mode``, with no short form. Repeat the flag for several modes:
+       ``--randomization-mode SVCC --randomization-mode SVRC``. A space-separated list is read
+       as model names.
    * - ``--randomization_type``
      - ``--randomization-type``. The default is unchanged.
    * - ``--n_trials_robustness``
@@ -246,8 +247,8 @@ and a report ``index.html`` next to four ``evaluation_results*.csv`` and
   replacement. Load the results in Python to get them; see
   :doc:`python`.
 - The report is MultiQC, which is installed with DrEvalPy. No extra is needed.
-- ``report`` has ``--title`` (``-t``) and ``--reference-model`` (``-r``). It accepts ``--dataset``
-  for compatibility and ignores it.
+- ``report`` has ``--title`` (``-t``) and ``--reference-model`` (``-r``). It reads only the
+  experiment directory, so it has no ``--dataset``.
 
 :doc:`/how-to/make_report` covers the report in full.
 

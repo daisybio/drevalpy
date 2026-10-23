@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from upath import UPath
 
 from drevalpy.cli.main import app
@@ -180,48 +180,27 @@ class TestForwarding:
 
 
 class TestResponseTransformation:
-    """``--response-transformation`` resolves to the sklearn transformer prototype."""
+    """``--response-transformation`` is forwarded as the unfitted prototype; the choices are in ``test_options``."""
 
     def test_the_default_applies_no_transformation(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         _invoke(split_file, tmp_path)
 
         assert worker.kwargs["response_transformation"] is None
 
-    def test_the_prototype_is_handed_over_unfitted(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
+    def test_a_choice_is_forwarded_as_its_unfitted_transformer(
+        self, worker: Recorder, split_file: UPath, tmp_path: UPath
+    ) -> None:
         """``single`` fits a clone per scope, so the CLI must not fit anything itself."""
         _invoke(split_file, tmp_path, "--response-transformation", "standard")
 
-        assert not hasattr(worker.kwargs["response_transformation"], "mean_")
-
-    @pytest.mark.parametrize(
-        ("option", "expected"),
-        [
-            pytest.param("standard", StandardScaler, id="standard"),
-            pytest.param("minmax", MinMaxScaler, id="minmax"),
-            pytest.param("robust", RobustScaler, id="robust"),
-        ],
-    )
-    def test_each_option_selects_its_transformer(
-        self, worker: Recorder, split_file: UPath, tmp_path: UPath, option: str, expected: type
-    ) -> None:
-        _invoke(split_file, tmp_path, "--response-transformation", option)
-
-        assert isinstance(worker.kwargs["response_transformation"], expected)
-
-    def test_none_disables_the_transformation(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
-        _invoke(split_file, tmp_path, "--response-transformation", "none")
-
-        assert worker.kwargs["response_transformation"] is None
-
-    def test_the_option_is_case_insensitive(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
-        _invoke(split_file, tmp_path, "--response-transformation", "None")
-
-        assert worker.kwargs["response_transformation"] is None
+        transformer = worker.kwargs["response_transformation"]
+        assert isinstance(transformer, StandardScaler)
+        assert not hasattr(transformer, "mean_")
 
     def test_an_unknown_option_is_rejected(self, worker: Recorder, split_file: UPath, tmp_path: UPath) -> None:
         result = _invoke(split_file, tmp_path, "--response-transformation", "logarithmic")
 
-        assert result.exit_code != 0
+        assert result.exit_code == 2
         assert worker.call_count == 0
 
 
@@ -288,14 +267,17 @@ class TestOutput:
 
 
 class TestMissingSplitFile:
-    """A missing fold file surfaces as the loader's own error, not a silent pass."""
+    """A missing fold file is reported as an error before anything is created or run."""
 
-    def test_nonexistent_split_raises(self, worker: Recorder, tmp_path: UPath) -> None:
+    def test_nonexistent_split_is_reported_without_a_traceback(self, worker: Recorder, tmp_path: UPath) -> None:
         result = _invoke(tmp_path / "absent.npz", tmp_path)
 
-        assert result.exit_code != 0
+        assert result.exit_code == 1
+        assert plain(result.output).startswith("Error: ")
+        assert "Traceback" not in result.output
 
-    def test_worker_is_not_called(self, worker: Recorder, tmp_path: UPath) -> None:
+    def test_worker_is_not_called_and_no_output_directory_is_made(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path / "absent.npz", tmp_path)
 
         assert worker.call_count == 0
+        assert not (tmp_path / "out").exists()

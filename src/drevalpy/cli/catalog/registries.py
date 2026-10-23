@@ -13,6 +13,8 @@ from typing import Annotated
 
 import typer
 
+from drevalpy.errors import UnknownNameError
+
 #: Optional entry name. Given, the command prints that entry's metadata instead
 #: of the whole registry table.
 EntryName = Annotated[
@@ -27,16 +29,10 @@ EntryName = Annotated[
 def _show(registry_name: str, title: str, name: str | None) -> None:
     """Render one registry, or the metadata of a single entry in it.
 
-    Args:
-        registry_name: Attribute of :mod:`drevalpy.registry` holding the registry
-            module, e.g. ``"predictor"``.
-        title: Plural heading for the table, e.g. ``"Predictors"``.
-        name: Entry to describe, or ``None`` to render the whole table.
-
-    Raises:
-        typer.Exit: With code 1 when ``name`` is not registered. The registry's
-            own error message, which lists the registered names, is written to
-            stderr first.
+    :param registry_name: Attribute of :mod:`drevalpy.registry` holding the registry module, e.g. ``"predictor"``.
+    :param title: Plural heading for the table, e.g. ``"Predictors"``.
+    :param name: Entry to describe, or ``None`` to render the whole table. An unregistered name fails with the
+        registry's own unknown-name exception, whose message lists the registered names.
     """
     from drevalpy import registry
 
@@ -50,12 +46,7 @@ def _show(registry_name: str, title: str, name: str | None) -> None:
             empty_hint=f"No {title.lower()} are registered.",
         )
         return
-    try:
-        metadata = module.metadata(name)
-    except ValueError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(1) from error
-    render_mapping(metadata, title=name)
+    render_mapping(module.metadata(name), title=name)
 
 
 def list_predictors(name: EntryName = None) -> None:
@@ -83,19 +74,15 @@ def list_visualizations(name: EntryName = None) -> None:
     _show("visualization", "Visualizations", name)
 
 
-def _unknown_entry(kind: str, name: str, valid: list[str]) -> typer.Exit:
-    """Report an unregistered name on stderr, mirroring the registries' own message.
+def _unknown_entry(kind: str, name: str, valid: list[str]) -> UnknownNameError:
+    """Build the error for an unregistered name, mirroring the registries' own message.
 
-    Args:
-        kind: Singular noun for the entry, e.g. ``"zoo preset"``.
-        name: The name the user asked for.
-        valid: Every name that is registered.
-
-    Returns:
-        The exception for the caller to raise.
+    :param kind: Singular noun for the entry, e.g. ``"zoo preset"``.
+    :param name: The name the user asked for.
+    :param valid: Every name that is registered.
+    :returns: The exception for the caller to raise.
     """
-    typer.echo(f"Unknown {kind} {name!r}. Available: {', '.join(valid)}", err=True)
-    return typer.Exit(1)
+    return UnknownNameError(f"Unknown {kind} {name!r}. Available: {', '.join(valid)}")
 
 
 def list_zoo_presets(name: EntryName = None) -> None:

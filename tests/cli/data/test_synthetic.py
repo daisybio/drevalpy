@@ -110,15 +110,16 @@ class TestWriting:
 
 
 class TestDrugLimit:
-    def test_too_many_drugs_is_a_usage_error_naming_the_limit(self, tmp_path: UPath) -> None:
+    def test_too_many_drugs_is_an_error_naming_the_limit(self, tmp_path: UPath) -> None:
         result = runner.invoke(
             app, ["data", "synthetic", "--output", str(tmp_path / "x.h5mu"), "--n-drugs", str(MAX_SYNTHETIC_DRUGS + 1)]
         )
 
-        assert result.exit_code == 2
+        assert result.exit_code == 1
+        assert plain(result.output).startswith("Error: ")
         assert str(MAX_SYNTHETIC_DRUGS) in plain(result.output)
 
-    def test_no_file_is_written_on_a_usage_error(self, tmp_path: UPath) -> None:
+    def test_no_file_is_written_on_an_error(self, tmp_path: UPath) -> None:
         out = tmp_path / "x.h5mu"
         runner.invoke(app, ["data", "synthetic", "--output", str(out), "--n-drugs", str(MAX_SYNTHETIC_DRUGS + 1)])
 

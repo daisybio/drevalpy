@@ -250,14 +250,14 @@ skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`
       :sync: cli
 
       ``experiments randomization`` takes the model, the dataset (a registered name or a file)
-      and a directory. It writes one file per shuffled dataset, named ``<MODE>:<view>.h5mu``.
+      and a directory. It writes one file per shuffled dataset, named ``<MODE>__<view>.h5mu``.
       The default mode is ``SVRC``, and ``--mode`` chooses others:
 
       .. code-block:: bash
 
          drevalpy experiments randomization Ridge toy.h5mu rand
 
-      The command writes ``rand/SVRC:gene_expression.h5mu`` and prints:
+      The command writes ``rand/SVRC__gene_expression.h5mu`` and prints:
 
       .. code-block:: text
 
@@ -269,7 +269,7 @@ skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`
       .. code-block:: bash
 
          drevalpy single Ridge toy.h5mu splits/fold_0.npz runs/ridge_0.npz --no-hpo
-         drevalpy single Ridge rand/SVRC:gene_expression.h5mu splits/fold_0.npz runs/ridge_rand_0.npz --no-hpo
+         drevalpy single Ridge rand/SVRC__gene_expression.h5mu splits/fold_0.npz runs/ridge_rand_0.npz --no-hpo
          drevalpy aggregate runs/ridge_0.npz runs/ridge_rand_0.npz --output-dir agg_rand
 
       Train the other folds the same way. The experiment directory ``agg_rand`` holds both

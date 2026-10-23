@@ -15,9 +15,11 @@ from __future__ import annotations
 
 import importlib
 import re
-from typing import Any
+from collections.abc import Callable
+from typing import Any, ClassVar
 
 import pytest
+import typer
 from typer.testing import CliRunner
 from upath import UPath
 
@@ -170,3 +172,51 @@ def write_synthetic_fold(runner: CliRunner, directory: UPath) -> tuple[UPath, UP
     folds = directory / "folds"
     assert runner.invoke(app, ["data", "split", str(dataset), str(folds), "-n", "2"]).exit_code == 0
     return dataset, folds / "fold_0.npz"
+
+
+class GroupSurface:
+    """Tests every ``drevalpy`` command group shares; a subclass records which group it pins.
+
+    Name the subclass ``TestGroup``. This base is not collected itself because its name does not start
+    with ``Test``.
+    """
+
+    group: ClassVar[typer.Typer]
+    path: ClassVar[str]
+    callbacks: ClassVar[dict[str, Callable[..., Any]]]
+
+    def test_app_name(self) -> None:
+        assert self.group.info.name == self.path
+
+    def test_registered_command_names(self) -> None:
+        assert {command.name for command in self.group.registered_commands} == set(self.callbacks)
+
+    def test_has_no_nested_groups(self) -> None:
+        assert self.group.registered_groups == []
+
+    def test_commands_wrap_the_source_callbacks(self) -> None:
+        wrapped = {command.name: command.callback for command in self.group.registered_commands}
+
+        assert wrapped == self.callbacks
+
+    def test_bare_group_prints_help_and_exits_nonzero(self) -> None:
+        from drevalpy.cli.main import app
+
+        result = make_runner().invoke(app, [self.path], env=HELP_ENV)
+
+        assert "Usage" in plain(result.output)
+        assert result.exit_code != 0
+
+    def test_help_lists_each_command(self) -> None:
+        from drevalpy.cli.main import app
+
+        result = make_runner().invoke(app, [self.path, "--help"], env=HELP_ENV)
+
+        assert all(command in plain(result.output) for command in self.callbacks)
+
+    def test_unknown_subcommand_is_a_usage_error(self) -> None:
+        from drevalpy.cli.main import app
+
+        result = make_runner().invoke(app, [self.path, "not-a-command"], env=HELP_ENV)
+
+        assert result.exit_code == 2

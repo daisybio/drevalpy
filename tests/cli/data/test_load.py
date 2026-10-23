@@ -11,6 +11,7 @@ import pytest
 from upath import UPath
 
 from drevalpy.cli.main import app
+from drevalpy.errors import UnknownNameError
 from tests.cli._helpers import HELP_ENV, FakeDataset, Recorder, make_runner, patch_worker, plain
 
 runner = make_runner()
@@ -101,22 +102,25 @@ class TestLoading:
 
 
 class TestLoaderFailure:
-    """An unresolvable dataset name surfaces rather than writing a broken file."""
+    """An unresolvable dataset name is reported as an error rather than writing a broken file."""
 
-    def test_loader_error_propagates(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
+    def test_loader_error_is_reported_without_a_traceback(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
+    ) -> None:
         def boom(name: str) -> FakeDataset:
-            raise KeyError(name)
+            raise UnknownNameError(f"Unknown dataset {name!r}")
 
         patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", boom)
         patch_worker(monkeypatch, "drevalpy.data", "load", boom)
 
         result = runner.invoke(app, ["data", "load", "NoSuchDataset", str(tmp_path / "out.h5mu")])
 
-        assert isinstance(result.exception, KeyError)
+        assert result.exit_code == 1
+        assert plain(result.output).strip() == "Error: Unknown dataset 'NoSuchDataset'"
 
     def test_no_output_file_is_written(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
         def boom(name: str) -> FakeDataset:
-            raise KeyError(name)
+            raise UnknownNameError(f"Unknown dataset {name!r}")
 
         patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", boom)
         patch_worker(monkeypatch, "drevalpy.data", "load", boom)

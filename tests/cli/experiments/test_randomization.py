@@ -128,9 +128,15 @@ class TestForwarding:
         assert worker.args[2] == ["SVRC"]
 
     def test_repeated_modes_are_forwarded_in_order(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "-m", "SVCC", "-m", "SVRD")
+        _invoke(tmp_path, "-m", "SVCC", "-m", "svrd")
 
         assert worker.args[2] == ["SVCC", "SVRD"]
+
+    def test_an_unknown_mode_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "-m", "SVXX")
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
 
     def test_randomization_type_and_seed_defaults(self, worker: Recorder, tmp_path: UPath) -> None:
         _invoke(tmp_path)
@@ -143,15 +149,21 @@ class TestForwarding:
 
         assert worker.kwargs["randomization_type"] == "invariant"
 
-    def test_random_state_override(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "--random-state", "7")
+    def test_seed_override(self, worker: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--seed", "7")
 
         assert worker.kwargs["random_state"] == 7
 
-    def test_non_integer_random_state_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
-        result = _invoke(tmp_path, "--random-state", "seed")
+    def test_non_integer_seed_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--seed", "seed")
 
         assert result.exit_code == 2
+
+    def test_the_renamed_random_state_option_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--random-state", "7")
+
+        assert result.exit_code == 2
+        assert worker.call_count == 0
 
 
 class TestOutput:
@@ -167,7 +179,7 @@ class TestOutput:
         _invoke(tmp_path)
 
         written = sorted(p.name for p in (tmp_path / "randomized").glob("*.h5mu"))
-        assert written == sorted(f"{mode}:{view}.h5mu" for mode, view in RANDOMIZED)
+        assert written == sorted(f"{mode}__{view}.h5mu" for mode, view in RANDOMIZED)
 
     def test_untagged_dataset_falls_back_to_unknown(
         self, monkeypatch: pytest.MonkeyPatch, loader: Recorder, tmp_path: UPath
@@ -182,7 +194,7 @@ class TestOutput:
 
         _invoke(tmp_path)
 
-        assert (tmp_path / "randomized" / "unknown:0.h5mu").exists()
+        assert (tmp_path / "randomized" / "unknown__0.h5mu").exists()
 
     def test_echoes_the_dataset_count_and_destination(self, worker: Recorder, tmp_path: UPath) -> None:
         result = _invoke(tmp_path)
@@ -201,6 +213,24 @@ class TestOutput:
         assert "Wrote 0 randomized datasets" in plain(result.output)
 
 
+class TestUnknownModel:
+    def test_is_reported_and_creates_no_output_directory(
+        self, monkeypatch: pytest.MonkeyPatch, loader: Recorder, tmp_path: UPath
+    ) -> None:
+        from drevalpy.models.spec import UnknownModelError
+
+        def unknown(name: str) -> None:
+            raise UnknownModelError(name, "no such model")
+
+        monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", unknown)
+
+        result = _invoke(tmp_path)
+
+        assert result.exit_code == 1
+        assert plain(result.output).startswith("Error: ")
+        assert not (tmp_path / "randomized").exists()
+
+
 class TestOnRealFiles:
     """The command on real ``.h5mu`` files; a file it writes is a randomization run once ``single`` has trained on it.
 
@@ -217,7 +247,7 @@ class TestOnRealFiles:
             app, ["experiments", "randomization", "ElasticNet", str(dataset), str(tmp_path / "rand")]
         )
         assert result.exit_code == 0, result.output
-        return dataset, fold, tmp_path / "rand" / "SVRC:gene_expression.h5mu"
+        return dataset, fold, tmp_path / "rand" / "SVRC__gene_expression.h5mu"
 
     def test_the_file_loads_with_its_identity_and_provenance(self, written: tuple[UPath, UPath, UPath]) -> None:
         from drevalpy.experiment._randomization import randomization
@@ -266,7 +296,7 @@ class TestOnRealFiles:
         result = runner.invoke(app, ["experiments", "randomization", "ElasticNet", "CACHED", str(tmp_path / "rand")])
 
         assert result.exit_code == 0, result.output
-        assert (tmp_path / "rand" / "SVRC:gene_expression.h5mu").is_file()
+        assert (tmp_path / "rand" / "SVRC__gene_expression.h5mu").is_file()
 
     def test_a_randomization_the_dataset_cannot_perform_writes_no_file(self, tmp_path: UPath) -> None:
         """``data synthetic`` files hold SMILES, not the fingerprint ElasticNet derives from them."""

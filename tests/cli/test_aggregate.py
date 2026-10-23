@@ -43,10 +43,12 @@ class TestArguments:
 
         assert result.exit_code == 2
 
-    def test_nonexistent_result_file_fails(self, tmp_path: UPath) -> None:
+    def test_nonexistent_result_file_is_reported_and_creates_no_output(self, tmp_path: UPath) -> None:
         result = _invoke([tmp_path / "absent.npz"], tmp_path / "out")
 
-        assert result.exit_code != 0
+        assert result.exit_code == 1
+        assert plain(result.output).startswith("Error: ")
+        assert not (tmp_path / "out").exists()
 
 
 class TestAggregation:

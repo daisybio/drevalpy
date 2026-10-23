@@ -134,10 +134,16 @@ class TestForwarding:
 
         assert splitter.kwargs["validation_ratio"] == pytest.approx(0.25)
 
-    def test_random_state(self, splitter: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "--random-state", "7")
+    def test_seed(self, splitter: Recorder, tmp_path: UPath) -> None:
+        _invoke(tmp_path, "--seed", "7")
 
         assert splitter.kwargs["random_state"] == 7
+
+    def test_the_renamed_random_state_option_is_rejected(self, splitter: Recorder, tmp_path: UPath) -> None:
+        result = _invoke(tmp_path, "--random-state", "7")
+
+        assert result.exit_code == 2
+        assert splitter.call_count == 0
 
     def test_non_numeric_validation_ratio_is_a_usage_error(self, splitter: Recorder, tmp_path: UPath) -> None:
         result = _invoke(tmp_path, "--validation-ratio", "a-lot")

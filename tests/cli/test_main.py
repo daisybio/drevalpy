@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 import os
 
 import pytest
+import typer
+from rich.logging import RichHandler
 from upath import UPath
 
-from drevalpy.cli.main import app, cli_main
+from drevalpy.cli.main import _DrEvalGroup, app, cli_main
+from drevalpy.errors import DrEvalError, InputNotFoundError, InvalidInputError, UnknownNameError
 from tests.cli._helpers import HELP_ENV, Recorder, make_runner, plain
 
 runner = make_runner()
@@ -172,7 +176,8 @@ class TestExtensionLoading:
 
         result = runner.invoke(app, ["run", "-h"], env=HELP_ENV)
 
-        assert isinstance(result.exception, FileNotFoundError)
+        assert result.exit_code == 1
+        assert f"Error: Extension directory not found: {tmp_path / 'missing'}" in plain(result.output)
 
     def test_same_directory_in_env_and_option_loads_without_error(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
@@ -222,7 +227,87 @@ class TestExtensionLoading:
 
         result = runner.invoke(app, ["-e", str(not_a_dir), "run", "-h"], env=HELP_ENV)
 
-        assert isinstance(result.exception, FileNotFoundError)
+        assert result.exit_code == 1
+        assert "Error: Extension directory not found" in plain(result.output)
+
+
+def _failing_app(error: BaseException) -> typer.Typer:
+    """Build an app on the root group class whose only command raises *error*."""
+    failing = typer.Typer(cls=_DrEvalGroup)
+
+    @failing.callback()
+    def group() -> None:
+        """Group callback, so ``boom`` stays a subcommand."""
+
+    @failing.command()
+    def boom() -> None:
+        """Raise the error under test."""
+        raise error
+
+    return failing
+
+
+class TestErrorHandling:
+    """The root group prints a drevalpy input error as ``Error: <message>`` and exits 1."""
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(DrEvalError("bad input"), id="DrEvalError"),
+            pytest.param(UnknownNameError("bad input"), id="UnknownNameError"),
+            pytest.param(InputNotFoundError("bad input"), id="InputNotFoundError"),
+            pytest.param(InvalidInputError("bad input"), id="InvalidInputError"),
+            pytest.param(FileNotFoundError("bad input"), id="FileNotFoundError"),
+        ],
+    )
+    def test_input_errors_become_one_line(self, error: Exception) -> None:
+        result = runner.invoke(_failing_app(error), ["boom"])
+
+        assert result.exit_code == 1
+        assert plain(result.output).strip() == "Error: bad input"
+
+    def test_a_keyerror_subclass_prints_without_quotes(self) -> None:
+        result = runner.invoke(_failing_app(UnknownNameError("no such thing")), ["boom"])
+
+        assert plain(result.output).strip() == "Error: no such thing"
+
+    def test_a_multi_line_message_is_kept(self) -> None:
+        result = runner.invoke(_failing_app(DrEvalError("2 run(s) failed:\n  a\n  b")), ["boom"])
+
+        assert plain(result.output).strip() == "Error: 2 run(s) failed:\n  a\n  b"
+
+    def test_other_exceptions_propagate_with_the_exception_attached(self) -> None:
+        result = runner.invoke(_failing_app(RuntimeError("bug")), ["boom"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, RuntimeError)
+
+    def test_a_missing_extension_directory_is_reported_by_the_real_app(self, tmp_path: UPath) -> None:
+        result = runner.invoke(app, ["-e", str(tmp_path / "absent"), "list", "predictors"], env=HELP_ENV)
+
+        assert result.exit_code == 1
+        assert "Error: Extension directory not found" in plain(result.output)
+        assert "Traceback" not in result.output
+
+    def test_an_unknown_model_is_reported_by_the_real_app(self) -> None:
+        result = runner.invoke(app, ["run", "NoSuchModel", "-d", "x"], env=HELP_ENV)
+
+        assert result.exit_code == 1
+        assert plain(result.output).startswith("Error: 'NoSuchModel' is not a zoo name")
+        assert "Traceback" not in result.output
+
+
+class TestLogging:
+    """The callback, not the import, installs the Rich handler."""
+
+    def test_callback_installs_the_rich_handler(self) -> None:
+        logger = logging.getLogger("drevalpy")
+        logger.handlers[:] = [h for h in logger.handlers if not isinstance(h, RichHandler)]
+
+        result = runner.invoke(app, ["run", "-h"], env=HELP_ENV)
+
+        assert result.exit_code == 0
+        assert any(isinstance(h, RichHandler) for h in logger.handlers)
 
 
 class TestCliMain:

@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated
 
 import typer
 from upath import UPath
+
+
+class Join(StrEnum):
+    """Values of ``--join``: how views that disagree on feature names are combined."""
+
+    EXACT = "exact"
+    INNER = "inner"
 
 
 def concat_datasets(
@@ -15,12 +23,13 @@ def concat_datasets(
     ],
     output: Annotated[str, typer.Argument(help="Output .h5mu file path.")],
     join: Annotated[
-        str,
+        Join,
         typer.Option(
             "--join",
+            case_sensitive=False,
             help="'exact' needs identical feature names in every shared view; 'inner' keeps the shared features.",
         ),
-    ] = "exact",
+    ] = Join.EXACT,
     name: Annotated[
         str | None,
         typer.Option("--name", help="Name of the result. Defaults to the dataset names joined by '+'."),
@@ -35,11 +44,7 @@ def concat_datasets(
     """
     from drevalpy.data import concat, load
 
+    combined = concat([load(item) for item in datasets], join=join.value, name=name)
     path = UPath(output)
-    try:
-        combined = concat([load(item) for item in datasets], join=join, name=name)
-    except ValueError as error:
-        typer.echo(f"Error: {error}", err=True)
-        raise typer.Exit(1) from error
     combined.save(str(path))
     typer.echo(f"Wrote {combined.name} to {path}")
