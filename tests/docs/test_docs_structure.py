@@ -539,9 +539,9 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
         flags=re.MULTILINE,
     )
     observed_predictors = {name: (interface, description) for name, interface, description in predictor_matches}
-    assert len(expected_featurizers["sample"]) == len(rb.BUILTIN_SAMPLE_FEATURIZER_NAMES) == 17
-    assert len(expected_featurizers["drug"]) == len(rb.BUILTIN_DRUG_FEATURIZER_NAMES) == 10
-    assert len(expected_predictors) == len(rb.BUILTIN_PREDICTOR_NAMES) == 28
+    assert len(expected_featurizers["sample"]) == len(rb.BUILTIN_SAMPLE_FEATURIZER_NAMES) == 18
+    assert len(expected_featurizers["drug"]) == len(rb.BUILTIN_DRUG_FEATURIZER_NAMES) == 12
+    assert len(expected_predictors) == len(rb.BUILTIN_PREDICTOR_NAMES) == 30
     assert observed_predictors == expected_predictors
 
 

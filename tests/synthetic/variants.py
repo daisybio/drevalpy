@@ -39,6 +39,9 @@ SUPPORTED_GLOBAL_MODELS: Final = (
     "Precily",
     "DrugGNN",
     "SparseGO",
+    "PaccMann",
+    "EnsembleMF",
+    "RandomForestAEMolGNet",
 )
 
 #: Single-drug models the fixture is expected to train, predict and round-trip.

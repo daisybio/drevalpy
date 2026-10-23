@@ -216,11 +216,13 @@ column is a zoo preset; check yours with ``drevalpy list zoo-presets``.
      - ``SuperFELTR``
      - Single-drug model.
    * - ``EnsembleMF``
-     - Removed
-     - No zoo preset and no registered component. Nothing replaces it.
+     - ``EnsembleMF``
+     - Same network and 1.6.1 defaults. Features are rank-transformed landmark genes and 256-bit
+       fingerprints. A 1.x checkpoint does not load.
    * - ``PaccMann``
-     - Removed
-     - No zoo preset and no registered component. Nothing replaces it.
+     - ``PaccMann``
+     - Same network and 1.6.1 defaults. Gene list trimmed to 1,955 genes, SMILES variants drawn from a
+       fixed bank of 20 per drug. A 1.x checkpoint does not load.
 
 v2 adds ``Ridge``, which 1.x did not have. ``drevalpy list zoo-presets`` shows
 what each preset is made of; :doc:`/reference/model_zoo` describes them.

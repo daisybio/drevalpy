@@ -98,7 +98,11 @@ DEFERRED_TRAINING_SYMBOLS = (
     ("drevalpy.components.predictors.literature.pharmaformer.model_utils", "CombinedModel"),
     ("drevalpy.components.predictors.literature.precily.model_utils", "PrecilyNetwork"),
     ("drevalpy.components.predictors.literature.sparsego.algorithm", "SparseGONetwork"),
+    ("drevalpy.components.predictors.literature.ensemblemf.data", "split_pairs"),
+    ("drevalpy.components.predictors.literature.ensemblemf.network", "MFNet"),
+    ("drevalpy.components.predictors.literature.ensemblemf.training", "train_member"),
     ("drevalpy.components.predictors.literature.sparsego.utils", "load_ontology"),
+    ("drevalpy.components.predictors.literature.paccmann.network", "PaccMannNetwork"),
     ("drevalpy.components.predictors.literature.dipk.gene_expression_encoder", "GeneExpressionEncoder"),
     ("drevalpy.components.predictors.literature.dipk.gene_expression_encoder", "encode_gene_expression"),
     (
@@ -181,9 +185,9 @@ class TestAFreshImport:
     @pytest.mark.parametrize(
         ("key", "expected"),
         [
-            ("n_predictors", 28),
-            ("n_sample_featurizers", 17),
-            ("n_drug_featurizers", 10),
+            ("n_predictors", 30),
+            ("n_sample_featurizers", 18),
+            ("n_drug_featurizers", 12),
         ],
     )
     def test_registration_stayed_eager_and_complete(

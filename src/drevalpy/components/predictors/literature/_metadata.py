@@ -98,3 +98,34 @@ SPARSEGO_REFERENCE = LiteratureReference(
         "checkpoint winners."
     ),
 )
+
+ENSEMBLEMF_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/daisybio/drevalpy",
+    citation_doi="10.1038/s41467-026-72903-w",
+    citation_text=(
+        "EnsembleMF was contributed to DrEvalPy 1.6.1 (pull request 458) and has no publication of its own; "
+        "the DOI above is the DrEval paper (Bernett et al., Nature Communications 2026) that describes the "
+        "framework."
+    ),
+    deviations=(
+        "Port of the DrEvalPy 1.6.1 model with the same network and ensemble training. Features are float32 "
+        "from the dataset featurizers, ids without a feature row are not scored here but get NaN like every "
+        "predictor, and the 10% early-stopping fallback split uses a generator seeded from the seed "
+        "hyperparameter."
+    ),
+)
+
+PACCMANN_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/PaccMann/paccmann_predictor",
+    citation_doi="10.1021/acs.molpharmaceut.9b00520",
+    citation_text=(
+        "Manica et al., Toward Explainable Anticancer Compound Sensitivity Prediction via Multimodal "
+        "Attention-Based Convolutional Encoders, Molecular Pharmaceutics 2019."
+    ),
+    deviations=(
+        "Port of the DrEvalPy 1.6.1 reimplementation of the multimodal attention network, not the upstream "
+        "code. Keeps the pytoda atom tokenizer and draws each row's SMILES from a fixed bank of 20 "
+        "randomized variants per drug in every batch; stops on a disjoint validation set and scales "
+        "expression on the training pairs."
+    ),
+)

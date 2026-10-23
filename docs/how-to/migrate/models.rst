@@ -229,7 +229,5 @@ What does not carry over
 - A 1.x checkpoint does not load into the ported model, and neither do 1.x
   predictions or splits. Retrain and re-run. The table is at
   :ref:`how-to/migrate/index:Which 1.x files still load`.
-- ``EnsembleMF`` and ``PaccMann`` are not in v2. To get either back, you would
-  write the featurizers and the predictor yourself.
 - The model names that do exist are listed in
   :ref:`how-to/migrate/index:Map 1.x model names to v2`.

@@ -39,6 +39,8 @@ LITERATURE_FACTORY_NAMES = [
     "SimpleNeuralNetwork",
     "MultiViewNeuralNetwork",
     "SparseGO",
+    "EnsembleMF",
+    "PaccMann",
 ]
 
 FORBIDDEN_TOKENS = (
@@ -61,6 +63,8 @@ LITERATURE_PACKAGES = (
     "precily",
     "srmf",
     "druggnn",
+    "ensemblemf",
+    "paccmann",
 )
 
 LIFECYCLE_METHODS = ("_fit", "_predict", "get_state", "set_state", "is_fitted")

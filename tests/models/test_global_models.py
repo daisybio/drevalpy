@@ -55,6 +55,20 @@ def _construct_global_model_spec(whole_name: str, model_name: str) -> ModelSpec:
             ),
         )
         return ModelSpec(model_name, config)
+    if whole_name == "PaccMann":
+        config = _zoo_config_variant(
+            "PaccMann",
+            sample_featurizer=SampleFeaturizerConfig(
+                name="landmarkGenes",
+                options={
+                    "gene_list_stem": "gene_list_paccmann_network_prop_reduced",
+                    "arcsinh": False,
+                    "fit_on_pairs": True,
+                },
+            ),
+            drug_featurizer=DrugFeaturizerConfig(name="smilesTokens", options={"padding_length": 64, "n_variants": 4}),
+        )
+        return ModelSpec(model_name, config)
     return ModelSpec.from_name(model_name)
 
 
@@ -74,13 +88,41 @@ def _apply_global_model_hpam_tweaks(model_name: str, hpam_combi: dict) -> None:
     elif model_name in {"Precily", "SparseGO", "DrugGNN"}:
         hpam_combi["epochs"] = 1
         hpam_combi["batch_size"] = 32
+    elif model_name == "EnsembleMF":
+        hpam_combi["n_ensemble"] = 2
+        hpam_combi["max_epochs"] = 2
+        hpam_combi["hidden_dim"] = 16
+        hpam_combi["emb_dim"] = 8
+        hpam_combi["mlp_hidden"] = 8
+    elif model_name == "PaccMann":
+        hpam_combi["epochs"] = 1
+        hpam_combi["batch_size"] = 32
+        hpam_combi["filters"] = [4, 4, 4]
+        hpam_combi["molecule_heads"] = [1, 1, 1, 1]
+        hpam_combi["gene_heads"] = [1, 1, 1, 1]
+        hpam_combi["stacked_dense_hidden_sizes"] = [16]
     elif model_name == "SRMF":
         hpam_combi["max_iter"] = 2
+    elif model_name == "RandomForestAEMolGNet":
+        hpam_combi["epochs_autoencoder"] = 1
+        hpam_combi["n_estimators"] = 5
     elif model_name == "AdaBoostDecisionTree":
         hpam_combi["max_depth"] = 2
         hpam_combi["min_samples_split"] = 2
         hpam_combi["min_samples_leaf"] = 2
         hpam_combi["n_estimators"] = 2
+
+
+def _stub_molgnet_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Serve seeded node embeddings in place of the MolGNet checkpoint, which needs a download.
+
+    :param monkeypatch: The test's monkeypatch fixture.
+    """
+
+    def embed(smiles: str) -> np.ndarray:
+        return np.random.default_rng(len(smiles)).normal(size=(5 + len(smiles) % 7, 768)).astype(np.float32)
+
+    monkeypatch.setattr("drevalpy.components.featurizers.drug.molgnet._compute_molgnet_embedding", embed)
 
 
 def _first_lto_fold(mudataset: Dataset) -> SplitMasks:
@@ -127,12 +169,15 @@ def _assert_round_trips(
 
 
 @pytest.mark.parametrize("model_name", [model_param(name) for name in SUPPORTED_GLOBAL_MODELS])
-def test_global_models(synthetic_dataset: Dataset, model_name: str) -> None:
+def test_global_models(synthetic_dataset: Dataset, model_name: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """Each global model trains, predicts and reloads on a Leave-Tissue-Out fold.
 
     :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
     :param model_name: Model name, possibly with a ``[view]`` suffix.
+    :param monkeypatch: Stubs the MolGNet checkpoint for the model that pools its embeddings.
     """
+    if model_name == "RandomForestAEMolGNet":
+        _stub_molgnet_embeddings(monkeypatch)
     split = _first_lto_fold(synthetic_dataset)
 
     whole_name, model_name = _resolve_global_model_name(model_name)

@@ -65,6 +65,8 @@ EXPECTED = {
         "sparsego",
         "molir",
         "superfeltr",
+        "ensembleMF",
+        "paccMann",
     },
 }
 LEAF_BASES = (FeatureFreePredictor, MatrixPredictor, BlockPredictor)

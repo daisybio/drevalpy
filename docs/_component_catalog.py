@@ -26,8 +26,8 @@ GENERATED_CATALOGS = {
     "drug": DOCS_DIR / "reference" / "_generated_drug_featurizers.rst",
     "predictor": DOCS_DIR / "reference" / "_generated_predictors.rst",
 }
-EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample": 17, "drug": 10, "predictor": 28}
-EXPECTED_PREDICTOR_INTERFACE_COUNTS = {"feature_free": 1, "matrix": 14, "block": 13}
+EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample": 18, "drug": 12, "predictor": 30}
+EXPECTED_PREDICTOR_INTERFACE_COUNTS = {"feature_free": 1, "matrix": 14, "block": 15}
 
 
 class ComponentCatalogMetadata(TypedDict):

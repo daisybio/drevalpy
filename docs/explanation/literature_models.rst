@@ -214,6 +214,71 @@ SparseGO is a sparse network whose connections follow the gene ontology.
 - Reproducing the published ontology, the drug fingerprints and the published
   dataset as a whole is outside what DrEvalPy checks.
 
+EnsembleMF
+----------
+
+EnsembleMF is a two-tower matrix factorization. It was contributed to DrEvalPy 1.6.1
+and has no publication of its own, so there is no paper to differ from. This page
+lists how the port differs from the 1.6.1 implementation.
+
+- Two residual networks turn the expression profile of a sample and the fingerprint
+  of a drug into latent factors. The score is their dot product plus a bias per sample,
+  per drug and overall, plus a small interaction network. A free embedding per
+  drug is added to the drug factor, but only for drugs that were in a training batch.
+  A drug that was held out of training is scored from its fingerprint alone.
+- The prediction is the mean of ``n_ensemble`` members (20 by default). Member *i*
+  is initialized and shuffled with seed ``seed + i`` and keeps the weights of its
+  epoch with the best error on the early-stopping scope. A negative ``seed`` leaves
+  the members unseeded.
+- The expression is read through the ``scaledGeneExpression`` featurizer with
+  ``transform: rank``, on the ``landmark_genes`` list. Each value becomes its position
+  among the sorted values of the training samples for that gene, and the result is
+  standardized with a scaler fitted on the same samples. A sample is therefore scored
+  against a fixed reference, whatever else is predicted with it. ``transform: arcsinh``
+  gives the strictly pointwise alternative. The fingerprints have 256 bits.
+- Expression values reach the featurizer as float32, as everywhere in v2, where the
+  1.6.1 model read them in double precision. The rank positions are the same for
+  values that float32 represents exactly. The features differ only by rounding.
+- A pair whose sample or drug has no features is not scored: like every v2 predictor,
+  EnsembleMF returns NaN for it. The 1.6.1 model returned the training mean.
+- Without an early-stopping scope, 10% of the training pairs are held out with a
+  generator seeded from ``seed``. The 1.6.1 model drew them from the global random
+  state.
+- Checkpoints are the usual v2 checkpoints; those of 1.6.1 do not load.
+
+PaccMann
+--------
+
+PaccMann (Manica et al., Molecular Pharmaceutics 2019) embeds the tokenized SMILES
+of a drug, convolves the embedding at three window sizes, and lets the gene
+expression and each SMILES representation attend over each other. The attended
+vectors go through dense layers to one response. The network is the 1.6.1 one,
+ported without change of architecture.
+
+- The SMILES are tokenized by the regular expression of the original ``pytoda``
+  package, with padding (0) and unknown (1) as the first two indices. The
+  ``smilesTokens`` featurizer builds the vocabulary from the training drugs.
+  Padding is 512 tokens and a drug longer than that is truncated.
+- The 1.6.1 model augmented the SMILES by drawing a random equivalent SMILES from
+  RDKit at every step. Here ``smilesTokens`` draws a fixed bank of 20 equivalent
+  SMILES per drug once, when it is fitted, and each row of a batch picks one of them
+  at random in every epoch. The bank and the training draw are seeded, so a fit is
+  repeatable, but the bank is not the random stream of the original code. Prediction
+  uses the canonical SMILES of the drug as given. A drug seen only at prediction
+  time is tokenized with the vocabulary of the training drugs; its unknown tokens
+  map to index 1. Without RDKit, or with ``augment: false``, the bank has one
+  entry and a warning is emitted.
+- The expression is the ``gene_list_paccmann_network_prop`` list with a scaler
+  fitted on the training *pairs*, so a sample counts once for every drug it was
+  measured with. That is what 1.6.1 did, and the ``fit_on_pairs`` option of
+  ``landmarkGenes`` keeps it. The list has 1,955 genes here, not 1,957: the
+  re-curated cell-line screens no longer measure ``PRRC2B`` and ``S100A7L2``. The
+  features are float32, where 1.6.1 used double precision.
+- The predictor stops on the early-stopping scope and restores the weights of its
+  best epoch. Without such a scope the full budget of epochs runs and the last
+  weights are kept. A trailing training batch of one pair is dropped, because batch
+  normalisation cannot process it.
+
 What was checked
 ----------------
 

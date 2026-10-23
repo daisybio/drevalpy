@@ -13,7 +13,9 @@ import pytest
 from drevalpy.components.predictors.literature._metadata import (
     DIPK_REFERENCE,
     DRUGGNN_REFERENCE,
+    ENSEMBLEMF_REFERENCE,
     MOLIR_REFERENCE,
+    PACCMANN_REFERENCE,
     PHARMAFORMER_REFERENCE,
     PRECILY_REFERENCE,
     SPARSEGO_REFERENCE,
@@ -31,6 +33,8 @@ ALL_REFERENCES = (
     pytest.param(PHARMAFORMER_REFERENCE, id="pharmaformer"),
     pytest.param(DIPK_REFERENCE, id="dipk"),
     pytest.param(SPARSEGO_REFERENCE, id="sparsego"),
+    pytest.param(ENSEMBLEMF_REFERENCE, id="ensemblemf"),
+    pytest.param(PACCMANN_REFERENCE, id="paccmann"),
 )
 
 DOIS = (
@@ -42,6 +46,8 @@ DOIS = (
     pytest.param(PHARMAFORMER_REFERENCE, "10.1038/s41698-025-01082-6", id="pharmaformer"),
     pytest.param(DIPK_REFERENCE, "10.1093/bib/bbae153", id="dipk"),
     pytest.param(SPARSEGO_REFERENCE, "10.1016/j.ebiom.2023.104767", id="sparsego"),
+    pytest.param(ENSEMBLEMF_REFERENCE, "10.1038/s41467-026-72903-w", id="ensemblemf"),
+    pytest.param(PACCMANN_REFERENCE, "10.1021/acs.molpharmaceut.9b00520", id="paccmann"),
 )
 
 

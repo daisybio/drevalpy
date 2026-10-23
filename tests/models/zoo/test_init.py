@@ -24,9 +24,22 @@ LITERATURE_ZOO_NAMES = [
     "SimpleNeuralNetwork",
     "MultiViewNeuralNetwork",
     "SparseGO",
+    "EnsembleMF",
+    "PaccMann",
 ]
 
-BLOCK_ZOO_NAMES = {"DrugGNN", "PharmaFormer", "DIPK", "MOLIR", "SuperFELTR", "Precily", "SRMF", "SparseGO"}
+BLOCK_ZOO_NAMES = {
+    "DrugGNN",
+    "PharmaFormer",
+    "DIPK",
+    "MOLIR",
+    "SuperFELTR",
+    "Precily",
+    "SRMF",
+    "SparseGO",
+    "EnsembleMF",
+    "PaccMann",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -239,6 +252,32 @@ def test_single_drug_knn_zoo_entry_standardizes_per_drug() -> None:
     validate(config)
 
 
+def test_random_forest_ae_molgnet_zoo_entry_has_the_1_6_1_defaults() -> None:
+    config = get_zoo_config("RandomForestAEMolGNet")
+
+    assert config.predictor.name == "randomForest"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "aeGeneExpression"
+    assert config.sample_featurizer.options == {"gene_list": "tcga_autoencoder_genes_available"}
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "molgnetPooled"
+    spec = ModelSpec.from_name("RandomForestAEMolGNet")
+    assert spec.requires_early_stopping
+    assert spec.default_hyperparameters == {
+        "epochs_autoencoder": 2000,
+        "lr_autoencoder": 1e-4,
+        "patience_autoencoder": 50,
+        "batch_size_autoencoder": 1024,
+        "pooling": "mean_max",
+        "n_estimators": 100,
+        "max_samples": 0.2,
+        "max_depth": 5,
+    }
+    space = spec.hyperparameter_space
+    assert space["predictor.randomForest.max_depth"]["choices"] == (5, 10, 30)
+    validate(config)
+
+
 def test_multi_drug_sklearn_predictor_without_drug_featurizer_fails() -> None:
     from pydantic import ValidationError
 
@@ -268,6 +307,44 @@ def test_literature_zoo_entries_create_model(name: str) -> None:
     config = get_zoo_config(name)
     model = DRPModel(ModelSpec(name, config))
     assert model is not None
+
+
+def test_ensemble_mf_zoo_entry_matches_the_1_6_1_defaults() -> None:
+    config = get_zoo_config("EnsembleMF")
+
+    assert config.predictor.name == "ensembleMF"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "scaledGeneExpression"
+    assert config.sample_featurizer.options == {"gene_list": "landmark_genes", "transform": "rank"}
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "fingerprints"
+    assert config.drug_featurizer.hyperparameter_space is not None
+    assert config.drug_featurizer.hyperparameter_space["n_bits"]["default"] == 256
+    assert config.scope.value == "multi_drug"
+    defaults = get_predictor("ensembleMF").get_default_hyperparameters()
+    assert defaults["n_ensemble"] == 20
+    assert defaults["seed"] == 0
+    validate(config)
+
+
+def test_paccmann_zoo_entry_matches_the_1_6_1_defaults() -> None:
+    config = get_zoo_config("PaccMann")
+
+    assert config.predictor.name == "paccMann"
+    assert config.sample_featurizer is not None
+    assert config.sample_featurizer.name == "landmarkGenes"
+    assert config.sample_featurizer.options == {
+        "gene_list_stem": "gene_list_paccmann_network_prop",
+        "arcsinh": False,
+        "fit_on_pairs": True,
+    }
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "smilesTokens"
+    assert config.scope.value == "multi_drug"
+    defaults = get_predictor("paccMann").get_default_hyperparameters()
+    assert defaults["epochs"] == 10
+    assert defaults["patience"] == 10
+    validate(config)
 
 
 @pytest.mark.parametrize("name", ["MOLIR", "SuperFELTR"])
