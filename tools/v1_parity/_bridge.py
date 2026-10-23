@@ -131,7 +131,7 @@ def load_outputs(directory: str | Path, side: str) -> tuple[dict[str, np.ndarray
 def environment_info() -> dict[str, Any]:
     """Describe the running interpreter and the versions that matter for numerics.
 
-    :returns: Python, numpy, torch, scikit-learn and drevalpy versions (``None`` when absent).
+    :returns: Python, numpy, torch, scikit-learn, xgboost, lightgbm and drevalpy versions (``None`` when absent).
     """
     from importlib import metadata
 
@@ -148,6 +148,8 @@ def environment_info() -> dict[str, Any]:
         "scikit-learn": version("scikit-learn"),
         "scipy": version("scipy"),
         "pandas": version("pandas"),
+        "xgboost": version("xgboost"),
+        "lightgbm": version("lightgbm"),
         "drevalpy": version("drevalpy"),
         "executable": sys.executable,
     }
