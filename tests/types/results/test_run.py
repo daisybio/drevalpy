@@ -186,6 +186,27 @@ class TestPersistence:
         assert loaded.best_hyperparameters == {"alpha": 0.25}
         assert loaded.fold_metadata == {"note": "kept"}
 
+    def test_round_trip_preserves_the_unnormalized_summary(self, tmp_path) -> None:
+        run = make_run_result()
+        run.raw_metrics = {"RMSE": 1.5, "Pearson": 0.75}
+        run.raw_per_drug_pearson = 0.25
+        path = UPath(tmp_path) / "fold.npz"
+
+        run.save(path)
+        loaded = RunResult.load(path)
+
+        assert loaded.raw_metrics == {"RMSE": 1.5, "Pearson": 0.75}
+        assert loaded.raw_per_drug_pearson == 0.25
+
+    def test_a_file_without_the_unnormalized_summary_loads_with_the_defaults(self, tmp_path) -> None:
+        path = UPath(tmp_path) / "fold.npz"
+        make_run_result().save(path)
+
+        loaded = RunResult.load(path)
+
+        assert loaded.raw_metrics == {}
+        assert loaded.raw_per_drug_pearson is None
+
     def test_round_trip_restores_randomization_as_a_tuple(self, tmp_path) -> None:
         run = make_run_result(randomization=("SVRC", "gene_expression"))
         path = UPath(tmp_path) / "fold.npz"

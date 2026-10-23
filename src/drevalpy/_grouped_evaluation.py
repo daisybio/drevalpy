@@ -232,3 +232,15 @@ def mean_over_groups(values: np.ndarray) -> tuple[float, int]:
     """
     defined = values[np.isfinite(values)]
     return (float(defined.mean()) if defined.size else float("nan")), int(defined.size)
+
+
+def run_group_score(run: RunResult, group_by: GroupBy, metric: str) -> float:
+    """Score one run within every group and average over the groups where the metric is defined.
+
+    :param run: Run whose predictions and response to score.
+    :param group_by: One of :data:`GROUPINGS`.
+    :param metric: Metric name from :data:`drevalpy.evaluation.AVAILABLE_METRICS`.
+    :returns: The mean over the defined groups, NaN if there are none.
+    """
+    _, scores = grouped_scores(group_labels(run, group_by), run.predictions, run.ground_truth, [metric])
+    return mean_over_groups(scores[metric])[0]

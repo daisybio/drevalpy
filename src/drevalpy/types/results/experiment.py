@@ -5,15 +5,13 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Sequence
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
 from upath import UPath as Path
 
 from drevalpy.errors import InvalidInputError
-from drevalpy.evaluation import score_predictions
 from drevalpy.log import get_logger
+from drevalpy.types.results._normalize import normalize_run, reference_summary
 from drevalpy.types.results._summary import SummaryTableMixin
 from drevalpy.types.results.failure import RunFailure, read_failures, write_failures
 from drevalpy.types.results.model import ModelResult
@@ -49,6 +47,7 @@ class ExperimentResult(SummaryTableMixin):
         self.dataset_name: str = dataset_names.pop()
         self.split_mode: str = split_modes.pop() if split_modes else ""
         self.normalized_by: str | None = None
+        self.reference_runs: tuple[RunResult, ...] = ()
         self.failures: tuple[RunFailure, ...] = tuple(failures)
 
         grouped: dict[str, list[RunResult]] = {}
@@ -108,6 +107,9 @@ class ExperimentResult(SummaryTableMixin):
 
         :param reference_model: Name of the model to normalize against.
         :returns: A new ExperimentResult containing only non-reference runs with recomputed metrics.
+            Each run keeps its unnormalized pooled metrics and per-drug Pearson in ``raw_metrics`` and
+            ``raw_per_drug_pearson``, and ``reference_runs`` holds the array-free summaries of the reference
+            model's own runs, so a leaderboard can still list it; :meth:`save` does not write ``reference_runs``.
         :raises ValueError: If already normalized or reference model not found.
         """
         if self.normalized_by is not None:
@@ -133,10 +135,11 @@ class ExperimentResult(SummaryTableMixin):
             if run.fold_key not in ref_runs_by_fold:
                 raise ValueError(f"No reference run found for fold {run.fold_key!r}")
             ref_run = ref_runs_by_fold[run.fold_key]
-            normalized_runs.append(_normalize_run(run, ref_run))
+            normalized_runs.append(normalize_run(run, ref_run))
 
         result = ExperimentResult(normalized_runs, self.failures)
         result.normalized_by = reference_model
+        result.reference_runs = tuple(reference_summary(run) for run in ref_runs_by_fold.values())
         return result
 
     def save(self, directory: str | Path) -> None:
@@ -231,36 +234,4 @@ def _log_load_summary(experiment: ExperimentResult, runs: list[RunResult], *, wi
         rows,
         total_bytes / 1024**3,
         "loaded" if with_trials else "skipped",
-    )
-
-
-def _normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
-    """Normalize a single RunResult against a reference RunResult."""
-    import pandas as pd
-
-    ref_index = pd.MultiIndex.from_arrays(
-        [np.asarray(ref_run.sample_ids, dtype=object), np.asarray(ref_run.drug_ids, dtype=object)]
-    )
-    ref_predictions = np.asarray(ref_run.predictions)
-    if ref_index.has_duplicates:
-        # The dict lookup this replaced let the last occurrence of a pair win.
-        keep = ~ref_index.duplicated(keep="last")
-        ref_index = ref_index[keep]
-        ref_predictions = ref_predictions[keep]
-    positions = ref_index.get_indexer(
-        pd.MultiIndex.from_arrays([np.asarray(run.sample_ids, dtype=object), np.asarray(run.drug_ids, dtype=object)])
-    )
-    # get_indexer yields -1 for pairs the reference never predicted; those normalize
-    # against 0.0, matching the dict-lookup default this replaced.
-    ref_preds = np.where(positions >= 0, ref_predictions[positions.clip(min=0)], 0.0)
-
-    norm_gt = run.ground_truth - ref_preds
-    norm_pred = run.predictions - ref_preds
-
-    return replace(
-        run,
-        predictions=norm_pred,
-        ground_truth=norm_gt,
-        metrics=score_predictions(norm_pred, norm_gt, empty_as_dict=True),
-        trials=[replace(trial) for trial in run.trials] if run.trials else None,
     )

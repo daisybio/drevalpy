@@ -7,8 +7,9 @@ of the suite.
 
 The PCC panel is the plot that broke when it read ``"Pearson: normalized"`` while
 ``normalize()`` emits ``"Pearson"``: the column came out all-NaN and ``set_xlim``
-raised ``ValueError: Axis limits cannot be NaN or Inf``. Both halves of that failure
-are pinned - the metric name and the NaN-safe axis.
+raised ``ValueError: Axis limits cannot be NaN or Inf``. The table is pinned in
+``test_leaderboard_table.py`` and the NaN-safe axis in ``test_leaderboard_draw.py``;
+this file pins the panels built from them.
 """
 
 from __future__ import annotations
@@ -20,17 +21,8 @@ import numpy as np
 import pytest
 
 from drevalpy.types.results.experiment import ExperimentResult
-from drevalpy.visualization.plots.leaderboard import (
-    COMPETITOR_COLOR,
-    DARK_THEME,
-    LeaderboardVisualization,
-    _axis_bounds,
-    _build_leaderboard_df,
-    _figure_geometry,
-    _get_bar_color,
-    _get_test_mode_name,
-    _gradient_char_colors,
-)
+from drevalpy.visualization.plots._leaderboard_draw import DARK_THEME
+from drevalpy.visualization.plots.leaderboard import LeaderboardVisualization, _figure_geometry, _panels
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -56,148 +48,6 @@ def computed(experiment) -> LeaderboardVisualization:
     return plot
 
 
-class TestGetBarColor:
-    @pytest.mark.parametrize(
-        ("rank", "expected"),
-        [
-            pytest.param(0, "#F4D03F", id="gold"),
-            pytest.param(1, "#BDC3C7", id="silver"),
-            pytest.param(2, "#E67E22", id="bronze"),
-        ],
-    )
-    def test_top_three_get_medal_colors_at_full_opacity(self, rank, expected):
-        assert _get_bar_color(rank, False) == {"color": expected, "alpha": 1.0}
-
-    def test_fourth_place_onwards_gets_the_competitor_color(self):
-        assert _get_bar_color(3, False) == {"color": COMPETITOR_COLOR, "alpha": 0.85}
-
-    def test_baselines_are_grey_regardless_of_rank(self):
-        assert _get_bar_color(0, True) == _get_bar_color(9, True) == {"color": "#5a5a5a", "alpha": 1.0}
-
-
-class TestGradientCharColors:
-    def test_returns_one_color_per_character(self):
-        assert len(_gradient_char_colors("DrEval")) == len("DrEval")
-
-    def test_every_color_is_a_six_digit_hex_string(self):
-        assert all(len(c) == 7 and c.startswith("#") for c in _gradient_char_colors("Leaderboard"))
-
-    def test_gradient_runs_from_teal_to_purple(self):
-        colors = _gradient_char_colors("Leaderboard")
-
-        assert (colors[0], colors[-1]) == ("#14b8a6", "#9d4edd")
-
-    def test_single_character_avoids_a_zero_division(self):
-        assert _gradient_char_colors("X") == ["#14b8a6"]
-
-    def test_empty_title_yields_no_colors(self):
-        assert _gradient_char_colors("") == []
-
-
-class TestGetTestModeName:
-    @pytest.mark.parametrize(
-        ("mode", "expected"),
-        [
-            pytest.param("LSO", "5-Fold Leave-Sample-Out Cross Validation", id="lso"),
-            pytest.param("LDO", "5-Fold Leave-Drug-Out Cross Validation", id="ldo"),
-            pytest.param("LPO", "5-Fold Leave-Pair-Out Cross Validation", id="lpo"),
-            pytest.param("LTO", "5-Fold Leave-Tissue-Out Cross Validation", id="lto"),
-            pytest.param("LStO", "Leave-Study-Out Cross Validation", id="lsto"),
-        ],
-    )
-    def test_known_modes_are_spelled_out(self, mode, expected):
-        assert _get_test_mode_name(mode, 5) == expected
-
-    def test_the_fold_count_comes_from_the_argument(self):
-        assert _get_test_mode_name("LPO", 3) == "3-Fold Leave-Pair-Out Cross Validation"
-
-    def test_unknown_modes_pass_through_unchanged(self):
-        assert _get_test_mode_name("CROSS_STUDY", 5) == "CROSS_STUDY"
-
-
-class TestBuildLeaderboardDf:
-    def test_has_one_row_per_model(self, experiment):
-        df = _build_leaderboard_df(experiment)
-
-        assert len(df) == len(experiment.models)
-
-    def test_columns_are_the_aggregated_schema(self, experiment):
-        df = _build_leaderboard_df(experiment)
-
-        assert list(df.columns) == ["algorithm", "PCC", "PCC_std", "RMSE", "RMSE_std", "is_baseline"]
-
-    def test_rows_are_ordered_by_descending_normalized_pearson(self, experiment):
-        df = _build_leaderboard_df(experiment)
-
-        assert df["PCC"].is_monotonic_decreasing
-
-    def test_naive_models_are_flagged_as_baselines(self, experiment):
-        df = _build_leaderboard_df(experiment).set_index("algorithm")
-
-        assert bool(df.loc["NaiveMeanEffectsPredictor", "is_baseline"]) is True
-        assert bool(df.loc["ElasticNet", "is_baseline"]) is False
-
-    def test_single_fold_models_get_a_zero_standard_deviation(self):
-        result = ExperimentResult([make_run_result(model_name="Solo")])
-
-        df = _build_leaderboard_df(result)
-
-        assert (df["PCC_std"].iloc[0], df["RMSE_std"].iloc[0]) == (0.0, 0.0)
-
-    def test_randomized_runs_are_excluded(self):
-        result = ExperimentResult(
-            [
-                make_run_result(model_name="ElasticNet", fold_index=0),
-                make_run_result(model_name="ElasticNet", fold_index=1),
-                make_run_result(model_name="RandomForest", randomization=("gene_expression", "permutation")),
-            ]
-        )
-
-        df = _build_leaderboard_df(result)
-
-        assert df["algorithm"].tolist() == ["ElasticNet"]
-
-    def test_returns_the_empty_schema_when_every_run_is_randomized(self):
-        result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
-
-        df = _build_leaderboard_df(result)
-
-        assert df.empty
-        assert list(df.columns) == ["algorithm", "PCC", "PCC_std", "RMSE", "RMSE_std", "is_baseline"]
-
-
-class TestMetricNameContract:
-    """``normalize()`` emits plain metric names; the panel reads those."""
-
-    def test_a_normalized_experiment_yields_finite_pcc_values(self):
-        normalized = make_experiment_result(n_models=4, n_folds=3).normalize(REFERENCE_MODEL)
-
-        df = _build_leaderboard_df(normalized)
-
-        assert df["PCC"].notna().all()
-
-    def test_the_reference_model_is_gone_from_the_ranking(self):
-        normalized = make_experiment_result(n_models=4, n_folds=3).normalize(REFERENCE_MODEL)
-
-        df = _build_leaderboard_df(normalized)
-
-        assert REFERENCE_MODEL not in df["algorithm"].tolist()
-
-    def test_reads_the_plain_pearson_key(self):
-        result = ExperimentResult([make_run_result(metrics={"Pearson": 0.9, "RMSE": 1.0})])
-
-        df = _build_leaderboard_df(result)
-
-        assert df["PCC"].tolist() == [pytest.approx(0.9)]
-
-    def test_a_metric_no_run_reports_becomes_nan_rather_than_raising(self):
-        result = ExperimentResult([make_run_result(metrics={"MSE": 0.5})])
-
-        df = _build_leaderboard_df(result)
-
-        assert df["PCC"].isna().all()
-
-
 class TestFigureGeometry:
     """The 96-model production report overlapped every tick label at a fixed height."""
 
@@ -221,39 +71,102 @@ class TestFigureGeometry:
         assert _figure_geometry(10_000)[0] == 60.0
 
 
-class TestAxisBounds:
-    """An all-NaN metric column used to take the whole report down."""
+def _visible_axes(fig) -> list:
+    return [ax for ax in fig.axes if ax.axison]
 
-    def test_bounds_stay_finite_when_every_value_is_nan(self):
-        left, right = _axis_bounds(np.array([np.nan, np.nan]), np.array([np.nan, np.nan]))
 
-        assert np.isfinite([left, right]).all()
-        assert left < right
+class TestPanels:
+    @staticmethod
+    def _df(**columns):
+        import pandas as pd
 
-    def test_a_nan_standard_deviation_is_treated_as_zero(self):
-        assert _axis_bounds(np.array([1.0]), np.array([np.nan])) == _axis_bounds(np.array([1.0]), np.array([0.0]))
+        base = {"PCC": [0.1], "RMSE": [1.0], "Pearson": [np.nan], "Pearson_per_drug": [np.nan]}
+        return pd.DataFrame({**base, **{k: [v] for k, v in columns.items()}})
 
-    def test_the_upper_bound_clears_the_tallest_bar(self):
-        _, right = _axis_bounds(np.array([0.2, 0.8]), np.array([0.0, 0.1]))
+    def test_pcc_and_rmse_are_always_drawn(self):
+        assert [p.column for p in _panels(self._df(), normalized=False)] == ["PCC", "RMSE"]
 
-        assert right > 0.9
+    def test_raw_pearson_needs_a_normalized_experiment(self):
+        df = self._df(Pearson=0.8)
 
-    def test_negative_values_are_inside_the_axis(self):
-        """A normalized correlation below the reference model is negative."""
-        left, right = _axis_bounds(np.array([-0.4, 0.3]), np.array([0.0, 0.0]))
+        assert [p.column for p in _panels(df, normalized=False)] == ["PCC", "RMSE"]
+        assert [p.column for p in _panels(df, normalized=True)] == ["PCC", "RMSE", "Pearson"]
 
-        assert left < -0.4
-        assert right > 0.3
+    def test_per_drug_pearson_is_the_last_panel(self):
+        df = self._df(Pearson=0.8, Pearson_per_drug=0.3)
 
-    def test_a_single_zero_value_still_yields_an_ordered_axis(self):
-        left, right = _axis_bounds(np.array([0.0]), np.array([0.0]))
+        assert [p.column for p in _panels(df, normalized=True)] == ["PCC", "RMSE", "Pearson", "Pearson_per_drug"]
 
-        assert left < right
+    def test_the_pcc_panel_names_its_normalization(self):
+        assert _panels(self._df(), normalized=True)[0].xlabel == "Normalized PCC"
+        assert _panels(self._df(), normalized=False)[0].xlabel == "PCC"
+
+
+class TestFourPanels:
+    """The 1.6.1 layout: normalized PCC, RMSE, raw Pearson and per-drug Pearson in a 2x2 grid."""
+
+    @pytest.fixture
+    def plot(self, experiment):
+        plot = LeaderboardVisualization()
+        plot.compute(experiment.normalize(REFERENCE_MODEL))
+        return plot
+
+    def test_a_normalized_experiment_draws_four_panels(self, plot):
+        assert [ax.get_xlabel() for ax in _visible_axes(plot._fig)] == [
+            "Normalized PCC",
+            "Root Mean Square Error",
+            "Raw PCC",
+            "Per-drug Pearson",
+        ]
+
+    def test_the_panels_are_titled_with_the_optimization_direction(self, plot):
+        titles = [ax.get_title() for ax in _visible_axes(plot._fig)]
+
+        assert titles[2] == "Raw PCC  \u2191  higher is better"
+        assert titles[3] == "Per-drug Pearson  \u2191  higher is better"
+
+    def test_the_canvas_has_two_rows(self, plot):
+        assert plot._fig.get_size_inches()[1] == pytest.approx(24.0)
+
+    def test_the_reference_model_is_ranked_as_a_baseline(self, plot):
+        labels = {label.get_text() for label in plot._fig.axes[0].get_yticklabels()}
+
+        assert REFERENCE_MODEL in labels
+
+    def test_the_raw_pearson_panel_ranks_by_raw_pearson(self, plot, experiment):
+        raw = {m.model_name: np.mean([r.metrics["Pearson"] for r in m.runs]) for m in experiment.models}
+        labels = [label.get_text() for label in plot._fig.axes[2].get_yticklabels()]
+
+        assert labels == sorted(raw, key=raw.__getitem__, reverse=True)
+
+    def test_a_plain_experiment_without_raw_duplicate_draws_three_panels(self, computed):
+        assert [ax.get_xlabel() for ax in _visible_axes(computed._fig)] == [
+            "PCC",
+            "Root Mean Square Error",
+            "Per-drug Pearson",
+        ]
+
+    def test_two_panels_use_a_single_row(self):
+        result = ExperimentResult(
+            [
+                make_run_result(
+                    model_name=name, fold_index=i, n_pairs=1, n_drugs=1, metrics={"Pearson": 0.5, "RMSE": 1.0}
+                )
+                for name in ("A", "B")
+                for i in range(2)
+            ]
+        )
+        plot = LeaderboardVisualization()
+
+        plot.compute(result)
+
+        assert len(plot._fig.axes) == 2
+        assert plot._fig.get_size_inches()[1] == pytest.approx(12.0)
 
 
 class TestCompute:
-    def test_builds_two_ranked_panels(self, computed):
-        assert len(computed._fig.axes) == 2
+    def test_the_first_two_panels_are_pcc_and_rmse(self, computed):
+        assert [ax.get_xlabel() for ax in computed._fig.axes[:2]] == ["PCC", "Root Mean Square Error"]
 
     def test_left_panel_ranks_by_pearson(self, computed):
         """The experiment is not normalized, so the label must not claim it is."""
@@ -302,13 +215,13 @@ class TestCompute:
         assert len(plot._fig.axes) == 1
         assert plot._fig.axes[0].texts[0].get_text() == "No data available for leaderboard"
 
-    def test_a_normalized_experiment_renders_both_panels(self, experiment):
+    def test_a_normalized_experiment_renders(self, experiment):
         """The regression: this used to raise ``Axis limits cannot be NaN or Inf``."""
         plot = LeaderboardVisualization()
 
         plot.compute(experiment.normalize(REFERENCE_MODEL))
 
-        assert len(plot._fig.axes) == 2
+        assert len(_visible_axes(plot._fig)) == 4
 
     def test_models_without_a_pcc_value_are_dropped_from_that_panel_only(self):
         result = ExperimentResult(

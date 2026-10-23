@@ -17,6 +17,7 @@ from drevalpy._grouped_evaluation import (
     group_labels,
     grouped_scores,
     mean_over_groups,
+    run_group_score,
 )
 from drevalpy.evaluation import AVAILABLE_METRICS, CONSTANT_ATOL
 from tests.synthetic import make_run_result
@@ -214,3 +215,23 @@ class TestMeanOverGroups:
 
         assert np.isnan(mean)
         assert count == 0
+
+
+class TestRunGroupScore:
+    def test_averages_the_defined_drugs_of_a_run(self):
+        run = make_run_result(n_pairs=20, n_drugs=4)
+        per_drug = [
+            np.corrcoef(run.predictions[run.drug_ids == d], run.ground_truth[run.drug_ids == d])[0, 1]
+            for d in np.unique(run.drug_ids)
+        ]
+
+        assert run_group_score(run, "drug", "Pearson") == pytest.approx(np.mean(per_drug))
+
+    def test_a_run_without_a_defined_group_is_nan(self):
+        run = make_run_result(n_pairs=1, n_drugs=1, n_samples=1)
+
+        assert np.isnan(run_group_score(run, "drug", "Pearson"))
+
+    def test_rejects_an_unknown_grouping(self):
+        with pytest.raises(ValueError, match="Unknown grouping"):
+            run_group_score(make_run_result(), "tissue", "Pearson")  # type: ignore[arg-type]

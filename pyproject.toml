@@ -24,7 +24,7 @@ dependencies = [
     "plotly>=5.18,<6.1",
     "kaleido==0.2.1",
     "matplotlib",
-    "scikit-posthocs",
+    "scikit-posthocs>=0.17.0",
     "curve-curator",
     "subword-nmt>=0.3.8",
     "pydantic>=2.5",
@@ -291,7 +291,6 @@ max_module_statements = 150
 # one plot each.
 "drevalpy/registry/_builtins.py" = 182
 "drevalpy/types/data/dataset.py" = 207
-"drevalpy/visualization/plots/leaderboard.py" = 177
 
 [tool.complexipy]
 max-complexity-allowed = 15

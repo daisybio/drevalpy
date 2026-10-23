@@ -1201,7 +1201,7 @@ requires-dist = [
     { name = "rdkit", specifier = ">=2026.3.4" },
     { name = "rich", specifier = ">=15.0.0" },
     { name = "scikit-learn", specifier = ">=1.4" },
-    { name = "scikit-posthocs" },
+    { name = "scikit-posthocs", specifier = ">=0.17.0" },
     { name = "scipy" },
     { name = "subword-nmt", specifier = ">=0.3.8" },
     { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.1", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "drevalpy", extra = "cpu" } },
@@ -4336,7 +4336,7 @@ wheels = [
 
 [[package]]
 name = "scikit-posthocs"
-version = "0.14.0"
+version = "0.17.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
@@ -4347,9 +4347,9 @@ dependencies = [
     { name = "seaborn" },
     { name = "statsmodels" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/15/88/1a1758a6b68079cc58dd38b291cd194a29f9018a0eb5397342c5156009e5/scikit_posthocs-0.14.0.tar.gz", hash = "sha256:3b9f9273fc9037ee967d11b6a15aef1c6c0ed33a1936ff8879d6f5fb0a181227", size = 40554, upload-time = "2026-05-26T13:01:40.73Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/ab/63a0a0151765d9de5ddb50102c1deefe049036b2586b6d7afceec88c2ae1/scikit_posthocs-0.17.0.tar.gz", hash = "sha256:720f776e21e8091d6dc3289da143815aa837c6a0b90dfdf844d8d95acc19d00d", size = 50087, upload-time = "2026-09-10T12:49:44.993Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/75/50/975860099ee9f1288f030374386d110c54d58cd1dc71df023135aa79633d/scikit_posthocs-0.14.0-py3-none-any.whl", hash = "sha256:9e2ecd5828cb783c42c1923e223eab202f529b03ab97de587647ab30f6e88333", size = 36836, upload-time = "2026-05-26T13:01:39.23Z" },
+    { url = "https://files.pythonhosted.org/packages/03/ad/fa6f9f91360cb0c85394c01dac2b4fbc0f90d4bd362dbfff6c17c73a4f4a/scikit_posthocs-0.17.0-py3-none-any.whl", hash = "sha256:7db5bb90d3a75f4bb8c04910fa3ea12f1fdb64012ff4e18593448c2c30091827", size = 46375, upload-time = "2026-09-10T12:49:43.721Z" },
 ]
 
 [[package]]

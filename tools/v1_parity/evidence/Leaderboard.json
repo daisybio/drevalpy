@@ -1,0 +1,518 @@
+{
+  "case": {
+    "inputs_sha256": "a1ceb7a67d53a3352c47e743abcc6aec3ec4a7b0aff34c2c989a1e2d416e7e65",
+    "meta": {
+      "variants": {
+        "constant": {
+          "algorithms": [
+            "NaiveMeanEffectsPredictor",
+            "NaiveDrugMeanPredictor",
+            "ElasticNet",
+            "RandomForest"
+          ],
+          "n_drugs": 6,
+          "noise": [
+            1.0,
+            0.0,
+            0.9,
+            0.5
+          ],
+          "single_pair_drug": true
+        },
+        "main": {
+          "algorithms": [
+            "NaiveMeanEffectsPredictor",
+            "ElasticNet",
+            "RandomForest",
+            "XGBoost",
+            "SimpleNeuralNetwork"
+          ],
+          "n_drugs": 8,
+          "noise": [
+            1.0,
+            0.9,
+            0.5,
+            0.45,
+            0.7
+          ],
+          "single_pair_drug": false
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "constant: Pearson_per_drug of every model",
+      "detail": "NaN positions differ",
+      "explanation": "The per-drug Pearson of 1.6.1 averages `evaluation.pearson` over the drugs of a split. That function returns 0.0 for a constant prediction, and a drug with one pair has a constant prediction, so such drugs count as 0.0. v2 computes it with `_grouped_evaluation`, the shared rule of the per-drug comparison plots: a drug whose predictions or response are constant, or with fewer than two pairs, is undefined and skipped, so a baseline that predicts a constant per drug has no per-drug Pearson (the panel leaves it out) where 1.6.1 draws 0.000.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "constant/Pearson_per_drug",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "constant: Pearson_per_drug_std of every model",
+      "detail": "",
+      "explanation": "The per-drug Pearson of 1.6.1 averages `evaluation.pearson` over the drugs of a split. That function returns 0.0 for a constant prediction, and a drug with one pair has a constant prediction, so such drugs count as 0.0. v2 computes it with `_grouped_evaluation`, the shared rule of the per-drug comparison plots: a drug whose predictions or response are constant, or with fewer than two pairs, is undefined and skipped, so a baseline that predicts a constant per drug has no per-drug Pearson (the panel leaves it out) where 1.6.1 draws 0.000.",
+      "max_abs_diff": 0.025648095193073706,
+      "max_rel_diff": 0.142857142857144,
+      "name": "constant/Pearson_per_drug_std",
+      "passed": false,
+      "pearson": 1.0,
+      "scope": "deviation",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    }
+  ],
+  "findings": [
+    "1.6.1 keeps the NaiveMeanEffectsPredictor as a baseline row of the leaderboard and of the critical difference diagram (normalized against itself: PCC 0, RMSE and raw metrics of its own predictions). `ExperimentResult.normalize` of v2 used to drop it; it now returns array-free summaries of the reference runs in `reference_runs`, which the leaderboard table and the critical difference data frame list.",
+    "1.6.1 reports the RMSE and the raw Pearson of the unnormalized predictions next to the normalized Pearson. v2 `normalize` replaces the run by its residuals, so the unnormalized pooled metrics and the per-drug Pearson are kept on the run (`RunResult.raw_metrics`, `raw_per_drug_pearson`).",
+    "The per-drug Pearson of 1.6.1 averages `evaluation.pearson` over the drugs of a split. That function returns 0.0 for a constant prediction, and a drug with one pair has a constant prediction, so such drugs count as 0.0. v2 computes it with `_grouped_evaluation`, the shared rule of the per-drug comparison plots: a drug whose predictions or response are constant, or with fewer than two pairs, is undefined and skipped, so a baseline that predicts a constant per drug has no per-drug Pearson (the panel leaves it out) where 1.6.1 draws 0.000."
+  ],
+  "generated": "2026-10-23",
+  "model": "Leaderboard",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: model order of the table",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "main/algorithm",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: baseline flags",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "main/is_baseline",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: PCC of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "main/PCC",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: PCC_std of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.7755575615628914e-17,
+      "max_rel_diff": 5.312068519898582e-16,
+      "name": "main/PCC_std",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: RMSE of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1102230246251565e-16,
+      "max_rel_diff": 2.554116650426397e-16,
+      "name": "main/RMSE",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: RMSE_std of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 4.163336342344337e-17,
+      "max_rel_diff": 1.4405307502580581e-15,
+      "name": "main/RMSE_std",
+      "passed": true,
+      "pearson": 0.9999999999999999,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: Pearson of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1102230246251565e-16,
+      "max_rel_diff": 1.15434284165768e-16,
+      "name": "main/Pearson",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: Pearson_std of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0148132334464322e-16,
+      "max_rel_diff": 1.3793150200545174e-14,
+      "name": "main/Pearson_std",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: Pearson_per_drug of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.220446049250313e-16,
+      "max_rel_diff": 2.6633500602474276e-16,
+      "name": "main/Pearson_per_drug",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "main: Pearson_per_drug_std of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 3.7470027081099033e-16,
+      "max_rel_diff": 6.321505307563416e-15,
+      "name": "main/Pearson_per_drug_std",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "constant: model order of the table",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "constant/algorithm",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "constant: baseline flags",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "constant/is_baseline",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "constant: PCC of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "constant/PCC",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "constant: PCC_std of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.551115123125783e-17,
+      "max_rel_diff": 8.5806978492231475e-16,
+      "name": "constant/PCC_std",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "constant: RMSE of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.1102230246251565e-16,
+      "max_rel_diff": 2.14690777179767e-16,
+      "name": "constant/RMSE",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "constant: RMSE_std of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.0816681711721685e-17,
+      "max_rel_diff": 4.0216286543161996e-16,
+      "name": "constant/RMSE_std",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "constant: Pearson of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "constant/Pearson",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "constant: Pearson_std of every model",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 4.85722573273506e-17,
+      "max_rel_diff": 2.4863755597040758e-15,
+      "name": "constant/Pearson_std",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        4
+      ],
+      "shape_v2": [
+        4
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "Friedman p-value over the splits (scipy)",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "main/cd/friedman_p",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "average ranks of the normalized Pearson over the splits",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "main/cd/ranks",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5
+      ],
+      "shape_v2": [
+        5
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "Conover-Friedman post-hoc p-values, p_adjust=fdr_bh (scikit-posthocs)",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "main/cd/conover",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        5,
+        5
+      ],
+      "shape_v2": [
+        5,
+        5
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu"
+  },
+  "v2": {
+    "commit": "fb3e2a9ec1753a22b22020d5cd9e5c77f581acb5",
+    "dirty": true,
+    "drevalpy": "2.0.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0"
+  },
+  "verdict": "exact"
+}

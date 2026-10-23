@@ -29,7 +29,7 @@ from drevalpy.visualization.plots.critical_difference import (
     _nonsignificant_adjacency,
 )
 from tests._trusted_subprocess import run_trusted_python
-from tests.synthetic import make_experiment_result, make_run_result
+from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -101,6 +101,15 @@ class TestBuildCdDf:
         result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
 
         assert _build_cd_df(result, "MSE").empty
+
+    def test_the_reference_model_of_a_normalized_experiment_takes_part(self, experiment):
+        normalized = experiment.normalize(REFERENCE_MODEL)
+
+        df = _build_cd_df(normalized, "Pearson")
+
+        assert REFERENCE_MODEL in set(df["algorithm"])
+        assert len(df) == sum(m.n_folds for m in experiment.models)
+        assert (df[df["algorithm"] == REFERENCE_MODEL]["Pearson"] == 0.0).all()
 
 
 class TestGenerateDiscretePalette:

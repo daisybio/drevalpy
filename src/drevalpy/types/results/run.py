@@ -50,7 +50,14 @@ def _section(
 
 @dataclass
 class RunResult:
-    """Output of a single Run."""
+    """Output of a single Run.
+
+    ``raw_metrics`` and ``raw_per_drug_pearson`` are empty and ``None`` until
+    :meth:`~drevalpy.types.results.ExperimentResult.normalize` replaces ``predictions``,
+    ``ground_truth`` and ``metrics`` by their residuals against the reference model. They keep
+    what the leaderboard still needs from before that: the pooled ``metrics`` and the mean over
+    drugs of the per-drug Pearson, both of the unnormalized predictions.
+    """
 
     model_name: str
     dataset_name: str
@@ -66,6 +73,8 @@ class RunResult:
     fold_metadata: dict[str, Any] = field(default_factory=dict)
     trials: list[TrialResult] | None = None
     randomization: tuple[str, str] | None = None
+    raw_metrics: dict[str, float] = field(default_factory=dict)
+    raw_per_drug_pearson: float | None = None
 
     @property
     def robustness_trial(self) -> int | None:
@@ -162,6 +171,8 @@ class RunResult:
             "fold_metadata": self.fold_metadata,
             "randomization": list(self.randomization) if self.randomization else None,
             "trials": trials_meta,
+            "raw_metrics": self.raw_metrics,
+            "raw_per_drug_pearson": self.raw_per_drug_pearson,
         }
         arrays["_metadata"] = np.array(json.dumps(meta))
         np.savez_compressed(Path(path), **arrays)
@@ -212,6 +223,8 @@ class RunResult:
             fold_metadata=meta.get("fold_metadata", {}),
             trials=trials,
             randomization=tuple(meta["randomization"]) if meta.get("randomization") else None,
+            raw_metrics=meta.get("raw_metrics", {}),
+            raw_per_drug_pearson=meta.get("raw_per_drug_pearson"),
         )
 
 

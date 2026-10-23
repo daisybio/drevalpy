@@ -37,20 +37,16 @@ def _build_cd_df(result: ExperimentResult, metric: str) -> pd.DataFrame:
 
     :param result: Experiment to rank.
     :param metric: Metric name to rank by.
-    :returns: One row per non-randomized run, with NaN rows dropped.
+    :returns: One row per non-randomized run, with NaN rows dropped. The reference model of a
+        normalized experiment takes part, as in 1.6.1, with its metrics normalized against itself.
     """
     import pandas as pd
 
-    rows: list[dict] = []
-    for model in result.models:
-        for run in model.select_runs():
-            rows.append(
-                {
-                    "algorithm": run.model_name,
-                    "CV_split": run.fold_index,
-                    metric: run.metrics.get(metric, float("nan")),
-                }
-            )
+    runs = [run for model in result.models for run in model.select_runs()] + list(result.reference_runs)
+    rows = [
+        {"algorithm": run.model_name, "CV_split": run.fold_index, metric: run.metrics.get(metric, float("nan"))}
+        for run in runs
+    ]
     return pd.DataFrame(rows, columns=["algorithm", "CV_split", metric]).dropna(subset=[metric])
 
 

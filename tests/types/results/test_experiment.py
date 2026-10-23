@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from upath import UPath
 
+from drevalpy._grouped_evaluation import run_group_score
 from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.types.results.experiment import ExperimentResult, _run_array_bytes
@@ -159,6 +160,38 @@ class TestNormalize:
 
         expected = other.runs[0].predictions - reference.runs[0].predictions
         np.testing.assert_allclose(normalized_run.predictions, expected)
+
+    def test_keeps_the_unnormalized_metrics_of_every_run(self) -> None:
+        experiment = make_experiment_result(n_models=2, n_folds=1)
+        other = experiment.models[1].runs[0]
+
+        normalized_run = experiment.normalize().models[0].runs[0]
+
+        assert normalized_run.raw_metrics == other.metrics
+        assert normalized_run.metrics != other.metrics
+
+    def test_keeps_the_per_drug_pearson_of_the_unnormalized_predictions(self) -> None:
+        experiment = make_experiment_result(n_models=2, n_folds=1)
+        other = experiment.models[1].runs[0]
+
+        normalized_run = experiment.normalize().models[0].runs[0]
+
+        assert normalized_run.raw_per_drug_pearson == pytest.approx(run_group_score(other, "drug", "Pearson"))
+
+    def test_summarizes_the_reference_runs_without_their_arrays(self) -> None:
+        experiment = make_experiment_result(n_models=3, n_folds=2)
+        reference = experiment.models[0]
+
+        normalized = experiment.normalize()
+
+        assert [run.model_name for run in normalized.reference_runs] == [REFERENCE_MODEL] * 2
+        summary = normalized.reference_runs[0]
+        assert summary.raw_metrics == reference.runs[0].metrics
+        assert summary.metrics["Pearson"] == 0.0
+        assert (summary.predictions.size, summary.sample_ids.size, summary.trials) == (0, 0, None)
+
+    def test_an_unnormalized_experiment_has_no_reference_runs(self) -> None:
+        assert make_experiment_result().reference_runs == ()
 
     def test_recomputes_only_the_standard_metrics(self) -> None:
         normalized = make_experiment_result(n_models=2, n_folds=1).normalize()
