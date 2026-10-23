@@ -34,7 +34,7 @@ In short, for a model called ``YourModel`` evaluated on CTRPv2 in the leave-cell
         --results_path leaderboard_Oct26/evaluation_results.csv \
         --true_vs_pred_path leaderboard_Oct26/true_vs_pred.csv \
         --test_mode LCO --dataset CTRPv2 --output_dir my_leaderboard \
-        --cd_width 12 --cd_height 12
+        --cd_width 12 --cd_height 13
 
 .. toctree::
    :hidden:
