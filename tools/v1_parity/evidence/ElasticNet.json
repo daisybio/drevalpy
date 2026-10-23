@@ -1,0 +1,330 @@
+{
+  "case": {
+    "inputs_sha256": "87b5e045b3fb3e7a868e0c6c47c324a28fb763389065a6e099e503ccd6b2d12d",
+    "meta": {
+      "gene_list": "pre-selected: all 40 synthetic genes",
+      "variants": {
+        "enet": {
+          "alpha": 0.1,
+          "l1_ratio": 0.5,
+          "v2_extra": {
+            "max_iter": 1000,
+            "selection": "cyclic",
+            "tol": 0.0001
+          }
+        },
+        "enet_preset": {
+          "alpha": 0.1,
+          "l1_ratio": 0.5,
+          "v1_variant": "enet",
+          "v2_extra": {}
+        },
+        "ridge": {
+          "alpha": 1.0,
+          "l1_ratio": 0.0,
+          "v2_extra": {}
+        }
+      }
+    },
+    "seed": 0
+  },
+  "deviations": [
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "ridge: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": null, \"positive\": false, \"solver\": \"auto\", \"tol\": 0.0001, \"type\": \"Ridge\"}' v2='{\"alpha\": 1.0, \"copy_X\": true, \"fit_intercept\": true, \"max_iter\": 2000, \"positive\": false, \"solver\": \"auto\", \"tol\": 0.01, \"type\": \"Ridge\"}'",
+      "explanation": "v2 passes max_iter=2000, tol=1e-2 to Ridge; both are inert for the dense 'auto' (cholesky) solver 1.6.1 also uses, which the matching predictions confirm.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ridge/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": null,
+      "declared": "exact",
+      "description": "enet_preset: params",
+      "detail": "non-numeric arrays differ: 1.6.1='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 1000, \"positive\": false, \"precompute\": false, \"selection\": \"cyclic\", \"tol\": 0.0001, \"type\": \"ElasticNet\", \"warm_start\": false}' v2='{\"alpha\": 0.1, \"copy_X\": true, \"fit_intercept\": true, \"l1_ratio\": 0.5, \"max_iter\": 2000, \"positive\": false, \"precompute\": false, \"selection\": \"random\", \"tol\": 0.01, \"type\": \"Elas",
+      "explanation": "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults.",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "enet_preset/params",
+      "passed": false,
+      "pearson": null,
+      "scope": "deviation",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "enet_preset: coef",
+      "detail": "",
+      "explanation": "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults.",
+      "max_abs_diff": 0.02496562256842072,
+      "max_rel_diff": 0.1585251124590138,
+      "name": "enet_preset/coef",
+      "passed": true,
+      "pearson": 0.998757031653934,
+      "scope": "deviation",
+      "shape_v1": [
+        72
+      ],
+      "shape_v2": [
+        72
+      ]
+    },
+    {
+      "achieved": "statistical",
+      "declared": "statistical",
+      "description": "enet_preset: predictions",
+      "detail": "",
+      "explanation": "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults.",
+      "max_abs_diff": 0.00903114571790109,
+      "max_rel_diff": 0.0016169289203888152,
+      "name": "enet_preset/predictions",
+      "passed": true,
+      "pearson": 0.999982705798331,
+      "scope": "deviation",
+      "shape_v1": [
+        56
+      ],
+      "shape_v2": [
+        56
+      ]
+    }
+  ],
+  "findings": [
+    "1.6.1 selects the `landmark_genes` list while loading (hyperparameter `gene_list`; a missing gene raises). The v2 `ElasticNet` preset uses `scaledGeneExpression`, which has no gene-list option and scales the whole view, so the preset trains on every gene of the dataset. Compared at the estimator-input level on a pre-selected matrix. To be fixed by packages A1/B5.",
+    "v2 holds features as float32 end to end (`DenseViewFeaturizer` casts to float32, so the estimator receives a float32 matrix); 1.6.1 computes in float64. Features therefore agree to ~1e-7 relative (class forward), not exactly. Ridge solves in float32 in v2: refitting sklearn Ridge on the same matrix in float32 vs float64 differs by 2.4e-5 absolute (predictions ~7), which is the whole Ridge difference (class train).",
+    "1.6.1 builds `sklearn.ElasticNet(alpha, l1_ratio)` with sklearn's solver defaults (max_iter=1000, tol=1e-4, cyclic); v2 pins max_iter=2000, tol=1e-2, selection='random', random_state=0. All are overridable in v2, and with the sklearn values the coefficients agree to 6e-8 (class forward). With the preset values they only agree statistically (deviation steps).",
+    "The first 1.6.1 hyperparameter set (l1_ratio=0, alpha=1) is `Ridge`; v2 also maps l1_ratio=0 to `Ridge`, so both estimator types agree.",
+    "v2 changed the default alpha to 0.1 (the 1.6.1 grid starts at 1); the case sets alpha explicitly on both sides."
+  ],
+  "generated": "2026-10-23",
+  "model": "ElasticNet",
+  "schema_version": 1,
+  "steps": [
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "ridge: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.367924320129561e-07,
+      "max_rel_diff": 0.0001527131892283496,
+      "name": "ridge/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999724,
+      "scope": "parity",
+      "shape_v1": [
+        97,
+        72
+      ],
+      "shape_v2": [
+        97,
+        72
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "ridge: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.367924320129561e-07,
+      "max_rel_diff": 0.0001527131892283496,
+      "name": "ridge/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999746,
+      "scope": "parity",
+      "shape_v1": [
+        56,
+        72
+      ],
+      "shape_v2": [
+        56,
+        72
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "ridge: intercept",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 4.00800089206399e-06,
+      "max_rel_diff": 7.146974296475305e-07,
+      "name": "ridge/intercept",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "train",
+      "declared": "train",
+      "description": "ridge: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.3193461638371105e-05,
+      "max_rel_diff": 4.528387633723391e-06,
+      "name": "ridge/predictions",
+      "passed": true,
+      "pearson": 0.9999999998809718,
+      "scope": "parity",
+      "shape_v1": [
+        56
+      ],
+      "shape_v2": [
+        56
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "enet: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.367924320129561e-07,
+      "max_rel_diff": 0.0001527131892283496,
+      "name": "enet/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999724,
+      "scope": "parity",
+      "shape_v1": [
+        97,
+        72
+      ],
+      "shape_v2": [
+        97,
+        72
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "enet: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.367924320129561e-07,
+      "max_rel_diff": 0.0001527131892283496,
+      "name": "enet/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999746,
+      "scope": "parity",
+      "shape_v1": [
+        56,
+        72
+      ],
+      "shape_v2": [
+        56,
+        72
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "enet: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "enet/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "enet: coef",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.8972535819934446e-08,
+      "max_rel_diff": 1.8473420859910973e-06,
+      "name": "enet/coef",
+      "passed": true,
+      "pearson": 0.9999999999999775,
+      "scope": "parity",
+      "shape_v1": [
+        72
+      ],
+      "shape_v2": [
+        72
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "enet: intercept",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.383473054010324e-07,
+      "max_rel_diff": 9.564630976518164e-08,
+      "name": "enet/intercept",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "enet: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.0526279092815116e-06,
+      "max_rel_diff": 1.6054724206104365e-07,
+      "name": "enet/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999563,
+      "scope": "parity",
+      "shape_v1": [
+        56
+      ],
+      "shape_v2": [
+        56
+      ]
+    }
+  ],
+  "v1": {
+    "commit": "f5ff3c70967beb57c25659a8b78e663227f5b92e",
+    "drevalpy": "1.6.1",
+    "expected_commit": "f5ff3c70",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "python": "3.12.13",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "torch": "2.14.1+cpu"
+  },
+  "v2": {
+    "commit": "d84e1ffa5ad77f3952c56c90b45236857d8ddcac",
+    "dirty": true,
+    "drevalpy": "2.0.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "python": "3.13.13",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.0",
+    "torch": "2.13.0"
+  },
+  "verdict": "train"
+}
