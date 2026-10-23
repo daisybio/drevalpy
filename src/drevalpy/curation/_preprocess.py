@@ -11,16 +11,11 @@ _REQUIRED_COLUMNS = ["drug", "sample", "concentration", "intensity"]
 def preprocess(df: pd.DataFrame) -> list[tuple[pd.DataFrame, dict]]:
     """Validate, group by dose range, pivot to wide-form, and return (df, group_info) tuples.
 
-    Parameters
-    ----------
-    df
-        Long-form DataFrame with columns: drug, sample, concentration,
+    :param df: Long-form DataFrame with columns: drug, sample, concentration,
         intensity, and optionally replicate.
 
-    Returns:
-    -------
-    List of (wide_df, group_info) tuples where group_info contains
-    n_experiments, doses, n_replicates for building the config later.
+    :returns: List of (wide_df, group_info) tuples where group_info contains
+        n_experiments, doses, n_replicates for building the config later.
     """
     _validate_columns(df)
     df = df.copy()

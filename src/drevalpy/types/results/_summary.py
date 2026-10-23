@@ -42,7 +42,7 @@ class SummaryTableMixin:
         }
 
     def summary_group_counts(self, group_by: GroupBy) -> dict[str, dict[str, float]]:
-        """Number of drugs (samples, studies) with a defined score behind ``summary_table(group_by=...)``.
+        """Count the drugs (samples, studies) with a defined score behind ``summary_table(group_by=...)``.
 
         :param group_by: ``"drug"``, ``"sample"`` or ``"study"``.
         :returns: {model_name: {metric: groups}}, the mean over folds of the number of groups

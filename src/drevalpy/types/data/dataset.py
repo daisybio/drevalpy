@@ -63,14 +63,11 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
     ) -> None:
         """Wrap an existing MuData object.
 
-        Args:
-            mdata: A MuData object with at least a "response" modality.
-            name: Human-readable dataset name.
-            randomization: Optional (mode, view) tuple describing which
-                randomization was applied.
-
-        Raises:
-            KeyError: If the "response" modality is missing.
+        :param mdata: A MuData object with at least a "response" modality.
+        :param name: Human-readable dataset name.
+        :param randomization: Optional (mode, view) tuple describing which
+            randomization was applied.
+        :raises KeyError: If the "response" modality is missing.
         """
         if "response" not in mdata.mod:
             raise KeyError("MuData must contain a 'response' modality.")
@@ -154,9 +151,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
             entity_ids = self.drug_ids
             source = DrugFeatureSource(self, entity_ids)
 
-        base_kwargs: dict = {}
-        if view is not None:
-            base_kwargs["view"] = view
+        base_kwargs: dict = {} if view is None else {"view": view}
 
         with Progress() as progress:
             task = progress.add_task(f"Precomputing {featurizer_cls.storage_key}", total=len(configs))
@@ -265,8 +260,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
         ``X`` holds pEC50. Use :meth:`get_response_layer` for any other measure,
         for example ``get_response_layer("LN_IC50")``.
 
-        Returns:
-            Dense float32 array of shape (n_samples, n_drugs).
+        :returns: Dense float32 array of shape (n_samples, n_drugs).
         """
         return np.asarray(to_dense(self.response.X), dtype=np.float32)
 
@@ -274,8 +268,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
     def sample_ids(self) -> np.ndarray:
         """Sample identifiers (obs_names of the response modality).
 
-        Returns:
-            1-D string array of sample IDs.
+        :returns: 1-D string array of sample IDs.
         """
         return np.asarray(self.response.obs_names)
 
@@ -283,22 +276,16 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
     def drug_ids(self) -> np.ndarray:
         """Drug identifiers (var_names of the response modality).
 
-        Returns:
-            1-D string array of PubChem IDs.
+        :returns: 1-D string array of PubChem IDs.
         """
         return np.asarray(self.response.var_names)
 
     def get_response_layer(self, name: str) -> np.ndarray:
         """Retrieve a named response layer (e.g. "AUC").
 
-        Args:
-            name: Layer name within the response AnnData.
-
-        Returns:
-            Dense float32 array of shape (n_samples, n_drugs).
-
-        Raises:
-            KeyError: If the layer does not exist.
+        :param name: Layer name within the response AnnData.
+        :returns: Dense float32 array of shape (n_samples, n_drugs).
+        :raises KeyError: If the layer does not exist.
         """
         if name not in self.response.layers:
             raise KeyError(f"Response layer '{name}' not found. Available: {self.response_layer_names()}")
@@ -307,8 +294,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
     def response_layer_names(self) -> list[str]:
         """Names of the available response layers.
 
-        Returns:
-            Layer names of the response modality, in insertion order.
+        :returns: Layer names of the response modality, in insertion order.
         """
         # anndata 0.13 yields a spurious ``None`` from ``layers.keys()``, even for
         # a freshly constructed AnnData with a single layer, so filter to the real
@@ -323,19 +309,15 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
     def sample_meta(self) -> pd.DataFrame:
         """Global sample metadata (tissue, plus optional cellosaurus_id/cell_line_name for cell-line datasets).
 
-        Returns:
-            DataFrame from mdata.obs, indexed by sample ID.
+        :returns: DataFrame from mdata.obs, indexed by sample ID.
         """
         return self._mdata.obs
 
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
         """Get tissue labels for the given sample IDs.
 
-        Args:
-            ids: 1-D array of sample IDs.
-
-        Returns:
-            1-D string array of tissue labels (NaN for unknown IDs).
+        :param ids: 1-D array of sample IDs.
+        :returns: 1-D string array of tissue labels (NaN for unknown IDs).
         """
         return self.sample_column("tissue", ids)
 
@@ -349,11 +331,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
         Only keeps samples present in the response modality. Other modalities
         are also subset to their intersection with *ids*.
 
-        Args:
-            ids: 1-D array of sample IDs to keep.
-
-        Returns:
-            Independent Dataset containing the selected samples.
+        :param ids: 1-D array of sample IDs to keep.
+        :returns: Independent Dataset containing the selected samples.
         """
         import mudata as md
 
@@ -377,11 +356,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
         Only the response modality has a drug axis; it is subset on var.
         Other modalities (sample features) are kept unchanged.
 
-        Args:
-            ids: 1-D array of PubChem drug IDs to keep.
-
-        Returns:
-            Independent Dataset containing the selected drugs.
+        :param ids: 1-D array of PubChem drug IDs to keep.
+        :returns: Independent Dataset containing the selected drugs.
         """
         import mudata as md
 
@@ -411,14 +387,9 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
     def get_uns(self, key: str) -> Any:
         """Access arbitrary data from mdata.uns.
 
-        Args:
-            key: Key in the uns dict.
-
-        Returns:
-            The stored value.
-
-        Raises:
-            KeyError: If the key does not exist.
+        :param key: Key in the uns dict.
+        :returns: The stored value.
+        :raises KeyError: If the key does not exist.
         """
         if key not in self._mdata.uns:
             raise KeyError(f"uns key '{key}' not found. Available: {list(self._mdata.uns.keys())}")

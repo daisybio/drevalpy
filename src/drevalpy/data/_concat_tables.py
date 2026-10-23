@@ -56,11 +56,8 @@ def _is_categorical(frames: Sequence[pd.DataFrame], column: str) -> bool:
 def stack_obs(frames: Sequence[pd.DataFrame]) -> pd.DataFrame:
     """Stack ``obs`` tables row-wise; a column missing in one table is NaN there.
 
-    Args:
-        frames: Tables whose indexes are already unique across tables.
-
-    Returns:
-        A new table with the union of the columns in first-seen order, keeping a
+    :param frames: Tables whose indexes are already unique across tables.
+    :returns: A new table with the union of the columns in first-seen order, keeping a
         categorical dtype where every table had one.
     """
     import pandas as pd
@@ -92,15 +89,10 @@ def _check_smiles(frames: Sequence[pd.DataFrame]) -> None:
 def union_var(frames: Sequence[pd.DataFrame]) -> pd.DataFrame:
     """Union the drug tables of several inputs.
 
-    Args:
-        frames: One drug ``var`` table per input, indexed by drug ID.
-
-    Returns:
-        A table over the drug IDs in first-seen order. For each drug and column, the
+    :param frames: One drug ``var`` table per input, indexed by drug ID.
+    :returns: A table over the drug IDs in first-seen order. For each drug and column, the
         first non-null value wins.
-
-    Raises:
-        InvalidInputError: If a drug has different ``canonical_smiles`` in different inputs.
+    :raises InvalidInputError: If a drug has different ``canonical_smiles`` in different inputs.
     """
     import pandas as pd
 

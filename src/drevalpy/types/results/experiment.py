@@ -185,7 +185,7 @@ class ExperimentResult(SummaryTableMixin):
         return experiment
 
     def __repr__(self) -> str:
-        """Formatted summary."""
+        """Return a formatted summary."""
         lines = [
             "ExperimentResult",
             f"    Dataset: {self.dataset_name}",

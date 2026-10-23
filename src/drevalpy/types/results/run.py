@@ -101,7 +101,7 @@ class RunResult:
         return json.dumps(self.execution_key, separators=(",", ":"))
 
     def __repr__(self) -> str:
-        """Formatted summary."""
+        """Return a formatted summary."""
         extra_fold_metadata = {k: v for k, v in self.fold_metadata.items() if k != "fold_index"}
         lines = [
             "RunResult",

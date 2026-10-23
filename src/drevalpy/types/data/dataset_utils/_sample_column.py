@@ -22,17 +22,12 @@ class SampleColumnMixin:
     def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
         """Return one ``obs`` column for the given sample IDs.
 
-        Args:
-            column: Name of a column of the sample metadata (``obs``), such as
-                ``"tissue"`` or ``"study"``.
-            ids: 1-D array of sample IDs.
-
-        Returns:
-            1-D array with one value per requested ID, in the order of *ids*.
+        :param column: Name of a column of the sample metadata (``obs``), such as
+            ``"tissue"`` or ``"study"``.
+        :param ids: 1-D array of sample IDs.
+        :returns: 1-D array with one value per requested ID, in the order of *ids*.
             IDs that are not samples of this dataset give NaN.
-
-        Raises:
-            KeyError: If *column* is not in ``obs``; the message lists the available columns.
+        :raises KeyError: If *column* is not in ``obs``; the message lists the available columns.
         """
         import pandas as pd
 

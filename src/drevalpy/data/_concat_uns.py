@@ -26,12 +26,9 @@ _REPR_WIDTH = 60
 def same(first: Any, second: Any) -> bool:
     """Whether two ``uns`` values are equal, looking inside dicts, lists and arrays.
 
-    Args:
-        first: One value.
-        second: Another value.
-
-    Returns:
-        ``True`` if they are equal; values that cannot be compared are not equal.
+    :param first: One value.
+    :param second: Another value.
+    :returns: ``True`` if they are equal; values that cannot be compared are not equal.
     """
     if isinstance(first, Mapping) and isinstance(second, Mapping):
         return first.keys() == second.keys() and all(same(first[key], second[key]) for key in first)
@@ -47,7 +44,7 @@ def same(first: Any, second: Any) -> bool:
 
 
 def _short(value: Any) -> str:
-    """A bounded ``repr`` for error messages."""
+    """Return a bounded ``repr`` for error messages."""
     if value is _MISSING:
         return "not recorded"
     text = repr(value)
@@ -69,19 +66,14 @@ def merge_uns(
 ) -> dict[str, Any]:
     """Merge the ``uns`` of several inputs, keeping only what every input agrees on.
 
-    Args:
-        uns_list: One ``uns`` mapping per input.
-        names: Dataset name of each input, for messages.
-        where: What the ``uns`` belongs to, such as ``"view 'gene_expression'"``.
-        strict: Tells whether a key must be equal in every input. A key that is
-            not strict is dropped with a warning when the inputs disagree.
-        skip: Keys to leave out without a warning.
-
-    Returns:
-        A new dict holding copies of the agreed values.
-
-    Raises:
-        InvalidInputError: If a strict key differs between inputs, or is recorded by only some.
+    :param uns_list: One ``uns`` mapping per input.
+    :param names: Dataset name of each input, for messages.
+    :param where: What the ``uns`` belongs to, such as ``"view 'gene_expression'"``.
+    :param strict: Tells whether a key must be equal in every input. A key that is
+        not strict is dropped with a warning when the inputs disagree.
+    :param skip: Keys to leave out without a warning.
+    :returns: A new dict holding copies of the agreed values.
+    :raises InvalidInputError: If a strict key differs between inputs, or is recorded by only some.
     """
     keys = [key for key in dict.fromkeys(key for uns in uns_list for key in uns) if key not in skip]
     merged: dict[str, Any] = {}

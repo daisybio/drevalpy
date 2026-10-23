@@ -42,11 +42,8 @@ def _registry_module() -> ModuleType:
     exactly what this command is for, so the traceback is printed as output
     instead of escaping as an unhandled crash.
 
-    Returns:
-        The imported :mod:`drevalpy.registry` module.
-
-    Raises:
-        typer.Exit: With code 1 when the import failed.
+    :returns: The imported :mod:`drevalpy.registry` module.
+    :raises typer.Exit: With code 1 when the import failed.
     """
     import importlib
 
@@ -68,8 +65,7 @@ def _registry_module() -> ModuleType:
 def _declared_entry_points() -> dict[str, str]:
     """Return the ``drevalpy.plugins`` entry points declared in this environment.
 
-    Returns:
-        Mapping of entry-point name to the dotted object it points at. Includes
+    :returns: Mapping of entry-point name to the dotted object it points at. Includes
         entry points that failed to load, which is why it is read from
         ``importlib.metadata`` rather than from the loaded-plugins registry.
     """
@@ -85,12 +81,9 @@ def _declared_entry_points() -> dict[str, str]:
 def failure_reason(traceback_text: str) -> str:
     """Reduce a formatted traceback to its actionable last line.
 
-    Args:
-        traceback_text: Traceback as recorded by
-            :func:`drevalpy.registry.get_failed_plugins`.
-
-    Returns:
-        The exception line (type and message), or a placeholder when the
+    :param traceback_text: Traceback as recorded by
+        :func:`drevalpy.registry.get_failed_plugins`.
+    :returns: The exception line (type and message), or a placeholder when the
         traceback is empty.
     """
     lines = [line.strip() for line in traceback_text.strip().splitlines() if line.strip()]
@@ -100,13 +93,10 @@ def failure_reason(traceback_text: str) -> str:
 def _status(name: str, loaded: Mapping[str, str], failed: Mapping[str, str]) -> str:
     """Classify one entry point.
 
-    Args:
-        name: Entry-point name.
-        loaded: Plugins that imported cleanly.
-        failed: Plugins that raised while importing.
-
-    Returns:
-        One of :data:`STATUS_FAILED`, :data:`STATUS_LOADED` or
+    :param name: Entry-point name.
+    :param loaded: Plugins that imported cleanly.
+    :param failed: Plugins that raised while importing.
+    :returns: One of :data:`STATUS_FAILED`, :data:`STATUS_LOADED` or
         :data:`STATUS_NOT_LOADED`.
     """
     if name in failed:
@@ -123,13 +113,10 @@ def _status_rows(
 ) -> list[list[str | Text]]:
     """Build the plugin status table rows.
 
-    Args:
-        declared: Entry points found in installed distribution metadata.
-        loaded: Plugins that imported cleanly, mapped to their entry-point value.
-        failed: Plugins that raised while importing, mapped to their traceback.
-
-    Returns:
-        One ``[name, status, entry point]`` row per plugin, sorted by name.
+    :param declared: Entry points found in installed distribution metadata.
+    :param loaded: Plugins that imported cleanly, mapped to their entry-point value.
+    :param failed: Plugins that raised while importing, mapped to their traceback.
+    :returns: One ``[name, status, entry point]`` row per plugin, sorted by name.
     """
     from rich.text import Text
 
@@ -144,9 +131,8 @@ def _status_rows(
 def _report_failures(failed: Mapping[str, str], *, show_traceback: bool) -> None:
     """Print the reason each failed plugin failed.
 
-    Args:
-        failed: Mapping of plugin name to the recorded traceback.
-        show_traceback: Print the whole traceback rather than its last line.
+    :param failed: Mapping of plugin name to the recorded traceback.
+    :param show_traceback: Print the whole traceback rather than its last line.
     """
     if not failed:
         return
@@ -175,8 +161,7 @@ def _report_skipped_builtins(skipped: Mapping[str, str]) -> None:
     Builtins are not plugins, but a missing built-in component looks identical
     from the outside, so it belongs in the same answer.
 
-    Args:
-        skipped: Mapping of module name to the recorded traceback.
+    :param skipped: Mapping of module name to the recorded traceback.
     """
     if not skipped:
         return

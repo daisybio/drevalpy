@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Literal
 
 from drevalpy.errors import InvalidInputError
@@ -27,7 +27,7 @@ _NEW_OBS_COLUMNS = ("study", "source_sample_id")
 
 
 def _check_names(datasets: Sequence[Dataset], name: str | None) -> list[str]:
-    """The input names, which must be unique, non-empty and free of the row-ID separator."""
+    """Return the input names, which must be unique, non-empty and free of the row-ID separator."""
     names = [dataset.name for dataset in datasets]
     duplicated = sorted({item for item in names if names.count(item) > 1})
     if duplicated:
@@ -70,7 +70,7 @@ def _warn_not_carried(datasets: Sequence[Dataset]) -> None:
 
 
 def _stack_obs(datasets: Sequence[Dataset], names: Sequence[str]) -> pd.DataFrame:
-    """The global ``obs``: every input's rows, prefixed, plus ``study`` and ``source_sample_id``."""
+    """Stack the global ``obs``: every input's rows, prefixed, plus ``study`` and ``source_sample_id``."""
     import pandas as pd
 
     frames = []
@@ -85,7 +85,9 @@ def _stack_obs(datasets: Sequence[Dataset], names: Sequence[str]) -> pd.DataFram
     return obs
 
 
-def _groups(datasets: Sequence[Dataset], wanted) -> dict[str, tuple[str, list[ad.AnnData | None]]]:
+def _groups(
+    datasets: Sequence[Dataset], wanted: Callable[[str], bool]
+) -> dict[str, tuple[str, list[ad.AnnData | None]]]:
     """Group modalities across inputs by public name: ``name -> (key to store under, one per input)``."""
     groups: dict[str, tuple[str, list[ad.AnnData | None]]] = {}
     for position, dataset in enumerate(datasets):
@@ -155,21 +157,16 @@ def concat(
     The inputs are not modified. Precomputed featurizer variants and embeddings stored
     in ``response.obsm``/``varm`` are not carried over.
 
-    Args:
-        datasets: At least two datasets with distinct names, none of them randomized.
-        join: ``"exact"`` requires every input to carry the same feature names and
-            units in each view they share. ``"inner"`` keeps only the feature names
-            common to all inputs. A unit mismatch raises with either value.
-        name: Name of the result. Defaults to the input names joined by ``+``,
-            such as ``"GDSC2+CTRPv2"``.
-
-    Returns:
-        The concatenated dataset.
-
-    Raises:
-        InvalidInputError: If fewer than two datasets are given, names are not unique, an input
-            is randomized, feature names or units differ between inputs, or one drug ID
-            has two different SMILES strings.
+    :param datasets: At least two datasets with distinct names, none of them randomized.
+    :param join: ``"exact"`` requires every input to carry the same feature names and
+        units in each view they share. ``"inner"`` keeps only the feature names
+        common to all inputs. A unit mismatch raises with either value.
+    :param name: Name of the result. Defaults to the input names joined by ``+``,
+        such as ``"GDSC2+CTRPv2"``.
+    :returns: The concatenated dataset.
+    :raises InvalidInputError: If fewer than two datasets are given, names are not unique, an input
+        is randomized, feature names or units differ between inputs, or one drug ID
+        has two different SMILES strings.
     """
     import mudata as md
 

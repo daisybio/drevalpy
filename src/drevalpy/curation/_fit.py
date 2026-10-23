@@ -177,34 +177,23 @@ def fit_groups(
 ) -> list[tuple[pd.DataFrame, dict]]:
     """Fit all groups with chunk-level parallelism.
 
-    Parameters
-    ----------
-    groups
-        List of (wide_df, group_info) from preprocess.
-    max_chunk_size
-        Maximum number of curves in a single parallel chunk. Groups larger than
+    :param groups: List of (wide_df, group_info) from preprocess.
+    :param max_chunk_size: Maximum number of curves in a single parallel chunk. Groups larger than
         this are split into multiple chunks; smaller groups are kept as one chunk.
         Controls the granularity of parallelism: smaller values produce more chunks
         but add serialization overhead.
-    max_workers
-        Number of local worker processes when no external *executor* is provided.
+    :param max_workers: Number of local worker processes when no external *executor* is provided.
         Ignored when *executor* is set.
-    normalize
-        Whether to apply median-centric normalization.
-    fit_type
-        Fitting method. Only "OLS" is currently supported.
-    fit_speed
-        Fitting thoroughness: "fast", "standard", "exhaustive", or "basinhopping".
-    executor
-        Optional :class:`~concurrent.futures.Executor` instance (e.g. a
+    :param normalize: Whether to apply median-centric normalization.
+    :param fit_type: Fitting method. Only "OLS" is currently supported.
+    :param fit_speed: Fitting thoroughness: "fast", "standard", "exhaustive", or "basinhopping".
+    :param executor: Optional :class:`~concurrent.futures.Executor` instance (e.g. a
         ``submitit.AutoExecutor``). When supplied, chunk fitting is dispatched
         through this executor instead of an internal
         :class:`~concurrent.futures.ProcessPoolExecutor`. The caller is responsible
         for configuring and shutting down the executor.
 
-    Returns:
-    -------
-    List of (fitted_df, config) tuples.
+    :returns: List of (fitted_df, config) tuples.
     """
     work_items, configs = _build_work_items(groups, max_chunk_size, normalize, fit_type, fit_speed)
     fitted_chunks = _run_work_items(work_items, max_workers, executor=executor)

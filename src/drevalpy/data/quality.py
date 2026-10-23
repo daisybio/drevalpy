@@ -104,33 +104,32 @@ class CurveQuality:
     A metric that is NaN fails: a curve CurveCurator could not score is not a
     curve worth training on.
 
-    Attributes:
-        min_relevance_score: Minimum SAM-corrected relevance score. This is the
-            multiple-testing-corrected statistic; prefer it over *max_p_value*.
-        min_abs_fold_change: Minimum absolute log2 curve fold change, i.e. the
-            effect size. The layer is already log2, so no transform is applied
-            beyond the absolute value.
-        max_p_value: Maximum raw, **uncorrected** F-test p-value.
-        min_log_p_value: Minimum ``-log10(p_value)``, the uncorrected p-value on
-            a log scale.
-        min_f_value: Minimum F statistic of the fit.
-        min_f_value_sam: Minimum s0-corrected F statistic.
-        min_r2: Minimum coefficient of determination of the fit.
-        max_rmse: Maximum root-mean-square error of the fit.
-        min_signal_quality: Minimum signal quality.
-        min_abs_slope: Minimum absolute Hill slope.
-        max_abs_slope: Maximum absolute Hill slope. Useful because a slope
-            pinned at the fitting bound describes a step, which is usually an
-            artefact rather than a dose response.
-        min_front: Minimum fitted upper plateau.
-        max_back: Maximum fitted lower plateau.
-        min_pec50: Minimum pEC50, read from the response matrix rather than a
-            layer. Together with *max_pec50* this brackets fits whose inflection
-            point falls outside the tested dose range.
-        max_pec50: Maximum pEC50.
-        regulation: Keep only curves CurveCurator labelled with one of these,
-            out of ``"up"``, ``"down"`` and ``"not"``. Stored sorted and
-            de-duplicated.
+    :ivar min_relevance_score: Minimum SAM-corrected relevance score. This is the
+        multiple-testing-corrected statistic; prefer it over *max_p_value*.
+    :ivar min_abs_fold_change: Minimum absolute log2 curve fold change, i.e. the
+        effect size. The layer is already log2, so no transform is applied
+        beyond the absolute value.
+    :ivar max_p_value: Maximum raw, **uncorrected** F-test p-value.
+    :ivar min_log_p_value: Minimum ``-log10(p_value)``, the uncorrected p-value on
+        a log scale.
+    :ivar min_f_value: Minimum F statistic of the fit.
+    :ivar min_f_value_sam: Minimum s0-corrected F statistic.
+    :ivar min_r2: Minimum coefficient of determination of the fit.
+    :ivar max_rmse: Maximum root-mean-square error of the fit.
+    :ivar min_signal_quality: Minimum signal quality.
+    :ivar min_abs_slope: Minimum absolute Hill slope.
+    :ivar max_abs_slope: Maximum absolute Hill slope. Useful because a slope
+        pinned at the fitting bound describes a step, which is usually an
+        artefact rather than a dose response.
+    :ivar min_front: Minimum fitted upper plateau.
+    :ivar max_back: Maximum fitted lower plateau.
+    :ivar min_pec50: Minimum pEC50, read from the response matrix rather than a
+        layer. Together with *max_pec50* this brackets fits whose inflection
+        point falls outside the tested dose range.
+    :ivar max_pec50: Maximum pEC50.
+    :ivar regulation: Keep only curves CurveCurator labelled with one of these,
+        out of ``"up"``, ``"down"`` and ``"not"``. Stored sorted and
+        de-duplicated.
     """
 
     # The CurveCurator-derived rule, on by default.
@@ -163,7 +162,7 @@ class CurveQuality:
 
     @classmethod
     def default(cls) -> CurveQuality:
-        """The CurveCurator-derived rule: relevance score and fold change only."""
+        """Return the CurveCurator-derived rule: relevance score and fold change only."""
         return cls()
 
     @classmethod
@@ -176,7 +175,7 @@ class CurveQuality:
         return cls(**{name: None for name in _THRESHOLD_NAMES})
 
     def _thresholds(self) -> dict[str, float]:
-        """The thresholds that are set, by name."""
+        """Return the thresholds that are set, by name."""
         return {name: getattr(self, name) for name in _THRESHOLD_NAMES if getattr(self, name) is not None}
 
     def mask(self, dataset: MuDataLike) -> np.ndarray:
@@ -185,17 +184,12 @@ class CurveQuality:
         When no threshold and no *regulation* is set (see :meth:`off`), this is
         ``np.isfinite(dataset.response_matrix)`` and reads no response layers.
 
-        Args:
-            dataset: Dataset (or any :class:`~drevalpy.types.data.mudatalike.MuDataLike`)
-                whose response layers hold the quality metrics.
-
-        Returns:
-            Boolean array of shape ``(n_samples, n_drugs)``, True where the curve
+        :param dataset: Dataset (or any :class:`~drevalpy.types.data.mudatalike.MuDataLike`)
+            whose response layers hold the quality metrics.
+        :returns: Boolean array of shape ``(n_samples, n_drugs)``, True where the curve
             passes. Use ``~mask`` to blank the failing pairs of a response matrix.
-
-        Raises:
-            KeyError: If a layer a requested threshold needs is not in the dataset.
-            ValueError: If *regulation* contains a label CurveCurator does not use.
+        :raises KeyError: If a layer a requested threshold needs is not in the dataset.
+        :raises ValueError: If *regulation* contains a label CurveCurator does not use.
         """
         thresholds = self._thresholds()
         if not thresholds and self.regulation is None:
@@ -203,10 +197,9 @@ class CurveQuality:
         return _combine(dataset, thresholds, self.regulation)
 
     def to_metadata(self) -> dict[str, Any]:
-        """The set thresholds as a JSON-safe dict; unset (``None``) ones are omitted.
+        """Return the set thresholds as a JSON-safe dict; unset (``None``) ones are omitted.
 
-        Returns:
-            Mapping of threshold name to float, plus ``regulation`` as a list of
+        :returns: Mapping of threshold name to float, plus ``regulation`` as a list of
             labels when set. ``off()`` gives an empty dict.
         """
         metadata: dict[str, Any] = {name: float(value) for name, value in self._thresholds().items()}
@@ -221,14 +214,9 @@ class CurveQuality:
         Names absent from *metadata* are unset, so ``{}`` is :meth:`off`, not
         :meth:`default`.
 
-        Args:
-            metadata: Mapping as produced by :meth:`to_metadata`.
-
-        Returns:
-            The rule, equal to the one that produced *metadata*.
-
-        Raises:
-            ValueError: If *metadata* holds a name that is not a threshold.
+        :param metadata: Mapping as produced by :meth:`to_metadata`.
+        :returns: The rule, equal to the one that produced *metadata*.
+        :raises ValueError: If *metadata* holds a name that is not a threshold.
         """
         unknown = sorted(set(metadata) - {*_THRESHOLD_NAMES, "regulation"})
         if unknown:
@@ -244,19 +232,14 @@ def curve_quality_mask(dataset: MuDataLike, **options: Any) -> np.ndarray:
     applies exactly the CurveCurator-derived rule; passing ``None`` for a
     threshold disables that check.
 
-    Args:
-        dataset: Dataset (or any :class:`~drevalpy.types.data.mudatalike.MuDataLike`)
-            whose response layers hold the quality metrics.
-        **options: Any :class:`CurveQuality` field, such as ``min_r2=0.8`` or
-            ``min_relevance_score=None``.
-
-    Returns:
-        Boolean array of shape ``(n_samples, n_drugs)``, True where the curve passes.
-
-    Raises:
-        KeyError: If a layer a requested threshold needs is not in the dataset.
-        ValueError: If *regulation* contains a label CurveCurator does not use.
-        TypeError: If an option is not a :class:`CurveQuality` field.
+    :param dataset: Dataset (or any :class:`~drevalpy.types.data.mudatalike.MuDataLike`)
+        whose response layers hold the quality metrics.
+    :param **options: Any :class:`CurveQuality` field, such as ``min_r2=0.8`` or
+        ``min_relevance_score=None``.
+    :returns: Boolean array of shape ``(n_samples, n_drugs)``, True where the curve passes.
+    :raises KeyError: If a layer a requested threshold needs is not in the dataset.
+    :raises ValueError: If *regulation* contains a label CurveCurator does not use.
+    :raises TypeError: If an option is not a :class:`CurveQuality` field.
     """
     return CurveQuality(**options).mask(dataset)
 

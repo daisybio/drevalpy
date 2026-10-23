@@ -60,15 +60,10 @@ class PluginReport:
 def _declared_entry_point(name: str) -> importlib.metadata.EntryPoint:
     """Return the ``drevalpy.plugins`` entry point called *name*.
 
-    Args:
-        name: Entry-point name, which is the distribution's own choice and is
-            usually its import package name.
-
-    Returns:
-        The declared entry point.
-
-    Raises:
-        PluginCheckError: If no installed distribution declares it.
+    :param name: Entry-point name, which is the distribution's own choice and is
+        usually its import package name.
+    :returns: The declared entry point.
+    :raises PluginCheckError: If no installed distribution declares it.
     """
     declared = {ep.name: ep for ep in importlib.metadata.entry_points(group=ENTRY_POINT_GROUP)}
     entry_point = declared.get(name)
@@ -85,11 +80,8 @@ def _declared_entry_point(name: str) -> importlib.metadata.EntryPoint:
 def _recorded_failure(name: str) -> str | None:
     """Return the traceback the plugin loader recorded for *name*, if any.
 
-    Args:
-        name: Entry-point name.
-
-    Returns:
-        The formatted traceback, or ``None`` when the plugin did not fail.
+    :param name: Entry-point name.
+    :returns: The formatted traceback, or ``None`` when the plugin did not fail.
     """
     return get_failed_plugins().get(name)
 
@@ -97,14 +89,9 @@ def _recorded_failure(name: str) -> str | None:
 def _load(entry_point: importlib.metadata.EntryPoint) -> str:
     """Import *entry_point* and return the module it resolves to.
 
-    Args:
-        entry_point: Declared plugin entry point.
-
-    Returns:
-        Dotted module name the entry point targets.
-
-    Raises:
-        PluginCheckError: If discovery recorded a failure, or the import raises.
+    :param entry_point: Declared plugin entry point.
+    :returns: Dotted module name the entry point targets.
+    :raises PluginCheckError: If discovery recorded a failure, or the import raises.
     """
     recorded = _recorded_failure(entry_point.name)
     if recorded is not None:
@@ -124,11 +111,8 @@ def _contributed(root_package: str) -> dict[str, tuple[str, ...]]:
     Resolution goes through each registry's public ``get``, so a name that is
     listed but cannot be retrieved surfaces here rather than at model build time.
 
-    Args:
-        root_package: Top-level import package of the plugin.
-
-    Returns:
-        Mapping of registry name to the sorted names it holds for the plugin.
+    :param root_package: Top-level import package of the plugin.
+    :returns: Mapping of registry name to the sorted names it holds for the plugin.
     """
     contributed: dict[str, tuple[str, ...]] = {}
     for registry_name, module in _REGISTRIES.items():
@@ -143,15 +127,10 @@ def _contributed(root_package: str) -> dict[str, tuple[str, ...]]:
 def check_plugin(name: str) -> PluginReport:
     """Assert that the plugin called *name* is installed, loaded and reachable.
 
-    Args:
-        name: Entry-point name under the ``drevalpy.plugins`` group.
-
-    Returns:
-        A report naming every component the plugin contributed.
-
-    Raises:
-        PluginCheckError: If the entry point is undeclared, failed to import, or
-            registered no component at all.
+    :param name: Entry-point name under the ``drevalpy.plugins`` group.
+    :returns: A report naming every component the plugin contributed.
+    :raises PluginCheckError: If the entry point is undeclared, failed to import, or
+        registered no component at all.
     """
     entry_point = _declared_entry_point(name)
     module = _load(entry_point)

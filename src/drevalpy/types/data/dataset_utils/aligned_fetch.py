@@ -24,15 +24,13 @@ def _aligned_fetch(
 ) -> np.ndarray:
     """Fetch rows from *data* aligned to *ids* using *index*, filling NaN for missing.
 
-    Args:
-        index: pd.Index mapping entity names to row positions in *data*.
-        ids: 1-D array of requested entity IDs.
-        data: 2-D source array to fetch rows from.
-        strict: If True, raise KeyError for missing IDs instead of warning.
-        entity_label: Human-readable label for error messages (e.g. "sample").
-
-    Returns:
-        Float32 array of shape (len(ids), data.shape[1]).
+    :param index: pd.Index mapping entity names to row positions in *data*.
+    :param ids: 1-D array of requested entity IDs.
+    :param data: 2-D source array to fetch rows from.
+    :param strict: If True, raise KeyError for missing IDs instead of warning.
+    :param entity_label: Human-readable label for error messages (e.g. "sample").
+    :returns: Float32 array of shape (len(ids), data.shape[1]).
+    :raises KeyError: If *strict* and any ID is missing from *index*.
     """
     positions = index.get_indexer(ids)
     missing_mask = positions == -1

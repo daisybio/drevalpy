@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from typing import Any
 
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset as Dataset
@@ -33,6 +34,7 @@ def split(
         The splitter sees a view of *dataset* whose failed pairs are NaN, and the rule is recorded in each
         fold's metadata under ``quality``.
     :returns: List of SplitMasks, one per fold.
+    :raises ValueError: If two folds produce the same fold ID.
     """
     from drevalpy.registry.splitter import splitter_registry
 
@@ -66,7 +68,7 @@ def split(
     return folds
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """Lazy access to registry singletons to avoid circular imports."""
     if name == "dataset_registry":
         from drevalpy.registry.dataset import dataset_registry

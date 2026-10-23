@@ -50,13 +50,10 @@ _MUTATION_CUTOFF: Final = 0.674
 def check_choices(label: str, requested: Collection[str], allowed: Collection[str]) -> None:
     """Reject names outside *allowed*, naming every valid choice.
 
-    Args:
-        label: What the names are, for the message (e.g. ``"drug_views"``).
-        requested: Names the caller passed.
-        allowed: Names the builder knows.
-
-    Raises:
-        ValueError: If any requested name is not allowed.
+    :param label: What the names are, for the message (e.g. ``"drug_views"``).
+    :param requested: Names the caller passed.
+    :param allowed: Names the builder knows.
+    :raises ValueError: If any requested name is not allowed.
     """
     unknown = sorted(set(requested) - set(allowed))
     if unknown:
@@ -67,14 +64,9 @@ def check_choices(label: str, requested: Collection[str], allowed: Collection[st
 def gene_symbols(n: int) -> list[str]:
     """Return the first *n* gene symbols shipped in ``landmark_genes.csv``.
 
-    Args:
-        n: Number of symbols to return.
-
-    Returns:
-        Ordered, de-duplicated gene symbols.
-
-    Raises:
-        ValueError: If the packaged list holds fewer than *n* symbols.
+    :param n: Number of symbols to return.
+    :returns: Ordered, de-duplicated gene symbols.
+    :raises ValueError: If the packaged list holds fewer than *n* symbols.
     """
     from drevalpy.components.featurizers.sample.gene_lists import (
         gene_names_from_list_csv,
@@ -91,11 +83,8 @@ def gene_symbols(n: int) -> list[str]:
 def cpg_ids(n: int) -> list[str]:
     """Return *n* distinct genomic-window ids of the form ``chr1:1000000-1000800``.
 
-    Args:
-        n: Number of methylation sites.
-
-    Returns:
-        Site ids, one per methylation feature.
+    :param n: Number of methylation sites.
+    :returns: Site ids, one per methylation feature.
     """
     return [f"chr{index % 22 + 1}:{1_000_000 + index * 977}-{1_000_800 + index * 977}" for index in range(n)]
 
@@ -103,12 +92,9 @@ def cpg_ids(n: int) -> list[str]:
 def omics_coverage(omics: Sequence[str] | Mapping[str, int] | None, n_samples: int) -> dict[str, int]:
     """Normalize the *omics* argument into a public-name to sample-count map.
 
-    Args:
-        omics: Public view names, a name to coverage map, or ``None``.
-        n_samples: Coverage given to a view named without a count.
-
-    Returns:
-        The map; empty for ``None``.
+    :param omics: Public view names, a name to coverage map, or ``None``.
+    :param n_samples: Coverage given to a view named without a count.
+    :returns: The map; empty for ``None``.
     """
     if omics is None:
         return {}
@@ -122,14 +108,11 @@ def view_feature_names(
 ) -> list[str]:
     """Resolve the column names of one omics view.
 
-    Args:
-        public_name: Public omics name of the view.
-        feature_names: One list for every view, a per-view mapping, or ``None``
-            for real gene symbols or methylation sites.
-        n_features: How many names to generate when none are given.
-
-    Returns:
-        The column names.
+    :param public_name: Public omics name of the view.
+    :param feature_names: One list for every view, a per-view mapping, or ``None``
+        for real gene symbols or methylation sites.
+    :param n_features: How many names to generate when none are given.
+    :returns: The column names.
     """
     if isinstance(feature_names, Mapping) and public_name in feature_names:
         return list(feature_names[public_name])
@@ -167,16 +150,13 @@ def omics_anndata(
     Every feature is the shared hidden factors mixed through a random loading
     matrix, plus noise, so the view carries the sample effect in the response.
 
-    Args:
-        rng: Source of randomness.
-        public_name: Public omics name, which sets the value range.
-        sample_ids: Every sample id of the dataset, in order.
-        factors: Hidden sample factors shared with the response.
-        n_covered: Number of leading samples the view measures.
-        feature_names: Column names.
-
-    Returns:
-        The modality.
+    :param rng: Source of randomness.
+    :param public_name: Public omics name, which sets the value range.
+    :param sample_ids: Every sample id of the dataset, in order.
+    :param factors: Hidden sample factors shared with the response.
+    :param n_covered: Number of leading samples the view measures.
+    :param feature_names: Column names.
+    :returns: The modality.
     """
     import anndata as ad
     import pandas as pd
@@ -194,12 +174,9 @@ def omics_anndata(
 def payload_genes(modalities: Mapping[str, ad.AnnData], n_features: int) -> list[str]:
     """Pick the gene list the pathway and ontology payloads are written over.
 
-    Args:
-        modalities: Built omics modalities keyed by public name.
-        n_features: Number of symbols to take when no gene view was built.
-
-    Returns:
-        The var names of the first gene-axis view, else landmark gene symbols.
+    :param modalities: Built omics modalities keyed by public name.
+    :param n_features: Number of symbols to take when no gene view was built.
+    :returns: The var names of the first gene-axis view, else landmark gene symbols.
     """
     for public_name, modality in modalities.items():
         if _VAR_AXIS.get(public_name, "gene") == "gene":
@@ -210,13 +187,10 @@ def payload_genes(modalities: Mapping[str, ad.AnnData], n_features: int) -> list
 def add_sample_views(dataset: Dataset, views: Sequence[str], rng: np.random.Generator) -> None:
     """Fill ``response.obsm`` with the sample views that would need a download.
 
-    Args:
-        dataset: Dataset modified in place.
-        views: Names from :data:`SAMPLE_VIEWS`.
-        rng: Source of the noise.
-
-    Raises:
-        ValueError: If a name is not in :data:`SAMPLE_VIEWS`.
+    :param dataset: Dataset modified in place.
+    :param views: Names from :data:`SAMPLE_VIEWS`.
+    :param rng: Source of the noise.
+    :raises ValueError: If a name is not in :data:`SAMPLE_VIEWS`.
     """
     check_choices("sample_views", views, SAMPLE_VIEWS)
     response = dataset.mdata.mod["response"]

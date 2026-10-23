@@ -66,7 +66,7 @@ def _read_status_kib(field: str, status_path: str) -> float | None:
 
 
 def rss_gb(status_path: str = PROC_STATUS) -> float:
-    """Current resident set size of this process.
+    """Read the current resident set size of this process.
 
     :param status_path: Path to a ``/proc/<pid>/status``-formatted file.
     :returns: Current RSS in GB, falling back to peak RSS where ``/proc`` is absent.

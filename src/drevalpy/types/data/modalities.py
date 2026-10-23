@@ -48,11 +48,8 @@ def resolve_omics_accessor(name: str) -> str:
     Names that are not registered omics views are returned unchanged, so custom
     matrices and non-omics views keep working.
 
-    Args:
-        name: Public omics name, e.g. ``"copy_number_variation_gistic"``.
-
-    Returns:
-        The modality key to look up in the MuData.
+    :param name: Public omics name, e.g. ``"copy_number_variation_gistic"``.
+    :returns: The modality key to look up in the MuData.
     """
     return OMICS_ACCESSORS.get(name, name)
 
@@ -64,11 +61,8 @@ def public_omics_name(accessor: str) -> str:
     dataset physically holding ``copy_number_variation`` is reported as offering
     ``copy_number_variation_gistic``, which is the name a config may ask for.
 
-    Args:
-        accessor: Modality key as stored in the MuData.
-
-    Returns:
-        The public omics name, or *accessor* unchanged if it is not an omics view.
+    :param accessor: Modality key as stored in the MuData.
+    :returns: The public omics name, or *accessor* unchanged if it is not an omics view.
     """
     return _PUBLIC_NAMES.get(accessor, accessor)
 
@@ -82,12 +76,9 @@ def backing_modality(name: str, available: Container[str]) -> str | None:
     already carry the suffixed name are reached directly. So the eventual dataset
     rename needs no code change at all, not even to the map.
 
-    Args:
-        name: Public omics name, e.g. ``"copy_number_variation_gistic"``.
-        available: Modality keys present in the MuData.
-
-    Returns:
-        The key to read, or ``None`` when nothing in *available* backs *name*.
+    :param name: Public omics name, e.g. ``"copy_number_variation_gistic"``.
+    :param available: Modality keys present in the MuData.
+    :returns: The key to read, or ``None`` when nothing in *available* backs *name*.
     """
     if name in available:
         return name

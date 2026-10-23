@@ -49,7 +49,7 @@ def _vstack(blocks: Sequence[Any]) -> Any:
 def _feature_mismatch(
     view: str, names: Sequence[str], index: int, first: pd.Index, other: pd.Index
 ) -> InvalidInputError:
-    """The error for a view whose feature names differ from the first input's."""
+    """Build the error for a view whose feature names differ from the first input's."""
     missing = list(first.difference(other, sort=False))
     extra = list(other.difference(first, sort=False))
     if missing or extra:
@@ -64,7 +64,7 @@ def _feature_mismatch(
 def _view_columns(
     view: str, adatas: Sequence[ad.AnnData], names: Sequence[str], join: Literal["exact", "inner"]
 ) -> pd.Index:
-    """The feature names the stacked view keeps."""
+    """Return the feature names the stacked view keeps."""
     first = adatas[0].var_names
     if join == "exact":
         for index, adata in enumerate(adatas[1:], start=1):
@@ -101,20 +101,15 @@ def stack_view(
 ) -> ad.AnnData:
     """Stack one sample view row-wise over all inputs.
 
-    Args:
-        view: The modality key, for messages.
-        adatas: The view of each input, in input order.
-        names: Dataset name of each input; it prefixes the row IDs.
-        join: ``"exact"`` needs identical feature names; ``"inner"`` keeps the shared ones
-            in the first input's order.
-
-    Returns:
-        A new AnnData with ``<study>::<sample_id>`` row names. Recorded units must be
+    :param view: The modality key, for messages.
+    :param adatas: The view of each input, in input order.
+    :param names: Dataset name of each input; it prefixes the row IDs.
+    :param join: ``"exact"`` needs identical feature names; ``"inner"`` keeps the shared ones
+        in the first input's order.
+    :returns: A new AnnData with ``<study>::<sample_id>`` row names. Recorded units must be
         equal in every input under both joins.
-
-    Raises:
-        InvalidInputError: If feature names differ under ``"exact"``, none are shared under
-            ``"inner"``, or recorded units differ.
+    :raises InvalidInputError: If feature names differ under ``"exact"``, none are shared under
+        ``"inner"``, or recorded units differ.
     """
     import anndata as ad
 
@@ -146,21 +141,16 @@ def stack_response(
 ) -> ad.AnnData:
     """Stack a response-shaped modality: rows stacked, drug columns and layers unioned.
 
-    Args:
-        adatas: The modality of each input, in input order.
-        names: Dataset name of each input; it prefixes the row IDs.
-        where: The modality key, for messages.
-        strict_uns: Tells which ``uns`` keys must be equal in every input; the others
-            are kept when equal and dropped with a warning otherwise.
-
-    Returns:
-        A new AnnData over ``<study>::<sample_id>`` rows and the union of the drug IDs
+    :param adatas: The modality of each input, in input order.
+    :param names: Dataset name of each input; it prefixes the row IDs.
+    :param where: The modality key, for messages.
+    :param strict_uns: Tells which ``uns`` keys must be equal in every input; the others
+        are kept when equal and dropped with a warning otherwise.
+    :returns: A new AnnData over ``<study>::<sample_id>`` rows and the union of the drug IDs
         in first-seen order. ``X`` and every layer are NaN where an input lacks the drug
         or the layer.
-
-    Raises:
-        InvalidInputError: If a drug has different ``canonical_smiles`` in different inputs,
-            or a strict ``uns`` key differs.
+    :raises InvalidInputError: If a drug has different ``canonical_smiles`` in different inputs,
+        or a strict ``uns`` key differs.
     """
     import anndata as ad
 

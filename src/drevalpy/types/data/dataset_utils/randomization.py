@@ -40,13 +40,10 @@ def _degree_preserving_rewire(
     (u,y) and (x,v) if neither already exists (avoiding self-loops and
     multi-edges).
 
-    Args:
-        edge_index: (2, E) array of edge endpoints.
-        rng: Numpy random generator.
-        n_swaps: Number of swap attempts. Defaults to 10 * num_edges.
-
-    Returns:
-        Rewired (2, E) edge_index with identical degree sequence.
+    :param edge_index: (2, E) array of edge endpoints.
+    :param rng: Numpy random generator.
+    :param n_swaps: Number of swap attempts. Defaults to 10 * num_edges.
+    :returns: Rewired (2, E) edge_index with identical degree sequence.
     """
     edges = edge_index.T.copy()
     num_edges = edges.shape[0]
@@ -183,19 +180,14 @@ class RandomizationMixin:
         samples. For drug views (varm keys), rows are permuted across drugs.
         For uns dict keys, values are reassigned to shuffled keys.
 
-        Args:
-            views: View names to randomize.
-            randomization_type: "permutation" shuffles rows; "invariant" replaces
-                each row with a random draw matching its mean and std.
-            random_state: Seed for reproducibility.
-            randomization: Optional (mode, view) tuple to attach to the new dataset.
-
-        Returns:
-            A new Dataset with the specified views randomized.
-
-        Raises:
-            ValueError: If randomization_type is not recognized.
-            KeyError: If a view is not found in any storage location.
+        :param views: View names to randomize.
+        :param randomization_type: "permutation" shuffles rows; "invariant" replaces
+            each row with a random draw matching its mean and std.
+        :param random_state: Seed for reproducibility.
+        :param randomization: Optional (mode, view) tuple to attach to the new dataset.
+        :returns: A new Dataset with the specified views randomized.
+        :raises ValueError: If randomization_type is not recognized.
+        :raises KeyError: If a view is not found in any storage location.
         """
         import mudata as md
 

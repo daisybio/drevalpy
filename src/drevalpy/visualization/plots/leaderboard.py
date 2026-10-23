@@ -19,7 +19,9 @@ from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
     import pandas as pd
+    from matplotlib.axes import Axes
     from matplotlib.figure import Figure
+    from matplotlib.patches import FancyBboxPatch
 
     from drevalpy.types.results import ExperimentResult
 
@@ -46,7 +48,9 @@ def _get_bar_color(rank: int, is_baseline: bool) -> dict[str, Any]:
     return {"color": COMPETITOR_COLOR, "alpha": 0.85}
 
 
-def _draw_bar(ax, x: float, y: float, width: float, height: float, color: str, alpha: float = 1.0):
+def _draw_bar(
+    ax: Axes, x: float, y: float, width: float, height: float, color: str, alpha: float = 1.0
+) -> FancyBboxPatch:
     from matplotlib.patches import FancyBboxPatch
 
     bar = FancyBboxPatch(
@@ -92,7 +96,7 @@ def _axis_bounds(values: np.ndarray, stds: np.ndarray) -> tuple[float, float]:
 
 
 def _draw_ranked_metric_axis(
-    ax,
+    ax: Axes,
     df: pd.DataFrame,
     *,
     metric_col: str,
@@ -182,7 +186,7 @@ def _gradient_char_colors(title_text: str) -> list[str]:
     return colors_list
 
 
-def _draw_gradient_title(fig, title_text: str, font_adder: int, y: float = 0.97) -> None:
+def _draw_gradient_title(fig: Figure, title_text: str, font_adder: int, y: float = 0.97) -> None:
     title_x_start = 0.5 - len(title_text) * 0.012
     char_colors = _gradient_char_colors(title_text)
     for j, char in enumerate(title_text):
@@ -198,7 +202,7 @@ def _draw_gradient_title(fig, title_text: str, font_adder: int, y: float = 0.97)
 
 
 def _draw_subtitle(
-    fig, dataset: str, measure: str, test_mode_label: str, font_adder: int, colors: dict, y: float = 0.92
+    fig: Figure, dataset: str, measure: str, test_mode_label: str, font_adder: int, colors: dict, y: float = 0.92
 ) -> None:
     fig.text(
         0.5,
@@ -210,7 +214,7 @@ def _draw_subtitle(
     )
 
 
-def _draw_legend(fig, font_adder: int, colors: dict, y: float = 0.02) -> None:
+def _draw_legend(fig: Figure, font_adder: int, colors: dict, y: float = 0.02) -> None:
     import matplotlib.patches as mpatches
 
     legend_elements = [

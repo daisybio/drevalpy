@@ -25,11 +25,8 @@ SEED = 20260813
 def observed_pairs(dataset: Dataset) -> ResponseBatch:
     """Return every measured sample/drug pair in *dataset*.
 
-    Args:
-        dataset: Dataset whose response matrix is read.
-
-    Returns:
-        Response triples for the non-NaN entries, in row-major order.
+    :param dataset: Dataset whose response matrix is read.
+    :returns: Response triples for the non-NaN entries, in row-major order.
     """
     matrix = dataset.response_matrix
     rows, columns = np.nonzero(~np.isnan(matrix))
@@ -56,18 +53,15 @@ def build_synthetic_batch(
     response is a noisy linear function of the drawn features, so a predictor
     that trains at all can beat the mean.
 
-    Args:
-        dataset: Dataset supplying the entity ids and the measured pairs.
-        sample_block_names: Names to expose the sample matrix under, for
-            predictors that read named blocks rather than a flat matrix.
-        drug_block_names: Names to expose the drug matrix under.
-        n_sample_features: Width of the drawn sample feature matrix.
-        n_drug_features: Width of the drawn drug feature matrix, or ``None`` for
-            a sample-only batch.
-        seed: Seed for the drawn features and noise.
-
-    Returns:
-        A batch ready for :meth:`~drevalpy.plugin.Predictor.fit`.
+    :param dataset: Dataset supplying the entity ids and the measured pairs.
+    :param sample_block_names: Names to expose the sample matrix under, for
+        predictors that read named blocks rather than a flat matrix.
+    :param drug_block_names: Names to expose the drug matrix under.
+    :param n_sample_features: Width of the drawn sample feature matrix.
+    :param n_drug_features: Width of the drawn drug feature matrix, or ``None`` for
+        a sample-only batch.
+    :param seed: Seed for the drawn features and noise.
+    :returns: A batch ready for :meth:`~drevalpy.plugin.Predictor.fit`.
     """
     rng = np.random.default_rng(seed)
     response = observed_pairs(dataset)

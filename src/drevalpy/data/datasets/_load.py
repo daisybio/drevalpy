@@ -64,6 +64,7 @@ def _load_from_cache(path: Path) -> Dataset | None:
 
     :param path: Local candidate path.
     :returns: The dataset, or ``None`` if the file was unusable and removed.
+    :raises Exception: Any error that is not a corruption-type error, re-raised unchanged.
     """
     try:
         dataset = Dataset.load(path)

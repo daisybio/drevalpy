@@ -56,49 +56,35 @@ def curate(
 ) -> anndata.AnnData:
     """Fit dose-response curves and return an AnnData of curve metrics.
 
-    Parameters
-    ----------
-    df
-        Long-form DataFrame with columns: drug, sample, concentration,
+    :param df: Long-form DataFrame with columns: drug, sample, concentration,
         intensity, and optionally replicate. The ``drug`` and ``sample``
         values are treated as opaque labels, so native identifiers are fine -
         they become the ``var_names``/``obs_names`` of the result.
-    max_chunk_size
-        Maximum number of curves in a single parallel chunk. Groups larger than
+    :param max_chunk_size: Maximum number of curves in a single parallel chunk. Groups larger than
         this are split into multiple chunks; smaller groups are kept as one chunk.
         Smaller values produce more parallel jobs and better load balancing at the
         cost of serialization overhead. The result does not depend on this value,
         including when *normalize* is set.
-    max_workers
-        Number of local worker processes when no external *executor* is provided.
+    :param max_workers: Number of local worker processes when no external *executor* is provided.
         Ignored when *executor* is set.
-    normalize
-        Whether to apply median-centric normalization before fitting. Factors are
+    :param normalize: Whether to apply median-centric normalization before fitting. Factors are
         computed once per dose-range group, not per parallel chunk.
-    fit_type
-        Fitting method. Only "OLS" is currently supported.
-    fit_speed
-        Fitting thoroughness, one of :data:`FIT_SPEEDS`.
-    executor
-        Optional :class:`~concurrent.futures.Executor` instance. When provided,
+    :param fit_type: Fitting method. Only "OLS" is currently supported.
+    :param fit_speed: Fitting thoroughness, one of :data:`FIT_SPEEDS`.
+    :param executor: Optional :class:`~concurrent.futures.Executor` instance. When provided,
         chunk fitting is dispatched through this executor instead of an internal
         :class:`~concurrent.futures.ProcessPoolExecutor`. This enables callers to
         supply e.g. a ``submitit.AutoExecutor`` configured for SLURM, or any other
         ``concurrent.futures``-compatible executor. The caller retains ownership
         and is responsible for shutting down the executor.
 
-    Returns:
-    -------
-    AnnData of shape (n_samples, n_drugs), indexed by the labels that were
-    fitted. ``X`` holds pEC50; every other curve metric is a layer - the derived
-    ``EC50``/``IC50``/``LN_IC50``, the goodness-of-fit columns, and the
-    per-parameter standard errors ``pec50_error``/``slope_error``/
-    ``front_error``/``back_error``. No quality filtering is applied.
+    :returns: AnnData of shape (n_samples, n_drugs), indexed by the labels that were
+        fitted. ``X`` holds pEC50; every other curve metric is a layer - the derived
+        ``EC50``/``IC50``/``LN_IC50``, the goodness-of-fit columns, and the
+        per-parameter standard errors ``pec50_error``/``slope_error``/
+        ``front_error``/``back_error``. No quality filtering is applied.
 
-    Raises:
-    ------
-    InvalidInputError
-        If ``fit_type`` or ``fit_speed`` is not supported.
+    :raises InvalidInputError: If ``fit_type`` or ``fit_speed`` is not supported.
     """
     from drevalpy.curation._fit import fit_groups
     from drevalpy.curation._postprocess import postprocess

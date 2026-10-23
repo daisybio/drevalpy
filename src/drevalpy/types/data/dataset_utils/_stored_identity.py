@@ -16,11 +16,8 @@ import numpy as np
 def stored_randomization(uns: Mapping[str, Any]) -> tuple[str, str] | None:
     """Return the ``(mode, view)`` pair stored under ``uns["randomization"]``.
 
-    Args:
-        uns: The ``uns`` mapping of a loaded MuData object.
-
-    Returns:
-        The pair as plain strings, or ``None`` when no two-element value is stored.
+    :param uns: The ``uns`` mapping of a loaded MuData object.
+    :returns: The pair as plain strings, or ``None`` when no two-element value is stored.
     """
     stored = uns.get("randomization")
     if not isinstance(stored, (list, tuple, np.ndarray)) or len(stored) != 2:
@@ -31,11 +28,8 @@ def stored_randomization(uns: Mapping[str, Any]) -> tuple[str, str] | None:
 def plain_value(value: Any) -> Any:
     """Convert NumPy arrays and scalars inside *value* to JSON-compatible Python objects.
 
-    Args:
-        value: A stored value, possibly a nested mapping or list.
-
-    Returns:
-        *value* with every ``ndarray`` as a list and every NumPy scalar as a Python scalar.
+    :param value: A stored value, possibly a nested mapping or list.
+    :returns: *value* with every ``ndarray`` as a list and every NumPy scalar as a Python scalar.
     """
     if isinstance(value, Mapping):
         return {key: plain_value(item) for key, item in value.items()}

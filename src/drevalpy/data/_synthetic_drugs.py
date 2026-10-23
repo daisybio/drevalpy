@@ -106,12 +106,9 @@ def _bpe_codes(smiles: Sequence[str], *, num_symbols: int = 50) -> str:
     it. Learning them for real also proves the SMILES are dense enough for
     ``subword-nmt``, which refuses to merge when no character pair occurs twice.
 
-    Args:
-        smiles: SMILES strings to learn merges from.
-        num_symbols: Number of merge operations to learn.
-
-    Returns:
-        BPE codes file contents.
+    :param smiles: SMILES strings to learn merges from.
+    :param num_symbols: Number of merge operations to learn.
+    :returns: BPE codes file contents.
     """
     from subword_nmt.learn_bpe import learn_bpe
 
@@ -156,13 +153,10 @@ def _fingerprints(dataset: Dataset) -> np.ndarray:
 def add_drug_views(dataset: Dataset, views: Sequence[str], rng: np.random.Generator) -> None:
     """Fill ``response.varm`` with the requested drug views.
 
-    Args:
-        dataset: Dataset modified in place; its drugs need ``canonical_smiles``.
-        views: Names from :data:`DRUG_VIEWS`.
-        rng: Source of the noise views.
-
-    Raises:
-        ValueError: If a name is not in :data:`DRUG_VIEWS`.
+    :param dataset: Dataset modified in place; its drugs need ``canonical_smiles``.
+    :param views: Names from :data:`DRUG_VIEWS`.
+    :param rng: Source of the noise views.
+    :raises ValueError: If a name is not in :data:`DRUG_VIEWS`.
     """
     check_choices("drug_views", views, DRUG_VIEWS)
     response = dataset.mdata.mod["response"]
@@ -176,13 +170,10 @@ def add_drug_views(dataset: Dataset, views: Sequence[str], rng: np.random.Genera
 def add_uns_payloads(dataset: Dataset, payloads: Sequence[str], genes: Sequence[str]) -> None:
     """Fill ``mdata.uns`` with the auxiliary payloads published datasets carry.
 
-    Args:
-        dataset: Dataset modified in place; its drugs need ``canonical_smiles``.
-        payloads: Names from :data:`UNS_PAYLOADS`.
-        genes: Gene symbols the pathway and ontology payloads are written over.
-
-    Raises:
-        ValueError: If a name is not in :data:`UNS_PAYLOADS`.
+    :param dataset: Dataset modified in place; its drugs need ``canonical_smiles``.
+    :param payloads: Names from :data:`UNS_PAYLOADS`.
+    :param genes: Gene symbols the pathway and ontology payloads are written over.
+    :raises ValueError: If a name is not in :data:`UNS_PAYLOADS`.
     """
     check_choices("uns_payloads", payloads, UNS_PAYLOADS)
     uns = dataset.mdata.uns

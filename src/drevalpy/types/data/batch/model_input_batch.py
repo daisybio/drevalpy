@@ -68,7 +68,9 @@ def pair_drug_indices(
     return _map_pair_indices(drug_ids, drug_id_to_row, side="drug")
 
 
-def _validate_pair_indices(table, indices, pair_ids, *, side: str) -> None:
+def _validate_pair_indices(
+    table: FeaturizerResult | None, indices: np.ndarray | None, pair_ids: np.ndarray, *, side: str
+) -> None:
     if table is None:
         if indices is not None:
             raise ValueError(f"{side} pair indices require a feature result")
@@ -155,7 +157,7 @@ class ModelInputBatch:
         )
 
     def _pair_indices_for(self, response: ResponseBatch) -> tuple[np.ndarray, np.ndarray | None]:
-        def indices(table, ids, side):
+        def indices(table: FeaturizerResult, ids: np.ndarray, side: str) -> np.ndarray:
             mapping = {str(entity): row for row, entity in enumerate(table.entity_ids)}
             return _map_pair_indices(ids, mapping, side=side)
 
@@ -164,7 +166,7 @@ class ModelInputBatch:
             None if self.drug is None else indices(self.drug, response.drug_ids, "drug"),
         )
 
-    def _feature_matrix(self, cell_indices, drug_indices, *, n_pairs: int) -> np.ndarray:
+    def _feature_matrix(self, cell_indices: np.ndarray, drug_indices: np.ndarray | None, *, n_pairs: int) -> np.ndarray:
         arrays = []
         for table, indices in ((self.sample, cell_indices), (self.drug, drug_indices)):
             if table is None or not table.projection:

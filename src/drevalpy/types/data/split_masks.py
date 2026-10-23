@@ -88,7 +88,7 @@ class SplitMasks:
         )
 
     def __repr__(self) -> str:
-        """Formatted summary."""
+        """Return a formatted summary."""
         lines = [
             "SplitMasks",
             f"    Shape: {self.shape}",

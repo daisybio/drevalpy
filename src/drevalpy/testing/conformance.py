@@ -57,13 +57,10 @@ def _require(condition: object, message: str) -> None:
 def feature_source_for(cls: type[Featurizer], dataset: Dataset) -> FeatureSource:
     """Return the feature source matching the featurizer's registered side.
 
-    Args:
-        cls: Featurizer class. Its ``side`` is set by the registry to
-            ``"sample"`` or ``"drug"``.
-        dataset: Dataset to wrap.
-
-    Returns:
-        A source for the featurizer's own entity side.
+    :param cls: Featurizer class. Its ``side`` is set by the registry to
+        ``"sample"`` or ``"drug"``.
+    :param dataset: Dataset to wrap.
+    :returns: A source for the featurizer's own entity side.
     """
     if getattr(cls, "side", "") == "drug":
         return DrugFeatureSource(dataset, np.asarray(dataset.drug_ids))
@@ -85,19 +82,14 @@ def check_featurizer_instantiates(
     abstract methods at instantiation, so a featurizer missing ``_fit`` or
     ``_transform_features`` registers cleanly and fails here.
 
-    Args:
-        cls: Featurizer class to instantiate.
-        dataset: Unused; accepted so every entry of :data:`FEATURIZER_CHECKS`
-            takes the same arguments and a suite can parametrize over the tuple.
-        kwargs: Constructor keyword arguments. Defaults to none, i.e. the
-            featurizer must be constructible with no arguments.
-
-    Returns:
-        The constructed instance.
-
-    Raises:
-        ConformanceError: If construction fails, or the result is not a
-            :class:`~drevalpy.plugin.Featurizer`.
+    :param cls: Featurizer class to instantiate.
+    :param dataset: Unused; accepted so every entry of :data:`FEATURIZER_CHECKS`
+        takes the same arguments and a suite can parametrize over the tuple.
+    :param **kwargs: Constructor keyword arguments. Defaults to none, i.e. the
+        featurizer must be constructible with no arguments.
+    :returns: The constructed instance.
+    :raises ConformanceError: If construction fails, or the result is not a
+        :class:`~drevalpy.plugin.Featurizer`.
     """
     _ = dataset
     try:
@@ -116,18 +108,15 @@ def check_featurizer_fit_transform(
 ) -> None:
     """Check that *cls* fits, transforms and reports a matching ``output_dim``.
 
-    Args:
-        cls: Featurizer class to exercise.
-        dataset: Dataset to featurize. Defaults to
-            :func:`~drevalpy.testing.build_synthetic_dataset`, which suffices for
-            an ``entity_id_only`` featurizer; pass a dataset carrying the
-            required views otherwise.
-        kwargs: Constructor keyword arguments.
-
-    Raises:
-        ConformanceError: If fitting or transforming fails, the blocks are not
-            aligned with the entity ids, or ``output_dim`` disagrees with the
-            produced width.
+    :param cls: Featurizer class to exercise.
+    :param dataset: Dataset to featurize. Defaults to
+        :func:`~drevalpy.testing.build_synthetic_dataset`, which suffices for
+        an ``entity_id_only`` featurizer; pass a dataset carrying the
+        required views otherwise.
+    :param **kwargs: Constructor keyword arguments.
+    :raises ConformanceError: If fitting or transforming fails, the blocks are not
+        aligned with the entity ids, or ``output_dim`` disagrees with the
+        produced width.
     """
     dataset = dataset if dataset is not None else build_synthetic_dataset()
     instance = check_featurizer_instantiates(cls, **kwargs)
@@ -168,13 +157,10 @@ def check_featurizer_state_round_trip(
     features. This transforms through a fresh instance restored from the state
     and requires identical output.
 
-    Args:
-        cls: Featurizer class to exercise.
-        dataset: Dataset to featurize; defaults to the synthetic one.
-        kwargs: Constructor keyword arguments.
-
-    Raises:
-        ConformanceError: If the restored featurizer produces different features.
+    :param cls: Featurizer class to exercise.
+    :param dataset: Dataset to featurize; defaults to the synthetic one.
+    :param **kwargs: Constructor keyword arguments.
+    :raises ConformanceError: If the restored featurizer produces different features.
     """
     dataset = dataset if dataset is not None else build_synthetic_dataset()
     source = feature_source_for(cls, dataset)
@@ -206,18 +192,13 @@ def check_predictor_instantiates(
 ) -> Predictor:
     """Check that *cls* can be constructed with its declared defaults.
 
-    Args:
-        cls: Predictor class to instantiate.
-        batch: Unused; accepted so every entry of :data:`PREDICTOR_CHECKS` takes
-            the same arguments and a suite can parametrize over the tuple.
-        kwargs: Constructor keyword arguments, typically ``hyperparameters=``.
-
-    Returns:
-        The constructed instance.
-
-    Raises:
-        ConformanceError: If construction fails, or the result is not a
-            :class:`~drevalpy.plugin.Predictor`.
+    :param cls: Predictor class to instantiate.
+    :param batch: Unused; accepted so every entry of :data:`PREDICTOR_CHECKS` takes
+        the same arguments and a suite can parametrize over the tuple.
+    :param **kwargs: Constructor keyword arguments, typically ``hyperparameters=``.
+    :returns: The constructed instance.
+    :raises ConformanceError: If construction fails, or the result is not a
+        :class:`~drevalpy.plugin.Predictor`.
     """
     _ = batch
     try:
@@ -240,16 +221,13 @@ def check_predictor_fit_predict(
     finiteness requirement is what distinguishes a predictor that trained from
     one that merely ran.
 
-    Args:
-        cls: Predictor class to exercise.
-        batch: Featurized batch. Defaults to
-            :func:`~drevalpy.testing.build_synthetic_batch` over the synthetic
-            dataset.
-        kwargs: Constructor keyword arguments.
-
-    Raises:
-        ConformanceError: If fitting or predicting fails, or the predictions are
-            the wrong length or not finite.
+    :param cls: Predictor class to exercise.
+    :param batch: Featurized batch. Defaults to
+        :func:`~drevalpy.testing.build_synthetic_batch` over the synthetic
+        dataset.
+    :param **kwargs: Constructor keyword arguments.
+    :raises ConformanceError: If fitting or predicting fails, or the predictions are
+        the wrong length or not finite.
     """
     batch = batch if batch is not None else build_synthetic_batch(build_synthetic_dataset())
     instance = check_predictor_instantiates(cls, **kwargs)
@@ -275,13 +253,10 @@ def check_predictor_state_round_trip(
 ) -> None:
     """Check that a trained predictor survives ``get_state``/``set_state``.
 
-    Args:
-        cls: Predictor class to exercise.
-        batch: Featurized batch; defaults to the synthetic one.
-        kwargs: Constructor keyword arguments.
-
-    Raises:
-        ConformanceError: If the restored predictor predicts differently.
+    :param cls: Predictor class to exercise.
+    :param batch: Featurized batch; defaults to the synthetic one.
+    :param **kwargs: Constructor keyword arguments.
+    :raises ConformanceError: If the restored predictor predicts differently.
     """
     batch = batch if batch is not None else build_synthetic_batch(build_synthetic_dataset())
 

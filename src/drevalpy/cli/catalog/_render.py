@@ -29,8 +29,7 @@ def console() -> Console:
     ``CliRunner`` swaps ``sys.stdout`` for each invocation, and because terminal
     width is then measured when the output is actually produced.
 
-    Returns:
-        A fresh :class:`~rich.console.Console`.
+    :returns: A fresh :class:`~rich.console.Console`.
     """
     from rich.console import Console
 
@@ -40,11 +39,8 @@ def console() -> Console:
 def format_value(value: Any) -> str:
     """Render one registry value as display text.
 
-    Args:
-        value: Value taken from a registry table cell or metadata mapping.
-
-    Returns:
-        Human-readable text: collections become comma-separated, enums become
+    :param value: Value taken from a registry table cell or metadata mapping.
+    :returns: Human-readable text: collections become comma-separated, enums become
         their member name, booleans become ``yes``/``no``, and anything empty
         becomes :data:`EMPTY_CELL`.
     """
@@ -64,11 +60,8 @@ def format_value(value: Any) -> str:
 def _text(cell: str | Text) -> Text:
     """Coerce a cell to rich text with markup disabled.
 
-    Args:
-        cell: Either display text or an already-styled ``Text``.
-
-    Returns:
-        The ``Text`` to hand to rich.
+    :param cell: Either display text or an already-styled ``Text``.
+    :returns: The ``Text`` to hand to rich.
     """
     from rich.text import Text
 
@@ -78,13 +71,10 @@ def _text(cell: str | Text) -> Text:
 def _table(title: str, columns: Iterable[str], caption: str | None = None) -> Table:
     """Build an empty table with folding columns.
 
-    Args:
-        title: Heading printed above the table.
-        columns: Column headers, in order.
-        caption: Optional line printed below the table.
-
-    Returns:
-        A table ready for :meth:`~rich.table.Table.add_row`.
+    :param title: Heading printed above the table.
+    :param columns: Column headers, in order.
+    :param caption: Optional line printed below the table.
+    :returns: A table ready for :meth:`~rich.table.Table.add_row`.
     """
     from rich import box
     from rich.table import Table
@@ -108,8 +98,7 @@ def _table(title: str, columns: Iterable[str], caption: str | None = None) -> Ta
 def render_empty(hint: str) -> None:
     """Print the stand-in shown when there is nothing to list.
 
-    Args:
-        hint: Sentence explaining what was empty and, ideally, why.
+    :param hint: Sentence explaining what was empty and, ideally, why.
     """
     from rich.text import Text
 
@@ -126,12 +115,11 @@ def render_rows(
 ) -> None:
     """Print pre-formatted rows as a table.
 
-    Args:
-        rows: One sequence of cells per row, matching ``columns`` in length.
-        columns: Column headers, in order.
-        title: Heading printed above the table.
-        empty_hint: Printed instead of the table when ``rows`` is empty.
-        show_count: Add a row-count caption below the table.
+    :param rows: One sequence of cells per row, matching ``columns`` in length.
+    :param columns: Column headers, in order.
+    :param title: Heading printed above the table.
+    :param empty_hint: Printed instead of the table when ``rows`` is empty.
+    :param show_count: Add a row-count caption below the table.
     """
     if not rows:
         render_empty(empty_hint)
@@ -145,10 +133,9 @@ def render_rows(
 def render_frame(frame: pd.DataFrame, *, title: str, empty_hint: str) -> None:
     """Print a registry ``table()`` DataFrame.
 
-    Args:
-        frame: DataFrame as returned by any registry's ``table()``.
-        title: Heading printed above the table.
-        empty_hint: Printed instead of the table when the frame has no rows.
+    :param frame: DataFrame as returned by any registry's ``table()``.
+    :param title: Heading printed above the table.
+    :param empty_hint: Printed instead of the table when the frame has no rows.
     """
     if frame.empty:
         render_empty(empty_hint)
@@ -160,9 +147,8 @@ def render_frame(frame: pd.DataFrame, *, title: str, empty_hint: str) -> None:
 def render_mapping(data: Mapping[str, Any], *, title: str) -> None:
     """Print a metadata mapping as a two-column field/value table.
 
-    Args:
-        data: Mapping as returned by any registry's ``metadata()``.
-        title: Heading printed above the table, normally the entry's name.
+    :param data: Mapping as returned by any registry's ``metadata()``.
+    :param title: Heading printed above the table, normally the entry's name.
     """
     rows = [[str(key), format_value(value)] for key, value in data.items()]
     render_rows(
@@ -177,10 +163,7 @@ def render_mapping(data: Mapping[str, Any], *, title: str) -> None:
 def _count_caption(count: int) -> str:
     """Return the row-count caption for a table.
 
-    Args:
-        count: Number of rows rendered.
-
-    Returns:
-        Caption text with the count correctly pluralised.
+    :param count: Number of rows rendered.
+    :returns: Caption text with the count correctly pluralised.
     """
     return f"{count} entry" if count == 1 else f"{count} entries"

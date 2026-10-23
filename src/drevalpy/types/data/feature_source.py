@@ -29,9 +29,8 @@ class FeatureSource(ABC):
     def __init__(self, dataset: Dataset, entity_ids: np.ndarray) -> None:
         """Wrap a Dataset for entity feature access.
 
-        Args:
-            dataset: The backing dataset.
-            entity_ids: Entity IDs this source exposes.
+        :param dataset: The backing dataset.
+        :param entity_ids: Entity IDs this source exposes.
         """
         self._dataset = dataset
         self._ids = np.asarray(entity_ids, dtype=str)

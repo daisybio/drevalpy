@@ -110,10 +110,9 @@ def _punch_holes(matrix: np.ndarray, rng: np.random.Generator, fraction: float) 
     row/column guarantee matters because a fully unmeasured sample or drug
     makes the leave-one-out splitters produce empty folds.
 
-    Args:
-        matrix: Response matrix, modified in place.
-        rng: Source of randomness.
-        fraction: Share of entries to blank, clamped by the guarantee above.
+    :param matrix: Response matrix, modified in place.
+    :param rng: Source of randomness.
+    :param fraction: Share of entries to blank, clamped by the guarantee above.
     """
     n_rows, n_columns = matrix.shape
     if fraction <= 0 or n_rows < 2 or n_columns < 2:
@@ -139,14 +138,11 @@ def _simulate_response(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Draw the hidden factors and the complete pEC50 matrix they generate.
 
-    Args:
-        rng: Source of randomness.
-        n_samples: Number of samples.
-        n_drugs: Number of drugs.
-        tissue_index: Tissue index of each sample.
-
-    Returns:
-        The hidden sample factors ``z`` with shape ``(n_samples, K)`` and the
+    :param rng: Source of randomness.
+    :param n_samples: Number of samples.
+    :param n_drugs: Number of drugs.
+    :param tissue_index: Tissue index of each sample.
+    :returns: The hidden sample factors ``z`` with shape ``(n_samples, K)`` and the
         pEC50 matrix with shape ``(n_samples, n_drugs)``.
     """
     n_tissues = int(tissue_index.max()) + 1
@@ -174,11 +170,7 @@ def _response_anndata(
     low_quality_fraction: float,
     extra_layers: Sequence[str],
 ) -> tuple[ad.AnnData, np.ndarray]:
-    """Build the ``response`` modality: the pair matrix plus entity metadata.
-
-    Returns:
-        The modality and the hidden sample factors its omics views must mix.
-    """
+    """Build the ``response`` modality and the hidden sample factors its omics views must mix."""
     import anndata as ad
     import pandas as pd
 
@@ -254,17 +246,14 @@ def _quality_layers(
     not also claim ``R2 = 0.99``. Filtering on any one option therefore selects
     the same pairs, which is what makes a non-default option testable.
 
-    Args:
-        rng: Source of randomness.
-        matrix: Response matrix, used only for its shape.
-        low_quality_fraction: Share of pairs to mark as failing the default
-            thresholds. The failing pairs are chosen with the same per-row and
-            per-column guarantee ``_punch_holes`` uses, because a quality filter
-            that empties a sample breaks the leave-one-out splitters exactly
-            as an unmeasured one does.
-
-    Returns:
-        Layer name to matrix, ready to assign into ``response.layers``.
+    :param rng: Source of randomness.
+    :param matrix: Response matrix, used only for its shape.
+    :param low_quality_fraction: Share of pairs to mark as failing the default
+        thresholds. The failing pairs are chosen with the same per-row and
+        per-column guarantee ``_punch_holes`` uses, because a quality filter
+        that empties a sample breaks the leave-one-out splitters exactly
+        as an unmeasured one does.
+    :returns: Layer name to matrix, ready to assign into ``response.layers``.
     """
     good = np.ones(matrix.shape, dtype=bool)
     if low_quality_fraction > 0:
@@ -329,53 +318,48 @@ def synthetic(
     opt-in, so the default dataset stays small and cheap. The extras are what the
     zoo's other models read: fingerprints, graphs, pathway sets and ontologies.
 
-    Args:
-        name: Dataset name recorded on the returned object.
-        n_samples: Number of samples on the ``obs`` axis.
-        n_drugs: Number of drugs on the ``var`` axis, at most
-            :data:`MAX_SYNTHETIC_DRUGS`.
-        n_tissues: Number of distinct tissue labels to cycle through, at most
-            six.
-        omics: Public omics names to add as sample modalities; ``None`` or
-            ``()`` adds none. Any of ``gene_expression``, ``proteomics``,
-            ``mutations``, ``methylation`` and ``copy_number_variation_gistic``.
-            A mapping additionally sets each modality's sample coverage, so a
-            value below *n_samples* leaves trailing samples unmeasured and
-            exercises a component's NaN handling.
-        sample_views: Extra sample views stored in ``response.obsm``:
-            ``pathway_features`` (seeded noise).
-        drug_views: Drug views stored in ``response.varm``: ``morgan_fingerprint``
-            (computed by the real featurizer, so it needs ``rdkit``) and the
-            seeded-noise views ``chemberta``, ``bpe_smiles`` and ``smilesvec``.
-        uns_payloads: Auxiliary payloads stored in ``mdata.uns``:
-            ``drug_graphs`` (computed, needs ``rdkit``), ``pathways_gmt``,
-            ``sparsego`` and ``bpe_codes`` (learned, needs ``subword-nmt``).
-        extra_layers: Response layers derived from the pEC50 matrix, beyond
-            ``LN_IC50``: any of ``AUC`` and ``IC50``.
-        feature_names: Column names for every omics modality, or a mapping from
-            public omics name to its column names. Defaults to the first
-            *n_features* landmark gene symbols, or methylation site ids for
-            ``methylation``.
-        n_features: Number of generated column names when *feature_names* does
-            not name a view.
-        missing_fraction: Share of response pairs left unmeasured. Every sample
-            and drug keeps at least one measurement regardless.
-        low_quality_fraction: Share of response pairs whose curve-quality
-            metrics fail the thresholds
-            :func:`~drevalpy.data.quality.curve_quality_mask` applies, so the
-            built-in splitters drop them. Defaults to ``0.0``, i.e. every curve
-            passes and a split is determined by *missing_fraction* alone.
-        seed: Seed for every drawn matrix, making the dataset reproducible.
-
-    Returns:
-        A dataset carrying a ``response`` modality with sample metadata,
+    :param name: Dataset name recorded on the returned object.
+    :param n_samples: Number of samples on the ``obs`` axis.
+    :param n_drugs: Number of drugs on the ``var`` axis, at most
+        :data:`MAX_SYNTHETIC_DRUGS`.
+    :param n_tissues: Number of distinct tissue labels to cycle through, at most
+        six.
+    :param omics: Public omics names to add as sample modalities; ``None`` or
+        ``()`` adds none. Any of ``gene_expression``, ``proteomics``,
+        ``mutations``, ``methylation`` and ``copy_number_variation_gistic``.
+        A mapping additionally sets each modality's sample coverage, so a
+        value below *n_samples* leaves trailing samples unmeasured and
+        exercises a component's NaN handling.
+    :param sample_views: Extra sample views stored in ``response.obsm``:
+        ``pathway_features`` (seeded noise).
+    :param drug_views: Drug views stored in ``response.varm``: ``morgan_fingerprint``
+        (computed by the real featurizer, so it needs ``rdkit``) and the
+        seeded-noise views ``chemberta``, ``bpe_smiles`` and ``smilesvec``.
+    :param uns_payloads: Auxiliary payloads stored in ``mdata.uns``:
+        ``drug_graphs`` (computed, needs ``rdkit``), ``pathways_gmt``,
+        ``sparsego`` and ``bpe_codes`` (learned, needs ``subword-nmt``).
+    :param extra_layers: Response layers derived from the pEC50 matrix, beyond
+        ``LN_IC50``: any of ``AUC`` and ``IC50``.
+    :param feature_names: Column names for every omics modality, or a mapping from
+        public omics name to its column names. Defaults to the first
+        *n_features* landmark gene symbols, or methylation site ids for
+        ``methylation``.
+    :param n_features: Number of generated column names when *feature_names* does
+        not name a view.
+    :param missing_fraction: Share of response pairs left unmeasured. Every sample
+        and drug keeps at least one measurement regardless.
+    :param low_quality_fraction: Share of response pairs whose curve-quality
+        metrics fail the thresholds
+        :func:`~drevalpy.data.quality.curve_quality_mask` applies, so the
+        built-in splitters drop them. Defaults to ``0.0``, i.e. every curve
+        passes and a split is determined by *missing_fraction* alone.
+    :param seed: Seed for every drawn matrix, making the dataset reproducible.
+    :returns: A dataset carrying a ``response`` modality with sample metadata,
         tissue labels, drug identifiers, drug ``canonical_smiles`` and the
         CurveCurator quality layers, plus any requested omics modality and extra.
-
-    Raises:
-        InvalidInputError: If *n_drugs* exceeds :data:`MAX_SYNTHETIC_DRUGS`.
-        ValueError: If a name in *sample_views*, *drug_views*, *uns_payloads* or
-            *extra_layers* is unknown, or if the packaged gene list is shorter than *n_features*.
+    :raises InvalidInputError: If *n_drugs* exceeds :data:`MAX_SYNTHETIC_DRUGS`.
+    :raises ValueError: If a name in *sample_views*, *drug_views*, *uns_payloads* or
+        *extra_layers* is unknown, or if the packaged gene list is shorter than *n_features*.
     """
     import mudata as md
 

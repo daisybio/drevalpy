@@ -36,7 +36,7 @@ class IndexedPairDataset:
     ) -> None:
         """Initialize with entity matrices and corresponding pair indices.
 
-        :param feature_specs: Each positional arg is a tuple of
+        :param *feature_specs: Each positional arg is a tuple of
             ``(entity_matrix, pair_index_array)`` where entity_matrix has shape
             ``[n_entities, d]`` and pair_index_array has shape ``[n_pairs]``.
         :param response: Optional pair-level response array of shape ``[n_pairs]``.
@@ -76,7 +76,7 @@ def make_pair_loader(
 ) -> DataLoader:
     """Create a DataLoader that lazily indexes entity features per mini-batch.
 
-    :param feature_specs: Each positional arg is ``(entity_matrix, pair_indices)``.
+    :param *feature_specs: Each positional arg is ``(entity_matrix, pair_indices)``.
     :param response: Optional pair-level response vector.
     :param batch_size: Mini-batch size.
     :param shuffle: Whether to shuffle each epoch.

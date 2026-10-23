@@ -47,7 +47,7 @@ def group_folds(
     :param n_splits: Number of folds; each group is in exactly one test set.
     :param validation_ratio: Fraction of the non-test groups held out for validation.
     :param random_state: Seed for both the fold assignment and the validation draw.
-    :returns: One ``(train, validation, test)`` index triple per fold.
+    :yields: One ``(train, validation, test)`` index triple per fold.
     """
     from sklearn.model_selection import KFold
 

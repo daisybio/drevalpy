@@ -19,15 +19,14 @@ FAILURES_FILE = "failures.json"
 class RunFailure:
     """One run of an experiment that failed, kept so the other runs can finish.
 
-    Attributes:
-        model_name: Name of the model whose run failed.
-        fold_index: Index of the fold the run was on.
-        randomization: ``(mode, view)`` of the randomized dataset the run used,
-            as on :class:`~drevalpy.types.results.run.RunResult`, or ``None`` for
-            the original dataset.
-        robustness_trial: Index of the robustness repeat, or ``None`` for an ordinary run.
-        error_type: Class name of the exception.
-        message: The exception's message.
+    :ivar model_name: Name of the model whose run failed.
+    :ivar fold_index: Index of the fold the run was on.
+    :ivar randomization: ``(mode, view)`` of the randomized dataset the run used,
+        as on :class:`~drevalpy.types.results.run.RunResult`, or ``None`` for
+        the original dataset.
+    :ivar robustness_trial: Index of the robustness repeat, or ``None`` for an ordinary run.
+    :ivar error_type: Class name of the exception.
+    :ivar message: The exception's message.
     """
 
     model_name: str
@@ -49,15 +48,12 @@ class RunFailure:
     ) -> RunFailure:
         """Describe *exc* as a failure of one run.
 
-        Args:
-            exc: The exception the run raised.
-            model_name: Name of the model whose run failed.
-            fold_index: Index of the fold the run was on.
-            randomization: ``(mode, view)`` of the randomized dataset, if any.
-            robustness_trial: Index of the robustness repeat, if any.
-
-        Returns:
-            The failure record.
+        :param exc: The exception the run raised.
+        :param model_name: Name of the model whose run failed.
+        :param fold_index: Index of the fold the run was on.
+        :param randomization: ``(mode, view)`` of the randomized dataset, if any.
+        :param robustness_trial: Index of the robustness repeat, if any.
+        :returns: The failure record.
         """
         return cls(
             model_name=model_name,
@@ -78,11 +74,8 @@ class RunFailure:
     def from_dict(cls, data: dict[str, Any]) -> RunFailure:
         """Rebuild a failure from :meth:`to_dict` output.
 
-        Args:
-            data: Mapping with the six fields; ``randomization`` and ``robustness_trial`` may be absent.
-
-        Returns:
-            The failure record.
+        :param data: Mapping with the six fields; ``randomization`` and ``robustness_trial`` may be absent.
+        :returns: The failure record.
         """
         return cls(
             model_name=data["model_name"],
@@ -107,9 +100,8 @@ class RunFailure:
 def write_failures(directory: Path, failures: Sequence[RunFailure]) -> None:
     """Write ``failures.json`` into *directory*, or nothing when there are no failures.
 
-    Args:
-        directory: Existing experiment directory.
-        failures: The failures to record.
+    :param directory: Existing experiment directory.
+    :param failures: The failures to record.
     """
     if failures:
         (directory / FAILURES_FILE).write_text(json.dumps([failure.to_dict() for failure in failures], indent=2))
@@ -118,11 +110,8 @@ def write_failures(directory: Path, failures: Sequence[RunFailure]) -> None:
 def read_failures(directory: Path) -> list[RunFailure]:
     """Read the failures :func:`write_failures` stored in *directory*.
 
-    Args:
-        directory: Experiment directory.
-
-    Returns:
-        The recorded failures, empty when the directory has no ``failures.json``.
+    :param directory: Experiment directory.
+    :returns: The recorded failures, empty when the directory has no ``failures.json``.
     """
     path = directory / FAILURES_FILE
     return [RunFailure.from_dict(item) for item in json.loads(path.read_text())] if path.exists() else []

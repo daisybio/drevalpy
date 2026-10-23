@@ -147,7 +147,7 @@ class ModelResult:
         )
 
     def __repr__(self) -> str:
-        """Formatted summary."""
+        """Return a formatted summary."""
         lines = [
             "ModelResult",
             f"    Model: {self.model_name}",

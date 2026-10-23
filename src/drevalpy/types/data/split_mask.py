@@ -57,7 +57,7 @@ class SplitMask:
         return self.mask.shape  # type: ignore[return-value]
 
     def __len__(self) -> int:
-        """Number of True entries in the mask."""
+        """Return the number of True entries in the mask."""
         return int(self.mask.sum())
 
     def __or__(self, other: SplitMask) -> SplitMask:
@@ -87,7 +87,7 @@ class SplitMask:
         return bool(self.mask.any())
 
     def sum(self) -> int:
-        """Number of True entries."""
+        """Return the number of True entries."""
         return int(self.mask.sum())
 
     def __eq__(self, other: object) -> bool:

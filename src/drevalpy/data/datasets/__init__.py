@@ -17,10 +17,12 @@ Usage::
 
 from __future__ import annotations
 
+from typing import Any
+
 from ._load import load
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """Lazy imports from drevalpy.registry.dataset to avoid circular imports."""
     from drevalpy.registry.dataset import (
         DatasetEntry,

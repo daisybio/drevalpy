@@ -12,11 +12,8 @@ def to_dense(x: Any) -> Any:
     SciPy sparse matrices depending on how the ``.h5mu`` was written, so callers
     cannot know which they hold. Only sparse containers expose ``toarray``.
 
-    Args:
-        x: Matrix-like object, dense or sparse.
-
-    Returns:
-        A dense array-like: ``x.toarray()`` when *x* is sparse, else *x* itself.
+    :param x: Matrix-like object, dense or sparse.
+    :returns: A dense array-like: ``x.toarray()`` when *x* is sparse, else *x* itself.
     """
     to_array = getattr(x, "toarray", None)
     return to_array() if callable(to_array) else x

@@ -23,7 +23,7 @@ class TrialResult:
         return self.metrics.get(self.optimization_metric, float("nan"))
 
     def __repr__(self) -> str:
-        """Formatted summary."""
+        """Return a formatted summary."""
         lines = ["TrialResult", "    Hyperparameters:"]
         for k, v in self.hyperparameters.items():
             lines.append(f"        {k}: {v}")

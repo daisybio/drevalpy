@@ -47,14 +47,9 @@ def _pivot_metric(df: pd.DataFrame, metric: str, samples: pd.Index, drugs: pd.In
 def build_anndata(df: pd.DataFrame) -> anndata.AnnData:
     """Convert a flat metrics DataFrame into an AnnData with (samples x drugs) shape.
 
-    Parameters
-    ----------
-    df
-        DataFrame with columns: sample, drug, pEC50, and all other metric columns.
+    :param df: DataFrame with columns: sample, drug, pEC50, and all other metric columns.
 
-    Returns:
-    -------
-    AnnData where X is the pEC50 matrix, and all other metrics are stored as layers.
+    :returns: AnnData where X is the pEC50 matrix, and all other metrics are stored as layers.
     """
     samples = pd.Index(sorted(df["sample"].unique()))
     drugs = pd.Index(sorted(df["drug"].unique()))

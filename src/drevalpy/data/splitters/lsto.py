@@ -22,6 +22,11 @@ def leave_study_out(
     validation set is a random ``validation_ratio`` share of the other studies' pairs, so
     unlike LTO a test sample or drug may also occur in training under another study.
 
+    :param mudataset: Dataset to read the response matrix and ``study`` sample column from.
+    :param n_splits: Ignored; there is always one fold per study.
+    :param validation_ratio: Fraction of the training pairs held out for validation.
+    :param random_state: Seed for the validation draw.
+    :returns: One ``SplitMasks`` per study.
     :raises KeyError: If the dataset has no ``study`` column; build one with ``drevalpy.data.concat``.
     :raises ValueError: If the dataset has fewer than two studies.
     """
