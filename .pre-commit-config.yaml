@@ -19,6 +19,8 @@ repos:
     rev: v2.5.1
     hooks:
       - id: prettier
+        # written by tools/v1_parity/run.py; reformatting would churn every re-run
+        exclude: ^tools/v1_parity/evidence/
   - repo: https://github.com/rohaquinlop/complexipy-pre-commit
     rev: v6.2.0
     hooks:

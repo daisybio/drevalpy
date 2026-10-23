@@ -73,12 +73,12 @@ A class is declared per step in the case module, never loosened afterwards to ma
 Numeric comparison uses `numpy.isclose(a, b, rtol, atol)` with NaNs at equal positions;
 non-numeric arrays (gene names, ids) must be equal.
 
-| Class | Rule | Use for |
-|---|---|---|
-| `exact` | rtol = atol = 1e-12 | gene selection and order, scalers, rank transform, mRMR selection, MolGNet pooling, forests, kNN and linear models with equal seeds, response transformations, the constant check |
-| `forward` | rtol = atol = 1e-6 | neural forward passes with the 1.6.1 `state_dict` copied into the v2 network |
-| `train` | rtol 1e-4, atol 1e-6 | short seeded CPU training where the RNG consumption order can be matched |
-| `statistical` | Pearson >= 0.99 and abs(mean difference) <= 0.1 std | where the RNG order cannot be matched (augmentation draws, DataLoader shuffles) |
+| Class         | Rule                                                | Use for                                                                                                                                                                           |
+| ------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exact`       | rtol = atol = 1e-12                                 | gene selection and order, scalers, rank transform, mRMR selection, MolGNet pooling, forests, kNN and linear models with equal seeds, response transformations, the constant check |
+| `forward`     | rtol = atol = 1e-6                                  | neural forward passes with the 1.6.1 `state_dict` copied into the v2 network                                                                                                      |
+| `train`       | rtol 1e-4, atol 1e-6                                | short seeded CPU training where the RNG consumption order can be matched                                                                                                          |
+| `statistical` | Pearson >= 0.99 and abs(mean difference) <= 0.1 std | where the RNG order cannot be matched (augmentation draws, DataLoader shuffles)                                                                                                   |
 
 Each step has a **scope**:
 
@@ -95,14 +95,14 @@ the strictest class it actually satisfies.
 
 `evidence/<Name>.json` (sorted keys, schema version 1):
 
-| Key | Content |
-|---|---|
-| `model`, `verdict`, `generated`, `schema_version` | harness name, result, ISO date, `1` |
-| `case` | `seed`, `inputs_sha256` (seed + metadata + every array's dtype, shape and bytes), `meta` |
-| `v1`, `v2` | `commit`, `python`, `numpy`, `torch`, `scikit-learn`, `scipy`, `pandas`, `drevalpy` versions; v2 also `dirty` (uncommitted changes under `src/`) |
-| `steps` | parity steps: `name`, `declared`, `achieved`, `passed`, `max_abs_diff`, `max_rel_diff`, `pearson`, `shape_v1`, `shape_v2`, `detail`, `description` |
-| `deviations` | same fields plus `explanation`; recorded, not decisive |
-| `findings` | free text: differences found while building the case (fixes belong to the owning packages) |
+| Key                                               | Content                                                                                                                                            |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`, `verdict`, `generated`, `schema_version` | harness name, result, ISO date, `1`                                                                                                                |
+| `case`                                            | `seed`, `inputs_sha256` (seed + metadata + every array's dtype, shape and bytes), `meta`                                                           |
+| `v1`, `v2`                                        | `commit`, `python`, `numpy`, `torch`, `scikit-learn`, `scipy`, `pandas`, `drevalpy` versions; v2 also `dirty` (uncommitted changes under `src/`)   |
+| `steps`                                           | parity steps: `name`, `declared`, `achieved`, `passed`, `max_abs_diff`, `max_rel_diff`, `pearson`, `shape_v1`, `shape_v2`, `detail`, `description` |
+| `deviations`                                      | same fields plus `explanation`; recorded, not decisive                                                                                             |
+| `findings`                                        | free text: differences found while building the case (fixes belong to the owning packages)                                                         |
 
 ## Adding a model
 
@@ -134,14 +134,12 @@ def run_v2(case: Case) -> dict[str, np.ndarray]: ...   # runs in the v2 venv
   - v2 helper: `_v2_runner.tabular_inputs(case)` builds a `Dataset` plus train/test `SplitMask`s;
     drive it with `DRPModel(ModelSpec.from_name(NAME), hyperparameters)`, or build a
     `ModelInputBatch` and call a featurizer/predictor directly for a sub-step.
-  - To see what reaches an estimator or network, wrap it with `_bridge.record_calls(owner, method,
-    sink, key)`; `_v2_runner.capture_matrix_predictor(sink)` does this for every sklearn tabular
+  - To see what reaches an estimator or network, wrap it with `_bridge.record_calls(owner, method, sink, key)`; `_v2_runner.capture_matrix_predictor(sink)` does this for every sklearn tabular
     predictor (design matrices and the fitted estimator).
   - Seeds are set from `case.seed` by the runner before `run_*` is called; re-seed inside for
     variants. Copy weights through arrays in the case (`meta`/`arrays`), e.g. the 1.6.1 `state_dict`
     written by `run_v1` and loaded in `run_v2`, if the case needs two phases.
-- `steps()` returns `StepSpec(name, tolerance, v1_key=None, v2_key=None, scope="parity",
-  description="", explanation="")`. Keys default to `name`; set `v1_key`/`v2_key` when the sides
+- `steps()` returns `StepSpec(name, tolerance, v1_key=None, v2_key=None, scope="parity", description="", explanation="")`. Keys default to `name`; set `v1_key`/`v2_key` when the sides
   name an output differently or one 1.6.1 run is compared with several v2 runs.
 - Fixing a real mismatch is not the harness' job: record it as a `finding`, declare the honest
   class, and report the bug to the package that owns the v2 file.

@@ -132,6 +132,21 @@ def _load_from_cache(path: Path, sha256: str | None = None) -> Dataset | None:
     return dataset
 
 
+def _load_registered(dataset_name: str, registered_path: Path, sha256: str | None) -> Dataset:
+    """Load a registered dataset from its cache file, downloading it when the cache is unusable.
+
+    :param dataset_name: Registered dataset name.
+    :param registered_path: Cache path of the registered file.
+    :param sha256: Expected hash of the file, if the registry pins one.
+    :returns: Loaded Dataset.
+    """
+    if registered_path.is_file():
+        dataset = _load_from_cache(registered_path, sha256)
+        if dataset is not None:
+            return dataset
+    return Dataset.load(_download(dataset_name))
+
+
 def load(dataset_name: str) -> Dataset:
     """Load a registered or custom dataset as a Dataset from its .h5mu file.
 
@@ -162,12 +177,7 @@ def load(dataset_name: str) -> Dataset:
             return dataset
 
     if entry is not None and registered_path is not None:
-        if registered_path.is_file():
-            dataset = _load_from_cache(registered_path, entry.sha256)
-            if dataset is not None:
-                return dataset
-        downloaded = _download(dataset_name)
-        return Dataset.load(downloaded)
+        return _load_registered(dataset_name, registered_path, entry.sha256)
 
     candidate_path = Path(dataset_name)
     if candidate_path.is_file() and candidate_path.suffix == ".h5mu":
