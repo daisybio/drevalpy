@@ -37,9 +37,9 @@ Use DrEval to build drug response models that have an impact
 ---
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/leaderboard_dark.png?v=4">
-  <source media="(prefers-color-scheme: light)" srcset="docs/_static/img/leaderboard_light.png?v=4">
-  <img alt="DrEvalPy Leaderboard" src="docs/_static/img/leaderboard_dark.png?v=4">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/leaderboard_dark.png?v=5">
+  <source media="(prefers-color-scheme: light)" srcset="docs/_static/img/leaderboard_light.png?v=5">
+  <img alt="DrEvalPy Leaderboard" src="docs/_static/img/leaderboard_dark.png?v=5">
 </picture>
 
 ---
