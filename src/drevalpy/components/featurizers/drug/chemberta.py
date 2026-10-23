@@ -87,9 +87,9 @@ class ChemBertaFeaturizer(DenseViewDrugFeaturizer):
     precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "chemberta", pooling: str = "mean", max_length: int = 256) -> None:
-        """Initialize instance state.
+        """Configure the view and the on-the-fly embedding.
 
-        :param view: view.
+        :param view: Name of the view holding pre-computed embeddings.
         :param pooling: Token aggregation strategy ("mean", "cls", "max").
         :param max_length: Tokenizer truncation length.
         """
@@ -115,7 +115,6 @@ class ChemBertaFeaturizer(DenseViewDrugFeaturizer):
         :param entity_ids: Drug identifiers.
         :returns: Embedding matrix of shape (n_drugs, hidden_dim).
         :raises ValueError: If no SMILES are available.
-        :raises ImportError: If transformers or torch are not installed.
         """
         smiles = get_smiles_for_entities(source, entity_ids)
         if smiles is None:
@@ -141,7 +140,7 @@ class ChemBertaFeaturizer(DenseViewDrugFeaturizer):
 
         return np.vstack(embeddings).astype(np.float32)
 
-    def _pool(self, hidden_states) -> np.ndarray:
+    def _pool(self, hidden_states: Any) -> np.ndarray:
         """Apply pooling strategy to hidden states.
 
         :param hidden_states: Tensor of shape (1, seq_len, hidden_dim).

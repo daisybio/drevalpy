@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -29,7 +29,7 @@ def get_smiles_for_entities(source: FeatureSource, entity_ids: np.ndarray) -> pd
     return smiles.reindex(entity_ids)
 
 
-def as_pyg_graph(graph):
+def as_pyg_graph(graph: Any) -> Any:
     """Convert a portable h5mu graph mapping to a PyG payload on demand.
 
     :param graph: A graph mapping, existing PyG payload, or None.

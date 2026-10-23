@@ -21,7 +21,7 @@ def _variants_key_for_side(side: str) -> str:
     return VARIANTS_UNS_KEY_SAMPLE
 
 
-def _variant_registry(mdata, side: str) -> dict[str, dict[str, dict[str, Any]]]:
+def _variant_registry(mdata: Any, side: str) -> dict[str, dict[str, dict[str, Any]]]:
     """Read the featurizer variant registry from mdata.uns.
 
     Format: {storage_key: {mudata_key: params_dict, ...}, ...}
@@ -38,14 +38,14 @@ def _variant_registry(mdata, side: str) -> dict[str, dict[str, dict[str, Any]]]:
     return dict(raw)
 
 
-def _write_variant_registry(mdata, registry: dict[str, dict[str, dict[str, Any]]], side: str) -> None:
+def _write_variant_registry(mdata: Any, registry: dict[str, dict[str, dict[str, Any]]], side: str) -> None:
     """Write the featurizer variant registry to mdata.uns."""
     uns_key = _variants_key_for_side(side)
     mdata.uns[uns_key] = json.dumps(registry)
 
 
 def find_variant_key(
-    mdata,
+    mdata: Any,
     storage_key: str,
     hyperparameters: dict[str, Any] | None = None,
     *,
@@ -69,7 +69,7 @@ def find_variant_key(
     return None
 
 
-def list_variants(mdata, storage_key: str, *, side: str = "sample") -> dict[str, dict[str, Any]]:
+def list_variants(mdata: Any, storage_key: str, *, side: str = "sample") -> dict[str, dict[str, Any]]:
     """List all stored HP variants for a featurizer.
 
     :param mdata: MuData object.
@@ -82,7 +82,7 @@ def list_variants(mdata, storage_key: str, *, side: str = "sample") -> dict[str,
 
 
 def register_variant(
-    mdata,
+    mdata: Any,
     storage_key: str,
     actual_key: str,
     hyperparameters: dict[str, Any] | None = None,
@@ -114,16 +114,19 @@ def make_variant_key(storage_key: str, index: int) -> str:
     return f"{safe_key}_{index}"
 
 
-def next_variant_index(mdata, storage_key: str, *, side: str = "sample") -> int:
-    """Return the next available variant index."""
+def next_variant_index(mdata: Any, storage_key: str, *, side: str = "sample") -> int:
+    """Return the next available variant index (the number of stored variants)."""
     variants = list_variants(mdata, storage_key, side=side)
     return len(variants)
 
 
-def fetch_from_modality(mdata, modality: str, entity_ids: np.ndarray) -> np.ndarray | None:
+def fetch_from_modality(mdata: Any, modality: str, entity_ids: np.ndarray) -> np.ndarray | None:
     """Fetch a matrix from a MuData modality, aligned to entity_ids.
 
-    :returns: Float array or None if modality doesn't exist.
+    :param mdata: MuData object.
+    :param modality: Name of the modality whose ``X`` is read.
+    :param entity_ids: Entity IDs matched against the modality's ``obs_names``.
+    :returns: Float32 array with NaN rows for unmatched IDs, or None if the modality doesn't exist.
     """
     import pandas as pd
 
@@ -141,10 +144,13 @@ def fetch_from_modality(mdata, modality: str, entity_ids: np.ndarray) -> np.ndar
     return np.asarray(mod.X[positions], dtype=np.float32)
 
 
-def fetch_from_varm(mdata, key: str, entity_ids: np.ndarray) -> np.ndarray | None:
+def fetch_from_varm(mdata: Any, key: str, entity_ids: np.ndarray) -> np.ndarray | None:
     """Fetch a matrix from response.varm, aligned to entity_ids.
 
-    :returns: Float array or None if key doesn't exist.
+    :param mdata: MuData object.
+    :param key: Key into the response modality's ``varm``.
+    :param entity_ids: Entity IDs matched against the response ``var_names``.
+    :returns: Float32 array with NaN rows for unmatched IDs, or None if the key doesn't exist.
     """
     import pandas as pd
 
@@ -163,10 +169,13 @@ def fetch_from_varm(mdata, key: str, entity_ids: np.ndarray) -> np.ndarray | Non
     return varm_data[positions].astype(np.float32)
 
 
-def fetch_from_obsm(mdata, key: str, entity_ids: np.ndarray) -> np.ndarray | None:
+def fetch_from_obsm(mdata: Any, key: str, entity_ids: np.ndarray) -> np.ndarray | None:
     """Fetch a matrix from response.obsm, aligned to entity_ids.
 
-    :returns: Float array or None if key doesn't exist.
+    :param mdata: MuData object.
+    :param key: Key into the response modality's ``obsm``.
+    :param entity_ids: Entity IDs matched against the response ``obs_names``.
+    :returns: Float32 array with NaN rows for unmatched IDs, or None if the key doesn't exist.
     """
     import pandas as pd
 
@@ -276,7 +285,7 @@ class FeaturizerStorageMixin:
 
         :param mdata: MuData object.
         :param key: Storage key.
-        :param entity_ids: Entity IDs.
+        :param entity_ids: Entity IDs the data rows are aligned to.
         :param data: Data matrix.
         """
         response = mdata.mod["response"]

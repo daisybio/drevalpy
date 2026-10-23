@@ -15,6 +15,8 @@ See ``tests/test_import_cost_policy.py``.
 
 from __future__ import annotations
 
+from typing import Self
+
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -24,12 +26,12 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
 
     def __init__(
         self,
-        feature_threshold=0.7,
-        n_features=1000,
-        normalization_downshift=1.8,
-        normalization_width=0.3,
-        imputation_seed=100,
-    ):
+        feature_threshold: float = 0.7,
+        n_features: int = 1000,
+        normalization_downshift: float = 1.8,
+        normalization_width: float = 0.3,
+        imputation_seed: int = 100,
+    ) -> None:
         """Hyperparameters for the normalization.
 
         :param feature_threshold: Minimum fraction of non-missing protein values per feature.
@@ -47,12 +49,12 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         self.protein_indices = np.array([])
         self.mean_median = 0
 
-    def fit(self, X, y=None):  # noqa: N803  # sklearn API
+    def fit(self, X: np.ndarray, y: object = None) -> Self:  # noqa: N803  # sklearn API
         """Learn top n_feature complete proteins and calculate the mean median of train samples.
 
-        :param X: input proteomics data
-        :param y: not used
-        :returns: self
+        :param X: Training matrix of shape ``(n_samples, n_proteins)``, NaN where missing.
+        :param y: Unused; present for the sklearn API.
+        :returns: This transformer, fitted.
         """
         required_proteins = int(X.shape[0] * self.feature_threshold)
         completeness = np.sum(~np.isnan(X), axis=0)
@@ -67,11 +69,11 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         self.mean_median = np.nanmean(medians)
         return self
 
-    def transform(self, X):  # noqa: N803  # sklearn API
+    def transform(self, X: np.ndarray) -> list[np.ndarray]:  # noqa: N803  # sklearn API
         """Median center the data and impute missing values with downshifted normal distribution.
 
-        :param X: input proteomics data
-        :returns: transformed proteomics data
+        :param X: Matrix whose first row, the single sample to transform, is the only one read.
+        :returns: One-element list holding the transformed vector over the selected proteins.
         """
         proteomics_vector = X[0][self.protein_indices]
 

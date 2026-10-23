@@ -51,8 +51,8 @@ def __getattr__(name: str) -> Any:
 def log10_and_set_na(x: np.ndarray) -> np.ndarray:
     """Log10 transform and set NaN for infinite values.
 
-    :param x: input array
-    :returns: log10 transformed array with NaN for infinite values
+    :param x: Input array; modified in place.
+    :returns: ``log10`` of *x* with NaN where the result is infinite
     """
     x = np.log10(x)
     x[np.isinf(x)] = np.nan
@@ -79,13 +79,16 @@ class NormalizedProteomicsSampleFeaturizer(DenseViewSampleFeaturizer):
         proteomics_normalization_width: float = 0.3,
         proteomics_normalization_downshift: float = 1.8,
     ) -> None:
-        """Initialize instance state.
+        """Bind the proteomics view and configure the normalizing transformer.
 
-        :param view: view.
-        :param proteomics_feature_threshold: proteomics feature threshold.
-        :param proteomics_n_features: proteomics n features.
-        :param proteomics_normalization_width: proteomics normalization width.
-        :param proteomics_normalization_downshift: proteomics normalization downshift.
+        :param view: Name of the proteomics view to read.
+        :param proteomics_feature_threshold: Minimum fraction of non-missing values a protein needs
+            to be kept.
+        :param proteomics_n_features: Number of proteins kept when thresholding leaves fewer.
+        :param proteomics_normalization_width: Width factor for the standard deviation of the
+            imputation distribution.
+        :param proteomics_normalization_downshift: Downshift of the imputation distribution's mean,
+            in standard deviations.
         """
         from drevalpy.components.featurizers.sample._proteomics_transformer import (
             ProteomicsMedianCenterAndImputeTransformer,
@@ -134,10 +137,7 @@ class NormalizedProteomicsSampleFeaturizer(DenseViewSampleFeaturizer):
         return np.vstack(rows)
 
     def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Result.
-        """
+        """Return serializable fitted state."""
         return {
             "proteomics_transformer": self._transformer,
             **self._dense_state(),
@@ -146,7 +146,7 @@ class NormalizedProteomicsSampleFeaturizer(DenseViewSampleFeaturizer):
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
+        :param state: Mapping previously returned by ``get_state``.
         """
         from drevalpy.components.featurizers.sample._proteomics_transformer import (
             ProteomicsMedianCenterAndImputeTransformer,

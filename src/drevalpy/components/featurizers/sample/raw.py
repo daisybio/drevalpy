@@ -20,10 +20,10 @@ class RawSampleFeaturizer(DenseViewSampleFeaturizer):
     requires_view: ClassVar[bool] = True
 
     def __init__(self, *, view: str) -> None:
-        """Initialize instance state.
+        """Bind the omics view to pass through.
 
-        :param view: view.
-        :raises ValueError: Raised on invalid input.
+        :param view: Name of the omics view to emit unchanged.
+        :raises ValueError: If *view* is empty or blank.
         """
         if not view or not view.strip():
             msg = "raw featurizer requires an explicit view"

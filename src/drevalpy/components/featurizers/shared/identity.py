@@ -48,10 +48,10 @@ class SharedIdentityFeaturizer(Featurizer):
         """Learn the category order from the training entity IDs.
 
         :param source: Feature source; only consulted for its identifiers.
-        :param entity_ids: entity ids.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Result.
+        :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all source identifiers.
+        :param pair_expanded_ids: Unused.
+        :param pair_expanded_es_ids: Unused.
+        :returns: This featurizer, fitted.
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
@@ -59,11 +59,11 @@ class SharedIdentityFeaturizer(Featurizer):
         return self
 
     def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into feature payloads.
+        """Return the one-hot matrix for *entity_ids*.
 
-        :param source: Feature source (unused).
-        :param entity_ids: entity ids.
-        :returns: Result.
+        :param source: Unused.
+        :param entity_ids: Identifiers to encode; unseen identifiers become all-zero rows.
+        :returns: Float32 matrix of shape ``(len(entity_ids), output_dim)``.
         """
         _ = source
         return self._encoder.transform(entity_ids)
@@ -73,11 +73,11 @@ class SharedIdentityFeaturizer(Featurizer):
         source: FeatureSource,
         entity_ids: np.ndarray,
     ) -> FeaturizerResult:
-        """Transform blocks.
+        """Emit the one-hot ``identity`` block and the fitted category labels as metadata.
 
-        :param source: Feature source (unused).
-        :param entity_ids: entity ids.
-        :returns: Result.
+        :param source: Unused.
+        :param entity_ids: Identifiers to encode.
+        :returns: Result with ``identity`` and ``identity_categories`` blocks.
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
@@ -93,22 +93,16 @@ class SharedIdentityFeaturizer(Featurizer):
 
     @property
     def output_dim(self) -> int:
-        """Return output feature dimension after fitting.
-
-        :returns: Result.
-        """
+        """Return output feature dimension after fitting."""
         return self._encoder.output_dim
 
     def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Result.
-        """
+        """Return serializable fitted state."""
         return self._encoder.get_state()
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
+        :param state: Mapping previously returned by ``get_state``.
         """
         self._encoder.set_state(state)

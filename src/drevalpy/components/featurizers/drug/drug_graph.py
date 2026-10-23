@@ -107,6 +107,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         :param source: Feature source providing drug graph views.
         :param entity_ids: Drug identifiers to transform.
         :returns: Object array of graph payloads.
+        :raises KeyError: If a drug has no graph in the view and none can be computed from its SMILES.
         """
         graphs: list[object] = []
         for drug_id in entity_ids:
@@ -134,17 +135,14 @@ class DrugGraphFeaturizer(DrugFeaturizer):
 
         :param source: Feature source providing drug graph views.
         :param entity_ids: Drug identifiers to transform.
-        :returns: Mapping with one graph block.
+        :returns: Result with one graph block.
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(entity_ids, {"drug_graph": graph_feature_block(matrix)}, ("drug_graph",))
 
     @property
     def output_dim(self) -> int:
-        """Return node feature width inferred during ``fit``.
-
-        :returns: Node feature dimensionality.
-        """
+        """Return node feature width inferred during ``fit``."""
         return self._output_dim
 
     def _compute_graph_from_smiles_for_entity(self, source: FeatureSource, drug_id: str) -> object | None:
@@ -163,12 +161,13 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         return _smiles_to_graph(smi, add_hydrogens=self._add_hydrogens)
 
 
-def _smiles_to_graph(smiles: str, *, add_hydrogens: bool = False):
+def _smiles_to_graph(smiles: str, *, add_hydrogens: bool = False) -> Any:
     """Convert a SMILES string to a torch_geometric Data graph.
 
     :param smiles: SMILES string.
     :param add_hydrogens: Whether to add explicit hydrogen atoms.
     :returns: torch_geometric.data.Data or None if parsing fails.
+    :raises ImportError: If rdkit, torch or torch_geometric is not installed.
     """
     try:
         from rdkit import Chem
@@ -246,7 +245,7 @@ def _smiles_to_graph(smiles: str, *, add_hydrogens: bool = False):
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 
 
-def _one_hot_encode(value, choices: list) -> list[int]:
+def _one_hot_encode(value: object, choices: list) -> list[int]:
     """One-hot encode a value given a list of choices, with an extra 'unknown' bin.
 
     :param value: Value to encode.

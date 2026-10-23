@@ -34,9 +34,9 @@ class BionicSampleFeaturizer(DenseViewSampleFeaturizer):
     precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str | None = None, gene_add_num: int = 512, aggregation: str = "mean") -> None:
-        """Initialize instance state.
+        """Configure the gene aggregation of the on-the-fly BIONIC features.
 
-        :param view: view.
+        :param view: Name of the view holding pre-computed features; ``None`` uses the declared input view.
         :param gene_add_num: Number of top-expressed genes to aggregate.
         :param aggregation: Aggregation method for gene embeddings ("mean", "max", "sum").
         """
@@ -61,6 +61,7 @@ class BionicSampleFeaturizer(DenseViewSampleFeaturizer):
         :param source: Feature source providing sample views.
         :param entity_ids: Sample IDs.
         :returns: Float32 array of shape (len(entity_ids), embed_dim).
+        :raises ValueError: If the gene expression view has no feature names.
         """
         ppi_features, ppi_gene_names, gene_list_sel = _load_ppi_data()
 

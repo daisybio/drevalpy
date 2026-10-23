@@ -41,7 +41,8 @@ class TissueFeaturizer(SampleFeaturizer):
     def __init__(self, *, allow_missing: bool = False) -> None:
         """Initialize instance state.
 
-        :param allow_missing: allow missing.
+        :param allow_missing: Treat samples without a tissue annotation as an extra ``__missing__``
+            category instead of raising.
         """
         self._encoder = OneHotCategoryEncoder()
         self._allow_missing = bool(allow_missing)
@@ -54,14 +55,15 @@ class TissueFeaturizer(SampleFeaturizer):
         pair_expanded_ids: np.ndarray | None = None,
         pair_expanded_es_ids: np.ndarray | None = None,
     ) -> TissueFeaturizer:
-        """Fit on training data.
+        """Learn the tissue vocabulary from the training samples.
 
         :param source: Feature source providing views for the entity type.
-        :param entity_ids: entity ids.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Result.
-        :raises ValueError: Raised on invalid input.
+        :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
+        :param pair_expanded_ids: Unused.
+        :param pair_expanded_es_ids: Unused.
+        :returns: This featurizer, fitted.
+        :raises ValueError: If a sample lacks a tissue annotation and *allow_missing* is false, or
+            no sample has one.
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
@@ -84,12 +86,12 @@ class TissueFeaturizer(SampleFeaturizer):
         return self
 
     def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Transform inputs into feature payloads.
+        """Return the one-hot tissue matrix for *entity_ids*.
 
         :param source: Feature source providing views for the entity type.
-        :param entity_ids: entity ids.
-        :returns: Result.
-        :raises ValueError: Raised on invalid input.
+        :param entity_ids: Sample identifiers to encode.
+        :returns: Float32 matrix of shape ``(len(entity_ids), output_dim)``.
+        :raises ValueError: If a sample lacks a tissue annotation and *allow_missing* is false.
         """
         if self._encoder.output_dim == 0:
             return np.empty((len(entity_ids), 0), dtype=np.float32)
@@ -110,11 +112,11 @@ class TissueFeaturizer(SampleFeaturizer):
         source: FeatureSource,
         entity_ids: np.ndarray,
     ) -> FeaturizerResult:
-        """Transform blocks.
+        """Emit the one-hot ``tissue`` block and the fitted category labels as metadata.
 
         :param source: Feature source providing views for the entity type.
-        :param entity_ids: entity ids.
-        :returns: Result.
+        :param entity_ids: Sample identifiers to encode.
+        :returns: Result with ``tissue`` and ``tissue_categories`` blocks.
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
@@ -130,22 +132,16 @@ class TissueFeaturizer(SampleFeaturizer):
 
     @property
     def output_dim(self) -> int:
-        """Return output feature dimension after fitting.
-
-        :returns: Result.
-        """
+        """Return output feature dimension after fitting."""
         return self._encoder.output_dim
 
     def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Result.
-        """
+        """Return serializable fitted state."""
         return self._encoder.get_state()
 
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
+        :param state: Mapping previously returned by ``get_state``.
         """
         self._encoder.set_state(state)

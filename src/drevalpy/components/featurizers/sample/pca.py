@@ -23,11 +23,12 @@ class PCASampleFeaturizer(DenseViewSampleFeaturizer):
     requires_view: ClassVar[bool] = True
 
     def __init__(self, *, view: str, n_components: int = 128) -> None:
-        """Initialize instance state.
+        """Bind the view to reduce and the target dimension.
 
-        :param view: view.
-        :param n_components: n components.
-        :raises ValueError: Raised on invalid input.
+        :param view: Name of the sample view to reduce.
+        :param n_components: Requested component count; capped at fit time by the number of
+            fit samples and view features.
+        :raises ValueError: If *view* is empty or blank.
         """
         from sklearn.decomposition import PCA
 
@@ -70,19 +71,13 @@ class PCASampleFeaturizer(DenseViewSampleFeaturizer):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
-
-        :returns: Result.
-        """
+        """Return the searchable hyperparameters."""
         return {
             "n_components": {"type": "int", "low": 8, "high": 512, "default": 128},
         }
 
     def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Result.
-        """
+        """Return the fitted PCA, the requested component count and the dense state."""
         return {
             "pca": self._pca,
             "n_components": self._n_components,
@@ -92,7 +87,7 @@ class PCASampleFeaturizer(DenseViewSampleFeaturizer):
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
+        :param state: Mapping previously returned by ``get_state``.
         """
         from sklearn.decomposition import PCA
 

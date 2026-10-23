@@ -47,13 +47,13 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         minmax_scale: bool = False,
         arcsinh: bool = True,
     ) -> None:
-        """Initialize instance state.
+        """Configure the landmark-gene selection and preprocessing.
 
-        :param view: view.
-        :param gene_list_stem: gene list stem.
-        :param standardize: standardize.
-        :param minmax_scale: minmax scale.
-        :param arcsinh: arcsinh.
+        :param view: Name of the gene-expression view to read.
+        :param gene_list_stem: Stem of the gene-list CSV naming the genes to keep.
+        :param standardize: Z-score the selected genes with a scaler fit on the training samples.
+        :param minmax_scale: Min-max scale after standardization; only applied when *standardize* is set.
+        :param arcsinh: Apply ``arcsinh`` to the selected genes before scaling.
         """
         super().__init__(view=view)
         self._gene_list_stem = gene_list_stem
@@ -146,20 +146,14 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Get hyperparameter space.
-
-        :returns: Result.
-        """
+        """Return the searchable hyperparameters."""
         return {
             "standardize": {"type": "categorical", "choices": [True, False], "default": True},
             "minmax_scale": {"type": "categorical", "choices": [True, False], "default": False},
         }
 
     def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Result.
-        """
+        """Return serializable fitted state."""
         if not self._is_fitted:
             return {}
         return {
@@ -200,7 +194,7 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
+        :param state: Mapping previously returned by ``get_state``.
         """
         self._restore_landmark_identity(state)
         self._restore_landmark_fit_state(state)
@@ -231,7 +225,7 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
         :param standardize: Whether to z-score features after loading.
         :param minmax_scale: Whether to min-max scale features after loading.
         :param arcsinh: Whether to apply ``arcsinh`` transform after loading.
-        :param kwargs: Ignored keyword arguments.
+        :param **kwargs: Ignored.
         """
         super().__init__(
             view=view,

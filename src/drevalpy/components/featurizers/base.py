@@ -75,8 +75,9 @@ class Featurizer(
         :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
         :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
         :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
-
         :returns: Fitted featurizer instance (usually ``self``).
+        :raises ValueError: If ``requires_early_stopping`` is set and no usable early-stopping
+            entity remains.
         """
         ids = entity_ids if entity_ids is not None else source.identifiers
         valid_mask = self._detect_valid(source, ids)
@@ -103,6 +104,7 @@ class Featurizer(
         :param source: Feature views for this entity side.
         :param entity_ids: Requested identifiers in output order.
         :returns: Canonical features, with numeric NaNs or object None for invalid rows.
+        :raises ValueError: If the subclass transform does not preserve the requested entity order.
         """
         valid = self._detect_valid(source, entity_ids)
         self._warn_if_above_threshold(valid, f"{type(self).__name__}.transform_features")
@@ -157,7 +159,6 @@ class Featurizer(
         :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
         :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
         :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
-
         :returns: Fitted featurizer instance (usually ``self``).
         """
 

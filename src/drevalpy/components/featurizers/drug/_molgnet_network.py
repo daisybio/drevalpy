@@ -192,7 +192,7 @@ class AddSegId:
 class BertLayerNorm(nn.Module):
     """Layer normalization compatible with BERT-style implementations."""
 
-    def __init__(self, hidden_size, eps=1e-12):
+    def __init__(self, hidden_size: int, eps: float = 1e-12) -> None:
         super().__init__()
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(hidden_size))
@@ -285,7 +285,7 @@ class _MessagePassing(nn.Module):
         self.flow = flow
         self.node_dim = node_dim
 
-    def propagate(self, edge_index: torch.Tensor, size=None, **kwargs) -> torch.Tensor:
+    def propagate(self, edge_index: torch.Tensor, size: int | None = None, **kwargs) -> torch.Tensor:
         i = 1 if self.flow == "source_to_target" else 0
         j = 0 if i == 1 else 1
         x = kwargs.get("x")
@@ -321,11 +321,21 @@ class GraphAttentionConv(_MessagePassing):
         self.value = nn.Linear(hidden, heads * int(hidden / heads))
         self.attn_drop = nn.Dropout(dropout)
 
-    def forward(self, x, edge_index, edge_attr, size=None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, edge_index: torch.Tensor, edge_attr: torch.Tensor, size: int | None = None
+    ) -> torch.Tensor:
         pseudo = edge_attr.unsqueeze(-1) if edge_attr.dim() == 1 else edge_attr
         return self.propagate(edge_index=edge_index, x=x, pseudo=pseudo)
 
-    def message(self, edge_index_i, x_i, x_j, pseudo, size_i=None, **kwargs) -> torch.Tensor:
+    def message(
+        self,
+        edge_index_i: torch.Tensor,
+        x_i: torch.Tensor,
+        x_j: torch.Tensor,
+        pseudo: torch.Tensor,
+        size_i: int | None = None,
+        **kwargs,
+    ) -> torch.Tensor:
         head_dim = int(self.hidden / self.heads)
         query = self.query(x_i).view(-1, self.heads, head_dim)
         key = self.key(x_j + pseudo).view(-1, self.heads, head_dim)
@@ -350,7 +360,7 @@ class GTLayer(nn.Module):
         self.LayerNorm = BertLayerNorm(hidden, eps=1e-12)
         self.time_step = num_message_passing
 
-    def forward(self, x, edge_index, edge_attr) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor, edge_attr: torch.Tensor) -> torch.Tensor:
         h = x.unsqueeze(0)
         for _ in range(self.time_step):
             attention_output = self.attention.forward(x, edge_index, edge_attr)
@@ -365,7 +375,9 @@ class GTLayer(nn.Module):
 class MolGNet(torch.nn.Module):
     """MolGNet model for node embeddings."""
 
-    def __init__(self, num_layer: int, emb_dim: int, heads: int, num_message_passing: int, drop_ratio: float = 0):
+    def __init__(
+        self, num_layer: int, emb_dim: int, heads: int, num_message_passing: int, drop_ratio: float = 0
+    ) -> None:
         super().__init__()
         self.num_layer = num_layer
         self.drop_ratio = drop_ratio

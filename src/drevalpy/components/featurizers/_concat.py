@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn, Self
 
 import numpy as np
 
@@ -11,20 +11,21 @@ from drevalpy.components.featurizers._featurizer_label import featurizer_config_
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.models.config.featurizer import FeaturizerConfig
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, merge_feature_blocks
+from drevalpy.types.data.feature_source import FeatureSource
 
 
 class ConcatFeaturizersMixin:
     """Fit child featurizers independently and concatenate their dense outputs."""
 
-    def _detect_valid(self, source, entity_ids: np.ndarray) -> np.ndarray:
+    def _detect_valid(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Require usable rows in every configured child view."""
         return np.logical_and.reduce([child._detect_valid(source, entity_ids) for _, child in self._children])
 
     @classmethod
-    def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
+    def resolve_input_views(cls, **kwargs: Any) -> NoReturn:
         """Reject direct resolution; input views come from the child configs.
 
-        :param kwargs: Unused featurizer kwargs.
+        :param **kwargs: Unused featurizer kwargs.
         :raises TypeError: Always; use ``views_from_featurizer_config`` on the tree instead.
         """
         _ = kwargs
@@ -96,19 +97,21 @@ class ConcatFeaturizersMixin:
 
     def _fit(
         self,
-        features,
+        features: FeatureSource,
         *,
         entity_ids: np.ndarray | None = None,
         pair_expanded_ids: np.ndarray | None = None,
         pair_expanded_es_ids: np.ndarray | None = None,
-    ):
-        """Fit on training data.
+    ) -> Self:
+        """Fit every child featurizer on the same inputs and record their output widths.
 
-        :param features: features.
-        :param entity_ids: entity ids.
+        A child that does not emit a numeric matrix is rejected with ``ValueError``.
+
+        :param features: Feature source providing views for the entity type.
+        :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
         :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
         :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
-        :returns: Result.
+        :returns: This featurizer, fitted.
         """
         self._materialize_children()
         self._reject_non_numeric_children(self._children)
@@ -125,13 +128,13 @@ class ConcatFeaturizersMixin:
         self._is_fitted = True
         return self
 
-    def _transform_features(self, features, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Transform blocks.
+    def _transform_features(self, features: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
+        """Transform with every child and merge their blocks.
 
-        :param features: features.
-        :param entity_ids: entity ids.
-        :returns: Result.
-        :raises RuntimeError: Raised on invalid input.
+        :param features: Feature source providing views for the entity type.
+        :param entity_ids: Nonempty valid identifiers, in output order.
+        :returns: The children's feature blocks merged into one result.
+        :raises RuntimeError: If called before the featurizer is fitted.
         """
         if not self._is_fitted:
             msg = f"{type(self).__name__} must be fit before transform"
@@ -141,25 +144,16 @@ class ConcatFeaturizersMixin:
 
     @property
     def output_dim(self) -> int:
-        """Return output feature dimension after fitting.
-
-        :returns: Result.
-        """
+        """Return the summed output dimension of all children after fitting."""
         return self._output_dim
 
     @property
     def block_dims(self) -> dict[str, int]:
-        """Return per-child output dimensions after fitting.
-
-        :returns: Result.
-        """
+        """Return per-child output dimensions after fitting, keyed by block label."""
         return dict(self._block_dims)
 
     def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Result.
-        """
+        """Return serializable fitted state, including each child's own state."""
         return {
             "child_states": {name: child.get_state() for name, child in self._children},
             "block_dims": dict(self._block_dims),
@@ -170,7 +164,7 @@ class ConcatFeaturizersMixin:
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
+        :param state: Mapping previously returned by ``get_state``.
         """
         self._materialize_children()
         child_states = state.get("child_states")

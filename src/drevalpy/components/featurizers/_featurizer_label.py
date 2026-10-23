@@ -23,9 +23,9 @@ def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
 def featurizer_config_block_label(name: str, view: str | None) -> str:
     """Return the concat block label for a normalized featurizer config.
 
-    :param name: name.
-    :param view: view.
-    :returns: Result.
+    :param name: Featurizer registry name.
+    :param view: Explicit omics view, if the config sets one.
+    :returns: Qualified selector used as the concat block label.
     """
     return qualified_featurizer_selector(name, view)
 
@@ -33,8 +33,8 @@ def featurizer_config_block_label(name: str, view: str | None) -> str:
 def requires_explicit_view(name: str) -> bool:
     """Return whether a featurizer registry name requires an explicit view.
 
-    :param name: name.
-    :returns: Result.
+    :param name: Featurizer registry name, looked up in the sample featurizer registry.
+    :returns: ``True`` when the class sets ``requires_view``; ``False`` for unregistered names.
     """
     try:
         cls = get_sample_featurizer(name)

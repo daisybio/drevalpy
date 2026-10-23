@@ -61,7 +61,7 @@ class SparseGOOntologyFeaturizer(SampleFeaturizer):
     def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
         """Return the omics view selected by ``input_type``.
 
-        :param kwargs: Featurizer kwargs; ``input_type`` selects expression vs mutations.
+        :param **kwargs: Featurizer kwargs; ``input_type`` selects expression vs mutations.
         :returns: Single-element tuple with the active omics view.
         """
         return (_view_for_input_type(str(kwargs.get("input_type", "expression"))),)
@@ -115,6 +115,7 @@ class SparseGOOntologyFeaturizer(SampleFeaturizer):
         :param entity_ids: Sample identifiers to transform.
         :returns: Float matrix aligned to ontology gene order.
         :raises RuntimeError: If called before ``fit``.
+        :raises ValueError: If the view has no feature names or lacks ontology genes.
         """
         if self._gene_dim_input == 0:
             raise RuntimeError("SparseGOOntologyFeaturizer must be fit before transform")
@@ -137,7 +138,7 @@ class SparseGOOntologyFeaturizer(SampleFeaturizer):
 
         :param source: Feature source providing view matrices.
         :param entity_ids: Sample identifiers to transform.
-        :returns: Mapping with one metadata-rich numeric block.
+        :returns: Result with one metadata-rich numeric block.
         """
         metadata: dict[str, Any] = {
             "layer_connections": self._layer_connections,

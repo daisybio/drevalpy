@@ -35,9 +35,9 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
     precompute: ClassVar[bool] = False
 
     def __init__(self, *, view: str = "pathways") -> None:
-        """Initialize instance state.
+        """Bind the name of the emitted pathway view.
 
-        :param view: view.
+        :param view: Block name for the pathway scores; also the view name reported as input.
         """
         self._view = view
         self._output_dim = 0
@@ -78,6 +78,7 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
         :param source: Feature source providing sample views.
         :param entity_ids: Sample IDs to transform.
         :returns: Float32 feature matrix.
+        :raises RuntimeError: If called before the featurizer is fitted.
         """
         if self._fit_scores is None:
             msg = "PathwaysSampleFeaturizer must be fit before transform"
@@ -100,11 +101,11 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
         )
 
     def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Transform blocks.
+        """Wrap the GSVA scores in one block named by the view, labelled with pathway names.
 
         :param source: Feature source providing sample views.
-        :param entity_ids: entity ids.
-        :returns: Result.
+        :param entity_ids: Sample IDs to transform.
+        :returns: Result holding the scores as a single numeric block.
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
@@ -120,10 +121,7 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
 
     @property
     def output_dim(self) -> int:
-        """Return output feature dimension after fitting.
-
-        :returns: Result.
-        """
+        """Return output feature dimension after fitting."""
         return self._output_dim
 
     def get_state(self) -> dict[str, object]:
@@ -142,7 +140,9 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
     def set_state(self, state: dict[str, object]) -> None:
         """Restore the training reference for subsequent transformations.
 
-        :param state: Mapping produced by get_state.
+        :param state: Mapping produced by ``get_state``.
+        :raises ValueError: If the score or identifier arrays are missing, or their dimensions or
+            the pathway names are inconsistent.
         """
         scores, ids = state.get("fit_scores"), state.get("fit_ids")
         if not isinstance(scores, np.ndarray) or not isinstance(ids, np.ndarray):
@@ -163,6 +163,8 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
         :param source: Feature source providing sample views.
         :param entity_ids: Sample IDs.
         :returns: Float32 array of shape (len(entity_ids), n_pathways).
+        :raises ValueError: If ``pathways_gmt`` is missing from ``mdata.uns``, the gene expression
+            view has no feature names, or the GSVA output lacks pathways from the fitted schema.
         """
         import gseapy as gp
 

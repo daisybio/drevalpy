@@ -40,9 +40,9 @@ class FingerprintsFeaturizer(DenseViewDrugFeaturizer):
         use_chirality: bool = False,
         use_counts: bool = False,
     ) -> None:
-        """Initialize instance state.
+        """Configure the Morgan fingerprint computed when the view is absent.
 
-        :param view: view.
+        :param view: Name of the view holding pre-computed fingerprints.
         :param radius: Morgan fingerprint radius (neighborhood extent).
         :param n_bits: Fingerprint bit length.
         :param use_chirality: Whether to include stereochemistry information.
@@ -73,6 +73,8 @@ class FingerprintsFeaturizer(DenseViewDrugFeaturizer):
         :param source: Feature source.
         :param entity_ids: Drug identifiers.
         :returns: Fingerprint matrix of shape (n_drugs, n_bits).
+        :raises ValueError: If the source has no SMILES.
+        :raises ImportError: If rdkit is not installed.
         """
         smiles = get_smiles_for_entities(source, entity_ids)
         if smiles is None:
@@ -95,7 +97,7 @@ class FingerprintsFeaturizer(DenseViewDrugFeaturizer):
         return results
 
 
-def _fingerprint_for_smiles(smi, generator, n_bits: int, use_counts: bool) -> np.ndarray:
+def _fingerprint_for_smiles(smi: object, generator: Any, n_bits: int, use_counts: bool) -> np.ndarray:
     """Compute a fingerprint for one SMILES string."""
     from rdkit import Chem
 

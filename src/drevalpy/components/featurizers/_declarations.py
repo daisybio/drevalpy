@@ -41,7 +41,7 @@ class FeaturizerDeclarationsMixin:
         Subclasses that declare nothing are registered with the decorator's
         ``contract=`` instead.
 
-        :param kwargs: Forwarded to ``ABC.__init_subclass__``.
+        :param **kwargs: Forwarded to ``ABC.__init_subclass__``.
         :raises TypeError: If a class-body ``contract`` is neither a
             ``FeatureContract`` nor a ``FeatureFormat``.
         """
@@ -83,7 +83,7 @@ class FeaturizerDeclarationsMixin:
         ``input_views`` are used. Featurizers whose input depends on other
         hyperparameters override this hook.
 
-        :param kwargs: Featurizer construction / loader kwargs from the model config.
+        :param **kwargs: Featurizer construction / loader kwargs from the model config.
         :returns: Raw view names required from disk, empty when only entity ids are needed.
         :raises TypeError: If the views cannot be determined from *kwargs* and the class body.
         """

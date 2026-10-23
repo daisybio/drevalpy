@@ -25,9 +25,9 @@ class ScaledGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
     fit_on_unique_ids: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "gene_expression") -> None:
-        """Initialize instance state.
+        """Bind the gene-expression view to scale.
 
-        :param view: view.
+        :param view: Name of the view to arcsinh-transform and standardize.
         """
         from sklearn.preprocessing import StandardScaler
 
@@ -63,10 +63,7 @@ class ScaledGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         return "gene_expression"
 
     def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Result.
-        """
+        """Return serializable fitted state."""
         if not self._is_fitted:
             return {}
         return {
@@ -78,7 +75,7 @@ class ScaledGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
     def set_state(self, state: dict[str, object]) -> None:
         """Restore state from a prior ``get_state`` mapping.
 
-        :param state: state.
+        :param state: Mapping previously returned by ``get_state``.
         """
         from sklearn.preprocessing import StandardScaler
 

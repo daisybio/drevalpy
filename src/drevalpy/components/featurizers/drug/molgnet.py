@@ -102,6 +102,7 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
         :param source: Feature source providing MolGNet views.
         :param entity_ids: Drug identifiers to transform.
         :returns: Object array of MolGNet embedding tensors.
+        :raises KeyError: If a drug has no tensor in the view and none can be computed from its SMILES.
         """
         rows: list[np.ndarray] = []
         for drug_id in entity_ids:
@@ -126,17 +127,14 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
 
         :param source: Feature source providing MolGNet views.
         :param entity_ids: Drug identifiers to transform.
-        :returns: Mapping with one ragged block.
+        :returns: Result with one ragged block.
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(entity_ids, {"molgnet_features": ragged_feature_block(matrix)}, ("molgnet_features",))
 
     @property
     def output_dim(self) -> int:
-        """Return embedding width inferred during ``fit``.
-
-        :returns: MolGNet embedding dimensionality.
-        """
+        """Return embedding width inferred during ``fit``."""
         return self._output_dim
 
     def _compute_single_embedding(self, source: FeatureSource, drug_id: str) -> np.ndarray | None:
@@ -167,6 +165,7 @@ def _compute_molgnet_embedding(smiles: str) -> np.ndarray | None:
 
     :param smiles: SMILES string.
     :returns: Numpy array of shape (n_atoms, 768) or None.
+    :raises ImportError: If torch or rdkit is not installed.
     """
     try:
         import torch

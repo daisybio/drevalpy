@@ -35,9 +35,9 @@ class SmilesVecDrugFeaturizer(DenseViewDrugFeaturizer):
     precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "smilesvec", k: int = 8) -> None:
-        """Initialize instance state.
+        """Configure the k-mer length of the on-the-fly embedding.
 
-        :param view: view.
+        :param view: Name of the view holding pre-computed embeddings.
         :param k: Length of SMILES subsequences (chemical words).
         """
         super().__init__(view=view)
@@ -61,6 +61,8 @@ class SmilesVecDrugFeaturizer(DenseViewDrugFeaturizer):
         :param source: Feature source.
         :param entity_ids: Drug identifiers.
         :returns: Embedding matrix of shape (n_drugs, dim).
+        :raises ValueError: If the source has no SMILES.
+        :raises ImportError: If gensim is not installed.
         """
         smiles = get_smiles_for_entities(source, entity_ids)
         if smiles is None:
@@ -88,7 +90,7 @@ class SmilesVecDrugFeaturizer(DenseViewDrugFeaturizer):
         return results
 
 
-def _smilesvec_embed(smiles: str, kv, *, k: int = 8, dim: int = 100) -> np.ndarray:
+def _smilesvec_embed(smiles: str, kv: Any, *, k: int = 8, dim: int = 100) -> np.ndarray:
     """Compute a single SMILESVec embedding using k-mer averaging.
 
     :param smiles: SMILES string.

@@ -246,10 +246,10 @@ class DenseViewFeaturizer(Featurizer):
         """Record the output width, reusing a pre-computed variant when there is one.
 
         :param source: Feature source providing views for the entity type.
-        :param entity_ids: entity ids.
+        :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
         :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
         :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
-        :returns: Result.
+        :returns: This featurizer, fitted.
         """
         self._view_names = self._names_to_fit(source)
         ids = self._fit_entity_ids(source, entity_ids, pair_expanded_ids, pair_expanded_es_ids)
@@ -273,8 +273,8 @@ class DenseViewFeaturizer(Featurizer):
         """Return the dense matrix for *entity_ids*.
 
         :param source: Feature source providing views for the entity type.
-        :param entity_ids: entity ids.
-        :returns: Result.
+        :param entity_ids: Entity identifiers to compute rows for.
+        :returns: Float32 matrix with one row per identifier.
         """
         self._require_fitted()
         if len(entity_ids) == 0:
@@ -288,8 +288,8 @@ class DenseViewFeaturizer(Featurizer):
         """Wrap the dense matrix in a single named numeric block.
 
         :param source: Feature source providing views for the entity type.
-        :param entity_ids: entity ids.
-        :returns: Result.
+        :param entity_ids: Entity identifiers to compute rows for.
+        :returns: Result holding the matrix as one block named by ``_block_name``.
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
@@ -305,8 +305,5 @@ class DenseViewFeaturizer(Featurizer):
 
     @property
     def output_dim(self) -> int:
-        """Return output feature dimension after fitting.
-
-        :returns: Result.
-        """
+        """Return output feature dimension after fitting."""
         return self._output_dim

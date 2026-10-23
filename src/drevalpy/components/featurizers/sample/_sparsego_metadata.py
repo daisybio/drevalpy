@@ -22,7 +22,7 @@ def read_sparsego_ontology_metadata(source: FeatureSource) -> SparseGOOntologyMe
     """Return SparseGO ontology metadata from a feature source.
 
     :param source: Feature source with metadata access.
-    :returns: Result.
+    :returns: Typed metadata, or ``None`` when the source has no usable SparseGO ontology entry.
     """
     metadata: Any = None
     for key in ("sparsego_ontology", "sparsego"):

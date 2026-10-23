@@ -31,6 +31,6 @@ class SharedConcatFeaturizer(ConcatFeaturizersMixin, Featurizer):
         Children are resolved against the registry of this binding's own side, which
         registration stamped onto the class.
 
-        :param featurizers: featurizers.
+        :param featurizers: Child featurizers, either built instances or config mappings; must be non-empty.
         """
         self._init_concat(featurizers=featurizers, registry=self.side)

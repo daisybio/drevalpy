@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
@@ -17,6 +17,9 @@ from drevalpy.registry.drug_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 from drevalpy.types.enums.literature_reference import LiteratureReference
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 _logger = get_logger(__name__)
 
@@ -70,9 +73,9 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
     precompute: ClassVar[bool] = False
 
     def __init__(self, *, view: str = "bpe_smiles", num_symbols: int = 10000, max_length: int = 128) -> None:
-        """Initialize instance state.
+        """Configure the BPE vocabulary and encoded sequence length.
 
-        :param view: view.
+        :param view: Name of the view the encoded tokens are published under.
         :param num_symbols: Number of BPE merge operations (vocabulary size).
         :param max_length: Maximum encoded sequence length.
         """
@@ -105,9 +108,10 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
 
         :param source: Feature source providing drug views.
         :param entity_ids: Training drug identifiers.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
+        :param pair_expanded_ids: Unused.
+        :param pair_expanded_es_ids: Unused.
         :returns: Fitted featurizer instance.
+        :raises ValueError: If the source has no SMILES for the training drugs.
         """
         _ = pair_expanded_ids, pair_expanded_es_ids
         ids = entity_ids if entity_ids is not None else source.identifiers
@@ -127,6 +131,8 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
         :param source: Feature source providing drug views.
         :param entity_ids: Drug identifiers to transform.
         :returns: BPE token matrix of shape (n_drugs, max_length).
+        :raises RuntimeError: If called before the featurizer is fitted.
+        :raises ValueError: If the source has no SMILES for the requested drugs.
         """
         if self._bpe is None:
             msg = "BpePharmaformerDrugFeaturizer must be fit before transform"
@@ -141,11 +147,11 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
         return self._apply_bpe(smiles, entity_ids).astype(np.float32)
 
     def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Transform blocks.
+        """Wrap the BPE token matrix in a single ``bpe_smiles`` block.
 
         :param source: Feature source providing drug views.
-        :param entity_ids: entity ids.
-        :returns: Mapping with one numeric block.
+        :param entity_ids: Drug identifiers to encode.
+        :returns: Result with one numeric block.
         """
         matrix = self._feature_matrix(source, entity_ids)
         return FeaturizerResult(
@@ -161,10 +167,7 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
 
     @property
     def output_dim(self) -> int:
-        """Return output feature dimension.
-
-        :returns: Always 128 (max_length).
-        """
+        """Return the encoded sequence length (``max_length``)."""
         return self._output_dim
 
     def get_state(self) -> dict[str, object]:
@@ -179,17 +182,18 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
     def set_state(self, state: dict[str, object]) -> None:
         """Restore the fitted tokenizer used during training.
 
-        :param state: Mapping produced by get_state.
+        :param state: Mapping produced by ``get_state``.
         """
         self._bpe = state.get("bpe")
         self._max_length = int(state.get("max_length", self._max_length))
         self._output_dim = int(state.get("output_dim", 0))
 
-    def _learn_bpe(self, smiles_series) -> object:
+    def _learn_bpe(self, smiles_series: pd.Series) -> object:
         """Learn BPE codes from a set of SMILES strings.
 
         :param smiles_series: Series of SMILES indexed by entity IDs.
         :returns: Fitted BPE object.
+        :raises ImportError: If ``subword-nmt`` is not installed.
         """
         try:
             from subword_nmt.apply_bpe import BPE
@@ -206,7 +210,7 @@ class BpePharmaformerDrugFeaturizer(DrugFeaturizer):
             learn_bpe(smiles_lines, bpe_codes, num_symbols=self._num_symbols, verbose=False)
         return BPE(bpe_codes)
 
-    def _apply_bpe(self, smiles_series, entity_ids: np.ndarray) -> np.ndarray:
+    def _apply_bpe(self, smiles_series: pd.Series, entity_ids: np.ndarray) -> np.ndarray:
         """Apply stored BPE codes to encode SMILES strings.
 
         :param smiles_series: Series of SMILES indexed by entity IDs.
