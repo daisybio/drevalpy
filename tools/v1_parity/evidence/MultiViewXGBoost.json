@@ -284,36 +284,6 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "expr_mut: random_state of the estimator",
-      "detail": "",
-      "explanation": "Both sides pin random_state=42.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "expr_mut/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "expr: random_state of the estimator",
-      "detail": "",
-      "explanation": "Both sides pin random_state=42.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "expr/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
       "description": "expr_mut_sampling: params",
       "detail": "",
       "explanation": "xgboost draws the row (`subsample`) and column (`colsample_bytree`) samples from `random_state`, and the stream changed between xgboost 3.2.0 and 3.4.1: with identical float64 matrices and identical parameters the 1.6.1 venv (3.4.1, unpinned by 1.6.1: `xgboost>=3.2.0`) and the v2 venv (3.2.0, locked) fit different trees as soon as either value is below 1, and the same trees when both are 1.",
@@ -462,7 +432,7 @@
   "findings": [
     "Gene selection and scaling: the 1.6.1 CSV loader with `view_configs` and the v2 `scaledGeneExpression` / `raw[mutations]` `gene_list` options select the same columns in the same order; the standardized expression agrees to the forward class (v2 scales in float32, 1.6.1 in float64). The 1.6.1 class default `view_configs` second entry (expression only) is the `expr` variant. The 1.6.1 methylation preprocessing (StandardScaler + PCA) has no v2 equivalent: `four_views` deviates.",
     "xgboost version: `subsample` and `colsample_bytree` below 1 draw from random_state, and the stream differs between xgboost 3.2.0 (v2 lock) and 3.4.1 (installed in the 1.6.1 venv; 1.6.1 only requires >=3.2.0). Identical float64 matrices and parameters give different trees on the two sides, so `expr_mut_sampling` and `preset` (subsample 0.8, colsample 0.6) are deviations here and `expr_mut` / `expr` run without sampling. A user moving between versions gets different seeded models.",
-    "Default hyperparameters (B5): the 1.6.1 class defaults (no grid) are n_estimators=100, learning_rate=0.1, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0, reg_lambda=1.0, random_state=42. The first grid point of hyperparameters.yaml (what a run uses) is max_depth=10, subsample=0.8, colsample_bytree=0.6, reg_alpha=0, reg_lambda=0.1 (grid: colsample 0.6/0.8, reg_alpha 0/1), on the view_configs expression+mutations. The working-tree v2 `xgboost` predictor defaults and the `MultiViewXGBoost` preset equal that grid point (`preset` variant: identical effective parameters, identical trees when the xgboost versions agree). reg_lambda is now a public hyperparameter, so every grid value is expressible; n_jobs is fixed to -1 in v2.",
+    "Default hyperparameters (B5): the 1.6.1 class defaults (no grid) are n_estimators=100, learning_rate=0.1, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0, reg_lambda=1.0, random_state=42. The first grid point of hyperparameters.yaml (what a run uses) is max_depth=10, subsample=0.8, colsample_bytree=0.6, reg_alpha=0, reg_lambda=0.1 (grid: colsample 0.6/0.8, reg_alpha 0/1), on the view_configs expression+mutations. The v2 `xgboost` predictor defaults and the `MultiViewXGBoost` preset equal that grid point (`preset` variant: identical effective parameters, identical trees when the xgboost versions agree). reg_lambda is a public hyperparameter, so every grid value is expressible; n_jobs is fixed to -1 and random_state to 42 in v2, as in 1.6.1.",
     "Verified outside the committed run: with xgboost 3.2.0 installed on the 1.6.1 side as well (`uv pip install --target DIR xgboost==3.2.0`, `PYTHONPATH=DIR`), `expr_mut_sampling` and `preset` give bitwise identical predictions and feature importances (maximum difference 0.0). The `forward` tolerance of the importances is for the float32 gain statistics, which differ by 3e-8 between the two xgboost versions."
   ],
   "generated": "2026-10-23",
@@ -618,6 +588,21 @@
       ]
     },
     {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "expr_mut: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "expr_mut/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
       "achieved": "forward",
       "declared": "forward",
       "description": "expr: features train",
@@ -764,6 +749,21 @@
       "shape_v2": [
         98
       ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "expr: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "expr/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
     }
   ],
   "v1": {
@@ -780,7 +780,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
+    "commit": "dc24cd9cf06ada2f7cc16cf7e8f01167888b6c51",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

@@ -1,109 +1,32 @@
 {
   "case": {
-    "inputs_sha256": "87b5e045b3fb3e7a868e0c6c47c324a28fb763389065a6e099e503ccd6b2d12d",
+    "inputs_sha256": "4759cd47eb70a946e1e187f0bebfec27a01edd6626dc43c2db5f32fbdce7a002",
     "meta": {
       "gene_list": "pre-selected: all 40 synthetic genes",
       "variants": {
         "enet": {
           "alpha": 0.1,
           "l1_ratio": 0.5,
-          "v2_extra": {
-            "max_iter": 1000,
-            "selection": "cyclic",
-            "tol": 0.0001
+          "v2": {
+            "alpha": 0.1,
+            "l1_ratio": 0.5
           }
-        },
-        "enet_preset": {
-          "alpha": 0.1,
-          "l1_ratio": 0.5,
-          "v1_variant": "enet",
-          "v2_extra": {}
         },
         "ridge": {
           "alpha": 1.0,
           "l1_ratio": 0.0,
-          "v2_extra": {}
+          "v2": {}
         }
       }
     },
     "seed": 0
   },
-  "deviations": [
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "ridge: params",
-      "detail": "",
-      "explanation": "v2 passes max_iter=2000, tol=1e-2 to Ridge; both are inert for the dense 'auto' (cholesky) solver 1.6.1 also uses, which the matching predictions confirm.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "ridge/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "enet_preset: params",
-      "detail": "",
-      "explanation": "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "enet_preset/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "enet_preset: coef",
-      "detail": "",
-      "explanation": "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults.",
-      "max_abs_diff": 5.8972535819934446e-08,
-      "max_rel_diff": 1.8473420859910973e-06,
-      "name": "enet_preset/coef",
-      "passed": true,
-      "pearson": 0.9999999999999775,
-      "scope": "deviation",
-      "shape_v1": [
-        72
-      ],
-      "shape_v2": [
-        72
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "enet_preset: predictions",
-      "detail": "",
-      "explanation": "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults.",
-      "max_abs_diff": 1.0526279092815116e-06,
-      "max_rel_diff": 1.6054724206104365e-07,
-      "name": "enet_preset/predictions",
-      "passed": true,
-      "pearson": 0.9999999999999563,
-      "scope": "deviation",
-      "shape_v1": [
-        56
-      ],
-      "shape_v2": [
-        56
-      ]
-    }
-  ],
+  "deviations": [],
   "findings": [
-    "1.6.1 selects the `landmark_genes` list while loading (hyperparameter `gene_list`; a missing gene raises). The v2 `ElasticNet` preset uses `scaledGeneExpression`, which has no gene-list option and scales the whole view, so the preset trains on every gene of the dataset. Compared at the estimator-input level on a pre-selected matrix. To be fixed by packages A1/B5.",
+    "1.6.1 selects the `landmark_genes` list while loading (hyperparameter `gene_list`; a missing gene raises); the v2 `ElasticNet` preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the selection itself is not compared here.",
     "v2 holds features as float32 end to end (`DenseViewFeaturizer` casts to float32, so the estimator receives a float32 matrix); 1.6.1 computes in float64. Features therefore agree to ~1e-7 relative (class forward), not exactly. Ridge solves in float32 in v2: refitting sklearn Ridge on the same matrix in float32 vs float64 differs by 2.4e-5 absolute (predictions ~7), which is the whole Ridge difference (class train).",
-    "1.6.1 builds `sklearn.ElasticNet(alpha, l1_ratio)` with sklearn's solver defaults (max_iter=1000, tol=1e-4, cyclic); v2 pins max_iter=2000, tol=1e-2, selection='random', random_state=0. All are overridable in v2, and with the sklearn values the coefficients agree to 6e-8 (class forward). With the preset values they only agree statistically (deviation steps).",
-    "The first 1.6.1 hyperparameter set (l1_ratio=0, alpha=1) is `Ridge`; v2 also maps l1_ratio=0 to `Ridge`, so both estimator types agree.",
-    "v2 changed the default alpha to 0.1 (the 1.6.1 grid starts at 1); the case sets alpha explicitly on both sides."
+    "1.6.1 builds `sklearn.ElasticNet(alpha, l1_ratio)` with sklearn's solver defaults (max_iter=1000, tol=1e-4, cyclic, random_state unset). The v2 `elasticNet` predictor pins exactly these values (`non_tunable_hyperparameters`), so the effective parameters are equal and the coefficients agree to 6e-8 (class forward) without any override.",
+    "The first 1.6.1 hyperparameter set (l1_ratio=0, alpha=1) is `Ridge`; the v2 defaults are the same (alpha=1, l1_ratio=0) and build `Ridge(alpha)` without solver settings, as 1.6.1 does. The `ridge` variant runs the unmodified v2 preset."
   ],
   "generated": "2026-10-23",
   "model": "ElasticNet",
@@ -150,6 +73,21 @@
         56,
         72
       ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "ridge: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "ridge/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
     },
     {
       "achieved": "forward",
@@ -318,7 +256,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "commit": "dc24cd9cf06ada2f7cc16cf7e8f01167888b6c51",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

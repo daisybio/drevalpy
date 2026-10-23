@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 
 from tools.v1_parity._bridge import Case
-from tools.v1_parity.compare import StepSpec
+from tools.v1_parity.compare import PARITY, StepSpec
 from tools.v1_parity.models._sklearn_common import (
     build_sklearn_case,
     run_sklearn_v1,
@@ -55,8 +55,9 @@ FINDINGS = [
     ),
     (
         "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing "
-        "gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without "
-        "`gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5."
+        "gene raises); the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. "
+        "The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the "
+        "selection itself is not compared here."
     ),
     (
         "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64. The "
@@ -78,15 +79,13 @@ def build_case(seed: int) -> Case:
 def steps() -> list[StepSpec]:
     """Declare the compared outputs.
 
-    :returns: Parity steps for the aligned variants, deviation steps for the others.
+    :returns: Parity steps for every variant.
     """
     return sklearn_steps(
         VARIANTS,
         attributes={"feature_importances_": "exact", "estimator_weights_": "exact", "estimator_errors_": "exact"},
         predictions="exact",
-        random_state_note=(
-            "Both sides leave random_state unset and draw from the global numpy stream (seeded with the case seed)."
-        ),
+        random_state_scope=PARITY,
     )
 
 

@@ -1,15 +1,13 @@
 {
   "case": {
-    "inputs_sha256": "ec584937a41ffe67eafdf37921fd79ece77d3db107ac8afc03fa387c90a06002",
+    "inputs_sha256": "3fea16dd3bc35acc84628250a13cc9de0cd88a37937007121148cac019896695",
     "meta": {
       "gene_list": "pre-selected: all 30 synthetic genes",
       "n_test_pairs": 45,
       "n_train_pairs": 97,
       "variants": {
         "defaults": {
-          "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
           "pairs": "shared",
-          "scope": "deviation",
           "v1": {
             "alpha": 1.0,
             "l1_ratio": 0.2
@@ -25,30 +23,11 @@
           },
           "v2": {
             "alpha": 0.1,
-            "l1_ratio": 0.5,
-            "max_iter": 1000,
-            "selection": "cyclic",
-            "tol": 0.0001
+            "l1_ratio": 0.5
           }
         },
         "shared_enet": {
           "pairs": "shared",
-          "v1": {
-            "alpha": 0.1,
-            "l1_ratio": 0.5
-          },
-          "v2": {
-            "alpha": 0.1,
-            "l1_ratio": 0.5,
-            "max_iter": 1000,
-            "selection": "cyclic",
-            "tol": 0.0001
-          }
-        },
-        "shared_preset_solver": {
-          "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-          "pairs": "shared",
-          "scope": "deviation",
           "v1": {
             "alpha": 0.1,
             "l1_ratio": 0.5
@@ -63,21 +42,6 @@
     "seed": 0
   },
   "deviations": [
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "shared_enet: random_state of the estimator",
-      "detail": "",
-      "explanation": "1.6.1 leaves random_state unset; v2 passes the case seed (irrelevant for the cyclic solver), so the recorded values differ.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "shared_enet/D00/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
     {
       "achieved": "statistical",
       "declared": "exact",
@@ -297,453 +261,13 @@
       "shape_v2": [
         9
       ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "shared_preset_solver, D00: features train",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "shared_preset_solver/D00/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "shared_preset_solver, D00: params",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "shared_preset_solver/D00/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "shared_preset_solver, D00: predictions",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": 7.060524046531569e-07,
-      "max_rel_diff": 1.2887077766836032e-05,
-      "name": "shared_preset_solver/D00/predictions",
-      "passed": true,
-      "pearson": 0.999999999999138,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "shared_preset_solver, D01: features train",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "shared_preset_solver/D01/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "shared_preset_solver, D01: params",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "shared_preset_solver/D01/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "shared_preset_solver, D01: predictions",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": 2.561405618717316e-07,
-      "max_rel_diff": 2.2925175935055654e-07,
-      "name": "shared_preset_solver/D01/predictions",
-      "passed": true,
-      "pearson": 0.9999999999999253,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "shared_preset_solver, D02: features train",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "shared_preset_solver/D02/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "shared_preset_solver, D02: params",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "shared_preset_solver/D02/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "shared_preset_solver, D02: predictions",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": 2.699948524753637e-07,
-      "max_rel_diff": 3.13482446675509e-07,
-      "name": "shared_preset_solver/D02/predictions",
-      "passed": true,
-      "pearson": 0.9999999999999623,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "shared_preset_solver, D03: features train",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "shared_preset_solver/D03/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "shared_preset_solver, D03: params",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "shared_preset_solver/D03/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "shared_preset_solver, D03: predictions",
-      "detail": "",
-      "explanation": "v2 preset solver: max_iter=2000, tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults. Same objective, looser convergence.",
-      "max_abs_diff": 2.814327557665308e-07,
-      "max_rel_diff": 6.903921695404449e-07,
-      "name": "shared_preset_solver/D03/predictions",
-      "passed": true,
-      "pearson": 0.9999999999998784,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "defaults, D00: features train",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "defaults/D00/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults, D00: params",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "defaults/D00/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "defaults, D00: predictions",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": 8.251923988567e-08,
-      "max_rel_diff": 2.394522138111667e-07,
-      "name": "defaults/D00/predictions",
-      "passed": true,
-      "pearson": 0.9999999999994011,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "defaults, D01: features train",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "defaults/D01/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults, D01: params",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "defaults/D01/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "defaults, D01: predictions",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": 1.587305770156533e-07,
-      "max_rel_diff": 1.8670190602191865e-07,
-      "name": "defaults/D01/predictions",
-      "passed": true,
-      "pearson": 0.9999999999998191,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "defaults, D02: features train",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "defaults/D02/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults, D02: params",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "defaults/D02/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "defaults, D02: predictions",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": 1.6632430810403775e-07,
-      "max_rel_diff": 1.4528716093746935e-07,
-      "name": "defaults/D02/predictions",
-      "passed": true,
-      "pearson": 0.9999999999991918,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "defaults, D03: features train",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "defaults/D03/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults, D03: params",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "defaults/D03/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "forward",
-      "declared": "statistical",
-      "description": "defaults, D03: predictions",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grid l1_ratio 0.2/0.5/0.9); the v2 preset default is l1_ratio=0.5, alpha=0.1, plus its own solver settings.",
-      "max_abs_diff": 8.895920833307258e-08,
-      "max_rel_diff": 4.101631862214181e-07,
-      "name": "defaults/D03/predictions",
-      "passed": true,
-      "pearson": 0.9999999999994234,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
     }
   ],
   "findings": [
     "1.6.1 trains `SingleDrugElasticNet` once per drug on `scale_gene_expression` features whose `StandardScaler` is fitted on the training samples of that drug; v2 fits `scaledGeneExpression` once over all training pairs and routes by drug. The two agree (class forward) when every drug has the same training samples (`shared_enet`), and differ when the drugs were measured on different samples (`ragged_enet`). This is the intended 'globally fitted single-drug featurizers' deviation of the plan (4.4).",
-    "1.6.1 builds `ElasticNet(alpha, l1_ratio)` with sklearn's solver defaults; l1_ratio 0 or 1 select Ridge or Lasso. v2 pins max_iter=2000, tol=1e-2, selection='random', random_state=0 (overridable). With sklearn's values set explicitly the per-drug coefficients agree to float32 precision.",
-    "Defaults: 1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grids l1_ratio 0.2/0.5/0.9, alpha 1/0.8/0.6/0.4/0.1/0.01/5); v2 defaults are l1_ratio=0.5, alpha=0.1. B5 should decide whether to match.",
-    "The v2 preset uses the whole gene view (`scaledGeneExpression` without `gene_list`) while 1.6.1 selects `landmark_genes`. Compared on a pre-selected matrix; the list wiring belongs to B5.",
+    "1.6.1 builds `ElasticNet(alpha, l1_ratio)` with sklearn's solver defaults and `random_state` unset; l1_ratio 0 or 1 select Ridge or Lasso. The v2 predictor pins the same solver settings (max_iter=1000, tol=1e-4, cyclic, random_state=None; `non_tunable_hyperparameters`), so the effective parameters, including `random_state`, are equal and the per-drug coefficients agree to float32 precision without any override.",
+    "Defaults agree: 1.6.1 first grid point is l1_ratio=0.2, alpha=1 (grids l1_ratio 0.2/0.5/0.9, alpha 1/0.8/0.6/0.4/0.1/0.01/5); the v2 defaults are l1_ratio=0.2, alpha=1.0. The `defaults` variant runs the unmodified preset.",
+    "1.6.1 selects `landmark_genes` while loading; the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the selection itself is not compared here.",
     "v2 features are float32; the `identical` steps feed both estimators the same float64 matrix and are exact."
   ],
   "generated": "2026-10-23",
@@ -1277,6 +801,564 @@
       "shape_v2": [
         8
       ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "shared_enet: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "shared_enet/D00/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D00: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D00/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D00: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "defaults/D00/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D00: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D00/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D00: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.9108073765622402e-08,
+      "max_rel_diff": 0.00017384818734349547,
+      "name": "defaults/D00/fitted_coef_",
+      "passed": true,
+      "pearson": 0.9999999999992861,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D00: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.693881005048752e-09,
+      "max_rel_diff": 2.1630296843854603e-08,
+      "name": "defaults/D00/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.251923988567e-08,
+      "max_rel_diff": 2.394522138111667e-07,
+      "name": "defaults/D00/predictions",
+      "passed": true,
+      "pearson": 0.9999999999994011,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D01: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D01/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D01: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "defaults/D01/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D01: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D01/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D01: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.8640051602930585e-08,
+      "max_rel_diff": 1.1771149383103557e-06,
+      "name": "defaults/D01/fitted_coef_",
+      "passed": true,
+      "pearson": 0.9999999999999672,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D01: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.8230715543031693e-08,
+      "max_rel_diff": 3.80765971929459e-08,
+      "name": "defaults/D01/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D01: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.587305770156533e-07,
+      "max_rel_diff": 1.8670190602191865e-07,
+      "name": "defaults/D01/predictions",
+      "passed": true,
+      "pearson": 0.9999999999998191,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D02: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D02/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D02: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "defaults/D02/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D02: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D02/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D02: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 3.031014567458912e-08,
+      "max_rel_diff": 2.285027288180937e-06,
+      "name": "defaults/D02/fitted_coef_",
+      "passed": true,
+      "pearson": 0.9999999999997626,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D02: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 4.528556019067764e-08,
+      "max_rel_diff": 3.8832490348498727e-08,
+      "name": "defaults/D02/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D02: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.6632430810403775e-07,
+      "max_rel_diff": 1.4528716093746935e-07,
+      "name": "defaults/D02/predictions",
+      "passed": true,
+      "pearson": 0.9999999999991918,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D03: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D03/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D03: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "defaults/D03/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D03: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D03/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D03: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 2.269193992562521e-08,
+      "max_rel_diff": 0.00012863476528649282,
+      "name": "defaults/D03/fitted_coef_",
+      "passed": true,
+      "pearson": 0.9999999999996143,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D03: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 1.2034433866103811e-08,
+      "max_rel_diff": 6.568028502758968e-08,
+      "name": "defaults/D03/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D03: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 8.895920833307258e-08,
+      "max_rel_diff": 4.101631862214181e-07,
+      "name": "defaults/D03/predictions",
+      "passed": true,
+      "pearson": 0.9999999999994234,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 matrix of D00: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 matrix of D00: fitted coef ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/fitted_coef_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 matrix of D00: fitted intercept ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/fitted_intercept_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 matrix of D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D00/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
     }
   ],
   "v1": {
@@ -1293,7 +1375,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "commit": "7af045e933f8d089b04ce5a1ed6ed2185a90f617",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

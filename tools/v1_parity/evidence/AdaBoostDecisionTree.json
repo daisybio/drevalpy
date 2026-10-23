@@ -33,42 +33,11 @@
     },
     "seed": 0
   },
-  "deviations": [
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "aligned: random_state of the estimator",
-      "detail": "",
-      "explanation": "Both sides leave random_state unset and draw from the global numpy stream (seeded with the case seed).",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "aligned/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults: random_state of the estimator",
-      "detail": "",
-      "explanation": "Both sides leave random_state unset and draw from the global numpy stream (seeded with the case seed).",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "defaults/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    }
-  ],
+  "deviations": [],
   "findings": [
     "Default hyperparameters agree: 1.6.1 first grid point n_estimators=50, max_depth=4, min_samples_split=2, min_samples_leaf=1 (grid min_samples_split 2/6, min_samples_leaf 1/3); v2 declares n_estimators=50, max_depth=4 and the non-tunable min_samples_split=2, min_samples_leaf=1, learning_rate=1.0 (sklearn's default, which 1.6.1 leaves implicit).",
     "Neither side pins `random_state`, so the boosting is reproducible only through the global numpy seed. Reproducing a v2 run requires the caller to seed numpy; B5 may want to pin a `random_state` on both models.",
-    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without `gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5.",
+    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the selection itself is not compared here.",
     "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64. The boosting rounds are identical (same estimator weights and errors) because the trees see the same split order."
   ],
   "generated": "2026-10-23",
@@ -300,6 +269,21 @@
       ]
     },
     {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "aligned: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "aligned/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
       "achieved": "forward",
       "declared": "forward",
       "description": "defaults: features train",
@@ -522,6 +506,21 @@
       "shape_v2": [
         152
       ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
     }
   ],
   "v1": {
@@ -538,7 +537,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "commit": "dc24cd9cf06ada2f7cc16cf7e8f01167888b6c51",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

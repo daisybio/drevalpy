@@ -90,7 +90,7 @@
     "Default hyperparameters agree: 1.6.1 first grid point n_neighbors=5, weights=distance (grid n_neighbors 5/10/3); v2 declares n_neighbors=5, weights=distance (space 3..15).",
     "The parity variants use continuous drug features so that no two candidates tie. With binary fingerprints (the real format) distances tie massively and the order of tied neighbours depends on float rounding, which differs between float64 (1.6.1) and float32 (v2); the `binary` variant records the effect on the predictions. Ties are inherent to kNN on binary features, not a defect of either port.",
     "The nearest neighbours are searched on the concatenation of the gene features and the fingerprint bits, as in 1.6.1; there is no separate scaling of the fingerprints on either side.",
-    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without `gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5.",
+    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the selection itself is not compared here.",
     "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64. The neighbour sets are compared exactly; distances and predictions follow the features."
   ],
   "generated": "2026-10-23",
@@ -694,7 +694,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "commit": "dc24cd9cf06ada2f7cc16cf7e8f01167888b6c51",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

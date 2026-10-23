@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 
 from tools.v1_parity._bridge import Case
-from tools.v1_parity.compare import StepSpec
+from tools.v1_parity.compare import PARITY, StepSpec
 from tools.v1_parity.models._multi_view_boosted import boosted_variants
 from tools.v1_parity.models._omics_common import build_omics_case, omics_steps, run_omics_v1, run_omics_v2
 
@@ -53,10 +53,10 @@ FINDINGS = [
         "max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0, reg_lambda=1.0, random_state=42. The first "
         "grid point of hyperparameters.yaml (what a run uses) is max_depth=10, subsample=0.8, "
         "colsample_bytree=0.6, reg_alpha=0, reg_lambda=0.1 (grid: colsample 0.6/0.8, reg_alpha 0/1), on the "
-        "view_configs expression+mutations. The working-tree v2 `xgboost` predictor defaults and the "
+        "view_configs expression+mutations. The v2 `xgboost` predictor defaults and the "
         "`MultiViewXGBoost` preset equal that grid point (`preset` variant: identical effective parameters, "
-        "identical trees when the xgboost versions agree). reg_lambda is now a public hyperparameter, so every "
-        "grid value is expressible; n_jobs is fixed to -1 in v2."
+        "identical trees when the xgboost versions agree). reg_lambda is a public hyperparameter, so every "
+        "grid value is expressible; n_jobs is fixed to -1 and random_state to 42 in v2, as in 1.6.1."
     ),
     (
         "Verified outside the committed run: with xgboost 3.2.0 installed on the 1.6.1 side as well "
@@ -87,7 +87,7 @@ def steps() -> list[StepSpec]:
         attributes={"feature_importances_": "forward"},
         predictions="forward",
         features="forward",
-        random_state_note="Both sides pin random_state=42.",
+        random_state_scope=PARITY,
         identical_attributes="forward",
     )
 

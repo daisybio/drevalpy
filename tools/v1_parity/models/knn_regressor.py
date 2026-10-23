@@ -75,8 +75,9 @@ FINDINGS = [
     ),
     (
         "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing "
-        "gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without "
-        "`gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5."
+        "gene raises); the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. "
+        "The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the "
+        "selection itself is not compared here."
     ),
     (
         "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64. The "

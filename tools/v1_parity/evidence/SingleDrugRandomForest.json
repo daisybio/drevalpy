@@ -1,15 +1,14 @@
 {
   "case": {
-    "inputs_sha256": "6827acbcd8e383567ea585b6f6a386ea9657b8a6d542294c1bf1bfd535bc4b49",
+    "inputs_sha256": "192120db13f35137ea101ae0610015a3f94a2d0049feb2193ebde615329defb4",
     "meta": {
       "gene_list": "pre-selected: all 30 synthetic genes",
       "n_test_pairs": 45,
       "n_train_pairs": 97,
       "variants": {
         "defaults": {
-          "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+          "np_seed": 42,
           "pairs": "shared",
-          "scope": "deviation",
           "v1": {
             "criterion": "squared_error",
             "max_depth": 5,
@@ -66,7 +65,7 @@
       "declared": "exact",
       "description": "shared_forest: random_state of the estimator",
       "detail": "non-numeric arrays differ: 1.6.1='None' v2='0'",
-      "explanation": "1.6.1 leaves random_state unset (global stream, seeded with the case seed); v2 gets the same integer, which starts the identical stream.",
+      "explanation": "1.6.1 leaves random_state unset (global stream, seeded with the case seed or, in `defaults`, with 42); v2 gets an integer (the case seed in `shared_forest`, the preset's 42 in `defaults`), which starts the identical stream.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "shared_forest/D00/random_state",
@@ -297,231 +296,26 @@
       ]
     },
     {
-      "achieved": "forward",
+      "achieved": null,
       "declared": "exact",
-      "description": "defaults, D00: features train",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "defaults/D00/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults, D00: params",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
+      "description": "defaults: random_state of the estimator",
+      "detail": "non-numeric arrays differ: 1.6.1='None' v2='42'",
+      "explanation": "1.6.1 leaves random_state unset (global stream, seeded with the case seed or, in `defaults`, with 42); v2 gets an integer (the case seed in `shared_forest`, the preset's 42 in `defaults`), which starts the identical stream.",
       "max_abs_diff": null,
       "max_rel_diff": null,
-      "name": "defaults/D00/params",
-      "passed": true,
+      "name": "defaults/D00/random_state",
+      "passed": false,
       "pearson": null,
       "scope": "deviation",
       "shape_v1": [],
       "shape_v2": []
-    },
-    {
-      "achieved": null,
-      "declared": "statistical",
-      "description": "defaults, D00: predictions",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": 0.08848928403109313,
-      "max_rel_diff": 0.41552201628736307,
-      "name": "defaults/D00/predictions",
-      "passed": false,
-      "pearson": 0.7226617412789307,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "defaults, D01: features train",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "defaults/D01/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults, D01: params",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "defaults/D01/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": null,
-      "declared": "statistical",
-      "description": "defaults, D01: predictions",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": 0.09740857264027003,
-      "max_rel_diff": 0.12322205985932293,
-      "name": "defaults/D01/predictions",
-      "passed": false,
-      "pearson": 0.5600659844797657,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "defaults, D02: features train",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "defaults/D02/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults, D02: params",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "defaults/D02/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": null,
-      "declared": "statistical",
-      "description": "defaults, D02: predictions",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": 0.18407588977366696,
-      "max_rel_diff": 0.14532114133783408,
-      "name": "defaults/D02/predictions",
-      "passed": false,
-      "pearson": 0.8174240136567925,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
-    },
-    {
-      "achieved": "forward",
-      "declared": "exact",
-      "description": "defaults, D03: features train",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": 7.25849300761694e-07,
-      "max_rel_diff": 0.00048109749944920605,
-      "name": "defaults/D03/features_train",
-      "passed": false,
-      "pearson": 0.9999999999999711,
-      "scope": "deviation",
-      "shape_v1": [
-        32,
-        30
-      ],
-      "shape_v2": [
-        32,
-        30
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults, D03: params",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "defaults/D03/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": null,
-      "declared": "statistical",
-      "description": "defaults, D03: predictions",
-      "detail": "",
-      "explanation": "1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state.",
-      "max_abs_diff": 0.06266804648097604,
-      "max_rel_diff": 0.256239552902399,
-      "name": "defaults/D03/predictions",
-      "passed": false,
-      "pearson": 0.9362544790964796,
-      "scope": "deviation",
-      "shape_v1": [
-        8
-      ],
-      "shape_v2": [
-        8
-      ]
     }
   ],
   "findings": [
-    "1.6.1 trains `SingleDrugRandomForest` once per drug with `random_state` unset (global numpy stream); v2 pins `random_state` in the predictor and builds one forest per drug from it. With `random_state` equal to the integer the global stream is seeded with before each drug, the per-drug forests are identical (feature importances and predictions exact).",
+    "1.6.1 trains `SingleDrugRandomForest` once per drug with `random_state` unset (global numpy stream); v2 pins `random_state=42` in the predictor and builds one forest per drug from it. With `random_state` equal to the integer the global stream is seeded with before each drug, the per-drug forests are identical (feature importances and predictions exact).",
     "Same scaler deviation as `SingleDrugElasticNet`: 1.6.1 standardizes with the training samples of the drug, v2 with all training samples (plan 4.4). With a shared sample set the features agree to float32 precision.",
-    "Defaults: 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30); v2 declares n_estimators=100, max_samples=0.2, max_depth=15. Only max_depth differs. B5 should decide whether to match.",
-    "The v2 preset uses the whole gene view (`scaledGeneExpression` without `gene_list`) while 1.6.1 selects `landmark_genes`. Compared on a pre-selected matrix; the list wiring belongs to B5."
+    "Defaults agree: 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30); v2 declares n_estimators=100, max_samples=0.2, max_depth=5, n_jobs=-1. Only `random_state` differs (unset vs 42). The `defaults` variant runs the unmodified preset against 1.6.1 with its global stream seeded with 42.",
+    "1.6.1 selects `landmark_genes` while loading; the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the selection itself is not compared here."
   ],
   "generated": "2026-10-23",
   "model": "SingleDrugRandomForest",
@@ -959,6 +753,439 @@
       "shape_v2": [
         8
       ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D00: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D00/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D00: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "defaults/D00/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D00: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D00/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D00: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/D00/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/D00/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D01: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D01/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D01: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "defaults/D01/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D01: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D01/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D01: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/D01/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D01: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/D01/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D02: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D02/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D02: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "defaults/D02/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D02: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D02/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D02: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/D02/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D02: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/D02/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D03: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.25849300761694e-07,
+      "max_rel_diff": 0.00048109749944920605,
+      "name": "defaults/D03/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999711,
+      "scope": "parity",
+      "shape_v1": [
+        32,
+        30
+      ],
+      "shape_v2": [
+        32,
+        30
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults, D03: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 5.819784090199676e-07,
+      "max_rel_diff": 0.000950813439810489,
+      "name": "defaults/D03/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999749,
+      "scope": "parity",
+      "shape_v1": [
+        8,
+        30
+      ],
+      "shape_v2": [
+        8,
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D03: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/D03/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D03: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/D03/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, D03: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/D03/predictions",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 matrix of D00: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 matrix of D00: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        30
+      ],
+      "shape_v2": [
+        30
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 matrix of D00: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        8
+      ],
+      "shape_v2": [
+        8
+      ]
     }
   ],
   "v1": {
@@ -975,7 +1202,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "commit": "dc24cd9cf06ada2f7cc16cf7e8f01167888b6c51",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

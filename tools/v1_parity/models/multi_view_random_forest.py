@@ -160,7 +160,7 @@ VARIANTS: dict[str, dict] = {
         "v2": {"n_jobs": 1},
         "scope": DEVIATION,
         "explanation": (
-            "The preset (working tree) matches the 1.6.1 first grid point in views (expression landmark_genes + "
+            "The preset matches the 1.6.1 first grid point in views (expression landmark_genes + "
             "mutations drug_target_genes_all_drugs) and in n_estimators=100, max_samples=0.2, max_depth=5, so the "
             "effective parameters are equal. It still differs in three ways: it appends the fingerprints (1.6.1 "
             "never feeds the drug views here), it scales the expression, and it pins random_state=42."
@@ -178,8 +178,8 @@ FINDINGS = [
         "only changes the sklearn splitter's random stream)."
     ),
     (
-        "Gene selection: the 1.6.1 CSV loader and the v2 `raw[...](gene_list=...)` featurizers (the working tree "
-        "gives `raw` a `gene_list` option) select the same columns in the same order; the design matrices agree "
+        "Gene selection: the 1.6.1 CSV loader and the v2 `raw[...](gene_list=...)` featurizers (`raw` has a "
+        "`gene_list` option) select the same columns in the same order; the design matrices agree "
         "to 1e-12, and the predictions and feature importances are exact. `pca[methylation]` still has no "
         "`gene_list` option (the case restricts that view up front), so the 1.6.1 default methylation -> "
         "methylation_intersection cannot be expressed in a recipe."
@@ -205,7 +205,7 @@ FINDINGS = [
     (
         "Default hyperparameters (B5): 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5 "
         "(grid 5/10/30), n_jobs=-1, random_state unset, view_configs = expression(landmark_genes) + "
-        "mutations(drug_target_genes_all_drugs), methylation_n_components=100. The working-tree v2 preset has the "
+        "mutations(drug_target_genes_all_drugs), methylation_n_components=100. The v2 preset has the "
         "same views and hyperparameters (effective parameters equal); it adds fingerprints and scales the "
         "expression. The 1.6.1 class default (no view_configs) is four views on whole gene lists, which no "
         "preset expresses."

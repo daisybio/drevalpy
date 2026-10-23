@@ -1,6 +1,6 @@
 """RandomForest parity case: 1.6.1 ``RandomForest`` against the v2 ``RandomForest`` zoo preset.
 
-Variants (both sides set the hyperparameters explicitly):
+Variants (both sides set the hyperparameters explicitly, except ``defaults``):
 
 ``aligned``
     A small forest (30 trees, ``max_samples=0.5``, ``max_depth=6``, ``n_jobs=1``). 1.6.1 leaves
@@ -9,7 +9,9 @@ Variants (both sides set the hyperparameters explicitly):
 ``unbounded``
     ``max_depth=None`` (1.6.1 spells it ``"None"`` in the grid and converts it).
 ``defaults``
-    The 1.6.1 first grid point against the unmodified v2 preset. Recorded as a deviation.
+    The 1.6.1 first grid point (``n_estimators=100``, ``max_samples=0.2``, ``max_depth=5``, ``n_jobs=-1``)
+    against the unmodified v2 preset, whose ``random_state`` is 42. The global numpy stream of 1.6.1 is seeded
+    with 42 (``np_seed``), which starts the identical stream.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 
 from tools.v1_parity._bridge import Case
-from tools.v1_parity.compare import DEVIATION, StepSpec
+from tools.v1_parity.compare import StepSpec
 from tools.v1_parity.models._sklearn_common import (
     build_sklearn_case,
     run_sklearn_v1,
@@ -54,33 +56,30 @@ VARIANTS: dict[str, dict] = {
     "defaults": {
         "v1": {"n_estimators": 100, "criterion": "squared_error", "max_samples": 0.2, "max_depth": 5, "n_jobs": -1},
         "v2": {},
-        "scope": DEVIATION,
-        "explanation": (
-            "Hyperparameter defaults differ: 1.6.1 first grid point is n_estimators=100, "
-            "max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset "
-            "has max_depth=15 and a pinned random_state (see the random_state step). The forests are "
-            "different models."
-        ),
+        "np_seed": 42,
     },
 }
 
 FINDINGS = [
     (
         "1.6.1 `RandomForest` passes n_estimators, criterion, max_samples, max_depth and n_jobs only; "
-        "`random_state` is unset (global numpy stream). The v2 `randomForest` predictor pins `random_state` (an "
-        "integer; `None` before the working-tree change that sets 42). With `random_state` equal to the integer "
-        "the global numpy stream is seeded with, the forests are identical."
+        "`random_state` is unset (global numpy stream). The v2 `randomForest` predictor pins `random_state=42` "
+        "(`non_tunable_hyperparameters`; v2 fits are reproducible, 1.6.1 fits only through the global stream). "
+        "With `random_state` equal to the integer the global numpy stream is seeded with, the forests are "
+        "identical, also with `n_jobs=-1`."
     ),
     (
-        "Default hyperparameters: 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5, "
+        "Default hyperparameters agree: 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5, "
         "criterion=squared_error, n_jobs=-1 (grid max_depth 5/10/30); v2 declares n_estimators=100, "
-        "max_samples=0.2, max_depth=15 (space 5..25), criterion=squared_error, n_jobs=-1. Only max_depth "
-        "differs. B5 should decide whether to match 5."
+        "max_samples=0.2, max_depth=5 (space 5..30), criterion=squared_error, n_jobs=-1. Only `random_state` "
+        "differs (unset vs 42). The `defaults` variant runs the unmodified preset against 1.6.1 with its global "
+        "stream seeded with 42."
     ),
     (
         "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing "
-        "gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without "
-        "`gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5."
+        "gene raises); the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. "
+        "The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the "
+        "selection itself is not compared here."
     ),
     (
         "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64. The "
@@ -102,16 +101,16 @@ def build_case(seed: int) -> Case:
 def steps() -> list[StepSpec]:
     """Declare the compared outputs.
 
-    :returns: Parity steps for the aligned variants, deviation steps for the others.
+    :returns: Parity steps for every variant, the ``random_state`` steps as deviations.
     """
     return sklearn_steps(
         VARIANTS,
         attributes={"feature_importances_": "exact"},
         predictions="exact",
         random_state_note=(
-            "1.6.1: unset (global numpy stream, seeded with the case seed). v2: an integer; the case "
-            "passes the case seed, which starts the identical stream. The preset's own value is "
-            "recorded in the `defaults` variant."
+            "1.6.1: unset (global numpy stream, seeded with the case seed or, in `defaults`, with 42). v2: an "
+            "integer, the case seed in the explicit variants and the preset's own 42 in `defaults`; either "
+            "starts the identical stream."
         ),
     )
 

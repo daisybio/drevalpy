@@ -1,13 +1,13 @@
 {
   "case": {
-    "inputs_sha256": "94efaea55eae097da6b185d8865f83633f7ddcb305902bb05d3f5d0399ff2bd8",
+    "inputs_sha256": "94854fe526d6c822905c2950bc34d471ba6cd9d9c2c948777c2a9ac6eeaa9061",
     "meta": {
       "gene_lists": "shipped v2 lists written to the 1.6.1 loader's meta/gene_lists (1.6.1's CSVs are not offline)",
       "n_test_pairs": 98,
       "n_train_pairs": 178,
       "variants": {
         "defaults": {
-          "explanation": "The preset (working tree) matches the 1.6.1 first grid point in views (expression landmark_genes + mutations drug_target_genes_all_drugs) and in n_estimators=100, max_samples=0.2, max_depth=5, so the effective parameters are equal. It still differs in three ways: it appends the fingerprints (1.6.1 never feeds the drug views here), it scales the expression, and it pins random_state=42.",
+          "explanation": "The preset matches the 1.6.1 first grid point in views (expression landmark_genes + mutations drug_target_genes_all_drugs) and in n_estimators=100, max_samples=0.2, max_depth=5, so the effective parameters are equal. It still differs in three ways: it appends the fingerprints (1.6.1 never feeds the drug views here), it scales the expression, and it pins random_state=42.",
           "scope": "deviation",
           "v1": {
             "criterion": "squared_error",
@@ -482,7 +482,7 @@
       "declared": "exact",
       "description": "defaults: params",
       "detail": "",
-      "explanation": "The preset (working tree) matches the 1.6.1 first grid point in views (expression landmark_genes + mutations drug_target_genes_all_drugs) and in n_estimators=100, max_samples=0.2, max_depth=5, so the effective parameters are equal. It still differs in three ways: it appends the fingerprints (1.6.1 never feeds the drug views here), it scales the expression, and it pins random_state=42.",
+      "explanation": "The preset matches the 1.6.1 first grid point in views (expression landmark_genes + mutations drug_target_genes_all_drugs) and in n_estimators=100, max_samples=0.2, max_depth=5, so the effective parameters are equal. It still differs in three ways: it appends the fingerprints (1.6.1 never feeds the drug views here), it scales the expression, and it pins random_state=42.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "defaults/params",
@@ -497,7 +497,7 @@
       "declared": "statistical",
       "description": "defaults: predictions",
       "detail": "",
-      "explanation": "The preset (working tree) matches the 1.6.1 first grid point in views (expression landmark_genes + mutations drug_target_genes_all_drugs) and in n_estimators=100, max_samples=0.2, max_depth=5, so the effective parameters are equal. It still differs in three ways: it appends the fingerprints (1.6.1 never feeds the drug views here), it scales the expression, and it pins random_state=42.",
+      "explanation": "The preset matches the 1.6.1 first grid point in views (expression landmark_genes + mutations drug_target_genes_all_drugs) and in n_estimators=100, max_samples=0.2, max_depth=5, so the effective parameters are equal. It still differs in three ways: it appends the fingerprints (1.6.1 never feeds the drug views here), it scales the expression, and it pins random_state=42.",
       "max_abs_diff": 0.8253487122588696,
       "max_rel_diff": 0.12794942072313828,
       "name": "defaults/predictions",
@@ -561,7 +561,7 @@
       "declared": "exact",
       "description": "defaults: number of design-matrix columns",
       "detail": "",
-      "explanation": "The preset (working tree) matches the 1.6.1 first grid point in views (expression landmark_genes + mutations drug_target_genes_all_drugs) and in n_estimators=100, max_samples=0.2, max_depth=5, so the effective parameters are equal. It still differs in three ways: it appends the fingerprints (1.6.1 never feeds the drug views here), it scales the expression, and it pins random_state=42.",
+      "explanation": "The preset matches the 1.6.1 first grid point in views (expression landmark_genes + mutations drug_target_genes_all_drugs) and in n_estimators=100, max_samples=0.2, max_depth=5, so the effective parameters are equal. It still differs in three ways: it appends the fingerprints (1.6.1 never feeds the drug views here), it scales the expression, and it pins random_state=42.",
       "max_abs_diff": 32.0,
       "max_rel_diff": 0.028045574057843997,
       "name": "defaults/n_columns",
@@ -574,11 +574,11 @@
   ],
   "findings": [
     "1.6.1 `MultiViewRandomForest.train`/`predict` concatenate `cell_line_views` only; the drug views (the fingerprints) never reach the forest, so 1.6.1 predicts the same value for a sample for every drug (drug_spread 0). The v2 `MultiViewRandomForest` preset appends the fingerprints. A harness technique, not a v2 property: the parity variants give v2 zero fingerprints and pad the 1.6.1 estimator input with the same number of zero columns so both forests have the same shape (appending constant columns on one side only changes the sklearn splitter's random stream).",
-    "Gene selection: the 1.6.1 CSV loader and the v2 `raw[...](gene_list=...)` featurizers (the working tree gives `raw` a `gene_list` option) select the same columns in the same order; the design matrices agree to 1e-12, and the predictions and feature importances are exact. `pca[methylation]` still has no `gene_list` option (the case restricts that view up front), so the 1.6.1 default methylation -> methylation_intersection cannot be expressed in a recipe.",
+    "Gene selection: the 1.6.1 CSV loader and the v2 `raw[...](gene_list=...)` featurizers (`raw` has a `gene_list` option) select the same columns in the same order; the design matrices agree to 1e-12, and the predictions and feature importances are exact. `pca[methylation]` still has no `gene_list` option (the case restricts that view up front), so the 1.6.1 default methylation -> methylation_intersection cannot be expressed in a recipe.",
     "Expression scaling: 1.6.1 feeds the raw expression to the forest; the v2 preset uses `scaledGeneExpression` (arcsinh + StandardScaler fit on the unique training samples). The scaled matrix equals the 1.6.1 matrix after arcsinh + scaling (forward); predictions differ statistically because trees split at midpoints in a different space.",
     "Methylation PCA: both sides fit on the unique training samples (#479/#482) and cap the components at the number of unique samples (32 here, 31 compared: the last one spans the centred null space). The v2 PCA runs in float32 on a float32 view, 1.6.1 in float64, so the PCA features agree only statistically (about 5e-6 absolute); the resulting forests are identical (same splits, exact predictions).",
     "1.6.1 bug: `MultiViewRandomForest.build_model` calls the base `build_model` before it reads `view_configs`, so with `view_configs` the base class does not see `methylation` in the views and `methylation_n_components` is ignored (stays 100). With top-level `cell_line_views` it is honoured. v2 always honours `n_components`.",
-    "Default hyperparameters (B5): 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset, view_configs = expression(landmark_genes) + mutations(drug_target_genes_all_drugs), methylation_n_components=100. The working-tree v2 preset has the same views and hyperparameters (effective parameters equal); it adds fingerprints and scales the expression. The 1.6.1 class default (no view_configs) is four views on whole gene lists, which no preset expresses.",
+    "Default hyperparameters (B5): 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset, view_configs = expression(landmark_genes) + mutations(drug_target_genes_all_drugs), methylation_n_components=100. The v2 preset has the same views and hyperparameters (effective parameters equal); it adds fingerprints and scales the expression. The 1.6.1 class default (no view_configs) is four views on whole gene lists, which no preset expresses.",
     "`random_state`: 1.6.1 leaves it unset (global numpy stream); v2 takes an integer. With the integer equal to the seed of the global stream the forests are identical."
   ],
   "generated": "2026-10-23",
@@ -995,7 +995,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
+    "commit": "dc24cd9cf06ada2f7cc16cf7e8f01167888b6c51",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

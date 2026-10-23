@@ -1,15 +1,12 @@
 {
   "case": {
-    "inputs_sha256": "342bc659b7c96c8ecafc132f9867012b5fb8b862859aff9dc769a7d891d53c81",
+    "inputs_sha256": "c84f1842a9fea046add017152fb29d304a1ca329b13f44ff9dab988fdf5d4dc2",
     "meta": {
       "gene_list": "pre-selected: all 30 synthetic genes",
       "n_test_pairs": 7328,
       "n_train_pairs": 13046,
       "variants": {
         "defaults": {
-          "explanation": "Hyperparameter defaults differ in max_depth: 1.6.1 first grid point is max_iter=100, learning_rate=0.1, max_depth=5 (grid 5/10/30, learning_rate 0.1/0.01); the v2 preset declares max_iter=100, learning_rate=0.1, max_depth=6.",
-          "np_seed": 42,
-          "scope": "deviation",
           "v1": {
             "learning_rate": 0.1,
             "max_depth": 5,
@@ -18,22 +15,6 @@
           "v2": {}
         },
         "large": {
-          "explanation": "With more than 10000 training pairs sklearn early-stops on a validation split drawn from random_state. 1.6.1 pins random_state=42; v2 leaves it unset, so the split comes from the global numpy stream and differs from run to run unless the caller seeds it.",
-          "scope": "deviation",
-          "v1": {
-            "learning_rate": 0.1,
-            "max_depth": 4,
-            "max_iter": 50
-          },
-          "v1_variant": "large_seed42",
-          "v2": {
-            "learning_rate": 0.1,
-            "max_depth": 4,
-            "max_iter": 50
-          }
-        },
-        "large_seed42": {
-          "np_seed": 42,
           "v1": {
             "learning_rate": 0.1,
             "max_depth": 4,
@@ -62,110 +43,11 @@
     },
     "seed": 0
   },
-  "deviations": [
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "small: random_state of the estimator",
-      "detail": "",
-      "explanation": "1.6.1 pins random_state=42; v2 leaves it unset (None), which draws from the global numpy stream. The large_seed42 variant seeds that stream with 42 to reproduce 1.6.1; B5 should pin random_state=42 in the predictor.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "small/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "large_seed42: random_state of the estimator",
-      "detail": "",
-      "explanation": "1.6.1 pins random_state=42; v2 leaves it unset (None), which draws from the global numpy stream. The large_seed42 variant seeds that stream with 42 to reproduce 1.6.1; B5 should pin random_state=42 in the predictor.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "large_seed42/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "large: params",
-      "detail": "",
-      "explanation": "With more than 10000 training pairs sklearn early-stops on a validation split drawn from random_state. 1.6.1 pins random_state=42; v2 leaves it unset, so the split comes from the global numpy stream and differs from run to run unless the caller seeds it.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "large/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "statistical",
-      "description": "large: predictions",
-      "detail": "",
-      "explanation": "With more than 10000 training pairs sklearn early-stops on a validation split drawn from random_state. 1.6.1 pins random_state=42; v2 leaves it unset, so the split comes from the global numpy stream and differs from run to run unless the caller seeds it.",
-      "max_abs_diff": 0.0,
-      "max_rel_diff": 0.0,
-      "name": "large/predictions",
-      "passed": true,
-      "pearson": 1.0,
-      "scope": "deviation",
-      "shape_v1": [
-        7328
-      ],
-      "shape_v2": [
-        7328
-      ]
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "defaults: params",
-      "detail": "",
-      "explanation": "Hyperparameter defaults differ in max_depth: 1.6.1 first grid point is max_iter=100, learning_rate=0.1, max_depth=5 (grid 5/10/30, learning_rate 0.1/0.01); the v2 preset declares max_iter=100, learning_rate=0.1, max_depth=6.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "defaults/params",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "statistical",
-      "description": "defaults: predictions",
-      "detail": "",
-      "explanation": "Hyperparameter defaults differ in max_depth: 1.6.1 first grid point is max_iter=100, learning_rate=0.1, max_depth=5 (grid 5/10/30, learning_rate 0.1/0.01); the v2 preset declares max_iter=100, learning_rate=0.1, max_depth=6.",
-      "max_abs_diff": 0.0,
-      "max_rel_diff": 0.0,
-      "name": "defaults/predictions",
-      "passed": true,
-      "pearson": 1.0,
-      "scope": "deviation",
-      "shape_v1": [
-        7328
-      ],
-      "shape_v2": [
-        7328
-      ]
-    }
-  ],
+  "deviations": [],
   "findings": [
-    "1.6.1 (#500) builds `HistGradientBoostingRegressor(max_iter, learning_rate, max_depth, validation_fraction=0.1, n_iter_no_change=10, random_state=42)`; the v2 `gradientBoosting` predictor passes max_depth, learning_rate and max_iter only. For fewer than 10000 training pairs sklearn does not early-stop and the two are identical (`small`). With more pairs early stopping is on and v2 draws its validation split from the global numpy stream instead of random_state=42: B5 must add `random_state=42`, `validation_fraction=0.1` and `n_iter_no_change=10` (the last two equal sklearn's defaults).",
-    "Default hyperparameters: 1.6.1 first grid point max_iter=100, learning_rate=0.1, max_depth=5 (grid max_depth 5/10/30); v2 declares max_iter=100, learning_rate=0.1, max_depth=6 (space 3..12). Only max_depth differs.",
-    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without `gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5.",
+    "1.6.1 (#500) builds `HistGradientBoostingRegressor(max_iter, learning_rate, max_depth, validation_fraction=0.1, n_iter_no_change=10, random_state=42)`; the v2 `gradientBoosting` predictor passes the same values (the last three are `non_tunable_hyperparameters`). For fewer than 10000 training pairs sklearn does not early-stop and the two are identical (`small`); with more pairs early stopping is on and both draw the validation split from `random_state=42` (`large`), so n_iter_, the train and validation scores and the predictions agree exactly.",
+    "Default hyperparameters agree: 1.6.1 first grid point max_iter=100, learning_rate=0.1, max_depth=5 (grid max_depth 5/10/30); the v2 defaults are max_iter=100, learning_rate=0.1, max_depth=5 (space 3..30). The `defaults` variant runs the unmodified preset.",
+    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the selection itself is not compared here.",
     "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64. HistGradientBoosting bins the features itself in float64, and the bin boundaries agree."
   ],
   "generated": "2026-10-23",
@@ -397,14 +279,29 @@
       ]
     },
     {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "small: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "small/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
       "achieved": "forward",
       "declared": "forward",
-      "description": "large_seed42: features train",
+      "description": "large: features train",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 6.583807161675281e-07,
       "max_rel_diff": 0.0037457817349004054,
-      "name": "large_seed42/features_train",
+      "name": "large/features_train",
       "passed": true,
       "pearson": 0.9999999999999776,
       "scope": "parity",
@@ -420,12 +317,12 @@
     {
       "achieved": "forward",
       "declared": "forward",
-      "description": "large_seed42: features test",
+      "description": "large: features test",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 6.999767938609125e-07,
       "max_rel_diff": 0.0037457817349004054,
-      "name": "large_seed42/features_test",
+      "name": "large/features_test",
       "passed": true,
       "pearson": 0.9999999999999778,
       "scope": "parity",
@@ -441,12 +338,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42: params",
+      "description": "large: params",
       "detail": "",
       "explanation": "",
       "max_abs_diff": null,
       "max_rel_diff": null,
-      "name": "large_seed42/params",
+      "name": "large/params",
       "passed": true,
       "pearson": null,
       "scope": "parity",
@@ -456,12 +353,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42: fitted n iter ",
+      "description": "large: fitted n iter ",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "name": "large_seed42/fitted_n_iter_",
+      "name": "large/fitted_n_iter_",
       "passed": true,
       "pearson": null,
       "scope": "parity",
@@ -475,12 +372,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42: fitted train score ",
+      "description": "large: fitted train score ",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "name": "large_seed42/fitted_train_score_",
+      "name": "large/fitted_train_score_",
       "passed": true,
       "pearson": 1.0,
       "scope": "parity",
@@ -494,12 +391,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42: fitted validation score ",
+      "description": "large: fitted validation score ",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "name": "large_seed42/fitted_validation_score_",
+      "name": "large/fitted_validation_score_",
       "passed": true,
       "pearson": 1.0,
       "scope": "parity",
@@ -513,12 +410,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42: predictions",
+      "description": "large: predictions",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "name": "large_seed42/predictions",
+      "name": "large/predictions",
       "passed": true,
       "pearson": 1.0,
       "scope": "parity",
@@ -532,12 +429,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42, identical float64 design matrix: params",
+      "description": "large, identical float64 design matrix: params",
       "detail": "",
       "explanation": "",
       "max_abs_diff": null,
       "max_rel_diff": null,
-      "name": "large_seed42/identical/params",
+      "name": "large/identical/params",
       "passed": true,
       "pearson": null,
       "scope": "parity",
@@ -547,12 +444,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42, identical float64 design matrix: fitted n iter ",
+      "description": "large, identical float64 design matrix: fitted n iter ",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "name": "large_seed42/identical/fitted_n_iter_",
+      "name": "large/identical/fitted_n_iter_",
       "passed": true,
       "pearson": null,
       "scope": "parity",
@@ -566,12 +463,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42, identical float64 design matrix: fitted train score ",
+      "description": "large, identical float64 design matrix: fitted train score ",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "name": "large_seed42/identical/fitted_train_score_",
+      "name": "large/identical/fitted_train_score_",
       "passed": true,
       "pearson": 1.0,
       "scope": "parity",
@@ -585,12 +482,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42, identical float64 design matrix: fitted validation score ",
+      "description": "large, identical float64 design matrix: fitted validation score ",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "name": "large_seed42/identical/fitted_validation_score_",
+      "name": "large/identical/fitted_validation_score_",
       "passed": true,
       "pearson": 1.0,
       "scope": "parity",
@@ -604,12 +501,12 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "large_seed42, identical float64 design matrix: predictions",
+      "description": "large, identical float64 design matrix: predictions",
       "detail": "",
       "explanation": "",
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "name": "large_seed42/identical/predictions",
+      "name": "large/identical/predictions",
       "passed": true,
       "pearson": 1.0,
       "scope": "parity",
@@ -619,6 +516,260 @@
       "shape_v2": [
         7328
       ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "large: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "large/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.583807161675281e-07,
+      "max_rel_diff": 0.0037457817349004054,
+      "name": "defaults/features_train",
+      "passed": true,
+      "pearson": 0.9999999999999776,
+      "scope": "parity",
+      "shape_v1": [
+        13046,
+        46
+      ],
+      "shape_v2": [
+        13046,
+        46
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.999767938609125e-07,
+      "max_rel_diff": 0.0037457817349004054,
+      "name": "defaults/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999778,
+      "scope": "parity",
+      "shape_v1": [
+        7328,
+        46
+      ],
+      "shape_v2": [
+        7328,
+        46
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: fitted n iter ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/fitted_n_iter_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: fitted train score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/fitted_train_score_",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        101
+      ],
+      "shape_v2": [
+        101
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: fitted validation score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/fitted_validation_score_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        101
+      ],
+      "shape_v2": [
+        101
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7328
+      ],
+      "shape_v2": [
+        7328
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 design matrix: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 design matrix: fitted n iter ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/fitted_n_iter_",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [
+        1
+      ],
+      "shape_v2": [
+        1
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 design matrix: fitted train score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/fitted_train_score_",
+      "passed": true,
+      "pearson": 0.9999999999999998,
+      "scope": "parity",
+      "shape_v1": [
+        101
+      ],
+      "shape_v2": [
+        101
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 design matrix: fitted validation score ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/fitted_validation_score_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        101
+      ],
+      "shape_v2": [
+        101
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 design matrix: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        7328
+      ],
+      "shape_v2": [
+        7328
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
     }
   ],
   "v1": {
@@ -635,7 +786,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "commit": "7af045e933f8d089b04ce5a1ed6ed2185a90f617",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

@@ -11,7 +11,7 @@ Variants (the ``proteomics_*`` hyperparameters are explicit on both sides unless
 
 ``enet_threshold``
     ``proteomics_n_features=20``, below the number of complete proteins: the ``completeness >= required``
-    branch. ElasticNet (``alpha=0.1``, ``l1_ratio=0.5``, sklearn's solver defaults on the v2 side).
+    branch. ElasticNet (``alpha=0.1``, ``l1_ratio=0.5``; the v2 preset's solver settings are sklearn's defaults).
 ``enet_fallback``
     ``proteomics_n_features=100``, above it: the ``argsort(completeness)[::-1][:n]`` branch, whose result
     depends on how the sort orders ties and so on the numpy version (2.5.4 against 2.4.6 here).
@@ -29,7 +29,7 @@ from dataclasses import replace
 import numpy as np
 
 from tools.v1_parity._bridge import Case
-from tools.v1_parity.compare import DEVIATION, StepSpec
+from tools.v1_parity.compare import DEVIATION, PARITY, StepSpec
 from tools.v1_parity.models._omics_common import build_omics_case, omics_steps, run_omics_v1, run_omics_v2
 
 NAME = "ProteomicsSklearn"
@@ -40,7 +40,6 @@ PROTEOMICS = {
     "proteomics_normalization_width": 0.3,
     "proteomics_normalization_downshift": 1.8,
 }
-SOLVER = {"max_iter": 1000, "tol": 1e-4, "selection": "cyclic"}
 ENET = {"alpha": 0.1, "l1_ratio": 0.5}
 RF = {"n_estimators": 30, "max_samples": 0.5, "max_depth": 6, "n_jobs": 1}
 REFERENCE = {"reference": [("proteomics", None)], "reference_fingerprints": True}
@@ -51,7 +50,7 @@ def _enet(n_features: int) -> dict:
     return {
         "v1": {**V1_VIEWS, **ENET, **PROTEOMICS, "proteomics_n_features": n_features},
         "v2_preset": "normalizedProteomics:fingerprints:elasticNet",
-        "v2": {**ENET, **SOLVER, **PROTEOMICS, "proteomics_n_features": n_features},
+        "v2": {**ENET, **PROTEOMICS, "proteomics_n_features": n_features},
         **REFERENCE,
     }
 
@@ -111,13 +110,14 @@ FINDINGS = [
         "Defaults: `proteomics_feature_threshold=0.7`, `proteomics_n_features=1000`, "
         "`proteomics_normalization_width=0.3`, `proteomics_normalization_downshift=1.8` are the same in 1.6.1 and "
         "v2. 1.6.1 ElasticNet uses sklearn's solver defaults (max_iter=1000, tol=1e-4, cyclic) and the v2 "
-        "predictor pins other values (see the ElasticNet case); the case sets the sklearn values on the v2 side. "
+        "predictor pins the same values (see the ElasticNet case), so the case leaves them at the preset. "
         "The 1.6.1 default RandomForest grid point (n_estimators=100, max_samples=0.2, max_depth=5) equals the "
-        "working-tree v2 `randomForest` defaults."
+        "v2 `randomForest` defaults (the case still sets its own forest size on both sides)."
     ),
     (
-        "`random_state`: 1.6.1 leaves it unset (global numpy stream, seeded with the case seed); v2 takes an "
-        "integer. With the integer equal to that seed the forests are identical."
+        "`random_state`: ElasticNet leaves it unset on both sides (equal, a parity step). For the forests 1.6.1 "
+        "leaves it unset (global numpy stream, seeded with the case seed) while v2 takes an integer (the predictor "
+        "default is 42, the case passes the seed); with the integer equal to that seed the forests are identical."
     ),
 ]
 
@@ -138,14 +138,17 @@ def steps() -> list[StepSpec]:
     """
     enet = {k: v for k, v in VARIANTS.items() if k.startswith("enet")}
     forest = {k: v for k, v in VARIANTS.items() if k.startswith("rf")}
-    note = "1.6.1: unset (global numpy stream seeded with the case seed). v2: the case seed."
+    note = (
+        "1.6.1: unset (global numpy stream seeded with the case seed). v2: an integer, the case seed, which "
+        "starts the identical stream."
+    )
     specs = [
         *omics_steps(
             enet,
             attributes={"coef_": "forward", "intercept_": "forward"},
             predictions="forward",
             features="forward",
-            random_state_note=note,
+            random_state_scope=PARITY,
         ),
         *omics_steps(
             forest,

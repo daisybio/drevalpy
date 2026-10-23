@@ -1,6 +1,6 @@
 {
   "case": {
-    "inputs_sha256": "a9ad39af6f1cf5949d8f4b37b51b1db99350f017a2e4a6655a068d0e7ae09b86",
+    "inputs_sha256": "f29e2c26cef48df0ecbf73a4486352f5223a22ab88f79749df5a964a00d048f4",
     "meta": {
       "gene_list": "pre-selected: all 50 synthetic genes",
       "n_test_pairs": 152,
@@ -24,8 +24,7 @@
           }
         },
         "defaults": {
-          "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state (see the random_state step). The forests are different models.",
-          "scope": "deviation",
+          "np_seed": 42,
           "v1": {
             "criterion": "squared_error",
             "max_depth": 5,
@@ -62,7 +61,7 @@
       "declared": "exact",
       "description": "aligned: random_state of the estimator",
       "detail": "non-numeric arrays differ: 1.6.1='None' v2='0'",
-      "explanation": "1.6.1: unset (global numpy stream, seeded with the case seed). v2: an integer; the case passes the case seed, which starts the identical stream. The preset's own value is recorded in the `defaults` variant.",
+      "explanation": "1.6.1: unset (global numpy stream, seeded with the case seed or, in `defaults`, with 42). v2: an integer, the case seed in the explicit variants and the preset's own 42 in `defaults`; either starts the identical stream.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "aligned/random_state",
@@ -77,7 +76,7 @@
       "declared": "exact",
       "description": "unbounded: random_state of the estimator",
       "detail": "non-numeric arrays differ: 1.6.1='None' v2='0'",
-      "explanation": "1.6.1: unset (global numpy stream, seeded with the case seed). v2: an integer; the case passes the case seed, which starts the identical stream. The preset's own value is recorded in the `defaults` variant.",
+      "explanation": "1.6.1: unset (global numpy stream, seeded with the case seed or, in `defaults`, with 42). v2: an integer, the case seed in the explicit variants and the preset's own 42 in `defaults`; either starts the identical stream.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "unbounded/random_state",
@@ -88,44 +87,25 @@
       "shape_v2": []
     },
     {
-      "achieved": "exact",
+      "achieved": null,
       "declared": "exact",
-      "description": "defaults: params",
-      "detail": "",
-      "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state (see the random_state step). The forests are different models.",
+      "description": "defaults: random_state of the estimator",
+      "detail": "non-numeric arrays differ: 1.6.1='None' v2='42'",
+      "explanation": "1.6.1: unset (global numpy stream, seeded with the case seed or, in `defaults`, with 42). v2: an integer, the case seed in the explicit variants and the preset's own 42 in `defaults`; either starts the identical stream.",
       "max_abs_diff": null,
       "max_rel_diff": null,
-      "name": "defaults/params",
-      "passed": true,
+      "name": "defaults/random_state",
+      "passed": false,
       "pearson": null,
       "scope": "deviation",
       "shape_v1": [],
       "shape_v2": []
-    },
-    {
-      "achieved": "statistical",
-      "declared": "statistical",
-      "description": "defaults: predictions",
-      "detail": "",
-      "explanation": "Hyperparameter defaults differ: 1.6.1 first grid point is n_estimators=100, max_samples=0.2, max_depth=5 (grid 5/10/30), n_jobs=-1, random_state unset; the v2 preset has max_depth=15 and a pinned random_state (see the random_state step). The forests are different models.",
-      "max_abs_diff": 0.3264488694889345,
-      "max_rel_diff": 0.3033382035487601,
-      "name": "defaults/predictions",
-      "passed": true,
-      "pearson": 0.9959033496575924,
-      "scope": "deviation",
-      "shape_v1": [
-        152
-      ],
-      "shape_v2": [
-        152
-      ]
     }
   ],
   "findings": [
-    "1.6.1 `RandomForest` passes n_estimators, criterion, max_samples, max_depth and n_jobs only; `random_state` is unset (global numpy stream). The v2 `randomForest` predictor pins `random_state` (an integer; `None` before the working-tree change that sets 42). With `random_state` equal to the integer the global numpy stream is seeded with, the forests are identical.",
-    "Default hyperparameters: 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5, criterion=squared_error, n_jobs=-1 (grid max_depth 5/10/30); v2 declares n_estimators=100, max_samples=0.2, max_depth=15 (space 5..25), criterion=squared_error, n_jobs=-1. Only max_depth differs. B5 should decide whether to match 5.",
-    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without `gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5.",
+    "1.6.1 `RandomForest` passes n_estimators, criterion, max_samples, max_depth and n_jobs only; `random_state` is unset (global numpy stream). The v2 `randomForest` predictor pins `random_state=42` (`non_tunable_hyperparameters`; v2 fits are reproducible, 1.6.1 fits only through the global stream). With `random_state` equal to the integer the global numpy stream is seeded with, the forests are identical, also with `n_jobs=-1`.",
+    "Default hyperparameters agree: 1.6.1 first grid point n_estimators=100, max_samples=0.2, max_depth=5, criterion=squared_error, n_jobs=-1 (grid max_depth 5/10/30); v2 declares n_estimators=100, max_samples=0.2, max_depth=5 (space 5..30), criterion=squared_error, n_jobs=-1. Only `random_state` differs (unset vs 42). The `defaults` variant runs the unmodified preset against 1.6.1 with its global stream seeded with 42.",
+    "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing gene raises); the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the selection itself is not compared here.",
     "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64. The forests nevertheless have the same structure, because sklearn casts the training matrix to float32 itself and the split order of random data does not change under a 1-ulp perturbation."
   ],
   "generated": "2026-10-23",
@@ -427,6 +407,154 @@
       "shape_v2": [
         152
       ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults: features train",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "defaults/features_train",
+      "passed": true,
+      "pearson": 0.999999999999978,
+      "scope": "parity",
+      "shape_v1": [
+        257,
+        82
+      ],
+      "shape_v2": [
+        257,
+        82
+      ]
+    },
+    {
+      "achieved": "forward",
+      "declared": "forward",
+      "description": "defaults: features test",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 7.70378640657654e-07,
+      "max_rel_diff": 0.0006104588116250402,
+      "name": "defaults/features_test",
+      "passed": true,
+      "pearson": 0.9999999999999785,
+      "scope": "parity",
+      "shape_v1": [
+        152,
+        82
+      ],
+      "shape_v2": [
+        152,
+        82
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        82
+      ],
+      "shape_v2": [
+        82
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.661338147750939e-16,
+      "max_rel_diff": 4.485689085189568e-16,
+      "name": "defaults/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 design matrix: params",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "defaults/identical/params",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 design matrix: fitted feature importances ",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "name": "defaults/identical/fitted_feature_importances_",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        82
+      ],
+      "shape_v2": [
+        82
+      ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "defaults, identical float64 design matrix: predictions",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": 6.661338147750939e-16,
+      "max_rel_diff": 4.226718761590316e-16,
+      "name": "defaults/identical/predictions",
+      "passed": true,
+      "pearson": 1.0,
+      "scope": "parity",
+      "shape_v1": [
+        152
+      ],
+      "shape_v2": [
+        152
+      ]
     }
   ],
   "v1": {
@@ -443,7 +571,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "35594e290fb0f5ee78b3ac3019c4404e5b33a3e8",
+    "commit": "7af045e933f8d089b04ce5a1ed6ed2185a90f617",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

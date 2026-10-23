@@ -151,5 +151,5 @@ def run_v2(case: Case) -> dict[str, np.ndarray]: ...   # runs in the v2 venv
 ## Examples
 
 `models/elastic_net.py` is the worked example: 1.6.1 `ElasticNet` (`Ridge` for the first grid
-point, `l1_ratio=0`) against the v2 `ElasticNet` zoo preset, compared at the estimator-input level,
-with aligned and preset solver settings. Its evidence is `evidence/ElasticNet.json`.
+point, `l1_ratio=0`) against the unmodified v2 `ElasticNet` zoo preset, compared at the estimator-input
+level. Its evidence is `evidence/ElasticNet.json`.

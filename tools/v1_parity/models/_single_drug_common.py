@@ -15,8 +15,8 @@ case seed) and optionally:
     ``"deviation"`` variants record ``features_train`` and ``predictions`` with their measured size.
 ``np_seed``
     Value of the global numpy seed set right before the training of each drug in 1.6.1 (default: the
-    case seed). v2 gets the same integer as ``random_state``, which starts the identical stream for
-    every drug.
+    case seed). v2 gets the same integer as ``random_state`` (set in the variant, or the preset's own),
+    which starts the identical stream for every drug.
 
 Every parity variant also fits both estimators of the first drug on the same float64 matrix
 (``identical/*``), which separates the algorithm from the float32 features of v2.
@@ -86,14 +86,17 @@ def single_drug_steps(
     *,
     attributes: dict[str, str],
     predictions: str,
-    random_state_note: str,
+    random_state_note: str = "",
+    random_state_scope: str = DEVIATION,
 ) -> list[StepSpec]:
     """Declare the compared outputs of every variant and drug.
 
     :param variants: Variant settings.
     :param attributes: Fitted attributes to compare for parity variants, with their tolerance class.
     :param predictions: Tolerance class of the end-to-end predictions of parity variants.
-    :param random_state_note: Explanation attached to the ``random_state`` step.
+    :param random_state_note: Explanation attached to the ``random_state`` step when it is a deviation.
+    :param random_state_scope: Scope of the ``random_state`` step: ``parity`` when both sides carry the same value,
+        ``deviation`` when they differ (1.6.1 leaves it unset and draws from the global numpy stream).
     :returns: The steps.
     """
     specs: list[StepSpec] = []
@@ -132,9 +135,9 @@ def single_drug_steps(
             StepSpec(
                 name=f"{variant}/{DRUGS[0]}/random_state",
                 tolerance="exact",
-                scope=DEVIATION,
+                scope=random_state_scope,
                 description=f"{variant}: random_state of the estimator",
-                explanation=random_state_note,
+                explanation=random_state_note if random_state_scope == DEVIATION else "",
             )
         )
     return specs

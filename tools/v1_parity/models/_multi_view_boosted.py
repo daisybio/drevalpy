@@ -11,8 +11,9 @@ Variants (``kind`` selects the library-specific hyperparameters):
     The two 1.6.1 default ``view_configs``: expression (landmark_genes) with and without mutations
     (drug_target_genes_all_drugs), explicit non-default hyperparameters. Parity.
 ``preset``
-    The 1.6.1 first grid point of ``hyperparameters.yaml`` against the unmodified v2 preset. Parity when the
-    working-tree preset equals that grid point.
+    The 1.6.1 first grid point of ``hyperparameters.yaml`` against the unmodified v2 preset, whose defaults equal
+    that grid point. Parity, unless the library draws row or column samples differently on the two sides
+    (``sampling_explanation``).
 ``four_views``
     The 1.6.1 class default views (expression landmark_genes, methylation, mutations, CNV) against v2 with
     ``pca[methylation]``. Deviation: 1.6.1 scales the methylation columns before the PCA, v2 has no such step.

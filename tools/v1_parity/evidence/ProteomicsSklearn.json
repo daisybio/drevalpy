@@ -1,6 +1,6 @@
 {
   "case": {
-    "inputs_sha256": "cfa9819cdaad86024d0bc65fb43e89861f3e9737b9849b6c540105232ff56ad5",
+    "inputs_sha256": "9cff8fd354e0249f164c605ca111920c6faa5761adc30bdc7ac271437add536a",
     "meta": {
       "gene_lists": "shipped v2 lists written to the 1.6.1 loader's meta/gene_lists (1.6.1's CSVs are not offline)",
       "n_test_pairs": 98,
@@ -27,13 +27,10 @@
           "v2": {
             "alpha": 0.1,
             "l1_ratio": 0.5,
-            "max_iter": 1000,
             "proteomics_feature_threshold": 0.7,
             "proteomics_n_features": 100,
             "proteomics_normalization_downshift": 1.8,
-            "proteomics_normalization_width": 0.3,
-            "selection": "cyclic",
-            "tol": 0.0001
+            "proteomics_normalization_width": 0.3
           },
           "v2_preset": "normalizedProteomics:fingerprints:elasticNet"
         },
@@ -58,13 +55,10 @@
           "v2": {
             "alpha": 0.1,
             "l1_ratio": 0.5,
-            "max_iter": 1000,
             "proteomics_feature_threshold": 0.7,
             "proteomics_n_features": 20,
             "proteomics_normalization_downshift": 1.8,
-            "proteomics_normalization_width": 0.3,
-            "selection": "cyclic",
-            "tol": 0.0001
+            "proteomics_normalization_width": 0.3
           },
           "v2_preset": "normalizedProteomics:fingerprints:elasticNet"
         },
@@ -160,36 +154,6 @@
   },
   "deviations": [
     {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "enet_threshold: random_state of the estimator",
-      "detail": "",
-      "explanation": "1.6.1: unset (global numpy stream seeded with the case seed). v2: the case seed.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "enet_threshold/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "enet_fallback: random_state of the estimator",
-      "detail": "",
-      "explanation": "1.6.1: unset (global numpy stream seeded with the case seed). v2: the case seed.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "enet_fallback/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
       "achieved": "statistical",
       "declared": "forward",
       "description": "rf_threshold: fitted feature importances ",
@@ -232,7 +196,7 @@
       "declared": "exact",
       "description": "rf_threshold: random_state of the estimator",
       "detail": "non-numeric arrays differ: 1.6.1='None' v2='0'",
-      "explanation": "1.6.1: unset (global numpy stream seeded with the case seed). v2: the case seed.",
+      "explanation": "1.6.1: unset (global numpy stream seeded with the case seed). v2: an integer, the case seed, which starts the identical stream.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "rf_threshold/random_state",
@@ -247,7 +211,7 @@
       "declared": "exact",
       "description": "rf_defaults: random_state of the estimator",
       "detail": "non-numeric arrays differ: 1.6.1='None' v2='0'",
-      "explanation": "1.6.1: unset (global numpy stream seeded with the case seed). v2: the case seed.",
+      "explanation": "1.6.1: unset (global numpy stream seeded with the case seed). v2: an integer, the case seed, which starts the identical stream.",
       "max_abs_diff": null,
       "max_rel_diff": null,
       "name": "rf_defaults/random_state",
@@ -263,8 +227,8 @@
     "The transformer is the same code on both sides: protein selection, the median-centring factor and the seeded imputation agree. v2 computes `log10` and the centring in float32 (the view is float32), 1.6.1 in float64, so the design matrices agree to the forward class, not bitwise.",
     "Deviation (`rf_threshold`, float32 features): the proteomics design matrices differ by up to 1.3e-6 absolute (2.4e-7 relative; the v2 featurizer log10-transforms, centres and imputes in float32), which is enough to flip a few split decisions in the forest: predictions differ by up to 0.05 (Pearson 0.99988) and the importances by 1e-3, so the declared `forward` class fails (achieved: statistical). The estimator is not the cause: refitted on one float64 matrix (`identical/*`) both forests are bitwise equal, and `rf_defaults` (all proteins kept) and both ElasticNet variants agree at the forward class or better. The declared class is kept; the two steps are recorded as a deviation, because float32 views are a documented v2 difference.",
     "`ProteomicsMedianCenterAndImputeTransformer.fit` breaks completeness ties with `np.argsort(...)[::-1]` (unstable sort, `n_features` above the number of complete proteins). `enet_fallback` and `rf_defaults` exercise it with numpy 2.5.4 (1.6.1) against 2.4.6 (v2): the selected proteins and their order are compared through the design matrices.",
-    "Defaults: `proteomics_feature_threshold=0.7`, `proteomics_n_features=1000`, `proteomics_normalization_width=0.3`, `proteomics_normalization_downshift=1.8` are the same in 1.6.1 and v2. 1.6.1 ElasticNet uses sklearn's solver defaults (max_iter=1000, tol=1e-4, cyclic) and the v2 predictor pins other values (see the ElasticNet case); the case sets the sklearn values on the v2 side. The 1.6.1 default RandomForest grid point (n_estimators=100, max_samples=0.2, max_depth=5) equals the working-tree v2 `randomForest` defaults.",
-    "`random_state`: 1.6.1 leaves it unset (global numpy stream, seeded with the case seed); v2 takes an integer. With the integer equal to that seed the forests are identical."
+    "Defaults: `proteomics_feature_threshold=0.7`, `proteomics_n_features=1000`, `proteomics_normalization_width=0.3`, `proteomics_normalization_downshift=1.8` are the same in 1.6.1 and v2. 1.6.1 ElasticNet uses sklearn's solver defaults (max_iter=1000, tol=1e-4, cyclic) and the v2 predictor pins the same values (see the ElasticNet case), so the case leaves them at the preset. The 1.6.1 default RandomForest grid point (n_estimators=100, max_samples=0.2, max_depth=5) equals the v2 `randomForest` defaults (the case still sets its own forest size on both sides).",
+    "`random_state`: ElasticNet leaves it unset on both sides (equal, a parity step). For the forests 1.6.1 leaves it unset (global numpy stream, seeded with the case seed) while v2 takes an integer (the predictor default is 42, the case passes the seed); with the integer equal to that seed the forests are identical."
   ],
   "generated": "2026-10-23",
   "model": "ProteomicsSklearn",
@@ -457,6 +421,21 @@
       ]
     },
     {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "enet_threshold: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "enet_threshold/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
       "achieved": "forward",
       "declared": "forward",
       "description": "enet_fallback: features train",
@@ -641,6 +620,21 @@
       "shape_v2": [
         98
       ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "enet_fallback: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "enet_fallback/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
     },
     {
       "achieved": "forward",
@@ -915,7 +909,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
+    "commit": "dc24cd9cf06ada2f7cc16cf7e8f01167888b6c51",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

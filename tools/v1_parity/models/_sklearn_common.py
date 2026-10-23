@@ -95,6 +95,7 @@ def sklearn_steps(
     features: str = "forward",
     params: str = "exact",
     random_state: bool = True,
+    random_state_scope: str = DEVIATION,
     random_state_note: str = "",
     identical: tuple[str, ...] | None = None,
 ) -> list[StepSpec]:
@@ -106,7 +107,9 @@ def sklearn_steps(
     :param features: Tolerance class of the design matrices.
     :param params: Tolerance class of the effective parameters (non-numeric: equal or not).
     :param random_state: Whether the estimator has a ``random_state`` to record as a deviation step.
-    :param random_state_note: Explanation attached to the ``random_state`` step.
+    :param random_state_scope: Scope of the ``random_state`` step: ``parity`` when both sides carry the same value,
+        ``deviation`` when they differ (1.6.1 leaves it unset and draws from the global numpy stream).
+    :param random_state_note: Explanation attached to the ``random_state`` step when it is a deviation.
     :param identical: Fitted attributes compared (exact) in the ``identical`` run; defaults to the keys of
         *attributes*.
     :returns: The steps.
@@ -153,9 +156,9 @@ def sklearn_steps(
                     name=f"{variant}/random_state",
                     tolerance="exact",
                     v1_key=f"{v1_variant}/random_state",
-                    scope=DEVIATION,
+                    scope=random_state_scope,
                     description=f"{variant}: random_state of the estimator",
-                    explanation=random_state_note,
+                    explanation=random_state_note if random_state_scope == DEVIATION else "",
                 )
             )
     return specs

@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 
 from tools.v1_parity._bridge import Case
-from tools.v1_parity.compare import StepSpec
+from tools.v1_parity.compare import PARITY, StepSpec
 from tools.v1_parity.models._multi_view_boosted import boosted_variants
 from tools.v1_parity.models._omics_common import build_omics_case, omics_steps, run_omics_v1, run_omics_v2
 
@@ -40,9 +40,9 @@ FINDINGS = [
         "max_depth=6, num_leaves=63, subsample=0.8, colsample_bytree=0.8, reg_alpha=0, reg_lambda=0, "
         "random_state=42, n_jobs=-1. The first grid point of hyperparameters.yaml (what a run uses) is "
         "num_leaves=31, subsample=0.8, colsample_bytree=0.6, reg_alpha=0, reg_lambda=0 (max_depth is not in the "
-        "grid, so 6), on the view_configs expression+mutations. The working-tree v2 `lightgbm` predictor "
+        "grid, so 6), on the view_configs expression+mutations. The v2 `lightgbm` predictor "
         "defaults and the `MultiViewLightGBM` preset equal that grid point (`preset` variant: identical "
-        "effective parameters, exact predictions)."
+        "effective parameters, exact predictions). Both sides pin random_state=42 (a parity step)."
     ),
     (
         "`subsample` has no effect in LightGBM unless `subsample_freq` > 0, and neither side sets it, so "
@@ -72,7 +72,7 @@ def steps() -> list[StepSpec]:
         attributes={"feature_importances_": "forward"},
         predictions="forward",
         features="forward",
-        random_state_note="Both sides pin random_state=42.",
+        random_state_scope=PARITY,
     )
 
 

@@ -1,20 +1,18 @@
 """ElasticNet parity case: 1.6.1 ``ElasticNet`` against the v2 ``ElasticNet`` zoo preset.
 
-The estimator input is compared, not the gene selection: 1.6.1 selects ``landmark_genes`` while
-loading the CSVs and v2's ``scaledGeneExpression`` preset consumes the whole view (see
-``FINDINGS``), so both sides receive the same, already selected, gene matrix.
+The estimator input is compared, not the gene selection: both sides select ``landmark_genes`` from the full
+view, but the synthetic gene names are in no shipped list, so both sides receive the same, already selected,
+gene matrix (``synthetic_gene_spec`` drops the preset's list).
 
 Variants (``ridge`` is the first set of the 1.6.1 ``hyperparameters.yaml`` grid, ``l1_ratio=0``,
 ``alpha=1``, which 1.6.1 builds as ``Ridge``):
 
 ``ridge``
-    1.6.1 ``Ridge(alpha=1)`` against v2 ``elasticNet`` with ``l1_ratio=0`` (also ``Ridge``).
+    1.6.1 ``Ridge(alpha=1)`` against the v2 preset with no hyperparameter set (its defaults ``alpha=1``,
+    ``l1_ratio=0`` build ``Ridge`` too).
 ``enet``
-    1.6.1 ``ElasticNet(alpha=0.1, l1_ratio=0.5)`` (sklearn solver defaults) against v2 with its
-    solver settings overridden to those defaults.
-``enet_preset``
-    The same 1.6.1 run against v2 with the preset's own solver settings (``tol=1e-2``, random
-    coordinate order). Recorded as a deviation.
+    1.6.1 ``ElasticNet(alpha=0.1, l1_ratio=0.5)`` (sklearn solver defaults) against the v2 preset with only
+    ``alpha`` and ``l1_ratio`` set: the preset's solver settings are sklearn's defaults as well.
 
 v2 holds features as float32 end to end while 1.6.1 computes in float64, so no class stricter
 than ``forward`` holds for the features, and ``Ridge`` (solved in float32 by v2) needs ``train``.
@@ -28,36 +26,32 @@ from typing import Any
 import numpy as np
 
 from tools.v1_parity._bridge import Case, record_calls, tabular_case_arrays
-from tools.v1_parity.compare import DEVIATION, PARITY, StepSpec
+from tools.v1_parity.compare import PARITY, StepSpec
 
 NAME = "ElasticNet"
 
-#: sklearn's own defaults, which 1.6.1 relies on (it passes only alpha and l1_ratio).
-SKLEARN_SOLVER = {"max_iter": 1000, "tol": 1e-4, "selection": "cyclic"}
-
 VARIANTS: dict[str, dict[str, Any]] = {
-    "ridge": {"l1_ratio": 0.0, "alpha": 1.0, "v2_extra": {}},
-    "enet": {"l1_ratio": 0.5, "alpha": 0.1, "v2_extra": SKLEARN_SOLVER},
-    "enet_preset": {"l1_ratio": 0.5, "alpha": 0.1, "v2_extra": {}, "v1_variant": "enet"},
+    "ridge": {"l1_ratio": 0.0, "alpha": 1.0, "v2": {}},
+    "enet": {"l1_ratio": 0.5, "alpha": 0.1, "v2": {"alpha": 0.1, "l1_ratio": 0.5}},
 }
 
 FINDINGS = [
     "1.6.1 selects the `landmark_genes` list while loading (hyperparameter `gene_list`; a missing gene "
-    "raises). The v2 `ElasticNet` preset uses `scaledGeneExpression`, which has no gene-list option and "
-    "scales the whole view, so the preset trains on every gene of the dataset. Compared at the "
-    "estimator-input level on a pre-selected matrix. To be fixed by packages A1/B5.",
+    "raises); the v2 `ElasticNet` preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. "
+    "The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the selection "
+    "itself is not compared here.",
     "v2 holds features as float32 end to end (`DenseViewFeaturizer` casts to float32, so the estimator "
     "receives a float32 matrix); 1.6.1 computes in float64. Features therefore agree to ~1e-7 relative "
     "(class forward), not exactly. Ridge solves in float32 in v2: refitting sklearn Ridge on the same "
     "matrix in float32 vs float64 differs by 2.4e-5 absolute (predictions ~7), which is the whole Ridge "
     "difference (class train).",
-    "1.6.1 builds `sklearn.ElasticNet(alpha, l1_ratio)` with sklearn's solver defaults "
-    "(max_iter=1000, tol=1e-4, cyclic); v2 pins max_iter=2000, tol=1e-2, selection='random', "
-    "random_state=0. All are overridable in v2, and with the sklearn values the coefficients agree to "
-    "6e-8 (class forward). With the preset values they only agree statistically (deviation steps).",
-    "The first 1.6.1 hyperparameter set (l1_ratio=0, alpha=1) is `Ridge`; v2 also maps l1_ratio=0 to "
-    "`Ridge`, so both estimator types agree.",
-    "v2 changed the default alpha to 0.1 (the 1.6.1 grid starts at 1); the case sets alpha explicitly on both sides.",
+    "1.6.1 builds `sklearn.ElasticNet(alpha, l1_ratio)` with sklearn's solver defaults (max_iter=1000, "
+    "tol=1e-4, cyclic, random_state unset). The v2 `elasticNet` predictor pins exactly these values "
+    "(`non_tunable_hyperparameters`), so the effective parameters are equal and the coefficients agree to "
+    "6e-8 (class forward) without any override.",
+    "The first 1.6.1 hyperparameter set (l1_ratio=0, alpha=1) is `Ridge`; the v2 defaults are the same "
+    "(alpha=1, l1_ratio=0) and build `Ridge(alpha)` without solver settings, as 1.6.1 does. The `ridge` variant "
+    "runs the unmodified v2 preset.",
 ]
 
 
@@ -75,53 +69,41 @@ def build_case(seed: int) -> Case:
 def steps() -> list[StepSpec]:
     """Declare the compared outputs.
 
-    :returns: Parity steps for ``ridge`` and ``enet``, deviation steps for ``enet_preset``.
+    :returns: Parity steps for ``ridge`` and ``enet``.
     """
-    solver = "v2 preset solver: tol=1e-2, random coordinate order; 1.6.1 uses sklearn's defaults."
-    ridge_params = (
-        "v2 passes max_iter=2000, tol=1e-2 to Ridge; both are inert for the dense 'auto' (cholesky) "
-        "solver 1.6.1 also uses, which the matching predictions confirm."
-    )
-    table: list[tuple[str, str, str, str, str]] = [
-        # variant, quantity, tolerance, scope, explanation
-        ("ridge", "features_train", "forward", PARITY, ""),
-        ("ridge", "features_test", "forward", PARITY, ""),
-        ("ridge", "params", "exact", DEVIATION, ridge_params),
-        ("ridge", "intercept", "forward", PARITY, ""),
-        ("ridge", "predictions", "train", PARITY, ""),
-        ("enet", "features_train", "forward", PARITY, ""),
-        ("enet", "features_test", "forward", PARITY, ""),
-        ("enet", "params", "exact", PARITY, ""),
-        ("enet", "coef", "forward", PARITY, ""),
-        ("enet", "intercept", "forward", PARITY, ""),
-        ("enet", "predictions", "forward", PARITY, ""),
-        ("enet_preset", "params", "exact", DEVIATION, solver),
-        ("enet_preset", "coef", "statistical", DEVIATION, solver),
-        ("enet_preset", "predictions", "statistical", DEVIATION, solver),
+    table: list[tuple[str, str, str]] = [
+        # variant, quantity, tolerance
+        ("ridge", "features_train", "forward"),
+        ("ridge", "features_test", "forward"),
+        ("ridge", "params", "exact"),
+        ("ridge", "intercept", "forward"),
+        ("ridge", "predictions", "train"),
+        ("enet", "features_train", "forward"),
+        ("enet", "features_test", "forward"),
+        ("enet", "params", "exact"),
+        ("enet", "coef", "forward"),
+        ("enet", "intercept", "forward"),
+        ("enet", "predictions", "forward"),
     ]
     return [
         StepSpec(
             name=f"{variant}/{quantity}",
             tolerance=tolerance,
-            v1_key=f"{VARIANTS[variant].get('v1_variant', variant)}/{quantity}",
-            scope=scope,
+            v1_key=f"{variant}/{quantity}",
+            scope=PARITY,
             description=f"{variant}: {quantity.replace('_', ' ')}",
-            explanation=explanation,
         )
-        for variant, quantity, tolerance, scope, explanation in table
+        for variant, quantity, tolerance in table
     ]
 
 
 def _effective_params(estimator: Any) -> np.ndarray:
-    """Serialize the estimator type and parameters that influence the fit.
-
-    ``random_state`` is dropped: it is inert for cyclic coordinate descent and for the dense
-    ``Ridge`` solver, and 1.6.1 leaves it unset.
+    """Serialize the estimator type and all its parameters, ``random_state`` included.
 
     :param estimator: Fitted sklearn estimator.
     :returns: One-element unicode array holding canonical JSON.
     """
-    params = {k: v for k, v in estimator.get_params().items() if k != "random_state"}
+    params = estimator.get_params()
     return np.array(json.dumps({"type": type(estimator).__name__, **params}, sort_keys=True, default=str))
 
 
@@ -147,8 +129,6 @@ def run_v1(case: Case) -> dict[str, np.ndarray]:
 
     out: dict[str, np.ndarray] = {}
     for variant, setting in case.meta["variants"].items():
-        if "v1_variant" in setting:
-            continue
         data = tabular_inputs(case)
         model = ElasticNetModel()
         model.build_model(_v1_hyperparameters(setting))
@@ -182,12 +162,7 @@ def run_v2(case: Case) -> dict[str, np.ndarray]:
     data = tabular_inputs(case)
     out: dict[str, np.ndarray] = {}
     for variant, setting in case.meta["variants"].items():
-        hyperparameters = {
-            "alpha": setting["alpha"],
-            "l1_ratio": setting["l1_ratio"],
-            **setting["v2_extra"],
-        }
-        model = DRPModel(synthetic_gene_spec(NAME), hyperparameters)
+        model = DRPModel(synthetic_gene_spec(NAME), dict(setting["v2"]))
         sink: dict[str, Any] = {}
         with capture_matrix_predictor(sink):
             model.train(data.dataset, data.train)

@@ -240,51 +240,6 @@
     {
       "achieved": "exact",
       "declared": "exact",
-      "description": "expr_mut: random_state of the estimator",
-      "detail": "",
-      "explanation": "Both sides pin random_state=42.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "expr_mut/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "expr: random_state of the estimator",
-      "detail": "",
-      "explanation": "Both sides pin random_state=42.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "expr/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
-      "description": "preset: random_state of the estimator",
-      "detail": "",
-      "explanation": "Both sides pin random_state=42.",
-      "max_abs_diff": null,
-      "max_rel_diff": null,
-      "name": "preset/random_state",
-      "passed": true,
-      "pearson": null,
-      "scope": "deviation",
-      "shape_v1": [],
-      "shape_v2": []
-    },
-    {
-      "achieved": "exact",
-      "declared": "exact",
       "description": "four_views: params",
       "detail": "",
       "explanation": "1.6.1 standardizes every methylation column and then fits the PCA on the unique training samples; the v2 `pca` featurizer has no scaler in front of it, so the components (and the trees grown on them) differ.",
@@ -334,7 +289,7 @@
   ],
   "findings": [
     "Gene selection and scaling: the 1.6.1 CSV loader with `view_configs` and the v2 `scaledGeneExpression` / `raw[mutations]` `gene_list` options select the same columns in the same order; the standardized expression agrees to the forward class (v2 scales in float32, 1.6.1 in float64). The 1.6.1 class default `view_configs` second entry (expression only) is the `expr` variant. The 1.6.1 methylation preprocessing (StandardScaler + PCA) has no v2 equivalent: `four_views` deviates.",
-    "Default hyperparameters (B5): the 1.6.1 class defaults are n_estimators=100, learning_rate=0.1, max_depth=6, num_leaves=63, subsample=0.8, colsample_bytree=0.8, reg_alpha=0, reg_lambda=0, random_state=42, n_jobs=-1. The first grid point of hyperparameters.yaml (what a run uses) is num_leaves=31, subsample=0.8, colsample_bytree=0.6, reg_alpha=0, reg_lambda=0 (max_depth is not in the grid, so 6), on the view_configs expression+mutations. The working-tree v2 `lightgbm` predictor defaults and the `MultiViewLightGBM` preset equal that grid point (`preset` variant: identical effective parameters, exact predictions).",
+    "Default hyperparameters (B5): the 1.6.1 class defaults are n_estimators=100, learning_rate=0.1, max_depth=6, num_leaves=63, subsample=0.8, colsample_bytree=0.8, reg_alpha=0, reg_lambda=0, random_state=42, n_jobs=-1. The first grid point of hyperparameters.yaml (what a run uses) is num_leaves=31, subsample=0.8, colsample_bytree=0.6, reg_alpha=0, reg_lambda=0 (max_depth is not in the grid, so 6), on the view_configs expression+mutations. The v2 `lightgbm` predictor defaults and the `MultiViewLightGBM` preset equal that grid point (`preset` variant: identical effective parameters, exact predictions). Both sides pin random_state=42 (a parity step).",
     "`subsample` has no effect in LightGBM unless `subsample_freq` > 0, and neither side sets it, so bagging is never active on either side (the case sets subsample=0.7 and the effective parameters show subsample_freq=0 on both). `colsample_bytree` (feature_fraction) is active and gives identical trees. With the same lightgbm version (4.7.0) on both sides the predictions are exact."
   ],
   "generated": "2026-10-23",
@@ -490,6 +445,21 @@
       ]
     },
     {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "expr_mut: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "expr_mut/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
       "achieved": "forward",
       "declared": "forward",
       "description": "expr: features train",
@@ -638,6 +608,21 @@
       ]
     },
     {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "expr: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "expr/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
+    },
+    {
       "achieved": "forward",
       "declared": "forward",
       "description": "preset: features train",
@@ -784,6 +769,21 @@
       "shape_v2": [
         98
       ]
+    },
+    {
+      "achieved": "exact",
+      "declared": "exact",
+      "description": "preset: random_state of the estimator",
+      "detail": "",
+      "explanation": "",
+      "max_abs_diff": null,
+      "max_rel_diff": null,
+      "name": "preset/random_state",
+      "passed": true,
+      "pearson": null,
+      "scope": "parity",
+      "shape_v1": [],
+      "shape_v2": []
     }
   ],
   "v1": {
@@ -800,7 +800,7 @@
     "xgboost": "3.4.1"
   },
   "v2": {
-    "commit": "a5a0bc11bf076f9531e2be0990953dbe7462a17c",
+    "commit": "dc24cd9cf06ada2f7cc16cf7e8f01167888b6c51",
     "dirty": false,
     "drevalpy": "2.0.0",
     "lightgbm": "4.7.0",

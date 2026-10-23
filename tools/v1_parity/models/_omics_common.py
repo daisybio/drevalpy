@@ -156,6 +156,7 @@ def omics_steps(
     predictions: str,
     features: str,
     random_state_note: str = "",
+    random_state_scope: str = DEVIATION,
     params: str = "exact",
     identical_attributes: str = "exact",
 ) -> list[StepSpec]:
@@ -165,7 +166,9 @@ def omics_steps(
     :param attributes: Fitted attributes of parity variants with their tolerance class.
     :param predictions: Tolerance class of the predictions of parity variants.
     :param features: Tolerance class of the design matrices of parity variants.
-    :param random_state_note: Explanation attached to the ``random_state`` step.
+    :param random_state_note: Explanation attached to the ``random_state`` step when it is a deviation.
+    :param random_state_scope: Scope of the ``random_state`` step: ``parity`` when both sides carry the same value,
+        ``deviation`` when they differ (1.6.1 leaves it unset and draws from the global numpy stream).
     :param params: Tolerance class of the effective parameters.
     :param identical_attributes: Tolerance class of the fitted attributes in the ``identical`` run.
     :returns: The steps.
@@ -177,6 +180,7 @@ def omics_steps(
         features=features,
         params=params,
         random_state_note=random_state_note,
+        random_state_scope=random_state_scope,
     )
     only = {name for name, setting in variants.items() if setting.get("features_only")}
 

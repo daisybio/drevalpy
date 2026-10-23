@@ -10,7 +10,7 @@ Variants (both sides set ``kernel``, ``C``, ``epsilon`` and ``max_iter`` explici
     ``max_iter=500``, the 1.6.1 grid value: libsvm may stop before convergence.
 ``defaults``
     The 1.6.1 first grid point (``C=0.001``, ``epsilon=0.001``, ``max_iter=500``) against the unmodified v2
-    preset (``C=1``, ``epsilon=0.1``, ``max_iter=-1``). Recorded as a deviation.
+    preset, which has the same values (``max_iter=500`` is a non-tunable value of the predictor).
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from dataclasses import replace
 import numpy as np
 
 from tools.v1_parity._bridge import Case
-from tools.v1_parity.compare import DEVIATION, StepSpec
+from tools.v1_parity.compare import StepSpec
 from tools.v1_parity.models._sklearn_common import (
     build_sklearn_case,
     run_sklearn_v1,
@@ -44,43 +44,36 @@ VARIANTS: dict[str, dict] = {
         "v1": {"kernel": "rbf", "C": 10.0, "epsilon": 0.01, "max_iter": 500},
         "v2": {"kernel": "rbf", "C": 10.0, "epsilon": 0.01, "max_iter": 500},
     },
-    "defaults": {
-        "v1": {"kernel": "rbf", "C": 0.001, "epsilon": 0.001, "max_iter": 500},
-        "v2": {},
-        "scope": DEVIATION,
-        "explanation": (
-            "Hyperparameter defaults differ: 1.6.1 first grid point is C=0.001, epsilon=0.001, "
-            "max_iter=500; the v2 preset declares C=1.0, epsilon=0.1 and max_iter=-1 (no iteration cap, "
-            "not tunable)."
-        ),
-    },
+    "defaults": {"v1": {"kernel": "rbf", "C": 0.001, "epsilon": 0.001, "max_iter": 500}, "v2": {}},
 }
 
 FINDINGS = [
     (
-        "Default hyperparameters: 1.6.1 first grid point kernel=rbf, C=0.001, epsilon=0.001, max_iter=500 (grid "
-        "C 0.001..100, epsilon 0.001..1); v2 declares kernel=rbf, C=1.0, epsilon=0.1 (log-uniform spaces C "
-        "1e-3..100, epsilon 1e-3..1) and `max_iter=-1` as a non-tunable value. The `defaults` variant measures "
-        "the effect: with C=0.001 the 1.6.1 default is close to a constant predictor. B5 decides whether to "
-        "move the v2 defaults."
+        "Default hyperparameters agree: 1.6.1 first grid point kernel=rbf, C=0.001, epsilon=0.001, max_iter=500 (grid "
+        "C 0.001..100, epsilon 0.001..1); v2 declares kernel=rbf, C=0.001, epsilon=0.001 (log-uniform spaces C "
+        "1e-3..100, epsilon 1e-3..1) and `max_iter=500` as a non-tunable value. The `defaults` variant runs the "
+        "unmodified preset. With C=0.001 the default is close to a constant predictor."
     ),
     (
         "1.6.1 caps libsvm at 500 iterations in every grid point, which stops before convergence on realistic "
-        "data (ConvergenceWarning); v2 runs to convergence unless `max_iter` is set. The `capped` variant "
-        "checks that an explicit cap is applied identically."
+        "data (ConvergenceWarning); the v2 predictor caps at 500 as well (`max_iter` is non-tunable there). The "
+        "`capped` variant checks that an explicit cap is applied identically."
     ),
     (
-        "End to end, the predictions only agree statistically (class statistical): SMO stops at libsvm's "
-        "default tol=1e-3, its working-set selection is discontinuous in the kernel values, and the float32 "
-        "features of v2 (1e-7 relative) steer it to a different, equally valid solution (different n_iter_, "
-        "differences up to the solver tolerance, e.g. 2e-3 absolute for the linear kernel). The `identical` "
-        "steps feed both estimators the same float64 matrix and are exact, so the algorithm and hyperparameters "
-        "are the same. The `capped` variant (max_iter=500, same path) agrees to float32 precision."
+        "End to end, the predictions of the converged variants only agree statistically (class statistical): SMO "
+        "stops at libsvm's default tol=1e-3, its working-set selection is discontinuous in the kernel values, and "
+        "the float32 features of v2 (1e-7 relative) steer it to a different, equally valid solution (different "
+        "n_iter_, differences up to the solver tolerance, e.g. 2e-3 absolute for the linear kernel). The "
+        "`identical` steps feed both estimators the same float64 matrix and are exact, so the algorithm and "
+        "hyperparameters are the same. The `capped` variant (max_iter=500, same path) agrees to float32 "
+        "precision, and so does `defaults`: at C=0.001 every training pair is a bound support vector (all dual "
+        "coefficients equal C, n_iter_ equal on both sides), which leaves SMO no path to diverge on."
     ),
     (
         "1.6.1 selects the `landmark_genes` list while loading the CSVs (hyperparameter `gene_list`, a missing "
-        "gene raises); the v2 preset consumes the whole gene expression view (`scaledGeneExpression` without "
-        "`gene_list`). The case compares a pre-selected matrix; wiring the list into the preset belongs to B5."
+        "gene raises); the v2 preset selects the same list with `scaledGeneExpression(gene_list=landmark_genes)`. "
+        "The synthetic gene names are in no shipped list, so both sides get a pre-selected matrix and the "
+        "selection itself is not compared here."
     ),
     "Features agree to float32 precision (class forward): v2 holds them as float32, 1.6.1 as float64.",
 ]
@@ -98,7 +91,7 @@ def build_case(seed: int) -> Case:
 def steps() -> list[StepSpec]:
     """Declare the compared outputs.
 
-    :returns: Parity steps for the aligned variants, deviation steps for the others.
+    :returns: Parity steps for every variant.
     """
     specs = sklearn_steps(
         VARIANTS,
@@ -112,7 +105,10 @@ def steps() -> list[StepSpec]:
         ),
     )
     # `capped` stops both solvers on the same iteration budget, so its path cannot diverge at the tolerance.
-    return [replace(s, tolerance="forward") if s.name == "capped/predictions" else s for s in specs]
+    # With C=0.001 every training pair of `defaults` is a bound support vector (all dual coefficients equal C), so
+    # the dual solution does not depend on the working-set path and only the float32 features move it.
+    steady = {"capped/predictions", "defaults/predictions"}
+    return [replace(s, tolerance="forward") if s.name in steady else s for s in specs]
 
 
 def run_v1(case: Case) -> dict[str, np.ndarray]:
