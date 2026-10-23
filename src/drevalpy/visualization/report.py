@@ -13,17 +13,21 @@ from drevalpy.visualization._progress import log_stage, rss_gb
 from drevalpy.visualization.base import Section, Visualization
 
 if TYPE_CHECKING:
-    from drevalpy.types.data.dataset import Dataset
+    from collections.abc import Iterator, Sequence
+
     from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
+    from drevalpy.types.results.failure import RunFailure
 
 logger = get_logger(__name__)
 
-#: Log every Nth model in a per-model plot loop, plus always the first and last.
-_MODEL_LOG_EVERY = 10
 
+def _add_module(sections: Sequence[Section], name: str, anchor: str) -> None:
+    """Create a MultiQC module from sections and append to the report.
 
-def _add_module(sections, name: str, anchor: str) -> None:
-    """Create a MultiQC module from sections and append to the report."""
+    :param sections: Sections the module shows, in order.
+    :param name: Module title.
+    :param anchor: Module anchor, unique within the report.
+    """
     import multiqc
 
     module = multiqc.BaseMultiqcModule(name=name, anchor=anchor)
@@ -38,8 +42,11 @@ def _add_module(sections, name: str, anchor: str) -> None:
     multiqc.report.modules.append(module)
 
 
-def _add_failures_module(failures) -> None:
-    """Append a "Failed runs" module listing every recorded failure."""
+def _add_failures_module(failures: Sequence[RunFailure]) -> None:
+    """Append a "Failed runs" module listing every recorded failure.
+
+    :param failures: Failures recorded on the experiment.
+    """
     rows = "".join(
         "<tr>"
         + "".join(
@@ -68,8 +75,12 @@ def _add_failures_module(failures) -> None:
     _add_module([section], "Failed runs", "failed_runs")
 
 
-def _ensure_experiment(result):
-    """Wrap a ModelResult or RunResult into an ExperimentResult."""
+def _ensure_experiment(result: ExperimentResult | ModelResult | RunResult) -> ExperimentResult:
+    """Wrap a ModelResult or RunResult into an ExperimentResult.
+
+    :param result: Experiment, model, or run result.
+    :returns: *result* itself if it already is an experiment, otherwise an experiment holding its runs.
+    """
     from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 
     if isinstance(result, RunResult):
@@ -79,34 +90,24 @@ def _ensure_experiment(result):
     return result
 
 
-def _run_visualization(viz: Visualization, experiment, result_type: str, dataset=None) -> None:
-    """Compute a visualization and add its sections to the report."""
-    started = time.monotonic()
-    rss_before = rss_gb()
-    if result_type == "ModelResult":
-        models = experiment.models
-        log_stage(logger, f"plot {viz.registry_name}: computing for {len(models)} models")
-        for i, model in enumerate(models, start=1):
-            if i == 1 or i == len(models) or i % _MODEL_LOG_EVERY == 0:
-                logger.info("  %s: model %d/%d (%s)", viz.registry_name, i, len(models), model.model_name)
-            viz.compute(model, dataset=dataset)
-            sections = viz.to_multiqc()
-            if sections:
-                name = f"{viz.registry_name} ({model.model_name})"
-                anchor = f"{viz.registry_name}_{model.model_name}"
-                _add_module(sections, name, anchor)
-    else:
-        log_stage(logger, f"plot {viz.registry_name}: computing")
-        viz.compute(experiment, dataset=dataset)
-        sections = viz.to_multiqc()
-        if sections:
-            _add_module(sections, viz.registry_name, viz.registry_name)
-    logger.info(
-        "plot %s: done in %.1fs, rss %+.2f GB",
-        viz.registry_name,
-        time.monotonic() - started,
-        rss_gb() - rss_before,
-    )
+def _applicable_results(
+    experiment: ExperimentResult,
+) -> Iterator[tuple[type[Visualization], ExperimentResult | ModelResult]]:
+    """Pair every applicable visualization with each result it consumes.
+
+    :param experiment: Experiment to visualize.
+    :yields: ``(visualization class, result)``: the whole experiment for an
+        experiment-level visualization, each model for a model-level one.
+    """
+    import drevalpy.visualization.plots  # noqa: F401
+    from drevalpy.registry.visualization import visualization_registry
+
+    for viz_cls in visualization_registry.applicable(experiment):
+        if visualization_registry.result_type(viz_cls.registry_name) == "ModelResult":
+            for model in experiment.models:
+                yield viz_cls, model
+        else:
+            yield viz_cls, experiment
 
 
 def create_report(
@@ -115,7 +116,6 @@ def create_report(
     *,
     title: str = "Drug Response Evaluation",
     reference_model: str | None = None,
-    dataset: Dataset | None = None,
 ) -> None:
     """Generate a MultiQC report for the given result.
 
@@ -123,12 +123,8 @@ def create_report(
     :param output_dir: Output directory for the report.
     :param title: Report title.
     :param reference_model: If set, normalize metrics against this model.
-    :param dataset: Optional dataset for drug/sample metadata in plots.
     """
     import multiqc
-
-    import drevalpy.visualization.plots  # noqa: F401
-    from drevalpy.registry.visualization import visualization_registry
 
     experiment = _ensure_experiment(result)
     n_models = experiment.n_models
@@ -149,10 +145,20 @@ def create_report(
 
     multiqc.reset()
 
-    for viz_cls in visualization_registry.applicable(experiment):
-        result_type = visualization_registry._result_types.get(viz_cls.registry_name, "ExperimentResult")
+    for viz_cls, target in _applicable_results(experiment):
         viz = viz_cls()
-        _run_visualization(viz, experiment, result_type, dataset=dataset)
+        if target is experiment:
+            label = anchor = viz.registry_name
+        else:
+            label, anchor = f"{viz.registry_name} ({target.model_name})", f"{viz.registry_name}_{target.model_name}"
+        started = time.monotonic()
+        rss_before = rss_gb()
+        log_stage(logger, f"plot {label}: computing")
+        viz.compute(target)
+        sections = viz.to_multiqc()
+        if sections:
+            _add_module(sections, label, anchor)
+        logger.info("plot %s: done in %.1fs, rss %+.2f GB", label, time.monotonic() - started, rss_gb() - rss_before)
 
     if experiment.failures:
         _add_failures_module(experiment.failures)
@@ -173,18 +179,13 @@ def save_all_png(
     output_dir: str | Path,
     *,
     reference_model: str | None = None,
-    dataset: Dataset | None = None,
 ) -> None:
     """Save all applicable plots as PNG files.
 
     :param result: Experiment, model, or run result.
     :param output_dir: Output directory for the PNG files.
     :param reference_model: If set, normalize metrics against this model.
-    :param dataset: Optional dataset for drug/sample metadata in plots.
     """
-    import drevalpy.visualization.plots  # noqa: F401
-    from drevalpy.registry.visualization import visualization_registry
-
     experiment = _ensure_experiment(result)
     if reference_model:
         experiment = experiment.normalize(reference_model)
@@ -194,13 +195,8 @@ def save_all_png(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    for viz_cls in visualization_registry.applicable(experiment):
-        result_type = visualization_registry._result_types.get(viz_cls.registry_name, "ExperimentResult")
+    for viz_cls, target in _applicable_results(experiment):
         viz = viz_cls()
-        if result_type == "ModelResult":
-            for model in experiment.models:
-                viz.compute(model, dataset=dataset)
-                viz.to_png(out / f"{viz.registry_name}_{model.model_name}.png")
-        else:
-            viz.compute(experiment, dataset=dataset)
-            viz.to_png(out / f"{viz.registry_name}.png")
+        viz.compute(target)
+        stem = viz.registry_name if target is experiment else f"{viz.registry_name}_{target.model_name}"
+        viz.to_png(out / f"{stem}.png")

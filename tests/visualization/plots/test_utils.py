@@ -1,9 +1,8 @@
 """Tests for :mod:`drevalpy.visualization.plots._utils`.
 
 Per the underscore-stripping naming convention, this mirrors ``plots/_utils.py``.
-``runs_frame`` backs the heatmap and violin plots; the colour
-helpers are a public extension point no shipped plot uses yet, so both are
-covered here directly.
+``runs_frame`` backs the heatmap and violin plots and ``compute_ssmd`` the heatmap's
+SSMD panels.
 """
 
 from __future__ import annotations
@@ -14,50 +13,13 @@ import numpy as np
 import pytest
 
 from drevalpy.types.results.experiment import ExperimentResult
-from drevalpy.visualization.plots._utils import MODEL_COLORS, compute_ssmd, model_color_palette, runs_frame
+from drevalpy.visualization.plots._utils import compute_ssmd, runs_frame
 from tests.synthetic import make_experiment_result, make_run_result
 
 
 @pytest.fixture(scope="module")
 def experiment() -> ExperimentResult:
     return make_experiment_result()
-
-
-class TestModelColors:
-    def test_palette_is_ten_distinct_hex_colors(self):
-        assert len(MODEL_COLORS) == 10
-        assert len(set(MODEL_COLORS)) == 10
-
-    def test_every_entry_is_a_six_digit_hex_string(self):
-        assert all(len(c) == 7 and c.startswith("#") for c in MODEL_COLORS)
-
-
-class TestModelColorPalette:
-    def test_assigns_one_color_per_model_in_order(self):
-        palette = model_color_palette(["A", "B", "C"])
-
-        assert palette == {"A": MODEL_COLORS[0], "B": MODEL_COLORS[1], "C": MODEL_COLORS[2]}
-
-    def test_colors_are_distinct_up_to_the_palette_size(self):
-        names = [f"m{i}" for i in range(len(MODEL_COLORS))]
-
-        assert len(set(model_color_palette(names).values())) == len(MODEL_COLORS)
-
-    def test_cycles_when_there_are_more_models_than_colors(self):
-        names = [f"m{i}" for i in range(len(MODEL_COLORS) + 2)]
-
-        palette = model_color_palette(names)
-
-        assert palette["m10"] == MODEL_COLORS[0]
-        assert palette["m11"] == MODEL_COLORS[1]
-
-    def test_empty_input_yields_an_empty_palette(self):
-        assert model_color_palette([]) == {}
-
-    def test_duplicate_names_keep_only_the_last_assignment(self):
-        palette = model_color_palette(["A", "A"])
-
-        assert palette == {"A": MODEL_COLORS[1]}
 
 
 class TestComputeSsmd:

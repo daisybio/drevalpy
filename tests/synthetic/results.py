@@ -34,10 +34,9 @@ DEFAULT_MODEL_NAMES: Final = (REFERENCE_MODEL, "ElasticNet", "RandomForest")
 DEFAULT_DATASET_NAME: Final = "SyntheticDataset"
 DEFAULT_SPLIT_MODE: Final = "LPO"
 
-#: Suffix older drevalpy releases appended to the normalized copy of a metric.
-#: ``normalize()`` no longer emits it - it recomputes every metric under its
-#: plain name - so the builders below do not either; the constant stays for the
-#: tests that pin the plots' tolerance of results written by those releases.
+#: Suffix drevalpy 1.x appended to the normalized copy of a metric. ``normalize()`` no
+#: longer emits it, and the plots no longer read it; it stays so that
+#: ``tests/types/results/test_experiment.py`` can assert it is absent.
 NORMALIZED_METRIC: Final = "Pearson: normalized"
 
 

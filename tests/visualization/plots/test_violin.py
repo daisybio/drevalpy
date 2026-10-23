@@ -17,7 +17,7 @@ from drevalpy.types.results.experiment import ExperimentResult
 from drevalpy.visualization.plots.violin import ViolinVisualization
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
-#: Metrics the plot draws: the seven base metrics, normalized variants excluded.
+#: Metrics the plot draws: the seven base metrics.
 N_PLOTTED_METRICS = 7
 
 
@@ -42,9 +42,6 @@ class TestCompute:
 
     def test_trace_names_pair_a_model_with_a_metric(self, computed, experiment):
         assert computed._fig.data[0].name == f"{experiment.model_names[0]}: R^2"
-
-    def test_normalized_metrics_are_not_drawn(self, computed):
-        assert not any("normalized" in trace.name for trace in computed._fig.data)
 
     def test_each_violin_holds_one_point_per_fold(self, computed, experiment):
         assert len(computed._fig.data[0].y) == experiment.models[0].n_folds
@@ -78,13 +75,6 @@ class TestCompute:
         plot.compute(result)
 
         assert [trace.name for trace in plot._fig.data] == ["ElasticNet: MSE"]
-
-    def test_dataset_argument_is_accepted_and_ignored(self, experiment):
-        plot = ViolinVisualization()
-
-        plot.compute(experiment, dataset=object())
-
-        assert plot._fig is not None
 
     def test_skips_cleanly_with_a_warning_when_no_metric_survives(self, caplog):
         """A plot with nothing to show must warn and skip, not emit an empty figure."""

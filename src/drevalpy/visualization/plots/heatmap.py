@@ -8,9 +8,8 @@ import numpy as np
 
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
-from drevalpy.visualization._metric_names import resolve_metric_key
 from drevalpy.visualization.base import PlotlyVisualization, Section
-from drevalpy.visualization.plots._utils import runs_frame
+from drevalpy.visualization.plots._utils import compute_ssmd, runs_frame
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -51,56 +50,25 @@ def _calc_summary_metric(x: pd.DataFrame, std_error: bool = False) -> pd.Series:
     return results
 
 
-def _compute_ssmd(df: pd.DataFrame, metric: str) -> pd.DataFrame:
+def _ssmd_matrix(df: pd.DataFrame, metric: str) -> pd.DataFrame:
+    """Build the pairwise SSMD matrix of the models on *metric*.
+
+    :param df: Per-run frame indexed by ``<model>_predictions_...`` labels.
+    :param metric: Metric column to compare the models on.
+    :returns: Models by models SSMD matrix, or an empty frame if *metric* is not a column.
+    """
     import pandas as pd
 
     if metric not in df.columns:
         return pd.DataFrame()
 
-    df = df.copy()
-    df["model_name"] = df.index.to_series().apply(lambda x: x.split("_predictions")[0])
-    models = df["model_name"].unique()
-    ssmd_matrix = pd.DataFrame(index=models, columns=models, dtype=float)
-
-    for m1 in models:
-        for m2 in models:
-            if m1 == m2:
-                ssmd_matrix.loc[m1, m2] = 0.0
-                continue
-            values_m1 = df[df["model_name"] == m1][metric].astype(float)
-            values_m2 = df[df["model_name"] == m2][metric].astype(float)
-            mu1, mu2 = values_m1.mean(), values_m2.mean()
-            sigma1_sq, sigma2_sq = values_m1.var(ddof=1), values_m2.var(ddof=1)
-            denom = sigma1_sq + sigma2_sq
-            ssmd_matrix.loc[m1, m2] = (mu1 - mu2) / np.sqrt(denom) if denom > 0 else np.nan
-
-    return ssmd_matrix.astype(float)
-
-
-def _resolve_metric_columns(result: ExperimentResult, df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    """Select one column per base metric, accepting the legacy suffixed spelling.
-
-    ``normalize()`` emits plain metric names, but results serialized by older
-    releases carry the normalized copy under ``"<metric>: normalized"``. Both are
-    surfaced here under the plain name so the panels are never silently blank.
-
-    :param result: Experiment the frame was built from.
-    :param df: Flat per-run frame including the metric columns.
-    :returns: ``(frame, columns)`` where the frame has base-named metric columns.
-    """
-    available = set(df.columns)
-    renames: dict[str, str] = {}
-    columns: list[str] = []
-    for base in _ALL_METRICS:
-        key = resolve_metric_key(available, base)
-        if key is None:
-            continue
-        if key != base:
-            renames[key] = base
-        columns.append(base)
-    if renames:
-        df = df.rename(columns=renames)
-    return df, columns
+    model_names = df.index.to_series().apply(lambda x: x.split("_predictions")[0])
+    values = {model: df.loc[model_names == model, metric].astype(float).dropna() for model in model_names.unique()}
+    matrix = pd.DataFrame(index=list(values), columns=list(values), dtype=float)
+    for m1, values_m1 in values.items():
+        for m2, values_m2 in values.items():
+            matrix.loc[m1, m2] = 0.0 if m1 == m2 else compute_ssmd(values_m1, values_m2)
+    return matrix.astype(float)
 
 
 @register(
@@ -116,7 +84,7 @@ class HeatmapVisualization(PlotlyVisualization):
         self._fig: go.Figure | None = None
         self._result: ExperimentResult | None = None
 
-    def compute(self, result: ExperimentResult, dataset=None) -> None:
+    def compute(self, result: ExperimentResult) -> None:
         """Build the Plotly heatmap figure with mean metrics and SSMD panels.
 
         :param result: Experiment result with multiple folds.
@@ -126,7 +94,7 @@ class HeatmapVisualization(PlotlyVisualization):
 
         self._result = result
         df = runs_frame(result, indexed=True)
-        df, metric_cols = _resolve_metric_columns(result, df)
+        metric_cols = [m for m in _ALL_METRICS if m in df.columns]
         if not metric_cols:
             logger.warning("heatmap: none of the expected metrics are present; the panels will be empty")
         df_metrics = df[metric_cols]
@@ -152,7 +120,7 @@ class HeatmapVisualization(PlotlyVisualization):
         for idx, ps in enumerate(plot_settings, start=1):
             if ps.startswith("ssmd_"):
                 metric_name = ps.split("_", 1)[1]
-                dt = _compute_ssmd(df, metric_name)
+                dt = _ssmd_matrix(df, metric_name)
                 if dt.empty:
                     continue
                 dt["sort_key"] = dt.max(axis=1)

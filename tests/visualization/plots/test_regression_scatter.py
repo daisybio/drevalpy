@@ -175,13 +175,6 @@ class TestCompute:
         assert isinstance(computed._ground_truth, np.ndarray)
         assert isinstance(computed._predictions, np.ndarray)
 
-    def test_dataset_argument_is_accepted_and_ignored(self, model_result):
-        plot = RegressionScatterVisualization()
-
-        plot.compute(model_result, dataset=object())
-
-        assert plot._fig is not None
-
     def test_no_data_falls_back_to_a_placeholder(self):
         result = _model_result([make_run_result(randomization=("gene_expression", "permutation"))])
         plot = RegressionScatterVisualization()

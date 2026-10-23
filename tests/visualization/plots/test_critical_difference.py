@@ -29,7 +29,7 @@ from drevalpy.visualization.plots.critical_difference import (
     _nonsignificant_adjacency,
 )
 from tests._trusted_subprocess import run_trusted_python
-from tests.synthetic import NORMALIZED_METRIC, make_experiment_result, make_run_result
+from tests.synthetic import make_experiment_result, make_run_result
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -96,20 +96,6 @@ class TestBuildCdDf:
 
         assert df.empty
         assert list(df.columns) == ["algorithm", "CV_split", "NotAMetric"]
-
-    def test_the_legacy_normalized_spelling_is_resolved(self):
-        result = ExperimentResult([make_run_result(metrics={NORMALIZED_METRIC: 0.42})])
-
-        df = _build_cd_df(result, "Pearson")
-
-        assert df["Pearson"].tolist() == [0.42]
-
-    def test_the_plain_name_wins_over_the_suffixed_one(self):
-        result = ExperimentResult([make_run_result(metrics={"Pearson": 0.9, NORMALIZED_METRIC: 0.1})])
-
-        df = _build_cd_df(result, "Pearson")
-
-        assert df["Pearson"].tolist() == [0.9]
 
     def test_is_empty_when_every_run_is_randomized(self):
         result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
@@ -287,30 +273,6 @@ class TestCompute:
 
         assert plot._fig.axes[0].texts[0].get_text() == "No data available"
         assert any("no finite NotAMetric values" in r.getMessage() for r in caplog.records)
-
-    def test_the_legacy_normalized_spelling_is_still_ranked(self):
-        """Results written before ``normalize()`` used plain names keep working."""
-        runs = [
-            make_run_result(
-                model_name=name,
-                fold_index=fold,
-                metrics={NORMALIZED_METRIC: 0.5 + 0.1 * index + 0.01 * fold},
-            )
-            for index, name in enumerate(("A", "B", "C"))
-            for fold in range(3)
-        ]
-        plot = CriticalDifferenceVisualization()
-
-        plot.compute(ExperimentResult(runs), metric="Pearson")
-
-        assert len(plot._fig.axes[0].collections) == 3
-
-    def test_dataset_argument_is_accepted_and_ignored(self, experiment):
-        plot = CriticalDifferenceVisualization()
-
-        plot.compute(experiment, dataset=object())
-
-        assert plot._fig is not None
 
 
 class TestRendering:

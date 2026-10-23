@@ -20,13 +20,9 @@ logger = get_logger(__name__)
 
 _ALL_METRICS = [
     "R^2",
-    "R^2: normalized",
     "Pearson",
-    "Pearson: normalized",
     "Spearman",
-    "Spearman: normalized",
     "Kendall",
-    "Kendall: normalized",
     "MSE",
     "RMSE",
     "MAE",
@@ -58,7 +54,7 @@ class ViolinVisualization(PlotlyVisualization):
         self._fig: go.Figure | None = None
         self._data: dict[str, dict[str, float]] | None = None
 
-    def compute(self, result: ExperimentResult, dataset=None) -> None:
+    def compute(self, result: ExperimentResult) -> None:
         """Build violin plot figure from per-fold metrics.
 
         :param result: Experiment result with multiple folds.
@@ -69,7 +65,7 @@ class ViolinVisualization(PlotlyVisualization):
         df["box"] = df["algorithm"] + "_" + df["rand_setting"] + "_" + df["test_mode"]
         df = df.dropna(axis=1, how="all")
 
-        metrics = [m for m in _ALL_METRICS if "normalized" not in m and m in df.columns]
+        metrics = [m for m in _ALL_METRICS if m in df.columns]
         if not metrics:
             logger.warning("violin: no metric has a finite value in any fold; the section will be skipped")
 

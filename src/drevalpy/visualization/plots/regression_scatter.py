@@ -73,11 +73,10 @@ class RegressionScatterVisualization(ImageVisualization):
         self._ground_truth: np.ndarray = np.empty(0)
         self._predictions: np.ndarray = np.empty(0)
 
-    def compute(self, result: ModelResult, dataset=None) -> None:
+    def compute(self, result: ModelResult) -> None:
         """Pool the model's predictions and render the density figure.
 
         :param result: Model result containing predictions and ground truth.
-        :param dataset: Unused; accepted for interface compatibility.
         """
         self._result = result
         self._ground_truth, self._predictions = _pooled_predictions(result)

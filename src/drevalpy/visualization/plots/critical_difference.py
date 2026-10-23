@@ -12,7 +12,6 @@ backend-independent.
 
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -20,7 +19,6 @@ import numpy as np
 from drevalpy.evaluation import MINIMIZATION_METRICS
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
-from drevalpy.visualization._metric_names import metric_keys, resolve_metric_key
 from drevalpy.visualization.base import ImageVisualization
 from drevalpy.visualization.requirements import PlotRequirement
 
@@ -33,23 +31,16 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-warnings.filterwarnings("ignore", category=FutureWarning, message=".*swapaxes.*")
-
 
 def _build_cd_df(result: ExperimentResult, metric: str) -> pd.DataFrame:
     """Build DataFrame for CD plot: columns algorithm, CV_split, <metric>.
 
-    The metric is looked up through :func:`resolve_metric_key`, so a result that
-    stores its normalized metrics under the legacy ``": normalized"`` spelling
-    still yields values instead of a silently all-NaN column.
-
     :param result: Experiment to rank.
-    :param metric: Plain metric name to rank by.
+    :param metric: Metric name to rank by.
     :returns: One row per non-randomized run, with NaN rows dropped.
     """
     import pandas as pd
 
-    key = resolve_metric_key(metric_keys(result), metric)
     rows: list[dict] = []
     for model in result.models:
         for run in model.select_runs():
@@ -57,7 +48,7 @@ def _build_cd_df(result: ExperimentResult, metric: str) -> pd.DataFrame:
                 {
                     "algorithm": run.model_name,
                     "CV_split": run.fold_index,
-                    metric: run.metrics.get(key, float("nan")) if key else float("nan"),
+                    metric: run.metrics.get(metric, float("nan")),
                 }
             )
     return pd.DataFrame(rows, columns=["algorithm", "CV_split", metric]).dropna(subset=[metric])
@@ -211,7 +202,7 @@ class CriticalDifferenceVisualization(ImageVisualization):
         self._metric: str = "MSE"
         self._fig: Figure | None = None
 
-    def compute(self, result: ExperimentResult, dataset=None, metric: str = "MSE") -> None:
+    def compute(self, result: ExperimentResult, metric: str = "MSE") -> None:
         """Compute rankings and Friedman test, then create the CD figure.
 
         :param result: Experiment result with multiple models and folds.

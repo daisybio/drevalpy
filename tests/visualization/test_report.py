@@ -30,8 +30,8 @@ from drevalpy.types.results.failure import RunFailure
 from drevalpy.visualization.base import Section, Visualization
 from drevalpy.visualization.report import (
     _add_module,
+    _applicable_results,
     _ensure_experiment,
-    _run_visualization,
     create_report,
     save_all_png,
 )
@@ -48,11 +48,11 @@ class _StubViz(Visualization):
     last: Any = None
 
     def __init__(self) -> None:
-        self.computed: list[tuple[Any, Any]] = []
+        self.computed: list[Any] = []
         type(self).last = self
 
-    def compute(self, result, dataset=None) -> None:
-        self.computed.append((result, dataset))
+    def compute(self, result) -> None:
+        self.computed.append(result)
 
     def to_png(self, path) -> None:
         UPath(path).write_bytes(b"stub-png")
@@ -104,9 +104,15 @@ def experiment() -> ExperimentResult:
 
 @pytest.fixture
 def only_stub_is_applicable(monkeypatch) -> type[_StubViz]:
-    """Restrict the report to a single cheap visualization."""
-    monkeypatch.setattr(visualization_registry, "applicable", lambda experiment: [_StubViz])
+    """Restrict the report to a single cheap, experiment-level visualization."""
+    _make_applicable(monkeypatch, _StubViz, "ExperimentResult")
     return _StubViz
+
+
+def _make_applicable(monkeypatch, viz_cls: type[Visualization], result_type: str) -> None:
+    """Make *viz_cls* the only applicable visualization, consuming *result_type*."""
+    monkeypatch.setattr(visualization_registry, "applicable", lambda experiment: [viz_cls])
+    monkeypatch.setattr(visualization_registry, "result_type", lambda name: result_type)
 
 
 class _BuiltReport(NamedTuple):
@@ -171,7 +177,7 @@ def normalized_real_report(tmp_path_factory) -> _BuiltReport:
 def logged_stub_report(experiment: ExperimentResult, tmp_path_factory) -> _BuiltReport:
     """One stub-plot report build, shared by the tests that only read its log."""
     with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr(visualization_registry, "applicable", lambda experiment: [_StubViz])
+        _make_applicable(monkeypatch, _StubViz, "ExperimentResult")
         return _build_report(tmp_path_factory.mktemp("logged"), experiment)
 
 
@@ -209,48 +215,33 @@ class TestAddModule:
         assert multiqc.report.modules[0].sections[0].content == ""
 
 
-class TestRunVisualization:
-    def test_experiment_plots_are_computed_once(self, experiment):
-        viz = _StubViz()
+class TestApplicableResults:
+    def test_experiment_plots_are_paired_with_the_whole_experiment(self, experiment, monkeypatch):
+        _make_applicable(monkeypatch, _StubViz, "ExperimentResult")
 
-        _run_visualization(viz, experiment, "ExperimentResult")
+        assert list(_applicable_results(experiment)) == [(_StubViz, experiment)]
 
-        assert [result for result, _ in viz.computed] == [experiment]
+    def test_model_plots_are_paired_with_each_model(self, experiment, monkeypatch):
+        _make_applicable(monkeypatch, _StubViz, "ModelResult")
 
-    def test_experiment_plots_add_one_module_named_after_the_registry(self, experiment):
-        _run_visualization(_StubViz(), experiment, "ExperimentResult")
+        pairs = list(_applicable_results(experiment))
 
-        assert [m.name for m in multiqc.report.modules] == ["stub_viz"]
+        assert [cls for cls, _ in pairs] == [_StubViz] * len(experiment.models)
+        assert [model.model_name for _, model in pairs] == experiment.model_names
 
-    def test_model_plots_are_computed_once_per_model(self, experiment):
-        viz = _StubViz()
+    def test_nothing_is_yielded_when_no_plot_is_applicable(self, experiment, monkeypatch):
+        monkeypatch.setattr(visualization_registry, "applicable", lambda experiment: [])
 
-        _run_visualization(viz, experiment, "ModelResult")
+        assert list(_applicable_results(experiment)) == []
 
-        assert [result.model_name for result, _ in viz.computed] == experiment.model_names
+    def test_real_plots_resolve_their_result_type_through_the_registry(self, experiment):
+        pairs = list(_applicable_results(experiment))
 
-    def test_model_plots_add_one_module_per_model(self, experiment):
-        _run_visualization(_StubViz(), experiment, "ModelResult")
-
-        assert [m.name for m in multiqc.report.modules] == [f"stub_viz ({name})" for name in experiment.model_names]
-
-    def test_the_dataset_is_forwarded_to_compute(self, experiment):
-        dataset = object()
-        viz = _StubViz()
-
-        _run_visualization(viz, experiment, "ExperimentResult", dataset=dataset)
-
-        assert viz.computed[0][1] is dataset
-
-    def test_visualizations_without_sections_add_no_module(self, experiment):
-        _run_visualization(_SilentViz(), experiment, "ExperimentResult")
-
-        assert multiqc.report.modules == []
-
-    def test_silent_model_plots_add_no_module(self, experiment):
-        _run_visualization(_SilentViz(), experiment, "ModelResult")
-
-        assert multiqc.report.modules == []
+        assert "leaderboard" in {cls.registry_name for cls, result in pairs if result is experiment}
+        assert all(
+            (result is experiment) == (visualization_registry.result_type(cls.registry_name) == "ExperimentResult")
+            for cls, result in pairs
+        )
 
 
 class TestCreateReport:
@@ -285,21 +276,14 @@ class TestCreateReport:
 
         create_report(run, tmp_path / "run_report")
 
-        assert only_stub_is_applicable.last.computed[0][0].model_names == ["ElasticNet"]
+        assert only_stub_is_applicable.last.computed[0].model_names == ["ElasticNet"]
 
     def test_normalizes_against_the_reference_model_when_asked(self, experiment, tmp_path, only_stub_is_applicable):
         create_report(experiment, tmp_path / "normalized", reference_model=REFERENCE_MODEL)
 
-        normalized = only_stub_is_applicable.last.computed[0][0]
+        normalized = only_stub_is_applicable.last.computed[0]
         assert normalized.normalized_by == REFERENCE_MODEL
         assert REFERENCE_MODEL not in normalized.model_names
-
-    def test_forwards_the_dataset_to_the_plots(self, experiment, tmp_path, only_stub_is_applicable):
-        dataset = object()
-
-        create_report(experiment, tmp_path / "with_dataset", dataset=dataset)
-
-        assert only_stub_is_applicable.last.computed[0][1] is dataset
 
     def test_releases_the_unnormalized_experiment(self, tmp_path, only_stub_is_applicable):
         """The pre-normalization copy must not stay reachable through the argument."""
@@ -347,25 +331,29 @@ class TestLogging:
         messages = [r.getMessage() for r in caplog.records]
         assert any(f"Normalizing against reference model '{REFERENCE_MODEL}'" in m for m in messages)
 
-    def test_names_each_plot_before_computing_it(self, experiment, only_stub_is_applicable, caplog):
+    def test_names_each_plot_before_computing_it(self, experiment, tmp_path, only_stub_is_applicable, caplog):
         with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
-            _run_visualization(_StubViz(), experiment, "ExperimentResult")
+            create_report(experiment, tmp_path / "logged_plot")
 
-        assert caplog.records[0].getMessage().startswith("plot stub_viz: computing | rss=")
+        assert any(r.getMessage().startswith("plot stub_viz: computing | rss=") for r in caplog.records)
 
-    def test_reports_per_model_progress(self, experiment, caplog):
+    def test_reports_progress_for_each_model_of_a_model_plot(self, experiment, tmp_path, monkeypatch, caplog):
+        _make_applicable(monkeypatch, _StubViz, "ModelResult")
+
         with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
-            _run_visualization(_StubViz(), experiment, "ModelResult")
+            create_report(experiment, tmp_path / "logged_models")
 
         messages = [r.getMessage() for r in caplog.records]
-        assert any("model 1/3" in m for m in messages)
-        assert any("model 3/3" in m for m in messages)
+        for name in experiment.model_names:
+            assert any(m.startswith(f"plot stub_viz ({name}): computing") for m in messages)
 
-    def test_reports_elapsed_time_and_memory_delta_after_each_plot(self, experiment, caplog):
+    def test_reports_elapsed_time_and_memory_delta_after_each_plot(
+        self, experiment, tmp_path, only_stub_is_applicable, caplog
+    ):
         with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
-            _run_visualization(_StubViz(), experiment, "ExperimentResult")
+            create_report(experiment, tmp_path / "logged_done")
 
-        assert "plot stub_viz: done in" in caplog.records[-1].getMessage()
+        assert any("plot stub_viz: done in" in r.getMessage() for r in caplog.records)
 
     def test_logs_the_module_and_section_counts_before_writing(self, logged_stub_report: _BuiltReport) -> None:
         messages = [r.getMessage() for r in logged_stub_report.records]
@@ -419,8 +407,7 @@ class TestSaveAllPng:
         assert [p.name for p in out.iterdir()] == ["stub_viz.png"]
 
     def test_writes_one_png_per_model_for_model_level_plots(self, experiment, tmp_path, monkeypatch):
-        monkeypatch.setattr(visualization_registry, "applicable", lambda exp: [_StubViz])
-        monkeypatch.setitem(visualization_registry._result_types, "stub_viz", "ModelResult")
+        _make_applicable(monkeypatch, _StubViz, "ModelResult")
         out = tmp_path / "per_model"
 
         save_all_png(experiment, out)
@@ -439,11 +426,4 @@ class TestSaveAllPng:
     def test_normalizes_against_the_reference_model_when_asked(self, experiment, tmp_path, only_stub_is_applicable):
         save_all_png(experiment, tmp_path / "norm_pngs", reference_model=REFERENCE_MODEL)
 
-        assert only_stub_is_applicable.last.computed[0][0].normalized_by == REFERENCE_MODEL
-
-    def test_forwards_the_dataset_to_the_plots(self, experiment, tmp_path, only_stub_is_applicable):
-        dataset = object()
-
-        save_all_png(experiment, tmp_path / "ds_pngs", dataset=dataset)
-
-        assert only_stub_is_applicable.last.computed[0][1] is dataset
+        assert only_stub_is_applicable.last.computed[0].normalized_by == REFERENCE_MODEL

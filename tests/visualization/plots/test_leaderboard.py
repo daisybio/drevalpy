@@ -5,10 +5,10 @@ never restores it. That is asserted as current behaviour, and every test in this
 module runs inside an ``rc_context`` so the mutation cannot leak into the rest
 of the suite.
 
-The PCC panel is the plot that broke when it hard-coded ``"Pearson: normalized"``
-while ``normalize()`` emits ``"Pearson"``: the column came out all-NaN and
-``set_xlim`` raised ``ValueError: Axis limits cannot be NaN or Inf``. Both halves
-of that failure are pinned - the metric-name resolution and the NaN-safe axis.
+The PCC panel is the plot that broke when it read ``"Pearson: normalized"`` while
+``normalize()`` emits ``"Pearson"``: the column came out all-NaN and ``set_xlim``
+raised ``ValueError: Axis limits cannot be NaN or Inf``. Both halves of that failure
+are pinned - the metric name and the NaN-safe axis.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from drevalpy.visualization.plots.leaderboard import (
     _get_test_mode_name,
     _gradient_char_colors,
 )
-from tests.synthetic import NORMALIZED_METRIC, REFERENCE_MODEL, make_experiment_result, make_run_result
+from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -98,17 +98,21 @@ class TestGetTestModeName:
     @pytest.mark.parametrize(
         ("mode", "expected"),
         [
-            pytest.param("LSO", "10-Fold Leave-Sample-Out Cross Validation", id="lso"),
-            pytest.param("LDO", "10-Fold Leave-Drug-Out Cross Validation", id="ldo"),
-            pytest.param("LPO", "10-Fold Leave-Pair-Out Cross Validation", id="lpo"),
-            pytest.param("LTO", "10-Fold Leave-Tissue-Out Cross Validation", id="lto"),
+            pytest.param("LSO", "5-Fold Leave-Sample-Out Cross Validation", id="lso"),
+            pytest.param("LDO", "5-Fold Leave-Drug-Out Cross Validation", id="ldo"),
+            pytest.param("LPO", "5-Fold Leave-Pair-Out Cross Validation", id="lpo"),
+            pytest.param("LTO", "5-Fold Leave-Tissue-Out Cross Validation", id="lto"),
+            pytest.param("LStO", "Leave-Study-Out Cross Validation", id="lsto"),
         ],
     )
     def test_known_modes_are_spelled_out(self, mode, expected):
-        assert _get_test_mode_name(mode) == expected
+        assert _get_test_mode_name(mode, 5) == expected
+
+    def test_the_fold_count_comes_from_the_argument(self):
+        assert _get_test_mode_name("LPO", 3) == "3-Fold Leave-Pair-Out Cross Validation"
 
     def test_unknown_modes_pass_through_unchanged(self):
-        assert _get_test_mode_name("CROSS_STUDY") == "CROSS_STUDY"
+        assert _get_test_mode_name("CROSS_STUDY", 5) == "CROSS_STUDY"
 
 
 class TestBuildLeaderboardDf:
@@ -163,7 +167,7 @@ class TestBuildLeaderboardDf:
 
 
 class TestMetricNameContract:
-    """``normalize()`` emits plain metric names; the panel must read those."""
+    """``normalize()`` emits plain metric names; the panel reads those."""
 
     def test_a_normalized_experiment_yields_finite_pcc_values(self):
         normalized = make_experiment_result(n_models=4, n_folds=3).normalize(REFERENCE_MODEL)
@@ -179,18 +183,8 @@ class TestMetricNameContract:
 
         assert REFERENCE_MODEL not in df["algorithm"].tolist()
 
-    def test_the_legacy_suffixed_spelling_is_still_read(self):
-        """Results serialized by older releases only carry the suffixed key."""
-        result = ExperimentResult(
-            [make_run_result(fold_index=i, metrics={NORMALIZED_METRIC: 0.4 + 0.1 * i, "RMSE": 1.0}) for i in range(2)]
-        )
-
-        df = _build_leaderboard_df(result)
-
-        assert df["PCC"].tolist() == [pytest.approx(0.45)]
-
-    def test_the_plain_name_wins_when_both_are_present(self):
-        result = ExperimentResult([make_run_result(metrics={"Pearson": 0.9, NORMALIZED_METRIC: 0.1, "RMSE": 1.0})])
+    def test_reads_the_plain_pearson_key(self):
+        result = ExperimentResult([make_run_result(metrics={"Pearson": 0.9, "RMSE": 1.0})])
 
         df = _build_leaderboard_df(result)
 
@@ -345,6 +339,21 @@ class TestCompute:
         assert plot._fig.axes[0].texts[0].get_text() == "No data available for leaderboard"
         assert any("no finite Pearson/RMSE values" in r.getMessage() for r in caplog.records)
 
+    @pytest.mark.parametrize("n_folds", [3, 5])
+    def test_the_subtitle_names_the_actual_fold_count(self, n_folds):
+        plot = LeaderboardVisualization()
+
+        plot.compute(make_experiment_result(n_models=3, n_folds=n_folds, split_mode="LSO"))
+
+        assert any(f"{n_folds}-Fold Leave-Sample-Out Cross Validation" in t.get_text() for t in plot._fig.texts)
+
+    def test_the_subtitle_of_a_leave_study_out_experiment_has_no_fold_count(self):
+        plot = LeaderboardVisualization()
+
+        plot.compute(make_experiment_result(n_models=3, n_folds=3, split_mode="LStO"))
+
+        assert any(t.get_text().endswith("Leave-Study-Out Cross Validation") for t in plot._fig.texts)
+
     def test_a_large_experiment_gets_a_taller_canvas(self):
         """The 96-model report is the case a fixed 12-inch figure could not render."""
         plot = LeaderboardVisualization()
@@ -352,13 +361,6 @@ class TestCompute:
         plot.compute(make_experiment_result(n_models=40, n_folds=2))
 
         assert plot._fig.get_size_inches()[1] > 12.0
-
-    def test_dataset_argument_is_accepted_and_ignored(self, experiment):
-        plot = LeaderboardVisualization()
-
-        plot.compute(experiment, dataset=object())
-
-        assert plot._fig is not None
 
     def test_mutates_the_global_rcparams_with_the_dark_theme(self, experiment):
         plt.rcParams["figure.facecolor"] = "white"

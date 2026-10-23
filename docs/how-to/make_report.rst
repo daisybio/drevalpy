@@ -62,8 +62,8 @@ title, with spaces replaced by hyphens: a report called ``My title`` is
 Python, and the directory with ``--output-dir`` (``-o``).
 
 The report command reads only the predictions and metrics of the final models. It skips the
-predictions of the tuning trials, which makes loading faster and uses less memory. ``--dataset`` is
-accepted so that pipelines that pass it keep working, but the report does not read the dataset.
+predictions of the tuning trials, which makes loading faster and uses less memory. It does not
+read the dataset either, so ``report`` has no ``--dataset`` option.
 
 Normalize against a reference model
 -----------------------------------

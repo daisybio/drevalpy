@@ -14,7 +14,6 @@ import numpy as np
 
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
-from drevalpy.visualization._metric_names import holds_normalized_values, metric_keys, resolve_metric_key
 from drevalpy.visualization.base import ImageVisualization
 from drevalpy.visualization.requirements import PlotRequirement
 
@@ -236,39 +235,40 @@ def _draw_legend(fig, font_adder: int, colors: dict, y: float = 0.02) -> None:
         text.set_color(colors["text"])
 
 
-def _get_test_mode_name(test_mode: str) -> str:
-    names = {
-        "LSO": "10-Fold Leave-Sample-Out Cross Validation",
-        "LDO": "10-Fold Leave-Drug-Out Cross Validation",
-        "LPO": "10-Fold Leave-Pair-Out Cross Validation",
-        "LTO": "10-Fold Leave-Tissue-Out Cross Validation",
-    }
-    return names.get(test_mode, test_mode)
+_LEAVE_OUT_ENTITIES = {"LSO": "Sample", "LDO": "Drug", "LPO": "Pair", "LTO": "Tissue", "LStO": "Study"}
+
+
+def _get_test_mode_name(test_mode: str, n_folds: int) -> str:
+    """Spell out a split mode for the subtitle.
+
+    :param test_mode: Split mode, for example ``"LSO"``.
+    :param n_folds: Number of folds the experiment ran. Leave-study-out has one fold
+        per study, so its title leaves the count out.
+    :returns: For example ``"5-Fold Leave-Sample-Out Cross Validation"``; an unknown mode is returned unchanged.
+    """
+    entity = _LEAVE_OUT_ENTITIES.get(test_mode)
+    if entity is None:
+        return test_mode
+    folds = "" if test_mode == "LStO" else f"{n_folds}-Fold "
+    return f"{folds}Leave-{entity}-Out Cross Validation"
 
 
 def _build_leaderboard_df(result: ExperimentResult) -> pd.DataFrame:
     """Build aggregated leaderboard DataFrame from an ExperimentResult.
-
-    ``"Pearson"`` is resolved through :func:`resolve_metric_key`, so the panel
-    shows the normalized correlation on a normalized experiment and the raw one
-    otherwise, instead of an all-NaN column when the suffixed key is absent.
 
     :param result: Experiment to rank.
     :returns: One row per model with ``PCC``/``RMSE`` means and standard deviations.
     """
     import pandas as pd
 
-    available = metric_keys(result)
-    pcc_key = resolve_metric_key(available, "Pearson")
-    rmse_key = resolve_metric_key(available, "RMSE")
     rows: list[dict] = []
     for model in result.models:
         for run in model.select_runs():
             rows.append(
                 {
                     "algorithm": run.model_name,
-                    "PCC": run.metrics.get(pcc_key, float("nan")) if pcc_key else float("nan"),
-                    "RMSE": run.metrics.get(rmse_key, float("nan")) if rmse_key else float("nan"),
+                    "PCC": run.metrics.get("Pearson", float("nan")),
+                    "RMSE": run.metrics.get("RMSE", float("nan")),
                 }
             )
     df = pd.DataFrame(rows)
@@ -299,16 +299,6 @@ def _figure_geometry(n_models: int) -> tuple[float, int, float]:
     return height, font_adder, 0.65
 
 
-def _pcc_is_normalized(result: ExperimentResult) -> bool:
-    """Whether the leaderboard's PCC column holds reference-normalized values.
-
-    :param result: Experiment the column was built from.
-    :returns: True when the values are normalized against a reference model.
-    """
-    key = resolve_metric_key(metric_keys(result), "Pearson")
-    return key is not None and holds_normalized_values(result, key)
-
-
 @register(
     "leaderboard",
     "Leaderboard visualization of normalized PCC and RMSE rankings",
@@ -322,7 +312,7 @@ class LeaderboardVisualization(ImageVisualization):
         self._result: ExperimentResult | None = None
         self._fig: Figure | None = None
 
-    def compute(self, result: ExperimentResult, dataset=None) -> None:
+    def compute(self, result: ExperimentResult) -> None:
         """Compute leaderboard rankings and create figure.
 
         :param result: Experiment result with multiple models and folds.
@@ -346,7 +336,7 @@ class LeaderboardVisualization(ImageVisualization):
             ax.text(0.5, 0.5, "No data available for leaderboard", ha="center", va="center")
             return fig
 
-        normalized = _pcc_is_normalized(result)
+        normalized = result.normalized_by is not None
         n_ranked = int(df[["PCC", "RMSE"]].notna().any(axis=1).sum())
         # One tick label per model, so a 96-model experiment needs ~4x the height a
         # 12-model one does or the names overlap into an unreadable smear.
@@ -408,11 +398,11 @@ class LeaderboardVisualization(ImageVisualization):
         _draw_gradient_title(fig, "DrEval Challenge Leaderboard", font_adder, y=1 - header * 0.28)
         _draw_subtitle(
             fig,
-            result.dataset_name if hasattr(result, "dataset_name") else "Dataset",
+            result.dataset_name,
             # Every run trains on ``Dataset.response_matrix``, i.e. the response
             # modality's X, which curation fills with pEC50.
             "pEC50",
-            _get_test_mode_name(result.split_mode if hasattr(result, "split_mode") else "LSO"),
+            _get_test_mode_name(result.split_mode, result.max_folds),
             font_adder,
             colors,
             y=1 - header * 0.75,

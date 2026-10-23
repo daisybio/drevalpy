@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from drevalpy.plugin import (
-    Dataset,
     ImageVisualization,
     ModelResult,
     register_visualization,
@@ -34,7 +33,7 @@ class ToyResidualHistogram(ImageVisualization):
         self._residuals = np.empty(0, dtype=np.float64)
         self._title = ""
 
-    def compute(self, result: ModelResult, dataset: Dataset | None = None) -> None:
+    def compute(self, result: ModelResult) -> None:
         """Pool the residuals and build the figure.
 
         ``compute`` must assign ``self._fig``; the inherited ``to_png``,
@@ -42,10 +41,7 @@ class ToyResidualHistogram(ImageVisualization):
 
         Args:
             result: The model whose folds are pooled.
-            dataset: Unused here. It is offered so a plot can look up sample
-                or drug metadata that the result itself does not carry.
         """
-        _ = dataset
         residuals = [np.asarray(run.predictions) - np.asarray(run.ground_truth) for run in result.runs]
         pooled = np.concatenate(residuals) if residuals else np.empty(0)
         self._residuals = pooled[~np.isnan(pooled)]

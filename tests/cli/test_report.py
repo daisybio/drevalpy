@@ -2,20 +2,18 @@
 
 ``create_report`` drives MultiQC, which is far too heavy for a CLI plumbing
 test, so the worker is patched and the assertions cover argument forwarding, the
-deliberately-unused ``--dataset`` flag and the echoed confirmation. Report
+removed ``--dataset`` flag and the echoed confirmation. Report
 rendering itself belongs to the ``tests/visualization`` mirror.
 """
 
 from __future__ import annotations
-
-import logging
 
 import pytest
 from upath import UPath
 
 from drevalpy.cli.main import app
 from drevalpy.types.results import ExperimentResult
-from tests.cli._helpers import HELP_ENV, FakeDataset, Recorder, make_runner, patch_worker, plain
+from tests.cli._helpers import HELP_ENV, Recorder, make_runner, patch_worker, plain
 from tests.synthetic import make_experiment_result
 
 runner = make_runner()
@@ -107,54 +105,23 @@ class TestForwarding:
         assert "Report generated at out_here" in plain(result.output)
 
 
-class TestDatasetEnrichment:
-    """``--dataset`` stays accepted but is deliberately never read.
+class TestRemovedDatasetOption:
+    """``--dataset`` is gone: no visualization consumes dataset metadata."""
 
-    Every visualization takes ``dataset`` and ignores it, and the .h5mu is large enough
-    that loading it was a meaningful slice of the report container's memory, so the CLI
-    accepts the flag for pipeline compatibility and logs that it is unused.
-    """
+    def test_dataset_is_a_usage_error(self, worker: Recorder, experiment_dir: UPath, tmp_path: UPath) -> None:
+        result = runner.invoke(app, ["report", str(experiment_dir), "--dataset", str(tmp_path / "ds.h5mu")])
 
-    def test_dataset_is_none_by_default(self, worker: Recorder, experiment_dir: UPath) -> None:
+        assert result.exit_code == 2
+
+    def test_the_worker_receives_no_dataset(self, worker: Recorder, experiment_dir: UPath) -> None:
         runner.invoke(app, ["report", str(experiment_dir)])
 
-        assert worker.kwargs["dataset"] is None
+        assert "dataset" not in worker.kwargs
 
-    def test_dataset_is_still_none_when_a_path_is_given(
-        self, worker: Recorder, experiment_dir: UPath, tmp_path: UPath
-    ) -> None:
-        result = runner.invoke(app, ["report", str(experiment_dir), "-d", str(tmp_path / "ds.h5mu")])
-
-        assert result.exit_code == 0, result.output
-        assert worker.kwargs["dataset"] is None
-
-    def test_the_dataset_file_is_never_opened(
-        self, worker: Recorder, experiment_dir: UPath, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
-    ) -> None:
-        seen: list[str] = []
-        monkeypatch.setattr(
-            "drevalpy.types.data.dataset.Dataset.load",
-            classmethod(lambda cls, path: seen.append(path) or FakeDataset()),
-        )
-
-        runner.invoke(app, ["report", str(experiment_dir), "--dataset", str(tmp_path / "ds.h5mu")])
-
-        assert seen == []
-
-    def test_help_says_the_dataset_is_not_read(self, worker: Recorder) -> None:
+    def test_help_does_not_list_the_option(self, worker: Recorder) -> None:
         result = runner.invoke(app, ["report", "--help"], env=HELP_ENV)
 
-        assert "the file is not read" in " ".join(plain(result.output).split())
-
-    def test_the_ignored_dataset_is_logged(
-        self, worker: Recorder, experiment_dir: UPath, tmp_path: UPath, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        dataset_path = tmp_path / "ds.h5mu"
-
-        with caplog.at_level(logging.INFO, logger="drevalpy.cli.report"):
-            runner.invoke(app, ["report", str(experiment_dir), "--dataset", str(dataset_path)])
-
-        assert any(str(dataset_path) in record.getMessage() for record in caplog.records)
+        assert "--dataset" not in plain(result.output)
 
 
 class TestTrialSkipping:

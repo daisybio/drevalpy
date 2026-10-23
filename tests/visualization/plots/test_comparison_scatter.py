@@ -246,13 +246,6 @@ class TestCompute:
         assert plot._matrices["study"].group_names == ("CTRPv2", "GDSC2")
         assert plot._matrices["study"].values.shape == (3, 2)
 
-    def test_dataset_argument_is_accepted_and_ignored(self, experiment):
-        plot = ComparisonScatterVisualization()
-
-        plot.compute(experiment, dataset=object())
-
-        assert set(plot._matrices) == {"drug", "sample"}
-
     def test_a_single_model_yields_an_empty_figure_rather_than_an_error(self):
         result = ExperimentResult([make_run_result(model_name="Solo", fold_index=i) for i in range(2)])
         plot = ComparisonScatterVisualization()

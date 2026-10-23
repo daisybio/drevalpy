@@ -183,5 +183,5 @@ Report
 ------
 
 ``drevalpy report EXPERIMENT_DIR -o DIR`` reads an experiment directory and writes a MultiQC
-report into ``DIR``, which defaults to ``report``. Its ``--dataset`` option is accepted for
-pipeline compatibility and the file is not read.
+report into ``DIR``, which defaults to ``report``. It never reads the dataset, so it has no
+``--dataset`` option.

@@ -18,7 +18,7 @@ The four methods of a visualization
 
    * - Method
      - Responsibility
-   * - ``compute(result, dataset=None)``
+   * - ``compute(result)``
      - Derive the plot data from the result and store it on the instance.
    * - ``to_png(path)``
      - Write a static image.
@@ -90,7 +90,7 @@ This plot draws predicted against observed response for one model. It runs on a 
            self._pairs = None
            self._title = ""
 
-       def compute(self, result, dataset=None):
+       def compute(self, result):
            observed = np.concatenate([run.ground_truth for run in result.runs])
            predicted = np.concatenate([run.predictions for run in result.runs])
            self._pairs = (observed, predicted)

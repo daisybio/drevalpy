@@ -233,14 +233,13 @@ class ComparisonScatterVisualization(PlotlyVisualization):
         self._fig: go.Figure | None = None
         self._matrices: dict[str, GroupCorrelationMatrix] = {}
 
-    def compute(self, result: ExperimentResult, dataset=None) -> None:
+    def compute(self, result: ExperimentResult) -> None:
         """Compute per-group correlations for every model and build the figure.
 
         Retains one ``float32`` matrix of shape ``n_models x n_groups`` per
         grouping, independent of the number of predictions.
 
         :param result: Experiment result with at least two models.
-        :param dataset: Unused; accepted for interface compatibility.
         """
         import plotly.graph_objects as go
 

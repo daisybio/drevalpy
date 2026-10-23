@@ -33,7 +33,7 @@ class _StubImagePlot(ImageVisualization):
 
     registry_name = "stub_image"
 
-    def compute(self, result=None, dataset=None) -> None:
+    def compute(self, result=None) -> None:
         self._fig = self._create_figure()
 
     def _create_figure(self):
@@ -61,7 +61,7 @@ class _StubPlotlyPlot(PlotlyVisualization):
 
     registry_name = "stub_plotly"
 
-    def compute(self, result=None, dataset=None) -> None:
+    def compute(self, result=None) -> None:
         self._fig = _RecordingFigure()
 
     def to_multiqc(self) -> list[Section]:
