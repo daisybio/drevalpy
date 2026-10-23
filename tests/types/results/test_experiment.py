@@ -9,18 +9,19 @@ import numpy as np
 import pytest
 from upath import UPath
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.types.results.experiment import ExperimentResult, _run_array_bytes
 from drevalpy.types.results.failure import RunFailure
 from drevalpy.types.results.run import intern_ids
 from drevalpy.types.results.trial import TrialResult
 from drevalpy.visualization.requirements import PlotRequirement
-from tests.synthetic import NORMALIZED_METRIC, REFERENCE_MODEL, make_experiment_result, make_run_result
+from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 
 class TestConstruction:
     def test_rejects_an_empty_run_list(self) -> None:
-        with pytest.raises(ValueError, match="must not be empty"):
+        with pytest.raises(InvalidInputError, match="must not be empty"):
             ExperimentResult([])
 
     def test_rejects_mixed_dataset_names(self) -> None:
@@ -29,7 +30,7 @@ class TestConstruction:
             make_run_result(dataset_name="CTRPv2"),
         ]
 
-        with pytest.raises(ValueError, match="same dataset_name"):
+        with pytest.raises(InvalidInputError, match="same dataset_name"):
             ExperimentResult(runs)
 
     def test_rejects_mixed_split_modes(self) -> None:
@@ -38,7 +39,7 @@ class TestConstruction:
             make_run_result(model_name="B", split_mode="LSO"),
         ]
 
-        with pytest.raises(ValueError, match="same split_mode"):
+        with pytest.raises(InvalidInputError, match="same split_mode"):
             ExperimentResult(runs)
 
     def test_ignores_blank_split_modes_when_checking_consistency(self) -> None:
@@ -164,7 +165,6 @@ class TestNormalize:
 
         metrics = normalized.models[0].runs[0].metrics
         assert set(metrics) == set(AVAILABLE_METRICS)
-        assert NORMALIZED_METRIC not in metrics
 
     def test_treats_pairs_missing_from_the_reference_as_zero(self) -> None:
         reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4, n_samples=2, n_drugs=2)
@@ -409,7 +409,7 @@ class TestFailures:
         assert experiment.failures == self.FAILURES
 
     def test_still_rejects_an_empty_run_list_when_there_are_failures(self) -> None:
-        with pytest.raises(ValueError, match="must not be empty"):
+        with pytest.raises(InvalidInputError, match="must not be empty"):
             ExperimentResult([], self.FAILURES)
 
     def test_save_omits_failures_json_when_there_are_none(self, tmp_path) -> None:

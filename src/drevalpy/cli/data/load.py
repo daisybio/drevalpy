@@ -21,5 +21,5 @@ def load_dataset(
     path = UPath(output)
     dataset = load(name)
     path.parent.mkdir(parents=True, exist_ok=True)
-    dataset.mdata.write(str(path))
+    dataset.save(path)
     typer.echo(f"Wrote {dataset.name} to {path}")

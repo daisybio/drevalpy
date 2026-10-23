@@ -85,7 +85,7 @@ fold in turn, the original split first and then each robustness variant of it. F
 of these splits it writes the run on the original dataset, followed by one run per randomized
 dataset.
 
-For example, take two models, five folds, ``--robustness-trials 1`` and ``-r SVRC -r SVCC``.
+For example, take two models, five folds, ``--robustness-trials 1`` and ``--randomization-mode SVRC --randomization-mode SVCC``.
 A model with one sample view gets 5 folds x 2 splits x 2 datasets = 20 files: the original
 dataset and the ``SVRC`` dataset. ``SVCC`` would randomize nothing when there is a single view,
 so it is skipped with a warning and gives no dataset. A model with two sample views gets both

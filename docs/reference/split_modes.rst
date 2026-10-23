@@ -181,7 +181,7 @@ and ``views``. The effective seed is derived from the SHA-256 of
 
 ``drevalpy experiments randomization MODEL DATASET OUTPUT_DIR`` takes a registered dataset
 name or the path of a ``.h5mu`` file. It writes one file per randomized dataset with
-``Dataset.save``, named ``<MODE>:<view>.h5mu``, and prints the number of files. Its default
+``Dataset.save``, named ``<MODE>__<view>.h5mu``, and prints the number of files. Its default
 mode is ``SVRC``. When every test is skipped it writes 0 files and exits with status 0.
 ``Dataset.load`` restores the ``randomization`` label of such a file, so ``drevalpy single``
 records it in the run and ``drevalpy aggregate`` keeps those runs apart from the ordinary

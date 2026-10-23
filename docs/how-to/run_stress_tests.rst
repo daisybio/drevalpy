@@ -17,7 +17,7 @@ and so keeps the example fast.
 Run both tests
 --------------
 
-Add the randomization mode with ``-r`` and the number of robustness repeats with
+Add the randomization mode with ``--randomization-mode`` and the number of robustness repeats with
 ``--robustness-trials``. The tests belong to the experiment: a single ``run`` trains the
 model on the original data and on the shuffled data, for each fold and each repeat.
 
@@ -88,8 +88,8 @@ Choose the randomization mode
 -----------------------------
 
 A model reads **views** of the dataset: the sample views such as ``gene_expression``, and the drug
-views it uses. The mode decides which views are shuffled in each randomized dataset. Repeat ``-r``
-to run several modes.
+views it uses. The mode decides which views are shuffled in each randomized dataset. Repeat
+``--randomization-mode`` to run several modes.
 
 .. list-table::
    :header-rows: 1
@@ -133,7 +133,8 @@ defaults to ``--seed``.
       .. code-block:: bash
 
          drevalpy run Ridge --dataset toy.h5mu --split-mode LPO --no-hpo \
-             -r SVRC -r SVCC --randomization-type invariant --output-dir results_invariant
+             --randomization-mode SVRC --randomization-mode SVCC \
+             --randomization-type invariant --output-dir results_invariant
 
    .. tab-item:: Python
       :sync: python

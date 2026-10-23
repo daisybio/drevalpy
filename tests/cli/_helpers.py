@@ -111,13 +111,13 @@ class FakeDataset:
         self.randomization = randomization
         self.mdata = FakeMuData()
 
-    def save(self, path: str) -> None:
+    def save(self, path: str | UPath) -> None:
         """Write the placeholder file the way :meth:`Dataset.save` writes its MuData.
 
         Args:
             path: Destination the command chose for this dataset.
         """
-        self.mdata.write(path)
+        self.mdata.write(str(path))
 
 
 class Recorder:

@@ -70,14 +70,6 @@ class ToySampleFeaturizer(SampleFeaturizer):
             entity_ids, {self.input_views[0]: numeric_feature_block(standardized)}, (self.input_views[0],)
         )
 
-    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
-        """Return the fitted schema without transforming any source rows."""
-        _ = source
-        values = np.empty((0, self.output_dim), dtype=np.float32)
-        return FeaturizerResult(
-            np.empty(0, dtype=str), {self.input_views[0]: numeric_feature_block(values)}, (self.input_views[0],)
-        )
-
     @property
     def output_dim(self) -> int:
         """Number of feature columns produced after fitting."""

@@ -108,7 +108,7 @@ class TestAggregation:
 
 
 class TestValidation:
-    """``ExperimentResult``'s own guards surface as a nonzero exit."""
+    """``ExperimentResult``'s own guards surface as ``Error: <message>`` and exit status 1."""
 
     def test_mismatched_dataset_names_are_rejected(self, tmp_path: UPath) -> None:
         first = tmp_path / "a.npz"
@@ -118,7 +118,8 @@ class TestValidation:
 
         result = _invoke([first, second], tmp_path / "out")
 
-        assert isinstance(result.exception, ValueError)
+        assert result.exit_code == 1
+        assert "Error: All RunResults must share the same dataset_name" in plain(result.output)
 
 
 class TestGroupBy:

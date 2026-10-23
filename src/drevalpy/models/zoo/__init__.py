@@ -6,6 +6,7 @@ from typing import Any
 
 from upath import UPath as Path
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.log import get_logger
 from drevalpy.models.config import ModelConfig, ResolvedModelConfig
 from drevalpy.models.config.io import from_yaml
@@ -91,13 +92,13 @@ def get_zoo_config(name: str, *, prediction_mode: PredictionMode | None = None) 
     :param name: Built-in or externally registered zoo preset name.
     :param prediction_mode: Optional prediction mode overriding the preset's own value.
     :returns: Deep copy of the zoo ``ModelConfig``.
-    :raises KeyError: If ``name`` is not a known zoo entry.
+    :raises UnknownNameError: If ``name`` is not a known zoo entry.
     """
     if name in _EXTERNAL_ZOO:
         return _clone_model_config(_EXTERNAL_ZOO[name], prediction_mode=prediction_mode)
     if name not in _get_builtin_zoo():
         msg = f"Unknown zoo entry: {name}"
-        raise KeyError(msg)
+        raise UnknownNameError(msg)
     return _clone_model_config(_get_builtin_zoo()[name], prediction_mode=prediction_mode)
 
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sys
-from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
@@ -12,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from upath import UPath as Path
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import score_predictions
 from drevalpy.log import get_logger
 from drevalpy.types.results._summary import SummaryTableMixin
@@ -33,27 +33,27 @@ class ExperimentResult(SummaryTableMixin):
 
         :param run_results: Non-empty list of RunResult objects sharing the same dataset.
         :param failures: Runs that raised instead of producing a result; kept as the :attr:`failures` tuple.
-        :raises ValueError: If the list is empty or contains inconsistent metadata.
+        :raises InvalidInputError: If the list is empty or contains inconsistent metadata.
         """
         if not run_results:
-            raise ValueError("run_results must not be empty")
+            raise InvalidInputError("run_results must not be empty")
 
         dataset_names = {r.dataset_name for r in run_results}
         if len(dataset_names) > 1:
-            raise ValueError(f"All RunResults must share the same dataset_name, got: {dataset_names}")
+            raise InvalidInputError(f"All RunResults must share the same dataset_name, got: {dataset_names}")
 
         split_modes = {r.split_mode for r in run_results if r.split_mode}
         if len(split_modes) > 1:
-            raise ValueError(f"All RunResults must share the same split_mode, got: {split_modes}")
+            raise InvalidInputError(f"All RunResults must share the same split_mode, got: {split_modes}")
 
         self.dataset_name: str = dataset_names.pop()
         self.split_mode: str = split_modes.pop() if split_modes else ""
         self.normalized_by: str | None = None
         self.failures: tuple[RunFailure, ...] = tuple(failures)
 
-        grouped: dict[str, list[RunResult]] = defaultdict(list)
+        grouped: dict[str, list[RunResult]] = {}
         for r in run_results:
-            grouped[r.model_name].append(r)
+            grouped.setdefault(r.model_name, []).append(r)
 
         self.models: list[ModelResult] = [
             ModelResult(model_name=name, dataset_name=self.dataset_name, runs=runs) for name, runs in grouped.items()

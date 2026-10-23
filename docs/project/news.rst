@@ -98,6 +98,11 @@ Errors and logging
   ``FileNotFoundError``) and ``InvalidInputError`` (also a ``ValueError``) cover the common cases, so
   existing ``except`` clauses keep working.
 - The randomization tests write their datasets to files named ``<mode>__<view>.h5mu``.
+- ``drevalpy run`` has no short ``-r`` for ``--randomization-mode``; repeat the long flag. A
+  mode, ``--fit-speed`` or ``--join`` value that does not exist is rejected with the list of valid
+  choices (``drevalpy curate`` no longer takes ``--fit-type``, since OLS was its only value).
+  ``drevalpy data synthetic`` prints an error when ``--n-drugs`` is over the number of drugs it
+  can simulate.
 
 Cross-study evaluation, component grids and recorded failures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

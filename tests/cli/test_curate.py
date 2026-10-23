@@ -9,6 +9,8 @@ plumbing and the format guard from the fitter.
 
 from __future__ import annotations
 
+import logging
+
 import anndata
 import numpy as np
 import pandas as pd
@@ -226,10 +228,16 @@ class TestRoundTrip:
         build_dose_response_df().to_csv(input_path, index=False)
         output_path = tmp_path / "output.h5ad"
 
-        result = runner.invoke(
-            app,
-            ["curate", str(input_path), str(output_path), "--cores", "1", "--fit-speed", "fast"],
-        )
+        logger = logging.getLogger("drevalpy")
+        handlers, level = list(logger.handlers), logger.level
+        try:
+            result = runner.invoke(
+                app,
+                ["curate", str(input_path), str(output_path), "--cores", "1", "--fit-speed", "fast"],
+            )
+        finally:
+            logger.handlers[:] = handlers
+            logger.setLevel(level)
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
         return output_path

@@ -8,6 +8,7 @@ import inspect
 import pytest
 
 from drevalpy import models
+from drevalpy.errors import InvalidInputError
 from drevalpy.models._combinations import Combinations, SkippedCombination, combinations
 
 
@@ -102,7 +103,7 @@ def test_unknown_component_is_skipped_with_the_registry_message() -> None:
 
 
 def test_no_valid_combination_raises_with_every_reason() -> None:
-    with pytest.raises(ValueError, match="No valid combination among 2") as caught:
+    with pytest.raises(InvalidInputError, match="No valid combination among 2") as caught:
         combinations(
             sample=["raw[gene_expression]", "pca[gene_expression]"],
             drug=["fingerprints"],
@@ -119,12 +120,12 @@ def test_no_valid_combination_raises_with_every_reason() -> None:
 
 
 def test_no_predictors_is_an_error() -> None:
-    with pytest.raises(ValueError, match="at least one predictor"):
+    with pytest.raises(InvalidInputError, match="at least one predictor"):
         combinations(sample=["pca[gene_expression]"], predictors=[])
 
 
 def test_drug_without_sample_is_an_error() -> None:
-    with pytest.raises(ValueError, match="drug featurizers need a sample featurizer"):
+    with pytest.raises(InvalidInputError, match="drug featurizers need a sample featurizer"):
         combinations(drug=["fingerprints"], predictors=["elasticNet"])
 
 
@@ -138,5 +139,5 @@ def test_drug_without_sample_is_an_error() -> None:
     ],
 )
 def test_malformed_axes_are_rejected(kwargs: dict, match: str) -> None:
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(InvalidInputError, match=match):
         combinations(predictors=["elasticNet"], **kwargs)

@@ -46,26 +46,6 @@ ALLOWLIST: tuple[tuple[str, str, str], ...] = (
         "tests build and read the optional cell_line_name column of cell-line datasets",
     ),
     (
-        "src/drevalpy/components/featurizers/storage.py",
-        r"cell_line_featurizer_variants|renamed cell lines to samples",
-        "legacy uns key and the error that tells users to regenerate datasets written before the rename",
-    ),
-    (
-        "tests/components/featurizers/test_storage.py",
-        r"cell_line_featurizer_variants",
-        "pins the rejection of the legacy uns key",
-    ),
-    (
-        "src/drevalpy/models/mixins/_persistence_io.py",
-        r"cell line -> sample rename",
-        "error message for checkpoints written before the rename",
-    ),
-    (
-        "tests/models/mixins/test_persistence_io.py",
-        r"cell_line_featurizer|\"cell_line\"|cell line -> sample rename",
-        "builds a pre-rename checkpoint payload and pins the error message",
-    ),
-    (
         "src/drevalpy/types/results/run.py",
         r"cell_line_ids|cell line -> sample rename|cell lines to samples",
         "reads the legacy results key only to reject it with a regeneration hint",

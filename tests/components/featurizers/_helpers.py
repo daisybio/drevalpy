@@ -68,11 +68,6 @@ class DoublingFeaturizer(Featurizer):
         doubled = (matrix * 2).astype(np.float32)
         return FeaturizerResult(entity_ids, {"test_view": numeric_feature_block(doubled)}, ("test_view",))
 
-    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
-        """Retain the fixed output schema when every source row is invalid."""
-        empty = np.empty((0, self.output_dim), dtype=np.float32)
-        return FeaturizerResult(np.empty(0, dtype=str), {"test_view": numeric_feature_block(empty)}, ("test_view",))
-
     @property
     def output_dim(self) -> int:
         """Fixed width of the stub view."""

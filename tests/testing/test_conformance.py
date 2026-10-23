@@ -61,10 +61,6 @@ class GoodFeaturizer(SampleFeaturizer):
         values = values.reshape(len(entity_ids), self._n_features) + self._offset
         return FeaturizerResult(entity_ids, {BLOCK: numeric_feature_block(values)}, (BLOCK,))
 
-    def _empty_transform_features(self, source):
-        values = np.empty((0, self._n_features), dtype=np.float32)
-        return FeaturizerResult(np.empty(0, dtype=str), {BLOCK: numeric_feature_block(values)}, (BLOCK,))
-
     @property
     def output_dim(self) -> int:
         return self._n_features

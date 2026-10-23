@@ -164,14 +164,6 @@ class ModelInputBatch:
             None if self.drug is None else indices(self.drug, response.drug_ids, "drug"),
         )
 
-    def feature_matrix_for(self, response: ResponseBatch) -> np.ndarray:
-        """Select and join numeric side projections in response order.
-
-        :param response: Pairs to project.
-        :returns: Dense design matrix retaining feature width for empty scopes.
-        """
-        return self._feature_matrix(*self._pair_indices_for(response), n_pairs=len(response))
-
     def _feature_matrix(self, cell_indices, drug_indices, *, n_pairs: int) -> np.ndarray:
         arrays = []
         for table, indices in ((self.sample, cell_indices), (self.drug, drug_indices)):

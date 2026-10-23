@@ -163,7 +163,7 @@ Split a dataset into folds
 A split mode decides what is held out together; see :doc:`/reference/split_modes`. This example
 holds out whole samples (``LSO``) in 5 folds. ``--mode`` takes ``LPO``, ``LSO``, ``LDO`` or
 ``LTO``; ``--n-splits`` and ``--validation-ratio`` change the number of folds and the share of
-validation data. The default ``random_state`` is 42, so repeating a split gives the same folds.
+validation data. The default ``random_state`` (``--seed`` on the command line) is 42, so repeating a split gives the same folds.
 
 .. tab-set::
    :sync-group: interface

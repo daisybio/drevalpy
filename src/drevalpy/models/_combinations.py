@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import product
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.models.config._recipe import format_model_recipe
 from drevalpy.models.spec import ModelSpec, UnknownModelError
 
@@ -68,9 +69,9 @@ def combinations(
     drug_tokens = _tokens("drug", drug)
     predictor_tokens = _tokens("predictors", predictors)
     if not predictor_tokens:
-        raise ValueError("combinations needs at least one predictor")
+        raise InvalidInputError("combinations needs at least one predictor")
     if drug_tokens and not sample_tokens:
-        raise ValueError(
+        raise InvalidInputError(
             "drug featurizers need a sample featurizer: a recipe cannot name a drug slot without a sample slot"
         )
 
@@ -88,15 +89,15 @@ def combinations(
             skipped.append(SkippedCombination(recipe, str(exc).splitlines()[0]))
     if not specs:
         reasons = "\n".join(f"  {item.recipe}: {item.reason}" for item in skipped)
-        raise ValueError(f"No valid combination among {len(skipped)}:\n{reasons}")
+        raise InvalidInputError(f"No valid combination among {len(skipped)}:\n{reasons}")
     return Combinations(specs=specs, skipped=skipped)
 
 
 def _tokens(label: str, values: Sequence[str]) -> list[str]:
     """Check and de-duplicate one axis of the grid, keeping the given order."""
     if isinstance(values, str):
-        raise ValueError(f"{label} must be a list of recipe tokens, not the string {values!r}")
+        raise InvalidInputError(f"{label} must be a list of recipe tokens, not the string {values!r}")
     for value in values:
         if not isinstance(value, str) or not value.strip() or ":" in value:
-            raise ValueError(f"{label} entries must be non-empty recipe tokens without ':', got {value!r}")
+            raise InvalidInputError(f"{label} entries must be non-empty recipe tokens without ':', got {value!r}")
     return list(dict.fromkeys(value.strip() for value in values))

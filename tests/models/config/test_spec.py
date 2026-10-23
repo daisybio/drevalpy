@@ -286,9 +286,6 @@ class ResolverSampleFeaturizer(SampleFeaturizer):
     def _transform_features(self, source, entity_ids):
         values = np.ones((len(entity_ids), 1), dtype=np.float32)
         return FeaturizerResult(values, {"ext": numeric_feature_block(values)})
-    def _empty_transform_features(self, source):
-        values = np.empty((0, 1), dtype=np.float32)
-        return FeaturizerResult(values, {"ext": numeric_feature_block(values)})
     @property
     def output_dim(self):
         return self._output_dim

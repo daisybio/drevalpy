@@ -34,11 +34,6 @@ DEFAULT_MODEL_NAMES: Final = (REFERENCE_MODEL, "ElasticNet", "RandomForest")
 DEFAULT_DATASET_NAME: Final = "SyntheticDataset"
 DEFAULT_SPLIT_MODE: Final = "LPO"
 
-#: Suffix drevalpy 1.x appended to the normalized copy of a metric. ``normalize()`` no
-#: longer emits it, and the plots no longer read it; it stays so that
-#: ``tests/types/results/test_experiment.py`` can assert it is absent.
-NORMALIZED_METRIC: Final = "Pearson: normalized"
-
 
 def make_metrics(*, seed: int = 0) -> dict[str, float]:
     """Build a metrics dict covering every metric the package reports.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.errors import UnknownNameError
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import ModelConfig, ModelScope, from_spec, validate
 from drevalpy.models.factory import model_config_for_name
@@ -153,6 +154,12 @@ def test_zoo_model_config_routes_methylation_flat_key_to_pca_child() -> None:
     assert isinstance(resolved, ResolvedModelConfig)
     assert resolved.predictor_values().get("methylation_n_components") is None
     assert resolved.featurizer_values("sample", "pca[methylation]")["n_components"] == 11
+
+
+def test_get_zoo_config_rejects_an_unknown_name_with_unknown_name_error() -> None:
+    with pytest.raises(UnknownNameError, match="Unknown zoo entry: NoSuchPreset") as caught:
+        get_zoo_config("NoSuchPreset")
+    assert isinstance(caught.value, KeyError)
 
 
 def test_get_zoo_config_applies_prediction_mode_override(monkeypatch: pytest.MonkeyPatch) -> None:

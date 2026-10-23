@@ -76,10 +76,6 @@ def fake_plugin_package(monkeypatch):
             values = np.zeros((len(entity_ids), 1), dtype=np.float32)
             return FeaturizerResult(entity_ids, {"fake": numeric_feature_block(values)}, ("fake",))
 
-        def _empty_transform_features(self, source):
-            values = np.empty((0, 1), dtype=np.float32)
-            return FeaturizerResult(np.empty(0, dtype=str), {"fake": numeric_feature_block(values)}, ("fake",))
-
         @property
         def output_dim(self) -> int:
             return 1
