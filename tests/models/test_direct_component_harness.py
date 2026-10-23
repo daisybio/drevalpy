@@ -13,6 +13,7 @@ from drevalpy.models.config import from_dict, validate
 from tests._trusted_subprocess import run_trusted_python
 from tests.models.synthetic_fixtures import (
     lso_split_masks,
+    small_data_spec,
     synthetic_mudataset_gene_expression_fingerprints,
     synthetic_mudataset_identity,
 )
@@ -53,7 +54,7 @@ def test_naive_direct_component_round_trip(preset: str) -> None:
 def test_sklearn_direct_component_round_trip(preset: str) -> None:
     mudataset = synthetic_mudataset_gene_expression_fingerprints()
     split = lso_split_masks()
-    model = DRPModel(ModelSpec.from_name(preset))
+    model = DRPModel(small_data_spec(preset))
     model.train(mudataset, split.train)
     preds = model.predict(mudataset, split.test)
     assert preds.shape[0] > 0
@@ -145,6 +146,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         from drevalpy.types.data.dataset import Dataset
         from drevalpy.types import SplitMask, SplitMasks
         from drevalpy.models import DRPModel, ModelSpec
+        from drevalpy.models.config import from_spec
 
         cl_ids = np.array(["cl1", "cl2"])
         drug_ids = np.array(["d1", "d2"])
@@ -180,7 +182,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
 
         naive = DRPModel(ModelSpec.from_name("NaivePredictor"), {})
         naive.train(mudataset_id, split.train)
-        elastic = DRPModel(ModelSpec.from_name("ElasticNet"))
+        elastic = DRPModel(ModelSpec("ElasticNet", from_spec("scaledGeneExpression:fingerprints:elasticNet")))
         elastic.train(mudataset_ge, split.train)
         """)
     completed = run_trusted_python(script)

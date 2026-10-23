@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -11,7 +12,7 @@ from drevalpy.components.featurizers.sample.dipk_gene_expression import (
     DIPKGeneExpressionFeaturizer,
     GeneExpressionEncoder,
 )
-from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant
+from tests.components.featurizers.sample._helpers import assert_uses_precomputed_variant, use_gene_lists
 from tests.conftest import MockFeatureSource
 
 
@@ -258,3 +259,28 @@ def test_dipk_gene_expression_serves_a_precomputed_variant() -> None:
         expect_output_dim=False,
         expected_blocks=("gene_expression",),
     )
+
+
+def test_dipk_gene_expression_gene_list_selects_the_autoencoder_input_and_round_trips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    use_gene_lists(monkeypatch, tmp_path, {"mine": ["g2", "g0"]})
+    features = _wide_features(n=4, genes=4)
+    seen = _recording_trainer(monkeypatch)
+
+    featurizer = DIPKGeneExpressionFeaturizer(gene_list="mine", epochs_autoencoder=1).fit(
+        features, pair_expanded_ids=np.array(["cl0", "cl1"]), pair_expanded_es_ids=np.array(["cl2", "cl3"])
+    )
+
+    assert seen["train"].shape == (2, 2)
+    restored = DIPKGeneExpressionFeaturizer()
+    restored.set_state(featurizer.get_state())
+    assert restored._gene_list == "mine"
+    np.testing.assert_allclose(
+        restored.transform(features, np.array(["cl0", "cl1"])), featurizer.transform(features, np.array(["cl0", "cl1"]))
+    )
+
+
+def test_dipk_gene_expression_matches_a_stored_variant_only_for_its_own_gene_list() -> None:
+    assert DIPKGeneExpressionFeaturizer()._fetch_hyperparameters() is None
+    assert DIPKGeneExpressionFeaturizer(gene_list="mine")._fetch_hyperparameters() == {"gene_list": "mine"}

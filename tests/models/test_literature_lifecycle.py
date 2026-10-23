@@ -12,10 +12,10 @@ from drevalpy.models.config import from_spec
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset
-from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset
+from tests.models.synthetic_fixtures import lso_split_masks, small_data_spec, synthetic_mudataset
 
-#: The multi-omics views ``MultiViewNeuralNetwork`` reads beyond gene expression.
-MULTIVIEW_EXTRA_VIEWS = ("methylation", "mutations", "copy_number_variation_gistic")
+#: The multi-omics view ``MultiViewNeuralNetwork`` reads beyond gene expression.
+MULTIVIEW_EXTRA_VIEWS = ("mutations",)
 
 
 @pytest.fixture(autouse=True)
@@ -74,7 +74,6 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
             {
                 "units_per_layer": [2, 2],
                 "max_epochs": 1,
-                "methylation_n_components": 2,
             },
             MULTIVIEW_EXTRA_VIEWS,
         ),
@@ -87,7 +86,7 @@ def test_literature_model_lifecycle(
     extra_views: tuple[str, ...],
 ) -> None:
     mudataset, split = _dataset(extra_views=extra_views)
-    model = DRPModel(ModelSpec.from_name(model_name), hyperparameters)
+    model = DRPModel(small_data_spec(model_name), hyperparameters)
     model.train(mudataset, split.train)
     preds = model.predict(mudataset, split.test)
     assert preds.shape[0] > 0

@@ -11,13 +11,14 @@ from drevalpy.models._pipeline import PipelineState
 from drevalpy.types import SplitMask
 from tests.models.synthetic_fixtures import (
     lso_split_masks,
+    small_data_spec,
     synthetic_mudataset_gene_expression_fingerprints,
     synthetic_mudataset_identity,
 )
 
 
 def test_model_starts_untrained_and_predict_rejects_it() -> None:
-    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model = DRPModel(small_data_spec("ElasticNet"))
     dataset = synthetic_mudataset_gene_expression_fingerprints()
 
     assert model._pipeline.state is PipelineState.UNTRAINED
@@ -37,7 +38,7 @@ def test_empty_fit_returns_aligned_nan_predictions() -> None:
 
 
 def test_retraining_resets_previous_fitted_state() -> None:
-    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model = DRPModel(small_data_spec("ElasticNet"))
     dataset = synthetic_mudataset_gene_expression_fingerprints()
     masks = lso_split_masks()
 
@@ -50,7 +51,7 @@ def test_retraining_resets_previous_fitted_state() -> None:
 
 
 def test_fitted_model_round_trips_through_a_checkpoint(tmp_path) -> None:
-    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model = DRPModel(small_data_spec("ElasticNet"))
     dataset = synthetic_mudataset_gene_expression_fingerprints()
     scope = lso_split_masks().train
 
@@ -71,7 +72,7 @@ def _with_gene_columns(dataset, columns: slice):
 
 
 def test_predictions_do_not_depend_on_the_gene_order_of_the_dataset(tmp_path) -> None:
-    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model = DRPModel(small_data_spec("ElasticNet"))
     model.train(synthetic_mudataset_gene_expression_fingerprints(), lso_split_masks().train)
     model.save(tmp_path / "model")
     restored = DRPModel.load(tmp_path / "model")
@@ -85,7 +86,7 @@ def test_predictions_do_not_depend_on_the_gene_order_of_the_dataset(tmp_path) ->
 
 
 def test_predicting_on_a_dataset_without_a_fitted_gene_raises(tmp_path) -> None:
-    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model = DRPModel(small_data_spec("ElasticNet"))
     model.train(synthetic_mudataset_gene_expression_fingerprints(), lso_split_masks().train)
     model.save(tmp_path / "model")
     missing_gene = _with_gene_columns(synthetic_mudataset_gene_expression_fingerprints(), slice(1, None))
@@ -143,7 +144,7 @@ def test_components_construct_once_per_training_attempt(monkeypatch) -> None:
         return components
 
     monkeypatch.setattr(pipeline_module, "build_components", record)
-    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model = DRPModel(small_data_spec("ElasticNet"))
     assert calls == []
     dataset = synthetic_mudataset_gene_expression_fingerprints()
     model.train(dataset, lso_split_masks().train)
@@ -179,7 +180,7 @@ def test_empty_prediction_does_not_access_dataset_features(monkeypatch) -> None:
 
 def test_prediction_retains_unobserved_targets_and_all_invalid_feature_rows() -> None:
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model = DRPModel(small_data_spec("ElasticNet"))
     model.train(dataset, lso_split_masks().train)
     dataset.mdata.mod["response"].X[1, 0] = np.nan
     requested = lso_split_masks().test.shuffled(1)
@@ -203,9 +204,22 @@ def test_each_side_computes_features_once_per_operation(monkeypatch) -> None:
 
     monkeypatch.setattr(DenseViewFeaturizer, "_transform_features", record)
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    model = DRPModel(ModelSpec.from_name("ElasticNet"))
+    model = DRPModel(small_data_spec("ElasticNet"))
     model.train(dataset, lso_split_masks().train)
     assert len(calls) == 2
     calls.clear()
     model.predict(dataset, lso_split_masks().test)
     assert len(calls) == 2
+
+
+def test_mean_effects_falls_back_to_sample_and_drug_effects_without_tissue_metadata() -> None:
+    dataset = synthetic_mudataset_identity()
+    assert "tissue" not in dataset.sample_meta.columns
+    split = lso_split_masks()
+    model = DRPModel(ModelSpec.from_name("NaiveMeanEffectsPredictor"))
+
+    model.train(dataset, split.train)
+    preds = model.predict(dataset, split.test)
+
+    assert model._pipeline.state is PipelineState.FITTED
+    assert np.isfinite(preds).all()

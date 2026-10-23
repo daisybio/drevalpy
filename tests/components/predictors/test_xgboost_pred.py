@@ -21,12 +21,22 @@ def test_xgboost_shares_the_boosting_base_with_lightgbm() -> None:
     assert issubclass(XGBoostPredictor, BoostedTreesPredictor)
 
 
-def test_xgboost_hyperparameter_space_tunes_three_knobs() -> None:
-    assert set(XGBoostPredictor.get_hyperparameter_space()) == {"n_estimators", "max_depth", "learning_rate"}
+def test_xgboost_hyperparameter_space_tunes_the_1_6_1_grid_keys() -> None:
+    assert set(XGBoostPredictor.get_hyperparameter_space()) == {
+        "n_estimators",
+        "max_depth",
+        "learning_rate",
+        "subsample",
+        "colsample_bytree",
+        "reg_alpha",
+        "reg_lambda",
+    }
 
 
-def test_xgboost_caps_the_tree_depth_below_the_shared_ceiling() -> None:
-    assert XGBoostPredictor.get_hyperparameter_space()["max_depth"]["high"] == 8
+def test_xgboost_tree_depth_range_covers_the_1_6_1_default() -> None:
+    depth = XGBoostPredictor.get_hyperparameter_space()["max_depth"]
+
+    assert depth["low"] <= 10 <= depth["high"]
 
 
 def test_xgboost_draws_the_learning_rate_uniformly() -> None:
@@ -43,11 +53,12 @@ def test_xgboost_estimator_params_keep_the_documented_defaults() -> None:
     params = XGBoostPredictor()._estimator_params()
 
     assert params["n_estimators"] == 100
-    assert params["max_depth"] == 6
+    assert params["max_depth"] == 10
     assert params["learning_rate"] == pytest.approx(0.1)
-    assert params["subsample"] == pytest.approx(1.0)
-    assert params["colsample_bytree"] == pytest.approx(1.0)
+    assert params["subsample"] == pytest.approx(0.8)
+    assert params["colsample_bytree"] == pytest.approx(0.6)
     assert params["reg_alpha"] == pytest.approx(0.0)
+    assert params["reg_lambda"] == pytest.approx(0.1)
     assert params["random_state"] == 42
 
 
@@ -55,7 +66,6 @@ def test_xgboost_does_not_pass_lightgbm_only_arguments() -> None:
     params = XGBoostPredictor()._estimator_params()
 
     assert "num_leaves" not in params
-    assert "reg_lambda" not in params
 
 
 def test_xgboost_make_estimator_forwards_hyperparameters() -> None:

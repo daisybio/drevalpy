@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from drevalpy.models import ModelSpec
+from drevalpy.models.config import from_spec
 from drevalpy.models.tuning import hpo
 from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo import HPOTrialsFailedError, hpam_tune
@@ -24,7 +25,7 @@ def _tune(**kwargs):
     pairs = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
     scope = SplitMask.from_pairs(pairs, shape=mudataset.response_matrix.shape)
     return hpam_tune(
-        model_spec=ModelSpec.from_name("ElasticNet"),
+        model_spec=ModelSpec("ElasticNet", from_spec("scaledGeneExpression:fingerprints:elasticNet")),
         mudataset=mudataset,
         train_scope=scope,
         val_scope=scope,

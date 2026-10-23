@@ -30,6 +30,7 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
+from drevalpy.components.featurizers.sample.gene_lists import select_genes
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
@@ -114,6 +115,7 @@ class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
     def __init__(
         self,
         *,
+        gene_list: str | None = None,
         epochs_autoencoder: int = 1000,
         lr_autoencoder: float = 1e-4,
         patience_autoencoder: int = 3,
@@ -124,12 +126,15 @@ class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         The ``_autoencoder`` suffix keeps these apart from the ``lr``, ``patience`` and ``batch_size``
         of the DIPK predictor, which hold different values.
 
+        :param gene_list: Name of a shipped gene list to keep, in list order; the view must hold every gene of
+            it. ``None`` keeps the whole view.
         :param epochs_autoencoder: Maximum number of autoencoder training epochs.
         :param lr_autoencoder: Learning rate of the autoencoder's Adam optimizer.
         :param patience_autoencoder: Epochs without improvement before the autoencoder stops.
         :param batch_size_autoencoder: Mini-batch size of the autoencoder.
         """
         super().__init__()
+        self._gene_list = gene_list
         self._epochs = int(epochs_autoencoder)
         self._lr = float(lr_autoencoder)
         self._patience = int(patience_autoencoder)
@@ -138,6 +143,23 @@ class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         self._input_dim = 0
         self._latent_dim = 512
         self._validation_ids: np.ndarray | None = None
+
+    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...] | None:
+        """Bind the encoder to the genes of the gene list, or to the whole view without one.
+
+        :param source: Feature source providing view matrices.
+        :returns: Gene names in gene-list order, or every feature name of the view.
+        """
+        if self._gene_list is None:
+            return super()._names_to_fit(source)
+        return select_genes(source, self._view, self._gene_list)
+
+    def _fetch_hyperparameters(self) -> dict[str, Any] | None:
+        """Match a stored variant only when it was built for the same gene list.
+
+        :returns: The gene-list setting, or ``None`` for the whole view.
+        """
+        return None if self._gene_list is None else {"gene_list": self._gene_list}
 
     def _fit_entity_ids(
         self,
@@ -254,6 +276,7 @@ class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
             "encoder_state": save_state_dict(self._encoder.state_dict()),
             "input_dim": self._input_dim,
             "latent_dim": self._latent_dim,
+            "gene_list": self._gene_list,
             "epochs": self._epochs,
             "epochs_autoencoder": self._epochs,
             "lr_autoencoder": self._lr,
@@ -276,6 +299,9 @@ class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         self._input_dim = input_dim
         self._latent_dim = latent_dim
         self._output_dim = latent_dim
+        gene_list = state.get("gene_list")
+        if gene_list is None or isinstance(gene_list, str):
+            self._gene_list = gene_list
         epochs = state.get("epochs", state.get("epochs_autoencoder"))
         if isinstance(epochs, int):
             self._epochs = epochs

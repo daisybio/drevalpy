@@ -14,6 +14,7 @@ from drevalpy.models.factory import model_config_for_name
 from drevalpy.models.zoo import list_zoo_names
 from tests.models.synthetic_fixtures import (
     lso_split_masks,
+    small_data_spec,
     synthetic_mudataset_gene_expression_fingerprints,
     synthetic_mudataset_identity,
 )
@@ -57,7 +58,7 @@ def test_multiview_baselines_have_model_specs() -> None:
 @pytest.mark.parametrize("name", ["ElasticNet", "NaiveDrugMeanPredictor"])
 def test_component_stack_save_load_round_trip(name: str) -> None:
     if name == "ElasticNet":
-        model = DRPModel(ModelSpec.from_name(name), {"alpha": 0.1, "l1_ratio": 0.5, "max_iter": 1000})
+        model = DRPModel(small_data_spec(name), {"alpha": 0.1, "l1_ratio": 0.5, "max_iter": 1000})
         mudataset = synthetic_mudataset_gene_expression_fingerprints()
     else:
         model = DRPModel(ModelSpec.from_name(name), {})

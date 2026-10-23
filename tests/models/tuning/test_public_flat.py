@@ -38,7 +38,7 @@ def test_model_spec_resolves_without_hyperparameters() -> None:
 
 
 def test_methylation_n_components_alias() -> None:
-    config = get_zoo_config("MultiViewRandomForest")
+    config = from_spec("scaledGeneExpression+pca[methylation]:fingerprints:randomForest")
     updated = apply_public_hyperparameters_to_config(config, {"methylation_n_components": 7})
     assert updated.featurizer_values("sample", "pca[methylation]")["n_components"] == 7
 

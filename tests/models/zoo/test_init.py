@@ -160,13 +160,50 @@ def test_zoo_model_config_rejects_view_keys() -> None:
         )
 
 
-def test_zoo_model_config_routes_methylation_flat_key_to_pca_child() -> None:
+def test_zoo_model_config_routes_methylation_flat_key_to_pca_child(tmp_path) -> None:
     from drevalpy.models.config import ResolvedModelConfig
+    from drevalpy.models.zoo import clear_external_zoo, load_external_zoo_file
 
-    resolved = zoo_model_config("MultiViewRandomForest", {"methylation_n_components": 11})
+    preset = tmp_path / "zoo.yaml"
+    preset.write_text(
+        """
+methylationForest:
+  sample_featurizer:
+    - scaledGeneExpression
+    - pca[methylation]
+  drug_featurizer: fingerprints
+  predictor: randomForest
+""",
+        encoding="utf-8",
+    )
+    clear_external_zoo()
+    load_external_zoo_file(preset)
+    try:
+        resolved = zoo_model_config("methylationForest", {"methylation_n_components": 11})
+    finally:
+        clear_external_zoo()
     assert isinstance(resolved, ResolvedModelConfig)
     assert resolved.predictor_values().get("methylation_n_components") is None
     assert resolved.featurizer_values("sample", "pca[methylation]")["n_components"] == 11
+
+
+def test_multi_view_zoo_presets_use_the_1_6_1_default_views() -> None:
+    for name in ("MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM", "MultiViewNeuralNetwork"):
+        config = get_zoo_config(name)
+        sample = config.sample_featurizer
+        assert sample is not None
+        assert sample.name == "concatFeaturizers"
+        assert sample.featurizers is not None
+        gene_expression, mutations = sample.featurizers
+        assert (gene_expression.name, dict(gene_expression.options)) == (
+            "scaledGeneExpression",
+            {"gene_list": "landmark_genes"},
+        )
+        assert (mutations.name, mutations.view, dict(mutations.options)) == (
+            "raw",
+            "mutations",
+            {"gene_list": "drug_target_genes_all_drugs"},
+        )
 
 
 def test_get_zoo_config_rejects_an_unknown_name_with_unknown_name_error() -> None:

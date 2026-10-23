@@ -18,7 +18,7 @@ from drevalpy.models._target_transform import (
 from drevalpy.types import SplitMask
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.utils.response_transform import GroupMeanCenterer, get_response_transformation
-from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
+from tests.models.synthetic_fixtures import lso_split_masks, small_data_spec, synthetic_mudataset_identity
 
 
 class _CenteringTransformer(BaseEstimator):
@@ -110,7 +110,7 @@ def test_transform_fits_original_training_population_before_feature_filtering() 
 
     dataset = synthetic_mudataset_gene_expression_fingerprints()
     dataset.mdata.mod["gene_expression"].X[1, :] = np.nan
-    model = DRPModel(ModelSpec.from_name("ElasticNet"), response_transformation=StandardScaler())
+    model = DRPModel(small_data_spec("ElasticNet"), response_transformation=StandardScaler())
     model.train(dataset, SplitMask(np.ones((2, 2), dtype=bool)))
     assert model._pipeline._response_transform.mean_[0] == pytest.approx(2.5)
 

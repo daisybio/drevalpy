@@ -1,8 +1,7 @@
 sample_featurizer:
-  - scaledGeneExpression
-  - pca[methylation]:
-      n_components: 100
-  - raw[mutations]
-  - raw[copy_number_variation_gistic]
+  - scaledGeneExpression:
+      gene_list: landmark_genes
+  - raw[mutations]:
+      gene_list: drug_target_genes_all_drugs
 drug_featurizer: fingerprints
 predictor: randomForest

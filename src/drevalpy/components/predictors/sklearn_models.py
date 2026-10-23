@@ -15,10 +15,6 @@ from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearn
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.registry.predictor import register
 
-#: At the old default of 1.0 the penalty shrinks every coefficient to zero on
-#: standardized features, so the untuned model predicted the training mean.
-DEFAULT_ELASTICNET_ALPHA = 0.1
-
 
 @register(
     "elasticNet",
@@ -29,23 +25,21 @@ DEFAULT_ELASTICNET_ALPHA = 0.1
 class ElasticNetPredictor(SklearnTabularPredictor):
     """Elastic net predictor component.
 
-    At the extremes of ``l1_ratio`` (0 or 1), the estimator falls back to Ridge
+    The defaults are the first grid point of DrEvalPy 1.6.1: ``l1_ratio=0`` (a Ridge fit) with
+    ``alpha=1``. At the extremes of ``l1_ratio`` (0 or 1), the estimator falls back to Ridge
     or Lasso; prefer the dedicated ``ridge`` / ``lasso`` predictors when that is
-    the intended model.
+    the intended model. The coordinate-descent settings are scikit-learn's own defaults, as in 1.6.1.
     """
 
-    # Coordinate descent here is sensitive to feature scaling, not to the iteration
-    # budget: on unstandardized features it fails to converge at any tolerance, and
-    # raising max_iter only makes each failure proportionally slower. Keep a modest
-    # budget and the looser tolerance/random selection that LassoPredictor uses.
-    # ``selection="random"`` needs a seed: unseeded, the coordinate order is drawn
-    # from global randomness and two fits on identical data disagree.
     non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
-        "max_iter": 2000,
-        "tol": 1e-2,
-        "selection": "random",
-        "random_state": 0,
+        "max_iter": 1000,
+        "tol": 1e-4,
+        "selection": "cyclic",
+        "random_state": None,
     }
+
+    #: ``l1_ratio`` default of this predictor; the single-drug variant starts from a different mix.
+    default_l1_ratio: ClassVar[float] = 0.0
 
     def _make_estimator(self) -> Any:
         from sklearn.linear_model import ElasticNet, Lasso, Ridge
@@ -56,8 +50,8 @@ class ElasticNetPredictor(SklearnTabularPredictor):
         tol = float(self._h["tol"])
         random_state = self._h["random_state"]
         if l1_ratio == 0.0:
-            # Ridge is not coordinate descent and has no ``selection`` parameter.
-            return Ridge(alpha=alpha, max_iter=max_iter, tol=tol, random_state=random_state)
+            # Ridge is not coordinate descent: it takes none of the solver settings.
+            return Ridge(alpha=alpha)
         selection = str(self._h["selection"])
         if l1_ratio == 1.0:
             return Lasso(
@@ -83,8 +77,8 @@ class ElasticNetPredictor(SklearnTabularPredictor):
         :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
-            "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": DEFAULT_ELASTICNET_ALPHA},
-            "l1_ratio": {"type": "float", "low": 0.0, "high": 1.0, "default": 0.5},
+            "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
+            "l1_ratio": {"type": "float", "low": 0.0, "high": 1.0, "default": cls.default_l1_ratio},
         }
 
 
@@ -95,7 +89,9 @@ class ElasticNetPredictor(SklearnTabularPredictor):
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class SingleDrugElasticNetPredictor(SingleDrugSklearnPredictor, ElasticNetPredictor):
-    """Single-drug ElasticNet predictor component."""
+    """Single-drug ElasticNet predictor component; starts from ``l1_ratio=0.2`` as in 1.6.1."""
+
+    default_l1_ratio: ClassVar[float] = 0.2
 
 
 @register(
@@ -105,11 +101,15 @@ class SingleDrugElasticNetPredictor(SingleDrugSklearnPredictor, ElasticNetPredic
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class LassoPredictor(SklearnTabularPredictor):
-    """Lasso predictor component."""
+    """Lasso predictor component with the solver settings of DrEvalPy 1.6.1.
+
+    ``selection="random"`` is seeded (``random_state=0``): 1.6.1 left it unseeded, so two fits on
+    identical data could disagree.
+    """
 
     non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
-        "max_iter": 2000,
-        "tol": 1e-2,
+        "max_iter": 10000,
+        "tol": 1e-3,
         "selection": "random",
         "random_state": 0,
     }
@@ -199,7 +199,7 @@ class RandomForestPredictor(SklearnTabularPredictor):
         return {
             "n_estimators": {"type": "int", "low": 50, "high": 200, "default": 100},
             "max_samples": {"type": "float", "low": 0.1, "high": 0.5, "default": 0.2},
-            "max_depth": {"type": "int", "low": 5, "high": 25, "default": 15},
+            "max_depth": {"type": "int", "low": 5, "high": 30, "default": 5},
         }
 
 
@@ -223,7 +223,7 @@ class SVRPredictor(SklearnTabularPredictor):
     """Support vector regression predictor component."""
 
     non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
-        "max_iter": -1,
+        "max_iter": 500,
     }
 
     def _make_estimator(self) -> Any:
@@ -243,8 +243,8 @@ class SVRPredictor(SklearnTabularPredictor):
         :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
-            "C": {"type": "float", "low": 1e-3, "high": 100.0, "log": True, "default": 1.0},
-            "epsilon": {"type": "float", "low": 1e-3, "high": 1.0, "log": True, "default": 0.1},
+            "C": {"type": "float", "low": 1e-3, "high": 100.0, "log": True, "default": 0.001},
+            "epsilon": {"type": "float", "low": 1e-3, "high": 1.0, "log": True, "default": 0.001},
             "kernel": {"type": "categorical", "choices": ["rbf", "linear"], "default": "rbf"},
         }
 
@@ -256,7 +256,18 @@ class SVRPredictor(SklearnTabularPredictor):
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class GradientBoostingPredictor(SklearnTabularPredictor):
-    """Gradient boosting predictor component."""
+    """Gradient boosting predictor component.
+
+    As in DrEvalPy 1.6.1, the seeded validation split (``validation_fraction``) and
+    ``n_iter_no_change`` take effect once scikit-learn turns early stopping on, which it does
+    above 10000 training pairs.
+    """
+
+    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
+        "validation_fraction": 0.1,
+        "n_iter_no_change": 10,
+        "random_state": 42,
+    }
 
     def _make_estimator(self) -> Any:
         from sklearn.ensemble import HistGradientBoostingRegressor
@@ -265,6 +276,9 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
             max_depth=int(self._h["max_depth"]),
             learning_rate=float(self._h["learning_rate"]),
             max_iter=int(self._h["max_iter"]),
+            validation_fraction=float(self._h["validation_fraction"]),
+            n_iter_no_change=int(self._h["n_iter_no_change"]),
+            random_state=int(self._h["random_state"]),
         )
 
     @classmethod
@@ -274,7 +288,7 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
         :returns: Search-space specs with a declared default for each tunable parameter.
         """
         return {
-            "max_depth": {"type": "int", "low": 3, "high": 12, "default": 6},
+            "max_depth": {"type": "int", "low": 3, "high": 30, "default": 5},
             "learning_rate": {"type": "float", "low": 0.01, "high": 0.3, "log": True, "default": 0.1},
             "max_iter": {"type": "int", "low": 50, "high": 300, "default": 100},
         }
@@ -289,14 +303,7 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
 class AdaBoostPredictor(SklearnTabularPredictor):
     """AdaBoost predictor component."""
 
-    # min_samples_split / min_samples_leaf showed no runtime or accuracy signal in
-    # benchmark sweeps; they stay overridable but are excluded from tuning so the
-    # trial budget goes to max_depth and n_estimators.
-    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
-        "learning_rate": 1.0,
-        "min_samples_split": 2,
-        "min_samples_leaf": 1,
-    }
+    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {"learning_rate": 1.0}
 
     def _make_estimator(self) -> Any:
         from sklearn.ensemble import AdaBoostRegressor
@@ -321,6 +328,8 @@ class AdaBoostPredictor(SklearnTabularPredictor):
         return {
             "n_estimators": {"type": "int", "low": 25, "high": 100, "default": 50},
             "max_depth": {"type": "int", "low": 2, "high": 8, "default": 4},
+            "min_samples_split": {"type": "int", "low": 2, "high": 6, "default": 2},
+            "min_samples_leaf": {"type": "int", "low": 1, "high": 3, "default": 1},
         }
 
 

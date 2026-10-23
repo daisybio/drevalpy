@@ -1,5 +1,7 @@
 """Tests for internal hyperparameter search-space helpers."""
 
+import warnings
+
 import optuna
 import pytest
 
@@ -138,6 +140,17 @@ class TestDrawFromOptunaTrial:
         drawn = draw_from_optuna_trial(trial, {"param": spec})
 
         assert is_in_range(drawn["param"])
+
+    def test_list_valued_choices_are_drawn_whole_and_without_an_optuna_warning(self) -> None:
+        choices = [[32, 16, 8, 4], [128, 64, 32], [16, 8, 4]]
+        spec = {"type": "categorical", "choices": choices, "default": choices[0]}
+        trial = optuna.create_study().ask()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            drawn = draw_from_optuna_trial(trial, {"units_per_layer": spec})
+
+        assert drawn["units_per_layer"] in choices
 
     def test_the_qualified_key_survives_drawing(self) -> None:
         """Dotted selectors are what ``split_hyperparameters`` later routes on."""

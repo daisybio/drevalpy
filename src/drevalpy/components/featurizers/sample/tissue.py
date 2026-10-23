@@ -24,7 +24,10 @@ def _tissue_label(source: FeatureSource, entity_id: str) -> str | None:
     raw = source.get_entity_view(str(entity_id), TISSUE_IDENTIFIER)
     if raw is None:
         return None
-    return str(np.asarray(raw).reshape(-1)[0])
+    label = np.asarray(raw).reshape(-1)[0]
+    if isinstance(label, float) and np.isnan(label):
+        return None
+    return str(label)
 
 
 @register(

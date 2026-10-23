@@ -9,11 +9,12 @@ from typing import Any
 import joblib
 from upath import UPath
 
-from drevalpy.models import DRPModel, ModelSpec
+from drevalpy.models import DRPModel
 from drevalpy.models.config import from_spec
 from drevalpy.models.mixins._persistence_io import FORMAT_NAME, FORMAT_VERSION, PAYLOAD_MEMBER
 from tests.models.synthetic_fixtures import (
     lso_split_masks,
+    small_data_spec,
     synthetic_mudataset_gene_expression_fingerprints,
 )
 
@@ -23,7 +24,7 @@ def fitted_elastic_net():
 
     :returns: A fitted ``ElasticNet`` model whose stack reports ``is_fitted()``.
     """
-    model = DRPModel(ModelSpec.from_name("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
+    model = DRPModel(small_data_spec("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
     model.train(synthetic_mudataset_gene_expression_fingerprints(), lso_split_masks().train)
     return model
 

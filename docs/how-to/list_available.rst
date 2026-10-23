@@ -65,7 +65,7 @@ syntax.
           ──────────────────────────────────────────────────────────────────────────────────────────────────────────
           AdaBoostDecisionTree   scaledGeneExpression:fingerprints:adaboost  multi_drug   regression        built-in
           DIPK                   concatFeaturizers:molgnet:dipk              multi_drug   regression        built-in
-          DrugGNN                landmarkGenesReduced:drugGraph:drugGNN      multi_drug   regression        built-in
+          DrugGNN                landmarkGenes:drugGraph:drugGNN             multi_drug   regression        built-in
           ElasticNet             scaledGeneExpression:fingerprints:elasticNet multi_drug  regression        built-in
           ...
 

@@ -1,3 +1,6 @@
-sample_featurizer: dipkGeneExpression+bionic
+sample_featurizer:
+  - dipkGeneExpression:
+      gene_list: landmark_genes
+  - bionic
 drug_featurizer: molgnet
 predictor: dipk

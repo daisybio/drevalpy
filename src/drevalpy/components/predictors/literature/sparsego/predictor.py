@@ -117,7 +117,7 @@ class SparseGOPredictor(BlockPredictor):
         """
         return {
             "num_neurons_per_GO": 6,
-            "num_neurons_per_final_GO": 6,
+            "num_neurons_per_final_GO": 30,
             "num_neurons_drug": [100, 50, 6],
             "num_neurons_final": 12,
             "drug_dim": 2048,

@@ -123,6 +123,36 @@ def synthetic_mudataset(
     return Dataset(md.MuData(modalities), name="test")
 
 
+def _without_gene_lists(node):
+    """Return *node* with every ``gene_list`` featurizer option dropped, recursively.
+
+    :param node: A dumped model config, or any part of one.
+    :returns: A copy of *node* with no ``gene_list`` key left in any mapping.
+    """
+    if isinstance(node, dict):
+        return {key: _without_gene_lists(value) for key, value in node.items() if key != "gene_list"}
+    if isinstance(node, (list, tuple)):
+        return [_without_gene_lists(value) for value in node]
+    return node
+
+
+def small_data_spec(name: str):
+    """Build the zoo preset *name* without its gene lists, for the few-gene mock datasets.
+
+    The shipped presets read the 1.6.1 gene lists (hundreds of genes), which the mock datasets here do
+    not hold; the preset's other settings are unchanged.
+
+    :param name: Zoo preset name.
+    :returns: A ``ModelSpec`` named *name* that reads every gene of its views.
+    """
+    from drevalpy.models import ModelSpec
+    from drevalpy.models.config import ModelConfig
+    from drevalpy.models.zoo import get_zoo_config
+
+    payload = _without_gene_lists(get_zoo_config(name).model_dump(mode="python"))
+    return ModelSpec(name, ModelConfig.model_validate(payload))
+
+
 def synthetic_mudataset_gene_expression_fingerprints():
     """Build a minimal Dataset with gene_expression + fingerprints for 2 samples and 2 drugs.
 

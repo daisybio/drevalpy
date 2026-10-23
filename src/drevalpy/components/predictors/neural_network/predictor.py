@@ -29,6 +29,17 @@ if TYPE_CHECKING:
     from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 
 
+#: Layer widths DrEvalPy 1.6.1 tuned over: the union of the ``SimpleNeuralNetwork`` and
+#: ``MultiViewNeuralNetwork`` grids.
+UNITS_PER_LAYER_CHOICES: list[list[int]] = [
+    [32, 16, 8, 4],
+    [128, 64, 32],
+    [64, 64, 32],
+    [1024, 128, 64, 16],
+    [16, 8, 4],
+]
+
+
 @register(
     "neuralNetwork",
     description="Dense feed-forward network on concatenated sample and drug features.",
@@ -55,12 +66,14 @@ class NeuralNetworkPredictor(MatrixPredictor):
     def get_default_hyperparameters(cls) -> dict[str, object]:
         """Return the default hyperparameters.
 
-        :returns: Layer widths, dropout, epoch budget, mini-batch size and early-stopping patience.
+        :returns: Layer widths, dropout, epoch budget, mini-batch size and early-stopping patience;
+            the first grid point of DrEvalPy 1.6.1 ``SimpleNeuralNetwork``. The mini-batch size and the
+            patience were fixed at 16 and 5 there.
         """
         return {
-            "units_per_layer": [512, 256, 128],
-            "dropout_prob": 0.2,
-            "max_epochs": 50,
+            "units_per_layer": [32, 16, 8, 4],
+            "dropout_prob": 0.3,
+            "max_epochs": 100,
             "batch_size": 16,
             "patience": 5,
         }
@@ -69,11 +82,13 @@ class NeuralNetworkPredictor(MatrixPredictor):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return the tunable hyperparameter space.
 
-        :returns: Search-space specs for dropout, epoch budget and mini-batch size.
+        :returns: Search-space specs for the layer widths (the 1.6.1 grids of ``SimpleNeuralNetwork`` and
+            ``MultiViewNeuralNetwork``), dropout, epoch budget and mini-batch size.
         """
         return {
-            "dropout_prob": {"type": "float", "low": 0.0, "high": 0.5, "default": 0.2},
-            "max_epochs": {"type": "int", "low": 10, "high": 100, "default": 50},
+            "units_per_layer": {"type": "categorical", "choices": UNITS_PER_LAYER_CHOICES, "default": [32, 16, 8, 4]},
+            "dropout_prob": {"type": "float", "low": 0.0, "high": 0.5, "default": 0.3},
+            "max_epochs": {"type": "int", "low": 10, "high": 100, "default": 100},
             "batch_size": {"type": "int", "low": 8, "high": 64, "default": 16},
         }
 

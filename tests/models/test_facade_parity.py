@@ -11,6 +11,7 @@ from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
     lso_split_masks,
+    small_data_spec,
     synthetic_mudataset_gene_expression_fingerprints,
     synthetic_mudataset_identity,
 )
@@ -29,7 +30,7 @@ def _minimal_hp(model_name: str) -> dict:
 @pytest.mark.parametrize("model_name", _PARITY_CASES)
 def test_equivalent_specs_have_matching_predictions(model_name: str) -> None:
     hp = _minimal_hp(model_name)
-    spec = ModelSpec.from_name(model_name)
+    spec = small_data_spec(model_name) if not model_name.startswith("Naive") else ModelSpec.from_name(model_name)
     equivalent = ModelSpec(model_name, spec.config)
     dataset = (
         synthetic_mudataset_identity()

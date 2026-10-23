@@ -16,7 +16,7 @@ def test_resolve_model_config_separates_template_and_values() -> None:
     assert isinstance(resolved, ResolvedModelConfig)
     assert resolved.template is template or resolved.template.model_dump() == template.model_dump()
     assert resolved.template.predictor.name == "elasticNet"
-    assert resolved.predictor_values()["alpha"] == 0.1
+    assert resolved.predictor_values()["alpha"] == 1.0
     assert "predictor.elasticNet.alpha" in resolved.values
 
 

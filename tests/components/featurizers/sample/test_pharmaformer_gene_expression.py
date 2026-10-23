@@ -37,9 +37,20 @@ def test_pharmaformer_gene_expression_round_trips_state() -> None:
     np.testing.assert_allclose(restored.transform(features, np.array(["cl0", "cl2"])), blocks["gene_expression"].values)
 
 
-def test_pharmaformer_gene_expression_requires_pair_expanded_ids() -> None:
-    with pytest.raises(ValueError, match="requires pair_expanded_ids"):
-        PharmaFormerGeneExpressionFeaturizer().fit(_features())
+def test_pharmaformer_gene_expression_fits_the_scaler_on_unique_samples() -> None:
+    featurizer = PharmaFormerGeneExpressionFeaturizer().fit(
+        _features(),
+        entity_ids=np.array(["cl0", "cl1"]),
+        pair_expanded_ids=np.array(["cl0", "cl0", "cl0", "cl1"]),
+    )
+
+    np.testing.assert_allclose(featurizer._scaler.mean_, [0.5, 2.5])
+
+
+def test_pharmaformer_gene_expression_without_entity_ids_fits_on_every_sample() -> None:
+    featurizer = PharmaFormerGeneExpressionFeaturizer().fit(_features())
+
+    np.testing.assert_allclose(featurizer._scaler.mean_, [1.0, 3.0])
 
 
 def test_pharmaformer_gene_expression_transform_before_fit_raises() -> None:

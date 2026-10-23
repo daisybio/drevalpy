@@ -24,21 +24,27 @@ from drevalpy.registry.predictor import register
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class LightGBMPredictor(BoostedTreesPredictor):
-    """LightGBM regressor for dense tabular pair features."""
+    """LightGBM regressor for dense tabular pair features.
+
+    The defaults are the first grid point of DrEvalPy 1.6.1 ``MultiViewLightGBM``: ``num_leaves=31``,
+    ``subsample=0.8``, ``colsample_bytree=0.6``, ``reg_alpha=0`` and ``reg_lambda=0``.
+    """
 
     boosting_default_overrides: ClassVar[dict[str, Any]] = {
         "subsample": 0.8,
-        "colsample_bytree": 0.8,
+        "colsample_bytree": 0.6,
     }
 
     boosting_extra_defaults: ClassVar[dict[str, Any]] = {
-        "num_leaves": 63,
+        "num_leaves": 31,
         "reg_lambda": 0.0,
         "n_jobs": -1,
     }
 
     boosting_space_overrides: ClassVar[dict[str, dict[str, Any]]] = {
         "learning_rate": {"log": True},
+        "num_leaves": {"default": 31},
+        "colsample_bytree": {"default": 0.6},
     }
 
     tuned_hyperparameters: ClassVar[tuple[str, ...]] = (

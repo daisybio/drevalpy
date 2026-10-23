@@ -209,6 +209,22 @@ def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
     return {key: spec["default"] for key, spec in space.items()}
 
 
+def _suggest_categorical(trial: Any, name: str, choices: list[Any]) -> Any:
+    """Draw one of *choices*, which may be lists such as layer widths.
+
+    Optuna only accepts ``None``, booleans, numbers and strings as categorical choices, so a
+    choice list holding anything else is drawn by index.
+
+    :param trial: An ``optuna.Trial`` instance.
+    :param name: Parameter name.
+    :param choices: The values to choose from.
+    :returns: The chosen value.
+    """
+    if any(isinstance(choice, (list, tuple, dict)) for choice in choices):
+        return choices[trial.suggest_categorical(name, list(range(len(choices))))]
+    return trial.suggest_categorical(name, choices)
+
+
 def draw_from_optuna_trial(trial: Any, space_dict: dict[str, Any]) -> dict[str, Any]:
     """Draw hyperparameters from an Optuna trial using the structured search space.
 
@@ -231,7 +247,7 @@ def draw_from_optuna_trial(trial: Any, space_dict: dict[str, Any]) -> dict[str, 
                 name, float(spec["low"]), float(spec["high"]), log=spec.get("log", False)
             )
         elif kind == "categorical":
-            result[name] = trial.suggest_categorical(name, list(spec.get("choices", [])))
+            result[name] = _suggest_categorical(trial, name, list(spec.get("choices", [])))
         elif kind == "pow2":
             exp = trial.suggest_int(name, int(spec["low"]), int(spec["high"]))
             result[name] = 2**exp

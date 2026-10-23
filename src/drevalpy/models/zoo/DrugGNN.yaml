@@ -1,3 +1,7 @@
-sample_featurizer: landmarkGenesReduced
+sample_featurizer:
+  landmarkGenes:
+    gene_list_stem: landmark_genes
+    standardize: false
+    arcsinh: false
 drug_featurizer: drugGraph
 predictor: drugGNN

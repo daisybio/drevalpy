@@ -30,6 +30,7 @@ from drevalpy.models.mixins._persistence_io import (
 from tests.models.mixins._helpers import elastic_net_payload, fitted_elastic_net, write_archive
 from tests.models.synthetic_fixtures import (
     lso_split_masks,
+    small_data_spec,
     synthetic_mudataset_gene_expression_fingerprints,
 )
 
@@ -87,7 +88,7 @@ class TestSaveModel:
             save_model(model, str(tmp_path))
 
     def test_rejects_an_untrained_model(self, tmp_path) -> None:
-        model = DRPModel(ModelSpec.from_name("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
+        model = DRPModel(small_data_spec("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
 
         with pytest.raises(RuntimeError, match="pipeline must be FITTED"):
             save_model(model, str(UPath(tmp_path) / "elastic_net"))

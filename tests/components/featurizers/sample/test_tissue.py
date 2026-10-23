@@ -74,6 +74,21 @@ def test_tissue_allow_missing_fully_absent_is_empty() -> None:
     assert featurizer.output_dim == 0
 
 
+def test_tissue_allow_missing_treats_nan_labels_as_missing() -> None:
+    features = MockFeatureSource(
+        features={
+            "cl1": {"tissue": np.array(["lung"])},
+            "cl2": {"tissue": np.array([np.nan])},
+        }
+    )
+    featurizer = TissueFeaturizer(allow_missing=True)
+    entity_ids = np.array(["cl1", "cl2"], dtype=str)
+    featurizer.fit(features, entity_ids=entity_ids)
+    matrix = featurizer.transform(features, entity_ids)
+    assert matrix.shape == (2, 1)
+    assert matrix[1, 0] == 0.0
+
+
 def test_tissue_strict_transform_of_unannotated_entity_raises() -> None:
     features = MockFeatureSource(
         features={

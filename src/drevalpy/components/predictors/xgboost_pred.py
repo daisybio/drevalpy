@@ -56,15 +56,36 @@ _set_xgboost_thread_defaults()
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class XGBoostPredictor(BoostedTreesPredictor):
-    """XGBoost regressor for dense tabular pair features."""
+    """XGBoost regressor for dense tabular pair features.
 
-    # XGBoost tunes a shallower depth ceiling than LightGBM, which is preserved
-    # here rather than unified: it changes what a sweep explores.
-    boosting_space_overrides: ClassVar[dict[str, dict[str, Any]]] = {
-        "max_depth": {"high": 8},
+    The defaults are the first grid point of DrEvalPy 1.6.1 ``MultiViewXGBoost``: ``max_depth=10``,
+    ``subsample=0.8``, ``colsample_bytree=0.6``, ``reg_alpha=0`` and ``reg_lambda=0.1``. Every
+    hyperparameter of that grid is tunable here, ``reg_lambda`` included.
+    """
+
+    boosting_default_overrides: ClassVar[dict[str, Any]] = {
+        "max_depth": 10,
+        "subsample": 0.8,
+        "colsample_bytree": 0.6,
     }
 
-    tuned_hyperparameters: ClassVar[tuple[str, ...]] = ("n_estimators", "max_depth", "learning_rate")
+    boosting_extra_defaults: ClassVar[dict[str, Any]] = {"reg_lambda": 0.1}
+
+    boosting_space_overrides: ClassVar[dict[str, dict[str, Any]]] = {
+        "max_depth": {"default": 10},
+        "colsample_bytree": {"default": 0.6},
+        "reg_lambda": {"default": 0.1},
+    }
+
+    tuned_hyperparameters: ClassVar[tuple[str, ...]] = (
+        "n_estimators",
+        "max_depth",
+        "learning_rate",
+        "subsample",
+        "colsample_bytree",
+        "reg_alpha",
+        "reg_lambda",
+    )
 
     def _make_estimator(self) -> Any:
         """Return an unfitted XGBoost regressor.

@@ -104,14 +104,14 @@ class PharmaFormerPredictor(BlockPredictor):
         :returns: Default hyperparameter mapping.
         """
         return {
-            "gene_hidden_size": 2048,
-            "drug_hidden_size": 128,
-            "feature_dim": 64,
-            "nhead": 4,
-            "num_layers": 2,
-            "dim_feedforward": 1024,
+            "gene_hidden_size": 8192,
+            "drug_hidden_size": 256,
+            "feature_dim": 128,
+            "nhead": 8,
+            "num_layers": 3,
+            "dim_feedforward": 2048,
             "dropout": 0.1,
-            "batch_size": 64,
+            "batch_size": 128,
             "lr": 0.00001,
             "epochs": 100,
             "patience": 10,

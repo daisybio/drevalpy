@@ -79,11 +79,15 @@ class SampleFeatureSource(FeatureSource):
     def get_entity_view(self, entity_id: str, view: str) -> Any:
         """Return a per-entity value for a single sample.
 
-        For metadata keys like "tissue", delegates to Dataset.get_tissue().
+        For metadata keys like "tissue", delegates to Dataset.get_tissue(); a dataset
+        without that metadata column gives ``None``.
         For omics modalities, returns the feature vector from that modality.
         """
         if view == "tissue":
-            return self._dataset.get_tissue(np.array([entity_id]))[0]
+            try:
+                return self._dataset.get_tissue(np.array([entity_id]))[0]
+            except KeyError:
+                return None
         return self._dataset.get_sample_features(view, np.array([entity_id]))[0]
 
 

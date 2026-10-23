@@ -31,6 +31,9 @@ A space that contains anything else raises ``ValueError``.
      - ``low``, ``high``
      - ``2 ** e`` for an integer exponent ``e`` from ``low`` to ``high``
 
+A choice may be a list, such as the layer widths ``[32, 16, 8, 4]`` of the ``neuralNetwork``
+predictor; Optuna draws it by position and the model receives the list itself.
+
 ``low`` and ``high`` are inclusive. ``log: true`` samples on a logarithmic scale. For
 ``pow2`` the bounds are exponents: ``{type: pow2, low: 9, high: 11}`` draws 512, 1024 or 2048,
 and its ``default`` is written as the value, such as ``2048``. An entry without a ``type``
@@ -92,7 +95,9 @@ Keys that DrEvalPy accepts
 - A qualified key.
 - A short parameter name such as ``alpha``, if exactly one component of the model has it.
 - An alias. ``methylation_n_components`` (the 1.x name) names
-  ``sample_featurizer.pca[methylation].n_components``.
+  ``sample_featurizer.pca[methylation].n_components``. It is an error for a model without a
+  ``pca[methylation]`` featurizer, such as the ``MultiView*`` presets, which read gene expression
+  and mutations only.
 
 .. list-table::
    :header-rows: 1
@@ -108,6 +113,74 @@ Keys that DrEvalPy accepts
      - ``ValueError``: ``Duplicate hyperparameter assignment …``
    * - The old indexed form ``sample_featurizer.<name>.<index>.<param>``
      - ``ValueError``: ``Indexed featurizer hyperparameter keys are no longer supported``
+
+Defaults of the shipped presets
+-------------------------------
+
+Every preset starts from the first value of each grid in the ``hyperparameters.yaml`` files of
+DrEvalPy 1.6.1. Where a parameter had no entry there, the 1.6.1 code default applies. The search
+spaces are wider than 1.6.1 grids, so each grid value stays inside its range.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Preset
+     - Defaults
+   * - ``ElasticNet``
+     - ``alpha=1``, ``l1_ratio=0`` (which fits a ridge regression); other solver settings are those
+       of scikit-learn
+   * - ``SingleDrugElasticNet``
+     - ``alpha=1``, ``l1_ratio=0.2``
+   * - ``Lasso``
+     - ``alpha=1``, ``max_iter=10000``, ``tol=0.001``, ``selection=random`` with ``random_state=0``
+       (1.6.1 left the seed unset)
+   * - ``Ridge``
+     - ``alpha=1``
+   * - ``RandomForest``, ``SingleDrugRandomForest``, ``MultiViewRandomForest``
+     - ``n_estimators=100``, ``max_depth=5``, ``max_samples=0.2``
+   * - ``GradientBoosting``
+     - ``max_depth=5``, ``learning_rate=0.1``, ``max_iter=100``, ``random_state=42``,
+       ``validation_fraction=0.1``, ``n_iter_no_change=10``
+   * - ``AdaBoostDecisionTree``
+     - ``max_depth=4``, ``n_estimators=50``, ``min_samples_split=2``, ``min_samples_leaf=1``
+   * - ``SVR``
+     - ``C=0.001``, ``epsilon=0.001``, ``max_iter=500``
+   * - ``KNNRegressor``
+     - ``n_neighbors=5``, ``weights=distance``
+   * - ``MultiViewXGBoost``
+     - ``max_depth=10``, ``subsample=0.8``, ``colsample_bytree=0.6``, ``reg_alpha=0``, ``reg_lambda=0.1``
+   * - ``MultiViewLightGBM``
+     - ``num_leaves=31``, ``subsample=0.8``, ``colsample_bytree=0.6``, ``reg_alpha=0``, ``reg_lambda=0``
+   * - ``SimpleNeuralNetwork``
+     - ``units_per_layer=[32, 16, 8, 4]``, ``dropout_prob=0.3``, ``max_epochs=100``
+   * - ``MultiViewNeuralNetwork``
+     - as ``SimpleNeuralNetwork`` with ``units_per_layer=[16, 8, 4]``
+   * - ``DrugGNN``
+     - ``epochs=100``, ``batch_size=1024``, ``hidden_dim=64``, ``dropout=0.2``
+   * - ``PharmaFormer``
+     - ``gene_hidden_size=8192``, ``drug_hidden_size=256``, ``feature_dim=128``, ``nhead=8``,
+       ``num_layers=3``, ``dim_feedforward=2048``, ``dropout=0.1``, ``batch_size=128``
+   * - ``SparseGO``
+     - ``num_neurons_drug=[100, 50, 6]``, ``num_neurons_final=12``, ``num_neurons_per_final_GO=30``
+
+The presets also read the gene lists of 1.6.1, so a dataset must hold every gene of the list:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Preset
+     - Gene list
+   * - All sklearn presets, ``SimpleNeuralNetwork``, ``PharmaFormer``, ``DIPK``, ``DrugGNN``
+     - ``landmark_genes`` of gene expression
+   * - ``MultiView*``
+     - ``landmark_genes`` of gene expression and ``drug_target_genes_all_drugs`` of mutations
+   * - ``MOLIR``
+     - ``gene_expression_intersection``, ``mutations_intersection`` and
+       ``copy_number_variation_gistic_intersection``
+   * - ``SuperFELTR``
+     - every gene
 
 Overriding a space
 ------------------

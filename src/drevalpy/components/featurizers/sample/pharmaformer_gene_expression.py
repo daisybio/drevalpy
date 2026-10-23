@@ -20,11 +20,12 @@ from drevalpy.types.data.feature_source import FeatureSource
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class PharmaFormerGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
-    """Apply the PharmaFormer StandardScaler then MinMaxScaler sequence."""
+    """Apply the PharmaFormer StandardScaler then MinMaxScaler sequence, fitted once per training sample."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
     requires_fit: ClassVar[bool] = True
+    fit_on_unique_ids: ClassVar[bool] = True
 
     def __init__(self, *, gene_list: str | None = None) -> None:
         """Initialize StandardScaler and MinMaxScaler pipelines.
@@ -56,32 +57,11 @@ class PharmaFormerGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         """
         return None if self._gene_list is None else {"gene_list": self._gene_list}
 
-    def _fit_entity_ids(
-        self,
-        source: FeatureSource,
-        entity_ids: np.ndarray | None,
-        pair_expanded_ids: np.ndarray | None,
-        pair_expanded_es_ids: np.ndarray | None,
-    ) -> np.ndarray:
-        """Fit on the pair-expanded training IDs, matching the reference pipeline.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Unused; PharmaFormer fits on the pair-expanded IDs.
-        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: The pair-expanded training IDs.
-        :raises ValueError: If *pair_expanded_ids* is missing.
-        """
-        _ = source, entity_ids, pair_expanded_es_ids
-        if pair_expanded_ids is None:
-            raise ValueError("pharmaFormerGeneExpression requires pair_expanded_ids")
-        return pair_expanded_ids
-
     def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
-        """Fit both scalers on the pair-expanded training rows.
+        """Fit both scalers on the unique training samples, so a sample with many pairs counts once.
 
         :param source: Feature source providing view matrices.
-        :param entity_ids: Pair-expanded training entity IDs.
+        :param entity_ids: Deduplicated training sample IDs.
         :returns: Output feature dimension.
         """
         matrix = self._raw_matrix(source, entity_ids)

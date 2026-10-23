@@ -68,7 +68,8 @@ def test_lightgbm_make_estimator_uses_documented_defaults() -> None:
     assert estimator.n_estimators == 100
     assert estimator.learning_rate == pytest.approx(0.1)
     assert estimator.max_depth == 6
-    assert estimator.num_leaves == 63
+    assert estimator.num_leaves == 31
+    assert estimator.colsample_bytree == pytest.approx(0.6)
     assert estimator.random_state == 42
 
 

@@ -84,9 +84,9 @@ def test_zoo_config_copy_isolation() -> None:
     assert first.sample_featurizer is not None
     assert first.sample_featurizer.featurizers is not None
     child = first.sample_featurizer.featurizers[1]
-    assert child.hyperparameter_space is not None
+    assert child.options is not None
     with pytest.raises(TypeError):
-        child.hyperparameter_space["n_components"] = {"default": 8}  # type: ignore[index]
+        child.options["gene_list"] = "landmark_genes"  # type: ignore[index]
 
 
 def test_frozen_mapping_fields_are_deeply_frozen_views() -> None:

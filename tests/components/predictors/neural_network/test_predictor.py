@@ -12,6 +12,7 @@ from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models import DRPModel, ModelSpec
+from drevalpy.models.config import from_spec
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
@@ -68,11 +69,33 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
         val=SplitMask(np.zeros((2, 2), dtype=bool)),
     )
 
-    model = DRPModel(ModelSpec.from_name("SimpleNeuralNetwork"), {"max_epochs": 1, "batch_size": 2})
+    model = DRPModel(
+        ModelSpec("SimpleNeuralNetwork", from_spec("scaledGeneExpression:fingerprints:neuralNetwork")),
+        {"max_epochs": 1, "batch_size": 2},
+    )
     model.train(mudataset, split.train)
     preds = model.predict(mudataset, split.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
+
+
+def test_neural_network_defaults_are_the_first_grid_values_of_1_6_1() -> None:
+    assert NeuralNetworkPredictor.get_default_hyperparameters() == {
+        "units_per_layer": [32, 16, 8, 4],
+        "dropout_prob": 0.3,
+        "max_epochs": 100,
+        "batch_size": 16,
+        "patience": 5,
+    }
+
+
+def test_neural_network_layer_widths_are_tunable_over_the_1_6_1_grids() -> None:
+    spec = NeuralNetworkPredictor.get_hyperparameter_space()["units_per_layer"]
+
+    assert spec["type"] == "categorical"
+    assert spec["default"] in spec["choices"]
+    for widths in ([32, 16, 8, 4], [128, 64, 32], [64, 64, 32], [16, 8, 4]):
+        assert widths in spec["choices"]
 
 
 def test_neural_network_configured_is_not_fitted() -> None:

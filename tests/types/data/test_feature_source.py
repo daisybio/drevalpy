@@ -87,6 +87,13 @@ class TestSampleFeatureSource:
     def test_tissue_of_an_unknown_sample_is_nan(self, sample_source: SampleFeatureSource):
         assert np.isnan(sample_source.get_entity_view("NOT_A_SAMPLE", "tissue"))
 
+    def test_tissue_is_none_when_the_dataset_has_no_tissue_column(self, synthetic_dataset: Dataset):
+        untissued = synthetic_dataset.subset_samples(synthetic_dataset.sample_ids)
+        del untissued.mdata.obs["tissue"]
+        source = SampleFeatureSource(untissued, untissued.sample_ids[:3])
+
+        assert source.get_entity_view(str(source.identifiers[0]), "tissue") is None
+
     def test_get_entity_view_returns_a_single_omics_row(self, sample_source: SampleFeatureSource):
         entity_id = str(sample_source.identifiers[0])
 
