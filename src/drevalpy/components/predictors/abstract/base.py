@@ -46,14 +46,14 @@ class Predictor(TunableComponentMixin, ABC):
     nan_threshold: ClassVar[float] = 0.2
 
     def __init_subclass__(cls, **kwargs: object) -> None:
-        """Normalize class-body contract declarations, if there are any.
+        r"""Normalize class-body contract declarations, if there are any.
 
         A ``FeatureFormat`` shorthand is widened to a ``FeatureContract`` so the
         class body and the ``@register`` arguments accept the same spellings.
         Subclasses that declare nothing are registered with the decorator's
         ``sample_contract=`` / ``drug_contract=`` instead.
 
-        :param **kwargs: Forwarded to ``ABC.__init_subclass__``.
+        :param \*\*kwargs: Forwarded to ``ABC.__init_subclass__``.
         :raises TypeError: If a class-body contract is neither a ``FeatureContract``
             nor a ``FeatureFormat``.
         """

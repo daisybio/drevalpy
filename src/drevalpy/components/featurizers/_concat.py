@@ -23,9 +23,9 @@ class ConcatFeaturizersMixin:
 
     @classmethod
     def resolve_input_views(cls, **kwargs: Any) -> NoReturn:
-        """Reject direct resolution; input views come from the child configs.
+        r"""Reject direct resolution; input views come from the child configs.
 
-        :param **kwargs: Unused featurizer kwargs.
+        :param \*\*kwargs: Unused featurizer kwargs.
         :raises TypeError: Always; use ``views_from_featurizer_config`` on the tree instead.
         """
         _ = kwargs

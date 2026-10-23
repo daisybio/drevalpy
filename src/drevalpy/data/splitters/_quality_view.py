@@ -28,9 +28,10 @@ class QualityMasked:
     def __init__(self, dataset: MuDataLike, rule: CurveQuality) -> None:
         """Evaluate *rule* on *dataset* once and blank the pairs that fail it.
 
+        Raises ``KeyError`` if *rule* needs a response layer the dataset lacks.
+
         :param dataset: Dataset to wrap; it is not modified.
         :param rule: Curve-quality rule to apply.
-        :raises KeyError: If *rule* needs a response layer the dataset lacks.
         """
         self._dataset = dataset
         response = np.array(dataset.response_matrix, copy=True)

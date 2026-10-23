@@ -184,12 +184,13 @@ class CurveQuality:
         When no threshold and no *regulation* is set (see :meth:`off`), this is
         ``np.isfinite(dataset.response_matrix)`` and reads no response layers.
 
+        Raises ``KeyError`` if a layer a requested threshold needs is not in the dataset.
+        Raises ``ValueError`` if *regulation* contains a label CurveCurator does not use.
+
         :param dataset: Dataset (or any :class:`~drevalpy.types.data.mudatalike.MuDataLike`)
             whose response layers hold the quality metrics.
         :returns: Boolean array of shape ``(n_samples, n_drugs)``, True where the curve
             passes. Use ``~mask`` to blank the failing pairs of a response matrix.
-        :raises KeyError: If a layer a requested threshold needs is not in the dataset.
-        :raises ValueError: If *regulation* contains a label CurveCurator does not use.
         """
         thresholds = self._thresholds()
         if not thresholds and self.regulation is None:
@@ -225,21 +226,22 @@ class CurveQuality:
 
 
 def curve_quality_mask(dataset: MuDataLike, **options: Any) -> np.ndarray:
-    """Mask of the pairs whose fitted curve meets every requested threshold.
+    r"""Mask of the pairs whose fitted curve meets every requested threshold.
 
     A thin wrapper over :meth:`CurveQuality.mask`. *options* are the fields of
     :class:`CurveQuality` and start from its defaults, so the default call
     applies exactly the CurveCurator-derived rule; passing ``None`` for a
     threshold disables that check.
 
+    Raises ``KeyError`` if a layer a requested threshold needs is not in the dataset.
+    Raises ``ValueError`` if *regulation* contains a label CurveCurator does not use.
+    Raises ``TypeError`` if an option is not a :class:`CurveQuality` field.
+
     :param dataset: Dataset (or any :class:`~drevalpy.types.data.mudatalike.MuDataLike`)
         whose response layers hold the quality metrics.
-    :param **options: Any :class:`CurveQuality` field, such as ``min_r2=0.8`` or
+    :param \*\*options: Any :class:`CurveQuality` field, such as ``min_r2=0.8`` or
         ``min_relevance_score=None``.
     :returns: Boolean array of shape ``(n_samples, n_drugs)``, True where the curve passes.
-    :raises KeyError: If a layer a requested threshold needs is not in the dataset.
-    :raises ValueError: If *regulation* contains a label CurveCurator does not use.
-    :raises TypeError: If an option is not a :class:`CurveQuality` field.
     """
     return CurveQuality(**options).mask(dataset)
 

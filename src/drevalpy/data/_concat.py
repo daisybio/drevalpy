@@ -157,6 +157,10 @@ def concat(
     The inputs are not modified. Precomputed featurizer variants and embeddings stored
     in ``response.obsm``/``varm`` are not carried over.
 
+    Raises ``InvalidInputError`` if fewer than two datasets are given, names are not unique, an input
+    is randomized, feature names or units differ between inputs, or one drug ID
+    has two different SMILES strings.
+
     :param datasets: At least two datasets with distinct names, none of them randomized.
     :param join: ``"exact"`` requires every input to carry the same feature names and
         units in each view they share. ``"inner"`` keeps only the feature names
@@ -164,9 +168,6 @@ def concat(
     :param name: Name of the result. Defaults to the input names joined by ``+``,
         such as ``"GDSC2+CTRPv2"``.
     :returns: The concatenated dataset.
-    :raises InvalidInputError: If fewer than two datasets are given, names are not unique, an input
-        is randomized, feature names or units differ between inputs, or one drug ID
-        has two different SMILES strings.
     """
     import mudata as md
 

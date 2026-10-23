@@ -219,13 +219,13 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
         arcsinh: bool = False,
         **kwargs: Any,
     ) -> None:
-        """Initialize the reduced landmark featurizer variant.
+        r"""Initialize the reduced landmark featurizer variant.
 
         :param view: Omics view name (defaults to ``gene_expression``).
         :param standardize: Whether to z-score features after loading.
         :param minmax_scale: Whether to min-max scale features after loading.
         :param arcsinh: Whether to apply ``arcsinh`` transform after loading.
-        :param **kwargs: Ignored.
+        :param \*\*kwargs: Ignored.
         """
         super().__init__(
             view=view,

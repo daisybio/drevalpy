@@ -71,6 +71,54 @@ def _ssmd_matrix(df: pd.DataFrame, metric: str) -> pd.DataFrame:
     return matrix.astype(float)
 
 
+def _ssmd_trace(df: pd.DataFrame, metric_name: str) -> go.Heatmap | None:
+    import plotly.graph_objects as go
+
+    dt = _ssmd_matrix(df, metric_name)
+    if dt.empty:
+        return None
+    dt["sort_key"] = dt.max(axis=1)
+    dt = dt.sort_values(by="sort_key", ascending=True).drop(columns=["sort_key"])
+    dt = dt[dt.index]
+    text_labels = dt.round(3).astype(str)
+    return go.Heatmap(
+        z=dt.values,
+        x=list(dt.columns),
+        y=list(dt.index),
+        colorscale="RdBu",
+        texttemplate="%{text}",
+        text=text_labels.values,
+        textfont={"size": 12},
+        showscale=False,
+    )
+
+
+def _mean_trace(df_metrics: pd.DataFrame, setting: pd.Series, ps: str, metric_cols: list[str]) -> go.Heatmap | None:
+    import plotly.graph_objects as go
+
+    columns = _columns_for_setting(ps, metric_cols)
+    if not columns:
+        return None
+    colorscale = {"r2": "Blues", "correlations": "Viridis", "errors": "hot"}[ps]
+    ascending = ps != "errors"
+
+    dt = df_metrics[columns].groupby(setting).apply(lambda x: _calc_summary_metric(x))
+    dt = dt.sort_values(by=columns[0], ascending=ascending)
+    dt_std = df_metrics[columns].groupby(setting).apply(lambda x: _calc_summary_metric(x, std_error=True))
+    dt_std = dt_std.loc[dt.index]
+    text_labels = dt.round(3).astype(str) + " ± " + dt_std.round(3).astype(str)
+    return go.Heatmap(
+        z=dt.values,
+        x=list(dt.columns),
+        y=[i.split("_")[0] for i in dt.index],
+        colorscale=colorscale,
+        texttemplate="%{text}",
+        text=text_labels.values,
+        textfont={"size": 12},
+        showscale=False,
+    )
+
+
 @register(
     "heatmap",
     "Heatmap of mean metrics per model",
@@ -89,7 +137,6 @@ class HeatmapVisualization(PlotlyVisualization):
 
         :param result: Experiment result with multiple folds.
         """
-        import plotly.graph_objects as go
         from plotly.subplots import make_subplots
 
         self._result = result
@@ -119,57 +166,11 @@ class HeatmapVisualization(PlotlyVisualization):
 
         for idx, ps in enumerate(plot_settings, start=1):
             if ps.startswith("ssmd_"):
-                metric_name = ps.split("_", 1)[1]
-                dt = _ssmd_matrix(df, metric_name)
-                if dt.empty:
-                    continue
-                dt["sort_key"] = dt.max(axis=1)
-                dt = dt.sort_values(by="sort_key", ascending=True).drop(columns=["sort_key"])
-                dt = dt[dt.index]
-                text_labels = dt.round(3).astype(str)
-                labels = list(dt.index)
-                self._fig.add_trace(
-                    go.Heatmap(
-                        z=dt.values,
-                        x=list(dt.columns),
-                        y=labels,
-                        colorscale="RdBu",
-                        texttemplate="%{text}",
-                        text=text_labels.values,
-                        textfont={"size": 12},
-                        showscale=False,
-                    ),
-                    row=idx,
-                    col=1,
-                )
+                trace = _ssmd_trace(df, ps.split("_", 1)[1])
             else:
-                columns = _columns_for_setting(ps, metric_cols)
-                if not columns:
-                    continue
-                colorscale = {"r2": "Blues", "correlations": "Viridis", "errors": "hot"}[ps]
-                ascending = ps != "errors"
-
-                dt = df_metrics[columns].groupby(setting).apply(lambda x: _calc_summary_metric(x))
-                dt = dt.sort_values(by=columns[0], ascending=ascending)
-                dt_std = df_metrics[columns].groupby(setting).apply(lambda x: _calc_summary_metric(x, std_error=True))
-                dt_std = dt_std.loc[dt.index]
-                text_labels = dt.round(3).astype(str) + " ± " + dt_std.round(3).astype(str)
-                labels = [i.split("_")[0] for i in dt.index]
-
-                self._fig.add_trace(
-                    go.Heatmap(
-                        z=dt.values,
-                        x=list(dt.columns),
-                        y=labels,
-                        colorscale=colorscale,
-                        texttemplate="%{text}",
-                        text=text_labels.values,
-                        textfont={"size": 12},
-                        showscale=False,
-                    ),
-                    row=idx,
-                    col=1,
-                )
+                trace = _mean_trace(df_metrics, setting, ps, metric_cols)
+            if trace is not None:
+                self._fig.add_trace(trace, row=idx, col=1)
 
         n_models = len(result.models)
         height_per_model = 35

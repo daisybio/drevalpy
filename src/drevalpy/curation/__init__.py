@@ -56,6 +56,8 @@ def curate(
 ) -> anndata.AnnData:
     """Fit dose-response curves and return an AnnData of curve metrics.
 
+    Raises ``InvalidInputError`` if ``fit_type`` or ``fit_speed`` is not supported.
+
     :param df: Long-form DataFrame with columns: drug, sample, concentration,
         intensity, and optionally replicate. The ``drug`` and ``sample``
         values are treated as opaque labels, so native identifiers are fine -
@@ -83,8 +85,6 @@ def curate(
         ``EC50``/``IC50``/``LN_IC50``, the goodness-of-fit columns, and the
         per-parameter standard errors ``pec50_error``/``slope_error``/
         ``front_error``/``back_error``. No quality filtering is applied.
-
-    :raises InvalidInputError: If ``fit_type`` or ``fit_speed`` is not supported.
     """
     from drevalpy.curation._fit import fit_groups
     from drevalpy.curation._postprocess import postprocess

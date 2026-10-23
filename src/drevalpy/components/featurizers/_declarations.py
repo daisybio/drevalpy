@@ -34,14 +34,14 @@ class FeaturizerDeclarationsMixin:
     source_views: ClassVar[tuple[str, ...] | None] = None
 
     def __init_subclass__(cls, **kwargs: object) -> None:
-        """Normalize a class-body ``contract`` declaration, if there is one.
+        r"""Normalize a class-body ``contract`` declaration, if there is one.
 
         A ``FeatureFormat`` shorthand is widened to a ``FeatureContract`` so the
         class body and the ``@register`` argument accept the same spellings.
         Subclasses that declare nothing are registered with the decorator's
         ``contract=`` instead.
 
-        :param **kwargs: Forwarded to ``ABC.__init_subclass__``.
+        :param \*\*kwargs: Forwarded to ``ABC.__init_subclass__``.
         :raises TypeError: If a class-body ``contract`` is neither a
             ``FeatureContract`` nor a ``FeatureFormat``.
         """
@@ -76,14 +76,14 @@ class FeaturizerDeclarationsMixin:
 
     @classmethod
     def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
-        """Return the raw views this featurizer reads under *kwargs*.
+        r"""Return the raw views this featurizer reads under *kwargs*.
 
         An explicit ``view`` kwarg always wins, which covers view-parameterized
         featurizers such as ``raw`` and ``pca``. Otherwise the declared
         ``input_views`` are used. Featurizers whose input depends on other
         hyperparameters override this hook.
 
-        :param **kwargs: Featurizer construction / loader kwargs from the model config.
+        :param \*\*kwargs: Featurizer construction / loader kwargs from the model config.
         :returns: Raw view names required from disk, empty when only entity ids are needed.
         :raises TypeError: If the views cannot be determined from *kwargs* and the class body.
         """

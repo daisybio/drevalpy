@@ -30,11 +30,11 @@ class HPOConfig:
 
     @classmethod
     def from_metric(cls, metric: str, *, n_trials: int = 16, **kwargs: Any) -> HPOConfig:
-        """Build an HPO config with ``mode`` inferred from the evaluation metric.
+        r"""Build an HPO config with ``mode`` inferred from the evaluation metric.
 
         :param metric: Evaluation metric name used as the Optuna objective.
         :param n_trials: Number of search trials; ``0`` selects defaults only.
-        :param **kwargs: Additional ``HPOConfig`` field overrides.
+        :param \*\*kwargs: Additional ``HPOConfig`` field overrides.
         :returns: Configured ``HPOConfig`` instance.
         :raises ValueError: If *metric* is invalid or *n_trials* is negative.
         """

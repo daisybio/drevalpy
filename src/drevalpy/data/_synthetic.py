@@ -318,6 +318,9 @@ def synthetic(
     opt-in, so the default dataset stays small and cheap. The extras are what the
     zoo's other models read: fingerprints, graphs, pathway sets and ontologies.
 
+    Raises ``ValueError`` if a name in *sample_views*, *drug_views*, *uns_payloads* or
+    *extra_layers* is unknown, or if the packaged gene list is shorter than *n_features*.
+
     :param name: Dataset name recorded on the returned object.
     :param n_samples: Number of samples on the ``obs`` axis.
     :param n_drugs: Number of drugs on the ``var`` axis, at most
@@ -358,8 +361,6 @@ def synthetic(
         tissue labels, drug identifiers, drug ``canonical_smiles`` and the
         CurveCurator quality layers, plus any requested omics modality and extra.
     :raises InvalidInputError: If *n_drugs* exceeds :data:`MAX_SYNTHETIC_DRUGS`.
-    :raises ValueError: If a name in *sample_views*, *drug_views*, *uns_payloads* or
-        *extra_layers* is unknown, or if the packaged gene list is shorter than *n_features*.
     """
     import mudata as md
 

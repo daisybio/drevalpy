@@ -50,6 +50,9 @@ def _compute_ic50(front: np.ndarray, back: np.ndarray, slope: np.ndarray, pec50:
 def postprocess(groups: list[tuple[pd.DataFrame, dict]]) -> pd.DataFrame:
     """Extract/rename metrics from curve_curator output and compute derived metrics.
 
+    Raises ``KeyError`` if a fitted frame is missing a metric curve_curator is expected to emit.
+    Silently dropping one is what lost the per-curve errors for a year.
+
     :param groups: Fitted DataFrames from curve_curator (one per dose-range group),
         each paired with its config dict.
 
@@ -58,9 +61,6 @@ def postprocess(groups: list[tuple[pd.DataFrame, dict]]) -> pd.DataFrame:
         ``sample``/``drug`` values were fitted, so native identifiers survive the
         round trip - as strings, because they travel through curve_curator's
         ``Name`` column.
-
-    :raises KeyError: If a fitted frame is missing a metric curve_curator is expected to emit.
-        Silently dropping one is what lost the per-curve errors for a year.
     """
     frames: list[pd.DataFrame] = []
 

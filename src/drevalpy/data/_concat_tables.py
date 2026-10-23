@@ -89,10 +89,11 @@ def _check_smiles(frames: Sequence[pd.DataFrame]) -> None:
 def union_var(frames: Sequence[pd.DataFrame]) -> pd.DataFrame:
     """Union the drug tables of several inputs.
 
+    Raises ``InvalidInputError`` if a drug has different ``canonical_smiles`` in different inputs.
+
     :param frames: One drug ``var`` table per input, indexed by drug ID.
     :returns: A table over the drug IDs in first-seen order. For each drug and column, the
         first non-null value wins.
-    :raises InvalidInputError: If a drug has different ``canonical_smiles`` in different inputs.
     """
     import pandas as pd
 

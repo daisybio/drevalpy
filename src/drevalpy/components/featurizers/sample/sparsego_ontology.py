@@ -59,9 +59,9 @@ class SparseGOOntologyFeaturizer(SampleFeaturizer):
 
     @classmethod
     def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
-        """Return the omics view selected by ``input_type``.
+        r"""Return the omics view selected by ``input_type``.
 
-        :param **kwargs: Featurizer kwargs; ``input_type`` selects expression vs mutations.
+        :param \*\*kwargs: Featurizer kwargs; ``input_type`` selects expression vs mutations.
         :returns: Single-element tuple with the active omics view.
         """
         return (_view_for_input_type(str(kwargs.get("input_type", "expression"))),)

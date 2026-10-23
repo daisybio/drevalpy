@@ -167,9 +167,9 @@ def metadata_feature_block(values: np.ndarray) -> FeatureBlock:
 def merge_feature_blocks(
     *block_maps: Mapping[str, FeatureBlock],
 ) -> dict[str, FeatureBlock]:
-    """Merge child block mappings, rejecting duplicate emitted names.
+    r"""Merge child block mappings, rejecting duplicate emitted names.
 
-    :param *block_maps: One or more block mappings to combine in order.
+    :param \*block_maps: One or more block mappings to combine in order.
 
     :returns: Single mapping containing every block from ``block_maps``.
 

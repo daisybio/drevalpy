@@ -101,6 +101,9 @@ def stack_view(
 ) -> ad.AnnData:
     """Stack one sample view row-wise over all inputs.
 
+    Raises ``InvalidInputError`` if feature names differ under ``"exact"``, none are shared under
+    ``"inner"``, or recorded units differ.
+
     :param view: The modality key, for messages.
     :param adatas: The view of each input, in input order.
     :param names: Dataset name of each input; it prefixes the row IDs.
@@ -108,8 +111,6 @@ def stack_view(
         in the first input's order.
     :returns: A new AnnData with ``<study>::<sample_id>`` row names. Recorded units must be
         equal in every input under both joins.
-    :raises InvalidInputError: If feature names differ under ``"exact"``, none are shared under
-        ``"inner"``, or recorded units differ.
     """
     import anndata as ad
 
@@ -141,6 +142,9 @@ def stack_response(
 ) -> ad.AnnData:
     """Stack a response-shaped modality: rows stacked, drug columns and layers unioned.
 
+    Raises ``InvalidInputError`` if a drug has different ``canonical_smiles`` in different inputs,
+    or a strict ``uns`` key differs.
+
     :param adatas: The modality of each input, in input order.
     :param names: Dataset name of each input; it prefixes the row IDs.
     :param where: The modality key, for messages.
@@ -149,8 +153,6 @@ def stack_response(
     :returns: A new AnnData over ``<study>::<sample_id>`` rows and the union of the drug IDs
         in first-seen order. ``X`` and every layer are NaN where an input lacks the drug
         or the layer.
-    :raises InvalidInputError: If a drug has different ``canonical_smiles`` in different inputs,
-        or a strict ``uns`` key differs.
     """
     import anndata as ad
 

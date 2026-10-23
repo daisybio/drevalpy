@@ -187,10 +187,11 @@ def payload_genes(modalities: Mapping[str, ad.AnnData], n_features: int) -> list
 def add_sample_views(dataset: Dataset, views: Sequence[str], rng: np.random.Generator) -> None:
     """Fill ``response.obsm`` with the sample views that would need a download.
 
+    Raises ``ValueError`` if a name is not in :data:`SAMPLE_VIEWS`.
+
     :param dataset: Dataset modified in place.
     :param views: Names from :data:`SAMPLE_VIEWS`.
     :param rng: Source of the noise.
-    :raises ValueError: If a name is not in :data:`SAMPLE_VIEWS`.
     """
     check_choices("sample_views", views, SAMPLE_VIEWS)
     response = dataset.mdata.mod["response"]

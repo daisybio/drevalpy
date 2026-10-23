@@ -180,6 +180,8 @@ class RandomizationMixin:
         samples. For drug views (varm keys), rows are permuted across drugs.
         For uns dict keys, values are reassigned to shuffled keys.
 
+        Raises ``KeyError`` if a view is not found in any storage location.
+
         :param views: View names to randomize.
         :param randomization_type: "permutation" shuffles rows; "invariant" replaces
             each row with a random draw matching its mean and std.
@@ -187,7 +189,6 @@ class RandomizationMixin:
         :param randomization: Optional (mode, view) tuple to attach to the new dataset.
         :returns: A new Dataset with the specified views randomized.
         :raises ValueError: If randomization_type is not recognized.
-        :raises KeyError: If a view is not found in any storage location.
         """
         import mudata as md
 

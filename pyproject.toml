@@ -151,14 +151,17 @@ select = [
     "D",
     "N",
     "C90",
+    "ANN001", "ANN201", "ANN202", "ANN204",
 ]
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "D101", "D102", "D103"]
+"tests/*" = ["S101", "D101", "D102", "D103", "D401", "ANN001", "ANN201", "ANN202", "ANN204"]
+"tools/*" = ["ANN001", "ANN201", "ANN202", "ANN204"]
+"docs/*" = ["ANN001", "ANN201", "ANN202", "ANN204"]
 
 [tool.ruff.lint.pydocstyle]
-convention = "google"
+convention = "pep257"
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -172,6 +175,8 @@ arg-type-hints-in-docstring = false
 check-return-types = false
 skip-checking-short-docstrings = true
 check-class-attributes = false
+allow-init-docstring = true
+check-yield-types = false
 
 [tool.ty]
 
@@ -278,17 +283,15 @@ max_module_statements = 150
 # _omics_loaders.py and _pair_predict.py pulled out of their siblings. These are the
 # next candidates for the same treatment, in this order.
 "drevalpy/components/predictors/literature/sparsego/algorithm.py" = 187
-"drevalpy/components/predictors/literature/superfeltr/predictor.py" = 187
-"drevalpy/components/predictors/literature/dipk/predictor.py" = 186
-"drevalpy/components/predictors/literature/srmf/predictor.py" = 172
+"drevalpy/components/predictors/literature/dipk/predictor.py" = 166
+"drevalpy/components/predictors/literature/srmf/predictor.py" = 160
 
 # Single cohesive units whose statements are one flat sequence rather than several
 # concerns: a declarative registry of builtin components, one dataset facade,
 # one plot each.
-"drevalpy/registry/_builtins.py" = 199
+"drevalpy/registry/_builtins.py" = 182
 "drevalpy/types/data/dataset.py" = 207
 "drevalpy/visualization/plots/leaderboard.py" = 177
-"drevalpy/components/predictors/neural_network/predictor.py" = 165
 
 [tool.complexipy]
 max-complexity-allowed = 15

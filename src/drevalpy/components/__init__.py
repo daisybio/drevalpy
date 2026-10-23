@@ -6,8 +6,10 @@ The canonical source is ``drevalpy.registry``.
 
 from __future__ import annotations
 
+from typing import Any
 
-def __getattr__(name: str):
+
+def __getattr__(name: str) -> Any:
     """Lazy re-exports from drevalpy.registry to avoid circular imports."""
     _mapping = {
         "register_builtin_components": ("drevalpy.registry._builtins", "register_builtin_components"),

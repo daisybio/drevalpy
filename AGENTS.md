@@ -251,6 +251,10 @@ comment saying why the module cannot reach the floor.
 Use Sphinx field lists (`:param x:`, `:returns:`, `:raises:`), checked by pydoclint
 (`[tool.pydoclint]` in `pyproject.toml`). Put types in annotations, not in the
 docstring, and write no placeholder fields such as `:returns: Result.`.
+Document `__init__` parameters in the `__init__` docstring. Use `:raises X:` only
+for exceptions the function body raises itself; mention exceptions from callees
+in prose. Write variadic parameters as `:param \**kwargs:` inside an `r"""`
+docstring, so both pydoclint and Sphinx accept them.
 
 ## Path handling
 

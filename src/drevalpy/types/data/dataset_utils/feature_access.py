@@ -47,11 +47,12 @@ class FeatureAccessMixin:
     def get_sample_features(self, modality: str, ids: np.ndarray, *, strict: bool = False) -> np.ndarray:
         """Get a feature matrix for the specified samples from a modality.
 
+        Raises ``KeyError`` if the modality is not present, or if *strict* and IDs are missing.
+
         :param modality: Public name of the modality (e.g. "gene_expression").
         :param ids: 1-D array of sample IDs to retrieve.
         :param strict: If True, raise KeyError for missing IDs instead of warning.
         :returns: Float32 array of shape (len(ids), n_features), rows aligned to *ids*.
-        :raises KeyError: If the modality is not present, or if *strict* and IDs are missing.
         """
         import pandas as pd
 
@@ -162,10 +163,11 @@ class FeatureAccessMixin:
     def entities_with_modality(self, modality: str, *, side: str = "sample") -> frozenset[str]:
         """Return entity IDs that have actual feature data for a modality.
 
+        Raises ``KeyError`` if the modality/view is not found.
+
         :param modality: Modality or view name (e.g. "gene_expression", "fingerprints").
         :param side: Either "sample" or "drug".
         :returns: Frozenset of entity IDs that have non-NaN data for the modality.
-        :raises KeyError: If the modality/view is not found.
         """
         if side == "sample":
             return self._sample_entities_for_modality(modality)
