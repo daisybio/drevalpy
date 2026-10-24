@@ -1,0 +1,392 @@
+"""Utility functions for the MOLIR model.
+
+Original authors of MOLI: Sharifi-Noghabi et al. (2019, 10.1093/bioinformatics/btz318)
+Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7),
+https://github.com/kramerlab/Multi-Omics_analysis
+"""
+
+import tempfile
+from contextlib import nullcontext
+
+import numpy as np
+import pytorch_lightning as pl
+import torch
+from torch import nn
+from upath import UPath as Path
+
+from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
+from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
+from drevalpy.components.predictors.literature.molir._omics import (
+    _realign_omic_matrix as _realign_omic_matrix,  # re-exported for the historical import path
+)
+from drevalpy.utils.torch_io import load_state_dict
+
+
+def generate_triplets_indices(
+    y: np.ndarray,
+    positive_range: float,
+    negative_range: float,
+    random_seed: int | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Generate triplets for the MOLIR model.
+
+    The positive and negative range are determined by the standard deviation of the response values. A pair is
+    considered positive if its response value is within the positive range of the label. The positive range is ±10%
+    of the standard deviation of all response values. A pair is considered negative if its response value is at
+    least one standard deviation away from the response value of the pair.
+
+    :param y: response values
+    :param positive_range: positive range for the triplet loss
+    :param negative_range: negative range for the triplet loss
+    :param random_seed: Explicit isolated seed, or None to use the global NumPy stream, which drevalpy seeds per fit.
+
+    :returns: positive and negative pair indices for each pair
+    """
+    rng = np.random if random_seed is None else np.random.default_rng(random_seed)
+    positive_pair_indices = []
+    negative_pair_indices = []
+    # Iterate over each label in the dataset
+    for idx_current_label, current_label in enumerate(y):
+        positive_class_indices = _get_positive_class_indices(current_label, idx_current_label, y, positive_range)
+        positive_pair_idx = rng.choice(positive_class_indices, 1)[0]
+        negative_class_indices = _get_negative_class_indices(current_label, y, negative_range)
+        negative_pair_idx = rng.choice(negative_class_indices, 1)[0]
+        positive_pair_indices.append(positive_pair_idx)
+        negative_pair_indices.append(negative_pair_idx)
+    return np.array(positive_pair_indices), np.array(negative_pair_indices)
+
+
+def _get_positive_class_indices(label: np.float32, idx_label: int, y: np.ndarray, positive_range: float) -> np.ndarray:
+    """Find the pairs that are within the positive range of the label except the label itself.
+
+    If there is no similar pair within the positive range, the method returns the closest pair to the label.
+
+    :param label: response of interest
+    :param idx_label: index of the response of interest
+    :param y: all responses
+    :param positive_range: 0.1 * the standard deviation of all training responses
+
+    :returns: Indices of pairs considered positive examples for the response of interest.
+    """
+    indices_similar_pairs = np.where(np.logical_and(label - positive_range <= y, y <= label + positive_range))[0]
+    indices_similar_pairs = np.delete(indices_similar_pairs, np.where(indices_similar_pairs == idx_label))
+    if len(indices_similar_pairs) == 0 and len(y) > 1:
+        # return the closest pairs to the label except the label itself
+        indices_similar_pairs = np.array([np.argsort(np.abs(y - label))[1]])
+    elif len(indices_similar_pairs) == 0:
+        # this happens only when there is just one pair in the validation dataset
+        indices_similar_pairs = np.where(y == label)[0]
+    return indices_similar_pairs
+
+
+def _get_negative_class_indices(label: np.float32, y: np.ndarray, negative_range: float) -> np.ndarray:
+    """Find dissimilar pairs to the label.
+
+    If there is no dissimilar pair within the negative range, the method returns the pair that is the furthest away.
+
+    :param label: reponse of interest
+    :param y: all responses
+    :param negative_range: 1 * the standard deviation of all training responses
+
+    :returns: Indices of pairs considered negative examples for the response of interest.
+    """
+    dissimilar_pairs = np.where(np.logical_or(label - negative_range >= y, y >= label + negative_range))[0]
+    if len(dissimilar_pairs) == 0:
+        # return the pair that is the furthest away from the label
+        dissimilar_pairs = np.argsort(np.abs(y - label))[-1:]
+    return dissimilar_pairs
+
+
+class MOLIEncoder(nn.Module):
+    """Encoders of the MOLIR model, which is identical to the encoders of the original MOLI model.
+
+    The MOLIR model has three encoders for the gene expression, mutations, and copy number variation data which are
+    trained together.
+    """
+
+    def __init__(self, input_size: int, output_size: int, dropout_rate: float) -> None:
+        """Initialize the encoder for the MOLIR model.
+
+        :param input_size: input size determined by feature selection.
+        :param output_size: output size of the encoder, set as hyperparameter.
+        :param dropout_rate: dropout rate for regularization, set as hyperparameter.
+        """
+        super().__init__()
+        self.encode = nn.Sequential(
+            nn.Linear(input_size, output_size),
+            nn.ReLU(),
+            nn.BatchNorm1d(output_size),
+            nn.Dropout(dropout_rate),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the encoder.
+
+        :param x: omic input features
+
+        :returns: encoded omic features
+        """
+        return self.encode(x)
+
+
+class MOLIRegressor(nn.Module):
+    """Regressor of the MOLIR model.
+
+    It is identical to the regressor of the original MOLI model, except for the omission of the final sigmoid
+    activation function. After the three encoders, the encoded features are concatenated and fed into the regressor.
+    """
+
+    def __init__(self, input_size: int, dropout_rate: float) -> None:
+        """Initialize the regressor for the MOLIR model.
+
+        :param input_size: determined by the output sizes of the encoders.
+        :param dropout_rate: set as hyperparameter.
+        """
+        super().__init__()
+        self.regressor = nn.Sequential(nn.Linear(input_size, 1), nn.Dropout(dropout_rate))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the regressor.
+
+        :param x: concatenated encoded features
+
+        :returns: predicted drug response
+        """
+        return self.regressor(x)
+
+
+class MOLIModel(pl.LightningModule):
+    """PyTorch Lightning module for the MOLIR model.
+
+    The architecture of the MOLIR model is identical to the MOLI model, except for the omission of the final sigmoid
+    layer and the usage of a regression MSE loss instead of a binary cross-entropy loss. Additionally, early stopping is
+    added instead of tuning the number of epochs as hyperparameter.
+    """
+
+    def __init__(
+        self, hpams: dict[str, int | float], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
+    ) -> None:
+        """Initialize the MOLIR model.
+
+        The MOLIR model uses a combined loss function of a triplet margin loss for the concatenated representation
+        and an MSE loss for the regression loss.
+
+        :param hpams: Hyperparameters such as ``mini_batch``, layer sizes, learning rate, and
+            margin.
+        :param input_dim_expr: determined by the feature selection of the gene expression data.
+        :param input_dim_mut: determined by dataset size
+        :param input_dim_cnv: determined by dataset size
+        """
+        super().__init__()
+        self.save_hyperparameters()
+
+        self.mini_batch = int(hpams["mini_batch"])
+        self.h_dim1 = int(hpams["h_dim1"])
+        self.h_dim2 = int(hpams["h_dim2"])
+        self.h_dim3 = int(hpams["h_dim3"])
+        self.lr = hpams["learning_rate"]
+        self.dropout_rate = hpams["dropout_rate"]
+        self.weight_decay = hpams["weight_decay"]
+        self.gamma = hpams["gamma"]
+        self.epochs = int(hpams["epochs"])
+        self.triplet_loss = nn.TripletMarginLoss(margin=hpams["margin"], p=2)
+        self.regression_loss = nn.MSELoss()
+        # Positive and Negative range for triplet loss, determined by the standard deviation of the training responses,
+        # set in fit method
+        self.positive_range = 1.0
+        self.negative_range = 1.0
+        # Checkpoint callback for early stopping, set in fit method
+        self.checkpoint_callback: pl.callbacks.ModelCheckpoint | None = None
+
+        self.expression_encoder = MOLIEncoder(input_dim_expr, self.h_dim1, self.dropout_rate)
+        self.mutation_encoder = MOLIEncoder(input_dim_mut, self.h_dim2, self.dropout_rate)
+        self.cna_encoder = MOLIEncoder(input_dim_cnv, self.h_dim3, self.dropout_rate)
+        self.regressor = MOLIRegressor(self.h_dim1 + self.h_dim2 + self.h_dim3, self.dropout_rate)
+
+    def fit(
+        self,
+        train: OmicsSplit,
+        val: OmicsSplit | None = None,
+        patience: int = 5,
+        model_checkpoint_dir: str | Path | None = None,
+    ) -> None:
+        """Train the MOLIR model.
+
+        First, the ranges for the triplet loss are determined using the standard deviation of the training responses.
+        Then, the training and validation data loaders are created. The model is trained using the Lightning Trainer
+        with an early stopping callback.
+
+        :param train: training split of the three omic views
+        :param val: validation split for early stopping, or None to monitor the training loss
+        :param patience: for early stopping
+        :param model_checkpoint_dir: directory to save the model checkpoints; a temporary directory removed after the
+            fit when omitted
+        """
+        std = float(np.std(train.response))
+        self.positive_range = std * 0.1
+        self.negative_range = std
+
+        train_loader, val_loader = make_omics_loaders(train, val, self.mini_batch)
+
+        directory = (
+            tempfile.TemporaryDirectory(prefix="drevalpy-molir-")
+            if model_checkpoint_dir is None
+            else nullcontext(model_checkpoint_dir)
+        )
+        with directory as checkpoint_dir:
+            self.checkpoint_callback = run_lightning_fit(
+                self,
+                train_loader,
+                val_loader,
+                LightningRun(
+                    max_epochs=self.epochs,
+                    patience=patience,
+                    checkpoint_dir=checkpoint_dir,
+                    save_weights_only=True,
+                    devices=1,
+                    accelerator="cpu",  # the model is too small to profit from a GPU
+                    default_logger=False,
+                    enable_model_summary=False,
+                ),
+            )
+            if self.checkpoint_callback.best_model_path is not None:
+                checkpoint = load_state_dict(self.checkpoint_callback.best_model_path)
+                self.load_state_dict(checkpoint["state_dict"])
+
+    def predict(
+        self,
+        gene_expression: np.ndarray,
+        mutations: np.ndarray,
+        copy_number: np.ndarray,
+    ) -> np.ndarray:
+        """Perform prediction on given input data.
+
+        If there was enough training data to train the model, the model from the best epoch was saved in the checkpoint
+        callback and is loaded now. If there was not enough training data, the model is only randomly initialized.
+
+        :param gene_expression: gene expression data
+        :param mutations: mutation data
+        :param copy_number: copy number variation data
+
+        :returns: predicted drug response
+        """
+        # convert to torch tensors
+        gene_expression_tensor = torch.from_numpy(gene_expression).float().to(self.device)
+        mutations_tensor = torch.from_numpy(mutations).float().to(self.device)
+        copy_number_tensor = torch.from_numpy(copy_number).float().to(self.device)
+        self.eval()
+        with torch.no_grad():
+            z = self._encode_and_concatenate(gene_expression_tensor, mutations_tensor, copy_number_tensor)
+            preds = self.regressor(z)
+        return preds.squeeze().cpu().detach().numpy()
+
+    def _encode_and_concatenate(
+        self, gene_expression: torch.Tensor, mutations: torch.Tensor, copy_number: torch.Tensor
+    ) -> torch.Tensor:
+        """Encode the input modalities, concatenates, and normalizes the resulting embeddings.
+
+        :param gene_expression: gene expression data
+        :param mutations: mutation data
+        :param copy_number: copy number variation data
+
+        :returns: concatenated, normalized embeddings
+        """
+        z_ex = self.expression_encoder(gene_expression)
+        z_mu = self.mutation_encoder(mutations)
+        z_cn = self.cna_encoder(copy_number)
+
+        z = torch.cat((z_ex, z_mu, z_cn), dim=1)
+        z = nn.functional.normalize(z, p=2, dim=0)
+        return z
+
+    def forward(self, x_gene: torch.Tensor, x_mutation: torch.Tensor, x_cna: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the MOLIR model.
+
+        :param x_gene: gene expression input
+        :param x_mutation: mutation input
+        :param x_cna: copy number variation input
+
+        :returns: predicted drug response
+        """
+        z = self._encode_and_concatenate(x_gene, x_mutation, x_cna)
+        preds = self.regressor(z)
+        return preds
+
+    def _compute_loss(self, z: torch.Tensor, preds: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """Compute the combined triplet loss and regression loss.
+
+        :param z: concatenated, normalized embeddings on which the triplet loss is calculated
+        :param preds: predicted drug response on which the regression loss is calculated
+        :param y: true drug response
+
+        :returns: combined loss
+        """
+        positive_indices, negative_indices = generate_triplets_indices(
+            y.cpu().detach().numpy(), self.positive_range, self.negative_range
+        )
+
+        triplet_loss = self.triplet_loss(z, z[positive_indices], z[negative_indices])
+        regression_loss = self.regression_loss(preds.squeeze(), y)
+        return self.gamma * triplet_loss + regression_loss
+
+    def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
+        """Compute and log the training loss of one batch.
+
+        :param batch: batch of gene expression, mutations, copy number variation, and response
+        :param batch_idx: index of the batch
+
+        :returns: combined loss
+        """
+        gene_expression, mutations, copy_number, response = batch
+        response = response.squeeze(-1)
+
+        # Encode and concatenate
+        z = self._encode_and_concatenate(gene_expression, mutations, copy_number)
+
+        # Get predictions
+        preds = self.regressor(z)
+
+        # Compute loss
+        loss = self._compute_loss(z, preds, response)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        return loss
+
+    def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
+        """Compute and log the validation loss of one batch.
+
+        :param batch: batch of gene expression, mutations, copy number variation, and response
+        :param batch_idx: index of the batch
+
+        :returns: combined loss
+        """
+        gene_expression, mutations, copy_number, response = batch
+        response = response.squeeze(-1)
+
+        # Encode and concatenate
+        z = self._encode_and_concatenate(gene_expression, mutations, copy_number)
+
+        # Get predictions
+        preds = self.regressor(z)
+
+        # Compute loss
+        val_loss = self._compute_loss(z, preds, response)
+        self.log("val_loss", val_loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        return val_loss
+
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        """Create the optimizer for Lightning.
+
+        :returns: optimizers for the MOLIR expression, mutation, copy number variation encoders, and regressor
+        """
+        optimizer = torch.optim.Adagrad(
+            [
+                {"params": self.expression_encoder.parameters(), "lr": self.lr},
+                {"params": self.mutation_encoder.parameters(), "lr": self.lr},
+                {"params": self.cna_encoder.parameters(), "lr": self.lr},
+                {"params": self.regressor.parameters(), "lr": self.lr},
+            ],
+            weight_decay=self.weight_decay,
+        )
+        return optimizer
