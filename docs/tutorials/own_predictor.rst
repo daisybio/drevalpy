@@ -173,9 +173,7 @@ alone is not enough. Compare the models within each drug:
 
 .. code-block:: python
 
-   import pandas as pd
-
-   per_drug = pd.DataFrame(results.summary_table(group_by="drug")).T
+   per_drug = results.summary_table(group_by="drug")
    print(per_drug[["Pearson", "Spearman", "RMSE"]].round(3))
 
 .. code-block:: text

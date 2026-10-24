@@ -199,9 +199,7 @@ compute each metric within each drug and average over the drugs and folds.
 
       .. code-block:: python
 
-         import pandas as pd
-
-         per_drug = pd.DataFrame(results.summary_table(group_by="drug")).T
+         per_drug = results.summary_table(group_by="drug")
          print(per_drug[["Pearson", "Spearman", "RMSE", "R^2"]].round(3))
 
       The output:

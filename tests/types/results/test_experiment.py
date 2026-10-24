@@ -412,8 +412,8 @@ def _drug_run(model_name: str, predictions: list[float], *, fold_index: int = 0)
 class TestGroupedSummaryTable:
     def test_the_drug_mean_baseline_is_high_pooled_and_undefined_per_drug(self) -> None:
         experiment = ExperimentResult([_drug_run("DrugMean", [1.5] * 4 + [11.5] * 4)])
-        pooled = experiment.summary_table()["DrugMean"]["Pearson"]
-        per_drug = experiment.summary_table(group_by="drug")["DrugMean"]["Pearson"]
+        pooled = experiment.summary_table().loc["DrugMean", "Pearson"]
+        per_drug = experiment.summary_table(group_by="drug").loc["DrugMean", "Pearson"]
 
         assert pooled > 0.95
         assert np.isnan(per_drug)
@@ -421,7 +421,7 @@ class TestGroupedSummaryTable:
     def test_each_metric_is_averaged_over_the_drugs(self) -> None:
         experiment = ExperimentResult([_drug_run("M", [0.0, 2.0, 1.0, 3.0, 10.0, 11.0, 12.0, 13.0])])
 
-        table = experiment.summary_table(group_by="drug")["M"]
+        table = experiment.summary_table(group_by="drug").loc["M"]
 
         assert table["Pearson"] == pytest.approx((0.8 + 1.0) / 2)
         assert table["MSE"] == pytest.approx((0.5 + 0.0) / 2)
@@ -429,8 +429,8 @@ class TestGroupedSummaryTable:
     def test_a_group_with_an_undefined_metric_is_skipped_not_scored_zero(self) -> None:
         experiment = ExperimentResult([_drug_run("M", [1.0] * 4 + [10.0, 11.0, 12.0, 13.0])])
 
-        assert experiment.summary_table(group_by="drug")["M"]["Pearson"] == pytest.approx(1.0)
-        assert experiment.summary_group_counts(group_by="drug")["M"] == {"MSE": 2.0, "Pearson": 1.0}
+        assert experiment.summary_table(group_by="drug").loc["M", "Pearson"] == pytest.approx(1.0)
+        assert experiment.summary_group_counts(group_by="drug").loc["M"].to_dict() == {"MSE": 2.0, "Pearson": 1.0}
 
     def test_folds_are_averaged_after_the_groups(self) -> None:
         runs = [
@@ -438,7 +438,9 @@ class TestGroupedSummaryTable:
             _drug_run("M", [0.0, 2.0, 1.0, 3.0, 10.0, 12.0, 11.0, 13.0], fold_index=1),
         ]
 
-        assert ExperimentResult(runs).summary_table(group_by="drug")["M"]["Pearson"] == pytest.approx((1.0 + 0.8) / 2)
+        assert ExperimentResult(runs).summary_table(group_by="drug").loc["M", "Pearson"] == pytest.approx(
+            (1.0 + 0.8) / 2
+        )
 
     def test_a_fold_where_nothing_is_defined_is_skipped(self) -> None:
         runs = [
@@ -446,12 +448,12 @@ class TestGroupedSummaryTable:
             _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0], fold_index=1),
         ]
 
-        assert ExperimentResult(runs).summary_table(group_by="drug")["M"]["Pearson"] == pytest.approx(1.0)
+        assert ExperimentResult(runs).summary_table(group_by="drug").loc["M", "Pearson"] == pytest.approx(1.0)
 
     def test_sample_grouping_uses_the_sample_ids(self) -> None:
         run = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0])
 
-        table = ExperimentResult([run]).summary_table(group_by="sample")["M"]
+        table = ExperimentResult([run]).summary_table(group_by="sample").loc["M"]
 
         assert table["MSE"] == pytest.approx(0.0)
         assert table["Pearson"] == pytest.approx(1.0)
@@ -464,18 +466,18 @@ class TestGroupedSummaryTable:
             runs.append(run)
         experiment = ExperimentResult(runs)
 
-        table = experiment.summary_table(group_by="study")["M"]
+        table = experiment.summary_table(group_by="study").loc["M"]
 
         assert table["MSE"] == pytest.approx(0.0)
         assert table["Pearson"] == pytest.approx(1.0)
-        assert experiment.summary_group_counts(group_by="study")["M"] == {"MSE": 2.0, "Pearson": 2.0}
+        assert experiment.summary_group_counts(group_by="study").loc["M"].to_dict() == {"MSE": 2.0, "Pearson": 2.0}
 
     def test_study_grouping_without_prefixes_is_undefined(self) -> None:
         run = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0])
         experiment = ExperimentResult([run])
-        table = experiment.summary_table(group_by="study")["M"]
-        assert all(np.isnan(value) for value in table.values())
-        assert experiment.summary_group_counts(group_by="study")["M"] == {"MSE": 0.0, "Pearson": 0.0}
+        table = experiment.summary_table(group_by="study").loc["M"]
+        assert table.isna().all()
+        assert experiment.summary_group_counts(group_by="study").loc["M"].to_dict() == {"MSE": 0.0, "Pearson": 0.0}
 
     def test_study_grouping_scores_each_study_separately(self) -> None:
         run = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0])
@@ -483,7 +485,7 @@ class TestGroupedSummaryTable:
         run.predictions = np.array([0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 15.0])
         run.metrics = score_predictions(run.predictions, run.ground_truth, ["MSE"])
 
-        table = ExperimentResult([run]).summary_table(group_by="study")["M"]
+        table = ExperimentResult([run]).summary_table(group_by="study").loc["M"]
 
         assert table["MSE"] == pytest.approx((0.0 + 1.0) / 2)
 
@@ -499,15 +501,15 @@ class TestGroupedSummaryTable:
 
         per_drug = experiment.normalize().summary_table(group_by="drug")
 
-        assert per_drug.keys() == pooled.keys()
-        assert all(np.isfinite(list(row.values())).all() for row in per_drug.values())
+        assert list(per_drug.index) == list(pooled.index)
+        assert np.isfinite(per_drug.to_numpy()).all()
 
     def test_randomized_runs_do_not_enter_the_grouped_table(self) -> None:
         ordinary = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0])
         randomized = _drug_run("M", [3.0, 2.0, 1.0, 0.0, 13.0, 12.0, 11.0, 10.0], fold_index=1)
         randomized.randomization = ("gene_expression", "permutation")
 
-        assert ExperimentResult([ordinary, randomized]).summary_table(group_by="drug")["M"]["Pearson"] == 1.0
+        assert ExperimentResult([ordinary, randomized]).summary_table(group_by="drug").loc["M", "Pearson"] == 1.0
 
 
 class TestPooledSummaryTable:
@@ -517,4 +519,8 @@ class TestPooledSummaryTable:
             make_run_result(model_name="A", fold_index=1, metrics={"MSE": 0.4}),
         ]
 
-        assert ExperimentResult(runs).summary_table() == {"A": {"MSE": pytest.approx(0.3)}}
+        table = ExperimentResult(runs).summary_table()
+
+        assert list(table.index) == ["A"]
+        assert list(table.columns) == ["MSE"]
+        assert table.loc["A", "MSE"] == pytest.approx(0.3)

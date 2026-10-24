@@ -153,5 +153,5 @@ Put the numbers in a table
 
 The tables of the report are also available as data. ``results.summary_table()`` gives the pooled
 metrics of each model and ``results.summary_table(group_by="drug")`` the metrics within each drug;
-the command-line ``run`` and ``aggregate`` print the second with ``--group-by drug``. They are
-plain dictionaries, ready for ``pandas.DataFrame``.
+the command-line ``run`` and ``aggregate`` print the second with ``--group-by drug``. Both are
+``pandas.DataFrame`` objects with one row per model and one column per metric.

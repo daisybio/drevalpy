@@ -350,15 +350,15 @@ subdirectory per model with one ``.npz`` file per run. Load a directory back int
          results.save("results_lpo")
          loaded = ExperimentResult.load("results_lpo")
          print(loaded.model_names)
-         print(round(loaded.summary_table()["NaiveDrugMeanPredictor"]["Pearson"], 3))
+         print(round(loaded.summary_table().loc["NaiveDrugMeanPredictor", "Pearson"], 3))
 
       .. code-block:: text
 
          ['NaiveDrugMeanPredictor', 'NaiveMeanEffectsPredictor']
          0.842
 
-      ``summary_table()`` returns the pooled metrics of each model. ``summary_table(group_by="drug")``
-      computes them within each drug, as in the tutorial.
+      ``summary_table()`` returns a ``pandas.DataFrame`` of the pooled metrics, one row per model.
+      ``summary_table(group_by="drug")`` computes them within each drug, as in the tutorial.
 
 Where to go next
 ----------------

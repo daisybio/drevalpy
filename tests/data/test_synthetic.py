@@ -397,17 +397,17 @@ class TestSimpsonPattern:
         return drevalpy.run(models, data, "LPO", hyperparameter_tuning=True, hpo_num_trials=8)
 
     def test_the_drug_mean_baseline_scores_high_pooled_but_is_undefined_per_drug(self, experiment):
-        pooled = experiment.summary_table()["NaiveDrugMeanPredictor"]["Pearson"]
-        per_drug = experiment.summary_table(group_by="drug")["NaiveDrugMeanPredictor"]["Pearson"]
+        pooled = experiment.summary_table().loc["NaiveDrugMeanPredictor", "Pearson"]
+        per_drug = experiment.summary_table(group_by="drug").loc["NaiveDrugMeanPredictor", "Pearson"]
 
         assert pooled >= 0.7
-        assert experiment.summary_group_counts(group_by="drug")["NaiveDrugMeanPredictor"]["Pearson"] == 0
+        assert experiment.summary_group_counts(group_by="drug").loc["NaiveDrugMeanPredictor", "Pearson"] == 0
         assert np.isnan(per_drug)
 
     def test_naive_mean_effects_loses_per_drug_and_elasticnet_beats_it(self, experiment):
-        pooled = experiment.summary_table()["NaiveMeanEffectsPredictor"]["Pearson"]
+        pooled = experiment.summary_table().loc["NaiveMeanEffectsPredictor", "Pearson"]
         per_drug = experiment.summary_table(group_by="drug")
-        naive = per_drug["NaiveMeanEffectsPredictor"]["Pearson"]
+        naive = per_drug.loc["NaiveMeanEffectsPredictor", "Pearson"]
 
         assert naive <= pooled - 0.3
-        assert per_drug["ElasticNet"]["Pearson"] > naive
+        assert per_drug.loc["ElasticNet", "Pearson"] > naive

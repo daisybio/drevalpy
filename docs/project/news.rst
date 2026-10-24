@@ -60,7 +60,7 @@ Defaults and results that changed
   to compute each metric within every drug, sample or study and average over the groups. A group where
   the metric is undefined, such as the Pearson correlation of a constant prediction, is skipped
   and never counted as 0. ``summary_group_counts`` returns how many groups each value is based
-  on.
+  on. Both return a ``pandas.DataFrame`` with one row per model and one column per metric.
 - ``drevalpy run`` and ``drevalpy aggregate`` take ``--group-by drug|sample|study`` and print that
   table. The report has a second summary table, "Model Summary Table per Drug".
 - One ``--seed`` (``seed=`` in Python, default 42) drives the splits, the hyperparameter search,

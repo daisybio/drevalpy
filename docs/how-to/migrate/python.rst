@@ -194,8 +194,8 @@ Save and read the results
 
 The 1.x result files map to these calls:
 
-- ``evaluation_results.csv``: ``result.summary_table()``, a dictionary of
-  ``{model: {metric: mean over folds}}``.
+- ``evaluation_results.csv``: ``result.summary_table()``, a ``pandas.DataFrame`` with one
+  row per model and the mean over folds of each metric.
 - ``evaluation_results_per_drug.csv``: ``result.summary_table(group_by="drug")``.
   Each metric is computed within each drug of a fold, then averaged.
 - ``evaluation_results_per_cl.csv``: ``result.summary_table(group_by="sample")``.

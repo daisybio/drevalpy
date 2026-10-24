@@ -274,8 +274,8 @@ the concatenated dataset:
 
          lpo = drevalpy.run(models, combined, "LPO", hyperparameter_tuning=False)
          by_study = lpo.summary_table(group_by="study")
-         print({name: round(row["Pearson"], 4) for name, row in by_study.items()})
-         print(lpo.summary_group_counts("study")["NaiveDrugMeanPredictor"]["Pearson"])
+         print(by_study["Pearson"].round(4).to_dict())
+         print(lpo.summary_group_counts("study").loc["NaiveDrugMeanPredictor", "Pearson"])
 
       .. code-block:: text
 

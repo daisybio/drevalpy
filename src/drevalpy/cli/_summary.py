@@ -33,10 +33,11 @@ def format_grouped_summary(experiment: ExperimentResult, group_by: GroupBy) -> s
     plural = "studies" if group_by is GroupBy.STUDY else f"{grouping}s"
     means = experiment.summary_table(group_by=grouping)
     counts = experiment.summary_group_counts(group_by=grouping)
-    metrics = list(dict.fromkeys(metric for row in means.values() for metric in row))
+    metrics = list(means.columns)
     table = [["Model", *metrics]]
-    for name, row in means.items():
-        table.append([name, *(_cell(row.get(metric, math.nan), counts[name].get(metric, 0.0)) for metric in metrics)])
+    for name, row in means.iterrows():
+        count = counts.loc[name] if name in counts.index else {}
+        table.append([str(name), *(_cell(row[metric], count.get(metric, 0.0)) for metric in metrics)])
     widths = [max(len(row[i]) for row in table) for i in range(len(table[0]))]
     lines = ["  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True)).rstrip() for row in table]
     heading = (
