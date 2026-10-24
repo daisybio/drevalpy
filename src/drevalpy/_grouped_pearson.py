@@ -130,28 +130,3 @@ class PearsonSums:
         out = np.full(self.n_groups, np.nan, dtype=np.float64)
         np.divide(cov, denominator, out=out, where=valid)
         return np.clip(out, -1.0, 1.0, out=out)
-
-
-def grouped_pearson(
-    codes: np.ndarray,
-    n_groups: int,
-    x: np.ndarray,
-    y: np.ndarray,
-    *,
-    min_count: int = MIN_GROUP_SIZE,
-) -> np.ndarray:
-    """Compute the Pearson correlation of ``x`` against ``y`` within each group.
-
-    Vectorised over groups: no Python-level loop and no intermediate object per
-    observation.
-
-    :param codes: Group index per observation; negative entries are dropped.
-    :param n_groups: Size of the group axis, so empty groups keep their slot.
-    :param x: First variable, aligned with ``codes``.
-    :param y: Second variable, aligned with ``codes``.
-    :param min_count: Minimum observations required for a finite value.
-    :returns: ``float64`` array of length ``n_groups``, NaN where undefined.
-    """
-    sums = PearsonSums(n_groups)
-    sums.add(codes, x, y)
-    return sums.correlations(min_count=min_count)

@@ -17,9 +17,6 @@ import numpy as np
 if TYPE_CHECKING:
     import pandas as pd
 
-warning_shown = False
-constant_prediction_warning_shown = False
-
 
 #: Absolute tolerance of the constant check; ``np.isclose`` adds its default relative tolerance (``1e-5``).
 CONSTANT_ATOL = 1e-6

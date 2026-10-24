@@ -26,11 +26,6 @@ TERM = re.compile(r"(?i)cell[ _-]?lines?|CellLine")
 #: (path glob, regex searched in the line, reason). ``*`` in the glob also matches ``/``.
 ALLOWLIST: tuple[tuple[str, str, str], ...] = (
     (
-        "src/drevalpy/data/utils.py",
-        r"CELL_LINE_NAME_COLUMN|cell_line_name|samples are cell lines",
-        "defines the optional stored column of cell-line datasets",
-    ),
-    (
         "src/drevalpy/types/data/dataset.py",
         r"cell_line_name|cell-line datasets",
         "documents the optional cellosaurus_id / cell_line_name metadata of cell-line datasets",
@@ -42,7 +37,7 @@ ALLOWLIST: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "tests/*",
-        r"cell_line_name|CELL_LINE_NAME_COLUMN",
+        r"cell_line_name",
         "tests build and read the optional cell_line_name column of cell-line datasets",
     ),
     (
