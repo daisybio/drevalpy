@@ -7,7 +7,7 @@
 - [ ] This comment contains a description of changes (with reason)
 - [ ] Referenced issue is linked
 - [ ] If you've fixed a bug or added code that should be tested, add tests!
-- [ ] Documentation in `docs` is updated. If you've created a new file, add it to the API documentation pages.
+- [ ] Documentation in `docs` is updated. Public modules under documented packages are picked up automatically by the recursive API autosummary.
 
 <!-- Only applies to PRs for a new version release, delete the lines that don't apply -->
 
@@ -22,16 +22,16 @@
 ## Version release checklist
 
 - [ ] Update the version in pyproject.toml
-- [ ] Update version/release in docs/conf.py
-- [ ] Run ‚poetry update‘ to get the latest package versions. This will update the poetry.lock file
-- [ ] Run ‚poetry export --without-hashes --without development -f requirements.txt -o requirements.txt‘ to update the requirements.txt file (requires `poetry self add poetry-plugin-export`)
-- [ ] (If one of the sphinx packages has been updated, you also need to update docs/requirements.txt)
-- [ ] (If poetry itself was updated, update that in the Dockerfile and installation.rst)
+- [ ] Update the fallback `release` in docs/conf.py
+- [ ] Run `uv lock --upgrade` to get the latest package versions. This updates uv.lock; commit it
+- [ ] Run `uv sync --extra cpu` and `uv run pytest -m "not network"` to check the updated lock file
+- [ ] (If the docs dependencies were updated, run `uv run --group docs sphinx-build -W docs docs/_build`)
 - [ ] If you updated the python version:
-  - [ ] Update the Dockerfile so that it always runs on the latest python version. Watch out: the ‚builder‘ is the full python, the ‚runtime‘ is a slim python build.
-  - [ ] Update the python version in .github/workflows/: run_tests.yml, build_package.yml, publish_docs.yml, python-package.yml
-  - [ ] Update the python version in noxfile.py
-  - [ ] Update the documentation: contributing.rst, installation.rst
+  - [ ] Update the Dockerfile so that it always runs on the latest python version. Watch out: the 'builder' is the full python, the 'runtime' is a slim python build.
+  - [ ] Update the python version in .github/workflows/: run_tests.yml, build_package.yml
+  - [ ] Update the python version in .readthedocs.yml
+  - [ ] Update `requires-python` in pyproject.toml
+  - [ ] Update the documentation: docs/how-to/install.rst
 
 Then,
 
