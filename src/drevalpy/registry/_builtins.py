@@ -1,7 +1,8 @@
 """Register built-in components by scanning package directories.
 
 No explicit name-to-module mapping required -- modules are discovered by
-convention (any .py file without a leading underscore in the component dirs).
+convention (any .py file in the component dirs except ``base.py`` and files with a
+leading underscore).
 """
 
 from __future__ import annotations
