@@ -76,19 +76,6 @@ class GroupCorrelationMatrix:
         """Whether the matrix has no models or no groups."""
         return self.n_models == 0 or self.n_groups == 0
 
-    def for_model(self, model_name: str) -> np.ndarray:
-        """Return one model's correlation vector.
-
-        :param model_name: Name of a model in :attr:`model_names`.
-        :returns: A read-only view of the matching row of :attr:`values`.
-        :raises KeyError: If ``model_name`` is not in :attr:`model_names`.
-        """
-        try:
-            index = self.model_names.index(model_name)
-        except ValueError:
-            raise KeyError(model_name) from None
-        return self.values[index]
-
     def drop_all_nan_models(self) -> GroupCorrelationMatrix:
         """Return a copy without models whose correlations are all NaN.
 

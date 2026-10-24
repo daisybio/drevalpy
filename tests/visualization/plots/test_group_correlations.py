@@ -90,7 +90,7 @@ class TestModelGroupCorrelations:
         matrix = model_group_correlations(result, "drug")
 
         assert matrix.n_groups == 4
-        assert np.isnan(matrix.for_model("A")[2:]).all()
+        assert np.isnan(matrix.values[matrix.model_names.index("A")][2:]).all()
 
     def test_values_match_a_direct_per_group_pearson(self):
         run = make_run_result(model_name="A", n_pairs=20, n_drugs=4)
@@ -146,14 +146,11 @@ class TestModelGroupCorrelations:
 
 
 class TestGroupCorrelationMatrix:
-    def test_dimensions_and_for_model(self, experiment):
+    def test_dimensions(self, experiment):
         matrix = model_group_correlations(experiment, "drug")
 
         assert (matrix.n_models, matrix.n_groups) == (N_MODELS, N_DRUGS)
         assert matrix.is_empty is False
-        np.testing.assert_array_equal(matrix.for_model(matrix.model_names[1]), matrix.values[1])
-        with pytest.raises(KeyError):
-            matrix.for_model("NotAModel")
 
     def test_a_matrix_with_no_groups_is_empty(self):
         assert GroupCorrelationMatrix("drug", ("A",), (), np.empty((1, 0), dtype=np.float32)).is_empty
@@ -200,10 +197,6 @@ def _concatenated_experiment() -> ExperimentResult:
             run.sample_ids = np.array([f"{'GDSC2' if i % 2 else 'CTRPv2'}::CL_{i % 8}" for i in range(40)])
             runs.append(run)
     return ExperimentResult(runs)
-
-
-def _empty_matrix() -> GroupCorrelationMatrix:
-    return GroupCorrelationMatrix("drug", (), (), np.empty((0, 0), dtype=np.float32))
 
 
 class TestAxisLayout:
