@@ -69,7 +69,7 @@ def check_choices(label: str, requested: Collection[str], allowed: Collection[st
 
 
 def gene_symbols(n: int) -> list[str]:
-    """Return the first *n* gene symbols shipped in ``landmark_genes.csv``.
+    """Return the first *n* gene symbols from the packaged ``landmark_genes`` list.
 
     :param n: Number of symbols to return.
     :returns: Ordered, de-duplicated gene symbols.
@@ -79,7 +79,7 @@ def gene_symbols(n: int) -> list[str]:
 
     symbols = list(resolve_gene_list("landmark_genes"))
     if len(symbols) < n:
-        msg = f"landmark_genes.csv only provides {len(symbols)} symbols, need {n}; pass feature_names instead"
+        msg = f"The packaged landmark_genes list has only {len(symbols)} symbols, need {n}; pass feature_names instead"
         raise InvalidInputError(msg)
     return symbols[:n]
 
