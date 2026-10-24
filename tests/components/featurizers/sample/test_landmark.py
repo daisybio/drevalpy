@@ -25,8 +25,8 @@ SYMBOLS = ("G1", "G2", "G3", "G4")
 
 @pytest.fixture
 def small_lists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[str, ...]:
-    pd.DataFrame({"Symbol": SYMBOLS}).to_csv(tmp_path / "landmark_genes.csv", index=False)
-    pd.DataFrame({"Symbol": SYMBOLS[:3]}).to_csv(tmp_path / "landmark_genes_reduced.csv", index=False)
+    pd.DataFrame({"Symbol": SYMBOLS}).to_parquet(tmp_path / "landmark_genes.parquet", index=False)
+    pd.DataFrame({"Symbol": SYMBOLS[:3]}).to_parquet(tmp_path / "landmark_genes_reduced.parquet", index=False)
     monkeypatch.setattr(gene_lists, "GENE_LISTS_DIR", UPath(tmp_path))
     return SYMBOLS
 
@@ -73,7 +73,7 @@ def test_landmark_fit_errors(small_lists: tuple[str, ...], tmp_path: Path, monke
     unnamed = MockFeatureSource(features={"cl1": {"gene_expression": np.array([1.0, 2.0], dtype=np.float32)}})
     with pytest.raises(ValueError, match="no feature names for view"):
         LandmarkGenesFeaturizer().fit(unnamed, entity_ids=np.array(["cl1"]))
-    pd.DataFrame({"other": ["A"]}).to_csv(tmp_path / "landmark_genes.csv", index=False)
+    pd.DataFrame({"other": ["A"]}).to_parquet(tmp_path / "landmark_genes.parquet", index=False)
     monkeypatch.setattr(gene_lists, "GENE_LISTS_DIR", UPath(tmp_path))
     with pytest.raises(ValueError, match="recognized gene-name column"):
         LandmarkGenesFeaturizer().fit(_source(("A",)), entity_ids=np.array(["cl1"]))
@@ -93,7 +93,7 @@ def test_landmark_scaling_options(small_lists: tuple[str, ...]) -> None:
 
 
 def test_landmark_serves_a_precomputed_variant(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    pd.DataFrame({"Symbol": ["gene0", "gene1"]}).to_csv(tmp_path / "landmark_genes.csv", index=False)
+    pd.DataFrame({"Symbol": ["gene0", "gene1"]}).to_parquet(tmp_path / "landmark_genes.parquet", index=False)
     monkeypatch.setattr(gene_lists, "GENE_LISTS_DIR", UPath(tmp_path))
     assert_uses_precomputed_variant(LandmarkGenesFeaturizer())
 

@@ -85,7 +85,7 @@ def test_create_gene_list_writes_the_surviving_symbols(tmp_path: Path, monkeypat
     genes = script.create_gene_list(UPath(tmp_path), ("ONE", "TWO"), output=UPath(out))
 
     assert genes == {"AAA"}
-    written = pd.read_csv(out / f"{script.GENE_LIST_NAME}.csv")
+    written = pd.read_parquet(out / f"{script.GENE_LIST_NAME}.parquet")
     assert written["Symbol"].tolist() == ["AAA"]
 
 

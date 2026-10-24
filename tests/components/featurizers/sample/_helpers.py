@@ -69,7 +69,7 @@ def assert_uses_precomputed_variant(
 
 
 def use_gene_lists(monkeypatch: pytest.MonkeyPatch, directory: Path, lists: Mapping[str, Sequence[str]]) -> None:
-    """Replace the shipped gene lists by small stand-in CSVs written to *directory*."""
+    """Replace the shipped gene lists by small stand-in files written to *directory*."""
     for name, symbols in lists.items():
-        pd.DataFrame({"Symbol": list(symbols)}).to_csv(directory / f"{name}.csv", index=False)
+        pd.DataFrame({"Symbol": list(symbols)}).to_parquet(directory / f"{name}.parquet", index=False)
     monkeypatch.setattr(gene_lists, "GENE_LISTS_DIR", UPath(directory))

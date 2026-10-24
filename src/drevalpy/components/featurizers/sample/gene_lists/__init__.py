@@ -1,12 +1,12 @@
-"""Gene-list CSVs shipped with drevalpy, plus helpers to resolve, parse and apply them.
+"""Gene-list Parquet files shipped with drevalpy, plus helpers to resolve, parse and apply them.
 
-The CSVs in this directory are the only source of gene lists: datasets never carry their own,
+The Parquet files in this directory are the only source of gene lists: datasets never carry their own,
 so a list name means the same genes on every dataset. :func:`resolve_gene_list` reads one by
 name and :func:`select_genes` applies it to a view, raising when the view lacks any of its
 genes. ``GENE_LISTS_BY_VIEW`` records which view each list belongs to.
 
 See the maintenance scripts ``_make_gene_lists.py`` and ``_make_autoencoder_gene_list.py`` in
-this directory for how each CSV was produced.
+this directory for how each list was produced.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ __all__ = [
     "GENE_LISTS_BY_VIEW",
     "GENE_LISTS_DIR",
     "checked_view_gene_lists",
-    "gene_names_from_list_csv",
+    "gene_names_from_list",
     "resolve_gene_list",
     "resolve_gene_list_path",
     "select_genes",
@@ -36,12 +36,12 @@ _GENE_NAME_COLUMNS = ("Symbol", "gene_name", "symbol", "Gene", "gene")
 #: How many missing genes the error message names.
 _MISSING_PREVIEW = 5
 
-# The CSVs live next to this module and are shipped as package data, so featurizers never
+# The files live next to this module and are shipped as package data, so featurizers never
 # depend on a downloaded ``meta`` bundle or any other external location.
 GENE_LISTS_DIR = Path(__file__).resolve().parent
 
 #: The shipped lists that apply to each sample view, in the order :func:`view_gene_union`
-#: concatenates them. Every shipped CSV appears at least once; a test fails on a new CSV that
+#: concatenates them. Every shipped list appears at least once; a test fails on a new list that
 #: is not assigned here, because the synthetic datasets and the curated toy set derive the genes
 #: of each view from this table.
 GENE_LISTS_BY_VIEW: Final[Mapping[str, tuple[str, ...]]] = {
@@ -74,32 +74,33 @@ GENE_LISTS_BY_VIEW: Final[Mapping[str, tuple[str, ...]]] = {
 def resolve_gene_list_path(
     gene_list_stem: str,
 ) -> Path:
-    """Resolve ``{stem}.csv`` among the gene lists shipped with the package.
+    """Resolve ``{stem}.parquet`` among the gene lists shipped with the package.
 
-    :param gene_list_stem: Gene-list filename stem without ``.csv``.
-    :returns: Path to the resolved gene-list CSV.
+    :param gene_list_stem: Gene-list filename stem without ``.parquet``.
+    :returns: Path to the resolved gene-list file.
     :raises UnknownNameError: If no matching gene-list file exists; the message lists the shipped ones.
     """
-    path = GENE_LISTS_DIR / f"{gene_list_stem}.csv"
+    path = GENE_LISTS_DIR / f"{gene_list_stem}.parquet"
     if path.is_file():
         return path
-    available = ", ".join(sorted(candidate.stem for candidate in GENE_LISTS_DIR.glob("*.csv")))
+    available = ", ".join(sorted(candidate.stem for candidate in GENE_LISTS_DIR.glob("*.parquet")))
     msg = f"Gene list {gene_list_stem!r} not found in {GENE_LISTS_DIR}. Available gene lists: {available}"
     raise UnknownNameError(msg)
 
 
-def gene_names_from_list_csv(path: Path | str) -> list[str]:
-    """Return ordered gene symbols from a gene-list CSV.
+def gene_names_from_list(path: Path | str) -> list[str]:
+    """Return ordered gene symbols from a gene-list Parquet or CSV file.
 
-    Accepts common column names (``Symbol``, ``gene_name``, …).
+    The shipped lists are Parquet; a ``.csv`` path is read as CSV. Accepts common column
+    names (``Symbol``, ``gene_name``, …).
 
-    :param path: Path to a gene-list CSV.
+    :param path: Path to a gene-list file.
     :returns: Ordered gene symbol strings.
-    :raises InvalidInputError: If the CSV has no recognized gene-name column.
+    :raises InvalidInputError: If the file has no recognized gene-name column.
     """
     import pandas as pd
 
-    gene_info = pd.read_csv(path)
+    gene_info = pd.read_csv(path) if str(path).lower().endswith(".csv") else pd.read_parquet(str(path))
     for column in _GENE_NAME_COLUMNS:
         if column in gene_info.columns:
             return [str(value) for value in gene_info[column].tolist()]
@@ -113,10 +114,10 @@ def gene_names_from_list_csv(path: Path | str) -> list[str]:
 def resolve_gene_list(name: str) -> tuple[str, ...]:
     """Return the genes of a shipped gene list, in file order and without repeats.
 
-    :param name: Gene-list name, the CSV filename stem such as ``landmark_genes``.
+    :param name: Gene-list name, the filename stem such as ``landmark_genes``.
     :returns: Ordered, de-duplicated gene symbols.
     """
-    return tuple(dict.fromkeys(gene_names_from_list_csv(resolve_gene_list_path(name))))
+    return tuple(dict.fromkeys(gene_names_from_list(resolve_gene_list_path(name))))
 
 
 def select_genes(source: FeatureSource, view: str, name: str) -> tuple[str, ...]:

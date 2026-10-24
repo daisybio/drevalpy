@@ -158,7 +158,7 @@ DrEvalPy uses whichever the file has. Recipes and configs use the public names; 
 Gene lists
 ~~~~~~~~~~
 
-A gene list is a CSV of gene symbols that ships inside DrEvalPy, in
+A gene list is a Parquet file of gene symbols that ships inside DrEvalPy, in
 ``drevalpy/components/featurizers/sample/gene_lists/``. It is the only source: a dataset never
 carries gene lists, so a list name selects the same genes on every dataset. A featurizer that
 takes a ``gene_list`` keeps exactly the genes of that list, in the order of the list, so two

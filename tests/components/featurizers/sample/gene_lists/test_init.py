@@ -10,7 +10,7 @@ from drevalpy.components.featurizers.sample.gene_lists import (
     GENE_LISTS_BY_VIEW,
     GENE_LISTS_DIR,
     checked_view_gene_lists,
-    gene_names_from_list_csv,
+    gene_names_from_list,
     resolve_gene_list,
     resolve_gene_list_path,
     select_genes,
@@ -20,29 +20,31 @@ from drevalpy.errors import InvalidInputError, UnknownNameError
 from tests.conftest import MockFeatureSource
 
 
+@pytest.mark.parametrize("suffix", [".parquet", ".csv"])
 @pytest.mark.parametrize(("column", "expected"), [("Symbol", ["A", "B"]), ("gene_name", ["A", "B"]), ("other", None)])
-def test_gene_names_read_known_columns_and_reject_unknown(tmp_path: UPath, column: str, expected) -> None:
-    path = tmp_path / "genes.csv"
-    pd.DataFrame({column: ["A", "B"]}).to_csv(path, index=False)
+def test_gene_names_read_known_columns_and_reject_unknown(tmp_path: UPath, suffix: str, column: str, expected) -> None:
+    path = tmp_path / f"genes{suffix}"
+    frame = pd.DataFrame({column: ["A", "B"]})
+    frame.to_parquet(path, index=False) if suffix == ".parquet" else frame.to_csv(path, index=False)
     if expected is None:
         with pytest.raises(InvalidInputError, match="recognized gene-name column"):
-            gene_names_from_list_csv(path)
+            gene_names_from_list(path)
     else:
-        assert gene_names_from_list_csv(path) == expected
+        assert gene_names_from_list(path) == expected
 
 
-def test_resolve_gene_list_path_uses_packaged_csv() -> None:
+def test_resolve_gene_list_path_uses_the_packaged_file() -> None:
     path = resolve_gene_list_path("landmark_genes")
     assert path.is_file()
-    assert path == GENE_LISTS_DIR / "landmark_genes.csv"
+    assert path == GENE_LISTS_DIR / "landmark_genes.parquet"
 
 
 def test_resolve_gene_list_path_ignores_cache_dir(tmp_path: UPath, monkeypatch: pytest.MonkeyPatch) -> None:
     gene_dir = tmp_path / "meta" / "gene_lists"
     gene_dir.mkdir(parents=True)
-    pd.DataFrame({"Symbol": ["G1"]}).to_csv(gene_dir / "landmark_genes.csv", index=False)
+    pd.DataFrame({"Symbol": ["G1"]}).to_parquet(gene_dir / "landmark_genes.parquet", index=False)
     monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path))
-    assert resolve_gene_list_path("landmark_genes") == GENE_LISTS_DIR / "landmark_genes.csv"
+    assert resolve_gene_list_path("landmark_genes") == GENE_LISTS_DIR / "landmark_genes.parquet"
 
 
 def test_resolve_gene_list_path_lists_available_lists_when_missing() -> None:
@@ -88,7 +90,7 @@ def test_select_genes_requires_feature_names() -> None:
 
 
 def test_every_shipped_list_belongs_to_a_view() -> None:
-    shipped = {path.stem for path in GENE_LISTS_DIR.glob("*.csv")}
+    shipped = {path.stem for path in GENE_LISTS_DIR.glob("*.parquet")}
     assigned = {name for names in GENE_LISTS_BY_VIEW.values() for name in names}
     assert shipped == assigned
 

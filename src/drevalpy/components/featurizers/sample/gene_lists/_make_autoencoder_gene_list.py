@@ -1,4 +1,4 @@
-"""Build ``tcga_autoencoder_genes_available.csv``, the gene space of the TCGA-pretrained autoencoder.
+"""Build ``tcga_autoencoder_genes_available.parquet``, the gene space of the TCGA-pretrained autoencoder.
 
 This is a maintenance script, **not** part of the public API: nothing imports it and its name
 starts with an underscore, so component discovery and the API docs skip it. It needs the
@@ -24,7 +24,7 @@ Inputs
 One ``<DATASET>.h5mu`` per dataset in ``--data-path`` (default: the drevalpy cache directory, where
 ``drevalpy.load`` puts them). Only the ``gene_expression`` modality is read. The noise dataset must
 hold ``log2(TPM + 1)`` values (``expression_unit`` of ``log2_tpm_plus_1``); the thresholds are
-defined on that scale. ``landmark_genes.csv`` next to this script names the protected genes.
+defined on that scale. ``landmark_genes.parquet`` next to this script names the protected genes.
 
 Usage
 -----
@@ -181,7 +181,7 @@ def build_chain(
 
 
 def _protected_genes(directory: UPath) -> set[str]:
-    return set(pd.read_csv(directory / "landmark_genes.csv", dtype=str)["Symbol"]) | CLINICAL_DRIVER_GENES
+    return set(pd.read_parquet(str(directory / "landmark_genes.parquet"))["Symbol"].astype(str)) | CLINICAL_DRIVER_GENES
 
 
 def create_gene_list(
@@ -191,7 +191,7 @@ def create_gene_list(
     noise_dataset: str | None = None,
     output: UPath | None = None,
 ) -> set[str]:
-    """Build the gene list and write it to ``<output>/tcga_autoencoder_genes_available.csv``.
+    """Build the gene list and write it to ``<output>/tcga_autoencoder_genes_available.parquet``.
 
     :param data_path: Directory with one ``<DATASET>.h5mu`` per dataset.
     :param datasets: Datasets whose expression views the list must be measured in.
@@ -219,8 +219,8 @@ def create_gene_list(
     for step, genes in chain.items():
         print(f"{step}: {len(genes)} genes" + (f" (dropped {len(previous - genes)})" if previous else ""))
         previous = genes
-    target = (output or directory) / f"{GENE_LIST_NAME}.csv"
-    pd.DataFrame({"Symbol": sorted(previous)}).to_csv(target, index=False)
+    target = (output or directory) / f"{GENE_LIST_NAME}.parquet"
+    pd.DataFrame({"Symbol": sorted(previous)}).to_parquet(str(target), index=False, compression="zstd")
     return previous
 
 

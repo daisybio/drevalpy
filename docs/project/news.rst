@@ -71,7 +71,7 @@ Defaults and results that changed
   ``PharmaFormer``, ``DIPK``, ``EnsembleMF`` and ``SingleDrugKNN`` read the 867 landmark genes, ``PaccMann``
   its network-propagation list, ``RandomForestAEMolGNet`` the TCGA autoencoder list, and the ``MultiView*``
   models, ``MOLIR`` and ``SuperFELTR`` the lists of their views, instead of every gene of the view. Scores
-  differ from a model that reads the whole view. The lists ship inside the package and
+  differ from a model that reads the whole view. The lists ship inside the package as Parquet files and
   :ref:`reference/datasets:Gene lists` describes them.
 - **A missing gene is an error.** If a dataset lacks genes of a list, the featurizer raises an
   ``InvalidInputError`` that names the list, the view and the number of missing genes, instead of silently

@@ -11,7 +11,7 @@ dependencies = [
     "scipy",
     "scikit-learn>=1.4",
     "pandas",
-    "pyarrow", # pandas.read_parquet engine for `drevalpy.cli.curate`
+    "pyarrow", # pandas.read_parquet engine for the shipped gene lists and `drevalpy.cli.curate`
     "anndata",
     "joblib",
     "networkx",

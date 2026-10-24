@@ -1,4 +1,4 @@
-"""Provenance record for the gene-list CSVs shipped next to this module.
+"""Provenance record for the gene-list files shipped next to this module.
 
 This is a maintenance script, **not** part of the public API. Nothing in the package
 imports it: the name starts with an underscore, so neither the built-in component
@@ -23,8 +23,8 @@ metadata columns are ignored). These raw downloads are not part of the
 repository; point ``--data-path`` at a local data directory.
 
 Three curated lists are read back from this directory rather than derived:
-``landmark_genes.csv``, ``drug_target_genes_all_drugs.csv`` and
-``gene_list_paccmann_network_prop.csv``. Their origin is not recorded, so this script
+``landmark_genes.parquet``, ``drug_target_genes_all_drugs.parquet`` and
+``gene_list_paccmann_network_prop.parquet``. Their origin is not recorded, so this script
 does not claim to reproduce them - it only documents that everything else is derived
 from them.
 
@@ -32,21 +32,19 @@ Outputs
 -------
 Written into ``--output-dir`` (this directory by default):
 
-* ``gene_expression_intersection.csv``, ``mutations_intersection.csv``,
-  ``methylation_intersection.csv``, ``proteomics_intersection.csv``,
-  ``copy_number_variation_gistic_intersection.csv`` - genes present in that omic across
+* ``gene_expression_intersection.parquet``, ``mutations_intersection.parquet``,
+  ``methylation_intersection.parquet``, ``proteomics_intersection.parquet``,
+  ``copy_number_variation_gistic_intersection.parquet`` - genes present in that omic across
   every dataset listed in :data:`OMIC_DATASETS`.
-* ``landmark_genes_proteomics.csv``, ``drug_target_genes_all_drugs_proteomics.csv``,
-  ``gene_list_paccmann_network_prop_proteomics.csv`` - each curated list restricted to the
+* ``landmark_genes_proteomics.parquet``, ``drug_target_genes_all_drugs_proteomics.parquet``,
+  ``gene_list_paccmann_network_prop_proteomics.parquet`` - each curated list restricted to the
   proteomics intersection.
-* ``landmark_genes_reduced.csv``, ``drug_target_genes_reduced.csv``,
-  ``gene_list_paccmann_network_prop_reduced.csv`` - each curated list restricted to the
+* ``landmark_genes_reduced.parquet``, ``drug_target_genes_reduced.parquet``,
+  ``gene_list_paccmann_network_prop_reduced.parquet`` - each curated list restricted to the
   genes shared by the copy-number, expression, mutation and proteomics intersections.
 
-Two quirks of the shipped files are kept on purpose, so re-running this script produces
-the same layout: the ``*_intersection.csv`` files carry pandas' default integer index
-column while the derived lists are written with ``index=False``, and row order follows
-Python set iteration order, so it is not stable between runs (the set of symbols is).
+Every output is a one-column ``Symbol`` Parquet file. Row order follows Python set
+iteration order, so it is not stable between runs (the set of symbols is).
 
 Usage
 -----
@@ -127,39 +125,37 @@ def gene_intersection(datasets: Iterable[str], data_path: UPath, omic: str) -> s
     return shared
 
 
-def write_symbols(symbols: Iterable[str], path: UPath, *, keep_index: bool) -> None:
-    """Write gene symbols as a one-column ``Symbol`` CSV.
+def write_symbols(symbols: Iterable[str], path: UPath) -> None:
+    """Write gene symbols as a one-column ``Symbol`` Parquet file.
 
     :param symbols: Gene symbols to write.
-    :param path: Destination CSV path.
-    :param keep_index: Whether to keep pandas' integer index column, as the shipped
-        ``*_intersection.csv`` files do.
+    :param path: Destination Parquet path.
     """
-    pd.DataFrame({"Symbol": list(symbols)}).to_csv(path, index=keep_index)
+    pd.DataFrame({"Symbol": list(symbols)}).to_parquet(str(path), index=False, compression="zstd")
 
 
 def read_curated_symbols(stem: str, gene_lists_dir: UPath) -> set[str]:
     """Read the ``Symbol`` column of a curated gene list checked into this directory.
 
-    :param stem: Filename stem without ``.csv``.
+    :param stem: Filename stem without ``.parquet``.
     :param gene_lists_dir: Directory holding the curated lists.
     :returns: Curated gene symbols.
     """
-    return {str(symbol) for symbol in pd.read_csv(gene_lists_dir / f"{stem}.csv")["Symbol"]}
+    return {str(symbol) for symbol in pd.read_parquet(str(gene_lists_dir / f"{stem}.parquet"))["Symbol"]}
 
 
 def build_intersections(data_path: UPath, output_dir: UPath) -> dict[str, set[str]]:
-    """Write one ``<omic>_intersection.csv`` per omic and return the gene sets.
+    """Write one ``<omic>_intersection.parquet`` per omic and return the gene sets.
 
     :param data_path: Directory holding one subdirectory per dataset.
-    :param output_dir: Directory the CSVs are written to.
+    :param output_dir: Directory the lists are written to.
     :returns: Mapping of omic name to the intersected gene set.
     """
     intersections: dict[str, set[str]] = {}
     for omic, datasets in OMIC_DATASETS.items():
         genes = gene_intersection(datasets, data_path, omic)
         intersections[omic] = genes
-        write_symbols(genes, output_dir / f"{omic}_intersection.csv", keep_index=True)
+        write_symbols(genes, output_dir / f"{omic}_intersection.parquet")
         print(f"{omic}: {len(genes)} genes shared by {', '.join(datasets)}")
     return intersections
 
@@ -169,7 +165,7 @@ def build_derived_lists(intersections: dict[str, set[str]], gene_lists_dir: UPat
 
     :param intersections: Per-omic gene sets from :func:`build_intersections`.
     :param gene_lists_dir: Directory holding the curated input lists.
-    :param output_dir: Directory the derived CSVs are written to.
+    :param output_dir: Directory the derived lists are written to.
     """
     proteomics = intersections["proteomics"]
     reduced_universe = set.intersection(*(intersections[omic] for omic in REDUCED_OMICS))
@@ -177,8 +173,8 @@ def build_derived_lists(intersections: dict[str, set[str]], gene_lists_dir: UPat
 
     for stem, (proteomics_stem, reduced_stem) in DERIVED_STEMS.items():
         curated = read_curated_symbols(stem, gene_lists_dir)
-        write_symbols(curated & proteomics, output_dir / f"{proteomics_stem}.csv", keep_index=False)
-        write_symbols(curated & reduced_universe, output_dir / f"{reduced_stem}.csv", keep_index=False)
+        write_symbols(curated & proteomics, output_dir / f"{proteomics_stem}.parquet")
+        write_symbols(curated & reduced_universe, output_dir / f"{reduced_stem}.parquet")
         print(f"{stem}: {len(curated & proteomics)} proteomics, {len(curated & reduced_universe)} reduced")
 
 
