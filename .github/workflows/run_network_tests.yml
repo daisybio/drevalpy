@@ -55,5 +55,5 @@ jobs:
           DREVALPY_ARTIFACTS_URI: ${{ vars.DREVALPY_ARTIFACTS_URI }}
         # The explicit `-m network` replaces the `addopts` marker expression
         # rather than adding to it, so this selects exactly the 8 network tests.
-        # No coverage: run_tests.yml owns the coverage gate.
+        # No coverage: run_tests.yml owns the coverage floor.
         run: uv run pytest -m network

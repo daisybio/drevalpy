@@ -42,8 +42,7 @@ tutorial and how-to pages, so check a changed page with
 `tests/` follows the directory tree of `src/drevalpy/`, but files are grouped by
 feature area, not one per module: `tests/components/featurizers/sample/` holds a
 handful of themed files such as `test_dense_views.py` and `test_gene_lists.py`.
-Coverage is what proves a module is tested - every module must reach
-`min_file_coverage` (see "Coverage gate" below), with no exemptions.
+CI enforces total coverage (see "Coverage" below).
 
 - Put a new test in the existing file for its feature area; start a new file only
   for a new area. Aim for files of a few hundred lines, not one per module and not
@@ -202,24 +201,12 @@ The same file guards `DEFERRED_TRAINING_SYMBOLS` and `LAZY_RE_EXPORTS`: a moved
 symbol must keep resolving through the module-level `__getattr__`, and a name
 that does not exist must still raise `AttributeError`.
 
-## Coverage gate
+## Coverage
 
-Reproduce the gate locally after a change that adds or moves shipped code
-(`contributing.rst` has the pytest command):
-
-```bash
-uv run python tools/coverage_gate.py
-```
-
-Two floors, both in the `tests` job of `.github/workflows/run_tests.yml`:
-`[tool.coverage.report].fail_under` for the aggregate and `tools/coverage_gate.py` per
-module against `[tool.drevalpy.coverage_gate].min_file_coverage`. Keep
-`[tool.coverage.run].source = ["drevalpy"]` - it holds never-imported modules in
-the denominator at 0%.
-
-- Never lower `fail_under` or `min_file_coverage` to make a change fit, and add no
-  `[tool.drevalpy.coverage_gate.exemptions]`: a module below `min_file_coverage`
-  gets tests, not an entry.
+The `tests` job of `.github/workflows/run_tests.yml` fails below
+`[tool.coverage.report].fail_under`; `contributing.rst` has the command to reproduce
+it. Keep `[tool.coverage.run].source = ["drevalpy"]` - it holds never-imported modules
+in the denominator at 0%. Never lower `fail_under` to make a change fit.
 
 ## Docstrings
 

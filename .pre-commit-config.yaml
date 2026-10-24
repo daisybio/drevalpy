@@ -36,9 +36,9 @@ repos:
       - id: pytest
         name: pytest (fast tier)
         # No arguments on purpose: `addopts` in pyproject.toml defaults to
-        # `-m "not slow and not network"`, which is the fast tier. Coverage and
-        # the per-module coverage gate run in CI on the full suite
-        # (`.github/workflows/run_tests.yml`), not here: the floors are only
+        # `-m "not slow and not network"`, which is the fast tier. Coverage
+        # runs in CI on the full suite
+        # (`.github/workflows/run_tests.yml`), not here: the floor is only
         # meaningful on the full suite, and measuring coverage roughly doubles
         # the run on top of that.
         #

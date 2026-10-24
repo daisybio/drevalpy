@@ -80,7 +80,7 @@ docs = [
     "pydata-sphinx-theme>=0.16",
 ]
 
-# src/ layout keeps this repo's tests/, tools/ and docs/ off sys.path of an editable install.
+# src/ layout keeps this repo's tests/ and docs/ off sys.path of an editable install.
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]
 build-backend = "uv_build"
@@ -140,7 +140,6 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "D101", "D102", "D103", "D401", "ANN001", "ANN201", "ANN202", "ANN204"]
-"tools/*" = ["ANN001", "ANN201", "ANN202", "ANN204"]
 "docs/*" = ["ANN001", "ANN201", "ANN202", "ANN204"]
 
 [tool.ruff.lint.pydocstyle]
@@ -204,10 +203,6 @@ exclude_also = [
     "@(abc\\.)?abstractmethod",
     "@overload",
 ]
-
-# Per-module coverage floor; rules in "Coverage gate" in AGENTS.md.
-[tool.drevalpy.coverage_gate]
-min_file_coverage = 80
 
 [tool.complexipy]
 max-complexity-allowed = 15

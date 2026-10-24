@@ -58,8 +58,7 @@ How to test the project
 
 Unit tests are located in the ``tests`` directory,
 and are written using the pytest_ testing framework. ``tests/`` follows the package's
-directory tree, with one test file per feature area rather than per module; the per-module
-coverage floor below is what checks that every module is tested.
+directory tree, with one test file per feature area rather than per module.
 
 The suite is tiered. The bare command runs the **fast tier** (the vast majority
 of tests, finishing in seconds), which is also what the commit hook runs:
@@ -97,16 +96,13 @@ To see how many tests each tier holds, count them without running them:
    $ uv run pytest --collect-only -q -m network
 
 Coverage is measured and enforced in CI on the full ``-m "not network"`` run,
-both as an aggregate floor (``[tool.coverage.report].fail_under`` in
-``pyproject.toml``) and per module
-(``[tool.drevalpy.coverage_gate].min_file_coverage``). The commit hook does not
-measure it, because the floors are only meaningful on the full suite. To
-reproduce the CI check locally, which prints the current figures:
+as an aggregate floor (``[tool.coverage.report].fail_under`` in ``pyproject.toml``).
+The commit hook does not measure it, because the floor is only meaningful on the full
+suite. To reproduce the CI check locally:
 
 .. code:: console
 
-   $ uv run pytest -m "not network" --cov --cov-report=json --cov-report=term-missing
-   $ uv run python tools/coverage_gate.py
+   $ uv run pytest -m "not network" --cov --cov-report=term-missing
 
 Run the suite serially. ``pytest-xdist`` is deliberately not a dependency: it was
 measured at best ~11% faster on the full coverage run and 9–70% *slower* on the

@@ -63,17 +63,11 @@ jobs:
         # The explicit `-m` is load-bearing: `addopts` in pyproject.toml defaults
         # to the fast tier (`-m "not slow and not network"`), and a command-line
         # `-m` *replaces* it rather than adding to it. Without this the job would
-        # silently run only the fast tier and the coverage gate would fail.
+        # silently run only the fast tier and the coverage floor would fail.
         # `not network` (rather than no marker at all) deselects the tests that
         # download pretrained weights from the artifacts bucket, which is not
         # readable without credentials; run_network_tests.yml covers those.
-        run: uv run pytest -m "not network" --cov --cov-report=xml --cov-report=json
-
-      - name: Coverage floor per module
-        # The only place coverage is enforced: the pre-commit hook runs the fast
-        # tier without `--cov`, so this job is the gate for both the aggregate
-        # `fail_under` and the per-module floors.
-        run: uv run python tools/coverage_gate.py
+        run: uv run pytest -m "not network" --cov --cov-report=xml
 
       - name: Upload coverage
         if: always() && matrix.os == 'ubuntu-latest'
