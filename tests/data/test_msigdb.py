@@ -27,7 +27,7 @@ def _fake_download(content: str, calls: list[str]):
     def download(remote, local_path, label):
         calls.append(str(remote))
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        local_path.write_text(content, encoding="utf-8")
+        local_path.write_bytes(content.encode())
         return local_path
 
     return download
@@ -51,7 +51,7 @@ def test_first_use_downloads_into_the_cache(monkeypatch: pytest.MonkeyPatch, cac
 
 def test_cached_file_is_reused_without_downloading(monkeypatch: pytest.MonkeyPatch, cache: Path) -> None:
     cache.parent.mkdir(parents=True)
-    cache.write_text(FIXTURE_GMT, encoding="utf-8")
+    cache.write_bytes(FIXTURE_GMT.encode())
     calls: list[str] = []
     monkeypatch.setattr(_msigdb, "download_file", _fake_download("unused", calls))
 
