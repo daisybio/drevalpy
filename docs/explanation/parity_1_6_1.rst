@@ -12,8 +12,8 @@ mapping from 1.6.1 model names to 2.0 presets is in :doc:`/how-to/migrate/index`
 What is compared
 ----------------
 
-The comparison harness lives in ``tools/v1_parity/`` in the repository. It is not part
-of the installed package and does not run in continuous integration. For each model it:
+The comparison harness lives in a separate repository, ``drevalpy-parity``, which pins one
+DrEvalPy commit and does not run in continuous integration. For each model it:
 
 - draws a small synthetic case from a fixed seed: samples, drugs, gene expression and
   other views, drug fingerprints or SMILES, a response matrix and a train/test split;
@@ -29,9 +29,9 @@ Where an estimator could hide a difference in its inputs, the harness also refit
 both sides' estimators on one shared design matrix. If they then agree exactly, any
 remaining difference comes from the features, not from the estimator.
 
-The results are committed as one JSON file per model in ``tools/v1_parity/evidence/``,
-with the versions of Python, NumPy, PyTorch and scikit-learn on both sides and the
-commit they were produced from.
+The results are one JSON file per model, tracked with DVC in that repository, with the
+versions of Python, NumPy, PyTorch and scikit-learn on both sides and the commit they
+were produced from.
 
 Tolerance classes and verdicts
 ------------------------------
