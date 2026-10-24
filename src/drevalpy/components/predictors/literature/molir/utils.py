@@ -16,9 +16,6 @@ from upath import UPath as Path
 
 from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
 from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
-from drevalpy.components.predictors.literature.molir._omics import (
-    _realign_omic_matrix as _realign_omic_matrix,  # re-exported for the historical import path
-)
 from drevalpy.utils.torch_io import load_state_dict
 
 
