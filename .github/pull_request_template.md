@@ -26,12 +26,12 @@
 - [ ] Run `uv lock --upgrade` to get the latest package versions. This updates uv.lock; commit it
 - [ ] Run `uv sync --extra cpu` and `uv run pytest -m "not network"` to check the updated lock file
 - [ ] (If the docs dependencies were updated, run `uv run --group docs sphinx-build -W docs docs/_build`)
-- [ ] (If uv itself was updated, update that in the Dockerfile and docs/how-to/install.rst)
 - [ ] If you updated the python version:
   - [ ] Update the Dockerfile so that it always runs on the latest python version. Watch out: the 'builder' is the full python, the 'runtime' is a slim python build.
-  - [ ] Update the python version in .github/workflows/: run_tests.yml, build_package.yml, publish_docs.yml, python-publish.yml
+  - [ ] Update the python version in .github/workflows/: run_tests.yml, build_package.yml
+  - [ ] Update the python version in .readthedocs.yml
   - [ ] Update `requires-python` in pyproject.toml
-  - [ ] Update the documentation: docs/project/contributing.rst, docs/how-to/install.rst
+  - [ ] Update the documentation: docs/how-to/install.rst
 
 Then,
 

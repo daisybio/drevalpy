@@ -23,7 +23,7 @@ FROM python:3.13-slim-bookworm AS runtime
 # libgomp.so.1 and loads it RTLD_GLOBAL, so LightGBM's dlopen found it already in
 # the link map. A lightgbm-only run never imports torch and fails without this.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends procps unzip libgomp1 \
+    && apt-get install -y --no-install-recommends procps libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 LABEL image.author.name="Judith Bernett"
