@@ -39,40 +39,26 @@ tutorial and how-to pages, so check a changed page with
 
 ## Test layout
 
-`tests/` mirrors `src/drevalpy/`, one test file per module, enforced by
-`tests/test_module_mirror_policy.py`. Rules in order of precedence:
+`tests/` follows the directory tree of `src/drevalpy/`, but files are grouped by
+feature area, not one per module: `tests/components/featurizers/sample/` holds a
+handful of themed files such as `test_dense_views.py` and `test_gene_lists.py`.
+Coverage is what proves a module is tested - every module must reach
+`min_file_coverage` (see "Coverage gate" below), with no exemptions.
 
-1. **Public module.** `drevalpy/a/b/c.py` -> `tests/a/b/test_c.py`.
-2. **Package surface.** A package's `__init__.py` re-exports go in `test_init.py`
-   in the mirrored directory. The guard does not check `__init__.py` at all, so
-   write one only where the surface is worth pinning.
-3. **Private module.** `_foo.py` needs a mirror of its own. The guard accepts
-   either `test__foo.py` or the underscore-stripped `test_foo.py`, and the
-   stripped form is the house style - see `tests/models/config/` and
-   `tests/registry/`. An all-private package therefore mirrors as a directory of
-   stripped names: `_block_specs.py` -> `test_block_specs.py`. What the file
-   _exercises_ may still be the public entry point that exposes the module; what
-   it may never be is a stub written to silence the guard.
-
-- Merge several small test files covering one source module into the single
-  mirrored file; split one test file spanning several source modules along module
-  lines.
+- Put a new test in the existing file for its feature area; start a new file only
+  for a new area. Aim for files of a few hundred lines, not one per module and not
+  one per package once the package spans unrelated concerns.
+- Shared fixtures for a directory go in its `conftest.py`, not in each file.
+- Fold tests that differ only in their inputs into one parametrized test.
 - No `__init__.py` in test directories - `--import-mode=importlib` with
   `pythonpath = ["."]` makes them namespace packages. Add one only for a genuine
   module package with content of its own, such as `tests/synthetic/`.
-- Never create stub test files or directories holding only an `__init__.py` to
-  satisfy the guard.
-- Files that legitimately mirror no single module: `tests/docs/`, the
-  cross-package policy guards at the `tests/` root, and
-  `tests/test_import_cost_policy.py`. `EXEMPT_MODULES` in the mirror policy is a
-  last resort - one entry today, carrying a comment for why the module is not
-  library code, and `test_exempt_modules_still_exist` fails once it outlives its
-  module.
+- Cross-package checks live at the `tests/` root (`test_import_cost_policy.py`,
+  the terminology policy) and in `tests/docs/`.
 - Shared test code is a `_`-prefixed module beside the tests it serves -
   `tests/_barrel_surface.py`, `tests/_trusted_subprocess.py`,
   `tests/registry/_helpers.py` - imported as `from tests._x import y`. The
-  underscore keeps it out of collection, and the mirror policy walks `drevalpy/`
-  only, so no mirror is demanded for it. Reach for the existing ones before
+  underscore keeps it out of collection. Reach for the existing ones before
   writing a fixture out again:
   - `tests/_import_shims.py::block_imports(monkeypatch, *prefixes)` - fails an
     optional third-party import so the guidance message it raises can be pinned.
@@ -242,7 +228,8 @@ comment saying why the module cannot reach the floor.
 - Delete an entry once the module reaches `min_file_coverage`; if it improves but
   not that far, lower the recorded floor to the newly measured value.
 - Never raise a floor to make a regression pass, and never lower `fail_under` to
-  make a change fit. Raise `min_file_coverage` when the table empties.
+  make a change fit. The coverage `exemptions` table is empty and stays empty: a
+  module below `min_file_coverage` gets tests, not an entry.
 - The same rules run the size gate in the other direction: lower a recorded
   ceiling as a module shrinks, never raise it to admit a regression.
 

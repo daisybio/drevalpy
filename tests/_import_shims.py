@@ -9,8 +9,7 @@ Nine tests had each written out the same shim.
 Sibling of :mod:`tests._barrel_surface` and :mod:`tests._trusted_subprocess`: an
 ``_``-prefixed module at the ``tests/`` root, imported as
 ``from tests._import_shims import block_imports``. The underscore keeps it out of
-collection, and the mirror policy walks ``drevalpy/`` only, so no mirrored test is
-demanded for it.
+collection.
 """
 
 from __future__ import annotations

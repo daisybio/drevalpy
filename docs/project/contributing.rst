@@ -57,7 +57,9 @@ How to test the project
 -----------------------
 
 Unit tests are located in the ``tests`` directory,
-and are written using the pytest_ testing framework.
+and are written using the pytest_ testing framework. ``tests/`` follows the package's
+directory tree, with one test file per feature area rather than per module; the per-module
+coverage floor below is what checks that every module is tested.
 
 The suite is tiered. The bare command runs the **fast tier** (the vast majority
 of tests, finishing in seconds), which is also what the commit hook runs:
