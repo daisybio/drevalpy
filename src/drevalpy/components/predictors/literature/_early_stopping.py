@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 from upath import UPath
 
 from drevalpy.experiment._tracking import log_metrics
+from drevalpy.utils.filenames import safe_filename
 from drevalpy.utils.torch_io import load_state_dict, save_torch_payload
 
 if TYPE_CHECKING:
@@ -133,7 +134,7 @@ def _prepare_checkpoint_path(run: EarlyStoppingRun) -> UPath:
     directory = UPath(run.checkpoint_dir)
     directory.mkdir(parents=True, exist_ok=True)
     version = "version-" + "".join(secrets.choice("0123456789abcdef") for _ in range(20))
-    return directory / f"{version}_best_{run.model_name}_model.pth"
+    return directory / f"{version}_best_{safe_filename(run.model_name)}_model.pth"
 
 
 def _log(run: EarlyStoppingRun, message: str) -> None:

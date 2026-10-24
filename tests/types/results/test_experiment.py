@@ -407,6 +407,25 @@ class TestPersistence:
 
         assert ExperimentResult.load(directory).normalized_by == REFERENCE_MODEL
 
+    def test_spec_names_get_portable_unique_directories(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        names = ["pca[gene_expression]:fingerprints:ridge", "pca[gene_expression]_fingerprints_ridge"]
+        ExperimentResult([make_run_result(model_name=name) for name in names]).save(directory)
+
+        dirs = json.loads((directory / "metadata.json").read_text())["model_dirs"]
+
+        assert dirs == {names[0]: names[1], names[1]: f"{names[1]}-2"}
+        assert ExperimentResult.load(directory).model_names == names
+
+    def test_load_reads_trees_saved_without_model_dirs(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        make_experiment_result(n_models=2, n_folds=1).save(directory)
+        meta = json.loads((directory / "metadata.json").read_text())
+        del meta["model_dirs"]
+        (directory / "metadata.json").write_text(json.dumps(meta))
+
+        assert ExperimentResult.load(directory).model_names == [REFERENCE_MODEL, "ElasticNet"]
+
     def test_load_backfills_a_missing_split_mode_from_metadata(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "experiment"
         runs = [

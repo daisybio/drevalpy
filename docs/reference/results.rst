@@ -15,7 +15,7 @@ Experiment directory
    <output dir>/
      metadata.json
      failures.json       (only when a run failed)
-     <ModelName>/
+     <model dir>/
        metadata.json
        fold_0.npz
        fold_1.npz
@@ -28,13 +28,13 @@ Experiment directory
    * - File
      - Content
    * - ``<output dir>/metadata.json``
-     - ``dataset_name``, ``split_mode``, ``normalized_by`` (``null`` unless normalized) and
-       ``models``, the list of model names
+     - ``dataset_name``, ``split_mode``, ``normalized_by`` (``null`` unless normalized),
+       ``models`` (the list of model names) and ``model_dirs`` (each model name's directory)
    * - ``<output dir>/failures.json``
      - Written only when at least one run failed; see `Recorded failures`_
-   * - ``<ModelName>/metadata.json``
+   * - ``<model dir>/metadata.json``
      - ``model_name``, ``dataset_name``, ``n_folds``, ``n_runs`` and ``aggregate_metrics``
-   * - ``<ModelName>/fold_<i>.npz``
+   * - ``<model dir>/fold_<i>.npz``
      - One run; see below
 
 ``aggregate_metrics`` maps each metric to its ``mean`` and ``std`` across the ordinary runs of
@@ -42,8 +42,11 @@ the model. Ordinary runs are those without randomization and without a robustnes
 
 An experiment holds one dataset name and one split mode; ``ExperimentResult`` rejects runs
 that disagree. A model that comes from a grid or a recipe is named by its recipe, such as
-``raw[gene_expression]:fingerprints:ridge``, and so is its directory. The dataset name of a
-concatenated dataset is the study names joined by ``+``.
+``raw[gene_expression]:fingerprints:ridge``. Its directory is that name with each character
+Windows forbids in file names (``<>:"/\|?*``) replaced by ``_``, here
+``raw[gene_expression]_fingerprints_ridge``. The rule is the same on every operating system, so
+a result tree copies between machines unchanged. The dataset name of a concatenated dataset is
+the study names joined by ``+``.
 
 Recorded failures
 ~~~~~~~~~~~~~~~~~

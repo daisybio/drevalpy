@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from upath import UPath as Path
 
 from drevalpy.log import get_logger
+from drevalpy.utils.filenames import safe_filename
 from drevalpy.visualization._progress import log_stage, rss_gb
 from drevalpy.visualization.base import Section, Visualization
 
@@ -219,5 +220,5 @@ def save_all_png(
     for viz_cls, target in _applicable_results(experiment):
         viz = viz_cls()
         viz.compute(target)
-        stem = viz.registry_name if target is experiment else f"{viz.registry_name}_{target.model_name}"
+        stem = viz.registry_name if target is experiment else f"{viz.registry_name}_{safe_filename(target.model_name)}"
         viz.to_png(out / f"{stem}.png")
