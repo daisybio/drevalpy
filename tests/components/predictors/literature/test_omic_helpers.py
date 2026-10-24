@@ -129,9 +129,9 @@ def test_iter_drug_subsets_yields_one_subset_and_checkpoint_dir_per_drug() -> No
     assert sorted(subsets) == ["d1", "d2"]
     assert subsets["d1"].n_pairs == 2
     np.testing.assert_array_equal(subsets["d1"].drug_ids, ["d1", "d1"])
-    directories = {str(sub.training_context.checkpoint_dir) for sub in subsets.values()}
+    directories = {UPath(sub.training_context.checkpoint_dir) for sub in subsets.values()}
     assert len(directories) == 2
-    assert all(directory.startswith("/base/drug_") for directory in directories)
+    assert all(d.parent == UPath("/base") and d.name.startswith("drug_") for d in directories)
 
 
 def test_early_stopping_needs_at_least_two_validation_pairs() -> None:
