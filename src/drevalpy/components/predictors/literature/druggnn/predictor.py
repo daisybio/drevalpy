@@ -1,0 +1,396 @@
+"""DrugGNN block predictor – GCN on molecular graphs with dense sample features."""
+
+from __future__ import annotations
+
+import tempfile
+from typing import TYPE_CHECKING, Any, ClassVar
+
+import numpy as np
+
+from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
+from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.literature._metadata import DRUGGNN_REFERENCE
+from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.models.config import PredictionMode
+from drevalpy.registry.predictor import register
+from drevalpy.types.data.batch.feature_block import BlockSpec
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.utils.torch_io import load_state_dict, save_state_dict
+
+# torch, pytorch_lightning and torch_geometric are imported inside the methods
+# that need them, not at module scope: this module is imported eagerly by
+# register_builtin_components(), so a module-scope import would put ~2s of the
+# training stack on the critical path of every `import drevalpy`. Guarded by
+# tests/test_import_cost_policy.py.
+if TYPE_CHECKING:
+    import torch
+    from torch_geometric.loader import DataLoader
+
+    from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
+
+
+class _DrugGNNDataset:
+    """Map-style dataset that yields (drug_graph, cell_features, response) tuples.
+
+    Accepts pre-built index arrays mapping each pair to entity-level features.
+
+    Deliberately not a ``torch.utils.data.Dataset`` subclass: that base class
+    contributes only ``__add__``, which nothing here uses, and inheriting from it
+    would require ``torch`` at class-definition time.
+    """
+
+    def __init__(
+        self,
+        sample_pair_idx: np.ndarray,
+        drug_pair_idx: np.ndarray,
+        sample_matrix: np.ndarray,
+        drug_graphs: np.ndarray,
+        response: np.ndarray,
+    ) -> None:
+        """Initialize the DrugGNN dataset.
+
+        :param sample_pair_idx: Pair-level indices into the sample matrix.
+        :param drug_pair_idx: Pair-level indices into the drug graphs array.
+        :param sample_matrix: Sample feature matrix.
+        :param drug_graphs: Array of PyG Data objects for drugs.
+        :param response: Response values for each pair.
+        """
+        import torch
+
+        self._cl_pair_idx = sample_pair_idx
+        self._drug_pair_idx = drug_pair_idx
+        self._cl_tensors = torch.as_tensor(sample_matrix, dtype=torch.float32)
+        self._drug_graphs = drug_graphs
+        self._response = torch.as_tensor(response, dtype=torch.float32)
+
+    def __len__(self) -> int:
+        """Return the number of pairs.
+
+        :returns: Dataset length.
+        """
+        return len(self._response)
+
+    def __getitem__(self, idx: int) -> tuple[Any, torch.Tensor, torch.Tensor]:
+        """Return (drug_graph, cell_features, response) for the given index.
+
+        :param idx: Pair index.
+        :returns: Tuple of drug graph, cell tensor, and response scalar.
+        """
+        cl_idx = self._cl_pair_idx[idx]
+        drug_idx = self._drug_pair_idx[idx]
+        return self._drug_graphs[drug_idx], self._cl_tensors[cl_idx], self._response[idx]
+
+
+@register(
+    "drugGNN",
+    description="DrugGNN: GCN on molecular graphs with dense sample features.",
+    sample_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.GRAPH,
+    reference=DRUGGNN_REFERENCE,
+)
+class DrugGNNPredictor(BlockPredictor):
+    """Registered DrugGNN predictor consuming ModelInputBatch directly."""
+
+    supports_early_stopping: ClassVar[bool] = True
+    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    required_drug_blocks: ClassVar[tuple[str, ...]] = ("drug_graph",)
+    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
+    )
+    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("drug_graph", FeatureFormat.GRAPH),)
+    validate_drug_graphs: ClassVar[bool] = True
+    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
+
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize the DrugGNN predictor.
+
+        :param hyperparameters: Optional hyperparameter overrides.
+        """
+        super().__init__(hyperparameters)
+        self._model: DrugGNNModule | None = None
+        self._num_node_features: int = 0
+        self._num_cell_features: int = 0
+
+    @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, object]:
+        """Return default hyperparameters.
+
+        :returns: Default hyperparameter mapping.
+        """
+        return {
+            "learning_rate": 0.001,
+            "epochs": 100,
+            "hidden_dim": 64,
+            "dropout": 0.2,
+            "batch_size": 1024,
+            "precision": 32,
+            "log_every_n_steps": 50,
+        }
+
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return the tunable hyperparameter space.
+
+        :returns: Hyperparameter search space specs.
+        """
+        return {
+            "hidden_dim": {"type": "int", "low": 16, "high": 128, "default": 64},
+            "dropout": {"type": "float", "low": 0.0, "high": 0.5, "default": 0.2},
+            "learning_rate": {"type": "float", "low": 1e-4, "high": 1e-2, "log": True, "default": 1e-3},
+            "epochs": {"type": "int", "low": 1, "high": 100, "default": 100},
+            "batch_size": {"type": "int", "low": 4, "high": 1024, "log": True, "default": 1024},
+        }
+
+    # ------------------------------------------------------------------
+    # Fit
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_drug_pair_idx(batch: ModelInputBatch) -> np.ndarray:
+        """Return drug_pair_idx, computing it from entity IDs if absent.
+
+        :param batch: Input batch.
+        :returns: Array mapping each pair to a drug entity index.
+        :raises ValueError: If neither drug_pair_idx nor drug_entity_ids are available.
+        """
+        if batch.drug_pair_idx is not None:
+            return batch.drug_pair_idx
+        if batch.drug is None:
+            msg = "DrugGNN requires either drug_pair_idx or drug_entity_ids"
+            raise ValueError(msg)
+        entity_map = {str(eid): i for i, eid in enumerate(batch.drug.entity_ids)}
+        return np.array([entity_map[str(did)] for did in batch.drug_ids], dtype=np.int64)
+
+    def _fit(self, batch: ModelInputBatch) -> None:
+        """Train the DrugGNN model on the batch.
+
+        :param batch: Training batch with gene_expression and drug_graph blocks.
+        :raises ValueError: If response data or drug features are missing.
+        """
+        if batch.response is None:
+            msg = "DrugGNN requires training response data"
+            raise ValueError(msg)
+
+        sample_matrix = batch.sample.blocks["gene_expression"].values
+        drug_graphs = batch.drug.blocks["drug_graph"].values
+
+        self._model = self._build_model(sample_matrix, drug_graphs)
+        train_loader = self._graph_loader(
+            batch.sample_pair_idx,
+            self._resolve_drug_pair_idx(batch),
+            sample_matrix,
+            drug_graphs,
+            batch.response,
+            batch_size=int(self._hyperparameters["batch_size"]),
+            shuffle=True,
+        )
+        val_loader = self._build_val_loader(batch, sample_matrix, drug_graphs)
+        self._run_training(train_loader, val_loader)
+
+    def _build_model(self, sample_matrix: np.ndarray, drug_graphs: np.ndarray) -> DrugGNNModule:
+        """Instantiate the Lightning module and record the widths it was built for.
+
+        :param sample_matrix: Sample feature matrix.
+        :param drug_graphs: Array of drug graph objects.
+        :returns: An untrained ``DrugGNNModule``.
+        """
+        return self._new_module(int(drug_graphs[0].num_node_features), int(sample_matrix.shape[1]))
+
+    def _new_module(self, num_node_features: int, num_cell_features: int) -> DrugGNNModule:
+        """Create an untrained module of the given widths from the current hyperparameters.
+
+        :param num_node_features: Width of each drug graph node's features.
+        :param num_cell_features: Width of the sample feature vector.
+        :returns: An untrained ``DrugGNNModule``, whose widths are recorded on the predictor.
+        """
+        from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
+
+        self._num_node_features = num_node_features
+        self._num_cell_features = num_cell_features
+        return DrugGNNModule(
+            num_node_features=num_node_features,
+            num_cell_features=num_cell_features,
+            hidden_dim=int(self._hyperparameters["hidden_dim"]),
+            dropout=float(self._hyperparameters["dropout"]),
+            learning_rate=float(self._hyperparameters["learning_rate"]),
+        )
+
+    def _run_training(self, train_loader: DataLoader, val_loader: DataLoader | None) -> None:
+        """Fit the model, early-stopping on the validation loss when one is available.
+
+        :param train_loader: Training loader.
+        :param val_loader: Validation loader, or ``None``, in which case nothing is checkpointed.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint = run_lightning_fit(
+                self._model,
+                train_loader,
+                val_loader,
+                LightningRun(
+                    max_epochs=int(self._hyperparameters["epochs"]),
+                    checkpoint_dir=directory,
+                    precision=self._hyperparameters["precision"],
+                    log_every_n_steps=int(self._hyperparameters["log_every_n_steps"]),
+                    logger=False,
+                    enable_progress_bar=True,
+                    checkpoint=val_loader is not None,
+                ),
+            )
+            if checkpoint is not None and checkpoint.best_model_path:
+                self._model.load_state_dict(load_state_dict(checkpoint.best_model_path)["state_dict"])
+
+    @staticmethod
+    def _graph_loader(
+        sample_pair_idx: np.ndarray,
+        drug_pair_idx: np.ndarray,
+        sample_matrix: np.ndarray,
+        drug_graphs: np.ndarray,
+        response: np.ndarray,
+        *,
+        batch_size: int,
+        shuffle: bool = False,
+    ) -> DataLoader:
+        """Build one graph loader over the given pairs.
+
+        :param sample_pair_idx: Sample row per pair.
+        :param drug_pair_idx: Drug row per pair.
+        :param sample_matrix: Sample feature matrix.
+        :param drug_graphs: Array of drug graph objects.
+        :param response: Pair-level response values.
+        :param batch_size: Mini-batch size.
+        :param shuffle: Whether to shuffle each epoch.
+        :returns: A ``torch_geometric`` loader.
+        """
+        from torch_geometric.loader import DataLoader
+
+        dataset = _DrugGNNDataset(
+            sample_pair_idx=sample_pair_idx,
+            drug_pair_idx=drug_pair_idx,
+            sample_matrix=sample_matrix,
+            drug_graphs=drug_graphs,
+            response=response,
+        )
+        return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)
+
+    def _build_val_loader(
+        self,
+        batch: ModelInputBatch,
+        sample_matrix: np.ndarray,
+        drug_graphs: np.ndarray,
+    ) -> DataLoader | None:
+        """Build a validation DataLoader from the early-stopping response if available.
+
+        :param batch: Full training batch (for entity ID lookups).
+        :param sample_matrix: Sample feature matrix.
+        :param drug_graphs: Array of drug graph objects.
+        :returns: Validation DataLoader or None if no early-stopping data.
+        """
+        es = batch.early_stopping_response
+        if es is None or len(es) == 0:
+            return None
+
+        cl_entity_map = {str(eid): i for i, eid in enumerate(batch.sample.entity_ids)}
+        drug_entity_map: dict[str, int] = {}
+        if batch.drug is not None:
+            drug_entity_map = {str(eid): i for i, eid in enumerate(batch.drug.entity_ids)}
+
+        return self._graph_loader(
+            np.array([cl_entity_map[str(cid)] for cid in es.sample_ids], dtype=np.int64),
+            np.array([drug_entity_map[str(did)] for did in es.drug_ids], dtype=np.int64),
+            sample_matrix,
+            drug_graphs,
+            es.response,
+            batch_size=int(self._hyperparameters["batch_size"]),
+        )
+
+    # ------------------------------------------------------------------
+    # Predict
+    # ------------------------------------------------------------------
+
+    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict responses for the given batch.
+
+        :param batch: Featurized pairs to score.
+        :returns: One predicted response per pair.
+        :raises RuntimeError: If the model has not been trained yet.
+        """
+        import pytorch_lightning as pl
+        import torch
+
+        if self._model is None:
+            raise RuntimeError("Model has not been trained yet.")
+        if batch.n_pairs == 0:
+            return np.array([])
+
+        predict_loader = self._graph_loader(
+            batch.sample_pair_idx,
+            self._resolve_drug_pair_idx(batch),
+            batch.sample.blocks["gene_expression"].values,
+            batch.drug.blocks["drug_graph"].values,
+            np.zeros(batch.n_pairs, dtype=np.float32),
+            batch_size=int(self._hyperparameters["batch_size"]),
+        )
+
+        trainer = pl.Trainer(accelerator="auto", devices="auto", enable_progress_bar=False, logger=False)
+        predictions_list = trainer.predict(self._model, dataloaders=predict_loader)
+
+        if not predictions_list:
+            return np.array([])
+
+        predictions_flat = [
+            item for sublist in predictions_list for item in (sublist if isinstance(sublist, list) else [sublist])
+        ]
+        return torch.cat(predictions_flat).cpu().numpy()
+
+    # ------------------------------------------------------------------
+    # State serialization
+    # ------------------------------------------------------------------
+
+    def is_fitted(self) -> bool:
+        """Return whether the predictor has been fit.
+
+        :returns: True when model has been trained.
+        """
+        return self._model is not None
+
+    def get_state(self) -> dict[str, object]:
+        """Serialize fitted predictor state.
+
+        :returns: Mapping with the weight blob, the widths the network was built for and the
+            hyperparameters; empty before fitting.
+        """
+        if self._model is None:
+            return {}
+        return {
+            "model_state": save_state_dict(self._model.state_dict()),
+            "architecture": {
+                "num_node_features": self._num_node_features,
+                "num_cell_features": self._num_cell_features,
+            },
+            "predictor_hyperparameters": dict(self._hyperparameters),
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        """Restore predictor from get_state output.
+
+        :param state: Serialized state previously returned by get_state.
+        :raises PredictorStateError: If the weights, architecture or hyperparameters are missing or invalid.
+        """
+        owner = self.__class__.__name__
+        model_state_blob = state.get("model_state")
+        if not isinstance(model_state_blob, (bytes, bytearray)):
+            msg = f"{owner} state requires model_state bytes"
+            raise PredictorStateError(msg)
+        architecture = state.get("architecture")
+        if not isinstance(architecture, dict) or not {"num_node_features", "num_cell_features"} <= architecture.keys():
+            msg = f"{owner} state requires an architecture dict with num_node_features and num_cell_features"
+            raise PredictorStateError(msg)
+        hyperparameters = state.get("predictor_hyperparameters")
+        if not isinstance(hyperparameters, dict):
+            msg = f"{owner} state requires predictor_hyperparameters"
+            raise PredictorStateError(msg)
+
+        self._hyperparameters = dict(hyperparameters)
+        self._model = self._new_module(int(architecture["num_node_features"]), int(architecture["num_cell_features"]))
+        self._model.load_state_dict(load_state_dict(bytes(model_state_blob)))
