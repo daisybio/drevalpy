@@ -1,0 +1,140 @@
+"""The supported import surface for third-party drevalpy plugins.
+
+Everything a plugin needs to declare a featurizer, predictor, splitter or
+visualization is re-exported here, so a plugin imports from exactly one module::
+
+    from drevalpy.plugin import (
+        SampleFeaturizer,
+        FeatureFormat,
+        register_sample_featurizer,
+    )
+
+Nothing is defined in this module. Every name is an alias for a symbol that
+lives in the package's internal layout, which means that layout stays free to
+move: only the aliases below are a compatibility promise. Importing the deep
+paths still works, but they are private in the sense that matters - a refactor
+may rename them without a deprecation cycle.
+
+The five per-registry ``register_*`` aliases point at the ``register``
+decorators, which are all spelled ``register`` in their own modules. Naming them
+apart here is what makes several registrations in one module readable, and
+removes the ``from ... import register as register_x`` boilerplate every plugin
+would otherwise repeat. ``register_for_sides`` is not one of them: it is a
+featurizer-only decorator that registers one side-agnostic implementation in
+*both* featurizer registries at once.
+
+Two of the aliases below - ``DenseViewFeaturizer`` and ``register_for_sides`` -
+live in underscore-private modules (``featurizers/_dense_view.py``,
+``featurizers/_side_binding.py``). The leading underscore keeps those modules out
+of the registry's component directory scan; it does not make the aliases here any
+less of a promise.
+"""
+
+from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.featurizers._dense_view import DenseViewFeaturizer
+from drevalpy.components.featurizers._side_binding import register_for_sides
+from drevalpy.components.featurizers.base import Featurizer, HPOStrategy
+from drevalpy.components.featurizers.drug.base import DenseViewDrugFeaturizer, DrugFeaturizer
+from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer, SampleFeaturizer
+from drevalpy.components.featurizers.storage import FeaturizerStorageMixin
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.data.quality import CurveQuality, curve_quality_mask
+from drevalpy.data.splitters import observed_mask
+from drevalpy.registry.drug_featurizer import register as register_drug_featurizer
+from drevalpy.registry.predictor import register as register_predictor
+from drevalpy.registry.sample_featurizer import register as register_sample_featurizer
+from drevalpy.registry.splitter import (
+    Splitter,
+    SplitValidationError,
+    Validation,
+)
+from drevalpy.registry.splitter import register as register_splitter
+from drevalpy.registry.visualization import register as register_visualization
+from drevalpy.types.data.batch.feature_block import (
+    BlockSpec,
+    FeatureBlock,
+    FeaturizerResult,
+    graph_feature_block,
+    merge_feature_blocks,
+    metadata_feature_block,
+    numeric_feature_block,
+    ragged_feature_block,
+)
+from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.feature_source import (
+    DrugFeatureSource,
+    FeatureSource,
+    SampleFeatureSource,
+)
+from drevalpy.types.data.mudatalike import MuDataLike
+from drevalpy.types.data.split_mask import SplitMask
+from drevalpy.types.data.split_masks import SplitMasks
+from drevalpy.types.enums.literature_reference import LiteratureReference
+from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
+from drevalpy.visualization.base import ImageVisualization, Section, Visualization
+from drevalpy.visualization.requirements import PlotRequirement
+
+__all__ = [
+    "BlockPredictor",
+    "BlockSpec",
+    "CurveQuality",
+    "Dataset",
+    "DenseViewDrugFeaturizer",
+    "DenseViewFeaturizer",
+    "DenseViewSampleFeaturizer",
+    "DrugFeatureSource",
+    "DrugFeaturizer",
+    "ExperimentResult",
+    "FeatureBlock",
+    "FeatureContract",
+    "FeatureFormat",
+    "FeatureFreePredictor",
+    "FeatureSource",
+    "Featurizer",
+    "FeaturizerResult",
+    "FeaturizerStorageMixin",
+    "HPOStrategy",
+    "ImageVisualization",
+    "LiteratureReference",
+    "MatrixPredictor",
+    "ModelInputBatch",
+    "ModelResult",
+    "ModelScope",
+    "MuDataLike",
+    "PlotRequirement",
+    "PredictionMode",
+    "Predictor",
+    "ResponseBatch",
+    "RunResult",
+    "SampleFeatureSource",
+    "SampleFeaturizer",
+    "Section",
+    "SplitMask",
+    "SplitMasks",
+    "SplitValidationError",
+    "Splitter",
+    "TrainingContext",
+    "Validation",
+    "Visualization",
+    "curve_quality_mask",
+    "graph_feature_block",
+    "merge_feature_blocks",
+    "metadata_feature_block",
+    "numeric_feature_block",
+    "observed_mask",
+    "ragged_feature_block",
+    "register_drug_featurizer",
+    "register_for_sides",
+    "register_predictor",
+    "register_sample_featurizer",
+    "register_splitter",
+    "register_visualization",
+]
