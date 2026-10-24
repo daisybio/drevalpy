@@ -15,7 +15,6 @@ from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.utils.seed import seed_everything
 from tests.synthetic.variants import (
-    SAVE_LOAD_DEFECTS,
     SUPPORTED_GLOBAL_MODELS,
     SUPPORTED_SINGLE_DRUG_MODELS,
     build_partial_coverage_dataset,
@@ -137,22 +136,16 @@ def _train(model: DRPModel, mudataset: Dataset, split: SplitMasks) -> None:
 
 def _assert_round_trips(
     model: DRPModel,
-    model_name: str,
     mudataset: Dataset,
     split: SplitMask,
     preds: np.ndarray,
 ) -> None:
     """Assert a save/load cycle reproduces the prediction shape."""
-    defect = SAVE_LOAD_DEFECTS.get(model_name)
     with tempfile.TemporaryDirectory() as model_dir:
         checkpoint = f"{model_dir}/model"
         model.save(checkpoint)
         loaded_model = DRPModel.load(checkpoint)
         assert isinstance(loaded_model, DRPModel)
-        if defect is not None:
-            with pytest.raises(RuntimeError, match=defect):
-                loaded_model.predict(mudataset, split)
-            return
         np.testing.assert_allclose(preds, loaded_model.predict(mudataset, split), rtol=1e-5, atol=1e-6)
 
 
@@ -199,7 +192,7 @@ def test_global_models(synthetic_dataset: Dataset, model_name: str, monkeypatch:
     assert isinstance(preds, np.ndarray)
     assert preds.shape[0] > 0
 
-    _assert_round_trips(model, model_name, synthetic_dataset, split.test, preds)
+    _assert_round_trips(model, synthetic_dataset, split.test, preds)
 
 
 def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> None:
@@ -216,7 +209,7 @@ def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> N
 
     preds = model.predict(synthetic_dataset, split.test)
     assert preds.shape[0] > 0
-    _assert_round_trips(model, "MultiViewNeuralNetwork", synthetic_dataset, split.test, preds)
+    _assert_round_trips(model, synthetic_dataset, split.test, preds)
 
 
 def test_partial_omics_coverage_trains() -> None:
