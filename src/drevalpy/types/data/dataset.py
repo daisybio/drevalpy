@@ -225,15 +225,6 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin, MuDataL
         response = self._mdata.mod.get("response")
         return response is not None and response.varm is not None and view in response.varm
 
-    def _has_required_views(self, views: tuple[str, ...]) -> bool:
-        """Check if all required views are available in this dataset."""
-        available_mods = set(self._mdata.mod.keys()) - {"response"}
-        response = self._mdata.mod.get("response")
-        available_varm = set(response.varm.keys()) if response is not None and response.varm is not None else set()
-        available_obsm = set(response.obsm.keys()) if response is not None and response.obsm is not None else set()
-        available = available_mods | available_varm | available_obsm
-        return all(backing_modality(v, available) is not None for v in views)
-
     @property
     def name(self) -> str:
         """Human-readable dataset name."""

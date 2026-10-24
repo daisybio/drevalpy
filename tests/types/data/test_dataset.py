@@ -282,19 +282,6 @@ class TestSourceAvailability:
     def test_has_source_data(self, mudataset: Dataset, records: list[dict], side, source, expected):
         assert mudataset._has_source_data((source,), stub_featurizer(records, side=side)) is expected
 
-    @pytest.mark.parametrize(
-        ("views", "available"),
-        [
-            pytest.param(("gene_expression",), True, id="modality"),
-            pytest.param(("morgan_fingerprint",), True, id="varm-drug-view"),
-            pytest.param(("pathway_features",), True, id="obsm-view"),
-            pytest.param(("gene_expression", "chemberta"), True, id="both-sides"),
-            pytest.param(("gene_expression", "absent"), False, id="one-missing"),
-        ],
-    )
-    def test_required_views_span_modalities_varm_and_obsm(self, mudataset: Dataset, views, available):
-        assert mudataset._has_required_views(views) is available
-
 
 class TestTissueOnlyObs:
     def test_obs_has_only_tissue_and_an_unnamed_index(self, mudataset: Dataset):
