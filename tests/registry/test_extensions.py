@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import os
 import sys
 import textwrap
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from drevalpy.errors import InputNotFoundError
+from drevalpy.errors import InputNotFoundError, InvalidInputError
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import clear_external_zoo, get_zoo_config, list_zoo_names, load_external_zoo_file
@@ -23,6 +24,7 @@ from drevalpy.registry._extensions import (
     extension_dirs_from_env,
     load_extension_dir,
     load_extension_file,
+    load_extension_module,
     load_extensions,
 )
 from drevalpy.registry.dataset._registry import DatasetRegistry
@@ -305,6 +307,123 @@ def test_failed_extension_file_does_not_leave_sys_modules_or_registry_mutation(t
 
     assert module_name not in sys.modules
     assert set(list_predictors()) == before_predictors
+
+
+@pytest.fixture
+def extension_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[str, str], str]]:
+    """Write an importable module into ``tmp_path`` and forget it from ``sys.modules`` afterwards."""
+    monkeypatch.syspath_prepend(tmp_path)
+    created: list[str] = []
+
+    def write(name: str, source: str) -> str:
+        (tmp_path / f"{name}.py").write_text(source, encoding="utf-8")
+        importlib.invalidate_caches()
+        created.append(name)
+        return name
+
+    yield write
+    for name in created:
+        sys.modules.pop(name, None)
+
+
+class TestLoadExtensionModule:
+    def test_load_extensions_imports_modules_and_files_so_their_decorators_run(
+        self, tmp_path: Path, extension_module: Callable[[str, str], str]
+    ) -> None:
+        module = extension_module("ext_toy_module", _TOY_PREDICTOR_TEMPLATE.format(name="moduleToy"))
+        ext_file = _write_toy_predictor_dir(tmp_path / "files", "fileToy") / "toy.py"
+
+        load_extensions(modules=[module], files=[ext_file], directories=[])
+
+        get_predictor("moduleToy")
+        get_predictor("fileToy")
+
+    def test_an_empty_module_name_is_rejected(self) -> None:
+        with pytest.raises(InvalidInputError, match="non-empty"):
+            load_extension_module("")
+
+    @pytest.mark.parametrize(
+        ("raised", "message"),
+        [("ImportError('missing dependency')", "missing dependency"), ("RuntimeError('boom')", "Failed to import")],
+        ids=["import-error-propagates", "other-error-is-wrapped"],
+    )
+    def test_a_module_failing_after_registering_leaves_the_registries_untouched(
+        self, extension_module: Callable[[str, str], str], raised: str, message: str
+    ) -> None:
+        module = extension_module(
+            "ext_failing_module", _TOY_PREDICTOR_TEMPLATE.format(name="partialModule") + f"\nraise {raised}\n"
+        )
+        before = set(list_predictors())
+
+        with pytest.raises(ImportError, match=message):
+            load_extension_module(module)
+
+        assert set(list_predictors()) == before
+
+
+class TestLoadExtensionFileErrors:
+    def test_a_missing_file_raises_input_not_found(self, tmp_path: Path) -> None:
+        with pytest.raises(InputNotFoundError, match="Extension file not found"):
+            load_extension_file(tmp_path / "absent.py")
+
+    def test_a_file_python_cannot_import_is_rejected(self, tmp_path: Path) -> None:
+        not_python = tmp_path / "notes.txt"
+        not_python.write_text("print('hi')\n", encoding="utf-8")
+
+        with pytest.raises(ImportError, match="Could not load extension file"):
+            load_extension_file(not_python)
+
+    def test_an_import_error_in_the_file_propagates_and_rolls_back_its_registrations(self, tmp_path: Path) -> None:
+        ext_file = tmp_path / "needs_missing.py"
+        ext_file.write_text(
+            _TOY_PREDICTOR_TEMPLATE.format(name="beforeImportError") + "\nimport drevalpy_no_such_dependency\n",
+            encoding="utf-8",
+        )
+        module_name = _extension_module_name(ext_file.resolve())
+
+        with pytest.raises(ImportError, match="drevalpy_no_such_dependency"):
+            load_extension_file(ext_file)
+
+        assert module_name not in sys.modules
+        assert "beforeImportError" not in list_predictors()
+
+
+class TestLoadExtensionDirErrors:
+    def test_a_missing_directory_raises_input_not_found(self, tmp_path: Path) -> None:
+        with pytest.raises(InputNotFoundError, match="Extension directory not found"):
+            load_extension_dir(tmp_path / "absent")
+
+    def test_a_zoo_yaml_in_the_directory_is_dispatched_to_the_zoo_loader_and_other_yaml_is_ignored(
+        self, tmp_path: Path
+    ) -> None:
+        (tmp_path / "a_zoo.yaml").write_text("name: dirZoo\npredictor: naiveMean\n", encoding="utf-8")
+        (tmp_path / "b_list.yaml").write_text("- not\n- a mapping\n", encoding="utf-8")
+
+        load_extension_dir(tmp_path)
+
+        assert "dirZoo" in list_zoo_names(include_external=True)
+
+    def test_a_bad_file_rolls_back_what_the_directory_registered_before_it(self, tmp_path: Path) -> None:
+        _write_toy_predictor_dir(tmp_path, "rolledBackToy", "a_good.py")
+        (tmp_path / "z_bad.yaml").write_text(
+            "brokenEntry:\n  predictor: naiveMean\n  unknown_key: 1\n", encoding="utf-8"
+        )
+
+        with pytest.raises(ValueError, match="brokenEntry"):
+            load_extension_dir(tmp_path)
+
+        assert "rolledBackToy" not in list_predictors()
+
+    def test_a_name_already_registered_by_another_file_is_a_duplicate_error_and_rolls_back(
+        self, tmp_path: Path
+    ) -> None:
+        _write_toy_predictor_dir(tmp_path, "dupToy", "a_first.py")
+        _write_toy_predictor_dir(tmp_path, "dupToy", "b_second.py")
+
+        with pytest.raises(ImportError, match="b_second.py"):
+            load_extension_dir(tmp_path)
+
+        assert "dupToy" not in list_predictors()
 
 
 def test_is_known_builtin_predictor_public_query() -> None:

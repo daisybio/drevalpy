@@ -49,11 +49,6 @@ def _close_figures():
 
 
 @pytest.fixture
-def experiment() -> ExperimentResult:
-    return make_experiment_result()
-
-
-@pytest.fixture
 def computed(experiment) -> CriticalDifferenceVisualization:
     plot = CriticalDifferenceVisualization()
     plot.compute(experiment)
@@ -220,13 +215,6 @@ class TestRenderingAndGuards:
 
         assert (section.name, section.anchor) == ("critical_difference", "critical_difference")
         assert "data:image/png;base64," in section.content
-
-    @pytest.mark.parametrize("method", ["to_png", "to_multiqc", "show"])
-    def test_methods_raise_before_compute(self, tmp_path, method):
-        args = (tmp_path / "c.png",) if method == "to_png" else ()
-
-        with pytest.raises(RuntimeError, match=rf"Call compute\(\) before {method}\(\)"):
-            getattr(CriticalDifferenceVisualization(), method)(*args)
 
 
 class TestNoGlobalBackendSwitch:

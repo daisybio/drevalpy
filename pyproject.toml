@@ -241,23 +241,11 @@ exclude_also = [
 # Per-module floor, enforced by tools/coverage_gate.py because coverage.py can only
 # fail on the aggregate, which lets one untested module hide behind a tested package.
 [tool.drevalpy.coverage_gate]
-min_file_coverage = 60
+min_file_coverage = 80
 
-# Each entry is a module that cannot currently reach min_file_coverage, with the
-# reason. An exemption is debt, not a policy decision: delete it (do not lower it)
-# once tests bring the module up. The gate prints redundant entries on every run.
-#
-# The network-gated artifact featurizers are deliberately *not* exempted: their
-# download paths are deselected in the measured run, but their offline logic clears
-# 60% anyway (chemberta 66%, smilesvec 81%, molgnet 84%, bionic 88%).
+# Each entry is a module that cannot reach min_file_coverage, with the reason. The
+# table is empty and should stay so: a module below the floor gets tests, not an entry.
 [tool.drevalpy.coverage_gate.exemptions]
-# Resolving a registered dataset downloads a multi-GB .h5mu from a credentialed S3
-# bucket, so only the not-found and cache-hit branches are reachable offline. These
-# floors are reproducible on a clean checkout - the cache-eviction helpers are
-# unit-tested against synthetic .h5mu files in tmp_path, needing neither
-# credentials nor a warm cache. What remains uncovered is the download itself; do
-# not chase the last points, it would mean pulling hundreds of megabytes in CI.
-"drevalpy/data/datasets/__init__.py" = 50
 
 # Per-module statement ceiling, enforced by tools/size_gate.py. This is the ratchet
 # that keeps the split modules in models/ and components/featurizers/ from

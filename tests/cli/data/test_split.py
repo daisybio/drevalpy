@@ -10,7 +10,7 @@ from drevalpy.cli.main import app
 from drevalpy.data.quality import CurveQuality
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
-from tests.cli._helpers import HELP_ENV, FakeDataset, Recorder, make_runner, patch_worker, plain
+from tests.cli._helpers import FakeDataset, Recorder, make_runner, patch_worker, plain
 
 runner = make_runner()
 
@@ -51,11 +51,6 @@ def splitter(monkeypatch: pytest.MonkeyPatch, loader: Recorder) -> Recorder:
 
 def _invoke(tmp_path: UPath, *extra: str):
     return runner.invoke(app, ["data", "split", "TOYv1", str(tmp_path / "folds"), *extra])
-
-
-@pytest.mark.parametrize("argv", [["data", "split"], ["data", "split", "TOYv1"]], ids=["none", "missing-output-dir"])
-def test_missing_positional_arguments_are_usage_errors(splitter: Recorder, argv: list[str]) -> None:
-    assert runner.invoke(app, argv, env=HELP_ENV).exit_code == 2
 
 
 def test_forwards_the_loaded_dataset_and_defaults(splitter: Recorder, loader: Recorder, tmp_path: UPath) -> None:

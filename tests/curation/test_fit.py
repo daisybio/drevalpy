@@ -18,7 +18,7 @@ from drevalpy.curation._fit import (
     fit_groups,
 )
 from drevalpy.curation._preprocess import preprocess
-from tests.curation.test_normalize import build_normalizable_df
+from tests.curation.test_stages import build_normalizable_df
 
 _DOSES = [0.0, 0.001, 0.01, 0.1, 1.0, 10.0]
 _Group = list[tuple[pd.DataFrame, dict]]

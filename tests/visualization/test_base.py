@@ -1,4 +1,4 @@
-"""Tests for :mod:`drevalpy.visualization.base`; the shared guards and embedding are covered once via stubs."""
+"""Tests for the visualization base classes (:mod:`drevalpy.visualization.base`) and ``PlotRequirement``."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from drevalpy.visualization.base import (
     embedded_png_html,
     require_figure,
 )
+from drevalpy.visualization.requirements import PlotRequirement
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -183,3 +184,15 @@ class TestPlotlyVisualization:
         with pytest.raises(DrEvalError, match="not supported on Windows"):
             plot.to_png(tmp_path / "out.png")
         assert plot._fig.written == []
+
+
+def test_declares_exactly_the_four_known_capabilities_with_distinct_values():
+    assert [r.name for r in PlotRequirement] == ["MULTIPLE_MODELS", "MULTIPLE_FOLDS", "RANDOMIZATION", "ROBUSTNESS"]
+    assert len({r.value for r in PlotRequirement}) == len(list(PlotRequirement))
+
+
+def test_is_hashable_so_plots_can_declare_frozensets():
+    requirements = frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS})
+
+    assert PlotRequirement.MULTIPLE_MODELS in requirements
+    assert PlotRequirement.RANDOMIZATION not in requirements

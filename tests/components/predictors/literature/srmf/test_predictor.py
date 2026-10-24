@@ -15,7 +15,9 @@ from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
+    assert_state_round_trip,
     assert_training_predictions,
+    finite_predictions,
     seed_literature,
     two_by_two_batch,
 )
@@ -70,12 +72,8 @@ class TestTinySRMFFit:
         predictor.fit(batch)
         factors = np.concatenate([predictor._best_u.to_numpy().ravel(), predictor._best_v.to_numpy().ravel()])
         assert np.isfinite(factors).all()
-        expected = np.asarray(predictor.predict(batch))
-        assert np.isfinite(expected).all()
-        assert np.isfinite(np.mean((expected - batch.response) ** 2))
+        expected = finite_predictions(predictor, batch)
         assert_training_predictions("srmf", seed, expected)
         assert_frozen_reference("srmf", seed)
 
-        restored = SRMFPredictor()
-        restored.set_state(predictor.get_state())
-        np.testing.assert_allclose(expected, restored.predict(batch), rtol=1e-5, atol=1e-5)
+        assert_state_round_trip(predictor, batch, expected)

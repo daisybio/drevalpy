@@ -1,16 +1,20 @@
-"""Tests for randomization utilities."""
+"""Randomization, hyperparameter sampling and the stored dataset identity."""
 
 from __future__ import annotations
+
+import json
 
 import numpy as np
 import pytest
 
+from drevalpy.types.data.dataset_utils._stored_identity import plain_value, stored_randomization
 from drevalpy.types.data.dataset_utils.randomization import (
     _degree_preserving_rewire,
     _is_graph_dict,
     _randomize_graph,
     _randomize_matrix,
 )
+from drevalpy.types.data.dataset_utils.sampling import _sample_hp_configs
 
 
 def _degrees(edge_index: np.ndarray, n_nodes: int) -> list[int]:
@@ -124,3 +128,110 @@ class TestMissingView:
     def test_an_unknown_view_raises_key_error(self, synthetic_dataset, views):
         with pytest.raises(KeyError, match="no_such_view"):
             synthetic_dataset.with_randomized_views(views)
+
+
+def _featurizer(space: dict) -> type:
+    """Build a throwaway class exposing *space* as its hyperparameter space."""
+    return type("StubFeaturizer", (), {"get_hyperparameter_space": classmethod(lambda cls: space)})
+
+
+_CATEGORICAL = _featurizer({"scaler": {"type": "categorical", "choices": ["standard", "minmax"]}})
+_MIXED = _featurizer(
+    {
+        "n_components": {"type": "int", "low": 2, "high": 4},
+        "learning_rate": {"type": "float", "low": 1e-4, "high": 1e-2, "log": True},
+        "hidden_dim": {"type": "pow2", "low": 3, "high": 5},
+    }
+)
+
+
+class TestEmptySpace:
+    def test_a_featurizer_without_hyperparameters_yields_empty_configs(self):
+        assert _sample_hp_configs(_featurizer({}), 2) == [{}, {}]
+
+    def test_requesting_zero_configs_from_an_empty_space_yields_nothing(self):
+        assert _sample_hp_configs(_featurizer({}), 0) == []
+
+
+class TestSampling:
+    def test_the_requested_number_of_configs_is_returned(self):
+        configs = _sample_hp_configs(_CATEGORICAL, 2)
+
+        assert len(configs) == 2
+
+    def test_every_config_covers_the_whole_space(self):
+        (config,) = _sample_hp_configs(_MIXED, 1)
+
+        assert set(config) == {"n_components", "learning_rate", "hidden_dim"}
+
+    def test_categorical_values_come_from_the_declared_choices(self):
+        configs = _sample_hp_configs(_CATEGORICAL, 2)
+
+        assert all(config["scaler"] in {"standard", "minmax"} for config in configs)
+
+    @pytest.mark.parametrize(
+        ("key", "low", "high"),
+        [
+            pytest.param("n_components", 2, 4, id="int-range"),
+            pytest.param("learning_rate", 1e-4, 1e-2, id="log-float-range"),
+            pytest.param("hidden_dim", 8, 32, id="pow2-range"),
+        ],
+    )
+    def test_drawn_values_respect_the_declared_bounds(self, key, low, high):
+        (config,) = _sample_hp_configs(_MIXED, 1)
+
+        assert low <= config[key] <= high
+
+    def test_integer_parameters_are_drawn_as_integers(self):
+        (config,) = _sample_hp_configs(_MIXED, 1)
+
+        assert isinstance(config["n_components"], int)
+
+    def test_pow2_parameters_are_exponentiated(self):
+        (config,) = _sample_hp_configs(_MIXED, 1)
+
+        assert config["hidden_dim"] in {8, 16, 32}
+
+    def test_an_unknown_parameter_type_is_rejected(self):
+        with pytest.raises(ValueError, match="Unknown hyperparameter type"):
+            _sample_hp_configs(_featurizer({"weird": {"type": "quaternion"}}), 1)
+
+
+class TestStoredRandomization:
+    @pytest.mark.parametrize(
+        "stored",
+        [
+            pytest.param(["SVRC", "gene_expression"], id="list"),
+            pytest.param(("SVRC", "gene_expression"), id="tuple"),
+            pytest.param(np.array(["SVRC", "gene_expression"], dtype=object), id="ndarray"),
+        ],
+    )
+    def test_a_pair_comes_back_as_a_tuple_of_strings(self, stored) -> None:
+        assert stored_randomization({"randomization": stored}) == ("SVRC", "gene_expression")
+
+    def test_absent_key_is_no_randomization(self) -> None:
+        assert stored_randomization({}) is None
+
+    @pytest.mark.parametrize("stored", [["SVRC"], "SVRC", ["a", "b", "c"], None], ids=["one", "str", "three", "none"])
+    def test_anything_but_a_pair_is_no_randomization(self, stored) -> None:
+        assert stored_randomization({"randomization": stored}) is None
+
+
+class TestPlainValue:
+    def test_arrays_become_lists_and_numpy_scalars_python_scalars(self) -> None:
+        stored = {"views": np.array(["a", "b"], dtype=object), "seed": np.int64(3), "nested": {"x": np.float32(0.5)}}
+
+        plain = plain_value(stored)
+
+        assert plain == {"views": ["a", "b"], "seed": 3, "nested": {"x": 0.5}}
+        json.dumps(plain)
+
+    def test_an_empty_array_is_an_empty_list(self) -> None:
+        assert plain_value(np.array([])) == []
+
+    def test_plain_python_values_pass_through(self) -> None:
+        assert plain_value({"type": "permutation", "views": ["a"], "n": 2}) == {
+            "type": "permutation",
+            "views": ["a"],
+            "n": 2,
+        }

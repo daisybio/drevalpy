@@ -1,4 +1,4 @@
-"""Tests for the PaccMann predictor."""
+"""Tests for the PaccMann predictor and network."""
 
 from __future__ import annotations
 
@@ -7,6 +7,11 @@ import pytest
 import torch
 
 from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.predictors.literature.paccmann.network import (
+    ContextAttentionLayer,
+    PaccMannConfig,
+    PaccMannNetwork,
+)
 from drevalpy.components.predictors.literature.paccmann.predictor import (
     TOKENS_BLOCK,
     VARIANTS_BLOCK,
@@ -18,6 +23,7 @@ from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_fe
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.utils.torch_io import save_trusted_mapping
+from tests.components.predictors.literature._helpers import entity_pair_batch
 
 TINY = {
     "epochs": 3,
@@ -58,43 +64,19 @@ def _tables(*, metadata: bool = True) -> tuple[FeaturizerResult, FeaturizerResul
 
 def _batch(tmp_path, *, early_stopping: bool = True, n_pairs: int = 8, metadata: bool = True) -> ModelInputBatch:
     sample, drug = _tables(metadata=metadata)
-    pair_samples = np.repeat(["s0", "s1", "s2", "s3"], 2)[:n_pairs]
-    pair_drugs = np.tile(["d0", "d1"], 4)[:n_pairs]
-    row = {sid: i for i, sid in enumerate(SAMPLE_IDS)}
-    drug_row = {did: i for i, did in enumerate(DRUG_IDS)}
-    stopping = ResponseBatch(
-        response=np.array([0.5, 1.5], dtype=np.float32),
-        sample_ids=np.array(["v0", "v1"]),
-        drug_ids=np.array(["d0", "d1"]),
-    )
-    return ModelInputBatch.from_response(
-        ResponseBatch(
-            response=np.arange(n_pairs, dtype=np.float32) / 4.0, sample_ids=pair_samples, drug_ids=pair_drugs
-        ),
-        sample=sample,
-        drug=drug,
-        sample_pair_idx=np.array([row[s] for s in pair_samples]),
-        drug_pair_idx=np.array([drug_row[d] for d in pair_drugs]),
-        early_stopping_response=stopping if early_stopping else None,
-        training_context=TrainingContext(checkpoint_dir=tmp_path),
+    return entity_pair_batch(
+        sample,
+        drug,
+        np.repeat(["s0", "s1", "s2", "s3"], 2)[:n_pairs],
+        np.tile(["d0", "d1"], 4)[:n_pairs],
+        response=np.arange(n_pairs, dtype=np.float32) / 4.0,
+        early_stopping=early_stopping,
+        checkpoint_dir=tmp_path,
     )
 
 
 def _query(sample_ids: list[str], drug_ids: list[str]) -> ModelInputBatch:
-    sample, drug = _tables()
-    row = {sid: i for i, sid in enumerate(SAMPLE_IDS)}
-    drug_row = {did: i for i, did in enumerate(DRUG_IDS)}
-    return ModelInputBatch.from_response(
-        ResponseBatch(
-            response=np.zeros(len(sample_ids), dtype=np.float32),
-            sample_ids=np.array(sample_ids),
-            drug_ids=np.array(drug_ids),
-        ),
-        sample=sample,
-        drug=drug,
-        sample_pair_idx=np.array([row[s] for s in sample_ids]),
-        drug_pair_idx=np.array([drug_row[d] for d in drug_ids]),
-    )
+    return entity_pair_batch(*_tables(), sample_ids, drug_ids)
 
 
 def test_registry_name_and_published_defaults() -> None:
@@ -212,3 +194,76 @@ def test_inputs_missing_vocabulary_metadata_or_drug_features_are_rejected(tmp_pa
     )
     with pytest.raises(RuntimeError, match="requires drug features"):
         PaccMannPredictor(TINY).fit(batch)
+
+
+SMALL = {
+    "smiles_vocabulary_size": 12,
+    "smiles_embedding_size": 4,
+    "smiles_padding_length": 16,
+    "number_of_genes": 7,
+    "molecule_heads": [1, 2, 1, 1],
+    "gene_heads": [1, 1, 1, 1],
+    "filters": [3, 3, 3],
+    "smiles_attention_size": 5,
+    "stacked_dense_hidden_sizes": [8, 4],
+    "dropout": 0.0,
+    "batch_norm": True,
+}
+
+
+def _network() -> PaccMannNetwork:
+    return PaccMannNetwork(PaccMannConfig.from_hyperparameters(SMALL))
+
+
+def test_config_resolves_kernel_windows_and_ignores_unknown_keys() -> None:
+    config = PaccMannConfig.from_hyperparameters({**SMALL, "epochs": 10, "learning_rate": 0.1})
+
+    assert config.resolved_kernel_sizes == [(3, 4), (5, 4), (11, 4)]
+    assert config.number_of_genes == 7
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"gene_heads": [1, 1]}, "same length"),
+        ({"kernel_sizes": [(3, 4), (5, 4)]}, "filters and kernel_sizes"),
+        ({"filters": [3, 3], "kernel_sizes": [(3, 4), (5, 4)]}, "one more entry than filters"),
+    ],
+)
+def test_config_rejects_inconsistent_lengths(override: dict, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        PaccMannConfig.from_hyperparameters({**SMALL, **override})
+
+
+def test_attention_layer_weights_sum_to_one_and_can_keep_the_sequence_axis() -> None:
+    layer = ContextAttentionLayer(4, 6, 1, 7, attention_size=5, temperature=1.0)
+    attended, alphas = layer(torch.randn(3, 6, 4), torch.randn(3, 7, 1))
+    assert attended.shape == (3, 4)
+    assert alphas.shape == (3, 6)
+    torch.testing.assert_close(alphas.sum(dim=1), torch.ones(3))
+
+    sequence_layer = ContextAttentionLayer(1, 7, 4, 6, attention_size=1, temperature=1.0)
+    attended, _ = sequence_layer(torch.randn(3, 7, 1), torch.randn(3, 6, 4), average_seq=False)
+    assert attended.shape == (3, 7)
+
+    single = ContextAttentionLayer(4, 6, 1, 1, attention_size=5, temperature=1.0)
+    assert isinstance(single.context_hidden_projection, torch.nn.Identity)
+
+
+def test_network_predicts_one_value_per_row_and_follows_the_configuration() -> None:
+    network = _network().eval()
+
+    output = network(torch.randint(0, 12, (5, 16)), torch.randn(5, 7))
+
+    assert output.shape == (5, 1)
+    assert torch.isfinite(output).all()
+    assert network(torch.randint(0, 12, (1, 16)), torch.randn(1, 7)).shape == (1, 1)
+    assert len(network.molecule_attentions) == sum(SMALL["molecule_heads"])
+    assert len(network.gene_attentions) == sum(SMALL["gene_heads"])
+    assert len(network.convolutions) == 3
+
+
+def test_batch_norm_can_be_switched_off() -> None:
+    network = PaccMannNetwork(PaccMannConfig.from_hyperparameters({**SMALL, "batch_norm": False}))
+
+    assert isinstance(network.batch_norm, torch.nn.Identity)

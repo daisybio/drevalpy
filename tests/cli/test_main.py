@@ -1,4 +1,4 @@
-"""Tests for :mod:`drevalpy.cli.main`: the root app, its callback and entry point."""
+"""Tests for the root app, its callback and entry point, and the :mod:`drevalpy.cli` surface."""
 
 from __future__ import annotations
 
@@ -11,11 +11,14 @@ from rich.logging import RichHandler
 from upath import UPath
 
 import drevalpy
+import drevalpy.cli as cli_pkg
+from drevalpy.cli import main as cli_main_module
 from drevalpy.cli.main import _DrEvalGroup, app, cli_main
 from drevalpy.errors import DrEvalError, InputNotFoundError, InvalidInputError, UnknownNameError
 from tests.cli._helpers import HELP_ENV, Recorder, make_runner, plain
 
 runner = make_runner()
+
 
 COMMANDS = ("run", "single", "train", "predict", "aggregate", "curate", "report", "data", "experiments", "list")
 
@@ -44,6 +47,37 @@ class TestHelp:
 
     def test_unknown_command_is_a_usage_error(self) -> None:
         assert runner.invoke(app, ["not-a-command"], env=HELP_ENV).exit_code == 2
+
+
+MISSING_ARGUMENTS = [
+    ["train"],
+    ["train", "ElasticNet"],
+    ["train", "ElasticNet", "-d", "toy.h5mu"],
+    ["train", "ElasticNet", "-o", "model"],
+    ["single"],
+    ["single", "ElasticNet"],
+    ["single", "ElasticNet", "ds.h5mu", "fold.npz"],
+    ["predict"],
+    ["predict", "model"],
+    ["predict", "model", "-d", "toy.h5mu"],
+    ["predict", "model", "-o", "out.npz"],
+    ["curate"],
+    ["curate", "in.csv"],
+    ["data", "load"],
+    ["data", "load", "TOYv1"],
+    ["data", "split"],
+    ["data", "split", "TOYv1"],
+    ["experiments", "randomization"],
+    ["experiments", "randomization", "ElasticNet"],
+    ["experiments", "randomization", "ElasticNet", "TOYv1"],
+    ["experiments", "robustness"],
+    ["experiments", "robustness", "splits"],
+]
+
+
+@pytest.mark.parametrize("argv", MISSING_ARGUMENTS, ids=" ".join)
+def test_a_command_missing_a_required_argument_is_a_usage_error(argv: list[str]) -> None:
+    assert runner.invoke(app, argv, env=HELP_ENV).exit_code == 2
 
 
 class TestVersion:
@@ -248,3 +282,15 @@ class TestCliMain:
         monkeypatch.setattr("drevalpy.cli.main.app", Recorder())
 
         assert cli_main() is None
+
+
+def test_exports_the_app_from_main() -> None:
+    assert cli_pkg.app is cli_main_module.app
+
+
+def test_exports_the_console_script_entry_point() -> None:
+    assert cli_pkg.cli_main is cli_main_module.cli_main
+
+
+def test_all_lists_only_the_two_public_names() -> None:
+    assert cli_pkg.__all__ == ["app", "cli_main"]

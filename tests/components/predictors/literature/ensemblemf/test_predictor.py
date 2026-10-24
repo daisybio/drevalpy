@@ -1,4 +1,4 @@
-"""Tests for the EnsembleMF predictor."""
+"""Tests for the EnsembleMF predictor and its batch helpers."""
 
 from __future__ import annotations
 
@@ -7,13 +7,16 @@ import pytest
 import torch
 
 from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.predictors.literature.ensemblemf.data import sorted_entities, split_pairs
 from drevalpy.components.predictors.literature.ensemblemf.predictor import EnsembleMFPredictor
+from drevalpy.components.predictors.literature.ensemblemf.training import PairTensors
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.utils.torch_io import save_trusted_mapping
+from tests.components.predictors.literature._helpers import entity_pair_batch
 
 TINY = {
     "n_ensemble": 2,
@@ -43,42 +46,19 @@ def _tables() -> tuple[FeaturizerResult, FeaturizerResult]:
 
 def _batch(tmp_path, *, early_stopping: bool = True) -> ModelInputBatch:
     sample, drug = _tables()
-    pair_samples = np.repeat(["s0", "s1", "s2", "s3"], 2)
-    pair_drugs = np.tile(["d0", "d1"], 4)
-    response = np.arange(8, dtype=np.float32) / 4.0
-    stopping = ResponseBatch(
-        response=np.array([0.5, 1.5], dtype=np.float32),
-        sample_ids=np.array(["v0", "v1"]),
-        drug_ids=np.array(["d0", "d1"]),
-    )
-    row = {sid: i for i, sid in enumerate(SAMPLE_IDS)}
-    drug_row = {did: i for i, did in enumerate(DRUG_IDS)}
-    return ModelInputBatch.from_response(
-        ResponseBatch(response=response, sample_ids=pair_samples, drug_ids=pair_drugs),
-        sample=sample,
-        drug=drug,
-        sample_pair_idx=np.array([row[s] for s in pair_samples]),
-        drug_pair_idx=np.array([drug_row[d] for d in pair_drugs]),
-        early_stopping_response=stopping if early_stopping else None,
-        training_context=TrainingContext(checkpoint_dir=tmp_path),
+    return entity_pair_batch(
+        sample,
+        drug,
+        np.repeat(["s0", "s1", "s2", "s3"], 2),
+        np.tile(["d0", "d1"], 4),
+        response=np.arange(8, dtype=np.float32) / 4.0,
+        early_stopping=early_stopping,
+        checkpoint_dir=tmp_path,
     )
 
 
 def _query(sample_ids: list[str], drug_ids: list[str]) -> ModelInputBatch:
-    sample, drug = _tables()
-    row = {sid: i for i, sid in enumerate(SAMPLE_IDS)}
-    drug_row = {did: i for i, did in enumerate(DRUG_IDS)}
-    return ModelInputBatch.from_response(
-        ResponseBatch(
-            response=np.zeros(len(sample_ids), dtype=np.float32),
-            sample_ids=np.array(sample_ids),
-            drug_ids=np.array(drug_ids),
-        ),
-        sample=sample,
-        drug=drug,
-        sample_pair_idx=np.array([row[s] for s in sample_ids]),
-        drug_pair_idx=np.array([drug_row[d] for d in drug_ids]),
-    )
+    return entity_pair_batch(*_tables(), sample_ids, drug_ids)
 
 
 def test_registry_name_and_published_defaults() -> None:
@@ -213,3 +193,38 @@ def test_a_batch_without_drug_features_is_rejected(tmp_path) -> None:
 
     with pytest.raises(RuntimeError, match="requires drug features"):
         EnsembleMFPredictor(TINY).fit(batch)
+
+
+def _pairs(n: int) -> PairTensors:
+    return PairTensors(torch.arange(n), torch.arange(n) % 3, torch.arange(n, dtype=torch.float32))
+
+
+def test_sorted_entities_orders_rows_by_id_and_maps_original_rows() -> None:
+    ids = np.array(["b", "c", "a"])
+    values = np.array([[1.0], [2.0], [3.0]], dtype=np.float32)
+    result = FeaturizerResult.from_blocks({"x": numeric_feature_block(values)}, ids)
+
+    sorted_ids, matrix, position = sorted_entities(result, "x")
+
+    assert sorted_ids.tolist() == ["a", "b", "c"]
+    assert matrix[:, 0].tolist() == [3.0, 1.0, 2.0]
+    assert position.tolist() == [1, 2, 0]
+
+
+def test_split_pairs_keeps_a_supplied_validation_set_and_holds_out_a_seeded_tenth_otherwise() -> None:
+    train, validation = _pairs(10), _pairs(3)
+    assert split_pairs(train, validation, 0) == (train, validation)
+
+    train_a, validation_a = split_pairs(_pairs(30), None, 7)
+    train_b, validation_b = split_pairs(_pairs(30), None, 7)
+    assert (len(train_a), len(validation_a)) == (27, 3)
+    assert set(train_a.sample_idx.tolist()).isdisjoint(validation_a.sample_idx.tolist())
+    assert train_a.sample_idx.tolist() == train_b.sample_idx.tolist()
+    assert validation_a.sample_idx.tolist() == validation_b.sample_idx.tolist()
+    unseeded_train, unseeded_validation = split_pairs(_pairs(20), None, -1)
+    assert len(unseeded_train) + len(unseeded_validation) == 20
+
+
+def test_split_pairs_needs_two_pairs() -> None:
+    with pytest.raises(ValueError, match="at least two training pairs"):
+        split_pairs(_pairs(1), None, 0)

@@ -1,26 +1,34 @@
-"""Tests for the PharmaFormer predictor."""
+"""Tests for the PharmaFormer predictor and its feature extractor and transformer regressor."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
+import torch
+from torch import nn
 
-from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.predictors.literature.pharmaformer.model_utils import (
+    CombinedModel,
+    FeatureExtractor,
+    TransModel,
+)
 from drevalpy.components.predictors.literature.pharmaformer.predictor import (
     PharmaFormerPredictor,
     _build_combined_model,
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
+    assert_state_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
+    finite_predictions,
     seed_literature,
+    train_validation_batch,
     trainable_parameter_vector,
 )
 
@@ -37,30 +45,10 @@ def test_registry_name_and_set_state_requires_the_model_state() -> None:
 
 def _trainable_batch(tmp_path) -> ModelInputBatch:
     rng = np.random.default_rng(987)
-    cell_ids = np.array(["train-1", "train-2", "val-1", "val-2"])
-    drug_ids = np.array(["d1", "d2"])
-    training = ResponseBatch(
-        response=np.array([-1.0, 0.5, 1.5, 3.0], dtype=np.float32),
-        sample_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
-        drug_ids=np.array(["d1", "d2", "d1", "d2"]),
-    )
-    validation = ResponseBatch(
-        response=np.array([0.25, 2.25], dtype=np.float32),
-        sample_ids=np.array(["val-1", "val-2"]),
-        drug_ids=np.array(["d1", "d2"]),
-    )
-    return ModelInputBatch.from_response(
-        training,
-        sample=FeaturizerResult.from_blocks(
-            {"gene_expression": numeric_feature_block(rng.normal(size=(4, 6)).astype(np.float32))}, cell_ids
-        ),
-        drug=FeaturizerResult.from_blocks(
-            {"bpe_smiles": numeric_feature_block(rng.normal(size=(2, 128)).astype(np.float32))}, drug_ids
-        ),
-        sample_pair_idx=np.array([0, 0, 1, 1]),
-        drug_pair_idx=np.array([0, 1, 0, 1]),
-        early_stopping_response=validation,
-        training_context=TrainingContext(checkpoint_dir=tmp_path),
+    return train_validation_batch(
+        {"gene_expression": numeric_feature_block(rng.normal(size=(4, 6)).astype(np.float32))},
+        {"bpe_smiles": numeric_feature_block(rng.normal(size=(2, 128)).astype(np.float32))},
+        tmp_path,
     )
 
 
@@ -92,12 +80,66 @@ class TestTinyPharmaFormerFit:
         predictor.fit(batch)
         assert predictor._model is not None
         assert_trainable_parameters_changed(initial, predictor._model)
-        expected = np.asarray(predictor.predict(batch))
-        assert np.isfinite(expected).all()
-        assert np.isfinite(np.mean((expected - batch.response) ** 2))
+        expected = finite_predictions(predictor, batch)
         assert_training_predictions("pharmaformer", seed, expected)
         assert_frozen_reference("pharmaformer", seed)
 
-        restored = PharmaFormerPredictor()
-        restored.set_state(predictor.get_state())
-        np.testing.assert_allclose(expected, restored.predict(batch), rtol=1e-5, atol=1e-5)
+        assert_state_round_trip(predictor, batch, expected)
+
+
+SMILES_DIM = 128
+
+
+def _combined(*, gene_input_size: int = 6) -> CombinedModel:
+    model = CombinedModel(
+        gene_input_size=gene_input_size,
+        gene_hidden_size=8,
+        drug_hidden_size=8,
+        feature_dim=4,
+        nhead=2,
+        num_layers=1,
+        dim_feedforward=8,
+        dropout=0.0,
+    )
+    model.eval()
+    return model
+
+
+def test_feature_extractor_concatenates_the_branches_after_a_relu() -> None:
+    extractor = FeatureExtractor(gene_input_size=6, gene_hidden_size=8, drug_hidden_size=5)
+    extractor.eval()
+
+    output = extractor(torch.randn(3, 6), torch.randn(3, SMILES_DIM))
+
+    assert output.shape == (3, 13)
+    assert (output >= 0).all()
+    assert extractor.smiles_fc.in_features == SMILES_DIM
+
+
+def test_trans_model_reduces_a_sequence_to_one_scalar_per_row() -> None:
+    model = TransModel(feature_dim=4, nhead=2, seq_len=3, dim_feedforward=8, dropout=0.0, num_layers=2)
+    model.eval()
+
+    assert model(torch.randn(5, 3, 4)).shape == (5, 1)
+    assert model.transformer_encoder.num_layers == 2
+    assert next(layer for layer in model.output if isinstance(layer, nn.Linear)).in_features == 3 * 4
+
+
+def test_combined_model_predicts_one_deterministic_scalar_per_pair_and_trains_the_gene_branch() -> None:
+    model = _combined()
+    assert (model.seq_len, model.feature_dim) == (4, 4)
+    gene, smiles = torch.randn(3, 6), torch.randn(3, SMILES_DIM)
+
+    with torch.no_grad():
+        first = model(gene, smiles)
+        second = model(gene, smiles)
+        single = model(gene[:1], smiles[:1])
+
+    assert first.shape == (3, 1)
+    assert torch.isfinite(first).all()
+    assert torch.allclose(first, second)
+    assert single.shape == (1, 1)
+
+    model.train()
+    model(gene, smiles).sum().backward()
+    assert model.feature_extractor.gene_fc1.weight.grad is not None

@@ -1,4 +1,4 @@
-"""Tests for the DIPK block predictor."""
+"""Tests for the DIPK block predictor and its attention, dense and combined network modules."""
 
 from __future__ import annotations
 
@@ -8,8 +8,17 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from torch import nn
 
-from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.predictors.literature.dipk.attention_utils import MultiHeadAttentionLayer
+from drevalpy.components.predictors.literature.dipk.model_utils import (
+    DEVICE,
+    AttentionLayer,
+    DenseLayers,
+    Predictor,
+    features_dim_bionic,
+    features_dim_gene,
+)
 from drevalpy.components.predictors.literature.dipk.predictor import (
     DIPKPredictor,
     _CollateFn,
@@ -17,15 +26,17 @@ from drevalpy.components.predictors.literature.dipk.predictor import (
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block, ragged_feature_block
+from drevalpy.types.data.batch.feature_block import numeric_feature_block, ragged_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
+    assert_state_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
+    finite_predictions,
     seed_literature,
+    train_validation_batch,
     trainable_parameter_vector,
     two_by_two_batch,
 )
@@ -49,34 +60,15 @@ def _dipk_batch() -> ModelInputBatch:
 
 def _trainable_dipk_batch(tmp_path: Path) -> ModelInputBatch:
     rng = np.random.default_rng(321)
-    cell_ids = np.array(["train-1", "train-2", "val-1", "val-2"])
-    drug_ids = np.array(["d1", "d2"])
-    response = ResponseBatch(
-        response=np.array([-1.0, 0.5, 1.5, 3.0], dtype=np.float32),
-        sample_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
-        drug_ids=np.array(["d1", "d2", "d1", "d2"]),
-    )
-    validation = ResponseBatch(
-        response=np.array([0.25, 2.25], dtype=np.float32),
-        sample_ids=np.array(["val-1", "val-2"]),
-        drug_ids=np.array(["d1", "d2"]),
-    )
     molgnet = np.empty(2, dtype=object)
     molgnet[:] = [rng.normal(size=(2, 768)).astype(np.float32), rng.normal(size=(3, 768)).astype(np.float32)]
-    return ModelInputBatch.from_response(
-        response,
-        sample=FeaturizerResult.from_blocks(
-            {
-                "gene_expression": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
-                "bionic_features": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
-            },
-            cell_ids,
-        ),
-        drug=FeaturizerResult.from_blocks({"molgnet_features": ragged_feature_block(molgnet)}, drug_ids),
-        sample_pair_idx=np.array([0, 0, 1, 1]),
-        drug_pair_idx=np.array([0, 1, 0, 1]),
-        early_stopping_response=validation,
-        training_context=TrainingContext(checkpoint_dir=tmp_path),
+    return train_validation_batch(
+        {
+            "gene_expression": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
+            "bionic_features": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
+        },
+        {"molgnet_features": ragged_feature_block(molgnet)},
+        tmp_path,
     )
 
 
@@ -119,14 +111,10 @@ class TestTinyDIPKFit:
         assert predictor._model is not None
         assert_trainable_parameters_changed(initial, predictor._model)
 
-        predictions = predictor.predict(batch)
-        assert np.isfinite(predictions).all()
-        assert np.isfinite(np.mean((predictions - batch.response) ** 2))
+        predictions = finite_predictions(predictor, batch)
         assert_training_predictions("dipk", seed, predictions)
 
-        restored = DIPKPredictor()
-        restored.set_state(predictor.get_state())
-        np.testing.assert_allclose(restored.predict(batch), predictions, rtol=1e-6, atol=1e-7)
+        assert_state_round_trip(predictor, batch, predictions, rtol=1e-6, atol=1e-7)
 
 
 def test_build_pairs_selects_entity_rows_and_adds_the_target_for_a_response() -> None:
@@ -200,3 +188,112 @@ def test_set_state_rejects_a_missing_payload_or_model_state() -> None:
     payload = save_trusted_mapping({"predictor_hyperparameters": DIPKPredictor.get_default_hyperparameters()})
     with pytest.raises(PredictorStateError, match="missing model_state"):
         DIPKPredictor().set_state({"payload": payload})
+
+
+FC_LAYER_DIM = [16, 8, 4, 4, 4, 4]
+HIDDEN_DIM = 768
+
+
+def _molgnet(batch_size: int, seq_len: int) -> torch.Tensor:
+    return torch.randn(batch_size, seq_len, HIDDEN_DIM)
+
+
+def test_device_and_feature_dims() -> None:
+    assert DEVICE.type == ("cuda" if torch.cuda.is_available() else "cpu")
+    assert features_dim_gene == features_dim_bionic == 512
+
+
+def test_attention_layer_projects_to_the_hidden_dim_and_squeezes_a_single_row() -> None:
+    layer = AttentionLayer(heads=1)
+    layer.eval()
+
+    def run(batch_size: int, seq_len: int) -> torch.Tensor:
+        return layer(
+            _molgnet(batch_size, seq_len),
+            torch.ones(batch_size, seq_len),
+            torch.randn(batch_size, features_dim_gene),
+            torch.randn(batch_size, features_dim_bionic),
+        )
+
+    assert run(2, 5).shape == (2, HIDDEN_DIM)
+    assert run(1, 3).shape == (HIDDEN_DIM,)
+    with pytest.raises(ValueError, match="divisible by the number of heads"):
+        AttentionLayer(heads=5)
+
+
+def test_dense_layers_reduce_to_one_scalar_per_row_and_size_their_head() -> None:
+    dense = DenseLayers(fc_layer_num=3, fc_layer_dim=FC_LAYER_DIM, dropout_rate=0.0)
+    dense.eval()
+    gene, bionic = torch.randn(4, features_dim_gene), torch.randn(4, features_dim_bionic)
+
+    assert dense(torch.randn(4, HIDDEN_DIM), gene, bionic).shape == (4, 1)
+    assert dense(torch.randn(HIDDEN_DIM), gene[:1], bionic[:1]).shape == (1, 1)
+    assert isinstance(dense.fc_output, nn.Linear)
+    assert (dense.fc_output.in_features, dense.fc_output.out_features) == (FC_LAYER_DIM[1], 1)
+    dropout = DenseLayers(fc_layer_num=4, fc_layer_dim=FC_LAYER_DIM, dropout_rate=0.25)
+    assert {layer.p for layer in dropout.dropout_layers} == {0.25}
+    assert len(dropout.dropout_layers) == 4
+
+
+def test_predictor_scores_one_response_per_pair_and_trains_the_attention_stage() -> None:
+    predictor = Predictor(heads=1, fc_layer_num=3, fc_layer_dim=FC_LAYER_DIM, dropout_rate=0.0)
+    assert isinstance(predictor.attention_layer, AttentionLayer)
+    assert isinstance(predictor.dense_layers, DenseLayers)
+
+    def run(seq_len: int) -> torch.Tensor:
+        return predictor(
+            _molgnet(2, seq_len),
+            torch.randn(2, features_dim_gene),
+            torch.randn(2, features_dim_bionic),
+            torch.ones(2, seq_len),
+        )
+
+    predictor.eval()
+    with torch.no_grad():
+        output = run(4)
+    assert output.shape == (2, 1)
+    assert torch.isfinite(output).all()
+
+    predictor.train()
+    run(3).sum().backward()
+    assert predictor.attention_layer.fc_layer_0.weight.grad is not None
+
+
+def _layer(*, hid_dim: int = 8, n_heads: int = 2, dropout: float = 0.0) -> MultiHeadAttentionLayer:
+    layer = MultiHeadAttentionLayer(hid_dim=hid_dim, n_heads=n_heads, dropout=dropout, device="cpu")
+    layer.eval()
+    return layer
+
+
+def test_layer_rejects_indivisible_heads_and_splits_the_hidden_dim() -> None:
+    with pytest.raises(ValueError, match="divisible by the number of heads"):
+        MultiHeadAttentionLayer(hid_dim=10, n_heads=4, dropout=0.0, device="cpu")
+    layer = _layer(hid_dim=16, n_heads=4)
+    assert layer.head_dim == 4
+    assert layer.scale.item() == pytest.approx(2.0)
+    assert _layer(hid_dim=6, n_heads=1).head_dim == 6
+
+
+def test_output_keeps_the_query_length_and_weights_sum_to_one_and_are_differentiable() -> None:
+    layer = _layer(hid_dim=8, n_heads=2)
+    query = torch.randn(3, 1, 8)
+    key = torch.randn(3, 5, 8)
+
+    output, attention = layer(query, key, key)
+
+    assert output.shape == (3, 1, 8)
+    assert attention.shape == (3, 2, 1, 5)
+    torch.testing.assert_close(attention.sum(dim=-1), torch.ones(3, 2, 1))
+    output.sum().backward()
+    assert layer.fc_q.weight.grad is not None
+
+
+def test_attention_mask_removes_masked_keys_from_the_weights() -> None:
+    layer = _layer(hid_dim=8, n_heads=2)
+    key = torch.randn(1, 4, 8)
+    mask = torch.tensor([[[[1, 1, 0, 0]]]])
+
+    _, attention = layer(torch.randn(1, 1, 8), key, key, mask)
+
+    assert attention[..., 2:].abs().max().item() == pytest.approx(0.0)
+    torch.testing.assert_close(attention[..., :2].sum(dim=-1), torch.ones(1, 2, 1))

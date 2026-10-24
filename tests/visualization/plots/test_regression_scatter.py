@@ -171,13 +171,6 @@ class TestRenderingAndGuards:
 
         assert (tmp_path / "rs.png").read_bytes().startswith(PNG_MAGIC)
 
-    @pytest.mark.parametrize("method", ["to_png", "to_multiqc", "show"])
-    def test_methods_raise_before_compute(self, tmp_path, method):
-        args = (tmp_path / "rs.png",) if method == "to_png" else ()
-
-        with pytest.raises(RuntimeError, match=rf"Call compute\(\) before {method}\(\)"):
-            getattr(RegressionScatterVisualization(), method)(*args)
-
     def test_is_registered_for_model_results(self):
         from drevalpy.registry.visualization import visualization_registry
 

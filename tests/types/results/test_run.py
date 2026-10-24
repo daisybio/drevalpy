@@ -1,13 +1,20 @@
-"""Tests for the per-fold run result dataclass and its npz round-trip."""
+"""Per-fold run results: persistence, trials, identity, normalization and failure records."""
 
 from __future__ import annotations
 
+import dataclasses
 import json
+import math
+from typing import Any
 
 import numpy as np
 import pytest
 from upath import UPath
 
+from drevalpy.errors import DrEvalError
+from drevalpy.types.results._identity import RunIdentity
+from drevalpy.types.results._normalize import normalize_run, reference_summary
+from drevalpy.types.results.failure import ExperimentFailedError, RunFailure
 from drevalpy.types.results.run import RunResult, intern_ids
 from drevalpy.types.results.trial import TrialResult
 from tests.synthetic import make_metrics, make_run_result
@@ -230,3 +237,178 @@ class TestInternIds:
         assert once.drug_ids.dtype == object
         np.testing.assert_array_equal(once.sample_ids, run.sample_ids)
         np.testing.assert_array_equal(twice.drug_ids, run.drug_ids)
+
+
+def _trial_result(**overrides: Any) -> TrialResult:
+    kwargs: dict[str, Any] = {
+        "hyperparameters": {"alpha": 0.5},
+        "metrics": {"MSE": 0.25, "Pearson": 0.75},
+        "optimization_metric": "MSE",
+        "predictions": np.array([1.0, 2.0, 3.0]),
+    }
+    kwargs.update(overrides)
+    return TrialResult(**kwargs)
+
+
+def test_score_returns_value_of_optimization_metric() -> None:
+    trial = _trial_result(optimization_metric="Pearson")
+
+    assert trial.score == 0.75
+
+
+def test_score_falls_back_to_nan_when_metric_missing() -> None:
+    trial = _trial_result(optimization_metric="Kendall")
+
+    assert math.isnan(trial.score)
+
+
+def test_score_is_nan_for_empty_metrics() -> None:
+    trial = _trial_result(metrics={})
+
+    assert math.isnan(trial.score)
+
+
+def test_repr_lists_every_hyperparameter() -> None:
+    trial = _trial_result(hyperparameters={"alpha": 0.5, "l1_ratio": 0.1})
+
+    text = repr(trial)
+
+    assert "alpha: 0.5" in text
+    assert "l1_ratio: 0.1" in text
+
+
+def test_repr_marks_only_the_optimization_metric() -> None:
+    trial = _trial_result(optimization_metric="MSE")
+
+    lines = repr(trial).splitlines()
+
+    assert "        MSE: 0.2500 *" in lines
+    assert "        Pearson: 0.7500" in lines
+
+
+def test_repr_starts_with_the_type_name() -> None:
+    assert repr(_trial_result()).startswith("TrialResult")
+
+
+def _identity(metadata=None, randomization=None):
+    return RunIdentity.from_metadata("model", "data", "LPO", 2, "fold", randomization, metadata or {})
+
+
+def test_identity_is_independent_of_metadata_key_order():
+    first = _identity({"randomization_provenance": {"type": "permutation", "effective_seed": 7}})
+    second = _identity({"randomization_provenance": {"effective_seed": 7, "type": "permutation"}})
+    assert first == second
+
+
+def test_variants_have_distinct_execution_keys_and_one_fold_key():
+    ordinary = _identity()
+    variants = [
+        ordinary,
+        _identity({"robustness_trial": 0}),
+        _identity({"randomization_provenance": {"effective_seed": 7}}, ("SVRC", "expression")),
+        _identity({"randomization_provenance": {"effective_seed": 8}}, ("SVRC", "expression")),
+    ]
+    assert len({v.execution_key for v in variants}) == len(variants)
+    assert {v.fold_key for v in variants} == {ordinary.fold_key}
+
+
+def test_legacy_fold_index_cannot_collide_with_a_string_fold_id():
+    old = RunIdentity("m", "d", "LPO", 2)
+    new = RunIdentity("m", "d", "LPO", 2, "2")
+    assert old.fold_key != new.fold_key
+
+
+class TestNormalizeRun:
+    def test_subtracts_the_reference_prediction_per_pair(self) -> None:
+        run = make_run_result(model_name="A", seed=1)
+        reference = make_run_result(model_name="Ref", seed=2)
+
+        normalized = normalize_run(run, reference)
+
+        np.testing.assert_allclose(normalized.predictions, run.predictions - reference.predictions)
+        np.testing.assert_allclose(normalized.ground_truth, run.ground_truth - reference.predictions)
+
+    def test_keeps_the_unnormalized_metrics(self) -> None:
+        run = make_run_result(model_name="A", seed=1)
+
+        normalized = normalize_run(run, make_run_result(model_name="Ref", seed=2))
+
+        assert normalized.raw_metrics == run.metrics
+
+    def test_pairs_the_reference_never_predicted_normalize_against_zero(self) -> None:
+        run = make_run_result(model_name="A", n_pairs=20, seed=1)
+        reference = make_run_result(model_name="Ref", n_pairs=10, seed=2)
+
+        normalized = normalize_run(run, reference)
+
+        np.testing.assert_allclose(normalized.predictions[10:], run.predictions[10:])
+
+
+class TestReferenceSummary:
+    def test_drops_the_arrays_and_keeps_the_metrics(self) -> None:
+        reference = make_run_result(model_name="Ref", seed=2)
+
+        summary = reference_summary(reference)
+
+        assert summary.predictions.size == 0
+        assert summary.sample_ids.size == 0
+        assert summary.raw_metrics == reference.metrics
+
+
+def _failure(**overrides) -> RunFailure:
+    fields = {
+        "model_name": "A",
+        "fold_index": 1,
+        "randomization": None,
+        "robustness_trial": None,
+        "error_type": "ValueError",
+        "message": "boom",
+    }
+    return RunFailure(**{**fields, **overrides})
+
+
+def test_from_exception_records_type_message_and_stress_tests() -> None:
+    failure = RunFailure.from_exception(KeyError("gene"), model_name="A", fold_index=2)
+    assert failure == _failure(fold_index=2, error_type="KeyError", message="'gene'")
+
+    failure = RunFailure.from_exception(
+        RuntimeError("x"), model_name="A", fold_index=0, randomization=("SVRC", "gene_expression"), robustness_trial=3
+    )
+    assert (failure.randomization, failure.robustness_trial) == (("SVRC", "gene_expression"), 3)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        failure.message = "other"  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [_failure(), _failure(randomization=("SVRC", "gene_expression"), robustness_trial=0)],
+    ids=["plain", "stress"],
+)
+def test_dict_round_trips_through_json(failure: RunFailure) -> None:
+    data = json.loads(json.dumps(failure.to_dict()))
+    assert RunFailure.from_dict(data) == failure
+
+
+def test_dict_edge_cases() -> None:
+    assert _failure(randomization=("SVRC", "gene_expression")).to_dict()["randomization"] == ["SVRC", "gene_expression"]
+    data = {"model_name": "A", "fold_index": 1, "error_type": "ValueError", "message": "boom"}
+    assert RunFailure.from_dict(data) == _failure()
+
+
+def test_str_names_model_fold_error_and_stress_tests() -> None:
+    assert str(_failure()) == "A fold 1: ValueError: boom"
+    text = str(_failure(randomization=("SVRC", "gene_expression"), robustness_trial=2))
+    assert "randomization SVRC (gene_expression)" in text
+    assert "robustness trial 2" in text
+
+
+def test_experiment_failed_error_carries_and_lists_the_failures() -> None:
+    failures = [_failure(fold_index=i) for i in range(8)]
+    error = ExperimentFailedError(failures)
+
+    assert isinstance(error, RuntimeError)
+    assert isinstance(error, DrEvalError)
+    assert error.failures == tuple(failures)
+    lines = str(error).splitlines()
+    assert lines[0] == "8 run(s) failed:"
+    assert lines[1:] == [f"  {failure}" for failure in failures]

@@ -3,7 +3,7 @@
 The barrel re-exports the registry types and the five built-in splitters and ``observed_mask``, and
 binds ``get_splitter`` to the registry singleton. Only the surface is asserted:
 the registry's behaviour is tested in ``tests/registry/splitter/`` and each
-splitter beside its module (``test_lpo.py`` and its siblings). The assertions
+splitter in ``test_modes.py``. The assertions
 themselves live in ``tests/_barrel_surface.py``.
 """
 

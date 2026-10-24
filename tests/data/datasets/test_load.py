@@ -11,9 +11,11 @@ from pathlib import Path
 import pytest
 from upath import UPath
 
+from drevalpy.data import datasets
 from drevalpy.data.datasets import _load as load_module
 from drevalpy.data.datasets._load import _carries_curve_quality, _file_sha256, _load_from_cache, load
 from drevalpy.errors import InputNotFoundError, InvalidInputError
+from drevalpy.registry import dataset as registry_module
 from drevalpy.registry.dataset import DatasetRegistry as Registry
 from drevalpy.registry.dataset import DrevalConfig, SourceEntry, get_config_path
 from drevalpy.registry.dataset import dataset_registry as registry
@@ -34,6 +36,19 @@ def _packaged_registry() -> dict:
     registry_path = resources.files("drevalpy.data.datasets").joinpath("available_datasets.json")
     with registry_path.open(encoding="utf-8") as handle:
         return json.load(handle)
+
+
+class TestLazyRegistryReExports:
+    @pytest.mark.parametrize("name", [name for name in datasets.__all__ if name not in {"load", "registry"}])
+    def test_each_name_resolves_to_the_registry_package_object(self, name: str) -> None:
+        assert getattr(datasets, name) is getattr(registry_module, name)
+
+    def test_registry_is_the_dataset_registry_singleton(self) -> None:
+        assert datasets.registry is datasets.dataset_registry is registry_module.dataset_registry
+
+    def test_an_unknown_name_raises_attribute_error(self) -> None:
+        with pytest.raises(AttributeError, match="has no attribute 'nope'"):
+            datasets.nope  # noqa: B018
 
 
 class TestBuiltinRegistry:

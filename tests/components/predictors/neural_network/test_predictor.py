@@ -1,4 +1,4 @@
-"""Tests for the neural network predictor."""
+"""Tests for the dense feed-forward network and the neural network predictor built on it."""
 
 from __future__ import annotations
 
@@ -6,21 +6,21 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+import torch
+from torch import nn
 
 from drevalpy.components.contracts.contracts import FeatureFormat
+from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_spec
-from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors._helpers import neural_batch
+from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset
 
-
-@pytest.fixture(autouse=True)
-def _register_components() -> None:
-    register_builtin_components()
+HPAMS = {"units_per_layer": [8, 4, 2], "dropout_prob": 0.0}
 
 
 def test_registry_name_contracts_and_defaults() -> None:
@@ -46,35 +46,8 @@ def test_registry_name_contracts_and_defaults() -> None:
 
 
 def test_neural_network_zoo_trains_on_synthetic_data() -> None:
-    import anndata as ad
-    import mudata as md
-    import pandas as pd
-
-    from drevalpy.types import SplitMask, SplitMasks
-    from drevalpy.types.data.dataset import Dataset
-
-    cl_ids = np.array(["cl1", "cl2"])
-    drug_ids = np.array(["d1", "d2"])
-    response_matrix = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-    response_ad = ad.AnnData(
-        X=response_matrix,
-        obs=pd.DataFrame({"cell_line_name": cl_ids, "tissue": ["Lung", "Blood"]}, index=cl_ids),
-        var=pd.DataFrame(index=drug_ids),
-    )
-    ge_matrix = np.array([[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]], dtype=np.float32)
-    gene_expression_ad = ad.AnnData(
-        X=ge_matrix,
-        obs=pd.DataFrame(index=cl_ids),
-        var=pd.DataFrame(index=[f"gene{i}" for i in range(4)]),
-    )
-    response_ad.varm["morgan_fingerprint"] = np.array([[1.0, 0.0, 0.5, 0.2], [0.0, 1.0, 0.3, 0.7]], dtype=np.float32)
-    mdata = md.MuData({"response": response_ad, "gene_expression": gene_expression_ad})
-    mudataset = Dataset(mdata, name="test")
-    split = SplitMasks(
-        train=SplitMask(np.array([[True, True], [False, False]])),
-        test=SplitMask(np.array([[False, False], [True, True]])),
-        val=SplitMask(np.zeros((2, 2), dtype=bool)),
-    )
+    mudataset = synthetic_mudataset()
+    split = lso_split_masks()
 
     model = DRPModel(
         ModelSpec("SimpleNeuralNetwork", from_spec("scaledGeneExpression:fingerprints:neuralNetwork")),
@@ -141,3 +114,65 @@ def test_neural_network_set_state_requires_input_dim_and_state_dict(missing: str
     del payload[missing]
     with pytest.raises(PredictorStateError, match=missing):
         NeuralNetworkPredictor().set_state({"checkpoint": save_trusted_mapping(payload)})
+
+
+def _network(input_dim: int = 6, **overrides: object) -> FeedForwardNetwork:
+    hyperparameters = {**HPAMS, **overrides}
+    network = FeedForwardNetwork(hyperparameters, input_dim)
+    network.eval()
+    return network
+
+
+@pytest.mark.parametrize(
+    ("hyperparameters", "message"),
+    [
+        ({"units_per_layer": 8, "dropout_prob": 0.1}, "units_per_layer must be a list of integers"),
+        ({"units_per_layer": [8, 4.5], "dropout_prob": 0.1}, "units_per_layer must be a list of integers"),
+        ({"units_per_layer": [8, 4], "dropout_prob": 0}, "dropout_prob must be a float"),
+    ],
+)
+def test_network_rejects_invalid_hyperparameters(hyperparameters: dict, message: str) -> None:
+    with pytest.raises(TypeError, match=message):
+        FeedForwardNetwork(hyperparameters, 4)
+
+
+def test_network_chains_the_requested_layer_widths_and_predicts_one_scalar_per_row() -> None:
+    network = _network(input_dim=6, dropout_prob=0.35)
+
+    widths = [(layer.in_features, layer.out_features) for layer in network.fully_connected_layers]
+    assert widths == [(6, 8), (8, 4), (4, 2), (2, 1)]
+    assert len(network.batch_norm_layers) == 3
+    assert all(isinstance(layer, nn.BatchNorm1d) for layer in network.batch_norm_layers)
+    assert network.dropout_layer is not None
+    assert network.dropout_layer.p == pytest.approx(0.35)
+    with torch.no_grad():
+        output = network(torch.randn(5, 6))
+        single_hidden = _network(input_dim=4, units_per_layer=[3])(torch.randn(2, 4))
+    assert output.shape == (5,)
+    assert torch.isfinite(output).all()
+    assert single_hidden.shape == (2,)
+
+
+def test_unpack_batch_concatenates_all_but_the_last_tensor() -> None:
+    response = torch.arange(3, dtype=torch.float32)
+
+    features, unpacked_response = FeedForwardNetwork._unpack_batch((torch.zeros(3, 2), torch.ones(3, 4), response))
+    sample_only, _ = FeedForwardNetwork._unpack_batch((torch.zeros(2, 5), torch.ones(2)))
+
+    assert features.shape == (3, 6)
+    assert torch.allclose(unpacked_response, response)
+    assert sample_only.shape == (2, 5)
+
+
+def test_steps_return_a_scalar_mse_loss_and_the_optimizer_is_adam_over_all_parameters() -> None:
+    network = FeedForwardNetwork(HPAMS, 6)
+    batch = (torch.randn(4, 4), torch.randn(4, 2), torch.randn(4))
+
+    loss = network.training_step(batch, 0)
+
+    assert loss.ndim == 0
+    assert loss.item() >= 0.0
+    assert network.validation_step(batch, 0).ndim == 0
+    optimizer = network.configure_optimizers()
+    assert isinstance(optimizer, torch.optim.Adam)
+    assert sum(len(group["params"]) for group in optimizer.param_groups) == len(list(network.parameters()))

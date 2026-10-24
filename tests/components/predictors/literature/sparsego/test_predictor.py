@@ -1,15 +1,19 @@
-"""Tests for the SparseGO block predictor."""
+"""Tests for the SparseGO predictor, layer modules and ontology utilities."""
 
 from __future__ import annotations
 
+import networkx as nx
 import numpy as np
 import pytest
+import torch
 
+from drevalpy.components.predictors.literature.sparsego.algorithm import SparseLinearNew
 from drevalpy.components.predictors.literature.sparsego.predictor import (
     SparseGOPredictor,
     _parse_ontology_metadata,
     _resolve_active_view,
 )
+from drevalpy.components.predictors.literature.sparsego.utils import load_ontology
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
@@ -17,8 +21,10 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
+    assert_state_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
+    finite_predictions,
     seed_literature,
     trainable_parameter_vector,
     two_by_two_batch,
@@ -107,14 +113,10 @@ class TestTinySparseGOFit:
         predictor.fit(batch)
         assert predictor._model is not None
         assert_trainable_parameters_changed(initial, predictor._model)
-        predictions = predictor.predict(batch)
-        assert np.isfinite(predictions).all()
-        assert np.isfinite(np.mean((predictions - batch.response) ** 2))
+        predictions = finite_predictions(predictor, batch)
         assert_training_predictions("sparsego", seed, predictions)
 
-        restored = SparseGOPredictor()
-        restored.set_state(predictor.get_state())
-        np.testing.assert_allclose(restored.predict(batch), predictions, rtol=1e-6, atol=1e-7)
+        assert_state_round_trip(predictor, batch, predictions, rtol=1e-6, atol=1e-7)
 
 
 def test_precomputed_ontology_structures_are_passed_through() -> None:
@@ -197,3 +199,54 @@ def _payload(**entries: object) -> dict[str, bytes]:
 def test_set_state_rejects_malformed_payloads(state: dict, message: str) -> None:
     with pytest.raises(PredictorStateError, match=message):
         SparseGOPredictor().set_state(state)
+
+
+def test_sparse_linear_new_with_explicit_connectivity() -> None:
+    connectivity = torch.tensor([[0, 1], [0, 1]], dtype=torch.long)
+    layer = SparseLinearNew(in_features=2, out_features=2, connectivity=connectivity)
+    output = layer(torch.tensor([[1.0, 2.0]]))
+    assert output.shape == (1, 2)
+
+
+def test_sparse_linear_new_rejects_invalid_connectivity_shape() -> None:
+    bad = torch.tensor([[0, 1, 2]], dtype=torch.long)
+    with pytest.raises(ValueError, match="connectivity should be"):
+        SparseLinearNew(in_features=2, out_features=2, connectivity=bad)
+
+
+def test_load_ontology_builds_graph_and_pair_arrays(tmp_path) -> None:
+    ont_path = tmp_path / "sparseGO_ont.txt"
+    ont_path.write_text(
+        "ROOT TERM default\nTERM GENE1 gene\n",
+        encoding="utf-8",
+    )
+    gene2id = {"GENE1": 0}
+
+    ontology_graph, terms_pairs, genes_terms_pairs = load_ontology(str(ont_path), gene2id)
+
+    assert isinstance(ontology_graph, nx.DiGraph)
+    assert ontology_graph.has_edge("ROOT", "TERM")
+    assert terms_pairs.shape == (1, 2)
+    assert genes_terms_pairs.shape == (1, 2)
+    assert genes_terms_pairs[0].tolist() == ["TERM", "GENE1"]
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("ROOT TERM default\nTERM GENE1 gene\nROOT LEAF default\n", "without any annotated gene.*LEAF"),
+        ("A B default\nB GENE1 gene\nC D default\nD GENE1 gene\n", "2 roots"),
+        (
+            "ROOT X default\nX GENE1 gene\nC1 C2 default\nC2 C1 default\nC1 GENE1 gene\n",
+            "2 connected components",
+        ),
+        ("TERM GENE1 gene\n", "no root term"),
+    ],
+    ids=["term-without-genes", "multiple-roots", "disconnected", "no-root"],
+)
+def test_load_ontology_rejects_malformed_ontologies(tmp_path, text: str, message: str) -> None:
+    path = tmp_path / "ont.txt"
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_ontology(str(path), {"GENE1": 0})

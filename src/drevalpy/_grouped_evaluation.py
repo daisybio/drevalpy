@@ -135,7 +135,7 @@ def _vectorised_scores(
     """Compute a metric for every group at once, if a bincount formulation exists.
 
     These agree with :data:`drevalpy.evaluation.AVAILABLE_METRICS` applied group by group
-    (pinned by ``tests/test_grouped_evaluation.py``); they exist because that loop costs
+    (pinned by ``tests/test_evaluation.py``); they exist because that loop costs
     seconds per run at hundreds of groups.
 
     :param name: Metric name.

@@ -37,7 +37,7 @@ def _load_builtin_entries() -> dict[str, ModelConfig]:
         try:
             config = from_yaml(path)
         except ValueError as exc:
-            # tests/models/test_model_config_native.py fails on a skipped preset; users only get the warning.
+            # tests/models/test_model_roundtrip.py fails on a skipped preset; users only get the warning.
             logger.warning("Skipping built-in zoo preset %s, which fails validation: %s", path.name, exc)
             continue
         entries[path.stem] = config

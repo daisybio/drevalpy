@@ -80,6 +80,84 @@ def assert_corrected_training_result(
     np.testing.assert_allclose(float(checkpoint_score), float(expected["checkpoint_score"]), **TRAINING_TOLERANCE)
 
 
+def train_validation_batch(
+    sample_blocks: dict[str, FeatureBlock], drug_blocks: dict[str, FeatureBlock], checkpoint_dir: Any
+) -> ModelInputBatch:
+    """Build a batch of two training samples by two drugs with a validation pair per drug for early stopping.
+
+    :param sample_blocks: Per-sample blocks over the entities ``train-1, train-2, val-1, val-2``.
+    :param drug_blocks: Per-drug blocks over ``d1, d2``.
+    :param checkpoint_dir: Checkpoint directory carried in the training context.
+    :returns: The training batch with its early-stopping response attached.
+    """
+    drug_ids = np.array(["d1", "d2"])
+    training = ResponseBatch(
+        response=np.array([-1.0, 0.5, 1.5, 3.0], dtype=np.float32),
+        sample_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
+        drug_ids=np.array(["d1", "d2", "d1", "d2"]),
+    )
+    validation = ResponseBatch(
+        response=np.array([0.25, 2.25], dtype=np.float32), sample_ids=np.array(["val-1", "val-2"]), drug_ids=drug_ids
+    )
+    return ModelInputBatch.from_response(
+        training,
+        sample=FeaturizerResult.from_blocks(sample_blocks, np.array(["train-1", "train-2", "val-1", "val-2"])),
+        drug=FeaturizerResult.from_blocks(drug_blocks, drug_ids),
+        sample_pair_idx=np.array([0, 0, 1, 1]),
+        drug_pair_idx=np.array([0, 1, 0, 1]),
+        early_stopping_response=validation,
+        training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
+    )
+
+
+def entity_pair_batch(
+    sample: FeaturizerResult,
+    drug: FeaturizerResult,
+    sample_ids: Any,
+    drug_ids: Any,
+    *,
+    response: np.ndarray | None = None,
+    early_stopping: bool = False,
+    checkpoint_dir: Any = None,
+) -> ModelInputBatch:
+    """Pair named entities of two feature tables; *early_stopping* attaches the shared validation pairs."""
+    sample_row = {sid: i for i, sid in enumerate(sample.entity_ids)}
+    drug_row = {did: i for i, did in enumerate(drug.entity_ids)}
+    stopping = ResponseBatch(
+        response=np.array([0.5, 1.5], dtype=np.float32),
+        sample_ids=np.array(["v0", "v1"]),
+        drug_ids=np.array(["d0", "d1"]),
+    )
+    return ModelInputBatch.from_response(
+        ResponseBatch(
+            response=np.zeros(len(sample_ids), dtype=np.float32) if response is None else response,
+            sample_ids=np.asarray(sample_ids),
+            drug_ids=np.asarray(drug_ids),
+        ),
+        sample=sample,
+        drug=drug,
+        sample_pair_idx=np.array([sample_row[s] for s in sample_ids]),
+        drug_pair_idx=np.array([drug_row[d] for d in drug_ids]),
+        early_stopping_response=stopping if early_stopping else None,
+        training_context=None if checkpoint_dir is None else TrainingContext(checkpoint_dir=checkpoint_dir),
+    )
+
+
+def finite_predictions(predictor: Any, batch: ModelInputBatch) -> np.ndarray:
+    predictions = np.asarray(predictor.predict(batch))
+    assert np.isfinite(predictions).all()
+    assert np.isfinite(np.mean((predictions - batch.response) ** 2))
+    return predictions
+
+
+def assert_state_round_trip(
+    predictor: Any, batch: ModelInputBatch, predictions: np.ndarray, *, rtol: float = 1e-5, atol: float = 1e-5
+) -> None:
+    restored = type(predictor)()
+    restored.set_state(predictor.get_state())
+    np.testing.assert_allclose(restored.predict(batch), predictions, rtol=rtol, atol=atol)
+
+
 def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:
     rng = np.random.default_rng(2025)
     sample_ids = np.array([*(f"train-{idx}" for idx in range(6)), "val-0", "val-1"])

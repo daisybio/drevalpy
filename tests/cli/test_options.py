@@ -1,13 +1,10 @@
-"""Tests for :mod:`drevalpy.cli._options`: the option definitions several commands share.
-
-The options are exercised on a probe command that declares every shared alias once, so the
-parsing rules are pinned here and the command tests only check that each command forwards what it parsed.
-"""
+"""Tests for the option definitions the commands share (:mod:`drevalpy.cli._options`, `_quality`, `_summary`)."""
 
 from __future__ import annotations
 
 from typing import Annotated, Any
 
+import numpy as np
 import pytest
 import typer
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
@@ -24,9 +21,14 @@ from drevalpy.cli._options import (
     WandbProject,
     resolve_response_transformation,
 )
-from drevalpy.cli._summary import GroupBy
+from drevalpy.cli._quality import MinAbsFoldChange, MinRelevanceScore, NoQualityFilter, quality_from_cli
+from drevalpy.cli._summary import GroupBy, format_grouped_summary
+from drevalpy.data.quality import CurveQuality
+from drevalpy.evaluation import score_predictions
+from drevalpy.types.results import ExperimentResult
 from drevalpy.utils.response_transform import GroupMeanCenterer
 from tests.cli._helpers import make_runner
+from tests.synthetic import make_run_result
 
 runner = make_runner()
 
@@ -143,3 +145,105 @@ class TestResponseTransformation:
         self, choice: ResponseTransformation, levels: tuple[str, ...]
     ) -> None:
         assert resolve_response_transformation(choice).levels == levels
+
+
+def test_quality_from_cli_rules() -> None:
+    default = CurveQuality.default()
+    assert quality_from_cli(False, None, None) == default
+    assert quality_from_cli(True, None, None) == CurveQuality.off()
+    assert quality_from_cli(False, 3.0, None) == CurveQuality(3.0, default.min_abs_fold_change)
+    assert quality_from_cli(False, 2.0, 0.7) == CurveQuality(min_relevance_score=2.0, min_abs_fold_change=0.7)
+    assert quality_from_cli(False, 0.0, None).min_relevance_score == 0.0
+
+
+@pytest.mark.parametrize(
+    ("relevance", "fold_change", "flag"),
+    [(1.0, None, "--min-relevance-score"), (None, 0.5, "--min-abs-fold-change")],
+)
+def test_no_filter_with_a_threshold_is_a_bad_parameter(
+    relevance: float | None, fold_change: float | None, flag: str
+) -> None:
+    with pytest.raises(typer.BadParameter, match=f"{flag}.*--no-quality-filter"):
+        quality_from_cli(True, relevance, fold_change)
+
+
+def _app() -> typer.Typer:
+    app = typer.Typer()
+
+    @app.command()
+    def show(
+        no_quality_filter: NoQualityFilter = False,
+        min_relevance_score: MinRelevanceScore = None,
+        min_abs_fold_change: MinAbsFoldChange = None,
+    ) -> None:
+        typer.echo(quality_from_cli(no_quality_filter, min_relevance_score, min_abs_fold_change).to_metadata())
+
+    return app
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        ([], str(CurveQuality.default().to_metadata())),
+        (
+            ["--min-relevance-score", "2.5", "--min-abs-fold-change", "0.1"],
+            str({"min_relevance_score": 2.5, "min_abs_fold_change": 0.1}),
+        ),
+        (["--no-quality-filter"], "{}"),
+    ],
+    ids=["defaults", "thresholds", "off"],
+)
+def test_options(argv: list[str], expected: str) -> None:
+    result = runner.invoke(_app(), argv)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == expected
+
+
+def test_combining_no_filter_with_a_threshold_is_a_usage_error() -> None:
+    assert runner.invoke(_app(), ["--no-quality-filter", "--min-relevance-score", "2"]).exit_code == 2
+
+
+def _experiment() -> ExperimentResult:
+    constant = make_run_result(model_name="DrugMean", n_pairs=40)
+    constant.predictions = np.array([float(i % 4) for i in range(40)])
+    constant.metrics = score_predictions(constant.predictions, constant.ground_truth, ["MSE", "Pearson"])
+    varying = make_run_result(model_name="Varying", n_pairs=40)
+    varying.metrics = score_predictions(varying.predictions, varying.ground_truth, ["MSE", "Pearson"])
+    return ExperimentResult([constant, varying])
+
+
+def test_the_group_by_values_are_drug_sample_and_study() -> None:
+    assert [member.value for member in GroupBy] == ["drug", "sample", "study"]
+
+
+def test_summary_layout_labels_undefined_metrics_and_shows_group_counts() -> None:
+    lines = format_grouped_summary(_experiment(), GroupBy.DRUG).splitlines()
+
+    assert format_grouped_summary(_experiment(), GroupBy.SAMPLE).startswith("Metrics computed within each sample")
+    assert lines[1].split() == ["Model", "MSE", "Pearson"]
+    assert [line.split()[0] for line in lines[2:]] == ["DrugMean", "Varying"]
+    constant = next(line for line in lines if line.startswith("DrugMean"))
+    assert "undefined" in constant
+    assert "nan" not in constant.lower()
+    assert "(4)" in next(line for line in lines if line.startswith("Varying"))
+
+
+def _prefixed_experiment() -> ExperimentResult:
+    run = make_run_result(model_name="Varying", n_pairs=40, n_samples=8, n_drugs=5)
+    run.sample_ids = np.array([f"{'GDSC2' if i % 2 else 'CTRPv2'}::CL_{i % 8}" for i in range(40)])
+    run.metrics = score_predictions(run.predictions, run.ground_truth, ["MSE", "Pearson"])
+    return ExperimentResult([run])
+
+
+def test_grouping_by_study_scores_each_prefix_of_a_concatenated_run() -> None:
+    lines = format_grouped_summary(_prefixed_experiment(), GroupBy.STUDY).splitlines()
+
+    assert lines[0].startswith("Metrics computed within each study, averaged over studies and folds")
+    assert "(2)" in next(line for line in lines if line.startswith("Varying"))
+
+
+def test_grouping_by_study_on_a_plain_run_is_undefined() -> None:
+    lines = format_grouped_summary(_experiment(), GroupBy.STUDY).splitlines()
+
+    assert all("undefined" in line for line in lines[2:])

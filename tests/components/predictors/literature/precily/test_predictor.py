@@ -1,10 +1,13 @@
-"""Tests for the Precily predictor."""
+"""Tests for the Precily predictor and its feed-forward regressor."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
+import torch
+from torch import nn
 
+from drevalpy.components.predictors.literature.precily.model_utils import PrecilyNetwork
 from drevalpy.components.predictors.literature.precily.predictor import PrecilyPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.experiment._tracking import tracking_run
@@ -14,8 +17,10 @@ from drevalpy.utils.torch_io import save_trusted_mapping
 from tests._fake_wandb import install_fake_wandb
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
+    assert_state_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
+    finite_predictions,
     seed_literature,
     trainable_parameter_vector,
     two_by_two_batch,
@@ -53,15 +58,11 @@ class TestTinyPrecilyFit:
         predictor.fit(batch)
         assert predictor._model is not None
         assert_trainable_parameters_changed(initial, predictor._model)
-        expected = np.asarray(predictor.predict(batch))
-        assert np.isfinite(expected).all()
-        assert np.isfinite(np.mean((expected - batch.response) ** 2))
+        expected = finite_predictions(predictor, batch)
         assert_training_predictions("precily", seed, expected)
         assert_frozen_reference("precily", seed)
 
-        restored = PrecilyPredictor()
-        restored.set_state(predictor.get_state())
-        np.testing.assert_allclose(expected, restored.predict(batch), rtol=1e-5, atol=1e-5)
+        assert_state_round_trip(predictor, batch, expected)
 
 
 def test_set_state_requires_the_model_state() -> None:
@@ -90,3 +91,31 @@ def test_epoch_losses_are_logged_not_printed_and_sent_to_the_tracking_run(caplog
     assert capsys.readouterr().out == ""
     assert [step["epoch"] for step in fake.runs[0].logged] == [1, 2]
     assert all(np.isfinite(step["train_loss"]) for step in fake.runs[0].logged)
+
+
+def test_network_predicts_one_deterministic_differentiable_scalar_per_row() -> None:
+    network = PrecilyNetwork(input_dim=8)
+    features = torch.randn(3, 8)
+
+    network.eval()
+    with torch.no_grad():
+        first = network(features)
+        second = network(features)
+        single = network(features[:1])
+    assert first.shape == (3,)
+    assert torch.allclose(first, second)
+    assert single.shape == (1,)
+
+    network.train()
+    network(features).sum().backward()
+    assert network.net[0].weight.grad is not None
+
+
+def test_network_reproduces_the_reference_layer_widths_and_dropout() -> None:
+    network = PrecilyNetwork(input_dim=7)
+    linear_shapes = [(layer.in_features, layer.out_features) for layer in network.net if isinstance(layer, nn.Linear)]
+
+    assert linear_shapes == [(7, 1429), (1429, 512), (512, 140), (140, 200), (200, 1)]
+    assert {layer.p for layer in network.net if isinstance(layer, nn.Dropout)} == {0.1}
+    custom = PrecilyNetwork(input_dim=4, dropout=0.42)
+    assert {layer.p for layer in custom.net if isinstance(layer, nn.Dropout)} == {0.42}

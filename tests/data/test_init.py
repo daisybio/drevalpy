@@ -1,4 +1,4 @@
-"""Tests for the public :mod:`drevalpy.data` surface, including the lazy registry singletons and ``split``."""
+"""Tests for the public :mod:`drevalpy.data` surface, its lazy singletons, ``split`` and the identifier constants."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from upath import UPath
 
 from drevalpy import data
 from drevalpy.data.splitters import leave_pair_out, splitter_registry
+from drevalpy.data.utils import CELL_LINE_NAME_COLUMN, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.types import SplitMasks
 from tests._barrel_surface import DeclaredSurface
 
@@ -16,6 +17,7 @@ EAGER_ORIGINS: dict[str, str] = {
     "load": "drevalpy.data.datasets",
     "synthetic": "drevalpy",
 }
+
 
 LAZY_ORIGINS: dict[str, str] = {
     "dataset_registry": "drevalpy.registry.dataset._registry",
@@ -167,3 +169,7 @@ class TestSplitQuality:
         failed = ~data.CurveQuality.default().mask(low_quality_dataset)
         assert _covered(folds)[failed].any()
         assert folds[0].metadata["quality"] == data.CurveQuality.default().to_metadata()
+
+
+def test_identifiers_are_the_expected_distinct_column_names() -> None:
+    assert (DRUG_IDENTIFIER, CELL_LINE_NAME_COLUMN, TISSUE_IDENTIFIER) == ("pubchem_id", "cell_line_name", "tissue")

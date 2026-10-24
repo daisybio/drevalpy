@@ -1,4 +1,4 @@
-"""Smoke test mirror for molir predictor package."""
+"""Tests for the MOLIR predictor, its triplet-loss utilities and the lightning-free omics helpers."""
 
 from __future__ import annotations
 
@@ -7,13 +7,17 @@ import pytest
 import pytorch_lightning as pl
 import torch
 
+from drevalpy.components.predictors.literature.molir import _omics, utils
+from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
 from drevalpy.components.predictors.literature.molir.utils import MOLIModel
 from drevalpy.registry.predictor import get as get_predictor
 from tests.components.predictors.literature._helpers import (
     assert_corrected_training_result,
     assert_frozen_reference,
+    assert_state_round_trip,
     assert_trainable_parameters_changed,
+    finite_predictions,
     seed_literature,
     single_drug_omics_batch,
     trainable_parameter_vector,
@@ -88,9 +92,7 @@ class TestTinyMOLIRFit:
         fitted = predictor._models["d1"]
         assert_trainable_parameters_changed(initial, fitted)
         assert fitted.checkpoint_callback is not None
-        expected = np.asarray(predictor.predict(batch))
-        assert np.isfinite(expected).all()
-        assert np.isfinite(np.mean((expected - batch.response) ** 2))
+        expected = finite_predictions(predictor, batch)
         # The gamma correction supersedes the v2 baseline in training.json for MOLIR.
         assert_corrected_training_result(
             "molir_gamma_weighting",
@@ -100,9 +102,7 @@ class TestTinyMOLIRFit:
         )
         assert_frozen_reference("molir", seed)
 
-        restored = MOLIRPredictor()
-        restored.set_state(predictor.get_state())
-        np.testing.assert_allclose(expected, restored.predict(batch), rtol=1e-5, atol=1e-5)
+        assert_state_round_trip(predictor, batch, expected)
 
 
 class TestMOLIRTrainer:
@@ -126,3 +126,79 @@ class TestMOLIRTrainer:
         assert kwargs["accelerator"] == "cpu"
         assert kwargs["logger"] is False
         assert not (tmp_path / "lightning_logs").exists()
+
+
+def test_utils_reexports_the_realign_helper_from_omics() -> None:
+    assert utils._realign_omic_matrix is _omics._realign_omic_matrix
+
+
+def test_generate_triplets_indices_picks_near_and_far_pairs() -> None:
+    y = np.array([0.0, 0.05, 5.0])
+
+    positive, negative = utils.generate_triplets_indices(y, positive_range=0.1, negative_range=1.0, random_seed=0)
+
+    assert positive.shape == negative.shape == (3,)
+    # The two clustered responses are each other's positive; the outlier is their negative.
+    assert positive[0] == 1
+    assert positive[1] == 0
+    assert negative[0] == negative[1] == 2
+
+
+def test_generate_triplets_indices_falls_back_for_a_single_response_and_to_the_closest_pair() -> None:
+    positive, negative = utils.generate_triplets_indices(
+        np.array([2.0]), positive_range=0.1, negative_range=1.0, random_seed=0
+    )
+    assert (positive.tolist(), negative.tolist()) == ([0], [0])
+
+    y = np.array([0.0, 3.0, 10.0])
+    positive, _ = utils.generate_triplets_indices(y, positive_range=0.0, negative_range=1.0, random_seed=0)
+    assert positive.tolist() == [1, 0, 1]
+
+
+def test_generate_triplets_indices_uses_the_process_numpy_seed_by_default() -> None:
+    y = np.array([0.0, 0.02, 0.04, 1.0, 1.02, 1.04])
+    np.random.seed(123)
+    state_before = np.random.get_state()
+
+    first = utils.generate_triplets_indices(y, positive_range=0.05, negative_range=0.5)
+    state_after = np.random.get_state()
+    np.random.seed(123)
+    second = utils.generate_triplets_indices(y, positive_range=0.05, negative_range=0.5)
+
+    assert state_before[2] != state_after[2]
+    np.testing.assert_array_equal(first[0], second[0])
+    np.testing.assert_array_equal(first[1], second[1])
+
+
+def test_generate_triplets_indices_explicit_seed_is_independent_of_process_numpy_seed() -> None:
+    y = np.array([0.0, 0.02, 0.04, 1.0, 1.02, 1.04])
+    np.random.seed(1)
+    first = utils.generate_triplets_indices(y, positive_range=0.05, negative_range=0.5, random_seed=77)
+    np.random.seed(999)
+    second = utils.generate_triplets_indices(y, positive_range=0.05, negative_range=0.5, random_seed=77)
+
+    np.testing.assert_array_equal(first[0], second[0])
+    np.testing.assert_array_equal(first[1], second[1])
+
+
+@pytest.mark.parametrize(
+    ("values", "model_features", "incoming_features", "expected"),
+    [
+        ([1.0, 2.0, 3.0], ["g1", "g2"], ["g0", "g1", "g2"], [2.0, 3.0]),
+        ([6.0, 7.0, 8.0], ["c2", "c1"], ["c0", "c1", "c2"], [8.0, 7.0]),
+        ([10.0, 20.0], ["a", "b", "c"], ["b", "d"], [0.0, 10.0, 0.0]),
+        ([10.0, 20.0, 30.0], ["a", "b", "c"], ["c", "a", "b"], [20.0, 30.0, 10.0]),
+        ([10.0, 20.0, 30.0], ["a", "b", "missing"], ["c", "a", "b"], [20.0, 30.0, 0.0]),
+    ],
+    ids=["narrow", "reorder", "zero-fill", "equal-width-permutation", "equal-width-missing"],
+)
+def test_realign_omic_matrix(values, model_features, incoming_features, expected) -> None:
+    result = _realign_omic_matrix(np.array([values]), model_features, incoming_features)
+
+    np.testing.assert_allclose(result, [expected])
+
+
+def test_realign_omic_matrix_passes_matching_features_through_unchanged() -> None:
+    values = np.array([[1.0, 2.0]])
+
+    assert _realign_omic_matrix(values, ["a", "b"], ["a", "b"]) is values
