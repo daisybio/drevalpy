@@ -2,15 +2,13 @@
 
 ``ProteomicsMedianCenterAndImputeTransformer`` lives in
 ``_proteomics_transformer`` because it subclasses ``sklearn.base.BaseEstimator``,
-which cannot be deferred past the ``class`` statement. It is re-exported here
-through ``__getattr__`` so this module path - and any checkpoint
-pickled against it - keeps resolving without importing ``sklearn`` at
-registration time. See ``tests/test_import_cost_policy.py``.
+which cannot be deferred past the ``class`` statement, so importing it here at
+registration time would import ``sklearn``. See ``tests/test_import_cost_policy.py``.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -18,34 +16,6 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.feature_source import FeatureSource
-
-if TYPE_CHECKING:
-    from drevalpy.components.featurizers.sample._proteomics_transformer import (
-        ProteomicsMedianCenterAndImputeTransformer,
-    )
-
-__all__ = [
-    "NormalizedProteomicsSampleFeaturizer",
-    "ProteomicsMedianCenterAndImputeTransformer",
-    "log10_and_set_na",
-]
-
-
-def __getattr__(name: str) -> Any:
-    """Resolve the re-exported transformer on first access.
-
-    :param name: Attribute being looked up on this module.
-    :returns: The requested attribute.
-    :raises AttributeError: If *name* is not re-exported here.
-    """
-    if name == "ProteomicsMedianCenterAndImputeTransformer":
-        from drevalpy.components.featurizers.sample._proteomics_transformer import (
-            ProteomicsMedianCenterAndImputeTransformer as _Transformer,
-        )
-
-        return _Transformer
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)
 
 
 def log10_and_set_na(x: np.ndarray) -> np.ndarray:

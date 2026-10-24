@@ -4,9 +4,8 @@ The autoencoder in
 ``drevalpy.components.predictors.literature.dipk.gene_expression_encoder``
 defines ``torch.nn.Module`` subclasses, so importing it imports ``torch``.
 ``drevalpy.registry`` imports this module to register the
-``dipkGeneExpression`` featurizer on ``import drevalpy``, so the three symbols are
-pulled in inside the methods that use them and re-exported lazily below so this
-module path keeps resolving. See ``tests/test_import_cost_policy.py``.
+``dipkGeneExpression`` featurizer on ``import drevalpy``, so the autoencoder symbols are
+pulled in inside the methods that use them. See ``tests/test_import_cost_policy.py``.
 
 The featurizer follows drevalpy 1.6.1: the autoencoder is fitted on the *unique* samples
 (and unique early-stopping samples), and every sample profile is z-scored on its own
@@ -40,25 +39,8 @@ from drevalpy.utils.torch_io import load_state_dict, save_state_dict
 if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
 
-_RE_EXPORTED = frozenset({"GeneExpressionEncoder", "encode_gene_expression", "train_gene_expession_autoencoder"})
-
 #: ``expression_unit`` values that are linear and therefore get ``log2(x + 1)`` first.
 _LINEAR_UNITS = frozenset({"tpm", "rpkm", "fpkm", "cpm"})
-
-
-def __getattr__(name: str) -> Any:
-    """Resolve the lazily re-exported autoencoder symbols on first access.
-
-    :param name: Attribute being looked up on this module.
-    :returns: The requested attribute, imported on demand.
-    :raises AttributeError: If *name* is not one of the re-exported symbols.
-    """
-    if name in _RE_EXPORTED:
-        from drevalpy.components.predictors.literature.dipk import gene_expression_encoder
-
-        return getattr(gene_expression_encoder, name)
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)
 
 
 def _is_linear_expression(source: FeatureSource, view: str) -> bool:
