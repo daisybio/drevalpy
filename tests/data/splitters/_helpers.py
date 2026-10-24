@@ -6,8 +6,6 @@ from collections.abc import Iterable
 
 import numpy as np
 
-from drevalpy.types import SplitMask
-
 
 class MockMuDataset:
     """Minimal MuDataLike for testing splitters."""
@@ -72,14 +70,6 @@ class MockMuDataset:
         if name not in self._layers:
             raise KeyError(f"Response layer '{name}' not found. Available: {list(self._layers)}")
         return self._layers[name]
-
-
-def build_mask(shape: tuple[int, int], *positions: tuple[int, int]) -> SplitMask:
-    """Build a ``SplitMask`` of *shape* that is True exactly at *positions*."""
-    mask = np.zeros(shape, dtype=bool)
-    for row, column in positions:
-        mask[row, column] = True
-    return SplitMask(mask)
 
 
 def first_measured_pairs(dataset: MockMuDataset, count: int) -> list[tuple[int, int]]:
