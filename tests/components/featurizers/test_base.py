@@ -156,7 +156,7 @@ def test_literature_featurizer_source_views_exist_in_the_fixture(
     missing = [
         view
         for view in declared
-        if view != "canonical_smiles" and not synthetic_dataset._has_required_views((resolve_omics_accessor(view),))
+        if view != "canonical_smiles" and not synthetic_dataset._has_source_data((resolve_omics_accessor(view),), cls)
     ]
     assert not missing, f"{name} reads {missing}, which the synthetic fixture does not provide"
 
