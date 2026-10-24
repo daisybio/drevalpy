@@ -147,3 +147,4 @@ Main developers:
 
 - [Judith Bernett](mailto:judith.bernett@tum.de), [Data Science in Systems Biology](https://www.mls.ls.tum.de/daisybio/startseite/), TUM
 - [Pascal Iversen](mailto:Pascal.Iversen@hpi.de), [Data Integration in the Life Sciences](https://www.mi.fu-berlin.de/w/DILIS/WebHome), FU Berlin, Hasso-Plattner-Institut
+- [Nico Trummer](https://github.com/nictru), [Orakl Oncology](https://www.orakl-oncology.com/)
