@@ -1,8 +1,7 @@
 """Batch-size-dependent helpers of the DIPK gene-expression autoencoder trainer.
 
-Split from :mod:`~drevalpy.components.predictors.literature.dipk.gene_expression_encoder` to keep
-that module under the size gate. :func:`avoid_singleton_batch` is for every caller of the trainer
-that fits on unique samples.
+Split from :mod:`~drevalpy.components.predictors.literature.dipk.gene_expression_encoder`.
+:func:`avoid_singleton_batch` is for every caller of the trainer that fits on unique samples.
 """
 
 from __future__ import annotations

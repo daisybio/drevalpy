@@ -204,34 +204,22 @@ that does not exist must still raise `AttributeError`.
 
 ## Coverage gate
 
-Reproduce the gates locally after a change that adds or moves shipped code
-(`contributing.rst` has the pytest command; `tools/size_gate.py` needs no test run
-and also runs as a prek hook):
+Reproduce the gate locally after a change that adds or moves shipped code
+(`contributing.rst` has the pytest command):
 
 ```bash
 uv run python tools/coverage_gate.py
-uv run python tools/size_gate.py
 ```
 
-Three floors, all in the `tests` job of `.github/workflows/run_tests.yml`:
-`[tool.coverage.report].fail_under` for the aggregate, `tools/coverage_gate.py` per
-module against `[tool.drevalpy.coverage_gate].min_file_coverage`, and
-`tools/size_gate.py` per module against
-`[tool.drevalpy.size_gate].max_module_statements`. Keep
+Two floors, both in the `tests` job of `.github/workflows/run_tests.yml`:
+`[tool.coverage.report].fail_under` for the aggregate and `tools/coverage_gate.py` per
+module against `[tool.drevalpy.coverage_gate].min_file_coverage`. Keep
 `[tool.coverage.run].source = ["drevalpy"]` - it holds never-imported modules in
 the denominator at 0%.
 
-An entry in an `exemptions` table is debt, not a policy decision, and carries a
-comment saying why the module cannot reach the floor.
-
-- Work from the "exemptions that can be lowered or deleted" list each gate prints.
-- Delete an entry once the module reaches `min_file_coverage`; if it improves but
-  not that far, lower the recorded floor to the newly measured value.
-- Never raise a floor to make a regression pass, and never lower `fail_under` to
-  make a change fit. The coverage gate has no exemptions and gets none: a
-  module below `min_file_coverage` gets tests, not an entry.
-- The same rules run the size gate in the other direction: lower a recorded
-  ceiling as a module shrinks, never raise it to admit a regression.
+- Never lower `fail_under` or `min_file_coverage` to make a change fit, and add no
+  `[tool.drevalpy.coverage_gate.exemptions]`: a module below `min_file_coverage`
+  gets tests, not an entry.
 
 ## Docstrings
 

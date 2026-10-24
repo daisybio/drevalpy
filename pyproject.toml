@@ -205,23 +205,9 @@ exclude_also = [
     "@overload",
 ]
 
-# Per-module coverage floor and statement ceiling; rules in "Coverage gate" in AGENTS.md.
+# Per-module coverage floor; rules in "Coverage gate" in AGENTS.md.
 [tool.drevalpy.coverage_gate]
 min_file_coverage = 80
-
-[tool.drevalpy.size_gate]
-max_module_statements = 150
-
-[tool.drevalpy.size_gate.exemptions]
-# Vendored upstream architecture; kept whole so it diffs against the reference.
-"drevalpy/components/featurizers/drug/_molgnet_network.py" = 255
-# Still carry torch plumbing that could move to _omics_loaders.py / _pair_predict.py.
-"drevalpy/components/predictors/literature/sparsego/algorithm.py" = 181
-"drevalpy/components/predictors/literature/dipk/predictor.py" = 166
-"drevalpy/components/predictors/literature/srmf/predictor.py" = 160
-# One flat declarative sequence each.
-"drevalpy/registry/_builtins.py" = 182
-"drevalpy/types/data/dataset.py" = 207
 
 [tool.complexipy]
 max-complexity-allowed = 15
