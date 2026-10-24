@@ -221,14 +221,14 @@ module against `[tool.drevalpy.coverage_gate].min_file_coverage`, and
 `[tool.coverage.run].source = ["drevalpy"]` - it holds never-imported modules in
 the denominator at 0%.
 
-An entry in either `exemptions` table is debt, not a policy decision, and carries a
+An entry in an `exemptions` table is debt, not a policy decision, and carries a
 comment saying why the module cannot reach the floor.
 
 - Work from the "exemptions that can be lowered or deleted" list each gate prints.
 - Delete an entry once the module reaches `min_file_coverage`; if it improves but
   not that far, lower the recorded floor to the newly measured value.
 - Never raise a floor to make a regression pass, and never lower `fail_under` to
-  make a change fit. The coverage `exemptions` table is empty and stays empty: a
+  make a change fit. The coverage gate has no exemptions and gets none: a
   module below `min_file_coverage` gets tests, not an entry.
 - The same rules run the size gate in the other direction: lower a recorded
   ceiling as a module shrinks, never raise it to admit a regression.
