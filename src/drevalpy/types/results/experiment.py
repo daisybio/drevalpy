@@ -16,31 +16,12 @@ from drevalpy.types.results._summary import SummaryTableMixin
 from drevalpy.types.results.failure import RunFailure, read_failures, write_failures
 from drevalpy.types.results.model import ModelResult
 from drevalpy.types.results.run import RunResult
-from drevalpy.utils.filenames import safe_filename
+from drevalpy.utils.filenames import unique_safe_filenames
 
 if TYPE_CHECKING:
     from drevalpy.visualization.requirements import PlotRequirement
 
 logger = get_logger(__name__)
-
-
-def _model_directories(model_names: Sequence[str]) -> dict[str, str]:
-    """Map each model name to a unique directory name every operating system accepts.
-
-    :param model_names: Model names in save order.
-    :returns: ``name -> directory``; names that sanitize to the same string get a ``-2``, ``-3``, ... suffix.
-    """
-    directories: dict[str, str] = {}
-    taken: set[str] = set()
-    for name in model_names:
-        base = safe_filename(name)
-        candidate, n = base, 1
-        while candidate.lower() in taken:
-            n += 1
-            candidate = f"{base}-{n}"
-        taken.add(candidate.lower())
-        directories[name] = candidate
-    return directories
 
 
 class ExperimentResult(SummaryTableMixin):
@@ -170,7 +151,7 @@ class ExperimentResult(SummaryTableMixin):
         out = Path(directory)
         out.mkdir(parents=True, exist_ok=True)
 
-        directories = _model_directories(self.model_names)
+        directories = unique_safe_filenames(self.model_names)
         meta: dict[str, Any] = {
             "dataset_name": self.dataset_name,
             "split_mode": self.split_mode,
