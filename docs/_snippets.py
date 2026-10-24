@@ -19,6 +19,8 @@ between the comment and the block are fine)::
 
 ``skip`` means the block is never run. ``network`` means it runs only when
 ``allow_network`` is true, for blocks that download built-in datasets.
+``posix`` means it is not run on Windows, for blocks that write Plotly PNGs
+(Kaleido 0.2.1 hangs there).
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
-Marker = Literal["run", "skip", "network"]
+Marker = Literal["run", "skip", "network", "posix"]
 
 #: Languages the runner executes. Any other ``code-block`` (``yaml``, ``text``, ...) is output or data.
 RUNNABLE_LANGUAGES = frozenset({"python", "bash"})
@@ -44,7 +46,7 @@ RUNNABLE_LANGUAGES = frozenset({"python", "bash"})
 #: Spellings that look runnable but are not, mapped to the spelling that is.
 MISNAMED_LANGUAGES = {"sh": "bash", "shell": "bash", "zsh": "bash", "python3": "python", "py": "python"}
 
-_MARKER_VALUES = ("skip", "network")
+_MARKER_VALUES = ("skip", "network", "posix")
 _DIRECTIVE = re.compile(r"^(?P<indent> *)\.\. (?:code-block|sourcecode|code):: *(?P<language>\S*) *$")
 _MARKER = re.compile(r"^(?P<indent> *)\.\. snippet: *(?P<value>\S*) *$")
 _OPTION = re.compile(r"^ +:[\w-]+:")
@@ -216,6 +218,8 @@ def _plan(page: Path, *, allow_network: bool) -> list[tuple[Snippet, list[tuple[
     plan: list[tuple[Snippet, list[tuple[int, list[str]]] | None]] = []
     for snippet in collect(page):
         if snippet.marker == "skip" or (snippet.marker == "network" and not allow_network):
+            continue
+        if snippet.marker == "posix" and sys.platform == "win32":
             continue
         if snippet.language in MISNAMED_LANGUAGES:
             correct = MISNAMED_LANGUAGES[snippet.language]

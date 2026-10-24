@@ -14,7 +14,7 @@ from upath import UPath as Path
 from drevalpy.log import get_logger
 from drevalpy.utils.filenames import safe_filename
 from drevalpy.visualization._progress import log_stage, rss_gb
-from drevalpy.visualization.base import Section, Visualization
+from drevalpy.visualization.base import PlotlyVisualization, Section, Visualization, plotly_png_supported
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -204,6 +204,9 @@ def save_all_png(
 ) -> None:
     """Save all applicable plots as PNG files.
 
+    On Windows, Plotly-based plots are skipped with a warning; see
+    :func:`~drevalpy.visualization.base.plotly_png_supported`.
+
     :param result: Experiment, model, or run result.
     :param output_dir: Output directory for the PNG files.
     :param reference_model: If set, normalize metrics against this model.
@@ -217,8 +220,17 @@ def save_all_png(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
+    skipped: list[str] = []
     for viz_cls, target in _applicable_results(experiment):
+        if issubclass(viz_cls, PlotlyVisualization) and not plotly_png_supported():
+            skipped.append(viz_cls.registry_name)
+            continue
         viz = viz_cls()
         viz.compute(target)
         stem = viz.registry_name if target is experiment else f"{viz.registry_name}_{safe_filename(target.model_name)}"
         viz.to_png(out / f"{stem}.png")
+    if skipped:
+        logger.warning(
+            "Skipped the Plotly plots %s: PNG export hangs on Windows with Kaleido 0.2.1.",
+            ", ".join(sorted(set(skipped))),
+        )

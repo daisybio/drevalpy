@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import base64
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
+
+from drevalpy.errors import DrEvalError
 
 if TYPE_CHECKING:
     import matplotlib.figure
@@ -129,6 +132,17 @@ class ImageVisualization(Visualization):
         display(figure)
 
 
+def plotly_png_supported() -> bool:
+    """Whether Plotly figures can be written as PNG on this platform.
+
+    Kaleido 0.2.1, the version MultiQC pins, hangs on Windows: its bundled Chromium starts
+    but never reports ready. MultiQC 1.35 requires exactly that version.
+
+    :returns: ``False`` on Windows, ``True`` elsewhere.
+    """
+    return sys.platform != "win32"
+
+
 class PlotlyVisualization(Visualization):
     """Base for plots whose ``compute()`` leaves a Plotly figure in ``_fig``.
 
@@ -142,8 +156,15 @@ class PlotlyVisualization(Visualization):
         """Render the figure to a static PNG.
 
         :param path: Output file path.
+        :raises DrEvalError: On Windows, where Kaleido 0.2.1 hangs instead of rendering.
         """
-        require_figure(self._fig, "to_png").write_image(str(path))
+        figure = require_figure(self._fig, "to_png")
+        if not plotly_png_supported():
+            raise DrEvalError(
+                f"{type(self).__name__}.to_png is not supported on Windows: Kaleido 0.2.1, the version "
+                "MultiQC requires, hangs there. Use show() in a notebook, or the HTML report."
+            )
+        figure.write_image(str(path))
 
     def show(self) -> None:
         """Display the figure in a Jupyter notebook."""

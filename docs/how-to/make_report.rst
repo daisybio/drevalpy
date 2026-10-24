@@ -127,6 +127,8 @@ written with ``to_png``:
    .. tab-item:: Python
       :sync: python
 
+      .. snippet: posix
+
       .. code-block:: python
 
          from drevalpy.visualization.plots.heatmap import HeatmapVisualization
@@ -138,6 +140,13 @@ written with ``to_png``:
 ``save_all_png(results, "plots", reference_model=...)`` from ``drevalpy.visualization`` writes every
 plot of the report as a PNG file into one directory, which takes about as long as building the
 report.
+
+.. note::
+
+   On Windows, plots drawn with Plotly cannot be saved as PNG files: Kaleido 0.2.1, the version
+   MultiQC requires, hangs there. ``to_png`` of those plots raises an error, and ``save_all_png``
+   skips them with a warning. Plots drawn with Matplotlib, such as the critical difference
+   diagram, are saved as usual, and the HTML report works.
 
 Put the numbers in a table
 --------------------------
