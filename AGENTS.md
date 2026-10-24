@@ -50,8 +50,10 @@ CI enforces total coverage (see "Coverage" below).
 - Shared fixtures for a directory go in its `conftest.py`, not in each file.
 - Fold tests that differ only in their inputs into one parametrized test.
 - No `__init__.py` in test directories - `--import-mode=importlib` with
-  `pythonpath = ["."]` makes them namespace packages. Add one only for a genuine
-  module package with content of its own, such as `tests/synthetic/`.
+  `pythonpath = ["."]` makes them namespace packages. The exceptions are
+  `tests/__init__.py`, which keeps `tests` from colliding with a third-party
+  top-level `tests` package, and a genuine module package with content of its
+  own, such as `tests/synthetic/`.
 - Cross-package checks live at the `tests/` root (`test_import_cost_policy.py`,
   the terminology policy) and in `tests/docs/`.
 - Shared test code is a `_`-prefixed module beside the tests it serves -
@@ -191,15 +193,15 @@ Two cases a function-local import cannot fix:
 
 - A **base class** from a forbidden library has to exist when the `class`
   statement executes. Drop the base where it earns nothing, or move the class
-  into its own private module and re-export it lazily, as
-  `components/featurizers/sample/_proteomics_transformer.py` does.
+  into its own private module, as
+  `components/featurizers/sample/_proteomics_transformer.py` does, and import it
+  inside the functions that use it.
 - A module-scope **side effect** that must run before the library is imported
   anywhere stays eager - `xgboost_pred.py` calls
   `_set_xgboost_thread_defaults()` at module scope to keep OpenMP from crashing.
 
-The same file guards `DEFERRED_TRAINING_SYMBOLS` and `LAZY_RE_EXPORTS`: a moved
-symbol must keep resolving through the module-level `__getattr__`, and a name
-that does not exist must still raise `AttributeError`.
+The same file guards `DEFERRED_TRAINING_SYMBOLS`: a symbol moved out of its
+module's import-time path must still resolve from its new module.
 
 ## Coverage
 
