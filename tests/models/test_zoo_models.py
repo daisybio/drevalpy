@@ -293,6 +293,13 @@ def test_n_jobs_changes_the_speed_not_the_model(synthetic_dataset: Dataset, mode
     np.testing.assert_allclose(predictions[2], restored[2], rtol=1e-5, atol=1e-5)
 
 
+DIPK_ARTIFACT_SHA256 = {
+    "MolGNet.pt": "0e644baeddb1649dee2d48154b5122cca4e7f3e0bbc326bb0c513fcee3eba2be",
+    "human_ppi_features.tsv": "0ce65e25a400a1f4196b5a6478e285bd5ff149293d058f1bb0960f6e645091b2",
+    "gene_list_sel.txt": "f1152ffe156bab2e8db1c5ffd5b6ce2e74d167fe220cfc14abc653e13a9b8720",
+}
+
+
 @pytest.mark.network
 class TestDIPKArtifactIntegration:
     """Train the full facade with actual pretrained PPI and MolGNet artifacts."""
@@ -300,18 +307,14 @@ class TestDIPKArtifactIntegration:
     @pytest.mark.parametrize("seed", [0, 1, 2])
     def test_raw_features_train_and_restore(self, seed: int, tmp_path) -> None:
         import hashlib
-        import json
-
-        from upath import UPath
 
         from drevalpy.data.artifacts import get_artifact
         from tests.components.predictors.literature._helpers import _isolated_reference_rng
         from tests.synthetic.builders import build_synthetic_dataset
 
-        manifest = json.loads((UPath(__file__).parents[2] / "tools/literature_reference/manifest.json").read_text())
-        for name in ("MolGNet.pt", "human_ppi_features.tsv", "gene_list_sel.txt"):
+        for name, sha256 in DIPK_ARTIFACT_SHA256.items():
             # Actual cached/downloaded bytes, with no artifact or backend mocking.
-            assert hashlib.sha256(get_artifact(name).read_bytes()).hexdigest() == manifest["artifacts"][name]["sha256"]
+            assert hashlib.sha256(get_artifact(name).read_bytes()).hexdigest() == sha256
 
         with _isolated_reference_rng(seed):
             dataset = build_synthetic_dataset(seed=seed)

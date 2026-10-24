@@ -6,8 +6,8 @@
     "torch_deterministic_algorithms": true,
     "torch_num_threads": 1,
     "seeds": [0, 1, 2],
-    "low_level_harness": "tools/literature_reference/capture_v2_baseline.py",
-    "training_harness": "tools/literature_training_benchmark.py",
+    "low_level_harness": "drevalpy-parity: literature_reference/capture_v2_baseline.py",
+    "training_harness": "drevalpy-parity: literature_reference/literature_training_benchmark.py",
     "archive_instructions": "Archive baseline_commit, set DREVALPY_BASELINE_ROOT to that checkout, and invoke capture_v2_baseline.py with seed 0, 1 or 2."
   },
   "scope": "v2 port regression references; not upstream numerical parity",

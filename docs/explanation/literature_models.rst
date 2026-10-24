@@ -8,6 +8,10 @@ the same split modes. A reimplementation is not a copy, and results from DrEvalP
 a paper's table digit for digit. This page lists what was changed relative to the
 published method and why, so that you know what a score represents.
 
+The scripts that compare these reimplementations numerically against the published code
+live in the separate ``drevalpy-parity`` repository, next to the 1.6.1 comparison
+(:doc:`parity_1_6_1`).
+
 Some changes apply to every literature model and are not repeated below:
 
 - *No peeking at held-out data.* Several published training scripts fit scalers
