@@ -1,10 +1,4 @@
-"""Tests for :mod:`drevalpy.visualization.plots.critical_difference`.
-
-The Friedman test underpinning this plot needs at least three models with equal
-fold counts. ``MULTIPLE_MODELS`` only demands two, so the plot skips with a
-warning rather than letting SciPy raise; that and the modal-fold-count filtering
-in ``_create_figure`` are asserted explicitly.
-"""
+"""Tests for :mod:`drevalpy.visualization.plots.critical_difference` (Friedman needs >= 3 models)."""
 
 from __future__ import annotations
 
@@ -37,7 +31,6 @@ MODELS = ["A", "B", "C"]
 
 
 def _sig_matrix(a_vs_b: float, a_vs_c: float, b_vs_c: float) -> pd.DataFrame:
-    """Symmetric p-value matrix in the shape ``posthoc_conover_friedman`` returns."""
     return pd.DataFrame(
         [
             [1.0, a_vs_b, a_vs_c],
@@ -68,46 +61,33 @@ def computed(experiment) -> CriticalDifferenceVisualization:
 
 
 class TestBuildCdDf:
-    def test_columns_are_algorithm_split_and_metric(self, experiment):
+    def test_one_row_per_run_in_the_expected_columns(self, experiment):
         df = _build_cd_df(experiment, "MSE")
 
         assert list(df.columns) == ["algorithm", "CV_split", "MSE"]
-
-    def test_has_one_row_per_run(self, experiment):
-        df = _build_cd_df(experiment, "MSE")
-
         assert len(df) == sum(m.n_folds for m in experiment.models)
 
     def test_randomized_runs_are_excluded(self):
+        randomization = ("gene_expression", "permutation")
         result = ExperimentResult(
             [
                 make_run_result(model_name="ElasticNet"),
-                make_run_result(model_name="RandomForest", randomization=("gene_expression", "permutation")),
+                make_run_result(model_name="RandomForest", randomization=randomization),
             ]
         )
 
-        df = _build_cd_df(result, "MSE")
-
-        assert df["algorithm"].tolist() == ["ElasticNet"]
+        assert _build_cd_df(result, "MSE")["algorithm"].tolist() == ["ElasticNet"]
+        assert _build_cd_df(ExperimentResult(result.models[1].runs), "MSE").empty
 
     def test_missing_metrics_leave_no_rows_to_rank(self, experiment):
-        """NaN rows are dropped, so an absent metric yields an empty frame."""
         df = _build_cd_df(experiment, "NotAMetric")
 
         assert df.empty
         assert list(df.columns) == ["algorithm", "CV_split", "NotAMetric"]
 
-    def test_is_empty_when_every_run_is_randomized(self):
-        result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
-
-        assert _build_cd_df(result, "MSE").empty
-
     def test_the_reference_model_of_a_normalized_experiment_takes_part(self, experiment):
-        normalized = experiment.normalize(REFERENCE_MODEL)
+        df = _build_cd_df(experiment.normalize(REFERENCE_MODEL), "Pearson")
 
-        df = _build_cd_df(normalized, "Pearson")
-
-        assert REFERENCE_MODEL in set(df["algorithm"])
         assert len(df) == sum(m.n_folds for m in experiment.models)
         assert (df[df["algorithm"] == REFERENCE_MODEL]["Pearson"] == 0.0).all()
 
@@ -115,127 +95,74 @@ class TestBuildCdDf:
 class TestGenerateDiscretePalette:
     def test_short_requests_slice_the_base_palette(self):
         assert _generate_discrete_palette(3) == list(pc.qualitative.D3[:3])
-
-    def test_returns_exactly_the_requested_number_of_colors(self):
-        assert len(_generate_discrete_palette(17)) == 17
-
-    def test_interpolates_beyond_the_base_palette(self):
-        colors = _generate_discrete_palette(len(pc.qualitative.D3) + 2)
-
-        assert colors[0] == matplotlib.colors.to_hex(pc.qualitative.D3[0])
-        assert colors[-1] == matplotlib.colors.to_hex(pc.qualitative.D3[-1])
-
-    def test_interpolated_colors_are_hex_strings(self):
-        assert all(c.startswith("#") and len(c) == 7 for c in _generate_discrete_palette(15))
-
-    def test_zero_colors_yields_an_empty_palette(self):
         assert _generate_discrete_palette(0) == []
 
+    def test_longer_requests_interpolate_between_the_palette_ends_as_hex(self):
+        colors = _generate_discrete_palette(17)
 
-class TestNonsignificantAdjacency:
-    def test_marks_non_significant_pairs_as_adjacent(self):
-        adjacency = _nonsignificant_adjacency(_sig_matrix(a_vs_b=0.9, a_vs_c=0.9, b_vs_c=0.9))
+        assert len(colors) == 17
+        assert colors[0] == matplotlib.colors.to_hex(pc.qualitative.D3[0])
+        assert colors[-1] == matplotlib.colors.to_hex(pc.qualitative.D3[-1])
+        assert all(c.startswith("#") and len(c) == 7 for c in colors)
 
-        assert bool(adjacency.loc["A", "B"]) is True
 
-    def test_significant_pairs_are_not_adjacent(self):
-        adjacency = _nonsignificant_adjacency(_sig_matrix(a_vs_b=0.001, a_vs_c=0.9, b_vs_c=0.9))
-
-        assert bool(adjacency.loc["A", "B"]) is False
-
-    def test_diagonal_is_marked_adjacent(self):
-        """``sign_array`` writes -1 on the diagonal, so ``1 - (-1)`` is truthy."""
-        adjacency = _nonsignificant_adjacency(_sig_matrix(a_vs_b=0.001, a_vs_c=0.001, b_vs_c=0.001))
-
-        assert adjacency.to_numpy().diagonal().all()
-
-    def test_labels_and_dtype_are_preserved(self):
-        adjacency = _nonsignificant_adjacency(_sig_matrix(a_vs_b=0.9, a_vs_c=0.9, b_vs_c=0.9))
-
-        assert list(adjacency.index) == list(adjacency.columns) == MODELS
-        assert adjacency.dtypes.eq(bool).all()
-
-    def test_does_not_mutate_the_input(self):
-        sig = _sig_matrix(a_vs_b=0.001, a_vs_c=0.9, b_vs_c=0.9)
+class TestAdjacencyAndCrossbars:
+    def test_adjacency_marks_non_significant_pairs_and_the_diagonal_without_mutating(self):
+        sig = _sig_matrix(a_vs_b=0.9, a_vs_c=0.001, b_vs_c=0.001)
         before = sig.copy()
 
-        _nonsignificant_adjacency(sig)
+        adjacency = _nonsignificant_adjacency(sig)
 
+        assert bool(adjacency.loc["A", "B"]) is True
+        assert bool(adjacency.loc["A", "C"]) is False
+        assert adjacency.to_numpy().diagonal().all()
+        assert list(adjacency.index) == list(adjacency.columns) == MODELS
+        assert adjacency.dtypes.eq(bool).all()
         pd.testing.assert_frame_equal(sig, before)
 
+    @pytest.mark.parametrize(
+        "p_values, expected",
+        [
+            ((0.9, 0.001, 0.001), {"A": {"A", "B"}, "B": {"A", "B"}, "C": {"C"}}),
+            ((0.001, 0.001, 0.001), {"A": {"A"}, "B": {"B"}, "C": {"C"}}),
+            ((0.9, 0.9, 0.9), dict.fromkeys(MODELS, set(MODELS))),
+        ],
+    )
+    def test_each_model_is_grouped_with_its_non_different_peers(self, p_values, expected):
+        adjacency = _nonsignificant_adjacency(_sig_matrix(*p_values))
 
-class TestCrossbarSetsFromAdjacency:
-    def test_each_model_is_grouped_with_its_non_different_peers(self):
-        adjacency = _nonsignificant_adjacency(_sig_matrix(a_vs_b=0.9, a_vs_c=0.001, b_vs_c=0.001))
+        assert _crossbar_sets_from_adjacency(adjacency) == expected
 
-        sets = _crossbar_sets_from_adjacency(adjacency)
-
-        assert sets["A"] == {"A", "B"}
-        assert sets["C"] == {"C"}
-
-    def test_all_significant_yields_only_singletons(self):
-        adjacency = _nonsignificant_adjacency(_sig_matrix(a_vs_b=0.001, a_vs_c=0.001, b_vs_c=0.001))
-
-        assert _crossbar_sets_from_adjacency(adjacency) == {"A": {"A"}, "B": {"B"}, "C": {"C"}}
-
-    def test_none_significant_groups_everything(self):
-        adjacency = _nonsignificant_adjacency(_sig_matrix(a_vs_b=0.9, a_vs_c=0.9, b_vs_c=0.9))
-
-        assert _crossbar_sets_from_adjacency(adjacency)["A"] == set(MODELS)
-
-
-class TestDrawCrossbars:
-    def test_singleton_groups_draw_nothing(self):
-        _, ax = plt.subplots()
+    def test_singleton_groups_draw_nothing_and_each_group_draws_one_line_in_the_model_color(self):
         ranks = pd.Series({"A": 1.0, "B": 2.0, "C": 3.0})
-        sets = {name: {name} for name in MODELS}
+        colors = {"A": "#ff0000", "B": "#00ff00", "C": "#0000ff"}
+        _, ax = plt.subplots()
 
-        ypos = _draw_crossbars(ax, ranks, sets, dict.fromkeys(MODELS, "#000000"), {})
-
+        assert _draw_crossbars(ax, ranks, {name: {name} for name in MODELS}, colors, {}) == -0.5
         assert len(ax.lines) == 0
-        assert ypos == -0.5
 
-    def test_each_group_gets_one_line_and_shifts_the_offset(self):
-        _, ax = plt.subplots()
-        ranks = pd.Series({"A": 1.0, "B": 2.0, "C": 3.0})
-        sets = {"A": {"A", "B"}, "B": {"A", "B"}, "C": {"C"}}
+        ypos = _draw_crossbars(ax, ranks, {"A": {"A", "B"}, "B": {"A", "B"}, "C": {"C"}}, colors, {})
 
-        ypos = _draw_crossbars(ax, ranks, sets, dict.fromkeys(MODELS, "#000000"), {})
-
-        assert len(ax.lines) == 2
         assert ypos == -1.5
-
-    def test_lines_use_the_model_color(self):
-        _, ax = plt.subplots()
-        ranks = pd.Series({"A": 1.0, "B": 2.0})
-        sets = {"A": {"A", "B"}, "B": {"A", "B"}}
-
-        _draw_crossbars(ax, ranks, sets, {"A": "#ff0000", "B": "#00ff00"}, {})
-
+        assert len(ax.lines) == 2
         assert matplotlib.colors.to_hex(ax.lines[0].get_color()) == "#ff0000"
 
 
 class TestCompute:
-    def test_title_names_the_metric_and_the_friedman_p_value(self, computed):
-        title = computed._fig.axes[0].get_title()
+    def test_title_markers_and_labels(self, computed, experiment):
+        ax = computed._fig.axes[0]
+        labels = {text.get_text() for text in ax.texts}
 
-        assert "Critical Difference Diagram: Metric: MSE." in title
-        assert "Friedman-Chi2 p-value" in title
-
-    def test_every_model_is_placed_on_the_rank_axis(self, computed, experiment):
-        labels = {text.get_text() for text in computed._fig.axes[0].texts}
-
+        assert "Critical Difference Diagram: Metric: MSE." in ax.get_title()
+        assert "Friedman-Chi2 p-value" in ax.get_title()
         assert len(labels) == len(experiment.models)
         assert all(any(name in label for label in labels) for name in experiment.model_names)
+        assert len(ax.collections) == len(experiment.models)
+        assert ax.yaxis.get_visible() is False
 
-    def test_one_marker_is_drawn_per_model(self, computed, experiment):
-        assert len(computed._fig.axes[0].collections) == len(experiment.models)
-
-    def test_rank_axis_hides_the_y_axis(self, computed):
-        assert computed._fig.axes[0].yaxis.get_visible() is False
-
-    def test_metric_is_configurable(self, experiment):
+    def test_metric_is_configurable_and_defaults_to_mse(self, experiment):
         plot = CriticalDifferenceVisualization()
+        assert plot._metric == "MSE"
 
         plot.compute(experiment, metric="Pearson")
 
@@ -257,15 +184,13 @@ class TestCompute:
         assert not any("D" in label for label in labels)
 
     def test_falls_back_to_a_placeholder_when_there_is_no_data(self):
-        result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
         plot = CriticalDifferenceVisualization()
 
-        plot.compute(result)
+        plot.compute(ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))]))
 
         assert plot._fig.axes[0].texts[0].get_text() == "No data available"
 
     def test_fewer_than_three_models_is_skipped_instead_of_raising(self, caplog):
-        """``MULTIPLE_MODELS`` admits a two-model experiment, which Friedman cannot rank."""
         plot = CriticalDifferenceVisualization()
 
         with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.critical_difference"):
@@ -284,61 +209,35 @@ class TestCompute:
         assert any("no finite NotAMetric values" in r.getMessage() for r in caplog.records)
 
 
-class TestRendering:
+class TestRenderingAndGuards:
     def test_to_png_writes_a_png_file(self, computed, tmp_path):
-        out = tmp_path / "cd.png"
+        computed.to_png(tmp_path / "cd.png")
 
-        computed.to_png(out)
-
-        assert out.read_bytes().startswith(PNG_MAGIC)
+        assert (tmp_path / "cd.png").read_bytes().startswith(PNG_MAGIC)
 
     def test_to_multiqc_embeds_the_figure_under_the_registry_name(self, computed):
-        sections = computed.to_multiqc()
+        (section,) = computed.to_multiqc()
 
-        assert len(sections) == 1
-        assert (sections[0].name, sections[0].anchor) == ("critical_difference", "critical_difference")
-        assert sections[0].content is not None
-        assert "data:image/png;base64," in sections[0].content
+        assert (section.name, section.anchor) == ("critical_difference", "critical_difference")
+        assert "data:image/png;base64," in section.content
 
+    @pytest.mark.parametrize("method", ["to_png", "to_multiqc", "show"])
+    def test_methods_raise_before_compute(self, tmp_path, method):
+        args = (tmp_path / "c.png",) if method == "to_png" else ()
 
-class TestGuardsBeforeCompute:
-    def test_to_png_raises(self, tmp_path):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_png\(\)"):
-            CriticalDifferenceVisualization().to_png(tmp_path / "c.png")
-
-    def test_to_multiqc_raises(self):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_multiqc\(\)"):
-            CriticalDifferenceVisualization().to_multiqc()
-
-    def test_show_raises(self):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before show\(\)"):
-            CriticalDifferenceVisualization().show()
-
-    def test_metric_defaults_to_mse(self):
-        assert CriticalDifferenceVisualization()._metric == "MSE"
+        with pytest.raises(RuntimeError, match=rf"Call compute\(\) before {method}\(\)"):
+            getattr(CriticalDifferenceVisualization(), method)(*args)
 
 
 class TestNoGlobalBackendSwitch:
-    """``import drevalpy`` must not reach into the process-wide Matplotlib state.
-
-    Registering the builtins imports this module, so a module-scope
-    ``matplotlib.use("agg")`` here disabled inline plotting in every notebook
-    that imported the library at all.
-
-    Extended tier: ``test_importing_drevalpy_leaves_the_backend_alone`` can only be
-    asserted in a pristine interpreter, so it spawns one (~2.3s). Its two siblings
-    are cheap but belong to the same concern, so the marker sits on the class.
-    """
+    """Registering the builtins imports this module; a module-scope ``matplotlib.use`` broke notebooks."""
 
     pytestmark = pytest.mark.slow
 
     def test_the_module_does_not_call_matplotlib_use(self):
-        source = UPath(critical_difference.__file__).read_text(encoding="utf-8")
-
-        assert "matplotlib.use(" not in source
+        assert "matplotlib.use(" not in UPath(critical_difference.__file__).read_text(encoding="utf-8")
 
     def test_importing_drevalpy_leaves_the_backend_alone(self):
-        """Asserted in a fresh interpreter: an in-process reload cannot see this."""
         script = (
             "import matplotlib\n"
             "before = matplotlib.get_backend()\n"
@@ -353,15 +252,13 @@ class TestNoGlobalBackendSwitch:
         assert before == after
 
     def test_the_figure_renders_under_the_agg_backend(self, experiment, tmp_path):
-        """Forcing ``agg`` proves the plot is still headless-safe without the global call."""
         original = matplotlib.get_backend()
         matplotlib.use("agg")
         try:
             plot = CriticalDifferenceVisualization()
             plot.compute(experiment)
-            out = tmp_path / "headless.png"
-            plot.to_png(out)
+            plot.to_png(tmp_path / "headless.png")
         finally:
             matplotlib.use(original)
 
-        assert out.read_bytes().startswith(PNG_MAGIC)
+        assert (tmp_path / "headless.png").read_bytes().startswith(PNG_MAGIC)

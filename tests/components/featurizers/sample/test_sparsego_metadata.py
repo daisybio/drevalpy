@@ -1,8 +1,4 @@
-"""Tests for the SparseGO ontology metadata read helper.
-
-Mirrors :mod:`drevalpy.components.featurizers.sample._sparsego_metadata`. The
-featurizer that consumes this metadata is covered in ``test_sparsego_ontology.py``.
-"""
+"""Tests for the SparseGO ontology metadata read helper (``_sparsego_metadata``)."""
 
 from __future__ import annotations
 
@@ -11,7 +7,9 @@ from typing import Any
 import numpy as np
 
 from drevalpy.components.featurizers.sample._sparsego_metadata import read_sparsego_ontology_metadata
+from drevalpy.types.data.feature_source import SampleFeatureSource
 from tests.conftest import MockFeatureSource
+from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
 
 
 def _metadata() -> dict[str, Any]:
@@ -37,37 +35,21 @@ def test_read_resolves_metadata_from_the_source() -> None:
     np.testing.assert_array_equal(restored["layer_connections"][0], np.array([["term", "a"]]))
 
 
-def test_read_returns_none_without_attached_metadata() -> None:
-    source = MockFeatureSource({"cl1": {"gene_expression": np.array([1.0, 2.0])}})
-
-    assert read_sparsego_ontology_metadata(source) is None
-
-
-def test_read_tolerates_a_source_that_raises_on_unknown_metadata_keys() -> None:
-    from drevalpy.types.data.feature_source import SampleFeatureSource
-    from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
-
+def test_read_returns_none_without_usable_metadata() -> None:
+    assert read_sparsego_ontology_metadata(MockFeatureSource({"cl1": {"gene_expression": np.array([1.0])}})) is None
+    assert (
+        read_sparsego_ontology_metadata(MockFeatureSource({}, meta_info={"sparsego_ontology": {"gene_dim_input": 2}}))
+        is None
+    )
     dataset = synthetic_mudataset_gene_expression_fingerprints()
-    source = SampleFeatureSource(dataset, dataset.sample_ids)
-
-    assert read_sparsego_ontology_metadata(source) is None
-
-
-def test_read_ignores_payload_without_layer_connections() -> None:
-    source = MockFeatureSource({}, meta_info={"sparsego_ontology": {"gene_dim_input": 2}})
-
-    assert read_sparsego_ontology_metadata(source) is None
+    assert read_sparsego_ontology_metadata(SampleFeatureSource(dataset, dataset.sample_ids)) is None
 
 
 def test_read_resolves_metadata_stored_in_mdata_uns() -> None:
-    from drevalpy.types.data.feature_source import SampleFeatureSource
-    from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
-
     dataset = synthetic_mudataset_gene_expression_fingerprints()
     dataset.mdata.uns["sparsego_ontology"] = _metadata()
-    source = SampleFeatureSource(dataset, dataset.sample_ids)
 
-    restored = read_sparsego_ontology_metadata(source)
+    restored = read_sparsego_ontology_metadata(SampleFeatureSource(dataset, dataset.sample_ids))
 
     assert restored is not None
     assert restored["gene_dim_input"] == 2

@@ -61,11 +61,7 @@ def test_resolve_cache_dir_prefers_the_option_over_the_environment(
 
     assert resolve_cache_dir(str(tmp_path / "option")) == tmp_path / "option"
     assert resolve_cache_dir(None) == tmp_path / "env"
-
-
-def test_resolve_cache_dir_is_none_without_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv(CACHE_ENV_VAR, raising=False)
-
+    monkeypatch.delenv(CACHE_ENV_VAR)
     assert resolve_cache_dir(None) is None
     assert resolve_cache_dir("") is None
 

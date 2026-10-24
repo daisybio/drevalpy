@@ -1,13 +1,9 @@
-"""Tests for featurizer variant storage helpers.
-
-Mirrors :mod:`drevalpy.components.featurizers.storage`. These are pure functions
-over a MuData object; the only production writer is ``Dataset.precompute()``, so
-the fixtures below build the 2x2 MuData by hand.
-"""
+"""Tests for featurizer variant storage helpers."""
 
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import anndata as ad
 import mudata as md
@@ -36,7 +32,6 @@ _DRUGS = np.array(["d1", "d2"])
 
 @pytest.fixture
 def mdata() -> md.MuData:
-    """A 2x2 response MuData with one omics modality and pre-computed obsm/varm."""
     response = ad.AnnData(
         X=np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32),
         obs=pd.DataFrame(index=_SAMPLES),
@@ -52,62 +47,34 @@ def mdata() -> md.MuData:
     return md.MuData({"response": response, "gene_expression": gene_expression})
 
 
-def test_find_variant_key_returns_none_without_a_registry(mdata: md.MuData) -> None:
+def test_variant_registry_round_trip(mdata: md.MuData) -> None:
     assert find_variant_key(mdata, "pca_expression", {"n_components": 2}) is None
-
-
-def test_register_then_find_matches_on_hyperparameters(mdata: md.MuData) -> None:
     register_variant(mdata, "pca_expression", "pca_expression_0", {"n_components": 2})
-
     assert find_variant_key(mdata, "pca_expression", {"n_components": 2}) == "pca_expression_0"
-
-
-def test_find_variant_key_returns_none_for_unmatched_hyperparameters(mdata: md.MuData) -> None:
-    register_variant(mdata, "pca_expression", "pca_expression_0", {"n_components": 2})
-
     assert find_variant_key(mdata, "pca_expression", {"n_components": 8}) is None
-
-
-def test_find_variant_key_treats_none_as_the_default_empty_params(mdata: md.MuData) -> None:
+    assert list_variants(mdata, "landmark_genes") == {}
     register_variant(mdata, "chemberta", "chemberta_0", None)
-
     assert find_variant_key(mdata, "chemberta", None) == "chemberta_0"
 
 
-def test_register_variant_writes_json_under_the_side_specific_uns_key(mdata: md.MuData) -> None:
+def test_registry_is_stored_as_json_per_side(mdata: md.MuData) -> None:
     register_variant(mdata, "smilesvec", "smilesvec_0", {"k": 8}, side="drug")
-
     assert VARIANTS_UNS_KEY_SAMPLE not in mdata.uns
     assert json.loads(mdata.uns[VARIANTS_UNS_KEY_DRUG]) == {"smilesvec": {"smilesvec_0": {"k": 8}}}
-
-
-def test_registry_sides_are_independent(mdata: md.MuData) -> None:
     register_variant(mdata, "shared", "shared_0", {"a": 1}, side="sample")
     register_variant(mdata, "shared", "shared_9", {"a": 1}, side="drug")
-
     assert find_variant_key(mdata, "shared", {"a": 1}, side="sample") == "shared_0"
     assert find_variant_key(mdata, "shared", {"a": 1}, side="drug") == "shared_9"
 
 
-def test_list_variants_is_empty_for_an_unknown_storage_key(mdata: md.MuData) -> None:
-    register_variant(mdata, "pca_expression", "pca_expression_0", {"n_components": 2})
-
-    assert list_variants(mdata, "landmark_genes") == {}
-
-
 def test_list_variants_reads_a_dict_valued_registry(mdata: md.MuData) -> None:
     mdata.uns[VARIANTS_UNS_KEY_SAMPLE] = {"pca": {"pca_0": {"n_components": 2}}}
-
     assert list_variants(mdata, "pca") == {"pca_0": {"n_components": 2}}
 
 
 @pytest.mark.parametrize(
     ("storage_key", "index", "expected"),
-    [
-        pytest.param("pca", 0, "pca_0", id="plain"),
-        pytest.param("raw[gene_expression]", 1, "raw_gene_expression_1", id="bracketed-view"),
-        pytest.param("a:b", 2, "a_b_2", id="colon"),
-    ],
+    [("pca", 0, "pca_0"), ("raw[gene_expression]", 1, "raw_gene_expression_1"), ("a:b", 2, "a_b_2")],
 )
 def test_make_variant_key_sanitizes_the_storage_key(storage_key: str, index: int, expected: str) -> None:
     assert make_variant_key(storage_key, index) == expected
@@ -115,177 +82,81 @@ def test_make_variant_key_sanitizes_the_storage_key(storage_key: str, index: int
 
 def test_next_variant_index_counts_registered_variants(mdata: md.MuData) -> None:
     assert next_variant_index(mdata, "pca") == 0
-
     register_variant(mdata, "pca", "pca_0", {"n_components": 2})
     register_variant(mdata, "pca", "pca_1", {"n_components": 8})
-
     assert next_variant_index(mdata, "pca") == 2
 
 
-def test_fetch_from_modality_aligns_rows_to_entity_ids(mdata: md.MuData) -> None:
-    result = fetch_from_modality(mdata, "gene_expression", np.array(["cl2", "cl1"]))
-
+@pytest.mark.parametrize(
+    ("fetch", "key", "present", "expected"),
+    [
+        (fetch_from_modality, "gene_expression", "methylation", [[8.0, 9.0, 10.0], [5.0, 6.0, 7.0]]),
+        (fetch_from_varm, "morgan_fingerprint_0", "chemberta_0", [[0.0, 1.0], [1.0, 0.0]]),
+        (fetch_from_obsm, "pca_expression_0", "bionic_0", [[0.3, 0.4], [0.1, 0.2]]),
+    ],
+)
+def test_fetchers_align_rows_and_report_absence(mdata: md.MuData, fetch, key, present, expected) -> None:
+    ids = _DRUGS if fetch is fetch_from_varm else _SAMPLES
+    result = fetch(mdata, key, ids[::-1])
     assert result is not None
-    np.testing.assert_allclose(result, [[8.0, 9.0, 10.0], [5.0, 6.0, 7.0]])
-
-
-def test_fetch_from_modality_returns_none_for_an_absent_modality(mdata: md.MuData) -> None:
-    assert fetch_from_modality(mdata, "methylation", _SAMPLES) is None
-
-
-def test_fetch_from_modality_fills_unknown_entities_with_nan(mdata: md.MuData) -> None:
-    result = fetch_from_modality(mdata, "gene_expression", np.array(["cl1", "ghost"]))
-
-    assert result is not None
-    np.testing.assert_allclose(result[0], [5.0, 6.0, 7.0])
-    assert np.all(np.isnan(result[1]))
-
-
-def test_fetch_from_varm_aligns_rows_to_drug_ids(mdata: md.MuData) -> None:
-    result = fetch_from_varm(mdata, "morgan_fingerprint_0", np.array(["d2", "d1"]))
-
-    assert result is not None
-    np.testing.assert_allclose(result, [[0.0, 1.0], [1.0, 0.0]])
-
-
-def test_fetch_from_varm_returns_none_for_an_absent_key(mdata: md.MuData) -> None:
-    assert fetch_from_varm(mdata, "chemberta_0", _DRUGS) is None
-
-
-def test_fetch_from_varm_fills_unknown_drugs_with_nan(mdata: md.MuData) -> None:
-    result = fetch_from_varm(mdata, "morgan_fingerprint_0", np.array(["d1", "ghost"]))
-
-    assert result is not None
-    np.testing.assert_allclose(result[0], [1.0, 0.0])
-    assert np.all(np.isnan(result[1]))
-
-
-def test_fetch_from_obsm_aligns_rows_to_sample_ids(mdata: md.MuData) -> None:
-    result = fetch_from_obsm(mdata, "pca_expression_0", np.array(["cl2", "cl1"]))
-
-    assert result is not None
-    np.testing.assert_allclose(result, [[0.3, 0.4], [0.1, 0.2]], rtol=1e-6)
-
-
-def test_fetch_from_obsm_returns_none_for_an_absent_key(mdata: md.MuData) -> None:
-    assert fetch_from_obsm(mdata, "bionic_0", _SAMPLES) is None
-
-
-def test_fetch_from_obsm_fills_unknown_samples_with_nan(mdata: md.MuData) -> None:
-    result = fetch_from_obsm(mdata, "pca_expression_0", np.array(["cl1", "ghost"]))
-
-    assert result is not None
-    np.testing.assert_allclose(result[0], [0.1, 0.2], rtol=1e-6)
-    assert np.all(np.isnan(result[1]))
+    np.testing.assert_allclose(result, expected, rtol=1e-6)
+    assert fetch(mdata, present, ids) is None
+    padded = fetch(mdata, key, np.array([ids[0], "ghost"]))
+    assert padded is not None
+    assert np.all(np.isnan(padded[1])) and not np.isnan(padded[0]).any()
 
 
 def test_fetchers_return_none_without_a_response_modality() -> None:
-    only_omics = md.MuData(
-        {
-            "gene_expression": ad.AnnData(
-                X=np.zeros((2, 2), dtype=np.float32),
-                obs=pd.DataFrame(index=_SAMPLES),
-                var=pd.DataFrame(index=["g0", "g1"]),
-            )
-        }
-    )
-
+    omics = ad.AnnData(X=np.zeros((2, 2), dtype=np.float32), obs=pd.DataFrame(index=_SAMPLES))
+    only_omics = md.MuData({"gene_expression": omics})
     assert fetch_from_varm(only_omics, "anything", _DRUGS) is None
     assert fetch_from_obsm(only_omics, "anything", _SAMPLES) is None
 
 
 class _SampleStore(FeaturizerStorageMixin):
-    """Sample-side storage user, standing in for a real featurizer."""
-
     storage_key = "probe"
     side = "sample"
 
 
 class _DrugStore(FeaturizerStorageMixin):
-    """Drug-side storage user, standing in for a real featurizer."""
-
     storage_key = "probe"
     side = "drug"
 
 
 def test_featurizer_inherits_the_storage_mixin() -> None:
-    """The mixin was extracted off ``Featurizer``; it has to still be mixed back in."""
     assert issubclass(Featurizer, FeaturizerStorageMixin)
     for name in ("fetch", "_fetch_by_key", "store", "_store_by_key", "list_stored_variants"):
         assert name not in vars(Featurizer), f"{name} should live only on the mixin"
 
 
-def test_storage_mixin_fetch_returns_none_without_a_registered_variant(mdata: md.MuData) -> None:
-    assert _SampleStore().fetch(mdata, _SAMPLES) is None
-
-
-def test_storage_mixin_store_then_fetch_round_trips_on_the_sample_side(mdata: md.MuData) -> None:
+def test_storage_mixin_sample_side_store_fetch_round_trip(mdata: md.MuData) -> None:
     values = np.array([[1.5, 2.5], [3.5, 4.5]], dtype=np.float32)
     store = _SampleStore()
-
+    assert store.fetch(mdata, _SAMPLES) is None
     store.store(mdata, _SAMPLES, values, {"n": 3})
-    fetched = store.fetch(mdata, _SAMPLES, {"n": 3})
+    store.store(mdata, _SAMPLES, values, {"n": 4})
+    np.testing.assert_allclose(store.fetch(mdata, _SAMPLES, {"n": 3}), values)
+    assert _SampleStore.list_stored_variants(mdata) == {"probe_0": {"n": 3}, "probe_1": {"n": 4}}
+    assert _DrugStore.list_stored_variants(mdata) == {}
 
-    assert fetched is not None
-    np.testing.assert_allclose(fetched, values)
 
-
-def test_storage_mixin_store_writes_the_drug_side_to_varm(mdata: md.MuData) -> None:
-    values = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
-
-    _DrugStore().store(mdata, _DRUGS, values)
-
+def test_storage_mixin_drug_side_writes_to_varm(mdata: md.MuData) -> None:
+    _DrugStore().store(mdata, _DRUGS, np.eye(2, dtype=np.float32))
     assert "probe_0" in mdata.mod["response"].varm
     assert "probe_0" not in mdata.mod["response"].obsm
 
 
-def test_storage_mixin_store_indexes_successive_variants(mdata: md.MuData) -> None:
-    store = _SampleStore()
-    values = np.zeros((2, 2), dtype=np.float32)
-
-    store.store(mdata, _SAMPLES, values, {"n": 1})
-    store.store(mdata, _SAMPLES, values, {"n": 2})
-
-    assert set(store.list_stored_variants(mdata)) == {"probe_0", "probe_1"}
-
-
-def test_storage_mixin_list_stored_variants_is_a_classmethod(mdata: md.MuData) -> None:
-    """``list_stored_variants`` reads ``cls.side``, so it must work off the class."""
-    _SampleStore().store(mdata, _SAMPLES, np.zeros((2, 2), dtype=np.float32), {"n": 1})
-
-    assert _SampleStore.list_stored_variants(mdata) == {"probe_0": {"n": 1}}
-    assert _DrugStore.list_stored_variants(mdata) == {}
-
-
-def test_storage_mixin_fetch_precomputed_tolerates_a_source_without_mdata() -> None:
-    class _NoMdata:
-        mdata = None
-
-    assert _SampleStore().fetch_precomputed(_NoMdata(), _SAMPLES) is None
-
-
-def test_storage_mixin_fetch_precomputed_reads_through_a_backed_source(mdata: md.MuData) -> None:
+def test_fetch_precomputed_reads_through_a_source(mdata: md.MuData) -> None:
     values = np.array([[7.0, 8.0], [9.0, 10.0]], dtype=np.float32)
     store = _SampleStore()
     store.store(mdata, _SAMPLES, values)
-
-    class _Backed:
-        pass
-
-    source = _Backed()
-    source.mdata = mdata
-
-    fetched = store.fetch_precomputed(source, _SAMPLES)
-
-    assert fetched is not None
-    np.testing.assert_allclose(fetched, values)
+    source = SimpleNamespace(mdata=mdata)
+    np.testing.assert_allclose(store.fetch_precomputed(source, _SAMPLES), values)
+    assert store.fetch_precomputed(SimpleNamespace(mdata=None), _SAMPLES) is None
 
 
 def test_storage_mixin_prefers_a_modality_over_obsm(mdata: md.MuData) -> None:
-    """``_fetch_by_key`` tries modalities first; ``Dataset.precompute`` can write either."""
     register_variant(mdata, "probe", "gene_expression", None, side="sample")
-
     fetched = _SampleStore().fetch(mdata, _SAMPLES)
-
     assert fetched is not None
     assert fetched.shape == (2, 3)

@@ -38,37 +38,25 @@ def test_mrmr_selector_penalizes_redundancy() -> None:
     assert len({0, 1} & set(selected)) == 1
 
 
-def test_mrmr_selector_keeps_selection_order_in_transform() -> None:
+def test_mrmr_selector_keeps_selection_order_accepts_float32_and_clones() -> None:
+    from sklearn.base import clone
+
     rng = np.random.RandomState(1)
     x = rng.normal(size=(40, 5))
     y = 2.0 * x[:, 4] + x[:, 1]
     selector = MRMRSelector(k=2).fit(x, y)
     np.testing.assert_array_equal(selector.transform(x), x[:, selector.selected_])
     assert selector.selected_[0] == 4
-
-
-def test_mrmr_selector_accepts_float32_input() -> None:
-    rng = np.random.RandomState(2)
-    x = rng.normal(size=(30, 8)).astype(np.float32)
-    y = x[:, 5].astype(np.float64)
-    assert MRMRSelector(k=3).fit(x, y).selected_[0] == 5
-
-
-def test_mrmr_selector_clones_with_its_parameters() -> None:
-    from sklearn.base import clone
-
+    x32 = rng.normal(size=(30, 8)).astype(np.float32)
+    assert MRMRSelector(k=3).fit(x32, x32[:, 5].astype(np.float64)).selected_[0] == 5
     assert clone(MRMRSelector(k=7, floor=0.01)).get_params() == {"k": 7, "floor": 0.01}
 
 
-def test_neighbor_capped_knn_uses_all_rows_when_there_are_fewer_than_neighbors() -> None:
+def test_neighbor_capped_knn_caps_neighbors_at_the_row_count() -> None:
     x = np.array([[0.0], [1.0], [2.0]])
-    y = np.array([1.0, 2.0, 6.0])
-    model = NeighborCappedKNN(n_neighbors=20, weights="uniform").fit(x, y)
+    model = NeighborCappedKNN(n_neighbors=20, weights="uniform").fit(x, np.array([1.0, 2.0, 6.0]))
     assert model.n_neighbors == 3
     np.testing.assert_allclose(model.predict(np.array([[0.5]])), [3.0])
 
-
-def test_neighbor_capped_knn_keeps_n_neighbors_when_there_are_enough_rows() -> None:
-    x = np.arange(10, dtype=float).reshape(-1, 1)
-    model = NeighborCappedKNN(n_neighbors=3).fit(x, x.ravel())
-    assert model.n_neighbors == 3
+    many = np.arange(10, dtype=float).reshape(-1, 1)
+    assert NeighborCappedKNN(n_neighbors=3).fit(many, many.ravel()).n_neighbors == 3

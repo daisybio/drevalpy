@@ -8,45 +8,31 @@ from pydantic import ValidationError
 from drevalpy.registry.dataset._models import DatasetEntry, DrevalConfig, SourceEntry
 
 
-def test_source_entry_defaults_to_no_storage_options() -> None:
-    assert SourceEntry(url="s3://bucket/").storage_options == {}
+def test_source_entry_raw_forms() -> None:
+    options = {"anon": True}
 
-
-def test_source_entry_from_raw_accepts_a_bare_url() -> None:
     assert SourceEntry.from_raw("s3://bucket/") == SourceEntry(url="s3://bucket/")
-
-
-def test_source_entry_from_raw_accepts_a_mapping() -> None:
-    entry = SourceEntry.from_raw({"url": "s3://bucket/", "storage_options": {"anon": True}})
-
-    assert entry == SourceEntry(url="s3://bucket/", storage_options={"anon": True})
-
-
-def test_source_entry_to_raw_collapses_to_a_string_without_options() -> None:
+    assert SourceEntry.from_raw({"url": "s3://bucket/", "storage_options": options}) == SourceEntry(
+        url="s3://bucket/", storage_options=options
+    )
     assert SourceEntry(url="s3://bucket/").to_raw() == "s3://bucket/"
+    assert SourceEntry(url="s3://bucket/", storage_options=options).to_raw() == {
+        "url": "s3://bucket/",
+        "storage_options": options,
+    }
 
 
-def test_source_entry_to_raw_keeps_a_mapping_with_options() -> None:
-    entry = SourceEntry(url="s3://bucket/", storage_options={"anon": True})
-
-    assert entry.to_raw() == {"url": "s3://bucket/", "storage_options": {"anon": True}}
-
-
-def test_source_entry_requires_a_url() -> None:
-    with pytest.raises(ValidationError, match="url"):
-        SourceEntry()  # type: ignore[call-arg]
-
-
-def test_dataset_entry_requires_source_and_file() -> None:
-    with pytest.raises(ValidationError, match="file"):
-        DatasetEntry(source="local")  # type: ignore[call-arg]
-
-
-def test_config_defaults_are_empty() -> None:
-    config = DrevalConfig()
-
-    assert config.sources == {}
-    assert config.datasets == {}
+@pytest.mark.parametrize(
+    ("build", "field"),
+    [
+        (lambda: SourceEntry(), "url"),  # type: ignore[call-arg]
+        (lambda: DatasetEntry(source="local"), "file"),  # type: ignore[call-arg]
+    ],
+    ids=["source-url", "dataset-file"],
+)
+def test_required_fields(build, field: str) -> None:
+    with pytest.raises(ValidationError, match=field):
+        build()
 
 
 def test_config_rejects_unknown_root_keys() -> None:
@@ -54,11 +40,9 @@ def test_config_rejects_unknown_root_keys() -> None:
         DrevalConfig(cache_dir="/var/cache")  # type: ignore[call-arg]
 
 
-def test_config_from_raw_ignores_absent_sections() -> None:
+def test_config_from_raw_ignores_absent_sections_and_parses_mixed_source_shapes() -> None:
     assert DrevalConfig.from_raw({}) == DrevalConfig()
 
-
-def test_config_from_raw_parses_mixed_source_shapes() -> None:
     config = DrevalConfig.from_raw(
         {
             "sources": {
@@ -74,36 +58,24 @@ def test_config_from_raw_parses_mixed_source_shapes() -> None:
     assert config.datasets["Toy"] == DatasetEntry(source="plain", file="toy.h5mu")
 
 
-def test_config_to_raw_serializes_sources_and_datasets() -> None:
-    config = DrevalConfig(
-        sources={"plain": SourceEntry(url="https://example.org/")},
-        datasets={"Toy": DatasetEntry(source="plain", file="toy.h5mu")},
-    )
-
-    assert config.to_raw() == {
-        "sources": {"plain": "https://example.org/"},
-        "datasets": {"Toy": {"source": "plain", "file": "toy.h5mu"}},
-    }
-
-
-def test_config_round_trips_through_raw() -> None:
-    config = DrevalConfig(
-        sources={"s3": SourceEntry(url="s3://bucket/", storage_options={"anon": True})},
-        datasets={"Toy": DatasetEntry(source="s3", file="toy.h5mu")},
-    )
-
-    assert DrevalConfig.from_raw(config.to_raw()) == config
-
-
-def test_dataset_entry_hash_is_optional_and_round_trips() -> None:
+def test_config_round_trips_through_raw_including_an_optional_hash() -> None:
     digest = "ab" * 32
-    plain = DatasetEntry(source="s3", file="toy.h5mu")
-    pinned = DatasetEntry(source="s3", file="toy.h5mu", sha256=digest)
-    config = DrevalConfig(sources={"s3": SourceEntry(url="s3://bucket/")}, datasets={"Plain": plain, "Pinned": pinned})
+    config = DrevalConfig(
+        sources={
+            "plain": SourceEntry(url="https://example.org/"),
+            "s3": SourceEntry(url="s3://bucket/", storage_options={"anon": True}),
+        },
+        datasets={
+            "Plain": DatasetEntry(source="plain", file="toy.h5mu"),
+            "Pinned": DatasetEntry(source="s3", file="toy.h5mu", sha256=digest),
+        },
+    )
 
-    assert plain.sha256 is None
-    assert config.to_raw()["datasets"] == {
-        "Plain": {"source": "s3", "file": "toy.h5mu"},
+    raw = config.to_raw()
+
+    assert raw["sources"]["plain"] == "https://example.org/"
+    assert raw["datasets"] == {
+        "Plain": {"source": "plain", "file": "toy.h5mu"},
         "Pinned": {"source": "s3", "file": "toy.h5mu", "sha256": digest},
     }
-    assert DrevalConfig.from_raw(config.to_raw()) == config
+    assert DrevalConfig.from_raw(raw) == config

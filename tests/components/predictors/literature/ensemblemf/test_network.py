@@ -10,13 +10,6 @@ from drevalpy.components.predictors.literature.ensemblemf.network import MFNet, 
 CONFIG = MFNetConfig(sample_in_dim=7, drug_in_dim=5, n_drugs=3, hidden_dim=8, emb_dim=4, mlp_hidden=6)
 
 
-def test_residual_encoder_maps_features_to_the_latent_width() -> None:
-    encoder = ResidualEncoder(in_dim=7, hidden_dim=8, emb_dim=4, n_layers=2, dropout=0.0)
-
-    assert encoder(torch.randn(5, 7)).shape == (5, 4)
-    assert len(encoder.blocks) == len(encoder.norms) == 2
-
-
 def test_net_scores_one_response_per_pair() -> None:
     net = MFNet(CONFIG).eval()
     z_sample, z_drug = net.encode(torch.randn(4, 7), torch.randn(3, 5))
@@ -67,7 +60,7 @@ def test_drug_id_embedding_starts_near_zero() -> None:
     assert MFNet(CONFIG).drug_id_emb.weight.abs().max() < 0.1
 
 
-@pytest.mark.parametrize("n_layers", [0, 3])
+@pytest.mark.parametrize("n_layers", [0, 2, 3])
 def test_encoder_depth_follows_n_layers(n_layers: int) -> None:
     encoder = ResidualEncoder(in_dim=7, hidden_dim=8, emb_dim=4, n_layers=n_layers, dropout=0.0)
 

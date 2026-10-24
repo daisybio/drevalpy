@@ -40,11 +40,8 @@ def _net() -> MFNet:
 SETTINGS = MemberSettings(learning_rate=1e-2, weight_decay=0.0, batch_size=4, max_epochs=30, patience=30)
 
 
-def test_pair_tensors_report_their_length() -> None:
-    assert len(_pairs([0, 1], [0, 0], [1.0, 2.0])) == 2
-
-
 def test_validation_mse_is_infinite_without_validation_pairs() -> None:
+    assert len(_pairs([0, 1], [0, 0], [1.0, 2.0])) == 2
     data = _data()
     empty = MemberData(data.x_sample, data.x_drug, data.train, _pairs([], [], []))
 

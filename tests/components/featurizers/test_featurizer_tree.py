@@ -44,15 +44,10 @@ def test_ensure_unique_ignores_a_non_concat_node() -> None:
     ensure_unique_qualified_featurizers(config, "sample")
 
 
-def test_recipe_string_rejects_duplicate_qualified_selector() -> None:
-    """``from_spec`` reports the duplicate as a config error naming the offending recipe."""
+def test_recipe_string_selector_uniqueness() -> None:
     register_builtin_components()
     with pytest.raises(ValueError, match="Duplicate featurizer selector"):
         from_spec("raw[expression]+raw[expression]:fingerprints:randomForest")
-
-
-def test_recipe_string_allows_same_name_different_views() -> None:
-    register_builtin_components()
     config = from_spec("raw[expression]+raw[mutations]:fingerprints:randomForest")
     assert isinstance(config, ModelConfig)
     assert config.sample_featurizer is not None

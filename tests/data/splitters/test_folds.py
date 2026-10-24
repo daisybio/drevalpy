@@ -1,11 +1,4 @@
-"""Tests for :mod:`drevalpy.data.splitters._folds`.
-
-Mirrors the private module with the underscore stripped. All four built-in
-splitters are assembled from these helpers, so the properties every mode inherits
-- the observation mask, a disjoint train/validation/test partition, reproducibility
-from ``random_state`` - are asserted here once, directly on the helpers, rather
-than four times over through the registered splitters.
-"""
+"""Tests for :mod:`drevalpy.data.splitters._folds`, the helpers all four built-in splitters are assembled from."""
 
 from __future__ import annotations
 
@@ -24,6 +17,7 @@ from drevalpy.errors import UnknownNameError
 from tests.data.splitters._helpers import MockMuDataset, first_measured_pairs
 
 FOLD_KWARGS = {"n_splits": 5, "validation_ratio": 0.1, "random_state": 42}
+NO_INDICES = np.array([], dtype=int)
 
 
 @pytest.fixture(scope="module")
@@ -36,116 +30,73 @@ def observed(dataset) -> np.ndarray:
     return observed_mask(dataset, CurveQuality.default())
 
 
-class TestObservedMask:
-    def test_is_a_boolean_matrix_of_the_response_shape(self, dataset, observed):
-        assert observed.dtype == bool
-        assert observed.shape == dataset.response_matrix.shape
+def test_observed_mask_marks_the_measured_pairs(dataset, observed):
+    before = dataset.response_matrix.copy()
 
-    def test_marks_the_measured_pairs(self, dataset, observed):
-        np.testing.assert_array_equal(observed, ~np.isnan(dataset.response_matrix))
+    assert observed.dtype == bool
+    assert observed.shape == dataset.response_matrix.shape
+    np.testing.assert_array_equal(observed, ~np.isnan(dataset.response_matrix))
+    np.testing.assert_array_equal(np.isnan(dataset.response_matrix), np.isnan(before))
 
-    def test_off_ignores_the_quality_layers(self):
-        clean = MockMuDataset()
-        failing = first_measured_pairs(clean, 3)
 
-        unfiltered = observed_mask(MockMuDataset(failing_pairs=failing), CurveQuality.off())
+def test_observed_mask_drops_the_pairs_that_fail_the_rule_and_off_ignores_it_and_leaves_the_dataset_untouched():
+    clean = MockMuDataset()
+    failing = first_measured_pairs(clean, 3)
+    dataset = MockMuDataset(failing_pairs=failing)
+    layers = {name: dataset.get_response_layer(name).copy() for name in dataset.response_layer_names()}
 
-        np.testing.assert_array_equal(unfiltered, observed_mask(clean, CurveQuality.off()))
+    filtered = observed_mask(dataset, CurveQuality.default())
+    unfiltered = observed_mask(dataset, CurveQuality.off())
 
-    def test_drops_the_pairs_that_fail_the_rule(self):
-        clean = MockMuDataset()
-        failing = first_measured_pairs(clean, 3)
+    assert not any(filtered[row, column] for row, column in failing)
+    assert filtered.sum() == observed_mask(clean, CurveQuality.default()).sum() - len(failing)
+    np.testing.assert_array_equal(unfiltered, observed_mask(clean, CurveQuality.off()))
+    for name, values in layers.items():
+        np.testing.assert_array_equal(dataset.get_response_layer(name), values)
 
-        filtered = observed_mask(MockMuDataset(failing_pairs=failing), CurveQuality.default())
 
-        assert not any(filtered[row, column] for row, column in failing)
-        assert filtered.sum() == observed_mask(clean, CurveQuality.default()).sum() - len(failing)
+def test_off_works_without_quality_layers_and_infinite_responses_are_not_observed():
+    dataset = MockMuDataset()
+    row, column = first_measured_pairs(dataset, 1)[0]
+    dataset.response_matrix[row, column] = np.inf
+    dataset._layers = {}
 
-    def test_off_works_on_a_dataset_without_quality_layers(self):
-        dataset = MockMuDataset()
-        dataset._layers = {}
+    mask = observed_mask(dataset, CurveQuality.off())
 
-        np.testing.assert_array_equal(observed_mask(dataset, CurveQuality.off()), np.isfinite(dataset.response_matrix))
+    np.testing.assert_array_equal(mask, np.isfinite(dataset.response_matrix))
+    assert not mask[row, column]
 
-    def test_a_rule_needing_a_missing_layer_raises(self):
-        with pytest.raises(UnknownNameError, match="R2"):
-            observed_mask(MockMuDataset(), CurveQuality(min_r2=0.5))
 
-    def test_the_missing_layer_error_is_still_a_key_error(self):
-        with pytest.raises(KeyError):
-            observed_mask(MockMuDataset(), CurveQuality(min_r2=0.5))
+def test_a_rule_needing_a_missing_layer_raises_an_unknown_name_error_that_is_a_key_error():
+    with pytest.raises(UnknownNameError, match="R2") as error:
+        observed_mask(MockMuDataset(), CurveQuality(min_r2=0.5))
 
-    def test_the_layers_and_the_dataset_are_left_untouched(self):
-        failing = first_measured_pairs(MockMuDataset(), 3)
-        dataset = MockMuDataset(failing_pairs=failing)
-        response = dataset.response_matrix.copy()
-        layers = {name: dataset.get_response_layer(name).copy() for name in dataset.response_layer_names()}
-
-        observed_mask(dataset, CurveQuality.default())
-
-        np.testing.assert_array_equal(dataset.response_matrix, response)
-        for name, values in layers.items():
-            np.testing.assert_array_equal(dataset.get_response_layer(name), values)
-
-    def test_infinite_responses_are_not_observed(self):
-        dataset = MockMuDataset()
-        row, column = first_measured_pairs(dataset, 1)[0]
-        dataset.response_matrix[row, column] = np.inf
-
-        assert not observed_mask(dataset, CurveQuality.off())[row, column]
-
-    def test_does_not_mutate_the_response_matrix(self, dataset):
-        before = dataset.response_matrix.copy()
-
-        observed_mask(dataset, CurveQuality.off())
-
-        np.testing.assert_array_equal(np.isnan(dataset.response_matrix), np.isnan(before))
+    assert isinstance(error.value, KeyError)
 
 
 class TestGroupFolds:
-    def test_yields_one_triple_per_split(self):
-        assert len(list(group_folds(10, **FOLD_KWARGS))) == 5
+    def test_every_group_is_in_exactly_one_test_set_and_each_fold_partitions_the_groups(self):
+        folds = list(group_folds(10, **FOLD_KWARGS))
 
-    def test_every_group_is_in_exactly_one_test_set(self):
-        test_sets = [test for _, _, test in group_folds(10, **FOLD_KWARGS)]
-
-        assert sorted(int(i) for test in test_sets for i in test) == list(range(10))
-
-    def test_the_three_index_sets_of_a_fold_are_disjoint(self):
-        for train, validation, test in group_folds(10, **FOLD_KWARGS):
-            assert set(train.tolist()).isdisjoint(validation.tolist())
-            assert set(train.tolist()).isdisjoint(test.tolist())
-            assert set(validation.tolist()).isdisjoint(test.tolist())
-
-    def test_a_fold_covers_every_group(self):
-        for train, validation, test in group_folds(10, **FOLD_KWARGS):
+        assert len(folds) == 5
+        assert sorted(int(i) for _, _, test in folds for i in test) == list(range(10))
+        for train, validation, test in folds:
             assert sorted([*train.tolist(), *validation.tolist(), *test.tolist()]) == list(range(10))
-
-    def test_holds_out_at_least_one_validation_group_when_the_ratio_is_positive(self):
-        for _, validation, _ in group_folds(10, **FOLD_KWARGS):
             assert len(validation) >= 1
 
-    def test_a_zero_ratio_yields_no_validation_group(self):
-        for _, validation, _ in group_folds(10, n_splits=5, validation_ratio=0.0, random_state=42):
-            assert len(validation) == 0
+    def test_the_validation_ratio_controls_the_validation_size(self):
+        def sizes(ratio):
+            return [len(v) for _, v, _ in group_folds(20, n_splits=4, validation_ratio=ratio, random_state=0)]
 
-    def test_a_larger_ratio_holds_out_more(self):
-        small = [len(v) for _, v, _ in group_folds(20, n_splits=4, validation_ratio=0.1, random_state=0)]
-        large = [len(v) for _, v, _ in group_folds(20, n_splits=4, validation_ratio=0.5, random_state=0)]
+        assert sizes(0.0) == [0] * 4
+        assert all(a < b for a, b in zip(sizes(0.1), sizes(0.5), strict=True))
 
-        assert all(a < b for a, b in zip(small, large, strict=True))
+    def test_is_reproducible_for_one_seed_and_another_seed_partitions_differently(self):
+        def folds(seed):
+            return [tuple(map(list, f)) for f in group_folds(12, n_splits=4, validation_ratio=0.1, random_state=seed)]
 
-    def test_is_reproducible_for_one_seed(self):
-        first = [tuple(map(list, fold)) for fold in group_folds(12, **FOLD_KWARGS)]
-        second = [tuple(map(list, fold)) for fold in group_folds(12, **FOLD_KWARGS)]
-
-        assert first == second
-
-    def test_another_seed_partitions_differently(self):
-        a = [sorted(test.tolist()) for _, _, test in group_folds(12, n_splits=4, validation_ratio=0.1, random_state=0)]
-        b = [sorted(test.tolist()) for _, _, test in group_folds(12, n_splits=4, validation_ratio=0.1, random_state=7)]
-
-        assert a != b
+        assert folds(0) == folds(0)
+        assert folds(0) != folds(7)
 
     def test_rejects_more_splits_than_groups(self):
         with pytest.raises(ValueError, match="number of splits"):
@@ -153,17 +104,13 @@ class TestGroupFolds:
 
 
 class TestEntityMasks:
-    def test_rows_land_in_the_mask_of_their_own_side(self, observed):
+    def test_rows_land_in_the_mask_of_their_own_side_and_foreign_rows_stay_empty(self, observed):
         masks = entity_masks(observed, train=np.array([0, 1]), validation=np.array([2]), test=np.array([3]), axis=0)
 
         np.testing.assert_array_equal(masks.train.mask[[0, 1], :], observed[[0, 1], :])
         np.testing.assert_array_equal(masks.val.mask[2, :], observed[2, :])
         np.testing.assert_array_equal(masks.test.mask[3, :], observed[3, :])
-
-    def test_a_row_split_leaves_foreign_rows_empty(self, observed):
-        masks = entity_masks(observed, train=np.array([0]), validation=np.array([1]), test=np.array([2]), axis=0)
-
-        assert not masks.train.mask[1:, :].any()
+        assert not masks.train.mask[2:, :].any()
 
     def test_a_column_split_holds_out_drugs(self, observed):
         masks = entity_masks(observed, train=np.array([0, 1]), validation=np.array([2]), test=np.array([3]), axis=1)
@@ -171,54 +118,27 @@ class TestEntityMasks:
         np.testing.assert_array_equal(masks.test.mask[:, 3], observed[:, 3])
         assert not masks.test.mask[:, [0, 1, 2]].any()
 
-    def test_unobserved_pairs_are_never_selected(self, observed):
+    def test_unobserved_pairs_are_never_selected_and_an_empty_index_set_yields_an_empty_mask(self, observed):
         rows = np.arange(observed.shape[0])
 
-        masks = entity_masks(observed, train=rows, validation=np.array([], dtype=int), test=rows, axis=0)
+        masks = entity_masks(observed, train=rows, validation=NO_INDICES, test=rows, axis=0)
 
         assert not (masks.train.mask & ~observed).any()
-
-    def test_an_empty_index_set_yields_an_empty_mask(self, observed):
-        masks = entity_masks(
-            observed,
-            train=np.array([0]),
-            validation=np.array([], dtype=int),
-            test=np.array([1]),
-            axis=0,
-        )
-
         assert not masks.val.mask.any()
 
 
 class TestPairMasks:
-    def test_selects_exactly_the_requested_positions(self, observed):
+    def test_selects_exactly_the_requested_positions_without_overlap(self, observed):
         rows, columns = np.where(observed)
 
         masks = pair_masks(
-            observed.shape,
-            rows,
-            columns,
-            train=np.array([0, 1]),
-            validation=np.array([2]),
-            test=np.array([3]),
+            observed.shape, rows, columns, train=np.arange(5), validation=np.arange(5, 7), test=np.arange(7, 10)
         )
 
-        assert masks.train.mask.sum() == 2
-        assert masks.val.mask[rows[2], columns[2]]
-        assert masks.test.mask[rows[3], columns[3]]
-
-    def test_the_three_masks_do_not_overlap(self, observed):
-        rows, columns = np.where(observed)
-
-        masks = pair_masks(
-            observed.shape,
-            rows,
-            columns,
-            train=np.arange(5),
-            validation=np.arange(5, 7),
-            test=np.arange(7, 10),
-        )
-
+        assert masks.train.mask.shape == observed.shape
+        assert masks.train.mask.sum() == 5
+        assert masks.val.mask[rows[5], columns[5]]
+        assert masks.test.mask[rows[7], columns[7]]
         assert not (masks.train.mask & masks.test.mask).any()
         assert not (masks.train.mask & masks.val.mask).any()
 
@@ -226,48 +146,18 @@ class TestPairMasks:
         rows, columns = np.where(observed)
 
         masks = pair_masks(
-            observed.shape,
-            rows,
-            columns,
-            train=np.arange(3),
-            validation=np.array([], dtype=int),
-            test=np.arange(3, 5),
+            observed.shape, rows, columns, train=np.arange(3), validation=NO_INDICES, test=np.arange(3, 5)
         )
 
         assert not masks.val.mask.any()
 
-    def test_masks_have_the_response_shape(self, observed):
-        rows, columns = np.where(observed)
 
-        masks = pair_masks(
-            observed.shape,
-            rows,
-            columns,
-            train=np.arange(2),
-            validation=np.array([2]),
-            test=np.array([3]),
-        )
+@pytest.mark.parametrize(
+    ("selected", "expected"),
+    [(["a"], [0, 2]), (["b", "c"], [1, 3]), ([], []), (["z"], [])],
+    ids=["one", "several", "none", "unknown"],
+)
+def test_rows_with_labels(selected, expected):
+    labels = np.array(["a", "b", "a", "c"])
 
-        assert masks.train.mask.shape == observed.shape
-
-
-class TestRowsWithLabels:
-    def test_returns_the_rows_carrying_a_selected_label(self):
-        labels = np.array(["a", "b", "a", "c"])
-
-        np.testing.assert_array_equal(rows_with_labels(labels, np.array(["a"])), [0, 2])
-
-    def test_accepts_several_labels(self):
-        labels = np.array(["a", "b", "a", "c"])
-
-        np.testing.assert_array_equal(rows_with_labels(labels, np.array(["b", "c"])), [1, 3])
-
-    def test_no_selected_label_yields_no_rows(self):
-        labels = np.array(["a", "b"])
-
-        assert rows_with_labels(labels, np.array([], dtype=labels.dtype)).size == 0
-
-    def test_an_unknown_label_selects_nothing(self):
-        labels = np.array(["a", "b"])
-
-        assert rows_with_labels(labels, np.array(["z"])).size == 0
+    np.testing.assert_array_equal(rows_with_labels(labels, np.array(selected, dtype=labels.dtype)), expected)

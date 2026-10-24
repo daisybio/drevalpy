@@ -1,10 +1,4 @@
-"""Deterministic synthetic datasets used in place of downloadable real data.
-
-``builders`` holds the raw-omics MuData factory that the session fixture in
-``tests/conftest.py`` exposes; ``variants`` holds the deliberately degenerate
-shapes individual tests ask for, such as partial modality coverage; ``results``
-holds the result-object factories that stand in for a completed training run.
-"""
+"""Deterministic synthetic datasets (``builders``, ``variants``) and result factories (``results``)."""
 
 from __future__ import annotations
 

@@ -1,10 +1,4 @@
-"""Tests for the GSVA pathway sample featurizer.
-
-Mirrors :mod:`drevalpy.components.featurizers.sample.pathways`. Not network
-gated: it needs an ``mdata``-backed source plus ``uns["pathways_gmt"]``, both of
-which the synthetic fixture carries, or a monkeypatched gene-set download. ``gseapy.gsva`` is the slow part, so exactly
-one test runs it and the rest cover the guards.
-"""
+"""Tests for the GSVA pathway sample featurizer; exactly one slow test runs ``gseapy.gsva``."""
 
 from __future__ import annotations
 
@@ -20,13 +14,9 @@ from drevalpy.types.data.feature_source import SampleFeatureSource
 from tests.conftest import MockFeatureSource
 
 
-def test_output_dim_is_zero_before_fit() -> None:
-    assert PathwaysSampleFeaturizer().output_dim == 0
-
-
-def test_transform_before_fit_raises() -> None:
+def test_unfitted_pathways_featurizer() -> None:
     featurizer = PathwaysSampleFeaturizer()
-
+    assert featurizer.output_dim == 0
     with pytest.raises(RuntimeError, match="must be fit before transform"):
         featurizer._transform_features(MockFeatureSource(features={}), np.array(["cl1"]))
 
@@ -184,7 +174,7 @@ def test_transform_of_unseen_samples_recomputes_gsva(
     np.testing.assert_array_equal(matrix[2], np.ones(3))
 
 
-def test_transform_of_known_samples_reuses_fitted_scores(synthetic_dataset: Dataset) -> None:
+def test_transform_of_known_samples_reuses_fitted_scores_and_emits_one_block(synthetic_dataset: Dataset) -> None:
     source = SampleFeatureSource(synthetic_dataset, synthetic_dataset.sample_ids)
     fit_ids = synthetic_dataset.sample_ids[:2]
     featurizer = PathwaysSampleFeaturizer()
@@ -192,23 +182,11 @@ def test_transform_of_known_samples_reuses_fitted_scores(synthetic_dataset: Data
     featurizer._fit_ids = fit_ids
     featurizer._output_dim = 2
 
-    matrix = featurizer._transform_features(source, np.array([fit_ids[1], fit_ids[0]])).matrix
+    result = featurizer._transform_features(source, np.array([fit_ids[1], fit_ids[0]]))
 
-    np.testing.assert_allclose(matrix, [[3.0, 4.0], [1.0, 2.0]])
-
-
-def test_transform_blocks_emit_one_block_named_after_the_view(synthetic_dataset: Dataset) -> None:
-    source = SampleFeatureSource(synthetic_dataset, synthetic_dataset.sample_ids)
-    fit_ids = synthetic_dataset.sample_ids[:2]
-    featurizer = PathwaysSampleFeaturizer()
-    featurizer._fit_scores = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-    featurizer._fit_ids = fit_ids
-    featurizer._output_dim = 2
-
-    blocks = featurizer._transform_features(source, fit_ids).blocks
-
-    assert set(blocks) == {"pathways"}
-    assert blocks["pathways"].feature_names is None
+    np.testing.assert_allclose(result.matrix, [[3.0, 4.0], [1.0, 2.0]])
+    assert set(result.blocks) == {"pathways"}
+    assert result.blocks["pathways"].feature_names is None
 
 
 @pytest.mark.parametrize("state", [{}, {"fit_scores": np.zeros((2, 3)), "fit_ids": np.array(["a"]), "output_dim": 3}])

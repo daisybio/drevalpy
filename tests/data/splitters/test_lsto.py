@@ -46,22 +46,13 @@ class TestLeaveStudyOut:
         assert metadata["validation"] == "LStO"
         assert metadata["description"] == "Leave-Study-Out: test folds contain one unseen study"
 
-    def test_produces_one_fold_per_study(self, splitter, study_dataset: StudyMuDataset) -> None:
-        folds = splitter(study_dataset, quality=QUALITY)
-
-        assert len(folds) == len(STUDIES)
-
-    def test_n_splits_is_ignored_and_the_real_count_is_recorded(self, splitter, study_dataset: StudyMuDataset) -> None:
+    def test_one_fold_per_study_ignoring_n_splits(self, splitter, study_dataset: StudyMuDataset) -> None:
         folds = splitter(study_dataset, n_splits=7, quality=QUALITY)
 
-        assert len(folds) == 3
+        assert len(folds) == len(STUDIES)
         assert {fold.metadata["n_splits"] for fold in folds} == {3}
         assert [fold.metadata["fold_index"] for fold in folds] == [0, 1, 2]
         assert {fold.metadata["mode"] for fold in folds} == {"LStO"}
-
-    def test_each_fold_records_the_study_it_tests(self, splitter, study_dataset: StudyMuDataset) -> None:
-        folds = splitter(study_dataset, quality=QUALITY)
-
         assert [fold.metadata["test_study"] for fold in folds] == sorted(STUDIES)
 
     def test_the_test_set_is_every_observed_pair_of_the_study(self, splitter, study_dataset: StudyMuDataset) -> None:
@@ -69,41 +60,30 @@ class TestLeaveStudyOut:
         observed = ~np.isnan(study_dataset.response_matrix)
 
         for fold, study in zip(splitter(study_dataset, quality=QUALITY), sorted(STUDIES), strict=True):
-            expected = observed & (studies == study)[:, None]
-            np.testing.assert_array_equal(fold.test.mask, expected)
+            np.testing.assert_array_equal(fold.test.mask, observed & (studies == study)[:, None])
 
-    def test_train_and_validation_are_the_other_studies_observed_pairs(
+    def test_the_masks_partition_the_observed_pairs_and_no_study_is_shared(
         self, splitter, study_dataset: StudyMuDataset
     ) -> None:
+        studies = study_dataset.sample_column("study", study_dataset.sample_ids)
         observed = ~np.isnan(study_dataset.response_matrix)
         for fold in splitter(study_dataset, quality=QUALITY):
-            np.testing.assert_array_equal(fold.train.mask | fold.val.mask | fold.test.mask, observed)
-
-    def test_the_masks_are_disjoint(self, splitter, study_dataset: StudyMuDataset) -> None:
-        for fold in splitter(study_dataset, quality=QUALITY):
-            assert not (fold.train.mask & fold.test.mask).any()
-            assert not (fold.val.mask & fold.test.mask).any()
-            assert not (fold.train.mask & fold.val.mask).any()
-
-    def test_no_study_is_in_both_train_and_test(self, splitter, study_dataset: StudyMuDataset) -> None:
-        studies = study_dataset.sample_column("study", study_dataset.sample_ids)
-        for fold in splitter(study_dataset, quality=QUALITY):
-            test_studies = set(studies[fold.test.mask.any(axis=1)].tolist())
-            train_val_studies = set(studies[(fold.train.mask | fold.val.mask).any(axis=1)].tolist())
+            train, val, test = fold.train.mask, fold.val.mask, fold.test.mask
+            np.testing.assert_array_equal(train | val | test, observed)
+            assert not (train & test).any()
+            assert not (val & test).any()
+            assert not (train & val).any()
+            test_studies = set(studies[test.any(axis=1)].tolist())
             assert len(test_studies) == 1
-            assert test_studies & train_val_studies == set()
+            assert test_studies & set(studies[(train | val).any(axis=1)].tolist()) == set()
 
-    @pytest.mark.parametrize("ratio", [0.1, 0.3])
+    @pytest.mark.parametrize("ratio", [0.0, 0.1, 0.3])
     def test_validation_is_that_share_of_the_training_pairs(
         self, splitter, study_dataset: StudyMuDataset, ratio: float
     ) -> None:
         for fold in splitter(study_dataset, validation_ratio=ratio, quality=QUALITY):
             n_rest = int(fold.train.mask.sum() + fold.val.mask.sum())
             assert int(fold.val.mask.sum()) == int(n_rest * ratio)
-
-    def test_a_zero_ratio_leaves_the_validation_set_empty(self, splitter, study_dataset: StudyMuDataset) -> None:
-        for fold in splitter(study_dataset, validation_ratio=0.0, quality=QUALITY):
-            assert not fold.val.mask.any()
 
     def test_the_validation_pairs_span_the_training_studies(self, splitter, study_dataset: StudyMuDataset) -> None:
         studies = study_dataset.sample_column("study", study_dataset.sample_ids)
@@ -122,11 +102,6 @@ class TestLeaveStudyOut:
 
     def test_the_folds_pass_study_validation(self, splitter, study_dataset: StudyMuDataset) -> None:
         validate_folds(splitter(study_dataset, quality=QUALITY), "LStO", study_dataset)
-
-    def test_unmeasured_pairs_appear_in_no_fold(self, splitter, study_dataset: StudyMuDataset) -> None:
-        unmeasured = np.isnan(study_dataset.response_matrix)
-        for fold in splitter(study_dataset, quality=QUALITY):
-            assert not (fold.train.mask | fold.val.mask | fold.test.mask)[unmeasured].any()
 
     def test_a_single_study_is_rejected(self, splitter) -> None:
         with pytest.raises(ValueError, match="at least two studies, found 1"):

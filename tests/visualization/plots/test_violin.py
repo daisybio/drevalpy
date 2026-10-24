@@ -1,9 +1,4 @@
-"""Tests for :mod:`drevalpy.visualization.plots.violin`.
-
-``to_multiqc`` passes a ``pconfig`` without a ``title``, so MultiQC logs a
-validation warning. That is existing behaviour and is asserted as such rather
-than worked around.
-"""
+"""Tests for :mod:`drevalpy.visualization.plots.violin`."""
 
 from __future__ import annotations
 
@@ -34,36 +29,24 @@ def computed(experiment) -> ViolinVisualization:
 
 
 class TestCompute:
-    def test_draws_one_violin_per_model_and_metric(self, computed, experiment):
-        assert len(computed._fig.data) == len(experiment.models) * N_PLOTTED_METRICS
+    def test_draws_one_violin_per_model_and_metric_holding_one_point_per_fold(self, computed, experiment):
+        fig = computed._fig
+        trace = fig.data[0]
 
-    def test_every_trace_is_a_violin(self, computed):
-        assert {trace.type for trace in computed._fig.data} == {"violin"}
-
-    def test_trace_names_pair_a_model_with_a_metric(self, computed, experiment):
-        assert computed._fig.data[0].name == f"{experiment.model_names[0]}: R^2"
-
-    def test_each_violin_holds_one_point_per_fold(self, computed, experiment):
-        assert len(computed._fig.data[0].y) == experiment.models[0].n_folds
-
-    def test_violins_show_a_box_and_a_mean_line(self, computed):
-        trace = computed._fig.data[0]
-
+        assert len(fig.data) == len(experiment.models) * N_PLOTTED_METRICS
+        assert {t.type for t in fig.data} == {"violin"}
+        assert trace.name == f"{experiment.model_names[0]}: R^2"
+        assert len(trace.y) == experiment.models[0].n_folds
         assert trace.box.visible is True
         assert trace.meanline.visible is True
+        assert fig.layout.title.text == "All Metrics"
+        assert (fig.layout.height, fig.layout.width) == (600, 1100)
 
-    def test_layout_is_titled_and_sized(self, computed):
-        assert computed._fig.layout.title.text == "All Metrics"
-        assert (computed._fig.layout.height, computed._fig.layout.width) == (600, 1100)
-
-    def test_multiqc_payload_is_keyed_by_full_execution_identity(self, computed, experiment):
+    def test_multiqc_payload_is_keyed_by_execution_identity_and_holds_raw_metrics(self, computed, experiment):
         expected = {run.execution_id for model in experiment.models for run in model.select_runs()}
-
-        assert set(computed._data) == expected
-
-    def test_multiqc_payload_holds_the_raw_per_fold_metrics(self, computed, experiment):
         run = experiment.models[0].runs[0]
 
+        assert set(computed._data) == expected
         assert computed._data[run.execution_id] == run.metrics
 
     def test_metrics_absent_from_the_result_are_dropped(self):
@@ -77,7 +60,6 @@ class TestCompute:
         assert [trace.name for trace in plot._fig.data] == ["ElasticNet: MSE"]
 
     def test_skips_cleanly_with_a_warning_when_no_metric_survives(self, caplog):
-        """A plot with nothing to show must warn and skip, not emit an empty figure."""
         result = ExperimentResult([make_run_result(fold_index=i, metrics={"Pearson": np.nan}) for i in range(2)])
         plot = ViolinVisualization()
 
@@ -97,22 +79,15 @@ class TestCompute:
         assert len(plot._fig.data) == len(normalized.models) * N_PLOTTED_METRICS
 
 
-class TestToMultiqc:
-    def test_returns_a_single_native_violin_section(self, computed):
-        sections = computed.to_multiqc()
+class TestOutputsAndGuards:
+    def test_to_multiqc_returns_a_single_native_violin_section(self, computed):
+        (section,) = computed.to_multiqc()
 
-        assert len(sections) == 1
-        assert (sections[0].name, sections[0].anchor) == ("Metric Distributions", "dreval_violin")
+        assert (section.name, section.anchor) == ("Metric Distributions", "dreval_violin")
+        assert section.plot is not None
+        assert "Distribution of evaluation metrics" in section.description
 
-    def test_section_carries_a_native_multiqc_plot(self, computed):
-        assert computed.to_multiqc()[0].plot is not None
-
-    def test_section_is_described(self, computed):
-        assert "Distribution of evaluation metrics" in computed.to_multiqc()[0].description
-
-
-class TestShow:
-    def test_delegates_to_the_plotly_figure(self, computed, monkeypatch):
+    def test_show_delegates_to_the_plotly_figure(self, computed, monkeypatch):
         calls: list = []
         monkeypatch.setattr(BaseFigure, "show", lambda self, *a, **kw: calls.append(self))
 
@@ -120,16 +95,9 @@ class TestShow:
 
         assert calls == [computed._fig]
 
+    @pytest.mark.parametrize("method", ["to_png", "to_multiqc", "show"])
+    def test_methods_raise_before_compute(self, tmp_path, method):
+        args = (tmp_path / "v.png",) if method == "to_png" else ()
 
-class TestGuardsBeforeCompute:
-    def test_to_png_raises(self, tmp_path):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_png\(\)"):
-            ViolinVisualization().to_png(tmp_path / "v.png")
-
-    def test_to_multiqc_raises(self):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_multiqc\(\)"):
-            ViolinVisualization().to_multiqc()
-
-    def test_show_raises(self):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before show\(\)"):
-            ViolinVisualization().show()
+        with pytest.raises(RuntimeError, match=rf"Call compute\(\) before {method}\(\)"):
+            getattr(ViolinVisualization(), method)(*args)

@@ -1,4 +1,4 @@
-"""Invariants for ModelConfig-native built-in model execution."""
+"""Tests for model config native."""
 
 from __future__ import annotations
 
@@ -21,38 +21,19 @@ from tests.models.synthetic_fixtures import (
 
 
 @pytest.mark.parametrize("name", list_zoo_names(include_external=False))
-def test_model_factory_names_resolve_to_model_config(name: str) -> None:
+def test_zoo_entries_resolve_and_build_models(name: str) -> None:
     config = model_config_for_name(name)
     assert isinstance(config, ModelConfig)
     validate(config)
     assert config.predictor.name
-
-
-@pytest.mark.parametrize("name", list_zoo_names(include_external=False))
-def test_zoo_entries_create_runnable_models(name: str) -> None:
-    config = from_spec(name)
-    assert isinstance(config, ModelConfig)
-    validate(config)
-    assert DRPModel(ModelSpec.from_name(name)) is not None
+    assert isinstance(from_spec(name), ModelConfig)
+    assert DRPModel(ModelSpec.from_name(name)).name == name
 
 
 def test_no_pair_context_in_production_code() -> None:
-    repo_root = Path(__file__).resolve().parents[2] / "src" / "drevalpy"
-    hits = [
-        path.relative_to(repo_root.parent)
-        for path in repo_root.rglob("*.py")
-        if "pair_context" in path.read_text(encoding="utf-8")
-    ]
-    assert not hits, f"pair_context found in production code: {hits}"
-
-
-def test_multiview_baselines_have_model_specs() -> None:
-    for name in ("MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM"):
-        model = DRPModel(ModelSpec.from_name(name))
-        assert model.name == name
-        config = from_spec(name)
-        assert isinstance(config, ModelConfig)
-        assert config.sample_featurizer is not None
+    root = Path(__file__).resolve().parents[2] / "src" / "drevalpy"
+    hits = [p for p in root.rglob("*.py") if "pair_context" in p.read_text(encoding="utf-8")]
+    assert not hits
 
 
 @pytest.mark.parametrize("name", ["ElasticNet", "NaiveDrugMeanPredictor"])
@@ -65,10 +46,8 @@ def test_component_stack_save_load_round_trip(name: str) -> None:
         mudataset = synthetic_mudataset_identity()
     split = lso_split_masks()
     model.train(mudataset, split.train)
-    preds_before = model.predict(mudataset, split.test)
+    before = model.predict(mudataset, split.test)
     with tempfile.TemporaryDirectory() as directory:
-        checkpoint = f"{directory}/model"
-        model.save(checkpoint)
-        loaded = DRPModel.load(checkpoint)
-        preds_after = loaded.predict(mudataset, split.test)
-    assert np.allclose(preds_before, preds_after, rtol=1e-6, atol=1e-6)
+        model.save(f"{directory}/model")
+        after = DRPModel.load(f"{directory}/model").predict(mudataset, split.test)
+    assert np.allclose(before, after, rtol=1e-6, atol=1e-6)

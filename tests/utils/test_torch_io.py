@@ -1,4 +1,4 @@
-"""Tests for the trusted PyTorch serialization boundary."""
+"""Tests for torch io."""
 
 from __future__ import annotations
 
@@ -15,80 +15,46 @@ from drevalpy.utils.torch_io import (
     load_torch_payload,
     load_trusted_mapping,
     load_trusted_payload,
+    save_state_dict,
     save_torch_payload,
     save_trusted_mapping,
 )
-from drevalpy.utils.torch_io import (
-    load_state_dict as load_state_dict_bytes,
-)
-from drevalpy.utils.torch_io import (
-    save_state_dict as save_state_dict_bytes,
-)
 
 
-def test_state_dict_bytes_round_trip() -> None:
+def test_bytes_round_trips() -> None:
     state = {"layer.weight": torch.tensor([1.0, 2.0])}
-    loaded = load_state_dict_bytes(save_state_dict_bytes(state))
-    assert torch.equal(loaded["layer.weight"], state["layer.weight"])
+    assert torch.equal(load_state_dict(save_state_dict(state))["layer.weight"], state["layer.weight"])
 
-
-def test_trusted_mapping_bytes_round_trip() -> None:
     payload = {"hyperparameters": {"epochs": 3}, "value": torch.tensor(4.0)}
     loaded = load_trusted_mapping(save_trusted_mapping(payload))
     assert loaded["hyperparameters"] == {"epochs": 3}
-    value = loaded["value"]
-    expected = payload["value"]
-    assert isinstance(value, torch.Tensor)
-    assert isinstance(expected, torch.Tensor)
-    assert torch.equal(value, expected)
+    assert torch.equal(loaded["value"], payload["value"])
 
 
-def test_state_dict_rejects_non_mapping_payload() -> None:
+@pytest.mark.parametrize(
+    ("loader", "match"), [(load_state_dict, "state dict mapping"), (load_trusted_mapping, "mapping")]
+)
+def test_non_mapping_payload_is_rejected(loader, match) -> None:
     buffer = io.BytesIO()
     save_torch_payload(torch.tensor([1.0, 2.0]), buffer)
-    with pytest.raises(TypeError, match="state dict mapping"):
-        load_state_dict(buffer.getvalue())
+    with pytest.raises(TypeError, match=match):
+        loader(buffer.getvalue())
 
 
-def test_trusted_mapping_rejects_non_mapping_payload() -> None:
-    buffer = io.BytesIO()
-    save_torch_payload(torch.tensor([1.0, 2.0]), buffer)
-    with pytest.raises(TypeError, match="mapping"):
-        load_trusted_mapping(buffer.getvalue())
-
-
-def test_load_state_dict_from_path(tmp_path: Path) -> None:
-    checkpoint_path = tmp_path / "model.pt"
+@pytest.mark.parametrize("as_str", [False, True])
+def test_load_state_dict_from_path_and_map_location(tmp_path: Path, as_str: bool) -> None:
+    path = tmp_path / "model.pt"
     state = {"layer.bias": torch.tensor([0.5])}
-    save_torch_payload(state, checkpoint_path)
-    loaded = load_state_dict(checkpoint_path)
+    save_torch_payload(state, path)
+    loaded = load_state_dict(str(path) if as_str else path, map_location="cpu")
     assert torch.equal(loaded["layer.bias"], state["layer.bias"])
-
-
-def test_load_state_dict_from_string_path(tmp_path: Path) -> None:
-    checkpoint_path = tmp_path / "model.pt"
-    state = {"layer.bias": torch.tensor([0.5])}
-    save_torch_payload(state, checkpoint_path)
-    loaded = load_state_dict(str(checkpoint_path))
-    assert torch.equal(loaded["layer.bias"], state["layer.bias"])
-
-
-def test_load_state_dict_honors_map_location(tmp_path: Path) -> None:
-    checkpoint_path = tmp_path / "model.pt"
-    state = {"layer.weight": torch.tensor([1.0], device="cpu")}
-    save_torch_payload(state, checkpoint_path)
-    loaded = load_state_dict(checkpoint_path, map_location="cpu")
-    assert loaded["layer.weight"].device.type == "cpu"
+    assert loaded["layer.bias"].device.type == "cpu"
 
 
 def test_load_trusted_payload_restores_graph_objects(tmp_path: Path) -> None:
-    graph = Data(
-        x=torch.ones((2, 3)),
-        edge_index=torch.tensor([[0], [1]], dtype=torch.long),
-    )
-    graph_path = tmp_path / "graph.pt"
-    save_torch_payload(graph, graph_path)
-    loaded = load_trusted_payload(graph_path)
+    graph = Data(x=torch.ones((2, 3)), edge_index=torch.tensor([[0], [1]], dtype=torch.long))
+    save_torch_payload(graph, tmp_path / "graph.pt")
+    loaded = load_trusted_payload(tmp_path / "graph.pt")
     assert isinstance(loaded, Data)
     assert torch.equal(loaded.x, graph.x)
     assert torch.equal(loaded.edge_index, graph.edge_index)

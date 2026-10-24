@@ -1,9 +1,4 @@
-"""Tests for the :mod:`drevalpy.testing` package surface.
-
-``drevalpy.testing`` is shipped in the wheel so third-party plugins can import
-it, which makes its ``__all__`` a compatibility promise in the same way
-:mod:`drevalpy.plugin`'s is. The re-exports are pinned here accordingly.
-"""
+"""``drevalpy.testing`` ships in the wheel for plugin authors, so its ``__all__`` is a compatibility promise."""
 
 from __future__ import annotations
 
@@ -16,9 +11,6 @@ from drevalpy import testing
 from tests._barrel_surface import DeclaredSurface
 from tests._trusted_subprocess import run_trusted_python
 
-#: ``alias -> module that defines it`` for every re-export whose name is the
-#: defining module's own. ``ENTRY_POINT_GROUP`` is recorded against the registry
-#: module that owns it, which ``testing.plugins`` imports it from.
 EXPECTED_ORIGINS: dict[str, str] = {
     "ConformanceError": "drevalpy.testing.conformance",
     "ENTRY_POINT_GROUP": "drevalpy.registry._plugins",
@@ -38,8 +30,6 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "observed_pairs": "drevalpy.testing.batch",
 }
 
-#: ``build_synthetic_dataset`` is ``drevalpy.data._synthetic.synthetic`` under a
-#: new name, so the shared surface check cannot compare it by name.
 RENAMED_ORIGINS: dict[str, tuple[str, str]] = {
     "build_synthetic_dataset": ("drevalpy.data._synthetic", "synthetic"),
 }
@@ -59,37 +49,16 @@ class TestTestingSurface(DeclaredSurface):
 
 
 class TestItShipsInTheWheel:
-    """The whole point of ``drevalpy.testing`` over drevalpy's own ``tests/``.
-
-    A plugin author cannot import an unshipped module, which is why every
-    consumer so far had to hand-roll a synthetic dataset.
-
-    Extended tier: ``test_it_is_importable_without_pytest`` spawns an interpreter,
-    measured at 0.67s, and that is the *only* cost this marker saves. Its sibling is
-    free: the ``uv build --wheel`` behind ``built_wheel_contents`` is already paid by
-    ``tests/plugin/test_init.py::TestPyTypedMarker``, which is in the fast tier, so
-    the build happens on every commit either way - warm or on a cold CI cache. The
-    marker stays at class level because both facts are about the *built artifact*
-    rather than the code under test, and the fast tier keeps equivalent wheel
-    assertions in ``tests/plugin/test_init.py``.
-    """
-
     pytestmark = pytest.mark.slow
 
     @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
     def test_every_submodule_is_in_the_built_wheel(self, built_wheel_contents):
-        """Asserted against the session-shared wheel built in ``tests/conftest.py``."""
         expected = {
-            "drevalpy/testing/__init__.py",
-            "drevalpy/testing/batch.py",
-            "drevalpy/testing/conformance.py",
-            "drevalpy/testing/plugins.py",
-            "drevalpy/testing/synthetic.py",
+            f"drevalpy/testing/{name}.py" for name in ("__init__", "batch", "conformance", "plugins", "synthetic")
         }
         assert expected <= built_wheel_contents
 
     def test_it_is_importable_without_pytest(self):
-        """A plugin may run the checks from a plain script, so nothing here needs pytest."""
         script = (
             "import sys\n"
             "sys.modules['pytest'] = None\n"
@@ -97,27 +66,16 @@ class TestItShipsInTheWheel:
             "t.check_featurizer_instantiates\n"
             "print('ok')\n"
         )
-
         result = run_trusted_python(script)
-
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip().endswith("ok")
 
 
-class TestEndToEndUsage:
-    """The kit's own advertised workflow, in the order a plugin author meets it."""
+def test_the_advertised_workflow_runs_end_to_end():
+    from drevalpy.registry import predictor, sample_featurizer
 
-    def test_a_dataset_and_batch_compose_into_a_trained_predictor(self):
-        from drevalpy.registry import predictor
-
-        dataset = testing.build_synthetic_dataset()
-        batch = testing.build_synthetic_batch(dataset)
-
-        for check in testing.PREDICTOR_CHECKS:
-            check(predictor.get("ridge"), batch)
-
-    def test_a_featurizer_can_be_checked_with_no_arguments_at_all(self):
-        from drevalpy.registry import sample_featurizer
-
-        for check in testing.FEATURIZER_CHECKS:
-            check(sample_featurizer.get("identity"))
+    batch = testing.build_synthetic_batch(testing.build_synthetic_dataset())
+    for check in testing.PREDICTOR_CHECKS:
+        check(predictor.get("ridge"), batch)
+    for check in testing.FEATURIZER_CHECKS:
+        check(sample_featurizer.get("identity"))

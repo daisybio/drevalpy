@@ -31,7 +31,6 @@ _UNSUPPORTED = {
 
 
 def _collect_precomputable_featurizers():
-    """Collect all registered featurizers with precompute=True."""
     items = []
     for registry, side in [
         (sample_featurizer_registry, "sample"),
@@ -47,7 +46,6 @@ def _collect_precomputable_featurizers():
 
 
 def _instantiate_featurizer(name, cls):
-    """Create a featurizer instance with default hyperparameters."""
     try:
         default_hps = cls.get_default_hyperparameters()
     except Exception:
@@ -69,7 +67,6 @@ def _instantiate_featurizer(name, cls):
 
 
 def _make_source_and_ids(side, ds):
-    """Build the appropriate FeatureSource and pick 2 entity IDs."""
     if side == "sample":
         return SampleFeatureSource(ds, ds.sample_ids), ds.sample_ids[:2]
     return DrugFeatureSource(ds, ds.drug_ids), ds.drug_ids[:2]
@@ -77,18 +74,7 @@ def _make_source_and_ids(side, ds):
 
 @pytest.mark.parametrize("name, cls, side", _collect_precomputable_featurizers())
 def test_precompute_fit_transform(name, cls, side, synthetic_dataset: Dataset) -> None:
-    """Each precomputable featurizer derives 2 entities' features from raw data.
-
-    Goes through ``_compute_from_source``, which is the path
-    ``Dataset.precompute`` takes for independent featurizers. Calling
-    ``fit``/``transform`` instead would silently read the already-stored view and
-    prove nothing about computation.
-
-    :param name: Registry name of the featurizer.
-    :param cls: Featurizer class.
-    :param side: ``sample`` or ``drug``.
-    :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
-    """
+    """Use ``_compute_from_source`` (the ``Dataset.precompute`` path); fit/transform would read the stored view."""
     if name in _UNSUPPORTED:
         pytest.skip(f"{name} requires {_UNSUPPORTED[name]}")
 
@@ -100,5 +86,5 @@ def test_precompute_fit_transform(name, cls, side, synthetic_dataset: Dataset) -
     except ImportError as exc:
         pytest.skip(f"{name} optional dependency missing: {exc}")
 
-    assert isinstance(result, np.ndarray), f"{name}: expected ndarray, got {type(result)}"
-    assert result.shape[0] == 2, f"{name}: expected 2 rows, got {result.shape[0]}"
+    assert isinstance(result, np.ndarray)
+    assert result.shape[0] == 2

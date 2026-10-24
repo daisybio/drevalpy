@@ -13,172 +13,114 @@ from drevalpy.types.data.dataset_utils.randomization import (
 )
 
 
+def _degrees(edge_index: np.ndarray, n_nodes: int) -> list[int]:
+    return sorted(np.bincount(edge_index.ravel(), minlength=n_nodes).tolist())
+
+
 class TestRandomizeMatrix:
-    """Tests for _randomize_matrix."""
-
-    def test_permutation_preserves_rows(self):
-        rng = np.random.default_rng(0)
-        data = np.arange(20, dtype=np.float32).reshape(5, 4)
-        result = _randomize_matrix(data, rng, "permutation")
-
-        assert result.shape == data.shape
-        # Rows are a permutation of the original
-        original_set = {tuple(row) for row in data}
-        result_set = {tuple(row) for row in result}
-        assert original_set == result_set
-
-    def test_permutation_changes_order(self):
-        rng = np.random.default_rng(42)
+    def test_permutation_reorders_the_rows(self):
         data = np.arange(40, dtype=np.float32).reshape(10, 4)
-        result = _randomize_matrix(data, rng, "permutation")
+
+        result = _randomize_matrix(data, np.random.default_rng(42), "permutation")
+
+        assert {tuple(row) for row in result} == {tuple(row) for row in data}
         assert not np.array_equal(result, data)
 
     def test_invariant_preserves_row_statistics(self):
-        rng = np.random.default_rng(0)
-        data = rng.standard_normal((100, 50)).astype(np.float32)
+        data = np.random.default_rng(0).standard_normal((100, 50)).astype(np.float32)
 
         result = _randomize_matrix(data, np.random.default_rng(1), "invariant")
 
         assert result.shape == data.shape
-        # Per-row means should match approximately
         np.testing.assert_allclose(result.mean(axis=1), data.mean(axis=1), atol=0.5)
-        # Content should be different
         assert not np.array_equal(result, data)
 
     def test_invariant_handles_zero_std(self):
-        rng = np.random.default_rng(0)
-        data = np.ones((5, 10), dtype=np.float32) * 3.0
-        result = _randomize_matrix(data, rng, "invariant")
-        assert result.shape == data.shape
-        # With near-zero std, values should be close to the mean
+        data = np.full((5, 10), 3.0, dtype=np.float32)
+
+        result = _randomize_matrix(data, np.random.default_rng(0), "invariant")
+
         np.testing.assert_allclose(result.mean(axis=1), 3.0, atol=0.1)
 
 
 class TestDegreePreservingRewire:
-    """Tests for _degree_preserving_rewire."""
-
     def test_preserves_degree_sequence(self):
-        rng = np.random.default_rng(42)
         edge_index = np.array([[0, 0, 1, 2, 3], [1, 2, 3, 3, 4]])
-        result = _degree_preserving_rewire(edge_index, rng)
+
+        result = _degree_preserving_rewire(edge_index, np.random.default_rng(42))
 
         assert result.shape == edge_index.shape
-        # Degree sequence (in+out per node) must be preserved
-        max_node = max(edge_index.max(), result.max())
-        orig_deg = np.zeros(max_node + 1, dtype=int)
-        new_deg = np.zeros(max_node + 1, dtype=int)
-        for i in range(edge_index.shape[1]):
-            orig_deg[edge_index[0, i]] += 1
-            orig_deg[edge_index[1, i]] += 1
-        for i in range(result.shape[1]):
-            new_deg[result[0, i]] += 1
-            new_deg[result[1, i]] += 1
-        np.testing.assert_array_equal(sorted(orig_deg), sorted(new_deg))
+        assert _degrees(result, 5) == _degrees(edge_index, 5)
 
     def test_single_edge_unchanged(self):
-        rng = np.random.default_rng(0)
         edge_index = np.array([[0], [1]])
-        result = _degree_preserving_rewire(edge_index, rng)
-        np.testing.assert_array_equal(result, edge_index)
+
+        np.testing.assert_array_equal(_degree_preserving_rewire(edge_index, np.random.default_rng(0)), edge_index)
 
     def test_no_self_loops_introduced(self):
-        rng = np.random.default_rng(7)
-        edge_index = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
-        result = _degree_preserving_rewire(edge_index, rng)
+        result = _degree_preserving_rewire(np.array([[0, 1, 2, 3], [1, 2, 3, 0]]), np.random.default_rng(7))
+
         assert not np.any(result[0] == result[1])
 
 
 class TestRandomizeGraph:
-    """Tests for _randomize_graph."""
-
-    def test_preserves_structure_keys(self):
-        rng = np.random.default_rng(0)
-        graph = {
-            "x": np.random.randn(5, 3).astype(np.float32),
-            "edge_index": np.array([[0, 1, 2], [1, 2, 0]]),
-            "edge_attr": np.random.randn(3, 2).astype(np.float32),
-        }
-        result = _randomize_graph(graph, rng)
-        assert set(result.keys()) == set(graph.keys())
-
-    def test_node_features_randomized(self):
-        rng = np.random.default_rng(0)
+    def test_keys_kept_node_features_randomized_and_degrees_preserved(self):
+        edge_index = np.array([[0, 0, 1, 2, 3], [1, 2, 3, 3, 4]])
         graph = {
             "x": np.arange(15, dtype=np.float32).reshape(5, 3),
-            "edge_index": np.array([[0, 1], [1, 2]]),
+            "edge_index": edge_index,
+            "edge_attr": np.ones((5, 2), dtype=np.float32),
         }
-        result = _randomize_graph(graph, rng)
-        assert not np.array_equal(result["x"], graph["x"])
+
+        result = _randomize_graph(graph, np.random.default_rng(0))
+
+        assert set(result) == set(graph)
         assert result["x"].shape == graph["x"].shape
-
-    def test_edge_index_degree_preserved(self):
-        rng = np.random.default_rng(0)
-        edge_index = np.array([[0, 0, 1, 2, 3], [1, 2, 3, 3, 4]])
-        graph = {"x": np.ones((5, 2), dtype=np.float32), "edge_index": edge_index}
-        result = _randomize_graph(graph, rng)
-
-        orig_out_degree = np.bincount(edge_index[0])
-        new_out_degree = np.bincount(result["edge_index"][0], minlength=len(orig_out_degree))
-        np.testing.assert_array_equal(sorted(orig_out_degree), sorted(new_out_degree))
+        assert not np.array_equal(result["x"], graph["x"])
+        assert _degrees(result["edge_index"], 5) == _degrees(edge_index, 5)
 
 
 class TestIsGraphDict:
-    """Tests for _is_graph_dict."""
-
-    def test_graph_collection_detected(self):
-        data = {
-            "drug1": {"x": np.zeros((3, 2)), "edge_index": np.array([[0], [1]])},
-            "drug2": {"x": np.zeros((2, 2)), "edge_index": np.array([[0], [1]])},
-        }
-        assert _is_graph_dict(data) is True
-
-    def test_plain_dict_not_detected(self):
-        data = {"a": 1, "b": 2, "c": 3}
-        assert _is_graph_dict(data) is False
-
-    def test_nested_dict_without_edge_index(self):
-        data = {"drug1": {"x": np.zeros((3, 2)), "features": np.zeros(5)}}
-        assert _is_graph_dict(data) is False
+    @pytest.mark.parametrize(
+        ("data", "expected"),
+        [
+            (
+                {
+                    "drug1": {"x": np.zeros((3, 2)), "edge_index": np.array([[0], [1]])},
+                    "drug2": {"x": np.zeros((2, 2)), "edge_index": np.array([[0], [1]])},
+                },
+                True,
+            ),
+            ({"a": 1, "b": 2, "c": 3}, False),
+            ({"drug1": {"x": np.zeros((3, 2)), "features": np.zeros(5)}}, False),
+        ],
+        ids=["graph-collection", "plain-dict", "nested-without-edge-index"],
+    )
+    def test_detection(self, data, expected):
+        assert _is_graph_dict(data) is expected
 
 
 class TestOrchestratorPassesType:
-    """Test that the randomization orchestrator threads randomization_type."""
-
-    def test_orchestrator_passes_type(self, monkeypatch):
+    def test_orchestrator_passes_type(self):
         from unittest.mock import MagicMock
 
         from drevalpy.experiment import randomization
 
-        mock_config = MagicMock()
-        mock_config.sample_views.return_value = ["gene_expression"]
-        mock_config.drug_views.return_value = []
-
         mock_model = MagicMock()
-        mock_model.config = mock_config
-
+        mock_model.config.sample_views.return_value = ["gene_expression"]
+        mock_model.config.drug_views.return_value = []
         mock_dataset = MagicMock()
         mock_dataset.with_randomized_views.return_value = MagicMock(randomization=("SVRC", "gene_expression"))
 
         randomization(mock_model, mock_dataset, ["SVRC"], randomization_type="invariant", random_state=0)
 
         mock_dataset.with_randomized_views.assert_called_once()
-        call_kwargs = mock_dataset.with_randomized_views.call_args
-        assert call_kwargs.kwargs.get("randomization_type") or call_kwargs[1].get("randomization_type") is None
-        # Check positional or keyword
-        args, kwargs = call_kwargs
-        if "randomization_type" in kwargs:
-            assert kwargs["randomization_type"] == "invariant"
-        else:
-            assert args[1] == "invariant"
+        args, kwargs = mock_dataset.with_randomized_views.call_args
+        assert kwargs.get("randomization_type", args[1] if len(args) > 1 else None) == "invariant"
 
 
 class TestMissingView:
-    """Randomizing a view the dataset does not hold must fail rather than label an unchanged copy."""
-
-    def test_an_unknown_view_raises_key_error(self, synthetic_dataset):
+    @pytest.mark.parametrize("views", [["no_such_view"], ["gene_expression", "no_such_view"]])
+    def test_an_unknown_view_raises_key_error(self, synthetic_dataset, views):
         with pytest.raises(KeyError, match="no_such_view"):
-            synthetic_dataset.with_randomized_views(["no_such_view"], randomization=("SVRD", "no_such_view"))
-
-    def test_a_missing_view_among_present_ones_still_raises(self, synthetic_dataset):
-        with pytest.raises(KeyError, match="no_such_view"):
-            synthetic_dataset.with_randomized_views(["gene_expression", "no_such_view"])
+            synthetic_dataset.with_randomized_views(views)

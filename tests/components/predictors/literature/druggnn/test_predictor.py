@@ -1,4 +1,4 @@
-"""Smoke test mirror for druggnn predictor package."""
+"""Tests for the DrugGNN predictor lifecycle."""
 
 from __future__ import annotations
 
@@ -56,50 +56,15 @@ def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
     )
 
 
-def test_druggnn_predictor_registry_name() -> None:
-    assert get_predictor("drugGNN") is DrugGNNPredictor
+TINY = {"epochs": 1, "batch_size": 2, "num_workers": 0}
 
 
-def test_druggnn_requires_graph_drug_contract() -> None:
+def test_registry_name_contract_and_defaults() -> None:
     cls = get_predictor("drugGNN")
+    assert cls is DrugGNNPredictor
     assert cls.drug_contract.format == FeatureFormat.GRAPH
     assert cls.required_drug_blocks == ("drug_graph",)
     assert cls.supports_early_stopping is True
-
-
-def test_druggnn_delegates_training_to_lightning() -> None:
-    predictor = DrugGNNPredictor(
-        hyperparameters={"epochs": 1, "batch_size": 2, "num_workers": 0},
-    )
-    batch = _druggnn_batch(with_early_stopping=True)
-    predictor.fit(batch)
-    assert predictor.is_fitted()
-    assert predictor._model is not None
-
-
-def test_druggnn_supports_early_stopping_flag() -> None:
-    assert DrugGNNPredictor.supports_early_stopping is True
-
-
-def test_druggnn_round_trip_state() -> None:
-    predictor = DrugGNNPredictor(
-        hyperparameters={"epochs": 1, "batch_size": 2, "num_workers": 0},
-    )
-    batch = _druggnn_batch()
-    predictor.fit(batch)
-    assert predictor.is_fitted()
-    assert predictor._model is not None
-    original_weight = next(predictor._model.parameters()).detach().cpu()
-
-    restored = DrugGNNPredictor()
-    restored.set_state(predictor.get_state())
-    assert restored.is_fitted()
-    assert restored._model is not None
-    restored_weight = next(restored._model.parameters()).detach().cpu()
-    assert torch.allclose(original_weight, restored_weight)
-
-
-def test_druggnn_declares_trainer_defaults_and_matching_space_defaults() -> None:
     defaults = DrugGNNPredictor.get_default_hyperparameters()
     assert defaults["precision"] == 32
     assert defaults["log_every_n_steps"] == 50
@@ -107,30 +72,41 @@ def test_druggnn_declares_trainer_defaults_and_matching_space_defaults() -> None
         assert defaults[name] == spec["default"]
 
 
-def test_druggnn_state_holds_hyperparameters_and_widths() -> None:
-    predictor = DrugGNNPredictor(hyperparameters={"epochs": 1, "batch_size": 2})
-    predictor.fit(_druggnn_batch())
+def test_fit_round_trips_state_and_records_the_widths() -> None:
+    predictor = DrugGNNPredictor(hyperparameters=TINY)
+    predictor.fit(_druggnn_batch(with_early_stopping=True))
+    assert predictor.is_fitted()
+    assert predictor._model is not None
+    original_weight = next(predictor._model.parameters()).detach().cpu()
     state = predictor.get_state()
     assert state["architecture"] == {"num_node_features": 9, "num_cell_features": 3}
     assert state["predictor_hyperparameters"] == predictor._hyperparameters
 
+    restored = DrugGNNPredictor()
+    restored.set_state(state)
+    assert restored.is_fitted()
+    assert restored._model is not None
+    assert torch.allclose(original_weight, next(restored._model.parameters()).detach().cpu())
 
-@pytest.mark.parametrize("missing", ["model_state", "architecture", "predictor_hyperparameters"])
-def test_druggnn_set_state_requires_every_entry(missing: str) -> None:
-    predictor = DrugGNNPredictor(hyperparameters={"epochs": 1, "batch_size": 2})
+
+@pytest.mark.parametrize(
+    ("missing", "match"),
+    [
+        ("model_state", "model"),
+        ("architecture", "architecture"),
+        ("predictor_hyperparameters", "predictor"),
+        ("num_cell_features", "architecture"),
+    ],
+)
+def test_set_state_requires_every_entry(missing: str, match: str) -> None:
+    predictor = DrugGNNPredictor(hyperparameters=TINY)
     predictor.fit(_druggnn_batch())
     state = predictor.get_state()
-    del state[missing]
-    with pytest.raises(PredictorStateError, match=missing.split("_")[0]):
-        DrugGNNPredictor().set_state(state)
-
-
-def test_druggnn_set_state_rejects_incomplete_architecture() -> None:
-    predictor = DrugGNNPredictor(hyperparameters={"epochs": 1, "batch_size": 2})
-    predictor.fit(_druggnn_batch())
-    state = predictor.get_state()
-    state["architecture"] = {"num_node_features": 9}
-    with pytest.raises(PredictorStateError, match="architecture"):
+    if missing == "num_cell_features":
+        del state["architecture"][missing]
+    else:
+        del state[missing]
+    with pytest.raises(PredictorStateError, match=match):
         DrugGNNPredictor().set_state(state)
 
 

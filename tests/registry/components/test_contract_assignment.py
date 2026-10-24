@@ -1,9 +1,7 @@
 """Tests for :mod:`drevalpy.registry.components._contract_assignment`.
 
-Mirrors the private module with the underscore stripped. Both concrete registries
-delegate contract resolution here, so the precedence rule - decorator argument
-over class-body declaration - and its error messages are pinned once, on plain
-classes, without going through a registration decorator.
+Both concrete registries delegate contract resolution here, so the precedence rule
+(decorator argument over class-body declaration) and its errors are pinned on plain classes.
 """
 
 from __future__ import annotations
@@ -17,106 +15,62 @@ GRAPH = FeatureContract(format=FeatureFormat.GRAPH)
 MATRIX = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
+def _component(base: type = object, **attrs) -> type:
+    return type("Component", (base,), attrs)
+
+
 class TestAssignContract:
-    def test_uses_the_decorator_contract_when_the_class_declares_none(self):
-        class Component:
-            pass
+    @pytest.mark.parametrize(
+        ("body", "argument", "expected"),
+        [
+            ({}, GRAPH, GRAPH),
+            ({"contract": MATRIX}, GRAPH, GRAPH),
+            ({"contract": GRAPH}, None, GRAPH),
+            ({"contract": FeatureFormat.GRAPH}, None, GRAPH),
+        ],
+        ids=["decorator-only", "decorator-wins", "class-body-fallback", "format-shorthand"],
+    )
+    def test_resolution_order(self, body: dict, argument, expected: FeatureContract) -> None:
+        component = _component(**body)
 
-        assign_contract(Component, "contract", GRAPH)
+        assign_contract(component, "contract", argument)
 
-        assert Component.contract == GRAPH
+        assert component.contract == expected
 
-    def test_the_decorator_wins_over_a_class_body_declaration(self):
-        class Component:
-            contract = MATRIX
+    def test_a_declaration_inherited_from_a_base_class_is_usable(self) -> None:
+        component = _component(_component(contract=MATRIX))
 
-        assign_contract(Component, "contract", GRAPH)
+        assign_contract(component, "contract", None)
 
-        assert Component.contract == GRAPH
+        assert component.__dict__["contract"] == MATRIX
 
-    def test_falls_back_to_the_class_body_declaration(self):
-        class Component:
-            contract = GRAPH
+    def test_assigns_each_named_attribute_independently(self) -> None:
+        component = _component()
 
-        assign_contract(Component, "contract", None)
+        assign_contract(component, "sample_contract", MATRIX)
+        assign_contract(component, "drug_contract", GRAPH)
 
-        assert Component.contract == GRAPH
+        assert (component.sample_contract, component.drug_contract) == (MATRIX, GRAPH)
 
-    def test_normalizes_a_class_body_format_shorthand(self):
-        class Component:
-            contract = FeatureFormat.GRAPH
-
-        assign_contract(Component, "contract", None)
-
-        assert Component.contract == GRAPH
-
-    def test_a_declaration_inherited_from_a_base_class_is_usable(self):
-        class Base:
-            contract = MATRIX
-
-        class Component(Base):
-            pass
-
-        assign_contract(Component, "contract", None)
-
-        assert Component.__dict__["contract"] == MATRIX
-
-    def test_assigns_each_named_attribute_independently(self):
-        class Predictor:
-            pass
-
-        assign_contract(Predictor, "sample_contract", MATRIX)
-        assign_contract(Predictor, "drug_contract", GRAPH)
-
-        assert (Predictor.sample_contract, Predictor.drug_contract) == (MATRIX, GRAPH)
-
-    def test_rejects_a_component_that_declares_nothing(self):
-        class Component:
-            pass
-
+    def test_rejects_a_component_that_declares_nothing_naming_the_class_and_both_fixes(self) -> None:
         with pytest.raises(ValueError, match="no sample_contract declared"):
-            assign_contract(Component, "sample_contract", None)
-
-    def test_the_error_names_the_class_and_both_ways_to_fix_it(self):
-        class Component:
-            pass
-
+            assign_contract(_component(), "sample_contract", None)
         with pytest.raises(ValueError, match=r"Component: .*pass contract= to the .*or set it on the class body"):
-            assign_contract(Component, "contract", None)
+            assign_contract(_component(), "contract", None)
 
 
 class TestDeclaredContract:
-    def test_returns_a_declared_contract_unchanged(self):
-        class Component:
-            contract = GRAPH
+    def test_returns_a_contract_and_promotes_a_bare_format(self) -> None:
+        assert declared_contract(_component(contract=GRAPH), "contract") is GRAPH
+        assert declared_contract(_component(contract=FeatureFormat.NUMERIC_MATRIX), "contract") == MATRIX
 
-        assert declared_contract(Component, "contract") is GRAPH
-
-    def test_promotes_a_bare_format_to_a_contract(self):
-        class Component:
-            contract = FeatureFormat.NUMERIC_MATRIX
-
-        assert declared_contract(Component, "contract") == MATRIX
-
-    def test_an_explicit_none_counts_as_undeclared(self):
-        class Component:
-            contract = None
-
+    def test_an_explicit_none_counts_as_undeclared(self) -> None:
         with pytest.raises(ValueError, match="no contract declared"):
-            declared_contract(Component, "contract")
+            declared_contract(_component(contract=None), "contract")
 
-    def test_reports_an_unusable_declaration_as_invalid_rather_than_missing(self):
-        class Component:
-            contract = "numeric_matrix"
-
-        with pytest.raises(ValueError, match="class-body contract is invalid"):
-            declared_contract(Component, "contract")
-
-    def test_keeps_the_underlying_type_error_as_the_cause(self):
-        class Component:
-            contract = 42
-
+    @pytest.mark.parametrize("value", ["numeric_matrix", 42])
+    def test_an_unusable_declaration_is_invalid_not_missing_and_keeps_the_type_error_as_cause(self, value) -> None:
         with pytest.raises(ValueError, match="class-body contract is invalid") as excinfo:
-            declared_contract(Component, "contract")
+            declared_contract(_component(contract=value), "contract")
 
         assert isinstance(excinfo.value.__cause__, TypeError)

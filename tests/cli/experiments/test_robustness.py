@@ -1,9 +1,4 @@
-"""Tests for :mod:`drevalpy.cli.experiments.robustness`.
-
-:func:`drevalpy.experiment.robustness` is pure ``SplitMasks``
-shuffling, so it runs unpatched here and only the empty-directory guard needs
-special setup.
-"""
+"""Tests for :mod:`drevalpy.cli.experiments.robustness`; the shuffling is pure ``SplitMasks`` work, run unpatched."""
 
 from __future__ import annotations
 
@@ -21,7 +16,6 @@ N_PERMUTATIONS_DEFAULT = 5
 
 
 def _write_fold(path: UPath, fold_index: int) -> None:
-    """Write a 3x3 fold with enough pairs for shuffling to be observable."""
     rng = np.random.default_rng(fold_index)
     assignment = rng.integers(0, 3, size=(3, 3))
     SplitMasks(
@@ -34,7 +28,6 @@ def _write_fold(path: UPath, fold_index: int) -> None:
 
 @pytest.fixture()
 def splits_dir(tmp_path: UPath) -> UPath:
-    """A directory holding two fold .npz files."""
     path = tmp_path / "splits"
     path.mkdir()
     for fold_index in range(2):
@@ -46,152 +39,77 @@ def _invoke(splits_dir: UPath, out_dir: UPath, *extra: str):
     return runner.invoke(app, ["experiments", "robustness", str(splits_dir), str(out_dir), *extra])
 
 
-class TestArguments:
-    """Both positional arguments are required."""
-
-    @pytest.mark.parametrize(
-        "argv",
-        [
-            pytest.param(["experiments", "robustness"], id="none"),
-            pytest.param(["experiments", "robustness", "splits"], id="missing-output-dir"),
-        ],
-    )
-    def test_missing_positional_arguments_are_usage_errors(self, argv: list[str]) -> None:
-        result = runner.invoke(app, argv, env=HELP_ENV)
-
-        assert result.exit_code == 2
+@pytest.mark.parametrize(
+    "argv", [["experiments", "robustness"], ["experiments", "robustness", "splits"]], ids=["none", "missing-output-dir"]
+)
+def test_missing_positional_arguments_are_usage_errors(argv: list[str]) -> None:
+    assert runner.invoke(app, argv, env=HELP_ENV).exit_code == 2
 
 
-class TestEmptyInput:
-    """An input directory with no folds is an explicit exit-1 error."""
-
-    def test_empty_directory_exits_one(self, tmp_path: UPath) -> None:
-        empty = tmp_path / "empty"
-        empty.mkdir()
-
-        result = _invoke(empty, tmp_path / "out")
-
-        assert result.exit_code == 1
-
-    def test_empty_directory_reports_the_path(self, tmp_path: UPath) -> None:
-        """Typer >= 0.26 merges stderr into ``result.output``."""
-        empty = tmp_path / "empty"
-        empty.mkdir()
-
-        result = _invoke(empty, tmp_path / "out")
-
-        assert f"Error: No .npz files found in {empty}" in plain(result.output)
-
-    def test_directory_without_npz_files_exits_one(self, tmp_path: UPath) -> None:
-        splits = tmp_path / "splits"
+@pytest.mark.parametrize("kind", ["empty", "no-npz", "absent"])
+def test_a_directory_without_folds_is_an_exit_one_error_and_creates_no_output(tmp_path: UPath, kind: str) -> None:
+    splits = tmp_path / "splits"
+    if kind != "absent":
         splits.mkdir()
+    if kind == "no-npz":
         (splits / "notes.txt").write_text("not a fold")
 
-        result = _invoke(splits, tmp_path / "out")
+    result = _invoke(splits, tmp_path / "out")
 
-        assert result.exit_code == 1
-
-    def test_output_directory_is_not_created(self, tmp_path: UPath) -> None:
-        empty = tmp_path / "empty"
-        empty.mkdir()
-        out_dir = tmp_path / "out"
-
-        _invoke(empty, out_dir)
-
-        assert not out_dir.exists()
-
-    def test_missing_directory_is_reported_as_an_error(self, tmp_path: UPath) -> None:
-        result = _invoke(tmp_path / "absent", tmp_path / "out")
-
-        assert result.exit_code == 1
-        assert f"Error: No .npz files found in {tmp_path / 'absent'}" in plain(result.output)
-        assert "Traceback" not in result.output
+    assert result.exit_code == 1
+    assert f"Error: No .npz files found in {splits}" in plain(result.output)
+    assert "Traceback" not in result.output
+    assert not (tmp_path / "out").exists()
 
 
-class TestGeneration:
-    """One shuffled variant per (fold, trial) pair."""
+def test_default_generates_one_variant_per_fold_and_trial(splits_dir: UPath, tmp_path: UPath) -> None:
+    out_dir = tmp_path / "nested" / "out"
 
-    def test_exits_cleanly(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        result = _invoke(splits_dir, tmp_path / "out")
+    result = _invoke(splits_dir, out_dir)
 
-        assert result.exit_code == 0, result.output
+    assert result.exit_code == 0, result.output
+    assert len(list(out_dir.glob("*.npz"))) == 2 * N_PERMUTATIONS_DEFAULT
 
-    def test_creates_the_output_directory_including_parents(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        out_dir = tmp_path / "nested" / "out"
-        _invoke(splits_dir, out_dir)
 
-        assert out_dir.is_dir()
+@pytest.mark.parametrize("flag", ["--n-permutations", "-n"])
+def test_permutation_count_names_files_after_fold_and_trial_and_echoes_the_count(
+    splits_dir: UPath, tmp_path: UPath, flag: str
+) -> None:
+    out_dir = tmp_path / "out"
 
-    def test_default_permutation_count(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(splits_dir, out_dir)
+    result = _invoke(splits_dir, out_dir, flag, "2")
 
-        assert len(list(out_dir.glob("*.npz"))) == 2 * N_PERMUTATIONS_DEFAULT
+    assert sorted(p.name for p in out_dir.glob("*.npz")) == [
+        "fold_0_trial_0.npz",
+        "fold_0_trial_1.npz",
+        "fold_1_trial_0.npz",
+        "fold_1_trial_1.npz",
+    ]
+    assert f"Wrote 4 robustness splits to {out_dir}" in plain(result.output)
 
-    @pytest.mark.parametrize("flag", ["--n-permutations", "-n"], ids=["long", "short"])
-    def test_permutation_count_option(self, splits_dir: UPath, tmp_path: UPath, flag: str) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(splits_dir, out_dir, flag, "2")
 
-        assert len(list(out_dir.glob("*.npz"))) == 4
+def test_variants_record_their_trial_and_preserve_metadata_and_masks(splits_dir: UPath, tmp_path: UPath) -> None:
+    out_dir = tmp_path / "out"
+    _invoke(splits_dir, out_dir, "-n", "2")
 
-    def test_filenames_carry_the_fold_stem_and_trial_index(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(splits_dir, out_dir, "-n", "2")
+    variant = SplitMasks.load(out_dir / "fold_1_trial_1.npz")
+    original = SplitMasks.load(splits_dir / "fold_1.npz")
+    assert variant.metadata["robustness_trial"] == 1
+    assert variant.metadata["fold_index"] == 1
+    np.testing.assert_array_equal(variant.train.mask, original.train.mask)
 
-        written = sorted(p.name for p in out_dir.glob("*.npz"))
-        assert written == [
-            "fold_0_trial_0.npz",
-            "fold_0_trial_1.npz",
-            "fold_1_trial_0.npz",
-            "fold_1_trial_1.npz",
-        ]
 
-    def test_variants_record_their_trial_index(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(splits_dir, out_dir, "-n", "2")
+def test_zero_permutations_writes_nothing_and_a_non_integer_count_is_a_usage_error(
+    splits_dir: UPath, tmp_path: UPath
+) -> None:
+    _invoke(splits_dir, tmp_path / "out", "-n", "0")
 
-        variant = SplitMasks.load(out_dir / "fold_0_trial_1.npz")
-        assert variant.metadata["robustness_trial"] == 1
-
-    def test_variants_preserve_the_original_metadata(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(splits_dir, out_dir, "-n", "1")
-
-        variant = SplitMasks.load(out_dir / "fold_1_trial_0.npz")
-        assert variant.metadata["fold_index"] == 1
-
-    def test_variants_preserve_mask_content(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(splits_dir, out_dir, "-n", "1")
-
-        original = SplitMasks.load(splits_dir / "fold_0.npz")
-        variant = SplitMasks.load(out_dir / "fold_0_trial_0.npz")
-        np.testing.assert_array_equal(variant.train.mask, original.train.mask)
-
-    def test_zero_permutations_writes_nothing(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(splits_dir, out_dir, "-n", "0")
-
-        assert list(out_dir.glob("*.npz")) == []
-
-    def test_echoes_the_variant_count_and_destination(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        result = _invoke(splits_dir, out_dir, "-n", "3")
-
-        assert f"Wrote 6 robustness splits to {out_dir}" in plain(result.output)
-
-    def test_non_integer_permutation_count_is_a_usage_error(self, splits_dir: UPath, tmp_path: UPath) -> None:
-        result = _invoke(splits_dir, tmp_path / "out", "-n", "several")
-
-        assert result.exit_code == 2
+    assert list((tmp_path / "out").glob("*.npz")) == []
+    assert _invoke(splits_dir, tmp_path / "out2", "-n", "several").exit_code == 2
 
 
 class TestOnRealFiles:
-    """A shuffled split trains through ``single`` and is recorded under its robustness trial.
-
-    The case trains a model on real synthetic data, which costs over 0.2s.
-    """
+    """A shuffled split trains through ``single`` and is recorded under its robustness trial."""
 
     pytestmark = pytest.mark.slow
 

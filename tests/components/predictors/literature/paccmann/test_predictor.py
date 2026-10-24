@@ -97,73 +97,54 @@ def _query(sample_ids: list[str], drug_ids: list[str]) -> ModelInputBatch:
     )
 
 
-def test_registry_name() -> None:
+def test_registry_name_and_published_defaults() -> None:
     assert get_predictor("paccMann") is PaccMannPredictor
-
-
-def test_defaults_are_the_1_6_1_values() -> None:
     defaults = PaccMannPredictor.get_default_hyperparameters()
-
-    assert defaults["epochs"] == 10
-    assert defaults["batch_size"] == 64
-    assert defaults["filters"] == [16, 16, 16]
+    assert (defaults["epochs"], defaults["batch_size"], defaults["filters"]) == (10, 64, [16, 16, 16])
     assert defaults["molecule_heads"] == [2, 2, 2, 2]
     assert defaults["stacked_dense_hidden_sizes"] == [512, 256]
     assert defaults["batch_norm"] is True
     assert PaccMannPredictor.get_hyperparameter_space() == {}
 
 
-def test_fit_predict_one_finite_value_per_pair(tmp_path) -> None:
+def test_fit_predict_reads_the_plain_tokens_not_the_variants(tmp_path) -> None:
     predictor = PaccMannPredictor(TINY)
     predictor.fit(_batch(tmp_path))
+    query = _query(["s0", "v0", "s3"], ["d0", "d1", "d2"])
 
-    prediction = predictor.predict(_query(["s0", "v0", "s3"], ["d0", "d1", "d2"]))
+    expected = predictor.predict(query)
 
-    assert prediction.shape == (3,)
-    assert np.isfinite(prediction).all()
+    assert expected.shape == (3,)
+    assert np.isfinite(expected).all()
     assert predictor._architecture == {
         "smiles_vocabulary_size": VOCABULARY,
         "smiles_padding_length": PADDING,
         "number_of_genes": GENES,
         "n_variants": VARIANTS,
     }
-
-
-def test_prediction_reads_the_plain_tokens_not_the_variants(tmp_path) -> None:
-    predictor = PaccMannPredictor(TINY)
-    predictor.fit(_batch(tmp_path))
-    query = _query(["s1", "v1"], ["d2", "d0"])
-    expected = predictor.predict(query)
     query.drug.blocks[VARIANTS_BLOCK].values[:] = 0
-
     np.testing.assert_array_equal(predictor.predict(query), expected)
     query.drug.blocks[TOKENS_BLOCK].values[:] = 3
     assert not np.array_equal(predictor.predict(query), expected)
 
 
-def test_early_stopping_restores_the_best_epoch(tmp_path) -> None:
-    predictor = PaccMannPredictor({**TINY, "epochs": 4, "patience": 1})
-    predictor.fit(_batch(tmp_path))
+def test_early_stopping_restores_the_best_epoch_and_the_budget_runs_without_a_stopping_set(tmp_path) -> None:
+    stopped = PaccMannPredictor({**TINY, "epochs": 4, "patience": 1})
+    stopped.fit(_batch(tmp_path))
+    assert stopped.is_fitted()
+    assert not stopped._model.training
 
-    assert predictor.is_fitted()
-    assert not predictor._model.training
-
-
-def test_without_an_early_stopping_set_the_full_epoch_budget_runs(tmp_path) -> None:
-    predictor = PaccMannPredictor({**TINY, "epochs": 2})
-    predictor.fit(_batch(tmp_path, early_stopping=False))
-
-    assert np.isfinite(predictor.predict(_query(["s0"], ["d2"]))).all()
+    full = PaccMannPredictor({**TINY, "epochs": 2})
+    full.fit(_batch(tmp_path, early_stopping=False))
+    assert np.isfinite(full.predict(_query(["s0"], ["d2"]))).all()
 
 
 def test_a_trailing_batch_of_one_is_dropped_only_when_it_is_not_the_only_batch(tmp_path) -> None:
     predictor = PaccMannPredictor({**TINY, "batch_size": 4})
-    # 5 pairs -> batches of 4 and 1; the lone row would break batch norm.
     predictor.fit(_batch(tmp_path, n_pairs=5))
     loader, _ = predictor._loaders(_batch(tmp_path, n_pairs=5))
     assert len(loader) == 1
 
-    # A single pair is the only batch and must be kept.
     loader, _ = predictor._loaders(_batch(tmp_path, n_pairs=1))
     assert len(loader) == 1
 
@@ -204,28 +185,22 @@ def test_state_round_trips_the_predictions(tmp_path) -> None:
     np.testing.assert_allclose(restored.predict(query), predictor.predict(query), rtol=1e-6)
 
 
-def test_unfitted_predictor_has_no_state_and_refuses_to_predict() -> None:
+def test_unfitted_predictor_has_no_state_and_refuses_to_predict_or_restore() -> None:
     predictor = PaccMannPredictor()
 
     assert predictor.get_state() == {}
     assert not predictor.is_fitted()
     with pytest.raises(ValueError, match="not initialized"):
         predictor.predict(_query(["s0"], ["d0"]))
-
-
-def test_set_state_requires_the_architecture() -> None:
     payload = save_trusted_mapping({"predictor_hyperparameters": TINY, "architecture": {}, "model_state": b""})
-
     with pytest.raises(PredictorStateError, match="missing architecture or model_state"):
-        PaccMannPredictor().set_state({"payload": payload})
+        predictor.set_state({"payload": payload})
 
 
-def test_blocks_without_vocabulary_metadata_are_rejected(tmp_path) -> None:
+def test_inputs_missing_vocabulary_metadata_or_drug_features_are_rejected(tmp_path) -> None:
     with pytest.raises(ValueError, match="vocabulary metadata"):
         PaccMannPredictor(TINY).fit(_batch(tmp_path, metadata=False))
 
-
-def test_a_batch_without_drug_features_is_rejected(tmp_path) -> None:
     sample, _ = _tables()
     batch = ModelInputBatch.from_response(
         ResponseBatch(
@@ -235,6 +210,5 @@ def test_a_batch_without_drug_features_is_rejected(tmp_path) -> None:
         sample_pair_idx=np.array([0, 1]),
         training_context=TrainingContext(checkpoint_dir=tmp_path),
     )
-
     with pytest.raises(RuntimeError, match="requires drug features"):
         PaccMannPredictor(TINY).fit(batch)

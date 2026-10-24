@@ -4,12 +4,27 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 from drevalpy.models import ModelSpec
-from drevalpy.models.tuning.hpo_runtime import (
-    _construct_trial_model,
-)
+from drevalpy.models.tuning.hpo_runtime import _construct_trial_model, _mu_evaluate_trial_all_metrics
+from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
+
+
+def _evaluate(predictions, **kwargs):
+    model = MagicMock()
+    model.predict.return_value = predictions
+    scopes = lso_split_masks()
+    call = {
+        "mudataset": synthetic_mudataset_identity(),
+        "train_scope": scopes.train,
+        "val_scope": scopes.test,
+        "early_stopping_scope": None,
+        "model_checkpoint_dir": None,
+    }
+    call.update(kwargs)
+    return model, _mu_evaluate_trial_all_metrics(model, **call)
 
 
 def test_construct_trial_model_keeps_spec_identity() -> None:
@@ -22,26 +37,16 @@ def test_construct_trial_model_keeps_spec_identity() -> None:
 
 @pytest.mark.parametrize("supplied", [False, True])
 def test_trial_uses_one_training_call_and_keeps_nan_scope_alignment(tmp_path, supplied) -> None:
-    import numpy as np
-
-    from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
-    from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
-
     dataset = synthetic_mudataset_identity()
-    scopes = lso_split_masks()
-    model = MagicMock()
-    model.predict.return_value = np.array([np.nan, 5.0])
-    metrics, predictions = _mu_evaluate_trial_all_metrics(
-        model,
+    model, (metrics, predictions) = _evaluate(
+        np.array([np.nan, 5.0]),
         mudataset=dataset,
-        train_scope=scopes.train,
-        val_scope=scopes.test,
-        early_stopping_scope=None,
         model_checkpoint_dir=tmp_path if supplied else None,
         trial_number=3,
     )
+
     model.train.assert_called_once()
-    assert model.train.call_args.args == (dataset, scopes.train)
+    assert model.train.call_args.args == (dataset, lso_split_masks().train)
     assert model.train.call_args.kwargs["early_stopping_scope"] is None
     if supplied:
         assert model.train.call_args.kwargs["model_checkpoint_dir"] == tmp_path / "trial_3"
@@ -51,64 +56,19 @@ def test_trial_uses_one_training_call_and_keeps_nan_scope_alignment(tmp_path, su
 
 
 def test_trial_rejects_prediction_truncation() -> None:
-    import numpy as np
-
-    from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
-    from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
-
-    model = MagicMock()
-    model.predict.return_value = np.array([1.0])
-    scopes = lso_split_masks()
     with pytest.raises(ValueError, match="shape"):
-        _mu_evaluate_trial_all_metrics(
-            model,
-            mudataset=synthetic_mudataset_identity(),
-            train_scope=scopes.train,
-            val_scope=scopes.test,
-            early_stopping_scope=None,
-            model_checkpoint_dir=None,
-        )
+        _evaluate(np.array([1.0]))
 
 
 def test_trial_with_no_joint_valid_pairs_keeps_empty_metric_dictionary() -> None:
-    import numpy as np
+    _, (metrics, predictions) = _evaluate(np.full(2, np.nan))
 
-    from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
-    from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
-
-    model = MagicMock()
-    model.predict.return_value = np.full(2, np.nan)
-    scopes = lso_split_masks()
-    metrics, predictions = _mu_evaluate_trial_all_metrics(
-        model,
-        mudataset=synthetic_mudataset_identity(),
-        train_scope=scopes.train,
-        val_scope=scopes.test,
-        early_stopping_scope=None,
-        model_checkpoint_dir=None,
-    )
     assert metrics == {}
     assert predictions.shape == (2,)
 
 
 def test_trial_hands_n_jobs_to_the_training_call() -> None:
-    import numpy as np
-
-    from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
-    from tests.models.synthetic_fixtures import lso_split_masks, synthetic_mudataset_identity
-
-    model = MagicMock()
-    model.predict.return_value = np.array([1.0, 2.0])
-    scopes = lso_split_masks()
-    kwargs = {
-        "mudataset": synthetic_mudataset_identity(),
-        "train_scope": scopes.train,
-        "val_scope": scopes.test,
-        "early_stopping_scope": None,
-        "model_checkpoint_dir": None,
-    }
-
-    _mu_evaluate_trial_all_metrics(model, n_jobs=3, **kwargs)
+    model, _ = _evaluate(np.array([1.0, 2.0]), n_jobs=3)
     assert model.train.call_args.kwargs["n_jobs"] == 3
-    _mu_evaluate_trial_all_metrics(model, **kwargs)
+    model, _ = _evaluate(np.array([1.0, 2.0]))
     assert model.train.call_args.kwargs["n_jobs"] == 1

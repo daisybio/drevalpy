@@ -12,37 +12,24 @@ from tests.cli._helpers import make_runner
 runner = make_runner()
 
 
-class TestQualityFromCli:
-    def test_no_options_give_the_default_rule(self) -> None:
-        assert quality_from_cli(False, None, None) == CurveQuality.default()
+def test_quality_from_cli_rules() -> None:
+    default = CurveQuality.default()
+    assert quality_from_cli(False, None, None) == default
+    assert quality_from_cli(True, None, None) == CurveQuality.off()
+    assert quality_from_cli(False, 3.0, None) == CurveQuality(3.0, default.min_abs_fold_change)
+    assert quality_from_cli(False, 2.0, 0.7) == CurveQuality(min_relevance_score=2.0, min_abs_fold_change=0.7)
+    assert quality_from_cli(False, 0.0, None).min_relevance_score == 0.0
 
-    def test_no_filter_gives_the_off_rule(self) -> None:
-        assert quality_from_cli(True, None, None) == CurveQuality.off()
 
-    def test_a_given_threshold_overrides_the_default_one(self) -> None:
-        rule = quality_from_cli(False, 3.0, None)
-
-        assert rule.min_relevance_score == 3.0
-        assert rule.min_abs_fold_change == CurveQuality.default().min_abs_fold_change
-
-    def test_both_thresholds_can_be_overridden(self) -> None:
-        assert quality_from_cli(False, 2.0, 0.7) == CurveQuality(min_relevance_score=2.0, min_abs_fold_change=0.7)
-
-    def test_a_zero_threshold_is_a_given_threshold(self) -> None:
-        assert quality_from_cli(False, 0.0, None).min_relevance_score == 0.0
-
-    @pytest.mark.parametrize(
-        ("relevance", "fold_change", "flag"),
-        [
-            pytest.param(1.0, None, "--min-relevance-score", id="relevance"),
-            pytest.param(None, 0.5, "--min-abs-fold-change", id="fold-change"),
-        ],
-    )
-    def test_no_filter_with_a_threshold_is_a_bad_parameter(
-        self, relevance: float | None, fold_change: float | None, flag: str
-    ) -> None:
-        with pytest.raises(typer.BadParameter, match=f"{flag}.*--no-quality-filter"):
-            quality_from_cli(True, relevance, fold_change)
+@pytest.mark.parametrize(
+    ("relevance", "fold_change", "flag"),
+    [(1.0, None, "--min-relevance-score"), (None, 0.5, "--min-abs-fold-change")],
+)
+def test_no_filter_with_a_threshold_is_a_bad_parameter(
+    relevance: float | None, fold_change: float | None, flag: str
+) -> None:
+    with pytest.raises(typer.BadParameter, match=f"{flag}.*--no-quality-filter"):
+        quality_from_cli(True, relevance, fold_change)
 
 
 def _app() -> typer.Typer:
@@ -59,24 +46,24 @@ def _app() -> typer.Typer:
     return app
 
 
-class TestOptions:
-    def test_defaults(self) -> None:
-        result = runner.invoke(_app(), [])
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        ([], str(CurveQuality.default().to_metadata())),
+        (
+            ["--min-relevance-score", "2.5", "--min-abs-fold-change", "0.1"],
+            str({"min_relevance_score": 2.5, "min_abs_fold_change": 0.1}),
+        ),
+        (["--no-quality-filter"], "{}"),
+    ],
+    ids=["defaults", "thresholds", "off"],
+)
+def test_options(argv: list[str], expected: str) -> None:
+    result = runner.invoke(_app(), argv)
 
-        assert result.exit_code == 0, result.output
-        assert result.output.strip() == str(CurveQuality.default().to_metadata())
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == expected
 
-    def test_thresholds_are_parsed_as_floats(self) -> None:
-        result = runner.invoke(_app(), ["--min-relevance-score", "2.5", "--min-abs-fold-change", "0.1"])
 
-        assert result.output.strip() == str({"min_relevance_score": 2.5, "min_abs_fold_change": 0.1})
-
-    def test_no_quality_filter(self) -> None:
-        result = runner.invoke(_app(), ["--no-quality-filter"])
-
-        assert result.output.strip() == "{}"
-
-    def test_combining_them_is_a_usage_error(self) -> None:
-        result = runner.invoke(_app(), ["--no-quality-filter", "--min-relevance-score", "2"])
-
-        assert result.exit_code == 2
+def test_combining_no_filter_with_a_threshold_is_a_usage_error() -> None:
+    assert runner.invoke(_app(), ["--no-quality-filter", "--min-relevance-score", "2"]).exit_code == 2

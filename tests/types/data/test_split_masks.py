@@ -1,11 +1,6 @@
-"""Tests for the three-way ``SplitMasks`` container.
-
-The single-mask behaviour of :class:`SplitMask` lives in ``test_split_mask.py``.
-"""
+"""Tests for the three-way ``SplitMasks`` container."""
 
 from __future__ import annotations
-
-import tempfile
 
 import numpy as np
 
@@ -13,48 +8,32 @@ from drevalpy.types import SplitMask, SplitMasks
 
 
 def _mask(shape: tuple[int, int], *positions: tuple[int, int]) -> SplitMask:
-    """Helper to build a SplitMask with True at given positions."""
     m = np.zeros(shape, dtype=bool)
     for r, c in positions:
         m[r, c] = True
     return SplitMask(m)
 
 
+def _empty(shape: tuple[int, int]) -> SplitMask:
+    return SplitMask(np.zeros(shape, dtype=bool))
+
+
+def _seeds(masks: SplitMasks) -> list:
+    return [masks.train._pair_seed, masks.test._pair_seed, masks.val._pair_seed]
+
+
 class TestSplitMasks:
-    def test_creation(self):
+    def test_creation_and_metadata(self):
         shape = (4, 3)
-        masks = SplitMasks(
-            train=_mask(shape, (0, 0), (1, 1)),
-            test=_mask(shape, (2, 0)),
-            val=_mask(shape, (3, 1)),
-        )
-        assert masks.train.shape == shape
-        assert masks.test.shape == shape
-        assert masks.val.shape == shape
-        assert len(masks.train) == 2
-        assert len(masks.test) == 1
-        assert len(masks.val) == 1
+        masks = SplitMasks(train=_mask(shape, (0, 0), (1, 1)), test=_mask(shape, (2, 0)), val=_mask(shape, (3, 1)))
 
-    def test_metadata_default_empty(self):
-        shape = (2, 2)
-        masks = SplitMasks(
-            train=_mask(shape, (0, 0)),
-            test=_mask(shape, (1, 0)),
-            val=SplitMask(np.zeros(shape, dtype=bool)),
-        )
+        assert masks.train.shape == masks.test.shape == masks.val.shape == shape
+        assert [len(masks.train), len(masks.test), len(masks.val)] == [2, 1, 1]
         assert masks.metadata == {}
-
-    def test_metadata_mutable(self):
-        shape = (2, 2)
-        masks = SplitMasks(
-            train=_mask(shape, (0, 0)),
-            test=_mask(shape, (1, 0)),
-            val=SplitMask(np.zeros(shape, dtype=bool)),
-        )
         masks.metadata["key"] = "value"
         assert masks.metadata["key"] == "value"
 
-    def test_save_load_roundtrip(self):
+    def test_save_load_roundtrip(self, tmp_path):
         shape = (6, 3)
         masks = SplitMasks(
             train=_mask(shape, (0, 0), (1, 1), (2, 2)),
@@ -62,72 +41,44 @@ class TestSplitMasks:
             val=_mask(shape, (5, 2)),
             metadata={"mode": "LSO", "fold_index": 0, "custom": 42},
         )
-        with tempfile.NamedTemporaryFile(suffix=".npz") as f:
-            masks.save(f.name)
-            loaded = SplitMasks.load(f.name)
+        masks.save(tmp_path / "masks.npz")
 
-        np.testing.assert_array_equal(loaded.train.mask, masks.train.mask)
-        np.testing.assert_array_equal(loaded.test.mask, masks.test.mask)
-        np.testing.assert_array_equal(loaded.val.mask, masks.val.mask)
+        loaded = SplitMasks.load(tmp_path / "masks.npz")
+
+        for name in ("train", "test", "val"):
+            np.testing.assert_array_equal(getattr(loaded, name).mask, getattr(masks, name).mask)
         assert loaded.metadata == masks.metadata
 
-    def test_save_load_preserves_pair_order_seeds(self):
+    def test_save_load_empty_val_and_no_metadata(self, tmp_path):
+        masks = SplitMasks(train=_mask((2, 2), (0, 0)), test=_mask((2, 2), (1, 0)), val=_empty((2, 2)))
+        masks.save(tmp_path / "masks.npz")
+
+        loaded = SplitMasks.load(tmp_path / "masks.npz")
+
+        assert not loaded.val.any()
+        assert loaded.val.shape == (2, 2)
+        assert loaded.metadata == {}
+
+    def test_pair_order_seeds_round_trip_and_legacy_files_have_none(self, tmp_path):
         shape = (3, 2)
         masks = SplitMasks(
             train=_mask(shape, (0, 0)).shuffled(1),
             test=_mask(shape, (1, 0)).shuffled(2),
             val=_mask(shape, (2, 0)).shuffled(3),
         )
-        with tempfile.NamedTemporaryFile(suffix=".npz") as f:
-            masks.save(f.name)
-            loaded = SplitMasks.load(f.name)
+        masks.save(tmp_path / "masks.npz")
+        assert _seeds(SplitMasks.load(tmp_path / "masks.npz")) == [1, 2, 3]
 
-        assert [loaded.train._pair_seed, loaded.test._pair_seed, loaded.val._pair_seed] == [1, 2, 3]
-
-    def test_loads_legacy_file_without_pair_order_seeds(self, tmp_path):
-        path = tmp_path / "legacy.npz"
-        arrays = {name: np.zeros((2, 2), dtype=bool) for name in ("train", "test", "val")}
-        np.savez_compressed(path, **arrays)
-
-        loaded = SplitMasks.load(path)
-
-        assert [loaded.train._pair_seed, loaded.test._pair_seed, loaded.val._pair_seed] == [None, None, None]
-
-    def test_save_load_empty_val(self):
-        shape = (2, 2)
-        masks = SplitMasks(
-            train=_mask(shape, (0, 0)),
-            test=_mask(shape, (1, 0)),
-            val=SplitMask(np.zeros(shape, dtype=bool)),
+        np.savez_compressed(
+            tmp_path / "legacy.npz", **{n: np.zeros((2, 2), dtype=bool) for n in ("train", "test", "val")}
         )
-        with tempfile.NamedTemporaryFile(suffix=".npz") as f:
-            masks.save(f.name)
-            loaded = SplitMasks.load(f.name)
-
-        assert not loaded.val.any()
-        assert loaded.val.shape == shape
+        assert _seeds(SplitMasks.load(tmp_path / "legacy.npz")) == [None, None, None]
 
     def test_early_stopping_masks_keep_the_validation_seed(self):
-        shape = (2, 2)
         masks = SplitMasks(
-            train=SplitMask(np.zeros(shape, dtype=bool)),
-            test=SplitMask(np.zeros(shape, dtype=bool)),
-            val=SplitMask(np.ones(shape, dtype=bool)).shuffled(5),
+            train=_empty((2, 2)), test=_empty((2, 2)), val=SplitMask(np.ones((2, 2), dtype=bool)).shuffled(5)
         )
 
         early_stopping, remaining = masks.early_stopping_mask()
 
         assert early_stopping._pair_seed == remaining._pair_seed == 5
-
-    def test_save_load_no_metadata(self):
-        shape = (2, 2)
-        masks = SplitMasks(
-            train=_mask(shape, (0, 0)),
-            test=_mask(shape, (1, 0)),
-            val=SplitMask(np.zeros(shape, dtype=bool)),
-        )
-        with tempfile.NamedTemporaryFile(suffix=".npz") as f:
-            masks.save(f.name)
-            loaded = SplitMasks.load(f.name)
-
-        assert loaded.metadata == {}

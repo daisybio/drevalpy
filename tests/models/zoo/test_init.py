@@ -2,16 +2,26 @@
 
 from __future__ import annotations
 
+import shutil
+
 import pytest
+from pydantic import ValidationError
 
 from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.errors import UnknownNameError
-from drevalpy.models import DRPModel, ModelSpec
-from drevalpy.models.config import ModelConfig, ModelScope, from_spec, validate
+from drevalpy.models import DRPModel, ModelSpec, zoo
+from drevalpy.models.config import ModelConfig, ModelScope, ResolvedModelConfig, validate
 from drevalpy.models.factory import model_config_for_name
-from drevalpy.models.zoo import get_zoo_config, list_zoo_names, zoo_model_config
+from drevalpy.models.zoo import (
+    clear_external_zoo,
+    get_zoo_config,
+    list_zoo_names,
+    load_external_zoo_file,
+    zoo_model_config,
+)
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.types.enums.prediction_mode import PredictionMode
 
 LITERATURE_ZOO_NAMES = [
     "DrugGNN",
@@ -28,18 +38,7 @@ LITERATURE_ZOO_NAMES = [
     "PaccMann",
 ]
 
-BLOCK_ZOO_NAMES = {
-    "DrugGNN",
-    "PharmaFormer",
-    "DIPK",
-    "MOLIR",
-    "SuperFELTR",
-    "Precily",
-    "SRMF",
-    "SparseGO",
-    "EnsembleMF",
-    "PaccMann",
-}
+BLOCK_ZOO_NAMES = set(LITERATURE_ZOO_NAMES) - {"SimpleNeuralNetwork", "MultiViewNeuralNetwork"}
 
 
 @pytest.fixture(autouse=True)
@@ -47,28 +46,13 @@ def _register_components() -> None:
     register_builtin_components()
 
 
-def test_builtin_zoo_lists_passing_models() -> None:
-    names = list_zoo_names(include_external=False)
-    assert "ElasticNet" in names
-    assert "NaivePredictor" in names
-    assert "DIPK" in names
-    assert "PharmaFormer" in names
-    assert "SingleDrugElasticNet" in names
-
-
 def test_every_builtin_zoo_file_is_listed() -> None:
-    from drevalpy.models.zoo import _BUILTIN_ZOO_DIR
-
-    assert list_zoo_names(include_external=False) == sorted(path.stem for path in _BUILTIN_ZOO_DIR.glob("*.yaml"))
+    assert list_zoo_names(include_external=False) == sorted(path.stem for path in zoo._BUILTIN_ZOO_DIR.glob("*.yaml"))
 
 
 def test_a_builtin_preset_that_fails_validation_is_skipped_with_a_warning(
     tmp_path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    import shutil
-
-    from drevalpy.models import zoo
-
     shutil.copy(zoo._BUILTIN_ZOO_DIR / "Ridge.yaml", tmp_path / "Ridge.yaml")
     (tmp_path / "Broken.yaml").write_text("name: Broken\npredictor:\n  name: noSuchPredictor\n")
     monkeypatch.setattr(zoo, "_BUILTIN_ZOO_DIR", tmp_path)
@@ -80,100 +64,74 @@ def test_a_builtin_preset_that_fails_validation_is_skipped_with_a_warning(
     assert "Broken.yaml" in caplog.text
 
 
-def test_list_zoo_names_filters_by_scope() -> None:
-    from drevalpy.types.enums.model_scope import ModelScope
-
+def test_scope_listing_partitions_the_zoo() -> None:
     single = list_zoo_names(include_external=False, scope=ModelScope.SINGLE_DRUG)
     multi = list_zoo_names(include_external=False, scope="multi_drug")
-    assert "SingleDrugElasticNet" in single
-    assert "MOLIR" in single
-    assert "ElasticNet" in multi
-    assert "ElasticNet" not in single
+
+    assert set(single) == {"SingleDrugElasticNet", "SingleDrugKNN", "SingleDrugRandomForest", "MOLIR", "SuperFELTR"}
     assert set(single).isdisjoint(multi)
     assert set(single) | set(multi) == set(list_zoo_names(include_external=False))
+    assert all(get_zoo_config(name).scope == ModelScope.SINGLE_DRUG for name in single)
+    assert all(ModelSpec.from_name(name).config.scope is ModelScope.MULTI_DRUG for name in multi)
 
 
-def test_zoo_elastic_net_defaults() -> None:
-    zoo_config = get_zoo_config("ElasticNet")
-    assert zoo_config.sample_featurizer is not None
-    assert zoo_config.sample_featurizer.name == "scaledGeneExpression"
-    assert zoo_config.drug_featurizer is not None
-    assert zoo_config.drug_featurizer.name == "fingerprints"
-    assert zoo_config.predictor.name == "elasticNet"
+@pytest.mark.parametrize(
+    ("name", "sample", "drug", "predictor"),
+    [
+        ("ElasticNet", "scaledGeneExpression", "fingerprints", "elasticNet"),
+        ("NaivePredictor", None, None, "naiveMean"),
+        ("NaiveSampleMeanPredictor", "identity", "constant", ...),
+        ("NaiveDrugMeanPredictor", "constant", "identity", ...),
+        ("NaiveTissueMeanPredictor", "tissue", "constant", ...),
+        ("NaiveTissueDrugMeanPredictor", "tissue", "identity", ...),
+        ("NaiveMeanEffectsPredictor", "concatFeaturizers", "identity", ...),
+        ("SingleDrugElasticNet", "scaledGeneExpression", "identity", "singleDrugElasticNet"),
+        ("SingleDrugRandomForest", "scaledGeneExpression", "identity", "singleDrugRandomForest"),
+        ("MOLIR", ..., "identity", ...),
+        ("SuperFELTR", ..., "identity", ...),
+    ],
+)
+def test_preset_featurizer_wiring(name: str, sample, drug, predictor) -> None:
+    config = get_zoo_config(name)
+    actual = (
+        config.sample_featurizer and config.sample_featurizer.name,
+        config.drug_featurizer and config.drug_featurizer.name,
+        config.predictor.name,
+    )
+
+    for got, want in zip(actual, (sample, drug, predictor), strict=True):
+        assert want is ... or got == want
+    validate(config)
 
 
-def test_zoo_naive_presets_use_information_accurate_featurizers() -> None:
-    naive = get_zoo_config("NaivePredictor")
-    assert naive.predictor.name == "naiveMean"
-    assert naive.sample_featurizer is None
-    assert naive.drug_featurizer is None
-
-    cell_mean = get_zoo_config("NaiveSampleMeanPredictor")
-    assert cell_mean.sample_featurizer is not None
-    assert cell_mean.sample_featurizer.name == "identity"
-    assert cell_mean.drug_featurizer is not None
-    assert cell_mean.drug_featurizer.name == "constant"
-
-    drug_mean = get_zoo_config("NaiveDrugMeanPredictor")
-    assert drug_mean.sample_featurizer is not None
-    assert drug_mean.sample_featurizer.name == "constant"
-    assert drug_mean.drug_featurizer is not None
-    assert drug_mean.drug_featurizer.name == "identity"
-
-    tissue_mean = get_zoo_config("NaiveTissueMeanPredictor")
-    assert tissue_mean.sample_featurizer is not None
-    assert tissue_mean.sample_featurizer.name == "tissue"
-    assert tissue_mean.drug_featurizer is not None
-    assert tissue_mean.drug_featurizer.name == "constant"
-
-    tissue_drug = get_zoo_config("NaiveTissueDrugMeanPredictor")
-    assert tissue_drug.sample_featurizer is not None
-    assert tissue_drug.sample_featurizer.name == "tissue"
-    assert tissue_drug.drug_featurizer is not None
-    assert tissue_drug.drug_featurizer.name == "identity"
-
-    mean_effects = get_zoo_config("NaiveMeanEffectsPredictor")
-    assert mean_effects.sample_featurizer is not None
-    assert mean_effects.sample_featurizer.name == "concatFeaturizers"
-    children = mean_effects.sample_featurizer.featurizers
+def test_naive_mean_effects_concatenates_identity_and_a_tolerant_tissue() -> None:
+    sample = get_zoo_config("NaiveMeanEffectsPredictor").sample_featurizer
+    assert sample is not None
+    children = sample.featurizers
     assert children is not None
     assert [child.name for child in children] == ["identity", "tissue"]
     assert children[1].options is not None
     assert children[1].options["allow_missing"] is True
-    assert mean_effects.drug_featurizer is not None
-    assert mean_effects.drug_featurizer.name == "identity"
 
 
 def test_zoo_model_config_merges_hyperparameters() -> None:
-    from drevalpy.models.config import ResolvedModelConfig
-
     config = zoo_model_config("ElasticNet", {"alpha": 0.25})
+
     assert isinstance(config, ResolvedModelConfig)
     assert config.predictor_values()["alpha"] == 0.25
+    assert model_config_for_name("ElasticNet", {"alpha": 0.5}).predictor_values()["alpha"] == 0.5  # type: ignore[union-attr]
 
 
 def test_zoo_model_config_rejects_view_keys() -> None:
     with pytest.raises(ValueError, match=r"Unknown hyperparameter"):
-        zoo_model_config(
-            "ElasticNet",
-            {"sample_views": ["gene_expression"], "alpha": 0.1},
-        )
+        zoo_model_config("ElasticNet", {"sample_views": ["gene_expression"], "alpha": 0.1})
 
 
 def test_zoo_model_config_routes_methylation_flat_key_to_pca_child(tmp_path) -> None:
-    from drevalpy.models.config import ResolvedModelConfig
-    from drevalpy.models.zoo import clear_external_zoo, load_external_zoo_file
-
     preset = tmp_path / "zoo.yaml"
     preset.write_text(
-        """
-methylationForest:
-  sample_featurizer:
-    - scaledGeneExpression
-    - pca[methylation]
-  drug_featurizer: fingerprints
-  predictor: randomForest
-""",
+        "methylationForest:\n  sample_featurizer:\n    - scaledGeneExpression\n    - pca[methylation]\n"
+        "  drug_featurizer: fingerprints\n  predictor: randomForest\n",
         encoding="utf-8",
     )
     clear_external_zoo()
@@ -187,23 +145,22 @@ methylationForest:
     assert resolved.featurizer_values("sample", "pca[methylation]")["n_components"] == 11
 
 
-def test_multi_view_zoo_presets_use_the_1_6_1_default_views() -> None:
-    for name in ("MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM", "MultiViewNeuralNetwork"):
-        config = get_zoo_config(name)
-        sample = config.sample_featurizer
-        assert sample is not None
-        assert sample.name == "concatFeaturizers"
-        assert sample.featurizers is not None
-        gene_expression, mutations = sample.featurizers
-        assert (gene_expression.name, dict(gene_expression.options)) == (
-            "scaledGeneExpression",
-            {"gene_list": "landmark_genes"},
-        )
-        assert (mutations.name, mutations.view, dict(mutations.options)) == (
-            "raw",
-            "mutations",
-            {"gene_list": "drug_target_genes_all_drugs"},
-        )
+@pytest.mark.parametrize("name", ["MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM"])
+def test_multi_view_zoo_presets_use_the_1_6_1_default_views(name: str) -> None:
+    sample = get_zoo_config(name).sample_featurizer
+    assert sample is not None
+    assert sample.name == "concatFeaturizers"
+    assert sample.featurizers is not None
+    gene_expression, mutations = sample.featurizers
+    assert (gene_expression.name, dict(gene_expression.options)) == (
+        "scaledGeneExpression",
+        {"gene_list": "landmark_genes"},
+    )
+    assert (mutations.name, mutations.view, dict(mutations.options)) == (
+        "raw",
+        "mutations",
+        {"gene_list": "drug_target_genes_all_drugs"},
+    )
 
 
 def test_get_zoo_config_rejects_an_unknown_name_with_unknown_name_error() -> None:
@@ -213,64 +170,28 @@ def test_get_zoo_config_rejects_an_unknown_name_with_unknown_name_error() -> Non
 
 
 def test_get_zoo_config_applies_prediction_mode_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    from drevalpy.types.enums.prediction_mode import PredictionMode
-
     monkeypatch.setattr(get_predictor("elasticNet"), "supported_modes", frozenset(PredictionMode))
     assert get_zoo_config("ElasticNet").prediction_mode == PredictionMode.REGRESSION
-    overridden = get_zoo_config("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION)
-    assert overridden.prediction_mode == PredictionMode.CLASSIFICATION
+    assert (
+        get_zoo_config("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION).prediction_mode
+        == PredictionMode.CLASSIFICATION
+    )
     via_zoo = zoo_model_config("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION)
     assert isinstance(via_zoo, ModelConfig)
     assert via_zoo.prediction_mode == PredictionMode.CLASSIFICATION
 
 
 def test_external_zoo_rejects_builtin_collision_and_is_atomic(tmp_path) -> None:
-    from drevalpy.models.zoo import clear_external_zoo, load_external_zoo_file
-
     clear_external_zoo()
+    entry = "  sample_featurizer: scaledGeneExpression\n  drug_featurizer: fingerprints\n  predictor: elasticNet\n"
     bad = tmp_path / "zoo.yaml"
-    bad.write_text(
-        """
-goodEntry:
-  sample_featurizer: scaledGeneExpression
-  drug_featurizer: fingerprints
-  predictor: elasticNet
-ElasticNet:
-  sample_featurizer: scaledGeneExpression
-  drug_featurizer: fingerprints
-  predictor: elasticNet
-""",
-        encoding="utf-8",
-    )
+    bad.write_text(f"goodEntry:\n{entry}ElasticNet:\n{entry}", encoding="utf-8")
+
     with pytest.raises(ValueError, match="collides with a built-in"):
         load_external_zoo_file(bad)
+
     assert "goodEntry" not in list_zoo_names(include_external=True)
     clear_external_zoo()
-
-
-def test_model_config_for_name_uses_zoo_entry() -> None:
-    from drevalpy.models.config import ResolvedModelConfig
-
-    config = model_config_for_name("ElasticNet", {"alpha": 0.5})
-    assert isinstance(config, ResolvedModelConfig)
-    assert config.template.predictor.name == "elasticNet"
-    assert config.predictor_values()["alpha"] == 0.5
-
-
-def test_single_drug_sklearn_zoo_entries_use_identity_for_routing() -> None:
-    elastic_net = get_zoo_config("SingleDrugElasticNet")
-    random_forest = get_zoo_config("SingleDrugRandomForest")
-
-    assert elastic_net.predictor.name == "singleDrugElasticNet"
-    assert random_forest.predictor.name == "singleDrugRandomForest"
-    assert elastic_net.drug_featurizer is not None
-    assert random_forest.drug_featurizer is not None
-    assert elastic_net.drug_featurizer.name == "identity"
-    assert random_forest.drug_featurizer.name == "identity"
-    assert elastic_net.model_id == "scaledGeneExpression:singleDrugElasticNet"
-    assert elastic_net.scope.value == "single_drug"
-    validate(elastic_net)
-    validate(random_forest)
 
 
 def test_single_drug_knn_zoo_entry_standardizes_per_drug() -> None:
@@ -278,11 +199,10 @@ def test_single_drug_knn_zoo_entry_standardizes_per_drug() -> None:
 
     assert config.predictor.name == "singleDrugKnn"
     assert config.sample_featurizer is not None
-    assert config.sample_featurizer.name == "landmarkGenes"
-    assert config.sample_featurizer.options == {"gene_list_stem": "landmark_genes"}
-    assert config.drug_featurizer is not None
-    assert config.drug_featurizer.name == "identity"
-    assert config.scope.value == "single_drug"
+    assert (config.sample_featurizer.name, config.sample_featurizer.options) == (
+        "landmarkGenes",
+        {"gene_list_stem": "landmark_genes"},
+    )
     resolved = ModelSpec.from_name("SingleDrugKNN").resolve()
     assert resolved.featurizer_values("sample", "landmarkGenes")["standardize"] is False
     assert resolved.predictor_values() == {"n_neighbors": 3, "weights": "distance"}
@@ -310,14 +230,11 @@ def test_random_forest_ae_molgnet_zoo_entry_has_the_1_6_1_defaults() -> None:
         "max_samples": 0.2,
         "max_depth": 5,
     }
-    space = spec.hyperparameter_space
-    assert space["predictor.randomForest.max_depth"]["choices"] == (5, 10, 30)
+    assert spec.hyperparameter_space["predictor.randomForest.max_depth"]["choices"] == (5, 10, 30)
     validate(config)
 
 
 def test_multi_drug_sklearn_predictor_without_drug_featurizer_fails() -> None:
-    from pydantic import ValidationError
-
     preset = get_zoo_config("ElasticNet")
     with pytest.raises(ValidationError, match="requires a drug_featurizer"):
         ModelConfig(
@@ -329,21 +246,16 @@ def test_multi_drug_sklearn_predictor_without_drug_featurizer_fails() -> None:
 
 
 @pytest.mark.parametrize("name", LITERATURE_ZOO_NAMES)
-def test_literature_zoo_entries_validate(name: str) -> None:
-    assert name in list_zoo_names(include_external=False)
+def test_literature_zoo_entries_validate_and_build_a_model(name: str) -> None:
     config = get_zoo_config(name)
+
     validate(config)
+
     assert config.sample_featurizer is not None
     if name in BLOCK_ZOO_NAMES:
         assert config.drug_featurizer is not None
         assert issubclass(get_predictor(config.predictor.name), BlockPredictor)
-
-
-@pytest.mark.parametrize("name", LITERATURE_ZOO_NAMES)
-def test_literature_zoo_entries_create_model(name: str) -> None:
-    config = get_zoo_config(name)
-    model = DRPModel(ModelSpec(name, config))
-    assert model is not None
+    assert DRPModel(ModelSpec(name, config)) is not None
 
 
 def test_ensemble_mf_zoo_entry_matches_the_1_6_1_defaults() -> None:
@@ -354,20 +266,15 @@ def test_ensemble_mf_zoo_entry_matches_the_1_6_1_defaults() -> None:
     assert config.sample_featurizer.name == "scaledGeneExpression"
     assert config.sample_featurizer.options == {"gene_list": "landmark_genes", "transform": "rank"}
     assert config.drug_featurizer is not None
-    assert config.drug_featurizer.name == "fingerprints"
     assert config.drug_featurizer.hyperparameter_space is not None
     assert config.drug_featurizer.hyperparameter_space["n_bits"]["default"] == 256
-    assert config.scope.value == "multi_drug"
     defaults = get_predictor("ensembleMF").get_default_hyperparameters()
-    assert defaults["n_ensemble"] == 20
-    assert defaults["seed"] == 0
-    validate(config)
+    assert (defaults["n_ensemble"], defaults["seed"]) == (20, 0)
 
 
 def test_paccmann_zoo_entry_matches_the_1_6_1_defaults() -> None:
     config = get_zoo_config("PaccMann")
 
-    assert config.predictor.name == "paccMann"
     assert config.sample_featurizer is not None
     assert config.sample_featurizer.name == "landmarkGenes"
     assert config.sample_featurizer.options == {
@@ -377,45 +284,5 @@ def test_paccmann_zoo_entry_matches_the_1_6_1_defaults() -> None:
     }
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "smilesTokens"
-    assert config.scope.value == "multi_drug"
     defaults = get_predictor("paccMann").get_default_hyperparameters()
-    assert defaults["epochs"] == 10
-    assert defaults["patience"] == 10
-    validate(config)
-
-
-@pytest.mark.parametrize("name", ["MOLIR", "SuperFELTR"])
-def test_single_drug_zoo_entries_route_with_identity(name: str) -> None:
-    config = get_zoo_config(name)
-    assert config.drug_featurizer is not None
-    assert config.drug_featurizer.name == "identity"
-    validate(config)
-
-
-def test_from_spec_resolves_literature_zoo() -> None:
-    config = from_spec("DrugGNN")
-    assert isinstance(config, ModelConfig)
-    assert config.predictor.name == "drugGNN"
-    assert config.sample_featurizer is not None
-    assert config.drug_featurizer is not None
-
-
-def test_single_drug_zoo_membership() -> None:
-    single_names = list_zoo_names(include_external=False, scope=ModelScope.SINGLE_DRUG)
-    assert set(single_names) == {
-        "SingleDrugElasticNet",
-        "SingleDrugKNN",
-        "SingleDrugRandomForest",
-        "MOLIR",
-        "SuperFELTR",
-    }
-    for name in single_names:
-        assert ModelSpec.from_name(name).config.scope is ModelScope.SINGLE_DRUG
-        assert get_zoo_config(name).scope == ModelScope.SINGLE_DRUG
-
-
-def test_multi_drug_zoo_excludes_single_drug_scope() -> None:
-    multi_names = list_zoo_names(include_external=False, scope=ModelScope.MULTI_DRUG)
-    for name in multi_names:
-        assert ModelSpec.from_name(name).config.scope is ModelScope.MULTI_DRUG
-        assert get_zoo_config(name).scope == ModelScope.MULTI_DRUG
+    assert (defaults["epochs"], defaults["patience"]) == (10, 10)

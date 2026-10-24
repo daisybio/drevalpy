@@ -18,6 +18,8 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.enums.model_scope import ModelScope
 from tests.registry._helpers import isolated_component_registries
 
+_NUMERIC = FeatureFormat.NUMERIC_MATRIX
+
 
 @pytest.fixture(autouse=True)
 def _clear_registries() -> Iterator[None]:
@@ -25,8 +27,6 @@ def _clear_registries() -> Iterator[None]:
 
 
 class _ConcreteMatrix(MatrixPredictor):
-    """Minimal concrete matrix predictor."""
-
     def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
         return None
 
@@ -35,8 +35,6 @@ class _ConcreteMatrix(MatrixPredictor):
 
 
 class _ConcreteBlock(BlockPredictor):
-    """Minimal concrete block predictor."""
-
     def _fit(self, batch: ModelInputBatch) -> None:
         return None
 
@@ -45,8 +43,6 @@ class _ConcreteBlock(BlockPredictor):
 
 
 class _ConcreteFeatureFree(FeatureFreePredictor):
-    """Minimal concrete feature-free predictor."""
-
     def _fit(self, batch: ModelInputBatch) -> None:
         return None
 
@@ -54,152 +50,64 @@ class _ConcreteFeatureFree(FeatureFreePredictor):
         return np.zeros(batch.n_pairs, dtype=np.float64)
 
 
+def _register(name: str, cls: type, *, sample: FeatureFormat = _NUMERIC) -> type:
+    return register_predictor(name, description=name, sample_contract=sample, drug_contract=_NUMERIC)(cls)
+
+
 def test_predictor_must_inherit_exactly_one_leaf_interface() -> None:
     with pytest.raises(ValueError, match="exactly one of"):
-
-        @register_predictor(
-            "noLeafPred",
-            description="missing leaf",
-            sample_contract=FeatureFormat.NUMERIC_MATRIX,
-            drug_contract=FeatureFormat.NUMERIC_MATRIX,
-        )
-        class NoLeafPred:
-            pass
+        _register("noLeafPred", type("NoLeafPred", (), {}))
 
 
 def test_matrix_predictor_requires_numeric_contracts() -> None:
     with pytest.raises(ValueError, match="requires numeric_matrix sample contract"):
-
-        @register_predictor(
-            "graphMatrixPred",
-            description="bad matrix",
-            sample_contract=FeatureFormat.GRAPH,
-            drug_contract=FeatureFormat.NUMERIC_MATRIX,
-        )
-        class GraphMatrixPred(_ConcreteMatrix):
-            pass
+        _register("graphMatrixPred", type("GraphMatrixPred", (_ConcreteMatrix,), {}), sample=FeatureFormat.GRAPH)
 
 
-def test_single_drug_feature_predictor_needs_no_routing_declaration() -> None:
-    @register_predictor(
-        "plainSingleDrug",
-        description="declares only its scope",
-        sample_contract=FeatureFormat.NUMERIC_MATRIX,
-        drug_contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class PlainSingleDrug(_ConcreteMatrix):
-        scope = ModelScope.SINGLE_DRUG
+@pytest.mark.parametrize(
+    ("base", "routes_identity"), [(_ConcreteMatrix, True), (_ConcreteFeatureFree, False)], ids=["feature", "free"]
+)
+def test_single_drug_predictors_declare_only_their_scope(base: type, routes_identity: bool) -> None:
+    cls = _register("singleDrugPred", type("SingleDrugPred", (base,), {"scope": ModelScope.SINGLE_DRUG}))
 
-    assert predictor_registry.get("plainSingleDrug") is PlainSingleDrug
-    assert needs_identity_drug_routing("plainSingleDrug") is True
-
-
-def test_feature_free_single_drug_skips_identity_routing() -> None:
-    @register_predictor(
-        "freeSingleDrug",
-        description="feature free single drug",
-        sample_contract=FeatureFormat.NUMERIC_MATRIX,
-        drug_contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class FreeSingleDrug(_ConcreteFeatureFree):
-        scope = ModelScope.SINGLE_DRUG
-
-    assert predictor_registry.get("freeSingleDrug") is FreeSingleDrug
-    assert needs_identity_drug_routing("freeSingleDrug") is False
+    assert predictor_registry.get("singleDrugPred") is cls
+    assert needs_identity_drug_routing("singleDrugPred") is routes_identity
 
 
 def test_registered_predictor_scope_defaults_to_multi_drug() -> None:
-    @register_predictor(
-        "scopedPred",
-        description="scope default",
-        sample_contract=FeatureFormat.NUMERIC_MATRIX,
-        drug_contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class ScopedPred(_ConcreteBlock):
-        pass
-
-    assert ScopedPred.scope is ModelScope.MULTI_DRUG
+    assert _register("scopedPred", type("ScopedPred", (_ConcreteBlock,), {})).scope is ModelScope.MULTI_DRUG
 
 
-def test_register_existing_rejects_invalid_predictor_class() -> None:
-    class InvalidRestored:
-        description = "invalid"
-        tags: frozenset[str] = frozenset()
-        reference = None
-        sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-        drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+def _restored(base: type = object, **attrs) -> type:
+    attributes = {
+        "description": "restored",
+        "tags": frozenset(),
+        "reference": None,
+        "sample_contract": FeatureContract(format=_NUMERIC),
+        "drug_contract": FeatureContract(format=_NUMERIC),
+    }
+    return type("Restored", (base,), attributes | attrs)
 
-    with pytest.raises(ValueError, match="exactly one of"):
-        predictor_registry.register_existing("invalidRestored", InvalidRestored)
 
-
-def test_register_existing_restores_valid_predictor() -> None:
-    @register_predictor(
-        "restorablePred",
-        description="restorable",
-        sample_contract=FeatureFormat.NUMERIC_MATRIX,
-        drug_contract=FeatureFormat.NUMERIC_MATRIX,
-    )
-    class RestorablePred(_ConcreteBlock):
-        pass
-
+def test_register_existing_restores_valid_and_rejects_invalid_classes() -> None:
+    restorable = _register("restorablePred", type("RestorablePred", (_ConcreteBlock,), {}))
     predictor_registry.clear()
     assert predictor_registry.list_names() == []
-    predictor_registry.register_existing("restorablePred", RestorablePred)
-    assert predictor_registry.get("restorablePred") is RestorablePred
 
+    predictor_registry.register_existing("restorablePred", restorable)
 
-# ---------------------------------------------------------------------------
-# Abstract-member rejection
-# ---------------------------------------------------------------------------
-
-
-def test_a_predictor_missing_its_subclass_hooks_is_rejected() -> None:
-    with pytest.raises(ValueError, match=r"does not implement _fit, _predict"):
-
-        @register_predictor(
-            "abstractPred",
-            description="forgot _fit and _predict",
-            sample_contract=FeatureFormat.NUMERIC_MATRIX,
-            drug_contract=FeatureFormat.NUMERIC_MATRIX,
-        )
-        class AbstractPred(BlockPredictor):
-            pass
-
-
-def test_a_matrix_predictor_missing_its_matrix_hooks_is_rejected() -> None:
-    with pytest.raises(ValueError, match=r"does not implement _fit_matrix, _predict_matrix"):
-
-        @register_predictor(
-            "abstractMatrixPred",
-            description="forgot the matrix hooks",
-            sample_contract=FeatureFormat.NUMERIC_MATRIX,
-            drug_contract=FeatureFormat.NUMERIC_MATRIX,
-        )
-        class AbstractMatrixPred(MatrixPredictor):
-            pass
-
-
-def test_the_rejection_names_the_registry_and_the_name() -> None:
-    with pytest.raises(ValueError, match=r"predictor 'namedPred' \(NamedPred\)"):
-
-        @register_predictor(
-            "namedPred",
-            description="names itself in the error",
-            sample_contract=FeatureFormat.NUMERIC_MATRIX,
-            drug_contract=FeatureFormat.NUMERIC_MATRIX,
-        )
-        class NamedPred(BlockPredictor):
-            pass
-
-
-def test_register_existing_also_rejects_an_abstract_class() -> None:
-    class AbstractRestored(BlockPredictor):
-        description = "abstract"
-        tags: frozenset[str] = frozenset()
-        reference = None
-        sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-        drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-
+    assert predictor_registry.get("restorablePred") is restorable
+    with pytest.raises(ValueError, match="exactly one of"):
+        predictor_registry.register_existing("invalidRestored", _restored())
     with pytest.raises(ValueError, match="does not implement"):
-        predictor_registry.register_existing("abstractRestored", AbstractRestored)
+        predictor_registry.register_existing("abstractRestored", _restored(BlockPredictor))
+
+
+@pytest.mark.parametrize(
+    ("base", "hooks"),
+    [(BlockPredictor, "_fit, _predict"), (MatrixPredictor, "_fit_matrix, _predict_matrix")],
+    ids=["block", "matrix"],
+)
+def test_a_predictor_missing_its_hooks_is_rejected_naming_the_registry_and_the_name(base: type, hooks: str) -> None:
+    with pytest.raises(ValueError, match=rf"predictor 'abstractPred' \(AbstractPred\).*does not implement {hooks}"):
+        _register("abstractPred", type("AbstractPred", (base,), {}))

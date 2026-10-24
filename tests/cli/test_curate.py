@@ -1,11 +1,4 @@
-"""Tests for :mod:`drevalpy.cli.curate`, the ``drevalpy curate`` command.
-
-The CSV -> h5ad round-trip here replaces the ``TestCLI`` class that used to live
-in ``tests/curation/test_init.py``; it keeps ``fit_speed="fast"`` and
-``cores=1`` so the real ``curve_curator`` fit stays cheap and serial. The
-remaining tests patch :func:`drevalpy.curation.curate` to isolate argument
-plumbing and the format guard from the fitter.
-"""
+"""Tests for :mod:`drevalpy.cli.curate`, the ``drevalpy curate`` command."""
 
 from __future__ import annotations
 
@@ -28,47 +21,32 @@ SAMPLES = ("CL_A", "CL_B", "CL_C")
 DRUGS = ("DrugX", "DrugY")
 
 
-def _sigmoid(x: np.ndarray, top: float, bottom: float, ec50: float, slope: float) -> np.ndarray:
-    """4-parameter log-logistic sigmoid."""
-    return bottom + (top - bottom) / (1 + (x / ec50) ** slope)
-
-
 def build_dose_response_df() -> pd.DataFrame:
-    """Build artificial dose-response data: 3 samples x 2 drugs.
-
-    ``DrugX`` gets a genuine sigmoid so the fit converges; ``DrugY`` is flat.
-
-    :returns: Long-format frame with ``drug``/``sample``/``concentration``/``intensity``.
-    """
+    """Build dose-response data: 3 samples x 2 drugs; ``DrugX`` is a sigmoid, ``DrugY`` is flat."""
     rng = np.random.default_rng(42)
-    conc_arr = np.array(CONCENTRATIONS)
+    conc = np.array(CONCENTRATIONS)
     rows: list[dict] = []
-
     for sample in SAMPLES:
         for drug in DRUGS:
             if drug == "DrugX":
-                intensity = _sigmoid(conc_arr, top=1.0, bottom=0.1, ec50=0.5, slope=1.5)
+                intensity = 0.1 + 0.9 / (1 + (conc / 0.5) ** 1.5)
             else:
-                intensity = np.ones_like(conc_arr) * 0.95
-            intensity = np.clip(intensity + rng.normal(0, 0.02, size=len(conc_arr)), 0.01, 1.5)
-
+                intensity = np.full_like(conc, 0.95)
+            intensity = np.clip(intensity + rng.normal(0, 0.02, size=len(conc)), 0.01, 1.5)
             rows.extend(
-                {"drug": drug, "sample": sample, "concentration": conc, "intensity": value}
-                for conc, value in zip(CONCENTRATIONS, intensity, strict=True)
+                {"drug": drug, "sample": sample, "concentration": c, "intensity": v}
+                for c, v in zip(CONCENTRATIONS, intensity, strict=True)
             )
-
     return pd.DataFrame(rows)
 
 
 @pytest.fixture()
 def dose_response_df() -> pd.DataFrame:
-    """Artificial dose-response data: 3 samples x 2 drugs."""
     return build_dose_response_df()
 
 
 @pytest.fixture()
 def input_csv(dose_response_df: pd.DataFrame, tmp_path: UPath) -> UPath:
-    """Write the dose-response frame as CSV."""
     path = tmp_path / "input.csv"
     dose_response_df.to_csv(path, index=False)
     return path
@@ -76,178 +54,91 @@ def input_csv(dose_response_df: pd.DataFrame, tmp_path: UPath) -> UPath:
 
 @pytest.fixture()
 def worker(monkeypatch: pytest.MonkeyPatch) -> Recorder:
-    """Patch :func:`drevalpy.curation.curate` with a recorder returning a 1x1 AnnData.
-
-    :param monkeypatch: Fixture used to replace the source-module worker.
-    :returns: Recorder standing in for the curve fitter.
-    """
     recorder = Recorder(return_value=anndata.AnnData(X=np.zeros((1, 1), dtype=np.float32)))
     patch_worker(monkeypatch, "drevalpy.curation", "curate", recorder)
     return recorder
 
 
-class TestArguments:
-    """Both positional arguments are required."""
-
-    @pytest.mark.parametrize(
-        "argv",
-        [pytest.param(["curate"], id="none"), pytest.param(["curate", "in.csv"], id="missing-output")],
-    )
-    def test_missing_positional_arguments_are_usage_errors(self, argv: list[str]) -> None:
-        result = runner.invoke(app, argv, env=HELP_ENV)
-
-        assert result.exit_code == 2
+@pytest.mark.parametrize("argv", [["curate"], ["curate", "in.csv"]], ids=["none", "missing-output"])
+def test_missing_positional_arguments_are_usage_errors(argv: list[str]) -> None:
+    assert runner.invoke(app, argv, env=HELP_ENV).exit_code == 2
 
 
-class TestFormatDetection:
-    """The suffix decides the reader; anything else is a ``BadParameter``."""
-
-    def test_csv_is_read(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
-        result = runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad")])
-
-        assert result.exit_code == 0, result.output
-        assert len(worker.args[0]) == len(CONCENTRATIONS) * len(SAMPLES) * len(DRUGS)
-
-    @pytest.mark.parametrize("suffix", [".parquet", ".pq"], ids=["parquet", "pq"])
-    def test_parquet_suffixes_are_read(
-        self, worker: Recorder, dose_response_df: pd.DataFrame, tmp_path: UPath, suffix: str
-    ) -> None:
-        path = tmp_path / f"input{suffix}"
+@pytest.mark.parametrize("name", ["input.csv", "input.parquet", "input.pq", "input.CSV"])
+def test_supported_suffixes_are_read(
+    worker: Recorder, dose_response_df: pd.DataFrame, tmp_path: UPath, name: str
+) -> None:
+    path = tmp_path / name
+    if name.lower().endswith("csv"):
+        dose_response_df.to_csv(path, index=False)
+    else:
         dose_response_df.to_parquet(path)
 
-        result = runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")])
+    result = runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")])
 
-        assert result.exit_code == 0, result.output
-        assert len(worker.args[0]) == len(dose_response_df)
-
-    def test_suffix_matching_is_case_insensitive(
-        self, worker: Recorder, dose_response_df: pd.DataFrame, tmp_path: UPath
-    ) -> None:
-        path = tmp_path / "input.CSV"
-        dose_response_df.to_csv(path, index=False)
-
-        result = runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")])
-
-        assert result.exit_code == 0, result.output
-
-    def test_unsupported_suffix_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
-        path = tmp_path / "input.tsv"
-        path.write_text("drug\tsample\n")
-
-        result = runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")], env=HELP_ENV)
-
-        assert result.exit_code == 2
-        assert "Unsupported file format: .tsv" in plain(result.output)
-
-    def test_unsupported_suffix_does_not_reach_the_fitter(self, worker: Recorder, tmp_path: UPath) -> None:
-        path = tmp_path / "input.tsv"
-        path.write_text("drug\tsample\n")
-
-        runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")], env=HELP_ENV)
-
-        assert worker.call_count == 0
+    assert result.exit_code == 0, result.output
+    assert len(worker.args[0]) == len(dose_response_df)
 
 
-class TestFitOptions:
-    """Fit options map onto :func:`drevalpy.curation.curate` keywords."""
+def test_unsupported_suffix_is_rejected_before_the_fitter(worker: Recorder, tmp_path: UPath) -> None:
+    path = tmp_path / "input.tsv"
+    path.write_text("drug\tsample\n")
 
-    def test_defaults(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
-        runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad")])
+    result = runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")], env=HELP_ENV)
 
-        assert worker.kwargs == {"max_workers": 4, "normalize": False, "fit_speed": "exhaustive"}
+    assert result.exit_code == 2
+    assert "Unsupported file format: .tsv" in plain(result.output)
+    assert worker.call_count == 0
 
-    def test_overrides(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
-        runner.invoke(
-            app,
-            [
-                "curate",
-                str(input_csv),
-                str(tmp_path / "out.h5ad"),
-                "--cores",
-                "2",
-                "--normalize",
-                "--fit-speed",
-                "fast",
-            ],
-        )
 
-        assert worker.kwargs == {"max_workers": 2, "normalize": True, "fit_speed": "fast"}
+def test_fit_option_defaults_and_overrides(worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
+    out = str(tmp_path / "out.h5ad")
 
-    @pytest.mark.parametrize("speed", FIT_SPEEDS)
-    def test_every_library_fit_speed_is_accepted(
-        self, worker: Recorder, input_csv: UPath, tmp_path: UPath, speed: str
-    ) -> None:
-        runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "--fit-speed", speed.upper()])
+    runner.invoke(app, ["curate", str(input_csv), out])
+    assert worker.kwargs == {"max_workers": 4, "normalize": False, "fit_speed": "exhaustive"}
 
-        assert worker.kwargs["fit_speed"] == speed
+    worker.calls.clear()
+    runner.invoke(app, ["curate", str(input_csv), out, "-c", "2", "--normalize", "--fit-speed", "fast"])
+    assert worker.kwargs == {"max_workers": 2, "normalize": True, "fit_speed": "fast"}
 
-    def test_an_unknown_fit_speed_is_rejected_before_the_file_is_read(self, worker: Recorder, tmp_path: UPath) -> None:
+
+@pytest.mark.parametrize("speed", FIT_SPEEDS)
+def test_every_library_fit_speed_is_accepted_case_insensitively(
+    worker: Recorder, input_csv: UPath, tmp_path: UPath, speed: str
+) -> None:
+    runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "--fit-speed", speed.upper()])
+
+    assert worker.kwargs["fit_speed"] == speed
+
+
+@pytest.mark.parametrize(
+    "extra", [["--fit-speed", "slow"], ["--fit-type", "OLS"], ["--cores", "all"]], ids=["speed", "fit-type", "cores"]
+)
+def test_invalid_options_are_usage_errors_before_the_fitter(
+    worker: Recorder, input_csv: UPath, tmp_path: UPath, extra: list[str]
+) -> None:
+    result = runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), *extra])
+
+    assert result.exit_code == 2
+    assert worker.call_count == 0
+
+
+@pytest.mark.slow
+def test_csv_to_h5ad_round_trip_with_the_real_fitter(tmp_path: UPath) -> None:
+    input_path = tmp_path / "input.csv"
+    build_dose_response_df().to_csv(input_path, index=False)
+    output_path = tmp_path / "output.h5ad"
+    logger = logging.getLogger("drevalpy")
+    handlers, level = list(logger.handlers), logger.level
+    try:
         result = runner.invoke(
-            app, ["curate", str(tmp_path / "absent.csv"), str(tmp_path / "out.h5ad"), "--fit-speed", "slow"]
+            app, ["curate", str(input_path), str(output_path), "--cores", "1", "--fit-speed", "fast"]
         )
+    finally:
+        logger.handlers[:] = handlers
+        logger.setLevel(level)
 
-        assert result.exit_code == 2
-        assert worker.call_count == 0
-
-    def test_the_removed_fit_type_option_is_rejected(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
-        result = runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "--fit-type", "OLS"])
-
-        assert result.exit_code == 2
-        assert worker.call_count == 0
-
-    def test_cores_short_option(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
-        runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "-c", "1"])
-
-        assert worker.kwargs["max_workers"] == 1
-
-    def test_non_integer_cores_is_a_usage_error(self, worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
-        result = runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "--cores", "all"])
-
-        assert result.exit_code == 2
-
-
-class TestRoundTrip:
-    """End-to-end CSV -> .h5ad with the real fitter, kept cheap and serial.
-
-    Extended tier: the class-scoped ``curated`` fixture runs the real CurveCurator
-    fitter (~0.7s). Shared across the three tests, so only deselecting all of them
-    saves it; the argument-parsing tests above stay in the fast tier.
-    """
-
-    pytestmark = pytest.mark.slow
-
-    @pytest.fixture(scope="class")
-    def curated(self, tmp_path_factory: pytest.TempPathFactory) -> UPath:
-        """Run the real command once and hand back the written .h5ad path."""
-        tmp_path = UPath(tmp_path_factory.mktemp("curate_round_trip"))
-        input_path = tmp_path / "input.csv"
-        build_dose_response_df().to_csv(input_path, index=False)
-        output_path = tmp_path / "output.h5ad"
-
-        logger = logging.getLogger("drevalpy")
-        handlers, level = list(logger.handlers), logger.level
-        try:
-            result = runner.invoke(
-                app,
-                ["curate", str(input_path), str(output_path), "--cores", "1", "--fit-speed", "fast"],
-            )
-        finally:
-            logger.handlers[:] = handlers
-            logger.setLevel(level)
-
-        assert result.exit_code == 0, f"CLI failed: {result.output}"
-        return output_path
-
-    def test_writes_the_output_file(self, curated: UPath) -> None:
-        assert curated.exists()
-
-    def test_output_is_readable_anndata(self, curated: UPath) -> None:
-        adata = anndata.read_h5ad(curated)
-
-        assert adata.shape == (len(SAMPLES), len(DRUGS))
-
-    def test_output_carries_curve_metric_layers(self, curated: UPath) -> None:
-        adata = anndata.read_h5ad(curated)
-
-        assert "EC50" in adata.layers
-        assert "AUC" in adata.layers
+    assert result.exit_code == 0, result.output
+    adata = anndata.read_h5ad(output_path)
+    assert adata.shape == (len(SAMPLES), len(DRUGS))
+    assert {"EC50", "AUC"} <= set(adata.layers)

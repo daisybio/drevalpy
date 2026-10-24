@@ -1,4 +1,4 @@
-"""Smoke test mirror for srmf predictor package."""
+"""Tests for the SRMF predictor."""
 
 from __future__ import annotations
 
@@ -25,15 +25,10 @@ def test_srmf_predictor_registry_name() -> None:
     assert get_predictor("srmf") is SRMFPredictor
 
 
-def test_structured_predictor_set_state_raises_on_invalid_blob() -> None:
-    predictor = SRMFPredictor()
+def test_set_state_rejects_an_invalid_blob_and_missing_latent_factors() -> None:
     with pytest.raises(PredictorStateError):
-        predictor.set_state({"payload": b"invalid"})
-
-
-def test_set_state_requires_the_latent_factors() -> None:
+        SRMFPredictor().set_state({"payload": b"invalid"})
     payload = save_trusted_mapping({"predictor_hyperparameters": SRMFPredictor.get_default_hyperparameters()})
-
     with pytest.raises(PredictorStateError, match="missing best_u"):
         SRMFPredictor().set_state({"payload": payload})
 

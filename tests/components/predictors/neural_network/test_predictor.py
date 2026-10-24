@@ -1,4 +1,4 @@
-"""Smoke tests for the neural_network predictor package."""
+"""Tests for the neural network predictor."""
 
 from __future__ import annotations
 
@@ -8,16 +8,12 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.contracts import FeatureFormat
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_spec
 from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.utils.torch_io import save_trusted_mapping
 from tests.components.predictors._helpers import neural_batch
 
@@ -27,18 +23,29 @@ def _register_components() -> None:
     register_builtin_components()
 
 
-def test_neural_network_predictor_registry_name() -> None:
-    assert get_predictor("neuralNetwork") is NeuralNetworkPredictor
-
-
-def test_neural_network_requires_numeric_contracts() -> None:
+def test_registry_name_contracts_and_defaults() -> None:
     cls = get_predictor("neuralNetwork")
+    assert cls is NeuralNetworkPredictor
     assert cls.sample_contract.format == FeatureFormat.NUMERIC_MATRIX
     assert cls.drug_contract.format == FeatureFormat.NUMERIC_MATRIX
+    assert NeuralNetworkPredictor.get_default_hyperparameters() == {
+        "units_per_layer": [32, 16, 8, 4],
+        "dropout_prob": 0.3,
+        "max_epochs": 100,
+        "batch_size": 16,
+        "patience": 5,
+    }
+    spec = NeuralNetworkPredictor.get_hyperparameter_space()["units_per_layer"]
+    assert spec["type"] == "categorical"
+    assert spec["default"] in spec["choices"]
+    for widths in ([32, 16, 8, 4], [128, 64, 32], [64, 64, 32], [16, 8, 4]):
+        assert widths in spec["choices"]
+    predictor = cls(hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]})
+    assert predictor._model is None
+    assert predictor.is_fitted() is False
 
 
 def test_neural_network_zoo_trains_on_synthetic_data() -> None:
-    register_builtin_components()
     import anndata as ad
     import mudata as md
     import pandas as pd
@@ -77,64 +84,6 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     preds = model.predict(mudataset, split.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
-
-
-def test_neural_network_defaults_are_the_first_grid_values_of_1_6_1() -> None:
-    assert NeuralNetworkPredictor.get_default_hyperparameters() == {
-        "units_per_layer": [32, 16, 8, 4],
-        "dropout_prob": 0.3,
-        "max_epochs": 100,
-        "batch_size": 16,
-        "patience": 5,
-    }
-
-
-def test_neural_network_layer_widths_are_tunable_over_the_1_6_1_grids() -> None:
-    spec = NeuralNetworkPredictor.get_hyperparameter_space()["units_per_layer"]
-
-    assert spec["type"] == "categorical"
-    assert spec["default"] in spec["choices"]
-    for widths in ([32, 16, 8, 4], [128, 64, 32], [64, 64, 32], [16, 8, 4]):
-        assert widths in spec["choices"]
-
-
-def test_neural_network_configured_is_not_fitted() -> None:
-    register_builtin_components()
-    predictor = NeuralNetworkPredictor(
-        hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]},
-    )
-    assert predictor._model is None
-    assert predictor.is_fitted() is False
-
-
-def _matrix_batch() -> ModelInputBatch:
-    response = ResponseBatch(
-        response=np.array([1.0, 2.0, 3.0, 4.0]),
-        sample_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
-        drug_ids=np.array(["d1", "d2", "d1", "d2"]),
-    )
-    sample_features = np.vstack(
-        [
-            np.array([0.1, 0.2, 0.3, 0.4]),
-            np.array([0.5, 0.6, 0.7, 0.8]),
-        ]
-    )
-    drug_features = np.vstack(
-        [
-            np.array([1.0, 0.0, 0.5, 0.2]),
-            np.array([0.0, 1.0, 0.3, 0.7]),
-        ]
-    )
-    return ModelInputBatch.from_response(
-        response,
-        sample=FeaturizerResult.from_blocks(
-            {"features": numeric_feature_block(sample_features)}, np.array(["cl1", "cl2"])
-        ),
-        drug=FeaturizerResult.from_blocks({"features": numeric_feature_block(drug_features)}, np.array(["d1", "d2"])),
-        sample_pair_idx=np.array([0, 0, 1, 1]),
-        drug_pair_idx=np.array([0, 1, 0, 1]),
-        training_context=TrainingContext(),
-    )
 
 
 def test_neural_network_early_stopping_wires_validation_loader() -> None:

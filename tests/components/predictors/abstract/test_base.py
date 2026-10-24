@@ -77,50 +77,32 @@ def _register() -> None:
     register_builtin_components()
 
 
-def test_predictor_accepts_class_body_contracts() -> None:
+def test_predictor_normalizes_class_body_contracts_and_rejects_invalid_ones() -> None:
     class BodyContractPredictor(Predictor):
         sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-
-    assert BodyContractPredictor.sample_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-
-
-def test_predictor_normalizes_a_class_body_format_shorthand() -> None:
-    class ShorthandPredictor(Predictor):
         drug_contract = FeatureFormat.GRAPH
 
-    assert ShorthandPredictor.drug_contract == FeatureContract(format=FeatureFormat.GRAPH)
-
-
-def test_predictor_rejects_an_invalid_class_body_contract() -> None:
+    assert BodyContractPredictor.sample_contract == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert BodyContractPredictor.drug_contract == FeatureContract(format=FeatureFormat.GRAPH)
     with pytest.raises(TypeError, match="class-body drug_contract is invalid"):
 
         class BadPredictor(Predictor):
             drug_contract = "graph_but_a_plain_string"
 
 
-def test_predictor_init_merges_default_hyperparameters() -> None:
+def test_predictor_init_merges_default_hyperparameters_and_has_no_public_build() -> None:
     predictor = _StubPredictor(hyperparameters={"alpha": 0.5, "extra": True})
     assert predictor._hyperparameters["alpha"] == 0.5
     assert predictor._hyperparameters["extra"] is True
-
-
-def test_predictor_has_no_public_build() -> None:
     assert "build" not in Predictor.__dict__
-    assert not hasattr(_StubPredictor(), "build")
+    assert not hasattr(predictor, "build")
 
 
 def test_predictor_config_create_instance_passes_hyperparameters() -> None:
-    register_builtin_components()
     predictor = PredictorConfig(name="elasticNet").create_instance({"alpha": 0.25})
     assert isinstance(predictor, ElasticNetPredictor)
     assert predictor._hyperparameters["alpha"] == 0.25
     assert predictor._h["alpha"] == 0.25
-
-
-def test_interface_bases_declare_input_interface() -> None:
-    assert FeatureFreePredictor.input_interface == "feature_free"
-    assert MatrixPredictor.input_interface == "matrix"
-    assert BlockPredictor.input_interface == "block"
 
 
 def test_builtin_predictor_interfaces_partition() -> None:

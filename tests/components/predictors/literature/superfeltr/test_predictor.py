@@ -1,4 +1,4 @@
-"""Smoke test mirror for superfeltr predictor package."""
+"""Tests for the SuperFELTR predictor."""
 
 from __future__ import annotations
 

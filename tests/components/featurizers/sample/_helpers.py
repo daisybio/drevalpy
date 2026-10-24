@@ -1,7 +1,4 @@
-"""Shared helpers for sample featurizer tests.
-
-Plain module (no ``__init__.py``) imported by dotted path.
-"""
+"""Shared helpers for sample featurizer tests."""
 
 from __future__ import annotations
 
@@ -27,17 +24,7 @@ def precomputed_source(
     matrix: np.ndarray | None = None,
     hyperparameters: dict[str, object] | None = None,
 ) -> SampleFeatureSource:
-    """Return a dataset-backed source carrying a registered variant for *featurizer_cls*.
-
-    Exercises the ``fetch``-hit branch every dense sample featurizer takes when
-    ``Dataset.precompute()`` has already written its matrix.
-
-    :param featurizer_cls: Featurizer whose ``storage_key`` / ``side`` to register under.
-    :param matrix: Values to store; defaults to :data:`PRECOMPUTED`.
-    :param hyperparameters: HP setting the variant was computed under; featurizers
-        that pass their own HPs to ``fetch`` (``pca``) need these to match.
-    :returns: Sample feature source over a 2x2 synthetic dataset.
-    """
+    """Dataset-backed source carrying a registered variant for *featurizer_cls* (the ``fetch``-hit branch)."""
     values = PRECOMPUTED if matrix is None else matrix
     dataset = synthetic_mudataset(extra_views=("mutations", "copy_number_variation_gistic"))
     key = f"{featurizer_cls.__name__}_precomputed"
@@ -60,22 +47,7 @@ def assert_uses_precomputed_variant(
     expect_output_dim: bool = True,
     expected_blocks: tuple[str, ...] | None = None,
 ) -> None:
-    """Assert *featurizer* serves a stored matrix rather than recomputing one.
-
-    Every dense sample featurizer takes the identical ``fetch``-hit path, so
-    this assertion was written out once per featurizer. What actually differs per
-    featurizer is captured in the keyword arguments: which keyword its ``fit``
-    names the entity IDs with, whether it forwards its own hyperparameters to
-    ``fetch``, whether ``output_dim`` follows the stored width, and which blocks
-    ``transform_blocks`` is expected to emit.
-
-    :param featurizer: Unfitted featurizer instance to exercise.
-    :param ids_kwarg: ``fit`` keyword carrying the entity IDs.
-    :param hyperparameters: HP setting the stored variant is registered under.
-    :param expect_output_dim: Assert ``output_dim`` equals the stored width.
-    :param expected_blocks: When given, also assert ``transform_blocks`` returns
-        exactly these block names, each carrying the stored matrix.
-    """
+    """Assert *featurizer* serves a stored matrix (and, if *expected_blocks*, those blocks) rather than recomputing."""
     source = precomputed_source(type(featurizer), hyperparameters=hyperparameters)
     ids = source.identifiers
 
@@ -97,12 +69,7 @@ def assert_uses_precomputed_variant(
 
 
 def use_gene_lists(monkeypatch: pytest.MonkeyPatch, directory: Path, lists: Mapping[str, Sequence[str]]) -> None:
-    """Replace the shipped gene lists by small stand-ins for the rest of the test.
-
-    :param monkeypatch: The test's monkeypatch fixture.
-    :param directory: Empty directory to write the stand-in CSVs to.
-    :param lists: List name to its gene symbols.
-    """
+    """Replace the shipped gene lists by small stand-in CSVs written to *directory*."""
     for name, symbols in lists.items():
         pd.DataFrame({"Symbol": list(symbols)}).to_csv(directory / f"{name}.csv", index=False)
     monkeypatch.setattr(gene_lists, "GENE_LISTS_DIR", UPath(directory))

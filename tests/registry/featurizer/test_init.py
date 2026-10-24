@@ -1,9 +1,4 @@
-"""Tests for the side packages that bind :mod:`drevalpy.registry.featurizer` to one entity side.
-
-``drevalpy.registry.sample_featurizer`` and ``drevalpy.registry.drug_featurizer`` hold no logic of their
-own: each exposes the ``register`` / ``get`` / ``list`` / ``table`` / ``metadata`` helpers of its side's
-registry. So every test runs against both packages.
-"""
+"""Tests for the side packages that bind :mod:`drevalpy.registry.featurizer` to one entity side (run against both)."""
 
 from __future__ import annotations
 
@@ -56,38 +51,20 @@ def test_register_and_lookup(package: ModuleType) -> None:
     assert vars(Dummy)["contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     assert "dummy" in package.list()
     assert "dummy" in package.table()["Name"].tolist()
+    meta = package.metadata("dummy")
+    assert (meta["output_format"], meta["description"], meta["tags"]) == ("numeric_matrix", "test", frozenset())
 
 
 @SIDES
-def test_duplicate_registration_fails(package: ModuleType) -> None:
+def test_duplicate_and_unknown_names_fail(package: ModuleType) -> None:
     @package.register("dup", description="first", contract=FeatureFormat.NUMERIC_MATRIX)
     class First:
         pass
 
     with pytest.raises(ValueError, match="already registered"):
-
-        @package.register("dup", description="second", contract=FeatureFormat.NUMERIC_MATRIX)
-        class Second:
-            pass
-
-
-@SIDES
-def test_unknown_name_fails(package: ModuleType) -> None:
+        package.register("dup", description="second", contract=FeatureFormat.NUMERIC_MATRIX)(type("Second", (), {}))
     with pytest.raises(UnknownNameError, match=r"Unknown (Sample|Drug) featurizer: 'missing'"):
         package.get("missing")
-
-
-@SIDES
-def test_metadata_includes_output_format_and_description(package: ModuleType) -> None:
-    @package.register("graphFeat", description="graph", contract=FeatureFormat.GRAPH)
-    class GraphFeat:
-        pass
-
-    meta = package.metadata("graphFeat")
-
-    assert meta["output_format"] == "graph"
-    assert meta["description"] == "graph"
-    assert meta["tags"] == frozenset()
 
 
 @SIDES
@@ -100,36 +77,30 @@ def test_the_decorator_contract_overrides_the_class_body(package: ModuleType) ->
 
 
 @SIDES
-def test_a_class_body_contract_is_a_valid_declaration(package: ModuleType) -> None:
+def test_a_class_body_contract_is_a_valid_declaration_and_a_format_shorthand_is_normalized(
+    package: ModuleType,
+) -> None:
     @package.register("bodyContract", description="declares on the class body")
     class BodyContract:
         contract = FeatureContract(format=FeatureFormat.GRAPH)
 
-    assert package.metadata("bodyContract")["output_format"] == "graph"
-
-
-@SIDES
-def test_a_class_body_format_shorthand_is_normalized(package: ModuleType) -> None:
     @package.register("shorthandContract", description="format shorthand")
     class ShorthandContract:
         contract = FeatureFormat.RAGGED_SEQUENCE
 
+    assert package.metadata("bodyContract")["output_format"] == "graph"
     assert vars(ShorthandContract)["contract"] == FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
 
 
 @SIDES
-def test_a_featurizer_declaring_no_contract_anywhere_is_rejected(package: ModuleType) -> None:
-    with pytest.raises(ValueError, match="no contract declared"):
-
-        @package.register("noContract", description="missing contract")
-        class NoContract:
-            pass
-
-
-@SIDES
-def test_an_invalid_class_body_contract_is_rejected(package: ModuleType) -> None:
-    with pytest.raises(ValueError, match="class-body contract is invalid"):
-
-        @package.register("badContract", description="wrong type")
-        class BadContract:
-            contract = "numeric_matrix_but_a_plain_string"
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ({}, "no contract declared"),
+        ({"contract": "numeric_matrix_but_a_plain_string"}, "class-body contract is invalid"),
+    ],
+    ids=["missing", "wrong-type"],
+)
+def test_a_missing_or_invalid_contract_is_rejected(package: ModuleType, body: dict, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        package.register("badContract", description="bad")(type("BadContract", (), body))

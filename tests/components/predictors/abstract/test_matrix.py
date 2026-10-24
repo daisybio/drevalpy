@@ -18,14 +18,10 @@ def _ids(n: int) -> np.ndarray:
     return np.array([f"id_{i}" for i in range(n)])
 
 
-def test_matrix_predictor_declares_the_matrix_input_interface() -> None:
+def test_matrix_predictor_declares_the_matrix_interface_with_abstract_hooks() -> None:
     assert MatrixPredictor.input_interface == "matrix"
     assert issubclass(MatrixPredictor, Predictor)
-
-
-@pytest.mark.parametrize("method_name", ["_fit_matrix", "_predict_matrix"])
-def test_matrix_predictor_leaves_the_matrix_hooks_abstract(method_name: str) -> None:
-    assert method_name in MatrixPredictor.__abstractmethods__
+    assert {"_fit_matrix", "_predict_matrix"} <= MatrixPredictor.__abstractmethods__
 
 
 def test_matrix_predictor_cannot_build_a_design_matrix_without_a_response() -> None:
@@ -52,7 +48,6 @@ def test_matrix_predictor_cannot_build_a_design_matrix_without_a_response() -> N
 
 def test_registered_neural_network_predictor_uses_only_the_matrix_interface() -> None:
     register_builtin_components()
-
     cls = get_predictor("neuralNetwork")
 
     assert issubclass(cls, MatrixPredictor)
@@ -60,27 +55,18 @@ def test_registered_neural_network_predictor_uses_only_the_matrix_interface() ->
     assert cls.input_interface == "matrix"
 
 
-def test_batch_rejects_response_length_mismatch() -> None:
-    with pytest.raises(ValueError, match="response must be one-dimensional"):
+@pytest.mark.parametrize(
+    ("response_length", "pair_idx_length", "message"),
+    [(2, 3, "response must be one-dimensional"), (3, 2, "sample_pair_idx must be one-dimensional")],
+)
+def test_batch_rejects_length_mismatches(response_length: int, pair_idx_length: int, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
         ModelInputBatch(
             sample_ids=_ids(3),
             drug_ids=_ids(3),
-            response=np.ones(2),
+            response=np.ones(response_length),
             sample=FeaturizerResult(np.empty(0), {}, ()),
             drug=None,
-            sample_pair_idx=np.zeros(3, dtype=np.int64),
-            drug_pair_idx=None,
-        )
-
-
-def test_batch_rejects_pair_idx_length_mismatch() -> None:
-    with pytest.raises(ValueError, match="sample_pair_idx must be one-dimensional"):
-        ModelInputBatch(
-            sample_ids=_ids(3),
-            drug_ids=_ids(3),
-            response=np.ones(3),
-            sample=FeaturizerResult(np.empty(0), {}, ()),
-            drug=None,
-            sample_pair_idx=np.zeros(2, dtype=np.int64),
+            sample_pair_idx=np.zeros(pair_idx_length, dtype=np.int64),
             drug_pair_idx=None,
         )

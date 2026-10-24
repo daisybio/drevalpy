@@ -10,14 +10,7 @@ from drevalpy.curation._postprocess import _COLUMN_RENAME, DERIVED_METRICS, post
 
 
 def _make_mock_fitted_df() -> pd.DataFrame:
-    """Build a frame mimicking curve_curator output for three curves.
-
-    The columns come from :data:`_COLUMN_RENAME` rather than a hand-written list,
-    so a metric added there without a value here fails loudly instead of quietly
-    exercising a shorter frame.
-
-    :returns: A frame with every column ``postprocess`` renames.
-    """
+    """A frame mimicking curve_curator output; columns come from ``_COLUMN_RENAME`` so a new metric fails loudly."""
     values: dict[str, list] = {
         "Name": ["CL_A|DrugX", "CL_B|DrugX", "CL_A|DrugY"],
         "pEC50": [6.0, 5.5, 4.0],
@@ -47,47 +40,19 @@ def _make_mock_fitted_df() -> pd.DataFrame:
 
 @pytest.fixture()
 def fitted_df() -> pd.DataFrame:
-    """A frame mimicking curve_curator output for three curves."""
     return _make_mock_fitted_df()
 
 
 @pytest.fixture()
 def metrics(fitted_df: pd.DataFrame) -> pd.DataFrame:
-    """``postprocess`` applied to a single group."""
     return postprocess([(fitted_df, {})])
 
 
 class TestColumns:
-    """The shape of the returned flat metrics frame."""
-
-    def test_it_returns_a_dataframe(self, metrics: pd.DataFrame) -> None:
-        assert isinstance(metrics, pd.DataFrame)
-
-    @pytest.mark.parametrize("column", ["sample", "drug"])
-    def test_label_columns_are_present(self, metrics: pd.DataFrame, column: str) -> None:
-        assert column in metrics.columns
-
-    @pytest.mark.parametrize("column", list(DERIVED_METRICS))
-    def test_derived_metrics_are_present(self, metrics: pd.DataFrame, column: str) -> None:
-        assert column in metrics.columns
-
-    @pytest.mark.parametrize("column", sorted(set(_COLUMN_RENAME.values())))
-    def test_every_renamed_metric_is_present(self, metrics: pd.DataFrame, column: str) -> None:
-        assert column in metrics.columns
-
-    def test_no_raw_curve_curator_names_survive(self, metrics: pd.DataFrame) -> None:
+    def test_labels_derived_and_renamed_metrics_are_present_and_raw_names_are_gone(self, metrics: pd.DataFrame) -> None:
+        assert {"sample", "drug", *DERIVED_METRICS, *_COLUMN_RENAME.values()} <= set(metrics.columns)
         assert not [column for column in metrics.columns if column.startswith(("Curve ", "Signal "))]
-
-    def test_the_grouping_name_column_is_dropped(self, metrics: pd.DataFrame) -> None:
         assert "Name" not in metrics.columns
-
-
-class TestPerCurveErrors:
-    """The four per-parameter standard errors, previously discarded.
-
-    They are CurveCurator's only per-curve uncertainty estimate, and they were
-    silently dropped for as long as ``_COLUMN_RENAME`` did not list them.
-    """
 
     @pytest.mark.parametrize(
         ("source", "renamed"),
@@ -98,7 +63,7 @@ class TestPerCurveErrors:
             ("Curve Back Error", "back_error"),
         ],
     )
-    def test_each_error_survives_under_its_snake_case_name(
+    def test_each_per_curve_error_survives_under_its_snake_case_name(
         self, fitted_df: pd.DataFrame, metrics: pd.DataFrame, source: str, renamed: str
     ) -> None:
         np.testing.assert_allclose(metrics[renamed].to_numpy(), fitted_df[source].to_numpy())
@@ -109,30 +74,20 @@ class TestPerCurveErrors:
 
 
 class TestDerivedMetrics:
-    """``EC50``/``IC50``/``LN_IC50`` are computed here, not read from the fit."""
-
-    def test_ec50_inverts_pec50(self, metrics: pd.DataFrame) -> None:
+    def test_ec50_inverts_pec50_and_ln_ic50_is_the_log_of_ic50(self, metrics: pd.DataFrame) -> None:
         np.testing.assert_allclose(metrics.loc[0, "EC50"], 10 ** (-6.0) * 1e6, rtol=1e-5)
-
-    def test_ln_ic50_is_the_log_of_ic50(self, metrics: pd.DataFrame) -> None:
         np.testing.assert_allclose(metrics["LN_IC50"].to_numpy(), np.log(metrics["IC50"].to_numpy()))
 
-    def test_a_curve_with_no_half_maximal_crossing_yields_nan(self, fitted_df: pd.DataFrame) -> None:
+    def test_a_curve_with_no_half_maximal_crossing_yields_nan(self, metrics: pd.DataFrame) -> None:
         """``CL_A|DrugY`` has ``back = 0.9``, so the curve never reaches 0.5."""
-        result = postprocess([(fitted_df, {})])
-
-        assert np.isnan(result.loc[2, "IC50"])
+        assert np.isnan(metrics.loc[2, "IC50"])
 
 
 class TestLabels:
-    """``Name`` is split back into the labels the caller supplied."""
-
     def test_the_name_column_is_split_on_the_separator(self, metrics: pd.DataFrame) -> None:
-        assert metrics.loc[0, "sample"] == "CL_A"
-        assert metrics.loc[0, "drug"] == "DrugX"
+        assert (metrics.loc[0, "sample"], metrics.loc[0, "drug"]) == ("CL_A", "DrugX")
 
     def test_native_identifiers_survive_unchanged(self) -> None:
-        """The pipeline fits on native IDs and remaps later, so these must pass through."""
         native = _make_mock_fitted_df()
         native["Name"] = ["ACH-000001|DRUG_1047", "SIDM00400|DRUG_1047", "ACH-000001|BRD-K02251932"]
 
@@ -143,24 +98,15 @@ class TestLabels:
 
 
 class TestMultipleGroups:
-    """Dose-range groups are concatenated, not merged."""
-
-    def test_rows_from_every_group_are_kept(self, fitted_df: pd.DataFrame) -> None:
+    def test_groups_are_concatenated_with_a_reset_index_and_the_input_is_not_mutated(
+        self, fitted_df: pd.DataFrame
+    ) -> None:
         other = fitted_df.copy()
         other["Name"] = ["CL_A|DrugZ", "CL_B|DrugZ", "CL_C|DrugZ"]
+        before = fitted_df.columns.tolist()
 
         result = postprocess([(fitted_df, {}), (other, {})])
 
         assert len(result) == 2 * len(fitted_df)
-
-    def test_the_index_is_reset_across_groups(self, fitted_df: pd.DataFrame) -> None:
-        result = postprocess([(fitted_df, {}), (fitted_df.copy(), {})])
-
         assert result.index.tolist() == list(range(len(result)))
-
-    def test_the_input_frame_is_not_mutated(self, fitted_df: pd.DataFrame) -> None:
-        before = fitted_df.columns.tolist()
-
-        postprocess([(fitted_df, {})])
-
         assert fitted_df.columns.tolist() == before

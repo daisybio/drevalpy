@@ -9,59 +9,44 @@ import pytest
 
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_spec
-from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.dataset import Dataset
 from tests.models.synthetic_fixtures import lso_split_masks, small_data_spec, synthetic_mudataset
 
-#: The multi-omics view ``MultiViewNeuralNetwork`` reads beyond gene expression.
-MULTIVIEW_EXTRA_VIEWS = ("mutations",)
-
-
-@pytest.fixture(autouse=True)
-def _register_components() -> None:
-    register_builtin_components()
-
 
 def _dataset(*, extra_views: tuple[str, ...] = ()) -> tuple[Dataset, SplitMasks]:
-    """Build a four-feature synthetic dataset and an LSO split over it.
-
-    :param extra_views: Sample modalities beyond ``gene_expression``.
-    :returns: ``(dataset, split)``.
-    """
     dataset = synthetic_mudataset(n_features_per_view=4, fingerprint_width=4, extra_views=extra_views)
     return dataset, lso_split_masks()
 
 
-LITERATURE_MODEL_NAMES = (
-    "DIPK",
-    "DrugGNN",
-    "MOLIR",
-    "PharmaFormer",
-    "Precily",
-    "SRMF",
-    "SimpleNeuralNetwork",
-    "MultiViewNeuralNetwork",
-    "SuperFELTR",
-    "SparseGO",
+_SMALL_HYPERPARAMETERS = {
+    "DIPK": {"epochs": 1, "epochs_autoencoder": 1, "heads": 1},
+    "SimpleNeuralNetwork": {"units_per_layer": [2, 2], "max_epochs": 1},
+    "MultiViewNeuralNetwork": {"units_per_layer": [2, 2], "max_epochs": 1},
+    "PharmaFormer": {"epochs": 1, "patience": 2},
+    "Precily": {"epochs": 1, "batch_size": 32},
+    "SparseGO": {"epochs": 1, "batch_size": 32},
+}
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "DIPK",
+        "DrugGNN",
+        "MOLIR",
+        "PharmaFormer",
+        "Precily",
+        "SRMF",
+        "SimpleNeuralNetwork",
+        "MultiViewNeuralNetwork",
+        "SuperFELTR",
+        "SparseGO",
+    ],
 )
-
-
-@pytest.mark.parametrize("model_name", LITERATURE_MODEL_NAMES)
 def test_literature_models_build_with_defaults(model_name: str) -> None:
     spec = ModelSpec.from_name(model_name)
-    hyperparameters = dict(spec.default_hyperparameters)
-    if model_name == "DIPK":
-        hyperparameters.update({"epochs": 1, "epochs_autoencoder": 1, "heads": 1})
-    elif model_name in {"SimpleNeuralNetwork", "MultiViewNeuralNetwork"}:
-        hyperparameters.update({"units_per_layer": [2, 2], "max_epochs": 1})
-    elif model_name == "PharmaFormer":
-        hyperparameters.update({"epochs": 1, "patience": 2})
-    elif model_name == "Precily":
-        hyperparameters.update({"epochs": 1, "batch_size": 32})
-    elif model_name == "SparseGO":
-        hyperparameters.update({"epochs": 1, "batch_size": 32})
-    DRPModel(spec, hyperparameters)
+    DRPModel(spec, {**spec.default_hyperparameters, **_SMALL_HYPERPARAMETERS.get(model_name, {})})
 
 
 @pytest.mark.parametrize(
@@ -69,14 +54,7 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
     [
         ("SimpleNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, ()),
         ("SRMF", {"K": 2, "max_iter": 2, "n_features": 4}, ()),
-        (
-            "MultiViewNeuralNetwork",
-            {
-                "units_per_layer": [2, 2],
-                "max_epochs": 1,
-            },
-            MULTIVIEW_EXTRA_VIEWS,
-        ),
+        ("MultiViewNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, ("mutations",)),
         ("NaiveDrugMeanPredictor", {}, ()),
     ],
 )

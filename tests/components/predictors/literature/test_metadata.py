@@ -1,10 +1,4 @@
-"""Tests for the frozen literature reference constants.
-
-Mirrors the private module
-``drevalpy.components.predictors.literature._metadata`` with the leading
-underscore stripped. The module holds data only, so the assertions are
-data-shape assertions rather than behaviour.
-"""
+"""Tests for the frozen literature reference constants."""
 
 from __future__ import annotations
 
@@ -52,17 +46,9 @@ DOIS = (
 
 
 @pytest.mark.parametrize("reference", ALL_REFERENCES)
-def test_every_constant_is_a_literature_reference(reference: LiteratureReference) -> None:
+def test_every_reference_has_a_github_repository_and_citation_text(reference: LiteratureReference) -> None:
     assert isinstance(reference, LiteratureReference)
-
-
-@pytest.mark.parametrize("reference", ALL_REFERENCES)
-def test_every_reference_points_at_a_github_repository(reference: LiteratureReference) -> None:
     assert reference.repo_url.startswith("https://github.com/")
-
-
-@pytest.mark.parametrize("reference", ALL_REFERENCES)
-def test_every_reference_has_citation_text(reference: LiteratureReference) -> None:
     assert reference.citation_text
 
 
@@ -92,12 +78,9 @@ def test_benchmark_doi_references_name_the_original_model_in_the_citation(
     assert all(part in reference.citation_text for part in cited)
 
 
-def test_repo_urls_are_unique_across_references() -> None:
+def test_repo_urls_are_unique_and_references_immutable() -> None:
     urls = [param.values[0].repo_url for param in ALL_REFERENCES]
 
     assert len(set(urls)) == len(urls)
-
-
-def test_every_reference_is_immutable() -> None:
     with pytest.raises(AttributeError):
         DIPK_REFERENCE.repo_url = "https://example.invalid"

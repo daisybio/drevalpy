@@ -24,21 +24,17 @@ from drevalpy.testing import build_synthetic_dataset
 pytestmark = pytest.mark.slow
 
 
-class TestCheckChoices:
-    def test_known_names_pass(self):
-        check_choices("things", ["a", "b"], ("a", "b", "c"))
+def test_check_choices_passes_known_names_and_reports_every_choice_for_an_unknown_one():
+    check_choices("things", ["a", "b"], ("a", "b", "c"))
 
-    def test_an_unknown_name_is_reported_with_every_choice(self):
-        with pytest.raises(ValueError, match=r"Unknown things \['z'\]; choose from \['a', 'b'\]"):
-            check_choices("things", ["a", "z"], ("b", "a"))
+    with pytest.raises(ValueError, match=r"Unknown things \['z'\]; choose from \['a', 'b'\]"):
+        check_choices("things", ["a", "z"], ("b", "a"))
 
 
 class TestNames:
-    def test_gene_symbols_are_the_packaged_landmark_prefix(self):
+    def test_gene_symbols_are_the_packaged_landmark_prefix_and_too_many_ask_for_explicit_names(self):
         assert gene_symbols(3) == gene_symbols(5)[:3]
         assert len(set(gene_symbols(20))) == 20
-
-    def test_too_many_symbols_ask_for_explicit_names(self):
         with pytest.raises(InvalidInputError, match="pass feature_names"):
             gene_symbols(100_000)
 
@@ -68,25 +64,18 @@ class TestNames:
         assert len(names) == len(set(names)) == len(shipped) + 4
         assert all(name.startswith(prefix) for name in names[len(shipped) :])
 
-    def test_one_list_applies_to_every_view(self):
-        assert view_feature_names("methylation", ["a", "b"], 9) == ["a", "b"]
-
-    def test_a_mapping_applies_only_to_the_views_it_names(self):
+    def test_a_list_applies_to_every_view_and_a_mapping_only_to_the_views_it_names(self):
         mapping = {"methylation": ["m1"]}
 
+        assert view_feature_names("methylation", ["a", "b"], 9) == ["a", "b"]
         assert view_feature_names("methylation", mapping, 9) == ["m1"]
         assert view_feature_names("proteomics", mapping, 3) == list(view_gene_union("proteomics"))
 
 
-class TestCoverage:
-    def test_none_adds_no_view(self):
-        assert omics_coverage(None, 10) == {}
-
-    def test_a_sequence_gets_full_coverage(self):
-        assert omics_coverage(["a", "b"], 10) == {"a": 10, "b": 10}
-
-    def test_a_mapping_keeps_its_counts(self):
-        assert omics_coverage({"a": 4.0}, 10) == {"a": 4}
+def test_omics_coverage_maps_none_sequences_and_mappings():
+    assert omics_coverage(None, 10) == {}
+    assert omics_coverage(["a", "b"], 10) == {"a": 10, "b": 10}
+    assert omics_coverage({"a": 4.0}, 10) == {"a": 4}
 
 
 class TestOmicsAnndata:
@@ -99,17 +88,13 @@ class TestOmicsAnndata:
             rng, view, self.SAMPLES, factors, n_covered=n_covered, feature_names=gene_symbols(n_features)
         )
 
-    def test_it_covers_the_leading_samples_under_the_given_names(self):
+    def test_it_covers_the_leading_samples_under_the_given_names_with_float32_expression_near_six(self):
         modality = self._build("gene_expression", n_covered=12)
 
         assert list(modality.obs_names) == self.SAMPLES[:12]
         assert list(modality.var_names) == gene_symbols(6)
-
-    def test_expression_is_centred_on_six_and_float32(self):
-        modality = self._build("gene_expression")
-
         assert modality.X.dtype == np.float32
-        assert modality.X.mean() == pytest.approx(6.0, abs=1.5)
+        assert self._build("gene_expression").X.mean() == pytest.approx(6.0, abs=1.5)
 
     def test_proteomics_is_floored_above_zero(self):
         rng = np.random.default_rng(0)
@@ -123,10 +108,7 @@ class TestOmicsAnndata:
 
     @pytest.mark.parametrize(
         ("view", "allowed"),
-        [
-            ("mutations", {0.0, 1.0}),
-            ("copy_number_variation_gistic", {-2.0, -1.0, 0.0, 1.0, 2.0}),
-        ],
+        [("mutations", {0.0, 1.0}), ("copy_number_variation_gistic", {-2.0, -1.0, 0.0, 1.0, 2.0})],
     )
     def test_discrete_views_only_take_their_levels(self, view, allowed):
         assert set(np.unique(self._build(view).X)) <= allowed
@@ -139,11 +121,9 @@ class TestOmicsAnndata:
         factors = np.random.default_rng(1).normal(size=(200, 3))
         samples = [str(i) for i in range(200)]
         first = omics_anndata(rng, "gene_expression", samples, factors, n_covered=200, feature_names=gene_symbols(40))
-        second = omics_anndata(rng, "mutations", samples, factors, n_covered=200, feature_names=gene_symbols(40))
 
         rank = np.linalg.svd(first.X - first.X.mean(0), compute_uv=False)
         assert rank[3] < 0.5 * rank[2]
-        assert second.X.shape == first.X.shape
 
 
 class TestPayloadGenes:

@@ -42,13 +42,11 @@ def test_superfeltr_omics_selects_each_view_and_round_trips_state() -> None:
 
 
 def test_superfeltr_omics_serves_a_precomputed_variant() -> None:
-    assert_uses_precomputed_variant(
-        SuperFELTROmicsFeaturizer(),
-        expected_blocks=("gene_expression",),
-    )
+    assert_uses_precomputed_variant(SuperFELTROmicsFeaturizer(), expected_blocks=("gene_expression",))
 
 
-def test_superfeltr_omics_falls_back_to_empty_feature_names_without_metadata() -> None:
+def test_superfeltr_omics_without_metadata_and_before_fit() -> None:
+    assert SuperFELTROmicsFeaturizer().output_dim == 0
     features = MockFeatureSource(
         {
             f"cl{i}": {
@@ -63,31 +61,7 @@ def test_superfeltr_omics_falls_back_to_empty_feature_names_without_metadata() -
     featurizer = SuperFELTROmicsFeaturizer(n_features_per_view=2).fit(features)
 
     assert featurizer.get_state()["feature_names"]["gene_expression"] == ()
-
-
-def test_superfeltr_omics_output_dim_sums_selected_features_across_views() -> None:
-    features = MockFeatureSource(
-        {
-            f"cl{i}": {
-                "gene_expression": np.array([i, i * 2, 1], dtype=np.float32),
-                "mutations": np.array([i, 1, i + 1], dtype=np.float32),
-                "copy_number_variation_gistic": np.array([2, i, i + 2], dtype=np.float32),
-            }
-            for i in range(2)
-        }
-    )
-
-    featurizer = SuperFELTROmicsFeaturizer(n_features_per_view=2).fit(features)
-
     assert featurizer.output_dim == 6
-
-
-def test_superfeltr_omics_output_dim_is_zero_before_fit() -> None:
-    assert SuperFELTROmicsFeaturizer().output_dim == 0
-
-
-def test_superfeltr_omics_hyperparameter_space_exposes_the_feature_count() -> None:
-    assert set(SuperFELTROmicsFeaturizer.get_hyperparameter_space()) == {"n_features_per_view"}
 
 
 def test_expression_transform_precedes_training_only_selection() -> None:

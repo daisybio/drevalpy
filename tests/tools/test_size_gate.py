@@ -9,7 +9,6 @@ from tools.size_gate import count_statements, main
 
 
 def _write_package(path: UPath, modules: dict[str, str]) -> UPath:
-    """Write a package tree whose modules hold the given source text."""
     package = path / "drevalpy"
     for relative, source in modules.items():
         target = package / relative
@@ -19,15 +18,11 @@ def _write_package(path: UPath, modules: dict[str, str]) -> UPath:
 
 
 def _statements(count: int) -> str:
-    """Build a module source with exactly ``count`` top-level statements."""
-    return "\n".join(f"x{index} = {index}" for index in range(count)) + "\n"
+    return "\n".join(f"x{index} = {index}" for index in range(count)) + "\n" if count else ""
 
 
 def _write_pyproject(path: UPath, max_module_statements: int, exemptions: dict[str, int]) -> UPath:
-    """Write a minimal ``pyproject.toml`` holding a size-gate config table.
-
-    Exemption keys are written package-relative, the form the gate reports.
-    """
+    """Write a minimal ``pyproject.toml``; exemption keys are package-relative, the form the gate reports."""
     lines = ["[tool.drevalpy.size_gate]", f"max_module_statements = {max_module_statements}"]
     if exemptions:
         lines.append("[tool.drevalpy.size_gate.exemptions]")
@@ -41,79 +36,50 @@ def _run(package: UPath, pyproject: UPath) -> int:
     return main(["--package", str(package), "--pyproject", str(pyproject)])
 
 
-def test_passes_when_every_module_meets_the_ceiling(tmp_path: UPath) -> None:
-    package = _write_package(tmp_path, {"a.py": _statements(5), "b.py": _statements(10)})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={})
+@pytest.mark.parametrize(
+    ("modules", "exemptions", "expected_exit_code"),
+    [
+        ({"a.py": 5, "b.py": 10}, {}, 0),
+        ({"a.py": 0}, {}, 0),
+        ({"a.py": 5, "b.py": 11}, {}, 1),
+        ({"big.py": 40}, {"big.py": 40}, 0),
+        ({"big.py": 41}, {"big.py": 40}, 1),
+        ({"nested/deep.py": 40}, {"nested/deep.py": 40}, 0),
+    ],
+    ids=["at-ceiling", "empty", "one-over", "exempt-within", "exempt-over", "nested-exemption-is-package-relative"],
+)
+def test_the_ceiling_is_inclusive_and_exemptions_replace_it(
+    tmp_path: UPath, modules: dict[str, int], exemptions: dict[str, int], expected_exit_code: int
+) -> None:
+    package = _write_package(tmp_path, {name: _statements(count) for name, count in modules.items()})
+    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions=exemptions)
 
-    assert _run(package, pyproject) == 0
+    assert _run(package, pyproject) == expected_exit_code
 
 
-def test_fails_when_a_module_is_above_the_ceiling(tmp_path: UPath) -> None:
-    package = _write_package(tmp_path, {"a.py": _statements(5), "b.py": _statements(11)})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={})
-
-    assert _run(package, pyproject) == 1
-
-
-def test_names_the_offending_module_in_the_report(tmp_path: UPath, capsys: pytest.CaptureFixture[str]) -> None:
+def test_names_only_the_offending_module_in_the_report(tmp_path: UPath, capsys: pytest.CaptureFixture[str]) -> None:
     package = _write_package(tmp_path, {"small.py": _statements(2), "big.py": _statements(50)})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={})
 
-    _run(package, pyproject)
+    _run(package, _write_pyproject(tmp_path, max_module_statements=10, exemptions={}))
 
     out = capsys.readouterr().out
     assert "big.py" in out
     assert "small.py" not in out
 
 
-def test_exempted_module_above_global_ceiling_but_within_its_own_passes(tmp_path: UPath) -> None:
-    package = _write_package(tmp_path, {"big.py": _statements(40)})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={"big.py": 40})
+@pytest.mark.parametrize(
+    ("statements", "exemption", "ratchetable"),
+    [(25, 40, True), (8, 12, True), (39, 40, False)],
+    ids=["shrunk", "under-global-ceiling", "just-under-own-ceiling"],
+)
+def test_reports_exemptions_that_can_be_lowered(
+    tmp_path: UPath, capsys: pytest.CaptureFixture[str], statements: int, exemption: int, ratchetable: bool
+) -> None:
+    package = _write_package(tmp_path, {"m.py": _statements(statements)})
+    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={"m.py": exemption})
 
     assert _run(package, pyproject) == 0
-
-
-def test_exempted_module_above_its_own_ceiling_fails(tmp_path: UPath) -> None:
-    package = _write_package(tmp_path, {"big.py": _statements(41)})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={"big.py": 40})
-
-    assert _run(package, pyproject) == 1
-
-
-def test_reports_a_shrunk_module_as_ratchetable(tmp_path: UPath, capsys: pytest.CaptureFixture[str]) -> None:
-    package = _write_package(tmp_path, {"shrunk.py": _statements(25)})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={"shrunk.py": 40})
-
-    exit_code = _run(package, pyproject)
-
-    assert exit_code == 0
-    out = capsys.readouterr().out
-    assert "can be lowered or deleted" in out
-    assert "shrunk.py" in out
-
-
-def test_reports_a_module_that_fell_under_the_global_ceiling_as_ratchetable(
-    tmp_path: UPath, capsys: pytest.CaptureFixture[str]
-) -> None:
-    package = _write_package(tmp_path, {"split.py": _statements(8)})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={"split.py": 12})
-
-    exit_code = _run(package, pyproject)
-
-    assert exit_code == 0
-    assert "can be lowered or deleted" in capsys.readouterr().out
-
-
-def test_a_module_just_under_its_own_ceiling_is_not_yet_ratchetable(
-    tmp_path: UPath, capsys: pytest.CaptureFixture[str]
-) -> None:
-    package = _write_package(tmp_path, {"big.py": _statements(39)})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={"big.py": 40})
-
-    exit_code = _run(package, pyproject)
-
-    assert exit_code == 0
-    assert "can be lowered or deleted" not in capsys.readouterr().out
+    assert ("can be lowered or deleted" in capsys.readouterr().out) is ratchetable
 
 
 def test_reports_exemptions_for_modules_that_no_longer_exist(
@@ -122,65 +88,29 @@ def test_reports_exemptions_for_modules_that_no_longer_exist(
     package = _write_package(tmp_path, {"a.py": _statements(2)})
     pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={"gone.py": 40})
 
-    exit_code = _run(package, pyproject)
-
-    assert exit_code == 0
+    assert _run(package, pyproject) == 0
     assert "gone.py" in capsys.readouterr().out
 
 
-def test_exemption_paths_are_package_relative_not_filesystem_absolute(tmp_path: UPath) -> None:
-    package = _write_package(tmp_path, {"nested/deep.py": _statements(40)})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={"nested/deep.py": 40})
-
-    assert _run(package, pyproject) == 0
-
-
-def test_exits_with_a_clear_message_when_the_package_is_missing(
-    tmp_path: UPath, capsys: pytest.CaptureFixture[str]
-) -> None:
+@pytest.mark.parametrize("problem", ["missing-package", "missing-pyproject", "unparseable-module"])
+def test_exits_with_a_clear_message(tmp_path: UPath, capsys: pytest.CaptureFixture[str], problem: str) -> None:
+    package = _write_package(tmp_path, {"broken.py": "def (\n" if problem == "unparseable-module" else "x = 1\n"})
     pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={})
-
-    with pytest.raises(SystemExit) as excinfo:
-        _run(tmp_path / "absent", pyproject)
-
-    assert excinfo.value.code == 1
-    assert "not a directory" in capsys.readouterr().err
-
-
-def test_exits_when_the_pyproject_is_missing(tmp_path: UPath, capsys: pytest.CaptureFixture[str]) -> None:
-    package = _write_package(tmp_path, {"a.py": _statements(2)})
-
-    with pytest.raises(SystemExit) as excinfo:
-        _run(package, tmp_path / "absent.toml")
-
-    assert excinfo.value.code == 1
-    assert "not found" in capsys.readouterr().err
-
-
-def test_exits_when_a_module_does_not_parse(tmp_path: UPath, capsys: pytest.CaptureFixture[str]) -> None:
-    package = _write_package(tmp_path, {"broken.py": "def (\n"})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={})
+    message = {
+        "missing-package": "not a directory",
+        "missing-pyproject": "not found",
+        "unparseable-module": "does not parse",
+    }[problem]
+    if problem == "missing-package":
+        package = tmp_path / "absent"
+    if problem == "missing-pyproject":
+        pyproject = tmp_path / "absent.toml"
 
     with pytest.raises(SystemExit) as excinfo:
         _run(package, pyproject)
 
     assert excinfo.value.code == 1
-    assert "does not parse" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize(
-    ("count", "expected_exit_code"),
-    [
-        pytest.param(10, 0, id="exactly-at-ceiling-passes"),
-        pytest.param(11, 1, id="one-over-ceiling-fails"),
-        pytest.param(0, 0, id="empty-module-passes"),
-    ],
-)
-def test_ceiling_is_inclusive(tmp_path: UPath, count: int, expected_exit_code: int) -> None:
-    package = _write_package(tmp_path, {"a.py": _statements(count) if count else ""})
-    pyproject = _write_pyproject(tmp_path, max_module_statements=10, exemptions={})
-
-    assert _run(package, pyproject) == expected_exit_code
+    assert message in capsys.readouterr().err
 
 
 def test_defaults_the_ceiling_when_the_config_table_is_absent(tmp_path: UPath) -> None:
@@ -191,14 +121,9 @@ def test_defaults_the_ceiling_when_the_config_table_is_absent(tmp_path: UPath) -
     assert _run(package, pyproject) == 1
 
 
-def test_counts_nested_statements_not_just_top_level() -> None:
-    source = "def f():\n    if True:\n        return 1\n    return 2\n"
-
-    assert count_statements(source) == 4
-
-
-def test_a_long_docstring_counts_as_one_statement() -> None:
-    one_line = '"""Short."""\nx = 1\n'
+def test_counts_nested_statements_and_a_long_docstring_as_one() -> None:
+    nested = "def f():\n    if True:\n        return 1\n    return 2\n"
     many_lines = '"""Long.\n\n' + "\n".join(f"line {index}" for index in range(30)) + '\n"""\nx = 1\n'
 
-    assert count_statements(one_line) == count_statements(many_lines) == 2
+    assert count_statements(nested) == 4
+    assert count_statements('"""Short."""\nx = 1\n') == count_statements(many_lines) == 2

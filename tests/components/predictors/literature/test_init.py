@@ -1,14 +1,4 @@
-"""Tests for the literature predictor package boundary and policy.
-
-Mirrors :mod:`drevalpy.components.predictors.literature` (the package
-``__init__``), which is the module that guarantees no lazy predictor
-re-exports and no engine indirection anywhere in the literature tree.
-
-This file also holds the package-level invariants that span every literature
-predictor package rather than any single one: that each is reachable as a
-native ``drevalpy.models`` facade under a matching zoo name, and that each
-declares exactly one input interface.
-"""
+"""Literature package boundary, facade names and lifecycle ownership."""
 
 from __future__ import annotations
 
@@ -152,16 +142,9 @@ def test_literature_predictor_lazy_package_import() -> None:
 
 
 @pytest.mark.parametrize("name", LITERATURE_FACTORY_NAMES)
-def test_literature_factory_entries_are_native_facades(name: str) -> None:
+def test_literature_factory_entries_are_native_facades_sharing_the_zoo_name(name: str) -> None:
     spec = ModelSpec.from_name(name)
-    assert isinstance(spec, ModelSpec)
-    assert spec.name == name
-
-
-@pytest.mark.parametrize("name", LITERATURE_FACTORY_NAMES)
-def test_model_config_and_factory_share_zoo_name(name: str) -> None:
     config = from_spec(name)
-    assert isinstance(config, ModelConfig)
-    spec = ModelSpec.from_name(name)
     validate(config)
+    assert isinstance(config, ModelConfig)
     assert spec.name == name

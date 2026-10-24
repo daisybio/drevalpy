@@ -1,68 +1,35 @@
-"""Tests for the shared constant (intercept) featurizer mixin.
-
-Mirrors :mod:`drevalpy.components.featurizers._constant`. The two registered
-wrappers are covered in ``sample/test_constant.py`` and
-``drug/test_constant.py``; this file pins the mixin's own behaviour.
-"""
+"""Tests for the shared constant (intercept) featurizer mixin (``_constant``)."""
 
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from drevalpy.components.featurizers._constant import ConstantFeaturizerMixin
-from drevalpy.components.featurizers.shared.constant import DrugConstantFeaturizer, SampleConstantFeaturizer
+from drevalpy.components.featurizers.shared.constant import SampleConstantFeaturizer
 from tests.conftest import MockFeatureSource
 
 
-@pytest.mark.parametrize(
-    "featurizer_cls",
-    [
-        pytest.param(SampleConstantFeaturizer, id="sample"),
-        pytest.param(DrugConstantFeaturizer, id="drug"),
-    ],
-)
-def test_constant_featurizers_use_the_shared_mixin(featurizer_cls: type) -> None:
-    assert issubclass(featurizer_cls, ConstantFeaturizerMixin)
-    assert featurizer_cls.entity_id_only is True
-
-
-def test_constant_needs_no_source_views() -> None:
+def test_constant_needs_no_source_views_and_is_a_ones_column() -> None:
     featurizer = SampleConstantFeaturizer()
-    entity_ids = np.array(["cl1", "cl2"], dtype=str)
-
-    featurizer.fit(MockFeatureSource(features={}), entity_ids=entity_ids)
-
+    features = MockFeatureSource(features={})
+    ids = np.array(["cl1", "cl2", "cl3"], dtype=str)
+    assert issubclass(SampleConstantFeaturizer, ConstantFeaturizerMixin)
     assert featurizer.output_dim == 1
+    featurizer.fit(features, entity_ids=ids)
 
+    blocks = featurizer.transform_blocks(features, ids)
 
-def test_constant_output_dim_is_one_before_fit() -> None:
-    assert SampleConstantFeaturizer().output_dim == 1
+    assert list(blocks) == ["constant"]
+    np.testing.assert_allclose(blocks["constant"].values, np.ones((3, 1), dtype=np.float32))
 
 
 def test_constant_state_round_trip_is_a_no_op() -> None:
     featurizer = SampleConstantFeaturizer()
     features = MockFeatureSource(features={})
-    entity_ids = np.array(["cl1", "cl2"], dtype=str)
-    featurizer.fit(features, entity_ids=entity_ids)
-
+    ids = np.array(["cl1", "cl2"], dtype=str)
+    featurizer.fit(features, entity_ids=ids)
     restored = SampleConstantFeaturizer()
     restored.set_state(featurizer.get_state())
 
     assert featurizer.get_state() == {}
-    np.testing.assert_allclose(
-        restored.transform(features, entity_ids),
-        featurizer.transform(features, entity_ids),
-    )
-
-
-def test_constant_blocks_are_named_constant() -> None:
-    featurizer = DrugConstantFeaturizer()
-    features = MockFeatureSource(features={})
-    entity_ids = np.array(["d1", "d2", "d3"], dtype=str)
-    featurizer.fit(features, entity_ids=entity_ids)
-
-    blocks = featurizer.transform_blocks(features, entity_ids)
-
-    assert list(blocks) == ["constant"]
-    np.testing.assert_allclose(blocks["constant"].values, np.ones((3, 1), dtype=np.float32))
+    np.testing.assert_allclose(restored.transform(features, ids), featurizer.transform(features, ids))

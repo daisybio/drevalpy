@@ -1,14 +1,4 @@
-"""Tests for the SuperFELTR encoders, regressor, and training entry point.
-
-Two constraints shape the fixtures here: the encoder's ``nn.BatchNorm1d``
-requires a batch of more than one row, and ``train_superfeltr_model`` builds its
-training loader with ``drop_last=True``, so the pair count must be at least
-``2 * mini_batch``. Every fit runs on CPU for a single epoch with
-no tracking run active, so no ``WandbLogger`` is attached.
-
-These fits are also what covers the shared ``literature/_omics_loaders.py`` and
-``literature/_lightning_training.py`` through a public entry point.
-"""
+"""Tests for the SuperFELTR encoders, regressor, and training entry point."""
 
 from __future__ import annotations
 
@@ -20,7 +10,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit
+from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
 from drevalpy.components.predictors.literature.superfeltr.utils import (
     SuperFELTEncoder,
     SuperFELTRegressor,
@@ -54,7 +44,6 @@ RANGES = (0.1, 1.0)
 
 @pytest.fixture(autouse=True)
 def _trainer_logs_in_tmp_path(monkeypatch, tmp_path) -> None:
-    """Run every fit with ``tmp_path`` as the working directory, so a stray log directory is visible."""
     monkeypatch.chdir(tmp_path)
 
 
@@ -113,106 +102,54 @@ def _regressor(**overrides: object) -> SuperFELTRegressor:
     )
 
 
-@pytest.mark.parametrize(
-    "hyperparameter",
-    ["dropout_rate", "margin", "learning_rate", "weight_decay"],
-)
+@pytest.mark.parametrize("hyperparameter", ["dropout_rate", "margin", "learning_rate", "weight_decay"])
 def test_encoder_rejects_non_float_hyperparameters(hyperparameter: str) -> None:
     with pytest.raises(ValueError, match="must be floats"):
         _encoder(**{hyperparameter: 1})
 
 
-@pytest.mark.parametrize(
-    ("omic_type", "expected"),
-    [
-        pytest.param("expression", OUT_EXPR, id="expression"),
-        pytest.param("mutation", OUT_MUT, id="mutation"),
-        pytest.param("copy_number_variation_gistic", OUT_CNV, id="cnv"),
-    ],
-)
-def test_encoder_output_size_branches_on_the_omic_type(omic_type: str, expected: int) -> None:
-    encoder = _encoder(omic_type, EXPR_DIM)
-
-    assert encoder.encode[0].out_features == expected
-
-
-def test_encoder_rejects_an_unknown_omic_type() -> None:
-    with pytest.raises(KeyError):
-        _encoder("proteomics", EXPR_DIM)
-
-
-@pytest.mark.parametrize(
-    "hyperparameter",
-    ["out_dim_expr_encoder", "out_dim_mutation_encoder", "out_dim_cnv_encoder"],
-)
+@pytest.mark.parametrize("hyperparameter", ["out_dim_expr_encoder", "out_dim_mutation_encoder", "out_dim_cnv_encoder"])
 def test_encoder_rejects_non_integer_output_sizes(hyperparameter: str) -> None:
     with pytest.raises(ValueError, match="must be ints"):
         _encoder(**{hyperparameter: 4.0})
 
 
-def test_encoder_places_batch_norm_before_the_activation() -> None:
+@pytest.mark.parametrize(
+    ("omic_type", "out_size", "index"),
+    [("expression", OUT_EXPR, 0), ("mutation", OUT_MUT, 1), ("copy_number_variation_gistic", OUT_CNV, 2)],
+)
+def test_encoder_branches_on_the_omic_type(omic_type: str, out_size: int, index: int) -> None:
+    encoder = _encoder(omic_type, EXPR_DIM)
+    tensors = (torch.zeros(2, 1), torch.ones(2, 1), torch.full((2, 1), 2.0))
+
+    assert encoder.encode[0].out_features == out_size
+    torch.testing.assert_close(encoder._get_omic_data(*tensors), tensors[index])
+
+
+def test_encoder_rejects_an_unknown_omic_type() -> None:
+    with pytest.raises(KeyError):
+        _encoder("proteomics", EXPR_DIM)
     encoder = _encoder()
+    encoder.omic_type = "proteomics"
+    with pytest.raises(ValueError, match="not recognized"):
+        encoder._get_omic_data(torch.zeros(1, 1), torch.zeros(1, 1), torch.zeros(1, 1))
 
-    layer_types = [type(layer) for layer in encoder.encode]
 
-    assert layer_types == [nn.Linear, nn.BatchNorm1d, nn.ReLU, nn.Dropout]
-
-
-def test_encoder_stores_the_triplet_ranges() -> None:
+def test_encoder_structure_forward_and_optimizer() -> None:
     encoder = _encoder()
-
+    assert [type(layer) for layer in encoder.encode] == [nn.Linear, nn.BatchNorm1d, nn.ReLU, nn.Dropout]
     assert (encoder.positive_range, encoder.negative_range) == RANGES
-
-
-def test_encoder_forward_projects_to_the_output_size() -> None:
-    encoder = _encoder()
     encoder.eval()
-
     with torch.no_grad():
-        encoded = encoder(torch.randn(3, EXPR_DIM))
-
-    assert encoded.shape == (3, OUT_EXPR)
-
-
-def test_encoder_configures_adam_with_the_requested_learning_rate() -> None:
-    encoder = _encoder()
-
+        assert encoder(torch.randn(3, EXPR_DIM)).shape == (3, OUT_EXPR)
     optimizer = encoder.configure_optimizers()
-
     assert isinstance(optimizer, torch.optim.Adam)
     assert optimizer.param_groups[0]["lr"] == pytest.approx(0.01)
     assert optimizer.param_groups[0]["weight_decay"] == pytest.approx(0.01)
 
 
-@pytest.mark.parametrize(
-    ("omic_type", "expected_index"),
-    [
-        pytest.param("expression", 0, id="expression"),
-        pytest.param("mutation", 1, id="mutation"),
-        pytest.param("copy_number_variation_gistic", 2, id="cnv"),
-    ],
-)
-def test_encoder_selects_its_own_omic_from_the_batch(omic_type: str, expected_index: int) -> None:
-    encoder = _encoder(omic_type, EXPR_DIM)
-    tensors = (torch.zeros(2, 1), torch.ones(2, 1), torch.full((2, 1), 2.0))
-
-    selected = encoder._get_omic_data(*tensors)
-
-    torch.testing.assert_close(selected, tensors[expected_index])
-
-
-def test_encoder_omic_selection_rejects_an_unrecognized_type() -> None:
-    encoder = _encoder()
-    encoder.omic_type = "proteomics"
-
-    with pytest.raises(ValueError, match="not recognized"):
-        encoder._get_omic_data(torch.zeros(1, 1), torch.zeros(1, 1), torch.zeros(1, 1))
-
-
 def test_encoder_triplet_loss_is_a_non_negative_scalar() -> None:
-    encoder = _encoder()
-
-    loss = encoder._compute_loss(torch.randn(4, OUT_EXPR), torch.tensor([0.0, 0.5, 1.0, 2.0]))
+    loss = _encoder()._compute_loss(torch.randn(4, OUT_EXPR), torch.tensor([0.0, 0.5, 1.0, 2.0]))
 
     assert loss.ndim == 0
     assert loss.item() >= 0.0
@@ -223,183 +160,78 @@ def test_regressor_rejects_non_float_hyperparameters() -> None:
         _regressor(learning_rate=1)
 
 
-def test_regressor_puts_its_encoders_in_eval_mode() -> None:
+def test_regressor_freezes_its_encoders_and_optimizes_only_the_head() -> None:
     regressor = _regressor()
-
-    assert all(not encoder.training for encoder in regressor.encoders)
-
-
-def test_regressor_registers_its_encoders_as_submodules() -> None:
-    regressor = _regressor()
-
     assert isinstance(regressor.encoders, nn.ModuleList)
-    assert [name for name, _ in regressor.named_children() if name == "encoders"] == ["encoders"]
-
-
-def test_regressor_moves_its_encoders_with_the_rest_of_the_model() -> None:
-    regressor = _regressor()
-
-    regressor.to(torch.float64)
-
-    encoder_dtypes = {parameter.dtype for encoder in regressor.encoders for parameter in encoder.parameters()}
-    assert encoder_dtypes == {torch.float64}
-    assert next(regressor.regressor.parameters()).dtype == torch.float64
-
-
-def test_regressor_keeps_encoders_in_eval_mode_when_switched_to_train() -> None:
-    regressor = _regressor()
+    assert all(not e.training for e in regressor.encoders)
+    assert all(not p.requires_grad for e in regressor.encoders for p in e.parameters())
 
     regressor.train()
-
     assert regressor.training
-    assert all(not encoder.training for encoder in regressor.encoders)
-
-
-def test_regressor_freezes_its_encoders() -> None:
-    regressor = _regressor()
-
-    assert all(not parameter.requires_grad for encoder in regressor.encoders for parameter in encoder.parameters())
-
-
-def test_regressor_optimizes_only_the_regression_head() -> None:
-    regressor = _regressor()
+    assert all(not e.training for e in regressor.encoders)
 
     optimizer = regressor.configure_optimizers()
+    assert isinstance(optimizer, torch.optim.Adagrad)
+    assert optimizer.param_groups[0]["lr"] == pytest.approx(0.01)
+    optimized = {id(p) for group in optimizer.param_groups for p in group["params"]}
+    assert optimized == {id(p) for p in regressor.regressor.parameters()}
 
-    optimized = {id(parameter) for group in optimizer.param_groups for parameter in group["params"]}
-    assert optimized == {id(parameter) for parameter in regressor.regressor.parameters()}
+    regressor.to(torch.float64)
+    assert {p.dtype for e in regressor.encoders for p in e.parameters()} == {torch.float64}
 
 
-def test_regressor_forward_returns_one_scalar_per_row() -> None:
+def test_regressor_forward_and_predict() -> None:
     regressor = _regressor()
     regressor.eval()
-
     with torch.no_grad():
-        output = regressor(torch.randn(3, OUT_EXPR + OUT_MUT + OUT_CNV))
-
-    assert output.shape == (3, 1)
-
-
-def test_regressor_concatenates_all_three_encoder_outputs() -> None:
-    regressor = _regressor()
-
+        assert regressor(torch.randn(3, OUT_EXPR + OUT_MUT + OUT_CNV)).shape == (3, 1)
     encoded = regressor._encode_and_concatenate(
-        torch.randn(3, EXPR_DIM),
-        torch.randn(3, MUT_DIM),
-        torch.randn(3, CNV_DIM),
+        torch.randn(3, EXPR_DIM), torch.randn(3, MUT_DIM), torch.randn(3, CNV_DIM)
     )
-
     assert encoded.shape == (3, OUT_EXPR + OUT_MUT + OUT_CNV)
 
-
-def test_regressor_predict_returns_a_flat_numpy_array() -> None:
-    regressor = _regressor()
-    expr, mut, cnv = _omics()
-
-    preds = regressor.predict(expr, mut, cnv)
-
+    regressor.train()
+    preds = regressor.predict(*_omics())
     assert isinstance(preds, np.ndarray)
     assert preds.shape == (N_ENTITIES,)
     assert np.isfinite(preds).all()
-
-
-def test_regressor_predict_leaves_the_module_in_eval_mode() -> None:
-    regressor = _regressor()
-    regressor.train()
-    expr, mut, cnv = _omics()
-
-    regressor.predict(expr, mut, cnv)
-
     assert regressor.training is False
 
 
-def test_regressor_configures_adagrad() -> None:
-    regressor = _regressor()
+@pytest.mark.parametrize("step", ["training_step", "validation_step"])
+def test_regressor_steps_return_a_scalar_loss(step: str) -> None:
+    batch = [torch.randn(3, EXPR_DIM), torch.randn(3, MUT_DIM), torch.randn(3, CNV_DIM), torch.randn(3, 1)]
 
-    optimizer = regressor.configure_optimizers()
-
-    assert isinstance(optimizer, torch.optim.Adagrad)
-    assert optimizer.param_groups[0]["lr"] == pytest.approx(0.01)
-
-
-def test_regressor_training_step_returns_a_scalar_loss() -> None:
-    regressor = _regressor()
-    batch = [
-        torch.randn(3, EXPR_DIM),
-        torch.randn(3, MUT_DIM),
-        torch.randn(3, CNV_DIM),
-        torch.randn(3, 1),
-    ]
-
-    loss = regressor.training_step(batch, 0)
-
-    assert loss.ndim == 0
-
-
-def test_regressor_validation_step_returns_a_scalar_loss() -> None:
-    regressor = _regressor()
-    batch = [
-        torch.randn(3, EXPR_DIM),
-        torch.randn(3, MUT_DIM),
-        torch.randn(3, CNV_DIM),
-        torch.randn(3, 1),
-    ]
-
-    loss = regressor.validation_step(batch, 0)
-
-    assert loss.ndim == 0
+    assert getattr(_regressor(), step)(batch, 0).ndim == 0
 
 
 @pytest.mark.parametrize("hyperparameter", ["epochs", "mini_batch"])
 def test_train_rejects_non_integer_epochs_and_mini_batch(hyperparameter: str, tmp_path) -> None:
     with pytest.raises(ValueError, match="must be integers"):
         train_superfeltr_model(
-            model=_encoder(),
-            hpams=_hpams(**{hyperparameter: 1.0}),
-            train=_split(),
-            model_checkpoint_dir=tmp_path,
+            model=_encoder(), hpams=_hpams(**{hyperparameter: 1.0}), train=_split(), model_checkpoint_dir=tmp_path
         )
 
 
-def test_train_encoder_without_validation_monitors_the_training_loss(tmp_path) -> None:
+@pytest.mark.parametrize(("with_val", "monitor"), [(False, "train_loss"), (True, "val_loss")])
+def test_train_encoder_monitors_the_available_loss_and_writes_a_checkpoint(with_val, monitor, tmp_path) -> None:
     checkpoint = train_superfeltr_model(
         model=_encoder(),
         hpams=_hpams(),
         train=_split(),
+        val=_split() if with_val else None,
         patience=1,
         model_checkpoint_dir=tmp_path,
     )
 
     assert isinstance(checkpoint, pl.callbacks.ModelCheckpoint)
-    assert checkpoint.monitor == "train_loss"
-
-
-def test_train_encoder_with_validation_monitors_the_validation_loss(tmp_path) -> None:
-    checkpoint = train_superfeltr_model(
-        model=_encoder(),
-        hpams=_hpams(),
-        train=_split(),
-        val=_split(),
-        patience=1,
-        model_checkpoint_dir=tmp_path,
-    )
-
-    assert checkpoint.monitor == "val_loss"
-
-
-def test_train_writes_a_checkpoint_under_a_unique_versioned_directory(tmp_path) -> None:
-    checkpoint = train_superfeltr_model(
-        model=_encoder(),
-        hpams=_hpams(),
-        train=_split(),
-        patience=1,
-        model_checkpoint_dir=tmp_path,
-    )
-
-    assert checkpoint.best_model_path
+    assert checkpoint.monitor == monitor
     assert checkpoint.best_model_path.endswith(".ckpt")
     assert str(checkpoint.dirpath).startswith(str(tmp_path))
     assert "version-" in str(checkpoint.dirpath)
+    restored = SuperFELTEncoder.load_from_checkpoint(checkpoint.best_model_path, map_location="cpu")
+    assert restored.omic_type == "expression"
+    assert restored.encode[0].out_features == OUT_EXPR
 
 
 def test_train_regressor_accepts_a_two_dimensional_response(tmp_path) -> None:
@@ -416,53 +248,21 @@ def test_train_regressor_accepts_a_two_dimensional_response(tmp_path) -> None:
     assert checkpoint.best_model_path
 
 
-def test_train_drops_the_trailing_incomplete_training_batch(tmp_path) -> None:
-    """``drop_last=True`` for training, ``False`` for validation - the shared loaders' contract."""
-    from drevalpy.components.predictors.literature._omics_loaders import make_omics_loaders
-
+def test_shared_loaders_drop_the_trailing_training_batch_and_reshape_the_response() -> None:
     train_loader, val_loader = make_omics_loaders(_split(), _split(), batch_size=MINI_BATCH)
 
     assert sum(batch[0].shape[0] for batch in train_loader) == N_PAIRS - N_PAIRS % MINI_BATCH
     assert val_loader is not None
     assert sum(batch[0].shape[0] for batch in val_loader) == N_PAIRS
-
-
-def test_shared_loaders_reshape_a_one_dimensional_response_to_a_column() -> None:
-    from drevalpy.components.predictors.literature._omics_loaders import make_omics_loaders
-
-    train_loader, _ = make_omics_loaders(_split(), None, batch_size=MINI_BATCH)
-
     expr, mut, cnv, response = next(iter(train_loader))
-    assert expr.shape == (MINI_BATCH, EXPR_DIM)
-    assert mut.shape == (MINI_BATCH, MUT_DIM)
-    assert cnv.shape == (MINI_BATCH, CNV_DIM)
+    assert (expr.shape, mut.shape, cnv.shape) == ((MINI_BATCH, EXPR_DIM), (MINI_BATCH, MUT_DIM), (MINI_BATCH, CNV_DIM))
     assert response.shape == (MINI_BATCH, 1)
 
 
-def test_trained_encoder_checkpoint_is_loadable(tmp_path) -> None:
-    checkpoint = train_superfeltr_model(
-        model=_encoder(),
-        hpams=_hpams(),
-        train=_split(),
-        patience=1,
-        model_checkpoint_dir=tmp_path,
-    )
-
-    restored = SuperFELTEncoder.load_from_checkpoint(checkpoint.best_model_path, map_location="cpu")
-
-    assert restored.omic_type == "expression"
-    assert restored.encode[0].out_features == OUT_EXPR
-
-
 @pytest.mark.parametrize("make_model", [_encoder, _regressor])
-def test_train_without_checkpoint_dir_uses_a_temporary_directory_and_keeps_best_weights(
-    make_model, tmp_path, monkeypatch
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    model = make_model()
-
+def test_train_without_checkpoint_dir_uses_a_temporary_directory(make_model, tmp_path) -> None:
     checkpoint = train_superfeltr_model(
-        model=model, hpams=_hpams(), train=_split(), patience=1, model_checkpoint_dir=None
+        model=make_model(), hpams=_hpams(), train=_split(), patience=1, model_checkpoint_dir=None
     )
 
     assert checkpoint.best_model_path

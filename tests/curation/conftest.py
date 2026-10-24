@@ -11,26 +11,12 @@ from drevalpy.curation import curate
 
 
 def sigmoid(x: np.ndarray, top: float, bottom: float, ec50: float, slope: float) -> np.ndarray:
-    """Evaluate a 4-parameter log-logistic sigmoid.
-
-    :param x: Concentrations.
-    :param top: Response plateau at zero concentration.
-    :param bottom: Response plateau at infinite concentration.
-    :param ec50: Concentration at half-maximal effect.
-    :param slope: Hill slope.
-    :returns: Modelled response at each concentration.
-    """
+    """Evaluate a 4-parameter log-logistic sigmoid."""
     return bottom + (top - bottom) / (1 + (x / ec50) ** slope)
 
 
 def build_dose_response_df() -> pd.DataFrame:
-    """Artificial dose-response data: 3 samples x 2 drugs.
-
-    Exposed as a plain function so the session-scoped fitted fixtures below can
-    build their own private copy without sharing one frame across scopes.
-
-    :returns: Long-form dose-response measurements.
-    """
+    """Artificial dose-response data: 3 samples x 2 drugs, as a plain function for session-scoped fixtures."""
     concentrations = [0.001, 0.01, 0.1, 1.0, 10.0]
     samples = ["CL_A", "CL_B", "CL_C"]
     drugs = ["DrugX", "DrugY"]
@@ -63,13 +49,7 @@ def dose_response_df() -> pd.DataFrame:
 
 @pytest.fixture(scope="session")
 def curated_adata() -> anndata.AnnData:
-    """``curate`` run once on :func:`build_dose_response_df`, shared read-only.
-
-    The six real CurveCurator fits behind this cost ~0.5s, so the end-to-end
-    assertions in ``test_init.py`` share one run instead of repeating it. Treat
-    the returned object as immutable; a test that needs to mutate it, or that
-    asserts on ``curate``'s own arguments, must call ``curate`` itself.
-    """
+    """``curate`` run once on :func:`build_dose_response_df`; treat as immutable."""
     return curate(build_dose_response_df(), max_workers=1, fit_speed="fast")
 
 

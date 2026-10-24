@@ -20,38 +20,39 @@ from drevalpy.visualization.requirements import PlotRequirement
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 
+def _trial(n: int = 4) -> TrialResult:
+    return TrialResult(
+        hyperparameters={"alpha": 0.1},
+        metrics={"MSE": 0.3},
+        optimization_metric="MSE",
+        predictions=np.zeros(n),
+    )
+
+
+def _normalized_run(reference, other):
+    return ExperimentResult([reference, other]).normalize().models[0].runs[0]
+
+
 class TestConstruction:
     def test_rejects_an_empty_run_list(self) -> None:
         with pytest.raises(InvalidInputError, match="must not be empty"):
             ExperimentResult([])
 
-    def test_rejects_mixed_dataset_names(self) -> None:
-        runs = [
-            make_run_result(dataset_name="GDSC1"),
-            make_run_result(dataset_name="CTRPv2"),
-        ]
+    @pytest.mark.parametrize(
+        ("kwargs_a", "kwargs_b", "message"),
+        [
+            ({"dataset_name": "GDSC1"}, {"dataset_name": "CTRPv2"}, "same dataset_name"),
+            ({"model_name": "A", "split_mode": "LPO"}, {"model_name": "B", "split_mode": "LSO"}, "same split_mode"),
+        ],
+    )
+    def test_rejects_mixed_runs(self, kwargs_a: dict, kwargs_b: dict, message: str) -> None:
+        with pytest.raises(InvalidInputError, match=message):
+            ExperimentResult([make_run_result(**kwargs_a), make_run_result(**kwargs_b)])
 
-        with pytest.raises(InvalidInputError, match="same dataset_name"):
-            ExperimentResult(runs)
-
-    def test_rejects_mixed_split_modes(self) -> None:
-        runs = [
-            make_run_result(model_name="A", split_mode="LPO"),
-            make_run_result(model_name="B", split_mode="LSO"),
-        ]
-
-        with pytest.raises(InvalidInputError, match="same split_mode"):
-            ExperimentResult(runs)
-
-    def test_ignores_blank_split_modes_when_checking_consistency(self) -> None:
-        runs = [
-            make_run_result(model_name="A", split_mode="LPO"),
-            make_run_result(model_name="B", split_mode=""),
-        ]
+    def test_blank_split_modes_are_ignored_by_the_consistency_check(self) -> None:
+        runs = [make_run_result(model_name="A", split_mode="LPO"), make_run_result(model_name="B", split_mode="")]
 
         assert ExperimentResult(runs).split_mode == "LPO"
-
-    def test_split_mode_is_blank_when_no_run_declares_one(self) -> None:
         assert ExperimentResult([make_run_result(split_mode="")]).split_mode == ""
 
     def test_groups_runs_by_model_name(self) -> None:
@@ -65,47 +66,18 @@ class TestConstruction:
 
         assert result.model_names == ["A", "B"]
         assert [m.n_folds for m in result.models] == [2, 1]
-
-    def test_propagates_dataset_name_to_each_model(self) -> None:
-        result = make_experiment_result(n_models=2, n_folds=1)
-
+        assert (result.n_models, result.max_folds, result.normalized_by) == (2, 2, None)
         assert {m.dataset_name for m in result.models} == {"SyntheticDataset"}
-
-    def test_starts_unnormalized(self) -> None:
-        assert make_experiment_result(n_models=1, n_folds=1).normalized_by is None
-
-
-class TestCapabilities:
-    def test_counts_distinct_models(self) -> None:
-        assert make_experiment_result(n_models=3, n_folds=2).n_models == 3
-
-    def test_max_folds_takes_the_largest_model(self) -> None:
-        runs = [
-            make_run_result(model_name="A", fold_index=0),
-            make_run_result(model_name="B", fold_index=0),
-            make_run_result(model_name="B", fold_index=1),
-        ]
-
-        assert ExperimentResult(runs).max_folds == 2
-
-    def test_randomization_is_absent_by_default(self) -> None:
-        assert make_experiment_result(n_models=2, n_folds=1).has_randomization is False
-
-    def test_randomization_is_detected(self) -> None:
-        result = make_experiment_result(n_models=2, n_folds=1, with_randomization=True)
-
-        assert result.has_randomization is True
-
-    def test_robustness_is_absent_by_default(self) -> None:
-        assert make_experiment_result(n_models=2, n_folds=1).has_robustness is False
-
-    def test_robustness_is_detected_from_fold_metadata(self) -> None:
-        result = make_experiment_result(n_models=2, n_folds=1, with_robustness=True)
-
-        assert result.has_robustness is True
 
 
 class TestSatisfies:
+    def test_capabilities_are_absent_by_default_and_detected_from_the_data(self) -> None:
+        plain = make_experiment_result(n_models=2, n_folds=1)
+
+        assert (plain.has_randomization, plain.has_robustness) == (False, False)
+        assert make_experiment_result(n_models=2, n_folds=1, with_randomization=True).has_randomization is True
+        assert make_experiment_result(n_models=2, n_folds=1, with_robustness=True).has_robustness is True
+
     def test_no_requirements_are_always_satisfied(self) -> None:
         assert make_experiment_result(n_models=1, n_folds=1).satisfies(frozenset()) is True
 
@@ -126,134 +98,91 @@ class TestSatisfies:
     def test_structural_requirements_are_accepted_when_met(self) -> None:
         result = make_experiment_result(n_models=2, n_folds=2)
 
-        requirements = frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS})
-        assert result.satisfies(requirements) is True
+        assert result.satisfies(frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS})) is True
 
-    def test_randomization_requirement_needs_randomization_data(self) -> None:
-        requirements = frozenset({PlotRequirement.RANDOMIZATION})
-
-        assert make_experiment_result(n_models=2, n_folds=2).satisfies(requirements) is False
-        assert make_experiment_result(n_models=2, n_folds=2, with_randomization=True).satisfies(requirements) is True
-
-    def test_robustness_requirement_needs_robustness_data(self) -> None:
-        requirements = frozenset({PlotRequirement.ROBUSTNESS})
+    @pytest.mark.parametrize(
+        ("requirement", "flag"),
+        [(PlotRequirement.RANDOMIZATION, "with_randomization"), (PlotRequirement.ROBUSTNESS, "with_robustness")],
+    )
+    def test_data_requirements_need_the_matching_data(self, requirement: PlotRequirement, flag: str) -> None:
+        requirements = frozenset({requirement})
 
         assert make_experiment_result(n_models=2, n_folds=2).satisfies(requirements) is False
-        assert make_experiment_result(n_models=2, n_folds=2, with_robustness=True).satisfies(requirements) is True
+        assert make_experiment_result(n_models=2, n_folds=2, **{flag: True}).satisfies(requirements) is True
 
 
 class TestNormalize:
-    def test_drops_the_reference_model(self) -> None:
-        normalized = make_experiment_result(n_models=3, n_folds=2).normalize()
+    def test_subtracts_the_reference_and_drops_it(self) -> None:
+        experiment = make_experiment_result(n_models=3, n_folds=2, split_mode="LSO")
+        reference, other = experiment.models[:2]
+
+        normalized = experiment.normalize()
+        run = normalized.models[0].runs[1]
 
         assert REFERENCE_MODEL not in normalized.model_names
-        assert normalized.n_models == 2
-
-    def test_records_the_reference_model(self) -> None:
-        assert make_experiment_result(n_models=2, n_folds=1).normalize().normalized_by == REFERENCE_MODEL
-
-    def test_subtracts_reference_predictions_pairwise(self) -> None:
-        experiment = make_experiment_result(n_models=2, n_folds=1)
-        reference, other = experiment.models
-
-        normalized_run = experiment.normalize().models[0].runs[0]
-
-        expected = other.runs[0].predictions - reference.runs[0].predictions
-        np.testing.assert_allclose(normalized_run.predictions, expected)
+        assert (normalized.n_models, normalized.normalized_by) == (2, REFERENCE_MODEL)
+        np.testing.assert_allclose(run.predictions, other.runs[1].predictions - reference.runs[1].predictions)
+        np.testing.assert_allclose(run.ground_truth, other.runs[1].ground_truth - reference.runs[1].predictions)
+        assert (run.fold_id, run.fold_index, run.split_mode) == ("fold_1", 1, "LSO")
+        assert set(run.metrics) == set(AVAILABLE_METRICS)
 
     def test_keeps_the_unnormalized_metrics_of_every_run(self) -> None:
         experiment = make_experiment_result(n_models=2, n_folds=1)
         other = experiment.models[1].runs[0]
 
-        normalized_run = experiment.normalize().models[0].runs[0]
+        run = experiment.normalize().models[0].runs[0]
 
-        assert normalized_run.raw_metrics == other.metrics
-        assert normalized_run.metrics != other.metrics
-
-    def test_keeps_the_per_drug_pearson_of_the_unnormalized_predictions(self) -> None:
-        experiment = make_experiment_result(n_models=2, n_folds=1)
-        other = experiment.models[1].runs[0]
-
-        normalized_run = experiment.normalize().models[0].runs[0]
-
-        assert normalized_run.raw_per_drug_pearson == pytest.approx(run_group_score(other, "drug", "Pearson"))
+        assert run.raw_metrics == other.metrics
+        assert run.metrics != other.metrics
+        assert run.raw_per_drug_pearson == pytest.approx(run_group_score(other, "drug", "Pearson"))
 
     def test_summarizes_the_reference_runs_without_their_arrays(self) -> None:
         experiment = make_experiment_result(n_models=3, n_folds=2)
-        reference = experiment.models[0]
-
         normalized = experiment.normalize()
 
         assert [run.model_name for run in normalized.reference_runs] == [REFERENCE_MODEL] * 2
         summary = normalized.reference_runs[0]
-        assert summary.raw_metrics == reference.runs[0].metrics
+        assert summary.raw_metrics == experiment.models[0].runs[0].metrics
         assert summary.metrics["Pearson"] == 0.0
         assert (summary.predictions.size, summary.sample_ids.size, summary.trials) == (0, 0, None)
-
-    def test_an_unnormalized_experiment_has_no_reference_runs(self) -> None:
-        assert make_experiment_result().reference_runs == ()
-
-    def test_recomputes_only_the_standard_metrics(self) -> None:
-        normalized = make_experiment_result(n_models=2, n_folds=1).normalize()
-
-        metrics = normalized.models[0].runs[0].metrics
-        assert set(metrics) == set(AVAILABLE_METRICS)
+        assert experiment.reference_runs == ()
 
     def test_treats_pairs_missing_from_the_reference_as_zero(self) -> None:
         reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4, n_samples=2, n_drugs=2)
         other = make_run_result(model_name="ElasticNet", n_pairs=4, n_samples=2, n_drugs=2)
-        other.sample_ids = np.array(["CL_9", "CL_9", "CL_9", "CL_9"])
+        other.sample_ids = np.array(["CL_0", "CL_9", "CL_0", "CL_9"])
+        other.drug_ids = np.array(["D_0", "D_0", "D_1", "D_1"])
 
-        normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
+        run = _normalized_run(reference, other)
 
-        np.testing.assert_allclose(normalized_run.predictions, other.predictions)
+        ref_by_pair = dict(
+            zip(zip(reference.sample_ids, reference.drug_ids, strict=True), reference.predictions, strict=True)
+        )
+        offsets = [ref_by_pair.get(pair, 0.0) for pair in zip(other.sample_ids, other.drug_ids, strict=True)]
+        np.testing.assert_allclose(run.predictions, other.predictions - np.array(offsets))
 
     def test_yields_no_metrics_when_every_pair_is_nan(self) -> None:
-        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4)
         other = make_run_result(model_name="ElasticNet", n_pairs=4)
         other.predictions = np.full(4, np.nan)
 
-        normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
-
-        assert normalized_run.metrics == {}
+        assert _normalized_run(make_run_result(model_name=REFERENCE_MODEL, n_pairs=4), other).metrics == {}
 
     def test_carries_trials_over(self) -> None:
-        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4)
         other = make_run_result(model_name="ElasticNet", n_pairs=4)
-        other.trials = [
-            TrialResult(
-                hyperparameters={"alpha": 0.1},
-                metrics={"MSE": 0.3},
-                optimization_metric="MSE",
-                predictions=np.zeros(4),
-            )
-        ]
+        other.trials = [_trial()]
 
-        normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
+        run = _normalized_run(make_run_result(model_name=REFERENCE_MODEL, n_pairs=4), other)
 
-        assert normalized_run.trials is not None
-        assert normalized_run.trials[0].hyperparameters == {"alpha": 0.1}
-
-    def test_preserves_run_identity(self) -> None:
-        experiment = make_experiment_result(n_models=2, n_folds=2, split_mode="LSO")
-
-        normalized_run = experiment.normalize().models[0].runs[1]
-
-        assert normalized_run.fold_id == "fold_1"
-        assert normalized_run.fold_index == 1
-        assert normalized_run.split_mode == "LSO"
+        assert run.trials is not None
+        assert run.trials[0].hyperparameters == {"alpha": 0.1}
 
     def test_rejects_a_second_normalization(self) -> None:
-        normalized = make_experiment_result(n_models=2, n_folds=1).normalize()
-
         with pytest.raises(ValueError, match="Already normalized"):
-            normalized.normalize()
+            make_experiment_result(n_models=2, n_folds=1).normalize().normalize()
 
     def test_rejects_an_unknown_reference_model(self) -> None:
-        experiment = make_experiment_result(n_models=2, n_folds=1)
-
         with pytest.raises(ValueError, match="not found"):
-            experiment.normalize(reference_model="NotAModel")
+            make_experiment_result(n_models=2, n_folds=1).normalize(reference_model="NotAModel")
 
     def test_rejects_a_fold_without_a_reference_run(self) -> None:
         reference = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
@@ -262,56 +191,50 @@ class TestNormalize:
         with pytest.raises(ValueError, match="No reference run"):
             ExperimentResult([reference, other]).normalize()
 
-    def test_normalizes_variants_against_the_ordinary_reference(self) -> None:
-        reference = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
-        randomized = make_run_result(model_name="ElasticNet", fold_index=0, randomization=("SVRC", "gene_expression"))
+    def test_accepts_an_explicit_reference_model(self) -> None:
+        normalized = make_experiment_result(n_models=3, n_folds=1).normalize(reference_model="ElasticNet")
 
-        normalized = ExperimentResult([reference, randomized]).normalize()
+        assert normalized.normalized_by == "ElasticNet"
+        assert "ElasticNet" not in normalized.model_names
 
-        np.testing.assert_allclose(
-            normalized.models[0].runs[0].predictions,
-            randomized.predictions - reference.predictions,
-        )
-
-    def test_reference_randomization_does_not_replace_the_ordinary_reference(self) -> None:
+    def test_randomized_variants_normalize_against_the_ordinary_reference(self) -> None:
         ordinary = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
         randomized_reference = make_run_result(
             model_name=REFERENCE_MODEL, fold_index=0, randomization=("SVRC", "gene_expression")
         )
         other = make_run_result(model_name="ElasticNet", fold_index=0)
+        randomized = make_run_result(model_name="ElasticNet", fold_index=0, randomization=("SVRC", "gene_expression"))
 
         normalized = ExperimentResult([randomized_reference, other, ordinary]).normalize()
-
         np.testing.assert_allclose(normalized.models[0].runs[0].predictions, other.predictions - ordinary.predictions)
 
-    def test_normalization_is_independent_of_reference_run_order(self) -> None:
-        reference_zero = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
-        reference_one = make_run_result(model_name=REFERENCE_MODEL, fold_index=1)
-        other_zero = make_run_result(model_name="ElasticNet", fold_index=0)
-        other_one = make_run_result(model_name="ElasticNet", fold_index=1)
+        run = _normalized_run(ordinary, randomized)
+        np.testing.assert_allclose(run.predictions, randomized.predictions - ordinary.predictions)
 
-        first = ExperimentResult([reference_zero, reference_one, other_zero, other_one]).normalize()
-        second = ExperimentResult([reference_one, other_one, reference_zero, other_zero]).normalize()
+    def test_normalization_is_independent_of_reference_run_order(self) -> None:
+        runs = {
+            (name, fold): make_run_result(model_name=name, fold_index=fold)
+            for name in (REFERENCE_MODEL, "ElasticNet")
+            for fold in (0, 1)
+        }
+        keys = list(runs)
+
+        first = ExperimentResult([runs[k] for k in keys]).normalize()
+        second = ExperimentResult([runs[k] for k in reversed(keys)]).normalize()
 
         assert {run.fold_key: run.execution_id for run in first.models[0].runs} == {
             run.fold_key: run.execution_id for run in second.models[0].runs
         }
 
     def test_rejects_duplicate_ordinary_reference_runs_for_one_fold(self) -> None:
-        first = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
-        duplicate = make_run_result(model_name=REFERENCE_MODEL, fold_index=0)
-        other = make_run_result(model_name="ElasticNet", fold_index=0)
+        runs = [
+            make_run_result(model_name=REFERENCE_MODEL, fold_index=0),
+            make_run_result(model_name=REFERENCE_MODEL, fold_index=0),
+            make_run_result(model_name="ElasticNet", fold_index=0),
+        ]
 
         with pytest.raises(ValueError, match="Duplicate ordinary reference"):
-            ExperimentResult([first, duplicate, other]).normalize()
-
-    def test_accepts_an_explicit_reference_model(self) -> None:
-        experiment = make_experiment_result(n_models=3, n_folds=1)
-
-        normalized = experiment.normalize(reference_model="ElasticNet")
-
-        assert normalized.normalized_by == "ElasticNet"
-        assert "ElasticNet" not in normalized.model_names
+            ExperimentResult(runs).normalize()
 
     def test_normalizes_interned_id_arrays(self) -> None:
         reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=8)
@@ -320,29 +243,9 @@ class TestNormalize:
             run.sample_ids = intern_ids(run.sample_ids)
             run.drug_ids = intern_ids(run.drug_ids)
 
-        normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
-
-        np.testing.assert_allclose(normalized_run.predictions, other.predictions - reference.predictions)
-
-    def test_normalizes_only_the_pairs_the_reference_covers(self) -> None:
-        reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=4, n_samples=2, n_drugs=2)
-        other = make_run_result(model_name="ElasticNet", n_pairs=4, n_samples=2, n_drugs=2)
-        other.sample_ids = np.array(["CL_0", "CL_9", "CL_0", "CL_9"])
-        other.drug_ids = np.array(["D_0", "D_0", "D_1", "D_1"])
-
-        normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
-
-        ref_by_pair = dict(
-            zip(
-                zip(reference.sample_ids, reference.drug_ids, strict=True),
-                reference.predictions,
-                strict=True,
-            )
+        np.testing.assert_allclose(
+            _normalized_run(reference, other).predictions, other.predictions - reference.predictions
         )
-        expected = other.predictions - np.array(
-            [ref_by_pair.get((cl, dr), 0.0) for cl, dr in zip(other.sample_ids, other.drug_ids, strict=True)]
-        )
-        np.testing.assert_allclose(normalized_run.predictions, expected)
 
     def test_a_duplicated_reference_pair_resolves_to_its_last_prediction(self) -> None:
         reference = make_run_result(model_name=REFERENCE_MODEL, n_pairs=2)
@@ -352,60 +255,38 @@ class TestNormalize:
         other = make_run_result(model_name="ElasticNet", n_pairs=1)
         other.sample_ids = np.array(["CL_0"])
         other.drug_ids = np.array(["D_0"])
-        other.predictions = np.array([7.0])
-        other.ground_truth = np.array([7.0])
+        other.predictions = other.ground_truth = np.array([7.0])
 
-        normalized_run = ExperimentResult([reference, other]).normalize().models[0].runs[0]
-
-        np.testing.assert_allclose(normalized_run.predictions, np.array([2.0]))
-
-    def test_normalizes_ground_truth_by_the_same_offset(self) -> None:
-        experiment = make_experiment_result(n_models=2, n_folds=1)
-        reference, other = experiment.models
-
-        normalized_run = experiment.normalize().models[0].runs[0]
-
-        expected = other.runs[0].ground_truth - reference.runs[0].predictions
-        np.testing.assert_allclose(normalized_run.ground_truth, expected)
+        np.testing.assert_allclose(_normalized_run(reference, other).predictions, np.array([2.0]))
 
 
 class TestPersistence:
-    def test_save_writes_one_directory_per_model(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "experiment"
-
-        make_experiment_result(n_models=2, n_folds=1).save(directory)
-
-        assert (directory / REFERENCE_MODEL / "metadata.json").is_file()
-        assert (directory / "ElasticNet" / "metadata.json").is_file()
-
-    def test_save_records_experiment_metadata(self, tmp_path) -> None:
+    def test_save_writes_one_directory_per_model_and_experiment_metadata(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "experiment"
 
         make_experiment_result(n_models=2, n_folds=1, split_mode="LDO").save(directory)
         meta = json.loads((directory / "metadata.json").read_text())
 
+        assert (directory / REFERENCE_MODEL / "metadata.json").is_file()
+        assert (directory / "ElasticNet" / "metadata.json").is_file()
         assert meta["dataset_name"] == "SyntheticDataset"
         assert meta["split_mode"] == "LDO"
         assert meta["normalized_by"] is None
         assert meta["models"] == [REFERENCE_MODEL, "ElasticNet"]
 
-    def test_round_trip_preserves_structure(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "experiment"
+    @pytest.mark.parametrize("normalize", [False, True], ids=["raw", "normalized"])
+    def test_round_trip_preserves_structure(self, tmp_path, normalize: bool) -> None:
         experiment = make_experiment_result(n_models=3, n_folds=2)
+        if normalize:
+            experiment = experiment.normalize()
 
-        experiment.save(directory)
-        loaded = ExperimentResult.load(directory)
+        experiment.save(UPath(tmp_path) / "experiment")
+        loaded = ExperimentResult.load(str(UPath(tmp_path) / "experiment"))
 
         assert loaded.model_names == experiment.model_names
         assert loaded.max_folds == 2
         assert loaded.split_mode == experiment.split_mode
-        assert loaded.normalized_by is None
-
-    def test_round_trip_preserves_the_reference_model(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "experiment"
-        make_experiment_result(n_models=2, n_folds=1).normalize().save(directory)
-
-        assert ExperimentResult.load(directory).normalized_by == REFERENCE_MODEL
+        assert loaded.normalized_by == experiment.normalized_by
 
     def test_spec_names_get_portable_unique_directories(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "experiment"
@@ -428,22 +309,12 @@ class TestPersistence:
 
     def test_load_backfills_a_missing_split_mode_from_metadata(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "experiment"
-        runs = [
-            make_run_result(model_name="A", split_mode="LTO"),
-            make_run_result(model_name="B", split_mode=""),
-        ]
+        runs = [make_run_result(model_name="A", split_mode="LTO"), make_run_result(model_name="B", split_mode="")]
         ExperimentResult(runs).save(directory)
 
         loaded = ExperimentResult.load(directory)
 
         assert {r.split_mode for m in loaded.models for r in m.runs} == {"LTO"}
-
-    def test_accepts_a_plain_string_directory(self, tmp_path) -> None:
-        directory = str(UPath(tmp_path) / "experiment")
-
-        make_experiment_result(n_models=1, n_folds=1).save(directory)
-
-        assert ExperimentResult.load(directory).n_models == 1
 
 
 class TestFailures:
@@ -452,163 +323,76 @@ class TestFailures:
         RunFailure("B", 0, ("SVRC", "gene_expression"), 2, "KeyError", "'gene'"),
     )
 
-    def test_failures_default_to_an_empty_tuple(self) -> None:
+    def test_failures_are_kept_validated_normalized_and_round_tripped(self, tmp_path) -> None:
         assert ExperimentResult([make_run_result()]).failures == ()
-
-    def test_failures_are_kept_as_a_tuple(self) -> None:
-        experiment = ExperimentResult([make_run_result()], list(self.FAILURES))
-
-        assert experiment.failures == self.FAILURES
-
-    def test_still_rejects_an_empty_run_list_when_there_are_failures(self) -> None:
+        assert ExperimentResult([make_run_result()], list(self.FAILURES)).failures == self.FAILURES
         with pytest.raises(InvalidInputError, match="must not be empty"):
             ExperimentResult([], self.FAILURES)
 
-    def test_save_omits_failures_json_when_there_are_none(self, tmp_path) -> None:
+        clean = UPath(tmp_path) / "clean"
+        make_experiment_result(n_models=1, n_folds=1).save(clean)
+        assert not (clean / "failures.json").exists()
+        assert ExperimentResult.load(clean).failures == ()
+
         directory = UPath(tmp_path) / "experiment"
-
-        make_experiment_result(n_models=1, n_folds=1).save(directory)
-
-        assert not (directory / "failures.json").exists()
-        assert ExperimentResult.load(directory).failures == ()
-
-    def test_failures_round_trip_through_save_and_load(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "experiment"
-
         ExperimentResult([make_run_result()], self.FAILURES).save(directory)
-        loaded = ExperimentResult.load(directory)
-
         assert json.loads((directory / "failures.json").read_text())[1]["randomization"] == ["SVRC", "gene_expression"]
-        assert loaded.failures == self.FAILURES
+        assert ExperimentResult.load(directory).failures == self.FAILURES
 
-    def test_normalize_keeps_the_failures(self) -> None:
         experiment = make_experiment_result(n_models=2, n_folds=1)
         experiment.failures = self.FAILURES
-
         assert experiment.normalize().failures == self.FAILURES
-
-    def test_repr_is_unchanged_by_failures(self) -> None:
-        runs = [make_run_result()]
-
-        assert repr(ExperimentResult(runs, self.FAILURES)) == repr(ExperimentResult(runs))
 
 
 class TestTrialSkipping:
-    """The report path loads without trials; every other caller keeps the default."""
-
-    @staticmethod
-    def _saved_with_trials(directory: UPath) -> None:
+    def test_trials_are_loaded_by_default_and_can_be_skipped(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
         experiment = make_experiment_result(n_models=2, n_folds=1)
         for model in experiment.models:
             for run in model.runs:
-                run.trials = [
-                    TrialResult(
-                        hyperparameters={"alpha": 0.1},
-                        metrics={"MSE": 0.3},
-                        optimization_metric="MSE",
-                        predictions=np.zeros(4),
-                    )
-                ]
+                run.trials = [_trial()]
         experiment.save(directory)
 
-    def test_trials_are_loaded_by_default(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "experiment"
-        self._saved_with_trials(directory)
+        with_trials = ExperimentResult.load(directory)
+        without = ExperimentResult.load(directory, with_trials=False)
 
-        loaded = ExperimentResult.load(directory)
-
-        assert all(run.trials for model in loaded.models for run in model.runs)
-
-    def test_trials_can_be_skipped(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "experiment"
-        self._saved_with_trials(directory)
-
-        loaded = ExperimentResult.load(directory, with_trials=False)
-
-        assert all(run.trials is None for model in loaded.models for run in model.runs)
-
-    def test_skipping_trials_preserves_the_structure(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "experiment"
-        self._saved_with_trials(directory)
-
-        loaded = ExperimentResult.load(directory, with_trials=False)
-
-        assert loaded.model_names == [REFERENCE_MODEL, "ElasticNet"]
-        assert loaded.max_folds == 1
+        assert all(run.trials for model in with_trials.models for run in model.runs)
+        assert all(run.trials is None for model in without.models for run in model.runs)
+        assert without.model_names == [REFERENCE_MODEL, "ElasticNet"]
 
 
 class TestLoadLogging:
-    """The load summary is the line that establishes the scale of a run."""
-
     def test_reports_models_runs_rows_and_bytes(self, tmp_path, caplog) -> None:
         directory = UPath(tmp_path) / "experiment"
         make_experiment_result(n_models=2, n_folds=2, n_pairs=20).save(directory)
 
         with caplog.at_level(logging.INFO, logger="drevalpy.types.results.experiment"):
             ExperimentResult.load(directory)
-
-        message = caplog.records[-1].getMessage()
-        assert "2 models" in message
-        assert "4 runs" in message
-        assert "80 prediction rows" in message
-        assert "GB of arrays" in message
-
-    def test_records_whether_trials_were_skipped(self, tmp_path, caplog) -> None:
-        directory = UPath(tmp_path) / "experiment"
-        make_experiment_result(n_models=1, n_folds=1).save(directory)
-
-        with caplog.at_level(logging.INFO, logger="drevalpy.types.results.experiment"):
             ExperimentResult.load(directory, with_trials=False)
 
-        assert "trials skipped" in caplog.records[-1].getMessage()
+        loaded, skipped = (record.getMessage() for record in caplog.records[-2:])
+        for fragment in ("2 models", "4 runs", "80 prediction rows", "GB of arrays", "trials loaded"):
+            assert fragment in loaded
+        assert "trials skipped" in skipped
 
-    def test_records_when_trials_were_loaded(self, tmp_path, caplog) -> None:
-        directory = UPath(tmp_path) / "experiment"
-        make_experiment_result(n_models=1, n_folds=1).save(directory)
-
-        with caplog.at_level(logging.INFO, logger="drevalpy.types.results.experiment"):
-            ExperimentResult.load(directory)
-
-        assert "trials loaded" in caplog.records[-1].getMessage()
-
-    def test_counts_trial_predictions_in_the_byte_total(self, tmp_path) -> None:
+    def test_byte_total_counts_trial_predictions_and_interned_strings(self) -> None:
         run = make_run_result(n_pairs=8)
         without = _run_array_bytes(run)
-        run.trials = [
-            TrialResult(
-                hyperparameters={},
-                metrics={},
-                optimization_metric="MSE",
-                predictions=np.zeros(1000),
-            )
-        ]
-
+        run.trials = [_trial(1000)]
         assert _run_array_bytes(run) > without
 
-    def test_interned_ids_count_their_shared_strings(self) -> None:
         run = make_run_result(n_pairs=8)
         run.sample_ids = intern_ids(run.sample_ids)
         run.drug_ids = intern_ids(run.drug_ids)
-
         assert _run_array_bytes(run) > run.predictions.nbytes + run.ground_truth.nbytes
 
 
-class TestRepr:
-    def test_reports_experiment_level_metadata(self) -> None:
-        text = repr(make_experiment_result(n_models=2, n_folds=2, split_mode="LSO"))
-
-        assert text.startswith("ExperimentResult")
-        assert "Dataset: SyntheticDataset" in text
-        assert "Split mode: LSO" in text
-        assert "Normalized by: None" in text
-        assert "Models: 2" in text
-
-    def test_reports_metrics_per_model(self) -> None:
-        runs = [make_run_result(model_name="A", metrics={"MSE": 0.5})]
-
-        assert "        A (1 folds): MSE=0.5000" in repr(ExperimentResult(runs)).splitlines()
-
-    def test_reports_models_without_metrics(self) -> None:
-        runs = [make_run_result(model_name="A", metrics={})]
-
-        assert "        A (1 folds): no metrics" in repr(ExperimentResult(runs)).splitlines()
+def test_repr_reports_metadata_and_per_model_metrics() -> None:
+    assert "Split mode: LSO" in repr(make_experiment_result(n_models=2, n_folds=2, split_mode="LSO"))
+    lines = repr(
+        ExperimentResult(
+            [make_run_result(model_name="A", metrics={"MSE": 0.5}), make_run_result(model_name="B", metrics={})]
+        )
+    ).splitlines()
+    assert "        A (1 folds): MSE=0.5000" in lines
+    assert "        B (1 folds): no metrics" in lines

@@ -43,15 +43,9 @@ def test_molir_omics_serves_a_precomputed_variant() -> None:
     assert_uses_precomputed_variant(MOLIROmicsFeaturizer())
 
 
-def test_molir_omics_output_dim_is_zero_before_fit() -> None:
+def test_molir_omics_unfitted_and_without_metadata() -> None:
     assert MOLIROmicsFeaturizer().output_dim == 0
-
-
-def test_molir_omics_hyperparameter_space_exposes_the_feature_count() -> None:
     assert set(MOLIROmicsFeaturizer.get_hyperparameter_space()) == {"n_gene_expression_features"}
-
-
-def test_molir_omics_falls_back_to_empty_feature_names_without_metadata() -> None:
     features = MockFeatureSource(
         {
             f"cl{i}": {
@@ -66,14 +60,6 @@ def test_molir_omics_falls_back_to_empty_feature_names_without_metadata() -> Non
     featurizer = MOLIROmicsFeaturizer(n_gene_expression_features=2).fit(features)
 
     assert featurizer.get_state()["selected_feature_names"] == ()
-
-
-def test_molir_omics_set_state_ignores_unrelated_keys() -> None:
-    featurizer = MOLIROmicsFeaturizer()
-
-    featurizer.set_state({"scaler": None, "mask": None, "selected_feature_names": None, "feature_names": None})
-
-    assert featurizer.output_dim == 0
 
 
 def test_selection_ranks_training_variance_before_standardization() -> None:

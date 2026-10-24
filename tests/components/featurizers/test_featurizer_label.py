@@ -15,12 +15,8 @@ def test_qualified_selector_uses_view_brackets() -> None:
     assert qualified_featurizer_selector("landmarkGenes") == "landmarkGenes"
 
 
-def test_block_labels_match_qualified_selectors() -> None:
+def test_block_labels_and_explicit_view_requirement() -> None:
     assert featurizer_config_block_label("pca", "proteomics") == "pca[proteomics]"
     assert featurizer_config_block_label("fingerprints", None) == "fingerprints"
-
-
-def test_requires_explicit_view() -> None:
-    assert requires_explicit_view("raw")
-    assert requires_explicit_view("pca")
+    assert requires_explicit_view("raw") and requires_explicit_view("pca")
     assert not requires_explicit_view("landmarkGenes")

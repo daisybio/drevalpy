@@ -14,72 +14,48 @@ from drevalpy.components.contracts.contracts import (
 )
 
 
-def test_numeric_contracts_compatible() -> None:
-    produced = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-    required = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-    assert contracts_compatible(produced, required)
+@pytest.mark.parametrize(
+    ("produced", "required", "compatible"),
+    [
+        (FeatureFormat.NUMERIC_MATRIX, FeatureFormat.NUMERIC_MATRIX, True),
+        (FeatureFormat.GRAPH, FeatureFormat.GRAPH, True),
+        (FeatureFormat.RAGGED_SEQUENCE, FeatureFormat.RAGGED_SEQUENCE, True),
+        (FeatureFormat.GRAPH, FeatureFormat.NUMERIC_MATRIX, False),
+    ],
+)
+def test_contracts_are_compatible_by_format_only(produced, required, compatible: bool) -> None:
+    assert contracts_compatible(FeatureContract(format=produced), FeatureContract(format=required)) is compatible
 
 
-def test_graph_contracts_compatible_by_format_only() -> None:
-    produced = FeatureContract(format=FeatureFormat.GRAPH)
-    required = FeatureContract(format=FeatureFormat.GRAPH)
-    assert contracts_compatible(produced, required)
-
-
-def test_ragged_contracts_compatible() -> None:
-    produced = FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
-    required = FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
-    assert contracts_compatible(produced, required)
-
-
-def test_format_mismatch_is_incompatible() -> None:
-    produced = FeatureContract(format=FeatureFormat.GRAPH)
-    required = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-    assert not contracts_compatible(produced, required)
-
-
-def test_feature_contract_is_frozen() -> None:
+def test_feature_contract_is_frozen_and_normalizes_the_format_shorthand() -> None:
     contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-    try:
+    with pytest.raises(AttributeError):
         cast(Any, contract).format = FeatureFormat.GRAPH
-        raised = False
-    except AttributeError:
-        raised = True
-    assert raised
-
-
-def test_normalize_feature_contract_accepts_format_shorthand() -> None:
     assert normalize_feature_contract(FeatureFormat.GRAPH) == FeatureContract(format=FeatureFormat.GRAPH)
 
 
-def test_featurizer_contract_reads_canonical_attribute() -> None:
+def test_featurizer_contract_reads_the_canonical_attribute_and_requires_it() -> None:
     class WithContract:
         contract = FeatureContract(format=FeatureFormat.GRAPH)
 
-    assert featurizer_contract(WithContract).format == FeatureFormat.GRAPH
-
-
-def test_featurizer_contract_requires_contract() -> None:
     class WithoutContract:
         pass
 
+    assert featurizer_contract(WithContract).format == FeatureFormat.GRAPH
     with pytest.raises(TypeError, match="must define a contract"):
         featurizer_contract(WithoutContract)
 
 
-def test_predictor_contracts_reads_canonical_attributes() -> None:
+def test_predictor_contracts_read_the_canonical_attributes_and_require_both() -> None:
     class WithContracts:
         sample_contract = FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
         drug_contract = FeatureContract(format=FeatureFormat.GRAPH)
 
-    sample, drug = predictor_contracts(WithContracts)
-    assert sample.format == FeatureFormat.RAGGED_SEQUENCE
-    assert drug.format == FeatureFormat.GRAPH
-
-
-def test_predictor_contracts_requires_both_contracts() -> None:
     class MissingDrugContract:
         sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
+    sample, drug = predictor_contracts(WithContracts)
+    assert sample.format == FeatureFormat.RAGGED_SEQUENCE
+    assert drug.format == FeatureFormat.GRAPH
     with pytest.raises(TypeError, match="must define both"):
         predictor_contracts(MissingDrugContract)

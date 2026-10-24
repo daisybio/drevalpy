@@ -30,15 +30,10 @@ def _network() -> PaccMannNetwork:
     return PaccMannNetwork(PaccMannConfig.from_hyperparameters(SMALL))
 
 
-def test_config_resolves_the_default_kernel_windows() -> None:
-    config = PaccMannConfig.from_hyperparameters(SMALL)
-
-    assert config.resolved_kernel_sizes == [(3, 4), (5, 4), (11, 4)]
-
-
-def test_config_ignores_keys_it_does_not_know() -> None:
+def test_config_resolves_kernel_windows_and_ignores_unknown_keys() -> None:
     config = PaccMannConfig.from_hyperparameters({**SMALL, "epochs": 10, "learning_rate": 0.1})
 
+    assert config.resolved_kernel_sizes == [(3, 4), (5, 4), (11, 4)]
     assert config.number_of_genes == 7
 
 
@@ -55,48 +50,29 @@ def test_config_rejects_inconsistent_lengths(override: dict, message: str) -> No
         PaccMannConfig.from_hyperparameters({**SMALL, **override})
 
 
-def test_attention_layer_weights_sum_to_one_over_the_reference() -> None:
+def test_attention_layer_weights_sum_to_one_and_can_keep_the_sequence_axis() -> None:
     layer = ContextAttentionLayer(4, 6, 1, 7, attention_size=5, temperature=1.0)
-
     attended, alphas = layer(torch.randn(3, 6, 4), torch.randn(3, 7, 1))
-
     assert attended.shape == (3, 4)
     assert alphas.shape == (3, 6)
     torch.testing.assert_close(alphas.sum(dim=1), torch.ones(3))
 
-
-def test_attention_layer_can_keep_the_sequence_axis() -> None:
-    layer = ContextAttentionLayer(1, 7, 4, 6, attention_size=1, temperature=1.0)
-
-    attended, _ = layer(torch.randn(3, 7, 1), torch.randn(3, 6, 4), average_seq=False)
-
+    sequence_layer = ContextAttentionLayer(1, 7, 4, 6, attention_size=1, temperature=1.0)
+    attended, _ = sequence_layer(torch.randn(3, 7, 1), torch.randn(3, 6, 4), average_seq=False)
     assert attended.shape == (3, 7)
 
-
-def test_a_single_position_context_skips_the_length_projection() -> None:
-    layer = ContextAttentionLayer(4, 6, 1, 1, attention_size=5, temperature=1.0)
-
-    assert isinstance(layer.context_hidden_projection, torch.nn.Identity)
+    single = ContextAttentionLayer(4, 6, 1, 1, attention_size=5, temperature=1.0)
+    assert isinstance(single.context_hidden_projection, torch.nn.Identity)
 
 
-def test_network_predicts_one_value_per_row() -> None:
+def test_network_predicts_one_value_per_row_and_follows_the_configuration() -> None:
     network = _network().eval()
 
     output = network(torch.randint(0, 12, (5, 16)), torch.randn(5, 7))
 
     assert output.shape == (5, 1)
     assert torch.isfinite(output).all()
-
-
-def test_network_keeps_the_batch_axis_for_a_single_row_in_eval_mode() -> None:
-    network = _network().eval()
-
     assert network(torch.randint(0, 12, (1, 16)), torch.randn(1, 7)).shape == (1, 1)
-
-
-def test_attention_heads_follow_the_configuration() -> None:
-    network = _network()
-
     assert len(network.molecule_attentions) == sum(SMALL["molecule_heads"])
     assert len(network.gene_attentions) == sum(SMALL["gene_heads"])
     assert len(network.convolutions) == 3

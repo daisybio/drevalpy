@@ -1,11 +1,4 @@
-"""Tests for :mod:`drevalpy.visualization.base`.
-
-``ImageVisualization`` supplies ``to_png``/``to_multiqc``/``show`` to every
-matplotlib-backed plot and ``PlotlyVisualization`` supplies ``to_png``/``show``
-to every Plotly-backed one, so their ``RuntimeError`` guards and the base64
-embedding are covered here once via stub subclasses rather than repeatedly in
-each plot's own module.
-"""
+"""Tests for :mod:`drevalpy.visualization.base`; the shared guards and embedding are covered once via stubs."""
 
 from __future__ import annotations
 
@@ -16,6 +9,7 @@ import types
 import matplotlib.pyplot as plt
 import pytest
 
+from drevalpy.errors import DrEvalError
 from drevalpy.visualization.base import (
     ImageVisualization,
     PlotlyVisualization,
@@ -29,8 +23,6 @@ PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
 class _StubImagePlot(ImageVisualization):
-    """Smallest possible ImageVisualization: a one-line figure."""
-
     registry_name = "stub_image"
 
     def compute(self, result=None) -> None:
@@ -43,8 +35,6 @@ class _StubImagePlot(ImageVisualization):
 
 
 class _RecordingFigure:
-    """Stand-in for a Plotly figure that records what the base class asked of it."""
-
     def __init__(self) -> None:
         self.written: list[str] = []
         self.shown = 0
@@ -57,8 +47,6 @@ class _RecordingFigure:
 
 
 class _StubPlotlyPlot(PlotlyVisualization):
-    """Smallest possible PlotlyVisualization."""
-
     registry_name = "stub_plotly"
 
     def compute(self, result=None) -> None:
@@ -81,17 +69,10 @@ def stub() -> _StubImagePlot:
 
 @pytest.fixture
 def displayed(monkeypatch: pytest.MonkeyPatch) -> list:
-    """Install a recording ``IPython.display.display`` and return what it was handed.
+    """Install a recording ``IPython.display.display`` replacing every real ``IPython*`` entry.
 
-    The stub replaces every real ``IPython*`` entry rather than only filling gaps:
-    IPython 9 is a real dependency of the dev environment, so leaving it reachable
-    would make the result depend on whether an earlier test imported it.
-
-    It also has to look enough like IPython for matplotlib, which reads
-    ``sys.modules["IPython"].version_info`` (and ``get_ipython()``) once per process
-    the first time a canvas is created. A bare ``ModuleType`` made that one-off probe
-    raise ``AttributeError`` whenever this test happened to draw the first figure in
-    the process - which is why it passed serially and failed under ``-n auto``.
+    The stub needs ``version_info`` and ``get_ipython`` because matplotlib probes them once per process
+    when the first canvas is created.
     """
     recorded: list = []
     ipython = types.ModuleType("IPython")
@@ -107,119 +88,67 @@ def displayed(monkeypatch: pytest.MonkeyPatch) -> list:
     return recorded
 
 
-class TestSection:
-    def test_optional_fields_default_to_empty(self):
-        section = Section(name="Some plot", anchor="some_plot")
+def test_section_defaults_and_value_equality():
+    section = Section(name="Some plot", anchor="some_plot")
+    sentinel = object()
 
-        assert (section.description, section.plot, section.content) == ("", None, None)
-
-    def test_carries_a_native_plot_object(self):
-        sentinel = object()
-
-        section = Section(name="n", anchor="a", description="d", plot=sentinel)
-
-        assert section.plot is sentinel
-
-    def test_equality_is_by_value(self):
-        assert Section(name="n", anchor="a") == Section(name="n", anchor="a")
+    assert (section.description, section.plot, section.content) == ("", None, None)
+    assert Section(name="n", anchor="a", description="d", plot=sentinel).plot is sentinel
+    assert Section(name="n", anchor="a") == Section(name="n", anchor="a")
 
 
 class TestVisualizationContract:
-    def test_cannot_be_instantiated(self):
+    def test_the_abstract_surface_of_each_base(self):
         with pytest.raises(TypeError):
             Visualization()  # type: ignore[abstract]
-
-    def test_declares_the_full_abstract_surface(self):
         assert Visualization.__abstractmethods__ == frozenset({"compute", "to_png", "to_multiqc", "show"})
-
-    def test_registry_name_defaults_to_empty(self):
         assert Visualization.registry_name == ""
-
-    def test_image_visualization_adds_only_create_figure(self):
         assert ImageVisualization.__abstractmethods__ == frozenset({"compute", "_create_figure"})
-
-    def test_plotly_visualization_leaves_compute_and_to_multiqc_abstract(self):
         assert PlotlyVisualization.__abstractmethods__ == frozenset({"compute", "to_multiqc"})
 
 
-class TestRequireFigure:
-    def test_returns_the_figure_untouched(self):
-        sentinel = object()
+def test_require_figure_returns_the_figure_or_names_the_caller():
+    sentinel = object()
 
-        assert require_figure(sentinel, "to_png") is sentinel
-
-    def test_names_the_caller_in_the_error(self):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before some_method\(\)"):
-            require_figure(None, "some_method")
+    assert require_figure(sentinel, "to_png") is sentinel
+    with pytest.raises(RuntimeError, match=r"Call compute\(\) before some_method\(\)"):
+        require_figure(None, "some_method")
 
 
-class TestEmbeddedPngHtml:
-    def test_wraps_the_figure_in_an_img_data_uri(self, stub):
-        stub.compute()
+def test_embedded_png_html_wraps_a_decodable_png_in_an_img_data_uri(stub):
+    stub.compute()
 
-        html = embedded_png_html(stub._fig)
+    html = embedded_png_html(stub._fig)
 
-        assert html.startswith('<img src="data:image/png;base64,')
-
-    def test_payload_decodes_to_a_png(self, stub):
-        stub.compute()
-
-        payload = embedded_png_html(stub._fig).split("base64,", 1)[1].split('"', 1)[0]
-
-        assert base64.b64decode(payload).startswith(PNG_MAGIC)
+    assert html.startswith('<img src="data:image/png;base64,')
+    assert base64.b64decode(html.split("base64,", 1)[1].split('"', 1)[0]).startswith(PNG_MAGIC)
 
 
-class TestGuardsBeforeCompute:
-    def test_to_png_raises(self, stub, tmp_path):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_png\(\)"):
-            stub.to_png(tmp_path / "out.png")
+class TestImageVisualization:
+    @pytest.mark.parametrize("method", ["to_png", "to_multiqc", "show"])
+    def test_methods_raise_before_compute(self, stub, tmp_path, method):
+        args = (tmp_path / "out.png",) if method == "to_png" else ()
 
-    def test_to_multiqc_raises(self, stub):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_multiqc\(\)"):
-            stub.to_multiqc()
+        with pytest.raises(RuntimeError, match=rf"Call compute\(\) before {method}\(\)"):
+            getattr(stub, method)(*args)
 
-    def test_show_raises(self, stub):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before show\(\)"):
-            stub.show()
-
-
-class TestImageVisualizationRendering:
-    def test_to_png_writes_a_png_file(self, stub, tmp_path):
+    @pytest.mark.parametrize("as_str", [False, True])
+    def test_to_png_writes_a_png_file_from_a_path_or_a_string(self, stub, tmp_path, as_str):
         stub.compute()
         out = tmp_path / "out.png"
 
-        stub.to_png(out)
+        stub.to_png(str(out) if as_str else out)
 
         assert out.read_bytes().startswith(PNG_MAGIC)
 
-    def test_to_png_accepts_a_string_path(self, stub, tmp_path):
-        stub.compute()
-        out = tmp_path / "str.png"
-
-        stub.to_png(str(out))
-
-        assert out.exists()
-
-    def test_to_multiqc_returns_one_section_named_after_the_registry(self, stub):
+    def test_to_multiqc_embeds_the_figure_as_a_base64_png_named_after_the_registry(self, stub):
         stub.compute()
 
-        sections = stub.to_multiqc()
+        (section,) = stub.to_multiqc()
 
-        assert [(s.name, s.anchor) for s in sections] == [("stub_image", "stub_image")]
-
-    def test_to_multiqc_embeds_the_figure_as_base64_png(self, stub):
-        stub.compute()
-
-        content = stub.to_multiqc()[0].content
-
-        assert content is not None
-        payload = content.split("base64,", 1)[1].split('"', 1)[0]
-        assert base64.b64decode(payload).startswith(PNG_MAGIC)
-
-    def test_to_multiqc_section_carries_no_native_plot(self, stub):
-        stub.compute()
-
-        assert stub.to_multiqc()[0].plot is None
+        assert (section.name, section.anchor) == ("stub_image", "stub_image")
+        assert section.plot is None
+        assert base64.b64decode(section.content.split("base64,", 1)[1].split('"', 1)[0]).startswith(PNG_MAGIC)
 
     def test_show_delegates_to_ipython_display(self, stub, displayed):
         stub.compute()
@@ -229,30 +158,28 @@ class TestImageVisualizationRendering:
         assert displayed == [stub._fig]
 
 
-class TestPlotlyVisualizationRendering:
-    @pytest.fixture
-    def plotly_stub(self) -> _StubPlotlyPlot:
-        return _StubPlotlyPlot()
+class TestPlotlyVisualization:
+    def test_methods_raise_before_compute(self, tmp_path):
+        for method, args in (("to_png", (tmp_path / "out.png",)), ("show", ())):
+            with pytest.raises(RuntimeError, match=rf"Call compute\(\) before {method}\(\)"):
+                getattr(_StubPlotlyPlot(), method)(*args)
 
-    def test_to_png_raises_before_compute(self, plotly_stub, tmp_path):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_png\(\)"):
-            plotly_stub.to_png(tmp_path / "out.png")
+    def test_to_png_writes_with_a_string_path_and_show_delegates_to_the_figure(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("drevalpy.visualization.base.plotly_png_supported", lambda: True)
+        plot = _StubPlotlyPlot()
+        plot.compute()
 
-    def test_show_raises_before_compute(self, plotly_stub):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before show\(\)"):
-            plotly_stub.show()
+        plot.to_png(tmp_path / "out.png")
+        plot.show()
 
-    def test_to_png_delegates_to_write_image_with_a_string_path(self, plotly_stub, tmp_path):
-        plotly_stub.compute()
-        out = tmp_path / "out.png"
+        assert plot._fig.written == [str(tmp_path / "out.png")]
+        assert plot._fig.shown == 1
 
-        plotly_stub.to_png(out)
+    def test_to_png_raises_where_plotly_cannot_render_png(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("drevalpy.visualization.base.plotly_png_supported", lambda: False)
+        plot = _StubPlotlyPlot()
+        plot.compute()
 
-        assert plotly_stub._fig.written == [str(out)]
-
-    def test_show_delegates_to_the_figure(self, plotly_stub):
-        plotly_stub.compute()
-
-        plotly_stub.show()
-
-        assert plotly_stub._fig.shown == 1
+        with pytest.raises(DrEvalError, match="not supported on Windows"):
+            plot.to_png(tmp_path / "out.png")
+        assert plot._fig.written == []

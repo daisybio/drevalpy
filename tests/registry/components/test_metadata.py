@@ -1,8 +1,4 @@
-"""Tests for the catalog metadata dicts built for registered components.
-
-These are pure functions over class attributes, so every case is a bare class -
-no registry involved and therefore no global registry state to restore.
-"""
+"""Tests for the catalog metadata dicts built for registered components (pure functions over bare classes)."""
 
 from __future__ import annotations
 
@@ -34,132 +30,65 @@ class _Described:
     tags = frozenset({"baseline"})
 
 
-class _WithDoi:
-    description = "doi reference"
-    reference = LiteratureReference(
-        repo_url="https://github.com/example/repo",
-        citation_doi="10.1234/example",
-        deviations="none",
-    )
+def _featurizer(**attrs):
+    return type("Featurizer", (), {"contract": FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)} | attrs)
 
 
-class _WithCitationText:
-    description = "text reference"
-    reference = LiteratureReference(
-        repo_url="https://github.com/example/repo",
-        citation_text="Doe et al., 2024",
-    )
-
-
-class _WithBadReference:
-    description = "not a reference"
-    reference = "https://example.org/paper"
-
-
-def test_base_metadata_carries_registry_and_name() -> None:
+def test_base_metadata_carries_registry_name_description_and_tags() -> None:
     meta = base_component_metadata("predictors", "demo", _Described)
 
-    assert meta["registry"] == "predictors"
-    assert meta["name"] == "demo"
-    assert meta["class_name"] == "_Described"
+    assert (meta["registry"], meta["name"], meta["class_name"]) == ("predictors", "demo", "_Described")
+    assert (meta["description"], meta["tags"]) == ("a described component", frozenset({"baseline"}))
 
 
-def test_base_metadata_copies_description_and_tags() -> None:
-    meta = base_component_metadata("predictors", "demo", _Described)
+@pytest.mark.parametrize("cls", [_Bare, type("NoneDescription", (), {"description": None})], ids=["missing", "none"])
+def test_base_metadata_defaults_missing_description_and_tags(cls: type) -> None:
+    meta = base_component_metadata("predictors", "bare", cls)
 
-    assert meta["description"] == "a described component"
-    assert meta["tags"] == frozenset({"baseline"})
-
-
-def test_base_metadata_defaults_missing_description_and_tags() -> None:
-    meta = base_component_metadata("predictors", "bare", _Bare)
-
-    assert meta["description"] == ""
-    assert meta["tags"] == frozenset()
-
-
-def test_base_metadata_coerces_a_none_description() -> None:
-    class NoneDescription:
-        description = None
-
-    meta = base_component_metadata("predictors", "none", NoneDescription)
-
-    assert meta["description"] == ""
-
-
-def test_base_metadata_leaves_reference_fields_empty_without_a_reference() -> None:
-    meta = base_component_metadata("predictors", "bare", _Bare)
-
+    assert (meta["description"], meta["tags"]) == ("", frozenset())
     assert {key: meta[key] for key in _EMPTY_REFERENCE_FIELDS} == _EMPTY_REFERENCE_FIELDS
 
 
 def test_base_metadata_ignores_a_reference_of_the_wrong_type() -> None:
-    meta = base_component_metadata("predictors", "bad", _WithBadReference)
+    meta = base_component_metadata("predictors", "bad", type("Bad", (), {"reference": "https://example.org/paper"}))
 
     assert {key: meta[key] for key in _EMPTY_REFERENCE_FIELDS} == _EMPTY_REFERENCE_FIELDS
 
 
-def test_base_metadata_expands_a_doi_into_a_resolvable_url() -> None:
-    meta = base_component_metadata("predictors", "doi", _WithDoi)
+def test_base_metadata_expands_a_doi_into_a_resolvable_url_and_copies_repo_and_deviations() -> None:
+    reference = LiteratureReference(
+        repo_url="https://github.com/example/repo", citation_doi="10.1234/example", deviations="none"
+    )
+
+    meta = base_component_metadata("predictors", "doi", type("WithDoi", (), {"reference": reference}))
 
     assert meta["citation"] == "https://doi.org/10.1234/example"
     assert meta["citation_doi"] == "10.1234/example"
-
-
-def test_base_metadata_copies_the_reference_repo_and_deviations() -> None:
-    meta = base_component_metadata("predictors", "doi", _WithDoi)
-
-    assert meta["repo_url"] == "https://github.com/example/repo"
-    assert meta["deviations"] == "none"
+    assert (meta["repo_url"], meta["deviations"]) == ("https://github.com/example/repo", "none")
 
 
 def test_base_metadata_falls_back_to_the_citation_text() -> None:
-    meta = base_component_metadata("predictors", "text", _WithCitationText)
+    reference = LiteratureReference(repo_url="https://github.com/example/repo", citation_text="Doe et al., 2024")
 
-    assert meta["citation"] == "Doe et al., 2024"
-    assert meta["citation_text"] == "Doe et al., 2024"
+    meta = base_component_metadata("predictors", "text", type("WithText", (), {"reference": reference}))
 
-
-def test_featurizer_metadata_reports_the_contract_format() -> None:
-    class GraphFeaturizer:
-        description = "graph featurizer"
-        contract = FeatureContract(format=FeatureFormat.GRAPH)
-
-    meta = featurizer_component_metadata("drug_featurizers", "graph", GraphFeaturizer)
-
-    assert meta["output_format"] == "graph"
+    assert meta["citation"] == meta["citation_text"] == "Doe et al., 2024"
 
 
-def test_featurizer_metadata_defaults_precompute_to_false() -> None:
-    class NumericFeaturizer:
-        description = "numeric featurizer"
-        contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+@pytest.mark.parametrize(
+    ("attrs", "output_format", "precompute"),
+    [
+        ({"contract": FeatureContract(format=FeatureFormat.GRAPH)}, "graph", False),
+        ({}, "numeric_matrix", False),
+        ({"precompute": True}, "numeric_matrix", True),
+    ],
+    ids=["graph", "default-precompute", "opted-in-precompute"],
+)
+def test_featurizer_metadata(attrs: dict, output_format: str, precompute: bool) -> None:
+    meta = featurizer_component_metadata("drug_featurizers", "f", _featurizer(description="d", **attrs))
 
-    meta = featurizer_component_metadata("drug_featurizers", "numeric", NumericFeaturizer)
-
-    assert meta["precompute"] is False
-
-
-def test_featurizer_metadata_reports_an_opted_in_precompute() -> None:
-    class PrecomputedFeaturizer:
-        description = "precomputed featurizer"
-        contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-        precompute = True
-
-    meta = featurizer_component_metadata("drug_featurizers", "precomputed", PrecomputedFeaturizer)
-
-    assert meta["precompute"] is True
-
-
-def test_featurizer_metadata_keeps_the_shared_base_fields() -> None:
-    class NumericFeaturizer:
-        description = "numeric featurizer"
-        contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-
-    meta = featurizer_component_metadata("drug_featurizers", "numeric", NumericFeaturizer)
-
-    assert meta["registry"] == "drug_featurizers"
-    assert meta["description"] == "numeric featurizer"
+    assert (meta["output_format"], meta["precompute"]) == (output_format, precompute)
+    assert (meta["registry"], meta["description"]) == ("drug_featurizers", "d")
 
 
 def test_featurizer_metadata_requires_a_contract() -> None:
@@ -167,24 +96,11 @@ def test_featurizer_metadata_requires_a_contract() -> None:
         featurizer_component_metadata("drug_featurizers", "bare", _Bare)
 
 
-def test_predictor_metadata_reports_the_input_interface() -> None:
-    class FeatureFreeLike:
-        description = "feature free"
-        input_interface = "feature_free"
+def test_predictor_metadata_reports_the_input_interface_and_keeps_the_base_fields() -> None:
+    free = type("FeatureFreeLike", (_Described,), {"input_interface": "feature_free"})
 
-    meta = predictor_component_metadata("predictors", "featureFree", FeatureFreeLike)
+    meta = predictor_component_metadata("predictors", "featureFree", free)
 
     assert meta["input_interface"] == "feature_free"
-
-
-def test_predictor_metadata_defaults_the_input_interface_to_empty() -> None:
-    meta = predictor_component_metadata("predictors", "bare", _Bare)
-
-    assert meta["input_interface"] == ""
-
-
-def test_predictor_metadata_keeps_the_shared_base_fields() -> None:
-    meta = predictor_component_metadata("predictors", "demo", _Described)
-
-    assert meta["registry"] == "predictors"
-    assert meta["tags"] == frozenset({"baseline"})
+    assert (meta["registry"], meta["tags"]) == ("predictors", frozenset({"baseline"}))
+    assert predictor_component_metadata("predictors", "bare", _Bare)["input_interface"] == ""

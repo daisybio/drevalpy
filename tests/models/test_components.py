@@ -10,35 +10,19 @@ from drevalpy.models.config import from_spec
 from drevalpy.models.tuning.search_space import resolve_model_config
 
 
-def test_build_components_creates_predictor_and_configured_featurizers() -> None:
-    resolved = resolve_model_config(from_spec("ElasticNet"))
-    sample, drug, predictor = build_components(resolved)
-
-    assert sample is not None
-    assert drug is not None
-    assert predictor.__class__.__name__
-
-
-def test_build_components_returns_independent_instances() -> None:
+def test_build_components_creates_independent_featurizers_and_predictor() -> None:
     resolved = resolve_model_config(from_spec("ElasticNet"))
     first = build_components(resolved)
     second = build_components(resolved)
 
-    assert first[0] is not second[0]
-    assert first[1] is not second[1]
-    assert first[2] is not second[2]
-
-
-def test_build_components_passes_prediction_mode_as_a_plain_string() -> None:
-    _, _, predictor = build_components(resolve_model_config(from_spec("ElasticNet")))
-
-    mode = predictor._hyperparameters["prediction_mode"]
+    assert all(component is not None for component in first)
+    assert all(a is not b for a, b in zip(first, second, strict=True))
+    mode = first[2]._hyperparameters["prediction_mode"]
     assert mode == "regression"
     assert type(mode) is str
 
 
 def _three_omics_dataset():
-    """Build an eight-sample, one-drug dataset with the three views MOLIR and SuperFELTR read."""
     import anndata as ad
     import mudata as md
     import pandas as pd
@@ -64,7 +48,6 @@ def _three_omics_dataset():
 
 
 def _spy_on_best_epoch_reload(monkeypatch: pytest.MonkeyPatch, model_name: str) -> list[object]:
-    """Record every best-epoch checkpoint the model reloads, and what the reload returned."""
     reloaded: list[object] = []
     if model_name == "MOLIR":
         from drevalpy.components.predictors.literature.molir import utils
@@ -96,11 +79,9 @@ def test_fit_with_early_stopping_scope_reloads_the_best_epoch(
     model_name: str, monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     from drevalpy.models import DRPModel
-    from drevalpy.registry._builtins import register_builtin_components
     from drevalpy.types.data.split_mask import SplitMask
     from tests.models.synthetic_fixtures import small_data_spec
 
-    register_builtin_components()
     hyperparameters = {"epochs": 2, "mini_batch": 2, "dropout_rate": 0.0}
     if model_name == "MOLIR":
         hyperparameters.update({"h_dim1": 2, "h_dim2": 2, "h_dim3": 2})

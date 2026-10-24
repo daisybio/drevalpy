@@ -1,4 +1,4 @@
-"""Smoke test mirror for precily predictor package."""
+"""Tests for the Precily predictor."""
 
 from __future__ import annotations
 
@@ -73,13 +73,14 @@ def test_set_state_requires_the_model_state() -> None:
         PrecilyPredictor().set_state({"payload": payload})
 
 
-def test_epoch_losses_are_logged_not_printed(caplog, capsys) -> None:
+def test_epoch_losses_are_logged_not_printed_and_sent_to_the_tracking_run(caplog, capsys, monkeypatch) -> None:
+    fake = install_fake_wandb(monkeypatch)
     batch = two_by_two_batch(
         sample_blocks={"pathways": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
         drug_blocks={"smilesvec": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
     )
 
-    with caplog.at_level("INFO", logger="drevalpy"):
+    with caplog.at_level("INFO", logger="drevalpy"), tracking_run("proj", name="r"):
         PrecilyPredictor({"epochs": 2, "batch_size": 4, "dropout": 0.0, "learning_rate": 0.01}).fit(batch)
 
     assert [record.getMessage()[:25] for record in caplog.records if "Training Loss" in record.getMessage()] == [
@@ -87,17 +88,5 @@ def test_epoch_losses_are_logged_not_printed(caplog, capsys) -> None:
         "Precily: Epoch [2/2] Trai",
     ]
     assert capsys.readouterr().out == ""
-
-
-def test_epochs_are_logged_to_the_active_tracking_run(monkeypatch) -> None:
-    fake = install_fake_wandb(monkeypatch)
-    batch = two_by_two_batch(
-        sample_blocks={"pathways": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
-        drug_blocks={"smilesvec": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
-    )
-
-    with tracking_run("proj", name="r"):
-        PrecilyPredictor({"epochs": 2, "batch_size": 4, "dropout": 0.0, "learning_rate": 0.01}).fit(batch)
-
     assert [step["epoch"] for step in fake.runs[0].logged] == [1, 2]
     assert all(np.isfinite(step["train_loss"]) for step in fake.runs[0].logged)

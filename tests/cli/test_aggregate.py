@@ -1,8 +1,4 @@
-"""Tests for :mod:`drevalpy.cli.aggregate`, the ``drevalpy aggregate`` command.
-
-Nothing here is patched: ``RunResult`` .npz files are cheap to write, so the
-command is exercised end to end against real serialization.
-"""
+"""Tests for :mod:`drevalpy.cli.aggregate`, run end to end against real ``RunResult`` serialization."""
 
 from __future__ import annotations
 
@@ -21,7 +17,6 @@ runner = make_runner()
 
 @pytest.fixture()
 def run_files(tmp_path: UPath) -> list[UPath]:
-    """Two folds each of two models, written as RunResult .npz files."""
     paths: list[UPath] = []
     for model_name in ("ElasticNet", "RandomForest"):
         for fold_index in range(2):
@@ -31,119 +26,66 @@ def run_files(tmp_path: UPath) -> list[UPath]:
     return paths
 
 
-def _invoke(run_files: list[UPath], out_dir: UPath):
-    return runner.invoke(app, ["aggregate", *[str(p) for p in run_files], "--output-dir", str(out_dir)])
+def _invoke(run_files: list[UPath], out_dir: UPath, *extra: str):
+    return runner.invoke(app, ["aggregate", *[str(p) for p in run_files], "--output-dir", str(out_dir), *extra])
 
 
-class TestArguments:
-    """At least one RunResult path is required."""
-
-    def test_missing_results_is_a_usage_error(self) -> None:
-        result = runner.invoke(app, ["aggregate"], env=HELP_ENV)
-
-        assert result.exit_code == 2
-
-    def test_nonexistent_result_file_is_reported_and_creates_no_output(self, tmp_path: UPath) -> None:
-        result = _invoke([tmp_path / "absent.npz"], tmp_path / "out")
-
-        assert result.exit_code == 1
-        assert plain(result.output).startswith("Error: ")
-        assert not (tmp_path / "out").exists()
+def test_missing_results_is_a_usage_error() -> None:
+    assert runner.invoke(app, ["aggregate"], env=HELP_ENV).exit_code == 2
 
 
-class TestAggregation:
-    """The command groups the given runs into one saved ExperimentResult."""
+def test_nonexistent_result_file_is_reported_and_creates_no_output(tmp_path: UPath) -> None:
+    result = _invoke([tmp_path / "absent.npz"], tmp_path / "out")
 
-    def test_exits_cleanly(self, run_files: list[UPath], tmp_path: UPath) -> None:
-        result = _invoke(run_files, tmp_path / "out")
-
-        assert result.exit_code == 0, result.output
-
-    def test_creates_the_output_directory_including_parents(self, run_files: list[UPath], tmp_path: UPath) -> None:
-        out_dir = tmp_path / "nested" / "experiment"
-        _invoke(run_files, out_dir)
-
-        assert out_dir.is_dir()
-
-    def test_writes_experiment_metadata(self, run_files: list[UPath], tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(run_files, out_dir)
-
-        meta = json.loads((out_dir / "metadata.json").read_text())
-        assert sorted(meta["models"]) == ["ElasticNet", "RandomForest"]
-
-    def test_records_the_shared_dataset_name(self, run_files: list[UPath], tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(run_files, out_dir)
-
-        meta = json.loads((out_dir / "metadata.json").read_text())
-        assert meta["dataset_name"] == DEFAULT_DATASET_NAME
-
-    def test_result_is_reloadable(self, run_files: list[UPath], tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        _invoke(run_files, out_dir)
-
-        experiment = ExperimentResult.load(out_dir)
-        assert experiment.n_models == 2
-        assert experiment.max_folds == 2
-
-    def test_echoes_the_run_count_and_destination(self, run_files: list[UPath], tmp_path: UPath) -> None:
-        out_dir = tmp_path / "out"
-        result = _invoke(run_files, out_dir)
-
-        assert f"Aggregated 4 runs into ExperimentResult at {out_dir}" in plain(result.output)
-
-    def test_echoes_the_experiment_repr(self, run_files: list[UPath], tmp_path: UPath) -> None:
-        result = _invoke(run_files, tmp_path / "out")
-
-        assert "ExperimentResult" in plain(result.output)
-
-    def test_accepts_a_single_run(self, tmp_path: UPath) -> None:
-        path = tmp_path / "one.npz"
-        make_run_result().save(path)
-
-        result = _invoke([path], tmp_path / "out")
-
-        assert result.exit_code == 0, result.output
+    assert result.exit_code == 1
+    assert plain(result.output).startswith("Error: ")
+    assert not (tmp_path / "out").exists()
 
 
-class TestValidation:
-    """``ExperimentResult``'s own guards surface as ``Error: <message>`` and exit status 1."""
+def test_aggregates_runs_into_a_reloadable_experiment(run_files: list[UPath], tmp_path: UPath) -> None:
+    out_dir = tmp_path / "nested" / "experiment"
 
-    def test_mismatched_dataset_names_are_rejected(self, tmp_path: UPath) -> None:
-        first = tmp_path / "a.npz"
-        second = tmp_path / "b.npz"
-        make_run_result(dataset_name="DatasetA").save(first)
-        make_run_result(dataset_name="DatasetB").save(second)
+    result = _invoke(run_files, out_dir)
 
-        result = _invoke([first, second], tmp_path / "out")
+    assert result.exit_code == 0, result.output
+    text = plain(result.output)
+    assert f"Aggregated 4 runs into ExperimentResult at {out_dir}" in text
+    assert "ExperimentResult" in text
+    meta = json.loads((out_dir / "metadata.json").read_text())
+    assert sorted(meta["models"]) == ["ElasticNet", "RandomForest"]
+    assert meta["dataset_name"] == DEFAULT_DATASET_NAME
+    experiment = ExperimentResult.load(out_dir)
+    assert (experiment.n_models, experiment.max_folds) == (2, 2)
 
-        assert result.exit_code == 1
-        assert "Error: All RunResults must share the same dataset_name" in plain(result.output)
+
+def test_accepts_a_single_run(tmp_path: UPath) -> None:
+    path = tmp_path / "one.npz"
+    make_run_result().save(path)
+
+    assert _invoke([path], tmp_path / "out").exit_code == 0
 
 
-class TestGroupBy:
-    """``--group-by`` adds the per-drug or per-sample summary under the repr."""
+def test_mismatched_dataset_names_are_rejected(tmp_path: UPath) -> None:
+    first, second = tmp_path / "a.npz", tmp_path / "b.npz"
+    make_run_result(dataset_name="DatasetA").save(first)
+    make_run_result(dataset_name="DatasetB").save(second)
 
-    @pytest.mark.parametrize("option", ["drug", "sample", "DRUG"])
-    def test_prints_the_grouped_summary(self, run_files: list[UPath], tmp_path: UPath, option: str) -> None:
-        result = runner.invoke(
-            app, ["aggregate", *map(str, run_files), "-o", str(tmp_path / "out"), "--group-by", option]
-        )
+    result = _invoke([first, second], tmp_path / "out")
 
-        assert result.exit_code == 0, result.output
-        text = plain(result.output)
-        assert f"Metrics computed within each {option.lower()}" in text
-        assert "ElasticNet" in text.split("Metrics computed within")[1]
+    assert result.exit_code == 1
+    assert "Error: All RunResults must share the same dataset_name" in plain(result.output)
 
-    def test_is_silent_by_default(self, run_files: list[UPath], tmp_path: UPath) -> None:
-        result = _invoke(run_files, tmp_path / "out")
 
-        assert "Metrics computed within" not in plain(result.output)
+@pytest.mark.parametrize("option", ["drug", "sample", "DRUG"])
+def test_group_by_prints_the_grouped_summary(run_files: list[UPath], tmp_path: UPath, option: str) -> None:
+    result = _invoke(run_files, tmp_path / "out", "--group-by", option)
 
-    def test_rejects_an_unknown_grouping(self, run_files: list[UPath], tmp_path: UPath) -> None:
-        result = runner.invoke(
-            app, ["aggregate", *map(str, run_files), "-o", str(tmp_path / "out"), "--group-by", "tissue"]
-        )
+    assert result.exit_code == 0, result.output
+    text = plain(result.output)
+    assert f"Metrics computed within each {option.lower()}" in text
+    assert "ElasticNet" in text.split("Metrics computed within")[1]
 
-        assert result.exit_code == 2
+
+def test_group_by_is_silent_by_default_and_rejects_unknown_groupings(run_files: list[UPath], tmp_path: UPath) -> None:
+    assert "Metrics computed within" not in plain(_invoke(run_files, tmp_path / "out").output)
+    assert _invoke(run_files, tmp_path / "out2", "--group-by", "tissue").exit_code == 2

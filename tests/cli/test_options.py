@@ -1,8 +1,7 @@
 """Tests for :mod:`drevalpy.cli._options`: the option definitions several commands share.
 
 The options are exercised on a probe command that declares every shared alias once, so the
-parsing rules (defaults, case-insensitive choices, rejected values) are pinned here and the
-command tests only check that each command forwards what it parsed.
+parsing rules are pinned here and the command tests only check that each command forwards what it parsed.
 """
 
 from __future__ import annotations
@@ -33,7 +32,6 @@ runner = make_runner()
 
 
 def _invoke_probe(*args: str) -> tuple[Any, dict[str, Any]]:
-    """Run a command that declares every shared option and return its result and parsed values."""
     seen: dict[str, Any] = {}
     probe = typer.Typer()
 
@@ -62,121 +60,86 @@ def _invoke_probe(*args: str) -> tuple[Any, dict[str, Any]]:
     return runner.invoke(probe, list(args)), seen
 
 
-class TestDefaults:
-    def test_the_defaults_are_the_documented_ones(self) -> None:
-        result, seen = _invoke_probe()
+def test_the_defaults_are_the_documented_ones() -> None:
+    result, seen = _invoke_probe()
 
-        assert result.exit_code == 0, result.output
-        assert seen == {
-            "hpo": True,
-            "hpo_metric": "RMSE",
-            "hpo_num_trials": 16,
-            "hpo_random_state": None,
-            "response_transformation": ResponseTransformation.NONE,
-            "group_by": None,
-            "wandb_project": None,
-            "modes": None,
-        }
-
-
-class TestHpoAndTracking:
-    def test_the_hpo_switch_has_a_negative_form(self) -> None:
-        _, seen = _invoke_probe("--no-hpo")
-
-        assert seen["hpo"] is False
-
-    def test_the_tuning_options_are_parsed(self) -> None:
-        _, seen = _invoke_probe("--hpo-metric", "Pearson", "--hpo-trials", "3", "--hpo-random-state", "7")
-
-        assert (seen["hpo_metric"], seen["hpo_num_trials"], seen["hpo_random_state"]) == ("Pearson", 3, 7)
-
-    def test_non_integer_trials_are_a_usage_error(self) -> None:
-        result, _ = _invoke_probe("--hpo-trials", "many")
-
-        assert result.exit_code == 2
-
-    def test_the_wandb_project_is_parsed(self) -> None:
-        _, seen = _invoke_probe("--wandb-project", "drevalpy")
-
-        assert seen["wandb_project"] == "drevalpy"
+    assert result.exit_code == 0, result.output
+    assert seen == {
+        "hpo": True,
+        "hpo_metric": "RMSE",
+        "hpo_num_trials": 16,
+        "hpo_random_state": None,
+        "response_transformation": ResponseTransformation.NONE,
+        "group_by": None,
+        "wandb_project": None,
+        "modes": None,
+    }
 
 
-class TestGroupBy:
-    @pytest.mark.parametrize(("option", "expected"), [("drug", GroupBy.DRUG), ("SAMPLE", GroupBy.SAMPLE)])
-    def test_the_choice_is_case_insensitive(self, option: str, expected: GroupBy) -> None:
-        _, seen = _invoke_probe("--group-by", option)
+def test_the_tuning_and_tracking_options_are_parsed() -> None:
+    _, seen = _invoke_probe(
+        "--no-hpo", "--hpo-metric", "Pearson", "--hpo-trials", "3", "--hpo-random-state", "7", "--wandb-project", "d"
+    )
 
-        assert seen["group_by"] is expected
-
-    def test_an_unknown_grouping_is_a_usage_error(self) -> None:
-        result, _ = _invoke_probe("--group-by", "tissue")
-
-        assert result.exit_code == 2
+    assert seen["hpo"] is False
+    assert (seen["hpo_metric"], seen["hpo_num_trials"], seen["hpo_random_state"]) == ("Pearson", 3, 7)
+    assert seen["wandb_project"] == "d"
 
 
-class TestRandomizationMode:
-    def test_repeated_modes_are_collected_in_order(self) -> None:
-        _, seen = _invoke_probe("--mode", "SVRC", "--mode", "svcd")
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["--hpo-trials", "many"], id="non-integer-trials"),
+        pytest.param(["--group-by", "tissue"], id="unknown-grouping"),
+        pytest.param(["--mode", "SVXX"], id="unknown-mode"),
+        pytest.param(["--response-transformation", "logarithmic"], id="unknown-transformation"),
+    ],
+)
+def test_bad_values_are_usage_errors(args: list[str]) -> None:
+    result, _ = _invoke_probe(*args)
 
-        assert seen["modes"] == [RandomizationMode.SVRC, RandomizationMode.SVCD]
+    assert result.exit_code == 2
 
-    def test_an_unknown_mode_is_a_usage_error(self) -> None:
-        result, _ = _invoke_probe("--mode", "SVXX")
 
-        assert result.exit_code == 2
+def test_group_by_and_randomization_modes_are_case_insensitive() -> None:
+    _, seen = _invoke_probe("--group-by", "SAMPLE", "--mode", "SVRC", "--mode", "svcd")
 
-    def test_the_members_are_the_four_documented_codes(self) -> None:
-        assert [mode.value for mode in RandomizationMode] == ["SVRC", "SVCC", "SVRD", "SVCD"]
+    assert seen["group_by"] is GroupBy.SAMPLE
+    assert seen["modes"] == [RandomizationMode.SVRC, RandomizationMode.SVCD]
+    assert [mode.value for mode in RandomizationMode] == ["SVRC", "SVCC", "SVRD", "SVCD"]
 
 
 class TestResponseTransformation:
     @pytest.mark.parametrize(
         ("option", "expected"),
         [
-            pytest.param("standard", StandardScaler, id="standard"),
-            pytest.param("minmax", MinMaxScaler, id="minmax"),
-            pytest.param("robust", RobustScaler, id="robust"),
-            pytest.param("drug_mean", GroupMeanCenterer, id="drug_mean"),
-            pytest.param("drug_tissue_mean", GroupMeanCenterer, id="drug_tissue_mean"),
+            ("standard", StandardScaler),
+            ("minmax", MinMaxScaler),
+            ("robust", RobustScaler),
+            ("drug_mean", GroupMeanCenterer),
+            ("drug_tissue_mean", GroupMeanCenterer),
         ],
     )
-    def test_each_choice_resolves_to_its_transformer(self, option: str, expected: type) -> None:
+    def test_each_choice_resolves_to_a_new_unfitted_transformer(self, option: str, expected: type) -> None:
         _, seen = _invoke_probe("--response-transformation", option)
 
-        assert isinstance(resolve_response_transformation(seen["response_transformation"]), expected)
+        transformer = resolve_response_transformation(seen["response_transformation"])
 
-    @pytest.mark.parametrize("option", ["none", "None", "NONE"])
-    def test_none_resolves_to_no_transformer(self, option: str) -> None:
-        _, seen = _invoke_probe("--response-transformation", option)
+        assert isinstance(transformer, expected)
+        assert not hasattr(transformer, "mean_")
+        assert transformer is not resolve_response_transformation(seen["response_transformation"])
+
+    @pytest.mark.parametrize("option", ["none", "NONE", None])
+    def test_none_and_the_default_resolve_to_no_transformer(self, option: str | None) -> None:
+        _, seen = _invoke_probe(*(["--response-transformation", option] if option else []))
 
         assert resolve_response_transformation(seen["response_transformation"]) is None
 
-    def test_the_default_resolves_to_no_transformer(self) -> None:
-        assert resolve_response_transformation(ResponseTransformation.NONE) is None
-
-    def test_the_transformer_is_handed_over_unfitted(self) -> None:
-        transformer = resolve_response_transformation(ResponseTransformation.STANDARD)
-
-        assert not hasattr(transformer, "mean_")
-
     @pytest.mark.parametrize(
         ("choice", "levels"),
-        [
-            pytest.param(ResponseTransformation.DRUG_MEAN, ("drug",), id="drug_mean"),
-            pytest.param(ResponseTransformation.DRUG_TISSUE_MEAN, ("drug", "tissue"), id="drug_tissue_mean"),
-        ],
+        [(ResponseTransformation.DRUG_MEAN, ("drug",)), (ResponseTransformation.DRUG_TISSUE_MEAN, ("drug", "tissue"))],
     )
     def test_the_group_means_centre_on_their_levels(
         self, choice: ResponseTransformation, levels: tuple[str, ...]
     ) -> None:
         assert resolve_response_transformation(choice).levels == levels
-
-    def test_each_call_builds_a_new_transformer(self) -> None:
-        first = resolve_response_transformation(ResponseTransformation.MINMAX)
-
-        assert first is not resolve_response_transformation(ResponseTransformation.MINMAX)
-
-    def test_an_unknown_choice_is_a_usage_error(self) -> None:
-        result, _ = _invoke_probe("--response-transformation", "logarithmic")
-
-        assert result.exit_code == 2

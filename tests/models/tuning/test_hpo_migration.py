@@ -1,50 +1,20 @@
-"""Guard tests for the structured HPO migration."""
+"""Tests for hpo migration."""
 
 from __future__ import annotations
 
 import inspect
 from pathlib import Path
 
+SRC = Path(__file__).resolve().parents[3] / "src" / "drevalpy"
 
-def test_experiment_tuning_does_not_use_parameter_grid() -> None:
+
+def test_removed_legacy_hpo_artifacts_stay_removed() -> None:
+    from drevalpy.models import drp_model
     from drevalpy.models.tuning.hpo import hpam_tune
 
-    source = inspect.getsource(hpam_tune)
-    assert "ParameterGrid" not in source
-    assert "grid_search" not in source
-
-
-def test_drp_model_does_not_load_yaml_hyperparameters() -> None:
-    from drevalpy.models import drp_model
-
-    source = inspect.getsource(drp_model.DRPModel.__init__)
-    assert "yaml" not in source.lower()
-    assert "ParameterGrid" not in source
-
-
-def test_predictor_hyperparameters_yaml_removed() -> None:
-    """v2 ParameterGrid YAML is unused; HPO uses Python get_*_hyperparameters."""
-    predictors_root = Path(__file__).resolve().parents[3] / "src" / "drevalpy" / "components" / "predictors"
-    leftover = sorted(predictors_root.rglob("hyperparameters.yaml"))
-    assert leftover == [], f"remove unused v2 YAML: {leftover}"
-
-
-def test_package_has_no_v2_hyperparameters_yaml() -> None:
-    package_root = Path(__file__).resolve().parents[3] / "src" / "drevalpy"
-    leftover = sorted(package_root.rglob("hyperparameters.yaml"))
-    assert leftover == [], f"remove unused v2 YAML under drevalpy/: {leftover}"
-
-
-def test_literature_impl_tree_removed() -> None:
-    impl_root = (
-        Path(__file__).resolve().parents[3] / "src" / "drevalpy" / "components" / "predictors" / "literature" / "impl"
-    )
-    assert not impl_root.exists(), f"remove unused literature/impl tree: {impl_root}"
-
-
-def test_literature_has_no_flat_predictor_wrappers() -> None:
-    literature_root = (
-        Path(__file__).resolve().parents[3] / "src" / "drevalpy" / "components" / "predictors" / "literature"
-    )
-    flat_wrappers = sorted(path.name for path in literature_root.glob("*_predictor.py") if path.is_file())
-    assert flat_wrappers == [], f"remove flat literature wrappers: {flat_wrappers}"
+    assert "ParameterGrid" not in inspect.getsource(hpam_tune)
+    assert "yaml" not in inspect.getsource(drp_model.DRPModel.__init__).lower()
+    literature = SRC / "components" / "predictors" / "literature"
+    assert not (literature / "impl").exists()
+    assert not list(literature.glob("*_predictor.py"))
+    assert not list(SRC.rglob("hyperparameters.yaml"))

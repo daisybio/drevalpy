@@ -10,13 +10,7 @@ from drevalpy.curation._anndata import _LAYER_METRICS, X_MEASURE, build_anndata
 
 
 def _make_metrics_df() -> pd.DataFrame:
-    """Build a flat metrics frame covering every layer metric.
-
-    Columns are checked against :data:`_LAYER_METRICS` so a metric added there
-    without a value here fails loudly rather than silently skipping its layer.
-
-    :returns: A 2 samples x 2 drugs metrics frame.
-    """
+    """A 2 samples x 2 drugs frame; checked against ``_LAYER_METRICS`` so a new metric fails loudly."""
     values: dict[str, list] = {
         "sample": ["CL_A", "CL_A", "CL_B", "CL_B"],
         "drug": ["DrugX", "DrugY", "DrugX", "DrugY"],
@@ -50,78 +44,47 @@ def _make_metrics_df() -> pd.DataFrame:
 
 @pytest.fixture()
 def metrics_df() -> pd.DataFrame:
-    """A flat metrics frame covering every layer metric."""
     return _make_metrics_df()
 
 
 @pytest.fixture()
 def adata(metrics_df: pd.DataFrame):
-    """``build_anndata`` applied to that frame."""
     return build_anndata(metrics_df)
 
 
-class TestShapeAndAxes:
-    """Long-form rows become a (samples x drugs) matrix."""
-
-    def test_shape(self, adata) -> None:
+class TestBuildAnndata:
+    def test_long_rows_become_a_sorted_samples_by_drugs_matrix(self, adata, metrics_df: pd.DataFrame) -> None:
         assert adata.shape == (2, 2)
-
-    def test_obs_var_indices_are_sorted_uniques(self, adata) -> None:
         assert list(adata.obs_names) == ["CL_A", "CL_B"]
         assert list(adata.var_names) == ["DrugX", "DrugY"]
+        expected = metrics_df.pivot(index="sample", columns="drug", values=X_MEASURE).to_numpy()
+        np.testing.assert_allclose(adata.X, expected.astype(np.float32))
+        assert adata.X.dtype == np.float32
+        assert X_MEASURE not in adata.layers
 
     def test_an_unmeasured_pair_becomes_nan(self, metrics_df: pd.DataFrame) -> None:
         result = build_anndata(metrics_df.drop(index=1))
 
         assert np.isnan(np.asarray(result.X)[0, 1])
 
+    def test_every_layer_metric_is_a_float32_layer_and_absent_ones_are_skipped(
+        self, adata, metrics_df: pd.DataFrame
+    ) -> None:
+        assert set(_LAYER_METRICS) <= set(adata.layers)
+        assert all(adata.layers[metric].dtype == np.float32 for metric in _LAYER_METRICS)
+        assert "AUC" not in build_anndata(metrics_df.drop(columns=["AUC"])).layers
 
-class TestXMatrix:
-    """``X`` holds pEC50; nothing else does."""
-
-    def test_x_is_the_pec50_column(self, metrics_df: pd.DataFrame, adata) -> None:
-        expected = metrics_df.pivot(index="sample", columns="drug", values=X_MEASURE).to_numpy()
-
-        np.testing.assert_allclose(adata.X, expected.astype(np.float32))
-
-    def test_x_is_float32(self, adata) -> None:
-        assert adata.X.dtype == np.float32
-
-    def test_pec50_is_not_duplicated_as_a_layer(self, adata) -> None:
-        assert X_MEASURE not in adata.layers
-
-
-class TestLayers:
-    """Every metric present in the frame becomes a float32 layer."""
-
-    @pytest.mark.parametrize("metric", list(_LAYER_METRICS))
-    def test_each_layer_metric_is_stored(self, adata, metric: str) -> None:
-        assert metric in adata.layers
-        assert adata.layers[metric].dtype == np.float32
-
-    def test_a_metric_absent_from_the_frame_is_skipped(self, metrics_df: pd.DataFrame) -> None:
-        result = build_anndata(metrics_df.drop(columns=["AUC"]))
-
-        assert "AUC" not in result.layers
-
-    def test_regulation_is_encoded_numerically(self, adata) -> None:
+    def test_regulation_is_encoded_numerically_without_mutating_the_input(
+        self, adata, metrics_df: pd.DataFrame
+    ) -> None:
         assert set(np.unique(adata.layers["regulation"])) == {-1.0, 0.0}
-
-    def test_the_input_frame_is_not_mutated(self, metrics_df: pd.DataFrame) -> None:
-        build_anndata(metrics_df)
-
         assert metrics_df["regulation"].tolist() == ["down", "not", "down", "not"]
 
-
-class TestPerCurveErrorLayers:
-    """The recovered per-parameter standard errors reach ``layers`` intact."""
-
     @pytest.mark.parametrize("metric", ["pec50_error", "slope_error", "front_error", "back_error"])
-    def test_values_round_trip_through_the_pivot(self, metrics_df: pd.DataFrame, adata, metric: str) -> None:
+    def test_per_curve_error_values_round_trip_through_the_pivot(
+        self, metrics_df: pd.DataFrame, adata, metric: str
+    ) -> None:
         expected = metrics_df.pivot(index="sample", columns="drug", values=metric).to_numpy()
 
         np.testing.assert_allclose(adata.layers[metric], expected.astype(np.float32))
-
-    def test_pec50_error_aligns_with_x(self, adata) -> None:
-        """The uncertainty layer must be measured wherever ``X`` is."""
-        np.testing.assert_array_equal(np.isnan(adata.layers["pec50_error"]), np.isnan(adata.X))
+        np.testing.assert_array_equal(np.isnan(adata.layers[metric]), np.isnan(adata.X))

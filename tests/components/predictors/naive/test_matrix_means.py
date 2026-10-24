@@ -1,11 +1,4 @@
-"""Tests for the matrix helpers shared by the naive mean predictors.
-
-Mirrors the private module
-``drevalpy.components.predictors.naive._matrix_means`` with the leading
-underscore stripped (the ``naive`` package exposes no
-public module for these helpers). All eight functions are exercised here
-directly rather than only indirectly through ``effects.py`` / ``mean.py``.
-"""
+"""Tests for the matrix helpers shared by the naive mean predictors."""
 
 from __future__ import annotations
 
@@ -24,20 +17,18 @@ from drevalpy.components.predictors.naive._matrix_means import (
 )
 from tests.components.predictors.naive._helpers import naive_batch, one_hot
 
-
-def test_pair_align_expands_entity_rows_to_pair_rows() -> None:
-    entity_matrix = np.array([[1.0, 2.0], [3.0, 4.0]])
-
-    result = pair_align(entity_matrix, np.array([1, 0, 1]))
-
-    np.testing.assert_allclose(result, [[3.0, 4.0], [1.0, 2.0], [3.0, 4.0]])
+AB = one_hot(["a", "b"], ["a", "b"])
 
 
-def test_pair_align_promotes_a_one_dimensional_matrix_to_a_column() -> None:
-    result = pair_align(np.array([5.0, 6.0]), np.array([0, 1, 1]))
-
-    assert result.shape == (3, 1)
-    np.testing.assert_allclose(result, [[5.0], [6.0], [6.0]])
+@pytest.mark.parametrize(
+    ("matrix", "idx", "expected"),
+    [
+        ([[1.0, 2.0], [3.0, 4.0]], [1, 0, 1], [[3.0, 4.0], [1.0, 2.0], [3.0, 4.0]]),
+        ([5.0, 6.0], [0, 1, 1], [[5.0], [6.0], [6.0]]),
+    ],
+)
+def test_pair_align_expands_entity_rows_and_promotes_vectors(matrix, idx, expected) -> None:
+    np.testing.assert_allclose(pair_align(np.array(matrix), np.array(idx)), expected)
 
 
 def test_pair_align_requires_a_pair_index() -> None:
@@ -45,160 +36,98 @@ def test_pair_align_requires_a_pair_index() -> None:
         pair_align(np.ones((2, 2)), None)
 
 
-def test_require_pair_matrix_aligns_the_sample_side() -> None:
+def test_require_pair_matrix_aligns_each_side_and_rejects_unknown_sides() -> None:
     batch = naive_batch(
-        sample_features=one_hot(["cl1", "cl2"], ["cl1", "cl2"]),
+        sample_features=AB,
+        drug_features=AB,
         sample_pair_idx=np.array([0, 1, 0], dtype=np.int64),
-        n_pairs=3,
+        drug_pair_idx=np.array([1, 1, 1], dtype=np.int64),
     )
 
-    result = require_pair_matrix(batch, side="sample")
-
-    np.testing.assert_allclose(result, [[1.0, 0.0], [0.0, 1.0], [1.0, 0.0]])
-
-
-def test_require_pair_matrix_aligns_the_drug_side() -> None:
-    batch = naive_batch(
-        drug_features=one_hot(["d1", "d2"], ["d1", "d2"]),
-        drug_pair_idx=np.array([1, 1], dtype=np.int64),
-        n_pairs=2,
-    )
-
-    result = require_pair_matrix(batch, side="drug")
-
-    np.testing.assert_allclose(result, [[0.0, 1.0], [0.0, 1.0]])
-
-
-def test_require_pair_matrix_rejects_an_unknown_side() -> None:
+    np.testing.assert_allclose(require_pair_matrix(batch, side="sample"), [[1, 0], [0, 1], [1, 0]])
+    np.testing.assert_allclose(require_pair_matrix(batch, side="drug"), [[0, 1]] * 3)
     with pytest.raises(ValueError, match="Unknown feature side"):
-        require_pair_matrix(naive_batch(n_pairs=1), side="tissue")
+        require_pair_matrix(batch, side="tissue")
 
 
-def test_block_pair_matrix_aligns_a_named_sample_block() -> None:
-    identity = one_hot(["cl1", "cl2"], ["cl1", "cl2"])
+def test_block_pair_matrix_aligns_named_block_and_rejects_missing() -> None:
     batch = naive_batch(
-        sample_features=identity,
+        sample_features=AB,
         sample_pair_idx=np.array([1, 0], dtype=np.int64),
-        sample_blocks={"identity": identity},
-        n_pairs=2,
+        sample_blocks={"identity": AB},
     )
 
-    result = block_pair_matrix(batch, "identity")
-
-    np.testing.assert_allclose(result, [[0.0, 1.0], [1.0, 0.0]])
-
-
-def test_block_pair_matrix_rejects_a_missing_block() -> None:
-    batch = naive_batch(n_pairs=1)
-
+    np.testing.assert_allclose(block_pair_matrix(batch, "identity"), [[0, 1], [1, 0]])
     with pytest.raises(ValueError, match="Required sample block 'tissue' is missing"):
         block_pair_matrix(batch, "tissue")
 
 
-def test_category_means_averages_the_response_per_one_hot_column() -> None:
+@pytest.mark.parametrize(
+    ("labels", "response", "expected"),
+    [(["a", "b", "a"], [1.0, 10.0, 3.0], [2.0, 10.0]), (["a", "a"], [4.0, 6.0], [5.0, 0.0])],
+)
+def test_category_means_average_per_column_and_zero_unobserved(labels, response, expected) -> None:
+    result = category_means(one_hot(labels, ["a", "b"]), np.array(response))
+
+    np.testing.assert_allclose(result, expected)
+
+
+@pytest.mark.parametrize(
+    ("design", "response", "match"),
+    [(np.array([1.0, 2.0]), [1.0, 2.0], "must be 2-dimensional"), (np.ones((3, 2)), [1.0, 2.0], "must match response")],
+)
+def test_category_means_rejects_malformed_inputs(design, response, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        category_means(design, np.array(response))
+
+
+def test_zero_width_designs_yield_empty_effects_and_baseline_predictions() -> None:
+    empty = np.empty((3, 0))
+
+    assert category_means(empty, np.array([1.0, 2.0, 3.0])).shape == (0,)
+    assert additive_effects(empty, np.array([1.0, 2.0, 3.0]), baseline=1.5).shape == (0,)
+    np.testing.assert_allclose(predict_with_effects(empty, np.empty(0), baseline=2.5), [2.5] * 3)
+
+
+@pytest.mark.parametrize(
+    ("labels", "response", "expected"),
+    [(["a", "b"], [2.0, 6.0], [-2.0, 2.0]), (["a", "a"], [2.0, 6.0], [0.0, 0.0])],
+)
+def test_additive_effects_are_means_minus_baseline_and_zero_when_unobserved(labels, response, expected) -> None:
+    result = additive_effects(one_hot(labels, ["a", "b"]), np.array(response), baseline=4.0)
+
+    np.testing.assert_allclose(result, expected)
+
+
+def test_predict_with_effects_adds_selected_effects_to_the_baseline() -> None:
     design = one_hot(["a", "b", "a"], ["a", "b"])
 
-    result = category_means(design, np.array([1.0, 10.0, 3.0]))
-
-    np.testing.assert_allclose(result, [2.0, 10.0])
+    np.testing.assert_allclose(predict_with_effects(design, np.array([-1.0, 2.0]), baseline=5.0), [4.0, 7.0, 4.0])
 
 
-def test_category_means_returns_zero_for_unobserved_columns() -> None:
-    design = one_hot(["a", "a"], ["a", "b"])
-
-    result = category_means(design, np.array([4.0, 6.0]))
-
-    np.testing.assert_allclose(result, [5.0, 0.0])
-
-
-def test_category_means_returns_an_empty_vector_for_a_zero_width_design() -> None:
-    result = category_means(np.empty((3, 0)), np.array([1.0, 2.0, 3.0]))
-
-    assert result.shape == (0,)
+@pytest.mark.parametrize(
+    ("design", "effects", "match"),
+    [(np.array([1.0, 0.0]), [1.0, 2.0], "must be 2-dimensional"), (np.ones((2, 3)), [1.0, 2.0], "must match design")],
+)
+def test_predict_with_effects_rejects_malformed_inputs(design, effects, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        predict_with_effects(design, np.array(effects), baseline=0.0)
 
 
-def test_category_means_rejects_a_non_two_dimensional_design() -> None:
-    with pytest.raises(ValueError, match="must be 2-dimensional"):
-        category_means(np.array([1.0, 2.0]), np.array([1.0, 2.0]))
-
-
-def test_category_means_rejects_a_response_length_mismatch() -> None:
-    with pytest.raises(ValueError, match="must match response length"):
-        category_means(np.ones((3, 2)), np.array([1.0, 2.0]))
-
-
-def test_additive_effects_are_category_means_minus_the_baseline() -> None:
-    design = one_hot(["a", "b"], ["a", "b"])
-
-    result = additive_effects(design, np.array([2.0, 6.0]), baseline=4.0)
-
-    np.testing.assert_allclose(result, [-2.0, 2.0])
-
-
-def test_additive_effects_are_zero_for_unobserved_columns() -> None:
-    design = one_hot(["a", "a"], ["a", "b"])
-
-    result = additive_effects(design, np.array([2.0, 6.0]), baseline=4.0)
-
-    np.testing.assert_allclose(result, [0.0, 0.0])
-
-
-def test_additive_effects_falls_back_to_category_means_for_a_zero_width_design() -> None:
-    result = additive_effects(np.empty((2, 0)), np.array([1.0, 2.0]), baseline=1.5)
-
-    assert result.shape == (0,)
-
-
-def test_predict_with_effects_adds_the_selected_effects_to_the_baseline() -> None:
-    design = one_hot(["a", "b", "a"], ["a", "b"])
-
-    result = predict_with_effects(design, np.array([-1.0, 2.0]), baseline=5.0)
-
-    np.testing.assert_allclose(result, [4.0, 7.0, 4.0])
-
-
-def test_predict_with_effects_returns_the_baseline_for_a_zero_width_design() -> None:
-    result = predict_with_effects(np.empty((3, 0)), np.empty(0), baseline=2.5)
-
-    np.testing.assert_allclose(result, [2.5, 2.5, 2.5])
-
-
-def test_predict_with_effects_rejects_a_non_two_dimensional_design() -> None:
-    with pytest.raises(ValueError, match="must be 2-dimensional"):
-        predict_with_effects(np.array([1.0, 0.0]), np.array([1.0, 2.0]), baseline=0.0)
-
-
-def test_predict_with_effects_rejects_an_effect_length_mismatch() -> None:
-    with pytest.raises(ValueError, match="must match design columns"):
-        predict_with_effects(np.ones((2, 3)), np.array([1.0, 2.0]), baseline=0.0)
-
-
-def test_state_float_vector_flattens_nested_lists() -> None:
+def test_state_float_vector_flattens_to_float64_and_returns_none_when_absent() -> None:
     result = state_float_vector({"effects": [[1.0], [2.0]]}, "effects")
 
     assert result is not None
     np.testing.assert_allclose(result, [1.0, 2.0])
     assert result.dtype == np.float64
-
-
-def test_state_float_vector_returns_none_when_absent() -> None:
     assert state_float_vector({}, "effects") is None
 
 
-def test_state_float_matrix_promotes_a_flat_list_to_a_column() -> None:
-    result = state_float_matrix({"table": [1.0, 2.0, 3.0]}, "table")
+@pytest.mark.parametrize(("payload", "shape"), [([1.0, 2.0, 3.0], (3, 1)), ([[1.0, 2.0], [3.0, 4.0]], (2, 2))])
+def test_state_float_matrix_promotes_flat_lists_and_keeps_2d(payload, shape) -> None:
+    result = state_float_matrix({"table": payload}, "table")
 
     assert result is not None
-    assert result.shape == (3, 1)
-
-
-def test_state_float_matrix_preserves_two_dimensional_payloads() -> None:
-    result = state_float_matrix({"table": [[1.0, 2.0], [3.0, 4.0]]}, "table")
-
-    assert result is not None
-    assert result.shape == (2, 2)
+    assert result.shape == shape
     assert result.dtype == np.float64
-
-
-def test_state_float_matrix_returns_none_when_absent() -> None:
     assert state_float_matrix({"table": None}, "table") is None

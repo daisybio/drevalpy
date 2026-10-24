@@ -1,9 +1,4 @@
-"""Tests for low-level checkpoint archive I/O.
-
-Covers ``drevalpy.models.mixins._persistence_io``: archive writing, payload
-validation and path resolution. The ``DRPPersistenceMixin`` wrapper that calls
-into it is tested in ``test_persistence.py``.
-"""
+"""Tests for low-level checkpoint archive I/O (``drevalpy.models.mixins._persistence_io``)."""
 
 from __future__ import annotations
 
@@ -17,7 +12,6 @@ from upath import UPath
 from drevalpy.errors import DrEvalError
 from drevalpy.models import DRPModel, ModelSpec, load_model
 from drevalpy.models.mixins._persistence_io import (
-    FORMAT_NAME,
     FORMAT_VERSION,
     PAYLOAD_MEMBER,
     CorruptedCheckpointError,
@@ -36,8 +30,6 @@ from tests.models.synthetic_fixtures import (
 
 
 class TestResolveCheckpointPath:
-    """Archive path normalization."""
-
     @pytest.mark.parametrize(
         ("given", "expected"),
         [
@@ -56,36 +48,16 @@ class TestResolveCheckpointPath:
 
 
 class TestSaveModel:
-    """Writing a fitted model to an archive."""
-
-    def test_appends_the_zip_suffix(self, tmp_path) -> None:
-        model = fitted_elastic_net()
-
-        save_model(model, str(UPath(tmp_path) / "elastic_net"))
-
-        assert (UPath(tmp_path) / "elastic_net.zip").is_file()
-
-    def test_writes_the_payload_member(self, tmp_path) -> None:
-        model = fitted_elastic_net()
-        archive = UPath(tmp_path) / "elastic_net.zip"
-
-        save_model(model, str(archive))
-
-        with zipfile.ZipFile(archive) as handle:
-            assert handle.namelist() == [PAYLOAD_MEMBER]
-
-    def test_leaves_no_temporary_files(self, tmp_path) -> None:
-        model = fitted_elastic_net()
-
-        save_model(model, str(UPath(tmp_path) / "elastic_net"))
+    def test_writes_a_single_payload_archive_and_leaves_no_temporary_files(self, tmp_path) -> None:
+        save_model(fitted_elastic_net(), str(UPath(tmp_path) / "elastic_net"))
 
         assert [path.name for path in UPath(tmp_path).iterdir()] == ["elastic_net.zip"]
+        with zipfile.ZipFile(UPath(tmp_path) / "elastic_net.zip") as handle:
+            assert handle.namelist() == [PAYLOAD_MEMBER]
 
     def test_rejects_an_existing_directory(self, tmp_path) -> None:
-        model = fitted_elastic_net()
-
         with pytest.raises(ValueError, match="not a directory"):
-            save_model(model, str(tmp_path))
+            save_model(fitted_elastic_net(), str(tmp_path))
 
     def test_rejects_an_untrained_model(self, tmp_path) -> None:
         model = DRPModel(small_data_spec("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
@@ -95,14 +67,10 @@ class TestSaveModel:
 
 
 class TestLoadModelPayload:
-    """Reading and validating a checkpoint payload."""
-
     def test_round_trips_model_identity_and_config(self, tmp_path) -> None:
-        model = fitted_elastic_net()
-        archive = UPath(tmp_path) / "elastic_net.zip"
-        save_model(model, str(archive))
+        save_model(fitted_elastic_net(), str(UPath(tmp_path) / "elastic_net"))
 
-        model_name, config, state = load_model_payload(str(archive))
+        model_name, config, state = load_model_payload(str(UPath(tmp_path) / "elastic_net"))
 
         assert model_name == "ElasticNet"
         assert config.predictor_values()["alpha"] == 0.1
@@ -113,14 +81,6 @@ class TestLoadModelPayload:
             "response_prototype",
             "response_transform",
         }
-
-    def test_accepts_a_path_without_the_zip_suffix(self, tmp_path) -> None:
-        model = fitted_elastic_net()
-        save_model(model, str(UPath(tmp_path) / "elastic_net"))
-
-        model_name, _, _ = load_model_payload(str(UPath(tmp_path) / "elastic_net"))
-
-        assert model_name == "ElasticNet"
 
     def test_missing_archive_raises(self, tmp_path) -> None:
         with pytest.raises(FileNotFoundError, match="Missing model checkpoint"):
@@ -141,10 +101,8 @@ class TestLoadModelPayload:
         with pytest.raises(CorruptedCheckpointError, match=f"missing {PAYLOAD_MEMBER!r}"):
             load_model_payload(str(archive))
 
-    def test_current_format_version_is_1(self) -> None:
-        assert FORMAT_VERSION == 1
-
     def test_rejects_another_version_and_says_how_to_recover(self, tmp_path) -> None:
+        assert FORMAT_VERSION == 1
         payload = elastic_net_payload({})
         payload["version"] = 5
         archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
@@ -154,62 +112,45 @@ class TestLoadModelPayload:
         assert f"version {FORMAT_VERSION}" in str(info.value)
         assert "retrain the model and save it again" in str(info.value)
 
-    def test_rejects_a_non_mapping_state(self, tmp_path) -> None:
-        archive = write_archive(UPath(tmp_path) / "elastic_net.zip", elastic_net_payload("bad"))
-
-        with pytest.raises(CorruptedCheckpointError, match="checkpoint state is not a mapping"):
-            load_model_payload(str(archive))
-
-    @pytest.mark.parametrize(
-        ("model_name", "match"),
-        [
-            pytest.param(None, "model_name is missing or invalid", id="missing-name"),
-            pytest.param("", "model_name is missing or invalid", id="empty-name"),
-        ],
-    )
-    def test_rejects_a_missing_model_name(self, tmp_path, model_name: str | None, match: str) -> None:
-        payload = elastic_net_payload({}, model_name=model_name)  # type: ignore[arg-type]
-        archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
-
-        with pytest.raises(CorruptedCheckpointError, match=match):
-            load_model_payload(str(archive))
-
     @pytest.mark.parametrize(
         ("payload", "error_type", "match"),
         [
             pytest.param("not-a-mapping", CorruptedCheckpointError, "not a mapping", id="payload-not-a-mapping"),
             pytest.param(
-                {"format": "unknown-format", "version": 0, "model_name": "ElasticNet", "config": {}, "state": {}},
+                elastic_net_payload("bad"), CorruptedCheckpointError, "checkpoint state is not a mapping", id="state"
+            ),
+            pytest.param(
+                elastic_net_payload({}, model_name=None),  # type: ignore[arg-type]
+                CorruptedCheckpointError,
+                "model_name is missing or invalid",
+                id="missing-name",
+            ),
+            pytest.param(
+                elastic_net_payload({}, model_name=""),
+                CorruptedCheckpointError,
+                "model_name is missing or invalid",
+                id="empty-name",
+            ),
+            pytest.param(
+                {**elastic_net_payload({}), "format": "unknown-format"},
                 UnsupportedCheckpointFormatError,
                 "unsupported checkpoint format/version",
                 id="unknown-format",
             ),
             pytest.param(
-                {"format": FORMAT_NAME, "version": 0, "model_name": "ElasticNet", "config": {}, "state": {}},
+                {**elastic_net_payload({}), "version": 0},
                 UnsupportedCheckpointFormatError,
                 "unsupported checkpoint format/version",
                 id="older-version",
             ),
             pytest.param(
-                {
-                    "format": FORMAT_NAME,
-                    "version": FORMAT_VERSION + 1,
-                    "model_name": "ElasticNet",
-                    "config": {},
-                    "state": {},
-                },
+                {**elastic_net_payload({}), "version": FORMAT_VERSION + 1},
                 UnsupportedCheckpointFormatError,
                 "unsupported checkpoint format/version",
                 id="newer-version",
             ),
             pytest.param(
-                {
-                    "format": FORMAT_NAME,
-                    "version": FORMAT_VERSION,
-                    "model_name": "ElasticNet",
-                    "config": "bad",
-                    "state": {},
-                },
+                {**elastic_net_payload({}), "config": "bad"},
                 CorruptedCheckpointError,
                 "checkpoint config is invalid",
                 id="unparsable-config",
@@ -217,11 +158,7 @@ class TestLoadModelPayload:
         ],
     )
     def test_rejects_malformed_or_unsupported_payloads(
-        self,
-        tmp_path,
-        payload: object,
-        error_type: type[Exception],
-        match: str,
+        self, tmp_path, payload: object, error_type: type[Exception], match: str
     ) -> None:
         archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
 
@@ -230,13 +167,10 @@ class TestLoadModelPayload:
 
 
 class TestRemoteCheckpoints:
-    """Saving to and loading from a non-local ``UPath``."""
-
     def test_memory_round_trip(self) -> None:
-        model = fitted_elastic_net()
         checkpoint = "memory://checkpoints/nested/elastic_net"
 
-        save_model(model, checkpoint)
+        save_model(fitted_elastic_net(), checkpoint)
         loaded = load_model(checkpoint)
 
         assert UPath("memory://checkpoints/nested/elastic_net.zip").is_file()
@@ -263,35 +197,16 @@ class TestRemoteCheckpoints:
 
 
 class TestLoadModel:
-    """Reconstructing a model without a class handle."""
-
-    def test_reconstructs_from_the_stored_model_name(self, tmp_path) -> None:
-        model = fitted_elastic_net()
-        checkpoint = str(UPath(tmp_path) / "elastic_net")
-        save_model(model, checkpoint)
+    @pytest.mark.parametrize("suffix", ["", ".zip"])
+    def test_reconstructs_from_the_stored_model_name_and_hyperparameters(self, tmp_path, suffix) -> None:
+        checkpoint = str(UPath(tmp_path) / f"elastic_net{suffix}")
+        save_model(fitted_elastic_net(), checkpoint)
 
         loaded = load_model(checkpoint)
 
         assert loaded.name == "ElasticNet"
         assert loaded._pipeline.is_fitted()
-
-    def test_restores_the_hyperparameters(self, tmp_path) -> None:
-        model = fitted_elastic_net()
-        checkpoint = str(UPath(tmp_path) / "elastic_net")
-        save_model(model, checkpoint)
-
-        loaded = load_model(checkpoint)
-
         assert loaded.config.predictor_values()["alpha"] == 0.1
-
-    def test_accepts_an_explicit_zip_path(self, tmp_path) -> None:
-        model = fitted_elastic_net()
-        archive = str(UPath(tmp_path) / "elastic_net.zip")
-        save_model(model, archive)
-
-        loaded = load_model(archive)
-
-        assert loaded.name == "ElasticNet"
 
     def test_supports_custom_model_names(self, tmp_path) -> None:
         from drevalpy.models.config import from_spec
@@ -310,15 +225,7 @@ class TestLoadModel:
 
 
 class TestErrorHierarchy:
-    """All checkpoint errors are catchable as one family and as ``ValueError``."""
-
-    @pytest.mark.parametrize(
-        "error_type",
-        [
-            pytest.param(UnsupportedCheckpointFormatError, id="unsupported-format"),
-            pytest.param(CorruptedCheckpointError, id="corrupted"),
-        ],
-    )
+    @pytest.mark.parametrize("error_type", [UnsupportedCheckpointFormatError, CorruptedCheckpointError])
     def test_subclasses_model_checkpoint_error_and_value_error(self, error_type: type[Exception]) -> None:
         assert issubclass(error_type, ModelCheckpointError)
         assert issubclass(error_type, ValueError)

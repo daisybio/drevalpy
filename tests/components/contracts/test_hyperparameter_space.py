@@ -35,24 +35,19 @@ def _clear_registries() -> Iterator[None]:
     register_builtin_components()
 
 
-def test_validate_hyperparameter_space_rejects_missing_default() -> None:
+def test_validate_hyperparameter_space_rejects_incomplete_specs_and_accepts_complete_ones() -> None:
     with pytest.raises(ValueError, match="missing 'default' for 'alpha'"):
-        validate_hyperparameter_space(
-            {"alpha": {"type": "float", "low": 0.1, "high": 1.0}},
-            context="unit-test",
-        )
-
-
-def test_validate_hyperparameter_space_rejects_non_mapping_spec() -> None:
+        validate_hyperparameter_space({"alpha": {"type": "float", "low": 0.1, "high": 1.0}}, context="unit-test")
     with pytest.raises(ValueError, match="non-mapping specs for 'alpha'"):
         validate_hyperparameter_space({"alpha": 1.0}, context="unit-test")
+    validate_hyperparameter_space({"alpha": {"type": "float", "default": 0.5}}, context="unit-test")
 
+    class Ok:
+        @classmethod
+        def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
+            return {"alpha": {"type": "float", "default": 1.0}}
 
-def test_validate_hyperparameter_space_accepts_complete_specs() -> None:
-    validate_hyperparameter_space(
-        {"alpha": {"type": "float", "default": 0.5}},
-        context="unit-test",
-    )
+    validate_component_hyperparameter_space("ok", Ok)
 
 
 def test_predictor_registration_rejects_space_without_default() -> None:
@@ -90,15 +85,9 @@ def test_featurizer_registration_rejects_space_without_default() -> None:
                 return {"n_components": {"type": "int", "low": 8, "high": 64}}
 
 
-def test_predictor_config_rejects_space_without_default() -> None:
+def test_configs_reject_a_space_without_default() -> None:
     with pytest.raises(ValidationError, match="missing 'default'"):
-        PredictorConfig(
-            name="elasticNet",
-            hyperparameter_space={"alpha": {"type": "float", "low": 0.1, "high": 1.0}},
-        )
-
-
-def test_featurizer_config_rejects_space_without_default() -> None:
+        PredictorConfig(name="elasticNet", hyperparameter_space={"alpha": {"type": "float", "low": 0.1, "high": 1.0}})
     with pytest.raises(ValidationError, match="missing 'default'"):
         FeaturizerConfig(
             name="pca",
@@ -107,85 +96,50 @@ def test_featurizer_config_rejects_space_without_default() -> None:
         )
 
 
-def test_validate_component_hyperparameter_space_uses_class_getter() -> None:
-    class Ok:
+def test_both_component_bases_inherit_the_mixin_without_re_declaring_its_hooks() -> None:
+    for component in (Featurizer, Predictor):
+        assert issubclass(component, TunableComponentMixin)
+        for hook in ("get_hyperparameter_space", "get_default_hyperparameters", "get_state", "set_state"):
+            assert hook not in component.__dict__
+
+
+def test_mixin_defaults_are_read_off_the_declared_space_and_validated() -> None:
+    class Untunable(TunableComponentMixin):
+        pass
+
+    class Tunable(TunableComponentMixin):
         @classmethod
         def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
-            return {"alpha": {"type": "float", "default": 1.0}}
+            return {"alpha": {"type": "float", "low": 0.1, "high": 1.0, "default": 0.25}}
 
-    validate_component_hyperparameter_space("ok", Ok)
+    class Incomplete(TunableComponentMixin):
+        @classmethod
+        def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
+            return {"alpha": {"type": "float", "low": 0.1, "high": 1.0}}
+
+    assert Untunable.get_hyperparameter_space() == {}
+    assert Untunable.get_default_hyperparameters() == {}
+    assert Tunable.get_default_hyperparameters() == {"alpha": 0.25}
+    with pytest.raises(ValueError, match=r"Incomplete.get_hyperparameter_space\(\)"):
+        Incomplete.get_default_hyperparameters()
 
 
-class TestTunableComponentMixin:
-    """The four hooks both component kinds inherit rather than each declaring.
+def test_the_default_state_is_empty_and_is_fitted_reads_the_state_hook() -> None:
+    class Stateless(TunableComponentMixin):
+        pass
 
-    ``Featurizer`` and ``Predictor`` are siblings under ``components/``, so this
-    module - the leaf both already imported the validator from - is the only home
-    for the shared copy that does not invert a dependency between them.
-    """
+    class Fitted(Predictor):
+        def get_state(self) -> dict[str, object]:
+            return {"weights": [1.0]}
 
-    @pytest.mark.parametrize("component", [Featurizer, Predictor], ids=["featurizer", "predictor"])
-    def test_both_component_bases_inherit_the_mixin(self, component: type) -> None:
-        assert issubclass(component, TunableComponentMixin)
+        def _fit(self, batch) -> None:
+            return None
 
-    @pytest.mark.parametrize(
-        "hook",
-        ["get_hyperparameter_space", "get_default_hyperparameters", "get_state", "set_state"],
-    )
-    def test_neither_base_keeps_its_own_copy_of_a_shared_hook(self, hook: str) -> None:
-        """A re-declaration would be a second implementation to keep in sync."""
-        assert hook not in Featurizer.__dict__
-        assert hook not in Predictor.__dict__
+        def _predict(self, batch):
+            return None
 
-    def test_the_default_space_is_empty_for_a_component_with_nothing_to_tune(self) -> None:
-        class Untunable(TunableComponentMixin):
-            pass
-
-        assert Untunable.get_hyperparameter_space() == {}
-        assert Untunable.get_default_hyperparameters() == {}
-
-    def test_defaults_are_read_off_the_declared_space(self) -> None:
-        class Tunable(TunableComponentMixin):
-            @classmethod
-            def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
-                return {"alpha": {"type": "float", "low": 0.1, "high": 1.0, "default": 0.25}}
-
-        assert Tunable.get_default_hyperparameters() == {"alpha": 0.25}
-
-    def test_defaults_reject_a_space_entry_without_one(self) -> None:
-        """The validator runs on the read path, not only at registration."""
-
-        class Incomplete(TunableComponentMixin):
-            @classmethod
-            def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
-                return {"alpha": {"type": "float", "low": 0.1, "high": 1.0}}
-
-        with pytest.raises(ValueError, match=r"Incomplete.get_hyperparameter_space\(\)"):
-            Incomplete.get_default_hyperparameters()
-
-    def test_the_default_state_is_empty_and_restoring_it_is_a_no_op(self) -> None:
-        """An unfitted component has nothing to persist; ``set_state`` must tolerate it."""
-
-        class Stateless(TunableComponentMixin):
-            pass
-
-        component = Stateless()
-
-        assert component.get_state() == {}
-        assert component.set_state({"ignored": 1}) is None
-        assert component.get_state() == {}
-
-    def test_is_fitted_reads_the_inherited_state_hook(self) -> None:
-        """``Predictor.is_fitted`` stays predictor-only but is defined over ``get_state``."""
-
-        class Fitted(Predictor):
-            def get_state(self) -> dict[str, object]:
-                return {"weights": [1.0]}
-
-            def _fit(self, batch) -> None:
-                return None
-
-            def _predict(self, batch):
-                return None
-
-        assert Fitted().is_fitted() is True
+    component = Stateless()
+    assert component.get_state() == {}
+    assert component.set_state({"ignored": 1}) is None
+    assert component.get_state() == {}
+    assert Fitted().is_fitted() is True

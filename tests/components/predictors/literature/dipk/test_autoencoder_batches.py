@@ -31,7 +31,6 @@ def _eval_models() -> tuple[GeneExpressionEncoder, GeneExpressionDecoder]:
 
 @pytest.mark.parametrize("batch_size", [1, 3, 7, 10, 1024])
 def test_chunked_validation_loss_matches_full_mse(batch_size: int) -> None:
-    """The chunked pass returns what MSELoss over the whole matrix returns, also for non-dividing sizes."""
     encoder, decoder = _eval_models()
     validation = torch.randn(10, INPUT_DIM)
 
@@ -41,7 +40,7 @@ def test_chunked_validation_loss_matches_full_mse(batch_size: int) -> None:
     assert validation_loss(encoder, decoder, validation, batch_size, _CPU) == pytest.approx(expected, rel=1e-5)
 
 
-def test_validation_loss_leaves_the_input_untouched() -> None:
+def test_validation_loss_leaves_the_input_untouched_and_is_nan_for_an_empty_matrix() -> None:
     encoder, decoder = _eval_models()
     validation = torch.randn(5, INPUT_DIM)
     before = validation.clone()
@@ -49,11 +48,6 @@ def test_validation_loss_leaves_the_input_untouched() -> None:
     validation_loss(encoder, decoder, validation, 2, _CPU)
 
     assert torch.equal(validation, before)
-
-
-def test_validation_loss_of_an_empty_matrix_is_nan() -> None:
-    encoder, decoder = _eval_models()
-
     assert np.isnan(validation_loss(encoder, decoder, torch.empty(0, INPUT_DIM), 4, _CPU))
 
 

@@ -1,9 +1,4 @@
-"""Tests for :mod:`drevalpy.visualization.plots.heatmap`.
-
-``compute()`` is asserted in-process on the resulting Plotly figure. ``to_png()``
-is deliberately not exercised: it goes through kaleido and costs roughly 13
-seconds, which is not worth it for a hook that runs on every commit.
-"""
+"""Tests for :mod:`drevalpy.visualization.plots.heatmap` (``to_png`` goes through kaleido and is skipped)."""
 
 from __future__ import annotations
 
@@ -28,7 +23,6 @@ from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_re
 
 
 def _ssmd_frame() -> pd.DataFrame:
-    """Two models x two folds, indexed the way ``runs_frame`` does."""
     return pd.DataFrame(
         {"MSE": [1.0, 2.0, 5.0, 6.0]},
         index=[
@@ -53,67 +47,39 @@ def computed(experiment) -> HeatmapVisualization:
 
 
 class TestSettingGroups:
-    def test_keeps_the_first_three_index_tokens(self):
+    def test_keeps_the_first_three_index_tokens_aligned_with_the_frame(self):
         df = _ssmd_frame()
 
-        assert sorted(_setting_groups(df).unique()) == ["A_predictions_LPO", "B_predictions_LPO"]
+        groups = _setting_groups(df)
 
-    def test_is_aligned_with_the_frame_index(self):
-        df = _ssmd_frame()
-
-        assert list(_setting_groups(df).index) == list(df.index)
+        assert sorted(groups.unique()) == ["A_predictions_LPO", "B_predictions_LPO"]
+        assert list(groups.index) == list(df.index)
 
 
 class TestCalcSummaryMetric:
-    def test_averages_each_column(self):
+    def test_averages_each_column_ignoring_nans(self):
         x = pd.DataFrame({"a": [1.0, 3.0], "b": [2.0, 6.0]})
 
         assert _calc_summary_metric(x).to_dict() == {"a": 2.0, "b": 4.0}
+        assert _calc_summary_metric(pd.DataFrame({"a": [1.0, np.nan, 3.0]}))["a"] == 2.0
+        assert math.isnan(_calc_summary_metric(pd.DataFrame({"a": [np.nan, np.nan]}))["a"])
 
     def test_std_error_divides_the_std_by_sqrt_n(self):
         x = pd.DataFrame({"a": [1.0, 3.0]})
 
         assert _calc_summary_metric(x, std_error=True)["a"] == pytest.approx(1.0 / math.sqrt(2))
 
-    def test_ignores_nans_when_averaging(self):
-        x = pd.DataFrame({"a": [1.0, np.nan, 3.0]})
-
-        assert _calc_summary_metric(x)["a"] == 2.0
-
-    def test_all_nan_column_stays_nan(self):
-        x = pd.DataFrame({"a": [np.nan, np.nan]})
-
-        assert math.isnan(_calc_summary_metric(x)["a"])
-
-    def test_result_is_indexed_by_column(self):
-        x = pd.DataFrame({"a": [1.0], "b": [2.0]})
-
-        assert list(_calc_summary_metric(x).index) == ["a", "b"]
-
 
 class TestSsmdMatrix:
     def test_returns_an_empty_frame_when_the_metric_is_absent(self):
         assert _ssmd_matrix(_ssmd_frame(), "Pearson").empty
 
-    def test_is_a_square_model_by_model_matrix(self):
+    def test_is_a_square_antisymmetric_matrix_with_a_zero_diagonal(self):
         matrix = _ssmd_matrix(_ssmd_frame(), "MSE")
 
         assert list(matrix.index) == list(matrix.columns) == ["A", "B"]
-
-    def test_diagonal_is_zero(self):
-        matrix = _ssmd_matrix(_ssmd_frame(), "MSE")
-
-        assert matrix.loc["A", "A"] == 0.0
-        assert matrix.loc["B", "B"] == 0.0
-
-    def test_off_diagonal_is_antisymmetric(self):
-        matrix = _ssmd_matrix(_ssmd_frame(), "MSE")
-
+        assert matrix.loc["A", "A"] == matrix.loc["B", "B"] == 0.0
         assert matrix.loc["A", "B"] == pytest.approx(-matrix.loc["B", "A"])
-
-    def test_is_negative_when_the_row_model_scores_lower(self):
-        matrix = _ssmd_matrix(_ssmd_frame(), "MSE")
-
         assert matrix.loc["A", "B"] < 0
 
     def test_ignores_nan_folds(self):
@@ -125,61 +91,39 @@ class TestSsmdMatrix:
         assert _ssmd_matrix(df, "MSE").loc["A", "B"] == pytest.approx(compute_ssmd([2.0, 4.0], [5.0, 6.0, 7.0]))
 
     def test_is_nan_when_both_models_have_zero_variance(self):
-        df = pd.DataFrame(
-            {"MSE": [1.0, 1.0, 2.0, 2.0]},
-            index=[
-                "A_predictions_LPO_split_0",
-                "A_predictions_LPO_split_1",
-                "B_predictions_LPO_split_0",
-                "B_predictions_LPO_split_1",
-            ],
-        )
+        df = _ssmd_frame()
+        df["MSE"] = [1.0, 1.0, 2.0, 2.0]
 
         assert math.isnan(_ssmd_matrix(df, "MSE").loc["A", "B"])
 
 
-class TestColumnsForSetting:
-    @pytest.mark.parametrize(
-        ("setting", "expected"),
-        [
-            pytest.param("r2", ["R^2"], id="r2"),
-            pytest.param("correlations", ["Pearson", "Spearman", "Kendall"], id="correlations"),
-            pytest.param("errors", ["MSE", "RMSE", "MAE"], id="errors"),
-            pytest.param("unknown", [], id="unknown_setting"),
-        ],
-    )
-    def test_selects_the_metrics_belonging_to_the_panel(self, setting, expected):
-        metric_cols = ["R^2", "Pearson", "Spearman", "Kendall", "MSE", "RMSE", "MAE"]
+@pytest.mark.parametrize(
+    ("setting", "expected"),
+    [
+        ("r2", ["R^2"]),
+        ("correlations", ["Pearson", "Spearman", "Kendall"]),
+        ("errors", ["MSE", "RMSE", "MAE"]),
+        ("unknown", []),
+    ],
+)
+def test_columns_for_setting_selects_the_metrics_belonging_to_the_panel(setting, expected):
+    metric_cols = ["R^2", "Pearson", "Spearman", "Kendall", "MSE", "RMSE", "MAE"]
 
-        assert _columns_for_setting(setting, metric_cols) == expected
+    assert _columns_for_setting(setting, metric_cols) == expected
 
 
 class TestCompute:
-    def test_builds_five_stacked_heatmap_panels(self, computed):
-        assert [trace.type for trace in computed._fig.data] == ["heatmap"] * 5
+    def test_builds_five_stacked_panels_with_models_as_rows(self, computed, experiment):
+        fig = computed._fig
 
-    def test_rows_are_the_models(self, computed, experiment):
-        assert set(computed._fig.data[0].y) == set(experiment.model_names)
-
-    def test_first_panel_shows_r2_only(self, computed):
-        assert list(computed._fig.data[0].x) == ["R^2"]
-
-    def test_ssmd_panels_are_model_by_model(self, computed, experiment):
-        ssmd_trace = computed._fig.data[3]
-
-        assert set(ssmd_trace.x) == set(ssmd_trace.y) == set(experiment.model_names)
-
-    def test_cells_are_annotated_with_mean_and_standard_error(self, computed):
-        assert "±" in computed._fig.data[0].text[0][0]
-
-    def test_layout_scales_the_height_with_the_model_count(self, computed, experiment):
-        assert computed._fig.layout.height == 500 + len(experiment.models) * 35
-        assert computed._fig.layout.width == 1300
-
-    def test_layout_is_titled(self, computed):
-        assert computed._fig.layout.title.text == "Heatmap of the evaluation metrics"
-
-    def test_stores_the_result_for_to_multiqc(self, computed, experiment):
+        assert [trace.type for trace in fig.data] == ["heatmap"] * 5
+        assert set(fig.data[0].y) == set(experiment.model_names)
+        assert list(fig.data[0].x) == ["R^2"]
+        assert set(fig.data[3].x) == set(fig.data[3].y) == set(experiment.model_names)
+        assert "±" in fig.data[0].text[0][0]
+        assert fig.layout.height == 500 + len(experiment.models) * 35
+        assert fig.layout.width == 1300
+        assert fig.layout.title.text == "Heatmap of the evaluation metrics"
         assert computed._result is experiment
 
     def test_panels_without_available_metrics_are_skipped(self):
@@ -199,44 +143,31 @@ class TestCompute:
         assert sorted(panels[1]) == ["A", "B"]
         assert len(panels) == 2
 
-
-class TestMetricColumns:
-    """``normalize()`` emits plain metric names, so a normalized experiment fills every panel."""
-
     def test_a_normalized_experiment_populates_every_panel(self):
-        normalized = make_experiment_result(n_models=3, n_folds=2).normalize(REFERENCE_MODEL)
         plot = HeatmapVisualization()
 
-        plot.compute(normalized)
+        plot.compute(make_experiment_result(n_models=3, n_folds=2).normalize(REFERENCE_MODEL))
 
         assert len(plot._fig.data) == 5
 
     def test_warns_when_no_expected_metric_is_present(self, caplog):
-        result = ExperimentResult([make_run_result(metrics={"NotAMetric": 1.0})])
         plot = HeatmapVisualization()
 
         with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.heatmap"):
-            plot.compute(result)
+            plot.compute(ExperimentResult([make_run_result(metrics={"NotAMetric": 1.0})]))
 
         assert any("none of the expected metrics" in r.getMessage() for r in caplog.records)
 
 
-class TestToMultiqc:
-    def test_returns_a_single_native_heatmap_section(self, computed):
-        sections = computed.to_multiqc()
+class TestOutputsAndGuards:
+    def test_to_multiqc_returns_a_single_native_heatmap_section(self, computed):
+        (section,) = computed.to_multiqc()
 
-        assert len(sections) == 1
-        assert (sections[0].name, sections[0].anchor) == ("Performance Heatmap", "dreval_heatmap")
+        assert (section.name, section.anchor) == ("Performance Heatmap", "dreval_heatmap")
+        assert section.plot is not None
+        assert "Mean metric values per model" in section.description
 
-    def test_section_carries_a_native_multiqc_plot(self, computed):
-        assert computed.to_multiqc()[0].plot is not None
-
-    def test_section_is_described(self, computed):
-        assert "Mean metric values per model" in computed.to_multiqc()[0].description
-
-
-class TestShow:
-    def test_delegates_to_the_plotly_figure(self, computed, monkeypatch):
+    def test_show_delegates_to_the_plotly_figure(self, computed, monkeypatch):
         calls: list = []
         monkeypatch.setattr(BaseFigure, "show", lambda self, *a, **kw: calls.append(self))
 
@@ -244,16 +175,9 @@ class TestShow:
 
         assert calls == [computed._fig]
 
+    @pytest.mark.parametrize("method", ["to_png", "to_multiqc", "show"])
+    def test_methods_raise_before_compute(self, tmp_path, method):
+        args = (tmp_path / "h.png",) if method == "to_png" else ()
 
-class TestGuardsBeforeCompute:
-    def test_to_png_raises(self, tmp_path):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_png\(\)"):
-            HeatmapVisualization().to_png(tmp_path / "h.png")
-
-    def test_to_multiqc_raises(self):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before to_multiqc\(\)"):
-            HeatmapVisualization().to_multiqc()
-
-    def test_show_raises(self):
-        with pytest.raises(RuntimeError, match=r"Call compute\(\) before show\(\)"):
-            HeatmapVisualization().show()
+        with pytest.raises(RuntimeError, match=rf"Call compute\(\) before {method}\(\)"):
+            getattr(HeatmapVisualization(), method)(*args)

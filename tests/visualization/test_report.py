@@ -1,15 +1,4 @@
-"""Tests for :mod:`drevalpy.visualization.report`.
-
-One end-to-end ``create_report`` run is enough to cover the MultiQC wiring; the
-remaining orchestration branches are driven with a stub visualization so the
-suite does not pay for seven real plots per assertion.
-
-A ``create_report`` call costs ~0.25s with a stub plot and ~0.7s with the real
-ones, so the tests that only *read* what a build produced share one build through
-a module-scoped fixture. Tests whose subject is the call itself - a different
-argument, a log line ordering, or a lifecycle side effect - keep their own run and
-say so in place.
-"""
+"""Tests for :mod:`drevalpy.visualization.report`."""
 
 from __future__ import annotations
 
@@ -27,7 +16,7 @@ from upath import UPath
 from drevalpy.registry.visualization import visualization_registry
 from drevalpy.types.results.experiment import ExperimentResult
 from drevalpy.types.results.failure import RunFailure
-from drevalpy.visualization.base import Section, Visualization
+from drevalpy.visualization.base import PlotlyVisualization, Section, Visualization
 from drevalpy.visualization.report import (
     _add_module,
     _applicable_results,
@@ -43,8 +32,6 @@ class _StubViz(Visualization):
 
     registry_name = "stub_viz"
     sections: list[Section] = [Section(name="Stub", anchor="stub_section", content="<p>stub</p>")]
-    #: The most recently constructed instance, so tests can inspect what the
-    #: report built internally.
     last: Any = None
 
     def __init__(self) -> None:
@@ -64,24 +51,9 @@ class _StubViz(Visualization):
         raise AssertionError("show() is not used by the report")
 
 
-class _SilentViz(_StubViz):
-    """A visualization that has nothing to contribute."""
-
-    registry_name = "silent_viz"
-    sections: list[Section] = []
-
-
 @pytest.fixture(scope="module", autouse=True)
 def _isolate_multiqc_config() -> Iterator[None]:
-    """Contain MultiQC's global config to this module.
-
-    ``multiqc.reset()`` is ``config.reset()`` plus ``report.reset()``, and only the
-    first is expensive (~40ms, it re-reads MultiQC's packaged YAML defaults). Doing
-    it per test was a third of this file's runtime while no assertion here reads the
-    config, and ``create_report`` resets it itself before every build. So the config
-    is reset once at each end of the module and the per-test fixture below clears
-    only the report state the assertions actually read.
-    """
+    """Reset MultiQC's global config once per module; per-test resets clear only report state."""
     multiqc.reset()
     yield
     multiqc.reset()
@@ -89,7 +61,7 @@ def _isolate_multiqc_config() -> Iterator[None]:
 
 @pytest.fixture(autouse=True)
 def _reset_multiqc() -> Iterator[None]:
-    """Isolate MultiQC report state and contain the leaderboard's rcParams edits."""
+    """Isolate MultiQC report state and the leaderboard's rcParams edits."""
     multiqc.report.reset()
     with plt.rc_context():
         yield
@@ -116,11 +88,7 @@ def _make_applicable(monkeypatch, viz_cls: type[Visualization], result_type: str
 
 
 class _BuiltReport(NamedTuple):
-    """What a shared ``create_report`` build left behind.
-
-    ``modules`` is a snapshot taken while the build was still current, because the
-    per-test fixture clears ``multiqc.report`` before the tests that read it run.
-    """
+    """A shared build: ``modules`` is snapshotted while the build was current."""
 
     out: UPath
     modules: list[Any]
@@ -128,15 +96,7 @@ class _BuiltReport(NamedTuple):
 
 
 def _build_report(out: UPath, result, **kwargs) -> _BuiltReport:
-    """Run ``create_report`` once, capturing its MultiQC modules and log records.
-
-    Repeats the containment the per-test fixtures provide - a fresh MultiQC state, an
-    ``rc_context`` around the leaderboard's rcParams edits, and closing the figures -
-    because a module-scoped fixture is set up before any of them.
-
-    MultiQC re-initialises root logging inside ``write_report``, so the records are
-    collected from the module logger directly rather than through ``caplog``.
-    """
+    """Run ``create_report`` once, capturing MultiQC modules and the module logger's records."""
     records: list[logging.LogRecord] = []
     handler = logging.Handler()
     handler.emit = records.append  # type: ignore[method-assign]
@@ -158,13 +118,7 @@ def _build_report(out: UPath, result, **kwargs) -> _BuiltReport:
 
 @pytest.fixture(scope="module")
 def normalized_real_report(tmp_path_factory) -> _BuiltReport:
-    """One normalized report built from the real plots, shared read-only.
-
-    ``normalize()`` recomputes metrics under their plain names, which the
-    leaderboard did not read; its PCC column came out all-NaN and matplotlib raised
-    ``Axis limits cannot be NaN or Inf`` before MultiQC ever ran. The pipeline always
-    passes ``--reference-model``, so a build failure here fails both readers below.
-    """
+    """A normalized report from the real plots (regression: an all-NaN PCC column broke the leaderboard)."""
     return _build_report(
         tmp_path_factory.mktemp("normalized_report"),
         make_experiment_result(n_models=4, n_folds=3),
@@ -175,63 +129,42 @@ def normalized_real_report(tmp_path_factory) -> _BuiltReport:
 
 @pytest.fixture(scope="module")
 def logged_stub_report(experiment: ExperimentResult, tmp_path_factory) -> _BuiltReport:
-    """One stub-plot report build, shared by the tests that only read its log."""
+    """One stub-plot build, shared by the tests that only read its log."""
     with pytest.MonkeyPatch.context() as monkeypatch:
         _make_applicable(monkeypatch, _StubViz, "ExperimentResult")
         return _build_report(tmp_path_factory.mktemp("logged"), experiment)
 
 
 class TestEnsureExperiment:
-    def test_wraps_a_single_run(self):
-        run = make_run_result(model_name="ElasticNet")
+    def test_wraps_runs_and_models_and_passes_experiments_through(self, experiment):
+        wrapped_run = _ensure_experiment(make_run_result(model_name="ElasticNet"))
+        wrapped_model = _ensure_experiment(make_model_result(n_folds=3))
 
-        experiment = _ensure_experiment(run)
-
-        assert isinstance(experiment, ExperimentResult)
-        assert experiment.model_names == ["ElasticNet"]
-
-    def test_wraps_a_model_result_keeping_every_fold(self):
-        model = make_model_result(n_folds=3)
-
-        experiment = _ensure_experiment(model)
-
-        assert isinstance(experiment, ExperimentResult)
-        assert experiment.max_folds == 3
-
-    def test_passes_an_experiment_through_unchanged(self, experiment):
+        assert wrapped_run.model_names == ["ElasticNet"]
+        assert wrapped_model.max_folds == 3
         assert _ensure_experiment(experiment) is experiment
 
 
 class TestAddModule:
-    def test_appends_one_module_carrying_the_sections(self):
-        _add_module([Section(name="S", anchor="s", content="x")], "My module", "my_module")
+    def test_appends_one_module_and_empty_content_becomes_a_string(self):
+        _add_module([Section(name="S", anchor="s", content="x"), Section(name="T", anchor="t")], "My module", "my")
 
         assert [m.name for m in multiqc.report.modules] == ["My module"]
-        assert [s.name for s in multiqc.report.modules[0].sections] == ["S"]
-
-    def test_sections_without_content_become_empty_strings(self):
-        _add_module([Section(name="S", anchor="s")], "My module", "my_module")
-
-        assert multiqc.report.modules[0].sections[0].content == ""
+        assert [s.name for s in multiqc.report.modules[0].sections] == ["S", "T"]
+        assert multiqc.report.modules[0].sections[1].content == ""
 
 
 class TestApplicableResults:
-    def test_experiment_plots_are_paired_with_the_whole_experiment(self, experiment, monkeypatch):
+    def test_experiment_plots_get_the_experiment_and_model_plots_get_each_model(self, experiment, monkeypatch):
         _make_applicable(monkeypatch, _StubViz, "ExperimentResult")
-
         assert list(_applicable_results(experiment)) == [(_StubViz, experiment)]
 
-    def test_model_plots_are_paired_with_each_model(self, experiment, monkeypatch):
         _make_applicable(monkeypatch, _StubViz, "ModelResult")
-
         pairs = list(_applicable_results(experiment))
-
         assert [cls for cls, _ in pairs] == [_StubViz] * len(experiment.models)
         assert [model.model_name for _, model in pairs] == experiment.model_names
 
-    def test_nothing_is_yielded_when_no_plot_is_applicable(self, experiment, monkeypatch):
         monkeypatch.setattr(visualization_registry, "applicable", lambda experiment: [])
-
         assert list(_applicable_results(experiment)) == []
 
     def test_real_plots_resolve_their_result_type_through_the_registry(self, experiment):
@@ -245,36 +178,22 @@ class TestApplicableResults:
 
 
 class TestCreateReport:
-    #: Extended tier: nine real ``create_report`` builds, ~3.2s. The shared
-    #: module-scoped build below means the cost only disappears when the whole
-    #: class goes, which is why the marker is here rather than on single tests.
     pytestmark = pytest.mark.slow
 
     def test_writes_a_multiqc_html_report_for_every_applicable_plot(self, experiment, tmp_path):
-        out = tmp_path / "report"
+        create_report(experiment, tmp_path / "report", title="W4 Report")
 
-        create_report(experiment, out, title="W4 Report")
+        assert [p.name for p in (tmp_path / "report").glob("*.html")] == ["W4-Report_multiqc_report.html"]
 
-        assert [p.name for p in out.glob("*.html")] == ["W4-Report_multiqc_report.html"]
-
-    def test_creates_missing_output_directories(self, experiment, tmp_path, only_stub_is_applicable):
+    def test_creates_directories_and_accepts_a_string_path(self, experiment, tmp_path, only_stub_is_applicable):
         out = tmp_path / "deep" / "nested"
-
-        create_report(experiment, out)
-
-        assert out.is_dir()
-
-    def test_accepts_a_string_output_directory(self, experiment, tmp_path, only_stub_is_applicable):
-        out = tmp_path / "as_string"
 
         create_report(experiment, str(out))
 
         assert any(out.glob("*.html"))
 
     def test_wraps_a_bare_run_result(self, tmp_path, only_stub_is_applicable):
-        run = make_run_result(model_name="ElasticNet")
-
-        create_report(run, tmp_path / "run_report")
+        create_report(make_run_result(model_name="ElasticNet"), tmp_path / "run_report")
 
         assert only_stub_is_applicable.last.computed[0].model_names == ["ElasticNet"]
 
@@ -286,7 +205,6 @@ class TestCreateReport:
         assert REFERENCE_MODEL not in normalized.model_names
 
     def test_releases_the_unnormalized_experiment(self, tmp_path, only_stub_is_applicable):
-        """The pre-normalization copy must not stay reachable through the argument."""
         sentinel: list[weakref.ref] = []
 
         def built_inline() -> ExperimentResult:
@@ -299,113 +217,80 @@ class TestCreateReport:
 
         assert sentinel[0]() is None
 
-    def test_every_real_plot_survives_normalization(self, normalized_real_report: _BuiltReport) -> None:
+    def test_every_real_plot_survives_normalization_and_the_leaderboard_has_values(
+        self, normalized_real_report: _BuiltReport
+    ) -> None:
         assert [p.name for p in normalized_real_report.out.glob("*.html")] == ["Normalized_multiqc_report.html"]
-
-    def test_the_normalized_leaderboard_renders_with_real_values(self, normalized_real_report: _BuiltReport) -> None:
-        """A section is worthless if it is present but blank."""
         leaderboard = next(m for m in normalized_real_report.modules if m.name == "leaderboard")
         assert "No data available" not in leaderboard.sections[0].content
         assert "data:image/png;base64," in leaderboard.sections[0].content
 
 
 class TestLogging:
-    """The report used to die with an empty ``Command output``; these lines are the fix.
-
-    Extended tier: several tests here keep their own ``create_report`` build because
-    the call itself is the subject, so the class costs ~0.6s beyond the shared build
-    in ``TestCreateReport``.
-    """
-
     pytestmark = pytest.mark.slow
 
-    def test_logs_the_model_count_and_the_pair_count(self, logged_stub_report: _BuiltReport) -> None:
+    def test_logs_counts_before_writing_and_confirms_the_write(self, logged_stub_report: _BuiltReport) -> None:
         messages = [r.getMessage() for r in logged_stub_report.records]
         assert any("3 models (3 model pairs)" in m for m in messages)
+        assert any("report: writing 1 modules / 1 sections" in m for m in messages)
+        assert messages[-1].startswith("report: written | rss=")
 
     def test_logs_the_reference_model_before_normalizing(self, experiment, tmp_path, only_stub_is_applicable, caplog):
-        # Keeps its own build: it is the ``reference_model`` argument that is on trial.
         with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
             create_report(experiment, tmp_path / "logged_ref", reference_model=REFERENCE_MODEL)
 
-        messages = [r.getMessage() for r in caplog.records]
-        assert any(f"Normalizing against reference model '{REFERENCE_MODEL}'" in m for m in messages)
+        assert any(f"Normalizing against reference model '{REFERENCE_MODEL}'" in r.getMessage() for r in caplog.records)
 
-    def test_info_logs_one_summary_line_for_an_experiment_plot(
-        self, experiment, tmp_path, only_stub_is_applicable, caplog
-    ):
+    def test_experiment_plot_logs_one_summary_at_info(self, experiment, tmp_path, only_stub_is_applicable, caplog):
         with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
-            create_report(experiment, tmp_path / "logged_plot")
+            create_report(experiment, tmp_path / "info")
 
         messages = [r.getMessage() for r in caplog.records]
         assert sum(m.startswith("plot stub_viz: done in") for m in messages) == 1
         assert not any("computing" in m for m in messages)
 
-    def test_info_logs_one_summary_line_for_a_model_plot_and_none_per_model(
-        self, experiment, tmp_path, monkeypatch, caplog
-    ):
-        _make_applicable(monkeypatch, _StubViz, "ModelResult")
-
-        with caplog.at_level(logging.INFO, logger="drevalpy.visualization.report"):
-            create_report(experiment, tmp_path / "logged_models")
-
-        messages = [r.getMessage() for r in caplog.records]
-        assert sum(m.startswith(f"plot stub_viz: {experiment.n_models} models done in") for m in messages) == 1
-        assert not any("stub_viz (" in m for m in messages)
-
-    def test_debug_logs_computing_and_timing_for_each_model_of_a_model_plot(
-        self, experiment, tmp_path, monkeypatch, caplog
-    ):
-        _make_applicable(monkeypatch, _StubViz, "ModelResult")
-
+    def test_experiment_plot_logs_computing_at_debug(self, experiment, tmp_path, only_stub_is_applicable, caplog):
         with caplog.at_level(logging.DEBUG, logger="drevalpy.visualization.report"):
-            create_report(experiment, tmp_path / "logged_models_debug")
-
-        messages = [r.getMessage() for r in caplog.records]
-        for name in experiment.model_names:
-            assert any(m.startswith(f"plot stub_viz ({name}): computing | rss=") for m in messages)
-            assert any(m.startswith(f"plot stub_viz ({name}): done in") and "rss +" in m for m in messages)
-
-    def test_debug_logs_computing_for_an_experiment_plot(self, experiment, tmp_path, only_stub_is_applicable, caplog):
-        with caplog.at_level(logging.DEBUG, logger="drevalpy.visualization.report"):
-            create_report(experiment, tmp_path / "logged_plot_debug")
+            create_report(experiment, tmp_path / "debug")
 
         assert any(r.getMessage().startswith("plot stub_viz: computing | rss=") for r in caplog.records)
 
-    def test_logs_the_module_and_section_counts_before_writing(self, logged_stub_report: _BuiltReport) -> None:
-        messages = [r.getMessage() for r in logged_stub_report.records]
-        assert any("report: writing 1 modules / 1 sections" in m for m in messages)
+    @pytest.mark.parametrize("level", [logging.INFO, logging.DEBUG])
+    def test_model_plot_logs_one_summary_at_info_and_per_model_timing_at_debug(
+        self, experiment, tmp_path, monkeypatch, caplog, level
+    ):
+        _make_applicable(monkeypatch, _StubViz, "ModelResult")
+        with caplog.at_level(level, logger="drevalpy.visualization.report"):
+            create_report(experiment, tmp_path / "models")
 
-    def test_confirms_the_report_was_written(self, logged_stub_report: _BuiltReport) -> None:
-        assert logged_stub_report.records[-1].getMessage().startswith("report: written | rss=")
+        messages = [r.getMessage() for r in caplog.records]
+        per_model = [m for m in messages if m.startswith("plot stub_viz (")]
+        if level == logging.INFO:
+            assert sum(m.startswith(f"plot stub_viz: {experiment.n_models} models done in") for m in messages) == 1
+            assert not per_model
+        else:
+            for name in experiment.model_names:
+                assert any(m.startswith(f"plot stub_viz ({name}): computing | rss=") for m in per_model)
+                assert any(m.startswith(f"plot stub_viz ({name}): done in") and "rss +" in m for m in per_model)
 
 
 class TestFailedRuns:
     pytestmark = pytest.mark.slow
 
-    def _failures(self) -> tuple[RunFailure, ...]:
-        return (
+    def test_a_failed_runs_module_lists_every_failure_with_escaped_messages(
+        self, experiment, tmp_path, only_stub_is_applicable
+    ):
+        failures = (
             RunFailure("ElasticNet", 1, ("SVRC", "gene_expression"), None, "ValueError", "bad <b>input</b>"),
             RunFailure("Ridge", 0, None, 2, "RuntimeError", "boom"),
         )
 
-    def test_a_failed_runs_module_lists_every_failure(self, experiment, tmp_path, only_stub_is_applicable):
-        result = ExperimentResult(list(experiment.models[0].runs), self._failures())
+        built = _build_report(tmp_path / "failed", ExperimentResult(list(experiment.models[0].runs), failures))
 
-        built = _build_report(tmp_path / "failed", result)
-
-        module = next(m for m in built.modules if m.name == "Failed runs")
-        content = module.sections[0].content
+        content = next(m for m in built.modules if m.name == "Failed runs").sections[0].content
         assert content.count("<tr>") == 3
         assert "SVRC (gene_expression)" in content
         assert "RuntimeError" in content
-
-    def test_failure_messages_are_escaped(self, experiment, tmp_path, only_stub_is_applicable):
-        result = ExperimentResult(list(experiment.models[0].runs), self._failures())
-
-        built = _build_report(tmp_path / "escaped", result)
-
-        content = next(m for m in built.modules if m.name == "Failed runs").sections[0].content
         assert "bad &lt;b&gt;input&lt;/b&gt;" in content
         assert "<b>input</b>" not in content
 
@@ -416,8 +301,10 @@ class TestFailedRuns:
 
 
 class TestSaveAllPng:
-    def test_writes_one_png_per_experiment_level_plot(self, experiment, tmp_path, only_stub_is_applicable):
-        out = tmp_path / "pngs"
+    def test_writes_one_png_per_experiment_level_plot_creating_directories(
+        self, experiment, tmp_path, only_stub_is_applicable
+    ):
+        out = tmp_path / "deep" / "pngs"
 
         save_all_png(experiment, out)
 
@@ -425,22 +312,29 @@ class TestSaveAllPng:
 
     def test_writes_one_png_per_model_for_model_level_plots(self, experiment, tmp_path, monkeypatch):
         _make_applicable(monkeypatch, _StubViz, "ModelResult")
-        out = tmp_path / "per_model"
 
-        save_all_png(experiment, out)
+        save_all_png(experiment, tmp_path)
 
-        assert sorted(p.name for p in out.iterdir()) == sorted(
+        assert sorted(p.name for p in tmp_path.iterdir()) == sorted(
             f"stub_viz_{name}.png" for name in experiment.model_names
         )
-
-    def test_creates_missing_output_directories(self, experiment, tmp_path, only_stub_is_applicable):
-        out = tmp_path / "deep" / "pngs"
-
-        save_all_png(experiment, out)
-
-        assert out.is_dir()
 
     def test_normalizes_against_the_reference_model_when_asked(self, experiment, tmp_path, only_stub_is_applicable):
         save_all_png(experiment, tmp_path / "norm_pngs", reference_model=REFERENCE_MODEL)
 
         assert only_stub_is_applicable.last.computed[0].normalized_by == REFERENCE_MODEL
+
+    def test_plotly_plots_are_skipped_with_one_warning_where_png_export_is_unsupported(
+        self, experiment, tmp_path, monkeypatch, caplog
+    ):
+        class _PlotlyStub(_StubViz, PlotlyVisualization):
+            registry_name = "plotly_stub"
+
+        _make_applicable(monkeypatch, _PlotlyStub, "ExperimentResult")
+        monkeypatch.setattr("drevalpy.visualization.report.plotly_png_supported", lambda: False)
+
+        with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.report"):
+            save_all_png(experiment, tmp_path)
+
+        assert list(tmp_path.iterdir()) == []
+        assert "Skipped the Plotly plots plotly_stub" in caplog.text

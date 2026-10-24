@@ -23,17 +23,12 @@ RANDOMIZED = (("SVRC", "gene_expression"), ("SVRC", "methylation"))
 
 @pytest.fixture()
 def constructed() -> list[str]:
-    """Collect the model names handed to ``construct_model``."""
     return []
 
 
 @pytest.fixture()
 def loader(monkeypatch: pytest.MonkeyPatch) -> Recorder:
-    """Patch :func:`drevalpy.data.load`, which resolves a registered name or a path.
 
-    :param monkeypatch: Fixture used to replace the source-module worker.
-    :returns: Recorder standing in for the dataset loader.
-    """
     recorder = Recorder(return_value=FakeDataset())
     patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", recorder)
     patch_worker(monkeypatch, "drevalpy.data", "load", recorder)
@@ -42,15 +37,6 @@ def loader(monkeypatch: pytest.MonkeyPatch) -> Recorder:
 
 @pytest.fixture()
 def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str], loader: Recorder) -> Recorder:
-    """Patch every lazy import of ``randomization_cmd``.
-
-    :param monkeypatch: Fixture used to replace the source-module workers.
-    :param constructed: List that receives every requested model name.
-    :param loader: Dataset loader stub, so no file is read.
-    :returns: Recorder standing in for
-        :func:`drevalpy.experiment.randomization`, returning two
-        datasets whose ``randomization`` tags drive the output filenames.
-    """
 
     def fake_construct_model(name: str) -> type:
         constructed.append(name)
@@ -69,173 +55,116 @@ def _invoke(tmp_path: UPath, *extra: str):
     )
 
 
-class TestArguments:
-    """All three positional arguments are required."""
-
-    @pytest.mark.parametrize(
-        "argv",
-        [
-            pytest.param(["experiments", "randomization"], id="none"),
-            pytest.param(["experiments", "randomization", "ElasticNet"], id="model-only"),
-            pytest.param(["experiments", "randomization", "ElasticNet", "TOYv1"], id="missing-output-dir"),
-        ],
-    )
-    def test_missing_positional_arguments_are_usage_errors(self, worker: Recorder, argv: list[str]) -> None:
-        result = runner.invoke(app, argv, env=HELP_ENV)
-
-        assert result.exit_code == 2
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["experiments", "randomization"],
+        ["experiments", "randomization", "ElasticNet"],
+        ["experiments", "randomization", "ElasticNet", "TOYv1"],
+    ],
+    ids=["none", "model-only", "missing-output-dir"],
+)
+def test_missing_positional_arguments_are_usage_errors(worker: Recorder, argv: list[str]) -> None:
+    assert runner.invoke(app, argv, env=HELP_ENV).exit_code == 2
 
 
-class TestForwarding:
-    """Options map onto :func:`randomization`'s signature."""
+def test_forwards_the_model_dataset_and_defaults(
+    worker: Recorder, loader: Recorder, tmp_path: UPath, constructed: list[str]
+) -> None:
+    result = _invoke(tmp_path)
 
-    def test_exits_cleanly(self, worker: Recorder, tmp_path: UPath) -> None:
-        result = _invoke(tmp_path)
-
-        assert result.exit_code == 0, result.output
-
-    def test_constructs_the_requested_model(self, worker: Recorder, tmp_path: UPath, constructed: list[str]) -> None:
-        _invoke(tmp_path)
-
-        assert constructed == ["ElasticNet"]
-
-    def test_resolves_the_dataset_argument_like_run_does(
-        self, worker: Recorder, loader: Recorder, tmp_path: UPath
-    ) -> None:
-        """A registered name is as valid as a path, so the argument reaches ``load`` verbatim."""
-        _invoke(tmp_path)
-
-        assert loader.args == ("TOYv1",)
-
-    def test_passes_model_class_dataset_and_modes_positionally(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path)
-
-        model_class, dataset, modes = worker.args
-        assert model_class.__name__ == "StubElasticNet"
-        assert isinstance(dataset, FakeDataset)
-        assert modes == ["SVRC"]
-
-    def test_modes_default_to_svrc(self, worker: Recorder, tmp_path: UPath) -> None:
-        """``modes=None`` is replaced by ``["SVRC"]`` rather than forwarded."""
-        _invoke(tmp_path)
-
-        assert worker.args[2] == ["SVRC"]
-
-    def test_repeated_modes_are_forwarded_in_order(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "-m", "SVCC", "-m", "svrd")
-
-        assert worker.args[2] == ["SVCC", "SVRD"]
-
-    def test_an_unknown_mode_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
-        result = _invoke(tmp_path, "-m", "SVXX")
-
-        assert result.exit_code == 2
-        assert worker.call_count == 0
-
-    def test_randomization_type_and_seed_defaults(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path)
-
-        assert worker.kwargs == {"randomization_type": "permutation", "random_state": 42}
-
-    @pytest.mark.parametrize("flag", ["--randomization-type", "-t"], ids=["long", "short"])
-    def test_randomization_type_override(self, worker: Recorder, tmp_path: UPath, flag: str) -> None:
-        _invoke(tmp_path, flag, "invariant")
-
-        assert worker.kwargs["randomization_type"] == "invariant"
-
-    def test_seed_override(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path, "--seed", "7")
-
-        assert worker.kwargs["random_state"] == 7
-
-    def test_non_integer_seed_is_a_usage_error(self, worker: Recorder, tmp_path: UPath) -> None:
-        result = _invoke(tmp_path, "--seed", "seed")
-
-        assert result.exit_code == 2
-
-    def test_the_renamed_random_state_option_is_rejected(self, worker: Recorder, tmp_path: UPath) -> None:
-        result = _invoke(tmp_path, "--random-state", "7")
-
-        assert result.exit_code == 2
-        assert worker.call_count == 0
+    assert result.exit_code == 0, result.output
+    assert constructed == ["ElasticNet"]
+    assert loader.args == ("TOYv1",)
+    model_class, dataset, modes = worker.args
+    assert model_class.__name__ == "StubElasticNet"
+    assert isinstance(dataset, FakeDataset)
+    assert modes == ["SVRC"]
+    assert worker.kwargs == {"randomization_type": "permutation", "random_state": 42}
 
 
-class TestOutput:
-    """Filenames come from each dataset's ``randomization`` tag."""
+def test_repeated_modes_are_forwarded_in_order_upper_cased(worker: Recorder, tmp_path: UPath) -> None:
+    _invoke(tmp_path, "-m", "SVCC", "-m", "svrd")
 
-    def test_creates_the_output_directory_including_parents(self, worker: Recorder, tmp_path: UPath) -> None:
-        out_dir = tmp_path / "nested" / "randomized"
-        runner.invoke(app, ["experiments", "randomization", "ElasticNet", "TOYv1", str(out_dir)])
-
-        assert out_dir.is_dir()
-
-    def test_writes_one_file_per_randomized_dataset(self, worker: Recorder, tmp_path: UPath) -> None:
-        _invoke(tmp_path)
-
-        written = sorted(p.name for p in (tmp_path / "randomized").glob("*.h5mu"))
-        assert written == sorted(f"{mode}__{view}.h5mu" for mode, view in RANDOMIZED)
-
-    def test_untagged_dataset_falls_back_to_unknown(
-        self, monkeypatch: pytest.MonkeyPatch, loader: Recorder, tmp_path: UPath
-    ) -> None:
-        monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type("Stub", (), {}))
-        patch_worker(
-            monkeypatch,
-            "drevalpy.experiment._randomization",
-            "randomization",
-            Recorder(return_value=[FakeDataset(randomization=None)]),
-        )
-
-        _invoke(tmp_path)
-
-        assert (tmp_path / "randomized" / "unknown__0.h5mu").exists()
-
-    def test_echoes_the_dataset_count_and_destination(self, worker: Recorder, tmp_path: UPath) -> None:
-        result = _invoke(tmp_path)
-
-        expected = f"Wrote {len(RANDOMIZED)} randomized datasets to {tmp_path / 'randomized'}"
-        assert expected in plain(result.output)
-
-    def test_empty_result_still_reports_zero(
-        self, monkeypatch: pytest.MonkeyPatch, loader: Recorder, tmp_path: UPath
-    ) -> None:
-        monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type("Stub", (), {}))
-        patch_worker(monkeypatch, "drevalpy.experiment._randomization", "randomization", Recorder(return_value=[]))
-
-        result = _invoke(tmp_path)
-
-        assert "Wrote 0 randomized datasets" in plain(result.output)
+    assert worker.args[2] == ["SVCC", "SVRD"]
 
 
-class TestUnknownModel:
-    def test_is_reported_and_creates_no_output_directory(
-        self, monkeypatch: pytest.MonkeyPatch, loader: Recorder, tmp_path: UPath
-    ) -> None:
-        from drevalpy.models.spec import UnknownModelError
+@pytest.mark.parametrize("flag", ["--randomization-type", "-t"])
+def test_randomization_type_and_seed_overrides(worker: Recorder, tmp_path: UPath, flag: str) -> None:
+    _invoke(tmp_path, flag, "invariant", "--seed", "7")
 
-        def unknown(name: str) -> None:
-            raise UnknownModelError(name, "no such model")
+    assert worker.kwargs == {"randomization_type": "invariant", "random_state": 7}
 
-        monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", unknown)
 
-        result = _invoke(tmp_path)
+@pytest.mark.parametrize(
+    "extra", [["-m", "SVXX"], ["--seed", "seed"], ["--random-state", "7"]], ids=["mode", "seed", "renamed-option"]
+)
+def test_invalid_options_are_usage_errors_before_the_worker(
+    worker: Recorder, tmp_path: UPath, extra: list[str]
+) -> None:
+    result = _invoke(tmp_path, *extra)
 
-        assert result.exit_code == 1
-        assert plain(result.output).startswith("Error: ")
-        assert not (tmp_path / "randomized").exists()
+    assert result.exit_code == 2
+    assert worker.call_count == 0
+
+
+def test_writes_one_file_per_randomized_dataset_and_echoes_the_count(worker: Recorder, tmp_path: UPath) -> None:
+    out_dir = tmp_path / "nested" / "randomized"
+
+    result = runner.invoke(app, ["experiments", "randomization", "ElasticNet", "TOYv1", str(out_dir)])
+
+    written = sorted(p.name for p in out_dir.glob("*.h5mu"))
+    assert written == sorted(f"{mode}__{view}.h5mu" for mode, view in RANDOMIZED)
+    assert f"Wrote {len(RANDOMIZED)} randomized datasets to {out_dir}" in plain(result.output)
+
+
+@pytest.mark.parametrize(
+    ("datasets", "filename", "message"),
+    [([FakeDataset(randomization=None)], "unknown__0.h5mu", "Wrote 1"), ([], None, "Wrote 0 randomized datasets")],
+    ids=["untagged-falls-back-to-unknown", "empty-result"],
+)
+def test_untagged_and_empty_results(
+    monkeypatch: pytest.MonkeyPatch,
+    loader: Recorder,
+    tmp_path: UPath,
+    datasets: list[FakeDataset],
+    filename: str | None,
+    message: str,
+) -> None:
+    monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type("Stub", (), {}))
+    patch_worker(monkeypatch, "drevalpy.experiment._randomization", "randomization", Recorder(return_value=datasets))
+
+    result = _invoke(tmp_path)
+
+    assert message in plain(result.output)
+    if filename:
+        assert (tmp_path / "randomized" / filename).exists()
+
+
+def test_an_unknown_model_is_reported_and_creates_no_output_directory(
+    monkeypatch: pytest.MonkeyPatch, loader: Recorder, tmp_path: UPath
+) -> None:
+    from drevalpy.models.spec import UnknownModelError
+
+    def unknown(name: str) -> None:
+        raise UnknownModelError(name, "no such model")
+
+    monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", unknown)
+
+    result = _invoke(tmp_path)
+
+    assert result.exit_code == 1
+    assert plain(result.output).startswith("Error: ")
+    assert not (tmp_path / "randomized").exists()
 
 
 class TestOnRealFiles:
-    """The command on real ``.h5mu`` files; a file it writes is a randomization run once ``single`` has trained on it.
-
-    Each case reads and writes real synthetic data, which costs over 0.2s.
-    """
+    """The command on real ``.h5mu`` files; ``single`` records a file it wrote as a randomization run."""
 
     pytestmark = pytest.mark.slow
 
     @pytest.fixture()
     def written(self, tmp_path: UPath) -> tuple[UPath, UPath, UPath]:
-        """Write the synthetic dataset and first fold, then the SVRC file the command writes for ElasticNet."""
         dataset, fold = write_synthetic_fold(runner, tmp_path)
         result = runner.invoke(
             app, ["experiments", "randomization", "ElasticNet", str(dataset), str(tmp_path / "rand")]
@@ -293,7 +222,6 @@ class TestOnRealFiles:
         assert (tmp_path / "rand" / "SVRC__gene_expression.h5mu").is_file()
 
     def test_a_randomization_the_dataset_cannot_perform_writes_no_file(self, tmp_path: UPath) -> None:
-        """``data synthetic`` files hold SMILES, not the fingerprint ElasticNet derives from them."""
         dataset, _ = write_synthetic_fold(runner, tmp_path)
 
         result = runner.invoke(

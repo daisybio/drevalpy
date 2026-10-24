@@ -1,9 +1,4 @@
-"""Tests for the block-interface predictor base.
-
-The per-predictor interface assertions were carved out of
-``literature/test_init.py``, which now keeps only the package-boundary policy
-checks; the interface itself is a property of ``abstract/block.py``.
-"""
+"""Tests for the block-interface predictor base."""
 
 from __future__ import annotations
 
@@ -36,28 +31,13 @@ def _register_components() -> None:
     register_builtin_components()
 
 
-def test_block_predictor_declares_the_block_input_interface() -> None:
+def test_block_predictor_is_an_abstract_block_interface_distinct_from_matrix() -> None:
     assert BlockPredictor.input_interface == "block"
-
-
-def test_block_predictor_derives_from_the_shared_predictor_base() -> None:
     assert issubclass(BlockPredictor, Predictor)
-
-
-def test_block_predictor_cannot_be_instantiated_directly() -> None:
+    assert not issubclass(BlockPredictor, MatrixPredictor)
+    assert {"_fit", "_predict"} <= BlockPredictor.__abstractmethods__
     with pytest.raises(TypeError):
         BlockPredictor()
-
-
-@pytest.mark.parametrize("method_name", ["_fit", "_predict"])
-def test_block_predictor_leaves_fit_and_predict_abstract(method_name: str) -> None:
-    assert method_name in BlockPredictor.__abstractmethods__
-    assert getattr(BlockPredictor, method_name).__isabstractmethod__ is True
-
-
-def test_block_predictor_does_not_flatten_batches_like_the_matrix_base() -> None:
-    assert not issubclass(BlockPredictor, MatrixPredictor)
-    assert BlockPredictor.input_interface != MatrixPredictor.input_interface
 
 
 def test_block_predictor_subclass_supplying_both_hooks_is_concrete() -> None:

@@ -6,18 +6,13 @@ import numpy as np
 
 from drevalpy.components.contracts.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.registry.predictor import PredictorRegistry, predictor_registry
+from drevalpy.registry.predictor import PredictorRegistry
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
-def test_predictor_registry_uses_fixed_identity() -> None:
+def test_an_isolated_registry_registers_with_contracts() -> None:
     registry = PredictorRegistry()
     assert registry._registry_id == "predictor"
-    assert predictor_registry._display_name == "predictors"
-
-
-def test_isolated_predictor_registry_registers_with_contracts() -> None:
-    registry = PredictorRegistry()
 
     @registry.register(
         "localPred",

@@ -20,23 +20,15 @@ from drevalpy.errors import InvalidInputError, UnknownNameError
 from tests.conftest import MockFeatureSource
 
 
-def test_gene_names_from_symbol_column(tmp_path: UPath) -> None:
+@pytest.mark.parametrize(("column", "expected"), [("Symbol", ["A", "B"]), ("gene_name", ["A", "B"]), ("other", None)])
+def test_gene_names_read_known_columns_and_reject_unknown(tmp_path: UPath, column: str, expected) -> None:
     path = tmp_path / "genes.csv"
-    pd.DataFrame({"Symbol": ["A", "B", "C"]}).to_csv(path, index=False)
-    assert gene_names_from_list_csv(path) == ["A", "B", "C"]
-
-
-def test_gene_names_from_gene_name_column(tmp_path: UPath) -> None:
-    path = tmp_path / "genes.csv"
-    pd.DataFrame({"gene_name": ["X", "Y"]}).to_csv(path, index=False)
-    assert gene_names_from_list_csv(path) == ["X", "Y"]
-
-
-def test_gene_names_rejects_unknown_columns(tmp_path: UPath) -> None:
-    path = tmp_path / "genes.csv"
-    pd.DataFrame({"other": ["A"]}).to_csv(path, index=False)
-    with pytest.raises(InvalidInputError, match="recognized gene-name column"):
-        gene_names_from_list_csv(path)
+    pd.DataFrame({column: ["A", "B"]}).to_csv(path, index=False)
+    if expected is None:
+        with pytest.raises(InvalidInputError, match="recognized gene-name column"):
+            gene_names_from_list_csv(path)
+    else:
+        assert gene_names_from_list_csv(path) == expected
 
 
 def test_resolve_gene_list_path_uses_packaged_csv() -> None:

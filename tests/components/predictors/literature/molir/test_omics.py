@@ -3,62 +3,29 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
 
 
-def test_realign_omic_matrix_realigns_columns_and_fills_missing() -> None:
-    model_features = ["g1", "g2"]
-    incoming_features = ["g0", "g1", "g2"]
-    values = np.array([[1.0, 2.0, 3.0]])
+@pytest.mark.parametrize(
+    ("values", "model_features", "incoming_features", "expected"),
+    [
+        ([1.0, 2.0, 3.0], ["g1", "g2"], ["g0", "g1", "g2"], [2.0, 3.0]),
+        ([6.0, 7.0, 8.0], ["c2", "c1"], ["c0", "c1", "c2"], [8.0, 7.0]),
+        ([10.0, 20.0], ["a", "b", "c"], ["b", "d"], [0.0, 10.0, 0.0]),
+        ([10.0, 20.0, 30.0], ["a", "b", "c"], ["c", "a", "b"], [20.0, 30.0, 10.0]),
+        ([10.0, 20.0, 30.0], ["a", "b", "missing"], ["c", "a", "b"], [20.0, 30.0, 0.0]),
+    ],
+    ids=["narrow", "reorder", "zero-fill", "equal-width-permutation", "equal-width-missing"],
+)
+def test_realign_omic_matrix(values, model_features, incoming_features, expected) -> None:
+    result = _realign_omic_matrix(np.array([values]), model_features, incoming_features)
 
-    result = _realign_omic_matrix(values, model_features, incoming_features)
-
-    assert result.shape == (1, 2)
-    np.testing.assert_allclose(result, [[2.0, 3.0]])
-
-
-def test_realign_omic_matrix_reorders_columns() -> None:
-    model_features = ["c2", "c1"]
-    incoming_features = ["c0", "c1", "c2"]
-    values = np.array([[6.0, 7.0, 8.0]])
-
-    result = _realign_omic_matrix(values, model_features, incoming_features)
-
-    assert result.shape == (1, 2)
-    np.testing.assert_allclose(result, [[8.0, 7.0]])
+    np.testing.assert_allclose(result, [expected])
 
 
-def test_realign_omic_matrix_fills_missing_with_zeros() -> None:
-    model_features = ["a", "b", "c"]
-    incoming_features = ["b", "d"]
-    values = np.array([[10.0, 20.0]])
-
-    result = _realign_omic_matrix(values, model_features, incoming_features)
-
-    assert result.shape == (1, 3)
-    np.testing.assert_allclose(result, [[0.0, 10.0, 0.0]])
-
-
-def test_realign_omic_matrix_passes_matching_width_through_unchanged() -> None:
+def test_realign_omic_matrix_passes_matching_features_through_unchanged() -> None:
     values = np.array([[1.0, 2.0]])
 
-    result = _realign_omic_matrix(values, ["a", "b"], ["a", "b"])
-
-    assert result is values
-
-
-def test_realign_omic_matrix_reorders_an_equally_wide_permutation() -> None:
-    values = np.array([[10.0, 20.0, 30.0]])
-
-    result = _realign_omic_matrix(values, ["a", "b", "c"], ["c", "a", "b"])
-
-    np.testing.assert_allclose(result, [[20.0, 30.0, 10.0]])
-
-
-def test_realign_omic_matrix_zero_fills_an_equally_wide_missing_feature() -> None:
-    values = np.array([[10.0, 20.0, 30.0]])
-
-    result = _realign_omic_matrix(values, ["a", "b", "missing"], ["c", "a", "b"])
-
-    np.testing.assert_allclose(result, [[20.0, 30.0, 0.0]])
+    assert _realign_omic_matrix(values, ["a", "b"], ["a", "b"]) is values

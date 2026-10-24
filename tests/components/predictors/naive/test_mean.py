@@ -1,4 +1,4 @@
-"""Tests for global naive mean predictor."""
+"""Tests for the global naive mean predictor."""
 
 from __future__ import annotations
 
@@ -8,36 +8,11 @@ from drevalpy.components.predictors.naive.mean import NaiveMeanPredictor
 from tests.components.predictors.naive._helpers import naive_batch
 
 
-def test_naive_mean_predictor_returns_dataset_mean() -> None:
+def test_predicts_the_dataset_mean_for_any_batch_and_round_trips_state() -> None:
     predictor = NaiveMeanPredictor()
-    batch = naive_batch(response=np.array([2.0, 4.0]))
-    predictor.fit(batch)
-    preds = predictor.predict(batch)
-    assert preds.tolist() == [3.0, 3.0]
-
-
-def test_naive_mean_predictor_ignores_ids_and_matrices() -> None:
-    predictor = NaiveMeanPredictor()
-    fit_batch = naive_batch(
-        response=np.array([1.0, 5.0]),
-        sample_ids=np.array(["wrong_a", "wrong_b"]),
-        drug_ids=np.array(["wrong_x", "wrong_y"]),
-    )
-    predictor.fit(fit_batch)
-    preds = predictor.predict(
-        naive_batch(
-            n_pairs=3,
-            sample_ids=np.array(["a", "b", "c"]),
-            drug_ids=np.array(["x", "y", "z"]),
-        )
-    )
-    assert preds.tolist() == [3.0, 3.0, 3.0]
-
-
-def test_naive_mean_state_roundtrip() -> None:
-    predictor = NaiveMeanPredictor()
-    predictor.fit(naive_batch(response=np.array([2.0, 6.0])))
+    predictor.fit(naive_batch(response=np.array([1.0, 5.0]), sample_ids=np.array(["x", "y"])))
     restored = NaiveMeanPredictor()
     restored.set_state(predictor.get_state())
-    preds = restored.predict(naive_batch(n_pairs=2))
-    assert preds.tolist() == [4.0, 4.0]
+
+    assert predictor.predict(naive_batch(n_pairs=3, sample_ids=np.array(["a", "b", "c"]))).tolist() == [3.0] * 3
+    assert restored.predict(naive_batch(n_pairs=2)).tolist() == [3.0, 3.0]

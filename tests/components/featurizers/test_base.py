@@ -1,20 +1,4 @@
-"""Tests for the ``Featurizer`` base class contract and the registry sweeps over it.
-
-Mirrors :mod:`drevalpy.components.featurizers.base`, which is where the public
-NaN-safe ``fit`` / ``transform`` / ``transform_blocks`` wrappers, the abstract
-subclass hooks they call, and the default hyperparameter-space and fitted-state
-hooks live. The registry sweeps assert class-body declarations across every
-registered featurizer, so they belong to this module rather than to any single
-concrete featurizer.
-
-Two neighbours cover what ``base.py`` delegates to: ``test_declarations.py`` for
-the ``contract`` / ``input_views`` / output-block declarations and
-``test_nan_tolerance.py`` for the ``_detect_valid`` / ``_expand_blocks_with_nan``
-/ ``_warn_if_above_threshold`` policy the wrappers below bracket their hooks with.
-The HPO-space and fitted-state hooks now come from ``TunableComponentMixin``,
-whose own contract is pinned in ``tests/components/contracts/test_hyperparameter_space.py``;
-what the cases here assert is that a ``Featurizer`` inherits them.
-"""
+"""Tests for the ``Featurizer`` base class contract and the registry sweeps over it."""
 
 from __future__ import annotations
 
@@ -130,24 +114,15 @@ _DRUG_CONTRACTS = [
 ]
 
 
-@pytest.mark.parametrize(("name", "expected_format"), _SAMPLE_CONTRACTS)
-def test_sample_literature_featurizer_contracts(
-    name: str,
-    expected_format: FeatureFormat,
+@pytest.mark.parametrize(
+    ("name", "getter", "expected_format"),
+    [(n, get_sample_featurizer, f) for n, f in _SAMPLE_CONTRACTS]
+    + [(n, get_drug_featurizer, f) for n, f in _DRUG_CONTRACTS],
+)
+def test_literature_featurizer_contracts(
+    name: str, getter: Callable[[str], type], expected_format: FeatureFormat
 ) -> None:
-    cls = get_sample_featurizer(name)
-    contract = featurizer_contract(cls)
-    assert isinstance(contract, FeatureContract)
-    assert contract.format == expected_format
-
-
-@pytest.mark.parametrize(("name", "expected_format"), _DRUG_CONTRACTS)
-def test_drug_literature_featurizer_contracts(
-    name: str,
-    expected_format: FeatureFormat,
-) -> None:
-    cls = get_drug_featurizer(name)
-    contract = featurizer_contract(cls)
+    contract = featurizer_contract(getter(name))
     assert isinstance(contract, FeatureContract)
     assert contract.format == expected_format
 
@@ -168,19 +143,7 @@ def test_literature_featurizer_source_views_exist_in_the_fixture(
     getter: Callable[[str], type],
     synthetic_dataset: Dataset,
 ) -> None:
-    """Every literature featurizer's raw inputs are present in the synthetic fixture.
-
-    Views are resolved through :data:`OMICS_ACCESSORS` before being looked up,
-    because the fixture stores omics under the accessor the published datasets
-    use. That resolution is exactly what the library's own read sites still do
-    not do, which is why ``molirOmics`` and ``superfeltrOmics`` work here yet
-    their models are xfailed in the model tests: the data is present, the lookup
-    is what asks for the wrong name.
-
-    :param name: Featurizer registry name.
-    :param getter: Registry lookup for the featurizer's side.
-    :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
-    """
+    """Views are resolved through the omics accessors, as the fixture stores omics under the published names."""
     if name in _NO_FIXTURE_SOURCE:
         pytest.skip(f"{name} declares no source views the fixture can supply")
 
@@ -197,165 +160,50 @@ def test_literature_featurizer_source_views_exist_in_the_fixture(
     assert not missing, f"{name} reads {missing}, which the synthetic fixture does not provide"
 
 
-# ----------------------------------------------------------------------
-# NaN tolerance in fit / transform / transform_blocks
-# ----------------------------------------------------------------------
-
-
 @pytest.fixture
-def mixed_source() -> tuple[StubSource, np.ndarray]:
-    """Source with 5 entities where the first and last rows are all-NaN."""
-    ids = np.array(["A", "B", "C", "D", "E"])
-    matrix = np.array(
-        [
-            [np.nan, np.nan, np.nan],
-            [1.0, 2.0, 3.0],
-            [4.0, 5.0, 6.0],
-            [7.0, 8.0, 9.0],
-            [np.nan, np.nan, np.nan],
-        ],
-        dtype=np.float32,
-    )
-    return StubSource(matrix, ids), ids
+def sources() -> dict[str, tuple[StubSource, np.ndarray]]:
+    nan_row = [np.nan] * 3
+    matrices = {
+        "valid": ["ABC", [[1, 2, 3], [4, 5, 6], [7, 8, 9]]],
+        "mixed": ["ABCDE", [nan_row, [1, 2, 3], [4, 5, 6], [7, 8, 9], nan_row]],
+        "all_nan": ["XYZ", [nan_row] * 3],
+    }
+    out = {}
+    for key, (ids, rows) in matrices.items():
+        ids = np.array(list(ids))
+        out[key] = (StubSource(np.array(rows, dtype=np.float32), ids), ids)
+    return out
 
 
-@pytest.fixture
-def all_nan_source() -> tuple[StubSource, np.ndarray]:
-    """Source where every entity row is all-NaN."""
-    ids = np.array(["X", "Y", "Z"])
-    matrix = np.full((3, 3), np.nan, dtype=np.float32)
-    return StubSource(matrix, ids), ids
-
-
-@pytest.fixture
-def all_valid_source() -> tuple[StubSource, np.ndarray]:
-    """Source where every entity row is valid."""
-    ids = np.array(["A", "B", "C"])
-    matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float32)
-    return StubSource(matrix, ids), ids
-
-
-class TestTransformNaNTolerance:
-    """Tests for the transform() NaN tolerance wrapper."""
-
-    def test_all_valid_passes_through(self, all_valid_source):
-        source, ids = all_valid_source
-        feat = DoublingFeaturizer()
-        feat.fit(source, entity_ids=ids)
-        result = feat.transform(source, ids)
-        expected = np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]], dtype=np.float32)
-        np.testing.assert_array_almost_equal(result, expected)
-
-    def test_mixed_valid_invalid(self, mixed_source):
-        source, ids = mixed_source
-        feat = DoublingFeaturizer()
-        feat.fit(source, entity_ids=ids)
-        result = feat.transform(source, ids)
-        assert result.shape == (5, 3)
-        assert np.all(np.isnan(result[0]))
-        assert np.all(np.isnan(result[4]))
-        np.testing.assert_array_almost_equal(result[1], [2, 4, 6])
-        np.testing.assert_array_almost_equal(result[2], [8, 10, 12])
-        np.testing.assert_array_almost_equal(result[3], [14, 16, 18])
-
-    def test_all_nan_produces_nan_output(self, all_nan_source):
-        source, ids = all_nan_source
-        feat = DoublingFeaturizer()
-        feat.fit(source, entity_ids=ids)
-        result = feat.transform(source, ids)
-        assert result.shape[0] == 3
-        assert np.all(np.isnan(result))
-
-
-class TestTransformBlocksNaNTolerance:
-    """Tests for the transform_blocks() NaN tolerance wrapper."""
-
-    def test_all_valid_passes_through(self, all_valid_source):
-        source, ids = all_valid_source
-        feat = DoublingFeaturizer()
-        feat.fit(source, entity_ids=ids)
-        blocks = feat.transform_blocks(source, ids)
-        assert "test_view" in blocks
-        expected = np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]], dtype=np.float32)
-        np.testing.assert_array_almost_equal(blocks["test_view"].values, expected)
-
-    def test_mixed_valid_invalid(self, mixed_source):
-        source, ids = mixed_source
-        feat = DoublingFeaturizer()
-        feat.fit(source, entity_ids=ids)
-        blocks = feat.transform_blocks(source, ids)
-        values = blocks["test_view"].values
-        assert values.shape == (5, 3)
-        assert np.all(np.isnan(values[0]))
-        assert np.all(np.isnan(values[4]))
-        np.testing.assert_array_almost_equal(values[1], [2, 4, 6])
-        np.testing.assert_array_almost_equal(values[2], [8, 10, 12])
-        np.testing.assert_array_almost_equal(values[3], [14, 16, 18])
-
-    def test_all_nan_produces_nan_blocks(self, all_nan_source):
-        source, ids = all_nan_source
-        feat = DoublingFeaturizer()
-        feat.fit(source, entity_ids=ids)
-        blocks = feat.transform_blocks(source, ids)
-        values = blocks["test_view"].values
-        assert values.shape[0] == 3
-        assert np.all(np.isnan(values))
-
-
-class TestNaNWarning:
-    """The wrappers pass their own context label into the shared warning."""
-
-    def test_warning_above_threshold(self, mixed_source, caplog, monkeypatch):
-        source, ids = mixed_source
-        monkeypatch.setattr(DoublingFeaturizer, "nan_threshold", 0.2)
-        feat = DoublingFeaturizer()
-        feat.fit(source, entity_ids=ids)
-        with caplog.at_level(logging.WARNING, logger=_NAN_LOGGER):
-            feat.transform(source, ids)
-        assert any("transform" in record.message for record in caplog.records)
-
-    def test_no_warning_below_threshold(self, mixed_source, caplog, monkeypatch):
-        source, ids = mixed_source
-        monkeypatch.setattr(DoublingFeaturizer, "nan_threshold", 0.5)
-        feat = DoublingFeaturizer()
-        feat.fit(source, entity_ids=ids)
-        with caplog.at_level(logging.WARNING, logger=_NAN_LOGGER):
-            feat.transform(source, ids)
-        nan_warnings = [r for r in caplog.records if "invalid" in r.message.lower()]
-        assert not nan_warnings
-
-
-class TestConsistency:
-    """Verify transform and transform_blocks produce consistent NaN handling."""
-
-    def test_transform_and_blocks_agree(self, mixed_source):
-        source, ids = mixed_source
-        feat = DoublingFeaturizer()
-        feat.fit(source, entity_ids=ids)
-        matrix = feat.transform(source, ids)
-        blocks = feat.transform_blocks(source, ids)
-        block_values = blocks["test_view"].values
-        np.testing.assert_array_equal(
-            np.isnan(matrix),
-            np.isnan(block_values),
-        )
-        valid_mask = ~np.isnan(matrix).all(axis=1)
-        np.testing.assert_array_almost_equal(matrix[valid_mask], block_values[valid_mask])
-
-
-# ----------------------------------------------------------------------
-# The abstract contract's own default hooks
-# ----------------------------------------------------------------------
-
-
-def test_default_state_hooks_are_no_ops() -> None:
+@pytest.mark.parametrize("method", ["transform", "transform_blocks"])
+@pytest.mark.parametrize("kind", ["valid", "mixed", "all_nan"])
+def test_nan_rows_pass_through_as_nan_and_valid_rows_are_transformed(sources, method, kind) -> None:
+    source, ids = sources[kind]
     feat = DoublingFeaturizer()
+    feat.fit(source, entity_ids=ids)
+    out = getattr(feat, method)(source, ids)
+    values = out if method == "transform" else out["test_view"].values
+    expected = source.get_view_matrix("test_view", ids) * 2
+    assert values.shape == expected.shape
+    np.testing.assert_array_equal(np.isnan(values), np.isnan(expected))
+    np.testing.assert_allclose(values, expected, equal_nan=True)
 
+
+@pytest.mark.parametrize(("threshold", "warns"), [(0.2, True), (0.5, False)])
+def test_transform_warns_only_above_the_nan_threshold(sources, caplog, monkeypatch, threshold, warns) -> None:
+    source, ids = sources["mixed"]
+    monkeypatch.setattr(DoublingFeaturizer, "nan_threshold", threshold)
+    feat = DoublingFeaturizer()
+    feat.fit(source, entity_ids=ids)
+    with caplog.at_level(logging.WARNING, logger=_NAN_LOGGER):
+        feat.transform(source, ids)
+    assert any("transform" in record.message for record in caplog.records) is warns
+
+
+def test_default_hooks_are_no_ops() -> None:
+    feat = DoublingFeaturizer()
     assert feat.get_state() == {}
     assert feat.set_state({"anything": 1}) is None
-
-
-def test_default_hyperparameter_space_is_empty() -> None:
     assert DoublingFeaturizer.get_hyperparameter_space() == {}
     assert DoublingFeaturizer.get_default_hyperparameters() == {}
 
@@ -469,96 +317,6 @@ def test_transform_features_pads_object_rows_and_preserves_metadata() -> None:
     assert result.matrix[1].tolist() == ["good"]
     assert result.blocks["payload"].values[0] is None
     assert result.blocks["labels"].values.tolist() == ["fixed"]
-
-
-# ----------------------------------------------------------------------
-# store / fetch / list_stored_variants against a real MuData
-# ----------------------------------------------------------------------
-
-
-class _StoredSample(DoublingFeaturizer):
-    """Sample-side featurizer with a storage key, for variant round-trips."""
-
-    storage_key = "stored_sample"
-    side = "sample"
-
-
-class _StoredDrug(DoublingFeaturizer):
-    """Drug-side featurizer with a storage key, for variant round-trips."""
-
-    storage_key = "stored_drug"
-    side = "drug"
-
-
-def test_fetch_returns_none_when_no_variant_matches() -> None:
-    from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
-
-    dataset = synthetic_mudataset_gene_expression_fingerprints()
-
-    assert _StoredSample().fetch(dataset.mdata, dataset.sample_ids) is None
-
-
-def test_store_then_fetch_round_trips_a_sample_variant() -> None:
-    from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
-
-    dataset = synthetic_mudataset_gene_expression_fingerprints()
-    featurizer = _StoredSample()
-    payload = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-
-    featurizer.store(dataset.mdata, dataset.sample_ids, payload, {"scale": 2})
-
-    assert list(_StoredSample.list_stored_variants(dataset.mdata)) == ["stored_sample_0"]
-    np.testing.assert_allclose(
-        featurizer.fetch(dataset.mdata, dataset.sample_ids, {"scale": 2}),
-        payload,
-    )
-
-
-def test_store_then_fetch_round_trips_a_drug_variant() -> None:
-    from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
-
-    dataset = synthetic_mudataset_gene_expression_fingerprints()
-    featurizer = _StoredDrug()
-    payload = np.array([[5.0], [6.0]], dtype=np.float32)
-
-    featurizer.store(dataset.mdata, dataset.drug_ids, payload)
-
-    np.testing.assert_allclose(featurizer.fetch(dataset.mdata, dataset.drug_ids), payload)
-
-
-def test_store_allocates_a_fresh_index_per_hyperparameter_setting() -> None:
-    from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
-
-    dataset = synthetic_mudataset_gene_expression_fingerprints()
-    featurizer = _StoredSample()
-    payload = np.zeros((2, 2), dtype=np.float32)
-
-    featurizer.store(dataset.mdata, dataset.sample_ids, payload, {"scale": 2})
-    featurizer.store(dataset.mdata, dataset.sample_ids, payload, {"scale": 4})
-
-    assert list(_StoredSample.list_stored_variants(dataset.mdata)) == [
-        "stored_sample_0",
-        "stored_sample_1",
-    ]
-
-
-def test_fetch_prefers_a_modality_over_obsm() -> None:
-    from tests.models.synthetic_fixtures import synthetic_mudataset_gene_expression_fingerprints
-
-    dataset = synthetic_mudataset_gene_expression_fingerprints()
-
-    class _ModalityBacked(DoublingFeaturizer):
-        storage_key = "gene_expression"
-        side = "sample"
-
-    from drevalpy.components.featurizers.storage import register_variant
-
-    register_variant(dataset.mdata, "gene_expression", "gene_expression", None, side="sample")
-
-    matrix = _ModalityBacked().fetch(dataset.mdata, dataset.sample_ids)
-
-    assert matrix is not None
-    assert matrix.shape == (2, 3)
 
 
 @pytest.mark.parametrize("stopping_ids", [None, np.array(["missing"])])

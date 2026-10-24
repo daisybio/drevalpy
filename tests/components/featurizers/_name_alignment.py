@@ -18,23 +18,13 @@ Views = Mapping[str, tuple[np.ndarray, Sequence[str]]]
 
 
 def random_views(names_by_view: Mapping[str, Sequence[str]], n_samples: int = 6, seed: int = 0) -> Views:
-    """Return positive random matrices, one per view, with the given feature names.
-
-    :param names_by_view: View name -> feature names.
-    :param n_samples: Number of samples (rows).
-    :param seed: RNG seed.
-    :returns: View name -> ``(matrix, names)``.
-    """
+    """Return positive random matrices, one per view, with the given feature names."""
     rng = np.random.default_rng(seed)
     return {view: (rng.uniform(1.0, 10.0, (n_samples, len(names))), names) for view, names in names_by_view.items()}
 
 
 def mock_source(views: Views) -> MockFeatureSource:
-    """Build a feature source holding *views* for samples ``s0..s{n-1}``.
-
-    :param views: View name -> ``(matrix, names)``.
-    :returns: Mock feature source.
-    """
+    """Build a feature source holding *views* for samples ``s0..s{n-1}``."""
     n_samples = next(iter(views.values()))[0].shape[0]
     return MockFeatureSource(
         {f"s{i}": {view: matrix[i] for view, (matrix, _) in views.items()} for i in range(n_samples)},

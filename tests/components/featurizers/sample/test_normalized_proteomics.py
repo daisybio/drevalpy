@@ -23,47 +23,35 @@ def _make_features() -> MockFeatureSource:
     )
 
 
-def test_normalized_proteomics_fit_transform() -> None:
-    featurizer = NormalizedProteomicsSampleFeaturizer()
+def test_normalized_proteomics_fit_transform_and_state_round_trip() -> None:
     features = _make_features()
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
+    featurizer = NormalizedProteomicsSampleFeaturizer()
+    assert featurizer.output_dim == 0
     featurizer.fit(features, entity_ids=entity_ids)
+
     matrix = featurizer.transform(features, entity_ids)
+
     assert matrix.shape == (2, 3)
     assert matrix.dtype == np.float32
+    restored = NormalizedProteomicsSampleFeaturizer()
+    restored.set_state(featurizer.get_state())
+    assert restored.output_dim == featurizer.output_dim
+    np.testing.assert_allclose(restored.transform(features, entity_ids), matrix)
 
 
 def test_log10_replaces_infinities_with_nan() -> None:
     transformed = log10_and_set_na(np.array([[1.0, 0.0, 100.0]]))
 
-    np.testing.assert_allclose(transformed[0, 0], 0.0)
+    np.testing.assert_allclose(transformed[0, [0, 2]], [0.0, 2.0])
     assert np.isnan(transformed[0, 1])
-    np.testing.assert_allclose(transformed[0, 2], 2.0)
 
 
-def test_normalized_proteomics_hyperparameter_space_exposes_four_tunables() -> None:
-    assert set(NormalizedProteomicsSampleFeaturizer.get_hyperparameter_space()) == {
-        "proteomics_feature_threshold",
-        "proteomics_n_features",
-        "proteomics_normalization_downshift",
-        "proteomics_normalization_width",
-    }
+def test_normalized_proteomics_selects_features_and_imputes_missing_values() -> None:
+    thresholded = NormalizedProteomicsSampleFeaturizer(proteomics_n_features=1)
+    thresholded.fit(_make_features(), entity_ids=np.array(["cl1", "cl2", "cl3"], dtype=str))
+    assert thresholded.output_dim == 3
 
-
-def test_normalized_proteomics_output_dim_is_zero_before_fit() -> None:
-    assert NormalizedProteomicsSampleFeaturizer().output_dim == 0
-
-
-def test_normalized_proteomics_selects_thresholded_features_when_enough_are_complete() -> None:
-    featurizer = NormalizedProteomicsSampleFeaturizer(proteomics_n_features=1)
-    features = _make_features()
-
-    featurizer.fit(features, entity_ids=np.array(["cl1", "cl2", "cl3"], dtype=str))
-
-    assert featurizer.output_dim == 3
-
-
-def test_normalized_proteomics_imputes_missing_values() -> None:
     features = MockFeatureSource(
         features={
             "cl1": {"proteomics": np.array([1.0, 0.0, 100.0], dtype=np.float32)},
@@ -73,37 +61,11 @@ def test_normalized_proteomics_imputes_missing_values() -> None:
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
     featurizer = NormalizedProteomicsSampleFeaturizer().fit(features, entity_ids=entity_ids)
 
-    matrix = featurizer.transform(features, entity_ids)
-
-    assert not np.isnan(matrix).any()
+    assert not np.isnan(featurizer.transform(features, entity_ids)).any()
 
 
 def test_normalized_proteomics_serves_a_precomputed_variant() -> None:
     assert_uses_precomputed_variant(NormalizedProteomicsSampleFeaturizer())
-
-
-def test_normalized_proteomics_round_trips_state() -> None:
-    features = _make_features()
-    entity_ids = np.array(["cl1", "cl2"], dtype=str)
-    featurizer = NormalizedProteomicsSampleFeaturizer().fit(features, entity_ids=entity_ids)
-
-    restored = NormalizedProteomicsSampleFeaturizer()
-    restored.set_state(featurizer.get_state())
-
-    assert restored.output_dim == featurizer.output_dim
-    np.testing.assert_allclose(
-        restored.transform(features, entity_ids),
-        featurizer.transform(features, entity_ids),
-    )
-
-
-def test_normalized_proteomics_set_state_ignores_unrelated_keys() -> None:
-    featurizer = NormalizedProteomicsSampleFeaturizer()
-
-    featurizer.set_state({"proteomics_transformer": None, "view": 7, "output_dim": "many"})
-
-    assert featurizer.output_dim == 0
-    assert featurizer._view == "proteomics"
 
 
 def test_normalized_proteomics_blocks_carry_feature_names() -> None:

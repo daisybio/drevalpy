@@ -33,87 +33,44 @@ _SKLEARN_PRESETS = (
 )
 
 
-@pytest.mark.parametrize("preset", _NAIVE_PRESETS)
-def test_naive_direct_component_round_trip(preset: str) -> None:
-    mudataset = synthetic_mudataset_identity()
+@pytest.mark.parametrize(
+    ("preset", "naive"),
+    [(preset, True) for preset in _NAIVE_PRESETS] + [(preset, False) for preset in _SKLEARN_PRESETS],
+)
+def test_direct_component_round_trip(preset: str, naive: bool) -> None:
+    mudataset = synthetic_mudataset_identity() if naive else synthetic_mudataset_gene_expression_fingerprints()
     split = lso_split_masks()
-    model = DRPModel(ModelSpec.from_name(preset))
+    model = DRPModel(ModelSpec.from_name(preset) if naive else small_data_spec(preset))
     model.train(mudataset, split.train)
     preds = model.predict(mudataset, split.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
-        checkpoint = f"{tmp}/model"
-        model.save(checkpoint)
-        loaded = DRPModel.load(checkpoint)
-        loaded_preds = loaded.predict(mudataset, split.test)
+        model.save(f"{tmp}/model")
+        loaded_preds = DRPModel.load(f"{tmp}/model").predict(mudataset, split.test)
     assert np.allclose(preds, loaded_preds)
 
 
-@pytest.mark.parametrize("preset", _SKLEARN_PRESETS)
-def test_sklearn_direct_component_round_trip(preset: str) -> None:
-    mudataset = synthetic_mudataset_gene_expression_fingerprints()
-    split = lso_split_masks()
-    model = DRPModel(small_data_spec(preset))
-    model.train(mudataset, split.train)
-    preds = model.predict(mudataset, split.test)
-    assert preds.shape[0] > 0
-    assert np.isfinite(preds).all()
-    with tempfile.TemporaryDirectory() as tmp:
-        checkpoint = f"{tmp}/model"
-        model.save(checkpoint)
-        loaded = DRPModel.load(checkpoint)
-        loaded_preds = loaded.predict(mudataset, split.test)
-    assert np.allclose(preds, loaded_preds)
-
-
-def test_multi_drug_sklearn_rejects_missing_drug_featurizer() -> None:
-    from drevalpy.models.config import from_dict, validate
-
+def test_featurizer_requirements_by_predictor_scope() -> None:
     with pytest.raises(ValueError, match="requires a drug_featurizer"):
-        validate(
-            from_dict(
-                {
-                    "sample_featurizer": "scaledGeneExpression",
-                    "predictor": "elasticNet",
-                }
-            )
-        )
+        validate(from_dict({"sample_featurizer": "scaledGeneExpression", "predictor": "elasticNet"}))
 
+    single = from_dict({"sample_featurizer": "scaledGeneExpression", "predictor": "singleDrugElasticNet"})
+    validate(single)
+    assert single.drug_featurizer is not None
+    assert single.drug_featurizer.name == "identity"
 
-def test_single_drug_sklearn_auto_injects_identity() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    config = from_dict(
-        {
-            "sample_featurizer": "scaledGeneExpression",
-            "predictor": "singleDrugElasticNet",
-        }
-    )
-    validate(config)
-    assert config.drug_featurizer is not None
-    assert config.drug_featurizer.name == "identity"
-
-
-def test_feature_free_naive_accepts_no_featurizers() -> None:
-    config = from_dict({"predictor": "naiveMean"})
-    validate(config)
+    validate(from_dict({"predictor": "naiveMean"}))
 
 
 @pytest.mark.slow
 def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
-    """Extended tier: proves the sklearn baselines train without the heavy engines.
-
-    Spawns an interpreter (~2.2s) because the pristine import graph is the
-    assertion, so it cannot share this session's process.
-    """
+    """Spawns an interpreter because the pristine import graph is the assertion."""
     script = textwrap.dedent("""
         import importlib.abc
         import importlib.machinery
         import sys
 
-        # Block optional heavy engines/extras not required for built-in sklearn baselines.
         blocked = {
             "xgboost": "blocked xgboost",
             "lightgbm": "blocked lightgbm",

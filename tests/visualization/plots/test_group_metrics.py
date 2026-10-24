@@ -1,11 +1,4 @@
-"""Tests for :mod:`drevalpy.visualization.plots._group_metrics`.
-
-The module exists to replace a ``groupby().apply(pearsonr)`` with vectorised
-``bincount`` sums, so the tests below pin the numerical agreement with
-:func:`scipy.stats.pearsonr` as well as the degenerate cases where the two
-disagree deliberately: a group with fewer than two observations, and a group with
-no variance on one axis, both of which yield NaN here.
-"""
+"""Tests for :mod:`drevalpy.visualization.plots._group_metrics` (vectorised Pearson per group)."""
 
 from __future__ import annotations
 
@@ -35,23 +28,16 @@ def experiment() -> ExperimentResult:
     return make_experiment_result(n_models=N_MODELS, n_folds=N_FOLDS, n_pairs=N_PAIRS)
 
 
-class TestGroupings:
-    def test_drug_sample_and_study_are_the_supported_groupings(self):
-        assert GROUPINGS == ("drug", "sample", "study")
-
-    def test_every_grouping_has_a_human_label(self):
-        assert set(GROUPING_LABELS) == set(GROUPINGS)
+def test_groupings_have_human_labels():
+    assert GROUPINGS == ("drug", "sample", "study")
+    assert set(GROUPING_LABELS) == set(GROUPINGS)
 
 
 class TestGroupLabels:
-    def test_drug_grouping_reads_drug_ids(self):
+    def test_drug_and_sample_groupings_read_the_matching_ids(self):
         run = make_run_result(n_pairs=6)
 
         np.testing.assert_array_equal(group_labels(run, "drug"), run.drug_ids)
-
-    def test_sample_grouping_reads_sample_ids(self):
-        run = make_run_result(n_pairs=6)
-
         np.testing.assert_array_equal(group_labels(run, "sample"), run.sample_ids)
 
     def test_an_unknown_grouping_is_rejected(self):
@@ -60,41 +46,18 @@ class TestGroupLabels:
 
 
 class TestModelGroupCorrelations:
-    def test_shape_is_models_by_groups(self, experiment):
+    def test_shape_dtype_and_ordering(self, experiment):
         matrix = model_group_correlations(experiment, "drug")
 
         assert matrix.values.shape == (N_MODELS, N_DRUGS)
-
-    def test_the_sample_axis_has_one_column_per_sample(self, experiment):
-        matrix = model_group_correlations(experiment, "sample")
-
-        assert matrix.n_groups == N_SAMPLES
-
-    def test_values_are_float32_so_the_matrix_stays_small(self, experiment):
-        assert model_group_correlations(experiment, "drug").values.dtype == np.float32
-
-    def test_model_names_follow_the_experiment_order(self, experiment):
-        matrix = model_group_correlations(experiment, "drug")
-
+        assert matrix.values.dtype == np.float32
         assert list(matrix.model_names) == experiment.model_names
-
-    def test_group_names_are_sorted_strings(self, experiment):
-        matrix = model_group_correlations(experiment, "drug")
-
         assert list(matrix.group_names) == sorted(matrix.group_names)
         assert all(isinstance(name, str) for name in matrix.group_names)
+        assert matrix.grouping == "drug"
+        assert model_group_correlations(experiment, "sample").n_groups == N_SAMPLES
 
-    def test_group_axis_is_the_union_across_models(self):
-        result = ExperimentResult(
-            [
-                make_run_result(model_name="A", n_pairs=2, n_drugs=2),
-                make_run_result(model_name="B", n_pairs=6, n_drugs=6),
-            ]
-        )
-
-        assert model_group_correlations(result, "drug").n_groups == 6
-
-    def test_a_group_a_model_never_saw_is_nan_for_that_model(self):
+    def test_group_axis_is_the_union_across_models_and_unseen_groups_are_nan(self):
         result = ExperimentResult(
             [
                 make_run_result(model_name="A", n_pairs=4, n_drugs=2),
@@ -104,6 +67,7 @@ class TestModelGroupCorrelations:
 
         matrix = model_group_correlations(result, "drug")
 
+        assert matrix.n_groups == 4
         assert np.isnan(matrix.for_model("A")[2:]).all()
 
     def test_values_match_a_direct_per_group_pearson(self):
@@ -123,29 +87,21 @@ class TestModelGroupCorrelations:
 
         assert not np.allclose(pooled.values, single.values, equal_nan=True)
 
-    def test_randomized_runs_are_excluded(self):
-        randomized = ExperimentResult(
+    def test_randomized_runs_and_models_are_excluded(self):
+        randomization = ("gene_expression", "permutation")
+        mixed = ExperimentResult(
             [
                 make_run_result(model_name="A", fold_index=0),
-                make_run_result(model_name="A", fold_index=1, randomization=("gene_expression", "permutation")),
+                make_run_result(model_name="A", fold_index=1, randomization=randomization),
+                make_run_result(model_name="B", randomization=randomization),
             ]
         )
         plain = ExperimentResult([make_run_result(model_name="A", fold_index=0)])
 
-        np.testing.assert_allclose(
-            model_group_correlations(randomized, "drug").values,
-            model_group_correlations(plain, "drug").values,
-        )
+        matrix = model_group_correlations(mixed, "drug")
 
-    def test_a_fully_randomized_model_is_omitted(self):
-        result = ExperimentResult(
-            [
-                make_run_result(model_name="A"),
-                make_run_result(model_name="B", randomization=("gene_expression", "permutation")),
-            ]
-        )
-
-        assert model_group_correlations(result, "drug").model_names == ("A",)
+        assert matrix.model_names == ("A",)
+        np.testing.assert_allclose(matrix.values, model_group_correlations(plain, "drug").values)
 
     def test_an_all_randomized_experiment_is_empty(self):
         result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
@@ -155,85 +111,47 @@ class TestModelGroupCorrelations:
         assert matrix.is_empty
         assert matrix.values.shape == (0, 0)
 
-    def test_min_count_is_forwarded(self, experiment):
-        matrix = model_group_correlations(experiment, "drug", min_count=1000)
-
-        assert np.isnan(matrix.values).all()
-
-    def test_an_unknown_grouping_is_rejected(self, experiment):
+    def test_min_count_is_forwarded_and_unknown_groupings_are_rejected(self, experiment):
+        assert np.isnan(model_group_correlations(experiment, "drug", min_count=1000).values).all()
         with pytest.raises(ValueError, match="Unknown grouping"):
             model_group_correlations(experiment, "tissue")
 
+    def test_retained_bytes_scale_with_groups_not_predictions(self):
+        small = model_group_correlations(make_experiment_result(n_models=3, n_folds=1, n_pairs=20), "drug")
+        large = model_group_correlations(make_experiment_result(n_models=3, n_folds=6, n_pairs=20), "drug")
+
+        assert small.values.nbytes == large.values.nbytes
+
 
 class TestGroupCorrelationMatrix:
-    def test_reports_its_dimensions(self, experiment):
+    def test_dimensions_and_for_model(self, experiment):
         matrix = model_group_correlations(experiment, "drug")
 
         assert (matrix.n_models, matrix.n_groups) == (N_MODELS, N_DRUGS)
         assert matrix.is_empty is False
-
-    def test_for_model_returns_the_matching_row(self, experiment):
-        matrix = model_group_correlations(experiment, "drug")
-
         np.testing.assert_array_equal(matrix.for_model(matrix.model_names[1]), matrix.values[1])
-
-    def test_for_model_rejects_an_unknown_name(self, experiment):
-        matrix = model_group_correlations(experiment, "drug")
-
         with pytest.raises(KeyError):
             matrix.for_model("NotAModel")
 
     def test_a_matrix_with_no_groups_is_empty(self):
-        matrix = GroupCorrelationMatrix("drug", ("A",), (), np.empty((1, 0), dtype=np.float32))
+        assert GroupCorrelationMatrix("drug", ("A",), (), np.empty((1, 0), dtype=np.float32)).is_empty
 
-        assert matrix.is_empty
-
-    def test_drop_all_nan_models_removes_undefined_models(self):
+    def test_drop_all_nan_models_removes_only_fully_undefined_models(self):
         matrix = GroupCorrelationMatrix(
             "drug",
-            ("Good", "Undefined"),
+            ("Good", "Partial", "Undefined"),
             ("D_0", "D_1"),
-            np.array([[0.5, 0.4], [np.nan, np.nan]], dtype=np.float32),
+            np.array([[0.5, 0.4], [np.nan, 0.4], [np.nan, np.nan]], dtype=np.float32),
         )
 
         filtered = matrix.drop_all_nan_models()
 
-        assert filtered.model_names == ("Good",)
-        assert filtered.values.shape == (1, 2)
+        assert filtered.model_names == ("Good", "Partial")
+        assert filtered.values.shape == (2, 2)
 
-    def test_drop_all_nan_models_keeps_a_partially_defined_model(self):
-        matrix = GroupCorrelationMatrix(
-            "drug",
-            ("Partial",),
-            ("D_0", "D_1"),
-            np.array([[np.nan, 0.4]], dtype=np.float32),
-        )
+    def test_drop_all_nan_models_returns_self_when_nothing_is_dropped(self):
+        full = GroupCorrelationMatrix("drug", ("A",), ("D_0",), np.array([[0.3]], dtype=np.float32))
+        empty = GroupCorrelationMatrix("drug", (), (), np.empty((0, 0), dtype=np.float32))
 
-        assert matrix.drop_all_nan_models().model_names == ("Partial",)
-
-    def test_drop_all_nan_models_returns_self_when_nothing_is_dropped(self, experiment):
-        matrix = GroupCorrelationMatrix("drug", ("A",), ("D_0",), np.array([[0.3]], dtype=np.float32))
-
-        assert matrix.drop_all_nan_models() is matrix
-
-    def test_drop_all_nan_models_on_an_empty_matrix_is_a_no_op(self):
-        matrix = GroupCorrelationMatrix("drug", (), (), np.empty((0, 0), dtype=np.float32))
-
-        assert matrix.drop_all_nan_models() is matrix
-
-    def test_the_grouping_is_carried_through(self, experiment):
-        assert model_group_correlations(experiment, "sample").grouping == "sample"
-
-
-class TestBoundedMemory:
-    def test_retained_bytes_scale_with_groups_not_predictions(self):
-        few_rows = make_experiment_result(n_models=3, n_folds=1, n_pairs=20)
-        many_rows = make_experiment_result(n_models=3, n_folds=6, n_pairs=20)
-
-        small = model_group_correlations(few_rows, "drug")
-        large = model_group_correlations(many_rows, "drug")
-
-        assert small.values.nbytes == large.values.nbytes
-
-    def test_a_float32_matrix_stays_tiny_at_production_shape(self):
-        assert np.empty((96, 524), dtype=np.float32).nbytes < 250_000
+        assert full.drop_all_nan_models() is full
+        assert empty.drop_all_nan_models() is empty

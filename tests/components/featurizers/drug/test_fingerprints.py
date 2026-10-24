@@ -1,10 +1,4 @@
-"""Tests for the Morgan fingerprint drug featurizer.
-
-Mirrors :mod:`drevalpy.components.featurizers.drug.fingerprints`. The happy path
-through ``_compute_from_source`` is already smoke-tested in
-``test_precompute_smoke.py``; this file pins the residual error and NaN paths of
-``_fingerprint_for_smiles``.
-"""
+"""Tests for the Morgan fingerprint drug featurizer; the happy path is in ``test_precompute_smoke.py``."""
 
 from __future__ import annotations
 
@@ -31,33 +25,24 @@ def test_hyperparameter_space_declares_the_four_tunables() -> None:
 
 
 def test_compute_from_source_without_smiles_raises() -> None:
-    featurizer = FingerprintsFeaturizer(n_bits=16)
     source = MockFeatureSource(features={"d1": {}})
 
     with pytest.raises(ValueError, match="no SMILES available"):
-        featurizer._compute_from_source(source, np.array(["d1"]))
+        FingerprintsFeaturizer(n_bits=16)._compute_from_source(source, np.array(["d1"]))
 
 
 def test_compute_from_source_reports_a_missing_rdkit(
-    monkeypatch: pytest.MonkeyPatch,
-    synthetic_dataset: Dataset,
+    monkeypatch: pytest.MonkeyPatch, synthetic_dataset: Dataset
 ) -> None:
     block_imports(monkeypatch, "rdkit")
-    featurizer = FingerprintsFeaturizer(n_bits=16)
     source = DrugFeatureSource(synthetic_dataset, synthetic_dataset.drug_ids)
 
     with pytest.raises(ImportError, match="rdkit is required"):
-        featurizer._compute_from_source(source, synthetic_dataset.drug_ids[:1])
+        FingerprintsFeaturizer(n_bits=16)._compute_from_source(source, synthetic_dataset.drug_ids[:1])
 
 
 @pytest.mark.parametrize(
-    "smiles",
-    [
-        pytest.param(None, id="missing"),
-        pytest.param("", id="empty-string"),
-        pytest.param(float("nan"), id="not-a-string"),
-        pytest.param("this is not a molecule", id="unparseable"),
-    ],
+    "smiles", [None, "", float("nan"), "this is not a molecule"], ids=["missing", "empty", "nan", "unparseable"]
 )
 def test_unusable_smiles_produce_a_nan_row(smiles: object) -> None:
     from drevalpy.components.featurizers.drug.fingerprints import _fingerprint_for_smiles
@@ -68,29 +53,20 @@ def test_unusable_smiles_produce_a_nan_row(smiles: object) -> None:
     assert np.all(np.isnan(row))
 
 
-def test_binary_fingerprints_are_zero_or_one() -> None:
+def test_binary_and_count_fingerprints() -> None:
     from drevalpy.components.featurizers.drug.fingerprints import _fingerprint_for_smiles
 
-    row = _fingerprint_for_smiles("CCO", _generator(), 16, False)
-
-    assert set(np.unique(row)) <= {0.0, 1.0}
-
-
-def test_count_fingerprints_can_exceed_one() -> None:
-    from drevalpy.components.featurizers.drug.fingerprints import _fingerprint_for_smiles
-
+    assert set(np.unique(_fingerprint_for_smiles("CCO", _generator(), 16, False))) <= {0.0, 1.0}
     counts = _fingerprint_for_smiles("CCCCCCCCCC", _generator(8), 8, True)
     binary = _fingerprint_for_smiles("CCCCCCCCCC", _generator(8), 8, False)
-
     assert counts.sum() > binary.sum()
 
 
 def test_compute_from_source_emits_one_row_per_drug(synthetic_dataset: Dataset) -> None:
     featurizer = FingerprintsFeaturizer(n_bits=32, use_counts=True)
     source = DrugFeatureSource(synthetic_dataset, synthetic_dataset.drug_ids)
-    drug_ids = synthetic_dataset.drug_ids[:2]
 
-    matrix = featurizer._compute_from_source(source, drug_ids)
+    matrix = featurizer._compute_from_source(source, synthetic_dataset.drug_ids[:2])
 
     assert matrix.shape == (2, 32)
 
@@ -101,9 +77,7 @@ def test_transform_blocks_are_named_fingerprints() -> None:
         meta_info={"morgan_fingerprint": ["fp1", "fp2"]},
     )
     ids = np.array(["d1"], dtype=str)
-    featurizer = FingerprintsFeaturizer().fit(source, entity_ids=ids)
-
-    blocks = featurizer.transform_blocks(source, ids)
+    blocks = FingerprintsFeaturizer().fit(source, entity_ids=ids).transform_blocks(source, ids)
 
     assert set(blocks) == {"fingerprints"}
     assert blocks["fingerprints"].feature_names == ("fp1", "fp2")

@@ -1,4 +1,4 @@
-"""Smoke test mirror for pharmaformer predictor package."""
+"""Tests for the PharmaFormer predictor."""
 
 from __future__ import annotations
 
@@ -25,11 +25,8 @@ from tests.components.predictors.literature._helpers import (
 )
 
 
-def test_pharmaformer_predictor_registry_name() -> None:
+def test_registry_name_and_set_state_requires_the_model_state() -> None:
     assert get_predictor("pharmaFormer") is PharmaFormerPredictor
-
-
-def test_set_state_requires_the_model_state() -> None:
     payload = save_trusted_mapping(
         {"predictor_hyperparameters": PharmaFormerPredictor.get_default_hyperparameters(), "gene_input_size": 6}
     )

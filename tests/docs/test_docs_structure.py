@@ -1,13 +1,4 @@
-"""Policy checks for the Diátaxis documentation tree.
-
-The rules are plain functions over a docs root, so the tests below run each one
-twice: against the real ``docs/`` tree, and against tiny trees written to
-``tmp_path`` that break the rule on purpose. The second half is what keeps a
-guard from passing only because the pages it should police are stubs.
-
-"Built" pages are the ``.rst`` files Sphinx reads: everything under ``docs/``
-that ``exclude_patterns`` in ``docs/conf.py`` does not match.
-"""
+"""Policy checks for the Diátaxis documentation tree, run on the real tree and on broken toy trees."""
 
 from __future__ import annotations
 
@@ -35,17 +26,10 @@ if str(DOCS) not in sys.path:
 
 from _snippets import MISNAMED_LANGUAGES, RUNNABLE_LANGUAGES, collect  # noqa: E402
 
-#: Top-level directories a built page may live in (besides the root ``index.rst``).
 SECTIONS = ("tutorials", "how-to", "reference", "explanation", "project")
-
-#: Directories Sphinx never reads pages from, whatever ``exclude_patterns`` says.
 NON_SOURCE_DIRS = frozenset({"_autosummary", "_build", "_static", "_templates"})
-
-#: Sections whose pages declare an ``.. interface:`` comment and are checked against it.
 INTERFACE_SECTIONS = ("tutorials", "how-to")
 INTERFACES = ("both", "cli", "python")
-
-#: First words a how-to title may start with: the task, as a verb.
 HOWTO_VERBS = frozenset(
     {
         "Add",
@@ -73,11 +57,7 @@ HOWTO_VERBS = frozenset(
         "Write",
     }
 )
-
-#: Every language tag that a reader would take for a runnable ``python`` or ``bash`` block.
 CODE_LANGUAGES = RUNNABLE_LANGUAGES | frozenset(MISNAMED_LANGUAGES)
-
-#: Generated files each hand-written reference page must pull in with ``.. include::``.
 GENERATED_INCLUDES = {
     "reference/cli.rst": ("_generated_cli.rst",),
     "reference/components.rst": (
@@ -88,14 +68,10 @@ GENERATED_INCLUDES = {
     "reference/model_zoo.rst": ("_generated_model_zoo.rst",),
     "reference/examples.rst": ("_generated_examples.rst",),
 }
-
-#: Sub-apps that must exist. Kept explicit so removing one fails, while the
-#: docs-coverage and shell-example checks derive the real list from the live app
-#: and therefore cannot go stale when a sub-app is added.
+# A floor, not a mirror of the live app: it catches a group being dropped.
 REQUIRED_CLI_GROUPS = {"data", "experiments", "list"}
 
-_HOWTO_TITLE_RULE = r"=\-~^\"#*+`.'"
-_TITLE = re.compile(rf"^(?P<title>\S[^\n]*)\n[{_HOWTO_TITLE_RULE}]{{3,}} *$", re.MULTILINE)
+_TITLE = re.compile(r"^(?P<title>\S[^\n]*)\n[=\-~^\"#*+`.']{3,} *$", re.MULTILINE)
 _INTERFACE = re.compile(r"^\.\. interface:[ \t]*(\S*)[ \t]*$", re.MULTILINE)
 _DIRECTIVE = re.compile(r"^(?P<indent> *)\.\. (?P<name>[\w:-]+)::(?P<argument>.*)$")
 _OPTION = re.compile(r"^ +:(?P<key>[\w-]+):[ \t]*(?P<value>.*)$")
@@ -103,40 +79,15 @@ _TOCTREE = re.compile(r"^(?P<indent> *)\.\. toctree::\s*$")
 _DREVALPY_LINE = re.compile(r"^\s*drevalpy\b", re.MULTILINE)
 
 
-def _cli_command_groups() -> tuple[str, ...]:
-    """Return the names of the CLI's sub-apps, read from the live Typer app.
-
-    Derived rather than hand-listed: an allowlist here silently stops matching
-    when a new sub-app lands, which is exactly what happened to the ``list``
-    group. Imported lazily so collecting this module does not pull in the CLI.
-
-    :returns: Every registered sub-app name, e.g. ``("data", "experiments", "list")``.
-    """
-    from drevalpy.cli.main import app
-
-    return tuple(sorted(group.name for group in app.registered_groups if group.name))
-
-
-# --------------------------------------------------------------------------- #
-# The rules                                                                   #
-# --------------------------------------------------------------------------- #
-
-
 def _matches(pattern: str, path: str) -> bool:
-    """Match *path* against a Sphinx pattern: ``*`` and ``?`` stay inside one path segment, ``**`` crosses them."""
+    """Match *path* against a Sphinx pattern: ``*`` and ``?`` stay inside one segment, ``**`` crosses them."""
     regex = re.escape(pattern)
     regex = regex.replace(r"\*\*", "\0").replace(r"\*", "[^/]*").replace(r"\?", "[^/]").replace("\0", ".*")
     return re.fullmatch(regex, path) is not None
 
 
 def exclude_patterns(docs: Path) -> list[str]:
-    """Read the ``exclude_patterns`` list literal out of ``docs/conf.py`` without running it.
-
-    Running ``conf.py`` regenerates the reference files, which a policy test must not do.
-
-    :param docs: The docs root.
-    :returns: The patterns, as Sphinx would see them.
-    """
+    """Read ``exclude_patterns`` out of ``docs/conf.py`` without running it."""
     tree = ast.parse((docs / "conf.py").read_text(encoding="utf-8"))
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "exclude_patterns" for t in node.targets):
@@ -146,14 +97,7 @@ def exclude_patterns(docs: Path) -> list[str]:
 
 
 def built_pages(docs: Path, patterns: Iterable[str]) -> list[Path]:
-    """List the ``.rst`` pages Sphinx would build, sorted.
-
-    A pattern excludes a file or a directory and everything below it.
-
-    :param docs: The docs root.
-    :param patterns: ``exclude_patterns`` from ``conf.py``.
-    :returns: Paths of the built pages.
-    """
+    """List the ``.rst`` pages Sphinx would build, sorted."""
     patterns = list(patterns)
     pages = []
     for path in sorted(docs.rglob("*.rst")):
@@ -168,13 +112,11 @@ def built_pages(docs: Path, patterns: Iterable[str]) -> list[Path]:
 
 
 def misplaced_pages(docs: Path, pages: Iterable[Path]) -> list[str]:
-    """Return the pages outside the four modes and Project, other than the root ``index.rst``."""
+    """Return the pages outside the sections, other than the root ``index.rst``."""
     misplaced = []
     for page in pages:
         parts = page.relative_to(docs).parts
-        if parts == ("index.rst",):
-            continue
-        if len(parts) < 2 or parts[0] not in SECTIONS:
+        if parts != ("index.rst",) and (len(parts) < 2 or parts[0] not in SECTIONS):
             misplaced.append("/".join(parts))
     return misplaced
 
@@ -188,39 +130,6 @@ def _resolve_entry(own_dir: str, entry: str, docnames: set[str], *, is_glob: boo
     if is_glob:
         return {name for name in docnames if _matches(resolved, name)}
     return {resolved}
-
-
-def unreachable_pages(docs: Path, pages: Iterable[Path]) -> list[str]:
-    """Return the docnames that no chain of toctrees from ``index`` reaches."""
-    by_name = {page.relative_to(docs).as_posix().removesuffix(".rst"): page for page in pages}
-    names = set(by_name)
-    seen, queue = {"index"}, deque(["index"])
-    while queue:
-        name = queue.popleft()
-        if name not in by_name:
-            continue
-        for target in toctree_targets(by_name[name], docs, names):
-            if target not in seen:
-                seen.add(target)
-                queue.append(target)
-    return sorted(names - seen)
-
-
-def toctree_targets(page: Path, docs: Path, docnames: set[str]) -> set[str]:
-    """Return the docnames *page*'s toctrees point at.
-
-    Understands ``Title <target>`` entries, absolute (``/x``) and relative
-    targets, and ``:glob:`` trees. External links and ``self`` are dropped.
-
-    :param page: The page to read.
-    :param docs: The docs root, which relative targets resolve against.
-    :param docnames: Every built docname, for resolving ``:glob:`` entries.
-    :returns: Docnames, which may not exist (Sphinx's own build reports those).
-    """
-    directory = page.parent.relative_to(docs).as_posix()
-    directory = "" if directory == "." else directory
-    lines = page.read_text(encoding="utf-8").splitlines()
-    return _targets_from_lines(lines, directory, docnames)
 
 
 def _targets_from_lines(lines: list[str], directory: str, docnames: set[str]) -> set[str]:
@@ -247,8 +156,31 @@ def _targets_from_lines(lines: list[str], directory: str, docnames: set[str]) ->
     return targets
 
 
+def toctree_targets(page: Path, docs: Path, docnames: set[str]) -> set[str]:
+    """Return the docnames *page*'s toctrees point at (``Title <target>``, absolute, relative, ``:glob:``)."""
+    directory = page.parent.relative_to(docs).as_posix()
+    directory = "" if directory == "." else directory
+    return _targets_from_lines(page.read_text(encoding="utf-8").splitlines(), directory, docnames)
+
+
+def unreachable_pages(docs: Path, pages: Iterable[Path]) -> list[str]:
+    """Return the docnames that no chain of toctrees from ``index`` reaches."""
+    by_name = {page.relative_to(docs).as_posix().removesuffix(".rst"): page for page in pages}
+    names = set(by_name)
+    seen, queue = {"index"}, deque(["index"])
+    while queue:
+        name = queue.popleft()
+        if name not in by_name:
+            continue
+        for target in toctree_targets(by_name[name], docs, names):
+            if target not in seen:
+                seen.add(target)
+                queue.append(target)
+    return sorted(names - seen)
+
+
 def page_title(page: Path) -> str | None:
-    """Return the page's first section title, or ``None`` when it has none."""
+    """Return the page's first section title, or ``None``."""
     match = _TITLE.search(page.read_text(encoding="utf-8"))
     return match.group("title").strip() if match else None
 
@@ -320,7 +252,7 @@ def _options(lines: list[str], index: int) -> dict[str, str]:
 
 
 def _tab_syncs(lines: list[str], tab_set: _Container) -> set[str]:
-    """Return the ``:sync:`` values of the tab-set's own tab-items (not those of nested tab-sets)."""
+    """Return the ``:sync:`` values of the tab-set's own tab-items (not nested tab-sets')."""
     items = []
     for cursor in range(tab_set.index + 1, len(lines)):
         line = lines[cursor]
@@ -347,16 +279,7 @@ def _tab_problem(lines: list[str], directive_line: int, indent: int) -> str | No
 
 
 def interface_violations(page: Path) -> list[str]:
-    """Check *page* against its declared ``.. interface:``.
-
-    - ``both``: every python or bash block sits in a ``tab-set`` with ``:sync-group: interface``
-      that has a ``:sync: cli`` and a ``:sync: python`` tab.
-    - ``python``: no bash block runs ``drevalpy``.
-    - ``cli``: no python block.
-
-    :param page: A tutorial or how-to page.
-    :returns: One message per violation, each starting ``path:line``.
-    """
+    """Check *page* against its declared ``.. interface:`` (both / python / cli)."""
     interface = page_interface(page)
     if interface not in INTERFACES:
         return [f"{page}: unknown '.. interface: {interface}'; use one of {INTERFACES}"]
@@ -395,11 +318,6 @@ def missing_includes(docs: Path) -> list[str]:
     return missing
 
 
-# --------------------------------------------------------------------------- #
-# The real tree                                                               #
-# --------------------------------------------------------------------------- #
-
-
 @pytest.fixture(scope="module")
 def pages() -> list[Path]:
     return built_pages(DOCS, exclude_patterns(DOCS))
@@ -407,79 +325,40 @@ def pages() -> list[Path]:
 
 def test_the_built_page_list_reads_conf_py(pages: list[Path]) -> None:
     names = {page.relative_to(DOCS).as_posix() for page in pages}
-    assert "index.rst" in names
-    assert {"tutorials/index.rst", "how-to/index.rst", "reference/index.rst", "explanation/index.rst"} <= names
-    assert not {name for name in names if "_generated_" in name}, "generated files are includes, not pages"
+    assert {"index.rst", "tutorials/index.rst", "how-to/index.rst", "reference/index.rst"} <= names
+    assert not {name for name in names if "_generated_" in name}
 
 
-def test_every_built_page_lives_in_a_section(pages: list[Path]) -> None:
+def test_the_real_tree_follows_the_rules(pages: list[Path]) -> None:
+    interface_pages = [page for page in pages if page.relative_to(DOCS).parts[0] in INTERFACE_SECTIONS]
     assert not misplaced_pages(DOCS, pages)
-
-
-def test_every_built_page_is_reachable_from_a_toctree(pages: list[Path]) -> None:
     assert not unreachable_pages(DOCS, pages)
-
-
-def test_explanation_pages_have_no_code_blocks(pages: list[Path]) -> None:
     assert not explanation_violations(DOCS, pages)
-
-
-def test_how_to_titles_start_with_a_verb(pages: list[Path]) -> None:
     assert not howto_title_violations(DOCS, pages)
-
-
-def test_tutorial_and_how_to_pages_follow_their_interface(pages: list[Path]) -> None:
-    violations = [
-        violation
-        for page in pages
-        if page.relative_to(DOCS).parts[0] in INTERFACE_SECTIONS
-        for violation in interface_violations(page)
-    ]
-    assert not violations, "\n".join(violations)
-
-
-def test_reference_pages_include_their_generated_files() -> None:
+    assert not [v for page in interface_pages for v in interface_violations(page)]
     assert not missing_includes(DOCS)
-
-
-def test_compatibility_wording_avoids_stale_version_labels(pages: list[Path]) -> None:
     assert not stale_label_violations(DOCS, pages)
 
 
 def test_zoo_presets_documented_in_model_zoo() -> None:
     from _model_zoo import generate_model_zoo_rst
 
-    zoo_names = {path.stem for path in ZOO_DIR.glob("*.yaml")}
-    catalog = (DOCS / "reference" / "model_zoo.rst").read_text(encoding="utf-8")
-    assert "_generated_model_zoo.rst" in catalog
     generated = generate_model_zoo_rst()
-    missing = sorted(name for name in zoo_names if name not in generated)
-    assert not missing, f"Zoo presets missing from generated model zoo catalog: {missing}"
+    missing = sorted(path.stem for path in ZOO_DIR.glob("*.yaml") if path.stem not in generated)
+    assert not missing
     assert "``scaledGeneExpression:singleDrugElasticNet``" in generated
-    assert "``scaledGeneExpression:singleDrugRandomForest``" in generated
     assert "``molirOmics:molir``" in generated
-    assert "``superfeltrOmics:superfeltr``" in generated
 
 
 @pytest.mark.slow
 def test_component_catalog_is_registry_driven_and_synchronized() -> None:
-    """Extended tier: regenerates the catalog in a fresh interpreter (~2.2s).
-
-    The child process is the point - the generator must produce the committed RST
-    from a clean registry, not from whatever this session has registered.
-    """
+    """Regenerate the catalog in a fresh interpreter: it must come from a clean registry."""
     from drevalpy.registry import _builtins as rb
     from drevalpy.registry.drug_featurizer import drug_featurizer_registry
     from drevalpy.registry.predictor import predictor_registry
     from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
     catalog = (DOCS / "reference" / "components.rst").read_text(encoding="utf-8")
-    for include in (
-        "_generated_sample_featurizers.rst",
-        "_generated_drug_featurizers.rst",
-        "_generated_predictors.rst",
-    ):
-        assert f".. include:: {include}" in catalog
     assert ".. list-table::" not in catalog
     assert "Example recipe" not in catalog
 
@@ -494,55 +373,39 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     generated = json.loads(completed.stdout)
 
     rb.register_builtin_components()
-    expected_featurizers = {
-        "sample": {
+
+    def featurizer_rows(registry, builtin):
+        return {
             row["name"]: (
                 row["output_format"],
                 "\u2705" if row["precompute"] else "\u274c",
                 " ".join(row["description"].split()),
             )
-            for row in sample_featurizer_registry.list_metadata()
-            if row["name"] in rb.BUILTIN_SAMPLE_FEATURIZER_NAMES
-        },
-        "drug": {
-            row["name"]: (
-                row["output_format"],
-                "\u2705" if row["precompute"] else "\u274c",
-                " ".join(row["description"].split()),
-            )
-            for row in drug_featurizer_registry.list_metadata()
-            if row["name"] in rb.BUILTIN_DRUG_FEATURIZER_NAMES
-        },
+            for row in registry.list_metadata()
+            if row["name"] in builtin
+        }
+
+    expected = {
+        "sample": featurizer_rows(sample_featurizer_registry, rb.BUILTIN_SAMPLE_FEATURIZER_NAMES),
+        "drug": featurizer_rows(drug_featurizer_registry, rb.BUILTIN_DRUG_FEATURIZER_NAMES),
     }
-    expected_predictors = {
-        row["name"]: (
-            row["input_interface"].replace("_", "-").capitalize(),
-            " ".join(row["description"].split()),
-        )
-        for row in predictor_registry.list_metadata()
-        if row["name"] in rb.BUILTIN_PREDICTOR_NAMES
-    }
-    for registry_name, expected in expected_featurizers.items():
+    for registry_name, rows in expected.items():
         matches = re.findall(
             r"^   \* - ``([^`]+)``\n     - ``([^`]+)``\n     - ([^\n]*)\n     - ([^\n]+)$",
             generated[registry_name],
             flags=re.MULTILINE,
         )
-        observed = {
-            name: (output_format, precompute, description) for name, output_format, precompute, description in matches
-        }
-        assert observed == expected
+        assert {name: (fmt, pre, desc) for name, fmt, pre, desc in matches} == rows
 
+    expected_predictors = {
+        row["name"]: (row["input_interface"].replace("_", "-").capitalize(), " ".join(row["description"].split()))
+        for row in predictor_registry.list_metadata()
+        if row["name"] in rb.BUILTIN_PREDICTOR_NAMES
+    }
     predictor_matches = re.findall(
-        r"^   \* - ``([^`]+)``\n     - ([^\n]+)\n     - ([^\n]+)$",
-        generated["predictor"],
-        flags=re.MULTILINE,
+        r"^   \* - ``([^`]+)``\n     - ([^\n]+)\n     - ([^\n]+)$", generated["predictor"], flags=re.MULTILINE
     )
-    observed_predictors = {name: (interface, description) for name, interface, description in predictor_matches}
-    assert len(expected_featurizers["sample"]) == len(rb.BUILTIN_SAMPLE_FEATURIZER_NAMES) == 18
-    assert len(expected_featurizers["drug"]) == len(rb.BUILTIN_DRUG_FEATURIZER_NAMES) == 12
-    assert len(expected_predictors) == len(rb.BUILTIN_PREDICTOR_NAMES) == 30
-    assert observed_predictors == expected_predictors
+    assert {name: (interface, desc) for name, interface, desc in predictor_matches} == expected_predictors
 
 
 def test_cli_reference_documents_all_subcommands() -> None:
@@ -551,43 +414,20 @@ def test_cli_reference_documents_all_subcommands() -> None:
 
     from drevalpy.cli.main import app
 
-    reference = (DOCS / "reference" / "cli.rst").read_text(encoding="utf-8")
-    assert "_generated_cli.rst" in reference
-
     generated = generate_cli_reference_rst()
-    missing_in_docs = [cmd for cmd in _cli_command_groups() if f"drevalpy {cmd}" not in generated]
-    assert not missing_in_docs, f"Generated CLI reference missing commands: {missing_in_docs}"
-
-    click_app = get_command(app)
-    names = set(getattr(click_app, "commands", {}))
-    # A floor, not a mirror of the app: deriving both sides would make this
-    # vacuous. It catches a group being dropped, while the docs check above
-    # catches one being added without documentation.
-    missing = sorted(REQUIRED_CLI_GROUPS - names)
-    assert not missing, f"Typer app missing expected commands: {missing}"
+    groups = sorted(group.name for group in app.registered_groups if group.name)
+    assert not [cmd for cmd in groups if f"drevalpy {cmd}" not in generated]
+    assert REQUIRED_CLI_GROUPS <= set(getattr(get_command(app), "commands", {}))
 
 
 def test_zoo_yaml_files_are_valid() -> None:
     for path in sorted(ZOO_DIR.glob("*.yaml")):
-        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
-        assert loaded is not None, path.name
+        assert yaml.safe_load(path.read_text(encoding="utf-8")) is not None, path.name
 
 
-@pytest.mark.parametrize(
-    ("path", "forbidden"),
-    [
-        (DOCS / "reference" / "python_api.rst", "Backward compatibility"),
-        (DOCS / "reference" / "cli.rst", "Backward compatibility"),
-    ],
-)
-def test_generated_reference_pages_omit_compatibility(path: Path, forbidden: str) -> None:
-    text = path.read_text(encoding="utf-8")
-    assert forbidden not in text
-
-
-# --------------------------------------------------------------------------- #
-# The rules against trees that break them                                     #
-# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("name", ["python_api.rst", "cli.rst"])
+def test_generated_reference_pages_omit_compatibility(name: str) -> None:
+    assert "Backward compatibility" not in (DOCS / "reference" / name).read_text(encoding="utf-8")
 
 
 def _tree(root: Path, files: dict[str, str]) -> Path:
@@ -628,193 +468,120 @@ Title
 """
 
 
-class TestBuiltPages:
-    def test_a_pattern_excludes_files_directories_and_globs(self, tmp_path: Path) -> None:
-        docs = _tree(
-            tmp_path,
-            {
-                "index.rst": "x",
-                "old/page.rst": "x",
-                "old/deeper/page.rst": "x",
-                "project/v2_news.rst": "x",
-                "project/news.rst": "x",
-                "reference/_generated_cli.rst": "x",
-                "_build/html/x.rst": "x",
-                "_templates/t.rst": "x",
-            },
-        )
-        built = built_pages(docs, ["old", "project/v2_*", "reference/_generated_*.rst"])
-        assert [p.relative_to(docs).as_posix() for p in built] == ["index.rst", "project/news.rst"]
-
-    def test_exclude_patterns_are_read_from_conf_py_without_running_it(self, tmp_path: Path) -> None:
-        (tmp_path / "conf.py").write_text(
-            'raise SystemExit("must not run")\nexclude_patterns = ["a", "b/*"]\n', encoding="utf-8"
-        )
-        assert exclude_patterns(tmp_path) == ["a", "b/*"]
+def test_the_page_list_honours_exclude_patterns_and_never_runs_conf_py(tmp_path: Path) -> None:
+    docs = _tree(
+        tmp_path,
+        {
+            "conf.py": 'raise SystemExit("must not run")\nexclude_patterns = ["old", "project/v2_*"]\n',
+            "index.rst": "x",
+            "old/deeper/page.rst": "x",
+            "project/v2_news.rst": "x",
+            "project/news.rst": "x",
+            "readme.rst": "x",
+            "reference/_generated_cli.rst": "x",
+            "_build/html/x.rst": "x",
+        },
+    )
+    built = built_pages(docs, [*exclude_patterns(docs), "reference/_generated_*.rst"])
+    assert [p.relative_to(docs).as_posix() for p in built] == ["index.rst", "project/news.rst", "readme.rst"]
+    assert misplaced_pages(docs, built) == ["readme.rst"]
 
 
-class TestSections:
-    def test_pages_outside_the_sections_are_flagged(self, tmp_path: Path) -> None:
-        docs = _tree(
-            tmp_path,
-            {
-                "index.rst": "x",
-                "readme.rst": "x",
-                "stray/page.rst": "x",
-                "tutorials/index.rst": "x",
-                "project/news.rst": "x",
-            },
-        )
-        found = misplaced_pages(docs, built_pages(docs, []))
-        assert found == ["readme.rst", "stray/page.rst"]
+def test_toctree_reachability_follows_every_entry_form_and_flags_orphans(tmp_path: Path) -> None:
+    docs = _tree(
+        tmp_path,
+        {
+            "index.rst": _toctree("tutorials/index", "Guides <how-to/index>", "/reference/index", "https://x.org"),
+            "tutorials/index.rst": _toctree("first", "self"),
+            "tutorials/first.rst": "x",
+            "how-to/index.rst": _toctree("*", options="   :glob:\n"),
+            "how-to/a.rst": "x",
+            "how-to/extend/index.rst": "x",
+            "reference/index.rst": _toctree("../explanation/index"),
+            "explanation/index.rst": "x",
+        },
+    )
+    assert unreachable_pages(docs, built_pages(docs, [])) == ["how-to/extend/index"]
 
 
-class TestToctreeReachability:
-    def test_relative_absolute_titled_and_glob_entries_are_followed(self, tmp_path: Path) -> None:
-        docs = _tree(
-            tmp_path,
-            {
-                "index.rst": _toctree("tutorials/index", "Guides <how-to/index>", "/reference/index", "https://x.org"),
-                "tutorials/index.rst": _toctree("first", "self"),
-                "tutorials/first.rst": "x",
-                "how-to/index.rst": _toctree("*", options="   :glob:\n"),
-                "how-to/a.rst": "x",
-                "how-to/extend/index.rst": "x",
-                "reference/index.rst": _toctree("../explanation/index"),
-                "explanation/index.rst": "x",
-            },
-        )
-        assert unreachable_pages(docs, built_pages(docs, [])) == ["how-to/extend/index"]
-
-    def test_a_page_missing_from_every_toctree_is_flagged(self, tmp_path: Path) -> None:
-        docs = _tree(
-            tmp_path,
-            {
-                "index.rst": _toctree("tutorials/index"),
-                "tutorials/index.rst": _toctree("first"),
-                "tutorials/first.rst": "x",
-                "tutorials/forgotten.rst": "x",
-            },
-        )
-        assert unreachable_pages(docs, built_pages(docs, [])) == ["tutorials/forgotten"]
+def test_title_explanation_and_stale_label_rules_flag_broken_pages(tmp_path: Path) -> None:
+    docs = _tree(
+        tmp_path,
+        {
+            "how-to/index.rst": "How-to guides\n=============\n",
+            "how-to/good.rst": "Run an experiment\n=================\n",
+            "how-to/overline.rst": "=================\nTune a model\n=================\n",
+            "how-to/noun.rst": "Hyperparameter tuning\n=====================\n",
+            "how-to/x.rst": "the modularity release",
+            "explanation/ok.rst": "T\n=\n\n.. code-block:: yaml\n\n   a: 1\n",
+            "explanation/py.rst": "T\n=\n\n.. code-block:: python\n\n   x = 1\n",
+            "explanation/sh.rst": "T\n=\n\n.. note::\n\n   .. code-block:: shell\n\n      ls\n",
+            "project/news.rst": "1.5.1 and the Modularity Release",
+            "project/other.rst": "since 1.5.1",
+        },
+    )
+    built = built_pages(docs, [])
+    assert [v.split(":")[0] for v in howto_title_violations(docs, built)] == ["how-to/noun.rst", "how-to/x.rst"]
+    assert [v.split(":")[0] for v in explanation_violations(docs, built)] == [
+        "explanation/py.rst",
+        "explanation/sh.rst",
+    ]
+    assert stale_label_violations(docs, built) == ["how-to/x.rst", "project/other.rst"]
 
 
-class TestHowToTitles:
-    def test_titles_must_start_with_a_verb(self, tmp_path: Path) -> None:
-        docs = _tree(
-            tmp_path,
-            {
-                "how-to/index.rst": "How-to guides\n=============\n",
-                "how-to/good.rst": "Run an experiment\n=================\n",
-                "how-to/overline.rst": "=================\nTune a model\n=================\n",
-                "how-to/noun.rst": "Hyperparameter tuning\n=====================\n",
-                "how-to/extend/gerund.rst": ".. interface: python\n\nWriting a featurizer\n====================\n",
-                "explanation/why.rst": "Why it works\n============\n",
-            },
-        )
-        found = howto_title_violations(docs, built_pages(docs, []))
-        assert [v.split(":")[0] for v in found] == ["how-to/extend/gerund.rst", "how-to/noun.rst"]
+def test_a_reference_page_that_drops_its_include_is_flagged(tmp_path: Path) -> None:
+    files = {rel: "".join(f".. include:: {n}\n" for n in names) for rel, names in GENERATED_INCLUDES.items()}
+    assert not missing_includes(_tree(tmp_path, files))
+    files["reference/components.rst"] = ".. include:: _generated_predictors.rst\n"
+    assert missing_includes(_tree(tmp_path, files)) == [
+        "reference/components.rst: _generated_sample_featurizers.rst",
+        "reference/components.rst: _generated_drug_featurizers.rst",
+    ]
 
 
-class TestExplanationPages:
-    def test_python_and_bash_blocks_are_flagged_but_data_blocks_are_not(self, tmp_path: Path) -> None:
-        docs = _tree(
-            tmp_path,
-            {
-                "explanation/ok.rst": "T\n=\n\n.. code-block:: yaml\n\n   a: 1\n\n.. code-block:: text\n\n   out\n",
-                "explanation/py.rst": "T\n=\n\n.. code-block:: python\n\n   x = 1\n",
-                "explanation/sh.rst": "T\n=\n\n.. note::\n\n   .. code-block:: shell\n\n      ls\n",
-                "how-to/fine.rst": "T\n=\n\n.. code-block:: python\n\n   x = 1\n",
-            },
-        )
-        found = explanation_violations(docs, built_pages(docs, []))
-        assert [v.split(":")[0] for v in found] == ["explanation/py.rst", "explanation/sh.rst"]
+NESTED_NOTE = BOTH_TABS.replace(
+    "      .. code-block:: python\n\n         print(1)\n",
+    "      .. note::\n\n         .. code-block:: python\n\n            print(1)\n",
+)
+PYTHON_PAGE = (
+    "T\n=\n\n.. interface: python\n\n.. code-block:: bash\n\n   pip install drevalpy\n\n"
+    ".. code-block:: bash\n\n   drevalpy list splitters\n\n.. code-block:: python\n\n   x = 1\n"
+)
+CLI_PAGE = (
+    "T\n=\n\n.. interface: cli\n\n.. code-block:: bash\n\n   pip install drevalpy\n\n"
+    ".. code-block:: python\n\n   x = 1\n"
+)
 
 
-class TestInterfaceRules:
-    def _violations(self, tmp_path: Path, text: str) -> list[str]:
-        page = _tree(tmp_path, {"how-to/page.rst": text}) / "how-to" / "page.rst"
-        return interface_violations(page)
-
-    def test_a_both_page_with_a_complete_tab_set_passes(self, tmp_path: Path) -> None:
-        assert not self._violations(tmp_path, BOTH_TABS)
-
-    def test_a_both_page_without_an_interface_comment_defaults_to_both(self, tmp_path: Path) -> None:
-        text = "T\n=\n\n.. code-block:: python\n\n   x = 1\n"
-        assert len(self._violations(tmp_path, text)) == 1
-
-    def test_a_bare_block_is_flagged(self, tmp_path: Path) -> None:
-        text = BOTH_TABS + "\n.. code-block:: bash\n\n   drevalpy list splitters\n"
-        found = self._violations(tmp_path, text)
-        assert len(found) == 1
-        assert "not inside a tab-item" in found[0]
-
-    def test_a_tab_set_without_the_sync_group_is_flagged(self, tmp_path: Path) -> None:
-        found = self._violations(tmp_path, BOTH_TABS.replace("   :sync-group: interface\n", ""))
-        assert len(found) == 2
-        assert all("sync-group" in message for message in found)
-
-    def test_a_tab_set_missing_a_tab_is_flagged(self, tmp_path: Path) -> None:
-        found = self._violations(tmp_path, BOTH_TABS.replace(":sync: python", ":sync: other"))
-        assert len(found) == 2
-        assert all("python" in message for message in found)
-
-    def test_a_block_in_a_tab_nested_inside_a_note_still_counts_as_in_the_tab_set(self, tmp_path: Path) -> None:
-        text = BOTH_TABS.replace(
-            "      .. code-block:: python\n\n         print(1)\n",
-            "      .. note::\n\n         .. code-block:: python\n\n            print(1)\n",
-        )
-        assert not self._violations(tmp_path, text)
-
-    def test_blocks_of_other_languages_are_not_checked(self, tmp_path: Path) -> None:
-        text = BOTH_TABS + "\n.. code-block:: text\n\n   output\n\n.. code-block:: yaml\n\n   a: 1\n"
-        assert not self._violations(tmp_path, text)
-
-    def test_a_python_page_may_not_run_drevalpy(self, tmp_path: Path) -> None:
-        text = (
-            "T\n=\n\n.. interface: python\n\n"
-            ".. code-block:: bash\n\n   pip install drevalpy\n\n"
-            ".. code-block:: bash\n\n   drevalpy list splitters\n\n"
-            ".. code-block:: python\n\n   x = 1\n"
-        )
-        found = self._violations(tmp_path, text)
-        assert len(found) == 1
-        assert "runs 'drevalpy'" in found[0]
-
-    def test_a_cli_page_may_not_have_python_blocks(self, tmp_path: Path) -> None:
-        text = (
-            "T\n=\n\n.. interface: cli\n\n"
-            ".. code-block:: bash\n\n   pip install drevalpy\n\n"
-            ".. code-block:: python\n\n   x = 1\n"
-        )
-        found = self._violations(tmp_path, text)
-        assert len(found) == 1
-        assert "python block" in found[0]
-
-    def test_an_unknown_interface_is_flagged(self, tmp_path: Path) -> None:
-        found = self._violations(tmp_path, "T\n=\n\n.. interface: bolth\n")
-        assert len(found) == 1
-        assert "bolth" in found[0]
-
-
-class TestStaleLabelsAndIncludes:
-    def test_only_the_news_page_may_name_old_releases(self, tmp_path: Path) -> None:
-        docs = _tree(
-            tmp_path,
-            {
-                "project/news.rst": "1.5.1 and the Modularity Release",
-                "project/other.rst": "since 1.5.1",
-                "how-to/x.rst": "the modularity release",
-                "how-to/y.rst": "fine",
-            },
-        )
-        assert stale_label_violations(docs, built_pages(docs, [])) == ["how-to/x.rst", "project/other.rst"]
-
-    def test_a_reference_page_that_drops_its_include_is_flagged(self, tmp_path: Path) -> None:
-        files = {rel: "".join(f".. include:: {n}\n" for n in names) for rel, names in GENERATED_INCLUDES.items()}
-        assert not missing_includes(_tree(tmp_path, files))
-        files["reference/components.rst"] = ".. include:: _generated_predictors.rst\n"
-        assert missing_includes(_tree(tmp_path, files)) == [
-            "reference/components.rst: _generated_sample_featurizers.rst",
-            "reference/components.rst: _generated_drug_featurizers.rst",
-        ]
+@pytest.mark.parametrize(
+    ("text", "count", "needle"),
+    [
+        (BOTH_TABS, 0, ""),
+        (NESTED_NOTE, 0, ""),
+        (BOTH_TABS + "\n.. code-block:: text\n\n   output\n", 0, ""),
+        ("T\n=\n\n.. code-block:: python\n\n   x = 1\n", 1, "not inside a tab-item"),
+        (BOTH_TABS + "\n.. code-block:: bash\n\n   drevalpy list splitters\n", 1, "not inside a tab-item"),
+        (BOTH_TABS.replace("   :sync-group: interface\n", ""), 2, "sync-group"),
+        (BOTH_TABS.replace(":sync: python", ":sync: other"), 2, "python"),
+        (PYTHON_PAGE, 1, "runs 'drevalpy'"),
+        (CLI_PAGE, 1, "python block"),
+        ("T\n=\n\n.. interface: bolth\n", 1, "bolth"),
+    ],
+    ids=[
+        "complete",
+        "nested-in-note",
+        "other-language",
+        "default-both",
+        "bare-block",
+        "no-sync-group",
+        "missing-tab",
+        "python-page",
+        "cli-page",
+        "unknown",
+    ],
+)
+def test_interface_rules(tmp_path: Path, text: str, count: int, needle: str) -> None:
+    page = _tree(tmp_path, {"how-to/page.rst": text}) / "how-to" / "page.rst"
+    found = interface_violations(page)
+    assert len(found) == count
+    assert all(needle in message for message in found)

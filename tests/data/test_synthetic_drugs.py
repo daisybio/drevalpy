@@ -28,28 +28,21 @@ pytestmark = pytest.mark.slow
 GENES = [f"G{index}" for index in range(8)]
 
 
-class TestSmiles:
-    def test_the_limit_is_the_number_of_molecules(self):
-        assert MAX_SYNTHETIC_DRUGS == len(SMILES)
+def test_every_smiles_parses_and_is_distinct_and_the_limit_is_the_molecule_count():
+    from rdkit import Chem
 
-    def test_every_smiles_parses_and_is_distinct(self):
-        from rdkit import Chem
-
-        assert len(set(SMILES)) == len(SMILES)
-        assert all(Chem.MolFromSmiles(value) is not None for value in SMILES)
+    assert MAX_SYNTHETIC_DRUGS == len(SMILES)
+    assert len(set(SMILES)) == len(SMILES)
+    assert all(Chem.MolFromSmiles(value) is not None for value in SMILES)
 
 
 class TestTextPayloads:
-    def test_the_gmt_has_two_sets_of_at_least_five_genes(self):
-        rows = [line.split("\t") for line in _pathways_gmt(GENES).splitlines()]
+    @pytest.mark.parametrize(("genes", "n_per_set"), [(GENES, 5), (GENES[:3], 3)])
+    def test_the_gmt_has_two_sets_of_up_to_five_genes(self, genes, n_per_set):
+        rows = [line.split("\t") for line in _pathways_gmt(genes).splitlines()]
 
         assert [row[0] for row in rows] == ["SYNTH_PATHWAY_A", "SYNTH_PATHWAY_B"]
-        assert all(len(row) - 2 >= 5 for row in rows)
-
-    def test_the_gmt_keeps_five_genes_per_set_for_a_short_list(self):
-        rows = [line.split("\t") for line in _pathways_gmt(GENES[:3]).splitlines()]
-
-        assert all(len(row) - 2 == 3 for row in rows)
+        assert all(len(row) - 2 >= n_per_set for row in rows)
 
     def test_sparsego_indexes_every_gene_and_links_it_to_a_term(self):
         payload = _sparsego_uns(GENES)
@@ -58,33 +51,30 @@ class TestTextPayloads:
         gene_rows = [line for line in payload["ontology"].splitlines() if line.endswith("\tgene")]
         assert [row.split("\t")[1] for row in gene_rows] == GENES
 
-
-class TestBpeCodes:
-    def test_it_learns_merges_from_the_smiles(self):
+    def test_bpe_codes_learn_merges_from_the_smiles(self):
         codes = _bpe_codes(SMILES[:8], num_symbols=10)
 
         assert codes.startswith("#version")
         assert len(codes.splitlines()) > 1
 
 
-class TestGraphToDict:
-    def test_it_stores_plain_typed_arrays(self):
-        class Graph:
-            x = [[1.0, 2.0]]
-            edge_index = [[0], [0]]
-            edge_attr = [[1.0]]
+def test_graph_to_dict_stores_plain_typed_arrays():
+    class Graph:
+        x = [[1.0, 2.0]]
+        edge_index = [[0], [0]]
+        edge_attr = [[1.0]]
 
-        stored = _graph_to_dict(Graph())
+    stored = _graph_to_dict(Graph())
 
-        assert {key: value.dtype for key, value in stored.items()} == {
-            "x": np.float32,
-            "edge_index": np.int64,
-            "edge_attr": np.float32,
-        }
+    assert {key: value.dtype for key, value in stored.items()} == {
+        "x": np.float32,
+        "edge_index": np.int64,
+        "edge_attr": np.float32,
+    }
 
 
-class TestAddDrugViews:
-    def test_it_fills_each_view_at_its_width(self):
+class TestAddViewsAndPayloads:
+    def test_drug_views_are_filled_at_their_width(self):
         data = build_synthetic_dataset(n_drugs=8)
 
         add_drug_views(data, DRUG_VIEWS, np.random.default_rng(0))
@@ -97,13 +87,7 @@ class TestAddDrugViews:
             "smilesvec": SMILESVEC_DIM,
         }
 
-    def test_an_unknown_view_is_rejected(self):
-        with pytest.raises(ValueError, match="drug_views"):
-            add_drug_views(build_synthetic_dataset(), ["nope"], np.random.default_rng(0))
-
-
-class TestAddUnsPayloads:
-    def test_it_fills_every_payload(self):
+    def test_uns_payloads_are_all_filled(self):
         data = build_synthetic_dataset(n_drugs=8)
 
         add_uns_payloads(data, UNS_PAYLOADS, GENES)
@@ -111,6 +95,8 @@ class TestAddUnsPayloads:
         assert set(UNS_PAYLOADS) <= set(data.mdata.uns)
         assert len(data.mdata.uns["drug_graphs"]) == 8
 
-    def test_an_unknown_payload_is_rejected(self):
+    def test_unknown_views_and_payloads_are_rejected(self):
+        with pytest.raises(ValueError, match="drug_views"):
+            add_drug_views(build_synthetic_dataset(), ["nope"], np.random.default_rng(0))
         with pytest.raises(ValueError, match="uns_payloads"):
             add_uns_payloads(build_synthetic_dataset(), ["nope"], GENES)

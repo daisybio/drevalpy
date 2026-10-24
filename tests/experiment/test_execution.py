@@ -11,6 +11,19 @@ from drevalpy.types import SplitMask, SplitMasks
 from tests.models.synthetic_fixtures import synthetic_mudataset
 
 
+def _build(spec, dataset, masks):
+    return build_execution(
+        spec,
+        dataset,
+        masks,
+        hyperparameter_tuning=False,
+        hpo_metric="RMSE",
+        hpo_num_trials=2,
+        hpo_random_state=9,
+        seed=5,
+    )
+
+
 def _execution(monkeypatch, *, stopping=True, seed=17, split_mode="LPO"):
     dataset = synthetic_mudataset()
     masks = SplitMasks(
@@ -21,17 +34,7 @@ def _execution(monkeypatch, *, stopping=True, seed=17, split_mode="LPO"):
     )
     spec = ModelSpec.from_name("NaivePredictor")
     monkeypatch.setattr(ModelSpec, "supports_early_stopping", property(lambda self: stopping))
-    execution = build_execution(
-        spec,
-        dataset,
-        masks,
-        hyperparameter_tuning=False,
-        hpo_metric="RMSE",
-        hpo_num_trials=2,
-        hpo_random_state=9,
-        seed=5,
-    )
-    return execution, masks, dataset
+    return _build(spec, dataset, masks), masks, dataset
 
 
 def test_stopping_partition_is_reused_for_final_fit(monkeypatch):
@@ -81,16 +84,7 @@ def test_provenance_records_order_as_well_as_mask_membership(monkeypatch):
 def test_original_overlap_is_rejected_before_execution(monkeypatch):
     execution, original, dataset = _execution(monkeypatch)
     with pytest.raises(ValueError):
-        build_execution(
-            execution.model,
-            dataset,
-            replace(original, test=original.train),
-            hyperparameter_tuning=False,
-            hpo_metric="RMSE",
-            hpo_num_trials=2,
-            hpo_random_state=9,
-            seed=5,
-        )
+        _build(execution.model, dataset, replace(original, test=original.train))
 
 
 def test_a_stored_lco_mode_is_recorded_as_lso():
@@ -101,22 +95,12 @@ def test_a_stored_lco_mode_is_recorded_as_lso():
         SplitMask(np.array([[False, False], [True, True]]), 17),
         {"split_mode": "LCO", "fold_index": 0},
     )
-    execution = build_execution(
-        ModelSpec.from_name("NaivePredictor"),
-        dataset,
-        masks,
-        hyperparameter_tuning=False,
-        hpo_metric="RMSE",
-        hpo_num_trials=2,
-        hpo_random_state=9,
-        seed=5,
-    )
+    execution = _build(ModelSpec.from_name("NaivePredictor"), dataset, masks)
     assert execution.identity.split_mode == "LSO"
     assert execution.result_metadata()["split_mode"] == "LSO"
 
 
 def test_lsto_folds_are_validated_as_lsto_not_as_lpo(monkeypatch):
-    """``LStO`` reaches its own validator instead of the LPO fallback."""
     seen = []
     monkeypatch.setattr(
         "drevalpy.experiment._execution.validate_folds",

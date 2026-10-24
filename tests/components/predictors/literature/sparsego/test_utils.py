@@ -25,34 +25,22 @@ def test_load_ontology_builds_graph_and_pair_arrays(tmp_path) -> None:
     assert genes_terms_pairs[0].tolist() == ["TERM", "GENE1"]
 
 
-def _write_ontology(tmp_path, text: str) -> str:
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("ROOT TERM default\nTERM GENE1 gene\nROOT LEAF default\n", "without any annotated gene.*LEAF"),
+        ("A B default\nB GENE1 gene\nC D default\nD GENE1 gene\n", "2 roots"),
+        (
+            "ROOT X default\nX GENE1 gene\nC1 C2 default\nC2 C1 default\nC1 GENE1 gene\n",
+            "2 connected components",
+        ),
+        ("TERM GENE1 gene\n", "no root term"),
+    ],
+    ids=["term-without-genes", "multiple-roots", "disconnected", "no-root"],
+)
+def test_load_ontology_rejects_malformed_ontologies(tmp_path, text: str, message: str) -> None:
     path = tmp_path / "ont.txt"
     path.write_text(text, encoding="utf-8")
-    return str(path)
 
-
-def test_load_ontology_rejects_term_without_genes(tmp_path) -> None:
-    path = _write_ontology(tmp_path, "ROOT TERM default\nTERM GENE1 gene\nROOT LEAF default\n")
-    with pytest.raises(ValueError, match="without any annotated gene.*LEAF"):
-        load_ontology(path, {"GENE1": 0})
-
-
-def test_load_ontology_rejects_multiple_roots(tmp_path) -> None:
-    path = _write_ontology(tmp_path, "A B default\nB GENE1 gene\nC D default\nD GENE1 gene\n")
-    with pytest.raises(ValueError, match="2 roots"):
-        load_ontology(path, {"GENE1": 0})
-
-
-def test_load_ontology_rejects_disconnected_components_with_single_root(tmp_path) -> None:
-    path = _write_ontology(
-        tmp_path,
-        "ROOT X default\nX GENE1 gene\nC1 C2 default\nC2 C1 default\nC1 GENE1 gene\n",
-    )
-    with pytest.raises(ValueError, match="2 connected components"):
-        load_ontology(path, {"GENE1": 0})
-
-
-def test_load_ontology_rejects_graph_without_term_edges(tmp_path) -> None:
-    path = _write_ontology(tmp_path, "TERM GENE1 gene\n")
-    with pytest.raises(ValueError, match="no root term"):
-        load_ontology(path, {"GENE1": 0})
+    with pytest.raises(ValueError, match=message):
+        load_ontology(str(path), {"GENE1": 0})

@@ -1,10 +1,4 @@
-"""Tests for the MolGNet graph conversion and network.
-
-Mirrors :mod:`drevalpy.components.featurizers.drug._molgnet_network` (underscore
-stripped, as private-module tests are named). The module was at zero coverage
-because nothing imported it outside the checkpoint path; nothing here needs the
-checkpoint, only a randomly initialised, deliberately tiny ``MolGNet``.
-"""
+"""Tests for the MolGNet graph conversion and (randomly initialised, tiny) network."""
 
 from __future__ import annotations
 
@@ -31,38 +25,29 @@ def _graph(smiles: str = "CCO"):
     return mol_to_graph_data_obj_complex(Chem.MolFromSmiles(smiles))
 
 
+def _tiny_model() -> MolGNet:
+    torch.manual_seed(0)
+    model = MolGNet(num_layer=1, emb_dim=8, heads=2, num_message_passing=1, drop_ratio=0.0)
+    return model.eval()
+
+
 def test_cumulative_offsets_are_monotonic() -> None:
     assert np.all(np.diff(atom_cumsum) > 0)
     assert np.all(np.diff(bond_cumsum) > 0)
 
 
-def test_mol_to_graph_encodes_eight_atom_features() -> None:
-    graph = _graph("CCO")
+@pytest.mark.parametrize(
+    ("smiles", "nodes", "edges"),
+    [("CCO", 3, 4), ("C", 1, 0), ("c1ccccc1", 6, 12)],
+    ids=["ethanol", "single-atom", "benzene"],
+)
+def test_mol_to_graph_encodes_atoms_and_both_bond_directions(smiles: str, nodes: int, edges: int) -> None:
+    graph = _graph(smiles)
 
-    assert graph.x.shape == (3, 8)
+    assert graph.x.shape == (nodes, 8)
     assert graph.x.dtype == torch.long
-
-
-def test_mol_to_graph_emits_both_bond_directions() -> None:
-    graph = _graph("CCO")
-
-    assert graph.edge_index.shape == (2, 4)
-    assert graph.edge_attr.shape == (4, 5)
-
-
-def test_mol_to_graph_emits_empty_edges_for_a_single_atom() -> None:
-    graph = _graph("C")
-
-    assert graph.x.shape == (1, 8)
-    assert graph.edge_index.shape == (2, 0)
-    assert graph.edge_attr.shape == (0, 5)
-
-
-def test_mol_to_graph_handles_aromatic_rings() -> None:
-    graph = _graph("c1ccccc1")
-
-    assert graph.x.shape == (6, 8)
-    assert graph.edge_index.shape == (2, 12)
+    assert graph.edge_index.shape == (2, edges)
+    assert graph.edge_attr.shape == (edges, 5)
 
 
 def test_mol_to_graph_rejects_none() -> None:
@@ -70,22 +55,17 @@ def test_mol_to_graph_rejects_none() -> None:
         mol_to_graph_data_obj_complex(None)
 
 
-def test_self_loop_adds_one_edge_per_node() -> None:
+def test_self_loop_and_seg_id_transforms() -> None:
     graph = _graph("CCO")
     before_edges = graph.edge_index.shape[1]
 
     looped = SelfLoop()(graph)
+    segmented = AddSegId()(looped)
 
-    assert looped.edge_index.shape[1] == before_edges + 3
-    assert looped.edge_attr.shape[0] == before_edges + 3
-
-
-def test_add_seg_id_attaches_zero_filled_segment_tensors() -> None:
-    graph = AddSegId()(SelfLoop()(_graph("CCO")))
-
-    assert graph.node_seg.tolist() == [0, 0, 0]
-    assert graph.edge_seg.shape[0] == graph.num_edges
-    assert torch.all(graph.edge_seg == 0)
+    assert looped.edge_index.shape[1] == looped.edge_attr.shape[0] == before_edges + 3
+    assert segmented.node_seg.tolist() == [0, 0, 0]
+    assert segmented.edge_seg.shape[0] == segmented.num_edges
+    assert torch.all(segmented.edge_seg == 0)
 
 
 def test_add_seg_id_rejects_a_graph_without_a_node_count() -> None:
@@ -97,88 +77,42 @@ def test_add_seg_id_rejects_a_graph_without_a_node_count() -> None:
         AddSegId()(_NodelessGraph())
 
 
-def test_bert_layer_norm_normalizes_the_last_dimension() -> None:
-    layer = BertLayerNorm(4)
-
-    out = layer(torch.tensor([[1.0, 2.0, 3.0, 4.0]]))
-
-    assert out.shape == (1, 4)
-    assert abs(float(out.mean().detach())) < 1e-5
-
-
-def test_molgnet_forward_returns_one_embedding_row_per_atom() -> None:
-    torch.manual_seed(0)
+def test_molgnet_forward_returns_one_embedding_row_per_atom_from_a_graph_or_tensors() -> None:
     graph = AddSegId()(SelfLoop()(_graph("CCO")))
-    model = MolGNet(num_layer=1, emb_dim=8, heads=2, num_message_passing=1, drop_ratio=0.0)
-    model.eval()
+    model = _tiny_model()
 
     with torch.no_grad():
         embedding = model(graph)
+        unpacked = model(graph.x, graph.edge_index, graph.edge_attr, graph.node_seg, graph.edge_seg)
 
     assert embedding.shape == (3, 8)
     assert torch.isfinite(embedding).all()
-
-
-def test_molgnet_forward_accepts_unpacked_tensors() -> None:
-    torch.manual_seed(0)
-    graph = AddSegId()(SelfLoop()(_graph("CCO")))
-    model = MolGNet(num_layer=1, emb_dim=8, heads=2, num_message_passing=1, drop_ratio=0.0)
-    model.eval()
-
-    with torch.no_grad():
-        embedding = model(
-            graph.x,
-            graph.edge_index,
-            graph.edge_attr,
-            graph.node_seg,
-            graph.edge_seg,
-        )
-
-    assert embedding.shape == (3, 8)
-
-
-def test_molgnet_forward_rejects_an_unexpected_argument_count() -> None:
-    model = MolGNet(num_layer=1, emb_dim=8, heads=2, num_message_passing=1, drop_ratio=0.0)
-
+    torch.testing.assert_close(unpacked, embedding)
     with pytest.raises(ValueError, match="unmatched number of arguments"):
         model(1, 2)
 
 
-def test_gelu_is_zero_at_the_origin_and_monotonic() -> None:
-    values = _gelu(torch.tensor([-2.0, 0.0, 2.0]))
+def test_layer_primitives() -> None:
+    out = BertLayerNorm(4)(torch.tensor([[1.0, 2.0, 3.0, 4.0]]))
+    assert out.shape == (1, 4)
+    assert abs(float(out.mean().detach())) < 1e-5
 
+    values = _gelu(torch.tensor([-2.0, 0.0, 2.0]))
     assert float(values[1]) == pytest.approx(0.0)
     assert float(values[0]) < float(values[1]) < float(values[2])
 
-
-def test_linear_activation_without_a_bias_uses_the_plain_gelu_path() -> None:
     torch.manual_seed(0)
     layer = LinearActivation(4, 2, bias=False)
-
-    out = layer(torch.ones((1, 4)))
-
     assert layer.bias is None
-    assert out.shape == (1, 2)
-    assert torch.isfinite(out).all()
+    assert layer(torch.ones((1, 4))).shape == (1, 2)
 
 
-def test_message_passing_defaults_forward_messages_unchanged() -> None:
+def test_message_passing_defaults_and_required_arguments() -> None:
     passing = _MessagePassing()
-    x = torch.tensor([[1.0], [2.0]])
     edge_index = torch.tensor([[0, 1], [1, 0]], dtype=torch.long)
 
-    out = passing.propagate(edge_index=edge_index, x=x)
-
-    assert out.shape == (2, 1)
-
-
-def test_message_passing_requires_node_features() -> None:
-    passing = _MessagePassing()
-
+    assert passing.propagate(edge_index=edge_index, x=torch.tensor([[1.0], [2.0]])).shape == (2, 1)
     with pytest.raises(ValueError, match="propagate requires 'x'"):
         passing.propagate(edge_index=torch.tensor([[0], [1]], dtype=torch.long))
-
-
-def test_message_passing_message_requires_source_features() -> None:
     with pytest.raises(ValueError, match="message requires 'x_j'"):
         _MessagePassing().message()

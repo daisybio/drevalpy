@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -48,52 +50,35 @@ def test_sparsego_mutations_input_type_reads_the_mutations_view() -> None:
     np.testing.assert_allclose(blocks["mutations"].values, [[0.0, 1.0]])
 
 
-def test_sparsego_rejects_unknown_input_type() -> None:
+def test_sparsego_rejects_unknown_input_type_and_unfitted_use() -> None:
     with pytest.raises(ValueError, match="input_type must be"):
         SparseGOOntologyFeaturizer(input_type="methylation")
-
-
-def test_sparsego_fit_without_ontology_metadata_raises() -> None:
-    with pytest.raises(ValueError, match="ontology metadata is missing"):
-        SparseGOOntologyFeaturizer().fit(_source())
-
-
-def test_sparsego_transform_before_fit_raises() -> None:
-    with pytest.raises(RuntimeError, match="must be fit before transform"):
-        SparseGOOntologyFeaturizer().transform(_source(), np.array(["cl1"]))
-
-
-def test_sparsego_state_is_empty_before_fit() -> None:
-    assert SparseGOOntologyFeaturizer().get_state() == {}
-
-
-def test_sparsego_set_state_rejects_unknown_input_type() -> None:
     with pytest.raises(ValueError, match="input_type must be"):
         SparseGOOntologyFeaturizer().set_state({"input_type": "methylation"})
+    with pytest.raises(ValueError, match="ontology metadata is missing"):
+        SparseGOOntologyFeaturizer().fit(_source())
+    with pytest.raises(RuntimeError, match="must be fit before transform"):
+        SparseGOOntologyFeaturizer().transform(_source(), np.array(["cl1"]))
+    assert SparseGOOntologyFeaturizer().get_state() == {}
+    assert SparseGOOntologyFeaturizer().output_dim == 0
 
 
-def test_sparsego_output_block_specs_follow_the_configured_input_type() -> None:
-    class _Config:
-        hyperparameter_space = {"input_type": {"default": "mutations"}}
+@pytest.mark.parametrize(
+    ("space", "expected"),
+    [
+        ({"input_type": {"default": "mutations"}}, "mutations"),
+        ({"other": {"default": 1}}, "gene_expression"),
+        (None, "gene_expression"),
+    ],
+)
+def test_sparsego_output_block_specs_follow_the_configured_input_type(space, expected: str) -> None:
+    config = None if space is None else SimpleNamespace(hyperparameter_space=space)
 
-    specs = SparseGOOntologyFeaturizer.output_block_specs_for_config(_Config())
+    specs = SparseGOOntologyFeaturizer.output_block_specs_for_config(config)
 
-    assert [spec.name for spec in specs] == ["mutations"]
-
-
-def test_sparsego_output_block_specs_default_to_expression() -> None:
-    specs = SparseGOOntologyFeaturizer.output_block_specs_for_config(None)
-
-    assert [spec.name for spec in specs] == ["gene_expression"]
-
-
-def test_sparsego_output_block_specs_default_when_the_space_has_no_input_type() -> None:
-    class _Config:
-        hyperparameter_space = {"other": {"default": 1}}
-
-    specs = SparseGOOntologyFeaturizer.output_block_specs_for_config(_Config())
-
-    assert [spec.name for spec in specs] == ["gene_expression"]
+    assert [spec.name for spec in specs] == [expected]
+    assert SparseGOOntologyFeaturizer.resolve_input_views(input_type="expression") == ("gene_expression",)
+    assert SparseGOOntologyFeaturizer.resolve_input_views(input_type="mutations") == ("mutations",)
 
 
 def test_sparsego_prefers_a_precomputed_variant() -> None:
@@ -108,36 +93,16 @@ def test_sparsego_prefers_a_precomputed_variant() -> None:
     }
     featurizer = SparseGOOntologyFeaturizer().fit(source)
 
-    matrix = featurizer.transform(source, source.identifiers)
-
-    np.testing.assert_allclose(matrix, PRECOMPUTED)
+    np.testing.assert_allclose(featurizer.transform(source, source.identifiers), PRECOMPUTED)
 
 
-def test_sparsego_output_dim_is_zero_before_fit() -> None:
-    assert SparseGOOntologyFeaturizer().output_dim == 0
-
-
-@pytest.mark.parametrize(
-    ("input_type", "expected"),
-    [
-        pytest.param("expression", ("gene_expression",), id="expression"),
-        pytest.param("mutations", ("mutations",), id="mutations"),
-    ],
-)
-def test_sparsego_resolve_input_views(input_type: str, expected: tuple[str, ...]) -> None:
-    assert SparseGOOntologyFeaturizer.resolve_input_views(input_type=input_type) == expected
-
-
-def test_ontology_order_controls_values_and_names() -> None:
+def test_ontology_order_controls_values_and_names_and_missing_genes_fail() -> None:
     source = _with_ontology()
     source._meta_info["gene_expression"] = ["b", "a"]
     result = SparseGOOntologyFeaturizer().fit(source).transform_features(source, np.array(["cl1"]))
     np.testing.assert_array_equal(result.matrix, [[2.0, 1.0]])
     assert result.blocks["gene_expression"].feature_names == ("a", "b")
 
-
-def test_missing_ontology_gene_fails_explicitly() -> None:
-    source = _with_ontology()
     source._meta_info["gene_expression"] = ["a", "unrelated"]
     with pytest.raises(ValueError, match="missing ontology genes"):
         SparseGOOntologyFeaturizer().fit(source).transform_features(source, np.array(["cl1"]))

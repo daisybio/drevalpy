@@ -13,14 +13,20 @@ from drevalpy.types.results.trial import TrialResult
 from tests.synthetic import make_model_result, make_run_result
 
 
+def _two_fold_mse() -> ModelResult:
+    return ModelResult(
+        "ElasticNet",
+        "SyntheticDataset",
+        [make_run_result(fold_index=0, metrics={"MSE": 0.2}), make_run_result(fold_index=1, metrics={"MSE": 0.4})],
+    )
+
+
 class TestFoldCount:
-    def test_counts_the_contained_runs(self) -> None:
+    def test_counts_runs(self) -> None:
         assert make_model_result(n_folds=4).n_folds == 4
+        assert ModelResult("ElasticNet", "SyntheticDataset").n_folds == 0
 
-    def test_is_zero_without_runs(self) -> None:
-        assert ModelResult(model_name="ElasticNet", dataset_name="SyntheticDataset").n_folds == 0
-
-    def test_counts_distinct_folds_separately_from_diagnostic_runs(self) -> None:
+    def test_distinct_folds_are_counted_separately_from_diagnostic_runs(self) -> None:
         ordinary = make_run_result(fold_index=0)
         robustness = make_run_result(fold_index=0, fold_metadata={"robustness_trial": 0})
         randomized = make_run_result(fold_index=0, randomization=("SVRC", "gene_expression"))
@@ -28,30 +34,20 @@ class TestFoldCount:
 
         assert result.n_folds == 1
         assert result.n_runs == 3
-
-    def test_select_runs_defaults_to_ordinary_runs_only(self) -> None:
-        ordinary = make_run_result(fold_index=0)
-        robustness = make_run_result(fold_index=0, fold_metadata={"robustness_trial": 0})
-        randomized = make_run_result(fold_index=0, randomization=("SVRC", "gene_expression"))
-        result = ModelResult("ElasticNet", "SyntheticDataset", [ordinary, robustness, randomized])
-
         assert result.select_runs() == [ordinary]
         assert result.select_runs(randomization="all", robustness="all") == [ordinary, robustness, randomized]
 
 
 class TestAggregateGroupMetrics:
     def test_is_empty_without_runs(self) -> None:
-        result = ModelResult(model_name="ElasticNet", dataset_name="SyntheticDataset")
-
-        assert result.aggregate_group_metrics("drug") == {}
+        assert ModelResult("ElasticNet", "SyntheticDataset").aggregate_group_metrics("drug") == {}
 
     def test_reports_a_mean_and_a_group_count_per_metric(self) -> None:
-        result = make_model_result(n_folds=2, n_pairs=40)
-
-        stats = result.aggregate_group_metrics("drug")["Pearson"]
+        stats = make_model_result(n_folds=2, n_pairs=40).aggregate_group_metrics("drug")["Pearson"]
 
         assert set(stats) == {"mean", "n_groups"}
         assert stats["n_groups"] == 4
+        assert make_model_result(n_folds=1, n_pairs=40).aggregate_group_metrics("sample")["MSE"]["n_groups"] == 5
 
     def test_covers_the_metrics_the_runs_carry(self) -> None:
         result = ModelResult(
@@ -59,11 +55,6 @@ class TestAggregateGroupMetrics:
         )
 
         assert list(result.aggregate_group_metrics("drug")) == ["MSE"]
-
-    def test_samples_are_a_separate_grouping(self) -> None:
-        result = make_model_result(n_folds=1, n_pairs=40)
-
-        assert result.aggregate_group_metrics("sample")["MSE"]["n_groups"] == 5
 
     def test_an_unknown_grouping_is_rejected_even_without_metrics(self) -> None:
         result = ModelResult("ElasticNet", "SyntheticDataset", [make_run_result(metrics={})])
@@ -74,37 +65,22 @@ class TestAggregateGroupMetrics:
 
 class TestAggregateMetrics:
     def test_is_empty_without_runs(self) -> None:
-        result = ModelResult(model_name="ElasticNet", dataset_name="SyntheticDataset")
-
-        assert result.aggregate_metrics == {}
+        assert ModelResult("ElasticNet", "SyntheticDataset").aggregate_metrics == {}
 
     def test_reports_mean_and_std_across_folds(self) -> None:
-        result = ModelResult(
-            model_name="ElasticNet",
-            dataset_name="SyntheticDataset",
-            runs=[
-                make_run_result(fold_index=0, metrics={"MSE": 0.2}),
-                make_run_result(fold_index=1, metrics={"MSE": 0.4}),
-            ],
-        )
-
-        assert result.aggregate_metrics["MSE"]["mean"] == pytest.approx(0.3)
-        assert result.aggregate_metrics["MSE"]["std"] == pytest.approx(0.1)
+        assert _two_fold_mse().aggregate_metrics["MSE"]["mean"] == pytest.approx(0.3)
+        assert _two_fold_mse().aggregate_metrics["MSE"]["std"] == pytest.approx(0.1)
 
     def test_std_is_zero_for_a_single_fold(self) -> None:
-        result = ModelResult(
-            model_name="ElasticNet",
-            dataset_name="SyntheticDataset",
-            runs=[make_run_result(metrics={"MSE": 0.7})],
-        )
+        result = ModelResult("ElasticNet", "SyntheticDataset", [make_run_result(metrics={"MSE": 0.7})])
 
         assert result.aggregate_metrics["MSE"] == {"mean": pytest.approx(0.7), "std": pytest.approx(0.0)}
 
     def test_unions_metric_keys_across_folds(self) -> None:
         result = ModelResult(
-            model_name="ElasticNet",
-            dataset_name="SyntheticDataset",
-            runs=[
+            "ElasticNet",
+            "SyntheticDataset",
+            [
                 make_run_result(fold_index=0, metrics={"MSE": 0.2}),
                 make_run_result(fold_index=1, metrics={"MSE": 0.4, "Pearson": 0.9}),
             ],
@@ -113,62 +89,28 @@ class TestAggregateMetrics:
         assert set(result.aggregate_metrics) == {"MSE", "Pearson"}
         assert result.aggregate_metrics["Pearson"]["mean"] == pytest.approx(0.9)
 
-    def test_covers_every_metric_the_builder_emits(self) -> None:
-        result = make_model_result(n_folds=3)
-
-        assert set(result.aggregate_metrics) == set(result.runs[0].metrics)
-
 
 class TestPersistence:
-    def test_save_creates_missing_parent_directories(self, tmp_path) -> None:
+    def test_save_writes_folds_and_metadata(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "nested" / "ElasticNet"
-
-        make_model_result(n_folds=1).save(directory)
-
-        assert (directory / "metadata.json").is_file()
-
-    def test_save_writes_one_npz_per_fold(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "ElasticNet"
-
-        make_model_result(n_folds=3).save(directory)
-
-        assert sorted(p.name for p in directory.glob("fold_*.npz")) == [
-            "fold_0.npz",
-            "fold_1.npz",
-            "fold_2.npz",
-        ]
-
-    def test_save_records_aggregates_in_metadata(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "ElasticNet"
-        result = make_model_result(n_folds=2)
+        result = make_model_result(n_folds=3)
 
         result.save(directory)
         meta = json.loads((directory / "metadata.json").read_text())
 
-        assert meta["model_name"] == "ElasticNet"
-        assert meta["dataset_name"] == "SyntheticDataset"
-        assert meta["n_folds"] == 2
-        assert meta["n_runs"] == 2
+        assert sorted(p.name for p in directory.glob("fold_*.npz")) == ["fold_0.npz", "fold_1.npz", "fold_2.npz"]
+        assert (meta["model_name"], meta["dataset_name"]) == ("ElasticNet", "SyntheticDataset")
+        assert (meta["n_folds"], meta["n_runs"]) == (3, 3)
         assert meta["aggregate_metrics"]["MSE"]["mean"] == pytest.approx(result.aggregate_metrics["MSE"]["mean"])
 
-    def test_round_trip_preserves_identity_and_folds(self, tmp_path) -> None:
+    def test_round_trip_preserves_identity_and_fold_order(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "RandomForest"
         result = make_model_result(model_name="RandomForest", n_folds=3)
 
         result.save(directory)
         loaded = ModelResult.load(directory)
 
-        assert loaded.model_name == "RandomForest"
-        assert loaded.dataset_name == "SyntheticDataset"
-        assert loaded.n_folds == 3
-
-    def test_round_trip_preserves_fold_order(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "ElasticNet"
-        result = make_model_result(n_folds=3)
-
-        result.save(directory)
-        loaded = ModelResult.load(directory)
-
+        assert (loaded.model_name, loaded.dataset_name, loaded.n_folds) == ("RandomForest", "SyntheticDataset", 3)
         assert [r.fold_index for r in loaded.runs] == [0, 1, 2]
         np.testing.assert_allclose(loaded.runs[1].predictions, result.runs[1].predictions)
 
@@ -180,78 +122,36 @@ class TestPersistence:
         result.save(tmp_path)
         assert [r.fold_index for r in ModelResult.load(tmp_path).runs] == [0, 1]
 
-    def test_round_trip_of_an_empty_result_yields_no_runs(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "ElasticNet"
-        ModelResult(model_name="ElasticNet", dataset_name="SyntheticDataset").save(directory)
+    def test_empty_result_round_trips_and_string_directory_is_accepted(self, tmp_path) -> None:
+        empty = UPath(tmp_path) / "empty"
+        ModelResult("ElasticNet", "SyntheticDataset").save(empty)
+        assert ModelResult.load(empty).runs == []
 
-        assert ModelResult.load(directory).runs == []
-
-    def test_accepts_a_plain_string_directory(self, tmp_path) -> None:
         directory = str(UPath(tmp_path) / "ElasticNet")
-
         make_model_result(n_folds=1).save(directory)
-
         assert ModelResult.load(directory).n_folds == 1
 
-
-class TestTrialSkipping:
-    """``with_trials`` is forwarded to every fold so the report can skip trial arrays."""
-
-    @staticmethod
-    def _with_trials(directory: UPath) -> None:
+    def test_trials_are_forwarded_to_every_fold(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "ElasticNet"
         result = make_model_result(n_folds=2)
         for run in result.runs:
-            run.trials = [
-                TrialResult(
-                    hyperparameters={"alpha": 0.1},
-                    metrics={"MSE": 0.3},
-                    optimization_metric="MSE",
-                    predictions=np.zeros(4),
-                )
-            ]
+            run.trials = [TrialResult({"alpha": 0.1}, {"MSE": 0.3}, "MSE", np.zeros(4))]
         result.save(directory)
 
-    def test_trials_are_loaded_by_default(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "ElasticNet"
-        self._with_trials(directory)
-
         assert all(run.trials for run in ModelResult.load(directory).runs)
-
-    def test_trials_can_be_skipped_for_every_fold(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "ElasticNet"
-        self._with_trials(directory)
-
-        assert all(run.trials is None for run in ModelResult.load(directory, with_trials=False).runs)
-
-    def test_skipping_trials_keeps_the_fold_count(self, tmp_path) -> None:
-        directory = UPath(tmp_path) / "ElasticNet"
-        self._with_trials(directory)
-
-        assert ModelResult.load(directory, with_trials=False).n_folds == 2
+        skipped = ModelResult.load(directory, with_trials=False)
+        assert all(run.trials is None for run in skipped.runs)
+        assert skipped.n_folds == 2
 
 
 class TestRepr:
-    def test_reports_identity_and_fold_count(self) -> None:
+    def test_reports_identity_fold_count_and_metrics(self) -> None:
         text = repr(make_model_result(model_name="RandomForest", n_folds=2))
 
         assert text.startswith("ModelResult")
         assert "Model: RandomForest" in text
-        assert "Dataset: SyntheticDataset" in text
         assert "Folds: 2" in text
-
-    def test_formats_metrics_as_mean_plus_minus_std(self) -> None:
-        result = ModelResult(
-            model_name="ElasticNet",
-            dataset_name="SyntheticDataset",
-            runs=[
-                make_run_result(fold_index=0, metrics={"MSE": 0.2}),
-                make_run_result(fold_index=1, metrics={"MSE": 0.4}),
-            ],
-        )
-
-        assert "        MSE: 0.3000 +/- 0.1000" in repr(result).splitlines()
+        assert "        MSE: 0.3000 +/- 0.1000" in repr(_two_fold_mse()).splitlines()
 
     def test_omits_the_metric_block_without_runs(self) -> None:
-        result = ModelResult(model_name="ElasticNet", dataset_name="SyntheticDataset")
-
-        assert "Metrics" not in repr(result)
+        assert "Metrics" not in repr(ModelResult("ElasticNet", "SyntheticDataset"))

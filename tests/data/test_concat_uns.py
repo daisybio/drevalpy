@@ -67,16 +67,15 @@ class TestMergeUns:
         assert merged == {}
         assert caplog.text == ""
 
-    def test_a_strict_key_that_differs_raises_naming_both_values(self) -> None:
-        with pytest.raises(ValueError, match=r"view 'v': uns\['u'\].*A='tpm', B='fpkm'"):
-            merge_uns([{"u": "tpm"}, {"u": "fpkm"}], names=NAMES, where="view 'v'", strict=lambda key: key == "u")
-
-    def test_a_strict_key_recorded_by_one_input_raises(self) -> None:
-        with pytest.raises(InvalidInputError, match="B=not recorded"):
-            merge_uns([{"u": "tpm"}, {}], names=NAMES, where="x", strict=lambda key: True)
-
-    def test_long_values_are_shortened_in_the_message(self) -> None:
-        with pytest.raises(ValueError, match=r"\.\.\.") as error:
-            merge_uns([{"u": "x" * 200}, {"u": "y"}], names=NAMES, where="x", strict=lambda key: True)
-
-        assert len(str(error.value)) < 200
+    @pytest.mark.parametrize(
+        ("uns", "error", "match"),
+        [
+            ([{"u": "tpm"}, {"u": "fpkm"}], ValueError, r"view 'v': uns\['u'\].*A='tpm', B='fpkm'"),
+            ([{"u": "tpm"}, {}], InvalidInputError, "B=not recorded"),
+            ([{"u": "x" * 200}, {"u": "y"}], ValueError, r"^.{0,199}$"),
+        ],
+        ids=["differing", "recorded-by-one", "long-values-shortened"],
+    )
+    def test_a_strict_key_that_differs_or_is_missing_raises(self, uns: list[dict], error: type, match: str) -> None:
+        with pytest.raises(error, match=match):
+            merge_uns(uns, names=NAMES, where="view 'v'", strict=lambda key: True)

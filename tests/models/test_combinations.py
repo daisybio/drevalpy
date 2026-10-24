@@ -12,28 +12,19 @@ from drevalpy.errors import InvalidInputError
 from drevalpy.models._combinations import Combinations, SkippedCombination, combinations
 
 
-def test_skipped_combination_is_a_frozen_recipe_and_reason() -> None:
+def test_result_types_are_frozen_and_the_signature_is_keyword_only() -> None:
     skipped = SkippedCombination("a:b:c", "needs fingerprints")
-
-    assert (skipped.recipe, skipped.reason) == ("a:b:c", "needs fingerprints")
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        skipped.reason = "other"  # type: ignore[misc]
-
-
-def test_combinations_result_holds_specs_and_skipped() -> None:
-    skipped = SkippedCombination("a:b:c", "reason")
-
     result = Combinations(specs=[models.ModelSpec.from_name("NaivePredictor")], skipped=[skipped])
 
+    assert (skipped.recipe, skipped.reason) == ("a:b:c", "needs fingerprints")
     assert [spec.name for spec in result.specs] == ["NaivePredictor"]
     assert result.skipped == [skipped]
     with pytest.raises(dataclasses.FrozenInstanceError):
+        skipped.reason = "other"  # type: ignore[misc]
+    with pytest.raises(dataclasses.FrozenInstanceError):
         result.specs = []  # type: ignore[misc]
 
-
-def test_signature_is_keyword_only_with_required_predictors() -> None:
     parameters = inspect.signature(combinations).parameters
-
     assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in parameters.values())
     assert parameters["sample"].default == ()
     assert parameters["drug"].default == ()
@@ -111,33 +102,21 @@ def test_no_valid_combination_raises_with_every_reason() -> None:
         )
 
     message = str(caught.value)
-    assert (
-        "raw[gene_expression]:fingerprints:naiveTissueMean: Predictor 'naiveTissueMean' needs sample block" in message
-    )
-    assert (
-        "pca[gene_expression]:fingerprints:naiveTissueMean: Predictor 'naiveTissueMean' needs sample block" in message
-    )
-
-
-def test_no_predictors_is_an_error() -> None:
-    with pytest.raises(InvalidInputError, match="at least one predictor"):
-        combinations(sample=["pca[gene_expression]"], predictors=[])
-
-
-def test_drug_without_sample_is_an_error() -> None:
-    with pytest.raises(InvalidInputError, match="drug featurizers need a sample featurizer"):
-        combinations(drug=["fingerprints"], predictors=["elasticNet"])
+    for sample in ("raw", "pca"):
+        assert f"{sample}[gene_expression]:fingerprints:naiveTissueMean: Predictor 'naiveTissueMean' needs" in message
 
 
 @pytest.mark.parametrize(
     ("kwargs", "match"),
     [
+        ({"sample": ["pca[gene_expression]"], "predictors": []}, "at least one predictor"),
+        ({"drug": ["fingerprints"], "predictors": ["elasticNet"]}, "drug featurizers need a sample featurizer"),
         ({"sample": "pca[gene_expression]"}, "sample must be a list of recipe tokens"),
         ({"sample": ["a:b"]}, "sample entries must be non-empty recipe tokens"),
         ({"sample": ["  "]}, "sample entries must be non-empty recipe tokens"),
         ({"sample": [3]}, "sample entries must be non-empty recipe tokens"),
     ],
 )
-def test_malformed_axes_are_rejected(kwargs: dict, match: str) -> None:
+def test_invalid_arguments_are_rejected(kwargs: dict, match: str) -> None:
     with pytest.raises(InvalidInputError, match=match):
-        combinations(predictors=["elasticNet"], **kwargs)
+        combinations(**{"predictors": ["elasticNet"], **kwargs})

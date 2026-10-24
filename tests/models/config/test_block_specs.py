@@ -70,23 +70,12 @@ def test_sparsego_expression_and_mutations_block_names() -> None:
     from drevalpy.registry._builtins import register_builtin_components
 
     register_builtin_components()
-    expression = FeaturizerConfig(
-        name="sparsegoOntology",
-        registry="sample",
-        hyperparameter_space={
-            "input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": "expression"}
-        },
-    )
-    mutations = FeaturizerConfig(
-        name="sparsegoOntology",
-        registry="sample",
-        hyperparameter_space={
-            "input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": "mutations"}
-        },
-    )
-    assert resolve_output_block_specs(expression) == (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX, metadata=True),
-    )
-    assert resolve_output_block_specs(mutations) == (
-        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX, metadata=True),
-    )
+    for default, block in (("expression", "gene_expression"), ("mutations", "mutations")):
+        config = FeaturizerConfig(
+            name="sparsegoOntology",
+            registry="sample",
+            hyperparameter_space={
+                "input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": default}
+            },
+        )
+        assert resolve_output_block_specs(config) == (BlockSpec(block, FeatureFormat.NUMERIC_MATRIX, metadata=True),)

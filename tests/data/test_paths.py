@@ -2,34 +2,23 @@
 
 from pathlib import Path
 
+import pytest
+from platformdirs import user_cache_dir
+
 from drevalpy.data._paths import get_default_data_dir
 
 
-def test_env_var_override(monkeypatch, tmp_path):
-    """DREVALPY_CACHE_DIR should be used verbatim when set."""
+@pytest.mark.parametrize("pad", ["", "  "])
+def test_env_var_override_is_stripped(monkeypatch, tmp_path, pad):
     custom = str(tmp_path / "custom_cache")
-    monkeypatch.setenv("DREVALPY_CACHE_DIR", custom)
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", f"{pad}{custom}{pad}")
     assert get_default_data_dir() == Path(custom)
 
 
-def test_env_var_whitespace_stripped(monkeypatch, tmp_path):
-    """Surrounding whitespace in the env var should be stripped."""
-    custom = str(tmp_path / "custom_cache")
-    monkeypatch.setenv("DREVALPY_CACHE_DIR", f"  {custom}  ")
-    assert get_default_data_dir() == Path(custom)
-
-
-def test_empty_env_var_uses_platformdirs(monkeypatch):
-    """An empty (but set) env var should fall back to platformdirs."""
-    monkeypatch.setenv("DREVALPY_CACHE_DIR", "")
-    from platformdirs import user_cache_dir
-
-    assert get_default_data_dir() == Path(user_cache_dir("drevalpy"))
-
-
-def test_unset_env_var_uses_platformdirs(monkeypatch):
-    """An unset env var should fall back to platformdirs."""
-    monkeypatch.delenv("DREVALPY_CACHE_DIR", raising=False)
-    from platformdirs import user_cache_dir
-
+@pytest.mark.parametrize("value", ["", None])
+def test_empty_or_unset_env_var_uses_platformdirs(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("DREVALPY_CACHE_DIR", raising=False)
+    else:
+        monkeypatch.setenv("DREVALPY_CACHE_DIR", value)
     assert get_default_data_dir() == Path(user_cache_dir("drevalpy"))

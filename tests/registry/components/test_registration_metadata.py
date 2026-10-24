@@ -12,65 +12,47 @@ from drevalpy.registry.components._registration_metadata import (
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
-def test_normalize_registration_metadata_strips_tags_and_description() -> None:
-    metadata = normalize_registration_metadata(
-        "  demo  ",
-        tags=("  baseline ", "", "omics"),
-        reference=LiteratureReference(
-            repo_url="https://github.com/example/repo",
-            citation_doi="10.1234/example",
-            deviations="none",
-        ),
+def test_normalize_strips_tags_and_description() -> None:
+    reference = LiteratureReference(
+        repo_url="https://github.com/example/repo", citation_doi="10.1234/example", deviations="none"
     )
+
+    metadata = normalize_registration_metadata("  demo  ", tags=("  baseline ", "", "omics"), reference=reference)
+
     assert metadata == RegistrationMetadata(
-        description="demo",
-        tags=frozenset({"baseline", "omics"}),
-        reference=LiteratureReference(
-            repo_url="https://github.com/example/repo",
-            citation_doi="10.1234/example",
-            deviations="none",
-        ),
+        description="demo", tags=frozenset({"baseline", "omics"}), reference=reference
     )
 
 
-def test_normalize_registration_metadata_rejects_blank_description() -> None:
-    with pytest.raises(ValueError, match="description must be a non-empty string"):
-        normalize_registration_metadata("  ")
-
-
-def test_normalize_registration_metadata_rejects_bare_string_tags() -> None:
-    with pytest.raises(TypeError, match="iterable of strings"):
-        normalize_registration_metadata("demo", tags="baseline")
-
-
-def test_normalize_registration_metadata_rejects_non_string_tags() -> None:
-    with pytest.raises(TypeError, match="tags must contain strings"):
-        normalize_registration_metadata("demo", tags=("ok", 1))  # type: ignore[arg-type]
-
-
-def test_normalize_registration_metadata_rejects_bad_reference_type() -> None:
-    with pytest.raises((TypeError, Exception), match="LiteratureReference|did not match any element in the union"):
-        normalize_registration_metadata("demo", reference="not-a-reference")  # type: ignore[arg-type]
-
-
-def test_normalize_registration_metadata_rejects_incomplete_reference() -> None:
-    with pytest.raises(ValueError, match="invalid fields"):
-        normalize_registration_metadata(
-            "demo",
-            reference=LiteratureReference(repo_url="https://github.com/example/repo"),
-        )
+@pytest.mark.parametrize(
+    ("kwargs", "error", "message"),
+    [
+        ({"description": "  "}, ValueError, "description must be a non-empty string"),
+        ({"description": "demo", "tags": "baseline"}, TypeError, "iterable of strings"),
+        ({"description": "demo", "tags": ("ok", 1)}, TypeError, "tags must contain strings"),
+        (
+            {"description": "demo", "reference": "not-a-reference"},
+            Exception,
+            "LiteratureReference|did not match any element in the union",
+        ),
+        (
+            {"description": "demo", "reference": LiteratureReference(repo_url="https://github.com/example/repo")},
+            ValueError,
+            "invalid fields",
+        ),
+    ],
+    ids=["blank-description", "bare-string-tags", "non-string-tags", "bad-reference-type", "incomplete-reference"],
+)
+def test_normalize_rejects_bad_input(kwargs: dict, error: type[Exception], message: str) -> None:
+    with pytest.raises(error, match=message):
+        normalize_registration_metadata(**kwargs)
 
 
 def test_apply_registration_metadata_assigns_fields() -> None:
-    class Target:
-        pass
+    target = type("Target", (), {})
 
-    metadata = RegistrationMetadata(
-        description="demo",
-        tags=frozenset({"baseline"}),
-        reference=None,
+    apply_registration_metadata(
+        target, RegistrationMetadata(description="demo", tags=frozenset({"baseline"}), reference=None)
     )
-    apply_registration_metadata(Target, metadata)
-    assert Target.description == "demo"  # type: ignore[attr-defined]
-    assert Target.tags == frozenset({"baseline"})  # type: ignore[attr-defined]
-    assert Target.reference is None  # type: ignore[attr-defined]
+
+    assert (target.description, target.tags, target.reference) == ("demo", frozenset({"baseline"}), None)  # type: ignore[attr-defined]

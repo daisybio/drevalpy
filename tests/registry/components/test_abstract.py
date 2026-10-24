@@ -10,69 +10,39 @@ from drevalpy.registry.components._abstract import abstract_members, validate_no
 
 
 class _Base(ABC):
-    """Two-method abstract base used to build the fixtures below."""
+    @abstractmethod
+    def alpha(self) -> None: ...
 
     @abstractmethod
-    def alpha(self) -> None:
-        """First required member."""
-
-    @abstractmethod
-    def beta(self) -> None:
-        """Second required member."""
+    def beta(self) -> None: ...
 
 
 class _Partial(_Base):
-    """Implements one of the two required members."""
-
-    def alpha(self) -> None:
-        """Implemented."""
+    def alpha(self) -> None: ...
 
 
 class _Complete(_Partial):
-    """Implements both required members."""
-
-    def beta(self) -> None:
-        """Implemented."""
+    def beta(self) -> None: ...
 
 
 class _Plain:
-    """A class that is not an ABC at all."""
+    pass
 
 
-def test_a_plain_class_has_no_abstract_members() -> None:
+def test_abstract_members_are_reported_sorted_and_only_when_unimplemented() -> None:
     assert abstract_members(_Plain) == ()
-
-
-def test_a_complete_subclass_has_no_abstract_members() -> None:
     assert abstract_members(_Complete) == ()
-
-
-def test_abstract_members_are_reported_sorted() -> None:
     assert abstract_members(_Base) == ("alpha", "beta")
-
-
-def test_only_the_unimplemented_members_are_reported() -> None:
     assert abstract_members(_Partial) == ("beta",)
 
 
-def test_a_plain_class_passes_validation() -> None:
+def test_complete_classes_pass_validation() -> None:
     validate_no_abstract_methods("predictor", "plain", _Plain)
-
-
-def test_a_complete_subclass_passes_validation() -> None:
     validate_no_abstract_methods("predictor", "complete", _Complete)
 
 
-def test_an_incomplete_subclass_is_rejected() -> None:
+def test_an_incomplete_subclass_is_rejected_naming_every_missing_member_and_the_fix() -> None:
     with pytest.raises(ValueError, match=r"predictor 'partial' \(_Partial\) does not implement beta"):
         validate_no_abstract_methods("predictor", "partial", _Partial)
-
-
-def test_the_error_names_every_missing_member() -> None:
-    with pytest.raises(ValueError, match="does not implement alpha, beta"):
-        validate_no_abstract_methods("predictor", "base", _Base)
-
-
-def test_the_error_suggests_the_fix() -> None:
-    with pytest.raises(ValueError, match="register a concrete subclass"):
+    with pytest.raises(ValueError, match="does not implement alpha, beta.*register a concrete subclass"):
         validate_no_abstract_methods("sample_featurizer", "base", _Base)

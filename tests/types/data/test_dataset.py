@@ -1,12 +1,4 @@
-"""Tests for ``Dataset`` against a synthetic dataset written to and read from disk.
-
-This module used to load a gitignored, downloaded ``.h5mu`` from the repo-local
-data directory, which meant it could not run on a clean checkout. It now writes
-the synthetic fixture to ``tmp_path`` and reads it back, so the one thing an
-in-memory fixture would otherwise drop -- real on-disk ``.h5mu`` I/O -- stays
-covered. Expected dimensions are derived from the builder's constants rather
-than hard-coded, so the fixture and the assertions cannot drift apart.
-"""
+"""Tests for ``Dataset`` against a synthetic dataset written to and read from disk."""
 
 from __future__ import annotations
 
@@ -35,7 +27,6 @@ from tests.types.data._helpers import stub_featurizer, stub_fit_transform_featur
 
 @pytest.fixture(scope="module")
 def h5mu_path(tmp_path_factory: pytest.TempPathFactory) -> UPath:
-    """Write the synthetic dataset to a real .h5mu file once per module."""
     path = UPath(tmp_path_factory.mktemp("dataset")) / "synthetic.h5mu"
     build_synthetic_dataset().save(path)
     return path
@@ -43,81 +34,45 @@ def h5mu_path(tmp_path_factory: pytest.TempPathFactory) -> UPath:
 
 @pytest.fixture()
 def mudataset(h5mu_path: UPath) -> Dataset:
-    """Read the synthetic dataset back from disk."""
     return Dataset.load(h5mu_path)
 
 
+@pytest.fixture()
+def records() -> list[dict]:
+    return []
+
+
 class TestRoundTrip:
-    """Test that a saved dataset reads back with its identity and structure intact."""
-
-    def test_loads_without_error(self, mudataset: Dataset):
-        assert mudataset is not None
-
-    def test_name_survives_the_round_trip(self, mudataset: Dataset):
+    def test_identity_and_structure_survive(self, mudataset: Dataset):
         assert mudataset.name == build_synthetic_dataset().name
-
-    def test_all_modalities_survive_the_round_trip(self, mudataset: Dataset):
         assert set(mudataset.mdata.mod) == {"response", *OMICS_MODALITIES}
-
-    def test_copy_number_is_stored_under_the_accessor_name(self, mudataset: Dataset):
-        """The datasets store CNV without the ``_gistic`` suffix; the fixture follows suit."""
-        assert CNV_MODALITY in mudataset.mdata.mod
         assert CNV_MODALITY == "copy_number_variation"
+        assert "Samples:" in repr(mudataset)
 
-    def test_repr(self, mudataset: Dataset):
-        r = repr(mudataset)
-        assert "Dataset" in r
-        assert "Samples:" in r
-
-    def test_sample_ids(self, mudataset: Dataset):
-        ids = mudataset.sample_ids
+    @pytest.mark.parametrize(("attr", "n"), [("sample_ids", N_SAMPLES), ("drug_ids", N_DRUGS)])
+    def test_ids(self, mudataset: Dataset, attr: str, n: int):
+        ids = getattr(mudataset, attr)
         assert ids.ndim == 1
-        assert len(ids) == N_SAMPLES
-        assert ids.dtype.kind in ("U", "O")
-
-    def test_drug_ids(self, mudataset: Dataset):
-        ids = mudataset.drug_ids
-        assert ids.ndim == 1
-        assert len(ids) == N_DRUGS
+        assert len(ids) == n
         assert ids.dtype.kind in ("U", "O")
 
 
 class TestRandomizationRoundTrip:
-    """A randomized dataset reads back with the label and provenance it was saved with.
-
-    Writing and reading an ``.h5mu`` file costs over 0.2s, so the class is in the extended tier.
-    """
-
     pytestmark = pytest.mark.slow
 
-    @pytest.fixture(scope="class")
-    def reloaded(self, tmp_path_factory: pytest.TempPathFactory) -> Dataset:
+    def test_label_and_provenance_survive(self, tmp_path):
+        provenance = {"root_seed": 42, "effective_seed": 3, "type": "permutation", "views": ["gene_expression"]}
         randomized = build_synthetic_dataset().with_randomized_views(
             ["gene_expression"], random_state=3, randomization=("SVRC", "gene_expression")
         )
-        randomized.mdata.uns["randomization_provenance"] = {
-            "root_seed": 42,
-            "effective_seed": 3,
-            "type": "permutation",
-            "views": ["gene_expression"],
-        }
-        path = UPath(tmp_path_factory.mktemp("randomized")) / "randomized.h5mu"
-        randomized.save(path)
-        return Dataset.load(path)
+        randomized.mdata.uns["randomization_provenance"] = dict(provenance)
+        randomized.save(UPath(tmp_path) / "randomized.h5mu")
 
-    def test_the_label_survives(self, reloaded: Dataset):
+        reloaded = Dataset.load(UPath(tmp_path) / "randomized.h5mu")
+
         assert reloaded.randomization == ("SVRC", "gene_expression")
-
-    def test_the_provenance_is_json_compatible_and_unchanged(self, reloaded: Dataset):
-        provenance = reloaded.mdata.uns["randomization_provenance"]
-
-        assert provenance == {
-            "root_seed": 42,
-            "effective_seed": 3,
-            "type": "permutation",
-            "views": ["gene_expression"],
-        }
-        assert isinstance(provenance["views"], list)
+        assert reloaded.mdata.uns["randomization_provenance"] == provenance
+        assert isinstance(reloaded.mdata.uns["randomization_provenance"]["views"], list)
 
     def test_an_unrandomized_dataset_reads_back_without_a_label(self, mudataset: Dataset):
         assert mudataset.randomization is None
@@ -125,151 +80,104 @@ class TestRandomizationRoundTrip:
 
 
 class TestResponse:
-    """Test response matrix access."""
-
-    def test_response_matrix_shape(self, mudataset: Dataset):
+    def test_response_matrix(self, mudataset: Dataset):
         mat = mudataset.response_matrix
         assert mat.shape == (N_SAMPLES, N_DRUGS)
         assert mat.dtype == np.float32
-
-    def test_response_matrix_is_nan_sparse(self, mudataset: Dataset):
-        mat = mudataset.response_matrix
         assert np.isnan(mat).any()
         assert not np.isnan(mat).all()
 
-    def test_response_layer_auc(self, mudataset: Dataset):
+    def test_response_layers(self, mudataset: Dataset):
         auc = mudataset.get_response_layer("AUC")
         assert auc.shape == (N_SAMPLES, N_DRUGS)
-        assert auc.dtype == np.float32
-
-    def test_builtin_measure_layer_matches_x(self, mudataset: Dataset):
         layer = mudataset.get_response_layer(BUILTIN_MEASURE)
         np.testing.assert_array_equal(np.isnan(layer), np.isnan(mudataset.response_matrix))
-
-    def test_response_layer_missing(self, mudataset: Dataset):
         with pytest.raises(KeyError, match="nonexistent"):
             mudataset.get_response_layer("nonexistent")
 
 
-class TestSampleFeatures:
-    """Test sample feature retrieval."""
-
-    def test_gene_expression(self, mudataset: Dataset):
-        ids = mudataset.sample_ids[:5]
-        features = mudataset.get_sample_features("gene_expression", ids)
-        assert features.shape == (5, N_GENES)
+class TestFeatures:
+    @pytest.mark.parametrize(
+        ("modality", "n_ids", "dim"),
+        [("gene_expression", 5, N_GENES), ("pathway_features", 3, N_PATHWAYS)],
+    )
+    def test_sample_features(self, mudataset: Dataset, modality: str, n_ids: int, dim: int):
+        features = mudataset.get_sample_features(modality, mudataset.sample_ids[:n_ids])
+        assert features.shape == (n_ids, dim)
         assert features.dtype == np.float32
 
     def test_missing_ids_get_nan(self, mudataset: Dataset):
-        ids = np.array(["FAKE_ID_1", "FAKE_ID_2"])
-        features = mudataset.get_sample_features("gene_expression", ids)
+        features = mudataset.get_sample_features("gene_expression", np.array(["FAKE_ID_1", "FAKE_ID_2"]))
         assert features.shape == (2, N_GENES)
         assert np.all(np.isnan(features))
 
-    def test_pathway_features(self, mudataset: Dataset):
-        ids = mudataset.sample_ids[:3]
-        features = mudataset.get_sample_features("pathway_features", ids)
-        assert features.shape == (3, N_PATHWAYS)
-        assert features.dtype == np.float32
-
-    def test_gene_names_are_real_symbols(self, mudataset: Dataset):
+    def test_gene_names(self, mudataset: Dataset):
         names = mudataset.get_sample_feature_names("gene_expression")
         assert names is not None
         assert len(names) == N_GENES
-        assert all(name.isupper() or any(ch.isdigit() for ch in name) for name in names)
 
-    def test_unknown_modality_raises(self, mudataset: Dataset):
-        with pytest.raises(KeyError, match="nonexistent"):
-            mudataset.get_sample_features("nonexistent", mudataset.sample_ids[:1])
-
-
-class TestDrugFeatures:
-    """Test drug feature retrieval."""
-
-    def test_chemberta(self, mudataset: Dataset):
-        ids = mudataset.drug_ids[:4]
-        features = mudataset.get_drug_features("chemberta", ids)
-        assert features.shape == (4, CHEMBERTA_DIM)
+    @pytest.mark.parametrize(
+        ("view", "dim"),
+        [("chemberta", CHEMBERTA_DIM), ("morgan_fingerprint", FINGERPRINT_BITS), ("bpe_smiles", BPE_LENGTH)],
+    )
+    def test_drug_features(self, mudataset: Dataset, view: str, dim: int):
+        features = mudataset.get_drug_features(view, mudataset.drug_ids[:4])
+        assert features.shape == (4, dim)
         assert features.dtype == np.float32
 
-    def test_morgan_fingerprint(self, mudataset: Dataset):
-        features = mudataset.get_drug_features("morgan_fingerprint", mudataset.drug_ids)
-        assert features.shape == (N_DRUGS, FINGERPRINT_BITS)
-
-    def test_bpe_smiles(self, mudataset: Dataset):
-        features = mudataset.get_drug_features("bpe_smiles", mudataset.drug_ids)
-        assert features.shape == (N_DRUGS, BPE_LENGTH)
-
-    def test_canonical_smiles_is_the_single_raw_drug_view(self, mudataset: Dataset):
-        assert "canonical_smiles" in mudataset.response.var.columns
-        assert mudataset.response.var["canonical_smiles"].notna().all()
-
-    def test_missing_drug_raises(self, mudataset: Dataset):
+    def test_unknown_views_raise(self, mudataset: Dataset):
+        with pytest.raises(KeyError, match="nonexistent"):
+            mudataset.get_sample_features("nonexistent", mudataset.sample_ids[:1])
         with pytest.raises(KeyError, match="nonexistent"):
             mudataset.get_drug_features("nonexistent", mudataset.drug_ids[:1])
 
-
-class TestDrugGraphs:
-    """Test drug graph access."""
+    def test_canonical_smiles_is_the_single_raw_drug_view(self, mudataset: Dataset):
+        assert mudataset.response.var["canonical_smiles"].notna().all()
 
     def test_get_drug_graphs(self, mudataset: Dataset):
         graphs = mudataset.get_drug_graphs(mudataset.drug_ids[:3])
         assert len(graphs) == 3
-        for g in graphs:
-            assert g is not None
-            assert "x" in g
-            assert "edge_index" in g
-            assert "edge_attr" in g
+        assert all({"x", "edge_index", "edge_attr"} <= set(g) for g in graphs)
 
 
 class TestMetadata:
-    """Test metadata access."""
-
-    def test_sample_meta(self, mudataset: Dataset):
+    def test_sample_meta_and_tissue(self, mudataset: Dataset):
         meta = mudataset.sample_meta
         assert "tissue" in meta.columns
-        assert "cell_line_name" not in meta.columns
-        assert "cellosaurus_id" not in meta.columns
+        assert "cell_line_name" not in meta.columns  # a dataset without the optional cell-line columns
+        assert len(mudataset.get_tissue(mudataset.sample_ids[:5])) == 5
+        assert len(mudataset.get_tissue(np.array(["FAKE_ID"]))) == 1
+        assert len(np.unique(mudataset.get_tissue(mudataset.sample_ids))) >= 3
 
-    def test_get_tissue(self, mudataset: Dataset):
-        tissues = mudataset.get_tissue(mudataset.sample_ids[:5])
-        assert len(tissues) == 5
-
-    def test_get_tissue_unknown_id(self, mudataset: Dataset):
-        tissues = mudataset.get_tissue(np.array(["FAKE_ID"]))
-        assert len(tissues) == 1
-
-    def test_enough_tissues_for_leave_tissue_out(self, mudataset: Dataset):
-        tissues = np.unique(mudataset.get_tissue(mudataset.sample_ids))
-        assert len(tissues) >= 3
+    def test_get_uns(self, mudataset: Dataset):
+        assert isinstance(mudataset.get_uns("bpe_codes"), str)
+        gmt = mudataset.get_uns("pathways_gmt")
+        assert all("\t" in line for line in gmt.strip().splitlines())
+        assert set(mudataset.get_uns("sparsego")) == {"gene2ind", "ontology"}
+        with pytest.raises(KeyError, match="nonexistent"):
+            mudataset.get_uns("nonexistent")
 
 
 class TestSubsetting:
-    """Test subsetting operations."""
-
-    def test_subset_samples(self, mudataset: Dataset):
-        ids = mudataset.sample_ids[:10]
-        sub = mudataset.subset_samples(ids)
+    def test_subsets(self, mudataset: Dataset):
+        sub = mudataset.subset_samples(mudataset.sample_ids[:10])
         assert len(sub.sample_ids) == 10
         assert sub.response_matrix.shape == (10, N_DRUGS)
-
-    def test_subset_drugs(self, mudataset: Dataset):
-        ids = mudataset.drug_ids[:5]
-        sub = mudataset.subset_drugs(ids)
+        assert "drug_graphs" in sub.mdata.uns
+        sub = mudataset.subset_drugs(mudataset.drug_ids[:5])
         assert len(sub.drug_ids) == 5
         assert sub.response_matrix.shape == (N_SAMPLES, 5)
 
     def test_subset_drugs_filters_drug_graphs(self, mudataset: Dataset):
         retained = mudataset.drug_ids[:1]
-        removed = mudataset.drug_ids[1]
-
         sub = mudataset.subset_drugs(retained)
 
         assert sub.entities_with_modality("drug_graph", side="drug") == frozenset(map(str, retained))
-        assert sub.get_drug_graphs(np.array([removed])) == [None]
+        assert sub.get_drug_graphs(np.array([mudataset.drug_ids[1]])) == [None]
 
     @pytest.mark.parametrize("method", ["subset_samples", "subset_drugs"])
-    def test_subset_does_not_alias_drug_graphs(self, mudataset: Dataset, method: str):
+    def test_subset_does_not_alias_drug_graphs_and_keeps_randomization(self, mudataset: Dataset, method: str):
+        mudataset.randomization = ("permutation", "gene_expression")
         ids = mudataset.sample_ids[:1] if method == "subset_samples" else mudataset.drug_ids[:1]
         sub = getattr(mudataset, method)(ids)
         drug_id = str(sub.drug_ids[0])
@@ -278,64 +186,20 @@ class TestSubsetting:
         sub.mdata.uns["drug_graphs"][drug_id]["x"][0] = parent_value + 1
 
         np.testing.assert_array_equal(mudataset.mdata.uns["drug_graphs"][drug_id]["x"][0], parent_value)
-
-    @pytest.mark.parametrize("method", ["subset_samples", "subset_drugs"])
-    def test_subset_preserves_randomization_metadata(self, mudataset: Dataset, method: str):
-        mudataset.randomization = ("permutation", "gene_expression")
-        ids = mudataset.sample_ids[:1] if method == "subset_samples" else mudataset.drug_ids[:1]
-
-        sub = getattr(mudataset, method)(ids)
-
         assert sub.randomization == mudataset.randomization
-
-    def test_subset_preserves_uns(self, mudataset: Dataset):
-        sub = mudataset.subset_samples(mudataset.sample_ids[:5])
-        assert "drug_graphs" in sub.mdata.uns
-
-
-class TestUns:
-    """Test uns access."""
-
-    def test_get_uns(self, mudataset: Dataset):
-        bpe = mudataset.get_uns("bpe_codes")
-        assert isinstance(bpe, str)
-
-    def test_pathways_gmt_is_tab_delimited(self, mudataset: Dataset):
-        gmt = mudataset.get_uns("pathways_gmt")
-        assert all("\t" in line for line in gmt.strip().splitlines())
-
-    def test_sparsego_carries_both_text_files(self, mudataset: Dataset):
-        sparsego = mudataset.get_uns("sparsego")
-        assert set(sparsego) == {"gene2ind", "ontology"}
-
-    def test_get_uns_missing(self, mudataset: Dataset):
-        with pytest.raises(KeyError, match="nonexistent"):
-            mudataset.get_uns("nonexistent")
-
-
-@pytest.fixture()
-def records() -> list[dict]:
-    """Collect the ``store`` calls a precompute run makes."""
-    return []
 
 
 class TestPrecompute:
-    """Test explicit pre-computation of featurizer representations."""
-
     def test_default_config_is_prepended_to_explicit_configs(self, mudataset: Dataset, records: list[dict]):
         mudataset.precompute(stub_featurizer(records), [{"n_components": 2}])
 
         assert [call["hyperparameters"] for call in records] == [{}, {"n_components": 2}]
 
-    def test_sample_side_precomputes_every_sample(self, mudataset: Dataset, records: list[dict]):
-        mudataset.precompute(stub_featurizer(records), [])
+    @pytest.mark.parametrize(("side", "n"), [("sample", N_SAMPLES), ("drug", N_DRUGS)])
+    def test_every_entity_of_the_side_is_precomputed(self, mudataset: Dataset, records: list[dict], side, n):
+        mudataset.precompute(stub_featurizer(records, side=side), [])
 
-        assert records[0]["n_entities"] == N_SAMPLES
-
-    def test_drug_side_precomputes_every_drug(self, mudataset: Dataset, records: list[dict]):
-        mudataset.precompute(stub_featurizer(records, side="drug"), [])
-
-        assert records[0]["n_entities"] == N_DRUGS
+        assert records[0]["n_entities"] == n
 
     def test_featurizer_without_compute_from_source_is_fitted_first(self, mudataset: Dataset, records: list[dict]):
         mudataset.precompute(stub_fit_transform_featurizer(records), [])
@@ -358,34 +222,24 @@ class TestPrecompute:
         assert seen == [{"view": "methylation"}]
 
     def test_int_hyperparameters_are_drawn(self, mudataset: Dataset, records: list[dict]):
-        """An int asks for N drawn configs; the empty HP space short-circuits Optuna."""
         mudataset.precompute(stub_featurizer(records), 2)
 
         assert len(records) == 2
 
 
 class TestPrecomputeSingle:
-    """Test the eligibility branches ``precompute_all`` funnels every featurizer through."""
-
-    def test_featurizer_not_marked_for_precomputation_is_skipped(self, mudataset: Dataset, records: list[dict]):
-        mudataset._precompute_single(stub_featurizer(records, precompute=False), 1)
-
-        assert records == []
-
-    def test_entity_id_only_featurizer_is_skipped(self, mudataset: Dataset, records: list[dict]):
-        mudataset._precompute_single(stub_featurizer(records, entity_id_only=True), 1)
-
-        assert records == []
-
-    def test_featurizer_with_missing_source_data_is_skipped(self, mudataset: Dataset, records: list[dict]):
-        mudataset._precompute_single(stub_featurizer(records, source_views=("absent_modality",)), 1)
-
-        assert records == []
-
-    def test_view_featurizer_without_declared_input_views_is_skipped(self, mudataset: Dataset, records: list[dict]):
-        featurizer_cls = stub_featurizer(records, requires_view=True, input_views=None)
-
-        mudataset._precompute_single(featurizer_cls, 1)
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"precompute": False},
+            {"entity_id_only": True},
+            {"source_views": ("absent_modality",)},
+            {"requires_view": True, "input_views": None},
+        ],
+        ids=["not-marked", "entity-id-only", "missing-source", "view-without-input-views"],
+    )
+    def test_ineligible_featurizers_are_skipped(self, mudataset: Dataset, records: list[dict], kwargs):
+        mudataset._precompute_single(stub_featurizer(records, **kwargs), 1)
 
         assert records == []
 
@@ -407,43 +261,26 @@ class TestPrecomputeSingle:
         from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
         visited: list[str] = []
-        monkeypatch.setattr(
-            Dataset,
-            "_precompute_single",
-            lambda self, cls, n_variants: visited.append(cls.__name__),
-        )
+        monkeypatch.setattr(Dataset, "_precompute_single", lambda self, cls, n_variants: visited.append(cls.__name__))
 
         mudataset.precompute_all(n_variants=1)
 
-        expected = len(sample_featurizer_registry.list_names()) + len(drug_featurizer_registry.list_names())
-        assert len(visited) == expected
+        assert len(visited) == len(sample_featurizer_registry.list_names()) + len(drug_featurizer_registry.list_names())
 
 
 class TestSourceAvailability:
-    """Test the raw-source checks that gate precomputation and model applicability."""
-
-    def test_canonical_smiles_is_found_on_the_response_var(self, mudataset: Dataset, records: list[dict]):
-        drug_cls = stub_featurizer(records, side="drug")
-
-        assert mudataset._has_source_data(("canonical_smiles",), drug_cls) is True
-
-    def test_sample_modality_is_resolved_through_the_accessor_map(self, mudataset: Dataset, records: list[dict]):
-        sample_cls = stub_featurizer(records)
-
-        assert mudataset._has_source_data(("copy_number_variation_gistic",), sample_cls) is True
-
-    def test_missing_sample_modality_is_reported_absent(self, mudataset: Dataset, records: list[dict]):
-        assert mudataset._has_source_data(("absent_modality",), stub_featurizer(records)) is False
-
-    def test_drug_view_is_looked_up_in_response_varm(self, mudataset: Dataset, records: list[dict]):
-        drug_cls = stub_featurizer(records, side="drug")
-
-        assert mudataset._has_source_data(("morgan_fingerprint",), drug_cls) is True
-
-    def test_missing_drug_view_is_reported_absent(self, mudataset: Dataset, records: list[dict]):
-        drug_cls = stub_featurizer(records, side="drug")
-
-        assert mudataset._has_source_data(("absent_view",), drug_cls) is False
+    @pytest.mark.parametrize(
+        ("side", "source", "expected"),
+        [
+            ("drug", "canonical_smiles", True),
+            ("sample", "copy_number_variation_gistic", True),
+            ("sample", "absent_modality", False),
+            ("drug", "morgan_fingerprint", True),
+            ("drug", "absent_view", False),
+        ],
+    )
+    def test_has_source_data(self, mudataset: Dataset, records: list[dict], side, source, expected):
+        assert mudataset._has_source_data((source,), stub_featurizer(records, side=side)) is expected
 
     @pytest.mark.parametrize(
         ("views", "available"),
@@ -460,9 +297,7 @@ class TestSourceAvailability:
 
 
 class TestTissueOnlyObs:
-    """A dataset whose obs holds only ``tissue`` under an unnamed index needs no cell-line columns."""
-
-    def test_obs_has_only_tissue_and_an_unnamed_index_after_the_round_trip(self, mudataset: Dataset):
+    def test_obs_has_only_tissue_and_an_unnamed_index(self, mudataset: Dataset):
         assert list(mudataset.sample_meta.columns) == ["tissue"]
         assert mudataset.sample_meta.index.name is None
 

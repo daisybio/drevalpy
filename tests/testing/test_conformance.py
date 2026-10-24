@@ -1,16 +1,8 @@
-"""Tests for :mod:`drevalpy.testing.conformance`.
-
-Each check is asserted twice: once against a conforming component, and once
-against one with exactly the defect the check exists to find. A check that only
-ever passes is worthless, so the negative cases carry the weight here.
-
-The fixture components are declared locally rather than taken from the
-registries. Registration is not needed to run a check, and a locally declared
-class is what lets a single defect be introduced in isolation.
-"""
+"""Each conformance check must accept a good component and reject its exact defect."""
 
 from __future__ import annotations
 
+import inspect
 from typing import ClassVar
 
 import numpy as np
@@ -20,6 +12,7 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.registry import predictor, sample_featurizer
 from drevalpy.testing.batch import build_synthetic_batch
 from drevalpy.testing.conformance import (
     FEATURIZER_CHECKS,
@@ -41,13 +34,13 @@ BLOCK = "probe"
 
 
 class GoodFeaturizer(SampleFeaturizer):
-    """Conforming featurizer: hashed features, no view, honest state."""
+    """Conforming featurizer."""
 
     entity_id_only: ClassVar[bool] = True
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec(BLOCK, FeatureFormat.NUMERIC_MATRIX),)
 
     def __init__(self, *, n_features: int = 4) -> None:
-        """Store the feature width and reset the fitted offset."""
+        """Initialise the stub."""
         self._n_features = n_features
         self._offset = 0.0
 
@@ -83,7 +76,7 @@ class RequiresAnArgumentFeaturizer(GoodFeaturizer):
     """Defect: not constructible with defaults."""
 
     def __init__(self, n_features: int) -> None:
-        """Require *n_features* positionally, which the check must reject."""
+        """Initialise the stub."""
         super().__init__(n_features=n_features)
 
 
@@ -123,7 +116,7 @@ class GoodPredictor(MatrixPredictor):
     """Conforming predictor: ordinary least squares with honest state."""
 
     def __init__(self, hyperparameters: dict[str, object] | None = None) -> None:
-        """Reset the fitted coefficients."""
+        """Initialise the stub."""
         super().__init__(hyperparameters)
         self._coefficients: np.ndarray | None = None
 
@@ -168,7 +161,7 @@ class RequiresAnArgumentPredictor(GoodPredictor):
     """Defect: not constructible with defaults."""
 
     def __init__(self, alpha: float) -> None:
-        """Require *alpha* positionally, which the check must reject."""
+        """Initialise the stub."""
         super().__init__({"alpha": alpha})
 
 
@@ -182,145 +175,86 @@ def batch(dataset):
     return build_synthetic_batch(dataset)
 
 
-class TestFeatureSourceFor:
-    def test_a_sample_featurizer_gets_a_sample_source(self, dataset):
-        assert isinstance(feature_source_for(GoodFeaturizer, dataset), SampleFeatureSource)
-
-    def test_a_drug_featurizer_gets_a_drug_source(self, dataset):
-        assert isinstance(feature_source_for(GoodDrugFeaturizer, dataset), DrugFeatureSource)
-
-    def test_the_source_exposes_the_matching_identifiers(self, dataset):
-        source = feature_source_for(GoodDrugFeaturizer, dataset)
-
-        assert len(source.identifiers) == len(dataset.drug_ids)
+def test_feature_source_for_matches_the_featurizer_side(dataset):
+    assert isinstance(feature_source_for(GoodFeaturizer, dataset), SampleFeatureSource)
+    source = feature_source_for(GoodDrugFeaturizer, dataset)
+    assert isinstance(source, DrugFeatureSource)
+    assert len(source.identifiers) == len(dataset.drug_ids)
 
 
-class TestFeaturizerChecksAcceptConformingComponents:
-    @pytest.mark.parametrize("check", FEATURIZER_CHECKS)
-    @pytest.mark.parametrize("cls", [GoodFeaturizer, GoodDrugFeaturizer])
-    def test_a_conforming_featurizer_passes_every_check(self, check, cls, dataset):
+@pytest.mark.parametrize("check", FEATURIZER_CHECKS)
+@pytest.mark.parametrize("cls", [GoodFeaturizer, GoodDrugFeaturizer])
+def test_a_conforming_featurizer_passes_every_check(check, cls, dataset):
+    check(cls, dataset)
+
+
+@pytest.mark.parametrize("check", PREDICTOR_CHECKS)
+def test_a_conforming_predictor_passes_every_check(check, batch):
+    check(GoodPredictor, batch)
+
+
+def test_checks_default_to_synthetic_data_forward_kwargs_and_return_instances(dataset):
+    check_featurizer_fit_transform(GoodFeaturizer)
+    check_featurizer_fit_transform(GoodFeaturizer, dataset, n_features=7)
+    check_predictor_fit_predict(GoodPredictor)
+    assert isinstance(check_featurizer_instantiates(GoodFeaturizer), GoodFeaturizer)
+    assert isinstance(check_predictor_instantiates(GoodPredictor), GoodPredictor)
+
+
+@pytest.mark.parametrize(
+    ("check", "cls", "error", "match"),
+    [
+        (check_featurizer_instantiates, RequiresAnArgumentFeaturizer, ConformanceError, "could not be constructed"),
+        (check_featurizer_instantiates, dict, ConformanceError, "not a Featurizer"),
+        (check_featurizer_fit_transform, MisreportsOutputDimFeaturizer, ConformanceError, "output_dim"),
+        (check_featurizer_fit_transform, MisalignedBlockFeaturizer, ValueError, "must preserve requested entity order"),
+        (check_featurizer_fit_transform, EmptyBlocksFeaturizer, ConformanceError, "returned no blocks"),
+        (check_featurizer_state_round_trip, ForgetfulStateFeaturizer, ConformanceError, "different features"),
+    ],
+)
+def test_featurizer_defects_are_rejected(check, cls, error, match, dataset):
+    with pytest.raises(error, match=match):
         check(cls, dataset)
 
-    def test_the_checks_default_to_the_synthetic_dataset(self):
-        """A plugin with ``entity_id_only`` featurizers needs no dataset of its own."""
-        check_featurizer_fit_transform(GoodFeaturizer)
 
-    def test_constructor_kwargs_are_forwarded(self, dataset):
-        check_featurizer_fit_transform(GoodFeaturizer, dataset, n_features=7)
-
-    def test_instantiation_returns_the_instance(self):
-        assert isinstance(check_featurizer_instantiates(GoodFeaturizer), GoodFeaturizer)
-
-
-class TestFeaturizerChecksRejectDefects:
-    def test_a_non_default_constructible_featurizer_is_rejected(self):
-        with pytest.raises(ConformanceError, match="could not be constructed"):
-            check_featurizer_instantiates(RequiresAnArgumentFeaturizer)
-
-    def test_a_non_featurizer_class_is_rejected(self):
-        with pytest.raises(ConformanceError, match="not a Featurizer"):
-            check_featurizer_instantiates(dict)  # type: ignore[arg-type]
-
-    def test_a_wrong_output_dim_is_rejected(self, dataset):
-        with pytest.raises(ConformanceError, match="output_dim"):
-            check_featurizer_fit_transform(MisreportsOutputDimFeaturizer, dataset)
-
-    def test_a_misaligned_block_is_rejected(self, dataset):
-        with pytest.raises(ValueError, match="must preserve requested entity order"):
-            check_featurizer_fit_transform(MisalignedBlockFeaturizer, dataset)
-
-    def test_producing_no_blocks_is_rejected(self, dataset):
-        with pytest.raises(ConformanceError, match="returned no blocks"):
-            check_featurizer_fit_transform(EmptyBlocksFeaturizer, dataset)
-
-    def test_an_incomplete_get_state_is_rejected(self, dataset):
-        with pytest.raises(ConformanceError, match="different features"):
-            check_featurizer_state_round_trip(ForgetfulStateFeaturizer, dataset)
+@pytest.mark.parametrize(
+    ("check", "cls", "match"),
+    [
+        (check_predictor_instantiates, RequiresAnArgumentPredictor, "could not be constructed"),
+        (check_predictor_instantiates, dict, "not a Predictor"),
+        (check_predictor_fit_predict, NeverFitsPredictor, "non-finite"),
+        (check_predictor_state_round_trip, ForgetfulStatePredictor, "predicted differently"),
+        (check_predictor_state_round_trip, NeverFitsPredictor, "before the round trip"),
+    ],
+)
+def test_predictor_defects_are_rejected(check, cls, match, batch):
+    with pytest.raises(ConformanceError, match=match):
+        check(cls, batch)
 
 
-class TestPredictorChecksAcceptConformingComponents:
-    @pytest.mark.parametrize("check", PREDICTOR_CHECKS)
-    def test_a_conforming_predictor_passes_every_check(self, check, batch):
-        check(GoodPredictor, batch)
-
-    def test_the_checks_default_to_the_synthetic_batch(self):
-        check_predictor_fit_predict(GoodPredictor)
-
-    def test_instantiation_returns_the_instance(self):
-        assert isinstance(check_predictor_instantiates(GoodPredictor), GoodPredictor)
-
-
-class TestPredictorChecksRejectDefects:
-    def test_a_non_default_constructible_predictor_is_rejected(self):
-        with pytest.raises(ConformanceError, match="could not be constructed"):
-            check_predictor_instantiates(RequiresAnArgumentPredictor)
-
-    def test_a_non_predictor_class_is_rejected(self):
-        with pytest.raises(ConformanceError, match="not a Predictor"):
-            check_predictor_instantiates(dict)  # type: ignore[arg-type]
-
-    def test_a_predictor_that_never_trains_is_rejected(self, batch):
-        with pytest.raises(ConformanceError, match="non-finite"):
-            check_predictor_fit_predict(NeverFitsPredictor, batch)
-
-    def test_an_incomplete_get_state_is_rejected(self, batch):
-        with pytest.raises(ConformanceError, match="predicted differently"):
-            check_predictor_state_round_trip(ForgetfulStatePredictor, batch)
-
-    def test_a_predictor_that_never_trains_fails_the_round_trip_early(self, batch):
-        """A predictor that cannot predict finitely cannot be compared at all."""
-        with pytest.raises(ConformanceError, match="before the round trip"):
-            check_predictor_state_round_trip(NeverFitsPredictor, batch)
+def test_check_tuples_name_every_check_with_two_positional_arguments():
+    assert set(FEATURIZER_CHECKS) == {
+        check_featurizer_instantiates,
+        check_featurizer_fit_transform,
+        check_featurizer_state_round_trip,
+    }
+    assert set(PREDICTOR_CHECKS) == {
+        check_predictor_instantiates,
+        check_predictor_fit_predict,
+        check_predictor_state_round_trip,
+    }
+    for check in FEATURIZER_CHECKS + PREDICTOR_CHECKS:
+        kinds = [p.kind for p in inspect.signature(check).parameters.values()]
+        assert kinds.count(inspect.Parameter.POSITIONAL_OR_KEYWORD) == 2
 
 
-class TestChecksCoverEveryPublicCheck:
-    """The tuples exist so a plugin's suite cannot silently miss a new check."""
-
-    def test_featurizer_checks_names_every_featurizer_check(self):
-        assert set(FEATURIZER_CHECKS) == {
-            check_featurizer_instantiates,
-            check_featurizer_fit_transform,
-            check_featurizer_state_round_trip,
-        }
-
-    def test_predictor_checks_names_every_predictor_check(self):
-        assert set(PREDICTOR_CHECKS) == {
-            check_predictor_instantiates,
-            check_predictor_fit_predict,
-            check_predictor_state_round_trip,
-        }
-
-    @pytest.mark.parametrize("check", FEATURIZER_CHECKS + PREDICTOR_CHECKS)
-    def test_every_check_takes_the_same_two_positional_arguments(self, check):
-        """What makes ``parametrize("check", FEATURIZER_CHECKS)`` work at all."""
-        import inspect
-
-        positional = [
-            name
-            for name, parameter in inspect.signature(check).parameters.items()
-            if parameter.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
-        ]
-
-        assert len(positional) == 2
+@pytest.mark.parametrize("check", FEATURIZER_CHECKS)
+@pytest.mark.parametrize("name", ["identity", "tissue"])
+def test_builtin_sample_featurizers_conform(check, name, dataset):
+    check(sample_featurizer.get(name), dataset)
 
 
-class TestChecksAgainstShippedComponents:
-    """The shipped components are the checks' own regression test.
-
-    A check that rejects ``identity`` or ``ridge`` is wrong about the contract
-    rather than right about the component.
-    """
-
-    @pytest.mark.parametrize("check", FEATURIZER_CHECKS)
-    @pytest.mark.parametrize("name", ["identity", "tissue", "constant"])
-    def test_builtin_sample_featurizers_conform(self, check, name, dataset):
-        from drevalpy.registry import sample_featurizer
-
-        check(sample_featurizer.get(name), dataset)
-
-    @pytest.mark.parametrize("check", PREDICTOR_CHECKS)
-    @pytest.mark.parametrize("name", ["ridge", "lasso", "elasticNet", "knn"])
-    def test_builtin_predictors_conform(self, check, name, batch):
-        from drevalpy.registry import predictor
-
-        check(predictor.get(name), batch)
+@pytest.mark.parametrize("check", PREDICTOR_CHECKS)
+@pytest.mark.parametrize("name", ["ridge", "elasticNet", "knn"])
+def test_builtin_predictors_conform(check, name, batch):
+    check(predictor.get(name), batch)

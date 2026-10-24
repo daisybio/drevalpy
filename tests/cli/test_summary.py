@@ -23,30 +23,16 @@ def test_the_group_by_values_are_drug_sample_and_study() -> None:
     assert [member.value for member in GroupBy] == ["drug", "sample", "study"]
 
 
-def test_an_undefined_metric_is_labelled_rather_than_shown_as_a_number() -> None:
+def test_summary_layout_labels_undefined_metrics_and_shows_group_counts() -> None:
     lines = format_grouped_summary(_experiment(), GroupBy.DRUG).splitlines()
 
+    assert format_grouped_summary(_experiment(), GroupBy.SAMPLE).startswith("Metrics computed within each sample")
+    assert lines[1].split() == ["Model", "MSE", "Pearson"]
+    assert [line.split()[0] for line in lines[2:]] == ["DrugMean", "Varying"]
     constant = next(line for line in lines if line.startswith("DrugMean"))
     assert "undefined" in constant
     assert "nan" not in constant.lower()
-
-
-def test_a_defined_metric_shows_its_mean_and_group_count() -> None:
-    lines = format_grouped_summary(_experiment(), GroupBy.DRUG).splitlines()
-
-    varying = next(line for line in lines if line.startswith("Varying"))
-    assert "(4)" in varying
-
-
-def test_the_heading_names_the_grouping() -> None:
-    assert format_grouped_summary(_experiment(), GroupBy.SAMPLE).startswith("Metrics computed within each sample")
-
-
-def test_every_model_gets_a_row_under_a_header() -> None:
-    lines = format_grouped_summary(_experiment(), GroupBy.DRUG).splitlines()
-
-    assert lines[1].split() == ["Model", "MSE", "Pearson"]
-    assert [line.split()[0] for line in lines[2:]] == ["DrugMean", "Varying"]
+    assert "(4)" in next(line for line in lines if line.startswith("Varying"))
 
 
 def _prefixed_experiment() -> ExperimentResult:

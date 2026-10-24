@@ -1,14 +1,4 @@
-"""Tests for the shared checkpointed early-stopping loop.
-
-``literature/_early_stopping.py`` replaced the loop PharmaFormer and DIPK each ran by
-hand around their own epoch functions. The behaviour that matters is when it stops:
-patience counts *consecutive* non-improving epochs and resets on any improvement, and
-whatever weights were best get reloaded at the end - including the case where the
-first epoch was the best one and every later epoch was worse.
-
-The epoch callables here return scripted losses rather than training anything, so the
-loop's decisions are observable without a real fit.
-"""
+"""Tests for the shared checkpointed early-stopping loop."""
 
 from __future__ import annotations
 
@@ -23,7 +13,6 @@ from drevalpy.components.predictors.literature._early_stopping import (
 from drevalpy.experiment._tracking import tracking_run
 from tests._fake_wandb import install_fake_wandb
 
-#: ``save_torch_payload``/``load_state_dict`` round-trip real torch checkpoints.
 pytestmark = pytest.mark.slow
 
 
@@ -74,16 +63,6 @@ def _run(tmp_path, *, epochs: int, patience: int, verbose: bool = False) -> Earl
 
 
 def _drive(model, run: EarlyStoppingRun, val_losses: list[float]) -> list[int]:
-    """Run the loop over scripted validation losses, recording the epochs reached.
-
-    Each epoch stamps the model's weight with its index, so the reloaded weight
-    identifies which epoch's checkpoint won.
-
-    :param model: The scripted model.
-    :param run: Run configuration.
-    :param val_losses: One validation loss per epoch.
-    :returns: The epoch indices the loop actually reached.
-    """
     import torch
 
     reached: list[int] = []
@@ -101,123 +80,71 @@ def _drive(model, run: EarlyStoppingRun, val_losses: list[float]) -> list[int]:
     return reached
 
 
-def test_a_monotonically_improving_run_uses_the_whole_epoch_budget(tmp_path) -> None:
+@pytest.mark.parametrize(
+    ("epochs", "patience", "losses", "reached", "saved"),
+    [
+        (4, 2, [4.0, 3.0, 2.0, 1.0], [0, 1, 2, 3], [0.0, 1.0, 2.0, 3.0]),
+        (10, 2, [1.0, 2.0, 3.0, 4.0], [0, 1, 2], [0.0]),
+        (10, 2, [5.0, 6.0, 4.0, 7.0, 8.0], [0, 1, 2, 3, 4], [0.0, 2.0]),
+    ],
+    ids=["improving", "patience-stops", "improvement-resets-patience"],
+)
+def test_patience_counts_consecutive_non_improving_epochs(tmp_path, epochs, patience, losses, reached, saved) -> None:
     model = _CountingModel()
 
-    reached = _drive(model, _run(tmp_path, epochs=4, patience=2), [4.0, 3.0, 2.0, 1.0])
-
-    assert reached == [0, 1, 2, 3]
-    assert model.saved_weights == [0.0, 1.0, 2.0, 3.0]
+    assert _drive(model, _run(tmp_path, epochs=epochs, patience=patience), losses) == reached
+    assert model.saved_weights == saved
 
 
-def test_patience_stops_the_run_early(tmp_path) -> None:
-    model = _CountingModel()
+def test_the_best_epochs_weights_are_reloaded_and_the_model_moved_to_the_device(tmp_path) -> None:
+    import torch
 
-    reached = _drive(model, _run(tmp_path, epochs=10, patience=2), [1.0, 2.0, 3.0, 4.0])
-
-    # Epoch 0 is best; epochs 1 and 2 exhaust patience.
-    assert reached == [0, 1, 2]
-
-
-def test_an_improvement_resets_the_patience_counter(tmp_path) -> None:
-    model = _CountingModel()
-
-    reached = _drive(model, _run(tmp_path, epochs=10, patience=2), [5.0, 6.0, 4.0, 7.0, 8.0])
-
-    # Epoch 1 does not improve, epoch 2 does and resets, epochs 3-4 then exhaust patience.
-    assert reached == [0, 1, 2, 3, 4]
-
-
-def test_only_improving_epochs_are_checkpointed(tmp_path) -> None:
-    model = _CountingModel()
-
-    _drive(model, _run(tmp_path, epochs=4, patience=4), [5.0, 6.0, 4.0, 7.0])
-
-    assert model.saved_weights == [0.0, 2.0]
-
-
-def test_the_best_epochs_weights_are_reloaded_at_the_end(tmp_path) -> None:
     model = _CountingModel()
 
     _drive(model, _run(tmp_path, epochs=4, patience=4), [5.0, 6.0, 4.0, 7.0])
 
     assert model.reload_count == 1
     assert model.weight() == pytest.approx(2.0)
-
-
-def test_the_model_is_moved_back_onto_the_target_device(tmp_path) -> None:
-    import torch
-
-    model = _CountingModel()
-
-    _drive(model, _run(tmp_path, epochs=1, patience=1), [1.0])
-
     assert model.devices == [torch.device("cpu")]
 
 
-def test_the_checkpoint_directory_is_created_and_named_per_model(tmp_path) -> None:
-    model = _CountingModel()
+def test_checkpoints_are_written_per_model_and_runs_do_not_collide(tmp_path) -> None:
     directory = tmp_path / "nested" / "checkpoints"
 
-    _drive(model, _run(directory, epochs=1, patience=1), [1.0])
+    for _ in range(2):
+        _drive(_CountingModel(), _run(directory, epochs=1, patience=1), [1.0])
 
     written = list(directory.glob("*.pth"))
-    assert len(written) == 1
-    assert written[0].name.startswith("version-")
-    assert written[0].name.endswith("_best_Scripted_model.pth")
-
-
-def test_two_runs_in_one_directory_do_not_collide(tmp_path) -> None:
-    """The randomised ``version-`` prefix is what keeps concurrent fits apart."""
-    for _ in range(2):
-        _drive(_CountingModel(), _run(tmp_path, epochs=1, patience=1), [1.0])
-
-    assert len(list(tmp_path.glob("*.pth"))) == 2
+    assert len(written) == 2
+    assert all(p.name.startswith("version-") and p.name.endswith("_best_Scripted_model.pth") for p in written)
 
 
 def test_progress_is_silent_unless_the_run_is_verbose(tmp_path, caplog) -> None:
     with caplog.at_level(logging.INFO):
         _drive(_CountingModel(), _run(tmp_path, epochs=1, patience=1), [1.0])
-
     assert caplog.messages == []
 
-
-def test_a_verbose_run_reports_both_losses_and_the_reload(tmp_path, caplog) -> None:
-    with caplog.at_level(logging.INFO):
-        _drive(_CountingModel(), _run(tmp_path, epochs=1, patience=1, verbose=True), [1.0])
-
-    output = "\n".join(caplog.messages)
-    assert "Scripted: Epoch [1/1] Training Loss:" in output
-    assert "Scripted: Epoch [1/1] Validation Loss:" in output
-    assert "Scripted: Reloading the best model" in output
-
-
-def test_a_verbose_run_announces_the_early_stop(tmp_path, caplog) -> None:
     with caplog.at_level(logging.INFO):
         _drive(_CountingModel(), _run(tmp_path, epochs=10, patience=1, verbose=True), [1.0, 2.0])
-
+    output = "\n".join(caplog.messages)
+    assert "Scripted: Epoch [1/10] Training Loss:" in output
+    assert "Scripted: Epoch [1/10] Validation Loss:" in output
+    assert "Scripted: Reloading the best model" in output
     assert "Scripted: Early stopping triggered at epoch 2" in caplog.messages
 
 
-def test_each_epoch_is_logged_to_the_active_tracking_run(tmp_path, monkeypatch) -> None:
+def test_each_epoch_is_logged_to_the_active_tracking_run_only(tmp_path, monkeypatch) -> None:
     fake = install_fake_wandb(monkeypatch)
-    model = _CountingModel()
+    _drive(_CountingModel(), _run(tmp_path, epochs=2, patience=2), [2.0, 1.0])
+    assert fake.runs == []
 
     with tracking_run("proj", name="r"):
-        _drive(model, _run(tmp_path, epochs=2, patience=2), [2.0, 1.0])
+        _drive(_CountingModel(), _run(tmp_path, epochs=2, patience=2), [2.0, 1.0])
 
     assert fake.runs[0].logged == [
         {"epoch": 1, "train_loss": 1.0, "val_loss": 2.0},
         {"epoch": 2, "train_loss": 1.0, "val_loss": 1.0},
     ]
-
-
-def test_without_a_tracking_run_nothing_is_logged(tmp_path, monkeypatch) -> None:
-    fake = install_fake_wandb(monkeypatch)
-
-    _drive(_CountingModel(), _run(tmp_path, epochs=2, patience=2), [2.0, 1.0])
-
-    assert fake.runs == []
 
 
 def _linear_model_and_loader():
@@ -251,14 +178,8 @@ def test_run_epoch_in_train_mode_updates_the_parameters_and_returns_the_mean_los
     mean_loss = run_epoch(model, loader, _squared_error(model), optimizer)
 
     assert model.training
-    assert mean_loss == pytest.approx((4.0 + _second_loss()) / 2)
+    assert mean_loss == pytest.approx((4.0 + (0.8 - 4.0) ** 2) / 2)
     assert model.weight.item() != 0.0
-
-
-def _second_loss() -> float:
-    # After the first SGD step on (x=1, y=2): grad = 2 * (0 - 2) * 1 = -4, w = 0.4.
-    # Second batch (x=2, y=4): prediction 0.8, loss (0.8 - 4) ** 2.
-    return (0.8 - 4.0) ** 2
 
 
 def test_run_epoch_in_eval_mode_leaves_parameters_and_gradients_untouched() -> None:

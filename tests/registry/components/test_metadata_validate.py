@@ -15,114 +15,55 @@ from drevalpy.registry.predictor import PredictorRegistry
 from drevalpy.types.enums.literature_reference import LiteratureReference
 
 
+def _component(**attrs) -> type:
+    return type("Native", (), {"description": "native", "tags": frozenset(), "reference": None} | attrs)
+
+
 def test_literature_reference_is_accepted() -> None:
-    class Lit:
-        sample_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-        drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    lit = type("Lit", (), {"sample_contract": contract, "drug_contract": contract})
+    reference = LiteratureReference(
+        repo_url="https://github.com/example/repo", citation_doi="10.1234/example", deviations="none"
+    )
 
-    apply_registration_metadata(
-        Lit,
-        normalize_registration_metadata(
-            "lit model",
-            reference=LiteratureReference(
-                repo_url="https://github.com/example/repo",
-                citation_doi="10.1234/example",
-                deviations="none",
-            ),
+    apply_registration_metadata(lit, normalize_registration_metadata("lit model", reference=reference))
+
+    validate_registered_class("predictor", "lit", lit, required_fields=PredictorRegistry._required_fields)
+
+
+@pytest.mark.parametrize(
+    ("role", "required_fields", "attrs", "message"),
+    [
+        ("drug_featurizer", FeaturizerRegistry._required_fields, {}, r"missing=\['contract'\]"),
+        (
+            "predictor",
+            PredictorRegistry._required_fields,
+            {},
+            r"missing=\['sample_contract', 'drug_contract'\]",
         ),
-    )
-    validate_registered_class(
-        "predictor",
-        "lit",
-        Lit,
-        required_fields=PredictorRegistry._required_fields,
-    )
-
-
-def test_literature_reference_missing_fields_fails_on_normalize() -> None:
-    with pytest.raises(ValueError, match="invalid fields"):
-        normalize_registration_metadata(
-            "lit model",
-            reference=LiteratureReference(repo_url="https://github.com/example/repo"),
-        )
-
-
-def test_featurizer_role_validation_requires_contract() -> None:
-    class Native:
-        description = "native"
-        tags: frozenset[str] = frozenset()
-        reference = None
-
-    with pytest.raises(ValueError, match="missing=\\['contract'\\]"):
-        validate_registered_class(
+        ("predictor", ("description",), {"description": None}, r"missing=\['description'\]"),
+        (
             "drug_featurizer",
-            "native",
-            Native,
-            required_fields=FeaturizerRegistry._required_fields,
-        )
+            FeaturizerRegistry._required_fields,
+            {"contract": "numeric_matrix"},
+            r"invalid=\['contract'\]",
+        ),
+    ],
+    ids=["featurizer-contract", "predictor-contracts", "description", "wrong-type-contract"],
+)
+def test_role_validation_reports_missing_and_invalid_fields(role, required_fields, attrs, message) -> None:
+    cls = _component(**attrs)
+    if attrs.get("description", "x") is None:
+        del cls.description  # type: ignore[attr-defined]
+
+    with pytest.raises(ValueError, match=message):
+        validate_registered_class(role, "native", cls, required_fields=required_fields)
 
 
-def test_predictor_role_validation_requires_contracts() -> None:
-    class Native:
-        description = "native"
-        tags: frozenset[str] = frozenset()
-        reference = None
-
-    with pytest.raises(ValueError, match="missing=\\['sample_contract', 'drug_contract'\\]"):
-        validate_registered_class(
-            "predictor",
-            "native",
-            Native,
-            required_fields=PredictorRegistry._required_fields,
-        )
-
-
-def test_missing_description_fails() -> None:
-    class Empty:
-        tags: frozenset[str] = frozenset()
-
-    with pytest.raises(ValueError, match="missing=\\['description'\\]"):
-        validate_registered_class(
-            "predictor",
-            "empty",
-            Empty,
-            required_fields=("description",),
-        )
-
-
-def test_wrong_type_contract_fails() -> None:
-    class BadContract:
-        description = "bad"
-        tags: frozenset[str] = frozenset()
-        reference = None
-        contract = "numeric_matrix"
-
-    with pytest.raises(ValueError, match="invalid=\\['contract'\\]"):
-        validate_registered_class(
-            "drug_featurizer",
-            "bad",
-            BadContract,
-            required_fields=FeaturizerRegistry._required_fields,
-        )
-
-
-def test_register_rejects_blank_description_before_class_body() -> None:
+def test_register_rejects_a_blank_description_and_a_bad_contract_before_the_class_body() -> None:
     registry = FeaturizerRegistry("test", "Test", "tests")
+
     with pytest.raises(ValueError, match="description must be a non-empty string"):
-        registry.register(
-            "blank",
-            description="  ",
-            contract=FeatureFormat.NUMERIC_MATRIX,
-        )
-
-
-def test_register_rejects_bad_contract_before_class_body() -> None:
-    registry = FeaturizerRegistry("test", "Test", "tests")
-    with pytest.raises(
-        (TypeError, Exception), match="FeatureContract|FeatureFormat|did not match any element in the union"
-    ):
-        registry.register(
-            "badContract",
-            description="demo",
-            contract="numeric_matrix",  # type: ignore[arg-type]
-        )
+        registry.register("blank", description="  ", contract=FeatureFormat.NUMERIC_MATRIX)
+    with pytest.raises(Exception, match="FeatureContract|FeatureFormat|did not match any element in the union"):
+        registry.register("badContract", description="demo", contract="numeric_matrix")  # type: ignore[arg-type]

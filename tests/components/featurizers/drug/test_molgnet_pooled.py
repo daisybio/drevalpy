@@ -1,9 +1,4 @@
-"""Tests for the pooled MolGNet drug featurizer.
-
-Mirrors :mod:`drevalpy.components.featurizers.drug.molgnet_pooled`. Like the ragged featurizer's tests,
-everything runs offline: a mock source serves the node matrices, and the on-the-fly path is exercised
-with a stubbed ``_compute_molgnet_embedding``.
-"""
+"""Tests for the pooled MolGNet drug featurizer; runs offline with a mock source and stubbed embedding."""
 
 from __future__ import annotations
 
@@ -29,23 +24,21 @@ def _source() -> MockFeatureSource:
     return MockFeatureSource({"d1": {"molgnet_features": _D1}, "d2": {"molgnet_features": _D2}})
 
 
-def test_pool_molgnet_mean_max_concatenates_the_mean_and_the_maximum() -> None:
-    pooled = pool_molgnet(_D2, "mean_max")
+@pytest.mark.parametrize(
+    ("pooling", "expected"),
+    [
+        ("mean_max", np.concatenate([_D2.mean(axis=0), _D2.max(axis=0)])),
+        ("mean", _D2.mean(axis=0)),
+        ("max", _D2.max(axis=0)),
+    ],
+)
+def test_pool_molgnet_reductions(pooling: str, expected: np.ndarray) -> None:
+    np.testing.assert_array_equal(pool_molgnet(_D2, pooling), expected)
 
-    np.testing.assert_array_equal(pooled, np.concatenate([_D2.mean(axis=0), _D2.max(axis=0)]))
 
-
-@pytest.mark.parametrize(("pooling", "reduce"), [("mean", np.mean), ("max", np.max)])
-def test_pool_molgnet_single_reductions(pooling: str, reduce) -> None:
-    np.testing.assert_array_equal(pool_molgnet(_D2, pooling), reduce(_D2, axis=0))
-
-
-def test_pool_molgnet_rejects_an_unknown_pooling() -> None:
+def test_unknown_pooling_is_rejected_by_the_function_and_the_constructor() -> None:
     with pytest.raises(InvalidInputError, match="Unknown MolGNet pooling 'sum'"):
         pool_molgnet(_D2, "sum")
-
-
-def test_featurizer_rejects_an_unknown_pooling_at_construction() -> None:
     with pytest.raises(InvalidInputError, match="mean_max, mean, max"):
         MolGNetPooledFeaturizer(pooling="median")
 
@@ -71,6 +64,7 @@ def test_transform_pools_every_drug_and_reports_the_width(pooling: str, width: i
     assert matrix.shape == (2, width)
     assert matrix.dtype == np.float32
     np.testing.assert_array_equal(matrix[1], pool_molgnet(_D2, pooling))
+    assert featurizer.transform(source, np.array([], dtype=str)).shape == (0, width)
 
 
 def test_transform_blocks_emits_one_named_numeric_block() -> None:
@@ -80,36 +74,20 @@ def test_transform_blocks_emits_one_named_numeric_block() -> None:
     blocks = featurizer.transform_blocks(source, _IDS)
 
     assert set(blocks) == {"molgnet_pooled"}
-    block = blocks["molgnet_pooled"]
-    assert block.format is FeatureFormat.NUMERIC_MATRIX
-    assert block.feature_names == molgnet_feature_names(6, "mean_max")
-    assert MolGNetPooledFeaturizer.output_block_specs[0].name == "molgnet_pooled"
+    assert blocks["molgnet_pooled"].format is FeatureFormat.NUMERIC_MATRIX
+    assert blocks["molgnet_pooled"].feature_names == molgnet_feature_names(6, "mean_max")
 
 
-def test_equal_atom_counts_still_pool_per_drug() -> None:
-    source = MockFeatureSource({"a": {"molgnet_features": _D1}, "b": {"molgnet_features": _D1 + 10}})
-    ids = np.array(["a", "b"])
-    featurizer = MolGNetPooledFeaturizer(pooling="mean").fit(source, entity_ids=ids)
+def test_equal_atom_counts_still_pool_per_drug_and_unfitted_drugs_are_read() -> None:
+    source = MockFeatureSource(
+        {"a": {"molgnet_features": _D1}, "b": {"molgnet_features": _D1 + 10}, "c": {"molgnet_features": _D2}}
+    )
+    featurizer = MolGNetPooledFeaturizer(pooling="mean").fit(source, entity_ids=np.array(["a", "b"]))
 
-    matrix = featurizer.transform(source, ids)
+    matrix = featurizer.transform(source, np.array(["a", "b", "c"]))
 
-    np.testing.assert_array_equal(matrix, np.stack([_D1.mean(axis=0), (_D1 + 10).mean(axis=0)]))
-
-
-def test_transform_reads_drugs_that_were_not_fitted() -> None:
-    source = _source()
-    featurizer = MolGNetPooledFeaturizer(pooling="max").fit(source, entity_ids=np.array(["d1"]))
-
-    matrix = featurizer.transform(source, np.array(["d2"]))
-
-    np.testing.assert_array_equal(matrix[0], _D2.max(axis=0))
-
-
-def test_transform_of_no_drugs_has_the_fitted_width() -> None:
-    source = _source()
-    featurizer = MolGNetPooledFeaturizer().fit(source, entity_ids=_IDS)
-
-    assert featurizer.transform(source, np.array([], dtype=str)).shape == (0, 6)
+    np.testing.assert_array_equal(matrix[:2], np.stack([_D1.mean(axis=0), (_D1 + 10).mean(axis=0)]))
+    np.testing.assert_array_equal(matrix[2], _D2.mean(axis=0))
 
 
 def test_missing_view_is_computed_from_the_smiles(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -121,7 +99,6 @@ def test_missing_view_is_computed_from_the_smiles(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(MolGNetPooledFeaturizer, "_compute_single_embedding", compute)
     source = MockFeatureSource({"d1": {}, "d2": {"molgnet_features": _D2}})
-
     featurizer = MolGNetPooledFeaturizer(pooling="mean").fit(source, entity_ids=_IDS)
 
     assert calls == ["d1"]
@@ -130,15 +107,12 @@ def test_missing_view_is_computed_from_the_smiles(monkeypatch: pytest.MonkeyPatc
 
 def test_unavailable_drug_raises_a_key_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(molgnet.MolGNetDrugFeaturizer, "_compute_single_embedding", lambda *_: None)
-    source = MockFeatureSource({"d1": {"molgnet_features": _D1}, "d2": {}})
-    featurizer = MolGNetPooledFeaturizer().fit(source, entity_ids=np.array(["d1"]))
-
+    unavailable = MockFeatureSource({"d1": {"molgnet_features": _D1}, "d2": {}})
+    fitted = MolGNetPooledFeaturizer().fit(unavailable, entity_ids=np.array(["d1"]))
     with pytest.raises(KeyError, match="d2"):
-        featurizer.transform(source, np.array(["d2"]))
+        fitted.transform(unavailable, np.array(["d2"]))
 
 
 def test_hyperparameter_space_lists_the_poolings() -> None:
-    space = MolGNetPooledFeaturizer.get_hyperparameter_space()
-
-    assert space["pooling"]["choices"] == ["mean_max", "mean", "max"]
+    assert MolGNetPooledFeaturizer.get_hyperparameter_space()["pooling"]["choices"] == ["mean_max", "mean", "max"]
     assert MolGNetPooledFeaturizer.get_default_hyperparameters() == {"pooling": "mean_max"}

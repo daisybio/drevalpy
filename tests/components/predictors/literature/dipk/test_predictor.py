@@ -1,11 +1,4 @@
-"""Tests for the DIPK block predictor.
-
-The training loop itself needs the network-gated BIONIC and MolGNet artifacts, so
-what is exercised here is everything around it: per-pair dict construction, the collate
-function, the list-backed dataset, and the state/guard paths. Those are also the
-parts that carry the ``torch`` imports this module defers (see
-``tests/test_import_cost_policy.py``), so they are worth pinning directly.
-"""
+"""Tests for the DIPK block predictor."""
 
 from __future__ import annotations
 
@@ -39,10 +32,6 @@ from tests.components.predictors.literature._helpers import (
 
 
 def _dipk_batch() -> ModelInputBatch:
-    """Build a batch with the three blocks DIPK consumes.
-
-    :returns: Featurized ``ModelInputBatch`` with two samples and two drugs.
-    """
     molgnet = np.empty(2, dtype=object)
     molgnet[:] = [
         np.arange(6, dtype=np.float32).reshape(3, 2),
@@ -59,7 +48,6 @@ def _dipk_batch() -> ModelInputBatch:
 
 
 def _trainable_dipk_batch(tmp_path: Path) -> ModelInputBatch:
-    """Build full-width inputs with a validation split disjoint from training."""
     rng = np.random.default_rng(321)
     cell_ids = np.array(["train-1", "train-2", "val-1", "val-2"])
     drug_ids = np.array(["d1", "d2"])
@@ -92,14 +80,9 @@ def _trainable_dipk_batch(tmp_path: Path) -> ModelInputBatch:
     )
 
 
-def test_dipk_predictor_registry_name() -> None:
+def test_registry_name_and_default_hyperparameters() -> None:
     assert get_predictor("dipk") is DIPKPredictor
-
-
-def test_default_hyperparameters_cover_the_training_loop_knobs() -> None:
-    defaults = DIPKPredictor.get_default_hyperparameters()
-
-    assert {"batch_size", "lr", "epochs", "patience"} <= set(defaults)
+    assert {"batch_size", "lr", "epochs", "patience"} <= set(DIPKPredictor.get_default_hyperparameters())
 
 
 class TestFrozenDIPKNumericalReference:
@@ -146,120 +129,74 @@ class TestTinyDIPKFit:
         np.testing.assert_allclose(restored.predict(batch), predictions, rtol=1e-6, atol=1e-7)
 
 
-class TestBuildPairs:
-    def test_one_dict_per_pair_with_the_three_blocks(self) -> None:
-        predictor = DIPKPredictor()
-        batch = _dipk_batch()
+def test_build_pairs_selects_entity_rows_and_adds_the_target_for_a_response() -> None:
+    predictor = DIPKPredictor()
+    batch = _dipk_batch()
 
-        pairs = predictor._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
+    pairs = predictor._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
 
-        assert len(pairs) == 4
-        assert set(pairs[0]) == {"molgnet_features", "gene_expression", "bionic_features"}
-
-    def test_pair_indices_select_the_entity_rows(self) -> None:
-        predictor = DIPKPredictor()
-        batch = _dipk_batch()
-
-        pairs = predictor._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
-
-        # Pair 2 is (sample 1, drug 0).
-        torch.testing.assert_close(pairs[2]["gene_expression"], torch.tensor([0.3, 0.4]))
-        assert pairs[2]["molgnet_features"].shape == (3, 2)
-
-    def test_a_response_adds_the_target_entry(self) -> None:
-        predictor = DIPKPredictor()
-        batch = _dipk_batch()
-
-        pairs = predictor._build_pairs(
-            batch.sample_pair_idx,
-            batch.drug_pair_idx,
-            batch,
-            response=np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32),
-        )
-
-        assert pairs[3]["ic50"].tolist() == [4.0]
+    assert len(pairs) == 4
+    assert set(pairs[0]) == {"molgnet_features", "gene_expression", "bionic_features"}
+    torch.testing.assert_close(pairs[2]["gene_expression"], torch.tensor([0.3, 0.4]))
+    assert pairs[2]["molgnet_features"].shape == (3, 2)
+    with_target = predictor._build_pairs(
+        batch.sample_pair_idx, batch.drug_pair_idx, batch, response=np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+    )
+    assert with_target[3]["ic50"].tolist() == [4.0]
 
 
-class TestCollateFn:
-    def _pairs(self) -> list[dict[str, torch.Tensor]]:
-        return [
-            {
-                "molgnet_features": torch.ones(3, 2),
-                "gene_expression": torch.tensor([0.1, 0.2]),
-                "bionic_features": torch.tensor([1.0, 2.0]),
-                "ic50": torch.tensor([5.0]),
-            },
-            {
-                "molgnet_features": torch.ones(1, 2),
-                "gene_expression": torch.tensor([0.3, 0.4]),
-                "bionic_features": torch.tensor([3.0, 4.0]),
-                "ic50": torch.tensor([6.0]),
-            },
-        ]
+def test_collate_pads_ragged_atoms_masks_them_and_adds_targets_only_in_training() -> None:
+    pairs = [
+        {
+            "molgnet_features": torch.ones(3, 2),
+            "gene_expression": torch.tensor([0.1, 0.2]),
+            "bionic_features": torch.tensor([1.0, 2.0]),
+            "ic50": torch.tensor([5.0]),
+        },
+        {
+            "molgnet_features": torch.ones(1, 2),
+            "gene_expression": torch.tensor([0.3, 0.4]),
+            "bionic_features": torch.tensor([3.0, 4.0]),
+            "ic50": torch.tensor([6.0]),
+        },
+    ]
 
-    def test_ragged_atoms_are_zero_padded_to_the_longest_molecule(self) -> None:
-        collated = _CollateFn(train=False)(self._pairs())
+    predict = _CollateFn(train=False)(pairs)
+    train = _CollateFn(train=True)(pairs)
 
-        assert collated["molgnet_features"].shape == (2, 3, 2)
-        assert collated["molgnet_features"][1, 1:].abs().sum().item() == 0.0
-
-    def test_the_mask_marks_only_the_real_atoms(self) -> None:
-        collated = _CollateFn(train=False)(self._pairs())
-
-        assert collated["molgnet_mask"].dtype is torch.bool
-        assert collated["molgnet_mask"][1].tolist() == [True, False, False]
-
-    def test_targets_are_included_only_in_training_mode(self) -> None:
-        train = _CollateFn(train=True)(self._pairs())
-        predict = _CollateFn(train=False)(self._pairs())
-
-        assert train["ic50_values"].flatten().tolist() == [5.0, 6.0]
-        assert "ic50_values" not in predict
+    assert predict["molgnet_features"].shape == (2, 3, 2)
+    assert predict["molgnet_features"][1, 1:].abs().sum().item() == 0.0
+    assert predict["molgnet_mask"].dtype is torch.bool
+    assert predict["molgnet_mask"][1].tolist() == [True, False, False]
+    assert train["ic50_values"].flatten().tolist() == [5.0, 6.0]
+    assert "ic50_values" not in predict
 
 
-class TestDIPKDataset:
-    def test_length_is_the_pair_count(self) -> None:
-        assert len(_DIPKDataset([{"a": torch.zeros(1)}, {"a": torch.ones(1)}])) == 2
+def test_dataset_drives_a_dataloader_without_subclassing_torch_dataset() -> None:
+    from torch.utils.data import DataLoader
 
-    def test_indexing_returns_the_stored_pair(self) -> None:
-        second = {"a": torch.ones(1)}
+    second = {"a": torch.ones(1)}
+    dataset = _DIPKDataset([{"a": torch.zeros(1)}, second])
 
-        assert _DIPKDataset([{"a": torch.zeros(1)}, second])[1] is second
-
-    def test_it_drives_a_dataloader_without_subclassing_torch_dataset(self) -> None:
-        """The class deliberately has no ``torch.utils.data.Dataset`` base."""
-        from torch.utils.data import DataLoader
-
-        dataset = _DIPKDataset([{"a": torch.zeros(1)}, {"a": torch.ones(1)}])
-
-        loader = DataLoader(dataset, batch_size=2, shuffle=False, collate_fn=list)
-
-        assert len(next(iter(loader))) == 2
+    assert len(dataset) == 2
+    assert dataset[1] is second
+    assert len(next(iter(DataLoader(dataset, batch_size=2, shuffle=False, collate_fn=list)))) == 2
 
 
-class TestGuards:
-    def test_predict_before_fit_returns_all_nan(self) -> None:
-        predictions = DIPKPredictor()._predict(_dipk_batch())
+def test_guards_and_unfitted_state() -> None:
+    predictor = DIPKPredictor()
+    predictions = predictor._predict(_dipk_batch())
+    assert np.isnan(predictions).all()
+    assert len(predictions) == 4
+    assert predictor.is_fitted() is False
+    assert predictor.get_state() == {}
+    with pytest.raises(ValueError, match="early stopping data"):
+        predictor._fit(_dipk_batch())
 
-        assert np.isnan(predictions).all()
-        assert len(predictions) == 4
 
-    def test_fit_without_early_stopping_data_is_rejected(self) -> None:
-        with pytest.raises(ValueError, match="early stopping data"):
-            DIPKPredictor()._fit(_dipk_batch())
-
-    def test_is_fitted_is_false_and_state_is_empty_before_training(self) -> None:
-        predictor = DIPKPredictor()
-
-        assert predictor.is_fitted() is False
-        assert predictor.get_state() == {}
-
-    def test_set_state_requires_a_payload_blob(self) -> None:
-        with pytest.raises(PredictorStateError, match="payload byte blob"):
-            DIPKPredictor().set_state({"payload": "not-bytes"})
-
-    def test_set_state_requires_the_model_state(self) -> None:
-        payload = save_trusted_mapping({"predictor_hyperparameters": DIPKPredictor.get_default_hyperparameters()})
-
-        with pytest.raises(PredictorStateError, match="missing model_state"):
-            DIPKPredictor().set_state({"payload": payload})
+def test_set_state_rejects_a_missing_payload_or_model_state() -> None:
+    with pytest.raises(PredictorStateError, match="payload byte blob"):
+        DIPKPredictor().set_state({"payload": "not-bytes"})
+    payload = save_trusted_mapping({"predictor_hyperparameters": DIPKPredictor.get_default_hyperparameters()})
+    with pytest.raises(PredictorStateError, match="missing model_state"):
+        DIPKPredictor().set_state({"payload": payload})

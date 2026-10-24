@@ -8,54 +8,32 @@ import pytest
 from drevalpy.curation._preprocess import preprocess
 
 
-class TestPreprocess:
-    """Tests for drevalpy.curation._preprocess.preprocess."""
+def test_returns_groups_of_a_wide_frame_and_group_info(dose_response_df: pd.DataFrame) -> None:
+    groups = preprocess(dose_response_df)
+    wide_df, group_info = groups[0]
+    raw_cols = [c for c in wide_df.columns if str(c).startswith("Raw")]
 
-    def test_returns_list_of_tuples(self, dose_response_df: pd.DataFrame) -> None:
-        result = preprocess(dose_response_df)
-        assert isinstance(result, list)
-        assert len(result) >= 1
-        for item in result:
-            assert isinstance(item, tuple) and len(item) == 2
+    assert groups and all(isinstance(item, tuple) and len(item) == 2 for item in groups)
+    assert raw_cols
+    assert group_info["n_experiments"] == len(raw_cols)
+    assert isinstance(group_info["doses"], list)
+    assert {"n_replicates"} <= set(group_info)
+    assert all(len(name.split("|")) == 2 for name in wide_df["Name"])
 
-    def test_wide_df_has_expected_columns(self, dose_response_df: pd.DataFrame) -> None:
-        groups = preprocess(dose_response_df)
-        wide_df, _ = groups[0]
-        assert "Name" in wide_df.columns
-        raw_cols = [c for c in wide_df.columns if str(c).startswith("Raw")]
-        assert len(raw_cols) > 0
 
-    def test_group_info_structure(self, dose_response_df: pd.DataFrame) -> None:
-        groups = preprocess(dose_response_df)
-        _, group_info = groups[0]
-        assert "n_experiments" in group_info
-        assert "doses" in group_info
-        assert "n_replicates" in group_info
-        assert isinstance(group_info["doses"], list)
-        assert group_info["n_experiments"] == len([c for c in groups[0][0].columns if str(c).startswith("Raw")])
+def test_replicates_are_counted(dose_response_df_with_replicates: pd.DataFrame) -> None:
+    assert preprocess(dose_response_df_with_replicates)[0][1]["n_replicates"] == 2
 
-    def test_missing_columns_raises(self) -> None:
-        bad_df = pd.DataFrame({"drug": ["A"], "sample": ["B"]})
-        with pytest.raises(ValueError, match="Missing required columns"):
-            preprocess(bad_df)
 
-    def test_with_replicates(self, dose_response_df_with_replicates: pd.DataFrame) -> None:
-        groups = preprocess(dose_response_df_with_replicates)
-        _, group_info = groups[0]
-        assert group_info["n_replicates"] == 2
+def test_missing_columns_raise() -> None:
+    with pytest.raises(ValueError, match="Missing required columns"):
+        preprocess(pd.DataFrame({"drug": ["A"], "sample": ["B"]}))
 
-    def test_name_column_format(self, dose_response_df: pd.DataFrame) -> None:
-        groups = preprocess(dose_response_df)
-        wide_df, _ = groups[0]
-        for name in wide_df["Name"]:
-            parts = name.split("|")
-            assert len(parts) == 2
 
-    def test_duplicate_measurements_are_averaged_with_a_warning(self, dose_response_df: pd.DataFrame) -> None:
-        duplicated = pd.concat([dose_response_df, dose_response_df.head(1)], ignore_index=True)
+def test_duplicate_measurements_are_averaged_with_a_warning(dose_response_df: pd.DataFrame) -> None:
+    duplicated = pd.concat([dose_response_df, dose_response_df.head(1)], ignore_index=True)
 
-        with pytest.warns(UserWarning, match="Duplicate entries found"):
-            groups = preprocess(duplicated)
+    with pytest.warns(UserWarning, match="Duplicate entries found"):
+        groups = preprocess(duplicated)
 
-        wide_df, _ = groups[0]
-        assert len(wide_df) == 6
+    assert len(groups[0][0]) == 6

@@ -1,15 +1,4 @@
-"""Shared batch factory for the literature predictor tests.
-
-Every literature predictor is exercised against the same shape of input - two
-samples, two drugs, the four pairs between them, and a checkpoint directory -
-so each of those test files had written out the same twelve-keyword
-``ModelInputBatch.from_response`` call. What actually differs per predictor is
-which feature blocks it consumes, and that is all a caller passes here.
-
-Plain ``_``-prefixed module: the
-underscore keeps it out of collection, and the mirror policy walks ``drevalpy/``
-only, so no mirrored test is demanded for it.
-"""
+"""Shared batch factory and numerical-reference helpers for the literature predictor tests."""
 
 from __future__ import annotations
 
@@ -40,7 +29,6 @@ TRAINING_TOLERANCE = {"rtol": 1e-4, "atol": 1e-6}
 
 
 def seed_literature(seed: int) -> None:
-    """Seed NumPy, Torch, and Python for a repeatable tiny model fit."""
     import random
 
     import torch
@@ -52,7 +40,6 @@ def seed_literature(seed: int) -> None:
 
 
 def trainable_parameter_vector(module: Any) -> np.ndarray:
-    """Flatten the finite trainable parameters of a fitted Torch module."""
     values = [parameter.detach().cpu().numpy().ravel() for parameter in module.parameters() if parameter.requires_grad]
     vector = np.concatenate(values)
     assert vector.size
@@ -61,14 +48,12 @@ def trainable_parameter_vector(module: Any) -> np.ndarray:
 
 
 def assert_trainable_parameters_changed(initial: np.ndarray, fitted_module: Any) -> None:
-    """Require an optimizer-backed fit to update at least one trainable value."""
     fitted = trainable_parameter_vector(fitted_module)
     assert fitted.shape == initial.shape
     assert not np.array_equal(initial, fitted)
 
 
 def assert_training_predictions(model: str, seed: int, actual: Any) -> None:
-    """Compare tiny-fit predictions to the same fit at the frozen v2 commit."""
     from tests.components.predictors.literature._reference.loader import load_training_seed
 
     expected = load_training_seed(seed)[model]
@@ -76,7 +61,6 @@ def assert_training_predictions(model: str, seed: int, actual: Any) -> None:
 
 
 def assert_training_checkpoint_score(model: str, seed: int, actual: Any) -> None:
-    """Compare the selected tiny-fit checkpoint score to the frozen v2 fit."""
     from tests.components.predictors.literature._reference.loader import load_training_seed
 
     expected = load_training_seed(seed)[f"{model}_checkpoint_score"]
@@ -89,7 +73,6 @@ def assert_corrected_training_result(
     predictions: Any,
     checkpoint_score: Any,
 ) -> None:
-    """Compare a fit against evidence kept separate from the immutable v2 baseline."""
     from tests.components.predictors.literature._reference.loader import load_corrected_training_seed
 
     expected = load_corrected_training_seed(correction, seed)
@@ -97,16 +80,7 @@ def assert_corrected_training_result(
     np.testing.assert_allclose(float(checkpoint_score), float(expected["checkpoint_score"]), **TRAINING_TOLERANCE)
 
 
-def identity_drug_blocks() -> dict[str, FeatureBlock]:
-    """Return identity blocks used by per-drug literature predictors."""
-    return {
-        "identity": numeric_feature_block(np.eye(2, dtype=np.float32)),
-        "identity_categories": numeric_feature_block(np.array([["d1"], ["d2"]], dtype=object)),
-    }
-
-
 def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:
-    """Build a varied, trainable three-omic batch with disjoint validation rows."""
     rng = np.random.default_rng(2025)
     sample_ids = np.array([*(f"train-{idx}" for idx in range(6)), "val-0", "val-1"])
     training = ResponseBatch(
@@ -143,7 +117,6 @@ def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:
 
 @contextmanager
 def _isolated_reference_rng(seed: int) -> Iterator[None]:
-    """Reproduce the capture process without leaking process-global RNG settings."""
     import random
 
     import torch
@@ -173,7 +146,6 @@ def _isolated_reference_rng(seed: int) -> Iterator[None]:
 
 
 def _array_payload(value: Any) -> dict[str, Any]:
-    """Serialize an array exactly as the frozen capture harness did."""
     if hasattr(value, "detach"):
         value = value.detach().cpu().numpy()
     array = np.asarray(value)
@@ -182,7 +154,6 @@ def _array_payload(value: Any) -> dict[str, Any]:
 
 @lru_cache(maxsize=3)
 def _current_reference_sequence(seed: int) -> dict[str, Any]:
-    """Replay all eight baseline operations in their original RNG order."""
     import torch
     from torch_geometric.data import Data
 
@@ -287,14 +258,12 @@ def _current_reference_sequence(seed: int) -> dict[str, Any]:
 
 
 def _assert_array_payload_matches(actual: dict[str, Any], expected: dict[str, Any]) -> None:
-    """Compare one captured tensor including its dimensional and dtype contract."""
     assert actual["shape"] == expected["shape"]
     assert actual["dtype"] == expected["dtype"]
     np.testing.assert_allclose(actual["values"], expected["values"], rtol=1e-6, atol=1e-7)
 
 
 def assert_frozen_reference(model: str, seed: int) -> None:
-    """Run the current implementation and compare it to the frozen v2 output."""
     from tests.components.predictors.literature._reference.loader import load_seed
 
     expected = load_seed(seed)
@@ -323,18 +292,6 @@ def two_by_two_batch(
     early_stopping_response: ResponseBatch | None = None,
     checkpoint_dir: Any = ".",
 ) -> ModelInputBatch:
-    """Build a featurized batch over two samples and two drugs.
-
-    :param sample_blocks: Sample blocks the predictor under test consumes.
-    :param drug_blocks: Drug blocks the predictor under test consumes.
-    :param response: Training responses; defaults to ``multi_drug_response()``.
-    :param sample_pair_idx: Per-pair sample row index; defaults to the 2x2 grid.
-    :param drug_pair_idx: Per-pair drug row index; defaults to the 2x2 grid. Pass
-        ``None`` explicitly for a predictor with no per-drug axis.
-    :param early_stopping_response: Optional early-stopping responses.
-    :param checkpoint_dir: Directory recorded on the ``TrainingContext``.
-    :returns: Featurized ``ModelInputBatch``.
-    """
     return ModelInputBatch.from_response(
         multi_drug_response() if response is None else response,
         sample=FeaturizerResult.from_blocks(sample_blocks, SAMPLE_IDS),
@@ -358,10 +315,6 @@ def two_by_two_batch(
 
 
 def early_stopping_response() -> ResponseBatch:
-    """Return a two-pair early-stopping response over the same entities.
-
-    :returns: ``ResponseBatch`` for the early-stopping split.
-    """
     return ResponseBatch(
         response=np.array([1.5, 2.5]),
         sample_ids=SAMPLE_IDS,

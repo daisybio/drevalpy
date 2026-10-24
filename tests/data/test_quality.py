@@ -1,10 +1,4 @@
-"""Tests for :mod:`drevalpy.data.quality`.
-
-The threshold checks are parametrized over :data:`~drevalpy.data.quality._RULES`
-rather than written out one per option. That is deliberate: it means a new rule
-cannot be added to the table without inheriting a boundary test and an
-off-by-default test, so the fifteen options cannot drift apart in coverage.
-"""
+"""Tests for :mod:`drevalpy.data.quality`; threshold checks are parametrized over ``_RULES``."""
 
 from __future__ import annotations
 
@@ -20,7 +14,6 @@ from drevalpy.data.quality import _RESPONSE_MATRIX, _RULES, CurveQuality, curve_
 
 _SHAPE = (2, 3)
 
-#: A metric value that passes each rule comfortably, per option.
 _PASSING: dict[str, float] = {
     "min_relevance_score": 9.0,
     "min_abs_fold_change": -2.0,
@@ -39,11 +32,7 @@ _PASSING: dict[str, float] = {
     "max_pec50": 6.0,
 }
 
-#: A threshold that the matching :data:`_PASSING` value satisfies, and a second
-#: one it fails, for every option. The passing threshold is set to exactly the
-#: value under test wherever the comparison allows, which pins inclusivity.
 _THRESHOLDS: dict[str, tuple[float, float]] = {
-    #                     (satisfied, violated)
     "min_relevance_score": (9.0, 9.5),
     "min_abs_fold_change": (2.0, 2.5),
     "max_p_value": (1e-9, 1e-12),
@@ -63,11 +52,7 @@ _THRESHOLDS: dict[str, tuple[float, float]] = {
 
 
 class FakeDataset:
-    """Minimal ``MuDataLike`` whose layers are set per test.
-
-    Only the members the quality filter touches are implemented; the splitters'
-    axis accessors are irrelevant here.
-    """
+    """Minimal ``MuDataLike`` whose layers are set per test."""
 
     def __init__(self, layers: dict[str, np.ndarray], response: np.ndarray | None = None) -> None:
         """Store the layers and the response matrix backing ``pEC50``."""
@@ -76,42 +61,34 @@ class FakeDataset:
 
     @property
     def sample_ids(self) -> np.ndarray:
-        """Row identifiers."""
         return np.array([f"CL_{i}" for i in range(_SHAPE[0])])
 
     @property
     def drug_ids(self) -> np.ndarray:
-        """Column identifiers."""
         return np.array([f"D_{i}" for i in range(_SHAPE[1])])
 
     @property
     def response_matrix(self) -> np.ndarray:
-        """Response matrix, which is where ``pEC50`` lives."""
         return self._response
 
     def get_tissue(self, ids: np.ndarray) -> np.ndarray:
-        """One tissue for every sample."""
         return np.array(["Lung"] * len(ids))
 
     def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
-        """Serve the tissue column, the only per-sample metadata this fake has."""
         if column != "tissue":
             raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
         return self.get_tissue(ids)
 
     def response_layer_names(self) -> list[str]:
-        """Names of the layers this fake carries."""
         return list(self._layers)
 
     def get_response_layer(self, name: str) -> np.ndarray:
-        """Return a layer, raising like ``Dataset`` does when it is absent."""
         if name not in self._layers:
             raise KeyError(f"Response layer '{name}' not found. Available: {list(self._layers)}")
         return self._layers[name]
 
 
 def _dataset_for(option: str, value: float) -> FakeDataset:
-    """Build a dataset where the layer *option* reads carries *value* throughout."""
     layer, _comparison, _transform = _RULES[option]
     matrix = np.full(_SHAPE, value)
     if layer == _RESPONSE_MATRIX:
@@ -120,12 +97,10 @@ def _dataset_for(option: str, value: float) -> FakeDataset:
 
 
 def _only(option: str, threshold: float) -> dict[str, float | None]:
-    """Request exactly one check, disabling the two that are on by default."""
     return {"min_relevance_score": None, "min_abs_fold_change": None, option: threshold}
 
 
 def _passing_dataset() -> FakeDataset:
-    """A dataset that passes every rule in the table."""
     layers: dict[str, np.ndarray] = {}
     for option, value in _PASSING.items():
         layer, _comparison, _transform = _RULES[option]
@@ -134,193 +109,75 @@ def _passing_dataset() -> FakeDataset:
     return FakeDataset(layers)
 
 
-class TestEveryOptionIsWiredUp:
-    """One boundary and one off-by-default case per entry in ``_RULES``."""
-
-    def test_the_table_and_the_expectations_cover_the_same_options(self) -> None:
-        """Guards the guard: a new rule must arrive with its test values."""
-        assert sorted(_RULES) == sorted(_PASSING)
-        assert sorted(_RULES) == sorted(_THRESHOLDS)
-
-    @pytest.mark.parametrize("option", sorted(_RULES))
-    def test_a_satisfied_threshold_keeps_every_pair(self, option: str) -> None:
-        satisfied, _violated = _THRESHOLDS[option]
-        dataset = _dataset_for(option, _PASSING[option])
-
-        assert curve_quality_mask(dataset, **_only(option, satisfied)).all()
-
-    @pytest.mark.parametrize("option", sorted(_RULES))
-    def test_a_violated_threshold_drops_every_pair(self, option: str) -> None:
-        _satisfied, violated = _THRESHOLDS[option]
-        dataset = _dataset_for(option, _PASSING[option])
-
-        assert not curve_quality_mask(dataset, **_only(option, violated)).any()
-
-    @pytest.mark.parametrize("option", sorted(_RULES))
-    def test_the_threshold_is_inclusive(self, option: str) -> None:
-        """``>=``/``<=``, never ``>``/``<``: a value exactly at the cut passes."""
-        satisfied, _violated = _THRESHOLDS[option]
-        _layer, _comparison, transform = _RULES[option]
-        # The satisfied threshold equals the metric under test, modulo the
-        # absolute-value transform, so this is the boundary itself.
-        value = _PASSING[option]
-        expected = abs(value) if transform is not None else value
-        assert satisfied == pytest.approx(expected)
-
-        dataset = _dataset_for(option, value)
-        assert curve_quality_mask(dataset, **_only(option, satisfied)).all()
-
-    @pytest.mark.parametrize("option", sorted(_RULES))
-    def test_an_option_left_at_none_is_not_checked(self, option: str) -> None:
-        """A metric bad enough to fail its own rule is ignored while it is off."""
-        _satisfied, violated = _THRESHOLDS[option]
-        dataset = _dataset_for(option, _PASSING[option])
-
-        # Sanity: this threshold really would reject every pair if requested.
-        assert not curve_quality_mask(dataset, **_only(option, violated)).any()
-
-        assert curve_quality_mask(
-            dataset,
-            min_relevance_score=None,
-            min_abs_fold_change=None,
-        ).all()
+def _both(extra: dict[str, np.ndarray] | None = None, relevance: float | np.ndarray = 9.0) -> FakeDataset:
+    layers = {"relevance_score": np.broadcast_to(relevance, _SHAPE), "fold_change": np.full(_SHAPE, -2.0)}
+    return FakeDataset({**layers, **(extra or {})})
 
 
-class TestDefaults:
-    def test_the_default_rule_uses_relevance_score_and_fold_change(self) -> None:
-        """Nothing else may be consulted by default, or unrelated data breaks."""
-        dataset = FakeDataset(
-            {
-                "relevance_score": np.full(_SHAPE, 9.0),
-                "fold_change": np.full(_SHAPE, -2.0),
-            }
-        )
-
-        assert curve_quality_mask(dataset).all()
-
-    def test_the_default_relevance_threshold_is_minus_log10_alpha(self) -> None:
-        """``alpha = 0.05`` in ``drevalpy/curation/_fit.py``."""
-        cut = -np.log10(0.05)
-        dataset = FakeDataset(
-            {
-                "relevance_score": np.array([[cut, cut * 0.999, 0.0]] * 2),
-                "fold_change": np.full(_SHAPE, -2.0),
-            }
-        )
-
-        mask = curve_quality_mask(dataset)
-
-        assert mask[:, 0].all()
-        assert not mask[:, 1].any()
-        assert not mask[:, 2].any()
-
-    def test_the_default_fold_change_threshold_is_fc_lim(self) -> None:
-        """``fc_lim = 0.45``, applied to the magnitude of an already-log2 layer."""
-        dataset = FakeDataset(
-            {
-                "relevance_score": np.full(_SHAPE, 9.0),
-                "fold_change": np.array([[0.45, -0.45, 0.44]] * 2),
-            }
-        )
-
-        mask = curve_quality_mask(dataset)
-
-        assert mask[:, 0].all()
-        assert mask[:, 1].all()
-        assert not mask[:, 2].any()
+def test_the_table_and_the_expectations_cover_the_same_options() -> None:
+    assert sorted(_RULES) == sorted(_PASSING) == sorted(_THRESHOLDS)
 
 
-class TestNanFailsClosed:
-    @pytest.mark.parametrize("option", sorted(_RULES))
-    def test_a_nan_metric_never_passes(self, option: str) -> None:
-        """A curve CurveCurator could not score is not a curve worth keeping."""
-        satisfied, _violated = _THRESHOLDS[option]
-        dataset = _dataset_for(option, np.nan)
+@pytest.mark.parametrize("option", sorted(_RULES))
+def test_every_option_keeps_at_the_boundary_drops_when_violated_is_off_by_default_and_fails_closed_on_nan(
+    option: str,
+) -> None:
+    satisfied, violated = _THRESHOLDS[option]
+    dataset = _dataset_for(option, _PASSING[option])
+    off = {"min_relevance_score": None, "min_abs_fold_change": None}
 
-        assert not curve_quality_mask(dataset, **_only(option, satisfied)).any()
-
-    def test_a_nan_in_one_metric_does_not_condemn_the_others(self) -> None:
-        dataset = FakeDataset(
-            {
-                "relevance_score": np.array([[9.0, np.nan, 9.0]] * 2),
-                "fold_change": np.full(_SHAPE, -2.0),
-            }
-        )
-
-        mask = curve_quality_mask(dataset)
-
-        assert mask[:, 0].all()
-        assert not mask[:, 1].any()
-        assert mask[:, 2].all()
+    assert curve_quality_mask(dataset, **_only(option, satisfied)).all()
+    assert not curve_quality_mask(dataset, **_only(option, violated)).any()
+    assert curve_quality_mask(dataset, **off).all()
+    assert not curve_quality_mask(_dataset_for(option, np.nan), **_only(option, satisfied)).any()
 
 
-class TestCombiningOptions:
-    def test_two_options_are_anded(self) -> None:
-        dataset = FakeDataset(
-            {
-                "relevance_score": np.full(_SHAPE, 9.0),
-                "fold_change": np.full(_SHAPE, -2.0),
-                "R2": np.array([[0.99, 0.5, 0.99]] * 2),
-            }
-        )
-
-        mask = curve_quality_mask(dataset, min_r2=0.9)
-
-        # Column 1 passes the default rule but fails the added R2 floor.
-        assert mask[:, 0].all()
-        assert not mask[:, 1].any()
-        assert mask[:, 2].all()
-
-    def test_every_option_at_once_still_keeps_a_passing_dataset(self) -> None:
-        dataset = _passing_dataset()
-        options = {option: _THRESHOLDS[option][0] for option in _RULES}
-
-        assert curve_quality_mask(dataset, **options).all()
-
-    def test_disabling_everything_keeps_every_pair(self) -> None:
-        """Including pairs whose metrics are missing entirely."""
-        dataset = FakeDataset({})
-
-        mask = curve_quality_mask(dataset, min_relevance_score=None, min_abs_fold_change=None)
-
-        assert mask.shape == _SHAPE
-        assert mask.all()
+def test_the_default_rule_consults_only_relevance_score_and_fold_change() -> None:
+    assert curve_quality_mask(_both()).all()
 
 
-class TestMissingLayers:
-    def test_a_requested_layer_that_is_absent_raises(self) -> None:
-        """No capability check and no silent fallback: the format guarantees it."""
-        dataset = FakeDataset({"relevance_score": np.full(_SHAPE, 9.0)})
+def test_the_default_thresholds_are_minus_log10_alpha_and_fc_lim() -> None:
+    cut = -np.log10(0.05)
+    relevance = curve_quality_mask(_both(relevance=np.array([[cut, cut * 0.999, 0.0]] * 2)))
+    fold = curve_quality_mask(
+        FakeDataset({"relevance_score": np.full(_SHAPE, 9.0), "fold_change": np.array([[0.45, -0.45, 0.44]] * 2)})
+    )
 
-        with pytest.raises(KeyError, match="fold_change"):
-            curve_quality_mask(dataset)
+    assert relevance.tolist() == [[True, False, False]] * 2
+    assert fold.tolist() == [[True, True, False]] * 2
 
-    def test_an_unused_layer_may_be_absent(self) -> None:
-        dataset = FakeDataset(
-            {
-                "relevance_score": np.full(_SHAPE, 9.0),
-                "fold_change": np.full(_SHAPE, -2.0),
-            }
-        )
 
-        assert curve_quality_mask(dataset).all()
+def test_a_nan_in_one_metric_does_not_condemn_the_others() -> None:
+    mask = curve_quality_mask(_both(relevance=np.array([[9.0, np.nan, 9.0]] * 2)))
+
+    assert mask.tolist() == [[True, False, True]] * 2
+
+
+def test_options_are_anded_and_a_passing_dataset_survives_all_of_them() -> None:
+    mask = curve_quality_mask(_both({"R2": np.array([[0.99, 0.5, 0.99]] * 2)}), min_r2=0.9)
+
+    assert mask.tolist() == [[True, False, True]] * 2
+    assert curve_quality_mask(_passing_dataset(), **{option: _THRESHOLDS[option][0] for option in _RULES}).all()
+
+
+def test_disabling_everything_keeps_every_pair_even_with_no_layers() -> None:
+    mask = curve_quality_mask(FakeDataset({}), min_relevance_score=None, min_abs_fold_change=None)
+
+    assert mask.shape == _SHAPE
+    assert mask.all()
+
+
+def test_a_requested_layer_that_is_absent_raises_and_an_unused_one_may_be_absent() -> None:
+    with pytest.raises(KeyError, match="fold_change"):
+        curve_quality_mask(FakeDataset({"relevance_score": np.full(_SHAPE, 9.0)}))
+    with pytest.raises(TypeError):
+        curve_quality_mask(FakeDataset({}), min_nonsense=1.0)
 
 
 class TestRegulation:
     def _dataset(self) -> FakeDataset:
-        return FakeDataset(
-            {
-                "relevance_score": np.full(_SHAPE, 9.0),
-                "fold_change": np.full(_SHAPE, -2.0),
-                "regulation": np.array(
-                    [
-                        [_REGULATION_ENCODING["up"], _REGULATION_ENCODING["down"], _REGULATION_ENCODING["not"]],
-                        [np.nan, _REGULATION_ENCODING["down"], _REGULATION_ENCODING["not"]],
-                    ],
-                    dtype=float,
-                ),
-            }
-        )
+        up, down, not_ = (_REGULATION_ENCODING[label] for label in ("up", "down", "not"))
+        return _both({"regulation": np.array([[up, down, not_], [np.nan, down, not_]], dtype=float)})
 
     @pytest.mark.parametrize(
         ("labels", "expected"),
@@ -331,59 +188,30 @@ class TestRegulation:
             (["up", "down"], [[True, True, False], [False, True, False]]),
         ],
     )
-    def test_labels_select_the_matching_pairs(self, labels: list[str], expected: list[list[bool]]) -> None:
+    def test_labels_select_the_matching_pairs_and_an_undetermined_curve_is_in_no_category(
+        self, labels: list[str], expected: list[list[bool]]
+    ) -> None:
         mask = curve_quality_mask(
-            self._dataset(),
-            min_relevance_score=None,
-            min_abs_fold_change=None,
-            regulation=labels,
+            self._dataset(), min_relevance_score=None, min_abs_fold_change=None, regulation=labels
         )
 
         assert mask.tolist() == expected
 
-    def test_an_undetermined_curve_is_in_no_category(self) -> None:
-        """NaN regulation means CurveCurator reached no verdict, so it is dropped."""
-        mask = curve_quality_mask(
-            self._dataset(),
-            min_relevance_score=None,
-            min_abs_fold_change=None,
-            regulation=["up", "down", "not"],
-        )
-
-        assert not mask[1, 0]
-
-    def test_an_unknown_label_raises(self) -> None:
+    def test_an_unknown_label_raises_listing_the_valid_ones(self) -> None:
         with pytest.raises(ValueError, match="sideways"):
             curve_quality_mask(self._dataset(), regulation=["sideways"])
-
-    def test_the_error_lists_the_valid_labels(self) -> None:
         with pytest.raises(ValueError, match="down.*not.*up"):
             curve_quality_mask(self._dataset(), regulation=["bogus"])
 
     def test_the_default_rule_reproduces_curvecurators_verdict(self) -> None:
-        """The whole reason the defaults are what they are.
-
-        With ``quality_min = -inf`` and ``pEC50_filter = [-inf, inf]`` - the
-        resolved config in ``drevalpy/curation/_fit.py`` - CurveCurator's
-        ``regulation`` label reduces exactly to relevance-score-plus-fold-change,
-        so recomputing it must agree pair for pair.
-        """
         rng = np.random.default_rng(20260814)
         shape = (16, 8)
         relevance = rng.uniform(0.0, 5.0, size=shape)
         fold_change = rng.uniform(-3.0, 1.0, size=shape)
-
-        significant = relevance >= -np.log10(0.05)
-        large_effect = np.abs(fold_change) >= 0.45
-        regulated = significant & large_effect
+        regulated = (relevance >= -np.log10(0.05)) & (np.abs(fold_change) >= 0.45)
         regulation = np.where(regulated, np.sign(fold_change), 0.0)
-
         dataset = FakeDataset(
-            {
-                "relevance_score": relevance,
-                "fold_change": fold_change,
-                "regulation": regulation,
-            },
+            {"relevance_score": relevance, "fold_change": fold_change, "regulation": regulation},
             response=np.full(shape, 6.0),
         )
 
@@ -393,39 +221,19 @@ class TestRegulation:
         assert mask.tolist() == (regulation != 0).tolist()
 
 
-class TestMaskShape:
-    def test_the_mask_matches_the_response_matrix(self) -> None:
-        dataset = _passing_dataset()
+def test_the_mask_matches_the_response_matrix_blanks_it_in_place_and_does_not_mutate_the_dataset() -> None:
+    dataset = _passing_dataset()
+    before = {name: dataset.get_response_layer(name).copy() for name in dataset.response_layer_names()}
+    mask = curve_quality_mask(dataset)
+    uneven = _both(relevance=np.array([[9.0, 0.0, 9.0]] * 2))
+    response = uneven.response_matrix.copy()
+    response[~curve_quality_mask(uneven)] = np.nan
 
-        mask = curve_quality_mask(dataset)
-
-        assert mask.shape == dataset.response_matrix.shape
-        assert mask.dtype == np.bool_
-
-    def test_the_inverse_blanks_a_response_matrix_without_reshaping_it(self) -> None:
-        """The idiom every splitter uses."""
-        dataset = FakeDataset(
-            {
-                "relevance_score": np.array([[9.0, 0.0, 9.0]] * 2),
-                "fold_change": np.full(_SHAPE, -2.0),
-            }
-        )
-
-        response = dataset.response_matrix.copy()
-        response[~curve_quality_mask(dataset)] = np.nan
-
-        assert response.shape == _SHAPE
-        assert np.isnan(response[:, 1]).all()
-        assert not np.isnan(response[:, [0, 2]]).any()
-
-    def test_the_dataset_is_not_mutated(self) -> None:
-        dataset = _passing_dataset()
-        before = {name: dataset.get_response_layer(name).copy() for name in dataset.response_layer_names()}
-
-        curve_quality_mask(dataset)
-
-        for name, values in before.items():
-            assert np.array_equal(dataset.get_response_layer(name), values)
+    assert mask.shape == dataset.response_matrix.shape
+    assert mask.dtype == np.bool_
+    assert all(np.array_equal(dataset.get_response_layer(name), values) for name, values in before.items())
+    assert np.isnan(response[:, 1]).all()
+    assert not np.isnan(response[:, [0, 2]]).any()
 
 
 class TestCurveQuality:
@@ -441,57 +249,34 @@ class TestCurveQuality:
         assert mask.dtype == bool
         np.testing.assert_array_equal(mask, expected)
         np.testing.assert_array_equal(mask, curve_quality_mask(dataset))
-
-    def test_default_is_the_dataclass_default(self) -> None:
         assert CurveQuality.default() == CurveQuality()
 
-    def test_off_keeps_exactly_the_finite_responses(self) -> None:
-        dataset = FakeDataset({}, response=np.array([[6.0, np.nan, 5.0], [np.inf, 7.0, 6.5]]))
-
-        mask = CurveQuality.off().mask(dataset)
-
-        np.testing.assert_array_equal(mask, [[True, False, True], [False, True, True]])
-
-    def test_off_works_after_the_quality_layers_are_removed(self) -> None:
+    def test_off_keeps_exactly_the_finite_responses_even_after_the_quality_layers_are_removed(self) -> None:
+        explicit = FakeDataset({}, response=np.array([[6.0, np.nan, 5.0], [np.inf, 7.0, 6.5]]))
         dataset = synthetic(low_quality_fraction=0.3)
         for name in dataset.response_layer_names():
             if name != "LN_IC50":
                 del dataset.response.layers[name]
 
+        np.testing.assert_array_equal(CurveQuality.off().mask(explicit), [[True, False, True], [False, True, True]])
         with pytest.raises(KeyError):
             CurveQuality.default().mask(dataset)
         np.testing.assert_array_equal(CurveQuality.off().mask(dataset), np.isfinite(dataset.response_matrix))
-
-    def test_off_sets_no_threshold(self) -> None:
         assert CurveQuality.off().to_metadata() == {}
 
     def test_custom_thresholds_are_applied_on_top_of_the_defaults(self) -> None:
-        dataset = FakeDataset(
-            {
-                "relevance_score": np.full(_SHAPE, 9.0),
-                "fold_change": np.full(_SHAPE, -2.0),
-                "R2": np.array([[0.99, 0.5, 0.99]] * 2),
-            }
-        )
+        dataset = _both({"R2": np.array([[0.99, 0.5, 0.99]] * 2)})
 
-        mask = CurveQuality(min_r2=0.9).mask(dataset)
+        np.testing.assert_array_equal(CurveQuality(min_r2=0.9).mask(dataset), [[True, False, True]] * 2)
 
-        np.testing.assert_array_equal(mask, [[True, False, True]] * 2)
-
-    def test_the_rule_is_frozen_and_hashable(self) -> None:
+    def test_the_rule_is_frozen_hashable_and_stores_regulation_sorted_and_deduplicated(self) -> None:
         rule = CurveQuality(regulation=("up",))
 
         with pytest.raises(dataclasses.FrozenInstanceError):
             rule.min_r2 = 0.5  # type: ignore[misc]
         assert hash(rule) == hash(CurveQuality(regulation=("up",)))
-
-    def test_regulation_is_stored_sorted_and_deduplicated(self) -> None:
         assert CurveQuality(regulation={"up", "down"}).regulation == ("down", "up")  # type: ignore[arg-type]
         assert CurveQuality(regulation=["up", "up"]).regulation == ("up",)  # type: ignore[arg-type]
-
-    def test_an_unknown_option_is_a_type_error(self) -> None:
-        with pytest.raises(TypeError):
-            curve_quality_mask(FakeDataset({}), min_nonsense=1.0)
 
 
 class TestMetadata:
@@ -512,13 +297,9 @@ class TestMetadata:
         ids=["default", "off", "partial", "all"],
     )
     def test_metadata_round_trips_through_json(self, rule: CurveQuality) -> None:
-        metadata = json.loads(json.dumps(rule.to_metadata()))
+        assert CurveQuality.from_metadata(json.loads(json.dumps(rule.to_metadata()))) == rule
 
-        assert CurveQuality.from_metadata(metadata) == rule
-
-    def test_empty_metadata_is_off_not_default(self) -> None:
+    def test_empty_metadata_is_off_not_default_and_unknown_names_raise(self) -> None:
         assert CurveQuality.from_metadata({}) == CurveQuality.off()
-
-    def test_unknown_metadata_names_raise(self) -> None:
         with pytest.raises(ValueError, match="min_nonsense"):
             CurveQuality.from_metadata({"min_nonsense": 1.0})

@@ -20,19 +20,11 @@ from tests.synthetic.variants import (
     model_param,
 )
 
-#: Extended tier: every test here trains a real model. PharmaFormer alone is 2.1s
-#: and the file is ~2.6s. The dependency-light models keep their fast-tier
-#: coverage in ``test_direct_component_harness.py``.
 pytestmark = pytest.mark.slow
 
 
 def _zoo_config_variant(name: str, **updates: Any) -> ModelConfig:
-    """Build a variant of a zoo preset by re-validating an updated dump.
-
-    :param name: Zoo preset name.
-    :param updates: ``ModelConfig`` field overrides.
-    :returns: Newly validated ``ModelConfig``.
-    """
+    """Build a variant of a zoo preset by re-validating an updated dump."""
     payload = get_zoo_config(name).model_dump(mode="python")
     payload.update(updates)
     return ModelConfig.model_validate(payload)
@@ -114,10 +106,7 @@ def _apply_global_model_hpam_tweaks(model_name: str, hpam_combi: dict) -> None:
 
 
 def _stub_molgnet_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Serve seeded node embeddings in place of the MolGNet checkpoint, which needs a download.
-
-    :param monkeypatch: The test's monkeypatch fixture.
-    """
+    """Serve seeded node embeddings in place of the MolGNet checkpoint, which needs a download."""
 
     def embed(smiles: str) -> np.ndarray:
         return np.random.default_rng(len(smiles)).normal(size=(5 + len(smiles) % 7, 768)).astype(np.float32)
@@ -126,11 +115,7 @@ def _stub_molgnet_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _first_lto_fold(mudataset: Dataset) -> SplitMasks:
-    """Return the first Leave-Tissue-Out fold of *mudataset*.
-
-    :param mudataset: Dataset to split.
-    :returns: The first fold's split masks.
-    """
+    """Return the first Leave-Tissue-Out fold of *mudataset*."""
     from drevalpy.data import CurveQuality
     from drevalpy.registry.splitter import get as get_splitter
 
@@ -144,17 +129,7 @@ def _assert_round_trips(
     split: SplitMask,
     preds: np.ndarray,
 ) -> None:
-    """Assert a save/load cycle reproduces the prediction shape.
-
-    Models with a known set-dependent-featurizer defect are asserted to still
-    raise it, so the defect cannot be fixed without this test noticing.
-
-    :param model: Trained model instance.
-    :param model_name: Model name, used to look up known defects.
-    :param mudataset: Dataset the model was trained on.
-    :param split: Split the predictions were made over.
-    :param preds: Predictions from the in-memory model.
-    """
+    """Assert a save/load cycle reproduces the prediction shape."""
     defect = SAVE_LOAD_DEFECTS.get(model_name)
     with tempfile.TemporaryDirectory() as model_dir:
         checkpoint = f"{model_dir}/model"
@@ -170,12 +145,7 @@ def _assert_round_trips(
 
 @pytest.mark.parametrize("model_name", [model_param(name) for name in SUPPORTED_GLOBAL_MODELS])
 def test_global_models(synthetic_dataset: Dataset, model_name: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Each global model trains, predicts and reloads on a Leave-Tissue-Out fold.
-
-    :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
-    :param model_name: Model name, possibly with a ``[view]`` suffix.
-    :param monkeypatch: Stubs the MolGNet checkpoint for the model that pools its embeddings.
-    """
+    """Each global model trains, predicts and reloads on a Leave-Tissue-Out fold."""
     if model_name == "RandomForestAEMolGNet":
         _stub_molgnet_embeddings(monkeypatch)
     split = _first_lto_fold(synthetic_dataset)
@@ -202,28 +172,13 @@ def test_global_models(synthetic_dataset: Dataset, model_name: str, monkeypatch:
 
 
 def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> None:
-    """MultiViewNeuralNetwork runs with a non-default sample view.
-
-    Uses an existing modality (methylation) through the raw featurizer to verify
-    the flexible input pipeline works end-to-end including save/load. Overriding
-    the preset's featurizer list also drops its copy-number view, so this variant
-    covers the single-view path rather than the preset's multi-omics one.
-
-    :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
-    """
     split = _first_lto_fold(synthetic_dataset)
-
     spec = ModelSpec(
         "MultiViewNeuralNetwork",
         _zoo_config_variant(
-            "MultiViewNeuralNetwork",
-            sample_featurizer=SampleFeaturizerConfig(
-                name="raw",
-                view="methylation",
-            ),
+            "MultiViewNeuralNetwork", sample_featurizer=SampleFeaturizerConfig(name="raw", view="methylation")
         ),
     )
-
     model = DRPModel(spec, {"units_per_layer": [2, 2], "dropout_prob": 0.3, "max_epochs": 1})
 
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -235,33 +190,13 @@ def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> N
         )
 
     preds = model.predict(synthetic_dataset, split.test)
-    assert isinstance(preds, np.ndarray)
     assert preds.shape[0] > 0
-
     _assert_round_trips(model, "MultiViewNeuralNetwork", synthetic_dataset, split.test, preds)
 
 
-def test_partial_omics_coverage_reaches_the_nan_filtering_path() -> None:
-    """The partial-coverage variant really does leave samples without omics data.
-
-    Guards the premise of the test below: if coverage silently became complete,
-    that test would start passing for the wrong reason.
-    """
-    mudataset = build_partial_coverage_dataset()
-    covered = mudataset.entities_with_modality("gene_expression")
-    assert len(covered) < len(mudataset.sample_ids)
-
-
 def test_partial_omics_coverage_trains() -> None:
-    """Training over partial omics coverage exercises ``PredictorBase``' NaN filtering.
-
-    ``fit`` routes the batch through ``ModelInputBatch.subset_pairs``, which
-    narrows the early-stopping pairs to the drugs surviving the NaN mask. That
-    mask spans every drug, so this is the multi-drug path; ``train`` completing
-    is the assertion. Every early-stopping predictor takes the same route, so
-    one representative is enough.
-    """
     mudataset = build_partial_coverage_dataset()
+    assert len(mudataset.entities_with_modality("gene_expression")) < len(mudataset.sample_ids)
     split = _first_lto_fold(mudataset)
     model = DRPModel(ModelSpec.from_name("SimpleNeuralNetwork"), {"units_per_layer": [2, 2], "max_epochs": 1})
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.utils.filenames import safe_filename
+from drevalpy.utils.filenames import safe_filename, unique_safe_filenames
 
 
 @pytest.mark.parametrize(
@@ -20,3 +20,7 @@ from drevalpy.utils.filenames import safe_filename
 )
 def test_safe_filename(name: str, expected: str) -> None:
     assert safe_filename(name) == expected
+
+
+def test_unique_safe_filenames_suffixes_collisions_case_insensitively() -> None:
+    assert unique_safe_filenames(["a:b", "a_b", "A_B", "c"]) == {"a:b": "a_b", "a_b": "a_b-2", "A_B": "A_B-3", "c": "c"}

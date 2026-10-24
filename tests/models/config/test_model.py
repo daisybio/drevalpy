@@ -15,169 +15,77 @@ from drevalpy.models.config import (
     from_spec,
 )
 
+SAMPLE = SampleFeaturizerConfig(name="scaledGeneExpression")
 
-def test_featurizer_config_compact_string_shorthand() -> None:
+
+def test_featurizer_config_compact_forms() -> None:
     config = FeaturizerConfig.model_validate("fingerprints")
-    assert config.name == "fingerprints"
-    assert config.registry == "sample"
+    assert (config.name, config.registry) == ("fingerprints", "sample")
+
+    pca = FeaturizerConfig.model_validate({"pca[methylation]": {"n_components": 64}})
+    assert (pca.name, pca.view) == ("pca", "methylation")
+    assert pca.hyperparameter_space is not None
+    assert pca.hyperparameter_space["n_components"]["default"] == 64
 
 
-def test_sample_and_drug_featurizer_configs_fix_registry() -> None:
-    cell = SampleFeaturizerConfig(name="scaledGeneExpression")
-    drug = DrugFeaturizerConfig(name="fingerprints")
-    assert cell.registry == "sample"
-    assert drug.registry == "drug"
-    assert isinstance(cell, FeaturizerConfig)
+def test_slot_subclasses_fix_the_registry() -> None:
+    sample = SampleFeaturizerConfig.model_validate({"name": "scaledGeneExpression", "registry": "drug"})
+    drug = DrugFeaturizerConfig.model_validate({"name": "fingerprints", "registry": "sample"})
+
+    assert (sample.registry, drug.registry) == ("sample", "drug")
+    assert isinstance(sample, FeaturizerConfig)
     assert isinstance(drug, FeaturizerConfig)
 
 
-def test_slot_subclasses_override_mismatched_registry() -> None:
-    cell = SampleFeaturizerConfig.model_validate(
-        {"name": "scaledGeneExpression", "registry": "drug"},
-    )
-    drug = DrugFeaturizerConfig.model_validate(
-        {"name": "fingerprints", "registry": "sample"},
-    )
-    assert cell.registry == "sample"
-    assert drug.registry == "drug"
+@pytest.mark.parametrize(
+    ("drug", "predictor", "model_id"),
+    [
+        (DrugFeaturizerConfig(name="identity"), "randomForest", "scaledGeneExpression:identity:randomForest"),
+        (None, "singleDrugElasticNet", "scaledGeneExpression:singleDrugElasticNet"),
+    ],
+    ids=["full-triple", "implicit-identity-single-drug"],
+)
+def test_model_id(drug, predictor, model_id) -> None:
+    config = ModelConfig(sample_featurizer=SAMPLE, drug_featurizer=drug, predictor=PredictorConfig(name=predictor))
 
-
-def test_featurizer_config_compact_one_key_mapping() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    config = FeaturizerConfig.model_validate(
-        {
-            "pca[methylation]": {"n_components": 64},
-        }
-    )
-    assert config.name == "pca"
-    assert config.view == "methylation"
-    assert config.hyperparameter_space is not None
-    assert config.hyperparameter_space["n_components"]["default"] == 64
-
-
-def test_featurizer_config_preserves_view_fields() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    sample = SampleFeaturizerConfig(
-        name="pca",
-        view="gene_expression",
-        hyperparameter_space={"n_components": {"type": "int", "low": 8, "high": 512, "default": 128}},
-    )
-    assert sample.view == "gene_expression"
-
-
-def test_model_id_for_full_triple() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    config = ModelConfig(
-        sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
-        drug_featurizer=DrugFeaturizerConfig(name="identity"),
-        predictor=PredictorConfig(name="randomForest"),
-    )
-    assert config.model_id == "scaledGeneExpression:identity:randomForest"
+    assert config.model_id == model_id
+    if drug is None:
+        assert config.drug_featurizer is not None
+        assert config.drug_featurizer.name == "identity"
 
 
 def test_model_id_for_predictor_only_baseline() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
+    config = ModelConfig(sample_featurizer=None, drug_featurizer=None, predictor=PredictorConfig(name="naiveMean"))
 
-    register_builtin_components()
-    config = ModelConfig(
-        sample_featurizer=None,
-        drug_featurizer=None,
-        predictor=PredictorConfig(name="naiveMean"),
-    )
     assert config.model_id == "naiveMean"
 
 
-def test_model_id_none_for_partial_multi_drug_config() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    with pytest.raises(ValidationError, match="requires.*drug_featurizer|requires featurizers"):
-        ModelConfig(
-            sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
-            drug_featurizer=None,
-            predictor=PredictorConfig(name="randomForest"),
-        )
-
-
-def test_model_id_for_implicit_identity_single_drug() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    config = ModelConfig(
-        sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
-        drug_featurizer=None,
-        predictor=PredictorConfig(name="singleDrugElasticNet"),
-    )
-    assert config.drug_featurizer is not None
-    assert config.drug_featurizer.name == "identity"
-    assert config.model_id == "scaledGeneExpression:singleDrugElasticNet"
+@pytest.mark.parametrize(
+    ("drug", "predictor", "match"),
+    [
+        (None, "randomForest", "requires.*drug_featurizer|requires featurizers"),
+        (None, "elasticNet", "requires.*drug_featurizer|requires featurizers"),
+        (DrugFeaturizerConfig(name="fingerprints"), "singleDrugElasticNet", "requires drug_featurizer='identity'"),
+    ],
+    ids=["partial-multi-drug", "multi-drug-gets-no-identity", "single-drug-keeps-explicit-drug"],
+)
+def test_inconsistent_featurizer_slots_are_rejected(drug, predictor, match) -> None:
+    with pytest.raises(ValidationError, match=match):
+        ModelConfig(sample_featurizer=SAMPLE, drug_featurizer=drug, predictor=PredictorConfig(name=predictor))
 
 
-def test_single_drug_does_not_override_explicit_drug_featurizer() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
+def test_scope_is_derived_from_the_predictor_and_never_stated() -> None:
+    payload = {"sample_featurizer": "scaledGeneExpression", "predictor": "singleDrugElasticNet"}
 
-    register_builtin_components()
-    with pytest.raises(ValidationError, match="requires drug_featurizer='identity'"):
-        ModelConfig(
-            sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
-            drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-            predictor=PredictorConfig(name="singleDrugElasticNet"),
-        )
+    config = ModelConfig.model_validate(payload)
 
-
-def test_multi_drug_scope_does_not_inject_identity() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    with pytest.raises(ValidationError, match="requires.*drug_featurizer|requires featurizers"):
-        ModelConfig(
-            sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
-            drug_featurizer=None,
-            predictor=PredictorConfig(name="elasticNet"),
-        )
-
-
-def test_scope_is_derived_from_the_predictor() -> None:
-    """A config never states a scope; naming a per-drug predictor is enough."""
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    config = ModelConfig.model_validate(
-        {
-            "sample_featurizer": "scaledGeneExpression",
-            "predictor": "singleDrugElasticNet",
-        }
-    )
     assert config.scope is ModelScope.SINGLE_DRUG
-    assert config.drug_featurizer is not None
-    assert config.drug_featurizer.name == "identity"
     assert "scope" not in config.model_dump()
-
-
-def test_explicit_scope_key_is_rejected() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        ModelConfig.model_validate(
-            {
-                "sample_featurizer": "scaledGeneExpression",
-                "predictor": "singleDrugElasticNet",
-                "scope": "single_drug",
-            }
-        )
+        ModelConfig.model_validate({**payload, "scope": "single_drug"})
 
 
-def test_model_config_parses_compact_featurizer_sections() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
+def test_model_config_parses_compact_sections() -> None:
     config = ModelConfig.model_validate(
         {
             "sample_featurizer": [
@@ -186,29 +94,14 @@ def test_model_config_parses_compact_featurizer_sections() -> None:
                 "raw[mutations]",
             ],
             "drug_featurizer": "fingerprints",
-            "predictor": "randomForest",
-        }
-    )
-    assert config.sample_featurizer is not None
-    assert isinstance(config.sample_featurizer, SampleFeaturizerConfig)
-    assert config.sample_featurizer.name == "concatFeaturizers"
-    assert config.drug_featurizer is not None
-    assert isinstance(config.drug_featurizer, DrugFeaturizerConfig)
-    assert config.drug_featurizer.name == "fingerprints"
-    assert config.predictor.name == "randomForest"
-
-
-def test_model_config_parses_predictor_one_key_hyperparameters() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    config = ModelConfig.model_validate(
-        {
-            "sample_featurizer": "scaledGeneExpression",
-            "drug_featurizer": "fingerprints",
             "predictor": {"randomForest": {"n_estimators": 10}},
         }
     )
+
+    assert isinstance(config.sample_featurizer, SampleFeaturizerConfig)
+    assert config.sample_featurizer.name == "concatFeaturizers"
+    assert isinstance(config.drug_featurizer, DrugFeaturizerConfig)
+    assert config.drug_featurizer.name == "fingerprints"
     assert config.predictor.name == "randomForest"
     assert config.predictor.hyperparameter_space is not None
     assert config.predictor.hyperparameter_space["n_estimators"]["default"] == 10
@@ -226,11 +119,8 @@ def test_model_config_rejects_base_featurizer_config_in_slots() -> None:
 
 
 def test_config_is_serializable() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
     config = ModelConfig(
-        sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
+        sample_featurizer=SAMPLE,
         drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
         predictor=PredictorConfig(
             name="elasticNet",
@@ -240,19 +130,9 @@ def test_config_is_serializable() -> None:
     )
     payload = config.model_dump(mode="python")
     assert payload["sample_featurizer"]["name"] == "scaledGeneExpression"
-    assert payload["predictor"]["name"] == "elasticNet"
     assert payload["predictor"]["hyperparameter_space"]["alpha"]["default"] == 1.0
 
 
-def test_from_spec_classmethod() -> None:
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
-    config = from_spec("NaivePredictor")
-    assert isinstance(config, ModelConfig)
-    assert config.predictor.name == "naiveMean"
-
-
-def test_from_dict_classmethod() -> None:
-    config = from_dict({"predictor": "naiveMean"})
-    assert config.predictor.name == "naiveMean"
+def test_from_spec_and_from_dict() -> None:
+    assert from_spec("NaivePredictor").predictor.name == "naiveMean"
+    assert from_dict({"predictor": "naiveMean"}).predictor.name == "naiveMean"

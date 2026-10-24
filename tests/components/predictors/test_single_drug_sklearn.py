@@ -25,34 +25,27 @@ def _sample_input() -> MockFeatureSource:
     )
 
 
-def _fitted_stack(sample_input: MockFeatureSource) -> tuple[object, SingleDrugSklearnPredictor]:
-    """Fit a per-drug elastic-net stack on two drugs over three genes.
-
-    :param sample_input: Feature source the stack fits its featurizers on.
-    :returns: ``(stack, predictor)``, with the predictor narrowed to the per-drug type.
-    """
+def _fitted_stack(
+    sample_input: MockFeatureSource, *, n_jobs: int | None = None
+) -> tuple[_ModelPipeline, SingleDrugSklearnPredictor]:
     config = from_spec(
-        "scaledGeneExpression:identity:singleDrugElasticNet",
-        hyperparameters={"alpha": 0.1, "l1_ratio": 0.5},
+        "scaledGeneExpression:identity:singleDrugElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5}
     )
     stack = _ModelPipeline(config)
     stack.reset()
     response = ResponseBatch(
-        response=np.array([1.0, 1.0, 10.0, 10.0]),
+        response=np.array([1.0, 2.0, 10.0, 12.0]) if n_jobs else np.array([1.0, 1.0, 10.0, 10.0]),
         sample_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
         drug_ids=np.array(["d1", "d1", "d2", "d2"]),
     )
-    stack._fit_featurizers_and_predictor(response, sample_input)
+    context = TrainingContext(n_jobs=n_jobs) if n_jobs else None
+    stack._fit_featurizers_and_predictor(response, sample_input, training_context=context)
     predictor = stack._predictor
     assert isinstance(predictor, SingleDrugSklearnPredictor)
     return stack, predictor
 
 
 def _fitted_predictor() -> SingleDrugSklearnPredictor:
-    """Return a per-drug predictor fitted on two drugs over three genes.
-
-    :returns: The fitted predictor.
-    """
     return _fitted_stack(_sample_input())[1]
 
 
@@ -74,96 +67,54 @@ def test_identity_routes_estimators_without_entering_design_matrix() -> None:
     assert np.allclose(predictions, np.array([1.0, 10.0]))
 
 
-class TestState:
-    """The per-drug predictor swaps the estimator entry but shares the rest with its base."""
+def test_state_round_trips_every_per_drug_estimator_and_shares_entries_with_the_base() -> None:
+    predictor = _fitted_predictor()
+    state = predictor.get_state()
+    assert set(state) == {"estimators", "hyperparameters", "mode"}
+    assert SingleDrugElasticNetPredictor().is_fitted() is False
 
-    def test_state_carries_the_estimators_plus_the_shared_entries(self):
-        assert set(_fitted_predictor().get_state()) == {"estimators", "hyperparameters", "mode"}
+    restored = SingleDrugElasticNetPredictor()
+    restored.set_state(state)
 
-    def test_is_not_fitted_without_estimators(self):
-        assert SingleDrugElasticNetPredictor().is_fitted() is False
-
-    def test_round_trip_restores_every_per_drug_estimator(self):
-        predictor = _fitted_predictor()
-
-        restored = SingleDrugElasticNetPredictor()
-        restored.set_state(predictor.get_state())
-
-        assert restored.is_fitted() is True
-        assert set(restored._estimators) == {"d1", "d2"}
-        assert restored._h["alpha"] == pytest.approx(0.1)
-        assert restored._mode is PredictionMode.REGRESSION
-
-    def test_rejects_a_state_without_estimators(self):
-        state = _fitted_predictor().get_state()
-        state["estimators"] = {}
-
-        with pytest.raises(PredictorStateError, match="missing fitted per-drug estimators"):
-            SingleDrugElasticNetPredictor().set_state(state)
-
-    def test_the_missing_estimators_error_takes_precedence_over_the_shared_ones(self):
-        with pytest.raises(PredictorStateError, match="missing fitted per-drug estimators"):
-            SingleDrugElasticNetPredictor().set_state({"estimators": {}, "hyperparameters": {}})
-
-    def test_rejects_a_state_without_hyperparameters(self):
-        state = _fitted_predictor().get_state()
-        state["hyperparameters"] = {}
-
-        with pytest.raises(PredictorStateError, match="missing hyperparameters"):
-            SingleDrugElasticNetPredictor().set_state(state)
-
-    def test_rejects_an_unusable_prediction_mode(self):
-        state = _fitted_predictor().get_state()
-        state["mode"] = 3
-
-        with pytest.raises(PredictorStateError, match="invalid prediction mode"):
-            SingleDrugElasticNetPredictor().set_state(state)
-
-    def test_a_rejected_state_leaves_the_estimators_untouched(self):
-        predictor = _fitted_predictor()
-        state = predictor.get_state()
-        state["mode"] = 3
-
-        with pytest.raises(PredictorStateError, match="invalid prediction mode"):
-            predictor.set_state(state)
-
-        assert set(predictor._estimators) == {"d1", "d2"}
+    assert restored.is_fitted() is True
+    assert set(restored._estimators) == {"d1", "d2"}
+    assert restored._h["alpha"] == pytest.approx(0.1)
+    assert restored._mode is PredictionMode.REGRESSION
 
 
-class TestNJobs:
-    """Fitting the drugs in worker processes gives the estimators of fitting them one after the other."""
+@pytest.mark.parametrize(
+    ("entry", "value", "message"),
+    [
+        ("estimators", {}, "missing fitted per-drug estimators"),
+        ("hyperparameters", {}, "missing hyperparameters"),
+        ("mode", 3, "invalid prediction mode"),
+    ],
+)
+def test_malformed_state_is_rejected_and_leaves_the_estimators_untouched(
+    entry: str, value: object, message: str
+) -> None:
+    predictor = _fitted_predictor()
+    state = predictor.get_state()
+    state[entry] = value
 
-    @staticmethod
-    def _fit(n_jobs: int) -> SingleDrugSklearnPredictor:
-        sample_input = _sample_input()
-        stack = _ModelPipeline(
-            from_spec(
-                "scaledGeneExpression:identity:singleDrugElasticNet",
-                hyperparameters={"alpha": 0.1, "l1_ratio": 0.5},
-            )
-        )
-        stack.reset()
-        response = ResponseBatch(
-            response=np.array([1.0, 2.0, 10.0, 12.0]),
-            sample_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
-            drug_ids=np.array(["d1", "d1", "d2", "d2"]),
-        )
-        stack._fit_featurizers_and_predictor(response, sample_input, training_context=TrainingContext(n_jobs=n_jobs))
-        predictor = stack._predictor
-        assert isinstance(predictor, SingleDrugSklearnPredictor)
-        return predictor
+    with pytest.raises(PredictorStateError, match=message):
+        predictor.set_state(state)
 
-    def test_the_estimators_do_not_depend_on_it(self) -> None:
-        serial, parallel = self._fit(1), self._fit(2)
+    assert set(predictor._estimators) == {"d1", "d2"}
+    with pytest.raises(PredictorStateError, match="missing fitted per-drug estimators"):
+        SingleDrugElasticNetPredictor().set_state({"estimators": {}, "hyperparameters": {}})
 
-        assert list(serial._estimators) == list(parallel._estimators) == ["d1", "d2"]
-        for drug_id, estimator in serial._estimators.items():
-            np.testing.assert_array_equal(estimator.coef_, parallel._estimators[drug_id].coef_)
-            assert estimator.intercept_ == parallel._estimators[drug_id].intercept_
 
-    def test_the_state_of_a_parallel_fit_restores_like_a_serial_one(self) -> None:
-        restored = SingleDrugElasticNetPredictor()
-        restored.set_state(self._fit(2).get_state())
+def test_n_jobs_does_not_change_the_estimators_and_the_parallel_state_restores() -> None:
+    sample_input = _sample_input()
+    serial = _fitted_stack(sample_input, n_jobs=1)[1]
+    parallel = _fitted_stack(sample_input, n_jobs=2)[1]
 
-        assert restored.is_fitted() is True
-        assert set(restored._estimators) == {"d1", "d2"}
+    assert list(serial._estimators) == list(parallel._estimators) == ["d1", "d2"]
+    for drug_id, estimator in serial._estimators.items():
+        np.testing.assert_array_equal(estimator.coef_, parallel._estimators[drug_id].coef_)
+        assert estimator.intercept_ == parallel._estimators[drug_id].intercept_
+    restored = SingleDrugElasticNetPredictor()
+    restored.set_state(parallel.get_state())
+    assert restored.is_fitted() is True
+    assert set(restored._estimators) == {"d1", "d2"}

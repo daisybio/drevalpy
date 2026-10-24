@@ -42,11 +42,7 @@ def _configure_single_drug_hpam(model_name: str, hpam_combi: dict) -> None:
 
 @pytest.mark.parametrize("model_name", [model_param(name) for name in SUPPORTED_SINGLE_DRUG_MODELS])
 def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None:
-    """Each single-drug model trains, predicts and reloads on a Leave-Tissue-Out fold.
-
-    :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
-    :param model_name: Model name, possibly with a ``[view]`` suffix.
-    """
+    """Each single-drug model trains, predicts and reloads on a Leave-Tissue-Out fold."""
     from drevalpy.data import CurveQuality
     from drevalpy.registry.splitter import get as get_splitter
     from drevalpy.utils.seed import seed_everything
@@ -88,12 +84,7 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
     [model_param(name) for name in SUPPORTED_SINGLE_DRUG_MODELS if not name.endswith("[proteomics]")],
 )
 def test_n_jobs_changes_the_speed_not_the_model(synthetic_dataset: Dataset, model_name: str, tmp_path) -> None:
-    """Fitting the drugs in two worker processes gives the model of fitting them one after the other.
-
-    :param synthetic_dataset: Session-scoped synthetic raw-omics dataset.
-    :param model_name: Model name, possibly with a ``[view]`` suffix.
-    :param tmp_path: Directory the fitted models are saved to.
-    """
+    """Fitting the drugs in two worker processes gives the model of fitting them one after the other."""
     from drevalpy.data import CurveQuality
     from drevalpy.registry.splitter import get as get_splitter
     from drevalpy.utils.seed import seed_everything

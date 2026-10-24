@@ -16,12 +16,10 @@ from tests.models.synthetic_fixtures import (
 )
 
 
-def test_constructor_requires_a_model_spec() -> None:
+def test_constructor_and_properties() -> None:
     with pytest.raises(TypeError, match="ModelSpec"):
         DRPModel("ElasticNet")  # type: ignore[arg-type]
 
-
-def test_properties_expose_name_config_and_independent_hyperparameters() -> None:
     model = DRPModel(small_data_spec("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
 
     assert model.name == "ElasticNet"
@@ -88,7 +86,7 @@ def test_train_puts_n_jobs_in_the_training_context(tmp_path, monkeypatch, n_jobs
     assert seen == [expected]
 
 
-def test_train_rejects_an_unusable_n_jobs(tmp_path) -> None:
+def test_train_rejects_an_unusable_n_jobs() -> None:
     model = DRPModel(small_data_spec("ElasticNet"))
 
     with pytest.raises(InvalidInputError, match="n_jobs"):

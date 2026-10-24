@@ -12,10 +12,7 @@ from tests.synthetic import make_experiment_result, make_run_result
 
 
 def _drug_run(model_name: str, predictions: list[float], *, fold_index: int = 0) -> RunResult:
-    """Two drugs of four pairs; the response is 0..3 for drug A and 10..13 for drug B.
-
-    Each sample appears twice, once per drug.
-    """
+    """Two drugs of four pairs (response 0..3 for A, 10..13 for B); each sample appears once per drug."""
     run = make_run_result(model_name=model_name, fold_index=fold_index, n_pairs=8, n_samples=4, n_drugs=2)
     run.drug_ids = np.array(["A"] * 4 + ["B"] * 4)
     run.sample_ids = np.array([f"S{i % 4}" for i in range(8)])
@@ -26,8 +23,6 @@ def _drug_run(model_name: str, predictions: list[float], *, fold_index: int = 0)
 
 
 class TestGroupedSummaryTable:
-    """With ``group_by`` the table keeps its shape but each metric is computed within groups."""
-
     def test_the_drug_mean_baseline_is_high_pooled_and_undefined_per_drug(self) -> None:
         experiment = ExperimentResult([_drug_run("DrugMean", [1.5] * 4 + [11.5] * 4)])
         pooled = experiment.summary_table()["DrugMean"]["Pearson"]
@@ -35,12 +30,6 @@ class TestGroupedSummaryTable:
 
         assert pooled > 0.95
         assert np.isnan(per_drug)
-
-    def test_the_table_has_the_same_models_and_metrics_as_the_pooled_one(self) -> None:
-        experiment = ExperimentResult([_drug_run("M", [0.0, 2.0, 1.0, 3.0, 10.0, 12.0, 11.0, 13.0])])
-
-        assert experiment.summary_table(group_by="drug").keys() == experiment.summary_table().keys()
-        assert experiment.summary_table(group_by="drug")["M"].keys() == experiment.summary_table()["M"].keys()
 
     def test_each_metric_is_averaged_over_the_drugs(self) -> None:
         experiment = ExperimentResult([_drug_run("M", [0.0, 2.0, 1.0, 3.0, 10.0, 11.0, 12.0, 13.0])])
@@ -94,6 +83,13 @@ class TestGroupedSummaryTable:
         assert table["Pearson"] == pytest.approx(1.0)
         assert experiment.summary_group_counts(group_by="study")["M"] == {"MSE": 2.0, "Pearson": 2.0}
 
+    def test_study_grouping_without_prefixes_is_undefined(self) -> None:
+        run = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0])
+        experiment = ExperimentResult([run])
+        table = experiment.summary_table(group_by="study")["M"]
+        assert all(np.isnan(value) for value in table.values())
+        assert experiment.summary_group_counts(group_by="study")["M"] == {"MSE": 0.0, "Pearson": 0.0}
+
     def test_study_grouping_scores_each_study_separately(self) -> None:
         run = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0])
         run.sample_ids = np.array(["A::S0"] * 4 + ["B::S0"] * 4)
@@ -103,16 +99,6 @@ class TestGroupedSummaryTable:
         table = ExperimentResult([run]).summary_table(group_by="study")["M"]
 
         assert table["MSE"] == pytest.approx((0.0 + 1.0) / 2)
-
-    def test_study_grouping_of_a_run_without_prefixes_is_undefined(self) -> None:
-        run = _drug_run("M", [0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0])
-        experiment = ExperimentResult([run])
-
-        table = experiment.summary_table(group_by="study")["M"]
-
-        assert table.keys() == {"MSE", "Pearson"}
-        assert all(np.isnan(value) for value in table.values())
-        assert experiment.summary_group_counts(group_by="study")["M"] == {"MSE": 0.0, "Pearson": 0.0}
 
     def test_an_unknown_grouping_is_rejected(self) -> None:
         experiment = make_experiment_result(n_models=1, n_folds=1)

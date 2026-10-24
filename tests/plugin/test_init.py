@@ -1,17 +1,4 @@
-"""Tests for the :mod:`drevalpy.plugin` facade.
-
-The facade is a compatibility promise, so the tests here are about the promise
-rather than about behaviour: every name in ``__all__`` resolves, every alias
-points at the same object as its underlying module (so the facade cannot drift
-into holding a stale copy), and the wheel carries the PEP 561 marker that makes
-the facade's annotations usable by a plugin's type checker.
-
-The packaging assertions at the bottom live here rather than in a new root-level
-guard because they are about the same thing the facade is about - what an
-installed consumer can see. ``py.typed`` is what makes the facade's annotations
-usable, and the ``src/`` layout is what stops the editable install from also
-exporting ``tests``, ``tools`` and ``docs`` into every consumer's ``sys.path``.
-"""
+"""The ``drevalpy.plugin`` facade is a compatibility promise; also packaging checks on what consumers see."""
 
 from __future__ import annotations
 
@@ -29,9 +16,6 @@ from tests._trusted_subprocess import run_trusted_python
 
 REPO_ROOT = UPath(__file__).resolve().parents[2]
 
-#: Where each exported name is defined, as ``alias -> module``. Written out
-#: rather than derived from ``__module__`` so a symbol silently moving between
-#: modules is a test failure and not a silently updated expectation.
 EXPECTED_ORIGINS: dict[str, str] = {
     "BlockPredictor": "drevalpy.components.predictors.abstract.block",
     "BlockSpec": "drevalpy.types.data.batch.feature_block",
@@ -84,9 +68,6 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "register_for_sides": "drevalpy.components.featurizers._side_binding",
 }
 
-#: The five per-registry ``register_*`` are all spelled ``register`` in their own
-#: module, so the shared surface check cannot compare them by name:
-#: ``alias -> (module, attribute)``.
 RENAMED_ORIGINS: dict[str, tuple[str, str]] = {
     "register_sample_featurizer": ("drevalpy.registry.sample_featurizer", "register"),
     "register_drug_featurizer": ("drevalpy.registry.drug_featurizer", "register"),
@@ -118,74 +99,28 @@ class TestPluginSurface(DeclaredSurface):
 
         assert public - modules == set(plugin.__all__)
 
-    def test_the_facade_defines_nothing_itself(self):
-        """A definition here would be a second implementation to keep in sync."""
+    def test_the_facade_defines_nothing_itself_and_the_register_aliases_are_distinct(self):
         own = [name for name in plugin.__all__ if getattr(vars(plugin)[name], "__module__", "") == "drevalpy.plugin"]
-
         assert own == []
-
-    def test_the_five_register_aliases_are_distinct(self):
-        registrars = {
-            plugin.register_sample_featurizer,
-            plugin.register_drug_featurizer,
-            plugin.register_predictor,
-            plugin.register_splitter,
-            plugin.register_visualization,
-        }
-
-        assert len(registrars) == 5
+        assert len({getattr(plugin, alias) for alias in RENAMED_ORIGINS}) == len(RENAMED_ORIGINS)
 
 
-class TestPyTypedMarker:
-    """PEP 561: without this file, a plugin's type checker treats drevalpy as untyped."""
-
-    def test_the_marker_exists_in_the_source_tree(self):
-        assert (REPO_ROOT / "src" / "drevalpy" / "py.typed").is_file()
-
-    @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
-    def test_the_marker_ships_in_the_built_wheel(self, built_wheel_contents):
-        """Built for real: a marker missing from the wheel does nothing for consumers.
-
-        The wheel comes from the session-scoped ``built_wheel_contents`` fixture
-        in ``tests/conftest.py``, which is shared with
-        ``tests/testing/test_init.py`` so the repository is only built once.
-        """
-        assert "drevalpy/py.typed" in built_wheel_contents
-
-
-class TestTheWheelShipsThePackageOnly:
-    """Its own repository layout is drevalpy's business, not a consumer's.
-
-    Asserted apart from the ``py.typed`` check above because it is a different
-    packaging promise; both read the same session-shared build, so there is no
-    longer a reason to bundle them into one test.
-    """
-
-    @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
-    def test_no_repo_only_directory_is_in_the_wheel(self, built_wheel_contents):
-        leaked = sorted(name for name in built_wheel_contents if name.startswith(("tests/", "tools/", "docs/")))
-
-        assert leaked == []
+@pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
+def test_the_wheel_ships_py_typed_and_the_package_only(built_wheel_contents):
+    assert (REPO_ROOT / "src" / "drevalpy" / "py.typed").is_file()
+    assert "drevalpy/py.typed" in built_wheel_contents
+    leaked = sorted(name for name in built_wheel_contents if name.startswith(("tests/", "tools/", "docs/")))
+    assert leaked == []
 
 
 class TestEditableInstallDoesNotLeak:
-    """A flat layout makes the editable install put the bare project root on ``sys.path``.
-
-    That would make drevalpy's own ``tests``, ``tools`` and ``docs`` importable by
-    every consumer of the environment, so a plugin repo's ``import tests.x``
-    would resolve to *drevalpy's* tests. With the package under ``src/``, uv_build
-    exports only ``src/``.
-    """
-
     def test_the_package_lives_under_src(self, pyproject):
         assert pyproject["build-system"]["build-backend"] == "uv_build"
         assert (REPO_ROOT / "src" / "drevalpy" / "__init__.py").is_file()
         assert not (REPO_ROOT / "drevalpy").exists()
 
     def test_the_repo_top_level_directories_are_not_importable(self, tmp_path):
-        """Run from outside the repo, so only the installed paths are in play."""
-        # Only the repo's own directories count: a third-party wheel may ship a top-level
-        # ``docs`` of its own (pydoclint 0.11 does).
+        # Only the repo's own directories count: a third-party wheel may ship a top-level ``docs`` of its own.
         script = (
             "import importlib.util as u\n"
             "def paths(spec):\n"
@@ -205,7 +140,6 @@ class TestEditableInstallDoesNotLeak:
         assert leaked == "[]"
 
     def test_no_pth_file_exports_the_project_root(self):
-        """Belt and braces: the mechanism, not just its effect."""
         offenders = [
             path.name
             for site_dir in sys.path
@@ -218,12 +152,9 @@ class TestEditableInstallDoesNotLeak:
 
 
 class TestFacadeIsSelfContained:
-    #: Extended tier: spawns an interpreter (~2.4s) to prove the facade needs no
-    #: other drevalpy import. Sharing a process with another test would defeat it.
     pytestmark = pytest.mark.slow
 
     def test_importing_only_the_facade_is_enough_to_subclass(self):
-        """A plugin importing nothing but the facade must be able to declare a component."""
         script = (
             "from drevalpy.plugin import (\n"
             "    SampleFeaturizer, FeatureFormat, BlockSpec, FeaturizerResult, numeric_feature_block,\n"

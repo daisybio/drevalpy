@@ -25,11 +25,12 @@ def _features() -> MockFeatureSource:
 
 def test_pharmaformer_gene_expression_round_trips_state() -> None:
     features = _features()
-    pair_expanded_ids = np.array(["cl0", "cl1", "cl0"])
-    pair_expanded_es_ids = np.array(["cl2"])
-    featurizer = PharmaFormerGeneExpressionFeaturizer().fit(
-        features, pair_expanded_ids=pair_expanded_ids, pair_expanded_es_ids=pair_expanded_es_ids
-    )
+    featurizer = PharmaFormerGeneExpressionFeaturizer()
+    assert featurizer.output_dim == 0
+    assert featurizer.get_state() == {}
+    with pytest.raises(RuntimeError, match="must be fit before transform"):
+        featurizer._transform_features(features, np.array(["cl0"]))
+    featurizer.fit(features, pair_expanded_ids=np.array(["cl0", "cl1", "cl0"]), pair_expanded_es_ids=np.array(["cl2"]))
     blocks = featurizer.transform_blocks(features, np.array(["cl0", "cl2"]))
     assert blocks["gene_expression"].feature_names == ("a", "b")
     restored = PharmaFormerGeneExpressionFeaturizer()
@@ -37,40 +38,18 @@ def test_pharmaformer_gene_expression_round_trips_state() -> None:
     np.testing.assert_allclose(restored.transform(features, np.array(["cl0", "cl2"])), blocks["gene_expression"].values)
 
 
-def test_pharmaformer_gene_expression_fits_the_scaler_on_unique_samples() -> None:
+def test_pharmaformer_gene_expression_fits_the_scaler_on_unique_samples_or_every_sample() -> None:
     featurizer = PharmaFormerGeneExpressionFeaturizer().fit(
         _features(),
         entity_ids=np.array(["cl0", "cl1"]),
         pair_expanded_ids=np.array(["cl0", "cl0", "cl0", "cl1"]),
     )
-
     np.testing.assert_allclose(featurizer._scaler.mean_, [0.5, 2.5])
-
-
-def test_pharmaformer_gene_expression_without_entity_ids_fits_on_every_sample() -> None:
-    featurizer = PharmaFormerGeneExpressionFeaturizer().fit(_features())
-
-    np.testing.assert_allclose(featurizer._scaler.mean_, [1.0, 3.0])
-
-
-def test_pharmaformer_gene_expression_transform_before_fit_raises() -> None:
-    with pytest.raises(RuntimeError, match="must be fit before transform"):
-        PharmaFormerGeneExpressionFeaturizer()._transform_features(_features(), np.array(["cl0"]))
-
-
-def test_pharmaformer_gene_expression_state_is_empty_before_fit() -> None:
-    assert PharmaFormerGeneExpressionFeaturizer().get_state() == {}
-
-
-def test_pharmaformer_gene_expression_output_dim_is_zero_before_fit() -> None:
-    assert PharmaFormerGeneExpressionFeaturizer().output_dim == 0
+    np.testing.assert_allclose(PharmaFormerGeneExpressionFeaturizer().fit(_features())._scaler.mean_, [1.0, 3.0])
 
 
 def test_pharmaformer_gene_expression_serves_a_precomputed_variant() -> None:
-    assert_uses_precomputed_variant(
-        PharmaFormerGeneExpressionFeaturizer(),
-        ids_kwarg="pair_expanded_ids",
-    )
+    assert_uses_precomputed_variant(PharmaFormerGeneExpressionFeaturizer(), ids_kwarg="pair_expanded_ids")
 
 
 def test_pharmaformer_gene_expression_reads_columns_by_name() -> None:
@@ -96,6 +75,8 @@ def test_pharmaformer_gene_expression_gene_list_selects_and_round_trips(
     restored = PharmaFormerGeneExpressionFeaturizer()
     restored.set_state(featurizer.get_state())
     assert restored._gene_list == "mine"
+    assert PharmaFormerGeneExpressionFeaturizer()._fetch_hyperparameters() is None
+    assert featurizer._fetch_hyperparameters() == {"gene_list": "mine"}
     np.testing.assert_allclose(restored.transform(features, np.array(["cl0", "cl2"])), blocks["gene_expression"].values)
 
 
@@ -105,8 +86,3 @@ def test_pharmaformer_gene_expression_gene_list_raises_when_genes_are_missing(
     use_gene_lists(monkeypatch, tmp_path, {"mine": ["a", "z"]})
     with pytest.raises(InvalidInputError, match="lacks 1 of 2 genes in 'mine'"):
         PharmaFormerGeneExpressionFeaturizer(gene_list="mine").fit(_features(), pair_expanded_ids=np.array(["cl0"]))
-
-
-def test_pharmaformer_gene_expression_matches_a_stored_variant_only_for_its_own_gene_list() -> None:
-    assert PharmaFormerGeneExpressionFeaturizer()._fetch_hyperparameters() is None
-    assert PharmaFormerGeneExpressionFeaturizer(gene_list="mine")._fetch_hyperparameters() == {"gene_list": "mine"}

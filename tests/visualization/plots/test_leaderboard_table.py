@@ -1,9 +1,4 @@
-"""Tests for :mod:`drevalpy.visualization.plots._leaderboard_table`.
-
-The table is the one 1.6.1 ``load_results`` builds: normalized Pearson, RMSE, raw Pearson and
-per-drug Pearson with their standard deviations over folds. ``tools/v1_parity/models/leaderboard.py``
-compares it with 1.6.1 on identical predictions; these tests pin the same numbers by hand.
-"""
+"""Tests for :mod:`drevalpy.visualization.plots._leaderboard_table` (the 1.6.1 ``load_results`` table)."""
 
 from __future__ import annotations
 
@@ -16,7 +11,7 @@ from drevalpy.evaluation import score_predictions
 from drevalpy.types.results.experiment import ExperimentResult
 from drevalpy.types.results.run import RunResult
 from drevalpy.visualization.plots._leaderboard_table import build_leaderboard_df
-from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
+from tests.synthetic import REFERENCE_MODEL, make_run_result
 
 COLUMNS = [
     "algorithm",
@@ -33,7 +28,6 @@ COLUMNS = [
 
 
 def _run(model: str, fold: int, seed: int, *, noise: float = 0.5) -> RunResult:
-    """A fold of 4 drugs x 6 samples whose per-drug and pooled correlations differ."""
     rng = np.random.default_rng(seed)
     drugs = np.repeat([f"D{i}" for i in range(4)], 6).astype(object)
     samples = np.tile([f"S{i}" for i in range(6)], 4).astype(object)
@@ -74,44 +68,34 @@ def experiment() -> ExperimentResult:
     return ExperimentResult(runs)
 
 
+def _runs_of(experiment: ExperimentResult, name: str) -> list[RunResult]:
+    return next(m for m in experiment.models if m.model_name == name).runs
+
+
 class TestUnnormalized:
-    def test_columns_are_the_aggregated_schema(self, experiment):
-        assert list(build_leaderboard_df(experiment).columns) == COLUMNS
-
-    def test_has_one_row_per_model(self, experiment):
-        assert len(build_leaderboard_df(experiment)) == len(experiment.models)
-
-    def test_rows_are_ordered_by_descending_pcc(self, experiment):
-        assert build_leaderboard_df(experiment)["PCC"].is_monotonic_decreasing
-
-    def test_naive_models_are_flagged_as_baselines(self, experiment):
-        df = build_leaderboard_df(experiment).set_index("algorithm")
-
-        assert bool(df.loc[REFERENCE_MODEL, "is_baseline"]) is True
-        assert bool(df.loc["ElasticNet", "is_baseline"]) is False
-
-    def test_raw_pearson_repeats_the_pcc_column(self, experiment):
+    def test_schema_ordering_and_baseline_flags(self, experiment):
         df = build_leaderboard_df(experiment)
 
+        assert list(df.columns) == COLUMNS
+        assert len(df) == len(experiment.models)
+        assert df["PCC"].is_monotonic_decreasing
         assert df["Pearson"].tolist() == df["PCC"].tolist()
+        flags = df.set_index("algorithm")["is_baseline"]
+        assert bool(flags[REFERENCE_MODEL]) is True
+        assert bool(flags["ElasticNet"]) is False
 
-    def test_the_means_are_taken_over_folds(self, experiment):
+    def test_means_and_sample_std_are_taken_over_folds(self, experiment):
         row = build_leaderboard_df(experiment).set_index("algorithm").loc["ElasticNet"]
-        runs = next(m for m in experiment.models if m.model_name == "ElasticNet").runs
+        runs = _runs_of(experiment, "ElasticNet")
+        pearson = [r.metrics["Pearson"] for r in runs]
 
-        assert row["PCC"] == pytest.approx(np.mean([r.metrics["Pearson"] for r in runs]))
+        assert row["PCC"] == pytest.approx(np.mean(pearson))
+        assert row["PCC_std"] == pytest.approx(np.std(pearson, ddof=1))
         assert row["RMSE"] == pytest.approx(np.mean([r.metrics["RMSE"] for r in runs]))
-
-    def test_the_standard_deviation_is_the_sample_one(self, experiment):
-        row = build_leaderboard_df(experiment).set_index("algorithm").loc["ElasticNet"]
-        runs = next(m for m in experiment.models if m.model_name == "ElasticNet").runs
-
-        assert row["PCC_std"] == pytest.approx(np.std([r.metrics["Pearson"] for r in runs], ddof=1))
 
     def test_per_drug_pearson_averages_the_drugs_then_the_folds(self, experiment):
         row = build_leaderboard_df(experiment).set_index("algorithm").loc["RandomForest"]
-        runs = next(m for m in experiment.models if m.model_name == "RandomForest").runs
-        per_fold = [_per_drug_pearson(r) for r in runs]
+        per_fold = [_per_drug_pearson(r) for r in _runs_of(experiment, "RandomForest")]
 
         assert row["Pearson_per_drug"] == pytest.approx(np.mean(per_fold))
         assert row["Pearson_per_drug_std"] == pytest.approx(np.std(per_fold, ddof=1))
@@ -130,34 +114,27 @@ class TestUnnormalized:
         assert np.isnan(df["Pearson_per_drug"].iloc[0])
         assert df["Pearson_per_drug_std"].iloc[0] == 0.0
 
-    def test_randomized_runs_are_excluded(self):
+    def test_randomized_runs_are_excluded_and_all_randomized_gives_the_empty_schema(self):
+        randomized = make_run_result(model_name="RandomForest", randomization=("gene_expression", "permutation"))
         result = ExperimentResult(
             [
                 make_run_result(model_name="ElasticNet", fold_index=0),
                 make_run_result(model_name="ElasticNet", fold_index=1),
-                make_run_result(model_name="RandomForest", randomization=("gene_expression", "permutation")),
+                randomized,
             ]
         )
 
         assert build_leaderboard_df(result)["algorithm"].tolist() == ["ElasticNet"]
+        empty = build_leaderboard_df(ExperimentResult([randomized]))
+        assert empty.empty
+        assert list(empty.columns) == COLUMNS
 
-    def test_returns_the_empty_schema_when_every_run_is_randomized(self):
-        result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
-
-        df = build_leaderboard_df(result)
-
-        assert df.empty
-        assert list(df.columns) == COLUMNS
-
-    def test_reads_the_plain_pearson_key(self):
+    def test_reads_the_plain_pearson_key_and_a_missing_metric_becomes_nan(self):
         result = ExperimentResult([make_run_result(metrics={"Pearson": 0.9, "RMSE": 1.0})])
+        missing = ExperimentResult([make_run_result(metrics={"MSE": 0.5})])
 
         assert build_leaderboard_df(result)["PCC"].tolist() == [pytest.approx(0.9)]
-
-    def test_a_metric_no_run_reports_becomes_nan_rather_than_raising(self):
-        result = ExperimentResult([make_run_result(metrics={"MSE": 0.5})])
-
-        assert build_leaderboard_df(result)["PCC"].isna().all()
+        assert build_leaderboard_df(missing)["PCC"].isna().all()
 
 
 class TestNormalized:
@@ -167,43 +144,27 @@ class TestNormalized:
     def df(self, experiment):
         return build_leaderboard_df(experiment.normalize(REFERENCE_MODEL)).set_index("algorithm")
 
-    def test_pcc_is_the_normalized_pearson(self, df, experiment):
-        normalized = experiment.normalize(REFERENCE_MODEL)
-        runs = next(m for m in normalized.models if m.model_name == "ElasticNet").runs
+    def test_pcc_is_normalized_while_rmse_and_raw_pearson_are_unnormalized(self, df, experiment):
+        normalized_runs = _runs_of(experiment.normalize(REFERENCE_MODEL), "ElasticNet")
+        runs = _runs_of(experiment, "ElasticNet")
 
-        assert df.loc["ElasticNet", "PCC"] == pytest.approx(np.mean([r.metrics["Pearson"] for r in runs]))
-
-    def test_rmse_and_raw_pearson_are_the_unnormalized_ones(self, df, experiment):
-        runs = next(m for m in experiment.models if m.model_name == "ElasticNet").runs
-
+        assert df.loc["ElasticNet", "PCC"] == pytest.approx(np.mean([r.metrics["Pearson"] for r in normalized_runs]))
         assert df.loc["ElasticNet", "RMSE"] == pytest.approx(np.mean([r.metrics["RMSE"] for r in runs]))
         assert df.loc["ElasticNet", "Pearson"] == pytest.approx(np.mean([r.metrics["Pearson"] for r in runs]))
+        assert df["PCC"].notna().all()
 
     def test_per_drug_pearson_is_of_the_unnormalized_predictions(self, df, experiment):
-        runs = next(m for m in experiment.models if m.model_name == "RandomForest").runs
+        for name in ("RandomForest", REFERENCE_MODEL):
+            expected = np.mean([_per_drug_pearson(r) for r in _runs_of(experiment, name)])
+            assert df.loc[name, "Pearson_per_drug"] == pytest.approx(expected)
 
-        expected = np.mean([_per_drug_pearson(r) for r in runs])
-        assert df.loc["RandomForest", "Pearson_per_drug"] == pytest.approx(expected)
-
-    def test_the_reference_model_is_listed_as_a_baseline_with_zero_normalized_pcc(self, df):
+    def test_the_reference_model_is_a_baseline_with_zero_normalized_pcc_and_its_own_rmse(self, df, experiment):
         reference = df.loc[REFERENCE_MODEL]
+        runs = _runs_of(experiment, REFERENCE_MODEL)
 
         assert bool(reference["is_baseline"]) is True
-        assert reference["PCC"] == 0.0
-        assert reference["PCC_std"] == 0.0
-
-    def test_the_reference_model_keeps_its_unnormalized_metrics(self, df, experiment):
-        runs = next(m for m in experiment.models if m.model_name == REFERENCE_MODEL).runs
-
-        assert df.loc[REFERENCE_MODEL, "RMSE"] == pytest.approx(np.mean([r.metrics["RMSE"] for r in runs]))
-        assert df.loc[REFERENCE_MODEL, "Pearson_per_drug"] == pytest.approx(
-            np.mean([_per_drug_pearson(r) for r in runs])
-        )
-
-    def test_a_normalized_experiment_yields_finite_pcc_values(self):
-        normalized = make_experiment_result(n_models=4, n_folds=3).normalize(REFERENCE_MODEL)
-
-        assert build_leaderboard_df(normalized)["PCC"].notna().all()
+        assert reference["PCC"] == reference["PCC_std"] == 0.0
+        assert reference["RMSE"] == pytest.approx(np.mean([r.metrics["RMSE"] for r in runs]))
 
     def test_runs_without_raw_metrics_leave_raw_pearson_and_per_drug_empty(self, experiment):
         normalized = experiment.normalize(REFERENCE_MODEL)

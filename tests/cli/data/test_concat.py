@@ -13,46 +13,37 @@ runner = make_runner()
 FEATURES = [f"FEATURE{i:04d}" for i in range(12)]
 
 
-class TestArguments:
-    def test_help_lists_the_options(self) -> None:
-        result = runner.invoke(app, ["data", "concat", "--help"], env=HELP_ENV)
+def test_help_lists_the_options_and_output_is_required() -> None:
+    helped = runner.invoke(app, ["data", "concat", "--help"], env=HELP_ENV)
 
-        text = plain(result.output)
-        assert result.exit_code == 0
-        assert "--join" in text
-        assert "--name" in text
-
-    def test_output_is_required(self) -> None:
-        result = runner.invoke(app, ["data", "concat"], env=HELP_ENV)
-
-        assert result.exit_code == 2
+    assert helped.exit_code == 0
+    assert "--join" in plain(helped.output)
+    assert "--name" in plain(helped.output)
+    assert runner.invoke(app, ["data", "concat"], env=HELP_ENV).exit_code == 2
 
 
-class TestJoin:
-    @pytest.mark.parametrize("value", ["exact", "inner", "INNER"])
-    def test_the_choices_are_accepted_case_insensitively(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath, value: str
-    ) -> None:
-        recorder = Recorder(return_value=FakeDataset(name="BOTH"))
-        monkeypatch.setattr("drevalpy.data.load", lambda item: item)
-        monkeypatch.setattr("drevalpy.data.concat", recorder)
+@pytest.mark.parametrize("value", ["exact", "inner", "INNER"])
+def test_join_choices_are_accepted_case_insensitively(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: UPath, value: str
+) -> None:
+    recorder = Recorder(return_value=FakeDataset(name="BOTH"))
+    monkeypatch.setattr("drevalpy.data.load", lambda item: item)
+    monkeypatch.setattr("drevalpy.data.concat", recorder)
 
-        result = runner.invoke(app, ["data", "concat", "a", "b", str(tmp_path / "out.h5mu"), "--join", value])
+    result = runner.invoke(app, ["data", "concat", "a", "b", str(tmp_path / "out.h5mu"), "--join", value])
 
-        assert result.exit_code == 0, result.output
-        assert recorder.kwargs["join"] == value.lower()
-
-    def test_an_unknown_choice_is_a_usage_error(self) -> None:
-        result = runner.invoke(app, ["data", "concat", "a", "b", "o.h5mu", "--join", "outer"], env=HELP_ENV)
-
-        assert result.exit_code == 2
+    assert result.exit_code == 0, result.output
+    assert recorder.kwargs["join"] == value.lower()
 
 
+def test_an_unknown_join_is_a_usage_error() -> None:
+    result = runner.invoke(app, ["data", "concat", "a", "b", "o.h5mu", "--join", "outer"], env=HELP_ENV)
+
+    assert result.exit_code == 2
+
+
+@pytest.mark.slow
 class TestWriting:
-    """Each case writes and reads ``.h5mu`` files, which costs over 0.2s."""
-
-    pytestmark = pytest.mark.slow
-
     @pytest.fixture
     def inputs(self, tmp_path: UPath) -> tuple[str, str]:
         import drevalpy
@@ -63,26 +54,23 @@ class TestWriting:
         drevalpy.synthetic(name="SECOND", n_samples=10, n_drugs=6, seed=7, feature_names=FEATURES).save(str(second))
         return str(first), str(second)
 
-    def test_writes_the_concatenated_dataset(self, tmp_path: UPath, inputs: tuple[str, str]) -> None:
+    def test_writes_the_concatenated_dataset_and_name_option_names_it(
+        self, tmp_path: UPath, inputs: tuple[str, str]
+    ) -> None:
         import drevalpy
 
         out = tmp_path / "nested" / "both.h5mu"
+        named = tmp_path / "named.h5mu"
         result = runner.invoke(app, ["data", "concat", *inputs, str(out)])
+        renamed = runner.invoke(app, ["data", "concat", *inputs, str(named), "--name", "BOTH"])
 
         assert result.exit_code == 0, result.output
+        assert renamed.exit_code == 0, renamed.output
         combined = drevalpy.load(str(out))
         assert combined.name == "FIRST+SECOND"
         assert combined.response_matrix.shape == (22, 6)
         assert set(combined.sample_column("study", combined.sample_ids)) == {"FIRST", "SECOND"}
-
-    def test_name_option_names_the_result(self, tmp_path: UPath, inputs: tuple[str, str]) -> None:
-        import drevalpy
-
-        out = tmp_path / "both.h5mu"
-        result = runner.invoke(app, ["data", "concat", *inputs, str(out), "--name", "BOTH"])
-
-        assert result.exit_code == 0, result.output
-        assert drevalpy.load(str(out)).name == "BOTH"
+        assert drevalpy.load(str(named)).name == "BOTH"
 
     def test_join_inner_is_forwarded(self, tmp_path: UPath, inputs: tuple[str, str]) -> None:
         import drevalpy
@@ -100,19 +88,14 @@ class TestWriting:
         assert inner.exit_code == 0, inner.output
         assert drevalpy.load(str(out)).mdata.mod["gene_expression"].n_vars == 8
 
-    def test_a_single_dataset_is_an_error_and_writes_nothing(self, tmp_path: UPath, inputs: tuple[str, str]) -> None:
+    def test_bad_inputs_are_reported_and_write_nothing(self, tmp_path: UPath, inputs: tuple[str, str]) -> None:
         out = tmp_path / "both.h5mu"
-        result = runner.invoke(app, ["data", "concat", inputs[0], str(out)])
+        single = runner.invoke(app, ["data", "concat", inputs[0], str(out)])
+        unknown = runner.invoke(app, ["data", "concat", inputs[0], str(tmp_path / "nope.h5mu"), str(out)])
 
-        assert result.exit_code == 1
-        assert "at least two" in result.output
+        assert single.exit_code == 1
+        assert "at least two" in single.output
+        assert unknown.exit_code == 1
+        assert plain(unknown.output).startswith("Error: ")
+        assert "Traceback" not in unknown.output
         assert not out.exists()
-
-    def test_an_unknown_dataset_is_reported(self, tmp_path: UPath, inputs: tuple[str, str]) -> None:
-        result = runner.invoke(
-            app, ["data", "concat", inputs[0], str(tmp_path / "nope.h5mu"), str(tmp_path / "o.h5mu")]
-        )
-
-        assert result.exit_code == 1
-        assert plain(result.output).startswith("Error: ")
-        assert "Traceback" not in result.output

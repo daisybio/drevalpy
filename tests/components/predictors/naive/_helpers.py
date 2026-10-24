@@ -9,12 +9,7 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
 def one_hot(labels: list[str] | np.ndarray, categories: list[str]) -> np.ndarray:
-    """Build a dense float64 one-hot matrix for *labels* over *categories*.
-
-    :param labels: Category label per row.
-    :param categories: Ordered category vocabulary (column order).
-    :returns: Dense one-hot matrix with shape ``(len(labels), len(categories))``.
-    """
+    """Build a dense float64 one-hot matrix for *labels* over *categories*."""
     index = {category: i for i, category in enumerate(categories)}
     matrix = np.zeros((len(labels), len(categories)), dtype=np.float64)
     for row, label in enumerate(labels):
@@ -74,22 +69,7 @@ def naive_batch(
     sample_ids: np.ndarray | None = None,
     drug_ids: np.ndarray | None = None,
 ) -> ModelInputBatch:
-    """Build a matrix-native batch for naive predictor tests.
-
-    Pair IDs default to deliberate decoys so tests prove predictors ignore them.
-
-    :param n_pairs: Number of pairs when not implied by other arguments.
-    :param response: Optional response values aligned with the pairs.
-    :param sample_features: Entity-level sample feature matrix.
-    :param drug_features: Entity-level drug feature matrix.
-    :param sample_blocks: Optional named sample feature blocks.
-    :param drug_blocks: Optional named drug feature blocks.
-    :param sample_pair_idx: Pair-to-sample row index.
-    :param drug_pair_idx: Pair-to-drug row index.
-    :param sample_ids: Decoy pair sample IDs (ignored by predictors).
-    :param drug_ids: Decoy pair drug IDs (ignored by predictors).
-    :returns: Minimal ``ModelInputBatch`` for naive predictor unit tests.
-    """
+    """Build a matrix-native batch whose pair IDs are derived from the indexed entity rows."""
     n_pairs = _infer_n_pairs(
         n_pairs=n_pairs,
         response=response,
@@ -109,8 +89,6 @@ def naive_batch(
         drug_pair_idx = np.arange(n_pairs, dtype=np.int64)
     cell_entities = np.array([f"entity_cl_{i}" for i in range(len(sample_features))], dtype=str)
     drug_entities = np.array([f"entity_d_{i}" for i in range(len(drug_features))], dtype=str)
-    # Canonical batches validate pair IDs against their indexed entity rows. The
-    # old decoy-ID fixture is intentionally replaced by this explicit mapping.
     sample_ids = cell_entities[np.asarray(sample_pair_idx, dtype=np.int64)]
     drug_ids = drug_entities[np.asarray(drug_pair_idx, dtype=np.int64)]
 

@@ -1,21 +1,8 @@
 """Guard the runnable examples the documentation includes.
 
-The how-to pages show ``docs/examples/*.py`` with ``literalinclude``, which
-keeps page and code identical but proves nothing about either: a
-``literalinclude`` of a module that no longer imports renders happily. The docs
-build closes that gap by calling ``docs/_examples.verify_documented_examples``,
-and this module runs the same verification under pytest so a broken example does
-not have to wait for a docs build to be noticed.
-
-Importing the examples registers components, which would break the exact-count
-assertions in ``tests/test_featurizer_block_policy.py``. The verification
-therefore runs in a subprocess; only the RST cross-checks happen in-process,
-where they touch no registry.
-
-Both facts the subprocess establishes - what the examples register, and that the
-registries look the same afterwards - start from the same pristine interpreter,
-so one child process reports both and the two tests assert on their own half of
-its output.
+``literalinclude`` keeps page and code identical but proves nothing about either, so this runs
+``docs/_examples.verify_documented_examples`` under pytest. Importing the examples registers components,
+so that verification runs in a subprocess; only the RST cross-checks happen in-process.
 """
 
 from __future__ import annotations
@@ -44,10 +31,7 @@ from _snippets import collect  # noqa: E402
 
 _LITERALINCLUDE = re.compile(r"^\s*\.\. literalinclude:: (\S+)\s*$", re.MULTILINE)
 
-#: Runs the docs build's own verification in a fresh interpreter and reports the
-#: registry sizes on either side of it along with what the examples registered.
-#: The registry imports come before ``_examples`` so ``before`` is a genuine
-#: pre-verification reading.
+#: Runs the docs build's verification in a fresh interpreter, reporting registry sizes before and after.
 _VERIFY_SCRIPT = (
     "import json, sys\n"
     f"sys.path.insert(0, {str(DOCS)!r})\n"
@@ -62,18 +46,14 @@ _VERIFY_SCRIPT = (
 
 @pytest.fixture(scope="module")
 def verification() -> dict[str, Any]:
-    """Report of one pristine-interpreter run of ``verify_documented_examples``.
-
-    :returns: ``{"registered": ..., "before": ..., "after": ...}`` as reported by
-        the child process.
-    """
+    """One pristine-interpreter run of ``verify_documented_examples``: registered, before, after."""
     completed = run_trusted_python(_VERIFY_SCRIPT, cwd=str(REPO_ROOT))
     assert completed.returncode == 0, completed.stderr
     return json.loads(completed.stdout)
 
 
 def _includer_pages() -> list[Path]:
-    """Return the pages whose ``literalinclude`` lines count: the built pages."""
+    """The built pages."""
     return built_pages(DOCS, exclude_patterns(DOCS))
 
 
@@ -90,45 +70,28 @@ def _literalincludes(pages: list[Path]) -> list[tuple[Path, Path]]:
     return found
 
 
+@pytest.mark.slow
 class TestVerificationInAPristineInterpreter:
-    """Extended tier: the shared ``verification`` fixture spawns an interpreter.
-
-    Both tests read the same child-process report, so the ~2.4s is only saved when
-    both are deselected - hence a class-level marker rather than two per-test ones.
-    """
-
-    pytestmark = pytest.mark.slow
-
     def test_examples_import_register_and_conform(self, verification: dict[str, Any]) -> None:
-        """The examples import, register what is expected, and pass every check."""
         from _examples import EXPECTED_REGISTRATIONS
 
         observed = {key: tuple(value) for key, value in verification["registered"].items()}
         assert observed == EXPECTED_REGISTRATIONS
 
     def test_verifying_the_examples_leaves_the_registries_alone(self, verification: dict[str, Any]) -> None:
-        """The verification must not be observable afterwards.
-
-        ``tests/test_featurizer_block_policy.py`` asserts exact registry counts, and
-        the docs build's generated component catalogs do the same, so an example that
-        stayed registered would break both.
-        """
         assert verification["after"] == verification["before"]
 
 
 def test_every_example_module_is_shown_on_some_page() -> None:
-    """An example nobody reads is dead code; some page under ``docs/`` must include each one."""
     from _examples import EXAMPLE_MODULES
 
     included = {target for _, target in _literalincludes(_includer_pages())}
-    # toy_conformance.py is the harness that checks the others, so it is
-    # described in prose rather than shown; everything else is on a page.
+    # toy_conformance.py is the harness, described in prose rather than shown.
     expected = {EXAMPLES / f"{name}.py" for name in EXAMPLE_MODULES} - {EXAMPLES / "toy_conformance.py"}
     assert expected <= included, f"Example modules no page includes: {sorted(p.name for p in expected - included)}"
 
 
 def test_pages_only_include_files_that_exist() -> None:
-    """A renamed example must not leave a dangling ``literalinclude``."""
     missing = [
         f"{page.relative_to(DOCS).as_posix()}: {target}"
         for page, target in _literalincludes(_includer_pages())
@@ -138,15 +101,13 @@ def test_pages_only_include_files_that_exist() -> None:
 
 
 def test_every_example_module_is_listed_in_the_driver() -> None:
-    """A module the driver does not import is never checked."""
     from _examples import EXAMPLE_MODULES
 
     on_disk = {path.stem for path in EXAMPLES.glob("*.py") if path.name != "__init__.py"}
     assert on_disk == set(EXAMPLE_MODULES)
 
 
-#: Import paths and hooks the extension pages used to teach that never existed or no longer
-#: do. Kept as a regression guard because every one of them was published.
+#: Import paths the extension pages once taught that never existed or no longer do.
 DEAD_REFERENCES = (
     "drevalpy.components.core",
     "drevalpy.components.featurizers.sample.base",
@@ -173,7 +134,6 @@ def test_extend_pages_do_not_teach_dead_import_paths() -> None:
 
 
 def test_extend_pages_with_python_route_plugin_authors_through_the_supported_surface() -> None:
-    """The extend pages show Python, so they must teach ``drevalpy.plugin`` and ``drevalpy.testing``."""
     pages = _extend_pages()
     assert any(snippet.language == "python" for page in pages for snippet in collect(page))
     text = "\n".join(page.read_text(encoding="utf-8") for page in pages)

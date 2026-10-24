@@ -17,11 +17,7 @@ class StubSource(FeatureSource):
     """Minimal feature source serving one view matrix, NaN rows included."""
 
     def __init__(self, view_matrix: np.ndarray, identifiers: np.ndarray) -> None:
-        """Store the backing matrix and its row identifiers.
-
-        :param view_matrix: Rows aligned with *identifiers*.
-        :param identifiers: Entity IDs addressing the matrix rows.
-        """
+        """Store the backing matrix and its row identifiers."""
         self._view_matrix = view_matrix
         self._identifiers = identifiers
 
