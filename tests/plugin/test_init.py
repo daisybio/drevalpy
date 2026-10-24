@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import shutil
 import sys
 import tomllib
 
@@ -105,7 +104,6 @@ class TestPluginSurface(DeclaredSurface):
         assert len({getattr(plugin, alias) for alias in RENAMED_ORIGINS}) == len(RENAMED_ORIGINS)
 
 
-@pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
 def test_the_wheel_ships_py_typed_and_the_package_only(built_wheel_contents):
     assert (REPO_ROOT / "src" / "drevalpy" / "py.typed").is_file()
     assert "drevalpy/py.typed" in built_wheel_contents
