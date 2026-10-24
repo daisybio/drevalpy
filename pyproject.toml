@@ -11,16 +11,14 @@ dependencies = [
     "scipy",
     "scikit-learn>=1.4",
     "pandas",
-    "pyarrow", # pandas.read_parquet engine for the shipped gene lists and `drevalpy.cli.curate`
+    "pyarrow",
     "anndata",
     "joblib",
     "networkx",
     "pyyaml",
     "pytorch-lightning>=2.5",
     "torch-geometric",
-    # Plotly figure.write_image (ImageVisualization.to_png) needs Kaleido. Pinned to 0.2.1,
-    # the version multiqc requires, so plotly is capped below 6.1 (which needs kaleido>=1).
-    # Lift both once multiqc supports Kaleido 1.
+    # multiqc pins kaleido 0.2.1, and plotly>=6.1 needs kaleido>=1.
     "plotly>=5.18,<6.1",
     "kaleido==0.2.1",
     "matplotlib",
@@ -37,9 +35,6 @@ dependencies = [
     "gseapy>=1.1.0",
     "optuna",
     "platformdirs>=4.0",
-    # Named backends, not `full`: shipped code only reaches s3://, http(s):// and
-    # file://, and `full` pulled 18 packages to serve protocols nothing can reach.
-    # Registering another protocol with `register_source` means installing its backend.
     "fsspec[s3,http]",
     "universal-pathlib",
     "filelock>=3.15.2",
@@ -71,13 +66,8 @@ dev = [
     "prek",
     "pytest",
     "pytest-cov",
-    "coverage",
     "complexipy",
-    "flaky",
-    "xdoctest",
     "types-PyYAML",
-    "jupyter>=1.1.1",
-    "vulture>=2.16",
     "pydoclint>=0.11.0",
 ]
 docs = [
@@ -90,21 +80,15 @@ docs = [
     "pydata-sphinx-theme>=0.16",
 ]
 
-# The package lives under src/ (uv_build's default), so an editable install puts only
-# src/ on sys.path; a flat layout would expose this repo's own `tests`, `tools` and
-# `docs` to every consumer of the environment. uv_build ships every file under the
-# module, so py.typed needs no artifact entry.
+# src/ layout keeps this repo's tests/, tools/ and docs/ off sys.path of an editable install.
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv]
 exclude-newer = "3 weeks"
-# nvidia-nccl-cu12 (via xgboost) and nvidia-nccl-cu13 (via the cu13 torch wheel)
-# ship the same libnccl.so.2, so whichever unpacks last owns it. Pinning cu12 to
-# the NCCL release torch's cu13 build expects keeps the library compatible either
-# way; below it, `import torch` failed on an undefined ncclCommResume symbol and
-# every torch-based component silently dropped out of the registries.
+# xgboost's nvidia-nccl-cu12 and torch's cu13 NCCL share libnccl.so.2; older cu12
+# releases make `import torch` fail on an undefined ncclCommResume symbol.
 override-dependencies = ["nvidia-nccl-cu12>=2.30.7; sys_platform == 'linux'"]
 conflicts = [
     [
@@ -153,7 +137,6 @@ select = [
     "C90",
     "ANN001", "ANN201", "ANN202", "ANN204",
 ]
-ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "D101", "D102", "D103", "D401", "ANN001", "ANN201", "ANN202", "ANN204"]
@@ -178,41 +161,27 @@ check-class-attributes = false
 allow-init-docstring = true
 check-yield-types = false
 
-[tool.ty]
-
 [tool.ty.environment]
 python-version = "3.11"
 
 [tool.ty.rules]
-# tests/docs/ imports the docs/ generators (`_model_zoo`, `_cli_click`,
-# `_generated_io`), which live outside the package and go on sys.path at runtime.
-# Narrow to a per-file ignore once ty supports it.
+# tests/docs/ imports the docs/ generators, which are put on sys.path at runtime.
 unresolved-import = "ignore"
-# Incomplete third-party stubs (pandas, matplotlib, torch)
+# Incomplete third-party stubs (pandas, torch, sklearn) and ty beta gaps.
 invalid-argument-type = "ignore"
 no-matching-overload = "ignore"
-# scikit-learn TransformerMixin stub does not declare .fit/.transform
 unresolved-attribute = "ignore"
-# Standard PyTorch Dataset.__getitem__ override pattern
 invalid-method-override = "ignore"
-# Tests violate types deliberately, each with its own `# type: ignore`
 invalid-assignment = "ignore"
 missing-argument = "ignore"
 unknown-argument = "ignore"
-# ty beta limitations: type[Any] in return annotations (the featurizer registry
-# pattern), pytest.skip(reason), and return-type narrowing
 invalid-type-form = "ignore"
 too-many-positional-arguments = "ignore"
 invalid-return-type = "ignore"
-# Informational only
-redundant-cast = "ignore"
-deprecated = "ignore"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-# Default run is the fast tier. A command-line `-m` replaces this one rather than
-# adding to it, so CI's `-m "not network"` still selects the whole suite.
 addopts = ["--import-mode=importlib", "-m", "not slow and not network"]
 markers = [
     "network: requires downloading pretrained weights or remote annotations",
@@ -222,11 +191,9 @@ markers = [
 [tool.coverage.run]
 source = ["drevalpy"]
 relative_files = true
-omit = ["*/gene_lists/_make_gene_lists.py"] # maintenance script, not shipped logic
+omit = ["*/gene_lists/_make_gene_lists.py"]
 
 [tool.coverage.report]
-# Keep about a point of headroom below the measured figure so an unrelated
-# refactor does not redden CI, and no more: this number only ever moves up.
 fail_under = 89
 show_missing = true
 skip_covered = true
@@ -238,45 +205,23 @@ exclude_also = [
     "@overload",
 ]
 
-# Per-module floor, enforced by tools/coverage_gate.py because coverage.py can only
-# fail on the aggregate, which lets one untested module hide behind a tested package.
+# Per-module coverage floor and statement ceiling; rules in "Coverage gate" in AGENTS.md.
 [tool.drevalpy.coverage_gate]
 min_file_coverage = 80
 
-# Each entry is a module that cannot reach min_file_coverage, with the reason. The
-# table is empty and should stay so: a module below the floor gets tests, not an entry.
 [tool.drevalpy.coverage_gate.exemptions]
 
-# Per-module statement ceiling, enforced by tools/size_gate.py. This is the ratchet
-# that keeps the split modules in models/ and components/featurizers/ from
-# growing back: complexipy already caps per-function complexity, but nothing stopped
-# a module from accumulating a fourth unrelated concern's worth of small methods.
-#
-# Statements, not lines, so the count does not move with formatting or with the
-# docstrings this codebase requires.
 [tool.drevalpy.size_gate]
 max_module_statements = 150
 
-# Each entry is a module that is currently above the ceiling, with the reason. An
-# exemption is debt: split the module and delete the entry. A recorded ceiling may
-# be lowered as a module shrinks, never raised to let a regression through. Values
-# are the counts measured by `uv run python tools/size_gate.py`.
 [tool.drevalpy.size_gate.exemptions]
-# Vendored third-party network definition: one architecture transcribed from the
-# reference implementation. Splitting it would make it harder to diff against
-# upstream, not easier to read.
+# Vendored upstream architecture; kept whole so it diffs against the reference.
 "drevalpy/components/featurizers/drug/_molgnet_network.py" = 255
-
-# The remaining literature predictors still carry the torch plumbing that
-# _omics_loaders.py and _pair_predict.py pulled out of their siblings. These are the
-# next candidates for the same treatment, in this order.
+# Still carry torch plumbing that could move to _omics_loaders.py / _pair_predict.py.
 "drevalpy/components/predictors/literature/sparsego/algorithm.py" = 187
 "drevalpy/components/predictors/literature/dipk/predictor.py" = 166
 "drevalpy/components/predictors/literature/srmf/predictor.py" = 160
-
-# Single cohesive units whose statements are one flat sequence rather than several
-# concerns: a declarative registry of builtin components, one dataset facade,
-# one plot each.
+# One flat declarative sequence each.
 "drevalpy/registry/_builtins.py" = 182
 "drevalpy/types/data/dataset.py" = 207
 

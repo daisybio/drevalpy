@@ -144,5 +144,4 @@ def pytest_configure(config: pytest.Config) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
-    config.option.flaky_report = "none"
     config.option.tbstyle = "short"
