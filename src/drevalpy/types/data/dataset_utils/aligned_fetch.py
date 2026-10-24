@@ -1,0 +1,49 @@
+"""Generic aligned-fetch utility for retrieving rows by ID."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import numpy as np
+
+from drevalpy.log import get_logger
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+logger = get_logger(__name__)
+
+
+def _aligned_fetch(
+    index: pd.Index,
+    ids: np.ndarray,
+    data: np.ndarray,
+    *,
+    strict: bool,
+    entity_label: str,
+) -> np.ndarray:
+    """Fetch rows from *data* aligned to *ids* using *index*, filling NaN for missing.
+
+    :param index: pd.Index mapping entity names to row positions in *data*.
+    :param ids: 1-D array of requested entity IDs.
+    :param data: 2-D source array to fetch rows from.
+    :param strict: If True, raise KeyError for missing IDs instead of warning.
+    :param entity_label: Human-readable label for error messages (e.g. "sample").
+    :returns: Float32 array of shape (len(ids), data.shape[1]).
+    :raises KeyError: If *strict* and any ID is missing from *index*.
+    """
+    positions = index.get_indexer(ids)
+    missing_mask = positions == -1
+    if missing_mask.any():
+        n_missing = int(missing_mask.sum())
+        examples = ids[missing_mask][:5].tolist()
+        msg = f"{n_missing} of {len(ids)} {entity_label} IDs not found (first few: {examples}). Returning NaN rows."
+        if strict:
+            raise KeyError(msg)
+        logger.warning(msg)
+
+    n_features = data.shape[1]
+    result = np.full((len(ids), n_features), np.nan, dtype=np.float32)
+    valid = positions >= 0
+    result[valid] = np.asarray(data[positions[valid]], dtype=np.float32)
+    return result
