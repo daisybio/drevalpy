@@ -10,12 +10,9 @@ from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.base import DenseViewDrugFeaturizer
 from drevalpy.data.artifacts import get_artifact
-from drevalpy.log import get_logger
 from drevalpy.registry.drug_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
-
-_logger = get_logger(__name__)
 
 _SMILESVEC_MODEL_FILE = "drug.pubchem.canon.l8.ws20.txt"
 

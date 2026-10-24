@@ -12,7 +12,6 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
-from drevalpy.log import get_logger
 from drevalpy.registry.drug_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
@@ -20,8 +19,6 @@ from drevalpy.types.enums.literature_reference import LiteratureReference
 
 if TYPE_CHECKING:
     import pandas as pd
-
-_logger = get_logger(__name__)
 
 
 @contextmanager

@@ -11,12 +11,9 @@ import numpy as np
 from drevalpy.components.contracts.contracts import FeatureFormat
 from drevalpy.components.featurizers.sample.base import SampleFeaturizer
 from drevalpy.data._msigdb import get_precily_gmt
-from drevalpy.log import get_logger
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
-
-logger = get_logger(__name__)
 
 
 @register(
