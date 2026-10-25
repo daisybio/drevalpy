@@ -1,8 +1,8 @@
 # Data
-data/
+/data/
 
 # Results directory is created when running the demo notebook
-results/
+/results/
 
 # Wandb directory is created when running the benchmark with wandb
 wandb/
@@ -61,6 +61,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+coverage.json
 *.cover
 *.py,cover
 .hypothesis/
@@ -86,6 +87,9 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/reference/_autosummary/
+docs/reference/_generated_*.rst
+
 
 # PyBuilder
 .pybuilder/
@@ -156,8 +160,10 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+.complexipy_cache/
 .dmypy.json
 dmypy.json
+.vscode/
 
 # Pyre type checker
 .pyre/
@@ -177,3 +183,11 @@ cython_debug/
 /data/GDSC/
 .Rproj.user
 .idea/
+test.ipynb
+# Scratch directory at the repository root only. Anchored with a leading slash
+# because the unanchored pattern also swallowed the shipped drevalpy/testing
+# package, which then silently vanished from the wheel.
+/testing/
+
+# macOS Finder metadata
+.DS_Store
