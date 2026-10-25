@@ -1,10 +1,9 @@
-"""Tiny in-memory fixtures for model execution gates."""
+"""Tiny in-memory fixtures for model tests."""
 
 from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.data.utils import CELL_LINE_NAME_COLUMN, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.conftest import MockFeatureSource
@@ -32,26 +31,6 @@ def drug_fingerprints() -> MockFeatureSource:
         features={
             "d1": {"fingerprints": np.array([1.0, 0.0])},
             "d2": {"fingerprints": np.array([0.0, 1.0])},
-        }
-    )
-
-
-def identity_sample_features(*, with_tissue: bool = False) -> MockFeatureSource:
-    features = {
-        "cl1": {CELL_LINE_NAME_COLUMN: np.array(["cl1"])},
-        "cl2": {CELL_LINE_NAME_COLUMN: np.array(["cl2"])},
-    }
-    if with_tissue:
-        features["cl1"][TISSUE_IDENTIFIER] = np.array(["Lung"])
-        features["cl2"][TISSUE_IDENTIFIER] = np.array(["Blood"])
-    return MockFeatureSource(features=features)
-
-
-def identity_drug_features() -> MockFeatureSource:
-    return MockFeatureSource(
-        features={
-            "d1": {DRUG_IDENTIFIER: np.array(["d1"])},
-            "d2": {DRUG_IDENTIFIER: np.array(["d2"])},
         }
     )
 
@@ -192,15 +171,6 @@ def _mask_2x2(*positions: tuple[int, int]) -> SplitMask:
     for r, c in positions:
         mask[r, c] = True
     return SplitMask(mask)
-
-
-def lpo_split_masks_all_train() -> SplitMasks:
-    """LPO-style masks: all 4 pairs as train, (0,0) as test, none as val."""
-    return SplitMasks(
-        train=_mask_2x2((0, 0), (0, 1), (1, 0), (1, 1)),
-        test=_mask_2x2((0, 0)),
-        val=SplitMask(np.zeros((2, 2), dtype=bool)),
-    )
 
 
 def lso_split_masks() -> SplitMasks:
