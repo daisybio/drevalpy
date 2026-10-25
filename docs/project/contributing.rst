@@ -60,8 +60,8 @@ Unit tests are located in the ``tests`` directory,
 and are written using the pytest_ testing framework. ``tests/`` follows the package's
 directory tree, with one test file per feature area rather than per module.
 
-The suite is tiered. The bare command runs the **fast tier** (the vast majority
-of tests, finishing in seconds), which is also what the commit hook runs:
+The suite is tiered. The bare command runs the **fast tier**, the vast majority
+of tests without the expensive ones below; it is also what the commit hook runs:
 
 .. code:: console
 
@@ -127,9 +127,10 @@ Your pull request needs to meet the following guidelines for acceptance:
 - Include unit tests. This project maintains a high code coverage.
 - If your changes add functionality, update the documentation accordingly.
 
-Linting and formatting run through `prek <https://github.com/j178/prek>`_, a
-drop-in replacement for pre-commit. Run every hook against the whole tree — all
-hooks take about 22 seconds, most of it the fast test tier:
+Linting, formatting, type checking with `ty <https://github.com/astral-sh/ty>`_ and
+the fast test tier run through `prek <https://github.com/j178/prek>`_, a drop-in
+replacement for pre-commit. Run every hook against the whole tree; most of the time
+goes to the fast test tier:
 
 .. code:: console
 
