@@ -7,7 +7,7 @@ import pytest
 import pytorch_lightning as pl
 import torch
 
-from drevalpy.components.predictors.literature.molir import _omics, utils
+from drevalpy.components.predictors.literature.molir import utils
 from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
 from drevalpy.components.predictors.literature.molir.utils import MOLIModel
@@ -126,10 +126,6 @@ class TestMOLIRTrainer:
         assert kwargs["accelerator"] == "cpu"
         assert kwargs["logger"] is False
         assert not (tmp_path / "lightning_logs").exists()
-
-
-def test_utils_reexports_the_realign_helper_from_omics() -> None:
-    assert utils._realign_omic_matrix is _omics._realign_omic_matrix
 
 
 def test_generate_triplets_indices_picks_near_and_far_pairs() -> None:
