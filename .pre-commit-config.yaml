@@ -33,6 +33,13 @@ repos:
         language: system
         types: [python]
         files: ^src/drevalpy/
+      - id: ty
+        name: ty (type check)
+        # The whole project, as in CI: a change in one file can break types in another.
+        entry: uv run ty check
+        language: system
+        types: [python]
+        pass_filenames: false
       - id: pytest
         name: pytest (fast tier)
         # No arguments on purpose: `addopts` in pyproject.toml defaults to
