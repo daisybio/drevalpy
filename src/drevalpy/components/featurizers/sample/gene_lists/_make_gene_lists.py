@@ -3,15 +3,15 @@
 This is a maintenance script, **not** part of the public API. Nothing in the package
 imports it: the name starts with an underscore, so neither the built-in component
 discovery in :mod:`drevalpy.registry._builtins` nor the recursive API docs pick it up.
-It exists so the origin of every shipped CSV stays reproducible.
+It exists so the origin of every shipped gene list stays reproducible.
 
 Only registered datasets are intersected (see
 ``drevalpy/data/datasets/available_datasets.json``).
 
 ``CCLE`` was the sole proteomics source, and it is currently **not registered**: the
 CurveCurator-refit generation of the screens has no ``CCLE.h5mu`` yet. The shipped
-``proteomics``-derived CSVs were generated while it still was, and they are kept as they
-are. :data:`OMIC_DATASETS` therefore lists no dataset for ``proteomics``, which makes
+``proteomics``-derived Parquet files were generated while it still was, and they are kept
+as they are. :data:`OMIC_DATASETS` therefore lists no dataset for ``proteomics``, which makes
 re-running this script raise rather than silently write an empty intersection - see
 :func:`gene_intersection`. Put ``CCLE`` back in both places once the file is uploaded.
 
@@ -71,7 +71,7 @@ OMIC_DATASETS: dict[str, tuple[str, ...]] = {
     "mutations": ("CTRPv1", "CTRPv2", "GDSC1", "GDSC2"),
     # Proteomics was CCLE-only, and CCLE is not registered right now (see the module
     # docstring). Left empty on purpose so a re-run fails loudly instead of writing an
-    # empty intersection over the shipped CSV.
+    # empty intersection over the shipped Parquet file.
     "proteomics": (),
 }
 
@@ -87,9 +87,10 @@ DERIVED_STEMS: dict[str, tuple[str, str]] = {
     ),
 }
 
+_OPTIONAL_SAMPLE_COLUMNS = frozenset({"cellosaurus_id", "cell_line_name"})
+
 #: Omics whose intersections define the "reduced" gene universe. Methylation is excluded:
 #: its columns are genomic ranges, not gene symbols.
-_OPTIONAL_SAMPLE_COLUMNS = frozenset({"cellosaurus_id", "cell_line_name"})
 REDUCED_OMICS: tuple[str, ...] = ("copy_number_variation_gistic", "gene_expression", "mutations", "proteomics")
 
 
