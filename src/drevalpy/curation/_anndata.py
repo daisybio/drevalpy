@@ -1,0 +1,72 @@
+"""Construct AnnData object from flat metrics DataFrame."""
+
+from __future__ import annotations
+
+import anndata
+import numpy as np
+import pandas as pd
+
+_REGULATION_ENCODING = {"up": 1, "down": -1, "not": 0}
+
+#: Measure ``X`` holds. Not duplicated as a layer.
+X_MEASURE = "pEC50"
+
+_LAYER_METRICS = [
+    "EC50",
+    "IC50",
+    "LN_IC50",
+    "AUC",
+    "fold_change",
+    "slope",
+    "front",
+    "back",
+    "R2",
+    "RMSE",
+    "p_value",
+    "log_p_value",
+    "f_value",
+    "f_value_sam",
+    "relevance_score",
+    "signal_quality",
+    "regulation",
+    # Per-parameter standard errors from the fit's Jacobian. ``pec50_error`` is
+    # the uncertainty on X itself, so it belongs next to it.
+    "pec50_error",
+    "slope_error",
+    "front_error",
+    "back_error",
+]
+
+
+def _pivot_metric(df: pd.DataFrame, metric: str, samples: pd.Index, drugs: pd.Index) -> np.ndarray:
+    """Pivot a single metric column into a (samples x drugs) matrix."""
+    pivoted = pd.pivot_table(df, values=metric, index="sample", columns="drug", aggfunc="first")
+    return pivoted.reindex(index=samples, columns=drugs).values
+
+
+def build_anndata(df: pd.DataFrame) -> anndata.AnnData:
+    """Convert a flat metrics DataFrame into an AnnData with (samples x drugs) shape.
+
+    :param df: DataFrame with columns: sample, drug, pEC50, and all other metric columns.
+
+    :returns: AnnData where X is the pEC50 matrix, and all other metrics are stored as layers.
+    """
+    samples = pd.Index(sorted(df["sample"].unique()))
+    drugs = pd.Index(sorted(df["drug"].unique()))
+
+    x_matrix = _pivot_metric(df, X_MEASURE, samples, drugs)
+
+    work_df = df.copy()
+    work_df["regulation"] = work_df["regulation"].map(_REGULATION_ENCODING).astype(float)
+
+    layers: dict[str, np.ndarray] = {}
+    for metric in _LAYER_METRICS:
+        if metric in work_df.columns:
+            layers[metric] = _pivot_metric(work_df, metric, samples, drugs)
+
+    return anndata.AnnData(
+        X=x_matrix.astype(np.float32),
+        obs=pd.DataFrame(index=samples),
+        var=pd.DataFrame(index=drugs),
+        layers={k: v.astype(np.float32) for k, v in layers.items()},
+    )

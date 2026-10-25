@@ -1,0 +1,23 @@
+{
+  "sources": {
+    "orakl": {
+      "url": "s3://orakl-open-source-data/drevalpy_h5mu/gen3"
+    },
+    "orakl_gen4": {
+      "url": "s3://orakl-open-source-data/drevalpy_h5mu/gen4"
+    }
+  },
+  "datasets": {
+    "GDSC1": { "source": "orakl", "file": "GDSC1.h5mu" },
+    "GDSC2": { "source": "orakl", "file": "GDSC2.h5mu" },
+    "CTRPv1": { "source": "orakl", "file": "CTRPv1.h5mu" },
+    "CTRPv2": { "source": "orakl", "file": "CTRPv2.h5mu" },
+    "BeatAML2": { "source": "orakl", "file": "BeatAML2.h5mu" },
+    "PDX_Bruna": { "source": "orakl", "file": "PDX_Bruna.h5mu" },
+    "TOYv1": {
+      "source": "orakl_gen4",
+      "file": "TOYv1.h5mu",
+      "sha256": "b780b2d5a3868a252b781bfc488e1bef281e4f90e1ba9c0ee278660bdbf90750"
+    }
+  }
+}
