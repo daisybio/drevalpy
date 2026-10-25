@@ -31,7 +31,6 @@ sys.path.insert(0, os.path.abspath("."))
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosectionlabel",
@@ -106,10 +105,6 @@ exclude_patterns = [
 suppress_warnings = ["myst.header"]
 
 
-# If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = False
-
-
 # -- Options for HTML output -------------------------------------------
 
 html_context = {
@@ -137,11 +132,6 @@ html_title = "DrEvalPy"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-
-
-# -- Options for HTMLHelp output ---------------------------------------
-
-htmlhelp_basename = "drevalpydoc"
 
 
 # -- Options for LaTeX output ------------------------------------------
@@ -175,26 +165,7 @@ latex_documents = [
 ]
 
 
-# -- Options for manual page output ------------------------------------
-
-# One entry per manual page. List of tuples
-# (source start file, name, description, authors, manual section).
-man_pages = [
-    (
-        master_doc,
-        "DrEvalPy",
-        "DrEvalPy Documentation",
-        [author],
-        1,
-    )
-]
-
 autodoc_typehints = "description"
-napoleon_google_docstring = True
-napoleon_numpy_docstring = False
-napoleon_use_param = True
-napoleon_use_rtype = True
-napoleon_use_ivar = True
 autosummary_generate = True
 autosummary_imported_members = False
 autodoc_default_options = {
@@ -204,23 +175,6 @@ autodoc_default_options = {
     "member-order": "bysource",
 }
 
-
-# -- Options for Texinfo output ----------------------------------------
-
-# Grouping the document tree into Texinfo files. List of tuples
-# (source start file, target name, title, author,
-#  dir menu entry, description, category)
-texinfo_documents = [
-    (
-        master_doc,
-        "DrEvalPy",
-        "DrEvalPy Documentation",
-        author,
-        "DrEvalPy",
-        "One line description of project.",
-        "Miscellaneous",
-    ),
-]
 
 html_css_files = [
     "custom_cookietemple.css",
