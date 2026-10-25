@@ -1,0 +1,215 @@
+"""Ownership indexes for public and structured hyperparameter keys."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Any
+
+from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
+from drevalpy.models._hp_key_grammar import (
+    DRUG_SLOT,
+    PREDICTOR_SLOT,
+    SAMPLE_SLOT,
+    featurizer_prefix,
+    predictor_prefix,
+    split_predictor_key,
+    split_prefixed_key,
+)
+from drevalpy.models.config import FeaturizerConfig, ModelConfig
+from drevalpy.models.config._accepted_keys import featurizer_accepted_keys, leaf_selector, predictor_accepted_keys
+from drevalpy.registry.featurizer import Side
+from drevalpy.registry.predictor import get as get_predictor
+
+#: Short keys that name a qualified key, each applied only to stacks that have the target.
+_KEY_ALIASES = {
+    # 1.x MultiViewRandomForest / MultiViewXGBoost / MultiViewLightGBM hyperparameter.
+    "methylation_n_components": featurizer_prefix("sample", "pca[methylation]", "n_components"),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class HyperparameterTarget:
+    """One public hyperparameter slot on a composed model stack."""
+
+    slot: str
+    selector: str
+    param: str
+
+    @property
+    def qualified_key(self) -> str:
+        """Return the fully qualified public key for this target.
+
+        :returns: ``predictor.<name>.<param>`` for the predictor slot, else
+            ``<side>_featurizer.<selector>.<param>``.
+        """
+        if self.slot == PREDICTOR_SLOT:
+            return predictor_prefix(self.selector, self.param)
+        return featurizer_prefix(
+            "sample" if self.slot == SAMPLE_SLOT else "drug",
+            self.selector,
+            self.param,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class HyperparameterOwnershipIndex:
+    """Maps short, qualified, and alias keys to component targets."""
+
+    targets: tuple[HyperparameterTarget, ...]
+    qualified_to_target: dict[str, HyperparameterTarget]
+    short_to_targets: dict[str, tuple[HyperparameterTarget, ...]]
+    alias_to_qualified: dict[str, str]
+
+
+def _append_featurizer_targets(
+    targets: list[HyperparameterTarget],
+    featurizer: FeaturizerConfig,
+    *,
+    slot: str,
+    registry: Side,
+) -> None:
+    selector = leaf_selector(featurizer)
+    for param in sorted(featurizer_accepted_keys(featurizer, registry)):
+        targets.append(HyperparameterTarget(slot=slot, selector=selector, param=param))
+
+
+def _alias_targets(targets: tuple[HyperparameterTarget, ...]) -> dict[str, str]:
+    qualified = {target.qualified_key for target in targets}
+    return {alias: key for alias, key in _KEY_ALIASES.items() if key in qualified}
+
+
+def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
+    """Build ownership indexes for every accepted public hyperparameter.
+
+    :param config: Model configuration whose predictor and featurizer leaves own the hyperparameters.
+    :returns: The index with every target, plus lookups by qualified key, by short name and by alias.
+    """
+    targets: list[HyperparameterTarget] = []
+
+    predictor_cls = get_predictor(config.predictor.name)
+    for param in sorted(predictor_accepted_keys(predictor_cls)):
+        targets.append(
+            HyperparameterTarget(
+                slot=PREDICTOR_SLOT,
+                selector=config.predictor.name,
+                param=param,
+            ),
+        )
+
+    if config.sample_featurizer is not None:
+        for leaf in iter_featurizer_leaves(config.sample_featurizer, "sample"):
+            _append_featurizer_targets(
+                targets,
+                leaf,
+                slot=SAMPLE_SLOT,
+                registry="sample",
+            )
+
+    if config.drug_featurizer is not None:
+        for leaf in iter_featurizer_leaves(config.drug_featurizer, "drug"):
+            _append_featurizer_targets(
+                targets,
+                leaf,
+                slot=DRUG_SLOT,
+                registry="drug",
+            )
+
+    qualified_to_target = {target.qualified_key: target for target in targets}
+    short_groups: dict[str, list[HyperparameterTarget]] = defaultdict(list)
+    for target in targets:
+        short_groups[target.param].append(target)
+
+    target_tuple = tuple(targets)
+    return HyperparameterOwnershipIndex(
+        targets=target_tuple,
+        qualified_to_target=qualified_to_target,
+        short_to_targets={key: tuple(group) for key, group in short_groups.items()},
+        alias_to_qualified=_alias_targets(target_tuple),
+    )
+
+
+def _parse_qualified_key(key: str, config: ModelConfig) -> str | None:
+    predictor_parsed = split_predictor_key(key)
+    if predictor_parsed is not None:
+        predictor_name, _param = predictor_parsed
+        if predictor_name != config.predictor.name:
+            msg = (
+                f"Unknown hyperparameter {key!r}: predictor {predictor_name!r} "
+                f"does not match stack predictor {config.predictor.name!r}."
+            )
+            raise ValueError(msg)
+        return key
+
+    featurizer_parsed = split_prefixed_key(key)
+    if featurizer_parsed is not None:
+        registry, selector, param = featurizer_parsed
+        return featurizer_prefix(registry, selector, param)
+
+    if key.startswith(f"{PREDICTOR_SLOT}."):
+        msg = f"Unknown hyperparameter {key!r}: expected predictor.<name>.<param>."
+        raise ValueError(msg)
+    if key.startswith((SAMPLE_SLOT + ".", DRUG_SLOT + ".")):
+        msg = f"Unknown hyperparameter {key!r}: expected <slot>.<selector>.<param>."
+        raise ValueError(msg)
+    return None
+
+
+def _resolve_one_public_key(
+    key: str,
+    config: ModelConfig,
+    index: HyperparameterOwnershipIndex,
+) -> str:
+    if key in index.alias_to_qualified:
+        return index.alias_to_qualified[key]
+    if key in index.qualified_to_target:
+        return key
+    if "." in key:
+        parsed = _parse_qualified_key(key, config)
+        if parsed is None or parsed not in index.qualified_to_target:
+            msg = f"Unknown hyperparameter {key!r} for this model stack."
+            raise ValueError(msg)
+        return parsed
+    if key in index.short_to_targets:
+        owners = index.short_to_targets[key]
+        if len(owners) > 1:
+            alternatives = ", ".join(repr(owner.qualified_key) for owner in owners)
+            msg = f"Ambiguous hyperparameter {key!r}. Use one of: {alternatives}."
+            raise ValueError(msg)
+        return owners[0].qualified_key
+    msg = f"Unknown hyperparameter {key!r} for this model stack."
+    raise ValueError(msg)
+
+
+def resolve_to_qualified_mapping(
+    config: ModelConfig,
+    mapping: dict[str, Any],
+    index: HyperparameterOwnershipIndex,
+    *,
+    reserved_keys: frozenset[str],
+) -> dict[str, Any]:
+    """Resolve a public mapping to qualified keys with strict collision checks.
+
+    :param config: Model configuration the keys are resolved against.
+    :param mapping: Hyperparameters keyed by short, qualified or alias names.
+    :param index: Ownership index built for *config*.
+    :param reserved_keys: Keys to leave out of the result, such as non-hyperparameter options.
+    :returns: The values of *mapping* under qualified keys, without the reserved keys.
+    :raises ValueError: If a key is unknown or ambiguous, or two keys address the same hyperparameter.
+    """
+    qualified: dict[str, Any] = {}
+    seen_targets: dict[HyperparameterTarget, str] = {}
+
+    for key, value in mapping.items():
+        if key in reserved_keys:
+            continue
+        qualified_key = _resolve_one_public_key(key, config, index)
+        target = index.qualified_to_target[qualified_key]
+        if target in seen_targets:
+            previous = seen_targets[target]
+            msg = f"Duplicate hyperparameter assignment for {qualified_key!r} from {previous!r} and {key!r}."
+            raise ValueError(msg)
+        seen_targets[target] = key
+        qualified[qualified_key] = value
+
+    return qualified
