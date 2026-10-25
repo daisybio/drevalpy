@@ -8,10 +8,6 @@ from collections.abc import Iterable
 from rich.progress import DownloadColumn, Progress, TimeRemainingColumn, TransferSpeedColumn
 from upath import UPath as Path
 
-from drevalpy.log import get_logger
-
-logger = get_logger(__name__)
-
 _CHUNK_SIZE = 1024 * 256
 
 
