@@ -1,0 +1,6 @@
+sample_featurizer:
+  - identity
+  - tissue:
+      allow_missing: true
+drug_featurizer: identity
+predictor: naiveMeanEffects

@@ -1,0 +1,5 @@
+sample_featurizer:
+  pharmaFormerGeneExpression:
+    gene_list: landmark_genes
+drug_featurizer: bpePharmaformer
+predictor: pharmaFormer
