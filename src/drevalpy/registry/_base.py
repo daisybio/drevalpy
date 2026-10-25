@@ -7,12 +7,9 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from drevalpy.errors import UnknownNameError
-from drevalpy.log import get_logger
 
 if TYPE_CHECKING:
     import pandas as pd
-
-logger = get_logger(__name__)
 
 
 class TableReprMixin(ABC):
