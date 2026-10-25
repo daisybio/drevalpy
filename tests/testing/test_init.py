@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import shutil
 
 import pytest
 
@@ -51,7 +50,6 @@ class TestTestingSurface(DeclaredSurface):
 class TestItShipsInTheWheel:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build a wheel")
     def test_every_submodule_is_in_the_built_wheel(self, built_wheel_contents):
         expected = {
             f"drevalpy/testing/{name}.py" for name in ("__init__", "batch", "conformance", "plugins", "synthetic")
