@@ -1,0 +1,7 @@
+sample_featurizer:
+  landmarkGenes:
+    gene_list_stem: gene_list_paccmann_network_prop
+    arcsinh: false
+    fit_on_pairs: true
+drug_featurizer: smilesTokens
+predictor: paccMann

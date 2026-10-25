@@ -1,0 +1,19 @@
+sample_featurizer:
+  aeGeneExpression:
+    gene_list: tcga_autoencoder_genes_available
+drug_featurizer: molgnetPooled
+predictor:
+  name: randomForest
+  hyperparameter_space:
+    n_estimators:
+      type: categorical
+      choices: [100]
+      default: 100
+    max_samples:
+      type: categorical
+      choices: [0.2]
+      default: 0.2
+    max_depth:
+      type: categorical
+      choices: [5, 10, 30]
+      default: 5

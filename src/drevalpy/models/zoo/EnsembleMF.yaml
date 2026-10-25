@@ -1,0 +1,8 @@
+sample_featurizer:
+  scaledGeneExpression:
+    gene_list: landmark_genes
+    transform: rank
+drug_featurizer:
+  fingerprints:
+    n_bits: 256
+predictor: ensembleMF
