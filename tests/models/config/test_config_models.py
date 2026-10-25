@@ -376,8 +376,6 @@ def test_id_only_featurizers_resolve_to_empty_views(name: str) -> None:
         sample_featurizer=SampleFeaturizerConfig.model_validate(name),
         drug_featurizer=DrugFeaturizerConfig.model_validate(name),
     )
-    assert config.sample_entity_id_only()
-    assert config.drug_entity_id_only()
     assert config.sample_views() == []
     assert config.drug_views() == []
 
@@ -419,7 +417,6 @@ def test_sample_views(featurizer, views) -> None:
 
 def test_drug_views() -> None:
     config = _model_config()
-    assert not config.drug_entity_id_only()
     assert config.drug_views() == ["morgan_fingerprint"]
 
     view = _model_config(

@@ -45,15 +45,13 @@ def _load_builtin_entries() -> dict[str, ModelConfig]:
 
 
 _BUILTIN_ZOO: dict[str, ModelConfig] | None = None
-_BUILTIN_ZOO_NAMES: frozenset[str] = frozenset()
 
 
 def _get_builtin_zoo() -> dict[str, ModelConfig]:
     """Return built-in zoo entries, loading lazily on first access."""
-    global _BUILTIN_ZOO, _BUILTIN_ZOO_NAMES
+    global _BUILTIN_ZOO
     if _BUILTIN_ZOO is None:
         _BUILTIN_ZOO = _load_builtin_entries()
-        _BUILTIN_ZOO_NAMES = frozenset(_BUILTIN_ZOO)
     return _BUILTIN_ZOO
 
 

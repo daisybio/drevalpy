@@ -12,21 +12,6 @@ if TYPE_CHECKING:
     from drevalpy.models.config.resolved import ResolvedModelConfig
 
 
-def entity_id_only_from_featurizer_config(config: FeaturizerConfig, *, registry: Side) -> bool:
-    """Return True when the featurizer only needs entity identifiers, not omics or drug views.
-
-    :param config: Featurizer config node to inspect.
-    :param registry: ``sample`` or ``drug`` registry label.
-    :returns: ``True`` when the featurizer tree is entity-id-only.
-    """
-    if config.name == "concatFeaturizers":
-        children = config.featurizers or ()
-        if not children:
-            return False
-        return all(entity_id_only_from_featurizer_config(child, registry=registry) for child in children)
-    return bool(getattr(get_featurizer(registry, config.name), "entity_id_only", False))
-
-
 def _concat_child_views(
     config: FeaturizerConfig,
     *,
