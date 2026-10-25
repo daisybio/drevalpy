@@ -40,14 +40,6 @@ class _StubModel(DRPModel):
         type(self).instances.append(self)
 
     @classmethod
-    def get_model_name(cls) -> str:
-        return "StubModel"
-
-    @classmethod
-    def supports_early_stopping(cls) -> bool:
-        return cls.early_stopping
-
-    @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
         return dict(cls.default_hyperparameters)
 
