@@ -6,7 +6,6 @@ the NaN-filtering path in ``PredictorBase.fit`` and ``ModelInputBatch.subset_pai
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Final
 
 import pytest
@@ -49,25 +48,12 @@ SUPPORTED_SINGLE_DRUG_MODELS: Final = (
     "SuperFELTR",
 )
 
-#: DIPK consumes remote pretrained artifacts and has its own network integration gate.
-EXCLUDED_MODELS: Final[dict[str, str]] = {
-    "DIPK": "Real pretrained MolGNet/PPI artifacts are exercised by the network integration test.",
-}
-
-#: Models expected to fail for a named, still-open defect, mapped to that reason; empty on purpose.
-MODEL_DEFECTS: Final[dict[str, str]] = {}
-
-#: No remaining known checkpoint exclusions; learned featurizer state is persisted.
-SAVE_LOAD_DEFECTS: Final[dict[str, str]] = {}
-
 
 def build_partial_coverage_dataset() -> Dataset:
     """Build a dataset whose omics modalities cover only some of the samples."""
     return build_synthetic_dataset(name="SYNTH_PARTIAL", omics_coverage=PARTIAL_COVERAGE)
 
 
-def model_param(model_name: str, *, defects: Mapping[str, str] = MODEL_DEFECTS) -> ParameterSet:
-    """Wrap *model_name* as a pytest parameter, strictly xfailing known defects so stale markers get noticed."""
-    reason = defects.get(model_name)
-    marks = [pytest.mark.xfail(reason=reason, strict=True)] if reason else []
-    return pytest.param(model_name, marks=marks, id=model_name)
+def model_param(model_name: str) -> ParameterSet:
+    """Wrap *model_name* as a pytest parameter whose id is the model name."""
+    return pytest.param(model_name, id=model_name)
