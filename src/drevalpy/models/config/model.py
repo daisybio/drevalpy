@@ -13,7 +13,6 @@ from drevalpy.models.config.featurizer import DrugFeaturizerConfig, SampleFeatur
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
 from drevalpy.models.config.view_resolution import (
-    entity_id_only_from_featurizer_config,
     views_from_featurizer_config,
 )
 from drevalpy.types.enums.model_scope import ModelScope
@@ -115,21 +114,3 @@ class ModelConfig(BaseModel):
         if self.drug_featurizer is None:
             return []
         return views_from_featurizer_config(self.drug_featurizer, registry="drug", resolved=resolved)
-
-    def sample_entity_id_only(self) -> bool:
-        """Return ``True`` when the sample featurizer only needs entity identifiers.
-
-        :returns: ``True`` when no sample omics views are required.
-        """
-        if self.sample_featurizer is None:
-            return False
-        return entity_id_only_from_featurizer_config(self.sample_featurizer, registry="sample")
-
-    def drug_entity_id_only(self) -> bool:
-        """Return ``True`` when the drug featurizer only needs entity identifiers.
-
-        :returns: ``True`` when no drug views are required.
-        """
-        if self.drug_featurizer is None:
-            return False
-        return entity_id_only_from_featurizer_config(self.drug_featurizer, registry="drug")
