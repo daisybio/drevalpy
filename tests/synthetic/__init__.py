@@ -32,10 +32,7 @@ from tests.synthetic.results import (
     make_run_result,
 )
 from tests.synthetic.variants import (
-    EXCLUDED_MODELS,
-    MODEL_DEFECTS,
     PARTIAL_COVERAGE,
-    SAVE_LOAD_DEFECTS,
     SUPPORTED_GLOBAL_MODELS,
     SUPPORTED_SINGLE_DRUG_MODELS,
     build_partial_coverage_dataset,
@@ -49,9 +46,7 @@ __all__ = [
     "DEFAULT_DATASET_NAME",
     "DEFAULT_MODEL_NAMES",
     "DEFAULT_SPLIT_MODE",
-    "EXCLUDED_MODELS",
     "FINGERPRINT_BITS",
-    "MODEL_DEFECTS",
     "N_SAMPLES",
     "N_DRUGS",
     "N_GENES",
@@ -62,7 +57,6 @@ __all__ = [
     "PARTIAL_COVERAGE",
     "REFERENCE_MODEL",
     "RESPONSE_LAYERS",
-    "SAVE_LOAD_DEFECTS",
     "SMILESVEC_DIM",
     "SUPPORTED_GLOBAL_MODELS",
     "SUPPORTED_SINGLE_DRUG_MODELS",
