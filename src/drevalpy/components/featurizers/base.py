@@ -1,0 +1,201 @@
+"""Base classes for featurizers.
+
+:class:`Featurizer` keeps the abstract hooks, the public ``fit`` / ``transform`` /
+``transform_blocks`` wrappers that guard them, and ``HPOStrategy``, so the subclass contract
+reads in one file. Its other concerns live in the mixins it inherits:
+``storage.FeaturizerStorageMixin`` (stored variants), ``_nan_tolerance.NanToleranceMixin``
+(missing values) and ``_declarations.FeaturizerDeclarationsMixin`` (class-body declarations).
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from enum import Enum
+from typing import ClassVar
+
+import numpy as np
+
+from drevalpy.components.contracts.checkpoint_state import CheckpointStateMixin
+from drevalpy.components.contracts.hyperparameter_space import TunableComponentMixin
+from drevalpy.components.featurizers._declarations import FeaturizerDeclarationsMixin
+from drevalpy.components.featurizers._nan_tolerance import NanToleranceMixin
+from drevalpy.components.featurizers.storage import FeaturizerStorageMixin
+from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult
+from drevalpy.types.data.feature_source import FeatureSource
+
+
+class HPOStrategy(Enum):
+    """How a featurizer's hyperparameters are searched during HPO."""
+
+    CONTINUOUS = "continuous"
+    PRECOMPUTED = "precomputed"
+
+
+class Featurizer(
+    FeaturizerStorageMixin,
+    FeaturizerDeclarationsMixin,
+    NanToleranceMixin,
+    TunableComponentMixin,
+    CheckpointStateMixin,
+    ABC,
+):
+    """Transform feature tables into per-entity representation payloads.
+
+    Sample featurizers consume sample features; drug featurizers consume
+    drug features. Subclasses must be registered
+    to the sample or drug featurizer registry using
+    ``@register`` (from the sample_featurizer or drug_featurizer registry), so that
+    they can be discovered and used in models.
+
+    Each subclass declares which raw views it reads via ``input_views``
+    (or ``requires_view`` / ``entity_id_only`` / a ``resolve_input_views``
+    override); registration rejects featurizers that declare nothing.
+
+    ``output_format`` may be declared on the class body or passed to ``@register``. When
+    both are given the decorator argument wins.
+
+    What is left in this class is the fit/transform contract itself. The concerns
+    that reach none of it live in mixins: the class-body declarations in
+    ``_declarations.py``, the NaN policy the public methods below bracket their
+    subclass hooks with in ``_nan_tolerance.py``, the pre-computed variant store
+    in ``storage.py``, and the HPO-space and checkpoint hooks it shares with
+    ``Predictor`` in ``contracts/hyperparameter_space.py`` and ``contracts/checkpoint_state.py``.
+    """
+
+    requires_early_stopping: ClassVar[bool] = False
+
+    hpo_strategy: ClassVar[HPOStrategy] = HPOStrategy.CONTINUOUS
+
+    # ------------------------------------------------------------------
+    # Public fit / transform with NaN tolerance
+    # ------------------------------------------------------------------
+
+    def fit(
+        self,
+        source: FeatureSource,
+        *,
+        entity_ids: np.ndarray | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
+    ) -> Featurizer:
+        """Fit on valid entities, skipping those with all-NaN feature rows.
+
+        :param source: Feature source providing views for the entity type.
+        :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
+        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
+        :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
+        :returns: Fitted featurizer instance (usually ``self``).
+        :raises ValueError: If ``requires_early_stopping`` is set and no usable early-stopping
+            entity remains.
+        """
+        ids = entity_ids if entity_ids is not None else source.identifiers
+        valid_mask = self._detect_valid(source, ids)
+        self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.fit")
+        valid_ids = ids[valid_mask] if not valid_mask.all() else ids
+
+        if pair_expanded_ids is not None:
+            pair_expanded_ids = pair_expanded_ids[np.isin(pair_expanded_ids, valid_ids)]
+        if pair_expanded_es_ids is not None:
+            pair_expanded_es_ids = pair_expanded_es_ids[self._detect_valid(source, pair_expanded_es_ids)]
+        if self.requires_early_stopping and (pair_expanded_es_ids is None or len(pair_expanded_es_ids) == 0):
+            raise ValueError(f"{type(self).__name__} requires a usable early-stopping holdout")
+        self._fit(
+            source,
+            entity_ids=valid_ids,
+            pair_expanded_ids=pair_expanded_ids,
+            pair_expanded_es_ids=pair_expanded_es_ids,
+        )
+        return self
+
+    def transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
+        """Compute named features once, padding unusable entities.
+
+        :param source: Feature views for this entity side.
+        :param entity_ids: Requested identifiers in output order.
+        :returns: Canonical features, with numeric NaNs or object None for invalid rows.
+        :raises ValueError: If the subclass transform does not preserve the requested entity order.
+        """
+        valid = self._detect_valid(source, entity_ids)
+        self._warn_if_above_threshold(valid, f"{type(self).__name__}.transform_features")
+        if not valid.any():
+            features = self._empty_transform_features(source)
+        else:
+            features = self._transform_features(source, entity_ids[valid])
+        if not np.array_equal(features.entity_ids, entity_ids[valid]):
+            raise ValueError(f"{type(self).__name__} must preserve requested entity order")
+        if valid.all():
+            return features
+        return FeaturizerResult(
+            entity_ids,
+            self._expand_blocks_with_nan(features.blocks, valid),
+            features.projection,
+        )
+
+    def transform_blocks(self, source: FeatureSource, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Return the named blocks of the combined transformation.
+
+        :param source: Feature source.
+        :param entity_ids: Requested identifiers.
+        :returns: Aligned feature blocks.
+        """
+        return dict(self.transform_features(source, entity_ids).blocks)
+
+    def transform(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+        """Return the matrix of the combined transformation.
+
+        :param source: Feature source.
+        :param entity_ids: Requested identifiers.
+        :returns: Aligned numeric or object matrix.
+        """
+        return self.transform_features(source, entity_ids).matrix
+
+    # ------------------------------------------------------------------
+    # Abstract methods for subclasses
+    # ------------------------------------------------------------------
+
+    @abstractmethod
+    def _fit(
+        self,
+        source: FeatureSource,
+        *,
+        entity_ids: np.ndarray | None = None,
+        pair_expanded_ids: np.ndarray | None = None,
+        pair_expanded_es_ids: np.ndarray | None = None,
+    ) -> Featurizer:
+        """Subclass fitting logic on pre-validated (non-NaN) entity IDs.
+
+        :param source: Feature source providing views for the entity type.
+        :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
+        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
+        :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
+        :returns: Fitted featurizer instance (usually ``self``).
+        """
+
+    @abstractmethod
+    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
+        """Compute canonical features for valid entities in one pass.
+
+        :param source: Feature source.
+        :param entity_ids: Nonempty valid identifiers.
+        :returns: Named blocks and their matrix projection, aligned to these identifiers.
+        """
+
+    def _empty_transform_features(self, source: FeatureSource) -> FeaturizerResult:
+        """Build zero-row outputs that retain the fitted schema and metadata.
+
+        The default transforms an empty identifier array. Override it when that call
+        cannot produce the fitted schema, for example when a backend is needed to
+        build blocks.
+
+        :param source: Feature names and global metadata, when needed.
+        :returns: Empty representations retaining fitted dimensions and metadata.
+        """
+        return self._transform_features(source, np.array([], dtype=str))
+
+    @property
+    @abstractmethod
+    def output_dim(self) -> int:
+        """Feature dimension after ``fit``.
+
+        :returns: Number of columns of the transformed feature matrix.
+        """
