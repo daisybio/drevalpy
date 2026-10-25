@@ -10,12 +10,9 @@ import numpy as np
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.base import DenseViewDrugFeaturizer
-from drevalpy.log import get_logger
 from drevalpy.registry.drug_featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
-
-_logger = get_logger(__name__)
 
 _CHEMBERTA_MODEL = "seyonec/ChemBERTa-zinc-base-v1"
 _CHEMBERTA_REVISION = "761d6a1"

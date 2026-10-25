@@ -9,11 +9,8 @@ import numpy as np
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
 from drevalpy.data.artifacts import get_artifact
-from drevalpy.log import get_logger
 from drevalpy.registry.sample_featurizer import register
 from drevalpy.types.data.feature_source import FeatureSource
-
-logger = get_logger(__name__)
 
 
 @register(
