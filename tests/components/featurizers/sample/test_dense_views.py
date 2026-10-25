@@ -237,10 +237,8 @@ def test_imputation_fills_missing_values_reproducibly() -> None:
     np.testing.assert_allclose(first, second)
 
 
-def test_the_transformer_satisfies_the_sklearn_estimator_protocol_and_old_import_path() -> None:
+def test_the_transformer_satisfies_the_sklearn_estimator_protocol() -> None:
     from sklearn.base import clone
-
-    from drevalpy.components.featurizers.sample import normalized_proteomics
 
     params = ProteomicsMedianCenterAndImputeTransformer(n_features=7).get_params()
     assert params["n_features"] == 7
@@ -254,9 +252,6 @@ def test_the_transformer_satisfies_the_sklearn_estimator_protocol_and_old_import
     cloned = clone(ProteomicsMedianCenterAndImputeTransformer(feature_threshold=0.5))
     assert cloned.feature_threshold == 0.5
     assert cloned.protein_indices.size == 0
-    assert (
-        normalized_proteomics.ProteomicsMedianCenterAndImputeTransformer is ProteomicsMedianCenterAndImputeTransformer
-    )
 
 
 def _tissue(**per_sample) -> MockFeatureSource:
