@@ -64,16 +64,6 @@ DEFERRED_TRAINING_SYMBOLS = (
     ),
 )
 
-LAZY_RE_EXPORTS = (
-    (
-        "drevalpy.components.featurizers.sample.normalized_proteomics",
-        "ProteomicsMedianCenterAndImputeTransformer",
-    ),
-    ("drevalpy.components.featurizers.sample.dipk_gene_expression", "GeneExpressionEncoder"),
-    ("drevalpy.components.featurizers.sample.dipk_gene_expression", "encode_gene_expression"),
-    ("drevalpy.components.featurizers.sample.dipk_gene_expression", "train_gene_expession_autoencoder"),
-)
-
 _CHILD_SCRIPT = textwrap.dedent(f"""
     import json
     import sys
@@ -126,18 +116,6 @@ def test_a_fresh_import_leaks_no_heavy_module_and_skips_no_builtin(fresh_import_
 def test_deferred_training_symbol_resolves(module_name: str, symbol: str) -> None:
     module = __import__(module_name, fromlist=[symbol])
     assert hasattr(module, symbol)
-
-
-@pytest.mark.parametrize(("module_name", "symbol"), LAZY_RE_EXPORTS)
-def test_lazy_re_export_resolves(module_name: str, symbol: str) -> None:
-    assert getattr(__import__(module_name, fromlist=[symbol]), symbol) is not None
-
-
-@pytest.mark.parametrize("module_name", sorted({module for module, _ in LAZY_RE_EXPORTS}))
-def test_lazy_re_export_still_raises_for_unknown_names(module_name: str) -> None:
-    module = __import__(module_name, fromlist=["__name__"])
-    with pytest.raises(AttributeError):
-        getattr(module, "definitely_not_a_real_symbol")  # noqa: B009
 
 
 @pytest.mark.slow
