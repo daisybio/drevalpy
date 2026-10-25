@@ -14,7 +14,7 @@
    :toctree:
    :recursive:
 {% for item in modules %}
-{%- if not item.split('.')[-1].startswith('_') and item.split('.')[-1] != 'custom_splits' %}
+{%- if not item.split('.')[-1].startswith('_') %}
    {{ item }}
 {%- endif %}
 {%- endfor %}

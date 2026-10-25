@@ -119,7 +119,7 @@ cleanup first.
 How to submit changes
 ---------------------
 
-Open a `pull request`_ to submit changes to this project against the ``main`` branch.
+Open a `pull request`_ to submit changes to this project against the ``development`` branch.
 
 Your pull request needs to meet the following guidelines for acceptance:
 
@@ -129,7 +129,7 @@ Your pull request needs to meet the following guidelines for acceptance:
 
 Linting and formatting run through `prek <https://github.com/j178/prek>`_, a
 drop-in replacement for pre-commit. Run every hook against the whole tree — all
-ten take about 22 seconds, most of it the fast test tier:
+hooks take about 22 seconds, most of it the fast test tier:
 
 .. code:: console
 
