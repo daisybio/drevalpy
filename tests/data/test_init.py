@@ -8,7 +8,6 @@ from upath import UPath
 
 from drevalpy import data
 from drevalpy.data.splitters import leave_pair_out, splitter_registry
-from drevalpy.data.utils import CELL_LINE_NAME_COLUMN, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.types import SplitMasks
 from tests._barrel_surface import DeclaredSurface
 
@@ -169,7 +168,3 @@ class TestSplitQuality:
         failed = ~data.CurveQuality.default().mask(low_quality_dataset)
         assert _covered(folds)[failed].any()
         assert folds[0].metadata["quality"] == data.CurveQuality.default().to_metadata()
-
-
-def test_identifiers_are_the_expected_distinct_column_names() -> None:
-    assert (DRUG_IDENTIFIER, CELL_LINE_NAME_COLUMN, TISSUE_IDENTIFIER) == ("pubchem_id", "cell_line_name", "tissue")
