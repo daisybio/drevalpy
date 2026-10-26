@@ -1,48 +1,45 @@
-# I followed this article's recommendations
-# https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0
-
-# The builder image, used to build the virtual environment
 FROM python:3.13-bookworm AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN pip install poetry==2.4.3
+ARG TORCH_BACKEND=cpu
 
-# POETRY_CACHE_DIR: When removing the cache folder, make sure this is done in the same RUN command. If it’s done in a
-# separate RUN command, the cache will still be part of the previous Docker layer (the one containing poetry install )
-# effectively rendering your optimization useless.
-
-ENV POETRY_NO_INTERACTION=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache
-
-WORKDIR /root
-
-COPY pyproject.toml poetry.lock ./
-
-# First, we install only the dependencies. This way, we can cache this layer and avoid re-installing dependencies
-# every time we change our application code.
-# Because poetry will complain if a README.md is not found, we create a dummy one.
+WORKDIR /opt/build
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+COPY pyproject.toml uv.lock ./
 RUN touch README.md
+RUN uv sync --frozen --no-dev --no-install-project --extra ${TORCH_BACKEND}
 
-RUN poetry install --without development --no-root && rm -rf $POETRY_CACHE_DIR
+COPY README.md ./
+COPY src ./src
+RUN uv sync --frozen --no-dev --no-editable --extra ${TORCH_BACKEND}
 
-# The runtime image, used to run the code
 FROM python:3.13-slim-bookworm AS runtime
+
+# procps: Nextflow needs `ps`.
+# libgomp1: LightGBM's wheel links the system libgomp.so.1 by bare soname, unlike
+# the xgboost and scikit-learn wheels, which vendor an auditwheel-renamed copy with
+# an RPATH. Until torch's imports were deferred out of module scope, this was
+# satisfied by accident: `import drevalpy` imported torch, which ships an unrenamed
+# libgomp.so.1 and loads it RTLD_GLOBAL, so LightGBM's dlopen found it already in
+# the link map. A lightgbm-only run never imports torch and fails without this.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends procps libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
 LABEL image.author.name="Judith Bernett"
 LABEL image.author.email="judith.bernett@tum.de"
 
-# Copy installed dependencies from the builder image
-COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --link --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy all relevant code
+# Import each native stack in a *separate* process. A single combined import would
+# pass on an image that is missing libgomp1, because importing torch first loads an
+# unrenamed libgomp.so.1 RTLD_GLOBAL and resolves LightGBM's dependency for it -
+# which is exactly how the missing system library stayed hidden until a
+# lightgbm-only pipeline run, where torch is never imported.
+RUN for module in lightgbm xgboost sklearn torch rdkit; do \
+        python -c "import ${module}" || exit 1; \
+    done \
+    && python -c "import drevalpy"
 
-COPY drevalpy ./drevalpy
-COPY README.md ./
-COPY pyproject.toml ./
-COPY poetry.lock ./
-
-# Install drevalpy
-RUN pip install .
-
-# Nextflow needs the command ps to be available
-RUN apt-get update && apt-get install -y procps unzip && rm -rf /var/lib/apt/lists/*
+CMD ["/bin/bash"]
