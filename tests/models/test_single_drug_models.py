@@ -2,6 +2,7 @@
 
 import pathlib
 import tempfile
+from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -14,10 +15,109 @@ from drevalpy.experiment import (
     cross_study_prediction,
     generate_data_saving_path,
     get_datasets_from_cv_split,
+    run_per_drug,
+    split_by_drug,
     train_and_predict,
 )
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.visualization.utils import evaluate_file
+
+
+def _train_and_predict_drug(
+    drug_id: str,
+    split: dict[str, DrugResponseDataset],
+    cross_study_dataset: DrugResponseDataset,
+    *,
+    model_name: str,
+    hpam_combi: dict,
+    test_mode: str,
+    data_dir: str,
+    result_path: str,
+) -> None:
+    """
+    Train a single drug model for one drug, test save and load, and predict the test and cross-study set.
+
+    Runs in a worker of run_per_drug, like the per-drug functions of the pipeline.
+
+    :param drug_id: drug to train the model for
+    :param split: CV split, reduced to drug_id by split_by_drug
+    :param cross_study_dataset: cross-study dataset, reduced to drug_id by split_by_drug
+    :param model_name: model name
+    :param hpam_combi: hyperparameters to use
+    :param test_mode: test mode
+    :param data_dir: path to the data directory
+    :param result_path: path to save the predictions to
+    """
+    model = MODEL_FACTORY[model_name]()
+    predictions_path = generate_data_saving_path(
+        model_name=model_name,
+        drug_id=drug_id,
+        result_path=result_path,
+        suffix="predictions",
+    )
+    prediction_file = pathlib.Path(predictions_path, "predictions_split_0.csv")
+    (
+        train_dataset,
+        validation_dataset,
+        early_stopping_dataset,
+        test_dataset,
+    ) = get_datasets_from_cv_split(split, MODEL_FACTORY[model_name], model_name, drug_id)
+    train_dataset.add_rows(validation_dataset)
+    train_dataset.shuffle(random_state=42)
+
+    test_dataset = train_and_predict(
+        model=model,
+        hpams=hpam_combi,
+        path_data=data_dir,
+        train_dataset=train_dataset,
+        prediction_dataset=test_dataset,
+        early_stopping_dataset=None,
+        response_transformation=None,
+        model_checkpoint_dir="TEMPORARY",
+    )
+
+    # Save and load test (should either succeed or raise NotImplementedError)
+    if len(train_dataset) == 0:
+        print(f"Training dataset empty for drug {drug_id}, continuing with train_and_predict anyway")
+    else:
+        with tempfile.TemporaryDirectory() as model_dir:
+            try:
+
+                model.save(model_dir)
+                loaded_model = MODEL_FACTORY[model_name].load(model_dir)
+
+                # Re-run prediction with loaded model
+                preds_original = model.predict(
+                    drug_ids=test_dataset.drug_ids,
+                    cell_line_ids=test_dataset.cell_line_ids,
+                    drug_input=model.load_drug_features(data_dir, "TOYv1"),
+                    cell_line_input=model.load_cell_line_features(data_dir, "TOYv1"),
+                )
+                preds_loaded = loaded_model.predict(
+                    drug_ids=test_dataset.drug_ids,
+                    cell_line_ids=test_dataset.cell_line_ids,
+                    drug_input=model.load_drug_features(data_dir, "TOYv1"),
+                    cell_line_input=model.load_cell_line_features(data_dir, "TOYv1"),
+                )
+                assert isinstance(preds_loaded, np.ndarray)
+                assert preds_loaded.shape == preds_original.shape
+            except NotImplementedError:
+                print(f"{model_name} does not implement save/load")
+
+    parent_dir = str(pathlib.Path(predictions_path).parent)
+    cross_study_prediction(
+        dataset=cross_study_dataset,
+        model=model,
+        test_mode=test_mode,
+        train_dataset=train_dataset,
+        path_data=data_dir,
+        early_stopping_dataset=None,
+        response_transformation=None,
+        path_out=parent_dir,
+        split_index=0,
+        single_drug_id=drug_id,
+    )
+    test_dataset.to_csv(prediction_file)
 
 
 @pytest.mark.parametrize(
@@ -41,7 +141,7 @@ def test_single_drug_models(
     data_dir,
 ) -> None:
     """
-    Test the SingleDrugRandomForest model, can also test other baseline single drug models.
+    Test the single drug models, trained per drug in parallel like in the pipeline (split_by_drug, run_per_drug).
 
     :param sample_dataset: from conftest.py
     :param model_name: model name
@@ -98,81 +198,29 @@ def test_single_drug_models(
     elif model_name in ["MOLIR", "SuperFELTR"]:
         hpam_combi["epochs"] = 1
 
-    for random_drug in random_drugs:
-        model = MODEL_FACTORY[model_name]()
-        predictions_path = generate_data_saving_path(
+    cross_study_dataset.remove_nan_responses()
+    splits_per_drug = split_by_drug(split, random_drugs)
+    # empty all but the test set of drug_to_remove
+    for name, dataset in splits_per_drug[str(drug_to_remove)].items():
+        if name != "test" and dataset is not None:
+            dataset.mask(np.zeros(len(dataset), dtype=bool))
+    cross_study_per_drug = split_by_drug({"cross_study": cross_study_dataset}, random_drugs)
+
+    run_per_drug(
+        partial(
+            _train_and_predict_drug,
             model_name=model_name,
-            drug_id=str(random_drug),
-            result_path=result_path.name,
-            suffix="predictions",
-        )
-        prediction_file = pathlib.Path(predictions_path, "predictions_split_0.csv")
-        (
-            train_dataset,
-            validation_dataset,
-            early_stopping_dataset,
-            test_dataset,
-        ) = get_datasets_from_cv_split(split, MODEL_FACTORY[model_name], model_name, random_drug)
-        train_dataset.add_rows(validation_dataset)
-        if random_drug == drug_to_remove:
-            reduce_to_drugs = np.array(list(set(train_dataset.drug_ids) - {random_drug}))
-            train_dataset.reduce_to(cell_line_ids=None, drug_ids=reduce_to_drugs)
-        train_dataset.shuffle(random_state=42)
-
-        test_dataset = train_and_predict(
-            model=model,
-            hpams=hpam_combi,
-            path_data=str(data_dir),
-            train_dataset=train_dataset,
-            prediction_dataset=test_dataset,
-            early_stopping_dataset=None,
-            response_transformation=None,
-            model_checkpoint_dir="TEMPORARY",
-        )
-
-        # Save and load test (should either succeed or raise NotImplementedError)
-        if len(train_dataset) == 0:
-            print(f"Training dataset empty for drug {random_drug}, continuing with train_and_predict anyway")
-        else:
-            with tempfile.TemporaryDirectory() as model_dir:
-                try:
-
-                    model.save(model_dir)
-                    loaded_model = MODEL_FACTORY[model_name].load(model_dir)
-
-                    # Re-run prediction with loaded model
-                    preds_original = model.predict(
-                        drug_ids=test_dataset.drug_ids,
-                        cell_line_ids=test_dataset.cell_line_ids,
-                        drug_input=model.load_drug_features(str(data_dir), "TOYv1"),
-                        cell_line_input=model.load_cell_line_features(str(data_dir), "TOYv1"),
-                    )
-                    preds_loaded = loaded_model.predict(
-                        drug_ids=test_dataset.drug_ids,
-                        cell_line_ids=test_dataset.cell_line_ids,
-                        drug_input=model.load_drug_features(str(data_dir), "TOYv1"),
-                        cell_line_input=model.load_cell_line_features(str(data_dir), "TOYv1"),
-                    )
-                    assert isinstance(preds_loaded, np.ndarray)
-                    assert preds_loaded.shape == preds_original.shape
-                except NotImplementedError:
-                    print(f"{model_name} does not implement save/load")
-
-        cross_study_dataset.remove_nan_responses()
-        parent_dir = str(pathlib.Path(predictions_path).parent)
-        cross_study_prediction(
-            dataset=cross_study_dataset,
-            model=model,
+            hpam_combi=hpam_combi,
             test_mode=test_mode,
-            train_dataset=train_dataset,
-            path_data=str(data_dir),
-            early_stopping_dataset=None,
-            response_transformation=None,
-            path_out=parent_dir,
-            split_index=0,
-            single_drug_id=str(random_drug),
-        )
-        test_dataset.to_csv(prediction_file)
+            data_dir=str(data_dir),
+            result_path=result_path.name,
+        ),
+        {drug: (splits_per_drug[drug], cross_study_per_drug[drug]["cross_study"]) for drug in splits_per_drug},
+        n_jobs=2,
+    )
+    # the workers wrote the predictions of every drug
+    drugs_path = pathlib.Path(result_path.name, model_name, "drugs")
+    assert {path.name for path in drugs_path.iterdir()} == {str(drug) for drug in random_drugs}
     consolidate_single_drug_model_predictions(
         models=[MODEL_FACTORY[model_name]],
         n_cv_splits=1,

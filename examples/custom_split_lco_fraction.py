@@ -32,7 +32,7 @@ def _subset(dataset: DrugResponseDataset, mask: np.ndarray) -> DrugResponseDatas
 def create_splits(
     response_data: DrugResponseDataset,
     params: SplitParams,
-) -> list[dict[str, DrugResponseDataset]]:
+) -> list[dict[str, object]]:
     """
     Return one LCO-style split with configurable train/validation/test cell-line groups.
 
