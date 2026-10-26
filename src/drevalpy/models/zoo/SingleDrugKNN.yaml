@@ -1,0 +1,5 @@
+sample_featurizer:
+  landmarkGenes:
+    gene_list_stem: landmark_genes
+    standardize: false
+predictor: singleDrugKnn
