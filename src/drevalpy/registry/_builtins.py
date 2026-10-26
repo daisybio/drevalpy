@@ -1,0 +1,339 @@
+"""Register built-in components by scanning package directories.
+
+No explicit name-to-module mapping required -- modules are discovered by
+convention (any .py file in the component dirs except ``base.py`` and files with a
+leading underscore).
+"""
+
+from __future__ import annotations
+
+import importlib
+import traceback
+from collections.abc import Callable, Iterator
+from types import ModuleType
+from typing import Any
+
+from drevalpy.log import get_logger
+
+logger = get_logger(__name__)
+
+_SKIPPED_MODULES: dict[str, str] = {}
+
+
+def get_skipped_builtin_modules() -> dict[str, str]:
+    """Return modules that could not be imported during built-in registration.
+
+    :returns: Mapping of dotted module name to the formatted traceback of the
+        import failure. Empty when every built-in module imported cleanly.
+    """
+    return dict(_SKIPPED_MODULES)
+
+
+def _discover_modules(package_path: str, package_name: str) -> list[str]:
+    """Return dotted module names for all public .py files in a package directory.
+
+    :param package_path: Filesystem path of the package directory.
+    :param package_name: Dotted package name prefix.
+    :returns: List of importable module names.
+    """
+    from upath import UPath
+
+    pkg_dir = UPath(package_path)
+    modules = []
+    for py_file in sorted(pkg_dir.glob("*.py")):
+        name = py_file.stem
+        if name.startswith("_") or name in ("base", "__init__"):
+            continue
+        modules.append(f"{package_name}.{name}")
+    return modules
+
+
+def _try_import(module_name: str) -> Exception | None:
+    """Make *module_name*'s components available, reporting failure rather than raising.
+
+    An already-imported module is rescanned instead of re-imported, which is what
+    re-populates the registries after a ``clear()``.
+
+    :param module_name: Dotted name of a component module.
+    :returns: The import error, or ``None`` once the module's components are registered.
+    """
+    import sys
+
+    if module_name in sys.modules:
+        _reregister_from_module(sys.modules[module_name])
+        return None
+    try:
+        importlib.import_module(module_name)
+    except (ImportError, AttributeError) as exc:
+        return exc
+    _SKIPPED_MODULES.pop(module_name, None)
+    return None
+
+
+def _import_modules(module_names: list[str]) -> None:
+    """Import each module, logging and skipping failures.
+
+    If a module is already imported, scan it for registered classes and
+    re-register them (handles the case where clear() was called).
+    Modules that fail on first attempt are retried at the end; modules that
+    still fail are recorded in :func:`get_skipped_builtin_modules` and reported
+    at WARNING level, because a silently skipped module means a component
+    silently disappears from the registries.
+    """
+    deferred: list[str] = []
+    for module_name in module_names:
+        if _try_import(module_name) is not None:
+            deferred.append(module_name)
+            logger.debug("Deferring %s (import failed on first pass)", module_name)
+
+    for module_name in deferred:
+        exc = _try_import(module_name)
+        if exc is None:
+            continue
+        _SKIPPED_MODULES[module_name] = "".join(traceback.format_exception(exc))
+        logger.warning(
+            "Skipping built-in component module %s: its components will be unavailable (%s: %s)",
+            module_name,
+            type(exc).__name__,
+            exc,
+        )
+
+
+def _registry_for(cls: type[Any]) -> Any:
+    """Return the registry a previously registered class belongs to.
+
+    Which registry a class came from is recoverable from the attributes
+    registration stamped on it: ``side`` for a featurizer, and the format
+    attributes for everything else.
+
+    :param cls: Class carrying a ``registry_name``.
+    :returns: The matching registry, or ``None`` if the class is not a component.
+    """
+    from drevalpy.registry.featurizer import drug_featurizer_registry, sample_featurizer_registry
+    from drevalpy.registry.predictor._registry import predictor_registry
+
+    side = getattr(cls, "side", None)
+    if side == "sample":
+        return sample_featurizer_registry
+    if side == "drug":
+        return drug_featurizer_registry
+    if hasattr(cls, "sample_input_format"):
+        return predictor_registry
+    if hasattr(cls, "output_format"):
+        return sample_featurizer_registry
+    return None
+
+
+def _reregister_from_module(module: ModuleType) -> None:
+    """Re-register classes from an already-imported module.
+
+    :param module: Imported component module whose registered classes are restored.
+    """
+    import inspect
+
+    for value in vars(module).values():
+        if not inspect.isclass(value):
+            continue
+        registry_name = getattr(value, "registry_name", None)
+        if not registry_name:
+            continue
+        registry = _registry_for(value)
+        if registry is not None:
+            registry.register_existing(registry_name, value)
+
+
+def _discover_literature_predictor_modules() -> list[str]:
+    """Find all literature/<name>/predictor.py modules."""
+    from upath import UPath
+
+    import drevalpy.components.predictors as pkg
+
+    lit_dir = UPath(pkg.__path__[0]) / "literature"
+    modules = []
+    if lit_dir.is_dir():
+        for sub_dir in sorted(lit_dir.iterdir()):
+            if sub_dir.is_dir() and not sub_dir.name.startswith("_"):
+                modules.append(f"{pkg.__name__}.literature.{sub_dir.name}.predictor")
+    # Also the neural_network predictor
+    modules.append(f"{pkg.__name__}.neural_network.predictor")
+    return modules
+
+
+def _shared_featurizer_modules() -> list[str]:
+    """Discover featurizers whose one implementation is bound to both sides.
+
+    Each module registers itself on every side via ``register_for_sides``, so the
+    directory is scanned once rather than once per side.
+
+    :returns: Importable module names under ``featurizers/shared``.
+    """
+    import drevalpy.components.featurizers.shared as pkg
+
+    return _discover_modules(pkg.__path__[0], pkg.__name__)
+
+
+def _sample_featurizer_modules() -> list[str]:
+    import drevalpy.components.featurizers.sample as pkg
+
+    return _discover_modules(pkg.__path__[0], pkg.__name__)
+
+
+def _drug_featurizer_modules() -> list[str]:
+    import drevalpy.components.featurizers.drug as pkg
+
+    return _discover_modules(pkg.__path__[0], pkg.__name__)
+
+
+def _native_predictor_modules() -> list[str]:
+    """Discover non-literature predictor modules."""
+    import drevalpy.components.predictors as pkg
+    import drevalpy.components.predictors.naive as naive_pkg
+
+    top_level = _discover_modules(pkg.__path__[0], pkg.__name__)
+    naive = _discover_modules(naive_pkg.__path__[0], naive_pkg.__name__)
+    return top_level + naive
+
+
+def register_native_components() -> None:
+    """Register dependency-light native components (featurizers + non-literature predictors)."""
+    _import_modules(_shared_featurizer_modules())
+    _import_modules(_sample_featurizer_modules())
+    _import_modules(_drug_featurizer_modules())
+    _import_modules(_native_predictor_modules())
+
+
+def register_literature_components() -> None:
+    """Register literature predictors and their neural dependencies."""
+    _import_modules(_discover_literature_predictor_modules())
+
+
+def _register_builtin_splitters() -> None:
+    """Import splitter modules to trigger their @register decorators."""
+    import sys
+
+    from drevalpy.registry.splitter._registry import splitter_registry
+
+    if splitter_registry.modes:
+        return
+
+    splitter_modules = [
+        "drevalpy.data.splitters.lso",
+        "drevalpy.data.splitters.ldo",
+        "drevalpy.data.splitters.lpo",
+        "drevalpy.data.splitters.lto",
+        "drevalpy.data.splitters.lsto",
+    ]
+    # Evict every module before importing any of them: importing the first one runs
+    # the package __init__, which imports all five. Interleaving eviction and import
+    # would re-execute the later modules and register their modes twice.
+    for mod_name in splitter_modules:
+        sys.modules.pop(mod_name, None)
+    for mod_name in splitter_modules:
+        importlib.import_module(mod_name)
+
+
+def _register_builtin_visualizations() -> None:
+    """Import visualization plot modules to trigger their @register decorators."""
+    import sys
+
+    from drevalpy.registry.visualization._registry import visualization_registry
+
+    if visualization_registry.names:
+        return
+
+    viz_pkg = "drevalpy.visualization.plots"
+    modules_to_reload = [key for key in sys.modules if key.startswith(viz_pkg)]
+    for mod_name in modules_to_reload:
+        del sys.modules[mod_name]
+    importlib.import_module(viz_pkg)
+
+
+def register_builtin_components() -> None:
+    """Register every built-in component by scanning package directories.
+
+    Safe to call multiple times. Detects cleared registries and re-populates.
+    """
+    from drevalpy.registry.featurizer import drug_featurizer_registry, sample_featurizer_registry
+    from drevalpy.registry.predictor._registry import predictor_registry
+
+    all_populated = (
+        predictor_registry.list_names()
+        and sample_featurizer_registry.list_names()
+        and drug_featurizer_registry.list_names()
+    )
+    if all_populated:
+        return
+
+    logger.debug("Registering built-in components...")
+    register_native_components()
+    register_literature_components()
+    _register_builtin_splitters()
+    _register_builtin_visualizations()
+    logger.debug("Built-in registration complete.")
+
+
+def is_known_builtin_predictor(name: str) -> bool:
+    """Return whether *name* is a registered predictor.
+
+    :param name: Predictor registry name to look up.
+    :returns: ``True`` when a predictor is registered under *name*.
+    """
+    from drevalpy.registry.predictor._registry import predictor_registry
+
+    return name in predictor_registry.list_names()
+
+
+# ---------------------------------------------------------------------------
+# Lazy built-in name sets (computed on first access)
+# ---------------------------------------------------------------------------
+
+
+def _get_builtin_sample_featurizer_names() -> frozenset[str]:
+    from drevalpy.registry.featurizer import sample_featurizer_registry
+
+    return frozenset(sample_featurizer_registry.list_names())
+
+
+def _get_builtin_drug_featurizer_names() -> frozenset[str]:
+    from drevalpy.registry.featurizer import drug_featurizer_registry
+
+    return frozenset(drug_featurizer_registry.list_names())
+
+
+def _get_builtin_predictor_names() -> frozenset[str]:
+    from drevalpy.registry.predictor._registry import predictor_registry
+
+    return frozenset(predictor_registry.list_names())
+
+
+class _LazyFrozenset:
+    """Module-level lazy frozenset that computes on first access."""
+
+    def __init__(self, getter: Callable[[], frozenset[str]]) -> None:
+        self._getter = getter
+        self._value: frozenset[str] | None = None
+
+    def _resolve(self) -> frozenset[str]:
+        if self._value is None:
+            self._value = self._getter()
+        return self._value
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._resolve())
+
+    def __contains__(self, item: object) -> bool:
+        return item in self._resolve()
+
+    def __len__(self) -> int:
+        return len(self._resolve())
+
+    def __eq__(self, other: object) -> bool:
+        return self._resolve() == other
+
+    def __repr__(self) -> str:
+        return repr(self._resolve())
+
+
+BUILTIN_SAMPLE_FEATURIZER_NAMES = _LazyFrozenset(_get_builtin_sample_featurizer_names)
+BUILTIN_DRUG_FEATURIZER_NAMES = _LazyFrozenset(_get_builtin_drug_featurizer_names)
+BUILTIN_PREDICTOR_NAMES = _LazyFrozenset(_get_builtin_predictor_names)
