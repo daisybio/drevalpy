@@ -10,7 +10,7 @@ backports-zstd==1.8.0 ; python_version >= "3.11" and python_version < "3.14"
 bokeh==3.7.3 ; python_version >= "3.11" and python_version < "3.14"
 build==1.6.1 ; python_version >= "3.11" and python_version < "3.14"
 cachecontrol==0.14.4 ; python_version >= "3.11" and python_version < "3.14"
-certifi==2026.10.19 ; python_version >= "3.11" and python_version < "3.14"
+certifi==2026.10.23 ; python_version >= "3.11" and python_version < "3.14"
 cffi==2.1.1 ; python_version >= "3.11" and python_version < "3.14" and (sys_platform == "linux" or sys_platform == "darwin") and (platform_python_implementation != "PyPy" or sys_platform == "darwin")
 charset-normalizer==3.5.2 ; python_version >= "3.11" and python_version < "3.14"
 cleo==2.1.0 ; python_version >= "3.11" and python_version < "3.14"
