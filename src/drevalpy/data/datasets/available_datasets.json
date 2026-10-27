@@ -1,59 +1,59 @@
 {
   "sources": {
     "orakl": {
-      "url": "s3://orakl-open-source-data/drevalpy_h5mu/gen5"
+      "url": "s3://orakl-open-source-data/drevalpy_h5mu/gen6"
     }
   },
   "datasets": {
     "CCLE": {
       "source": "orakl",
       "file": "CCLE.h5mu",
-      "sha256": "305df1619b6235ae6c93634dc4e85d659608521db1706b170d27e4025ca08bcd"
+      "sha256": "09e6d39af66afd4d1e883211a4569faba4adf4c59d8c3b296e268075b18f7b00"
     },
     "CTRPv1": {
       "source": "orakl",
       "file": "CTRPv1.h5mu",
-      "sha256": "de89498e4fb9ff1b867cbac211a1defcca313ab1b328137a87e881ddc5dee507"
+      "sha256": "b8b1989e1a9734abef3e92ef3466ea6098eb90aeb475c304dc5f4aeb397c55ec"
     },
     "CTRPv2": {
       "source": "orakl",
       "file": "CTRPv2.h5mu",
-      "sha256": "0b4f7a96722a54bb2c20af646c7b0e4f7f81b867ccfa412e2a8035bb31c88318"
+      "sha256": "1cb6bc3f3dfc9047c96ae790e35984a6cbf8f3e4db458af9cbfca24eba8c3df3"
     },
     "GDSC1": {
       "source": "orakl",
       "file": "GDSC1.h5mu",
-      "sha256": "629c4840ff0eb8ab0a4bbcb955b06cd3b2c88f06a254e1b89bc105a2ac34955d"
+      "sha256": "f91c9c0f2ec4f9e728228e1d3cbac4da538d68083295bae150fcf0ccc98cc8c0"
     },
     "GDSC2": {
       "source": "orakl",
       "file": "GDSC2.h5mu",
-      "sha256": "0a27955c2a968cd36a15cf3de7d518d0984e690adcb3772c1fdc6729ee62ca1b"
+      "sha256": "7ef0df2fbefa9fef5afc6c94ddc9c2ef1e9d7973030caaf5772caf04ba502324"
     },
     "PDX_Bruna": {
       "source": "orakl",
       "file": "PDX_Bruna.h5mu",
-      "sha256": "4140a56ccaa0d44fd5a024eeb866c79f042eafa31364034e2e1c63cd56eed454"
+      "sha256": "bf41a5abe2fe4849ecf3e6fd714e6d4e1e71d3d066c15418a8c0bae3615aac6e"
     },
     "BeatAML2": {
       "source": "orakl",
       "file": "BeatAML2.h5mu",
-      "sha256": "3672d19cc10dd8abddc8dc2d1b3d50fa93596379369c9bcd1bc70a31af7461ed"
+      "sha256": "f4f60cbc0ad2ee2eebbc8b30a1fc534487d92f22709fbd3f63b415ebd68b5e15"
     },
     "PRISM_19Q4": {
       "source": "orakl",
       "file": "PRISM_19Q4.h5mu",
-      "sha256": "ac6959c19673b289779c2c43d989a365505f90f569e5dc587663129a2590ffd1"
+      "sha256": "b352b6e4c0039af1bc22eea05ba7a05463160d6b6e298dd68d682fa29c08b1c0"
     },
     "PRISM_20Q2": {
       "source": "orakl",
       "file": "PRISM_20Q2.h5mu",
-      "sha256": "508ae28b1ece321bd2326c9d2f47859900e30e5f3e51b01df243773232aad7d6"
+      "sha256": "c3ef1e9ac6fbb76c07bca2b4c112c9d643cbbf83f1c0e750af309fd83c05d06b"
     },
     "TOYv1": {
       "source": "orakl",
       "file": "TOYv1.h5mu",
-      "sha256": "75230a83ae0d3a01d5df86557599cc8cb36a28b44f49d9c00b48738b1a32fcba"
+      "sha256": "fda802b7384c507fc28061ad76fa89b7eb6209e7505a0d879ae8b37dd3599bee"
     }
   }
 }
