@@ -68,8 +68,6 @@ this out. ``GDSC1``, ``CTRPv2`` and the other screens are much larger.
                  mutations: 32 × 2998
                  copy_number_variation_gistic: 32 × 2952
                  proteomics: 32 × 758
-                 response_rr1: 32 × 300
-                 response_rr2: 32 × 300
 
 Where the downloads go, and how to move them, is in :doc:`/how-to/install` and
 :doc:`/reference/environment`. To make your own datasets loadable by name, see
