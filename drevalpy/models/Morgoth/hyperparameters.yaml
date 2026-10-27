@@ -3,7 +3,7 @@ SingleDrugMorgoth:
   gene_list:
     - landmark_genes
   n_estimators:
-    - 400
+    - 100
   min_samples_leaf:
     - 10
   max_depth:
