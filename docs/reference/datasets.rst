@@ -9,7 +9,7 @@ Built-in datasets
 
 ``drevalpy list datasets`` prints the registered datasets with the columns Name, Source, File
 and Origin. These rows are built in. They come from the source ``orakl``, the base URL
-``s3://orakl-open-source-data/drevalpy_h5mu/gen5``, and their file is ``<Name>.h5mu``.
+``s3://orakl-open-source-data/drevalpy_h5mu/gen6``, and their file is ``<Name>.h5mu``. Arrays are internally gzip-compressed (level 4).
 
 .. list-table::
    :header-rows: 1
