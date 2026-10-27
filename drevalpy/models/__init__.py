@@ -36,6 +36,7 @@ __all__ = [
     "MultiViewLightGBM",
     "SparseGO",
     "PaccMann",
+    "SingleDrugMorgoth",
 ]
 
 from .baselines.ae_molgnet_random_forest import RandomForestAEMolGNet
@@ -65,6 +66,7 @@ from .drp_model import DRPModel
 from .DrugGNN import DrugGNN
 from .EnsembleMF import EnsembleMF
 from .MOLIR.molir import MOLIR
+from .Morgoth import SingleDrugMorgoth
 from .PaccMann.paccmann import PaccMann
 from .PharmaFormer.pharmaformer import PharmaFormerModel
 from .Precily import PrecilyModel
@@ -81,6 +83,7 @@ SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "SingleDrugKNN": SingleDrugKNN,
     "MOLIR": MOLIR,
     "SuperFELTR": SuperFELTR,
+    "SingleDrugMorgoth": SingleDrugMorgoth,
 }
 
 # MULTI_DRUG_MODEL_FACTORY is used in the pipeline!

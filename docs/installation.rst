@@ -75,6 +75,9 @@ default ``pip install drevalpy``. They are provided as optional `extras`:
      - SMILES augmentation for the ``PaccMann`` model. Without it, PaccMann trains on the
        unaugmented SMILES and warns.
      - ``rdkit``
+   * - ``morgoth``
+     - The ``SingleDrugMorgoth`` model
+     - ``morgoth`` (on Linux also ``fireducks``)
    * - ``multiprocessing``
      - Parallelized cross-validation / tuning via Ray
      - ``ray`` (and ``pydantic``, usually already present)
