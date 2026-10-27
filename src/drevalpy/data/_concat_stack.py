@@ -11,6 +11,7 @@ from drevalpy.errors import InvalidInputError
 from drevalpy.log import get_logger
 from drevalpy.types.data.dataset._dense import to_dense
 
+from . import _replicate_fits
 from ._concat_tables import listed, prefixed, stack_obs, union_var
 from ._concat_uns import merge_uns
 
@@ -133,6 +134,26 @@ def _fill(blocks: Sequence[np.ndarray], offsets: Sequence[np.ndarray], n_columns
     return out
 
 
+def _response_uns(
+    adatas: Sequence[ad.AnnData], names: Sequence[str], where: str, strict_uns: Callable[[str], bool]
+) -> dict[str, Any]:
+    """Merge the ``uns`` of response-shaped modalities, stacking their replicate fits."""
+    uns = merge_uns(
+        [{key: value for key, value in adata.uns.items() if key != _replicate_fits.KEY} for adata in adatas],
+        names=names,
+        where=where,
+        strict=strict_uns,
+    )
+    tables = [adata.uns.get(_replicate_fits.KEY) for adata in adatas]
+    fits = _replicate_fits.stack(tables, names)
+    if fits is not None:
+        uns[_replicate_fits.KEY] = fits
+    elif any(table is not None for table in tables):
+        lacking = [name for name, table in zip(names, tables, strict=True) if table is None]
+        logger.warning("concat dropped %s uns['%s'], missing in %s", where, _replicate_fits.KEY, lacking)
+    return uns
+
+
 def stack_response(
     adatas: Sequence[ad.AnnData],
     names: Sequence[str],
@@ -149,7 +170,8 @@ def stack_response(
     :param names: Dataset name of each input; it prefixes the row IDs.
     :param where: The modality key, for messages.
     :param strict_uns: Tells which ``uns`` keys must be equal in every input; the others
-        are kept when equal and dropped with a warning otherwise.
+        are kept when equal and dropped with a warning otherwise. ``uns["replicate_fits"]``
+        is not compared but stacked; it is dropped with a warning unless every input has it.
     :returns: A new AnnData over ``<study>::<sample_id>`` rows and the union of the drug IDs
         in first-seen order. ``X`` and every layer are NaN where an input lacks the drug
         or the layer.
@@ -167,6 +189,6 @@ def stack_response(
             for adata in adatas
         ]
         layers[layer] = _fill(blocks, offsets, len(var))
-    uns = merge_uns([adata.uns for adata in adatas], names=names, where=where, strict=strict_uns)
+    uns = _response_uns(adatas, names, where, strict_uns)
     x = _fill([to_dense(adata.X) for adata in adatas], offsets, len(var))
     return ad.AnnData(X=x, obs=stack_obs(rows), var=var, layers=layers, uns=uns)
