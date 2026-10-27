@@ -12,7 +12,7 @@ from drevalpy.datasets.featurizer import create_target_mutation_seed
 NOT_REPRESENTABLE = {"ALK", "MET", "ERBB2", "FGFR1", "FGFR4"}
 STATUSES = {"activating", "LoF", "other", "wildtype"}
 OUTPUT_COLUMNS = ["drug_name", "biomarker_gene", "sensitive_status", "evidence_type", "evidence_level", "pubchem_id"]
-SEED_FILE = Path(__file__).with_name("target_mutation_seed.csv")
+SEED_NAME = "target_mutation_seed.csv"
 #: CIViC evidence levels from best to worst; a rule without a level (literature) ranks last.
 LEVEL_RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
 
@@ -54,15 +54,16 @@ def main():
     parser.add_argument(
         "--seed",
         type=str,
-        default=str(SEED_FILE),
-        help="Seed table. If the file does not exist it is built with create_target_mutation_seed.py (needs internet).",
+        default=None,
+        help=f"Seed table (default: <output>/{SEED_NAME}). If the file does not exist it is built with "
+        "create_target_mutation_seed.py (needs internet).",
     )
     parser.add_argument(
         "--output", type=str, default=None, help="Directory (default: <data_path>/meta/target_mutation)."
     )
     args = parser.parse_args()
     output = Path(args.output) if args.output else Path(args.data_path) / "meta" / "target_mutation"
-    seed_file = Path(args.seed)
+    seed_file = Path(args.seed) if args.seed else output / SEED_NAME
     if not seed_file.exists():
         print(f"{seed_file} does not exist, building it with create_target_mutation_seed.py")
         create_target_mutation_seed.main(["--data_path", args.data_path, "--out", str(seed_file)])

@@ -171,9 +171,9 @@ Where the tables come from. All scripts are in ``drevalpy/datasets/featurizer/``
   wins (A before E, rules without a level last), then the one with the most ``n_evidence_items``, then the first in the
   seed. The script also writes ``curated_drug_target_report.csv`` with the outcome per seed row (``kept``, ``other row
   of the drug selected``, ``not representable (fusion or amplification)`` or ``gene not in the status matrix``) and
-  checks the status values. If the seed file given with ``--seed`` (default: the shipped file) does not exist, the
+  checks the status values. If the seed file given with ``--seed`` (default: ``<data_path>/meta/target_mutation/target_mutation_seed.csv``) does not exist, the
   script builds it first with ``create_target_mutation_seed.py`` (internet needed, about 15 minutes).
-- ``target_mutation_seed.csv`` links each drug to a biomarker gene and the alteration state associated with
+- ``target_mutation_seed.csv`` (not part of the repository, it is published on Zenodo) links each drug to a biomarker gene and the alteration state associated with
   sensitivity. It is derived from public databases by ``create_target_mutation_seed.py``, see
   :ref:`target-mutation-seed` below. Drugs that a dataset lists under a code name and that have no entry in the
   databases get no row and therefore only zeros in the block.

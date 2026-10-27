@@ -10,7 +10,7 @@ from scipy.stats import norm
 
 from drevalpy.datasets.featurizer import create_curated_drug_target_table as curated_script
 from drevalpy.datasets.featurizer.check_curated_drug_target_table import check_candidate, summarize
-from drevalpy.datasets.featurizer.create_curated_drug_target_table import NOT_REPRESENTABLE, SEED_FILE, curate
+from drevalpy.datasets.featurizer.create_curated_drug_target_table import curate
 
 
 def _seed(rows: list[tuple[str, str, str, str, str]]) -> pd.DataFrame:
@@ -103,19 +103,6 @@ def test_missing_seed_is_built(tmp_path, monkeypatch):
     assert pd.read_csv(directory / "curated_drug_target_variant.csv")["biomarker_gene"].tolist() == ["BRAF"]
     curated_script.main()  # the seed exists now, it is not built again
     assert len(calls) == 1
-
-
-def test_shipped_seed_is_valid():
-    """The shipped seed passes the checks and yields one row per drug."""
-    seed = pd.read_csv(SEED_FILE, dtype=str, keep_default_na=False)
-    curated, report = curate(seed, set(seed["biomarker_gene"]))
-    assert curated["pubchem_id"].is_unique
-    assert len(curated) == seed.loc[~seed["biomarker_gene"].isin(NOT_REPRESENTABLE), "pubchem_id"].nunique()
-    assert (
-        report["outcome"]
-        .isin(["kept", "other row of the drug selected", "not representable (fusion or amplification)"])
-        .all()
-    )
 
 
 def test_candidate_verdicts():
