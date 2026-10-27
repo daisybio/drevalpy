@@ -233,11 +233,14 @@ class SingleDrugMorgoth(DRPModel):
         :param drug_input: not needed
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
+        :raises RuntimeError: if the model has not been built yet
         """
         if len(output) == 0:
             print("No training data provided, will predict NA.")
             self.model = None
             return
+        if self.model is None:
+            raise RuntimeError("Model has not been built yet. Call build_model() first.")
         cell_line_input = scale_gene_expression(
             cell_line_input=cell_line_input,
             cell_line_ids=np.unique(output.cell_line_ids),
