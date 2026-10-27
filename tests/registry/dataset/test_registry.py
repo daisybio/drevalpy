@@ -36,9 +36,8 @@ def _saved(config_path: UPath, section: str) -> dict:
 
 
 def test_builtin_entries_are_loaded_and_custom_entries_start_empty(registry: DatasetRegistry) -> None:
-    assert registry.builtin_datasets[_BUILTIN_DATASET] == DatasetEntry(
-        source=_BUILTIN_SOURCE, file=f"{_BUILTIN_DATASET}.h5mu"
-    )
+    entry = registry.builtin_datasets[_BUILTIN_DATASET]
+    assert (entry.source, entry.file) == (_BUILTIN_SOURCE, f"{_BUILTIN_DATASET}.h5mu")
     assert registry.builtin_sources[_BUILTIN_SOURCE].url.startswith("s3://")
     assert (registry.custom_datasets, registry.custom_sources) == ({}, {})
     assert registry.dataset_names == sorted(registry.dataset_names)

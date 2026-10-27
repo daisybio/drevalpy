@@ -175,7 +175,8 @@ class DatasetRegistry(TableReprMixin):
         """Register a custom source (base URL + optional fsspec storage options).
 
         Registering an entry identical to the one already in effect (built-in or custom) is a no-op
-        and writes nothing. Raises ``ValueError`` if *name* is already registered with a different
+        and writes nothing; the same source and file count as identical and keep the entry's
+        ``sha256``. Raises ``ValueError`` if *name* is already registered with a different
         entry and *override* is false.
 
         :param name: Source name (used to reference from dataset entries).
@@ -190,7 +191,8 @@ class DatasetRegistry(TableReprMixin):
         """Register a custom dataset under an existing source.
 
         Registering an entry identical to the one already in effect (built-in or custom) is a no-op
-        and writes nothing. Raises ``ValueError`` if *name* is already registered with a different
+        and writes nothing; the same source and file count as identical and keep the entry's
+        ``sha256``. Raises ``ValueError`` if *name* is already registered with a different
         entry and *override* is false.
 
         :param name: Dataset name (used with ``drevalpy.data.load``).
@@ -201,7 +203,11 @@ class DatasetRegistry(TableReprMixin):
         """
         if source not in self.sources:
             raise UnknownNameError(f"Source '{source}' not registered. Register it first with register_source().")
-        self._register("datasets", name, DatasetEntry(source=source, file=file), override=override)
+        entry = DatasetEntry(source=source, file=file)
+        current = self.datasets.get(name)
+        if current is not None and (current.source, current.file) == (source, file):
+            entry = current
+        self._register("datasets", name, entry, override=override)
 
     def unregister_dataset(self, name: str) -> None:
         """Remove a custom dataset registration.
