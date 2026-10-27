@@ -82,13 +82,12 @@ class TestBuiltinRegistry:
         assert all(name in output for name in ("GDSC1", "BeatAML2", "orakl"))
         assert str(registry) == repr(registry)
 
-    def test_toyv1_is_pinned_to_the_gen4_artifact(self) -> None:
-        entry = registry.datasets["TOYv1"]
-
-        assert entry.source == "orakl_gen4"
-        assert registry.sources["orakl_gen4"].url.endswith("/drevalpy_h5mu/gen4")
-        assert entry.sha256 is not None
-        assert len(entry.sha256) == 64
+    def test_every_builtin_dataset_is_pinned_to_the_gen5_artifacts(self) -> None:
+        assert registry.sources["orakl"].url.endswith("/drevalpy_h5mu/gen5")
+        for entry in registry.builtin_datasets.values():
+            assert entry.source == "orakl"
+            assert entry.sha256 is not None
+            assert len(entry.sha256) == 64
 
 
 class TestRegistration:

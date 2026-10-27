@@ -1,23 +1,59 @@
 {
   "sources": {
     "orakl": {
-      "url": "s3://orakl-open-source-data/drevalpy_h5mu/gen3"
-    },
-    "orakl_gen4": {
-      "url": "s3://orakl-open-source-data/drevalpy_h5mu/gen4"
+      "url": "s3://orakl-open-source-data/drevalpy_h5mu/gen5"
     }
   },
   "datasets": {
-    "GDSC1": { "source": "orakl", "file": "GDSC1.h5mu" },
-    "GDSC2": { "source": "orakl", "file": "GDSC2.h5mu" },
-    "CTRPv1": { "source": "orakl", "file": "CTRPv1.h5mu" },
-    "CTRPv2": { "source": "orakl", "file": "CTRPv2.h5mu" },
-    "BeatAML2": { "source": "orakl", "file": "BeatAML2.h5mu" },
-    "PDX_Bruna": { "source": "orakl", "file": "PDX_Bruna.h5mu" },
+    "CCLE": {
+      "source": "orakl",
+      "file": "CCLE.h5mu",
+      "sha256": "305df1619b6235ae6c93634dc4e85d659608521db1706b170d27e4025ca08bcd"
+    },
+    "CTRPv1": {
+      "source": "orakl",
+      "file": "CTRPv1.h5mu",
+      "sha256": "de89498e4fb9ff1b867cbac211a1defcca313ab1b328137a87e881ddc5dee507"
+    },
+    "CTRPv2": {
+      "source": "orakl",
+      "file": "CTRPv2.h5mu",
+      "sha256": "0b4f7a96722a54bb2c20af646c7b0e4f7f81b867ccfa412e2a8035bb31c88318"
+    },
+    "GDSC1": {
+      "source": "orakl",
+      "file": "GDSC1.h5mu",
+      "sha256": "629c4840ff0eb8ab0a4bbcb955b06cd3b2c88f06a254e1b89bc105a2ac34955d"
+    },
+    "GDSC2": {
+      "source": "orakl",
+      "file": "GDSC2.h5mu",
+      "sha256": "0a27955c2a968cd36a15cf3de7d518d0984e690adcb3772c1fdc6729ee62ca1b"
+    },
+    "PDX_Bruna": {
+      "source": "orakl",
+      "file": "PDX_Bruna.h5mu",
+      "sha256": "4140a56ccaa0d44fd5a024eeb866c79f042eafa31364034e2e1c63cd56eed454"
+    },
+    "BeatAML2": {
+      "source": "orakl",
+      "file": "BeatAML2.h5mu",
+      "sha256": "3672d19cc10dd8abddc8dc2d1b3d50fa93596379369c9bcd1bc70a31af7461ed"
+    },
+    "PRISM_19Q4": {
+      "source": "orakl",
+      "file": "PRISM_19Q4.h5mu",
+      "sha256": "ac6959c19673b289779c2c43d989a365505f90f569e5dc587663129a2590ffd1"
+    },
+    "PRISM_20Q2": {
+      "source": "orakl",
+      "file": "PRISM_20Q2.h5mu",
+      "sha256": "508ae28b1ece321bd2326c9d2f47859900e30e5f3e51b01df243773232aad7d6"
+    },
     "TOYv1": {
-      "source": "orakl_gen4",
+      "source": "orakl",
       "file": "TOYv1.h5mu",
-      "sha256": "b780b2d5a3868a252b781bfc488e1bef281e4f90e1ba9c0ee278660bdbf90750"
+      "sha256": "75230a83ae0d3a01d5df86557599cc8cb36a28b44f49d9c00b48738b1a32fcba"
     }
   }
 }
