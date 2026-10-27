@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import pytest
 from upath import UPath
 
 from drevalpy.data import split
+from drevalpy.data._replicate_fits import DRUG_COLUMN, KEY, SAMPLE_COLUMN
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.types.data.dataset import Dataset
+from tests.data._replicate_fits_table import fits_table
 from tests.synthetic import (
     BPE_LENGTH,
     BUILTIN_MEASURE,
@@ -202,6 +205,35 @@ class TestSubsetting:
 
         np.testing.assert_array_equal(dataset.mdata.uns["drug_graphs"][drug_id]["x"][0], parent_value)
         assert sub.randomization == dataset.randomization
+
+    @pytest.mark.parametrize("method", ["subset_samples", "subset_drugs"])
+    def test_subset_restricts_replicate_fits(self, dataset: Dataset, method: str):
+        dataset.response.uns[KEY] = fits_table(list(dataset.sample_ids), list(dataset.drug_ids))
+        ids = dataset.sample_ids[:3] if method == "subset_samples" else dataset.drug_ids[:2]
+
+        fits = getattr(dataset, method)(ids).response.uns[KEY]
+
+        column = SAMPLE_COLUMN if method == "subset_samples" else DRUG_COLUMN
+        assert set(fits[column]) == set(ids)
+        assert list(fits[column].cat.categories) == sorted(map(str, ids))
+        assert isinstance(fits.index, pd.RangeIndex)
+        assert len(fits) == 2 * len(ids) * (N_DRUGS if method == "subset_samples" else N_SAMPLES)
+        assert len(dataset.response.uns[KEY]) == 2 * N_SAMPLES * N_DRUGS
+
+
+class TestReplicateFitsRoundTrip:
+    def test_the_table_and_its_dtypes_survive_save_and_load(self, dataset: Dataset, tmp_path: UPath):
+        table = fits_table(list(dataset.sample_ids), list(dataset.drug_ids), extra="cell_batch")
+        dataset.response.uns[KEY] = table
+        path = UPath(tmp_path) / "with_fits.h5mu"
+
+        dataset.save(path)
+        loaded = Dataset.load(path).response.uns[KEY]
+
+        pd.testing.assert_frame_equal(loaded, table, check_index_type=False)
+        assert loaded["replicate"].dtype == np.int32
+        assert loaded["AUC"].dtype == np.float32
+        assert isinstance(loaded["cell_batch"].dtype, pd.CategoricalDtype)
 
 
 class TestTissueOnlyObs:

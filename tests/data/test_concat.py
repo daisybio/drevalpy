@@ -15,8 +15,10 @@ from upath import UPath
 import drevalpy
 from drevalpy import data
 from drevalpy.data._concat import concat
+from drevalpy.data._replicate_fits import KEY, SAMPLE_COLUMN
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
+from tests.data._replicate_fits_table import fits_table
 
 pytestmark = pytest.mark.slow
 
@@ -290,6 +292,23 @@ def test_extra_response_modalities_are_stacked_like_the_response_or_dropped(capl
     np.testing.assert_array_equal(np.asarray(extra.X)[:10, :4], np.asarray(both_first.mdata.mod["response_rr1"].X))
     assert "response_rr1" not in dropped.mdata.mod
     assert "dropped modality 'response_rr1'" in caplog.text
+
+
+def test_replicate_fits_are_stacked_or_dropped_with_a_warning(caplog: pytest.LogCaptureFixture) -> None:
+    first, second = _first(), _second()
+    for dataset in (first, second):
+        dataset.response.uns[KEY] = fits_table(list(dataset.sample_ids), list(dataset.drug_ids))
+
+    fits = concat([first, second]).response.uns[KEY]
+    with caplog.at_level(logging.WARNING):
+        dropped = concat([first, _second()])
+
+    assert len(fits) == len(first.response.uns[KEY]) + len(second.response.uns[KEY])
+    assert fits[SAMPLE_COLUMN].iloc[0] == "FIRST::SYNTH-000"
+    assert fits[SAMPLE_COLUMN].iloc[-1] == "SECOND::SYNTH-007"
+    assert first.response.uns[KEY][SAMPLE_COLUMN].iloc[0] == "SYNTH-000"
+    assert KEY not in dropped.response.uns
+    assert f"dropped response uns['{KEY}'], missing in ['SECOND']" in caplog.text
 
 
 def test_uns_keys_are_kept_when_equal_and_dropped_with_a_warning_otherwise(caplog: pytest.LogCaptureFixture) -> None:

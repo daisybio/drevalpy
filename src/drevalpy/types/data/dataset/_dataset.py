@@ -35,6 +35,15 @@ if TYPE_CHECKING:
     import pandas as pd
 
 
+def _restrict_replicate_fits(response: md.AnnData) -> None:
+    """Keep only the rows of ``response.uns["replicate_fits"]`` for the samples and drugs *response* still has."""
+    from drevalpy.data import _replicate_fits
+
+    table = response.uns.get(_replicate_fits.KEY)
+    if table is not None:
+        response.uns[_replicate_fits.KEY] = _replicate_fits.restrict(table, response.obs_names, response.var_names)
+
+
 class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
     """Single entry point for all dataset access in drevalpy.
 
@@ -211,7 +220,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
         """Return a new Dataset restricted to the given samples.
 
         Only keeps samples present in the response modality. Other modalities
-        are also subset to their intersection with *ids*.
+        are also subset to their intersection with *ids*, and
+        ``response.uns["replicate_fits"]`` to the rows of the kept samples.
 
         :param ids: 1-D array of sample IDs to keep.
         :returns: Independent Dataset containing the selected samples.
@@ -225,6 +235,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
         new_mods = {
             name: adata[np.isin(adata.obs_names, kept_samples)].copy() for name, adata in self._mdata.mod.items()
         }
+        _restrict_replicate_fits(new_mods["response"])
 
         with md.set_options(pull_on_update=False):
             new_mdata = md.MuData(new_mods)
@@ -237,6 +248,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
 
         Only the response modality has a drug axis; it is subset on var.
         Other modalities (sample features) are kept unchanged.
+        ``response.uns["replicate_fits"]`` keeps the rows of the kept drugs.
 
         :param ids: 1-D array of PubChem drug IDs to keep.
         :returns: Independent Dataset containing the selected drugs.
@@ -250,6 +262,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
             name: adata[:, drug_mask].copy() if name == "response" else adata.copy()
             for name, adata in self._mdata.mod.items()
         }
+        _restrict_replicate_fits(new_mods["response"])
 
         with md.set_options(pull_on_update=False):
             new_mdata = md.MuData(new_mods)
