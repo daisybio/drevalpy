@@ -8,9 +8,8 @@ Built-in datasets
 -----------------
 
 ``drevalpy list datasets`` prints the registered datasets with the columns Name, Source, File
-and Origin. These rows are built in. The screens come from the source ``orakl``, the base URL
-``s3://orakl-open-source-data/drevalpy_h5mu/gen3``, and ``TOYv1`` from ``orakl_gen4``, the base URL
-``s3://orakl-open-source-data/drevalpy_h5mu/gen4``. Their file is ``<Name>.h5mu``.
+and Origin. These rows are built in. They come from the source ``orakl``, the base URL
+``s3://orakl-open-source-data/drevalpy_h5mu/gen5``, and their file is ``<Name>.h5mu``.
 
 .. list-table::
    :header-rows: 1
@@ -41,9 +40,24 @@ and Origin. These rows are built in. The screens come from the source ``orakl``,
      - 386372
      - 545
      - 885 cell lines
+   * - ``CCLE``
+     - Cancer Cell Line Encyclopedia (Barretina et al. 2012)
+     - 11640
+     - 24
+     - 503 cell lines
+   * - ``PRISM_19Q4``
+     - PRISM Repurposing secondary screen, 19Q4
+     - 649222
+     - 1446
+     - 478 cell lines
+   * - ``PRISM_20Q2``
+     - PRISM Repurposing secondary screen, 20Q2
+     - 716807
+     - 1488
+     - 724 cell lines
    * - ``BeatAML2``
      - Ex vivo AML patient screens
-     - 57727
+     - 57319
      - 166
      - 569 patients
    * - ``PDX_Bruna``
@@ -69,7 +83,7 @@ Loading
 #. A registered name: its cached file, else a download into the cache directory.
 #. A path to an existing ``.h5mu`` file.
 
-A registry entry may carry a ``sha256``, as ``TOYv1`` does. A download that does not match it
+A registry entry may carry a ``sha256``, as every built-in one does. A download that does not match it
 raises an error and is deleted, and a cached file that does not match it is deleted and
 downloaded again; a cached file that matches is used without network access.
 
@@ -112,6 +126,11 @@ The file must have a modality named ``response``; without it loading raises ``Ke
      - Drug features. A key may be written ``name:variant``
    * - ``obsm["pathway_features"]``
      - Pathway features of the samples
+   * - ``uns["replicate_fits"]``
+     - The curve fitted to each replicate dose series, one row per series: ``sample_id`` and
+       ``pubchem_id`` (the IDs of ``obs`` and ``var``), ``replicate``, ``n_doses``, the fit
+       ``status``, the measures and quality metrics of the layers, and columns that differ by
+       study. Subsetting a dataset keeps the rows of the kept samples and drugs
 
 Layers written by ``drevalpy curate``:
 
@@ -293,6 +312,9 @@ given several ``--dataset`` options. How to use it is in :doc:`/how-to/run_cross
        raises ``ValueError``
    * - Response and layers
      - The union of the layers, with ``NaN`` for a pair the study did not measure
+   * - ``response.uns["replicate_fits"]``
+     - The rows of every input, with ``<study>::`` before each ``sample_id``. Dropped with a
+       warning unless every input has it
    * - ``uns["dataset_name"]``
      - ``name``, or the input names joined by ``+``, such as ``GDSC2+CTRPv2``
    * - Not carried over

@@ -256,6 +256,13 @@ Other changes since 1.6.0
   ``uns["pathways_gmt"]``, and keeps them in the cache directory.
 - Datasets that you download by name are cached in the system cache directory, which
   ``DREVALPY_CACHE_DIR`` overrides, instead of a ``--path_data`` directory.
+- Curated datasets keep the curve fitted to each replicate dose series in
+  ``response.uns["replicate_fits"]``, one row per series, instead of the ``response_rr1`` and
+  ``response_rr2`` modalities. Subsetting and ``concat`` carry the table along; see
+  :ref:`reference/datasets:File layout`.
+- The built-in datasets are the gen5 files, each pinned by its sha256, and ``CCLE``,
+  ``PRISM_19Q4`` and ``PRISM_20Q2`` are registered. A replicate is one dose series on one plate,
+  and series with fewer than 4 doses are not fitted.
 - Extension files, zoo files and plugins add components, split modes, datasets and
   visualizations without editing DrEvalPy. See :doc:`/how-to/extend/index`.
 
