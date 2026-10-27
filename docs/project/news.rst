@@ -260,7 +260,7 @@ Other changes since 1.6.0
   ``response.uns["replicate_fits"]``, one row per series, instead of the ``response_rr1`` and
   ``response_rr2`` modalities. Subsetting and ``concat`` carry the table along; see
   :ref:`reference/datasets:File layout`.
-- The built-in datasets are the gen5 files, each pinned by its sha256, and ``CCLE``,
+- The built-in datasets are the gen6 files, each pinned by its sha256, and ``CCLE``,
   ``PRISM_19Q4`` and ``PRISM_20Q2`` are registered. A replicate is one dose series on one plate,
   and series with fewer than 4 doses are not fitted.
 - Extension files, zoo files and plugins add components, split modes, datasets and
