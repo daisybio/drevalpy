@@ -99,8 +99,11 @@ RandomForestAEMolGNet:
     - 0.0001
   patience_autoencoder:
     - 50
+  # The autoencoder trains on one row per cell line (about 700). A batch of 1024 would be the full batch, i.e. one
+  # gradient step per epoch, and early stopping then ends the training after about 100-170 steps; 32 gives about 21
+  # steps per epoch (CTRPv2, LCO, 10 folds: nPCC 0.3532 against 0.3264 with 1024).
   batch_size_autoencoder:
-    - 1024
+    - 32
   n_estimators:
     - 100
   max_depth:
