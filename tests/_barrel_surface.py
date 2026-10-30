@@ -102,26 +102,3 @@ class DeclaredSurface(ReExportSurface):
     def test_all_matches_the_recorded_surface(self) -> None:
         """Catch drift in both directions: a stale entry and an unrecorded addition."""
         assert sorted(self.barrel.__all__) == self.recorded_surface()
-
-
-class SingletonFacadeSurface(DeclaredSurface):
-    """A barrel whose module-level ``list``/``get``/``metadata`` wrap one registry singleton.
-
-    The forwarding check is read-only: it never calls ``register``, so the
-    process-global registry is left exactly as it was found.
-    """
-
-    #: The process-global registry the facade functions delegate to.
-    singleton: ClassVar[object]
-
-    #: Singleton attribute listing the registered keys - ``modes`` or ``names``.
-    keys_attribute: ClassVar[str]
-
-    def test_facade_reads_forward_to_the_singleton(self) -> None:
-        """A facade that stopped delegating would silently serve an empty registry."""
-        keys = self.barrel.list()
-        assert keys == getattr(self.singleton, self.keys_attribute)
-        assert keys, "the built-in components are registered before every test"
-        for key in keys:
-            assert self.barrel.get(key) is self.singleton.get(key)
-            assert self.barrel.metadata(key) == self.singleton.get_metadata(key)

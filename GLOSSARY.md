@@ -25,7 +25,8 @@ A sample or a drug: what one row of a view describes.
 
 **Side**:
 Which kind of entity a view, a featurizer or a feature block is about: the
-sample side or the drug side.
+sample side or the drug side. A featurizer declares the sides it supports
+(`sides`); a featurizer that supports both is registered once.
 
 **Dataset**:
 A drug response screen together with the sample and drug features that belong
@@ -76,10 +77,15 @@ _Avoid_: metadata block
 
 **Feature format**:
 The shape of a feature block: a numeric matrix, a graph or a ragged sequence. A
-featurizer declares the format it emits and a predictor the format it needs on
-each side (`output_format`, `sample_input_format`, `drug_input_format`), so a
-model whose parts disagree is rejected before training.
+featurizer declares the format of each block it emits (`output_blocks`), and a
+predictor's inputs name the format of each block they read.
 _Avoid_: contract, feature contract
+
+**Inputs**:
+What a predictor reads from one side's featurizer (`sample_inputs`,
+`drug_inputs`): nothing, one numeric matrix, or named feature blocks. A model
+whose featurizers do not provide the inputs is rejected before training.
+_Avoid_: input interface, input format
 
 **Prediction mode**:
 Whether a model predicts a continuous response (regression) or a class
@@ -103,6 +109,23 @@ _Avoid_: model specification, model recipe
 
 **Model**:
 A model spec that can be trained, used for prediction, saved and loaded.
+
+**Saved model**:
+The `.zip` archive `DRPModel.save` writes: the model spec and the pickled fitted
+components, under a format version.
+_Avoid_: checkpoint (except for the files a component writes while training)
+
+**Qualified key**:
+The name of one hyperparameter of one component of a model,
+`<slot>.<selector>.<param>` such as `predictor.elasticNet.alpha` or
+`sample_featurizer.pca[methylation].n_components`. Results record
+hyperparameters under these keys; a short `<param>` is accepted as input when
+one component owns it.
+
+**Fixed hyperparameter**:
+A search-space entry of type `fixed`: a setting with a key and a default that
+tuning never draws, such as a solver's `random_state`.
+_Avoid_: non-tunable hyperparameter
 
 **Zoo preset**:
 A model spec shipped with DrEvalPy or loaded from a zoo file, selected by its

@@ -10,15 +10,18 @@ from __future__ import annotations
 
 import shutil
 import zipfile
+from collections.abc import Iterator
 from typing import Any
 
 import numpy as np
 import pytest
 from upath import UPath
 
-import drevalpy.registry  # noqa: F401  -- triggers register_builtin_components() + discover_plugins()
+import drevalpy.registry  # noqa: F401  -- registers the built-ins and discovers plugins
+import tests.registry._helpers  # noqa: F401  -- captures the built-in component state before any test module registers
+from drevalpy.registry._all import restore_all, snapshot_all
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
 from tests._trusted_subprocess import run_trusted_python
 from tests.synthetic import build_synthetic_dataset
 
@@ -32,15 +35,14 @@ _BUILD_WHEEL_SCRIPT = (
 
 
 @pytest.fixture(autouse=True)
-def _ensure_registries_populated():
-    """Ensure built-in components are registered before each test.
+def registry_snapshot() -> Iterator[None]:
+    """Restore every in-memory registry after each test, so registrations never leak between tests.
 
-    Some tests call registry.clear() for isolation. This fixture guarantees
-    the next test always starts with populated registries.
+    :yields: Control to the test.
     """
-    from drevalpy.registry._builtins import register_builtin_components
-
-    register_builtin_components()
+    snapshots = snapshot_all()
+    yield
+    restore_all(snapshots)
 
 
 @pytest.fixture(scope="session")
@@ -90,12 +92,20 @@ def built_wheel_contents(tmp_path_factory: pytest.TempPathFactory) -> frozenset[
 class MockFeatureSource(FeatureSource):
     """Test helper implementing the FeatureSource ABC."""
 
-    def __init__(self, features: dict[str, dict[str, Any]], meta_info: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        features: dict[str, dict[str, Any]],
+        meta_info: dict[str, Any] | None = None,
+        *,
+        side: Side = "sample",
+    ):
         """Initialize with features dict and optional metadata.
 
         :param features: Mapping of entity_id -> {view_name -> feature_array}.
         :param meta_info: Optional mapping of view_name -> feature names or metadata.
+        :param side: Entity side the source serves.
         """
+        self.side = side
         self._features = features
         self._meta_info = meta_info or {}
 

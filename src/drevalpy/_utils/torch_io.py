@@ -76,39 +76,6 @@ def load_state_dict(
     return data
 
 
-def load_trusted_payload(
-    source: TorchSource,
-    *,
-    map_location: Any | None = None,
-) -> Any:
-    """Load a trusted checkpoint that may contain arbitrary pickled Python objects.
-
-    :param source: Bytes, path, or open binary stream containing a trusted checkpoint.
-    :param map_location: Optional device remapping passed through to ``torch.load``.
-    :returns: Deserialized checkpoint object.
-    """
-    return load_torch_payload(source, map_location=map_location, weights_only=False)
-
-
-def load_trusted_mapping(
-    source: TorchSource,
-    *,
-    map_location: Any | None = None,
-) -> dict[str, Any]:
-    """Load a trusted mapping previously written with ``save_trusted_mapping``.
-
-    :param source: Bytes, path, or open binary stream containing a mapping checkpoint.
-    :param map_location: Optional device remapping passed through to ``torch.load``.
-    :returns: Deserialized mapping object.
-    :raises TypeError: If the deserialized payload is not a mapping.
-    """
-    data = load_trusted_payload(source, map_location=map_location)
-    if not isinstance(data, dict):
-        msg = "torch payload must be a mapping"
-        raise TypeError(msg)
-    return data
-
-
 def save_state_dict(state_dict: dict[str, Any]) -> bytes:
     """Serialize a PyTorch state dict to bytes.
 
@@ -117,15 +84,4 @@ def save_state_dict(state_dict: dict[str, Any]) -> bytes:
     """
     buffer = io.BytesIO()
     save_torch_payload(state_dict, buffer)
-    return buffer.getvalue()
-
-
-def save_trusted_mapping(payload: dict[str, Any]) -> bytes:
-    """Serialize an arbitrary mapping with ``torch.save``.
-
-    :param payload: Mapping to serialize.
-    :returns: Serialized checkpoint bytes.
-    """
-    buffer = io.BytesIO()
-    save_torch_payload(payload, buffer)
     return buffer.getvalue()

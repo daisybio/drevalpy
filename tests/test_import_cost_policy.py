@@ -74,9 +74,9 @@ _CHILD_SCRIPT = textwrap.dedent(f"""
     print(json.dumps({{
         "leaked": sorted(name for name in {FORBIDDEN_STARTUP_IMPORTS!r} if name in sys.modules),
         "skipped": sorted(get_skipped_builtin_modules()),
-        "n_predictors": len(drevalpy.registry.predictor.list()),
-        "n_sample_featurizers": len(drevalpy.registry.sample_featurizer.list()),
-        "n_drug_featurizers": len(drevalpy.registry.drug_featurizer.list()),
+        "n_predictors": len(drevalpy.registry.predictor.predictor_registry.names()),
+        "n_sample_featurizers": len(drevalpy.registry.featurizer.names_for_side("sample")),
+        "n_drug_featurizers": len(drevalpy.registry.featurizer.names_for_side("drug")),
     }}))
     """)
 

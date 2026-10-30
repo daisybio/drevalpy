@@ -14,11 +14,8 @@ from drevalpy._utils.filenames import safe_filename, unique_safe_filenames
 from drevalpy._utils.torch_io import (
     load_state_dict,
     load_torch_payload,
-    load_trusted_mapping,
-    load_trusted_payload,
     save_state_dict,
     save_torch_payload,
-    save_trusted_mapping,
 )
 
 
@@ -45,20 +42,12 @@ def test_bytes_round_trips() -> None:
     state = {"layer.weight": torch.tensor([1.0, 2.0])}
     assert torch.equal(load_state_dict(save_state_dict(state))["layer.weight"], state["layer.weight"])
 
-    payload = {"hyperparameters": {"epochs": 3}, "value": torch.tensor(4.0)}
-    loaded = load_trusted_mapping(save_trusted_mapping(payload))
-    assert loaded["hyperparameters"] == {"epochs": 3}
-    assert torch.equal(loaded["value"], payload["value"])
 
-
-@pytest.mark.parametrize(
-    ("loader", "match"), [(load_state_dict, "state dict mapping"), (load_trusted_mapping, "mapping")]
-)
-def test_non_mapping_payload_is_rejected(loader, match) -> None:
+def test_non_mapping_payload_is_rejected() -> None:
     buffer = io.BytesIO()
     save_torch_payload(torch.tensor([1.0, 2.0]), buffer)
-    with pytest.raises(TypeError, match=match):
-        loader(buffer.getvalue())
+    with pytest.raises(TypeError, match="state dict mapping"):
+        load_state_dict(buffer.getvalue())
 
 
 @pytest.mark.parametrize("as_str", [False, True])
@@ -71,10 +60,10 @@ def test_load_state_dict_from_path_and_map_location(tmp_path: Path, as_str: bool
     assert loaded["layer.bias"].device.type == "cpu"
 
 
-def test_load_trusted_payload_restores_graph_objects(tmp_path: Path) -> None:
+def test_load_torch_payload_restores_graph_objects_when_not_weights_only(tmp_path: Path) -> None:
     graph = Data(x=torch.ones((2, 3)), edge_index=torch.tensor([[0], [1]], dtype=torch.long))
     save_torch_payload(graph, tmp_path / "graph.pt")
-    loaded = load_trusted_payload(tmp_path / "graph.pt")
+    loaded = load_torch_payload(tmp_path / "graph.pt", weights_only=False)
     assert isinstance(loaded, Data)
     assert torch.equal(loaded.x, graph.x)
     assert torch.equal(loaded.edge_index, graph.edge_index)

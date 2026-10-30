@@ -26,7 +26,7 @@ before pushing, not only the files you touched last.
 - **One way to do each thing.** One entry point per task; parallel lists, aliases,
   compatibility wrappers and duck-typed variants of the same function are findings. A rule
   lives in one function that every caller goes through (`views.find_view` for every view
-  lookup, `feature_format.check_format` for every declared format).
+  lookup, `models/hyperparameters.qualify` for every user-given hyperparameter key).
 - **Derive, don't store twice.** A value that follows from another is computed from it
   (`HPOConfig.direction` reads the metric). A saved file holds each value once, and v2
   formats carry no legacy fallbacks.
@@ -34,7 +34,7 @@ before pushing, not only the files you touched last.
   `RandomizationType`), so errors and the CLI list the valid options.
 - **Layers point down.** `types/` imports nothing from `registry`, `models`,
   `visualization` or `components` (except `components/contracts/`); code that needs those lives in the higher package (precompute in
-  `components/featurizers/precompute.py`, plot requirements in `visualization/`). A barrel
+  `data/precompute.py`, plot requirements in `visualization/`). A barrel
   `__init__.py` re-exports only the names user code imports through it; everything else is
   imported from its defining module.
 - **Small files.** Prefer several focused modules over one large one; split a file that
@@ -76,13 +76,16 @@ membership against the values.
 ## Tests
 
 - Keep the suite serial, in file order: no `pytest-xdist`, `--dist loadfile`/`loadscope`
-  or random ordering. The component registries are process-global and the
-  `BUILTIN_*_NAMES` sets in `drevalpy/registry/_builtins.py` are lazy singletons that
-  cache on first access.
-- A test that calls `load_extensions` or a `register_*` decorator evicts on teardown with
-  `restore_component_registries()` / `isolated_component_registries()` from
-  `tests/registry/_helpers.py`, plus `clear_external_zoo()` when it loads an external zoo.
-  `register_builtin_components()` only adds, so it is no teardown.
+  or random ordering. The registries are process-global.
+- The autouse `registry_snapshot` fixture in `tests/conftest.py` restores every registry,
+  the zoo included, after each test, so a test may call `load_extensions` or a `register_*`
+  decorator without cleaning up. A test that needs a known starting state calls
+  `empty_component_registries()` or `restore_builtin_components()` from
+  `tests/registry/_helpers.py`.
+- `tests/golden/` compares the predictions and metrics of every zoo model with a recorded
+  baseline. Run it with `pytest -m slow tests/golden` (`-m "slow and not network"` offline)
+  after a change that may move numbers. Re-record with `python -m tests.golden._record [keys]`
+  only on a commit whose numerics are the reference, never to make a refactor pass.
 - Shared test code is a `_`-prefixed module beside the tests it serves (`tests/_import_shims.py`,
   `tests/models/synthetic_fixtures.py`, the `_helpers.py` files); look for one before writing a
   fixture out again. A `test_init.py` pins its package surface with a class from
