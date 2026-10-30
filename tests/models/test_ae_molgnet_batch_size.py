@@ -1,6 +1,7 @@
 """Tests for the autoencoder batch size of RandomForestAEMolGNet."""
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -9,6 +10,7 @@ import yaml
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.models.baselines import ae_molgnet_random_forest as ae_module
 from drevalpy.models.baselines.ae_molgnet_random_forest import RandomForestAEMolGNet
+from drevalpy.models.DIPK.gene_expression_encoder import GeneExpressionEncoder
 
 _N_GENES = 6
 _BATCH = 32
@@ -76,13 +78,14 @@ def test_trailing_batch_of_one_row_moves_to_validation(
     """
     monkeypatch.delenv("DREVAL_AE_CACHE", raising=False)
     seen: dict = {}
+    encoder = MagicMock(spec=GeneExpressionEncoder)  # a real type: typeguard checks the return value
 
     def _fake_training(train, validation, **kwargs):
         seen.update(train=len(train), validation=len(validation), batch_size=kwargs["batch_size"])
-        return "encoder"
+        return encoder
 
     monkeypatch.setattr(ae_module, "train_gene_expession_autoencoder", _fake_training)
     model = _model()
     features, ids = _cell_lines(n_train + 4)
-    assert model._fit_or_load_encoder(ids[:n_train], features, ids[n_train:]) == "encoder"
+    assert model._fit_or_load_encoder(ids[:n_train], features, ids[n_train:]) is encoder
     assert seen == {"train": expected_train, "validation": expected_val, "batch_size": _BATCH}
