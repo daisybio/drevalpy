@@ -104,6 +104,7 @@ def _frame_to_dataset(response_data: pd.DataFrame, measure: str, dataset_name: s
         drug_ids=response_data[DRUG_IDENTIFIER].values,
         tissues=response_data[TISSUE_IDENTIFIER].values,
         dataset_name=dataset_name,
+        regulation=response_data["Regulation"].values if "Regulation" in response_data.columns else None,
     )
 
 
@@ -204,6 +205,7 @@ def _load_test_data(
         drug_ids=response_data[DRUG_IDENTIFIER].values,
         tissues=response_data[TISSUE_IDENTIFIER].values,
         dataset_name=dataset_name,
+        regulation=response_data["Regulation"].values if "Regulation" in response_data.columns else None,
     )
 
 

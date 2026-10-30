@@ -46,6 +46,7 @@ def run_load_response(
             drug_ids=response_file[DRUG_IDENTIFIER].values,
             tissues=response_file[TISSUE_IDENTIFIER].values,
             dataset_name=dataset_name,
+            regulation=response_file["Regulation"].values if "Regulation" in response_file.columns else None,
         )
     else:
         tissue_column: str | None = TISSUE_IDENTIFIER

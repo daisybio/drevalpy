@@ -130,6 +130,7 @@ def _train_and_predict_drug(
         "SingleDrugKNN",
         "MOLIR",
         "SuperFELTR",
+        "SingleDrugMorgoth",
     ],
 )
 @pytest.mark.parametrize("test_mode", ["LTO"])
@@ -152,6 +153,8 @@ def test_single_drug_models(
     from drevalpy.experiment import seed_everything
 
     seed_everything(42)
+    if model_name == "SingleDrugMorgoth":
+        pytest.importorskip("morgoth")
 
     whole_name = model_name
     if model_name.startswith("SingleDrugRandomForest"):
@@ -197,6 +200,9 @@ def test_single_drug_models(
         hpam_combi["cell_line_views"] = "proteomics"
     elif model_name in ["MOLIR", "SuperFELTR"]:
         hpam_combi["epochs"] = 1
+    elif model_name == "SingleDrugMorgoth":
+        hpam_combi["n_estimators"] = 2  # reduce test time
+        hpam_combi["mrmr_k"] = 5  # reduce test time
 
     cross_study_dataset.remove_nan_responses()
     splits_per_drug = split_by_drug(split, random_drugs)

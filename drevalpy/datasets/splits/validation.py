@@ -194,6 +194,7 @@ def ensure_early_stopping_splits(
                 cell_line_ids=np.array([]),
                 drug_ids=np.array([]),
                 tissues=np.array([]) if validation.tissue is not None else None,
+                regulation=np.array([]) if validation.regulation is not None else None,
                 dataset_name=validation.dataset_name,
             )
             continue

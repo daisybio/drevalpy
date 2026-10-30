@@ -1,0 +1,26 @@
+---
+SingleDrugMorgoth:
+  gene_list:
+    - landmark_genes
+  n_estimators:
+    - 100
+  min_samples_leaf:
+    - 10
+  max_depth:
+    - 10
+  impact_classification:
+    - 0.5
+  mrmr_k:
+    - 50
+  max_features:
+    - sqrt
+  criterion_class:
+    - gini
+  criterion_reg:
+    - mse
+  sample_weights:
+    - simple
+  tree_weights:
+    - true
+  threshold_quantile:
+    - 0.5
