@@ -28,6 +28,7 @@ from sklearn.preprocessing import StandardScaler
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
 from ..utils import MRMRSelector, load_single_cell_line_view, scale_gene_expression
+from .fast_split import fast_split
 
 
 @contextlib.contextmanager
@@ -69,6 +70,7 @@ class MorgothRegressor(RegressorMixin, BaseEstimator):
         threshold_quantile: float = 0.5,
         random_state: int = 42,
         n_jobs: int = -1,
+        fast_split: bool = True,
     ):
         """
         Initializes the regressor; the parameters are passed on to ``morgoth.MORGOTH``.
@@ -85,6 +87,7 @@ class MorgothRegressor(RegressorMixin, BaseEstimator):
         :param threshold_quantile: quantile of the training responses that separates the two classes
         :param random_state: seed of the forest
         :param n_jobs: number of processes, -1 = all cores
+        :param fast_split: replace the package's split search by the equivalent vectorized one, False = original
         """
         self.n_estimators = n_estimators
         self.min_samples_leaf = min_samples_leaf
@@ -98,6 +101,7 @@ class MorgothRegressor(RegressorMixin, BaseEstimator):
         self.threshold_quantile = threshold_quantile
         self.random_state = random_state
         self.n_jobs = n_jobs
+        self.fast_split = fast_split
 
     def fit(self, X, y):  # noqa: N803
         """
@@ -114,7 +118,7 @@ class MorgothRegressor(RegressorMixin, BaseEstimator):
         # same rule as the package's sample weights: values below the threshold are class 0
         y_class = (y >= self.threshold_).astype(int)
         # the package writes these files during the fit, they are not needed
-        with tempfile.TemporaryDirectory() as tmp, _pool(self.n_jobs):
+        with tempfile.TemporaryDirectory() as tmp, _pool(self.n_jobs), fast_split(self.fast_split):
             self.forest_ = MORGOTH(
                 X_train=pd.DataFrame(X),
                 y_train=np.column_stack([y, y_class]),
@@ -210,6 +214,7 @@ class SingleDrugMorgoth(DRPModel):
                         sample_weights=hyperparameters["sample_weights"],
                         tree_weights=hyperparameters["tree_weights"],
                         threshold_quantile=hyperparameters["threshold_quantile"],
+                        fast_split=hyperparameters.get("fast_split", True),
                     ),
                 ),
             ]
