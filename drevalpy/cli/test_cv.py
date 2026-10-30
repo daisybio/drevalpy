@@ -17,7 +17,7 @@ def register(app: typer.Typer) -> None:
             str,
             typer.Option(
                 "--model_name",
-                help="Model name for global models, <Model name>.<Drug name> for single-drug models.",
+                help="Model name.",
             ),
         ],
         split_id: Annotated[str, typer.Option("--split_id", help="Split id.")],
@@ -69,6 +69,12 @@ def register(app: typer.Typer) -> None:
                 help="model checkpoint directory, if not provided: temporary directory is used",
             ),
         ] = "TEMPORARY",
+        n_jobs: Annotated[
+            int,
+            typer.Option(
+                "--n_jobs", help="Number of drugs a single drug model is trained for in parallel. Default: 1."
+            ),
+        ] = 1,
     ) -> None:
         """Train and predict on the CV test set (full, randomization, or robustness mode)."""
         run_train_and_predict_final(
@@ -85,4 +91,5 @@ def register(app: typer.Typer) -> None:
             robustness_trial=robustness_trial,
             cross_study_datasets=as_list(cross_study_datasets) if cross_study_datasets else None,
             model_checkpoint_dir=model_checkpoint_dir,
+            n_jobs=n_jobs,
         )
