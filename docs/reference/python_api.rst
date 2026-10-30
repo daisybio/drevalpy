@@ -72,8 +72,8 @@ Submodules, classes and functions are generated recursively from the package tre
 Registries and extension loading
 --------------------------------
 
-``drevalpy.registry`` holds the registries for sample featurizers, drug featurizers,
-predictors, splitters, visualizations and datasets, the plugin discovery state and the
+``drevalpy.registry`` holds the registries for featurizers, predictors, splitters,
+visualizations and datasets, the plugin discovery state and the
 extension loaders. Importing it discovers the installed ``drevalpy.plugins`` entry points.
 
 .. autosummary::
@@ -88,18 +88,17 @@ extension loaders. Importing it discovers the installed ``drevalpy.plugins`` ent
    drevalpy.registry.get_loaded_plugins
    drevalpy.registry.get_failed_plugins
    drevalpy.registry.get_skipped_builtin_modules
-   drevalpy.registry.register_builtin_components
+   drevalpy.registry.register_builtins
 
-The registries are the submodules ``drevalpy.registry.sample_featurizer``,
-``drevalpy.registry.drug_featurizer``, ``drevalpy.registry.predictor``,
-``drevalpy.registry.splitter``, ``drevalpy.registry.visualization`` and
-``drevalpy.registry.dataset``.
+The registries are the submodules ``drevalpy.registry.featurizer``,
+``drevalpy.registry.predictor``, ``drevalpy.registry.splitter``,
+``drevalpy.registry.visualization`` and ``drevalpy.registry.dataset``. One featurizer registry
+serves both sides; each featurizer declares the sides it supports.
 
 .. autosummary::
    :toctree: _autosummary
 
-   drevalpy.registry.sample_featurizer
-   drevalpy.registry.drug_featurizer
+   drevalpy.registry.featurizer
    drevalpy.registry.predictor
    drevalpy.registry.splitter
    drevalpy.registry.visualization
@@ -109,7 +108,7 @@ Model zoo
 ---------
 
 ``drevalpy.models.zoo`` looks up zoo presets and registers external ones:
-``list_zoo_names``, ``get_zoo_config``, ``zoo_model_config``, ``load_external_zoo_file``,
+``list_zoo_names``, ``get_zoo_config``, ``load_external_zoo_file``,
 ``register_external_zoo_entry`` and ``clear_external_zoo``. It is generated with
 ``drevalpy.models``.
 

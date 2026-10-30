@@ -61,8 +61,7 @@ CODE_LANGUAGES = RUNNABLE_LANGUAGES | frozenset(MISNAMED_LANGUAGES)
 GENERATED_INCLUDES = {
     "reference/cli.rst": ("_generated_cli.rst",),
     "reference/components.rst": (
-        "_generated_sample_featurizers.rst",
-        "_generated_drug_featurizers.rst",
+        "_generated_featurizers.rst",
         "_generated_predictors.rst",
     ),
     "reference/model_zoo.rst": ("_generated_model_zoo.rst",),
@@ -353,10 +352,11 @@ def test_zoo_presets_documented_in_model_zoo() -> None:
 @pytest.mark.slow
 def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     """Regenerate the catalog in a fresh interpreter: it must come from a clean registry."""
-    from drevalpy.registry import _builtins as rb
-    from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+    from _component_catalog import generate_component_catalog_rsts
+
+    from drevalpy.registry._builtins import builtin_names
+    from drevalpy.registry.featurizer import featurizers
     from drevalpy.registry.predictor import predictor_registry
-    from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
     catalog = (DOCS / "reference" / "components.rst").read_text(encoding="utf-8")
     assert ".. list-table::" not in catalog
@@ -371,41 +371,15 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     completed = run_trusted_python(script, cwd=str(REPO_ROOT))
     assert completed.returncode == 0, completed.stderr
     generated = json.loads(completed.stdout)
+    assert generated == generate_component_catalog_rsts()
 
-    rb.register_builtin_components()
-
-    def featurizer_rows(registry, builtin):
-        return {
-            row["name"]: (
-                row["output_format"],
-                "\u2705" if row["precompute"] else "\u274c",
-                " ".join(row["description"].split()),
-            )
-            for row in registry.list_metadata()
-            if row["name"] in builtin
-        }
-
-    expected = {
-        "sample": featurizer_rows(sample_featurizer_registry, rb.BUILTIN_SAMPLE_FEATURIZER_NAMES),
-        "drug": featurizer_rows(drug_featurizer_registry, rb.BUILTIN_DRUG_FEATURIZER_NAMES),
-    }
-    for registry_name, rows in expected.items():
-        matches = re.findall(
-            r"^   \* - ``([^`]+)``\n     - ``([^`]+)``\n     - ([^\n]*)\n     - ([^\n]+)$",
-            generated[registry_name],
-            flags=re.MULTILINE,
-        )
-        assert {name: (fmt, pre, desc) for name, fmt, pre, desc in matches} == rows
-
-    expected_predictors = {
-        row["name"]: (row["input_interface"].replace("_", "-").capitalize(), " ".join(row["description"].split()))
-        for row in predictor_registry.list_metadata()
-        if row["name"] in rb.BUILTIN_PREDICTOR_NAMES
-    }
-    predictor_matches = re.findall(
-        r"^   \* - ``([^`]+)``\n     - ([^\n]+)\n     - ([^\n]+)$", generated["predictor"], flags=re.MULTILINE
-    )
-    assert {name: (interface, desc) for name, interface, desc in predictor_matches} == expected_predictors
+    for key, registry in (("featurizer", featurizers), ("predictor", predictor_registry)):
+        rows = {}
+        for row in generated[key].split("   * - ``")[1:]:
+            name, *_, description = row.rstrip("\n").split("\n")
+            rows[name.rstrip("`")] = description.removeprefix("     - ")
+        expected = {name: " ".join(registry.metadata(name)["description"].split()) for name in builtin_names(registry)}
+        assert rows == expected
 
 
 def test_cli_reference_documents_all_subcommands() -> None:
@@ -533,10 +507,7 @@ def test_a_reference_page_that_drops_its_include_is_flagged(tmp_path: Path) -> N
     files = {rel: "".join(f".. include:: {n}\n" for n in names) for rel, names in GENERATED_INCLUDES.items()}
     assert not missing_includes(_tree(tmp_path, files))
     files["reference/components.rst"] = ".. include:: _generated_predictors.rst\n"
-    assert missing_includes(_tree(tmp_path, files)) == [
-        "reference/components.rst: _generated_sample_featurizers.rst",
-        "reference/components.rst: _generated_drug_featurizers.rst",
-    ]
+    assert missing_includes(_tree(tmp_path, files)) == ["reference/components.rst: _generated_featurizers.rst"]
 
 
 NESTED_NOTE = BOTH_TABS.replace(

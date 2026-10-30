@@ -39,8 +39,8 @@ Grammar
      - The featurizer ``name`` reading the view ``view``; sets the ``view`` field
 
 The recipe layer only checks this shape. Whether a name is registered, whether a featurizer
-needs a view, and whether the featurizers fit the predictor (formats, required blocks, a drug
-featurizer) are checked when the model configuration is built, the same way for a recipe and for
+needs a view, whether a featurizer supports its side, and whether the featurizers fit the
+predictor (inputs, required blocks, a drug featurizer) are checked when the model configuration is built, the same way for a recipe and for
 the equivalent YAML. Whether a view exists in the dataset is checked only when the model trains.
 
 Examples
@@ -59,7 +59,7 @@ Examples
    * - ``raw[gene_expression]+raw[methylation]:fingerprints:elasticNet``
      - Concatenation of two ``raw`` views
    * - ``scaledGeneExpression:singleDrugElasticNet``
-     - Single-drug predictor; the drug featurizer is filled in
+     - Single-drug predictor, without a drug featurizer
    * - ``naiveMean``
      - Feature-free predictor
 
@@ -83,15 +83,21 @@ Duplicate leaves
    One concatenation may not hold the same qualified featurizer twice, for example
    ``raw[gene_expression]+raw[gene_expression]``.
 
+Sides
+   Each featurizer declares the sides it supports. A featurizer on the wrong side raises, for
+   example, ``Featurizer 'fingerprints' cannot be used on the sample side; it supports only:
+   drug``.
+
 Drug featurizer
    A multi-drug predictor that takes featurizers needs both a sample and a drug featurizer;
-   ``sample:predictor`` is valid for a single-drug predictor. A single-drug predictor given a
-   sample featurizer and no drug featurizer receives the routing featurizer ``identity``. The
-   scope of the model follows from the predictor.
+   ``sample:predictor`` is the form for a single-drug predictor. A single-drug predictor reads
+   no drug features, so a drug featurizer raises ``Predictor 'singleDrugElasticNet' reads no
+   drug features and forbids a drug_featurizer``. The scope of the model follows from the
+   predictor.
 
 Feature-free predictors
    A bare predictor name is valid only for a feature-free predictor such as ``naiveMean``.
-   Other predictors raise ``requires featurizers``.
+   Other predictors raise, for example, ``Predictor 'elasticNet' requires a sample_featurizer``.
 
 Where recipes are accepted
 --------------------------
@@ -102,11 +108,10 @@ Where recipes are accepted
 
    * - Place
      - Accepts
-   * - ``drevalpy.models.config.from_spec(spec)``
-     - A zoo preset name, else a recipe. A zoo name wins over a bare predictor of the same
-       name.
+   * - ``drevalpy.models.config.from_recipe(recipe)``
+     - A recipe only; zoo names are resolved by ``ModelSpec.from_name``
    * - ``ModelSpec(name, config)``
-     - A ``ModelConfig``, for example ``from_spec(...)``
+     - A ``ModelConfig``, for example ``from_recipe(...)``
    * - ``ModelSpec.from_name``, the ``MODELS`` of ``drevalpy run`` and ``drevalpy single``
      - A zoo name, else a recipe. A zoo name wins over a recipe of the same name. The model is
        named by the string as given. A name that is neither raises ``UnknownModelError``, a
@@ -124,10 +129,11 @@ A recipe needs no registration. To give it a short name, register it as a zoo pr
 Model identifier
 ----------------
 
-``ModelConfig.model_id`` writes a recipe from the names only. It drops the views and the
-routing ``identity`` featurizer and writes ``concatFeaturizers`` for ``+``. For example,
-``pca[gene_expression]:fingerprints:elasticNet`` has the identifier
-``pca:fingerprints:elasticNet``. It is ``None`` when only one of the two featurizers is set.
+``ModelConfig.model_id`` writes a recipe from the names only. It drops the views and writes
+``concatFeaturizers`` for ``+``. For example, ``pca[gene_expression]:fingerprints:elasticNet``
+has the identifier ``pca:fingerprints:elasticNet``, and a single-drug model has an identifier
+such as ``scaledGeneExpression:singleDrugElasticNet``. It is ``None`` only for a model with a
+drug featurizer and no sample featurizer, which no recipe can express.
 
 Featurizer forms in YAML
 ------------------------
@@ -164,8 +170,6 @@ The fields of the mapping form are:
      - Meaning
    * - ``name``
      - Registry name
-   * - ``registry``
-     - ``sample`` or ``drug``; fixed by the key
    * - ``view``
      - The view to read
    * - ``featurizers``

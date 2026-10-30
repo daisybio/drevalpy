@@ -48,22 +48,22 @@ predictor, by backpropagating the prediction loss. Encoders are part of the
 predictor, not a separate component. This is why literature models such as
 DrugGNN appear as one predictor with a featurizer that supplies its inputs.
 
-Feature formats and predictor interfaces
-----------------------------------------
+Feature formats and predictor inputs
+------------------------------------
 
 Features come in three formats: a numeric matrix, a graph, or a ragged sequence
 (sequences of different lengths, such as tokenized strings). Each featurizer
-declares which format it produces, and each predictor declares the interface it
-consumes:
+declares the sides it can be used on and the named blocks it produces, each with a
+format. Each predictor declares, per side, what it reads from that side's featurizer:
 
-- A *feature-free* predictor uses no features at all and forbids featurizers.
-  The overall-mean baseline is one. Other naive baselines use only entity
-  identities, and for tissue means a tissue label.
-- A *matrix* predictor takes a numeric matrix, and so accepts the usual
-  scikit-learn style models.
-- A *block* predictor takes named feature blocks and declares which ones it
-  requires, so that a neural network can consume a graph for the drug and a
-  matrix for the sample.
+- *None*: the side uses no features and forbids a featurizer. The overall-mean
+  baseline reads none on both sides, and a single-drug predictor reads none on the
+  drug side.
+- *A matrix*: any numeric output, flattened into one design matrix, which suits the
+  usual scikit-learn style models.
+- *Blocks*: named feature blocks the featurizer must produce, so that a neural
+  network can consume a graph for the drug and a matrix for the sample. The
+  tissue-mean baseline reads the ``tissue`` block this way.
 
 Features that a featurizer produces are bundled as a result containing the
 entity identifiers, a set of named blocks and a projection, the ordered list of
@@ -117,27 +117,24 @@ Single-drug models
 ~~~~~~~~~~~~~~~~~~
 
 Some predictors fit one separate estimator per drug, for example
-``singleDrugElasticNet``. Per-drug routing needs the drug identity, so when a
-recipe omits the drug featurizer, the configuration adds the ``identity``
-featurizer, which one-hot encodes drug identifiers, and the predictor reports
-that its scope is a single drug. MOLIR is a single-drug literature model too.
+``singleDrugElasticNet``. They route each pair by its drug identifier and read no drug
+features, so their recipe has no drug featurizer, as in
+``scaledGeneExpression:singleDrugElasticNet``, and the predictor reports that its scope
+is a single drug. MOLIR is a single-drug literature model too.
 
 Validation happens before training
 ----------------------------------
 
 A recipe that cannot work should fail when it is written, not hours into an
-experiment. When a configuration is resolved, DrEvalPy checks that:
+experiment. When a configuration is built, DrEvalPy checks that:
 
-- a predictor that uses no features has no featurizers configured, and one that
-  does use features has the featurizers it needs;
-- each featurizer's output format is accepted by the predictor;
-- the feature blocks that a block predictor requires are produced by the
-  featurizers, with the expected schema;
-- the blocks that the predictor names in ``required_sample_blocks`` and
-  ``required_drug_blocks``, such as the ``tissue`` block of a tissue-mean predictor, are among
-  the blocks the featurizers emit;
-- the prediction mode of the model is one the predictor supports;
-- a single-drug predictor is paired with the drug identity featurizer.
+- each featurizer supports the side it is used on;
+- a side the predictor reads no features from has no featurizer, and a side it
+  reads has one;
+- a side read as a matrix gets only numeric blocks;
+- a side read as blocks gets every block the predictor names, in the declared format,
+  such as the ``tissue`` block of a tissue-mean predictor;
+- the prediction mode of the model is one the predictor supports.
 
 For example, a matrix predictor rejects a graph feature, a feature-free
 predictor rejects any featurizer, and a tissue-mean predictor rejects a gene expression

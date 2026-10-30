@@ -35,7 +35,7 @@ Description
    The description of the predictor.
 
 Composition
-   The recipe of the zoo preset. Writing the recipe in ``drevalpy.models.config.from_spec``
+   The recipe of the zoo preset. Passing the recipe to ``drevalpy.models.config.from_recipe``
    gives the same configuration; the command line and ``ModelSpec.from_name`` accept only
    the zoo name. See :doc:`recipes`.
 

@@ -16,18 +16,13 @@ from __future__ import annotations
 
 import importlib
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from _generated_io import write_text_if_changed
 
-from drevalpy.registry import (
-    drug_featurizer,
-    predictor,
-    sample_featurizer,
-    splitter,
-    visualization,
-)
+from drevalpy.registry._all import all_registries, restore_all, snapshot_all
 
 DOCS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DOCS_DIR.parent
@@ -53,45 +48,23 @@ EXAMPLE_MODULES: tuple[str, ...] = (
 #: What importing the examples must add to each registry. Pinned rather than
 #: derived so a decorator that silently stops running is a build failure.
 EXPECTED_REGISTRATIONS: dict[str, tuple[str, ...]] = {
-    "sample_featurizer": ("toySample",),
-    "drug_featurizer": ("toyDrugHash",),
+    "featurizer": ("toyDrugHash", "toySample"),
     "predictor": ("toyBlockRidge", "toyMean", "toyRidge"),
     "splitter": ("TOY_LSO",),
     "visualization": ("toyResiduals",),
 }
 
-_REGISTRIES = {
-    "sample_featurizer": sample_featurizer,
-    "drug_featurizer": drug_featurizer,
-    "predictor": predictor,
-    "splitter": splitter,
-    "visualization": visualization,
-}
-
-_SINGLETONS = {
-    "sample_featurizer": sample_featurizer.sample_featurizer_registry,
-    "drug_featurizer": drug_featurizer.drug_featurizer_registry,
-    "predictor": predictor.predictor_registry,
-    "splitter": splitter.splitter_registry,
-    "visualization": visualization.visualization_registry,
-}
-
 _LABELS = {
-    "sample_featurizer": "Sample featurizer",
-    "drug_featurizer": "Drug featurizer",
+    "featurizer": "Featurizer",
     "predictor": "Predictor",
-    "splitter": "Splitter mode",
+    "splitter": "Split mode",
     "visualization": "Visualization",
 }
 
 
-def _snapshot() -> dict[str, frozenset[str]]:
-    return {name: frozenset(module.list()) for name, module in _REGISTRIES.items()}
-
-
-def _restore(snapshot: dict[str, frozenset[str]]) -> None:
-    for name, kept in snapshot.items():
-        _SINGLETONS[name].retain_only(kept)
+def _names() -> dict[str, frozenset[str]]:
+    registries = all_registries()
+    return {kind: frozenset(registries[kind].names()) for kind in EXPECTED_REGISTRATIONS}
 
 
 def _import_examples() -> None:
@@ -107,8 +80,9 @@ def _import_examples() -> None:
         importlib.import_module(f"{EXAMPLE_PACKAGE}.{name}")
 
 
-def _registered_by_examples(snapshot: dict[str, frozenset[str]]) -> dict[str, tuple[str, ...]]:
-    return {name: tuple(sorted(set(module.list()) - snapshot[name])) for name, module in _REGISTRIES.items()}
+def _registered_by_examples(before: dict[str, frozenset[str]]) -> dict[str, tuple[str, ...]]:
+    after = _names()
+    return {kind: tuple(sorted(after[kind] - before[kind])) for kind in EXPECTED_REGISTRATIONS}
 
 
 def _assert_expected(observed: dict[str, tuple[str, ...]]) -> None:
@@ -129,7 +103,7 @@ def _run_checks() -> None:
 
 
 def _describe(registry_name: str, name: str) -> str:
-    metadata: dict[str, Any] = _REGISTRIES[registry_name].metadata(name)
+    metadata: Mapping[str, Any] = all_registries()[registry_name].metadata(name)
     return " ".join((metadata.get("description") or "").split()) or "No description."
 
 
@@ -162,10 +136,11 @@ def verify_documented_examples() -> dict[str, tuple[str, ...]]:
     :raises RuntimeError: If an example fails to import, registers something
         other than expected, or fails a conformance check.
     """
-    snapshot = _snapshot()
+    snapshot = snapshot_all()
+    before = _names()
     try:
         _import_examples()
-        observed = _registered_by_examples(snapshot)
+        observed = _registered_by_examples(before)
         _assert_expected(observed)
         _run_checks()
         write_text_if_changed(GENERATED_EXAMPLES, _render(observed))
@@ -177,5 +152,5 @@ def verify_documented_examples() -> dict[str, tuple[str, ...]]:
         )
         raise RuntimeError(msg) from exc
     finally:
-        _restore(snapshot)
+        restore_all(snapshot)
     return observed

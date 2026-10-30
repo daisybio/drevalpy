@@ -4,7 +4,7 @@ How a model trains: scopes and early stopping
 Every model in DrEvalPy goes through the same training procedure, whether it is
 a naive baseline, an ElasticNet or a neural literature model. This page explains
 what data each stage of that procedure may touch and why. Other pages refer here
-for the three *scopes* (called A, E and V below) and for the three pipeline
+for the three *scopes* (called A, E and V below) and for the three model
 states.
 
 Three scopes carved out of one fold
@@ -100,10 +100,11 @@ The same discipline applies to the preprocessing that sits around a model:
   transformed units and its predictions are converted back to the original units
   before scoring, so metrics are always reported in the units of the data.
 
-Pipeline states
----------------
+Model states
+------------
 
-A trained model's internals live in a private pipeline object with three states.
+``DRPModel.state`` is one of three ``ModelState`` values, and ``is_fitted()`` tells whether it
+is ``FITTED``.
 
 ``UNTRAINED``
    Nothing has been fitted. Calling ``predict`` raises an error.
@@ -122,14 +123,15 @@ A trained model's internals live in a private pipeline object with three states.
 Every call to ``train`` starts from scratch. It resets the pipeline to
 ``UNTRAINED`` and builds fresh featurizers and a fresh predictor, so one model
 object used for several folds or trials never carries state from one fit to the
-next. If training fails midway, the pipeline stays ``UNTRAINED``.
+next. If training fails midway, the model stays ``UNTRAINED``.
 
 Saving and loading
 ~~~~~~~~~~~~~~~~~~
 
-Saving a fitted model writes a single versioned archive of the fitted components.
-Loading restores it. Loading reads pickled data, so only load checkpoints you
-created yourself or that come from a source you trust. When no checkpoint
+Saving a fitted model writes a single versioned ``.zip`` archive that holds the model
+specification and the pickled fitted components: the featurizers, the predictor and the
+fitted response transform. Loading restores them. Loading unpickles data, so only load
+archives you created yourself or that come from a source you trust. When no checkpoint
 directory is given, training writes any intermediate checkpoints to a
 temporary directory.
 

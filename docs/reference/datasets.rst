@@ -276,7 +276,7 @@ columns can be used as a grouping for per-group scores, for example ``group_by="
    * - ``dataset_name``
      - The dataset name
    * - ``sample_featurizer_variants``, ``drug_featurizer_variants``
-     - Featurizer outputs stored by the ``precompute`` function of ``drevalpy.components.featurizers.precompute``
+     - Featurizer outputs stored by the ``precompute`` function of ``drevalpy.data.precompute``
    * - ``drug_graphs``
      - Molecular graphs of the drugs
    * - ``pathways_gmt``

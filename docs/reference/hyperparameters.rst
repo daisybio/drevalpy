@@ -30,6 +30,9 @@ A space that contains anything else raises ``ValueError``.
    * - ``pow2``
      - ``low``, ``high``
      - ``2 ** e`` for an integer exponent ``e`` from ``low`` to ``high``
+   * - ``fixed``
+     - none
+     - Never drawn: tuning always uses the ``default``
 
 A choice may be a list, such as the layer widths ``[32, 16, 8, 4]`` of the ``neuralNetwork``
 predictor; Optuna draws it by position and the model receives the list itself.
@@ -38,6 +41,9 @@ predictor; Optuna draws it by position and the model receives the list itself.
 ``pow2`` the bounds are exponents: ``{type: pow2, low: 9, high: 11}`` draws 512, 1024 or 2048,
 and its ``default`` is written as the value, such as ``2048``. An entry without a ``type``
 is treated as ``categorical``. Any other ``type`` raises ``ValueError`` when a value is drawn.
+A ``fixed`` entry that also sets ``low``, ``high``, ``choices`` or ``log`` raises ``ValueError``.
+Fixed entries hold settings that are not tuned, such as a solver's ``random_state``; they still
+have a key, so ``with_hyperparameters`` can set them.
 
 Example:
 
@@ -84,20 +90,20 @@ For the recipe ``pca[gene_expression]:fingerprints:elasticNet`` the space has th
    predictor.elasticNet.alpha
    predictor.elasticNet.l1_ratio
 
-``ModelSpec.hyperparameter_space`` returns this mapping, and ``ModelSpec.default_hyperparameters``
-returns the defaults under the short parameter names.
+``ModelSpec.hyperparameter_space`` returns this mapping. ``ModelSpec.hyperparameters`` holds
+the model's values under the same keys: every key of the space, starting from its ``default``.
+Results and W&B configs record the values under these keys too.
 
 Keys that DrEvalPy accepts
 --------------------------
 
-``ModelSpec.resolve(hyperparameters)`` and ``DRPModel`` take a flat mapping. Each key is one of:
+``spec.with_hyperparameters(values)`` and the ``hyperparameters`` argument of ``DRPModel`` take
+a flat mapping and return or use a spec with those values replaced. Each key is one of:
 
 - A qualified key.
 - A short parameter name such as ``alpha``, if exactly one component of the model has it.
-- An alias. ``methylation_n_components`` (the 1.x name) names
-  ``sample_featurizer.pca[methylation].n_components``. It is an error for a model without a
-  ``pca[methylation]`` featurizer, such as the ``MultiView*`` presets, which read gene expression
-  and mutations only.
+
+A mapping may mix both forms.
 
 .. list-table::
    :header-rows: 1
@@ -106,13 +112,12 @@ Keys that DrEvalPy accepts
    * - Input
      - Result
    * - A short name shared by several components
-     - ``ValueError``: ``Ambiguous hyperparameter … Use one of: …``
+     - ``ValueError``: ``Ambiguous hyperparameter 'n_components'. Use one of: …``
    * - A name no component has
-     - ``ValueError``: ``Unknown hyperparameter … for this model stack.``
+     - ``ValueError``: ``Unknown hyperparameter 'x' for this model; its hyperparameters are: …``
    * - Two keys for the same parameter
-     - ``ValueError``: ``Duplicate hyperparameter assignment …``
-   * - The old indexed form ``sample_featurizer.<name>.<index>.<param>``
-     - ``ValueError``: ``Indexed featurizer hyperparameter keys are no longer supported``
+     - ``ValueError``: ``Duplicate hyperparameter assignment for 'predictor.elasticNet.alpha' from
+       'alpha' and 'predictor.elasticNet.alpha'.``
 
 Defaults of the shipped presets
 -------------------------------

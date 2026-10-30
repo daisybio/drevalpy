@@ -1,91 +1,76 @@
-"""Sample featurizer example: standardize one raw sample view.
+"""Sample featurizer example: standardize one sample view.
 
-Shows the three hooks every featurizer implements -- ``_fit``,
-``_transform_features`` and the ``output_dim`` property -- plus the ``input_views``
-declaration, without which registration is rejected.
+Shows the two methods every featurizer implements, ``fit`` and ``transform``, and the
+class-body declarations: ``sides`` (where the featurizer may be used) and ``input_views``
+(the views it reads). Model training calls both methods only with usable entity IDs; it
+drops entities whose row is all NaN beforehand and pads them back in afterwards.
 """
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import ClassVar, Self
 
 import numpy as np
 
 from drevalpy.plugin import (
-    FeatureFormat,
     FeatureSource,
+    Featurizer,
     FeaturizerResult,
-    SampleFeaturizer,
-    numeric_feature_block,
-    register_sample_featurizer,
+    Side,
+    dense_result,
+    register_featurizer,
+    view_matrix,
 )
 
+VIEW = "gene_expression"
 
-@register_sample_featurizer(
+
+@register_featurizer(
     "toySample",
     description="Gene expression standardized with statistics learned on the training samples.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
 )
-class ToySampleFeaturizer(SampleFeaturizer):
+class ToySampleFeaturizer(Featurizer):
     """Standardize the ``gene_expression`` view column by column."""
 
-    input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
+    input_views: ClassVar[tuple[str, ...]] = (VIEW,)
 
     def __init__(self) -> None:
         """Create an unfitted featurizer."""
+        self._names: tuple[str, ...] | None = None
         self._mean: np.ndarray | None = None
         self._scale: np.ndarray | None = None
 
-    def _fit(
+    def fit(
         self,
         source: FeatureSource,
+        train_ids: np.ndarray,
         *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> ToySampleFeaturizer:
-        """Learn one mean and one standard deviation per column."""
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
-        matrix = source.get_view_matrix(self.input_views[0], ids)
-        self._mean = np.asarray(matrix.mean(axis=0), dtype=np.float64)
-        scale = np.asarray(matrix.std(axis=0), dtype=np.float64)
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Learn one mean and one standard deviation per column from the training samples.
+
+        The feature names are recorded too, so ``transform`` reads the columns in the
+        same order even from a source that stores them differently.
+        """
+        _ = train_pair_ids, es_pair_ids
+        names = source.get_feature_names(VIEW)
+        self._names = None if names is None else tuple(names)
+        matrix = view_matrix(source, VIEW, train_ids, self._names)
+        self._mean = matrix.mean(axis=0)
+        scale = matrix.std(axis=0)
         self._scale = np.where(scale > 0.0, scale, 1.0)
         return self
 
-    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Return the standardized matrix and its named numeric block.
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Return the standardized rows of *ids* as one numeric block.
 
-        The block name matters: a ``BlockPredictor`` asks for it by name through
-        ``required_sample_block_specs``. Naming it after the input view is the
-        default the registry assumes when a featurizer declares no
-        ``output_block_specs``.
+        The block is named after the view, which is the name the default
+        ``output_blocks`` declares and a block predictor asks for.
         """
         if self._mean is None or self._scale is None:
             msg = "ToySampleFeaturizer must be fitted before transforming"
             raise RuntimeError(msg)
-        matrix = source.get_view_matrix(self.input_views[0], entity_ids)
-        standardized = ((matrix - self._mean) / self._scale).astype(np.float32)
-        return FeaturizerResult(
-            entity_ids, {self.input_views[0]: numeric_feature_block(standardized)}, (self.input_views[0],)
-        )
-
-    @property
-    def output_dim(self) -> int:
-        """Number of feature columns produced after fitting."""
-        return 0 if self._mean is None else int(self._mean.shape[0])
-
-    def get_state(self) -> dict[str, object]:
-        """Return the fitted statistics so a checkpoint can round-trip them."""
-        if self._mean is None or self._scale is None:
-            return {}
-        return {"mean": self._mean.tolist(), "scale": self._scale.tolist()}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore the statistics a previous ``get_state`` returned."""
-        mean = state.get("mean")
-        scale = state.get("scale")
-        if mean is None or scale is None:
-            return
-        self._mean = np.asarray(mean, dtype=np.float64)
-        self._scale = np.asarray(scale, dtype=np.float64)
+        matrix = view_matrix(source, VIEW, ids, self._names)
+        return dense_result(ids, VIEW, (matrix - self._mean) / self._scale, self._names)

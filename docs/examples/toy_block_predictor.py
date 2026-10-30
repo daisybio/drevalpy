@@ -1,10 +1,9 @@
 """Block predictor example: ridge on one named sample block.
 
-``BlockPredictor`` is the interface for predictors that must keep the sides (or
-individual featurizer outputs) apart instead of flattening everything into one
-matrix. ``required_sample_block_specs`` names the blocks (and their formats) the
-stack has to supply; composition rejects a recipe whose sample featurizer does not
-emit them.
+A predictor that must keep the sides (or individual featurizer outputs) apart instead
+of flattening everything into one matrix subclasses ``Predictor`` directly and names
+the blocks it reads in ``sample_inputs`` / ``drug_inputs``. Config validation rejects
+a recipe whose sample featurizer does not emit them.
 """
 
 from __future__ import annotations
@@ -15,10 +14,11 @@ import numpy as np
 from sklearn.linear_model import Ridge
 
 from drevalpy.plugin import (
-    BlockPredictor,
     BlockSpec,
     FeatureFormat,
+    Inputs,
     ModelInputBatch,
+    Predictor,
     register_predictor,
 )
 
@@ -28,18 +28,17 @@ BLOCK = "gene_expression"
 @register_predictor(
     "toyBlockRidge",
     description="Ridge regression on a named gene-expression block plus the drug features.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
 )
-class ToyBlockRidgePredictor(BlockPredictor):
+class ToyBlockRidgePredictor(Predictor):
     """Read one named block instead of the flattened design matrix."""
 
-    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec(BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec(BLOCK, FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.matrix()
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Create an untrained predictor.
 
-        :param hyperparameters: Overrides merged onto the declared defaults.
+        :param hyperparameters: Values merged onto the defaults of the space.
         """
         super().__init__(hyperparameters)
         self._estimator: Ridge | None = None
@@ -67,17 +66,3 @@ class ToyBlockRidgePredictor(BlockPredictor):
         if batch.drug is not None and batch.drug_pair_idx is not None:
             matrix = np.hstack([matrix, batch.drug.matrix[batch.drug_pair_idx]])
         return matrix
-
-    def get_state(self) -> dict[str, object]:
-        """Return the trained estimator for checkpoint persistence."""
-        return {} if self._estimator is None else {"estimator": self._estimator}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore the state produced by ``get_state``."""
-        estimator = state.get("estimator")
-        if estimator is not None:
-            self._estimator = estimator  # type: ignore[assignment]
-
-    def is_fitted(self) -> bool:
-        """Report whether ``fit`` has run."""
-        return self._estimator is not None

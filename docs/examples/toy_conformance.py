@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.plugin import CurveQuality, ModelResult, RunResult
+from drevalpy.plugin import CurveQuality, ModelResult
 from drevalpy.registry import splitter
 from drevalpy.testing import (
     FEATURIZER_CHECKS,
@@ -18,6 +18,7 @@ from drevalpy.testing import (
     build_synthetic_batch,
     build_synthetic_dataset,
 )
+from drevalpy.types.results import RunResult
 
 from .toy_block_predictor import BLOCK, ToyBlockRidgePredictor
 from .toy_drug_featurizer import ToyDrugHashFeaturizer
@@ -63,10 +64,10 @@ def check_splitter() -> None:
 
 
 def check_visualization() -> None:
-    """Drive the toy visualization through the contract its base class promises.
+    """Draw the toy plot's report sections for a hand-built model result.
 
-    There is no conformance check for visualizations yet, so a plot is exercised
-    by hand: ``compute`` first, then the renderers, which raise until it has run.
+    There is no conformance check for plots, so the plot is exercised by hand:
+    ``sections`` draws the figure and embeds it.
     """
     rng = np.random.default_rng(0)
     run = RunResult(
@@ -78,9 +79,7 @@ def check_visualization() -> None:
         sample_ids=np.array([f"CVCL_S{index:03d}" for index in range(32)]),
         drug_ids=np.array(["100000"] * 32),
     )
-    plot = ToyResidualHistogram()
-    plot.compute(ModelResult(model_name="toyRidge", dataset_name="SYNTHETIC", runs=[run]))
-    sections = plot.to_multiqc()
-    if not sections:
-        msg = "ToyResidualHistogram.to_multiqc returned no sections"
+    result = ModelResult(model_name="toyRidge", dataset_name="SYNTHETIC", runs=[run])
+    if not ToyResidualHistogram().sections(result):
+        msg = "ToyResidualHistogram.sections returned no sections"
         raise AssertionError(msg)

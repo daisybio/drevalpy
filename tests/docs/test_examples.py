@@ -35,11 +35,11 @@ _LITERALINCLUDE = re.compile(r"^\s*\.\. literalinclude:: (\S+)\s*$", re.MULTILIN
 _VERIFY_SCRIPT = (
     "import json, sys\n"
     f"sys.path.insert(0, {str(DOCS)!r})\n"
-    "from drevalpy.registry import sample_featurizer, drug_featurizer, predictor\n"
-    "before = [len(sample_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
+    "from drevalpy.registry._all import all_registries\n"
+    "before = {k: list(r.names()) for k, r in all_registries().items()}\n"
     "from _examples import verify_documented_examples\n"
     "registered = {k: list(v) for k, v in verify_documented_examples().items()}\n"
-    "after = [len(sample_featurizer.list()), len(drug_featurizer.list()), len(predictor.list())]\n"
+    "after = {k: list(r.names()) for k, r in all_registries().items()}\n"
     "sys.stdout.write(json.dumps({'registered': registered, 'before': before, 'after': after}))\n"
 )
 
@@ -112,9 +112,10 @@ DEAD_REFERENCES = (
     "drevalpy.components.core",
     "drevalpy.components.featurizers.sample.base",
     "drevalpy.components.predictors.abstract",
-    "drevalpy.registry.sample_featurizer import register",
+    "drevalpy.registry.sample_featurizer",
+    "drevalpy.registry.drug_featurizer",
     "drevalpy.registry.predictor import register",
-    "drevalpy.visualization.base import Visualization",
+    "drevalpy.visualization.base import",
 )
 
 

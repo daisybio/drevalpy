@@ -1,9 +1,9 @@
-"""Visualization example: a residual histogram for one model.
+"""Plot example: a residual histogram for one model.
 
-``Visualization`` declares four abstract methods -- ``compute``, ``to_png``,
-``to_multiqc`` and ``show``. ``ImageVisualization`` implements the last three on
-top of a Matplotlib figure, so a static plot only has to supply ``compute`` (which
-must leave the figure in ``self._fig``) and ``_create_figure``.
+A plot is stateless. ``figure(result)`` draws the result it is given, and the
+inherited ``sections(result)`` embeds that figure in the report as one PNG section.
+``result_type = ModelResult`` makes the report draw it once per model; the default,
+``ExperimentResult``, draws it once for the whole experiment.
 """
 
 from __future__ import annotations
@@ -13,46 +13,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from drevalpy.plugin import (
-    ImageVisualization,
     ModelResult,
+    Plot,
     register_visualization,
 )
 
 
-@register_visualization(
-    "toyResiduals",
-    "Histogram of prediction residuals pooled across a model's folds.",
-    result_type="ModelResult",
-    requirements=frozenset(),
-)
-class ToyResidualHistogram(ImageVisualization):
+@register_visualization("toyResiduals", "Histogram of prediction residuals pooled across a model's folds.")
+class ToyResidualHistogram(Plot):
     """Pool every fold's residuals and draw one histogram."""
 
-    def __init__(self) -> None:
-        """Create an empty visualization."""
-        self._residuals = np.empty(0, dtype=np.float64)
-        self._title = ""
+    result_type = ModelResult
 
-    def compute(self, result: ModelResult) -> None:
-        """Pool the residuals and build the figure.
-
-        ``compute`` must assign ``self._fig``; the inherited ``to_png``,
-        ``to_multiqc`` and ``show`` all raise until it does.
+    def figure(self, result: ModelResult) -> matplotlib.figure.Figure:
+        """Draw the histogram of *result*'s residuals.
 
         :param result: The model whose folds are pooled.
         """
         residuals = [np.asarray(run.predictions) - np.asarray(run.ground_truth) for run in result.runs]
         pooled = np.concatenate(residuals) if residuals else np.empty(0)
-        self._residuals = pooled[~np.isnan(pooled)]
-        self._title = f"{result.model_name} residuals ({len(result.runs)} folds)"
-        self._fig = self._create_figure()
-
-    def _create_figure(self) -> matplotlib.figure.Figure:
-        """Draw the histogram."""
         figure, axes = plt.subplots(figsize=(6, 4))
-        axes.hist(self._residuals, bins=20)
+        axes.hist(pooled[~np.isnan(pooled)], bins=20)
         axes.set_xlabel("predicted - observed")
         axes.set_ylabel("pairs")
-        axes.set_title(self._title)
+        axes.set_title(f"{result.model_name} residuals ({len(result.runs)} folds)")
         figure.tight_layout()
         return figure

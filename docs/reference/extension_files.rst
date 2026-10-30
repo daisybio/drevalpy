@@ -143,9 +143,9 @@ A YAML file with a ``sources`` or a ``datasets`` key registers dataset sources a
      - Required. The file name under the source URL
 
 The Python equivalents are ``register_source(name, base_url, storage_options=None, *,
-override=False)`` and ``register_dataset(name, source, file, *, override=False)`` in
+replace=False)`` and ``register_dataset(name, source, file, *, replace=False)`` in
 ``drevalpy.registry.dataset``. Registering an identical entry again does
-nothing. Registering a conflicting entry raises ``ValueError`` unless ``override=True``.
+nothing. Registering a conflicting entry raises ``ValueError`` unless ``replace=True``.
 Custom registrations are stored in ``<config dir>/datasets.json`` and listed with origin
 ``custom`` by ``drevalpy list datasets``. The built-in source ``orakl`` and its datasets are
 described in :doc:`datasets`.

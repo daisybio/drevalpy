@@ -14,7 +14,7 @@ Breaking changes from 1.6.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - **Nothing that 1.x wrote loads in v2.** Re-run experiments and retrain models. Result files,
-  splits and model checkpoints are in new formats; the checkpoint format version restarts at 1.
+  splits and saved models are in new formats; a saved model is a ``.zip`` archive of format version 2.
   :ref:`how-to/migrate/index:Which 1.x files still load` lists what each loader says.
 - **The command line is one script.** ``drevalpy`` has the subcommands ``run``, ``single``,
   ``aggregate``, ``curate``, ``report``, ``data``, ``experiments`` and ``list``, and the 17
@@ -154,7 +154,7 @@ New commands and functions
 - ``DREVALPY_EXTENSIONS_DIR`` is read by ``load_extensions()`` in Python, not only by the
   command line. It can name several directories, separated by ``:`` on Linux and macOS.
 - ``register_source`` and ``register_dataset`` raise ``ValueError`` when the name is already
-  registered with a different entry, including a built-in one. Pass ``override=True`` to
+  registered with a different entry, including a built-in one. Pass ``replace=True`` to
   replace it. Registering an identical entry again does nothing.
 
 Errors and logging
@@ -223,16 +223,16 @@ Cross-study evaluation, component grids and recorded failures
 Components and imports
 ~~~~~~~~~~~~~~~~~~~~~~
 
-- A featurizer declares the feature format it emits as ``output_format``, and a predictor the format it
-  needs on each side as ``sample_input_format`` and ``drug_input_format``. Give them on the class or as
-  keywords of ``@register``; the keyword wins. A missing or wrong-typed format raises ``TypeError`` when the
-  class is created or registered, and a model whose parts disagree is rejected before training.
-  ``FeatureFormat`` is importable from ``drevalpy.plugin``.
+- A featurizer subclasses ``Featurizer``, declares the sides it supports as ``sides`` and the blocks it emits
+  with ``output_blocks``, and is registered once with ``@register_featurizer``. A predictor declares what it
+  reads on each side as ``sample_inputs`` and ``drug_inputs``: ``Inputs.none()``, ``Inputs.matrix()`` or
+  ``Inputs.blocks(...)``. A model whose parts disagree is rejected before training. Fitted components are
+  saved by pickling them, so they need no state methods.
 - A global feature block is made with ``global_feature_block``, its side information is ``annotations``,
   and a ``BlockSpec`` marks it with ``entity_aligned=False``.
-- ``precompute(dataset, featurizer_cls, hyperparameters)`` and ``precompute_all(dataset)`` in
-  ``drevalpy.components.featurizers.precompute`` store the featurizer variants, and the sampling of the
-  configurations is seeded.
+- ``precompute(dataset, featurizer_name, side, hyperparameters)`` and ``precompute_all(dataset)`` in
+  ``drevalpy.data.precompute`` store the featurizer variants, and the sampling of the configurations is
+  seeded.
 - A file may store a sample view under its public name or under the stored name (``copy_number_variation``
   for ``copy_number_variation_gistic``); the public name wins when both exist.
 - ``drevalpy.types`` exports only ``Dataset``, ``SplitMask`` and ``SplitMasks``, and

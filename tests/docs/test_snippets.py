@@ -34,33 +34,16 @@ def _page_id(page: Path) -> str:
 
 @pytest.fixture
 def isolated_drevalpy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Keep a page's registrations, config and zoo files from leaking into other tests.
+    """Keep a page's dataset sources and environment from leaking into other tests.
 
-    Pages register components (``-e DIR``, ``register_*``), dataset sources and
-    zoo files. The component registries are rolled back to the names they had
-    before the page; the dataset registry persists to ``DREVALPY_CONFIG_DIR``,
-    so that points into *tmp_path*.
+    Pages register components (``-e DIR``, ``register_*``), zoo files and dataset
+    sources. The autouse ``registry_snapshot`` fixture restores the in-memory
+    registries, zoo included; the dataset registry persists to
+    ``DREVALPY_CONFIG_DIR``, so that points into *tmp_path*.
     """
-    from drevalpy.models.zoo import clear_external_zoo
-    from drevalpy.registry.drug_featurizer import drug_featurizer_registry
-    from drevalpy.registry.predictor import predictor_registry
-    from drevalpy.registry.sample_featurizer import sample_featurizer_registry
-    from drevalpy.registry.splitter import splitter_registry
-    from drevalpy.registry.visualization import visualization_registry
-
     monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.delenv("DREVALPY_EXTENSIONS_DIR", raising=False)
-    kept = [
-        (predictor_registry, frozenset(predictor_registry.list_names())),
-        (sample_featurizer_registry, frozenset(sample_featurizer_registry.list_names())),
-        (drug_featurizer_registry, frozenset(drug_featurizer_registry.list_names())),
-        (splitter_registry, frozenset(splitter_registry.modes)),
-        (visualization_registry, frozenset(visualization_registry.names)),
-    ]
     yield
-    for registry, names in kept:
-        registry.retain_only(names)
-    clear_external_zoo()
 
 
 def test_the_runner_sees_the_tutorial_and_how_to_pages() -> None:

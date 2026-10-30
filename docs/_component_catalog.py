@@ -1,130 +1,133 @@
-"""Generate built-in component tables from registry metadata."""
+"""Generate built-in component tables from the registries and the component classes."""
 
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Collection
 from pathlib import Path
-from typing import TypedDict, TypeVar, cast
+from typing import Any
 
 from _generated_io import write_text_if_changed
 
-from drevalpy.registry._builtins import (
-    BUILTIN_DRUG_FEATURIZER_NAMES,
-    BUILTIN_PREDICTOR_NAMES,
-    BUILTIN_SAMPLE_FEATURIZER_NAMES,
-    get_skipped_builtin_modules,
-    register_builtin_components,
-)
-from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
+from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
+from drevalpy.registry._builtins import builtin_names, get_skipped_builtin_modules, register_builtins
+from drevalpy.registry.featurizer import featurizers
 from drevalpy.registry.predictor import predictor_registry
-from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_CATALOGS = {
-    "sample": DOCS_DIR / "reference" / "_generated_sample_featurizers.rst",
-    "drug": DOCS_DIR / "reference" / "_generated_drug_featurizers.rst",
+    "featurizer": DOCS_DIR / "reference" / "_generated_featurizers.rst",
     "predictor": DOCS_DIR / "reference" / "_generated_predictors.rst",
 }
-EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample": 18, "drug": 12, "predictor": 30}
-EXPECTED_PREDICTOR_INTERFACE_COUNTS = {"feature_free": 1, "matrix": 14, "block": 15}
+EXPECTED_BUILTIN_COMPONENT_COUNTS = {"featurizer": 27, "predictor": 30}
+#: Built-in predictors per input kind; a predictor counts under ``matrix`` or ``blocks`` when either side has it.
+EXPECTED_PREDICTOR_INPUT_COUNTS = {"none": 1, "matrix": 14, "blocks": 15}
+
+#: View a featurizer that requires an explicit view is built with to read its declarations.
+_PLACEHOLDER_VIEW = "gene_expression"
 
 
-class ComponentCatalogMetadata(TypedDict):
-    """Registry fields shared by every generated component row."""
-
-    name: str
-    description: str
-
-
-class FeaturizerCatalogMetadata(ComponentCatalogMetadata):
-    """Registry fields rendered for a featurizer."""
-
-    output_format: str
-    precompute: bool
-
-
-class PredictorCatalogMetadata(ComponentCatalogMetadata):
-    """Registry fields rendered for a predictor."""
-
-    input_interface: str
-
-
-MetadataT = TypeVar("MetadataT", bound=ComponentCatalogMetadata)
-
-
-def _builtin_rows(
-    rows: list[MetadataT],
-    builtin_names: Collection[str],
-    component_label: str,
-) -> list[MetadataT]:
-    """Select and sort built-in rows, failing if discovery is incomplete.
-
-    :param rows: discovered registry metadata rows
-    :param builtin_names: names expected from built-in module registration
-    :param component_label: component kind used in validation errors
-    :returns: built-in metadata rows sorted by name
-    :raises RuntimeError: if a built-in component has no discovered metadata
-    """
-    rows_by_name = {row["name"]: row for row in rows if row["name"] in builtin_names}
-    missing = sorted(set(builtin_names) - rows_by_name.keys())
-    if missing:
-        raise RuntimeError(f"Built-in {component_label} missing registry metadata: {missing}")
-    return [rows_by_name[name] for name in sorted(rows_by_name)]
-
-
-def _description(row: ComponentCatalogMetadata) -> str:
-    description = " ".join(row["description"].split())
+def _description(name: str, metadata: Any) -> str:
+    description = " ".join((metadata.get("description") or "").split())
     if not description:
-        raise RuntimeError(f"Component {row['name']!r} is missing a description")
+        raise RuntimeError(f"Component {name!r} is missing a description")
     return description
 
 
-def _render_featurizers(rows: list[FeaturizerCatalogMetadata]) -> str:
+def _featurizer_config(name: str, cls: type[Any]) -> dict[str, Any]:
+    """Return the construction kwargs of a built-in featurizer with its defaults.
+
+    :param name: Registry name.
+    :param cls: Featurizer class.
+    :returns: Hyperparameter defaults, plus a placeholder view when the featurizer needs one.
+    """
+    config: dict[str, Any] = dict(cls.default_hyperparameters())
+    if requires_explicit_view(name):
+        config["view"] = _PLACEHOLDER_VIEW
+    return config
+
+
+def _output_formats(cls: type[Any], config: dict[str, Any]) -> str:
+    formats = dict.fromkeys(spec.format.value for spec in cls.output_blocks(config))
+    return ", ".join(f"``{fmt}``" for fmt in formats) or "Those of its children"
+
+
+def _stores_outputs(cls: type[Any], config: dict[str, Any]) -> bool:
+    """Return whether the default instance looks up stored outputs, which is what ``precompute`` needs.
+
+    :param cls: Featurizer class.
+    :param config: Construction kwargs from :func:`_featurizer_config`.
+    :returns: ``True`` when ``stored_params()`` is not ``None``.
+    """
+    try:
+        featurizer = cls(**config)
+    except (TypeError, ValueError):
+        return False
+    return featurizer.storage_key is not None and featurizer.stored_params() is not None
+
+
+def _render_featurizers(rows: list[tuple[str, type[Any]]]) -> str:
     lines = [
         ".. list-table::",
         "   :header-rows: 1",
-        "   :widths: 22 16 12 50",
+        "   :widths: 22 12 16 12 38",
         "",
         "   * - Name",
+        "     - Sides",
         "     - Output format",
         "     - Precomputable",
         "     - Description",
     ]
-    for row in rows:
-        if not row["output_format"]:
-            raise RuntimeError(f"Featurizer {row['name']!r} is missing an output format")
-        precompute_marker = "\u2705" if row["precompute"] else "\u274c"
+    for name, cls in rows:
+        config = _featurizer_config(name, cls)
         lines.extend(
             [
-                f"   * - ``{row['name']}``",
-                f"     - ``{row['output_format']}``",
-                f"     - {precompute_marker}",
-                f"     - {_description(row)}",
+                f"   * - ``{name}``",
+                f"     - {', '.join(sorted(cls.sides))}",
+                f"     - {_output_formats(cls, config)}",
+                f"     - {chr(0x2705) if _stores_outputs(cls, config) else chr(0x274C)}",
+                f"     - {_description(name, featurizers.metadata(name))}",
             ]
         )
     return "\n".join([*lines, ""])
 
 
-def _render_predictors(rows: list[PredictorCatalogMetadata]) -> str:
+def _inputs_cell(inputs: Inputs) -> str:
+    """Render one side's input declaration."""
+    if inputs.kind != "blocks":
+        return inputs.kind.capitalize()
+    if not inputs.specs:
+        return "Blocks: any"
+    parts = []
+    for spec in inputs.specs:
+        names = [option.name for option in spec] if isinstance(spec, tuple) else [spec.name]
+        parts.append(" or ".join(f"``{name}``" for name in names))
+    return "Blocks: " + ", ".join(parts)
+
+
+def _input_kind(cls: type[Any]) -> str:
+    kinds = {predictor_inputs(cls, "sample").kind, predictor_inputs(cls, "drug").kind}
+    return next((kind for kind in ("blocks", "matrix") if kind in kinds), "none")
+
+
+def _render_predictors(rows: list[tuple[str, type[Any]]]) -> str:
     lines = [
         ".. list-table::",
         "   :header-rows: 1",
-        "   :widths: 24 20 56",
+        "   :widths: 20 20 20 40",
         "",
         "   * - Name",
-        "     - Interface",
+        "     - Sample inputs",
+        "     - Drug inputs",
         "     - Description",
     ]
-    for row in rows:
-        interface = row["input_interface"]
-        if not interface:
-            raise RuntimeError(f"Predictor {row['name']!r} is missing an input interface")
+    for name, cls in rows:
         lines.extend(
             [
-                f"   * - ``{row['name']}``",
-                f"     - {interface.replace('_', '-').capitalize()}",
-                f"     - {_description(row)}",
+                f"   * - ``{name}``",
+                f"     - {_inputs_cell(predictor_inputs(cls, 'sample'))}",
+                f"     - {_inputs_cell(predictor_inputs(cls, 'drug'))}",
+                f"     - {_description(name, predictor_registry.metadata(name))}",
             ]
         )
     return "\n".join([*lines, ""])
@@ -143,68 +146,47 @@ def _skipped_module_report() -> str:
     return "\n\n" + header + "\n\n" + "\n\n".join(sections)
 
 
-def _validate_builtin_catalog(
-    *,
-    sample_rows: list[FeaturizerCatalogMetadata],
-    drug_rows: list[FeaturizerCatalogMetadata],
-    predictor_rows: list[PredictorCatalogMetadata],
-) -> None:
-    """Fail generation when built-in catalogs diverge from supported interfaces.
+def _builtin_rows(registry: Any) -> list[tuple[str, type[Any]]]:
+    builtin = frozenset(builtin_names(registry))
+    return sorted((name, cls) for name, cls in registry.items() if name in builtin)
 
-    :param sample_rows: registered sample featurizer metadata rows
-    :param drug_rows: registered drug featurizer metadata rows
-    :param predictor_rows: registered predictor metadata rows
-    :raises RuntimeError: if component or interface counts diverge from expectations
+
+def _validate_builtin_catalog(
+    featurizer_rows: list[tuple[str, type[Any]]],
+    predictor_rows: list[tuple[str, type[Any]]],
+) -> None:
+    """Fail generation when the built-in catalogs diverge from the supported set.
+
+    :param featurizer_rows: built-in featurizers
+    :param predictor_rows: built-in predictors
+    :raises RuntimeError: if component or input-kind counts diverge from expectations
     """
-    observed_counts = {
-        "sample": len(sample_rows),
-        "drug": len(drug_rows),
-        "predictor": len(predictor_rows),
-    }
+    observed_counts = {"featurizer": len(featurizer_rows), "predictor": len(predictor_rows)}
     if observed_counts != EXPECTED_BUILTIN_COMPONENT_COUNTS:
         raise RuntimeError(
             "Built-in component catalog counts do not match the supported set: "
             f"expected {EXPECTED_BUILTIN_COMPONENT_COUNTS}, got {observed_counts}"
             f"{_skipped_module_report()}"
         )
-
-    interface_counts = dict(Counter(row["input_interface"] for row in predictor_rows))
-    if interface_counts != EXPECTED_PREDICTOR_INTERFACE_COUNTS:
+    input_counts = dict(Counter(_input_kind(cls) for _, cls in predictor_rows))
+    if input_counts != EXPECTED_PREDICTOR_INPUT_COUNTS:
         raise RuntimeError(
-            "Predictor interface counts do not match the supported set: "
-            f"expected {EXPECTED_PREDICTOR_INTERFACE_COUNTS}, got {interface_counts}"
+            "Predictor input counts do not match the supported set: "
+            f"expected {EXPECTED_PREDICTOR_INPUT_COUNTS}, got {input_counts}"
         )
 
 
 def generate_component_catalog_rsts() -> dict[str, str]:
-    """Return deterministic RST tables for every built-in component registry.
+    """Return deterministic RST tables for the built-in featurizers and predictors.
 
-    :returns: generated RST keyed by component registry
+    :returns: generated RST keyed by ``featurizer`` and ``predictor``
     """
-    register_builtin_components()
-    sample_rows = _builtin_rows(
-        cast(list[FeaturizerCatalogMetadata], sample_featurizer_registry.list_metadata()),
-        BUILTIN_SAMPLE_FEATURIZER_NAMES,
-        "sample featurizers",
-    )
-    drug_rows = _builtin_rows(
-        cast(list[FeaturizerCatalogMetadata], drug_featurizer_registry.list_metadata()),
-        BUILTIN_DRUG_FEATURIZER_NAMES,
-        "drug featurizers",
-    )
-    predictor_rows = _builtin_rows(
-        cast(list[PredictorCatalogMetadata], predictor_registry.list_metadata()),
-        BUILTIN_PREDICTOR_NAMES,
-        "predictors",
-    )
-    _validate_builtin_catalog(
-        sample_rows=sample_rows,
-        drug_rows=drug_rows,
-        predictor_rows=predictor_rows,
-    )
+    register_builtins()
+    featurizer_rows = _builtin_rows(featurizers)
+    predictor_rows = _builtin_rows(predictor_registry)
+    _validate_builtin_catalog(featurizer_rows, predictor_rows)
     return {
-        "sample": _render_featurizers(sample_rows),
-        "drug": _render_featurizers(drug_rows),
+        "featurizer": _render_featurizers(featurizer_rows),
         "predictor": _render_predictors(predictor_rows),
     }
 

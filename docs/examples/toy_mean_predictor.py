@@ -1,9 +1,8 @@
 """Feature-free predictor example: predict the training mean.
 
-``FeatureFreePredictor`` sees pair identifiers and responses only. Composition
-forbids pairing it with sample or drug featurizers, but registration still
-wants both input formats, because the composition checker compares them before it
-knows the interface.
+``FeatureFreePredictor`` declares ``Inputs.none()`` on both sides, so it sees pair
+identifiers and responses only, and config validation rejects a model that gives it
+a sample or drug featurizer.
 """
 
 from __future__ import annotations
@@ -11,26 +10,20 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.plugin import (
-    FeatureFormat,
     FeatureFreePredictor,
     ModelInputBatch,
     register_predictor,
 )
 
 
-@register_predictor(
-    "toyMean",
-    description="Predict the mean training response for every pair.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
-)
+@register_predictor("toyMean", description="Predict the mean training response for every pair.")
 class ToyMeanPredictor(FeatureFreePredictor):
     """The simplest possible baseline."""
 
     def __init__(self, hyperparameters: dict[str, object] | None = None) -> None:
         """Create an untrained predictor.
 
-        :param hyperparameters: Overrides merged onto the declared defaults. This
+        :param hyperparameters: Values merged onto the defaults of the space. This
             predictor has none, but the signature is part of the interface.
         """
         super().__init__(hyperparameters)
@@ -50,17 +43,3 @@ class ToyMeanPredictor(FeatureFreePredictor):
             msg = "ToyMeanPredictor must be fitted before predicting"
             raise RuntimeError(msg)
         return np.full(batch.n_pairs, self._mean, dtype=np.float64)
-
-    def get_state(self) -> dict[str, object]:
-        """Return the fitted mean for checkpoint persistence."""
-        return {} if self._mean is None else {"mean": self._mean}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore the fitted mean produced by ``get_state``."""
-        mean = state.get("mean")
-        if mean is not None:
-            self._mean = float(mean)  # type: ignore[arg-type]
-
-    def is_fitted(self) -> bool:
-        """Report whether ``fit`` has run."""
-        return self._mean is not None

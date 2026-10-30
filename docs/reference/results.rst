@@ -143,7 +143,8 @@ A run file is a compressed ``.npz`` archive.
    * - ``fold_index``, ``fold_id``
      - The fold of the split; see :doc:`split_modes`
    * - ``best_hyperparameters``
-     - The values used for the final fit, under short names; see :doc:`hyperparameters`
+     - Every hyperparameter value of the final fit, under qualified keys such as
+       ``predictor.elasticNet.alpha``; see :doc:`hyperparameters`
    * - ``metrics``
      - The seven metrics of this run; see :doc:`metrics`
    * - ``fold_metadata``
@@ -211,8 +212,8 @@ The file uses the run-file layout rather than a table so that no new reader is n
 predictions and observed responses stay aligned in one archive. To get a table, build one from the
 arrays, for example with ``pandas.DataFrame``.
 
-The model directory that ``drevalpy train`` writes holds ``model.zip``, the checkpoint of
-``DRPModel.save``, and ``metadata.json`` with the model name, dataset name, ``seed``,
+The model directory that ``drevalpy train`` writes holds ``model.zip``, the archive that
+``DRPModel.save`` writes, and ``metadata.json`` with the model name, dataset name, ``seed``,
 ``response_transformation``, ``hyperparameter_tuning`` and ``drevalpy_version``.
 
 Split file
