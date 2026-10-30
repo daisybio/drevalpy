@@ -247,11 +247,13 @@ class SingleDrugMorgoth(DRPModel):
         :raises RuntimeError: if the model has not been built yet
         """
         y_class = None
-        if output.regulation is not None:
+        regulation = output.regulation
+        if regulation is not None:
             n_before, n_cell_lines_before = len(output), len(np.unique(output.cell_line_ids))
+            keep = np.not_equal(regulation, "NA")
             output = output.copy()
-            output.mask(output.regulation != "NA")
-            y_class = (output.regulation == "down").astype(int)
+            output.mask(keep)
+            y_class = np.equal(regulation[keep], "down").astype(int)
             n_cell_lines = len(np.unique(output.cell_line_ids))
             print(
                 f"Dropped {n_before - len(output)} of {n_before} responses with regulation 'NA'; training on "
