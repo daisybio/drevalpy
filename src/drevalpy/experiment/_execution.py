@@ -10,7 +10,7 @@ from typing import Any, cast
 
 from drevalpy.models.config.immutable import freeze_value, thaw_value
 from drevalpy.models.spec import ModelSpec
-from drevalpy.registry.splitter import Validation, splitter_registry
+from drevalpy.registry.splitter import Validation, canonical, splitter_registry
 from drevalpy.registry.splitter._validation import validate_folds
 from drevalpy.types import Dataset, SplitMask, SplitMasks
 from drevalpy.types.results._identity import RunIdentity
@@ -100,8 +100,8 @@ def build_execution(
     """
     if not isinstance(model, ModelSpec):
         raise TypeError("Experiment models must be ModelSpec values")
-    mode = splitter_registry.canonical(folds.metadata.get("split_mode", ""))
-    validation = splitter_registry.get_metadata(mode)["validation"] if mode in splitter_registry.modes else mode
+    mode = canonical(folds.metadata.get("split_mode", ""))
+    validation = splitter_registry.metadata(mode)["validation"] if mode in splitter_registry else mode
     validate_folds(
         [folds], cast(Validation, validation if validation in ("LSO", "LDO", "LTO", "LStO") else "LPO"), dataset
     )

@@ -3,32 +3,32 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.components.featurizers._featurizer_tree import ensure_unique_qualified_featurizers
-from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
-from drevalpy.models.config._recipe import expand_featurizer_recipe
+from drevalpy.models.config._featurizer_parse import normalize_featurizer
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.featurizer import get_featurizer
 
 if TYPE_CHECKING:
-    from drevalpy.components.featurizers.base import Featurizer
+    from drevalpy.components.featurizers.featurizer import Featurizer
 
 
 class FeaturizerConfig(BaseModel):
     """Immutable template for a featurizer node in a model stack.
 
     Describes *which* featurizer to build and how to address it, not the built object:
-    a ``name`` looked up in one of the two registries (``sample`` or ``drug``), an
-    optional ``view`` selecting the input matrix, ``options`` fixing concrete
-    constructor values, and ``hyperparameter_space`` declaring what tuning may vary.
-    ``featurizers`` makes the node a tree, holding children for ``concatFeaturizers``.
-    Combine several views by nesting one single-``view`` child per view under a concat
-    node, which is what the ``raw[gene_expression]+raw[mutations]`` shorthand expands to.
+    a ``name`` looked up in the featurizer registry, an optional ``view`` selecting the
+    input matrix, ``options`` fixing concrete constructor values, and
+    ``hyperparameter_space`` declaring what tuning may vary. ``featurizers`` makes the
+    node a tree, holding children for ``concatFeaturizers``. Combine several views by
+    nesting one single-``view`` child per view under a concat node, which is what the
+    ``raw[gene_expression]+raw[mutations]`` shorthand expands to. The side a featurizer
+    runs on is not part of the node: it is the model config slot that holds it.
 
     Accepts the same notations users write in the docs' recipe strings and YAML (a bare
     name, a ``name[view]`` label, a list, or a one-key mapping) and normalizes them into
@@ -39,69 +39,27 @@ class FeaturizerConfig(BaseModel):
     cached config fail loudly. Note this buys *safety*, not hashability: ``options`` and
     ``hyperparameter_space`` hold arbitrary nested data, so a config carrying either is
     unhashable regardless. Configs are compared and copied by value via ``model_dump``.
-
-    Subclasses pin ``registry`` to a single value; see ``SampleFeaturizerConfig``
-    and ``DrugFeaturizerConfig``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
-    registry: Literal["sample", "drug"] = "sample"
     view: str | None = None
     featurizers: tuple[FeaturizerConfig, ...] | None = None
     options: FrozenMapping | None = None
     hyperparameter_space: FrozenMapping | None = None
 
-    @classmethod
-    def _pinned_registry(cls) -> str | None:
-        """Return the single registry this class is locked to, if any.
-
-        Subclasses narrow ``registry`` to a one-value ``Literal``, so that annotation is
-        the only place each registry name is declared.
-
-        :returns: The sole allowed ``registry`` value, or ``None`` when several are allowed.
-        """
-        allowed = get_args(cls.model_fields["registry"].annotation)
-        return str(allowed[0]) if len(allowed) == 1 else None
-
     @model_validator(mode="before")
     @classmethod
     def _normalize_recipe_input(cls, data: object) -> object:
-        """Rewrite the various ways of writing one featurizer into this model's own fields.
-
-        A featurizer can be given as a compact recipe string or spelled out as a mapping.
-        This runs before field validation and reduces every accepted form to the canonical
-        ``name`` / ``view`` / ``featurizers`` fields::
-
-            "scaledGeneExpression"                     name=scaledGeneExpression
-            "raw[gene_expression]"                     name=raw, view=gene_expression
-            "raw[gene_expression]+raw[mutations]"      name=concatFeaturizers, two children
-            ["raw[gene_expression]", "raw[mutations]"] name=concatFeaturizers, two children
-            {"pca[methylation]": {"n_components": 8}}  name=pca, view=methylation, + space
-            {"name": "raw", "view": "gene_expression"} already canonical, passed through
-
-        A recipe string is expanded into the mapping it stands for first, so the mapping
-        normalizer sees the same input whichever notation was used. Turning a bare name into a
-        component needs a registry to look it up in. A pinned subclass uses its own and
-        overwrites a conflicting ``registry`` key; the base class reads it from the input,
-        falling back to the field default.
+        """Rewrite any accepted spelling of a featurizer into this model's own fields.
 
         :param data: A recipe string, a list of them, or a mapping of fields.
         :returns: Canonical field mapping, or *data* unchanged if it is none of these forms.
         """
         if not isinstance(data, (str, list, dict)):
             return data
-        if isinstance(data, str):
-            data = expand_featurizer_recipe(data)
-        pinned = cls._pinned_registry()
-        if pinned is not None:
-            if isinstance(data, dict) and "registry" in data:
-                data = {**data, "registry": pinned}
-            return normalize_featurizer_config(data, default_registry=pinned)
-        requested = data.get("registry") if isinstance(data, dict) else None
-        fallback = cls.model_fields["registry"].default
-        return normalize_featurizer_config(data, default_registry=str(requested or fallback))
+        return normalize_featurizer(data)
 
     @model_validator(mode="after")
     def _validate_hyperparameter_space(self) -> FeaturizerConfig:
@@ -179,14 +137,14 @@ class FeaturizerConfig(BaseModel):
         """
         if self.name != "concatFeaturizers":
             return self
-        ensure_unique_qualified_featurizers(self, str(self.registry))
+        ensure_unique_qualified_featurizers(self)
         return self
 
     def create_instance(self, hyperparameters: Mapping[str, Any] | None = None) -> Featurizer:
         """Instantiate the configured featurizer from the registry.
 
         Turns this declarative template into a live object: resolves ``name`` in the
-        registry named by ``registry``, then merges constructor arguments so that
+        featurizer registry, then merges constructor arguments so that
         *hyperparameters* (typically a tuning trial's picks) override the config's own
         ``options``. ``view`` and ``featurizers`` are filled in only when the
         caller has not already supplied them.
@@ -196,7 +154,7 @@ class FeaturizerConfig(BaseModel):
             or config payloads under the ``featurizers`` key.
         :returns: Featurizer instance for this config.
         """
-        cls = get_featurizer(self.registry, self.name)
+        cls = get_featurizer(self.name)
         hp = thaw_value(dict(self.options or {}))
         hp.update(thaw_value(dict(hyperparameters or {})))
         if self.view is not None:
@@ -206,25 +164,4 @@ class FeaturizerConfig(BaseModel):
         return cls(**hp)
 
 
-class SampleFeaturizerConfig(FeaturizerConfig):
-    """Featurizer config fixed to the sample registry.
-
-    Use in a slot that must hold sample features: a mismatched ``registry`` in the
-    payload is corrected to ``sample`` rather than accepted.
-    """
-
-    registry: Literal["sample"] = "sample"
-
-
-class DrugFeaturizerConfig(FeaturizerConfig):
-    """Featurizer config fixed to the drug registry.
-
-    Drug-side counterpart of ``SampleFeaturizerConfig``.
-    """
-
-    registry: Literal["drug"] = "drug"
-
-
 FeaturizerConfig.model_rebuild()
-SampleFeaturizerConfig.model_rebuild()
-DrugFeaturizerConfig.model_rebuild()

@@ -14,9 +14,9 @@ import pytest
 from drevalpy.errors import DrEvalError
 from drevalpy.evaluation import Metric
 from drevalpy.models import ModelSpec
-from drevalpy.models.config import from_spec
+from drevalpy.models.config import from_recipe
 from drevalpy.models.tuning import hpo
-from drevalpy.models.tuning.config import HPOConfig, build_experiment_hpo_config
+from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo import HPOTrialsFailedError, hpam_tune
 from drevalpy.models.tuning.hpo_runtime import _construct_trial_model, _mu_evaluate_trial_all_metrics
 from drevalpy.types import SplitMask
@@ -43,39 +43,20 @@ class TestHPOConfig:
     @pytest.mark.parametrize("metric", list(Metric), ids=lambda metric: metric.replace("^", ""))
     def test_direction_follows_the_metric(self, metric: Metric) -> None:
         expected = "minimize" if metric.direction == "min" else "maximize"
-        assert HPOConfig.from_metric(metric).direction == HPOConfig(metric=metric).direction == expected
+        assert HPOConfig(metric=metric).direction == expected
 
     @pytest.mark.parametrize("metric", ["NotAMetric", "rmse"], ids=["unknown", "case-sensitive"])
     def test_rejects_an_unknown_metric_and_lists_the_choices(self, metric: str) -> None:
         with pytest.raises(ValueError, match=f"Unknown metric '{metric}'.*RMSE"):
             HPOConfig(metric=metric)
 
-    def test_from_metric_forwards_overrides(self) -> None:
-        config = HPOConfig.from_metric("RMSE", n_trials=0, random_state=7)
-
-        assert (config.n_trials, config.random_state) == (0, 7)
-        with pytest.raises(TypeError):
-            HPOConfig.from_metric("RMSE", not_a_field=1)
-
-    def test_from_metric_validates_the_metric_before_n_trials(self) -> None:
+    def test_is_frozen_and_validates_the_metric_before_n_trials(self) -> None:
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            HPOConfig().n_trials = 3  # type: ignore[misc]
         with pytest.raises(ValueError, match=r"n_trials must be >= 0 \(got -1\)"):
-            HPOConfig.from_metric("RMSE", n_trials=-1)
+            HPOConfig(n_trials=-1)
         with pytest.raises(ValueError, match="Unknown metric"):
-            HPOConfig.from_metric("NotAMetric", n_trials=-1)
-
-
-class TestBuildExperimentHpoConfig:
-    def test_builds_from_the_metric(self) -> None:
-        assert build_experiment_hpo_config("Pearson").direction == "maximize"
-        config = build_experiment_hpo_config("MAE", n_trials=4, random_state=11)
-        assert (config.metric, config.n_trials, config.random_state) == ("MAE", 4, 11)
-        assert build_experiment_hpo_config("RMSE") == HPOConfig()
-
-    def test_rejects_invalid_arguments(self) -> None:
-        with pytest.raises(ValueError, match="Unknown metric"):
-            build_experiment_hpo_config("NotAMetric")
-        with pytest.raises(ValueError, match="n_trials must be >= 0"):
-            build_experiment_hpo_config("RMSE", n_trials=-1)
+            HPOConfig(metric="NotAMetric", n_trials=-1)
 
 
 def _tune(spec: ModelSpec, n_trials: int, **kwargs):
@@ -87,18 +68,18 @@ def _tune(spec: ModelSpec, n_trials: int, **kwargs):
         train_scope=scope,
         val_scope=scope,
         early_stopping_scope=None,
-        metric="RMSE",
-        hpo_config=HPOConfig.from_metric("RMSE", n_trials=n_trials),
+        hpo_config=HPOConfig(n_trials=n_trials),
         **kwargs,
     )
 
 
-def test_zero_trials_returns_spec_defaults() -> None:
-    spec = ModelSpec.from_name("ElasticNet")
+@pytest.mark.parametrize("name", ["ElasticNet", "NaivePredictor"])
+def test_zero_trials_or_an_empty_space_returns_the_spec_values(name: str) -> None:
+    spec = ModelSpec.from_name(name).with_hyperparameters({"alpha": 0.3} if name == "ElasticNet" else {})
 
-    best, trials = _tune(spec, 0)
+    best, trials = _tune(spec, 0 if name == "ElasticNet" else 2)
 
-    assert best == spec.default_hyperparameters
+    assert best == dict(spec.hyperparameters)
     assert trials == []
 
 
@@ -106,7 +87,7 @@ def test_zero_trials_returns_spec_defaults() -> None:
 def test_tuning_passes_model_spec_and_n_jobs_to_each_trial(mock_evaluate) -> None:
     best, _ = _tune(ModelSpec.from_name("ElasticNet"), 2, n_jobs=4)
 
-    assert "alpha" in best
+    assert set(best) == set(ModelSpec.from_name("ElasticNet").hyperparameters)
     assert mock_evaluate.call_count == 2
     assert [call.kwargs["n_jobs"] for call in mock_evaluate.call_args_list] == [4, 4]
 
@@ -124,14 +105,14 @@ def test_all_failed_trials_raise_without_default_fallback(mock_evaluate) -> None
     side_effect=[({"RMSE": 1.0 - 0.1 * i}, np.zeros(4)) for i in range(4)],
 )
 def test_best_hyperparameters_carry_the_decoded_pow2_value_the_trials_trained_with(mock_evaluate) -> None:
-    spec = ModelSpec("FingerprintElasticNet", from_spec("pca[gene_expression]:fingerprints:elasticNet"))
+    spec = ModelSpec("FingerprintElasticNet", from_recipe("pca[gene_expression]:fingerprints:elasticNet"))
 
     best, trials = _tune(spec, 4)
 
     best_trial_params, _, _ = trials[-1]
-    assert best["n_bits"] == best_trial_params["drug_featurizer.fingerprints.n_bits"]
-    assert best["n_bits"] in {512, 1024, 2048}
-    assert spec.resolve(best).values["drug_featurizer.fingerprints.n_bits"] == best["n_bits"]
+    assert best == {**spec.hyperparameters, **best_trial_params}
+    assert best["drug_featurizer.fingerprints.n_bits"] in {512, 1024, 2048}
+    assert all(key in spec.hyperparameter_space for key in best_trial_params)
 
 
 def test_removed_legacy_hpo_artifacts_stay_removed() -> None:
@@ -166,7 +147,8 @@ def test_construct_trial_model_keeps_spec_identity() -> None:
     trial_model = _construct_trial_model(spec, {"predictor.elasticNet.alpha": 0.5})
 
     assert trial_model.spec.name == spec.name
-    assert trial_model.hyperparameters["alpha"] == 0.5
+    assert trial_model.hyperparameters["predictor.elasticNet.alpha"] == 0.5
+    assert spec.hyperparameters["predictor.elasticNet.alpha"] == 1.0
 
 
 @pytest.mark.parametrize("supplied", [False, True])
@@ -209,7 +191,7 @@ def test_trial_hands_n_jobs_to_the_training_call() -> None:
 
 
 def _tune_wandb(**kwargs):
-    spec = ModelSpec("ElasticNet", from_spec("scaledGeneExpression:fingerprints:elasticNet"))
+    spec = ModelSpec("ElasticNet", from_recipe("scaledGeneExpression:fingerprints:elasticNet"))
     return _tune(spec, 2, **kwargs)
 
 
@@ -228,7 +210,7 @@ def test_each_trial_is_one_named_run_with_its_metrics_in_the_summary(fake_wandb:
         assert run.finished
         assert run.exit_code is None
         assert run.config["dataset"] == "synthetic"
-        assert len(run.config) > 1
+        assert set(run.config) - {"dataset"} == set(ModelSpec.from_name("ElasticNet").hyperparameter_space)
         assert run.summary["hpo_metric"] == run.summary["val_RMSE"]
         assert {"val_R^2", "val_Pearson", "val_RMSE"} <= set(run.summary)
 

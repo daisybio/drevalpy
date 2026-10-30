@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.models.config._space_defaults import split_space_and_options
+from drevalpy.models.config._featurizer_parse import split_loose_values
 from drevalpy.registry.predictor import get as get_predictor
 
 _RESERVED_PREDICTOR_KEYS = frozenset({"name", "hyperparameters", "hyperparameter_space"})
@@ -46,7 +46,7 @@ def _normalize_one_key_predictor_dict(data: dict[str, Any]) -> dict[str, Any]:
     payload = dict(body)
     hyperparameter_space = payload.pop("hyperparameter_space", None)
     if payload:
-        derived_space, options = split_space_and_options(get_predictor(str(name)), payload)
+        derived_space, options = split_loose_values(get_predictor(str(name)), payload)
         _reject_predictor_options(str(name), options)
         hyperparameter_space = {**derived_space, **(hyperparameter_space or {})}
     result: dict[str, Any] = {"name": str(name)}

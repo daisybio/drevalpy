@@ -1,210 +1,50 @@
-"""Hyperparameter search space utilities for internal modular composition."""
+"""The search space of a model and drawing hyperparameters from it.
+
+:func:`space` merges the spaces of a model's components under their qualified keys
+(:mod:`drevalpy.models.hyperparameters`): sample featurizer leaves, drug featurizer leaves,
+then the predictor. A component's space is the one its config declares, else its class's
+``get_hyperparameter_space()``. :func:`draw` turns a space into values for one Optuna trial.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from drevalpy.components.contracts.hyperparameter_space import default_values
-from drevalpy.models._hp_key_grammar import (
-    DRUG_SLOT,
-    PREDICTOR_SLOT,
-    SAMPLE_SLOT,
-    featurizer_prefix,
-    is_featurizer_slot_key,
-    predictor_prefix,
-)
-from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
-from drevalpy.models.config._accepted_keys import leaf_selector
-from drevalpy.models.config._hp_key_validation import validate_merged_mapping
-from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.registry.featurizer import Side, get_featurizer
+from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
+from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
+from drevalpy.models.hyperparameters import FEATURIZER_SLOTS, PREDICTOR_SLOT, key
+from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 
+if TYPE_CHECKING:
+    from drevalpy.models.config import ModelConfig
 
-def _effective_space(config_space: Mapping[str, Any] | None, cls: type[Any]) -> dict[str, Any]:
-    if config_space is not None:
-        return {key: dict(value) if isinstance(value, Mapping) else value for key, value in config_space.items()}
+
+def _effective_space(declared: Mapping[str, Any] | None, cls: type[Any]) -> dict[str, Any]:
+    if declared is not None:
+        return {name: dict(spec) if isinstance(spec, Mapping) else spec for name, spec in declared.items()}
     return dict(cls.get_hyperparameter_space())
 
 
-def _merge_concat_child_spaces(
-    featurizer: FeaturizerConfig,
-    registry: Side,
-) -> dict[str, Any]:
-    merged: dict[str, Any] = {}
-    for child_cfg in featurizer.featurizers or ():
-        child_space = _featurizer_spaces(child_cfg)
-        for key, spec in child_space.items():
-            if is_featurizer_slot_key(key):
-                merged[key] = spec
-            else:
-                selector = leaf_selector(child_cfg)
-                merged[featurizer_prefix(registry, selector, key)] = spec
-    return merged
-
-
-def _leaf_featurizer_spaces(featurizer: FeaturizerConfig, registry: Side) -> dict[str, Any]:
-    cls = get_featurizer(registry, featurizer.name)
-    space = _effective_space(
-        dict(featurizer.hyperparameter_space) if featurizer.hyperparameter_space is not None else None,
-        cls,
-    )
-    selector = leaf_selector(featurizer)
-    return {featurizer_prefix(registry, selector, key): value for key, value in space.items()}
-
-
-def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
-    registry = featurizer.registry
-    if featurizer.name == "concatFeaturizers":
-        return _merge_concat_child_spaces(featurizer, registry)
-    return _leaf_featurizer_spaces(featurizer, registry)
-
-
-def _predictor_spaces(predictor: PredictorConfig) -> dict[str, Any]:
-    cls = get_predictor(predictor.name)
-    space = _effective_space(
-        dict(predictor.hyperparameter_space) if predictor.hyperparameter_space is not None else None,
-        cls,
-    )
-    return {predictor_prefix(predictor.name, key): value for key, value in space.items()}
-
-
-def merge_model_config_spaces(config: ModelConfig) -> dict[str, Any]:
+def space(config: ModelConfig) -> dict[str, Any]:
     """Merge the hyperparameter spaces of all components of a model config.
 
-    :param config: Model configuration whose sample featurizer, drug featurizer and predictor spaces are merged.
-    :returns: One space whose keys carry the qualified prefix of the component that owns them.
+    :param config: Model configuration.
+    :returns: Every component's space entries under their qualified keys.
     """
     merged: dict[str, Any] = {}
-    if config.sample_featurizer is not None:
-        merged.update(_featurizer_spaces(config.sample_featurizer))
-    if config.drug_featurizer is not None:
-        merged.update(_featurizer_spaces(config.drug_featurizer))
-    merged.update(_predictor_spaces(config.predictor))
+    for side, root in (("sample", config.sample_featurizer), ("drug", config.drug_featurizer)):
+        if root is None:
+            continue
+        for leaf in iter_featurizer_leaves(root):
+            selector = qualified_featurizer_selector(leaf.name, leaf.view)
+            leaf_space = _effective_space(leaf.hyperparameter_space, get_featurizer(leaf.name))
+            merged.update({key(FEATURIZER_SLOTS[side], selector, name): spec for name, spec in leaf_space.items()})
+    predictor = config.predictor
+    predictor_space = _effective_space(predictor.hyperparameter_space, get_predictor(predictor.name))
+    merged.update({key(PREDICTOR_SLOT, predictor.name, name): spec for name, spec in predictor_space.items()})
     return merged
-
-
-def merge_search_spaces(
-    sample_featurizer_space: dict[str, Any] | None = None,
-    drug_featurizer_space: dict[str, Any] | None = None,
-    predictor_space: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Merge component spaces into a single dict with dot-notation prefixed keys.
-
-    :param sample_featurizer_space: Space of the sample featurizer, or ``None`` if there is none.
-    :param drug_featurizer_space: Space of the drug featurizer, or ``None`` if there is none.
-    :param predictor_space: Space of the predictor, or ``None`` if there is none.
-    :returns: The spaces with every key prefixed by its slot (``sample``, ``drug`` or ``predictor``).
-    """
-    merged: dict[str, Any] = {}
-    if sample_featurizer_space:
-        for key, value in sample_featurizer_space.items():
-            merged[f"{SAMPLE_SLOT}.{key}"] = value
-    if drug_featurizer_space:
-        for key, value in drug_featurizer_space.items():
-            merged[f"{DRUG_SLOT}.{key}"] = value
-    if predictor_space:
-        for key, value in predictor_space.items():
-            merged[f"{PREDICTOR_SLOT}.{key}"] = value
-    return merged
-
-
-def split_hyperparameters(
-    merged_config: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Invert merged search spaces into per-role hyperparameter dicts.
-
-    :param merged_config: Hyperparameters with slot-prefixed keys, as built by :func:`merge_search_spaces`.
-    :returns: The sample featurizer, drug featurizer and predictor hyperparameters, each without its prefix.
-        Keys without a known prefix go to the predictor.
-    """
-    sample_hp: dict[str, Any] = {}
-    drug_hp: dict[str, Any] = {}
-    predictor_hp: dict[str, Any] = {}
-    for key, value in merged_config.items():
-        if key.startswith(f"{SAMPLE_SLOT}."):
-            sample_hp[key.removeprefix(f"{SAMPLE_SLOT}.")] = value
-        elif key.startswith(f"{DRUG_SLOT}."):
-            drug_hp[key.removeprefix(f"{DRUG_SLOT}.")] = value
-        elif key.startswith(f"{PREDICTOR_SLOT}."):
-            predictor_hp[key.removeprefix(f"{PREDICTOR_SLOT}.")] = value
-        else:
-            predictor_hp[key] = value
-    return sample_hp, drug_hp, predictor_hp
-
-
-def resolve_model_config(
-    template: ModelConfig,
-    overrides: dict[str, Any] | None = None,
-    *,
-    include_defaults: bool = True,
-) -> ResolvedModelConfig:
-    """Build a resolved instance config from a template and qualified overrides.
-
-    :param template: Immutable class-level ``ModelConfig``.
-    :param overrides: Qualified concrete values to apply on top of defaults.
-    :param include_defaults: When ``True``, fill omitted keys from effective spaces.
-    :returns: Validated ``ResolvedModelConfig``.
-    """
-    qualified = dict(overrides or {})
-    if include_defaults:
-        defaults = defaults_from_merged_space(merge_model_config_spaces(template))
-        values = {**defaults, **qualified}
-    else:
-        values = qualified
-    validate_merged_mapping(template, values)
-    return ResolvedModelConfig(template=template, values=values)
-
-
-def apply_merged_to_model_config(config: ModelConfig, merged: dict[str, Any]) -> ResolvedModelConfig:
-    """Apply merged prefixed hyperparameters onto a model template.
-
-    Historically returned a ``ModelConfig`` with concrete values written into
-    component ``hyperparameters``. It now returns a ``ResolvedModelConfig``
-    and leaves the template unchanged.
-
-    :param config: Immutable model template.
-    :param merged: Qualified concrete hyperparameter mapping.
-    :returns: Resolved instance configuration.
-    """
-    return resolve_model_config(config, merged, include_defaults=True)
-
-
-def extract_defaults(
-    sample_featurizer_space: dict[str, Any] | None = None,
-    drug_featurizer_space: dict[str, Any] | None = None,
-    predictor_space: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Pull ``default`` values from spec dicts, returning a merged flat dict.
-
-    :param sample_featurizer_space: Space of the sample featurizer, or ``None`` if there is none.
-    :param drug_featurizer_space: Space of the drug featurizer, or ``None`` if there is none.
-    :param predictor_space: Space of the predictor, or ``None`` if there is none.
-    :returns: The ``default`` of every entry, keyed by slot prefix and hyperparameter name.
-    """
-    defaults: dict[str, Any] = {}
-
-    def _pull(space: dict[str, Any], prefix: str) -> None:
-        for name, value in default_values(space, context=f"hyperparameter space under {prefix!r}").items():
-            defaults[f"{prefix}.{name}"] = value
-
-    if sample_featurizer_space:
-        _pull(sample_featurizer_space, SAMPLE_SLOT)
-    if drug_featurizer_space:
-        _pull(drug_featurizer_space, DRUG_SLOT)
-    if predictor_space:
-        _pull(predictor_space, PREDICTOR_SLOT)
-    return defaults
-
-
-def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
-    """Extract default values from a merged structured search space.
-
-    :param space: Merged space in which every entry has a ``default``.
-    :returns: The ``default`` of every entry, under the same key.
-    """
-    return default_values(space, context="merged hyperparameter space")
 
 
 def _suggest_categorical(trial: Any, name: str, choices: list[Any]) -> Any:
@@ -223,22 +63,29 @@ def _suggest_categorical(trial: Any, name: str, choices: list[Any]) -> Any:
     return trial.suggest_categorical(name, choices)
 
 
-def draw_from_optuna_trial(trial: Any, space_dict: dict[str, Any]) -> dict[str, Any]:
-    """Draw hyperparameters from an Optuna trial using the structured search space.
+def draw(trial: Any, space: Mapping[str, Any]) -> dict[str, Any]:
+    """Draw one value per entry of *space* from an Optuna trial.
+
+    A ``fixed`` entry keeps its ``default``, and a non-mapping entry is taken as the value, without
+    asking the trial. A ``pow2`` entry is
+    sampled as an integer exponent and returned as the power of two, so replaying a trial's
+    ``params`` through this function (``optuna.trial.FixedTrial``) gives the values it trained with.
 
     :param trial: An ``optuna.Trial`` instance.
-    :param space_dict: Structured hyperparameter space with entries like
-        ``{"alpha": {"type": "float", "low": 0.001, "high": 10.0, "log": True}}``.
-    :returns: Flat dict of drawn concrete hyperparameter values.
-    :raises ValueError: If a parameter spec has an unknown type.
+    :param space: Search space such as
+        ``{"alpha": {"type": "float", "low": 0.001, "high": 10.0, "log": True, "default": 1.0}}``.
+    :returns: Drawn values under the keys of *space*.
+    :raises ValueError: If an entry has an unknown type.
     """
     result: dict[str, Any] = {}
-    for name, spec in space_dict.items():
+    for name, spec in space.items():
         if not isinstance(spec, Mapping):
             result[name] = spec
             continue
         kind = spec.get("type", "categorical")
-        if kind == "int":
+        if kind == "fixed":
+            result[name] = spec["default"]
+        elif kind == "int":
             result[name] = trial.suggest_int(name, int(spec["low"]), int(spec["high"]), log=spec.get("log", False))
         elif kind == "float":
             result[name] = trial.suggest_float(
@@ -247,11 +94,9 @@ def draw_from_optuna_trial(trial: Any, space_dict: dict[str, Any]) -> dict[str, 
         elif kind == "categorical":
             result[name] = _suggest_categorical(trial, name, list(spec.get("choices", [])))
         elif kind == "pow2":
-            exp = trial.suggest_int(name, int(spec["low"]), int(spec["high"]))
-            result[name] = 2**exp
+            result[name] = 2 ** trial.suggest_int(name, int(spec["low"]), int(spec["high"]))
         else:
-            msg = f"Unknown hyperparameter type {kind!r} for parameter {name!r}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown hyperparameter type {kind!r} for parameter {name!r}")
     return result
 
 
@@ -274,6 +119,6 @@ def sample_configurations(space: Mapping[str, Any], n: int, seed: int = 0) -> li
     configs: list[dict[str, Any]] = []
     for _ in range(n):
         trial = study.ask()
-        configs.append(draw_from_optuna_trial(trial, dict(space)))
+        configs.append(draw(trial, space))
         study.tell(trial, 0.0)
     return configs

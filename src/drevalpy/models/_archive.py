@@ -1,9 +1,9 @@
-"""Low-level versioned checkpoint I/O for DRPModel instances.
+"""The versioned single-ZIP checkpoint archive of a ``DRPModel``.
 
 Checkpoints are a single ZIP archive written atomically to an archive file path,
 which may be local or a remote ``UPath`` (``s3://``, ``memory://``, ...).
-Callers must only load artifacts they created with ``save_model`` in the same
-drevalpy version family.
+The payload holds the model spec as plain data and the fitted components as pickled objects.
+Only archives of format version 2 are read.
 
 .. warning::
    The payload is deserialized with ``joblib`` (pickle). Loading a checkpoint
@@ -16,21 +16,20 @@ from __future__ import annotations
 import io
 import os
 import shutil
+import sys
 import tempfile
 import zipfile
-from typing import TYPE_CHECKING, Any
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from typing import Any
 
 import joblib
 from upath import UPath as Path
 
 from drevalpy.errors import DrEvalError
-from drevalpy.models.config.resolved import ResolvedModelConfig
-
-if TYPE_CHECKING:
-    from drevalpy.models.drp_model import DRPModel
 
 FORMAT_NAME = "drevalpy-model"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 PAYLOAD_MEMBER = "payload.joblib"
 
 
@@ -130,27 +129,71 @@ def _read_payload_from_archive(archive_path: Path) -> Any:
         raise CorruptedCheckpointError(f"Failed to deserialize checkpoint {archive_path}: {exc}") from exc
 
 
-def save_model(model: DRPModel, path: str | Path) -> None:
-    """Save model identity, config, and component state as one ZIP archive.
+@contextmanager
+def _modules_on_cpu(components: Mapping[str, Any]) -> Iterator[None]:
+    """Move every torch module held by *components* to the CPU, restoring the devices afterwards.
 
-    :param model: Trained ``DRPModel`` instance to persist.
-    :param path: Archive file path; ``.zip`` is appended when missing.
-    :raises RuntimeError: If the model is not trained or lacks a ``ModelConfig``.
+    torch is imported only when it is already loaded: without it no component holds a module.
+
+    :param components: Fitted component objects.
+    :yields: While the modules are on the CPU.
     """
-    pipeline = model._pipeline
-    if not pipeline.is_fitted():
-        raise RuntimeError(f"Cannot save model {model.name!r}: pipeline must be FITTED")
-    config = model.config
+    if "torch" not in sys.modules:
+        yield
+        return
+    import torch
+
+    devices: list[tuple[torch.nn.Module, torch.device]] = []
+    for module in _torch_modules(components, torch.nn.Module):
+        tensor = next(module.parameters(), None)
+        if tensor is None:
+            tensor = next(module.buffers(), None)
+        if tensor is not None and tensor.device.type != "cpu":
+            devices.append((module, tensor.device))
+            module.to("cpu")
+    try:
+        yield
+    finally:
+        for module, device in devices:
+            module.to(device)
+
+
+def _torch_modules(root: Any, module_type: type) -> Iterator[Any]:
+    """Yield the outermost torch modules reachable from *root* through containers and drevalpy objects.
+
+    :param root: Object to search.
+    :param module_type: ``torch.nn.Module``.
+    :yields: Each module once.
+    """
+    seen: set[int] = set()
+    stack = [root]
+    while stack:
+        value = stack.pop()
+        if id(value) in seen:
+            continue
+        seen.add(id(value))
+        if isinstance(value, module_type):
+            yield value
+        elif isinstance(value, Mapping):
+            stack.extend(value.values())
+        elif isinstance(value, (list, tuple)):
+            stack.extend(value)
+        elif type(value).__module__.startswith("drevalpy") and hasattr(value, "__dict__"):
+            stack.extend(vars(value).values())
+
+
+def save_archive(path: str | Path, spec: dict[str, Any], components: dict[str, Any]) -> None:
+    """Write a model spec and its fitted components as one ZIP archive.
+
+    :param path: Archive file path; ``.zip`` is appended when missing.
+    :param spec: Plain-data model spec (``ModelSpec.dump()``).
+    :param components: Fitted component objects by role; torch modules are saved on the CPU.
+    """
     target = _as_path(path)
     _reject_directory_path(target)
-    payload = {
-        "format": FORMAT_NAME,
-        "version": FORMAT_VERSION,
-        "model_name": model.name,
-        "config": config.model_dump(mode="json"),
-        "state": pipeline.component_state(),
-    }
-    _write_archive_atomically(resolve_checkpoint_path(target), payload)
+    payload = {"format": FORMAT_NAME, "version": FORMAT_VERSION, "spec": spec, "components": components}
+    with _modules_on_cpu(components):
+        _write_archive_atomically(resolve_checkpoint_path(target), payload)
 
 
 def _unsupported_format(payload: dict[str, Any]) -> UnsupportedCheckpointFormatError:
@@ -165,17 +208,15 @@ def _unsupported_format(payload: dict[str, Any]) -> UnsupportedCheckpointFormatE
     )
 
 
-def _resolved_config_from_checkpoint_payload(payload: dict[str, Any]) -> ResolvedModelConfig:
-    if payload.get("version") != FORMAT_VERSION:
-        raise _unsupported_format(payload)
-    return ResolvedModelConfig.model_validate(payload["config"])
+def load_archive(path: str | Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Read a model archive written by :func:`save_archive`.
 
-
-def load_model_payload(path: str | Path) -> tuple[str, ResolvedModelConfig, dict[str, object]]:
-    """Load and validate a ``DRPModel`` checkpoint payload from an archive path.
+    .. warning::
+       The payload is unpickled, which can execute arbitrary code. Load archives only from
+       trusted sources.
 
     :param path: Archive file path; ``.zip`` is appended when missing.
-    :returns: Tuple of ``(model_name, resolved_config, component_state)``.
+    :returns: The plain-data spec and the component objects by role.
     :raises FileNotFoundError: If the archive does not exist.
     :raises UnsupportedCheckpointFormatError: If the format or version is unsupported.
     :raises CorruptedCheckpointError: If the payload structure is invalid.
@@ -185,56 +226,14 @@ def load_model_payload(path: str | Path) -> tuple[str, ResolvedModelConfig, dict
     archive_path = resolve_checkpoint_path(target)
     if not archive_path.is_file():
         raise FileNotFoundError(f"Missing model checkpoint: {archive_path}")
-
     payload = _read_payload_from_archive(archive_path)
     if not isinstance(payload, dict):
         raise CorruptedCheckpointError("checkpoint payload is not a mapping")
-    if payload.get("format") != FORMAT_NAME:
+    if payload.get("format") != FORMAT_NAME or payload.get("version") != FORMAT_VERSION:
         raise _unsupported_format(payload)
-    model_name = payload.get("model_name")
-    if not isinstance(model_name, str) or not model_name:
-        raise CorruptedCheckpointError("checkpoint model_name is missing or invalid")
-    try:
-        config = _resolved_config_from_checkpoint_payload(payload)
-    except UnsupportedCheckpointFormatError:
-        raise
-    except Exception as exc:
-        raise CorruptedCheckpointError("checkpoint config is invalid") from exc
-    state = payload.get("state")
-    if not isinstance(state, dict):
-        raise CorruptedCheckpointError("checkpoint state is not a mapping")
-    return model_name, config, state
-
-
-def load_model(path: str | Path) -> DRPModel:
-    """Reconstruct a fitted ``DRPModel`` from a checkpoint archive path.
-
-    Reads the stored model name and resolved configuration, constructs a concrete
-    ``DRPModel``, and restores components and response transformation state.
-
-    Custom featurizers and predictors must already be registered (same as for
-    training). Load only artifacts created with ``save_model`` in the same
-    drevalpy version family.
-
-    .. warning::
-       Checkpoints are unpickled (``joblib``, and ``torch.load`` with
-       ``weights_only=False`` for neural weights). Loading one can execute
-       arbitrary code, so load checkpoints only from trusted sources.
-
-    :param path: Archive file path; ``.zip`` is appended when missing.
-    :returns: Fitted ``DRPModel`` instance.
-    :raises CorruptedCheckpointError: If the pipeline state cannot be restored or leaves the predictor unfitted.
-    """
-    from drevalpy.models.drp_model import DRPModel
-    from drevalpy.models.spec import ModelSpec
-    from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
-
-    model_name, config, state = load_model_payload(path)
-    model = DRPModel(ModelSpec(model_name, config.template), public_hyperparameters_from_config(config))
-    try:
-        model._pipeline.restore_component_state(state)
-    except (TypeError, ValueError, RuntimeError) as exc:
-        raise CorruptedCheckpointError(f"checkpoint pipeline state is invalid: {exc}") from exc
-    if not model._pipeline.is_fitted():
-        raise CorruptedCheckpointError("checkpoint did not restore a fitted predictor")
-    return model
+    spec, components = payload.get("spec"), payload.get("components")
+    if not isinstance(spec, dict):
+        raise CorruptedCheckpointError("checkpoint spec is not a mapping")
+    if not isinstance(components, dict):
+        raise CorruptedCheckpointError("checkpoint components are not a mapping")
+    return spec, components

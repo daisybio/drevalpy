@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, cast
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from functools import cached_property
+from typing import Any
 
+from drevalpy.components.contracts.hyperparameter_space import default_values
 from drevalpy.errors import UnknownNameError
+from drevalpy.models import hyperparameters as hp
 from drevalpy.models.config import ModelConfig
-from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.models.tuning.public_flat import (
-    apply_public_hyperparameters_to_config,
-    public_hyperparameters_from_config,
-)
-from drevalpy.models.tuning.search_space import merge_model_config_spaces, resolve_model_config
+from drevalpy.models.config.immutable import freeze_value, thaw_value
+from drevalpy.models.tuning.search_space import space
 
 
 class UnknownModelError(UnknownNameError):
@@ -40,23 +40,34 @@ def _recipe_error_detail(name: str, exc: ValueError) -> str:
 
 @dataclass(frozen=True)
 class ModelSpec:
-    """A public model name and immutable, unfitted component configuration.
+    """A public model name, its component configuration and one value per hyperparameter.
 
-    Use :meth:`from_name` for a zoo preset, or supply a ``ModelConfig`` for a
-    custom model. A specification contains no fitted state and can be reused
-    across independent models, folds, and tuning trials.
+    Use :meth:`from_name` for a zoo preset or recipe, or supply a ``ModelConfig`` for a custom
+    model. ``hyperparameters`` is keyed by qualified keys
+    (:mod:`drevalpy.models.hyperparameters`) and always complete: a key left out takes the
+    default of its space entry. :meth:`with_hyperparameters` derives a spec with other values,
+    accepting short keys too. A spec holds no fitted state and can be reused across folds and
+    tuning trials.
     """
 
     name: str
     config: ModelConfig
+    hyperparameters: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Validate identity and take an independent configuration snapshot."""
+        """Validate the name and the qualified keys, take a config snapshot and fill in defaults.
+
+        :raises ValueError: If the name is empty or a hyperparameter key is not a qualified key of the config.
+        :raises TypeError: If ``config`` is not a ``ModelConfig``.
+        """
         if not isinstance(self.name, str) or not self.name.strip():
             raise ValueError("ModelSpec.name must be a non-empty model name")
         if not isinstance(self.config, ModelConfig):
             raise TypeError("ModelSpec.config must be a ModelConfig")
         object.__setattr__(self, "config", ModelConfig.model_validate(self.config.model_dump(mode="python")))
+        hp.validate(self.config, self.hyperparameters)
+        defaults = default_values(self.hyperparameter_space, context=f"hyperparameter space of {self.name!r}")
+        object.__setattr__(self, "hyperparameters", freeze_value({**defaults, **self.hyperparameters}))
 
     @classmethod
     def from_name(cls, name: str) -> ModelSpec:
@@ -66,40 +77,61 @@ class ModelSpec:
         so a recipe is reported under its full recipe string.
 
         :param name: Zoo name, or a recipe such as ``"pca[gene_expression]:fingerprints:elasticNet"``.
-        :returns: An unfitted, reusable named recipe.
+        :returns: An unfitted, reusable named recipe with default hyperparameters.
         :raises UnknownModelError: If *name* is neither a zoo name nor a valid recipe; ``detail``
             on the error says why the recipe reading failed.
         """
-        from drevalpy.models.config.io import from_spec
-        from drevalpy.models.zoo import zoo_model_config
+        from drevalpy.models.config.io import from_recipe
+        from drevalpy.models.zoo import get_zoo_config
 
         try:
-            return cls(name, zoo_model_config(name))
-        except KeyError:
+            return cls(name, get_zoo_config(name))
+        except UnknownNameError:
             pass
         try:
-            config = from_spec(name)
+            config = from_recipe(name)
         except ValueError as exc:
             raise UnknownModelError(name, _recipe_error_detail(name, exc)) from exc
-        return cls(name, cast("ModelConfig", config))
+        return cls(name, config)
 
-    def resolve(self, hyperparameters: dict[str, Any] | None = None) -> ResolvedModelConfig:
-        """Resolve defaults and optional public hyperparameters for one fit.
+    def with_hyperparameters(self, values: Mapping[str, Any]) -> ModelSpec:
+        """Return this spec with some hyperparameters replaced.
 
-        :param hyperparameters: Component parameter overrides.
-        :returns: Concrete immutable configuration.
+        :param values: New values under short keys (``alpha``, when one component owns it) or
+            qualified keys (``predictor.elasticNet.alpha``).
+        :returns: A spec with the same name and config, and *values* over this spec's values.
         """
-        return apply_public_hyperparameters_to_config(self.config, hyperparameters or {})
+        return ModelSpec(self.name, self.config, {**self.hyperparameters, **hp.qualify(self.config, values)})
 
-    @property
-    def default_hyperparameters(self) -> dict[str, Any]:
-        """Return independent public parameter defaults."""
-        return public_hyperparameters_from_config(resolve_model_config(self.config))
-
-    @property
+    @cached_property
     def hyperparameter_space(self) -> dict[str, Any]:
-        """Return the qualified component search space."""
-        return merge_model_config_spaces(self.config)
+        """The qualified search space of all components."""
+        return space(self.config)
+
+    @property
+    def model_id(self) -> str | None:
+        """The recipe naming the components, as :attr:`ModelConfig.model_id`."""
+        return self.config.model_id
+
+    def dump(self) -> dict[str, Any]:
+        """Return the spec as plain data, the inverse of :meth:`load`.
+
+        :returns: ``name``, ``config`` (``model_dump(mode="json")``) and ``hyperparameters``.
+        """
+        return {
+            "name": self.name,
+            "config": self.config.model_dump(mode="json"),
+            "hyperparameters": thaw_value(self.hyperparameters),
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> ModelSpec:
+        """Rebuild a spec from :meth:`dump` output.
+
+        :param data: Mapping with ``name``, ``config`` and ``hyperparameters``.
+        :returns: The equivalent spec.
+        """
+        return cls(data["name"], ModelConfig.model_validate(data["config"]), data["hyperparameters"])
 
     @property
     def requires_early_stopping(self) -> bool:
@@ -110,10 +142,9 @@ class ModelSpec:
 
         if get_predictor(self.config.predictor.name).requires_early_stopping:
             return True
-        for side, root in (("sample", self.config.sample_featurizer), ("drug", self.config.drug_featurizer)):
+        for root in (self.config.sample_featurizer, self.config.drug_featurizer):
             if root is not None and any(
-                get_featurizer(side, leaf.name).requires_early_stopping
-                for leaf in iter_featurizer_leaves(root, root.registry)
+                get_featurizer(leaf.name).requires_early_stopping for leaf in iter_featurizer_leaves(root)
             ):
                 return True
         return False

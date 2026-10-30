@@ -12,6 +12,7 @@ from upath import UPath as Path
 from drevalpy.errors import DrEvalError
 from drevalpy.experiment._tracking import log_summary, require_tracking, tracking_run
 from drevalpy.log import get_logger
+from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo_runtime import (
@@ -19,8 +20,7 @@ from drevalpy.models.tuning.hpo_runtime import (
     _mu_evaluate_trial_all_metrics,
     run_optuna_study,
 )
-from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
-from drevalpy.models.tuning.search_space import draw_from_optuna_trial, resolve_model_config
+from drevalpy.models.tuning.search_space import draw
 from drevalpy.types import SplitMask
 from drevalpy.types.data.dataset import Dataset
 
@@ -74,7 +74,6 @@ def hpam_tune(
     val_scope: SplitMask,
     early_stopping_scope: SplitMask | None,
     response_transformation: ResponseTransformer | None = None,
-    metric: str = "RMSE",
     model_checkpoint_dir: str | Path | None = None,
     hpo_config: HPOConfig | None = None,
     split_index: int | None = None,
@@ -94,27 +93,20 @@ def hpam_tune(
     :param val_scope: Validation SplitMask for scoring.
     :param early_stopping_scope: Optional early-stopping scope.
     :param response_transformation: Optional unfitted response transformation.
-    :param metric: Metric to optimize.
     :param model_checkpoint_dir: Directory for model checkpoints.
-    :param hpo_config: HPO configuration.
+    :param hpo_config: Number of trials, metric to optimize and sampler seed; ``HPOConfig()`` when omitted.
     :param split_index: Fold index, used in the W&B run names.
     :param wandb_project: W&B project to log one run per trial to; ``None`` disables tracking.
     :param wandb_base_config: Base W&B config; each trial's drawn hyperparameters are added to it.
     :param n_jobs: Worker processes a single-drug predictor fits its per-drug models in, for every trial.
-    :returns: Tuple of (best_params, trial_results) where trial_results is a
-        list of (hyperparameters, metrics_dict, predictions) tuples for each completed trial.
-    :raises ValueError: If ``metric`` is unknown or ``hpo_config.metric`` disagrees with it.
+    :returns: Tuple of (best_params, trial_results): the complete best values under qualified keys,
+        and one (drawn values, metrics_dict, predictions) tuple per completed trial.
     """
-    cfg = hpo_config or HPOConfig.from_metric(metric)
-    if cfg.metric != metric:
-        msg = f"HPOConfig.metric ({cfg.metric!r}) must match metric argument ({metric!r})"
-        raise ValueError(msg)
-
+    cfg = hpo_config or HPOConfig()
+    metric = cfg.metric
     structured_space = model_spec.hyperparameter_space
-    if not structured_space:
-        return model_spec.default_hyperparameters, []
-    if cfg.n_trials == 0:
-        return model_spec.default_hyperparameters, []
+    if not structured_space or cfg.n_trials == 0:
+        return _defaults(model_spec), []
 
     require_tracking(wandb_project)
     model_name = model_spec.name
@@ -122,7 +114,7 @@ def hpam_tune(
     failures = _TrialFailures()
 
     def objective_with_metrics(trial: Any) -> float:
-        drawn = draw_from_optuna_trial(trial, structured_space)
+        drawn = draw(trial, structured_space)
         trial_model = _construct_trial_model(model_spec, drawn, response_transformation)
 
         try:
@@ -202,10 +194,14 @@ def _resolve_best_params(study: optuna.Study, model_spec: ModelSpec) -> dict[str
             "Optuna tuning did not find a valid configuration; using defaults.",
             stacklevel=2,
         )
-        return model_spec.default_hyperparameters
+        return _defaults(model_spec)
 
     # ``best_trial.params`` holds what Optuna sampled (a ``pow2`` exponent), not what
     # the trials trained with; replaying it through the draw code decodes it identically.
-    best_config = draw_from_optuna_trial(FixedTrial(best_trial.params), model_spec.hyperparameter_space)
-    best_model_config = resolve_model_config(model_spec.config, best_config)
-    return public_hyperparameters_from_config(best_model_config)
+    best = draw(FixedTrial(best_trial.params), model_spec.hyperparameter_space)
+    return _defaults(model_spec.with_hyperparameters(best))
+
+
+def _defaults(model_spec: ModelSpec) -> dict[str, Any]:
+    """Return an independent copy of the spec's values under qualified keys."""
+    return thaw_value(dict(model_spec.hyperparameters))

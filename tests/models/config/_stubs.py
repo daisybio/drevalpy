@@ -8,9 +8,8 @@ and ``test_block_specs.py`` read as near-clones of each other.
 
 Plain ``_``-prefixed module: the underscore keeps it out of collection.
 
-Every function here registers into the process-global component registries, so a
-test using them must be under ``isolated_component_registries`` from
-``tests/registry/_helpers.py``.
+Every function here registers into the process-global component registries; the
+autouse ``registry_snapshot`` fixture in ``tests/conftest.py`` restores them after each test.
 """
 
 from __future__ import annotations
@@ -18,13 +17,14 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-from drevalpy.registry.drug_featurizer import register as register_drug_featurizer
+from drevalpy.components.predictors.inputs import Inputs
+from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import register as register_predictor
-from drevalpy.registry.sample_featurizer import register as register_sample_featurizer
-from drevalpy.types.data.batch.feature_block import BlockSpec
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
 REGRESSION_ONLY = frozenset({PredictionMode.REGRESSION})
@@ -37,46 +37,46 @@ def register_featurizer_stub(
     output_format: FeatureFormat = FeatureFormat.NUMERIC_MATRIX,
     output_block_specs: tuple[BlockSpec, ...] | None = None,
 ) -> type:
-    """Register a featurizer that declares an output format and computes nothing.
+    """Register a featurizer for one side that declares its output blocks and computes nothing.
 
     :param name: Registry name.
     :param side: ``"sample"`` or ``"drug"``.
-    :param output_format: Output feature format the registration declares.
-    :param output_block_specs: Declared block specs; omitted leaves the
-        view-fallback path in play.
+    :param output_format: Format of the one block emitted when *output_block_specs* is omitted;
+        the block is named after the configured view, else after *name*.
+    :param output_block_specs: Declared block specs, emitted whatever the config.
     :returns: The registered stub class.
     """
-    register = register_sample_featurizer if side == "sample" else register_drug_featurizer
 
-    @register(name, description=f"{side} stub", output_format=output_format)
-    class Stub:
-        pass
+    class Stub(Featurizer):
+        sides = frozenset({side})
 
-    if output_block_specs is not None:
-        Stub.output_block_specs = output_block_specs
-    return Stub
+        def __init__(self, view: str | None = None, **kwargs) -> None:
+            self._view = view
+
+        @classmethod
+        def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
+            if output_block_specs is not None:
+                return output_block_specs
+            view = config.get("view")
+            return (BlockSpec(view if isinstance(view, str) else name, output_format),)
+
+        def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+            return self
+
+        def transform(self, source, ids) -> FeaturizerResult:
+            return FeaturizerResult(ids, {}, ())
+
+    return register_featurizer(name, description=f"{side} stub")(Stub)
 
 
-def register_matrix_predictor_stub(
-    name: str = "densePred",
-    *,
-    sample_input_format: FeatureFormat = FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format: FeatureFormat = FeatureFormat.NUMERIC_MATRIX,
-) -> type:
+def register_matrix_predictor_stub(name: str = "densePred") -> type:
     """Register a regression-only ``MatrixPredictor`` that predicts zeros.
 
     :param name: Registry name.
-    :param sample_input_format: Sample input format the registration declares.
-    :param drug_input_format: Drug input format the registration declares.
     :returns: The registered stub class.
     """
 
-    @register_predictor(
-        name,
-        description="matrix stub",
-        sample_input_format=sample_input_format,
-        drug_input_format=drug_input_format,
-    )
+    @register_predictor(name, description="matrix stub")
     class Stub(MatrixPredictor):
         supported_modes = REGRESSION_ONLY
 
@@ -92,28 +92,21 @@ def register_matrix_predictor_stub(
 def register_block_predictor_stub(
     name: str = "blockPred",
     *,
-    sample_input_format: FeatureFormat = FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format: FeatureFormat = FeatureFormat.NUMERIC_MATRIX,
-    required_sample_block_specs: tuple[BlockSpec, ...] | None = None,
-    required_drug_block_specs: tuple[BlockSpec, ...] | None = None,
+    sample_blocks: tuple[BlockSpec, ...] = (),
+    drug_blocks: tuple[BlockSpec, ...] = (),
 ) -> type:
-    """Register a regression-only ``BlockPredictor`` that predicts zeros.
+    """Register a regression-only block predictor that predicts zeros.
 
     :param name: Registry name.
-    :param sample_input_format: Sample input format the registration declares.
-    :param drug_input_format: Drug input format the registration declares.
-    :param required_sample_block_specs: Block specs the predictor demands.
-    :param required_drug_block_specs: Block specs the predictor demands.
+    :param sample_blocks: Sample blocks the predictor requires; none takes any blocks.
+    :param drug_blocks: Drug blocks the predictor requires; none takes any blocks.
     :returns: The registered stub class.
     """
 
-    @register_predictor(
-        name,
-        description="block stub",
-        sample_input_format=sample_input_format,
-        drug_input_format=drug_input_format,
-    )
-    class Stub(BlockPredictor):
+    @register_predictor(name, description="block stub")
+    class Stub(Predictor):
+        sample_inputs = Inputs.blocks(*sample_blocks)
+        drug_inputs = Inputs.blocks(*drug_blocks)
         supported_modes = REGRESSION_ONLY
 
         def _fit(self, batch) -> None:
@@ -122,10 +115,6 @@ def register_block_predictor_stub(
         def _predict(self, batch):
             return np.zeros(batch.n_pairs, dtype=np.float64)
 
-    if required_sample_block_specs is not None:
-        Stub.required_sample_block_specs = required_sample_block_specs
-    if required_drug_block_specs is not None:
-        Stub.required_drug_block_specs = required_drug_block_specs
     return Stub
 
 
@@ -136,12 +125,7 @@ def register_feature_free_predictor_stub(name: str = "naiveMean") -> type:
     :returns: The registered stub class.
     """
 
-    @register_predictor(
-        name,
-        description="feature-free stub",
-        sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-        drug_input_format=FeatureFormat.NUMERIC_MATRIX,
-    )
+    @register_predictor(name, description="feature-free stub")
     class Stub(FeatureFreePredictor):
         def _fit(self, batch) -> None:
             return None

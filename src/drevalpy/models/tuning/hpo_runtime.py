@@ -12,7 +12,6 @@ from upath import UPath as Path
 from drevalpy.evaluation._scoring import run_metrics
 from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.config import HPOConfig
-from drevalpy.models.tuning.search_space import resolve_model_config
 from drevalpy.types import SplitMask
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
@@ -44,12 +43,8 @@ def _construct_trial_model(
     response_transformation: ResponseTransformer | None = None,
 ) -> DRPModel:
     from drevalpy.models.drp_model import DRPModel
-    from drevalpy.models.tuning.public_flat import public_hyperparameters_from_config
 
-    config = resolve_model_config(model_spec.config, drawn)
-    return DRPModel(
-        model_spec, public_hyperparameters_from_config(config), response_transformation=response_transformation
-    )
+    return DRPModel(model_spec.with_hyperparameters(drawn), response_transformation=response_transformation)
 
 
 def _extract_ground_truth(dataset: Dataset, scope: SplitMask) -> np.ndarray:

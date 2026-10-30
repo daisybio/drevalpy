@@ -1,18 +1,27 @@
-"""Validation logic for `~drevalpy.models.config.ModelConfig`."""
+"""Validation logic for `~drevalpy.models.config.ModelConfig`.
+
+A predictor declares what it reads from each side
+(:func:`drevalpy.components.predictors.inputs.predictor_inputs`); a config is legal when each
+side's featurizer is present exactly when that side reads something, and emits what it reads.
+A single-drug predictor routes pairs by ``batch.drug_ids``, so it needs no drug featurizer.
+"""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.predictors.single_drug_routing import ROUTING_DRUG_FEATURIZER
+from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
+from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
 from drevalpy.models.config._block_specs import resolve_output_block_specs
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import BlockSpec
+from drevalpy.types.data.feature_source import Side
 from drevalpy.types.enums.model_scope import ModelScope
 
 if TYPE_CHECKING:
+    from drevalpy.models.config.featurizer import FeaturizerConfig
     from drevalpy.models.config.model import ModelConfig
 
 
@@ -27,139 +36,77 @@ def _validate_prediction_mode(config: ModelConfig, pred_cls: type[Any]) -> None:
         raise ValueError(msg)
 
 
-def _validate_feature_free_config(config: ModelConfig) -> None:
-    if config.sample_featurizer is not None or config.drug_featurizer is not None:
-        msg = f"Predictor {config.predictor.name!r} is a feature-free predictor and forbids configured featurizers"
-        raise ValueError(msg)
+def _label(spec: BlockSpec) -> str:
+    """Name a spec, adding its format when it is not a numeric matrix."""
+    return spec.name if spec.format == FeatureFormat.NUMERIC_MATRIX else f"{spec.name}:{spec.format.value}"
 
 
-def _validate_featurizer_presence(config: ModelConfig) -> None:
-    if config.sample_featurizer is None and config.drug_featurizer is None:
-        msg = (
-            f"Predictor {config.predictor.name!r} requires featurizers; "
-            "set sample_featurizer and drug_featurizer, or use a feature-free predictor."
-        )
-        raise ValueError(msg)
-    if config.drug_featurizer is None:
-        msg = f"Predictor {config.predictor.name!r} requires a drug_featurizer"
-        raise ValueError(msg)
-    if config.sample_featurizer is None:
-        msg = "sample_featurizer must be set for feature-based predictors"
-        raise ValueError(msg)
+def _describe(specs: tuple[BlockSpec, ...]) -> str:
+    return ", ".join(_label(spec) for spec in specs)
 
 
-def _validate_single_drug_pairing(config: ModelConfig, pred_cls: type[Any]) -> None:
-    if pred_cls.scope != ModelScope.SINGLE_DRUG:
-        return
-    if config.drug_featurizer is None or config.drug_featurizer.name != ROUTING_DRUG_FEATURIZER:
-        msg = (
-            f"Feature-based single-drug predictor {config.predictor.name!r} requires "
-            f"drug_featurizer={ROUTING_DRUG_FEATURIZER!r} for per-drug routing"
-        )
-        raise ValueError(msg)
+def _validate_inputs(predictor: str, side: Side, inputs: Inputs, featurizer: FeaturizerConfig) -> None:
+    """Check that *featurizer* emits what *inputs* reads.
 
-
-def _validate_featurizer_formats(config: ModelConfig, pred_cls: type[Any]) -> None:
-    sides = (
-        ("sample", config.sample_featurizer, pred_cls.sample_input_format, "Sample"),
-        ("drug", config.drug_featurizer, pred_cls.drug_input_format, "Drug"),
-    )
-    for side, featurizer, required, label in sides:
-        if featurizer is None:
-            continue
-        produced = get_featurizer(side, featurizer.name).output_format
-        if produced != required:
-            msg = (
-                f"{label} featurizer output_format {produced!r} is incompatible "
-                f"with predictor {side}_input_format {required!r}"
-            )
-            raise ValueError(msg)
-
-
-def _validate_required_block_specs(
-    predictor_name: str,
-    side: str,
-    emitted: tuple[BlockSpec, ...],
-    required: tuple[BlockSpec, ...],
-) -> None:
-    actual = ", ".join(f"{spec.name}:{spec.format.value}" for spec in emitted) or "<none>"
-    for expected in required:
-        actual_spec = next((spec for spec in emitted if spec.name == expected.name), None)
-        if actual_spec is None or actual_spec.format != expected.format:
-            actual_format = actual_spec.format.value if actual_spec is not None else "<missing>"
-            raise ValueError(
-                f"Predictor {predictor_name!r} {side} block schema mismatch: missing block "
-                f"{expected.name!r}; expected format={expected.format.value!r}, "
-                f"actual format={actual_format!r}; emitted blocks=[{actual}]"
-            )
-
-
-def _validate_block_schema(config: ModelConfig, pred_cls: type[Any]) -> None:
-    if pred_cls.input_interface != "block":
-        return
-    for side, featurizer in (
-        ("sample", config.sample_featurizer),
-        ("drug", config.drug_featurizer),
-    ):
-        if featurizer is None:
-            continue
-        emitted = resolve_output_block_specs(featurizer)
-        required = tuple(getattr(pred_cls, f"required_{side}_block_specs", ()))
-        _validate_required_block_specs(config.predictor.name, side, emitted, required)
-        alternatives = tuple(getattr(pred_cls, f"required_{side}_block_alternatives", ()))
-        if alternatives and not any(
-            actual.name == option.name and actual.format == option.format
-            for actual in emitted
-            for option in alternatives
-        ):
-            expected = " or ".join(f"{item.name}:{item.format.value}" for item in alternatives)
-            actual = ", ".join(f"{item.name}:{item.format.value}" for item in emitted) or "<none>"
-            raise ValueError(
-                f"Predictor {config.predictor.name!r} {side} block schema mismatch: expected one of "
-                f"[{expected}], actual emitted blocks=[{actual}]"
-            )
-
-
-def _validate_required_block_names(config: ModelConfig, pred_cls: type[Any]) -> None:
-    """Require each name in ``required_{side}_blocks`` among the blocks the featurizer emits.
-
-    :param config: Model configuration being validated.
-    :param pred_cls: Registered predictor class.
-    :raises ValueError: If a declared block name is not emitted by that side's featurizer.
+    :param predictor: Predictor name, for the message.
+    :param side: Side of *featurizer*.
+    :param inputs: The predictor's declaration for *side*.
+    :param featurizer: The side's featurizer config.
+    :raises ValueError: If a required block is missing, or a matrix input gets a non-numeric block.
     """
-    for side, featurizer in (
-        ("sample", config.sample_featurizer),
-        ("drug", config.drug_featurizer),
-    ):
-        required = tuple(getattr(pred_cls, f"required_{side}_blocks", ()))
-        if featurizer is None or not required:
-            continue
-        emitted = tuple(spec.name for spec in resolve_output_block_specs(featurizer))
-        missing = [name for name in required if name not in emitted]
-        if missing:
+    emitted = resolve_output_block_specs(featurizer)
+    if inputs.kind == "matrix":
+        if any(spec.format != FeatureFormat.NUMERIC_MATRIX for spec in emitted):
             raise ValueError(
-                f"Predictor {config.predictor.name!r} needs {side} block(s) {missing} but the {side} "
-                f"featurizer {featurizer.name!r} emits [{', '.join(emitted) or '<none>'}]"
+                f"Predictor {predictor!r} reads one {FeatureFormat.NUMERIC_MATRIX.value} design matrix from the "
+                f"{side} featurizer {featurizer.name!r}, which emits [{_describe(emitted)}]"
+            )
+        return
+    provided = {(spec.name, spec.format) for spec in emitted}
+    missing = [
+        spec for spec in inputs.specs if isinstance(spec, BlockSpec) and (spec.name, spec.format) not in provided
+    ]
+    if missing:
+        raise ValueError(
+            f"Predictor {predictor!r} needs {side} block(s) {[_label(spec) for spec in missing]} "
+            f"but the {side} featurizer {featurizer.name!r} emits [{_describe(emitted)}]"
+        )
+    for alternatives in inputs.specs:
+        if isinstance(alternatives, tuple) and not provided.intersection((s.name, s.format) for s in alternatives):
+            raise ValueError(
+                f"Predictor {predictor!r} needs one of the {side} blocks [{_describe(alternatives)}] but the {side} "
+                f"featurizer {featurizer.name!r} emits [{_describe(emitted)}]"
             )
 
 
 def validate(config: ModelConfig) -> ModelConfig:
-    """Check registry slots, feature compatibility, and prediction mode.
+    """Check the prediction mode and that each side's featurizer matches the predictor's inputs.
 
     :param config: Model configuration to validate.
     :returns: The unchanged *config*, so this doubles as a Pydantic ``after`` validator.
+    :raises ValueError: If a side has a featurizer it does not read, lacks one it reads, or the
+        featurizer emits blocks the predictor cannot read.
     """
+    name = config.predictor.name
     try:
-        pred_cls = get_predictor(config.predictor.name)
+        pred_cls = get_predictor(name)
     except ImportError:
         return config
     _validate_prediction_mode(config, pred_cls)
-    if issubclass(pred_cls, FeatureFreePredictor):
-        _validate_feature_free_config(config)
-        return config
-    _validate_featurizer_presence(config)
-    _validate_single_drug_pairing(config, pred_cls)
-    _validate_featurizer_formats(config, pred_cls)
-    _validate_block_schema(config, pred_cls)
-    _validate_required_block_names(config, pred_cls)
+    sides: tuple[tuple[Side, FeaturizerConfig | None], ...] = (
+        ("sample", config.sample_featurizer),
+        ("drug", config.drug_featurizer),
+    )
+    for side, featurizer in sides:
+        if featurizer is not None:
+            for leaf in iter_featurizer_leaves(featurizer):
+                get_featurizer(leaf.name, side)
+        inputs = predictor_inputs(pred_cls, side)
+        if inputs.kind == "none":
+            if featurizer is not None:
+                raise ValueError(f"Predictor {name!r} reads no {side} features and forbids a {side}_featurizer")
+        elif featurizer is not None:
+            _validate_inputs(name, side, inputs, featurizer)
+        elif not (side == "drug" and pred_cls.scope is ModelScope.SINGLE_DRUG):
+            raise ValueError(f"Predictor {name!r} requires a {side}_featurizer")
     return config

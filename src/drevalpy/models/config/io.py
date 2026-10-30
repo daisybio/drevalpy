@@ -10,15 +10,9 @@ from upath import UPath as Path
 
 from drevalpy.models.config._recipe import parse_model_recipe
 from drevalpy.models.config.model import ModelConfig
-from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.models.factory import (
-    apply_optional_hyperparameters,
-    reject_unknown_spec,
-    zoo_config,
-)
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.registry.predictor import predictor_registry
 
-__all__ = ["from_dict", "from_spec", "from_yaml"]
+__all__ = ["from_dict", "from_recipe", "from_yaml"]
 
 
 def _format_error_entry(error: Any) -> str:
@@ -54,43 +48,43 @@ def from_dict(data: dict[str, Any], *, source: Path | str | None = None) -> Mode
         raise ValueError(_format_validation_error(exc, source=source)) from exc
 
 
-def from_spec(
-    spec: str,
-    *,
-    hyperparameters: dict[str, Any] | None = None,
-    prediction_mode: PredictionMode | str | None = None,
-) -> ModelConfig | ResolvedModelConfig:
-    """Build a ``ModelConfig`` from a zoo preset name or a recipe string.
+def _reject_unknown_token(token: str) -> None:
+    """Report a bare token that names no predictor drevalpy knows.
 
-    A spec is either the name of a registered zoo preset or a recipe naming the parts
-    directly. Zoo names win, so a preset can shadow a bare predictor name. Recipes take the
-    same two steps as any other config source: ``parse_model_recipe`` reads the syntax into a
-    plain field mapping, then ``from_dict`` resolves the names against the registry and checks
-    that the combination is legal. A bare token is exactly the recipe with no sample slot,
-    so that is where a mistyped zoo name is caught before it is read as a predictor.
+    A bare recipe names only a predictor, so an unknown one is most likely a mistyped zoo name
+    and is reported as such rather than as a predictor-shaped config error.
 
-    :param spec: Zoo preset name, or a recipe of one to three colon-separated parts.
-    :param hyperparameters: Optional flat public hyperparameter overrides.
-    :param prediction_mode: Prediction mode for the predictor; defaults to regression.
-    :returns: Validated ``ModelConfig`` template, or ``ResolvedModelConfig`` when
-        *hyperparameters* are provided.
-    :raises ValueError: If *spec* is unknown or validation fails.
+    :param token: The single-part recipe.
+    :raises ValueError: If *token* names no registered predictor.
     """
-    trimmed = spec.strip()
+    if token in predictor_registry:
+        return
+    raise ValueError(
+        f"Unknown model spec {token!r}. Use a recipe triple (sample:drug:predictor), zoo name, or feature-free "
+        "predictor token."
+    )
+
+
+def from_recipe(recipe: str) -> ModelConfig:
+    """Build a ``ModelConfig`` from a recipe string.
+
+    A recipe takes the same two steps as any other config source: ``parse_model_recipe`` reads
+    the syntax into a plain field mapping, then ``from_dict`` resolves the names against the
+    registry and checks that the combination is legal. Zoo names are resolved by
+    :meth:`drevalpy.models.spec.ModelSpec.from_name`, not here.
+
+    :param recipe: A recipe of one to three colon-separated parts, such as
+        ``"pca[gene_expression]:fingerprints:elasticNet"``.
+    :returns: Validated ``ModelConfig``.
+    :raises ValueError: If *recipe* is empty, malformed, names an unknown predictor, or fails validation.
+    """
+    trimmed = recipe.strip()
     if not trimmed:
-        msg = "model spec must be a non-empty string"
-        raise ValueError(msg)
-    mode = PredictionMode.REGRESSION if prediction_mode is None else PredictionMode(prediction_mode)
-
-    preset = zoo_config(trimmed, hyperparameters, mode)
-    if preset is not None:
-        return preset
-
+        raise ValueError("model spec must be a non-empty string")
     payload = parse_model_recipe(trimmed)
     if payload["sample_featurizer"] is None:
-        reject_unknown_spec(payload["predictor"])
-    config = from_dict({**payload, "prediction_mode": mode}, source=f"recipe {trimmed!r}")
-    return apply_optional_hyperparameters(config, hyperparameters)
+        _reject_unknown_token(payload["predictor"])
+    return from_dict(payload, source=f"recipe {trimmed!r}")
 
 
 def from_yaml(path: Path | str) -> ModelConfig:

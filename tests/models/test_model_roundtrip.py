@@ -9,8 +9,7 @@ import numpy as np
 import pytest
 
 from drevalpy.models import DRPModel, ModelSpec
-from drevalpy.models.config import ModelConfig, from_dict, from_spec, validate
-from drevalpy.models.factory import model_config_for_name
+from drevalpy.models.config import from_dict, from_recipe, validate
 from drevalpy.models.zoo import list_zoo_names
 from drevalpy.types.data.split_mask import SplitMask
 from tests._trusted_subprocess import run_trusted_python
@@ -25,12 +24,10 @@ from tests.models.synthetic_fixtures import (
 
 @pytest.mark.parametrize("name", list_zoo_names(include_external=False))
 def test_zoo_entries_resolve_and_build_models(name: str) -> None:
-    config = model_config_for_name(name)
-    assert isinstance(config, ModelConfig)
-    validate(config)
-    assert config.predictor.name
-    assert isinstance(from_spec(name), ModelConfig)
-    assert DRPModel(ModelSpec.from_name(name)).name == name
+    spec = ModelSpec.from_name(name)
+    validate(spec.config)
+    assert spec.config.predictor.name
+    assert DRPModel(spec).name == name
 
 
 def test_no_pair_context_in_production_code() -> None:
@@ -76,8 +73,7 @@ def test_featurizer_requirements_by_predictor_scope() -> None:
 
     single = from_dict({"sample_featurizer": "scaledGeneExpression", "predictor": "singleDrugElasticNet"})
     validate(single)
-    assert single.drug_featurizer is not None
-    assert single.drug_featurizer.name == "identity"
+    assert single.drug_featurizer is None
 
     validate(from_dict({"predictor": "naiveMean"}))
 
@@ -122,7 +118,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         from drevalpy.types.data.dataset import Dataset
         from drevalpy.types import SplitMask, SplitMasks
         from drevalpy.models import DRPModel, ModelSpec
-        from drevalpy.models.config import from_spec
+        from drevalpy.models.config import from_recipe
 
         cl_ids = np.array(["cl1", "cl2"])
         drug_ids = np.array(["d1", "d2"])
@@ -158,7 +154,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
 
         naive = DRPModel(ModelSpec.from_name("NaivePredictor"), {})
         naive.train(dataset_id, split.train)
-        elastic = DRPModel(ModelSpec("ElasticNet", from_spec("scaledGeneExpression:fingerprints:elasticNet")))
+        elastic = DRPModel(ModelSpec("ElasticNet", from_recipe("scaledGeneExpression:fingerprints:elasticNet")))
         elastic.train(dataset_ge, split.train)
         """)
     completed = run_trusted_python(script)
@@ -188,7 +184,7 @@ def test_equivalent_specs_have_matching_predictions(model_name: str, hp: dict) -
 
 
 def test_custom_recipe_spec_has_matching_checkpoint_round_trip(tmp_path) -> None:
-    spec = ModelSpec("PcaIdentityRF", from_spec("pca[gene_expression]:identity:randomForest"))
+    spec = ModelSpec("PcaIdentityRF", from_recipe("pca[gene_expression]:identity:randomForest"))
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
     split = lso_split_masks()
     model = DRPModel(spec, RF_HP)
@@ -226,7 +222,7 @@ _SMALL_HYPERPARAMETERS = {
 )
 def test_literature_models_build_with_defaults(model_name: str) -> None:
     spec = ModelSpec.from_name(model_name)
-    DRPModel(spec, {**spec.default_hyperparameters, **_SMALL_HYPERPARAMETERS.get(model_name, {})})
+    DRPModel(spec, _SMALL_HYPERPARAMETERS.get(model_name, {}))
 
 
 @pytest.mark.parametrize(

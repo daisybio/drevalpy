@@ -7,68 +7,53 @@ from types import MappingProxyType
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.models.config import (
-    DrugFeaturizerConfig,
-    FeaturizerConfig,
-    ModelConfig,
-    PredictorConfig,
-    ResolvedModelConfig,
-    SampleFeaturizerConfig,
-)
-from drevalpy.models.config._predictor_traits import needs_identity_drug_routing, scope
+from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
 from drevalpy.models.zoo import get_zoo_config
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
-SAMPLE = SampleFeaturizerConfig(name="scaledGeneExpression")
+SAMPLE = FeaturizerConfig(name="scaledGeneExpression")
 
 
 def test_view_validation() -> None:
     with pytest.raises(ValidationError, match="view must be a non-empty string when set"):
-        SampleFeaturizerConfig(name="denseSample", view="   ")
-    assert SampleFeaturizerConfig(name="denseSample", view="gene_expression").view == "gene_expression"
+        FeaturizerConfig(name="denseSample", view="   ")
+    assert FeaturizerConfig(name="denseSample", view="gene_expression").view == "gene_expression"
     with pytest.raises(ValidationError):
         FeaturizerConfig(name="landmarkGenes", views=["gene_expression"])  # type: ignore[call-arg]
 
 
-@pytest.mark.parametrize("cls", [FeaturizerConfig, SampleFeaturizerConfig])
-def test_one_key_shorthand_is_accepted_by_base_and_pinned(cls: type[FeaturizerConfig]) -> None:
-    config = cls.model_validate({"pca[methylation]": {"n_components": 42}})
-    assert (config.name, config.view, config.registry) == ("pca", "methylation", "sample")
+def test_one_key_shorthand_is_accepted() -> None:
+    config = FeaturizerConfig.model_validate({"pca[methylation]": {"n_components": 42}})
+    assert (config.name, config.view) == ("pca", "methylation")
     assert config.hyperparameter_space is not None
     assert config.hyperparameter_space["n_components"]["default"] == 42
 
 
 def test_featurizer_config_compact_forms() -> None:
     config = FeaturizerConfig.model_validate("fingerprints")
-    assert (config.name, config.registry) == ("fingerprints", "sample")
+    assert config.name == "fingerprints"
 
 
-def test_slot_subclasses_fix_the_registry() -> None:
-    sample = SampleFeaturizerConfig.model_validate({"name": "scaledGeneExpression", "registry": "drug"})
-    drug = DrugFeaturizerConfig.model_validate({"name": "fingerprints", "registry": "sample"})
-
-    assert (sample.registry, drug.registry) == ("sample", "drug")
-    assert isinstance(sample, FeaturizerConfig)
-    assert isinstance(drug, FeaturizerConfig)
+def test_featurizer_config_has_no_registry_field() -> None:
+    with pytest.raises(ValidationError):
+        FeaturizerConfig.model_validate({"name": "scaledGeneExpression", "registry": "drug"})
 
 
 @pytest.mark.parametrize(
     ("drug", "predictor", "model_id"),
     [
-        (DrugFeaturizerConfig(name="identity"), "randomForest", "scaledGeneExpression:identity:randomForest"),
+        (FeaturizerConfig(name="identity"), "randomForest", "scaledGeneExpression:identity:randomForest"),
         (None, "singleDrugElasticNet", "scaledGeneExpression:singleDrugElasticNet"),
     ],
-    ids=["full-triple", "implicit-identity-single-drug"],
+    ids=["full-triple", "single-drug-without-drug-featurizer"],
 )
 def test_model_id(drug, predictor, model_id) -> None:
     config = ModelConfig(sample_featurizer=SAMPLE, drug_featurizer=drug, predictor=PredictorConfig(name=predictor))
 
     assert config.model_id == model_id
-    if drug is None:
-        assert config.drug_featurizer is not None
-        assert config.drug_featurizer.name == "identity"
+    assert config.drug_featurizer == drug
 
 
 def test_model_id_for_predictor_only_baseline() -> None:
@@ -80,11 +65,10 @@ def test_model_id_for_predictor_only_baseline() -> None:
 @pytest.mark.parametrize(
     ("drug", "predictor", "match"),
     [
-        (None, "randomForest", "requires.*drug_featurizer|requires featurizers"),
-        (None, "elasticNet", "requires.*drug_featurizer|requires featurizers"),
-        (DrugFeaturizerConfig(name="fingerprints"), "singleDrugElasticNet", "requires drug_featurizer='identity'"),
+        (None, "randomForest", "Predictor 'randomForest' requires a drug_featurizer"),
+        (None, "elasticNet", "Predictor 'elasticNet' requires a drug_featurizer"),
     ],
-    ids=["partial-multi-drug", "multi-drug-gets-no-identity", "single-drug-keeps-explicit-drug"],
+    ids=["random-forest", "elastic-net"],
 )
 def test_inconsistent_featurizer_slots_are_rejected(drug, predictor, match) -> None:
     with pytest.raises(ValidationError, match=match):
@@ -115,21 +99,21 @@ def test_model_config_parses_compact_sections() -> None:
         }
     )
 
-    assert isinstance(config.sample_featurizer, SampleFeaturizerConfig)
+    assert isinstance(config.sample_featurizer, FeaturizerConfig)
     assert config.sample_featurizer.name == "concatFeaturizers"
-    assert isinstance(config.drug_featurizer, DrugFeaturizerConfig)
+    assert isinstance(config.drug_featurizer, FeaturizerConfig)
     assert config.drug_featurizer.name == "fingerprints"
     assert config.predictor.name == "randomForest"
     assert config.predictor.hyperparameter_space is not None
     assert config.predictor.hyperparameter_space["n_estimators"]["default"] == 10
 
 
-def test_model_config_rejects_base_featurizer_config_in_slots() -> None:
-    with pytest.raises(ValidationError):
+def test_model_config_rejects_a_featurizer_in_a_slot_of_a_side_it_does_not_support() -> None:
+    with pytest.raises(ValidationError, match="cannot be used on the sample side"):
         ModelConfig.model_validate(
             {
-                "sample_featurizer": FeaturizerConfig(name="scaledGeneExpression", registry="drug"),
-                "drug_featurizer": FeaturizerConfig(name="fingerprints", registry="sample"),
+                "sample_featurizer": FeaturizerConfig(name="fingerprints"),
+                "drug_featurizer": FeaturizerConfig(name="fingerprints"),
                 "predictor": PredictorConfig(name="elasticNet"),
             }
         )
@@ -138,7 +122,7 @@ def test_model_config_rejects_base_featurizer_config_in_slots() -> None:
 def test_config_is_serializable() -> None:
     config = ModelConfig(
         sample_featurizer=SAMPLE,
-        drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+        drug_featurizer=FeaturizerConfig(name="fingerprints"),
         predictor=PredictorConfig(
             name="elasticNet",
             hyperparameter_space={"alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0}},
@@ -152,8 +136,8 @@ def test_config_is_serializable() -> None:
 
 def _template() -> ModelConfig:
     return ModelConfig(
-        sample_featurizer=SampleFeaturizerConfig(name="scaledGeneExpression"),
-        drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+        sample_featurizer=FeaturizerConfig(name="scaledGeneExpression"),
+        drug_featurizer=FeaturizerConfig(name="fingerprints"),
         predictor=PredictorConfig(name="elasticNet"),
     )
 
@@ -166,14 +150,14 @@ def test_model_config_is_frozen_and_scope_is_read_only() -> None:
 
 
 def test_concat_children_are_tuple_not_list() -> None:
-    config = SampleFeaturizerConfig.model_validate(["scaledGeneExpression", {"pca[methylation]": {"n_components": 32}}])
+    config = FeaturizerConfig.model_validate(["scaledGeneExpression", {"pca[methylation]": {"n_components": 32}}])
 
     assert config.name == "concatFeaturizers"
     assert isinstance(config.featurizers, tuple)
     assert config.featurizers[1].name == "pca"
     assert isinstance(config.model_dump(mode="json")["featurizers"], list)
     with pytest.raises(TypeError):
-        config.featurizers[0] = SampleFeaturizerConfig(name="raw", view="expression")  # type: ignore[index]
+        config.featurizers[0] = FeaturizerConfig(name="raw", view="expression")  # type: ignore[index]
 
 
 def test_predictor_shorthand_writes_hyperparameter_space_defaults() -> None:
@@ -211,7 +195,6 @@ def test_mapping_fields_are_deeply_frozen_views() -> None:
     predictor = PredictorConfig.model_validate(
         {"name": "randomForest", "hyperparameter_space": {"n_estimators": {"default": 5, "options": [1, 2]}}}
     )
-    resolved = ResolvedModelConfig(template=_template(), values={"predictor.elasticNet.alpha": 0.5})
 
     assert featurizer.options is not None
     assert featurizer.hyperparameter_space is None
@@ -221,8 +204,6 @@ def test_mapping_fields_are_deeply_frozen_views() -> None:
         featurizer.options["nested"],
         predictor.hyperparameter_space,
         predictor.hyperparameter_space["n_estimators"],
-        resolved.values,
-        ResolvedModelConfig(template=_template()).values,
     ):
         assert isinstance(mapping, MappingProxyType)
         with pytest.raises(TypeError):
@@ -332,39 +313,17 @@ class TestCreateInstance:
     [("elasticNet", ModelScope.MULTI_DRUG), ("singleDrugElasticNet", ModelScope.SINGLE_DRUG)],
 )
 def test_scope_reads_the_class_declaration(name: str, expected: ModelScope) -> None:
-    assert scope(name) is expected
+    drug = None if expected is ModelScope.SINGLE_DRUG else FeaturizerConfig(name="fingerprints")
+    config = ModelConfig(sample_featurizer=SAMPLE, drug_featurizer=drug, predictor=PredictorConfig(name=name))
 
-
-def test_scope_rejects_an_unknown_name() -> None:
-    with pytest.raises(ValueError, match="Unknown Predictor"):
-        scope("noSuchPredictor")
-
-
-@pytest.mark.parametrize(
-    ("slot", "expected"),
-    [
-        ("singleDrugElasticNet", True),
-        ({"singleDrugElasticNet": None}, True),
-        ({"name": "singleDrugElasticNet"}, True),
-        ({"singleDrugElasticNet": {"alpha": 0.5}}, True),
-        (PredictorConfig(name="singleDrugElasticNet"), True),
-        ("elasticNet", False),
-        (None, False),
-        (42, False),
-        ({"name": "noSuchPredictor"}, False),
-        ({"first": None, "second": None}, False),
-        ({"name": "singleDrugElasticNet", "unexpected": 1}, False),
-    ],
-)
-def test_identity_drug_routing(slot: object, expected: bool) -> None:
-    assert needs_identity_drug_routing(slot) is expected
+    assert config.scope is expected
 
 
 def _model_config(**kwargs: object) -> ModelConfig:
     defaults: dict[str, object] = {
         "predictor": PredictorConfig(name="randomForest"),
-        "sample_featurizer": SampleFeaturizerConfig(name="scaledGeneExpression"),
-        "drug_featurizer": DrugFeaturizerConfig(name="fingerprints"),
+        "sample_featurizer": FeaturizerConfig(name="scaledGeneExpression"),
+        "drug_featurizer": FeaturizerConfig(name="fingerprints"),
     }
     defaults.update(kwargs)
     return ModelConfig.model_validate(defaults)
@@ -373,8 +332,8 @@ def _model_config(**kwargs: object) -> ModelConfig:
 @pytest.mark.parametrize("name", ["identity", "constant"])
 def test_id_only_featurizers_resolve_to_empty_views(name: str) -> None:
     config = _model_config(
-        sample_featurizer=SampleFeaturizerConfig.model_validate(name),
-        drug_featurizer=DrugFeaturizerConfig.model_validate(name),
+        sample_featurizer=FeaturizerConfig.model_validate(name),
+        drug_featurizer=FeaturizerConfig.model_validate(name),
     )
     assert config.sample_views() == []
     assert config.drug_views() == []
@@ -383,21 +342,21 @@ def test_id_only_featurizers_resolve_to_empty_views(name: str) -> None:
 @pytest.mark.parametrize(
     ("featurizer", "views"),
     [
-        (SampleFeaturizerConfig.model_validate("raw[mutations]+pca[methylation]"), ["mutations", "methylation"]),
-        (SampleFeaturizerConfig.model_validate("landmarkGenes"), ["gene_expression"]),
-        (SampleFeaturizerConfig.model_validate("landmarkGenesReduced"), ["gene_expression"]),
+        (FeaturizerConfig.model_validate("raw[mutations]+pca[methylation]"), ["mutations", "methylation"]),
+        (FeaturizerConfig.model_validate("landmarkGenes"), ["gene_expression"]),
+        (FeaturizerConfig.model_validate("landmarkGenesReduced"), ["gene_expression"]),
         (
-            SampleFeaturizerConfig.model_validate("molirOmics"),
+            FeaturizerConfig.model_validate("molirOmics"),
             ["gene_expression", "mutations", "copy_number_variation_gistic"],
         ),
         (
-            SampleFeaturizerConfig.model_validate("superfeltrOmics"),
+            FeaturizerConfig.model_validate("superfeltrOmics"),
             ["gene_expression", "mutations", "copy_number_variation_gistic"],
         ),
-        (SampleFeaturizerConfig(name="sparsegoOntology", options={"input_type": "expression"}), ["gene_expression"]),
-        (SampleFeaturizerConfig(name="sparsegoOntology", options={"input_type": "mutations"}), ["mutations"]),
-        (SampleFeaturizerConfig.model_validate("tissue"), []),
-        (SampleFeaturizerConfig(name="scaledGeneExpression", options={"view": "proteomics"}), ["proteomics"]),
+        (FeaturizerConfig(name="sparsegoOntology", options={"input_type": "expression"}), ["gene_expression"]),
+        (FeaturizerConfig(name="sparsegoOntology", options={"input_type": "mutations"}), ["mutations"]),
+        (FeaturizerConfig.model_validate("tissue"), []),
+        (FeaturizerConfig(name="scaledGeneExpression", options={"view": "proteomics"}), ["proteomics"]),
     ],
     ids=[
         "brackets",
@@ -419,9 +378,7 @@ def test_drug_views() -> None:
     config = _model_config()
     assert config.drug_views() == ["morgan_fingerprint"]
 
-    view = _model_config(
-        drug_featurizer=DrugFeaturizerConfig(name="view", options={"view": "drug_chemberta_embeddings"})
-    )
+    view = _model_config(drug_featurizer=FeaturizerConfig(name="view", options={"view": "drug_chemberta_embeddings"}))
     assert view.drug_views() == ["drug_chemberta_embeddings"]
 
 

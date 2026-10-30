@@ -95,15 +95,15 @@ def test_custom_transform_is_independent_and_round_trips_with_retraining(tmp_pat
     first.train(dataset, scope)
     second.train(dataset, lso_split_masks().test)
     assert not hasattr(prototype, "mean_")
-    assert first._pipeline._fitted_response_transformation is not second._pipeline._fitted_response_transformation
+    assert first._fitted_response_transformation is not second._fitted_response_transformation
     np.testing.assert_allclose(first.predict(dataset, scope), 1.5)
     np.testing.assert_allclose(second.predict(dataset, scope), 3.5)
     first.save(tmp_path / "transformed")
     restored = DRPModel.load(tmp_path / "transformed")
     np.testing.assert_array_equal(restored.predict(dataset, scope), first.predict(dataset, scope))
-    old_transform = restored._pipeline._fitted_response_transformation
+    old_transform = restored._fitted_response_transformation
     restored.train(dataset, lso_split_masks().test)
-    assert restored._pipeline._fitted_response_transformation is not old_transform
+    assert restored._fitted_response_transformation is not old_transform
     np.testing.assert_allclose(restored.predict(dataset, scope), 3.5)
 
 
@@ -112,7 +112,7 @@ def test_transform_fits_original_training_population_before_feature_filtering() 
     dataset.mdata.mod["gene_expression"].X[1, :] = np.nan
     model = DRPModel(small_data_spec("ElasticNet"), response_transformation=StandardScaler())
     model.train(dataset, SplitMask(np.ones((2, 2), dtype=bool)))
-    assert model._pipeline._fitted_response_transformation.mean_[0] == pytest.approx(2.5)
+    assert model._fitted_response_transformation.mean_[0] == pytest.approx(2.5)
 
 
 def _recorded_fit(monkeypatch) -> list:
@@ -132,7 +132,7 @@ def test_stopping_targets_are_transformed_using_training_statistics(monkeypatch)
     model.train(synthetic_model_dataset_identity(), training, early_stopping_scope=stopping)
     np.testing.assert_allclose(observed[0].response, [-1.0, 1.0])
     np.testing.assert_allclose(observed[0].early_stopping_response.response, [2.0])
-    assert model._pipeline._fitted_response_transformation.mean_[0] == pytest.approx(2.0)
+    assert model._fitted_response_transformation.mean_[0] == pytest.approx(2.0)
 
 
 def test_transformer_contract_violations() -> None:
@@ -272,7 +272,7 @@ class TestGroupMeansInThePipeline:
 
         restored = DRPModel.load(tmp_path / "grouped")
 
-        assert isinstance(restored._pipeline._fitted_response_transformation, GroupMeanCenterer)
+        assert isinstance(restored._fitted_response_transformation, GroupMeanCenterer)
         np.testing.assert_array_equal(restored.predict(dataset, scope), model.predict(dataset, scope))
         np.testing.assert_allclose(restored.predict(dataset, scope), [1.0, 2.0, 3.0, 4.0])
 

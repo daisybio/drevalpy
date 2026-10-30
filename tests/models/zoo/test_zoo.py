@@ -7,17 +7,16 @@ import shutil
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.errors import UnknownNameError
 from drevalpy.models import DRPModel, ModelSpec, zoo
-from drevalpy.models.config import ModelConfig, ResolvedModelConfig, validate
-from drevalpy.models.factory import model_config_for_name
+from drevalpy.models.config import ModelConfig, validate
 from drevalpy.models.zoo import (
     clear_external_zoo,
     get_zoo_config,
     list_zoo_names,
     load_external_zoo_file,
-    zoo_model_config,
+    register_external_zoo_entry,
+    zoo_registry,
 )
 from drevalpy.models.zoo._external_load import _collect_zoo_entries_from_yaml, _load_zoo_yaml_mapping
 from drevalpy.registry.predictor import get as get_predictor
@@ -39,7 +38,7 @@ LITERATURE_ZOO_NAMES = [
     "PaccMann",
 ]
 
-BLOCK_ZOO_NAMES = set(LITERATURE_ZOO_NAMES) - {"SimpleNeuralNetwork", "MultiViewNeuralNetwork"}
+BLOCK_ZOO_NAMES = set(LITERATURE_ZOO_NAMES) - {"SimpleNeuralNetwork", "MultiViewNeuralNetwork", "MOLIR", "SuperFELTR"}
 
 
 def test_every_builtin_zoo_file_is_listed() -> None:
@@ -81,10 +80,10 @@ def test_scope_listing_partitions_the_zoo() -> None:
         ("NaiveTissueMeanPredictor", "tissue", "constant", ...),
         ("NaiveTissueDrugMeanPredictor", "tissue", "identity", ...),
         ("NaiveMeanEffectsPredictor", "concatFeaturizers", "identity", ...),
-        ("SingleDrugElasticNet", "scaledGeneExpression", "identity", "singleDrugElasticNet"),
-        ("SingleDrugRandomForest", "scaledGeneExpression", "identity", "singleDrugRandomForest"),
-        ("MOLIR", ..., "identity", ...),
-        ("SuperFELTR", ..., "identity", ...),
+        ("SingleDrugElasticNet", "scaledGeneExpression", None, "singleDrugElasticNet"),
+        ("SingleDrugRandomForest", "scaledGeneExpression", None, "singleDrugRandomForest"),
+        ("MOLIR", ..., None, ...),
+        ("SuperFELTR", ..., None, ...),
     ],
 )
 def test_preset_featurizer_wiring(name: str, sample, drug, predictor) -> None:
@@ -110,37 +109,6 @@ def test_naive_mean_effects_concatenates_identity_and_a_tolerant_tissue() -> Non
     assert children[1].options["allow_missing"] is True
 
 
-def test_zoo_model_config_merges_hyperparameters() -> None:
-    config = zoo_model_config("ElasticNet", {"alpha": 0.25})
-
-    assert isinstance(config, ResolvedModelConfig)
-    assert config.predictor_values()["alpha"] == 0.25
-    assert model_config_for_name("ElasticNet", {"alpha": 0.5}).predictor_values()["alpha"] == 0.5  # type: ignore[union-attr]
-
-
-def test_zoo_model_config_rejects_view_keys() -> None:
-    with pytest.raises(ValueError, match=r"Unknown hyperparameter"):
-        zoo_model_config("ElasticNet", {"sample_views": ["gene_expression"], "alpha": 0.1})
-
-
-def test_zoo_model_config_routes_methylation_flat_key_to_pca_child(tmp_path) -> None:
-    preset = tmp_path / "zoo.yaml"
-    preset.write_text(
-        "methylationForest:\n  sample_featurizer:\n    - scaledGeneExpression\n    - pca[methylation]\n"
-        "  drug_featurizer: fingerprints\n  predictor: randomForest\n",
-        encoding="utf-8",
-    )
-    clear_external_zoo()
-    load_external_zoo_file(preset)
-    try:
-        resolved = zoo_model_config("methylationForest", {"methylation_n_components": 11})
-    finally:
-        clear_external_zoo()
-    assert isinstance(resolved, ResolvedModelConfig)
-    assert resolved.predictor_values().get("methylation_n_components") is None
-    assert resolved.featurizer_values("sample", "pca[methylation]")["n_components"] == 11
-
-
 @pytest.mark.parametrize("name", ["MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM"])
 def test_multi_view_zoo_presets_use_the_1_6_1_default_views(name: str) -> None:
     sample = get_zoo_config(name).sample_featurizer
@@ -160,7 +128,7 @@ def test_multi_view_zoo_presets_use_the_1_6_1_default_views(name: str) -> None:
 
 
 def test_get_zoo_config_rejects_an_unknown_name_with_unknown_name_error() -> None:
-    with pytest.raises(UnknownNameError, match="Unknown zoo entry: NoSuchPreset") as caught:
+    with pytest.raises(UnknownNameError, match=r"Unknown zoo entry 'NoSuchPreset'\. Available: ") as caught:
         get_zoo_config("NoSuchPreset")
     assert isinstance(caught.value, KeyError)
 
@@ -172,13 +140,9 @@ def test_get_zoo_config_applies_prediction_mode_override(monkeypatch: pytest.Mon
         get_zoo_config("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION).prediction_mode
         == PredictionMode.CLASSIFICATION
     )
-    via_zoo = zoo_model_config("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION)
-    assert isinstance(via_zoo, ModelConfig)
-    assert via_zoo.prediction_mode == PredictionMode.CLASSIFICATION
 
 
 def test_external_zoo_rejects_builtin_collision_and_is_atomic(tmp_path) -> None:
-    clear_external_zoo()
     entry = "  sample_featurizer: scaledGeneExpression\n  drug_featurizer: fingerprints\n  predictor: elasticNet\n"
     bad = tmp_path / "zoo.yaml"
     bad.write_text(f"goodEntry:\n{entry}ElasticNet:\n{entry}", encoding="utf-8")
@@ -187,7 +151,36 @@ def test_external_zoo_rejects_builtin_collision_and_is_atomic(tmp_path) -> None:
         load_external_zoo_file(bad)
 
     assert "goodEntry" not in list_zoo_names(include_external=True)
+
+
+def test_builtin_presets_are_marked_in_the_registry_metadata() -> None:
+    registry = zoo_registry()
+
+    assert registry.names() == tuple(list_zoo_names(include_external=False))
+    assert all(registry.metadata(name)["builtin"] for name in registry.names())
+
+
+def test_an_external_entry_is_listed_replaced_and_cleared() -> None:
+    config = get_zoo_config("Ridge")
+
+    register_external_zoo_entry("myRidge", config)
+    register_external_zoo_entry("myRidge", config)
+
+    assert "myRidge" in list_zoo_names()
+    assert "myRidge" not in list_zoo_names(include_external=False)
+    with pytest.raises(ValueError, match="already registered"):
+        register_external_zoo_entry("myRidge", config, replace=False)
+    with pytest.raises(ValueError, match="collides with a built-in"):
+        register_external_zoo_entry("Ridge", config)
+
     clear_external_zoo()
+
+    assert list_zoo_names() == list_zoo_names(include_external=False)
+
+
+def test_get_zoo_config_returns_a_copy() -> None:
+    assert get_zoo_config("Ridge") is not zoo_registry().get("Ridge")
+    assert get_zoo_config("Ridge") == zoo_registry().get("Ridge")
 
 
 def test_single_drug_knn_zoo_entry_standardizes_per_drug() -> None:
@@ -199,9 +192,13 @@ def test_single_drug_knn_zoo_entry_standardizes_per_drug() -> None:
         "landmarkGenes",
         {"gene_list_stem": "landmark_genes"},
     )
-    resolved = ModelSpec.from_name("SingleDrugKNN").resolve()
-    assert resolved.featurizer_values("sample", "landmarkGenes")["standardize"] is False
-    assert resolved.predictor_values() == {"n_neighbors": 3, "weights": "distance"}
+    values = ModelSpec.from_name("SingleDrugKNN").hyperparameters
+    assert values["sample_featurizer.landmarkGenes.standardize"] is False
+    assert {key: value for key, value in values.items() if key.startswith("predictor.")} == {
+        "predictor.singleDrugKnn.n_neighbors": 3,
+        "predictor.singleDrugKnn.weights": "distance",
+        "predictor.singleDrugKnn.mrmr_k": 20,
+    }
     validate(config)
 
 
@@ -216,15 +213,15 @@ def test_random_forest_ae_molgnet_zoo_entry_has_the_1_6_1_defaults() -> None:
     assert config.drug_featurizer.name == "molgnetPooled"
     spec = ModelSpec.from_name("RandomForestAEMolGNet")
     assert spec.requires_early_stopping
-    assert spec.default_hyperparameters == {
-        "epochs_autoencoder": 2000,
-        "lr_autoencoder": 1e-4,
-        "patience_autoencoder": 50,
-        "batch_size_autoencoder": 1024,
-        "pooling": "mean_max",
-        "n_estimators": 100,
-        "max_samples": 0.2,
-        "max_depth": 5,
+    assert dict(spec.hyperparameters) == {
+        "sample_featurizer.aeGeneExpression.epochs_autoencoder": 2000,
+        "sample_featurizer.aeGeneExpression.lr_autoencoder": 1e-4,
+        "sample_featurizer.aeGeneExpression.patience_autoencoder": 50,
+        "sample_featurizer.aeGeneExpression.batch_size_autoencoder": 1024,
+        "drug_featurizer.molgnetPooled.pooling": "mean_max",
+        "predictor.randomForest.n_estimators": 100,
+        "predictor.randomForest.max_samples": 0.2,
+        "predictor.randomForest.max_depth": 5,
     }
     assert spec.hyperparameter_space["predictor.randomForest.max_depth"]["choices"] == (5, 10, 30)
     validate(config)
@@ -250,7 +247,7 @@ def test_literature_zoo_entries_validate_and_build_a_model(name: str) -> None:
     assert config.sample_featurizer is not None
     if name in BLOCK_ZOO_NAMES:
         assert config.drug_featurizer is not None
-        assert issubclass(get_predictor(config.predictor.name), BlockPredictor)
+        assert get_predictor(config.predictor.name).drug_inputs.kind == "blocks"
     assert DRPModel(ModelSpec(name, config)) is not None
 
 
@@ -264,7 +261,7 @@ def test_ensemble_mf_zoo_entry_matches_the_1_6_1_defaults() -> None:
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.hyperparameter_space is not None
     assert config.drug_featurizer.hyperparameter_space["n_bits"]["default"] == 256
-    defaults = get_predictor("ensembleMF").get_default_hyperparameters()
+    defaults = get_predictor("ensembleMF").default_hyperparameters()
     assert (defaults["n_ensemble"], defaults["seed"]) == (20, 0)
 
 
@@ -280,7 +277,7 @@ def test_paccmann_zoo_entry_matches_the_1_6_1_defaults() -> None:
     }
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "smilesTokens"
-    defaults = get_predictor("paccMann").get_default_hyperparameters()
+    defaults = get_predictor("paccMann").default_hyperparameters()
     assert (defaults["epochs"], defaults["patience"]) == (10, 10)
 
 

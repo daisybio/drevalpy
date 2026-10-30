@@ -10,7 +10,7 @@ import pytest
 
 from drevalpy._utils.seed import seed_everything
 from drevalpy.models import DRPModel, ModelSpec
-from drevalpy.models.config import DrugFeaturizerConfig, ModelConfig, SampleFeaturizerConfig, from_spec
+from drevalpy.models.config import FeaturizerConfig, ModelConfig, from_recipe
 from drevalpy.models.zoo import get_zoo_config
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
@@ -42,7 +42,7 @@ def _construct_global_model_spec(whole_name: str, model_name: str) -> ModelSpec:
     if whole_name == "SimpleNeuralNetwork[chemberta]":
         config = _zoo_config_variant(
             "SimpleNeuralNetwork",
-            drug_featurizer=DrugFeaturizerConfig(
+            drug_featurizer=FeaturizerConfig(
                 name="view",
                 options={"view": "chemberta"},
             ),
@@ -51,7 +51,7 @@ def _construct_global_model_spec(whole_name: str, model_name: str) -> ModelSpec:
     if whole_name == "PaccMann":
         config = _zoo_config_variant(
             "PaccMann",
-            sample_featurizer=SampleFeaturizerConfig(
+            sample_featurizer=FeaturizerConfig(
                 name="landmarkGenes",
                 options={
                     "gene_list_stem": "gene_list_paccmann_network_prop_reduced",
@@ -59,7 +59,7 @@ def _construct_global_model_spec(whole_name: str, model_name: str) -> ModelSpec:
                     "fit_on_pairs": True,
                 },
             ),
-            drug_featurizer=DrugFeaturizerConfig(name="smilesTokens", options={"padding_length": 64, "n_variants": 4}),
+            drug_featurizer=FeaturizerConfig(name="smilesTokens", options={"padding_length": 64, "n_variants": 4}),
         )
         return ModelSpec(model_name, config)
     return ModelSpec.from_name(model_name)
@@ -160,7 +160,7 @@ def _resolve_single_drug_model_name(whole_name: str) -> str:
 def _construct_single_drug_spec(whole_name: str, model_name: str) -> ModelSpec:
     if whole_name.endswith("[proteomics]"):
         predictor_token = model_name.replace("SingleDrug", "singleDrug")
-        return ModelSpec(model_name, from_spec(f"normalizedProteomics:{predictor_token}"))
+        return ModelSpec(model_name, from_recipe(f"normalizedProteomics:{predictor_token}"))
     return ModelSpec.from_name(model_name)
 
 
@@ -182,7 +182,7 @@ def test_global_models(synthetic_dataset: Dataset, model_name: str, monkeypatch:
 
     whole_name, model_name = _resolve_global_model_name(model_name)
     spec = _construct_global_model_spec(whole_name, model_name)
-    hpam_combi = dict(spec.default_hyperparameters)
+    hpam_combi: dict[str, Any] = {}
     _apply_global_model_hpam_tweaks(model_name, hpam_combi)
     model = DRPModel(spec, hpam_combi)
 
@@ -200,7 +200,7 @@ def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> N
     spec = ModelSpec(
         "MultiViewNeuralNetwork",
         _zoo_config_variant(
-            "MultiViewNeuralNetwork", sample_featurizer=SampleFeaturizerConfig(name="raw", view="methylation")
+            "MultiViewNeuralNetwork", sample_featurizer=FeaturizerConfig(name="raw", view="methylation")
         ),
     )
     model = DRPModel(spec, {"units_per_layer": [2, 2], "dropout_prob": 0.3, "max_epochs": 1})
@@ -233,7 +233,7 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
     split = _first_lto_fold(synthetic_dataset)
 
     spec = _construct_single_drug_spec(whole_name, model_name)
-    hpam_combi = dict(spec.default_hyperparameters)
+    hpam_combi: dict[str, Any] = {}
     _configure_single_drug_hpam(model_name, hpam_combi)
     model = DRPModel(spec, hpam_combi)
 
@@ -260,7 +260,7 @@ def test_n_jobs_changes_the_speed_not_the_model(synthetic_dataset: Dataset, mode
     name = _resolve_single_drug_model_name(model_name)
     split = _first_lto_fold(synthetic_dataset)
     spec = _construct_single_drug_spec(model_name, name)
-    hpam_combi = dict(spec.default_hyperparameters)
+    hpam_combi: dict[str, Any] = {}
     _configure_single_drug_hpam(name, hpam_combi)
     if name in ("MOLIR", "SuperFELTR"):
         hpam_combi["mini_batch"] = 6  # at most the 7 pairs of a drug, so every drug really trains

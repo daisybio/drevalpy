@@ -1,4 +1,4 @@
-"""``DRPModel`` and its pipeline: lifecycle states, training context, component construction and feature preparation."""
+"""``DRPModel``: lifecycle states, training context, component construction and feature preparation."""
 
 from __future__ import annotations
 
@@ -9,11 +9,8 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy.components.featurizers import FeatureMismatchError
 from drevalpy.errors import InvalidInputError
 from drevalpy.models import DRPModel, ModelSpec
-from drevalpy.models._components import build_components
-from drevalpy.models._feature_preparation import transform_entities, usable_responses
-from drevalpy.models._pipeline import PipelineState, validate_fit_scopes
-from drevalpy.models.config import from_spec
-from drevalpy.models.tuning.search_space import resolve_model_config
+from drevalpy.models._feature_preparation import usable_responses
+from drevalpy.models.drp_model import ModelState, _build_components, validate_fit_scopes
 from drevalpy.types import SplitMask
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.models.synthetic_fixtures import (
@@ -31,10 +28,11 @@ def test_constructor_and_properties() -> None:
     model = DRPModel(small_data_spec("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
 
     assert model.name == "ElasticNet"
-    assert model.config.predictor_values()["alpha"] == 0.1
+    assert model.hyperparameters["predictor.elasticNet.alpha"] == 0.1
+    assert model.spec.hyperparameters["predictor.elasticNet.l1_ratio"] == 0.5
     values = model.hyperparameters
-    values["alpha"] = 99
-    assert model.hyperparameters["alpha"] == 0.1
+    values["predictor.elasticNet.alpha"] = 99
+    assert model.hyperparameters["predictor.elasticNet.alpha"] == 0.1
 
 
 def test_train_predict_and_load_preserve_original_response_units(tmp_path) -> None:
@@ -47,7 +45,7 @@ def test_train_predict_and_load_preserve_original_response_units(tmp_path) -> No
     model.save(tmp_path / "model")
     restored = DRPModel.load(tmp_path / "model")
 
-    assert model._pipeline.state is PipelineState.FITTED
+    assert model.state is ModelState.FITTED
     assert predictions.shape == (2,)
     np.testing.assert_allclose(restored.predict(dataset, split.test), predictions)
 
@@ -69,14 +67,14 @@ def test_train_without_a_checkpoint_dir_uses_a_temporary_one_and_removes_it(tmp_
     split = lso_split_masks()
     model = DRPModel(small_data_spec("ElasticNet"))
     seen = []
-    original_fit = model._pipeline.fit
+    original_fit = model._fit
 
     def spy(*args, training_context, **kwargs):
         seen.append(training_context.checkpoint_dir)
         assert training_context.checkpoint_dir.is_dir()
         return original_fit(*args, training_context=training_context, **kwargs)
 
-    monkeypatch.setattr(model._pipeline, "fit", spy)
+    monkeypatch.setattr(model, "_fit", spy)
     monkeypatch.chdir(tmp_path)
 
     model.train(dataset, split.train)
@@ -92,13 +90,13 @@ def test_train_puts_n_jobs_in_the_training_context(tmp_path, monkeypatch, n_jobs
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
     model = DRPModel(small_data_spec("ElasticNet"))
     seen = []
-    original_fit = model._pipeline.fit
+    original_fit = model._fit
 
     def spy(*args, training_context, **kwargs):
         seen.append(training_context.n_jobs)
         return original_fit(*args, training_context=training_context, **kwargs)
 
-    monkeypatch.setattr(model._pipeline, "fit", spy)
+    monkeypatch.setattr(model, "_fit", spy)
 
     extra = {} if n_jobs is None else {"n_jobs": n_jobs}
     model.train(dataset, lso_split_masks().train, model_checkpoint_dir=tmp_path, **extra)
@@ -117,7 +115,7 @@ def test_model_starts_untrained_and_predict_rejects_it() -> None:
     model = DRPModel(small_data_spec("ElasticNet"))
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
 
-    assert model._pipeline.state is PipelineState.UNTRAINED
+    assert model.state is ModelState.UNTRAINED
     with pytest.raises(RuntimeError, match="not been trained"):
         model.predict(dataset, lso_split_masks().test)
 
@@ -129,7 +127,7 @@ def test_empty_fit_returns_aligned_nan_predictions() -> None:
 
     model.train(dataset, empty)
 
-    assert model._pipeline.state is PipelineState.EMPTY
+    assert model.state is ModelState.EMPTY
     assert np.isnan(model.predict(dataset, lso_split_masks().test)).all()
 
 
@@ -139,10 +137,10 @@ def test_retraining_resets_previous_fitted_state() -> None:
     masks = lso_split_masks()
 
     model.train(dataset, masks.train)
-    assert model._pipeline.state is PipelineState.FITTED
+    assert model.state is ModelState.FITTED
     model.train(dataset, SplitMask(np.zeros(dataset.response_matrix.shape, dtype=bool)))
 
-    assert model._pipeline.state is PipelineState.EMPTY
+    assert model.state is ModelState.EMPTY
     assert np.isnan(model.predict(dataset, masks.test)).all()
 
 
@@ -180,7 +178,7 @@ def test_predicting_on_a_dataset_without_a_fitted_gene_raises(tmp_path) -> None:
 
 @pytest.mark.parametrize("failure", ["validation", "construction", "fit"])
 def test_entered_training_failure_invalidates_previous_model(monkeypatch, failure) -> None:
-    import drevalpy.models._pipeline as pipeline_module
+    import drevalpy.models.drp_model as drp_model_module
 
     dataset = synthetic_model_dataset_identity()
     scope = lso_split_masks().train
@@ -191,14 +189,14 @@ def test_entered_training_failure_invalidates_previous_model(monkeypatch, failur
         raise ValueError("deliberate failure")
 
     if failure == "construction":
-        monkeypatch.setattr(pipeline_module, "build_components", fail)
+        monkeypatch.setattr(drp_model_module, "_build_components", fail)
     elif failure == "fit":
-        monkeypatch.setattr(type(model._pipeline._predictor), "fit", fail)
+        monkeypatch.setattr(type(model._predictor), "fit", fail)
     else:
         scope = SplitMask(np.zeros((1, 1), dtype=bool))
     with pytest.raises(ValueError):
         model.train(dataset, scope)
-    assert model._pipeline.state is PipelineState.UNTRAINED
+    assert model.state is ModelState.UNTRAINED
     with pytest.raises(RuntimeError, match="not been trained"):
         model.predict(dataset, lso_split_masks().test)
 
@@ -210,22 +208,22 @@ def test_argument_binding_failure_preserves_previous_fit() -> None:
     expected = model.predict(dataset, lso_split_masks().test)
     with pytest.raises(TypeError):
         model.train(dataset, unexpected=True)
-    assert model._pipeline.state is PipelineState.FITTED
+    assert model.state is ModelState.FITTED
     np.testing.assert_array_equal(model.predict(dataset, lso_split_masks().test), expected)
 
 
 def test_components_construct_once_per_training_attempt(monkeypatch) -> None:
-    import drevalpy.models._pipeline as pipeline_module
+    import drevalpy.models.drp_model as drp_model_module
 
     calls = []
-    build = pipeline_module.build_components
+    build = drp_model_module._build_components
 
-    def record(config):
-        components = build(config)
+    def record(spec):
+        components = build(spec)
         calls.append(components)
         return components
 
-    monkeypatch.setattr(pipeline_module, "build_components", record)
+    monkeypatch.setattr(drp_model_module, "_build_components", record)
     model = DRPModel(small_data_spec("ElasticNet"))
     assert calls == []
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
@@ -236,12 +234,12 @@ def test_components_construct_once_per_training_attempt(monkeypatch) -> None:
 
 
 @pytest.mark.parametrize("trained", [False, True])
-def test_unfitted_or_empty_pipeline_cannot_be_saved(tmp_path, trained) -> None:
+def test_unfitted_or_empty_model_cannot_be_saved(tmp_path, trained) -> None:
     model = DRPModel(ModelSpec.from_name("NaivePredictor"))
     if trained:
         dataset = synthetic_model_dataset_identity()
         model.train(dataset, SplitMask(np.zeros((2, 2), dtype=bool)))
-    with pytest.raises(RuntimeError, match="FITTED"):
+    with pytest.raises(RuntimeError, match="must be trained first"):
         model.save(tmp_path / "model.zip")
 
 
@@ -251,9 +249,9 @@ def test_empty_prediction_does_not_access_dataset_features(monkeypatch) -> None:
     model.train(dataset, SplitMask(np.zeros((2, 2), dtype=bool)))
 
     def fail(*args, **kwargs):
-        raise AssertionError("Empty pipeline must not read features")
+        raise AssertionError("Empty model must not read features")
 
-    monkeypatch.setattr(model._pipeline, "_build_features_from_dataset", fail)
+    monkeypatch.setattr(model, "_feature_sources", fail)
     scope = SplitMask(np.ones((2, 2), dtype=bool)).shuffled(7)
     values = model.predict(dataset, scope)
     assert values.shape == (4,)
@@ -275,16 +273,16 @@ def test_prediction_retains_unobserved_targets_and_all_invalid_feature_rows() ->
 
 
 def test_each_side_computes_features_once_per_operation(monkeypatch) -> None:
-    from drevalpy.components.featurizers._dense_view import DenseViewFeaturizer
+    from drevalpy.models import _feature_preparation
 
     calls = []
-    transform = DenseViewFeaturizer._transform_features
+    transform = _feature_preparation.transform_or_stored
 
-    def record(self, source, ids):
-        calls.append(type(self).__name__)
-        return transform(self, source, ids)
+    def record(featurizer, source, ids):
+        calls.append(type(featurizer).__name__)
+        return transform(featurizer, source, ids)
 
-    monkeypatch.setattr(DenseViewFeaturizer, "_transform_features", record)
+    monkeypatch.setattr(_feature_preparation, "transform_or_stored", record)
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
     model = DRPModel(small_data_spec("ElasticNet"))
     model.train(dataset, lso_split_masks().train)
@@ -303,33 +301,22 @@ def test_mean_effects_falls_back_to_sample_and_drug_effects_without_tissue_metad
     model.train(dataset, split.train)
     preds = model.predict(dataset, split.test)
 
-    assert model._pipeline.state is PipelineState.FITTED
+    assert model.state is ModelState.FITTED
     assert np.isfinite(preds).all()
 
 
 def test_build_components_creates_independent_featurizers_and_predictor() -> None:
-    resolved = resolve_model_config(from_spec("ElasticNet"))
-    first = build_components(resolved)
-    second = build_components(resolved)
+    spec = ModelSpec.from_name("ElasticNet").with_hyperparameters({"alpha": 0.25, "n_bits": 512})
+    first = _build_components(spec)
+    second = _build_components(spec)
 
     assert all(component is not None for component in first)
     assert all(a is not b for a, b in zip(first, second, strict=True))
+    assert first[2]._hyperparameters["alpha"] == 0.25
+    assert first[1]._n_bits == 512
     mode = first[2]._hyperparameters["prediction_mode"]
     assert mode == "regression"
     assert type(mode) is str
-
-
-def test_transform_without_a_featurizer_returns_empty_result() -> None:
-    result = transform_entities(None, None, np.array(["a", "b"]))
-    np.testing.assert_array_equal(result.entity_ids, ["a", "b"])
-    assert result.matrix.shape == (2, 0)
-    assert result.blocks == {}
-    assert result.projection == ()
-
-
-def test_configured_featurizer_requires_a_feature_source() -> None:
-    with pytest.raises(ValueError, match="Feature source is required"):
-        transform_entities(object(), None, np.array(["a"]))  # type: ignore[arg-type]
 
 
 def test_usable_responses_removes_missing_targets() -> None:
