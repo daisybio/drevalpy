@@ -1,9 +1,10 @@
 """
 MORGOTH as a single-drug model, wrapping the ``morgoth`` package (https://github.com/volkamerlab/MORGOTH).
 
-MORGOTH is a random forest whose trees learn the response value and a class (response below / above a per-drug
-threshold) simultaneously; ``impact_classification`` (lambda in the paper) weights the classification in the split
-criterion. drevalpy uses the regression output as the prediction.
+MORGOTH is a random forest whose trees learn the response value and a class (sensitive / resistant from the
+CurveCurator regulation, or response below / above a per-drug threshold if the regulation is missing) simultaneously;
+``impact_classification`` (lambda in the paper) weights the classification in the split criterion. drevalpy uses the
+regression output as the prediction.
 
 Rolli, L.-M. et al. Increasing trustworthiness of machine learning-based drug sensitivity prediction with a
 multivariate random forest approach. Digital Discovery 5 (4), 1746-1764 (2026).
@@ -82,7 +83,8 @@ class MorgothRegressor(RegressorMixin, BaseEstimator):
         :param impact_classification: share of the classification in the split criterion (lambda in the paper)
         :param sample_weights: 'simple', 'linear' or 'none'
         :param tree_weights: whether to use the class-aware tree weights of SAURON-RF
-        :param threshold_quantile: quantile of the training responses that separates the two classes
+        :param threshold_quantile: quantile of the training responses that separates the two classes, only used
+            without class labels
         :param random_state: seed of the forest
         :param n_jobs: number of processes, -1 = all cores
         """
@@ -99,20 +101,28 @@ class MorgothRegressor(RegressorMixin, BaseEstimator):
         self.random_state = random_state
         self.n_jobs = n_jobs
 
-    def fit(self, X, y):  # noqa: N803
+    def fit(self, X, y, y_class=None):  # noqa: N803
         """
-        Fits the forest; the class threshold is the ``threshold_quantile`` of the given responses.
+        Fits the forest.
+
+        The threshold for the sample weights is the quantile of the given responses at the fraction of sensitive
+        samples if ``y_class`` is given (so the weights balance the classes), else the ``threshold_quantile``.
 
         :param X: feature matrix (rows x features)
         :param y: response vector
+        :param y_class: class labels (1 = sensitive, 0 = resistant); if None, the classes are derived from the threshold
         :returns: the fitted regressor
         """
         from morgoth.morgoth import MORGOTH
 
         y = np.asarray(y, dtype=float)
-        self.threshold_ = float(np.quantile(y, self.threshold_quantile))
-        # same rule as the package's sample weights: values below the threshold are class 0
-        y_class = (y >= self.threshold_).astype(int)
+        if y_class is not None:
+            self.threshold_ = float(np.quantile(y, np.mean(y_class)))
+        else:
+            self.threshold_ = float(np.quantile(y, self.threshold_quantile))
+        if y_class is None:
+            # same rule as the package's sample weights: values below the threshold are class 0
+            y_class = (y >= self.threshold_).astype(int)
         # the package writes these files during the fit, they are not needed
         with tempfile.TemporaryDirectory() as tmp, _pool(self.n_jobs):
             self.forest_ = MORGOTH(
@@ -228,13 +238,25 @@ class SingleDrugMorgoth(DRPModel):
 
         The gene expression is arcsinh-transformed and standardized with a scaler fitted on the training cell lines.
 
-        :param output: training responses of one drug
+        :param output: training responses of one drug; if it has the CurveCurator regulation, rows with 'NA' are dropped
+            and the class is 1 (sensitive) for 'down', 0 (resistant) for 'not' and 'up'
         :param cell_line_input: gene expression of the cell lines
         :param drug_input: not needed
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
         :raises RuntimeError: if the model has not been built yet
         """
+        y_class = None
+        if output.regulation is not None:
+            n_before, n_cell_lines_before = len(output), len(np.unique(output.cell_line_ids))
+            output = output.copy()
+            output.mask(output.regulation != "NA")
+            y_class = (output.regulation == "down").astype(int)
+            n_cell_lines = len(np.unique(output.cell_line_ids))
+            print(
+                f"Dropped {n_before - len(output)} of {n_before} responses with regulation 'NA'; training on "
+                f"{len(output)} responses of {n_cell_lines} of {n_cell_lines_before} cell lines."
+            )
         if len(output) == 0:
             print("No training data provided, will predict NA.")
             self.model = None
@@ -255,7 +277,7 @@ class SingleDrugMorgoth(DRPModel):
             cell_line_input=cell_line_input,
             drug_input=None,
         )
-        self.model.fit(x, output.response)
+        self.model.fit(x, output.response, morgoth__y_class=y_class)
 
     def predict(
         self,
