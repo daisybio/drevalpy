@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
-from drevalpy.components.featurizers.sample.gene_lists import select_genes
+from drevalpy.components.featurizers._dense import dense_result, view_matrix
+from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
+from drevalpy.components.featurizers.sample.gene_lists import view_genes
 from drevalpy.errors import InvalidInputError
-from drevalpy.registry.sample_featurizer import register
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.registry.featurizer import register
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_source import FeatureSource, Side
+
+if TYPE_CHECKING:
+    from sklearn.preprocessing import StandardScaler
 
 TRANSFORMS = ("arcsinh", "rank")
+_BLOCK = "gene_expression"
 
 
 def rank_transform(matrix: np.ndarray, reference: np.ndarray) -> np.ndarray:
@@ -29,17 +36,12 @@ def rank_transform(matrix: np.ndarray, reference: np.ndarray) -> np.ndarray:
     return np.clip(percentile / max(1, reference.shape[0] - 1), 0.0, 1.0)
 
 
-@register(
-    "scaledGeneExpression",
-    description="Gene expression with an arcsinh or rank transform and scaling.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
-class ScaledGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
+@register("scaledGeneExpression", description="Gene expression with an arcsinh or rank transform and scaling.")
+class ScaledGeneExpressionFeaturizer(Featurizer):
     """Match sklearn baseline gene-expression preprocessing."""
 
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    requires_fit: ClassVar[bool] = True
-    fit_on_unique_ids: ClassVar[bool] = True
 
     def __init__(
         self, *, view: str = "gene_expression", gene_list: str | None = None, transform: str = "arcsinh"
@@ -54,114 +56,106 @@ class ScaledGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
             :func:`rank_transform`), so a sample is always scored against the fixed training reference.
         :raises InvalidInputError: If *transform* is not ``arcsinh`` or ``rank``.
         """
-        from sklearn.preprocessing import StandardScaler
-
-        super().__init__(view=view)
         if transform not in TRANSFORMS:
             msg = f"Unknown transform {transform!r}; expected one of {', '.join(TRANSFORMS)}."
             raise InvalidInputError(msg)
+        self._view = view
         self._gene_list = gene_list
         self._transform = transform
+        self._names: tuple[str, ...] | None = None
         self._rank_reference: np.ndarray | None = None
-        self._scaler = StandardScaler()
+        self._scaler: StandardScaler | None = None
 
-    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...] | None:
-        """Bind the transform to the genes of the gene list, or to the whole view without one.
+    @classmethod
+    def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
+        """Publish under the canonical gene-expression block name, whatever view is read.
 
-        :param source: Feature source providing view matrices.
-        :returns: Gene names in gene-list order, or every feature name of the view.
+        :param config: Unused.
+        :returns: The ``gene_expression`` block.
         """
-        if self._gene_list is None:
-            return super()._names_to_fit(source)
-        return select_genes(source, self._view, self._gene_list)
+        _ = config
+        return (BlockSpec(_BLOCK, FeatureFormat.NUMERIC_MATRIX),)
 
-    def _fetch_hyperparameters(self) -> dict[str, Any] | None:
-        """Match a stored variant only when it was built for the same gene list.
+    def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+        """Return which samples have a row of the bound view that is not all NaN.
 
-        :returns: The gene-list and non-default transform settings, or ``None`` when both are default.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs to check.
+        :returns: Boolean array with one entry per ID.
+        """
+        return all_nan_rows_mask(source, self._view, ids)
+
+    def stored_params(self) -> Mapping[str, Any] | None:
+        """Match a stored variant only when it was built with the same gene list and transform.
+
+        :returns: The gene-list and non-default transform settings, empty when both are default.
         """
         settings: dict[str, Any] = {}
         if self._gene_list is not None:
             settings["gene_list"] = self._gene_list
         if self._transform != "arcsinh":
             settings["transform"] = self._transform
-        return settings or None
+        return settings
 
-    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
-        """Fit the rank reference (for ``rank``) and the scaler on the transformed training rows.
+    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
+        """Wrap a stored scaled matrix as the ``gene_expression`` block.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Deduplicated sample identifiers to fit on.
-        :returns: Output feature dimension.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Stored scaled expression.
+        :returns: One ``gene_expression`` block.
         """
-        raw = self._raw_matrix(source, entity_ids)
+        return dense_result(ids, _BLOCK, matrix, view_genes(source, self._view, self._gene_list))
+
+    def fit(
+        self,
+        source: FeatureSource,
+        train_ids: np.ndarray,
+        *,
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Fit the rank reference (for ``rank``) and the scaler on the sorted unique training samples.
+
+        :param source: Feature source of the sample side.
+        :param train_ids: Training sample IDs.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer, fitted.
+        """
+        from sklearn.preprocessing import StandardScaler
+
+        _ = train_pair_ids, es_pair_ids
+        self._names = view_genes(source, self._view, self._gene_list)
+        raw = view_matrix(source, self._view, np.unique(train_ids), self._names)
         if self._transform == "rank":
             self._rank_reference = np.sort(raw.astype(np.float64), axis=0)
-        matrix = self._transform_values(raw)
-        self._scaler.fit(matrix)
-        return int(matrix.shape[1])
+        self._scaler = StandardScaler().fit(self._transform_values(raw))
+        return self
 
     def _transform_values(self, matrix: np.ndarray) -> np.ndarray:
         """Apply the configured transform before scaling.
 
         :param matrix: Raw view matrix.
         :returns: Transformed matrix; float64 for ``rank``.
-        :raises RuntimeError: If ``rank`` is configured but no reference was fitted.
         """
-        if self._transform == "arcsinh":
-            return np.arcsinh(matrix)
         if self._rank_reference is None:
-            msg = "ScaledGeneExpressionFeaturizer has no fitted rank reference"
-            raise RuntimeError(msg)
+            return np.arcsinh(matrix)
         return rank_transform(matrix.astype(np.float64), self._rank_reference)
 
-    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
-        """Transform and scale *matrix*.
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Transform and scale the view's rows for *ids*.
 
-        :param source: Feature source the matrix came from.
-        :param matrix: Raw view matrix for the requested entity IDs.
-        :returns: Scaled feature matrix.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: One ``gene_expression`` block.
+        :raises RuntimeError: If called before ``fit``.
         """
-        _ = source
-        return self._scaler.transform(self._transform_values(matrix))
-
-    def _block_name(self) -> str:
-        """Publish under the canonical gene-expression block name.
-
-        :returns: Block name.
-        """
-        return "gene_expression"
-
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state."""
-        if not self._is_fitted:
-            return {}
-        return {
-            "gene_expression_scaler": self._scaler,
-            "gene_list": self._gene_list,
-            "transform": self._transform,
-            "rank_reference": self._rank_reference,
-            **self._dense_state(),
-            "fitted": True,
-        }
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: Mapping previously returned by ``get_state``.
-        """
-        from sklearn.preprocessing import StandardScaler
-
-        scaler = state.get("gene_expression_scaler")
-        if isinstance(scaler, StandardScaler):
-            self._scaler = scaler
-        gene_list = state.get("gene_list")
-        if gene_list is None or isinstance(gene_list, str):
-            self._gene_list = gene_list
-        transform = state.get("transform")
-        if isinstance(transform, str) and transform in TRANSFORMS:
-            self._transform = transform
-        reference = state.get("rank_reference")
-        if isinstance(reference, np.ndarray) or reference is None:
-            self._rank_reference = reference
-        self._restore_dense_state(state)
+        if self._scaler is None:
+            msg = "ScaledGeneExpressionFeaturizer must be fit before transform"
+            raise RuntimeError(msg)
+        if len(ids) == 0:
+            matrix = np.empty((0, int(self._scaler.n_features_in_)))
+        else:
+            matrix = self._scaler.transform(self._transform_values(view_matrix(source, self._view, ids, self._names)))
+        return dense_result(ids, _BLOCK, matrix, self._names)

@@ -8,14 +8,21 @@ registration time would import ``sklearn``. See ``tests/test_import_cost_policy.
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
-from drevalpy.registry.sample_featurizer import register
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.components.featurizers._dense import dense_result, view_matrix
+from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
+from drevalpy.registry.featurizer import register
+from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_source import FeatureSource, Side
+
+if TYPE_CHECKING:
+    from drevalpy.components.featurizers.sample._proteomics_transformer import (
+        ProteomicsMedianCenterAndImputeTransformer,
+    )
 
 
 def log10_and_set_na(x: np.ndarray) -> np.ndarray:
@@ -32,13 +39,12 @@ def log10_and_set_na(x: np.ndarray) -> np.ndarray:
 @register(
     "normalizedProteomics",
     description="Proteomics view with log10 transform, median centering, and imputation.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
 )
-class NormalizedProteomicsSampleFeaturizer(DenseViewSampleFeaturizer):
+class NormalizedProteomicsSampleFeaturizer(Featurizer):
     """Match sklearn baseline proteomics preprocessing."""
 
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("proteomics",)
-    fit_on_unique_ids: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -60,17 +66,15 @@ class NormalizedProteomicsSampleFeaturizer(DenseViewSampleFeaturizer):
         :param proteomics_normalization_downshift: Downshift of the imputation distribution's mean,
             in standard deviations.
         """
-        from drevalpy.components.featurizers.sample._proteomics_transformer import (
-            ProteomicsMedianCenterAndImputeTransformer,
-        )
-
-        super().__init__(view=view)
-        self._transformer = ProteomicsMedianCenterAndImputeTransformer(
-            feature_threshold=proteomics_feature_threshold,
-            n_features=proteomics_n_features,
-            normalization_width=proteomics_normalization_width,
-            normalization_downshift=proteomics_normalization_downshift,
-        )
+        self._view = view
+        self._settings = {
+            "feature_threshold": proteomics_feature_threshold,
+            "n_features": proteomics_n_features,
+            "normalization_width": proteomics_normalization_width,
+            "normalization_downshift": proteomics_normalization_downshift,
+        }
+        self._names: tuple[str, ...] | None = None
+        self._transformer: ProteomicsMedianCenterAndImputeTransformer | None = None
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -85,44 +89,73 @@ class NormalizedProteomicsSampleFeaturizer(DenseViewSampleFeaturizer):
             "proteomics_normalization_width": {"type": "float", "low": 0.1, "high": 0.6, "default": 0.3},
         }
 
-    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
-        """Fit the median-centering transformer on log10 training rows.
+    def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+        """Return which samples have a row of the bound view that is not all NaN.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Deduplicated sample identifiers to fit on.
-        :returns: Number of retained proteins.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs to check.
+        :returns: Boolean array with one entry per ID.
         """
-        self._transformer.fit(log10_and_set_na(self._raw_matrix(source, entity_ids)))
-        return len(self._transformer.protein_indices)
+        return all_nan_rows_mask(source, self._view, ids)
 
-    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
-        """Log10-transform *matrix* and apply the fitted transformer row by row.
+    def stored_params(self) -> Mapping[str, Any] | None:
+        """Match the parameter-free stored variant.
 
-        :param source: Feature source the matrix came from.
-        :param matrix: Raw view matrix for the requested entity IDs.
-        :returns: Normalized feature matrix.
+        :returns: An empty mapping.
+        """
+        return {}
+
+    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
+        """Wrap a stored normalized matrix as the view's block.
+
+        :param source: Unused.
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Stored normalized proteomics.
+        :returns: One unnamed block, named after the view.
         """
         _ = source
-        rows = [self._transformer.transform(row[None, :])[0] for row in log10_and_set_na(matrix)]
-        return np.vstack(rows)
+        return dense_result(ids, self._view, matrix, None)
 
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state."""
-        return {
-            "proteomics_transformer": self._transformer,
-            **self._dense_state(),
-        }
+    def fit(
+        self,
+        source: FeatureSource,
+        train_ids: np.ndarray,
+        *,
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Fit the median-centering transformer on the log10 rows of the sorted unique training samples.
 
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: Mapping previously returned by ``get_state``.
+        :param source: Feature source of the sample side.
+        :param train_ids: Training sample IDs.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer, fitted.
         """
         from drevalpy.components.featurizers.sample._proteomics_transformer import (
             ProteomicsMedianCenterAndImputeTransformer,
         )
 
-        transformer = state.get("proteomics_transformer")
-        if isinstance(transformer, ProteomicsMedianCenterAndImputeTransformer):
-            self._transformer = transformer
-        self._restore_dense_state(state)
+        _ = train_pair_ids, es_pair_ids
+        self._names = source.get_feature_names(self._view)
+        matrix = log10_and_set_na(view_matrix(source, self._view, np.unique(train_ids), self._names))
+        self._transformer = ProteomicsMedianCenterAndImputeTransformer(**self._settings).fit(matrix)
+        return self
+
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Log10-transform the rows of *ids* and normalize them one sample at a time.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: One block of the retained proteins, named after the view.
+        :raises RuntimeError: If called before ``fit``.
+        """
+        transformer = self._transformer
+        if transformer is None:
+            msg = "NormalizedProteomicsSampleFeaturizer must be fit before transform"
+            raise RuntimeError(msg)
+        raw = log10_and_set_na(view_matrix(source, self._view, ids, self._names))
+        rows = [transformer.transform(row[None, :])[0] for row in raw]
+        matrix = np.vstack(rows) if rows else np.empty((0, len(transformer.protein_indices)))
+        names = None if self._names is None else tuple(self._names[i] for i in transformer.protein_indices)
+        return dense_result(ids, self._view, matrix, names)

@@ -5,6 +5,7 @@ Only the real weight downloads are ``network``-marked; the loaders are exercised
 
 from __future__ import annotations
 
+import pickle
 import sys
 from collections.abc import Iterator
 from types import ModuleType, SimpleNamespace
@@ -13,25 +14,27 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy.components.featurizers._dense_view import DenseViewFeaturizer
 from drevalpy.components.featurizers.drug import chemberta, smilesvec
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.chemberta import ChemBertaFeaturizer, load_chemberta
-from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer, _fingerprint_for_smiles
-from drevalpy.components.featurizers.drug.smilesvec import SmilesVecDrugFeaturizer, _smilesvec_embed
+from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
+from drevalpy.components.featurizers.drug.smilesvec import SmilesVecDrugFeaturizer
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.data import artifacts
-from drevalpy.registry.drug_featurizer import get as get_drug_featurizer
-from drevalpy.types.data.feature_source import DrugFeatureSource
+from drevalpy.registry.featurizer import featurizers
+from drevalpy.types.data.feature_source import FeatureSource
 from tests._import_shims import block_imports
-from tests.components.featurizers._helpers import SmilesSource
-from tests.conftest import MockFeatureSource
+from tests.components.featurizers.drug._helpers import DrugSource
 
 _EMBEDDERS = [
     pytest.param(FingerprintsFeaturizer, "morgan_fingerprint", "fingerprints", ("fp1", "fp2"), id="fingerprints"),
     pytest.param(ChemBertaFeaturizer, "chemberta", "chemberta", ("e1", "e2"), id="chemberta"),
     pytest.param(SmilesVecDrugFeaturizer, "smilesvec", "smilesvec", ("v1", "v2"), id="smilesvec"),
 ]
+
+
+def _fit_transform(featurizer, source: FeatureSource, ids: np.ndarray):
+    return featurizer.fit(source, ids).transform(source, ids)
 
 
 @pytest.mark.parametrize(
@@ -47,100 +50,131 @@ def test_hyperparameter_space_declares_the_tunables(featurizer_cls: type, tunabl
 
 
 @pytest.mark.parametrize("featurizer_cls", [p.values[0] for p in _EMBEDDERS])
-def test_compute_from_source_without_smiles_raises(featurizer_cls: type) -> None:
-    source = MockFeatureSource(features={"d1": {}})
+def test_a_source_without_the_view_or_smiles_raises(featurizer_cls: type) -> None:
+    source = DrugSource({"other": {"d1": [1.0]}})
 
     with pytest.raises(ValueError, match="no SMILES available"):
-        featurizer_cls()._compute_from_source(source, np.array(["d1"]))
+        _fit_transform(featurizer_cls(), source, np.array(["d1"]))
 
 
 @pytest.mark.parametrize(("featurizer_cls", "view", "block", "names"), _EMBEDDERS)
-def test_transform_blocks_are_named_after_the_featurizer(featurizer_cls, view, block, names) -> None:
-    source = MockFeatureSource(features={"d1": {view: np.array([0.1, 0.2])}}, meta_info={view: list(names)})
+def test_a_stored_view_is_read_and_named_after_the_featurizer(featurizer_cls, view, block, names) -> None:
+    source = DrugSource({view: {"d1": [0.1, 0.2]}}, names={view: names})
     ids = np.array(["d1"], dtype=str)
 
-    blocks = featurizer_cls().fit(source, entity_ids=ids).transform_blocks(source, ids)
+    result = _fit_transform(featurizer_cls(), source, ids)
 
-    assert set(blocks) == {block}
-    assert blocks[block].feature_names == names
+    assert set(result.blocks) == {block}
+    assert result.blocks[block].feature_names == names
+    assert featurizer_cls.output_blocks({})[0].name == block
+    np.testing.assert_array_equal(result.matrix, np.array([[0.1, 0.2]], dtype=np.float32))
 
 
-def test_view_drug_featurizer_is_registered_with_the_morgan_view_default() -> None:
-    assert get_drug_featurizer("view") is ViewDrugFeaturizer
-    assert ViewDrugFeaturizer.side == "drug"
+@pytest.mark.parametrize(("featurizer_cls", "view", "block", "names"), _EMBEDDERS)
+def test_a_stored_view_is_read_in_fitted_column_order(featurizer_cls, view, block, names) -> None:
+    ids = np.array(["d1"], dtype=str)
+    fitted = featurizer_cls().fit(DrugSource({view: {"d1": [0.1, 0.2]}}, names={view: names}), ids)
+
+    reordered = DrugSource({view: {"d1": [0.2, 0.1]}}, names={view: names[::-1]})
+
+    np.testing.assert_array_equal(fitted.transform(reordered, ids).matrix, np.array([[0.1, 0.2]], dtype=np.float32))
+
+
+def test_view_drug_featurizer_is_registered_for_the_drug_side_with_the_morgan_view_default() -> None:
+    assert featurizers.get("view") is ViewDrugFeaturizer
+    assert ViewDrugFeaturizer.sides == frozenset({"drug"})
     assert ViewDrugFeaturizer.input_views == ("morgan_fingerprint",)
-    assert ViewDrugFeaturizer()._view == "morgan_fingerprint"
-    assert issubclass(ViewDrugFeaturizer, DenseViewFeaturizer)
+    assert ViewDrugFeaturizer.output_blocks({"view": "chemberta"})[0].name == "chemberta"
 
 
 def test_view_drug_featurizer_passes_the_view_through() -> None:
-    source = MockFeatureSource(
-        features={
-            "d1": {"morgan_fingerprint": np.array([1.0, 0.0])},
-            "d2": {"morgan_fingerprint": np.array([0.0, 1.0])},
-        },
-        meta_info={"morgan_fingerprint": ["fp1", "fp2"]},
+    source = DrugSource(
+        {"morgan_fingerprint": {"d1": [1.0, 0.0], "d2": [0.0, 1.0]}},
+        names={"morgan_fingerprint": ("fp1", "fp2")},
     )
     ids = np.array(["d1", "d2"], dtype=str)
-    featurizer = ViewDrugFeaturizer().fit(source, entity_ids=ids)
 
-    blocks = featurizer.transform_blocks(source, ids)
+    result = _fit_transform(ViewDrugFeaturizer(), source, ids)
 
-    assert featurizer.output_dim == 2
-    assert set(blocks) == {"morgan_fingerprint"}
-    assert blocks["morgan_fingerprint"].feature_names == ("fp1", "fp2")
-    np.testing.assert_allclose(featurizer.transform(source, ids), [[1.0, 0.0], [0.0, 1.0]])
+    assert set(result.blocks) == {"morgan_fingerprint"}
+    assert result.blocks["morgan_fingerprint"].feature_names == ("fp1", "fp2")
+    np.testing.assert_allclose(result.matrix, [[1.0, 0.0], [0.0, 1.0]])
 
 
-def _generator(n_bits: int = 16):
-    from rdkit.Chem import rdFingerprintGenerator
-
-    return rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=n_bits)
-
-
-def test_fingerprints_report_a_missing_rdkit(monkeypatch: pytest.MonkeyPatch, drug_source: DrugFeatureSource) -> None:
+def test_fingerprints_report_a_missing_rdkit(monkeypatch: pytest.MonkeyPatch, smiles_only: DrugSource) -> None:
     block_imports(monkeypatch, "rdkit")
 
     with pytest.raises(ImportError, match="rdkit is required"):
-        FingerprintsFeaturizer(n_bits=16)._compute_from_source(drug_source, drug_source.identifiers[:1])
+        _fit_transform(FingerprintsFeaturizer(n_bits=16), smiles_only, smiles_only.identifiers[:1])
 
 
-@pytest.mark.parametrize(
-    "smiles", [None, "", float("nan"), "this is not a molecule"], ids=["missing", "empty", "nan", "unparseable"]
-)
-def test_unusable_smiles_produce_a_nan_fingerprint_row(smiles: object) -> None:
-    row = _fingerprint_for_smiles(smiles, _generator(), 16, False)
+def test_unusable_smiles_produce_nan_fingerprint_rows() -> None:
+    source = DrugSource(
+        smiles={"ok": "CCO", "missing": None, "empty": "", "nan": float("nan"), "bad": "not a molecule"}
+    )
+    ids = source.identifiers
 
-    assert row.shape == (16,)
-    assert np.all(np.isnan(row))
+    matrix = _fit_transform(FingerprintsFeaturizer(n_bits=16), source, ids).matrix
+
+    assert matrix.shape == (5, 16)
+    assert not np.isnan(matrix[0]).any()
+    assert np.isnan(matrix[1:]).all()
 
 
 def test_binary_and_count_fingerprints() -> None:
-    assert set(np.unique(_fingerprint_for_smiles("CCO", _generator(), 16, False))) <= {0.0, 1.0}
-    counts = _fingerprint_for_smiles("CCCCCCCCCC", _generator(8), 8, True)
-    binary = _fingerprint_for_smiles("CCCCCCCCCC", _generator(8), 8, False)
+    source = DrugSource(smiles={"d1": "CCCCCCCCCC"})
+    ids = source.identifiers
+
+    binary = _fit_transform(FingerprintsFeaturizer(n_bits=8), source, ids).matrix
+    counts = _fit_transform(FingerprintsFeaturizer(n_bits=8, use_counts=True), source, ids).matrix
+
+    assert set(np.unique(binary)) <= {0.0, 1.0}
     assert counts.sum() > binary.sum()
 
 
-def test_fingerprints_emit_one_row_per_drug(drug_source: DrugFeatureSource) -> None:
-    matrix = FingerprintsFeaturizer(n_bits=32, use_counts=True)._compute_from_source(
-        drug_source, drug_source.identifiers[:2]
-    )
-
-    assert matrix.shape == (2, 32)
-
-
-_HIDDEN = torch.tensor([[[1.0, 2.0], [3.0, 8.0], [5.0, 2.0]]])
-
-
-@pytest.mark.parametrize(
-    ("pooling", "expected"),
-    [("cls", [1.0, 2.0]), ("max", [5.0, 8.0]), ("mean", [3.0, 4.0]), ("not-a-strategy", [3.0, 4.0])],
-)
-def test_chemberta_pool_applies_the_configured_strategy_and_falls_back_to_mean(
-    pooling: str, expected: list[float]
+def test_fingerprints_are_computed_from_the_smiles_in_one_rdkit_pass_per_fit_and_transform(
+    monkeypatch: pytest.MonkeyPatch, smiles_only: DrugSource
 ) -> None:
-    np.testing.assert_allclose(ChemBertaFeaturizer(pooling=pooling)._pool(_HIDDEN), expected)
+    from rdkit.Chem import rdFingerprintGenerator
+
+    passes: list[int] = []
+    original = rdFingerprintGenerator.GetMorganGenerator
+
+    def counting_generator(**kwargs: object):
+        passes.append(1)
+        return original(**kwargs)
+
+    monkeypatch.setattr(rdFingerprintGenerator, "GetMorganGenerator", counting_generator)
+    ids = smiles_only.identifiers[:3]
+
+    featurizer = FingerprintsFeaturizer(n_bits=32, use_counts=True).fit(smiles_only, ids)
+    assert passes == []
+    matrix = featurizer.transform(smiles_only, ids).matrix
+
+    assert passes == [1]
+    assert matrix.shape == (3, 32)
+
+
+def test_fingerprints_read_the_stored_view_without_rdkit(
+    monkeypatch: pytest.MonkeyPatch, drug_source: FeatureSource, synthetic_dataset
+) -> None:
+    block_imports(monkeypatch, "rdkit")
+    ids = drug_source.identifiers[:2]
+
+    matrix = _fit_transform(FingerprintsFeaturizer(), drug_source, ids).matrix
+
+    np.testing.assert_array_equal(matrix, synthetic_dataset.get_drug_features("morgan_fingerprint", ids))
+
+
+def test_fitted_fingerprints_pickle_and_transform_identically(drug_source: FeatureSource) -> None:
+    ids = drug_source.identifiers
+    fitted = FingerprintsFeaturizer().fit(drug_source, ids)
+
+    restored = pickle.loads(pickle.dumps(fitted))  # noqa: S301 -- pickled on this line
+
+    np.testing.assert_array_equal(
+        restored.transform(drug_source, ids).matrix, fitted.transform(drug_source, ids).matrix
+    )
 
 
 class _TinyTokenizer:
@@ -179,7 +213,7 @@ def tiny_chemberta(monkeypatch: pytest.MonkeyPatch) -> tuple[_TinyTokenizer, _Ti
     return tokenizer, model
 
 
-def _smiles_lengths(source: DrugFeatureSource, ids: np.ndarray) -> list[int]:
+def _smiles_lengths(source: FeatureSource, ids: np.ndarray) -> list[int]:
     smiles = get_smiles_for_entities(source, ids)
     assert smiles is not None
     return [len(smiles[drug_id]) for drug_id in ids]
@@ -187,32 +221,43 @@ def _smiles_lengths(source: DrugFeatureSource, ids: np.ndarray) -> list[int]:
 
 @pytest.mark.parametrize(
     ("pooling", "expected"),
-    [("mean", lambda n: [(n + 1) / 2, 1.0]), ("cls", lambda n: [1.0, 1.0]), ("max", lambda n: [float(n), 1.0])],
+    [
+        ("mean", lambda n: [(n + 1) / 2, 1.0]),
+        ("cls", lambda n: [1.0, 1.0]),
+        ("max", lambda n: [float(n), 1.0]),
+        ("not-a-strategy", lambda n: [(n + 1) / 2, 1.0]),
+    ],
 )
-def test_chemberta_embeds_each_drug_with_the_configured_pooling(
-    tiny_chemberta, drug_source: DrugFeatureSource, pooling, expected
+def test_chemberta_embeds_each_drug_with_the_configured_pooling_and_falls_back_to_mean(
+    tiny_chemberta, smiles_only: DrugSource, pooling, expected
 ) -> None:
-    ids = drug_source.identifiers[:2]
+    ids = smiles_only.identifiers[:2]
 
-    matrix = ChemBertaFeaturizer(pooling=pooling, max_length=256)._compute_from_source(drug_source, ids)
+    matrix = _fit_transform(ChemBertaFeaturizer(pooling=pooling, max_length=256), smiles_only, ids).matrix
 
     assert matrix.shape == (2, 2)
     assert matrix.dtype == np.float32
-    np.testing.assert_allclose(matrix, [expected(n) for n in _smiles_lengths(drug_source, ids)])
+    np.testing.assert_allclose(matrix, [expected(n) for n in _smiles_lengths(smiles_only, ids)])
 
 
 def test_chemberta_truncates_to_max_length_and_fills_unknown_drugs_with_nan(
-    tiny_chemberta, drug_source: DrugFeatureSource
+    tiny_chemberta, smiles_only: DrugSource
 ) -> None:
     tokenizer, _ = tiny_chemberta
-    ids = np.array([drug_source.identifiers[0], "not-a-drug"])
+    ids = np.array([smiles_only.identifiers[0], "not-a-drug"])
 
-    matrix = ChemBertaFeaturizer(pooling="max", max_length=3)._compute_from_source(drug_source, ids)
+    matrix = _fit_transform(ChemBertaFeaturizer(pooling="max", max_length=3), smiles_only, ids).matrix
 
     assert tokenizer.max_lengths == [3]
     np.testing.assert_allclose(matrix[0], [3.0, 1.0])
     assert matrix.shape == (2, 2)
     assert np.isnan(matrix[1]).all()
+
+
+def test_chemberta_transforms_no_drugs_to_an_empty_block(tiny_chemberta, smiles_only: DrugSource) -> None:
+    ids = np.array([], dtype=str)
+
+    assert _fit_transform(ChemBertaFeaturizer(), smiles_only, ids).matrix.shape == (0, 2)
 
 
 @pytest.fixture
@@ -289,8 +334,10 @@ def test_load_chemberta_reports_missing_transformers(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.network
-def test_chemberta_embeds_dataset_smiles(drug_source: DrugFeatureSource) -> None:
-    matrix = ChemBertaFeaturizer(max_length=64)._compute_from_source(drug_source, drug_source.identifiers[:2])
+def test_chemberta_embeds_dataset_smiles(smiles_only: DrugSource) -> None:
+    ids = smiles_only.identifiers[:2]
+
+    matrix = _fit_transform(ChemBertaFeaturizer(max_length=64), smiles_only, ids).matrix
 
     assert matrix.shape[0] == 2
     assert matrix.dtype == np.float32
@@ -307,17 +354,6 @@ class _FakeKeyedVectors:
 
     def __getitem__(self, word: str) -> np.ndarray:
         return self._vectors[word]
-
-
-def test_smilesvec_embed_averages_known_kmers_and_handles_short_and_unknown_smiles() -> None:
-    kv = _FakeKeyedVectors({"CCO": np.array([1.0, 3.0]), "CON": np.array([3.0, 5.0]), "CC": np.array([2.0, 4.0])}, 2)
-
-    embedding = _smilesvec_embed("CCOCON", kv, k=3, dim=2)
-
-    np.testing.assert_allclose(embedding, [2.0, 4.0])
-    assert embedding.dtype == np.float32
-    np.testing.assert_allclose(_smilesvec_embed("CC", kv, k=8, dim=2), [2.0, 4.0])
-    np.testing.assert_allclose(_smilesvec_embed("NNNNN", kv, k=3, dim=2), [0.0, 0.0])
 
 
 @pytest.fixture
@@ -339,10 +375,10 @@ def loaded_word2vec(monkeypatch: pytest.MonkeyPatch, tmp_path) -> list[tuple[str
 
 
 def test_smilesvec_averages_the_kmer_vectors_of_each_drug(loaded_word2vec, tmp_path) -> None:
-    source = SmilesSource({"d1": "ABCD", "d2": "XXXX", "d3": None})
+    source = DrugSource(smiles={"d1": "ABCD", "d2": "XXXX", "d3": None})
     ids = np.array(["d1", "d2", "d3"])
 
-    matrix = SmilesVecDrugFeaturizer(k=2)._compute_from_source(source, ids)
+    matrix = _fit_transform(SmilesVecDrugFeaturizer(k=2), source, ids).matrix
 
     assert matrix.dtype == np.float32
     np.testing.assert_allclose(matrix[0], [2.0, 4.0])
@@ -351,16 +387,52 @@ def test_smilesvec_averages_the_kmer_vectors_of_each_drug(loaded_word2vec, tmp_p
     assert loaded_word2vec == [(str(tmp_path / smilesvec._SMILESVEC_MODEL_FILE), False)]
 
 
-def test_smilesvec_reports_a_missing_gensim(monkeypatch: pytest.MonkeyPatch, drug_source: DrugFeatureSource) -> None:
+def test_smilesvec_embeds_a_smiles_shorter_than_k_as_one_word(loaded_word2vec) -> None:
+    source = DrugSource(smiles={"d1": "AB"})
+
+    matrix = _fit_transform(SmilesVecDrugFeaturizer(k=8), source, source.identifiers).matrix
+
+    np.testing.assert_allclose(matrix, [[1.0, 3.0]])
+
+
+def test_smilesvec_reports_a_missing_gensim(monkeypatch: pytest.MonkeyPatch, smiles_only: DrugSource) -> None:
     block_imports(monkeypatch, "gensim")
 
     with pytest.raises(ImportError, match="gensim is required"):
-        SmilesVecDrugFeaturizer()._compute_from_source(drug_source, drug_source.identifiers[:1])
+        _fit_transform(SmilesVecDrugFeaturizer(), smiles_only, smiles_only.identifiers[:1])
 
 
 @pytest.mark.network
-def test_smilesvec_embeds_dataset_smiles(drug_source: DrugFeatureSource) -> None:
-    matrix = SmilesVecDrugFeaturizer()._compute_from_source(drug_source, drug_source.identifiers[:2])
+def test_smilesvec_embeds_dataset_smiles(smiles_only: DrugSource) -> None:
+    ids = smiles_only.identifiers[:2]
+
+    matrix = _fit_transform(SmilesVecDrugFeaturizer(), smiles_only, ids).matrix
 
     assert matrix.shape[0] == 2
     assert matrix.dtype == np.float32
+
+
+@pytest.mark.parametrize(("featurizer_cls", "view", "block", "names"), _EMBEDDERS)
+def test_the_parameter_free_stored_variant_is_wrapped_as_the_block(featurizer_cls, view, block, names) -> None:
+    featurizer = featurizer_cls()
+    source = DrugSource({view: {"d1": [0.1, 0.2]}}, names={view: names})
+    ids = np.array(["d1"], dtype=str)
+
+    result = featurizer.from_stored(source, ids, np.array([[1.0, 2.0]]))
+
+    assert featurizer.stored_params() == {}
+    assert result.blocks[block].feature_names == names
+    np.testing.assert_array_equal(result.matrix, np.array([[1.0, 2.0]], dtype=np.float32))
+
+
+@pytest.mark.parametrize(
+    ("featurizer", "expected"),
+    [
+        (FingerprintsFeaturizer(radius=3), {"radius": 3}),
+        (FingerprintsFeaturizer(n_bits=512, use_counts=True), {"n_bits": 512, "use_counts": True}),
+        (ChemBertaFeaturizer(max_length=128), {"max_length": 128}),
+        (SmilesVecDrugFeaturizer(k=4), {"k": 4}),
+    ],
+)
+def test_a_non_default_config_looks_up_only_the_stored_variant_with_its_settings(featurizer, expected) -> None:
+    assert featurizer.stored_params() == expected

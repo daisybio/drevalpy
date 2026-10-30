@@ -2,31 +2,31 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
+from drevalpy.components.featurizers._dense import dense_result, view_matrix
+from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample.gene_lists import select_genes
-from drevalpy.registry.sample_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.registry.featurizer import register
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 if TYPE_CHECKING:
     from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
+_BLOCK = "gene_expression"
 
-@register(
-    "landmarkGenes",
-    description="L1000 landmark genes with arcsinh and optional scaling.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
-class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
+
+@register("landmarkGenes", description="L1000 landmark genes with arcsinh and optional scaling.")
+class LandmarkGenesFeaturizer(Featurizer):
     """Landmark genes featurizer component."""
 
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    requires_fit: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -48,51 +48,82 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         :param fit_on_pairs: Fit the scalers on the training pairs, so a sample counts once per pair, as the
             DrEvalPy 1.6.1 PaccMann did, instead of once per sample.
         """
-        super().__init__(view=view)
+        self._view = view
         self._gene_list_stem = gene_list_stem
         self._standardize = standardize
         self._minmax_scale = minmax_scale
         self._arcsinh = arcsinh
         self._fit_on_pairs = fit_on_pairs
+        self._names: tuple[str, ...] | None = None
         self._scaler: StandardScaler | None = None
         self._minmax: MinMaxScaler | None = None
 
-    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...]:
-        """Bind the transform to the genes of the list, in list order.
+    @classmethod
+    def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
+        """Publish under the canonical gene-expression block name, whatever view is read.
 
-        :param source: Feature source providing view matrices.
-        :returns: Gene names in gene-list order.
+        :param config: Unused.
+        :returns: The ``gene_expression`` block.
         """
-        return select_genes(source, self._view, self._gene_list_stem)
+        _ = config
+        return (BlockSpec(_BLOCK, FeatureFormat.NUMERIC_MATRIX),)
 
-    def _fit_entity_ids(
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return the searchable hyperparameters."""
+        return {
+            "standardize": {"type": "categorical", "choices": [True, False], "default": True},
+            "minmax_scale": {"type": "categorical", "choices": [True, False], "default": False},
+        }
+
+    def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+        """Return which samples have a row of the bound view that is not all NaN.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs to check.
+        :returns: Boolean array with one entry per ID.
+        """
+        return all_nan_rows_mask(source, self._view, ids)
+
+    def stored_params(self) -> Mapping[str, Any] | None:
+        """Match the parameter-free stored variant.
+
+        :returns: An empty mapping.
+        """
+        return {}
+
+    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
+        """Wrap a stored landmark matrix as the ``gene_expression`` block.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Stored landmark-gene matrix.
+        :returns: One ``gene_expression`` block named by the genes of the list.
+        """
+        return dense_result(ids, _BLOCK, matrix, select_genes(source, self._view, self._gene_list_stem))
+
+    def fit(
         self,
         source: FeatureSource,
-        entity_ids: np.ndarray | None,
-        pair_expanded_ids: np.ndarray | None,
-        pair_expanded_es_ids: np.ndarray | None,
-    ) -> np.ndarray:
-        """Fit on the training pairs when ``fit_on_pairs`` is set, else on the given samples.
+        train_ids: np.ndarray,
+        *,
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Bind the transform to the genes of the list and fit the optional scalers.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Explicit fit IDs, or ``None`` for all identifiers.
-        :param pair_expanded_ids: Training sample IDs with duplicates per response pair.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: IDs whose rows the scalers read.
+        :param source: Feature source of the sample side.
+        :param train_ids: Training sample IDs; the scalers' rows unless ``fit_on_pairs`` is set.
+        :param train_pair_ids: Sample ID of every training pair; the scalers' rows when ``fit_on_pairs``
+            is set and they are given.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer, fitted.
         """
-        if self._fit_on_pairs and pair_expanded_ids is not None:
-            return pair_expanded_ids
-        return super()._fit_entity_ids(source, entity_ids, pair_expanded_ids, pair_expanded_es_ids)
-
-    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
-        """Fit the optional scalers on the landmark-gene columns.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Sample identifiers to fit on.
-        :returns: Number of selected genes.
-        """
-        self._fit_scalers(self._transform_genes(self._raw_matrix(source, entity_ids)))
-        return len(self._view_names or ())
+        _ = es_pair_ids
+        self._names = select_genes(source, self._view, self._gene_list_stem)
+        ids = train_pair_ids if self._fit_on_pairs and train_pair_ids is not None else train_ids
+        self._fit_scalers(self._transform_genes(view_matrix(source, self._view, ids, self._names)))
+        return self
 
     def _fit_scalers(self, matrix: np.ndarray) -> None:
         """Fit the standard and optional min-max scalers on *matrix*.
@@ -122,105 +153,29 @@ class LandmarkGenesFeaturizer(DenseViewSampleFeaturizer):
         selected = np.nan_to_num(matrix.astype(np.float64), nan=0.0, posinf=0.0, neginf=0.0)
         return np.arcsinh(selected) if self._arcsinh else selected
 
-    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
-        """Transform and scale the landmark-gene columns of *matrix*.
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Transform and scale the landmark-gene columns of the rows of *ids*.
 
-        :param source: Feature source the matrix came from.
-        :param matrix: Landmark-gene matrix for the requested entity IDs.
-        :returns: Landmark-gene feature matrix.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: One ``gene_expression`` block named by the selected genes.
+        :raises RuntimeError: If called before ``fit``.
         """
-        _ = source
-        result = self._transform_genes(matrix)
-        if self._scaler is not None:
-            result = self._scaler.transform(result)
-        if self._minmax is not None:
-            result = self._minmax.transform(result)
-        return result
-
-    def _block_name(self) -> str:
-        """Publish under the canonical gene-expression block name.
-
-        :returns: Block name.
-        """
-        return "gene_expression"
-
-    def _block_feature_names(self, source: FeatureSource) -> tuple[str, ...] | None:
-        """Return only the names of the selected landmark genes.
-
-        :param source: Feature source providing view matrices.
-        :returns: Selected gene names, or ``None`` before fit.
-        """
-        _ = source
-        return self._view_names
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the searchable hyperparameters."""
-        return {
-            "standardize": {"type": "categorical", "choices": [True, False], "default": True},
-            "minmax_scale": {"type": "categorical", "choices": [True, False], "default": False},
-        }
-
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state."""
-        if not self._is_fitted:
-            return {}
-        return {
-            **self._dense_state(),
-            "gene_list_stem": self._gene_list_stem,
-            "standardize": self._standardize,
-            "minmax_scale": self._minmax_scale,
-            "arcsinh": self._arcsinh,
-            "fit_on_pairs": self._fit_on_pairs,
-            "scaler": self._scaler,
-            "minmax": self._minmax,
-            "fitted": True,
-        }
-
-    def _restore_landmark_identity(self, state: dict[str, object]) -> None:
-        stem = state.get("gene_list_stem")
-        if isinstance(stem, str):
-            self._gene_list_stem = stem
-        if "standardize" in state:
-            self._standardize = bool(state["standardize"])
-        if "minmax_scale" in state:
-            self._minmax_scale = bool(state["minmax_scale"])
-        if "arcsinh" in state:
-            self._arcsinh = bool(state["arcsinh"])
-        if "fit_on_pairs" in state:
-            self._fit_on_pairs = bool(state["fit_on_pairs"])
-
-    def _restore_landmark_fit_state(self, state: dict[str, object]) -> None:
-        from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
-        scaler = state.get("scaler")
-        if isinstance(scaler, StandardScaler) or scaler is None:
-            self._scaler = scaler
-        minmax = state.get("minmax")
-        if isinstance(minmax, MinMaxScaler) or minmax is None:
-            self._minmax = minmax
-        self._restore_dense_state(state)
-        if not isinstance(state.get("output_dim"), int) and self._view_names:
-            self._output_dim = len(self._view_names)
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: Mapping previously returned by ``get_state``.
-        """
-        self._restore_landmark_identity(state)
-        self._restore_landmark_fit_state(state)
+        if self._names is None:
+            msg = f"{type(self).__name__} must be fit before transform"
+            raise RuntimeError(msg)
+        result = self._transform_genes(view_matrix(source, self._view, ids, self._names))
+        if len(ids) > 0:
+            if self._scaler is not None:
+                result = self._scaler.transform(result)
+            if self._minmax is not None:
+                result = self._minmax.transform(result)
+        return dense_result(ids, _BLOCK, result.reshape(len(ids), len(self._names)), self._names)
 
 
-@register(
-    "landmarkGenesReduced",
-    description="Reduced landmark gene set used by DrugGNN and PharmaFormer.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
+@register("landmarkGenesReduced", description="Reduced landmark gene set used by DrugGNN and PharmaFormer.")
 class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
     """Landmark genes reduced featurizer component."""
-
-    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
 
     def __init__(
         self,

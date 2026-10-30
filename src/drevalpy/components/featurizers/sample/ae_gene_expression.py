@@ -16,21 +16,23 @@ methods that use it; see ``tests/test_import_cost_policy.py``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
 from drevalpy._utils.torch_io import load_state_dict, save_state_dict
 from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.featurizers._dense import dense_result, view_matrix
+from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample._ae_cache import cache_file, resolve_cache_dir, write_atomically
-from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
 from drevalpy.components.featurizers.sample.dipk_gene_expression import _is_linear_expression
-from drevalpy.components.featurizers.sample.gene_lists import select_genes
+from drevalpy.components.featurizers.sample.gene_lists import view_genes
 from drevalpy.errors import InvalidInputError
 from drevalpy.log import get_logger
-from drevalpy.registry.sample_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.registry.featurizer import register
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
@@ -40,27 +42,77 @@ _logger = get_logger(__name__)
 #: Default gene list: the genes of the TCGA autoencoder that the curated screens have.
 DEFAULT_GENE_LIST = "tcga_autoencoder_genes_available"
 
-#: Autoencoder settings kept in the state: state key, attribute, accepted type.
-_SETTINGS = (
-    ("epochs_autoencoder", "_epochs", int),
-    ("lr_autoencoder", "_lr", float),
-    ("patience_autoencoder", "_patience", int),
-    ("batch_size_autoencoder", "_batch_size", int),
-)
+_BLOCK = "gene_expression"
+
+
+def train_or_load_autoencoder(
+    train: np.ndarray,
+    validation: np.ndarray,
+    train_ids: np.ndarray,
+    validation_ids: np.ndarray,
+    *,
+    epochs: int,
+    lr: float,
+    patience: int,
+    batch_size: int,
+    gene_list: str | None = None,
+    genes: tuple[str, ...] | None = None,
+    cache_dir: str | None = None,
+) -> GeneExpressionEncoder:
+    """Return the gene-expression autoencoder for one fold, read from the cache when possible.
+
+    :param train: Preprocessed training matrix, one row per unique sample.
+    :param validation: Preprocessed early-stopping matrix.
+    :param train_ids: Sample IDs of the training rows.
+    :param validation_ids: Sample IDs of the early-stopping rows.
+    :param epochs: Maximum number of training epochs.
+    :param lr: Learning rate of the Adam optimizer.
+    :param patience: Epochs without improvement before training stops.
+    :param batch_size: Mini-batch size.
+    :param gene_list: Gene-list name the matrices were restricted to; part of the cache key.
+    :param genes: Column names of the matrices; ``None`` keys the cache by column positions.
+    :param cache_dir: Cache directory; ``None`` falls back to ``DREVAL_AE_CACHE``, and without that
+        nothing is cached.
+    :returns: Trained encoder.
+    """
+    from drevalpy.components.predictors.literature.dipk._autoencoder_batches import avoid_singleton_batch
+    from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
+        GeneExpressionEncoder,
+        train_gene_expession_autoencoder,
+    )
+
+    directory = resolve_cache_dir(cache_dir)
+    path = None
+    if directory is not None:
+        config = {"gene_list": gene_list, "epochs": epochs, "batch_size": batch_size, "patience": patience, "lr": lr}
+        names = genes or tuple(str(i) for i in range(train.shape[1]))
+        path = cache_file(directory, config, names, train_ids, validation_ids, (train, validation))
+        if path.is_file():
+            encoder = GeneExpressionEncoder(int(train.shape[1]))
+            encoder.load_state_dict(load_state_dict(path.read_bytes()))
+            encoder.eval()
+            _logger.info("Gene autoencoder taken from cache: %s", path)
+            return encoder
+    train, validation = avoid_singleton_batch(train, validation, batch_size)
+    encoder = train_gene_expession_autoencoder(
+        train, validation, epochs, lr=lr, batch_size=batch_size, patience=patience
+    )
+    if path is not None:
+        write_atomically(path, save_state_dict({k: v.cpu() for k, v in encoder.state_dict().items()}))
+        _logger.info("Gene autoencoder cached: %s", path)
+    return encoder
 
 
 @register(
     "aeGeneExpression",
     description="Gene-expression autoencoder embeddings fitted on the unique training samples.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
 )
-class AEGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
+class AEGeneExpressionFeaturizer(Featurizer):
     """Encode the genes of a gene list into the 512-dimensional DIPK latent space."""
 
-    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     requires_early_stopping: ClassVar[bool] = True
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    requires_fit: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -85,17 +137,25 @@ class AEGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         :param autoencoder_cache_dir: Directory caching trained encoders; ``None`` falls back to the environment
             variable ``DREVAL_AE_CACHE`` and, when that is unset too, disables the cache.
         """
-        super().__init__(view=view)
+        self._view = view
         self._gene_list = gene_list
         self._epochs = int(epochs_autoencoder)
         self._lr = float(lr_autoencoder)
         self._patience = int(patience_autoencoder)
         self._batch_size = int(batch_size_autoencoder)
         self._cache_dir = autoencoder_cache_dir
+        self._names: tuple[str, ...] | None = None
         self._encoder: GeneExpressionEncoder | None = None
-        self._input_dim = 0
-        self._latent_dim = 512
-        self._validation_ids: np.ndarray | None = None
+
+    @classmethod
+    def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
+        """Publish under the canonical gene-expression block name, whatever view is read.
+
+        :param config: Unused.
+        :returns: The ``gene_expression`` block.
+        """
+        _ = config
+        return (BlockSpec(_BLOCK, FeatureFormat.NUMERIC_MATRIX),)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -114,44 +174,32 @@ class AEGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
             },
         }
 
-    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...] | None:
-        """Bind the encoder to the genes of the gene list, or to the whole view without one.
+    def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+        """Return which samples have a row of the bound view that is not all NaN.
 
-        :param source: Feature source providing view matrices.
-        :returns: Gene names in gene-list order, or every feature name of the view.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs to check.
+        :returns: Boolean array with one entry per ID.
         """
-        if self._gene_list is None:
-            return super()._names_to_fit(source)
-        return select_genes(source, self._view, self._gene_list)
+        return all_nan_rows_mask(source, self._view, ids)
 
-    def _fetch_hyperparameters(self) -> dict[str, Any] | None:
+    def stored_params(self) -> Mapping[str, Any] | None:
         """Match a stored variant only when it was built for the same gene list.
 
-        :returns: The gene-list setting, or ``None`` for the whole view.
+        :returns: The gene-list setting, empty for the whole view.
         """
-        return None if self._gene_list is None else {"gene_list": self._gene_list}
+        return {} if self._gene_list is None else {"gene_list": self._gene_list}
 
-    def _fit_entity_ids(
-        self,
-        source: FeatureSource,
-        entity_ids: np.ndarray | None,
-        pair_expanded_ids: np.ndarray | None,
-        pair_expanded_es_ids: np.ndarray | None,
-    ) -> np.ndarray:
-        """Fit on the unique training IDs, remembering the unique early-stopping IDs.
+    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
+        """Wrap stored latent vectors as the ``gene_expression`` block.
 
         :param source: Unused.
-        :param entity_ids: Unused; IDs come from *pair_expanded_ids*.
-        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
-        :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
-        :returns: The sorted unique training IDs.
-        :raises InvalidInputError: If *pair_expanded_ids* is missing.
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Stored latent vectors.
+        :returns: One unnamed ``gene_expression`` block.
         """
-        _ = source, entity_ids
-        if pair_expanded_ids is None:
-            raise InvalidInputError("aeGeneExpression needs the training sample ids of the pairs to fit on")
-        self._validation_ids = None if pair_expanded_es_ids is None else np.unique(pair_expanded_es_ids)
-        return np.unique(pair_expanded_ids)
+        _ = source
+        return dense_result(ids, _BLOCK, matrix, None)
 
     def _preprocess(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
         """Apply ``log2(x + 1)`` to linear expression units; log-scale views pass unchanged.
@@ -164,146 +212,63 @@ class AEGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
             return np.log2(np.clip(matrix, 0.0, None) + 1.0)
         return matrix
 
-    def _autoencoder_config(self) -> dict[str, object]:
-        """Collect the settings that change the trained weights.
+    def fit(
+        self,
+        source: FeatureSource,
+        train_ids: np.ndarray,
+        *,
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Train (or load) the autoencoder on the sorted unique training samples, validated on the early-stopping ones.
 
-        :returns: Mapping that goes into the cache key.
+        :param source: Feature source of the sample side.
+        :param train_ids: Training sample IDs.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Sample ID of every early-stopping pair; their unique samples validate the
+            autoencoder.
+        :returns: This featurizer, fitted.
+        :raises InvalidInputError: If no training or early-stopping sample is given.
         """
-        return {
-            "gene_list": self._gene_list,
-            "epochs": self._epochs,
-            "batch_size": self._batch_size,
-            "patience": self._patience,
-            "lr": self._lr,
-        }
-
-    def _train_or_load(
-        self, train: np.ndarray, validation: np.ndarray, train_ids: np.ndarray, validation_ids: np.ndarray
-    ) -> GeneExpressionEncoder:
-        """Return the encoder for this fold, from the cache when possible.
-
-        :param train: Preprocessed training matrix, one row per unique sample.
-        :param validation: Preprocessed early-stopping matrix.
-        :param train_ids: Sample ids of the training rows.
-        :param validation_ids: Sample ids of the early-stopping rows.
-        :returns: Trained encoder in evaluation mode.
-        """
-        from drevalpy.components.predictors.literature.dipk._autoencoder_batches import avoid_singleton_batch
-        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
-            GeneExpressionEncoder,
-            train_gene_expession_autoencoder,
-        )
-
-        directory = resolve_cache_dir(self._cache_dir)
-        path = None
-        if directory is not None:
-            genes = self._view_names or tuple(str(i) for i in range(train.shape[1]))
-            path = cache_file(
-                directory, self._autoencoder_config(), genes, train_ids, validation_ids, (train, validation)
-            )
-            if path.is_file():
-                encoder = GeneExpressionEncoder(int(train.shape[1]))
-                encoder.load_state_dict(load_state_dict(path.read_bytes()))
-                encoder.eval()
-                _logger.info("Gene autoencoder taken from cache: %s", path)
-                return encoder
-        train, validation = avoid_singleton_batch(train, validation, self._batch_size)
-        encoder = train_gene_expession_autoencoder(
+        _ = train_pair_ids
+        if es_pair_ids is None or len(es_pair_ids) == 0 or len(train_ids) == 0:
+            msg = f"{type(self).__name__} requires a usable early-stopping holdout"
+            raise InvalidInputError(msg)
+        self._names = view_genes(source, self._view, self._gene_list)
+        fit_ids, validation_ids = np.unique(train_ids), np.unique(es_pair_ids)
+        train = self._preprocess(source, view_matrix(source, self._view, fit_ids, self._names))
+        validation = self._preprocess(source, view_matrix(source, self._view, validation_ids, self._names))
+        self._encoder = train_or_load_autoencoder(
             train,
             validation,
-            self._epochs,
+            fit_ids,
+            validation_ids,
+            epochs=self._epochs,
             lr=self._lr,
-            batch_size=self._batch_size,
             patience=self._patience,
+            batch_size=self._batch_size,
+            gene_list=self._gene_list,
+            genes=self._names,
+            cache_dir=self._cache_dir,
         )
-        if path is not None:
-            write_atomically(path, save_state_dict({k: v.cpu() for k, v in encoder.state_dict().items()}))
-            _logger.info("Gene autoencoder cached: %s", path)
-        return encoder
+        return self
 
-    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
-        """Train (or load) the autoencoder and return its latent width.
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Encode the rows of *ids* into latent vectors.
 
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Unique training entity IDs.
-        :returns: Latent dimensionality of the encoder.
-        :raises InvalidInputError: If the train or early-stopping ID set is missing or empty.
-        """
-        validation_ids = self._validation_ids
-        if validation_ids is None or len(entity_ids) == 0 or len(validation_ids) == 0:
-            raise InvalidInputError("aeGeneExpression needs non-empty training and early-stopping samples")
-        train = self._preprocess(source, self._raw_matrix(source, entity_ids))
-        validation = self._preprocess(source, self._raw_matrix(source, validation_ids))
-        self._input_dim = int(train.shape[1])
-        self._encoder = self._train_or_load(train, validation, entity_ids, validation_ids)
-        self._latent_dim = int(self._encoder.latent_dim)
-        return self._latent_dim
-
-    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
-        """Encode *matrix* into latent vectors.
-
-        Reached only after the ``requires_fit`` gate, so the encoder exists.
-
-        :param source: Feature source the matrix came from.
-        :param matrix: Gene-expression matrix restricted to the fitted genes.
-        :returns: Float matrix of latent embeddings.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: One unnamed ``gene_expression`` block of latent vectors.
+        :raises RuntimeError: If called before ``fit``.
         """
         from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import encode_gene_expression
 
-        return encode_gene_expression(self._preprocess(source, matrix), self._encoder)
-
-    def _block_feature_names(self, source: FeatureSource) -> None:
-        """Latent dimensions have no names to inherit from the source view.
-
-        :param source: Feature source (unused).
-        :returns: Always ``None``.
-        """
-        _ = source
-        return None
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize the encoder weights and the settings.
-
-        :returns: State mapping, or an empty dict before fitting.
-        """
         if self._encoder is None:
-            return {}
-        return {
-            **self._dense_state(),
-            "encoder_state": save_state_dict(self._encoder.state_dict()),
-            "input_dim": self._input_dim,
-            "latent_dim": self._latent_dim,
-            "gene_list": self._gene_list,
-            "epochs_autoencoder": self._epochs,
-            "lr_autoencoder": self._lr,
-            "patience_autoencoder": self._patience,
-            "batch_size_autoencoder": self._batch_size,
-        }
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore an encoder serialized by ``get_state``.
-
-        :param state: Mapping previously returned by ``get_state``.
-        """
-        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
-
-        blob = state.get("encoder_state")
-        input_dim = state.get("input_dim")
-        latent_dim = state.get("latent_dim", 512)
-        if not isinstance(blob, bytes) or not isinstance(input_dim, int) or not isinstance(latent_dim, int):
-            return
-        self._input_dim = input_dim
-        self._latent_dim = latent_dim
-        self._output_dim = latent_dim
-        gene_list = state.get("gene_list")
-        if gene_list is None or isinstance(gene_list, str):
-            self._gene_list = gene_list
-        for key, attribute, kind in _SETTINGS:
-            value = state.get(key)
-            if isinstance(value, kind):
-                setattr(self, attribute, value)
-        self._encoder = GeneExpressionEncoder(input_dim, latent_dim=latent_dim)
-        self._encoder.load_state_dict(load_state_dict(blob))
-        self._encoder.eval()
-        self._restore_dense_state(state)
-        self._is_fitted = True
+            msg = "AEGeneExpressionFeaturizer must be fit before transform"
+            raise RuntimeError(msg)
+        if len(ids) == 0:
+            matrix = np.empty((0, int(self._encoder.latent_dim)))
+        else:
+            raw = view_matrix(source, self._view, ids, self._names)
+            matrix = encode_gene_expression(self._preprocess(source, raw), self._encoder)
+        return dense_result(ids, _BLOCK, matrix, None)

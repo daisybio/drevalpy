@@ -6,8 +6,6 @@ multi-character atoms ("Cl", "Br") and bracket atoms such as "[C@@H]" or "[Pt+2]
 
 ``rdkit`` is imported inside :func:`randomize_smiles` only: this module is imported eagerly with the
 featurizer registry, and ``rdkit`` costs a noticeable import. See ``tests/test_import_cost_policy.py``.
-
-The leading underscore keeps the module out of ``registry/_builtins.py::_discover_modules``.
 """
 
 from __future__ import annotations

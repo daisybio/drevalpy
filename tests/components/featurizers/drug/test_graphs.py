@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import pickle
+
 import numpy as np
-import pandas as pd
 import pytest
 import torch
 from rdkit import Chem
 from torch_geometric.data import Data
 
-import drevalpy.components.featurizers.drug.drug_graph as drug_graph_module
+from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.drug._molgnet_network import (
     AddSegId,
     BertLayerNorm,
@@ -22,15 +23,10 @@ from drevalpy.components.featurizers.drug._molgnet_network import (
     bond_cumsum,
     mol_to_graph_data_obj_complex,
 )
-from drevalpy.components.featurizers.drug.drug_graph import (
-    DrugGraphFeaturizer,
-    _one_hot_encode,
-    _smiles_to_graph,
-)
-from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import DrugFeatureSource
+from drevalpy.components.featurizers.drug.drug_graph import DrugGraphFeaturizer, _one_hot_encode, smiles_to_graph
+from drevalpy.types.data.feature_source import FeatureSource
 from tests._import_shims import block_imports
-from tests.conftest import MockFeatureSource
+from tests.components.featurizers.drug._helpers import DrugSource
 
 _D1 = np.array(["d1"])
 
@@ -39,75 +35,78 @@ def _graph(nodes: int = 2) -> Data:
     return Data(x=torch.ones((nodes, 3)), edge_index=torch.tensor([[0], [1]], dtype=torch.long))
 
 
-class _NoStoredGraphSource(DrugFeatureSource):
-    """``get_entity_view`` raises for an absent view; returning ``None`` is the only way to reach the fallback."""
-
-    def get_entity_view(self, entity_id: str, view: str) -> None:
-        return None
+def _graphs(featurizer: DrugGraphFeaturizer, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+    return featurizer.fit(source, ids).transform(source, ids).blocks["drug_graph"].values
 
 
-def test_drug_graph_preserves_payloads_and_infers_node_feature_width() -> None:
+def test_drug_graph_passes_stored_payloads_through_as_one_graph_block() -> None:
     graph, other = _graph(), Data(x=torch.zeros((1, 3)), edge_index=torch.empty((2, 0), dtype=torch.long))
-    features = MockFeatureSource({"d1": {"drug_graph": graph}, "d2": {"drug_graph": other}})
-    featurizer = DrugGraphFeaturizer().fit(features, entity_ids=_D1)
+    source = DrugSource({"drug_graph": {"d1": graph, "d2": other}})
 
-    block = featurizer.transform_blocks(features, _D1)["drug_graph"]
+    result = DrugGraphFeaturizer().fit(source, _D1).transform(source, np.array(["d1", "d2"]))
 
-    assert block.values.shape == (1,)
+    block = result.blocks["drug_graph"]
+    assert block.format is FeatureFormat.GRAPH
+    assert block.values.shape == (2,)
     assert block.values[0] is graph
-    assert featurizer.output_dim == 3
-    assert set(featurizer._graphs) == {"d1"}
-    assert featurizer.transform(features, np.array(["d2"]))[0] is other
+    assert block.values[1] is other
+    assert DrugGraphFeaturizer.output_blocks({})[0].format is FeatureFormat.GRAPH
     assert set(DrugGraphFeaturizer.get_hyperparameter_space()) == {"add_hydrogens"}
 
 
-def test_drug_graph_skips_unresolvable_drugs_at_fit_and_raises_at_transform() -> None:
-    features = MockFeatureSource({"d1": {}})
-    featurizer = DrugGraphFeaturizer().fit(features, entity_ids=_D1)
+def test_drug_graph_converts_stored_graph_mappings(drug_source: FeatureSource) -> None:
+    graphs = _graphs(DrugGraphFeaturizer(), drug_source, drug_source.identifiers[:2])
 
-    assert featurizer._graphs == {}
-    assert featurizer.output_dim == 0
+    assert all(isinstance(graph, Data) for graph in graphs)
+    assert graphs[0].edge_index.dtype == torch.long
+
+
+def test_drug_graph_raises_for_a_drug_without_a_graph_or_smiles() -> None:
     with pytest.raises(KeyError, match="graph computation failed"):
-        featurizer.transform(features, _D1)
-    assert DrugGraphFeaturizer()._compute_from_source(
-        MockFeatureSource({"d1": {}, "d2": {}}), np.array(["d1", "d2"])
-    ).tolist() == [None, None]
+        _graphs(DrugGraphFeaturizer(), DrugSource({"drug_graph": {}}), _D1)
+    with pytest.raises(KeyError, match="graph computation failed"):
+        _graphs(DrugGraphFeaturizer(), DrugSource(smiles={"d1": float("nan")}), _D1)
 
 
-def test_drug_graph_computes_graphs_on_the_fly_for_missing_views(synthetic_dataset: Dataset) -> None:
-    source = _NoStoredGraphSource(synthetic_dataset, synthetic_dataset.drug_ids)
-    drug_ids = synthetic_dataset.drug_ids[:2]
+def test_drug_graph_computes_graphs_from_the_smiles_when_the_view_is_absent(smiles_only: DrugSource) -> None:
+    drug_ids = smiles_only.identifiers[:2]
 
-    featurizer = DrugGraphFeaturizer().fit(source, entity_ids=drug_ids)
+    graphs = _graphs(DrugGraphFeaturizer(), smiles_only, drug_ids)
+    with_hs = _graphs(DrugGraphFeaturizer(add_hydrogens=True), smiles_only, drug_ids)
 
-    assert set(featurizer._graphs) == set(drug_ids)
-    assert featurizer.output_dim > 0
-    assert isinstance(DrugGraphFeaturizer().transform(source, drug_ids[:1])[0], Data)
-
-
-def test_drug_graph_computes_graphs_from_dataset_smiles(synthetic_dataset: Dataset) -> None:
-    source = DrugFeatureSource(synthetic_dataset, synthetic_dataset.drug_ids)
-
-    payloads = DrugGraphFeaturizer()._compute_from_source(source, synthetic_dataset.drug_ids[:2])
-
-    assert payloads.shape == (2,)
-    assert all(isinstance(payload, Data) for payload in payloads)
+    assert all(isinstance(graph, Data) for graph in graphs)
+    assert with_hs[0].x.shape[0] > graphs[0].x.shape[0]
 
 
-def test_drug_graph_returns_none_for_a_non_string_smiles(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(drug_graph_module, "get_smiles_for_entities", lambda s, ids: pd.Series({"d1": float("nan")}))
+def test_drug_graph_computes_only_the_drugs_missing_from_the_stored_view() -> None:
+    stored = _graph()
+    source = DrugSource({"drug_graph": {"d1": stored}}, smiles={"d1": "CCO", "d2": "CCO"})
 
-    assert DrugGraphFeaturizer()._compute_graph_from_smiles_for_entity(MockFeatureSource({"d1": {}}), "d1") is None
+    graphs = _graphs(DrugGraphFeaturizer(), source, np.array(["d1", "d2"]))
+
+    assert graphs[0] is stored
+    assert graphs[1].x.shape[0] == 3
+
+
+def test_fitted_drug_graph_pickles_and_transforms_identically(smiles_only: DrugSource) -> None:
+    ids = smiles_only.identifiers[:3]
+    fitted = DrugGraphFeaturizer(add_hydrogens=True).fit(smiles_only, ids)
+
+    restored = pickle.loads(pickle.dumps(fitted))  # noqa: S301 -- pickled on this line
+
+    for before, after in zip(_graphs(fitted, smiles_only, ids), _graphs(restored, smiles_only, ids), strict=True):
+        torch.testing.assert_close(after.x, before.x)
+        torch.testing.assert_close(after.edge_index, before.edge_index)
 
 
 def test_smiles_to_graph_handles_unparseable_single_atom_and_hydrogens() -> None:
-    assert _smiles_to_graph("this is not a molecule") is None
-    graph = _smiles_to_graph("C")
+    assert smiles_to_graph("this is not a molecule") is None
+    graph = smiles_to_graph("C")
     assert graph is not None
     assert graph.x.shape[0] == 1
     assert graph.edge_index.shape == (2, 0)
     assert graph.edge_attr.shape == (0, 6)
-    with_hs = _smiles_to_graph("C", add_hydrogens=True)
+    with_hs = smiles_to_graph("C", add_hydrogens=True)
     assert with_hs is not None
     assert with_hs.x.shape[0] == graph.x.shape[0] + 4
     assert with_hs.edge_index.shape[1] == 8
@@ -128,7 +127,7 @@ def test_smiles_to_graph_names_the_missing_dependency(
     block_imports(monkeypatch, blocked)
 
     with pytest.raises(ImportError, match=message):
-        _smiles_to_graph("CCO")
+        smiles_to_graph("CCO")
 
 
 def _mol_graph(smiles: str = "CCO"):

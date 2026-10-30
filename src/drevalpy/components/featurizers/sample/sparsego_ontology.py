@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, ClassVar, Self
 
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample._sparsego_metadata import (
+    SparseGOOntologyMetadata,
     read_sparsego_ontology_metadata,
 )
-from drevalpy.components.featurizers.sample.base import SampleFeaturizer
-from drevalpy.registry.sample_featurizer import register
+from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _INPUT_TYPES = frozenset({"expression", "mutations"})
 
@@ -28,144 +29,39 @@ def _view_for_input_type(input_type: str) -> str:
     return "mutations" if input_type == "mutations" else "gene_expression"
 
 
-@register(
-    "sparsegoOntology",
-    description="SparseGO ontology-aligned expression or mutation inputs.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
-class SparseGOOntologyFeaturizer(SampleFeaturizer):
+@register("sparsegoOntology", description="SparseGO ontology-aligned expression or mutation inputs.")
+class SparseGOOntologyFeaturizer(Featurizer):
     """Align an active omics view with the SparseGO ontology gene ordering."""
 
-    output_block_specs = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
 
     @classmethod
-    def output_block_specs_for_config(cls, config: Any) -> tuple[BlockSpec, ...]:
+    def _config_view(cls, config: Mapping[str, Any]) -> str:
+        """Return the view selected by the ``input_type`` of *config*, else by the space default.
+
+        :param config: Construction kwargs of the featurizer.
+        :returns: ``mutations`` or ``gene_expression``.
+        """
+        input_type = config.get("input_type", cls.get_hyperparameter_space()["input_type"]["default"])
+        return _view_for_input_type(str(input_type))
+
+    @classmethod
+    def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
         """Name the active SparseGO block from ``input_type``.
 
-        :param config: Featurizer template; uses space default when unresolved.
+        :param config: Construction kwargs of the featurizer.
         :returns: Single metadata-bearing numeric block for the active omics view.
         """
-        raw_space = getattr(config, "hyperparameter_space", None) or {}
-        space = dict(raw_space) if isinstance(raw_space, Mapping) else {}
-        if not space:
-            space = dict(cls.get_hyperparameter_space())
-        spec = space.get("input_type")
-        if isinstance(spec, Mapping) and "default" in spec:
-            input_type = str(spec["default"])
-        else:
-            input_type = "expression"
-        name = _view_for_input_type(input_type)
-        return (BlockSpec(name, FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(cls._config_view(config), FeatureFormat.NUMERIC_MATRIX),)
 
     @classmethod
-    def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
-        r"""Return the omics view selected by ``input_type``.
+    def views(cls, config: Mapping[str, Any]) -> tuple[str, ...]:
+        """Return the omics view selected by ``input_type``.
 
-        :param \*\*kwargs: Featurizer kwargs; ``input_type`` selects expression vs mutations.
+        :param config: Construction kwargs of the featurizer.
         :returns: Single-element tuple with the active omics view.
         """
-        return (_view_for_input_type(str(kwargs.get("input_type", "expression"))),)
-
-    def __init__(self, *, input_type: str = "expression") -> None:
-        """Validate *input_type* and initialize ontology metadata placeholders.
-
-        :param input_type: Either ``expression`` or ``mutations``.
-        :raises ValueError: If *input_type* is not supported.
-        """
-        if input_type not in _INPUT_TYPES:
-            raise ValueError("input_type must be 'expression' or 'mutations'")
-        self._input_type = input_type
-        self._view = _view_for_input_type(input_type)
-        self._layer_connections: list[np.ndarray] | None = None
-        self._gene2id_mapping_ont: dict[str, int] | None = None
-        self._ontology_gene_order: tuple[str, ...] = ()
-        self._gene_dim_input = 0
-
-    def _fit(
-        self,
-        source: FeatureSource,
-        *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> SparseGOOntologyFeaturizer:
-        """Copy ontology metadata produced by ``load_features`` into fitted state.
-
-        :param source: Feature source with ``sparsego_ontology`` metadata.
-        :param entity_ids: Unused.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Fitted featurizer instance.
-        :raises ValueError: If ontology metadata is missing on *source*.
-        """
-        _ = entity_ids, pair_expanded_ids, pair_expanded_es_ids
-        metadata = read_sparsego_ontology_metadata(source)
-        if metadata is None:
-            raise ValueError("SparseGO ontology metadata is missing; load features through sparsegoOntology")
-        self._layer_connections = list(metadata["layer_connections"])
-        self._gene2id_mapping_ont = dict(metadata["gene2id_mapping_ont"])
-        self._ontology_gene_order = tuple(metadata["ontology_gene_order"])
-        self._gene_dim_input = int(metadata["gene_dim_input"])
-        return self
-
-    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return ontology-aligned omics matrix rows.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Sample identifiers to transform.
-        :returns: Float matrix aligned to ontology gene order.
-        :raises RuntimeError: If called before ``fit``.
-        :raises ValueError: If the view has no feature names or lacks ontology genes.
-        """
-        if self._gene_dim_input == 0:
-            raise RuntimeError("SparseGOOntologyFeaturizer must be fit before transform")
-        mdata = getattr(source, "mdata", None)
-        precomputed = self.fetch(mdata, entity_ids) if mdata is not None else None
-        if precomputed is not None:
-            return precomputed.astype(np.float32)
-        names = source.get_feature_names(self._view)
-        if names is None:
-            raise ValueError("SparseGO requires named input features to align ontology genes")
-        columns = {name: index for index, name in enumerate(names)}
-        missing = set(self._ontology_gene_order) - columns.keys()
-        if missing:
-            raise ValueError(f"SparseGO input is missing ontology genes: {sorted(missing)}")
-        indices = [columns[name] for name in self._ontology_gene_order]
-        return source.get_view_matrix(self._view, entity_ids)[:, indices].astype(np.float32)
-
-    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Return an omics block with SparseGO ontology metadata attached.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Sample identifiers to transform.
-        :returns: Result with one metadata-rich numeric block.
-        """
-        metadata: dict[str, Any] = {
-            "layer_connections": self._layer_connections,
-            "gene2id_mapping_ont": self._gene2id_mapping_ont,
-            "ontology_gene_order": self._ontology_gene_order,
-            "gene_dim_input": self._gene_dim_input,
-        }
-        matrix = self._feature_matrix(source, entity_ids)
-        return FeaturizerResult(
-            entity_ids,
-            {
-                self._view: numeric_feature_block(
-                    matrix,
-                    feature_names=self._ontology_gene_order,
-                    annotations=metadata,
-                )
-            },
-            (self._view,),
-        )
-
-    @property
-    def output_dim(self) -> int:
-        """Return ontology gene dimensionality.
-
-        :returns: Number of ontology-aligned genes.
-        """
-        return self._gene_dim_input
+        return (cls._config_view(config),)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -175,42 +71,110 @@ class SparseGOOntologyFeaturizer(SampleFeaturizer):
         """
         return {"input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": "expression"}}
 
-    def get_state(self) -> dict[str, object]:
-        """Serialize ontology metadata and input type.
+    def __init__(self, *, input_type: str = "expression") -> None:
+        """Validate *input_type*.
 
-        :returns: Fitted state mapping, or empty dict before fitting.
+        :param input_type: Either ``expression`` or ``mutations``.
+        :raises ValueError: If *input_type* is not supported.
         """
-        if self._gene_dim_input == 0:
-            return {}
-        return {
-            "input_type": self._input_type,
-            "layer_connections": self._layer_connections,
-            "gene2id_mapping_ont": self._gene2id_mapping_ont,
-            "ontology_gene_order": self._ontology_gene_order,
-            "gene_dim_input": self._gene_dim_input,
-        }
+        if input_type not in _INPUT_TYPES:
+            raise ValueError("input_type must be 'expression' or 'mutations'")
+        self._input_type = input_type
+        self._view = _view_for_input_type(input_type)
+        self._metadata: SparseGOOntologyMetadata | None = None
 
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore ontology metadata from ``get_state``.
+    def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+        """Return which samples have a row of the active view that is not all NaN.
 
-        :param state: Mapping previously returned by ``get_state``.
-        :raises ValueError: If stored ``input_type`` is invalid.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs to check.
+        :returns: Boolean array with one entry per ID.
         """
-        input_type = state.get("input_type")
-        if isinstance(input_type, str):
-            if input_type not in _INPUT_TYPES:
-                raise ValueError("input_type must be 'expression' or 'mutations'")
-            self._input_type = input_type
-            self._view = _view_for_input_type(input_type)
-        mapping = state.get("gene2id_mapping_ont")
-        if isinstance(mapping, dict):
-            self._gene2id_mapping_ont = {str(key): int(value) for key, value in mapping.items()}
-        order = state.get("ontology_gene_order")
-        if isinstance(order, tuple):
-            self._ontology_gene_order = tuple(str(gene) for gene in order)
-        connections = state.get("layer_connections")
-        if isinstance(connections, list):
-            self._layer_connections = [np.asarray(connection) for connection in connections]
-        gene_dim_input = state.get("gene_dim_input")
-        if isinstance(gene_dim_input, int):
-            self._gene_dim_input = gene_dim_input
+        return all_nan_rows_mask(source, self._view, ids)
+
+    def stored_params(self) -> Mapping[str, Any] | None:
+        """Match the parameter-free stored variant.
+
+        :returns: An empty mapping.
+        """
+        return {}
+
+    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
+        """Wrap a stored ontology-aligned matrix, attaching the ontology metadata of *source*.
+
+        :param source: Feature source with ``sparsego_ontology`` metadata.
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Stored ontology-aligned matrix.
+        :returns: Result with one metadata-rich numeric block.
+        """
+        return self._result(ids, matrix, _required_metadata(source))
+
+    def fit(
+        self,
+        source: FeatureSource,
+        train_ids: np.ndarray,
+        *,
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Copy the ontology metadata produced by ``load_features`` into fitted state.
+
+        :param source: Feature source with ``sparsego_ontology`` metadata.
+        :param train_ids: Unused.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer, fitted.
+        """
+        _ = train_ids, train_pair_ids, es_pair_ids
+        self._metadata = _required_metadata(source)
+        return self
+
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Return the active view's rows for *ids* in ontology gene order, with the ontology attached.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: Result with one metadata-rich numeric block.
+        :raises RuntimeError: If called before ``fit``.
+        :raises ValueError: If the view has no feature names or lacks ontology genes.
+        """
+        metadata = self._metadata
+        if metadata is None:
+            raise RuntimeError("SparseGOOntologyFeaturizer must be fit before transform")
+        names = source.get_feature_names(self._view)
+        if names is None:
+            raise ValueError("SparseGO requires named input features to align ontology genes")
+        columns = {name: index for index, name in enumerate(names)}
+        missing = set(metadata["ontology_gene_order"]) - columns.keys()
+        if missing:
+            raise ValueError(f"SparseGO input is missing ontology genes: {sorted(missing)}")
+        indices = [columns[name] for name in metadata["ontology_gene_order"]]
+        return self._result(ids, source.get_view_matrix(self._view, ids)[:, indices], metadata)
+
+    def _result(self, ids: np.ndarray, matrix: np.ndarray, metadata: SparseGOOntologyMetadata) -> FeaturizerResult:
+        """Wrap *matrix* as the active view's block, annotated with *metadata*.
+
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Ontology-aligned matrix.
+        :param metadata: Ontology metadata to attach.
+        :returns: Result with one metadata-rich numeric block.
+        """
+        block = numeric_feature_block(
+            matrix.astype(np.float32),
+            feature_names=metadata["ontology_gene_order"],
+            annotations=dict(metadata),
+        )
+        return FeaturizerResult(ids, {self._view: block}, (self._view,))
+
+
+def _required_metadata(source: FeatureSource) -> SparseGOOntologyMetadata:
+    """Return the ontology metadata of *source*.
+
+    :param source: Feature source with ``sparsego_ontology`` metadata.
+    :returns: The ontology metadata.
+    :raises ValueError: If ontology metadata is missing on *source*.
+    """
+    metadata = read_sparsego_ontology_metadata(source)
+    if metadata is None:
+        raise ValueError("SparseGO ontology metadata is missing; load features through sparsegoOntology")
+    return metadata

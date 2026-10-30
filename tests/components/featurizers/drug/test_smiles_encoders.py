@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import pickle
 from typing import Any
 
 import numpy as np
 import pytest
 
-from drevalpy.components.featurizers.drug._smiles_tokenizer import (
+from drevalpy.components.featurizers.drug._smiles_utils import as_pyg_graph, get_smiles_for_entities
+from drevalpy.components.featurizers.drug.bpe_pharmaformer import BpePharmaformerDrugFeaturizer
+from drevalpy.components.featurizers.drug.smiles_tokenizer import (
     BASE_VOCABULARY,
     PAD_IDX,
     UNK_IDX,
@@ -16,30 +19,27 @@ from drevalpy.components.featurizers.drug._smiles_tokenizer import (
     randomize_smiles,
     tokenize_smiles,
 )
-from drevalpy.components.featurizers.drug._smiles_utils import as_pyg_graph, get_smiles_for_entities
-from drevalpy.components.featurizers.drug.bpe_pharmaformer import BpePharmaformerDrugFeaturizer
 from drevalpy.components.featurizers.drug.smiles_tokens import (
     TOKENS_BLOCK,
     VARIANTS_BLOCK,
     SmilesTokensFeaturizer,
 )
 from drevalpy.errors import InvalidInputError
-from drevalpy.registry.drug_featurizer import drug_featurizer_registry
-from drevalpy.types.data.feature_source import DrugFeatureSource
+from drevalpy.registry.featurizer import featurizers
+from drevalpy.types.data.feature_source import FeatureSource
 from tests._import_shims import block_imports
-from tests.components.featurizers._helpers import SmilesSource
-from tests.conftest import MockFeatureSource
+from tests.components.featurizers.drug._helpers import DrugSource
 from tests.models.synthetic_fixtures import synthetic_model_dataset_gene_expression_fingerprints
 
 
 def test_returns_none_without_a_mudata_backing_or_smiles_column() -> None:
-    assert get_smiles_for_entities(MockFeatureSource(features={"d1": {}}), np.array(["d1"])) is None
+    assert get_smiles_for_entities(DrugSource({"v": {"d1": [1.0]}}), np.array(["d1"])) is None
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
-    source = DrugFeatureSource(dataset, dataset.drug_ids)
+    source = FeatureSource(dataset, "drug", dataset.drug_ids)
     assert get_smiles_for_entities(source, dataset.drug_ids) is None
 
 
-def test_returns_smiles_indexed_by_the_requested_drug_ids(drug_source: DrugFeatureSource) -> None:
+def test_returns_smiles_indexed_by_the_requested_drug_ids(drug_source: FeatureSource) -> None:
     drug_ids = drug_source.identifiers[:3]
 
     smiles = get_smiles_for_entities(drug_source, drug_ids)
@@ -127,15 +127,19 @@ SMILES = {"d1": "CCO", "d2": "CC(=O)Oc1ccccc1C(=O)O", "d3": "CCCl", "d4": "c1ccn
 IDS = np.array(list(SMILES))
 
 
-def _source(smiles: dict[str, Any] | None = None) -> SmilesSource:
-    return SmilesSource(SMILES if smiles is None else smiles)
+def _source(smiles: dict[str, Any] | None = None) -> DrugSource:
+    return DrugSource(smiles=SMILES if smiles is None else smiles)
+
+
+def _blocks(featurizer: SmilesTokensFeaturizer, ids: np.ndarray, source: DrugSource | None = None):
+    return featurizer.transform(source or _source(), ids).blocks
 
 
 def test_registers_and_declares_both_output_blocks() -> None:
-    assert drug_featurizer_registry.get("smilesTokens") is SmilesTokensFeaturizer
-    assert [spec.name for spec in SmilesTokensFeaturizer.output_block_specs] == [TOKENS_BLOCK, VARIANTS_BLOCK]
+    assert featurizers.get("smilesTokens") is SmilesTokensFeaturizer
+    assert SmilesTokensFeaturizer.sides == frozenset({"drug"})
+    assert [spec.name for spec in SmilesTokensFeaturizer.output_blocks({})] == [TOKENS_BLOCK, VARIANTS_BLOCK]
     assert SmilesTokensFeaturizer.get_hyperparameter_space() == {}
-    assert SmilesTokensFeaturizer().get_state() == {}
 
 
 @pytest.mark.parametrize("kwargs", [{"padding_length": 0}, {"n_variants": 0}])
@@ -145,27 +149,27 @@ def test_rejects_non_positive_sizes(kwargs: dict[str, int]) -> None:
 
 
 def test_tokens_block_holds_the_padded_token_indices_and_block_metadata() -> None:
-    featurizer = SmilesTokensFeaturizer(padding_length=8, n_variants=3).fit(_source(), entity_ids=IDS)
+    featurizer = SmilesTokensFeaturizer(padding_length=8, n_variants=3).fit(_source(), IDS)
 
-    blocks = featurizer.transform_blocks(_source(), IDS)
+    result = featurizer.transform(_source(), IDS)
 
-    tokens = blocks[TOKENS_BLOCK].values
+    tokens = result.blocks[TOKENS_BLOCK].values
     assert tokens.shape == (4, 8)
     assert tokens.dtype == np.float32
-    np.testing.assert_array_equal(tokens, encode_smiles(SMILES.values(), featurizer._vocabulary, 8))
-    assert featurizer.output_dim == 8
-    for block in blocks.values():
-        assert dict(block.annotations or {}) == {
-            "vocabulary_size": len(featurizer._vocabulary),
-            "padding_length": 8,
-            "n_variants": 3,
-        }
+    np.testing.assert_array_equal(result.matrix, tokens)
+    vocabulary_size = int(tokens.max()) + 1
+    for block in result.blocks.values():
+        annotations = dict(block.annotations or {})
+        assert annotations["padding_length"] == 8
+        assert annotations["n_variants"] == 3
+        assert int(annotations["vocabulary_size"]) >= vocabulary_size
 
 
 def test_variant_bank_matches_the_sorted_unique_smiles_draw() -> None:
-    featurizer = SmilesTokensFeaturizer(padding_length=40, n_variants=5).fit(_source(), entity_ids=IDS)
+    featurizer = SmilesTokensFeaturizer(padding_length=40, n_variants=5).fit(_source(), IDS)
 
-    variants = featurizer.transform_blocks(_source(), IDS)[VARIANTS_BLOCK].values
+    blocks = _blocks(featurizer, IDS)
+    variants = blocks[VARIANTS_BLOCK].values
 
     unique = sorted(SMILES.values())
     bank = dict(zip(unique, randomize_smiles(unique, 5), strict=True))
@@ -173,67 +177,66 @@ def test_variant_bank_matches_the_sorted_unique_smiles_draw() -> None:
     vocabulary = build_vocabulary(flat)
     assert variants.shape == (4, 5 * 40)
     assert not np.any(variants == 1)
+    assert blocks[VARIANTS_BLOCK].annotations["vocabulary_size"] == len(vocabulary)
+    np.testing.assert_array_equal(blocks[TOKENS_BLOCK].values, encode_smiles(SMILES.values(), vocabulary, 40))
     for row, smiles in enumerate(SMILES.values()):
         expected = encode_smiles(bank[smiles], vocabulary, 40).reshape(-1)
         np.testing.assert_array_equal(variants[row], expected)
-        np.testing.assert_array_equal(variants[row, :40], featurizer.transform(_source(), IDS)[row])
+        np.testing.assert_array_equal(variants[row, :40], blocks[TOKENS_BLOCK].values[row])
 
 
 def test_fit_is_fold_specific_and_drugs_outside_the_fit_use_their_own_smiles() -> None:
-    featurizer = SmilesTokensFeaturizer(padding_length=8, n_variants=3).fit(_source(), entity_ids=np.array(["d1"]))
+    featurizer = SmilesTokensFeaturizer(padding_length=8, n_variants=3).fit(_source(), np.array(["d1"]))
 
-    tokens = featurizer.transform(_source(), np.array(["d1", "d3"]))
+    tokens = featurizer.transform(_source(), np.array(["d1", "d3"])).matrix
     assert 1 not in tokens[0]
     np.testing.assert_array_equal(tokens[1][:3], [2, 2, 1])
 
-    blocks = featurizer.transform_blocks(_source(), np.array(["d3"]))
+    blocks = _blocks(featurizer, np.array(["d3"]))
     np.testing.assert_array_equal(blocks[VARIANTS_BLOCK].values, np.tile(blocks[TOKENS_BLOCK].values, (1, 3)))
 
 
 def test_without_augmentation_the_bank_is_the_smiles_itself() -> None:
-    featurizer = SmilesTokensFeaturizer(padding_length=6, n_variants=20, augment=False).fit(_source(), entity_ids=IDS)
+    featurizer = SmilesTokensFeaturizer(padding_length=6, n_variants=20, augment=False).fit(_source(), IDS)
 
-    blocks = featurizer.transform_blocks(_source(), IDS)
+    blocks = _blocks(featurizer, IDS)
 
     np.testing.assert_array_equal(blocks[VARIANTS_BLOCK].values, blocks[TOKENS_BLOCK].values)
     assert blocks[VARIANTS_BLOCK].annotations["n_variants"] == 1
 
 
-def test_fitting_twice_on_the_same_drugs_draws_the_same_bank_and_state_round_trips() -> None:
-    first = SmilesTokensFeaturizer(padding_length=30, n_variants=4).fit(_source(), entity_ids=IDS)
-    second = SmilesTokensFeaturizer(padding_length=30, n_variants=4).fit(_source(), entity_ids=IDS[::-1])
-    restored = SmilesTokensFeaturizer(padding_length=999)
-    restored.set_state(first.get_state())
+def test_fitting_twice_on_the_same_drugs_draws_the_same_bank_and_pickling_keeps_it() -> None:
+    first = SmilesTokensFeaturizer(padding_length=30, n_variants=4).fit(_source(), IDS)
+    second = SmilesTokensFeaturizer(padding_length=30, n_variants=4).fit(_source(), IDS[::-1])
+    restored = pickle.loads(pickle.dumps(first))  # noqa: S301 -- pickled on this line
 
-    expected = first.transform_blocks(_source(), IDS)
+    expected = _blocks(first, IDS)
     for other in (second, restored):
-        for name, block in other.transform_blocks(_source(), IDS).items():
+        for name, block in _blocks(other, IDS).items():
             np.testing.assert_array_equal(block.values, expected[name].values)
 
 
-def test_drugs_without_a_smiles_are_invalid_and_come_back_as_nan_rows() -> None:
+def test_drugs_without_a_smiles_are_invalid() -> None:
     source = _source({**SMILES, "d5": None})
     ids = np.array(["d1", "d5"])
-    featurizer = SmilesTokensFeaturizer(padding_length=6, n_variants=2).fit(source, entity_ids=ids)
+    featurizer = SmilesTokensFeaturizer(padding_length=6, n_variants=2)
 
-    np.testing.assert_array_equal(featurizer._detect_valid(source, ids), [True, False])
-    blocks = featurizer.transform_blocks(source, ids)
-    assert not np.isnan(blocks[TOKENS_BLOCK].values[0]).any()
-    assert np.isnan(blocks[TOKENS_BLOCK].values[1]).all()
-    assert SmilesTokensFeaturizer()._detect_valid(MockFeatureSource({"d1": {}}), np.array(["d1"])).tolist() == [True]
+    np.testing.assert_array_equal(featurizer.valid_mask(source, ids), [True, False])
+    assert featurizer.valid_mask(DrugSource({"v": {"d1": [1.0]}}), np.array(["d1"])).tolist() == [True]
 
 
 _IDS_SLICE = slice(0, 2)
 
 
-def _fitted(drug_source: DrugFeatureSource, **kwargs) -> tuple[BpePharmaformerDrugFeaturizer, np.ndarray]:
+def _fitted(drug_source: FeatureSource, **kwargs) -> tuple[BpePharmaformerDrugFeaturizer, np.ndarray]:
     drug_ids = drug_source.identifiers[_IDS_SLICE]
     featurizer = BpePharmaformerDrugFeaturizer(num_symbols=50, **kwargs)
-    return featurizer.fit(drug_source, entity_ids=drug_ids), drug_ids
+    return featurizer.fit(drug_source, drug_ids), drug_ids
 
 
-def test_defaults_and_hyperparameter_space() -> None:
-    assert BpePharmaformerDrugFeaturizer(max_length=64).output_dim == 64
+def test_bpe_registration_and_hyperparameter_space() -> None:
+    assert featurizers.get("bpePharmaformer") is BpePharmaformerDrugFeaturizer
+    assert BpePharmaformerDrugFeaturizer.output_blocks({})[0].name == "bpe_smiles"
     assert set(BpePharmaformerDrugFeaturizer.get_hyperparameter_space()) == {"num_symbols", "max_length"}
 
 
@@ -242,56 +245,65 @@ def test_defaults_and_hyperparameter_space() -> None:
     [(SmilesTokensFeaturizer, "no SMILES available"), (BpePharmaformerDrugFeaturizer, "Cannot learn BPE codes")],
 )
 def test_transform_before_fit_and_fit_without_smiles_raise(featurizer_cls, fit_error) -> None:
-    source = MockFeatureSource(features={"d1": {}})
+    source = DrugSource({"v": {"d1": [1.0]}})
     with pytest.raises(RuntimeError, match="must be fit before transform"):
-        featurizer_cls()._transform_features(source, np.array(["d1"]))
+        featurizer_cls().transform(source, np.array(["d1"]))
     with pytest.raises(ValueError, match=fit_error):
-        featurizer_cls().fit(source, entity_ids=np.array(["d1"]))
+        featurizer_cls().fit(source, np.array(["d1"]))
 
 
-def test_transform_without_smiles_raises(drug_source: DrugFeatureSource) -> None:
+def test_transform_without_smiles_raises(drug_source: FeatureSource) -> None:
     featurizer, _ = _fitted(drug_source, max_length=16)
     with pytest.raises(ValueError, match="Cannot encode BPE"):
-        featurizer._transform_features(MockFeatureSource(features={"d1": {}}), np.array(["d1"]))
+        featurizer.transform(DrugSource({"v": {"d1": [1.0]}}), np.array(["d1"]))
 
 
-def test_fit_then_transform_emits_a_padded_token_matrix_with_one_block(drug_source: DrugFeatureSource) -> None:
+def test_fit_then_transform_emits_a_padded_token_matrix_with_one_block(drug_source: FeatureSource) -> None:
     featurizer, drug_ids = _fitted(drug_source, max_length=32)
 
-    matrix = featurizer.transform(drug_source, drug_ids)
+    result = featurizer.transform(drug_source, drug_ids)
 
-    assert matrix.shape == (2, 32)
-    assert matrix.dtype == np.float32
-    blocks = featurizer.transform_blocks(drug_source, drug_ids)
-    assert set(blocks) == {"bpe_smiles"}
-    assert blocks["bpe_smiles"].feature_names is None
+    assert result.matrix.shape == (2, 32)
+    assert result.matrix.dtype == np.float32
+    assert set(result.blocks) == {"bpe_smiles"}
+    assert result.blocks["bpe_smiles"].feature_names is None
+    assert featurizer.transform(drug_source, np.array([], dtype=str)).matrix.shape == (0, 32)
 
 
-def test_transform_truncates_long_sequences_and_pads_short_ones(drug_source: DrugFeatureSource) -> None:
+def test_transform_truncates_long_sequences_and_pads_short_ones(drug_source: FeatureSource) -> None:
     short, drug_ids = _fitted(drug_source, max_length=4)
-    assert np.all(short.transform(drug_source, drug_ids) > 0)
+    assert np.all(short.transform(drug_source, drug_ids).matrix > 0)
     padded, _ = _fitted(drug_source, max_length=512)
-    assert np.any(padded._transform_features(drug_source, drug_ids).matrix[0] == 0.0)
+    assert np.any(padded.transform(drug_source, drug_ids).matrix[0] == 0.0)
 
 
-def test_transform_leaves_unknown_drugs_as_zero_rows(drug_source: DrugFeatureSource) -> None:
+def test_transform_leaves_unknown_drugs_as_zero_rows(drug_source: FeatureSource) -> None:
     featurizer, _ = _fitted(drug_source, max_length=16)
 
-    # ``_transform_features``: the public wrapper's NaN detection would overwrite the unknown drug's row with NaN.
-    matrix = featurizer._transform_features(drug_source, np.array(["not-a-drug"])).matrix
+    matrix = featurizer.transform(drug_source, np.array(["not-a-drug"])).matrix
 
     np.testing.assert_allclose(matrix, np.zeros((1, 16), dtype=np.float32))
 
 
-def test_learn_bpe_reports_missing_subword_nmt(monkeypatch: pytest.MonkeyPatch, drug_source: DrugFeatureSource) -> None:
+def test_a_fitted_bpe_featurizer_pickles(drug_source: FeatureSource) -> None:
+    featurizer, drug_ids = _fitted(drug_source, max_length=32)
+
+    restored = pickle.loads(pickle.dumps(featurizer))  # noqa: S301 -- pickled on this line
+
+    np.testing.assert_array_equal(
+        restored.transform(drug_source, drug_ids).matrix, featurizer.transform(drug_source, drug_ids).matrix
+    )
+
+
+def test_learn_bpe_reports_missing_subword_nmt(monkeypatch: pytest.MonkeyPatch, drug_source: FeatureSource) -> None:
     block_imports(monkeypatch, "subword_nmt")
 
     with pytest.raises(ImportError, match="subword-nmt is required"):
-        BpePharmaformerDrugFeaturizer().fit(drug_source, entity_ids=drug_source.identifiers[_IDS_SLICE])
+        BpePharmaformerDrugFeaturizer().fit(drug_source, drug_source.identifiers[_IDS_SLICE])
 
 
 def test_learning_bpe_silences_progress_and_restores_the_module_binding(
-    drug_source: DrugFeatureSource, capsys: pytest.CaptureFixture[str]
+    drug_source: FeatureSource, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from subword_nmt import learn_bpe as learn_bpe_module
 

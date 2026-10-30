@@ -7,9 +7,6 @@ method. ``drevalpy.registry`` imports every public module under
 ``featurizers/sample/`` on ``import drevalpy``, so the class must not be defined in
 ``normalized_proteomics.py``.
 
-``normalized_proteomics`` re-exports the class lazily, so its module path keeps
-resolving, including for pickled checkpoints that record that path.
-
 See ``tests/test_import_cost_policy.py``.
 """
 

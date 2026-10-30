@@ -2,24 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from collections.abc import Mapping
+from typing import Any, ClassVar, Self
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
-from drevalpy.components.featurizers.sample.gene_lists import select_genes
-from drevalpy.registry.sample_featurizer import register
-from drevalpy.types.data.feature_source import FeatureSource
+import numpy as np
+
+from drevalpy.components.featurizers._dense import dense_result, view_matrix
+from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
+from drevalpy.components.featurizers.sample.gene_lists import view_genes
+from drevalpy.registry.featurizer import register
+from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
-@register(
-    "raw",
-    description="Pass through one dense omics view without preprocessing.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
-class RawSampleFeaturizer(DenseViewSampleFeaturizer):
+@register("raw", description="Pass through one dense omics view without preprocessing.")
+class RawSampleFeaturizer(Featurizer):
     """Featurize one omics view as a dense matrix without transformation."""
 
-    requires_view: ClassVar[bool] = True
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
 
     def __init__(self, *, view: str, gene_list: str | None = None) -> None:
         """Bind the omics view to pass through.
@@ -32,22 +32,61 @@ class RawSampleFeaturizer(DenseViewSampleFeaturizer):
         if not view or not view.strip():
             msg = "raw featurizer requires an explicit view"
             raise ValueError(msg)
-        super().__init__(view=view)
+        self._view = view
         self._gene_list = gene_list
+        self._names: tuple[str, ...] | None = None
 
-    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...] | None:
-        """Bind the pass-through to the genes of the gene list, or to the whole view without one.
+    def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+        """Return which samples have a row of the bound view that is not all NaN.
 
-        :param source: Feature source providing view matrices.
-        :returns: Gene names in gene-list order, or every feature name of the view.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs to check.
+        :returns: Boolean array with one entry per ID.
         """
-        if self._gene_list is None:
-            return super()._names_to_fit(source)
-        return select_genes(source, self._view, self._gene_list)
+        return all_nan_rows_mask(source, self._view, ids)
 
-    def _fetch_hyperparameters(self) -> dict[str, Any] | None:
+    def stored_params(self) -> Mapping[str, Any] | None:
         """Match a stored variant only when it was built for the same gene list.
 
-        :returns: The gene-list setting, or ``None`` for the whole view.
+        :returns: The gene-list setting, empty for the whole view.
         """
-        return None if self._gene_list is None else {"gene_list": self._gene_list}
+        return {} if self._gene_list is None else {"gene_list": self._gene_list}
+
+    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
+        """Wrap a stored matrix as the view's block, named by the gene list or the whole view.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Stored matrix.
+        :returns: One block named after the view.
+        """
+        return dense_result(ids, self._view, matrix, view_genes(source, self._view, self._gene_list))
+
+    def fit(
+        self,
+        source: FeatureSource,
+        train_ids: np.ndarray,
+        *,
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Bind the pass-through to the genes of the gene list, or to the whole view without one.
+
+        :param source: Feature source of the sample side.
+        :param train_ids: Unused; nothing is learned from the rows.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer, fitted.
+        """
+        _ = train_ids, train_pair_ids, es_pair_ids
+        self._names = view_genes(source, self._view, self._gene_list)
+        return self
+
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Return the view's rows for *ids*, with columns in fitted order.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: One block named after the view.
+        """
+        return dense_result(ids, self._view, view_matrix(source, self._view, ids, self._names), self._names)

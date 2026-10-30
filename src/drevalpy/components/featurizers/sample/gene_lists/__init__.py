@@ -30,6 +30,7 @@ __all__ = [
     "resolve_gene_list_path",
     "select_genes",
     "view_gene_union",
+    "view_genes",
 ]
 
 _GENE_NAME_COLUMNS = ("Symbol", "gene_name", "symbol", "Gene", "gene")
@@ -144,6 +145,17 @@ def select_genes(source: FeatureSource, view: str, name: str) -> tuple[str, ...]
         )
         raise InvalidInputError(msg)
     return genes
+
+
+def view_genes(source: FeatureSource, view: str, name: str | None) -> tuple[str, ...] | None:
+    """Return the feature names a featurizer reads *view* in: the genes of list *name*, or the whole view.
+
+    :param source: Feature source providing the view's feature names.
+    :param view: View to read.
+    :param name: Gene-list name, or ``None`` for every feature of the view.
+    :returns: Ordered feature names, or ``None`` when *name* is ``None`` and the view has no names.
+    """
+    return source.get_feature_names(view) if name is None else select_genes(source, view, name)
 
 
 def view_gene_union(view: str) -> tuple[str, ...]:

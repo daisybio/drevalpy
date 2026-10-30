@@ -2,157 +2,109 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from collections.abc import Mapping
+from typing import Any, ClassVar, Self
 
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-from drevalpy.components.featurizers.drug.base import DrugFeaturizer
+from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
-from drevalpy.registry.drug_featurizer import register
+from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, ragged_feature_block
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _logger = get_logger(__name__)
+
+_BLOCK = "molgnet_features"
 
 
 @register(
     "molgnet",
     description="MolGNet drug embeddings loaded from pre-computed view or computed on the fly.",
-    output_format=FeatureFormat.RAGGED_SEQUENCE,
 )
-class MolGNetDrugFeaturizer(DrugFeaturizer):
+class MolGNetDrugFeaturizer(Featurizer):
     """Expose variable-size MolGNet tensors with on-the-fly fallback."""
 
-    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("molgnet_features", FeatureFormat.RAGGED_SEQUENCE),
-    )
-    storage_key: ClassVar[str] = "molgnet_features"
+    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     input_views: ClassVar[tuple[str, ...]] = ("molgnet_features",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
-    precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "molgnet_features") -> None:
-        """Store the MolGNet view name and initialize empty caches.
+        """Store the MolGNet view name.
 
         :param view: Feature view name containing MolGNet tensors.
         """
         self._view = view
-        self._features_by_drug: dict[str, np.ndarray] = {}
-        self._output_dim = 0
 
-    def _compute_from_source(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Compute MolGNet embeddings from SMILES for all requested entities.
+    @classmethod
+    def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
+        """Return the single ragged ``molgnet_features`` block.
 
-        :param source: Feature source.
-        :param entity_ids: Drug identifiers.
-        :returns: Object array of MolGNet embedding tensors.
+        :param config: Featurizer config; unused.
+        :returns: One ragged block spec.
         """
-        rows: list[np.ndarray] = []
-        for drug_id in entity_ids:
-            computed = self._compute_single_embedding(source, str(drug_id))
-            if computed is not None:
-                rows.append(computed)
-            else:
-                rows.append(np.empty((0, 768), dtype=np.float32))
-        return np.array(rows, dtype=object)
+        return (BlockSpec(_BLOCK, FeatureFormat.RAGGED_SEQUENCE),)
 
-    def _fit(
+    def fit(
         self,
         source: FeatureSource,
+        train_ids: np.ndarray,
         *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> MolGNetDrugFeaturizer:
-        """Cache MolGNet tensors and infer embedding width.
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Learn nothing: the tensors are read or computed per drug at transform.
 
-        :param source: Feature source providing MolGNet views.
-        :param entity_ids: Drug identifiers to fit on; all entities when ``None``.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Fitted featurizer instance.
+        :param source: Drug feature source; unused.
+        :param train_ids: Usable training drug IDs; unused.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer.
         """
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
-        self._features_by_drug = {}
-        has_fallback = False
-        for drug_id in ids:
-            entity_view = source.get_entity_view(str(drug_id), self._view)
-            if entity_view is not None:
-                self._features_by_drug[str(drug_id)] = np.asarray(entity_view)
-            else:
-                if not has_fallback:
-                    _logger.warning("Computing %s on the fly. Consider precompute().", self.storage_key)
-                    has_fallback = True
-                computed = self._compute_single_embedding(source, str(drug_id))
-                if computed is not None:
-                    self._features_by_drug[str(drug_id)] = computed
-
-        if self._features_by_drug:
-            first = next(iter(self._features_by_drug.values()))
-            self._output_dim = int(first.shape[1]) if first.ndim == 2 else int(first.size)
         return self
 
-    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return one MolGNet tensor per drug id.
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Return one MolGNet node matrix per drug.
 
-        :param source: Feature source providing MolGNet views.
-        :param entity_ids: Drug identifiers to transform.
-        :returns: Object array of MolGNet embedding tensors.
-        :raises KeyError: If a drug has no tensor in the view and none can be computed from its SMILES.
+        :param source: Drug feature source.
+        :param ids: Drug IDs, in output order.
+        :returns: Result with the ragged ``molgnet_features`` block.
         """
-        rows: list[np.ndarray] = []
-        for drug_id in entity_ids:
-            drug_key = str(drug_id)
-            if drug_key in self._features_by_drug:
-                rows.append(self._features_by_drug[drug_key])
-                continue
-            entity_view = source.get_entity_view(drug_key, self._view)
-            if entity_view is not None:
-                rows.append(np.asarray(entity_view))
-            else:
-                computed = self._compute_single_embedding(source, drug_key)
-                if computed is not None:
-                    rows.append(computed)
-                else:
-                    msg = f"View {self._view!r} missing for drug {drug_key!r} and on-the-fly computation failed"
-                    raise KeyError(msg)
-        return np.array(rows, dtype=object)
+        rows = molgnet_node_matrices(source, self._view, ids)
+        return FeaturizerResult(ids, {_BLOCK: ragged_feature_block(np.array(rows, dtype=object))}, (_BLOCK,))
 
-    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Return a single ``molgnet_features`` ragged block.
 
-        :param source: Feature source providing MolGNet views.
-        :param entity_ids: Drug identifiers to transform.
-        :returns: Result with one ragged block.
-        """
-        matrix = self._feature_matrix(source, entity_ids)
-        return FeaturizerResult(entity_ids, {"molgnet_features": ragged_feature_block(matrix)}, ("molgnet_features",))
+def molgnet_node_matrices(source: FeatureSource, view: str, ids: np.ndarray) -> list[np.ndarray]:
+    """Return the MolGNet node matrix of every drug: from *view* when stored, else computed from its SMILES.
 
-    @property
-    def output_dim(self) -> int:
-        """Return embedding width inferred during ``fit``."""
-        return self._output_dim
-
-    def _compute_single_embedding(self, source: FeatureSource, drug_id: str) -> np.ndarray | None:
-        """Compute MolGNet embedding for a single drug from SMILES.
-
-        Auto-downloads the MolGNet checkpoint on first use.
-
-        :param source: Feature source.
-        :param drug_id: Drug identifier.
-        :returns: Embedding array or None.
-        """
-        smiles_series = get_smiles_for_entities(source, np.array([drug_id]))
-        if smiles_series is None:
-            return None
-        smi = smiles_series.get(drug_id)
-        if not smi or not isinstance(smi, str):
-            return None
-        return _compute_molgnet_embedding(smi)
+    :param source: Drug feature source.
+    :param view: View holding the node matrices.
+    :param ids: Drug IDs, in output order.
+    :returns: One ``(n_atoms, n_dim)`` matrix per ID.
+    :raises KeyError: If a drug has no stored matrix and none can be computed from its SMILES.
+    """
+    stored = source.has_view(view)
+    smiles = None
+    rows: list[np.ndarray] = []
+    for drug_id in ids:
+        key = str(drug_id)
+        entity_view = source.get_entity_view(key, view) if stored else None
+        if entity_view is not None:
+            rows.append(np.asarray(entity_view))
+            continue
+        if smiles is None:
+            _logger.info("Computing %s on the fly. Consider precompute().", _BLOCK)
+            smiles = get_smiles_for_entities(source, np.unique(ids))
+        smi = None if smiles is None else smiles.get(key)
+        computed = _compute_molgnet_embedding(smi) if smi and isinstance(smi, str) else None
+        if computed is None:
+            msg = f"View {view!r} missing for drug {key!r} and on-the-fly computation failed"
+            raise KeyError(msg)
+        rows.append(computed)
+    return rows
 
 
 def _get_molgnet_checkpoint() -> str:

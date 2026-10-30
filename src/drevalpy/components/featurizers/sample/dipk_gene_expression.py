@@ -23,21 +23,24 @@ treats each by its own unit, as 1.6.1 did per dataset name.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict, save_state_dict
-from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
-from drevalpy.components.featurizers.sample.gene_lists import select_genes
-from drevalpy.registry.sample_featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.components.featurizers._dense import dense_result, view_matrix
+from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.components.featurizers.sample.gene_lists import view_genes
+from drevalpy.errors import InvalidInputError
+from drevalpy.registry.featurizer import register
+from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.views import find_view
 
 if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
+
+_VIEW = "gene_expression"
 
 #: ``expression_unit`` values that are linear and therefore get ``log2(x + 1)`` first.
 _LINEAR_UNITS = frozenset({"tpm", "rpkm", "fpkm", "cpm"})
@@ -77,22 +80,31 @@ def _zscore_rows(matrix: np.ndarray) -> np.ndarray:
     return out
 
 
-@register(
-    "dipkGeneExpression",
-    description="DIPK gene-expression autoencoder embeddings.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
-class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
+def dipk_preprocess(source: FeatureSource, matrix: np.ndarray, view: str = "gene_expression") -> np.ndarray:
+    """Apply DIPK's expression preparation: ``log2(x + 1)`` for linear units, then a per-sample z-score.
+
+    :param source: Feature source the matrix came from; the ``expression_unit`` of its *view* decides the
+        log step.
+    :param matrix: Raw gene-expression matrix, one sample per row, already restricted to the encoder's genes.
+    :param view: Name of the gene-expression view.
+    :returns: Matrix of z-scored profiles.
+    """
+    if _is_linear_expression(source, view):
+        matrix = np.log2(matrix + 1)
+    return _zscore_rows(matrix)
+
+
+@register("dipkGeneExpression", description="DIPK gene-expression autoencoder embeddings.")
+class DIPKGeneExpressionFeaturizer(Featurizer):
     """Encode intersection genes into the 512-dimensional DIPK representation.
 
     Each sample profile is z-scored (``ddof=1``) after a ``log2(x + 1)`` step that applies only to
     linear expression units, then encoded by an autoencoder fitted on the unique training samples.
     """
 
-    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     requires_early_stopping: ClassVar[bool] = True
-    input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    requires_fit: ClassVar[bool] = True
+    input_views: ClassVar[tuple[str, ...]] = (_VIEW,)
 
     def __init__(
         self,
@@ -115,119 +127,13 @@ class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
         :param patience_autoencoder: Epochs without improvement before the autoencoder stops.
         :param batch_size_autoencoder: Mini-batch size of the autoencoder.
         """
-        super().__init__()
         self._gene_list = gene_list
         self._epochs = int(epochs_autoencoder)
         self._lr = float(lr_autoencoder)
         self._patience = int(patience_autoencoder)
         self._batch_size = int(batch_size_autoencoder)
+        self._names: tuple[str, ...] | None = None
         self._encoder: GeneExpressionEncoder | None = None
-        self._input_dim = 0
-        self._latent_dim = 512
-        self._validation_ids: np.ndarray | None = None
-
-    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...] | None:
-        """Bind the encoder to the genes of the gene list, or to the whole view without one.
-
-        :param source: Feature source providing view matrices.
-        :returns: Gene names in gene-list order, or every feature name of the view.
-        """
-        if self._gene_list is None:
-            return super()._names_to_fit(source)
-        return select_genes(source, self._view, self._gene_list)
-
-    def _fetch_hyperparameters(self) -> dict[str, Any] | None:
-        """Match a stored variant only when it was built for the same gene list.
-
-        :returns: The gene-list setting, or ``None`` for the whole view.
-        """
-        return None if self._gene_list is None else {"gene_list": self._gene_list}
-
-    def _fit_entity_ids(
-        self,
-        source: FeatureSource,
-        entity_ids: np.ndarray | None,
-        pair_expanded_ids: np.ndarray | None,
-        pair_expanded_es_ids: np.ndarray | None,
-    ) -> np.ndarray:
-        """Fit on the unique training IDs, remembering the unique early-stopping IDs.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Unused; IDs come from *pair_expanded_ids*.
-        :param pair_expanded_ids: Training entity IDs with duplicates per response pair.
-        :param pair_expanded_es_ids: Early-stopping entity IDs with duplicates.
-        :returns: The sorted unique training IDs.
-        :raises ValueError: If *pair_expanded_ids* is missing.
-        """
-        _ = source, entity_ids
-        if pair_expanded_ids is None:
-            raise ValueError("dipkGeneExpression requires pair_expanded_ids")
-        self._validation_ids = None if pair_expanded_es_ids is None else np.unique(pair_expanded_es_ids)
-        return np.unique(pair_expanded_ids)
-
-    def _preprocess(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
-        """Apply the log2 step (linear units only) and the per-sample z-score.
-
-        :param source: Feature source the matrix came from; its ``expression_unit`` decides the log step.
-        :param matrix: Raw gene-expression matrix, already restricted to the fitted genes.
-        :returns: Matrix of z-scored profiles.
-        """
-        if _is_linear_expression(source, self._view):
-            matrix = np.log2(matrix + 1)
-        return _zscore_rows(matrix)
-
-    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
-        """Train the DIPK autoencoder and return its latent width.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Unique training entity IDs.
-        :returns: Latent dimensionality of the trained encoder.
-        :raises ValueError: If the train or early-stopping ID set is missing or empty.
-        """
-        from drevalpy.components.predictors.literature.dipk._autoencoder_batches import avoid_singleton_batch
-        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
-            train_gene_expession_autoencoder,
-        )
-
-        validation_ids = self._validation_ids
-        if validation_ids is None or len(entity_ids) == 0 or len(validation_ids) == 0:
-            raise ValueError("dipkGeneExpression requires non-empty train and early-stopping IDs")
-        train = self._preprocess(source, self._raw_matrix(source, entity_ids))
-        validation = self._preprocess(source, self._raw_matrix(source, validation_ids))
-        train, validation = avoid_singleton_batch(train, validation, self._batch_size)
-        self._input_dim = int(train.shape[1])
-        self._encoder = train_gene_expession_autoencoder(
-            train,
-            validation,
-            self._epochs,
-            lr=self._lr,
-            batch_size=self._batch_size,
-            patience=self._patience,
-        )
-        self._latent_dim = int(self._encoder.latent_dim)
-        return self._latent_dim
-
-    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
-        """Encode *matrix* into DIPK latent vectors.
-
-        Reached only after the ``requires_fit`` gate, so the encoder exists.
-
-        :param source: Feature source the matrix came from.
-        :param matrix: Raw gene-expression matrix.
-        :returns: Float matrix of latent embeddings.
-        """
-        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import encode_gene_expression
-
-        return encode_gene_expression(self._preprocess(source, matrix), self._encoder)
-
-    def _block_feature_names(self, source: FeatureSource) -> None:
-        """Latent dimensions have no names to inherit from the source view.
-
-        :param source: Feature source (unused).
-        :returns: Always ``None``.
-        """
-        _ = source
-        return None
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -246,58 +152,81 @@ class DIPKGeneExpressionFeaturizer(DenseViewSampleFeaturizer):
             },
         }
 
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted encoder weights and shape metadata.
+    def stored_params(self) -> Mapping[str, Any] | None:
+        """Match a stored variant only when it was built for the same gene list.
 
-        :returns: State mapping, or an empty dict before fitting.
+        :returns: The gene-list setting, empty for the whole view.
         """
+        return {} if self._gene_list is None else {"gene_list": self._gene_list}
+
+    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
+        """Wrap stored latent vectors as the ``gene_expression`` block.
+
+        :param source: Unused.
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Stored latent vectors.
+        :returns: One unnamed ``gene_expression`` block.
+        """
+        _ = source
+        return dense_result(ids, _VIEW, matrix, None)
+
+    def fit(
+        self,
+        source: FeatureSource,
+        train_ids: np.ndarray,
+        *,
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Train the DIPK autoencoder on the sorted unique training samples, validated on the early-stopping ones.
+
+        :param source: Feature source of the sample side.
+        :param train_ids: Training sample IDs.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Sample ID of every early-stopping pair; their unique samples validate the
+            autoencoder.
+        :returns: This featurizer, fitted.
+        :raises InvalidInputError: If no training or early-stopping sample is given.
+        """
+        from drevalpy.components.predictors.literature.dipk._autoencoder_batches import avoid_singleton_batch
+        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
+            train_gene_expession_autoencoder,
+        )
+
+        _ = train_pair_ids
+        if es_pair_ids is None or len(es_pair_ids) == 0 or len(train_ids) == 0:
+            msg = f"{type(self).__name__} requires a usable early-stopping holdout"
+            raise InvalidInputError(msg)
+        self._names = view_genes(source, _VIEW, self._gene_list)
+        train = dipk_preprocess(source, view_matrix(source, _VIEW, np.unique(train_ids), self._names))
+        validation = dipk_preprocess(source, view_matrix(source, _VIEW, np.unique(es_pair_ids), self._names))
+        train, validation = avoid_singleton_batch(train, validation, self._batch_size)
+        self._encoder = train_gene_expession_autoencoder(
+            train,
+            validation,
+            self._epochs,
+            lr=self._lr,
+            batch_size=self._batch_size,
+            patience=self._patience,
+        )
+        return self
+
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Encode the rows of *ids* into DIPK latent vectors.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: One unnamed ``gene_expression`` block of latent vectors.
+        :raises RuntimeError: If called before ``fit``.
+        """
+        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import encode_gene_expression
+
         if self._encoder is None:
-            return {}
-        return {
-            **self._dense_state(),
-            "encoder_state": save_state_dict(self._encoder.state_dict()),
-            "input_dim": self._input_dim,
-            "latent_dim": self._latent_dim,
-            "gene_list": self._gene_list,
-            "epochs": self._epochs,
-            "epochs_autoencoder": self._epochs,
-            "lr_autoencoder": self._lr,
-            "patience_autoencoder": self._patience,
-            "batch_size_autoencoder": self._batch_size,
-        }
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore a serialized DIPK encoder from ``get_state``.
-
-        :param state: Mapping previously returned by ``get_state``.
-        """
-        from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
-
-        blob = state.get("encoder_state")
-        input_dim = state.get("input_dim")
-        latent_dim = state.get("latent_dim", 512)
-        if not isinstance(blob, bytes) or not isinstance(input_dim, int) or not isinstance(latent_dim, int):
-            return
-        self._input_dim = input_dim
-        self._latent_dim = latent_dim
-        self._output_dim = latent_dim
-        gene_list = state.get("gene_list")
-        if gene_list is None or isinstance(gene_list, str):
-            self._gene_list = gene_list
-        epochs = state.get("epochs", state.get("epochs_autoencoder"))
-        if isinstance(epochs, int):
-            self._epochs = epochs
-        lr = state.get("lr_autoencoder")
-        if isinstance(lr, float):
-            self._lr = lr
-        patience = state.get("patience_autoencoder")
-        if isinstance(patience, int):
-            self._patience = patience
-        batch_size = state.get("batch_size_autoencoder")
-        if isinstance(batch_size, int):
-            self._batch_size = batch_size
-        self._encoder = GeneExpressionEncoder(input_dim, latent_dim=latent_dim)
-        self._encoder.load_state_dict(load_state_dict(blob))
-        self._encoder.eval()
-        self._restore_dense_state(state)
-        self._is_fitted = True
+            msg = "DIPKGeneExpressionFeaturizer must be fit before transform"
+            raise RuntimeError(msg)
+        if len(ids) == 0:
+            matrix = np.empty((0, int(self._encoder.latent_dim)))
+        else:
+            raw = view_matrix(source, _VIEW, ids, self._names)
+            matrix = encode_gene_expression(dipk_preprocess(source, raw), self._encoder)
+        return dense_result(ids, _VIEW, matrix, None)

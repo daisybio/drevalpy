@@ -9,6 +9,7 @@ import pytest
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers import FeatureMismatchError
+from drevalpy.components.featurizers.featurizer import all_nan_rows_mask
 from drevalpy.components.featurizers.sample._proteomics_transformer import (
     ProteomicsMedianCenterAndImputeTransformer,
 )
@@ -27,9 +28,11 @@ from drevalpy.components.featurizers.sample.superfeltr_omics import SuperFELTROm
 from drevalpy.components.featurizers.sample.tissue import TissueFeaturizer
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.batch.feature_block import BlockSpec
-from tests.components.featurizers._helpers import assert_aligns_by_name, mock_source, random_views
+from tests.components.featurizers._helpers import mock_source, random_views
 from tests.components.featurizers.sample._helpers import (
+    assert_reads_by_name,
     assert_uses_precomputed_variant,
+    pickled,
     precomputed_source,
     use_gene_lists,
 )
@@ -56,32 +59,44 @@ def test_raw_passes_through_view_and_requires_one() -> None:
     features = _raw_features()
     featurizer = RawSampleFeaturizer(view="gene_expression")
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
-    featurizer.fit(features, entity_ids=entity_ids)
-    np.testing.assert_allclose(featurizer.transform(features, entity_ids), [[1.0, 2.0], [3.0, 4.0]])
+    featurizer.fit(features, entity_ids)
+    np.testing.assert_allclose(featurizer.transform(features, entity_ids).matrix, [[1.0, 2.0], [3.0, 4.0]])
     with pytest.raises(ValueError, match="requires an explicit view"):
         RawSampleFeaturizer(view="")
+
+
+def test_view_bound_featurizers_check_usability_on_their_own_view() -> None:
+    features = MockFeatureSource(
+        features={
+            "cl1": {"gene_expression": np.array([1.0, 2.0]), "methylation": np.array([np.nan, np.nan])},
+            "cl2": {"gene_expression": np.array([np.nan, np.nan]), "methylation": np.array([1.0, 2.0])},
+        }
+    )
+    ids = np.array(["cl1", "cl2"])
+
+    for featurizer in (RawSampleFeaturizer(view="methylation"), PCASampleFeaturizer(view="methylation")):
+        np.testing.assert_array_equal(featurizer.valid_mask(features, ids), [False, True])
+    np.testing.assert_array_equal(all_nan_rows_mask(features, "gene_expression", ids), [True, False])
 
 
 def test_raw_gene_list_keeps_the_listed_genes_in_list_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     use_gene_lists(monkeypatch, tmp_path, {"mine": ["b"]})
     features = _raw_features()
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
-    featurizer = RawSampleFeaturizer(view="mutations", gene_list="mine").fit(features, entity_ids=entity_ids)
+    featurizer = RawSampleFeaturizer(view="mutations", gene_list="mine").fit(features, entity_ids)
 
-    blocks = featurizer.transform_blocks(features, entity_ids)
+    blocks = featurizer.transform(features, entity_ids).blocks
 
     assert blocks["mutations"].feature_names == ("b",)
     np.testing.assert_allclose(blocks["mutations"].values, [[1.0], [0.0]])
-    assert RawSampleFeaturizer(view="mutations")._fetch_hyperparameters() is None
-    assert featurizer._fetch_hyperparameters() == {"gene_list": "mine"}
+    assert RawSampleFeaturizer(view="mutations").stored_params() == {}
+    assert featurizer.stored_params() == {"gene_list": "mine"}
 
 
 def test_raw_gene_list_raises_when_genes_are_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     use_gene_lists(monkeypatch, tmp_path, {"mine": ["a", "z"]})
     with pytest.raises(InvalidInputError, match="lacks 1 of 2 genes in 'mine'"):
-        RawSampleFeaturizer(view="mutations", gene_list="mine").fit(
-            _raw_features(), entity_ids=np.array(["cl1"], dtype=str)
-        )
+        RawSampleFeaturizer(view="mutations", gene_list="mine").fit(_raw_features(), np.array(["cl1"], dtype=str))
 
 
 def _pca_features() -> MockFeatureSource:
@@ -100,31 +115,33 @@ _PCA_IDS = np.array(["cl1", "cl2", "cl3"], dtype=str)
 def test_pca_reduces_view_dimension_caps_components_and_requires_a_view() -> None:
     features = _pca_features()
     featurizer = PCASampleFeaturizer(view="gene_expression", n_components=2)
-    featurizer.fit(features, entity_ids=_PCA_IDS)
-    assert featurizer.transform(features, _PCA_IDS).shape == (3, 2)
-    assert featurizer.output_dim == 2
+    featurizer.fit(features, _PCA_IDS)
+    result = featurizer.transform(features, _PCA_IDS)
+    assert result.matrix.shape == (3, 2)
+    assert result.blocks["gene_expression"].feature_names is None
+    assert featurizer.transform(features, np.array([], dtype=str)).matrix.shape == (0, 2)
 
-    capped = PCASampleFeaturizer(view="gene_expression", n_components=128).fit(features, entity_ids=_PCA_IDS)
-    assert capped.output_dim == 3
+    capped = PCASampleFeaturizer(view="gene_expression", n_components=128).fit(features, _PCA_IDS)
+    assert capped.transform(features, _PCA_IDS).matrix.shape == (3, 3)
     with pytest.raises(ValueError, match="requires an explicit view"):
         PCASampleFeaturizer(view="")
+    with pytest.raises(RuntimeError, match="must be fit before transform"):
+        PCASampleFeaturizer(view="gene_expression").transform(features, _PCA_IDS)
 
 
-def test_pca_state_roundtrip_restores_feature_names() -> None:
+def test_pca_pickle_round_trip_transforms_identically() -> None:
     features = _pca_features()
-    featurizer = PCASampleFeaturizer(view="gene_expression", n_components=2).fit(features, entity_ids=_PCA_IDS)
-    restored = PCASampleFeaturizer(view="gene_expression", n_components=2)
-    restored.set_state(featurizer.get_state())
-    np.testing.assert_allclose(featurizer.transform(features, _PCA_IDS), restored.transform(features, _PCA_IDS))
-    restored.set_state({"view_feature_names": ["a", "b"]})
-    assert restored._view_names == ("a", "b")
+    featurizer = PCASampleFeaturizer(view="gene_expression", n_components=2).fit(features, _PCA_IDS)
+    np.testing.assert_allclose(
+        featurizer.transform(features, _PCA_IDS).matrix, pickled(featurizer).transform(features, _PCA_IDS).matrix
+    )
 
 
 def test_pca_no_longer_zero_fills_missing_features() -> None:
     training = random_views({"methylation": ["a", "b", "c"]}, n_samples=3)
     featurizer = PCASampleFeaturizer(view="methylation", n_components=2)
     source = mock_source(training)
-    featurizer.fit(source, entity_ids=source.identifiers)
+    featurizer.fit(source, source.identifiers)
     cross_study = mock_source(random_views({"methylation": ["b", "c", "d"]}, n_samples=1))
 
     with pytest.raises(FeatureMismatchError, match=r"view 'methylation' is missing 1 of the 3 features.*'a'"):
@@ -135,9 +152,8 @@ def test_pca_ignores_a_stored_variant_with_other_hyperparameters() -> None:
     source = precomputed_source(PCASampleFeaturizer, hyperparameters={"n_components": 2})
     featurizer = PCASampleFeaturizer(view="gene_expression", n_components=1)
 
-    featurizer.fit(source, entity_ids=source.identifiers)
-
-    assert featurizer.output_dim == 1
+    assert featurizer.storage_key is not None
+    assert source.stored(featurizer.storage_key, featurizer.stored_params(), source.identifiers) is None
 
 
 def _proteomics_features() -> MockFeatureSource:
@@ -154,17 +170,15 @@ def test_normalized_proteomics_fit_transform_and_state_round_trip() -> None:
     features = _proteomics_features()
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
     featurizer = NormalizedProteomicsSampleFeaturizer()
-    assert featurizer.output_dim == 0
-    featurizer.fit(features, entity_ids=entity_ids)
+    with pytest.raises(RuntimeError, match="must be fit before transform"):
+        featurizer.transform(features, entity_ids)
+    featurizer.fit(features, entity_ids)
 
-    matrix = featurizer.transform(features, entity_ids)
+    matrix = featurizer.transform(features, entity_ids).matrix
 
     assert matrix.shape == (2, 3)
     assert matrix.dtype == np.float32
-    restored = NormalizedProteomicsSampleFeaturizer()
-    restored.set_state(featurizer.get_state())
-    assert restored.output_dim == featurizer.output_dim
-    np.testing.assert_allclose(restored.transform(features, entity_ids), matrix)
+    np.testing.assert_allclose(pickled(featurizer).transform(features, entity_ids).matrix, matrix)
 
 
 def test_log10_replaces_infinities_with_nan() -> None:
@@ -176,8 +190,9 @@ def test_log10_replaces_infinities_with_nan() -> None:
 
 def test_normalized_proteomics_selects_features_and_imputes_missing_values() -> None:
     thresholded = NormalizedProteomicsSampleFeaturizer(proteomics_n_features=1)
-    thresholded.fit(_proteomics_features(), entity_ids=np.array(["cl1", "cl2", "cl3"], dtype=str))
-    assert thresholded.output_dim == 3
+    ids = np.array(["cl1", "cl2", "cl3"], dtype=str)
+    thresholded.fit(_proteomics_features(), ids)
+    assert thresholded.transform(_proteomics_features(), ids).matrix.shape == (3, 3)
 
     features = MockFeatureSource(
         features={
@@ -186,9 +201,9 @@ def test_normalized_proteomics_selects_features_and_imputes_missing_values() -> 
         }
     )
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
-    featurizer = NormalizedProteomicsSampleFeaturizer().fit(features, entity_ids=entity_ids)
+    featurizer = NormalizedProteomicsSampleFeaturizer().fit(features, entity_ids)
 
-    assert not np.isnan(featurizer.transform(features, entity_ids)).any()
+    assert not np.isnan(featurizer.transform(features, entity_ids).matrix).any()
 
 
 def test_normalized_proteomics_blocks_carry_feature_names() -> None:
@@ -200,12 +215,31 @@ def test_normalized_proteomics_blocks_carry_feature_names() -> None:
         meta_info={"proteomics": ["p1", "p2", "p3"]},
     )
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
-    featurizer = NormalizedProteomicsSampleFeaturizer().fit(features, entity_ids=entity_ids)
+    featurizer = NormalizedProteomicsSampleFeaturizer().fit(features, entity_ids)
 
-    blocks = featurizer.transform_blocks(features, entity_ids)
+    blocks = featurizer.transform(features, entity_ids).blocks
 
     assert set(blocks) == {"proteomics"}
-    assert blocks["proteomics"].feature_names == ("p1", "p2", "p3")
+    retained = featurizer._transformer.protein_indices
+    assert blocks["proteomics"].feature_names == tuple(np.array(["p1", "p2", "p3"])[retained])
+    assert sorted(blocks["proteomics"].feature_names) == ["p1", "p2", "p3"]
+
+
+def test_normalized_proteomics_names_only_the_retained_proteins() -> None:
+    features = MockFeatureSource(
+        features={
+            "cl1": {"proteomics": np.array([1.0, 2.0, np.nan], dtype=np.float32)},
+            "cl2": {"proteomics": np.array([4.0, 5.0, np.nan], dtype=np.float32)},
+        },
+        meta_info={"proteomics": ["p1", "p2", "p3"]},
+    )
+    entity_ids = np.array(["cl1", "cl2"], dtype=str)
+    featurizer = NormalizedProteomicsSampleFeaturizer(proteomics_feature_threshold=1.0, proteomics_n_features=1)
+
+    result = featurizer.fit(features, entity_ids).transform(features, entity_ids)
+
+    assert result.blocks["proteomics"].feature_names == ("p1", "p2")
+    assert result.matrix.shape == (2, 2)
 
 
 _MATRIX = np.array([[1.0, 2.0, np.nan], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
@@ -263,30 +297,29 @@ def _tissue(**per_sample) -> MockFeatureSource:
 _TISSUE_IDS = np.array(["cl1", "cl2"], dtype=str)
 
 
-def test_tissue_one_hot_blocks_and_state_round_trip() -> None:
+def test_tissue_one_hot_blocks_and_pickle_round_trip() -> None:
     features = _tissue(cl1={"tissue": "lung"}, cl2={"tissue": "skin"})
     featurizer = TissueFeaturizer()
-    featurizer.fit(features, entity_ids=_TISSUE_IDS)
+    featurizer.fit(features, _TISSUE_IDS)
 
-    blocks = featurizer.transform_blocks(features, _TISSUE_IDS)
+    result = featurizer.transform(features, _TISSUE_IDS)
 
-    assert featurizer.transform(features, _TISSUE_IDS).shape == (2, 2)
-    assert list(blocks["tissue_categories"].values) == ["lung", "skin"]
-    assert TissueFeaturizer.output_block_specs == (BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX),)
-    restored = TissueFeaturizer()
-    restored.set_state(featurizer.get_state())
-    np.testing.assert_allclose(restored.transform(features, _TISSUE_IDS), featurizer.transform(features, _TISSUE_IDS))
+    assert result.matrix.shape == (2, 2)
+    assert list(result.blocks["tissue_categories"].values) == ["lung", "skin"]
+    assert TissueFeaturizer.output_blocks({}) == (BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX),)
+    np.testing.assert_allclose(pickled(featurizer).transform(features, _TISSUE_IDS).matrix, result.matrix)
+    assert featurizer.transform(features, np.array([], dtype=str)).matrix.shape == (0, 2)
 
 
 def test_tissue_strict_mode_raises_on_missing_annotations() -> None:
     features = _tissue(cl1={"tissue": "lung"}, cl2={"gene_expression": 1.0})
     with pytest.raises(ValueError, match="requires tissue"):
-        TissueFeaturizer(allow_missing=False).fit(features, entity_ids=_TISSUE_IDS)
-    fitted = TissueFeaturizer(allow_missing=False).fit(features, entity_ids=_TISSUE_IDS[:1])
+        TissueFeaturizer(allow_missing=False).fit(features, _TISSUE_IDS)
+    fitted = TissueFeaturizer(allow_missing=False).fit(features, _TISSUE_IDS[:1])
     with pytest.raises(ValueError, match="requires tissue"):
         fitted.transform(features, _TISSUE_IDS)
     with pytest.raises(ValueError, match="requires tissue"):
-        TissueFeaturizer(allow_missing=False).fit(MockFeatureSource(features={}), entity_ids=np.array([], dtype=str))
+        TissueFeaturizer(allow_missing=False).fit(MockFeatureSource(features={}), np.array([], dtype=str))
 
 
 @pytest.mark.parametrize(
@@ -301,12 +334,11 @@ def test_tissue_strict_mode_raises_on_missing_annotations() -> None:
 def test_tissue_allow_missing_gives_zero_rows(per_sample, width) -> None:
     features = _tissue(**per_sample)
     featurizer = TissueFeaturizer(allow_missing=True)
-    featurizer.fit(features, entity_ids=_TISSUE_IDS)
+    featurizer.fit(features, _TISSUE_IDS)
 
-    matrix = featurizer.transform(features, _TISSUE_IDS)
+    matrix = featurizer.transform(features, _TISSUE_IDS).matrix
 
     assert matrix.shape == (2, width)
-    assert featurizer.output_dim == width
     if width:
         np.testing.assert_array_equal(matrix[:, 0], [1.0, 0.0])
 
@@ -320,18 +352,12 @@ _PRECOMPUTED_CASES = [
     ),
     pytest.param(NormalizedProteomicsSampleFeaturizer, {}, id="normalized_proteomics"),
     pytest.param(ScaledGeneExpressionFeaturizer, {"expected_blocks": ("gene_expression",)}, id="scaled_expression"),
-    pytest.param(PharmaFormerGeneExpressionFeaturizer, {"ids_kwarg": "pair_expanded_ids"}, id="pharmaformer"),
+    pytest.param(PharmaFormerGeneExpressionFeaturizer, {}, id="pharmaformer"),
     pytest.param(MOLIROmicsFeaturizer, {}, id="molir"),
     pytest.param(SuperFELTROmicsFeaturizer, {"expected_blocks": ("gene_expression",)}, id="superfeltr"),
+    pytest.param(DIPKGeneExpressionFeaturizer, {"expected_blocks": ("gene_expression",)}, id="dipk"),
     pytest.param(
-        DIPKGeneExpressionFeaturizer,
-        {"ids_kwarg": "pair_expanded_ids", "expect_output_dim": False, "expected_blocks": ("gene_expression",)},
-        id="dipk",
-    ),
-    pytest.param(
-        lambda: AEGeneExpressionFeaturizer(gene_list=None),
-        {"ids_kwarg": "pair_expanded_ids", "expect_output_dim": False, "expected_blocks": ("gene_expression",)},
-        id="ae",
+        lambda: AEGeneExpressionFeaturizer(gene_list=None), {"expected_blocks": ("gene_expression",)}, id="ae"
     ),
 ]
 
@@ -361,12 +387,7 @@ _ALIGNMENT_CASES = [
         id="normalized_proteomics",
     ),
     pytest.param(ScaledGeneExpressionFeaturizer, {"gene_expression": _GENES}, {}, id="scaled_expression"),
-    pytest.param(
-        PharmaFormerGeneExpressionFeaturizer,
-        {"gene_expression": _GENES},
-        {"fit_kwargs": lambda ids: {"pair_expanded_ids": ids}},
-        id="pharmaformer",
-    ),
+    pytest.param(PharmaFormerGeneExpressionFeaturizer, {"gene_expression": _GENES}, {}, id="pharmaformer"),
     pytest.param(
         lambda: MOLIROmicsFeaturizer(n_gene_expression_features=3),
         {**_OMICS_VIEWS, "mutations": ["m1", "m2", "m3"], "copy_number_variation_gistic": ["c1", "c2", "c3"]},
@@ -386,5 +407,4 @@ _ALIGNMENT_CASES = [
 def test_dense_featurizers_read_every_view_by_feature_name(make, names_by_view, options) -> None:
     views = random_views(names_by_view)
     for drop_view in options.get("drop_views", ("gene_expression",)):
-        extra = {"fit_kwargs": options["fit_kwargs"]} if "fit_kwargs" in options else {}
-        assert_aligns_by_name(make, views, drop_view=drop_view, **extra)
+        assert_reads_by_name(make, views, drop_view=drop_view)

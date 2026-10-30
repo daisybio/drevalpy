@@ -3,157 +3,58 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers._feature_names import align_to_fitted
-from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
-from drevalpy.components.featurizers.sample.gene_lists import checked_view_gene_lists, select_genes
-from drevalpy.registry.sample_featurizer import register
+from drevalpy.components.featurizers._dense import view_matrix
+from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.components.featurizers.sample.gene_lists import checked_view_gene_lists, view_genes
+from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
+
+if TYPE_CHECKING:
+    from sklearn.preprocessing import StandardScaler
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 
 
-@register(
-    "molirOmics",
-    description="MOLIR multi-omics input preparation.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
-class MOLIROmicsFeaturizer(DenseViewSampleFeaturizer):
+@register("molirOmics", description="MOLIR multi-omics input preparation.")
+class MOLIROmicsFeaturizer(Featurizer):
     """Arcsinh-scale and select variable gene-expression features for MOLIR."""
 
-    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
-    )
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = _VIEWS
-    fit_on_unique_ids: ClassVar[bool] = True
 
     def __init__(
         self, *, n_gene_expression_features: int = 1000, gene_lists: Mapping[str, str | None] | None = None
     ) -> None:
-        """Store the variance-selection feature count and initialize scalers.
+        """Store the variance-selection feature count and the per-view gene lists.
 
         :param n_gene_expression_features: Number of gene-expression features to keep.
         :param gene_lists: Shipped gene-list name per view, keyed by view name; each named view must hold
             every gene of its list. A view left out or mapped to ``None`` keeps all its genes. A key that is not
         one of the three input views is rejected with ``InvalidInputError``.
         """
-        from sklearn.preprocessing import StandardScaler
-
-        super().__init__()
         self._gene_lists = checked_view_gene_lists(gene_lists, _VIEWS)
         self._n_features = int(n_gene_expression_features)
-        self._scaler = StandardScaler()
-        self._mask: np.ndarray = np.array([], dtype=bool)
-        self._selected_feature_names: tuple[str, ...] = ()
-        self._feature_names: dict[str, tuple[str, ...] | None] = {}
+        self._scaler: StandardScaler | None = None
+        self._mask: np.ndarray | None = None
+        #: Names each view is read in at transform; for gene expression, before selection.
+        self._view_names: dict[str, tuple[str, ...] | None] = {}
+        self._selected_names: tuple[str, ...] | None = None
 
-    def _view_gene_names(self, source: FeatureSource, view: str) -> tuple[str, ...] | None:
-        """Return the feature names *view* is read in: its gene list, or every feature of the view.
+    @classmethod
+    def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
+        """Declare one block per omics view.
 
-        :param source: Feature source providing view matrices.
-        :param view: One of the input views.
-        :returns: Ordered feature names, or ``None`` when the source has none.
+        :param config: Unused.
+        :returns: The ``gene_expression``, ``mutations`` and ``copy_number_variation_gistic`` blocks.
         """
-        name = self._gene_lists.get(view)
-        return source.get_feature_names(view) if name is None else select_genes(source, view, name)
-
-    def _names_to_fit(self, source: FeatureSource) -> tuple[str, ...] | None:
-        """Bind the gene-expression transform to the genes of its list, if it has one.
-
-        :param source: Feature source providing view matrices.
-        :returns: Ordered gene-expression feature names, or ``None`` when the source has none.
-        """
-        return self._view_gene_names(source, self._view)
-
-    def _on_precomputed_fit(self, source: FeatureSource) -> None:
-        """Accept every stored column and record the per-view feature names.
-
-        :param source: Feature source carrying the stored variant.
-        """
-        self._mask = np.ones(self._output_dim, dtype=bool)
-        self._feature_names = {view: source.get_feature_names(view) for view in _VIEWS}
-
-    def _fit_state(self, source: FeatureSource, entity_ids: np.ndarray) -> int:
-        """Fit the scaler and pick the highest-variance gene-expression features.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Deduplicated sample identifiers to fit on.
-        :returns: Number of selected gene-expression features.
-        """
-        matrix = np.arcsinh(self._raw_matrix(source, entity_ids))
-        self._scaler.fit(matrix)
-        # Standardization makes every nonconstant variance approximately one;
-        # rank expression variance before that step, using training rows only.
-        variances = np.var(matrix, axis=0)
-        self._mask = np.zeros(len(variances), dtype=bool)
-        self._mask[np.argsort(variances)[::-1][: min(self._n_features, len(variances))]] = True
-
-        ge_names = self._view_names
-        self._selected_feature_names = () if ge_names is None else tuple(np.array(ge_names)[self._mask])
-        self._feature_names = {
-            "gene_expression": self._selected_feature_names,
-            **{view: self._view_gene_names(source, view) for view in _VIEWS[1:]},
-        }
-        return int(self._mask.sum())
-
-    def _compute_matrix(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
-        """Arcsinh-scale *matrix* and keep only the selected features.
-
-        :param source: Feature source the matrix came from.
-        :param matrix: Raw gene-expression matrix.
-        :returns: Selected gene-expression features.
-        """
-        _ = source
-        return self._scaler.transform(np.arcsinh(matrix))[:, self._mask]
-
-    def _block_feature_names(self, source: FeatureSource) -> tuple[str, ...] | None:
-        """Return the selected gene names recorded at fit time.
-
-        :param source: Feature source (unused; names are recorded during fit).
-        :returns: Selected gene-expression feature names, or ``None``.
-        """
-        _ = source
-        return self._feature_names.get("gene_expression")
-
-    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Return per-omics numeric blocks for MOLIR.
-
-        The gene-expression block goes through the shared dense path; the two other
-        omics views are passed through untouched.
-
-        :param source: Feature source providing view matrices.
-        :param entity_ids: Sample identifiers to transform.
-        :returns: Mapping of omics view name to numeric blocks.
-        """
-        result = super()._transform_features(source, entity_ids)
-        blocks = {
-            **result.blocks,
-            **{
-                view: numeric_feature_block(
-                    align_to_fitted(
-                        source, view, source.get_view_matrix(view, entity_ids), self._feature_names.get(view)
-                    ).astype(np.float32),
-                    feature_names=self._feature_names.get(view),
-                )
-                for view in _VIEWS[1:]
-            },
-        }
-        return FeaturizerResult(entity_ids, blocks, result.projection)
-
-    @property
-    def output_dim(self) -> int:
-        """Return the number of selected gene-expression features.
-
-        :returns: Selected gene-expression feature count.
-        """
-        return int(self._mask.sum()) if self._mask.size > 0 else 0
+        _ = config
+        return tuple(BlockSpec(view, FeatureFormat.NUMERIC_MATRIX) for view in _VIEWS)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -163,41 +64,101 @@ class MOLIROmicsFeaturizer(DenseViewSampleFeaturizer):
         """
         return {"n_gene_expression_features": {"type": "int", "low": 1, "high": 1000, "default": 1000}}
 
-    def get_state(self) -> dict[str, object]:
-        """Serialize scaler, mask, and feature-name metadata.
+    def stored_params(self) -> Mapping[str, Any] | None:
+        """Match the parameter-free stored variant.
 
-        :returns: Fitted state mapping.
+        :returns: An empty mapping.
         """
-        return {
-            **self._dense_state(),
-            "scaler": self._scaler,
-            "mask": self._mask,
-            "selected_feature_names": self._selected_feature_names,
-            "feature_names": self._feature_names,
-            "n_gene_expression_features": self._n_features,
-            "gene_lists": self._gene_lists,
-        }
+        return {}
 
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore scaler, mask, and feature names from ``get_state``.
+    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
+        """Wrap stored gene-expression features and pass the other two views through whole.
 
-        :param state: Mapping previously returned by ``get_state``.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Stored gene-expression features.
+        :returns: Per-omics numeric blocks.
+        """
+        names = {view: source.get_feature_names(view) for view in _VIEWS[1:]}
+        return self._result(source, ids, matrix, None, names)
+
+    def fit(
+        self,
+        source: FeatureSource,
+        train_ids: np.ndarray,
+        *,
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Fit the scaler and pick the highest-variance gene-expression features of the sorted unique samples.
+
+        :param source: Feature source of the sample side.
+        :param train_ids: Training sample IDs.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer, fitted.
         """
         from sklearn.preprocessing import StandardScaler
 
-        scaler = state.get("scaler")
-        if isinstance(scaler, StandardScaler):
-            self._scaler = scaler
-        mask = state.get("mask")
-        if isinstance(mask, np.ndarray):
-            self._mask = mask
-        selected = state.get("selected_feature_names")
-        if isinstance(selected, tuple):
-            self._selected_feature_names = selected
-        names = state.get("feature_names")
-        if isinstance(names, dict):
-            self._feature_names = {str(key): value for key, value in names.items()}
-        gene_lists = state.get("gene_lists")
-        if isinstance(gene_lists, dict):
-            self._gene_lists = dict(gene_lists)
-        self._restore_dense_state(state)
+        _ = train_pair_ids, es_pair_ids
+        self._view_names = {view: view_genes(source, view, self._gene_lists.get(view)) for view in _VIEWS}
+        ge_names = self._view_names["gene_expression"]
+        matrix = np.arcsinh(view_matrix(source, "gene_expression", np.unique(train_ids), ge_names))
+        self._scaler = StandardScaler().fit(matrix)
+        # Standardization makes every nonconstant variance approximately one;
+        # rank expression variance before that step, using training rows only.
+        variances = np.var(matrix, axis=0)
+        mask = np.zeros(len(variances), dtype=bool)
+        mask[np.argsort(variances)[::-1][: min(self._n_features, len(variances))]] = True
+        self._mask = mask
+        self._selected_names = None if ge_names is None else tuple(np.array(ge_names)[mask])
+        return self
+
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Return the scaled, selected gene expression and the two other omics views untouched.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: Per-omics numeric blocks, projected as the gene-expression block.
+        :raises RuntimeError: If called before ``fit``.
+        """
+        if self._scaler is None or self._mask is None:
+            msg = "MOLIROmicsFeaturizer must be fit before transform"
+            raise RuntimeError(msg)
+        if len(ids) == 0:
+            matrix = np.empty((0, int(self._mask.sum())))
+        else:
+            raw = view_matrix(source, "gene_expression", ids, self._view_names.get("gene_expression"))
+            matrix = self._scaler.transform(np.arcsinh(raw))[:, self._mask]
+        return self._result(source, ids, matrix, self._selected_names, self._view_names)
+
+    def _result(
+        self,
+        source: FeatureSource,
+        ids: np.ndarray,
+        gene_expression: np.ndarray,
+        gene_expression_names: tuple[str, ...] | None,
+        view_names: Mapping[str, tuple[str, ...] | None],
+    ) -> FeaturizerResult:
+        """Assemble the gene-expression block and the pass-through blocks of the two other views.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :param gene_expression: Gene-expression features, one row per ID.
+        :param gene_expression_names: Column names of *gene_expression*.
+        :param view_names: Names the two other views are read in.
+        :returns: Per-omics numeric blocks, projected as the gene-expression block.
+        """
+        blocks = {
+            "gene_expression": numeric_feature_block(
+                gene_expression.astype(np.float32), feature_names=gene_expression_names
+            ),
+            **{
+                view: numeric_feature_block(
+                    view_matrix(source, view, ids, view_names.get(view)).astype(np.float32),
+                    feature_names=view_names.get(view),
+                )
+                for view in _VIEWS[1:]
+            },
+        }
+        return FeaturizerResult(ids, blocks, ("gene_expression",))

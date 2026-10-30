@@ -2,22 +2,25 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from collections.abc import Mapping
+from typing import Any, ClassVar, Self
 
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
-from drevalpy.components.featurizers.sample.base import SampleFeaturizer
+from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.data.utils import TISSUE_IDENTIFIER
-from drevalpy.registry.sample_featurizer import register
+from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import (
     BlockSpec,
     FeaturizerResult,
     global_feature_block,
     numeric_feature_block,
 )
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
+
+_MISSING_MESSAGE = "TissueFeaturizer requires tissue annotations in sample_input"
 
 
 def _tissue_label(source: FeatureSource, entity_id: str) -> str | None:
@@ -30,16 +33,11 @@ def _tissue_label(source: FeatureSource, entity_id: str) -> str | None:
     return str(label)
 
 
-@register(
-    "tissue",
-    description="One-hot encoding of tissue or lineage labels for sample entities.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
-class TissueFeaturizer(SampleFeaturizer):
+@register("tissue", description="One-hot encoding of tissue or lineage labels for sample entities.")
+class TissueFeaturizer(Featurizer):
     """Map each sample to a dense one-hot tissue vector."""
 
-    input_views: ClassVar[tuple[str, ...]] = ()
-    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX),)
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
 
     def __init__(self, *, allow_missing: bool = False) -> None:
         """Initialize instance state.
@@ -50,101 +48,73 @@ class TissueFeaturizer(SampleFeaturizer):
         self._encoder = OneHotCategoryEncoder()
         self._allow_missing = bool(allow_missing)
 
-    def _fit(
+    @classmethod
+    def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
+        """Declare the one-hot ``tissue`` block; the global ``tissue_categories`` labels ride along undeclared.
+
+        :param config: Unused.
+        :returns: The ``tissue`` block spec.
+        """
+        _ = config
+        return (BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX),)
+
+    def fit(
         self,
         source: FeatureSource,
+        train_ids: np.ndarray,
         *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> TissueFeaturizer:
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
         """Learn the tissue vocabulary from the training samples.
 
-        :param source: Feature source providing views for the entity type.
-        :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
-        :param pair_expanded_ids: Unused.
-        :param pair_expanded_es_ids: Unused.
+        :param source: Feature source of the sample side.
+        :param train_ids: Training sample IDs.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
         :returns: This featurizer, fitted.
         :raises ValueError: If a sample lacks a tissue annotation and *allow_missing* is false, or
             no sample has one.
         """
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
+        _ = train_pair_ids, es_pair_ids
         available: list[str] = []
-        for entity_id in ids:
+        for entity_id in train_ids:
             label = _tissue_label(source, str(entity_id))
             if label is None:
                 if not self._allow_missing:
-                    msg = "TissueFeaturizer requires tissue annotations in sample_input"
-                    raise ValueError(msg)
+                    raise ValueError(_MISSING_MESSAGE)
                 continue
             available.append(label)
-        if not available:
-            if self._allow_missing:
-                self._encoder.fit_categories(np.array([], dtype=str))
-                return self
-            msg = "TissueFeaturizer requires tissue annotations in sample_input"
-            raise ValueError(msg)
+        if not available and not self._allow_missing:
+            raise ValueError(_MISSING_MESSAGE)
         self._encoder.fit_categories(np.asarray(available, dtype=str))
         return self
 
-    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return the one-hot tissue matrix for *entity_ids*.
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Emit the one-hot ``tissue`` block and the fitted category labels as a global block.
 
-        :param source: Feature source providing views for the entity type.
-        :param entity_ids: Sample identifiers to encode.
-        :returns: Float32 matrix of shape ``(len(entity_ids), output_dim)``.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: Result with ``tissue`` and ``tissue_categories`` blocks.
         :raises ValueError: If a sample lacks a tissue annotation and *allow_missing* is false.
         """
         if self._encoder.output_dim == 0:
-            return np.empty((len(entity_ids), 0), dtype=np.float32)
-        categories: list[str] = []
-        for entity_id in entity_ids:
-            label = _tissue_label(source, str(entity_id))
-            if label is None:
-                if not self._allow_missing:
-                    msg = "TissueFeaturizer requires tissue annotations in sample_input"
-                    raise ValueError(msg)
-                categories.append("__missing__")
-            else:
+            matrix = np.empty((len(ids), 0), dtype=np.float32)
+        else:
+            categories: list[str] = []
+            for entity_id in ids:
+                label = _tissue_label(source, str(entity_id))
+                if label is None:
+                    if not self._allow_missing:
+                        raise ValueError(_MISSING_MESSAGE)
+                    label = "__missing__"
                 categories.append(label)
-        return self._encoder.transform(np.asarray(categories, dtype=str))
-
-    def _transform_features(
-        self,
-        source: FeatureSource,
-        entity_ids: np.ndarray,
-    ) -> FeaturizerResult:
-        """Emit the one-hot ``tissue`` block and the fitted category labels as metadata.
-
-        :param source: Feature source providing views for the entity type.
-        :param entity_ids: Sample identifiers to encode.
-        :returns: Result with ``tissue`` and ``tissue_categories`` blocks.
-        """
-        matrix = self._feature_matrix(source, entity_ids)
+            matrix = self._encoder.transform(np.asarray(categories, dtype=str))
         return FeaturizerResult(
-            entity_ids,
+            ids,
             {
                 "tissue": numeric_feature_block(matrix),
-                "tissue_categories": global_feature_block(
-                    np.asarray(self._encoder.categories, dtype=str),
-                ),
+                "tissue_categories": global_feature_block(np.asarray(self._encoder.categories, dtype=str)),
             },
             ("tissue",),
         )
-
-    @property
-    def output_dim(self) -> int:
-        """Return output feature dimension after fitting."""
-        return self._encoder.output_dim
-
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state."""
-        return self._encoder.get_state()
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: Mapping previously returned by ``get_state``.
-        """
-        self._encoder.set_state(state)

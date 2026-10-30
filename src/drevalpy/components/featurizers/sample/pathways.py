@@ -4,24 +4,20 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import ClassVar
+from typing import ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.sample.base import SampleFeaturizer
+from drevalpy.components.featurizers._dense import dense_result
+from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.data._msigdb import get_precily_gmt
-from drevalpy.registry.sample_featurizer import register
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.registry.featurizer import register
+from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
-@register(
-    "pathways",
-    description="GSVA pathway features computed per-split (set-dependent).",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
-class PathwaysSampleFeaturizer(SampleFeaturizer):
+@register("pathways", description="GSVA pathway features computed per-split (set-dependent).")
+class PathwaysSampleFeaturizer(Featurizer):
     """Pathways sample featurizer component.
 
     Set-dependent: GSVA enrichment scores depend on the distribution of all
@@ -32,9 +28,9 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
     downloads into the cache on first use.
     """
 
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("pathways",)
     source_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    precompute: ClassVar[bool] = False
 
     def __init__(self, *, view: str = "pathways") -> None:
         """Bind the name of the emitted pathway view.
@@ -42,122 +38,60 @@ class PathwaysSampleFeaturizer(SampleFeaturizer):
         :param view: Block name for the pathway scores; also the view name reported as input.
         """
         self._view = view
-        self._output_dim = 0
         self._fit_scores: np.ndarray | None = None
         self._fit_ids: np.ndarray | None = None
         self._pathway_names: tuple[str, ...] | None = None
         self._gmt_text: str | None = None
 
-    def _fit(
+    def fit(
         self,
         source: FeatureSource,
+        train_ids: np.ndarray,
         *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> PathwaysSampleFeaturizer:
-        """Compute GSVA on training samples.
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Compute GSVA on the training samples, in the given order, and keep the scores as reference.
 
-        :param source: Feature source providing sample views.
-        :param entity_ids: Training sample IDs.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Fitted featurizer instance.
+        :param source: Feature source of the sample side.
+        :param train_ids: Training sample IDs.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer, fitted.
         """
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
+        _ = train_pair_ids, es_pair_ids
         self._pathway_names = None
         self._gmt_text = None
-        result = self._run_gsva(source, ids)
-        self._fit_scores = result
-        self._fit_ids = ids
-        self._output_dim = int(result.shape[1])
+        self._fit_scores = self._run_gsva(source, train_ids)
+        self._fit_ids = np.asarray(train_ids)
         return self
 
-    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return GSVA scores for requested entities.
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Return GSVA scores for *ids*: the fitted ones, re-running GSVA with the training samples for others.
 
-        :param source: Feature source providing sample views.
-        :param entity_ids: Sample IDs to transform.
-        :returns: Float32 feature matrix.
-        :raises RuntimeError: If called before the featurizer is fitted.
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: One block named after the view, labelled with the pathway names.
+        :raises RuntimeError: If called before ``fit``.
         """
-        if self._fit_scores is None:
+        if self._fit_scores is None or self._fit_ids is None:
             msg = "PathwaysSampleFeaturizer must be fit before transform"
             raise RuntimeError(msg)
-
         id_map = {str(id_): i for i, id_ in enumerate(self._fit_ids)}
-        if all(str(id_) in id_map for id_ in entity_ids):
-            indices = [id_map[str(id_)] for id_ in entity_ids]
-            return self._fit_scores[indices].astype(np.float32)
-
-        all_ids = np.unique(np.concatenate([self._fit_ids, entity_ids]))
-        result = self._run_gsva(source, all_ids)
-        new_map = {str(id_): i for i, id_ in enumerate(all_ids)}
-        return np.asarray(
-            [
-                self._fit_scores[id_map[str(id_)]] if str(id_) in id_map else result[new_map[str(id_)]]
-                for id_ in entity_ids
-            ],
-            dtype=np.float32,
-        )
-
-    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Wrap the GSVA scores in one block named by the view, labelled with pathway names.
-
-        :param source: Feature source providing sample views.
-        :param entity_ids: Sample IDs to transform.
-        :returns: Result holding the scores as a single numeric block.
-        """
-        matrix = self._feature_matrix(source, entity_ids)
-        return FeaturizerResult(
-            entity_ids,
-            {
-                self._view: numeric_feature_block(
-                    matrix,
-                    feature_names=self._pathway_names,
-                )
-            },
-            (self._view,),
-        )
-
-    @property
-    def output_dim(self) -> int:
-        """Return output feature dimension after fitting."""
-        return self._output_dim
-
-    def get_state(self) -> dict[str, object]:
-        """Persist the training-reference scores and entity order.
-
-        :returns: Fitted GSVA state.
-        """
-        return {
-            "fit_scores": self._fit_scores,
-            "fit_ids": self._fit_ids,
-            "output_dim": self._output_dim,
-            "pathway_names": self._pathway_names,
-            "gmt_text": self._gmt_text,
-        }
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore the training reference for subsequent transformations.
-
-        :param state: Mapping produced by ``get_state``.
-        :raises ValueError: If the score or identifier arrays are missing, or their dimensions or
-            the pathway names are inconsistent.
-        """
-        scores, ids = state.get("fit_scores"), state.get("fit_ids")
-        if not isinstance(scores, np.ndarray) or not isinstance(ids, np.ndarray):
-            raise ValueError("Pathways checkpoint requires fitted score and identifier arrays")
-        if scores.ndim != 2 or ids.ndim != 1 or scores.shape != (len(ids), state.get("output_dim")):
-            raise ValueError("Pathways checkpoint has inconsistent fitted dimensions")
-        self._fit_scores, self._fit_ids = scores.copy(), ids.copy()
-        self._output_dim = scores.shape[1]
-        names, gmt = state.get("pathway_names"), state.get("gmt_text")
-        if names is not None and (not isinstance(names, (list, tuple)) or len(names) != self._output_dim):
-            raise ValueError("Pathways checkpoint has inconsistent pathway names")
-        self._pathway_names = tuple(names) if names is not None else None
-        self._gmt_text = gmt if isinstance(gmt, str) else None
+        if all(str(id_) in id_map for id_ in ids):
+            matrix = self._fit_scores[[id_map[str(id_)] for id_ in ids]]
+        else:
+            all_ids = np.unique(np.concatenate([self._fit_ids, ids]))
+            result = self._run_gsva(source, all_ids)
+            new_map = {str(id_): i for i, id_ in enumerate(all_ids)}
+            matrix = np.asarray(
+                [
+                    self._fit_scores[id_map[str(id_)]] if str(id_) in id_map else result[new_map[str(id_)]]
+                    for id_ in ids
+                ],
+                dtype=np.float32,
+            )
+        return dense_result(ids, self._view, matrix, self._pathway_names)
 
     def _run_gsva(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Run GSVA on the given samples.

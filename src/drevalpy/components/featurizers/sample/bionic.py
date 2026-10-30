@@ -2,33 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from collections.abc import Mapping
+from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.sample.base import DenseViewSampleFeaturizer
+from drevalpy.components.featurizers._dense import dense_result, view_matrix
+from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.data.artifacts import get_artifact
-from drevalpy.registry.sample_featurizer import register
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.registry.featurizer import register
+from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
-@register(
-    "bionic",
-    description="BIONIC PPI-based sample features for DIPK.",
-    output_format=FeatureFormat.NUMERIC_MATRIX,
-)
-class BionicSampleFeaturizer(DenseViewSampleFeaturizer):
+@register("bionic", description="BIONIC PPI-based sample features for DIPK.")
+class BionicSampleFeaturizer(Featurizer):
     """Bionic sample featurizer component.
 
     Uses pre-trained BIONIC gene embeddings (from PPI networks) to create
     per-sample feature vectors by aggregating the PPI embeddings of the
-    top-expressed genes.
+    top-expressed genes. A source that holds the view already passes it through.
     """
 
+    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("bionic_features",)
     source_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str | None = None, gene_add_num: int = 256, aggregation: str = "mean") -> None:
         """Configure the gene aggregation of the on-the-fly BIONIC features.
@@ -37,9 +35,10 @@ class BionicSampleFeaturizer(DenseViewSampleFeaturizer):
         :param gene_add_num: Number of top-expressed genes to aggregate.
         :param aggregation: Aggregation method for gene embeddings ("mean", "max", "sum").
         """
-        super().__init__(view=view)
+        self._view = view or self.input_views[0]
         self._gene_add_num = int(gene_add_num)
         self._aggregation = aggregation
+        self._names: tuple[str, ...] | None = None
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -51,6 +50,65 @@ class BionicSampleFeaturizer(DenseViewSampleFeaturizer):
             "gene_add_num": {"type": "categorical", "choices": [128, 256, 512, 1024], "default": 256},
             "aggregation": {"type": "categorical", "choices": ["mean", "max", "sum"], "default": "mean"},
         }
+
+    def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+        """Return which samples have a row of the bound view that is not all NaN.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs to check.
+        :returns: Boolean array with one entry per ID; all ``True`` when the view is absent.
+        """
+        return all_nan_rows_mask(source, self._view, ids)
+
+    def stored_params(self) -> Mapping[str, Any] | None:
+        """Match the parameter-free stored variant.
+
+        :returns: An empty mapping.
+        """
+        return {}
+
+    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
+        """Wrap stored BIONIC features as the view's block.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, one per row of *matrix*.
+        :param matrix: Stored BIONIC features.
+        :returns: One block named after the view.
+        """
+        names = source.get_feature_names(self._view) if source.has_view(self._view) else None
+        return dense_result(ids, self._view, matrix, names)
+
+    def fit(
+        self,
+        source: FeatureSource,
+        train_ids: np.ndarray,
+        *,
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Record the view's feature names when the source holds the view; nothing is learned.
+
+        :param source: Feature source of the sample side.
+        :param train_ids: Unused.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer, fitted.
+        """
+        _ = train_ids, train_pair_ids, es_pair_ids
+        self._names = source.get_feature_names(self._view) if source.has_view(self._view) else None
+        return self
+
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Return the view's rows for *ids*, or compute them from gene expression when the view is absent.
+
+        :param source: Feature source of the sample side.
+        :param ids: Sample IDs, in output order.
+        :returns: One block named after the view.
+        """
+        if source.has_view(self._view):
+            names = self._names or source.get_feature_names(self._view)
+            return dense_result(ids, self._view, view_matrix(source, self._view, ids, names), names)
+        return dense_result(ids, self._view, self._compute_from_source(source, ids), None)
 
     def _compute_from_source(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
         """Compute BIONIC features from gene expression + downloaded PPI embeddings.

@@ -2,44 +2,43 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from collections.abc import Mapping
+from typing import Any, ClassVar, Self
 
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.drug._smiles_utils import as_pyg_graph, get_smiles_for_entities
-from drevalpy.components.featurizers.drug.base import DrugFeaturizer
+from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.log import get_logger
-from drevalpy.registry.drug_featurizer import register
+from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, graph_feature_block
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _logger = get_logger(__name__)
+
+_BLOCK = "drug_graph"
 
 
 @register(
     "drugGraph",
     description="PyG molecular graphs loaded from pre-computed view or computed on the fly via rdkit.",
-    output_format=FeatureFormat.GRAPH,
 )
-class DrugGraphFeaturizer(DrugFeaturizer):
+class DrugGraphFeaturizer(Featurizer):
     """Expose drug graphs for graph predictors, with on-the-fly fallback."""
 
-    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("drug_graph", FeatureFormat.GRAPH),)
+    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     input_views: ClassVar[tuple[str, ...]] = ("drug_graph",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
-    precompute: ClassVar[bool] = True
 
     def __init__(self, *, view: str = "drug_graph", add_hydrogens: bool = False) -> None:
-        """Store the graph view name and initialize empty caches.
+        """Store the graph view name and the on-the-fly graph option.
 
         :param view: Feature view name containing graph payloads.
-        :param add_hydrogens: Whether to add explicit hydrogen atoms to the graph.
+        :param add_hydrogens: Whether to add explicit hydrogen atoms to a graph computed from SMILES.
         """
         self._view = view
         self._add_hydrogens = bool(add_hydrogens)
-        self._graphs: dict[str, object] = {}
-        self._output_dim = 0
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -51,117 +50,70 @@ class DrugGraphFeaturizer(DrugFeaturizer):
             "add_hydrogens": {"type": "categorical", "choices": [True, False], "default": False},
         }
 
-    def _compute_from_source(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Compute drug graphs from SMILES for all requested entities.
+    @classmethod
+    def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
+        """Return the single ``drug_graph`` graph block.
 
-        :param source: Feature source.
-        :param entity_ids: Drug identifiers.
-        :returns: Object array of graph payloads.
+        :param config: Featurizer config; unused.
+        :returns: One graph block spec.
         """
-        graphs: list[object] = []
-        for drug_id in entity_ids:
-            graph = self._compute_graph_from_smiles_for_entity(source, str(drug_id))
-            graphs.append(graph)
-        payloads = np.empty(len(graphs), dtype=object)
-        payloads[:] = graphs
-        return payloads
+        return (BlockSpec(_BLOCK, FeatureFormat.GRAPH),)
 
-    def _fit(
+    def fit(
         self,
         source: FeatureSource,
+        train_ids: np.ndarray,
         *,
-        entity_ids: np.ndarray | None = None,
-        pair_expanded_ids: np.ndarray | None = None,
-        pair_expanded_es_ids: np.ndarray | None = None,
-    ) -> DrugGraphFeaturizer:
-        """Cache graph payloads and infer node feature width from the first graph.
+        train_pair_ids: np.ndarray | None = None,
+        es_pair_ids: np.ndarray | None = None,
+    ) -> Self:
+        """Learn nothing: graphs are read or computed per drug at transform.
 
-        :param source: Feature source providing drug graph views.
-        :param entity_ids: Drug identifiers to fit on; all entities when ``None``.
-        :param pair_expanded_ids: Unused training IDs with duplicates.
-        :param pair_expanded_es_ids: Unused early-stopping IDs.
-        :returns: Fitted featurizer instance.
+        :param source: Drug feature source; unused.
+        :param train_ids: Usable training drug IDs; unused.
+        :param train_pair_ids: Unused.
+        :param es_pair_ids: Unused.
+        :returns: This featurizer.
         """
-        _ = pair_expanded_ids, pair_expanded_es_ids
-        ids = entity_ids if entity_ids is not None else source.identifiers
-        self._graphs = {}
-        has_fallback = False
-        for drug_id in ids:
-            graph = as_pyg_graph(source.get_entity_view(str(drug_id), self._view))
-            if graph is not None:
-                self._graphs[str(drug_id)] = graph
-            else:
-                if not has_fallback:
-                    _logger.warning("Computing %s on the fly. Consider precompute().", "drug_graph")
-                    has_fallback = True
-                computed = self._compute_graph_from_smiles_for_entity(source, str(drug_id))
-                if computed is not None:
-                    self._graphs[str(drug_id)] = computed
-        if self._graphs:
-            self._output_dim = int(getattr(next(iter(self._graphs.values())), "num_node_features", 0))
         return self
 
-    def _feature_matrix(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
-        """Return one graph payload per drug id.
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        """Return one graph per drug: the stored graph when the source has one, else computed from the SMILES.
 
-        :param source: Feature source providing drug graph views.
-        :param entity_ids: Drug identifiers to transform.
-        :returns: Object array of graph payloads.
-        :raises KeyError: If a drug has no graph in the view and none can be computed from its SMILES.
+        :param source: Drug feature source.
+        :param ids: Drug IDs, in output order.
+        :returns: Result with the ``drug_graph`` block.
+        :raises KeyError: If a drug has no stored graph and none can be computed from its SMILES.
         """
-        graphs: list[object] = []
-        for drug_id in entity_ids:
-            drug_key = str(drug_id)
-            if drug_key in self._graphs:
-                graphs.append(self._graphs[drug_key])
-                continue
-            graph = as_pyg_graph(source.get_entity_view(drug_key, self._view))
-            if graph is not None:
-                graphs.append(graph)
-            else:
-                computed = self._compute_graph_from_smiles_for_entity(source, drug_key)
-                if computed is not None:
-                    graphs.append(computed)
-                else:
-                    raise KeyError(
-                        f"View {self._view!r} missing for drug {drug_key!r} and SMILES-based graph computation failed"
-                    )
-        payloads = np.empty(len(graphs), dtype=object)
-        payloads[:] = graphs
-        return payloads
+        stored = source.has_view(self._view)
+        smiles = None
+        graphs = np.empty(len(ids), dtype=object)
+        for row, drug_id in enumerate(ids):
+            key = str(drug_id)
+            graph = as_pyg_graph(source.get_entity_view(key, self._view)) if stored else None
+            if graph is None:
+                if smiles is None:
+                    _logger.info("Computing %s on the fly. Consider precompute().", _BLOCK)
+                    smiles = get_smiles_for_entities(source, np.unique(ids))
+                graph = self._graph_from_smiles(None if smiles is None else smiles.get(key))
+            if graph is None:
+                msg = f"View {self._view!r} missing for drug {key!r} and SMILES-based graph computation failed"
+                raise KeyError(msg)
+            graphs[row] = graph
+        return FeaturizerResult(ids, {_BLOCK: graph_feature_block(graphs)}, (_BLOCK,))
 
-    def _transform_features(self, source: FeatureSource, entity_ids: np.ndarray) -> FeaturizerResult:
-        """Return a single ``drug_graph`` graph block.
+    def _graph_from_smiles(self, smiles: object) -> Any:
+        """Compute the graph of one SMILES string.
 
-        :param source: Feature source providing drug graph views.
-        :param entity_ids: Drug identifiers to transform.
-        :returns: Result with one graph block.
+        :param smiles: SMILES string, or a missing value.
+        :returns: torch_geometric Data, or ``None`` when *smiles* is missing or unparseable.
         """
-        matrix = self._feature_matrix(source, entity_ids)
-        return FeaturizerResult(entity_ids, {"drug_graph": graph_feature_block(matrix)}, ("drug_graph",))
-
-    @property
-    def output_dim(self) -> int:
-        """Return node feature width inferred during ``fit``."""
-        return self._output_dim
-
-    def _compute_graph_from_smiles_for_entity(self, source: FeatureSource, drug_id: str) -> object | None:
-        """Compute a single graph from SMILES for a given drug.
-
-        :param source: Feature source.
-        :param drug_id: Drug identifier.
-        :returns: torch_geometric Data or None.
-        """
-        smiles_series = get_smiles_for_entities(source, np.array([drug_id]))
-        if smiles_series is None:
+        if not smiles or not isinstance(smiles, str):
             return None
-        smi = smiles_series.get(drug_id)
-        if not smi or not isinstance(smi, str):
-            return None
-        return _smiles_to_graph(smi, add_hydrogens=self._add_hydrogens)
+        return smiles_to_graph(smiles, add_hydrogens=self._add_hydrogens)
 
 
-def _smiles_to_graph(smiles: str, *, add_hydrogens: bool = False) -> Any:
+def smiles_to_graph(smiles: str, *, add_hydrogens: bool = False) -> Any:
     """Convert a SMILES string to a torch_geometric Data graph.
 
     :param smiles: SMILES string.
