@@ -1,4 +1,4 @@
-"""Critical difference diagram visualization (Matplotlib via ImageVisualization).
+"""Critical difference diagram (Matplotlib).
 
 This module deliberately does **not** call :func:`matplotlib.use`. It used to
 select the ``agg`` backend at import time, but ``drevalpy.registry`` imports
@@ -6,7 +6,7 @@ every builtin visualization on ``import drevalpy``, so that one line switched th
 backend for the whole process and silently disabled inline plotting in any
 notebook that merely imported the library. Matplotlib already falls back to
 ``agg`` when no display is available, so headless rendering needs no help, and
-:meth:`ImageVisualization.to_png` writes through ``Figure.savefig``, which is
+:func:`~drevalpy.visualization.base.save_png` writes through ``Figure.savefig``, which is
 backend-independent.
 """
 
@@ -19,7 +19,7 @@ import numpy as np
 from drevalpy.evaluation import Metric
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import ImageVisualization
+from drevalpy.visualization.base import Plot
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -184,39 +184,31 @@ def _critical_difference_diagram(
         )
 
 
-@register(
-    "critical_difference",
-    "Critical difference diagram with Friedman test and model rankings",
-    requirements=frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS}),
-)
-class CriticalDifferenceVisualization(ImageVisualization):
+@register("critical_difference", "Critical difference diagram with Friedman test and model rankings")
+class CriticalDifferencePlot(Plot):
     """Critical difference rank diagram using Matplotlib."""
 
-    def __init__(self) -> None:
-        """Initialize with empty state."""
-        self._result: ExperimentResult | None = None
-        self._metric: str = "MSE"
-        self._fig: Figure | None = None
+    requirements = frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS})
 
-    def compute(self, result: ExperimentResult, metric: str = "MSE") -> None:
-        """Compute rankings and Friedman test, then create the CD figure.
+    def __init__(self, metric: str = "MSE") -> None:
+        """Choose the metric the models are ranked by.
 
-        :param result: Experiment result with multiple models and folds.
         :param metric: Metric to rank models by.
         """
-        self._result = result
-        self._metric = metric
-        self._fig = self._create_figure()
+        self.metric = metric
 
-    def _create_figure(self) -> Figure:
-        """Create the critical difference diagram figure."""
+    def figure(self, result: ExperimentResult) -> Figure:
+        """Rank the models, run the Friedman and Conover tests, and draw the diagram.
+
+        :param result: Experiment result with multiple models and folds.
+        :returns: The diagram, or a placeholder figure when fewer than three models can be compared.
+        """
         import pandas as pd
         import scikit_posthocs as sp
         from matplotlib.figure import Figure
         from scipy import stats
 
-        result = self._result
-        metric = self._metric
+        metric = self.metric
 
         eval_df = _build_cd_df(result, metric)
         if eval_df.empty:

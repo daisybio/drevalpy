@@ -10,12 +10,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.colors as pc
 import pytest
+from matplotlib.figure import Figure
 from upath import UPath
 
 from drevalpy.types.results.experiment import ExperimentResult
+from drevalpy.visualization.base import save_png
 from drevalpy.visualization.plots import critical_difference
 from drevalpy.visualization.plots.critical_difference import (
-    CriticalDifferenceVisualization,
+    CriticalDifferencePlot,
     _build_cd_df,
     _crossbar_sets_from_adjacency,
     _draw_crossbars,
@@ -49,10 +51,8 @@ def _close_figures():
 
 
 @pytest.fixture
-def computed(experiment) -> CriticalDifferenceVisualization:
-    plot = CriticalDifferenceVisualization()
-    plot.compute(experiment)
-    return plot
+def figure(experiment) -> Figure:
+    return CriticalDifferencePlot().figure(experiment)
 
 
 class TestBuildCdDf:
@@ -143,9 +143,9 @@ class TestAdjacencyAndCrossbars:
         assert matplotlib.colors.to_hex(ax.lines[0].get_color()) == "#ff0000"
 
 
-class TestCompute:
-    def test_title_markers_and_labels(self, computed, experiment):
-        ax = computed._fig.axes[0]
+class TestFigure:
+    def test_title_markers_and_labels(self, figure, experiment):
+        ax = figure.axes[0]
         labels = {text.get_text() for text in ax.texts}
 
         assert "Critical Difference Diagram: Metric: MSE." in ax.get_title()
@@ -156,13 +156,11 @@ class TestCompute:
         assert ax.yaxis.get_visible() is False
 
     def test_metric_is_configurable_and_defaults_to_mse(self, experiment):
-        plot = CriticalDifferenceVisualization()
-        assert plot._metric == "MSE"
+        assert CriticalDifferencePlot().metric == "MSE"
 
-        plot.compute(experiment, metric="Pearson")
+        fig = CriticalDifferencePlot(metric="Pearson").figure(experiment)
 
-        assert plot._metric == "Pearson"
-        assert "Metric: Pearson." in plot._fig.axes[0].get_title()
+        assert "Metric: Pearson." in fig.axes[0].get_title()
 
     def test_models_with_a_minority_fold_count_are_dropped(self):
         runs = [
@@ -170,50 +168,45 @@ class TestCompute:
             for name, n_folds in (("A", 3), ("B", 3), ("C", 3), ("D", 2))
             for fold in range(n_folds)
         ]
-        plot = CriticalDifferenceVisualization()
+        fig = CriticalDifferencePlot().figure(ExperimentResult(runs))
 
-        plot.compute(ExperimentResult(runs))
-
-        labels = {text.get_text() for text in plot._fig.axes[0].texts}
+        labels = {text.get_text() for text in fig.axes[0].texts}
         assert len(labels) == 3
         assert not any("D" in label for label in labels)
 
     def test_falls_back_to_a_placeholder_when_there_is_no_data(self):
-        plot = CriticalDifferenceVisualization()
+        fig = CriticalDifferencePlot().figure(
+            ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
+        )
 
-        plot.compute(ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))]))
-
-        assert plot._fig.axes[0].texts[0].get_text() == "No data available"
+        assert fig.axes[0].texts[0].get_text() == "No data available"
 
     def test_fewer_than_three_models_is_skipped_instead_of_raising(self, caplog):
-        plot = CriticalDifferenceVisualization()
-
         with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.critical_difference"):
-            plot.compute(make_experiment_result(n_models=2))
+            fig = CriticalDifferencePlot().figure(make_experiment_result(n_models=2))
 
-        assert plot._fig.axes[0].texts[0].get_text() == "Not enough comparable models"
+        assert fig.axes[0].texts[0].get_text() == "Not enough comparable models"
         assert any("only 2 models share" in r.getMessage() for r in caplog.records)
 
     def test_a_metric_absent_from_every_run_is_skipped_with_a_warning(self, experiment, caplog):
-        plot = CriticalDifferenceVisualization()
-
         with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.critical_difference"):
-            plot.compute(experiment, metric="NotAMetric")
+            fig = CriticalDifferencePlot(metric="NotAMetric").figure(experiment)
 
-        assert plot._fig.axes[0].texts[0].get_text() == "No data available"
+        assert fig.axes[0].texts[0].get_text() == "No data available"
         assert any("no finite NotAMetric values" in r.getMessage() for r in caplog.records)
 
 
-class TestRenderingAndGuards:
-    def test_to_png_writes_a_png_file(self, computed, tmp_path):
-        computed.to_png(tmp_path / "cd.png")
+class TestRendering:
+    def test_save_png_writes_a_png_file(self, experiment, tmp_path):
+        save_png(CriticalDifferencePlot(), experiment, tmp_path / "cd.png")
 
         assert (tmp_path / "cd.png").read_bytes().startswith(PNG_MAGIC)
 
-    def test_to_multiqc_embeds_the_figure_under_the_registry_name(self, computed):
-        (section,) = computed.to_multiqc()
+    def test_sections_embed_the_figure_under_the_registry_name(self, experiment):
+        (section,) = CriticalDifferencePlot().sections(experiment)
 
         assert (section.name, section.anchor) == ("critical_difference", "critical_difference")
+        assert section.content is not None
         assert "data:image/png;base64," in section.content
 
 
@@ -243,9 +236,7 @@ class TestNoGlobalBackendSwitch:
         original = matplotlib.get_backend()
         matplotlib.use("agg")
         try:
-            plot = CriticalDifferenceVisualization()
-            plot.compute(experiment)
-            plot.to_png(tmp_path / "headless.png")
+            save_png(CriticalDifferencePlot(), experiment, tmp_path / "headless.png")
         finally:
             matplotlib.use(original)
 

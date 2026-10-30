@@ -1,4 +1,10 @@
-"""Visualization base class and Section dataclass."""
+"""The ``Plot`` interface, the report ``Section`` and the two renderers every plot shares.
+
+A plot is stateless: :meth:`Plot.figure` and :meth:`Plot.sections` each take the result and
+build what they return from it, so one instance can draw any number of results and nothing
+outlives a call. :func:`save_png` and :func:`show` render a plot's figure, whichever library
+drew it: a Matplotlib figure is written with ``savefig``, anything else is a Plotly figure.
+"""
 
 from __future__ import annotations
 
@@ -7,16 +13,16 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from io import BytesIO
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from drevalpy.errors import DrEvalError
+from drevalpy.types.results import ExperimentResult, ModelResult
 
 if TYPE_CHECKING:
     import matplotlib.figure
-    import plotly.graph_objects as go
     from upath import UPath
 
-    from drevalpy.types.results import ExperimentResult, ModelResult
+    from drevalpy.visualization.requirements import PlotRequirement
 
 
 @dataclass
@@ -42,94 +48,38 @@ def embedded_png_html(figure: matplotlib.figure.Figure) -> str:
     return f'<img src="data:image/png;base64,{payload}" style="max-width:100%" />'
 
 
-def require_figure(figure: Any, caller: str) -> Any:
-    """Return *figure*, rejecting the not-yet-computed state.
+class Plot(ABC):
+    """A report plot: one figure, and the report sections, for one result.
 
-    :param figure: The visualization's figure, ``None`` before ``compute()``.
-    :param caller: Name of the method being guarded, for the error message.
-    :returns: The figure.
-    :raises RuntimeError: If *figure* is ``None``.
-    """
-    if figure is None:
-        msg = f"Call compute() before {caller}()"
-        raise RuntimeError(msg)
-    return figure
-
-
-class Visualization(ABC):
-    """Base class for all visualizations producing MultiQC report sections."""
-
-    registry_name: str = ""
-
-    @abstractmethod
-    def compute(self, result: ExperimentResult | ModelResult) -> None:
-        """Compute the visualization data from the result (store internally).
-
-        :param result: An ExperimentResult or ModelResult to visualize.
-        """
-        ...
-
-    @abstractmethod
-    def to_png(self, path: str | UPath) -> None:
-        """Render to a static PNG file.
-
-        :param path: File path for the output PNG.
-        """
-        ...
-
-    @abstractmethod
-    def to_multiqc(self) -> list[Section]:
-        """Return MultiQC Section objects for report integration.
-
-        Implementations may use native MultiQC plot objects (Path A)
-        or embed a base64-encoded image via Section.content (Path B).
-        """
-        ...
-
-    @abstractmethod
-    def show(self) -> None:
-        """Display interactively in a Jupyter notebook."""
-        ...
-
-
-class ImageVisualization(Visualization):
-    """Base for plots that render as a static image (no native MultiQC type).
-
-    Subclasses implement only compute() and _create_figure(). The base class
-    handles to_png(), to_multiqc(), and show() automatically.
+    ``result_type`` is :class:`~drevalpy.types.results.ExperimentResult` for a plot of the
+    whole experiment, or :class:`~drevalpy.types.results.ModelResult` for a plot the report
+    draws once per model. The plot applies only to experiments that meet every one of its
+    ``requirements``. ``name`` is set by
+    :func:`drevalpy.registry.visualization.register`.
     """
 
-    _fig: matplotlib.figure.Figure | None = None
+    name: ClassVar[str] = ""
+    result_type: ClassVar[type[ExperimentResult] | type[ModelResult]] = ExperimentResult
+    requirements: ClassVar[frozenset[PlotRequirement]] = frozenset()
 
     @abstractmethod
-    def _create_figure(self) -> matplotlib.figure.Figure:
-        """Create and return the matplotlib Figure."""
-        ...
+    def figure(self, result: Any) -> Any:
+        """Draw the plot of *result*.
 
-    def to_png(self, path: str | UPath) -> None:
-        """Save the figure to a PNG file.
-
-        :param path: Output file path.
+        :param result: A result of type ``result_type``.
+        :returns: A Matplotlib or Plotly figure.
         """
-        require_figure(self._fig, "to_png").savefig(str(path), dpi=150, bbox_inches="tight")
 
-    def to_multiqc(self) -> list[Section]:
-        """Embed figure as a base64-encoded PNG in a report Section."""
-        figure = require_figure(self._fig, "to_multiqc")
-        return [
-            Section(
-                name=self.registry_name,
-                anchor=self.registry_name,
-                content=embedded_png_html(figure),
-            )
-        ]
+    def sections(self, result: Any) -> list[Section]:
+        """Return the report sections for *result*.
 
-    def show(self) -> None:
-        """Display the figure in a Jupyter notebook."""
-        figure = require_figure(self._fig, "show")
-        from IPython.display import display
+        The default embeds :meth:`figure`, which must then be a Matplotlib figure, as one PNG
+        section named and anchored after the plot.
 
-        display(figure)
+        :param result: A result of type ``result_type``.
+        :returns: The sections, in order; empty when there is nothing to show.
+        """
+        return [Section(name=self.name, anchor=self.name, content=embedded_png_html(self.figure(result)))]
 
 
 def plotly_png_supported() -> bool:
@@ -143,29 +93,58 @@ def plotly_png_supported() -> bool:
     return sys.platform != "win32"
 
 
-class PlotlyVisualization(Visualization):
-    """Base for plots whose ``compute()`` leaves a Plotly figure in ``_fig``.
+def is_matplotlib_figure(figure: Any) -> bool:
+    """Whether *figure* is a Matplotlib figure; the other kind a plot draws is a Plotly figure.
 
-    Subclasses implement compute() and to_multiqc(); rendering the figure to a
-    PNG or into a notebook is the same call for every one of them.
+    :param figure: A figure returned by :meth:`Plot.figure`.
+    :returns: ``True`` for a :class:`matplotlib.figure.Figure`.
     """
+    from matplotlib.figure import Figure
 
-    _fig: go.Figure | None = None
+    return isinstance(figure, Figure)
 
-    def to_png(self, path: str | UPath) -> None:
-        """Render the figure to a static PNG.
 
-        :param path: Output file path.
-        :raises DrEvalError: On Windows, where Kaleido 0.2.1 hangs instead of rendering.
-        """
-        figure = require_figure(self._fig, "to_png")
-        if not plotly_png_supported():
-            raise DrEvalError(
-                f"{type(self).__name__}.to_png is not supported on Windows: Kaleido 0.2.1, the version "
-                "MultiQC requires, hangs there. Use show() in a notebook, or the HTML report."
-            )
-        figure.write_image(str(path))
+def write_png(figure: Any, path: str | UPath) -> None:
+    """Write a Matplotlib or Plotly *figure* to a PNG file.
 
-    def show(self) -> None:
-        """Display the figure in a Jupyter notebook."""
-        require_figure(self._fig, "show").show()
+    :param figure: A figure returned by :meth:`Plot.figure`.
+    :param path: Output file path.
+    :raises DrEvalError: For a Plotly figure on Windows, where Kaleido 0.2.1 hangs instead of rendering.
+    """
+    if is_matplotlib_figure(figure):
+        figure.savefig(str(path), dpi=150, bbox_inches="tight")
+        return
+    if not plotly_png_supported():
+        raise DrEvalError(
+            "Writing a Plotly figure as PNG is not supported on Windows: Kaleido 0.2.1, the version "
+            "MultiQC requires, hangs there. Use show() in a notebook, or the HTML report."
+        )
+    figure.write_image(str(path))
+
+
+def save_png(plot: Plot, result: Any, path: str | UPath) -> None:
+    """Draw *plot* for *result* and write it to a PNG file.
+
+    A Plotly plot raises :class:`~drevalpy.errors.DrEvalError` on Windows; see
+    :func:`plotly_png_supported`.
+
+    :param plot: The plot to draw.
+    :param result: A result of the plot's ``result_type``.
+    :param path: Output file path.
+    """
+    write_png(plot.figure(result), path)
+
+
+def show(plot: Plot, result: Any) -> None:
+    """Draw *plot* for *result* and display it in a Jupyter notebook.
+
+    :param plot: The plot to draw.
+    :param result: A result of the plot's ``result_type``.
+    """
+    figure = plot.figure(result)
+    if is_matplotlib_figure(figure):
+        from IPython.display import display
+
+        display(figure)
+    else:
+        figure.show()

@@ -1,4 +1,4 @@
-"""Tests for the leaderboard plot: its table, its drawing helpers and the ``LeaderboardVisualization`` itself."""
+"""Tests for the leaderboard plot: its table, its drawing helpers and the ``LeaderboardPlot`` itself."""
 
 from __future__ import annotations
 
@@ -9,10 +9,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.figure import Figure
 
 from drevalpy.evaluation._scoring import run_metrics
 from drevalpy.types.results.experiment import ExperimentResult
 from drevalpy.types.results.run import RunResult
+from drevalpy.visualization.base import save_png
 from drevalpy.visualization.plots._leaderboard_draw import (
     COMPETITOR_COLOR,
     DARK_THEME,
@@ -22,7 +24,7 @@ from drevalpy.visualization.plots._leaderboard_draw import (
     gradient_char_colors,
 )
 from drevalpy.visualization.plots._leaderboard_table import build_leaderboard_df
-from drevalpy.visualization.plots.leaderboard import LeaderboardVisualization, _figure_geometry, _panels
+from drevalpy.visualization.plots.leaderboard import LeaderboardPlot, _figure_geometry, _panels
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -36,10 +38,8 @@ def _isolate_matplotlib_state():
 
 
 @pytest.fixture
-def computed(experiment) -> LeaderboardVisualization:
-    plot = LeaderboardVisualization()
-    plot.compute(experiment)
-    return plot
+def figure(experiment) -> Figure:
+    return LeaderboardPlot().figure(experiment)
 
 
 def _visible_axes(fig) -> list:
@@ -80,13 +80,11 @@ class TestPanels:
 
 class TestFourPanels:
     @pytest.fixture
-    def plot(self, experiment):
-        plot = LeaderboardVisualization()
-        plot.compute(experiment.normalize(REFERENCE_MODEL))
-        return plot
+    def figure(self, experiment) -> Figure:
+        return LeaderboardPlot().figure(experiment.normalize(REFERENCE_MODEL))
 
-    def test_a_normalized_experiment_draws_four_titled_panels_on_two_rows(self, plot):
-        axes = _visible_axes(plot._fig)
+    def test_a_normalized_experiment_draws_four_titled_panels_on_two_rows(self, figure):
+        axes = _visible_axes(figure)
 
         assert [ax.get_xlabel() for ax in axes] == [
             "Normalized PCC",
@@ -97,13 +95,13 @@ class TestFourPanels:
         assert axes[2].get_title() == "Raw PCC  \u2191  higher is better"
         assert axes[3].get_title() == "Per-drug Pearson  \u2191  higher is better"
         assert "Normalized Pearson" in axes[0].get_title()
-        assert plot._fig.get_size_inches()[1] == pytest.approx(24.0)
+        assert figure.get_size_inches()[1] == pytest.approx(24.0)
 
-    def test_the_reference_model_is_ranked_and_raw_pearson_ranks_by_raw_pearson(self, plot, experiment):
+    def test_the_reference_model_is_ranked_and_raw_pearson_ranks_by_raw_pearson(self, figure, experiment):
         raw = {m.model_name: np.mean([r.metrics["Pearson"] for r in m.runs]) for m in experiment.models}
 
-        assert REFERENCE_MODEL in {label.get_text() for label in plot._fig.axes[0].get_yticklabels()}
-        labels = [label.get_text() for label in plot._fig.axes[2].get_yticklabels()]
+        assert REFERENCE_MODEL in {label.get_text() for label in figure.axes[0].get_yticklabels()}
+        labels = [label.get_text() for label in figure.axes[2].get_yticklabels()]
         assert labels == sorted(raw, key=raw.__getitem__, reverse=True)
 
     def test_two_panels_use_a_single_row(self):
@@ -116,39 +114,34 @@ class TestFourPanels:
                 for i in range(2)
             ]
         )
-        plot = LeaderboardVisualization()
+        fig = LeaderboardPlot().figure(result)
 
-        plot.compute(result)
-
-        assert len(plot._fig.axes) == 2
-        assert plot._fig.get_size_inches()[1] == pytest.approx(12.0)
+        assert len(fig.axes) == 2
+        assert fig.get_size_inches()[1] == pytest.approx(12.0)
 
 
-class TestCompute:
-    def test_a_plain_experiment_draws_three_directional_panels_with_every_model_labelled(self, computed, experiment):
-        axes = _visible_axes(computed._fig)
+class TestFigure:
+    def test_a_plain_experiment_draws_three_directional_panels_with_every_model_labelled(self, figure, experiment):
+        axes = _visible_axes(figure)
 
         assert [ax.get_xlabel() for ax in axes] == ["PCC", "Root Mean Square Error", "Per-drug Pearson"]
         assert "higher is better" in axes[0].get_title()
         assert "lower is better" in axes[1].get_title()
         assert {label.get_text() for label in axes[0].get_yticklabels()} == set(experiment.model_names)
-        assert computed._result is experiment
 
     def test_models_outside_the_podium_keep_the_default_label_color(self):
-        plot = LeaderboardVisualization()
+        fig = LeaderboardPlot().figure(make_experiment_result(n_models=5, n_folds=2))
 
-        plot.compute(make_experiment_result(n_models=5, n_folds=2))
-
-        colors = [label.get_color() for label in plot._fig.axes[0].get_yticklabels()]
+        colors = [label.get_color() for label in fig.axes[0].get_yticklabels()]
         assert DARK_THEME["text"] in colors
 
     def test_falls_back_to_a_placeholder_when_there_is_no_data(self):
-        plot = LeaderboardVisualization()
+        fig = LeaderboardPlot().figure(
+            ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
+        )
 
-        plot.compute(ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))]))
-
-        assert len(plot._fig.axes) == 1
-        assert plot._fig.axes[0].texts[0].get_text() == "No data available for leaderboard"
+        assert len(fig.axes) == 1
+        assert fig.axes[0].texts[0].get_text() == "No data available for leaderboard"
 
     def test_models_without_a_pcc_value_are_dropped_from_that_panel_only(self):
         result = ExperimentResult(
@@ -158,23 +151,19 @@ class TestCompute:
             ]
             + [make_run_result(model_name="NoPcc", fold_index=i, metrics={"RMSE": 2.0}) for i in range(2)]
         )
-        plot = LeaderboardVisualization()
+        fig = LeaderboardPlot().figure(result)
 
-        plot.compute(result)
-
-        assert {label.get_text() for label in plot._fig.axes[0].get_yticklabels()} == {"WithPcc"}
-        assert {label.get_text() for label in plot._fig.axes[1].get_yticklabels()} == {"WithPcc", "NoPcc"}
+        assert {label.get_text() for label in fig.axes[0].get_yticklabels()} == {"WithPcc"}
+        assert {label.get_text() for label in fig.axes[1].get_yticklabels()} == {"WithPcc", "NoPcc"}
 
     def test_skips_with_a_warning_when_no_metric_has_a_finite_value(self, caplog):
         result = ExperimentResult(
             [make_run_result(model_name="A", fold_index=i, metrics={"MSE": 0.5}) for i in range(2)]
         )
-        plot = LeaderboardVisualization()
-
         with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.leaderboard"):
-            plot.compute(result)
+            fig = LeaderboardPlot().figure(result)
 
-        assert plot._fig.axes[0].texts[0].get_text() == "No data available for leaderboard"
+        assert fig.axes[0].texts[0].get_text() == "No data available for leaderboard"
         assert any("no finite Pearson/RMSE values" in r.getMessage() for r in caplog.records)
 
     @pytest.mark.parametrize(
@@ -186,40 +175,37 @@ class TestCompute:
         ],
     )
     def test_the_subtitle_names_the_split_and_the_fold_count_where_it_applies(self, split_mode, n_folds, subtitle):
-        plot = LeaderboardVisualization()
+        fig = LeaderboardPlot().figure(make_experiment_result(n_models=3, n_folds=n_folds, split_mode=split_mode))
 
-        plot.compute(make_experiment_result(n_models=3, n_folds=n_folds, split_mode=split_mode))
-
-        texts = [t.get_text() for t in plot._fig.texts]
+        texts = [t.get_text() for t in fig.texts]
         assert any(t.endswith(subtitle) for t in texts)
         if split_mode == "LStO":
             assert not any("-Fold" in t for t in texts)
 
     def test_a_large_experiment_gets_a_taller_canvas(self):
-        plot = LeaderboardVisualization()
+        fig = LeaderboardPlot().figure(make_experiment_result(n_models=40, n_folds=2))
 
-        plot.compute(make_experiment_result(n_models=40, n_folds=2))
-
-        assert plot._fig.get_size_inches()[1] > 12.0
+        assert fig.get_size_inches()[1] > 12.0
 
     def test_mutates_the_global_rcparams_with_the_dark_theme(self, experiment):
         plt.rcParams["figure.facecolor"] = "white"
 
-        LeaderboardVisualization().compute(experiment)
+        LeaderboardPlot().figure(experiment)
 
         assert plt.rcParams["figure.facecolor"] == DARK_THEME["background"]
 
 
-class TestRenderingAndGuards:
-    def test_to_png_writes_a_png_file(self, computed, tmp_path):
-        computed.to_png(tmp_path / "leaderboard.png")
+class TestRendering:
+    def test_save_png_writes_a_png_file(self, experiment, tmp_path):
+        save_png(LeaderboardPlot(), experiment, tmp_path / "leaderboard.png")
 
         assert (tmp_path / "leaderboard.png").read_bytes().startswith(PNG_MAGIC)
 
-    def test_to_multiqc_embeds_the_figure_under_the_registry_name(self, computed):
-        (section,) = computed.to_multiqc()
+    def test_sections_embed_the_figure_under_the_registry_name(self, experiment):
+        (section,) = LeaderboardPlot().sections(experiment)
 
         assert (section.name, section.anchor) == ("leaderboard", "leaderboard")
+        assert section.content is not None
         assert "data:image/png;base64," in section.content
 
 

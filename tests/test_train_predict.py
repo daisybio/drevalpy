@@ -62,7 +62,7 @@ def test_a_real_model_is_fitted_and_predicts_every_pair(synthetic_dataset) -> No
 
     assert drevalpy.train is TRAIN_MODULE.train
     assert fitted.name == "ElasticNet"
-    assert fitted.hyperparameters == ModelSpec.from_name("ElasticNet").default_hyperparameters
+    assert fitted.hyperparameters == dict(ModelSpec.from_name("ElasticNet").hyperparameters)
     assert predictions.shape == (len(scope),)
     assert np.isfinite(predictions).all()
     again = drevalpy.train(ModelSpec.from_name("ElasticNet"), synthetic_dataset, hyperparameter_tuning=False, seed=42)
@@ -73,7 +73,7 @@ def test_a_single_drug_model_fits_an_estimator_for_every_drug(synthetic_dataset)
     fitted = drevalpy.train("SingleDrugElasticNet", synthetic_dataset, hyperparameter_tuning=False)
     scope = SplitMask(_observed(synthetic_dataset))
 
-    assert set(fitted._pipeline._predictor._estimators) == {str(drug) for drug in synthetic_dataset.drug_ids}
+    assert set(fitted._predictor._estimators) == {str(drug) for drug in synthetic_dataset.drug_ids}
     assert np.isfinite(fitted.predict(synthetic_dataset, scope)).all()
 
 
@@ -86,7 +86,7 @@ def test_the_response_transformation_is_fitted_on_a_copy_and_inverted_when_predi
     predictions = fitted.predict(synthetic_dataset, SplitMask(_observed(synthetic_dataset)))
 
     np.testing.assert_allclose(predictions, np.nanmean(synthetic_dataset.response_matrix), atol=0.05)
-    assert hasattr(fitted._pipeline._fitted_response_transformation, "mean_")
+    assert hasattr(fitted._fitted_response_transformation, "mean_")
     assert not hasattr(prototype, "mean_")
 
 
@@ -135,8 +135,8 @@ class TestTuning:
             "ElasticNet", synthetic_dataset, hpo_metric="Pearson", hpo_num_trials=3, hpo_random_state=9, n_jobs=3
         )
 
-        assert fitted.hyperparameters["alpha"] == 0.5
-        assert tuner["metric"] == "Pearson"
+        assert fitted.hyperparameters["predictor.elasticNet.alpha"] == 0.5
+        assert tuner["hpo_config"].metric == "Pearson"
         assert (tuner["hpo_config"].n_trials, tuner["hpo_config"].random_state, tuner["n_jobs"]) == (3, 9, 3)
         assert not (tuner["train_scope"] & tuner["val_scope"]).mask.any()
         assert tuner["val_scope"].mask.any()

@@ -15,7 +15,7 @@ from drevalpy._utils.filenames import safe_filename
 from drevalpy.log import get_logger
 from drevalpy.types.enums.randomization import randomization_label
 from drevalpy.visualization._progress import log_stage, rss_gb
-from drevalpy.visualization.base import PlotlyVisualization, Section, Visualization, plotly_png_supported
+from drevalpy.visualization.base import Plot, Section, is_matplotlib_figure, plotly_png_supported, write_png
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -97,43 +97,43 @@ def _ensure_experiment(result: ExperimentResult | ModelResult | RunResult) -> Ex
 
 def _applicable_results(
     experiment: ExperimentResult,
-) -> Iterator[tuple[type[Visualization], ExperimentResult | ModelResult]]:
-    """Pair every applicable visualization with each result it consumes.
+) -> Iterator[tuple[type[Plot], ExperimentResult | ModelResult]]:
+    """Pair every applicable plot with each result it consumes.
 
     :param experiment: Experiment to visualize.
-    :yields: ``(visualization class, result)``: the whole experiment for an
-        experiment-level visualization, each model for a model-level one.
+    :yields: ``(plot class, result)``: the whole experiment for an experiment-level plot,
+        each model for a plot whose ``result_type`` is ``ModelResult``.
     """
     import drevalpy.visualization.plots  # noqa: F401
-    from drevalpy.registry.visualization import visualization_registry
+    from drevalpy.registry.visualization import applicable
+    from drevalpy.types.results import ModelResult
 
-    for viz_cls in visualization_registry.applicable(experiment):
-        if visualization_registry.result_type(viz_cls.registry_name) == "ModelResult":
+    for plot_cls in applicable(experiment):
+        if plot_cls.result_type is ModelResult:
             for model in experiment.models:
-                yield viz_cls, model
+                yield plot_cls, model
         else:
-            yield viz_cls, experiment
+            yield plot_cls, experiment
 
 
-def _add_plot(viz: Visualization, target: ExperimentResult | ModelResult, experiment: ExperimentResult) -> None:
-    """Compute one visualization on one result and append its MultiQC module.
+def _add_plot(plot: Plot, target: ExperimentResult | ModelResult, experiment: ExperimentResult) -> None:
+    """Draw one plot of one result and append its MultiQC module.
 
     The per-target timing and memory lines are logged at DEBUG; :func:`create_report` logs the
-    INFO summary for the whole visualization.
+    INFO summary for the whole plot.
 
-    :param viz: Visualization instance to compute.
+    :param plot: Plot to draw.
     :param target: The experiment, or one model of it.
     :param experiment: The experiment being reported, to tell an experiment-level target from a model.
     """
     if target is experiment:
-        label = anchor = viz.registry_name
+        label = anchor = plot.name
     else:
-        label, anchor = f"{viz.registry_name} ({target.model_name})", f"{viz.registry_name}_{target.model_name}"
+        label, anchor = f"{plot.name} ({target.model_name})", f"{plot.name}_{target.model_name}"
     started = time.monotonic()
     rss_before = rss_gb()
     log_stage(logger, f"plot {label}: computing", level=logging.DEBUG)
-    viz.compute(target)
-    sections = viz.to_multiqc()
+    sections = plot.sections(target)
     if sections:
         _add_module(sections, label, anchor)
     logger.debug("plot %s: done in %.1fs, rss %+.2f GB", label, time.monotonic() - started, rss_gb() - rss_before)
@@ -174,14 +174,15 @@ def create_report(
 
     multiqc.reset()
 
-    for viz_cls, pairs in groupby(_applicable_results(experiment), key=itemgetter(0)):
-        viz_started = time.monotonic()
+    for plot_cls, pairs in groupby(_applicable_results(experiment), key=itemgetter(0)):
+        plot_started = time.monotonic()
+        plot = plot_cls()
         n_targets = 0
         for _, target in pairs:
-            _add_plot(viz_cls(), target, experiment)
+            _add_plot(plot, target, experiment)
             n_targets += 1
         scope = "" if n_targets == 1 and target is experiment else f"{n_targets} model{'s' * (n_targets != 1)} "
-        logger.info("plot %s: %sdone in %.1fs", viz_cls.registry_name, scope, time.monotonic() - viz_started)
+        logger.info("plot %s: %sdone in %.1fs", plot.name, scope, time.monotonic() - plot_started)
 
     if experiment.failures:
         _add_failures_module(experiment.failures)
@@ -222,14 +223,14 @@ def save_all_png(
     out.mkdir(parents=True, exist_ok=True)
 
     skipped: list[str] = []
-    for viz_cls, target in _applicable_results(experiment):
-        if issubclass(viz_cls, PlotlyVisualization) and not plotly_png_supported():
-            skipped.append(viz_cls.registry_name)
+    for plot_cls, target in _applicable_results(experiment):
+        plot = plot_cls()
+        figure = plot.figure(target)
+        if not is_matplotlib_figure(figure) and not plotly_png_supported():
+            skipped.append(plot.name)
             continue
-        viz = viz_cls()
-        viz.compute(target)
-        stem = viz.registry_name if target is experiment else f"{viz.registry_name}_{safe_filename(target.model_name)}"
-        viz.to_png(out / f"{stem}.png")
+        stem = plot.name if target is experiment else f"{plot.name}_{safe_filename(target.model_name)}"
+        write_png(figure, out / f"{stem}.png")
     if skipped:
         logger.warning(
             "Skipped the Plotly plots %s: PNG export hangs on Windows with Kaleido 0.2.1.",

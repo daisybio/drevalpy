@@ -1,6 +1,6 @@
 """End-to-end contract for the ``response_transformation`` pipeline setting.
 
-Not a module mirror: the behaviour only exists once ``models/response_transformation/``, ``models/_pipeline.py``,
+Not a module mirror: the behaviour only exists once ``models/response_transformation/``, ``models/drp_model.py``,
 ``models/tuning/hpo_runtime.py`` and ``_single.py`` agree. Fit the scaler on the training scope only, train on
 transformed targets, inverse-transform the predictions, score against untouched ground truth.
 
@@ -21,7 +21,7 @@ from drevalpy import single
 from drevalpy.data import split
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.response_transformation import GroupMeanCenterer
-from drevalpy.models.tuning.config import build_experiment_hpo_config
+from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo import hpam_tune
 from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
 from drevalpy.types import SplitMask, SplitMasks
@@ -33,7 +33,7 @@ HPO_TRIALS = 2
 def _fitted_transform(prototype, dataset, scope):
     model = DRPModel(ModelSpec.from_name("NaivePredictor"), response_transformation=prototype)
     model.train(dataset, scope)
-    return model._pipeline._fitted_response_transformation
+    return model._fitted_response_transformation
 
 
 class _LogCapture(logging.Handler):
@@ -160,8 +160,7 @@ class TestHpoRoundTrip:
                 val_scope=fold.val,
                 early_stopping_scope=None,
                 response_transformation=prototype,
-                metric="RMSE",
-                hpo_config=build_experiment_hpo_config("RMSE", n_trials=HPO_TRIALS, random_state=0),
+                hpo_config=HPOConfig(n_trials=HPO_TRIALS, metric="RMSE", random_state=0),
             )
 
         assert "NotFittedError" not in records.text

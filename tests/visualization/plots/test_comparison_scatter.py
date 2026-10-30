@@ -12,14 +12,16 @@ from plotly.basedatatypes import BaseFigure
 
 from drevalpy.evaluation._correlation_matrix import GroupCorrelationMatrix, model_group_correlations
 from drevalpy.types.results.experiment import ExperimentResult
+from drevalpy.visualization.base import Section, save_png, show
 from drevalpy.visualization.plots.comparison_scatter import (
     _AXIS_RANGE,
     _POINTS_TRACE,
-    ComparisonScatterVisualization,
+    ComparisonScatterPlot,
     _axis_layout,
     _build_figure,
     _dropdown_buttons,
     _inline_plotly_html,
+    _matrices,
 )
 from tests.synthetic import make_experiment_result, make_run_result
 
@@ -36,10 +38,8 @@ def experiment() -> ExperimentResult:
 
 
 @pytest.fixture(scope="module")
-def computed(experiment) -> ComparisonScatterVisualization:
-    plot = ComparisonScatterVisualization()
-    plot.compute(experiment)
-    return plot
+def sections(experiment) -> list[Section]:
+    return ComparisonScatterPlot().sections(experiment)
 
 
 @pytest.fixture(scope="module")
@@ -135,72 +135,62 @@ class TestInlinePlotlyHtml:
         assert len(spec["layout"]["updatemenus"]) == 2
 
 
-class TestCompute:
-    def test_computes_a_models_by_groups_matrix_per_grouping(self, computed):
-        assert set(computed._matrices) == {"drug", "sample"}
-        assert computed._matrices["drug"].values.shape == (N_MODELS, N_DRUGS)
-        assert computed._matrices["sample"].values.shape == (N_MODELS, N_SAMPLES)
-        assert len(computed._fig.data[0].x) == N_DRUGS
+class TestMatrices:
+    def test_computes_a_models_by_groups_matrix_per_grouping(self, experiment):
+        matrices = _matrices(experiment)
+
+        assert set(matrices) == {"drug", "sample"}
+        assert matrices["drug"].values.shape == (N_MODELS, N_DRUGS)
+        assert matrices["sample"].values.shape == (N_MODELS, N_SAMPLES)
 
     def test_a_concatenated_run_gets_one_column_per_study(self):
-        plot = ComparisonScatterVisualization()
+        matrices = _matrices(_concatenated_experiment())
 
-        plot.compute(_concatenated_experiment())
-
-        assert plot._matrices["study"].group_names == ("CTRPv2", "GDSC2")
-        assert plot._matrices["study"].values.shape == (3, 2)
-
-    def test_a_single_model_yields_an_empty_figure_and_recomputing_replaces_matrices(self, experiment):
-        plot = ComparisonScatterVisualization()
-        plot.compute(experiment)
-
-        plot.compute(ExperimentResult([make_run_result(model_name="Solo", fold_index=i) for i in range(2)]))
-
-        assert plot._fig.data == ()
-        assert plot._matrices == {}
+        assert matrices["study"].group_names == ("CTRPv2", "GDSC2")
+        assert matrices["study"].values.shape == (3, 2)
 
     def test_models_with_no_defined_group_are_dropped(self):
         undefined = make_run_result(model_name="Undefined", n_pairs=20)
         undefined.ground_truth[:] = 1.0
         runs = [undefined, make_run_result(model_name="A", n_pairs=20), make_run_result(model_name="B", n_pairs=20)]
-        plot = ComparisonScatterVisualization()
 
-        plot.compute(ExperimentResult(runs))
-        assert plot._matrices["drug"].model_names == ("A", "B")
-
-        plot.compute(ExperimentResult(runs[:2]))
-        assert plot._matrices == {}
+        assert _matrices(ExperimentResult(runs))["drug"].model_names == ("A", "B")
+        assert _matrices(ExperimentResult(runs[:2])) == {}
 
     def test_a_constant_predictor_is_drawn_at_zero(self):
         constant = make_run_result(model_name="Constant", n_pairs=20)
         constant.predictions[:] = 1.0
         runs = [constant, make_run_result(model_name="A", n_pairs=20)]
-        plot = ComparisonScatterVisualization()
 
-        plot.compute(ExperimentResult(runs))
+        matrix = _matrices(ExperimentResult(runs))["drug"]
 
-        matrix = plot._matrices["drug"]
         assert matrix.model_names == ("Constant", "A")
         np.testing.assert_array_equal(matrix.values[0], np.zeros(matrix.n_groups))
+
+
+class TestFigure:
+    def test_shows_the_first_grouping(self, experiment):
+        assert len(ComparisonScatterPlot().figure(experiment).data[0].x) == N_DRUGS
+
+    def test_a_single_model_yields_an_empty_figure(self):
+        solo = ExperimentResult([make_run_result(model_name="Solo", fold_index=i) for i in range(2)])
+
+        assert ComparisonScatterPlot().figure(solo).data == ()
 
     def test_an_all_randomized_experiment_produces_nothing(self):
         randomization = ("gene_expression", "permutation")
         result = ExperimentResult(
             [make_run_result(model_name=name, randomization=randomization) for name in ("A", "B")]
         )
-        plot = ComparisonScatterVisualization()
+        plot = ComparisonScatterPlot()
 
-        plot.compute(result)
-
-        assert plot._matrices == {}
-        assert plot._fig.data == ()
-        assert plot.to_multiqc() == []
+        assert _matrices(result) == {}
+        assert plot.figure(result).data == ()
+        assert plot.sections(result) == []
 
 
-class TestToMultiqc:
-    def test_one_raw_html_section_per_grouping_targeting_its_own_div(self, computed):
-        sections = computed.to_multiqc()
-
+class TestSections:
+    def test_one_raw_html_section_per_grouping_targeting_its_own_div(self, sections):
         assert [s.anchor for s in sections] == ["dreval_comp_scatter_drug", "dreval_comp_scatter_sample"]
         assert all(s.plot is None and "Plotly.newPlot" in s.content for s in sections)
         divs = [re.search(r'<div id="([^"]+)"', s.content).group(1) for s in sections]
@@ -209,35 +199,32 @@ class TestToMultiqc:
         assert f"{N_DRUGS} drugs" in sections[0].description
 
     def test_a_concatenated_run_gets_a_study_section_last(self):
-        plot = ComparisonScatterVisualization()
-        plot.compute(_concatenated_experiment())
-
-        sections = plot.to_multiqc()
+        sections = ComparisonScatterPlot().sections(_concatenated_experiment())
 
         assert sections[-1].anchor == "dreval_comp_scatter_study"
         assert sections[-1].name == "Study-wise comparison"
         assert "2 studies" in sections[-1].description
 
-    def test_the_payload_is_bounded_by_models_times_groups(self, computed):
-        total = sum(len(section.content) for section in computed.to_multiqc())
+    def test_the_payload_is_bounded_by_models_times_groups(self, sections):
+        total = sum(len(section.content) for section in sections)
 
         assert total < 200 * N_MODELS * (N_DRUGS + N_SAMPLES) + 10_000
 
 
-class TestRenderingAndGuards:
+class TestRendering:
     @pytest.mark.skipif(sys.platform == "win32", reason="Kaleido 0.2.1 hangs on Windows")
-    def test_to_png_writes_a_png_file(self, computed, tmp_path):
-        computed.to_png(tmp_path / "cs.png")
+    def test_save_png_writes_a_png_file(self, experiment, tmp_path):
+        save_png(ComparisonScatterPlot(), experiment, tmp_path / "cs.png")
 
         assert (tmp_path / "cs.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
-    def test_show_delegates_to_the_plotly_figure(self, computed, monkeypatch):
+    def test_show_delegates_to_the_plotly_figure(self, experiment, monkeypatch):
         calls: list = []
         monkeypatch.setattr(BaseFigure, "show", lambda self, *a, **kw: calls.append(self))
 
-        computed.show()
+        show(ComparisonScatterPlot(), experiment)
 
-        assert calls == [computed._fig]
+        assert [len(fig.data[0].x) for fig in calls] == [N_DRUGS]
 
     def test_keeps_its_registry_name(self):
-        assert ComparisonScatterVisualization.registry_name == "comparison_scatter"
+        assert ComparisonScatterPlot.name == "comparison_scatter"

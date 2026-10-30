@@ -9,8 +9,9 @@ from matplotlib.collections import PolyCollection
 from matplotlib.figure import Figure
 
 from drevalpy.types.results.model import ModelResult
+from drevalpy.visualization.base import save_png
 from drevalpy.visualization.plots.regression_scatter import (
-    RegressionScatterVisualization,
+    RegressionScatterPlot,
     _pearson,
     _pooled_predictions,
 )
@@ -31,10 +32,8 @@ def model_result() -> ModelResult:
 
 
 @pytest.fixture(scope="module")
-def computed(model_result) -> RegressionScatterVisualization:
-    plot = RegressionScatterVisualization()
-    plot.compute(model_result)
-    return plot
+def figure(model_result) -> Figure:
+    return RegressionScatterPlot().figure(model_result)
 
 
 class TestPooledPredictions:
@@ -89,13 +88,13 @@ class TestPearson:
         assert np.isnan(_pearson(np.array(x), np.array(y)))
 
 
-class TestCompute:
-    def test_draws_hexbin_identity_line_colorbar_and_labels(self, computed, model_result):
-        ax = computed._fig.axes[0]
+class TestFigure:
+    def test_draws_hexbin_identity_line_colorbar_and_labels(self, figure, model_result):
+        ax = figure.axes[0]
 
         assert any(isinstance(collection, PolyCollection) for collection in ax.collections)
         assert len(ax.lines) == 1
-        assert any("log scale" in other.get_ylabel() for other in computed._fig.axes[1:])
+        assert any("log scale" in other.get_ylabel() for other in figure.axes[1:])
         assert model_result.model_name in ax.get_title()
         assert (ax.get_xlabel(), ax.get_ylabel()) == ("Observed", "Predicted")
         assert ax.get_xlim() == ax.get_ylim()
@@ -103,76 +102,69 @@ class TestCompute:
         assert f"n = {N_FOLDS * N_PAIRS:,}" in text
         assert "Pearson =" in text
         assert "R²" in text
-        assert computed._result is model_result
 
     def test_no_data_falls_back_to_a_placeholder(self):
-        plot = RegressionScatterVisualization()
+        fig = RegressionScatterPlot().figure(
+            _model_result([make_run_result(randomization=("gene_expression", "permutation"))])
+        )
 
-        plot.compute(_model_result([make_run_result(randomization=("gene_expression", "permutation"))]))
-
-        assert plot._fig.axes[0].texts[0].get_text() == "No data available"
+        assert fig.axes[0].texts[0].get_text() == "No data available"
 
     def test_a_degenerate_single_point_still_renders(self):
-        plot = RegressionScatterVisualization()
+        fig = RegressionScatterPlot().figure(_model_result([make_run_result(n_pairs=1)]))
 
-        plot.compute(_model_result([make_run_result(n_pairs=1)]))
-
-        low, high = plot._fig.axes[0].get_xlim()
+        low, high = fig.axes[0].get_xlim()
         assert low < high
 
     def test_a_constant_cloud_gets_a_widened_range(self):
         run = make_run_result(n_pairs=6)
         run.ground_truth[:] = 1.0
         run.predictions[:] = 1.0
-        plot = RegressionScatterVisualization()
+        fig = RegressionScatterPlot().figure(_model_result([run]))
 
-        plot.compute(_model_result([run]))
+        assert fig.axes[0].get_xlim() == (0.5, 1.5)
 
-        assert plot._fig.axes[0].get_xlim() == (0.5, 1.5)
+    def test_one_instance_draws_each_result_on_its_own(self, model_result):
+        plot = RegressionScatterPlot()
+        plot.figure(model_result)
 
-    def test_recomputing_replaces_the_pooled_arrays(self, model_result):
-        plot = RegressionScatterVisualization()
-        plot.compute(model_result)
+        fig = plot.figure(_model_result([make_run_result(n_pairs=3)]))
 
-        plot.compute(_model_result([make_run_result(n_pairs=3)]))
-
-        assert plot._ground_truth.size == 3
+        assert "n = 3\n" in fig.axes[0].texts[0].get_text()
 
     def test_no_figure_enters_the_pyplot_registry(self, model_result):
         plt.close("all")
 
-        plot = RegressionScatterVisualization()
-        plot.compute(model_result)
+        fig = RegressionScatterPlot().figure(model_result)
 
         assert plt.get_fignums() == []
-        assert isinstance(plot._fig, Figure)
-        assert plot._fig.canvas.manager is None
+        assert isinstance(fig, Figure)
+        assert fig.canvas.manager is None
 
 
-class TestToMultiqc:
-    def test_one_section_with_a_model_specific_anchor_and_an_embedded_png(self, computed, model_result):
-        (section,) = computed.to_multiqc()
-        other = RegressionScatterVisualization()
-        other.compute(make_model_result(model_name="RandomForest", n_folds=1, n_pairs=10))
+class TestSections:
+    def test_one_section_with_a_model_specific_anchor_and_an_embedded_png(self, model_result):
+        plot = RegressionScatterPlot()
+        (section,) = plot.sections(model_result)
+        (other,) = plot.sections(make_model_result(model_name="RandomForest", n_folds=1, n_pairs=10))
 
         assert section.anchor == f"dreval_scatter_{model_result.model_name}"
-        assert other.to_multiqc()[0].anchor != section.anchor
+        assert other.anchor != section.anchor
         assert model_result.model_name in section.name
         assert f"across {N_FOLDS} fold(s)" in section.description
         assert section.plot is None
+        assert section.content is not None
         assert "data:image/png;base64," in section.content
         assert section.content.count("base64") == 1
         assert '"x"' not in section.content
 
 
-class TestRenderingAndGuards:
-    def test_to_png_writes_a_png_file(self, computed, tmp_path):
-        computed.to_png(tmp_path / "rs.png")
+class TestRendering:
+    def test_save_png_writes_a_png_file(self, model_result, tmp_path):
+        save_png(RegressionScatterPlot(), model_result, tmp_path / "rs.png")
 
         assert (tmp_path / "rs.png").read_bytes().startswith(PNG_MAGIC)
 
-    def test_is_registered_for_model_results(self):
-        from drevalpy.registry.visualization import visualization_registry
-
-        assert RegressionScatterVisualization.registry_name == "regression_scatter"
-        assert visualization_registry._result_types["regression_scatter"] == "ModelResult"
+    def test_is_drawn_per_model(self):
+        assert RegressionScatterPlot.name == "regression_scatter"
+        assert RegressionScatterPlot.result_type is ModelResult

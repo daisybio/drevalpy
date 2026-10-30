@@ -15,7 +15,7 @@ from drevalpy.experiment._execution import ExecutionSpec, build_execution
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.spec import ModelSpec
-from drevalpy.models.tuning.config import build_experiment_hpo_config
+from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo import hpam_tune
 from drevalpy.types import SplitMask, SplitMasks
 from drevalpy.types.data.dataset import Dataset
@@ -114,21 +114,23 @@ def train(
             val_scope=scopes.validation,
             early_stopping_scope=scopes.stopping,
             response_transformation=response_transformation,
-            metric=hpo_metric,
-            hpo_config=build_experiment_hpo_config(
-                hpo_metric,
+            hpo_config=HPOConfig(
                 n_trials=hpo_num_trials,
+                metric=hpo_metric,
                 random_state=seed if hpo_random_state is None else hpo_random_state,
             ),
             split_index=0,
             n_jobs=n_jobs,
         )
     else:
-        hyperparameters = spec.default_hyperparameters
-    logger.info(
-        "Training %s on %d pairs with hyperparameters %s", spec.name, len(scopes.final_training), hyperparameters
-    )
+        hyperparameters = {}
     fitted = DRPModel(spec, hyperparameters, response_transformation=response_transformation)
+    logger.info(
+        "Training %s on %d pairs with hyperparameters %s",
+        spec.name,
+        len(scopes.final_training),
+        fitted.hyperparameters,
+    )
     seed_everything(fit_rng_seed)
     fitted.train(data, scopes.final_training, early_stopping_scope=scopes.stopping, n_jobs=n_jobs)
     return fitted

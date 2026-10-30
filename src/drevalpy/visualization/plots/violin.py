@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from drevalpy.evaluation import Metric
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import PlotlyVisualization, Section
+from drevalpy.visualization.base import Plot, Section
 from drevalpy.visualization.plots._utils import runs_frame
 from drevalpy.visualization.requirements import PlotRequirement
 
@@ -32,23 +32,26 @@ def _is_finite(value: float) -> bool:
         return False
 
 
-@register(
-    "violin",
-    "Violin plots of evaluation metrics across CV folds",
-    requirements=frozenset({PlotRequirement.MULTIPLE_FOLDS}),
-)
-class ViolinVisualization(PlotlyVisualization):
+def _run_metrics(result: ExperimentResult) -> dict[str, dict[str, float]]:
+    """Collect the metrics of every non-randomized run, keyed by run identity.
+
+    :param result: Experiment to read.
+    :returns: ``{run_id: {metric: value}}``, the payload of MultiQC's violin plot.
+    """
+    return {run.run_id: dict(run.metrics) for model in result.models for run in model.select_runs()}
+
+
+@register("violin", "Violin plots of evaluation metrics across CV folds")
+class ViolinPlot(Plot):
     """Violin plot showing metric distributions across folds per model."""
 
-    def __init__(self) -> None:
-        """Initialize with empty state."""
-        self._fig: go.Figure | None = None
-        self._data: dict[str, dict[str, float]] | None = None
+    requirements = frozenset({PlotRequirement.MULTIPLE_FOLDS})
 
-    def compute(self, result: ExperimentResult) -> None:
-        """Build violin plot figure from per-fold metrics.
+    def figure(self, result: ExperimentResult) -> go.Figure:
+        """Draw one violin per model and metric from the per-fold metrics.
 
         :param result: Experiment result with multiple folds.
+        :returns: The Plotly figure.
         """
         import plotly.graph_objects as go
 
@@ -58,14 +61,14 @@ class ViolinVisualization(PlotlyVisualization):
 
         metrics = [m.value for m in Metric if m in df.columns]
         if not metrics:
-            logger.warning("violin: no metric has a finite value in any fold; the section will be skipped")
+            logger.warning("violin: no metric has a finite value in any fold; the figure is empty")
 
-        self._fig = go.Figure()
+        fig = go.Figure()
         for metric in metrics:
             for box in df["box"].unique():
                 tmp_df = df[df["box"] == box]
                 label = box.split("_")[0] + ": " + metric
-                self._fig.add_trace(
+                fig.add_trace(
                     go.Violin(
                         y=tmp_df[metric],
                         x=[label] * len(tmp_df[metric]),
@@ -75,26 +78,24 @@ class ViolinVisualization(PlotlyVisualization):
                     )
                 )
 
-        self._fig.update_layout(title_text="All Metrics", height=600, width=1100)
+        fig.update_layout(title_text="All Metrics", height=600, width=1100)
+        return fig
 
-        self._data = {}
-        for model in result.models:
-            for run in model.select_runs():
-                run_id = run.run_id
-                self._data[run_id] = dict(run.metrics)
+    def sections(self, result: ExperimentResult) -> list[Section]:
+        """Return a MultiQC violin Section using the native violin plot API.
 
-    def to_multiqc(self) -> list[Section]:
-        """Return a MultiQC violin Section using native violin plot API."""
-        if self._data is None:
-            raise RuntimeError("Call compute() before to_multiqc()")
+        :param result: Experiment result with multiple folds.
+        :returns: One section, or none when no metric has a finite value.
+        """
         from multiqc.plots import violin as mqc_violin
 
-        metric_names = sorted({m for metrics in self._data.values() for m in metrics if _is_finite(metrics[m])})
+        data = _run_metrics(result)
+        metric_names = sorted({m for metrics in data.values() for m in metrics if _is_finite(metrics[m])})
         if not metric_names:
             logger.warning("violin: no metric has a finite value in any fold; skipping the section")
             return []
         headers: dict[str, dict[str, str]] = {m: {"title": m, "description": f"Metric: {m}"} for m in metric_names}
-        plot = mqc_violin.plot(self._data, headers, pconfig={"id": "dreval_violin"})
+        plot = mqc_violin.plot(data, headers, pconfig={"id": "dreval_violin"})
 
         return [
             Section(

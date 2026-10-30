@@ -28,20 +28,15 @@ class _StubModel(DRPModel):
     """A ``DRPModel`` that records what ``single`` hands it and predicts ``0..n-1`` (or a constant)."""
 
     early_stopping: bool = False
-    default_hyperparameters: dict[str, Any] = {"alpha": 0.5}  # plain class-level config
     instances: list[_StubModel] = []  # plain class-level config
     prediction_value: float | None = None
 
-    def __init__(self, spec, hyperparameters, *, response_transformation=None) -> None:
+    def __init__(self, spec, hyperparameters=None, *, response_transformation=None) -> None:
         super().__init__(spec, hyperparameters, response_transformation=response_transformation)
         self.received_hyperparameters = hyperparameters
         self.train_calls = []
         self.predict_calls = []
         type(self).instances.append(self)
-
-    @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, Any]:
-        return dict(cls.default_hyperparameters)
 
     def train(self, dataset, scope, *, early_stopping_scope=None, model_checkpoint_dir="checkpoints", n_jobs=1):
         super().train(
@@ -57,7 +52,7 @@ class _StubModel(DRPModel):
                 "early_stopping_scope": early_stopping_scope,
                 "model_checkpoint_dir": model_checkpoint_dir,
                 "n_jobs": n_jobs,
-                "response_transformation": self._pipeline._fitted_response_transformation,
+                "response_transformation": self._fitted_response_transformation,
             }
         )
 
@@ -66,7 +61,7 @@ class _StubModel(DRPModel):
                 return np.arange(batch.n_pairs, dtype=float)
             return np.full(batch.n_pairs, self.prediction_value, dtype=float)
 
-        self._pipeline._predictor._predict = fake_prediction
+        self._predictor._predict = fake_prediction
 
     def predict(self, dataset, scope):
         self.predict_calls.append(scope)
@@ -79,7 +74,6 @@ def stub_model(monkeypatch):
     cls.recipe = ModelSpec("StubModel", ModelSpec.from_name("ElasticNet").config)
     monkeypatch.setattr(SINGLE_MODULE, "DRPModel", cls)
     monkeypatch.setattr(ModelSpec, "supports_early_stopping", property(lambda spec: cls.early_stopping))
-    monkeypatch.setattr(ModelSpec, "default_hyperparameters", property(lambda spec: dict(cls.default_hyperparameters)))
     return cls
 
 
@@ -95,7 +89,7 @@ def tuner(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
     def fake_tune(**kwargs: Any):
         seen.update(kwargs)
-        return {"alpha": 0.2}, []
+        return {"predictor.elasticNet.alpha": 0.2}, []
 
     monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
     return seen
@@ -132,7 +126,7 @@ def test_end_to_end_with_a_real_model(synthetic_dataset) -> None:
     assert len(result.predictions) == len(result.ground_truth) == len(pairs)
     assert np.isfinite(result.predictions).all()
     assert set(result.metrics) == set(Metric)
-    assert result.best_hyperparameters == ModelSpec.from_name("ElasticNet").default_hyperparameters
+    assert result.best_hyperparameters == dict(ModelSpec.from_name("ElasticNet").hyperparameters)
     assert result.trials is None
     np.testing.assert_array_equal(result.sample_ids, synthetic_dataset.sample_ids[pairs[:, 0]])
     np.testing.assert_array_equal(result.drug_ids, synthetic_dataset.drug_ids[pairs[:, 1]])
@@ -181,7 +175,8 @@ class TestTraining:
         model = stub_model.instances[0]
         np.testing.assert_array_equal(model.train_calls[0]["scope"].mask, folds[0].train_val.mask)
         np.testing.assert_array_equal(model.predict_calls[0].mask, folds[0].test.mask)
-        assert model.received_hyperparameters == {"alpha": 0.5}
+        assert model.received_hyperparameters == dict(stub_model.recipe.hyperparameters)
+        assert model.hyperparameters == dict(stub_model.recipe.hyperparameters)
         assert model.train_calls[0]["model_checkpoint_dir"]
 
     def test_metrics_are_empty_when_no_prediction_is_valid(self, synthetic_dataset, folds, stub_model) -> None:
@@ -256,13 +251,13 @@ class TestHyperparameterTuning:
     def test_trials_and_the_tuner_inputs(self, synthetic_dataset, folds, stub_model, monkeypatch) -> None:
         seen: dict[str, Any] = {}
         raw_trials = [
-            ({"alpha": 0.1}, {"RMSE": 1.0}, np.array([1.0, 2.0])),
-            ({"alpha": 0.9}, {"RMSE": 2.0}, np.array([3.0, 4.0])),
+            ({"predictor.elasticNet.alpha": 0.1}, {"RMSE": 1.0}, np.array([1.0, 2.0])),
+            ({"predictor.elasticNet.alpha": 0.9}, {"RMSE": 2.0}, np.array([3.0, 4.0])),
         ]
 
         def fake_tune(**kwargs: Any):
             seen.update(kwargs)
-            return {"alpha": 0.1}, raw_trials
+            return {"predictor.elasticNet.alpha": 0.1}, raw_trials
 
         monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
 
@@ -277,16 +272,22 @@ class TestHyperparameterTuning:
         )
 
         assert result.trials is not None
-        assert [t.hyperparameters for t in result.trials] == [{"alpha": 0.1}, {"alpha": 0.9}]
+        assert [t.hyperparameters for t in result.trials] == [
+            {"predictor.elasticNet.alpha": 0.1},
+            {"predictor.elasticNet.alpha": 0.9},
+        ]
         assert [t.optimization_metric for t in result.trials] == ["RMSE", "RMSE"]
-        assert result.best_hyperparameters == {"alpha": 0.1}
+        assert result.best_hyperparameters == {"predictor.elasticNet.alpha": 0.1}
         assert seen["model_spec"] is stub_model.recipe
         assert seen["dataset"] is synthetic_dataset
-        assert seen["metric"] == "RMSE"
         assert seen["early_stopping_scope"] is None
         np.testing.assert_array_equal(seen["train_scope"].mask, folds[0].train.mask)
         np.testing.assert_array_equal(seen["val_scope"].mask, folds[0].val.mask)
-        assert (seen["hpo_config"].n_trials, seen["hpo_config"].random_state) == (3, 11)
+        assert (seen["hpo_config"].n_trials, seen["hpo_config"].metric, seen["hpo_config"].random_state) == (
+            3,
+            "RMSE",
+            11,
+        )
 
     def test_early_stopping_narrows_the_validation_scope_handed_to_the_tuner(
         self, synthetic_dataset, folds, stub_model, tuner
@@ -311,7 +312,7 @@ def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
 
     def tune(**kwargs):
         seen.append(kwargs)
-        return stub_model.get_default_hyperparameters(), []
+        return dict(stub_model.recipe.hyperparameters), []
 
     monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", tune)
     single(
@@ -396,7 +397,7 @@ class TestSeeding:
 
         def fake_tune(**kwargs: Any):
             sampler_states.append(kwargs["hpo_config"].random_state)
-            return {"alpha": 0.2}, []
+            return {"predictor.elasticNet.alpha": 0.2}, []
 
         monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
 
@@ -409,10 +410,10 @@ class TestSeeding:
 
 
 @pytest.mark.slow
-def test_neural_predictions_follow_the_seed(monkeypatch: pytest.MonkeyPatch, synthetic_dataset, folds) -> None:
-    hyperparameters = {"units_per_layer": [4, 4], "max_epochs": 2, "batch_size": 8}
-    monkeypatch.setattr(ModelSpec, "default_hyperparameters", property(lambda spec: dict(hyperparameters)))
-    spec = ModelSpec.from_name("SimpleNeuralNetwork")
+def test_neural_predictions_follow_the_seed(synthetic_dataset, folds) -> None:
+    spec = ModelSpec.from_name("SimpleNeuralNetwork").with_hyperparameters(
+        {"units_per_layer": [4, 4], "max_epochs": 2, "batch_size": 8}
+    )
 
     def predict(seed: int) -> np.ndarray:
         torch.manual_seed(np.random.randint(0, 2**31))  # dirty the global RNGs so only ``seed`` can explain equality

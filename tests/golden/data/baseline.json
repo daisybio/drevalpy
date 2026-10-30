@@ -1,0 +1,1264 @@
+{
+  "atol": 1e-6,
+  "dataset": {
+    "drug_views": [
+      "morgan_fingerprint",
+      "chemberta",
+      "bpe_smiles",
+      "smilesvec"
+    ],
+    "extra_layers": ["AUC", "IC50"],
+    "omics": [
+      "gene_expression",
+      "proteomics",
+      "mutations",
+      "methylation",
+      "copy_number_variation_gistic"
+    ],
+    "sample_views": ["pathway_features"],
+    "seed": 0,
+    "uns_payloads": ["drug_graphs", "pathways_gmt", "sparsego", "bpe_codes"]
+  },
+  "drevalpy_commit": "332072e5c0ad4f7b6f96ffa35ccb7e76d479bd01",
+  "hpo": {
+    "metric": "RMSE",
+    "model": "ElasticNet",
+    "n_trials": 2,
+    "random_state": 7
+  },
+  "models": {
+    "AdaBoostDecisionTree": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "1",
+        "2",
+        "2",
+        "2048",
+        "4",
+        "50",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "max_depth": "4",
+        "min_samples_leaf": "1",
+        "min_samples_split": "2",
+        "n_bits": "2048",
+        "n_estimators": "50",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6980985278985754,
+        "MAE": 0.6296663508422095,
+        "MSE": 0.659955285366518,
+        "Pearson": 0.8554574949764563,
+        "RMSE": 0.8123763200429454,
+        "R^2": 0.7278882560277009,
+        "Spearman": 0.8791904947426727
+      },
+      "model": "AdaBoostDecisionTree",
+      "round_trip_exact": true,
+      "seconds": 3.2
+    },
+    "DIPK": {
+      "artifacts": [
+        "MolGNet.pt",
+        "gene_list_sel.txt",
+        "human_ppi_features.tsv"
+      ],
+      "best_hyperparameter_values": [
+        "'mean'",
+        "0.0001",
+        "0.0001",
+        "0.3",
+        "10",
+        "10",
+        "1024",
+        "2",
+        "256",
+        "3",
+        "3",
+        "3",
+        "64",
+        "[256, 128, 64, 32, 16, 1]"
+      ],
+      "best_hyperparameters_at_record": {
+        "aggregation": "'mean'",
+        "batch_size": "64",
+        "batch_size_autoencoder": "1024",
+        "dropout_rate": "0.3",
+        "epochs": "3",
+        "epochs_autoencoder": "10",
+        "fc_layer_dim": "[256, 128, 64, 32, 16, 1]",
+        "fc_layer_num": "3",
+        "gene_add_num": "256",
+        "heads": "2",
+        "lr": "0.0001",
+        "lr_autoencoder": "0.0001",
+        "patience": "10",
+        "patience_autoencoder": "3"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {
+        "epochs": 3,
+        "epochs_autoencoder": 10
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.021500238891543236,
+        "MAE": 1.806874795695362,
+        "MSE": 4.629922729754161,
+        "Pearson": 0.07019088615182296,
+        "RMSE": 2.1517255237957653,
+        "R^2": -0.9090025890931506,
+        "Spearman": 0.02453647334432748
+      },
+      "model": "DIPK",
+      "round_trip_exact": true,
+      "seconds": 34.8
+    },
+    "DrugGNN": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.001",
+        "0.2",
+        "100",
+        "1024",
+        "32",
+        "50",
+        "64",
+        "False",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "add_hydrogens": "False",
+        "batch_size": "1024",
+        "dropout": "0.2",
+        "epochs": "100",
+        "hidden_dim": "64",
+        "learning_rate": "0.001",
+        "log_every_n_steps": "50",
+        "minmax_scale": "False",
+        "precision": "32",
+        "standardize": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": -0.08886765408504538,
+        "MAE": 1.3364447416008816,
+        "MSE": 2.6994180963815713,
+        "Pearson": -0.06904251889295171,
+        "RMSE": 1.6429905953417905,
+        "R^2": -0.11301990029344333,
+        "Spearman": -0.12428525191498543
+      },
+      "model": "DrugGNN",
+      "round_trip_exact": true,
+      "seconds": 4.4
+    },
+    "ElasticNet": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0",
+        "1.0",
+        "2",
+        "2048",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "alpha": "1.0",
+        "l1_ratio": "0.0",
+        "n_bits": "2048",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6899187768752986,
+        "MAE": 0.6434025591968194,
+        "MSE": 0.6654183744280828,
+        "Pearson": 0.8530214653026206,
+        "RMSE": 0.8157318030015029,
+        "R^2": 0.7256357235834874,
+        "Spearman": 0.8742659864679498
+      },
+      "model": "ElasticNet",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "ElasticNet[hpo]": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.032033347004714594",
+        "0.07205113335976154",
+        "1",
+        "2048",
+        "False",
+        "True"
+      ],
+      "best_hyperparameters_at_record": {
+        "alpha": "0.032033347004714594",
+        "l1_ratio": "0.07205113335976154",
+        "n_bits": "2048",
+        "radius": "1",
+        "use_chirality": "False",
+        "use_counts": "True"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": true,
+      "metrics": {
+        "Kendall": 0.692785475394171,
+        "MAE": 0.6338917984748664,
+        "MSE": 0.6475978706968748,
+        "Pearson": 0.85660077884391,
+        "RMSE": 0.804734658565713,
+        "R^2": 0.7329834461584657,
+        "Spearman": 0.8757918098731563
+      },
+      "model": "ElasticNet",
+      "round_trip_exact": true,
+      "seconds": 0.6
+    },
+    "EnsembleMF": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0",
+        "0.0003",
+        "0.2",
+        "1",
+        "128",
+        "1e-05",
+        "2",
+        "2048",
+        "25",
+        "256",
+        "256",
+        "256",
+        "3",
+        "30",
+        "False",
+        "False",
+        "True",
+        "True"
+      ],
+      "best_hyperparameters_at_record": {
+        "batch_size": "2048",
+        "dropout": "0.2",
+        "emb_dim": "128",
+        "hidden_dim": "256",
+        "learning_rate": "0.0003",
+        "max_epochs": "30",
+        "mlp_hidden": "256",
+        "n_bits": "256",
+        "n_ensemble": "3",
+        "n_layers": "1",
+        "patience": "25",
+        "radius": "2",
+        "seed": "0",
+        "use_chirality": "False",
+        "use_counts": "False",
+        "use_drug_id_embedding": "True",
+        "use_mlp_head": "True",
+        "weight_decay": "1e-05"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {
+        "max_epochs": 30,
+        "n_ensemble": 3
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6803631151457238,
+        "MAE": 0.65613361314425,
+        "MSE": 0.6844991761077439,
+        "Pearson": 0.8632830099615902,
+        "RMSE": 0.8273446537615046,
+        "R^2": 0.717768356904912,
+        "Spearman": 0.8673150131775658
+      },
+      "model": "EnsembleMF",
+      "round_trip_exact": true,
+      "seconds": 3.0
+    },
+    "GradientBoosting": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.1",
+        "100",
+        "2",
+        "2048",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "learning_rate": "0.1",
+        "max_depth": "5",
+        "max_iter": "100",
+        "n_bits": "2048",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7290969899665551,
+        "MAE": 0.551307698029778,
+        "MSE": 0.5128088703846673,
+        "Pearson": 0.8914943999142233,
+        "RMSE": 0.7161067451048533,
+        "R^2": 0.7885594385878133,
+        "Spearman": 0.9005902932971657
+      },
+      "model": "GradientBoosting",
+      "round_trip_exact": true,
+      "seconds": 2.5
+    },
+    "KNNRegressor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'distance'",
+        "2",
+        "2048",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "n_bits": "2048",
+        "n_neighbors": "5",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False",
+        "weights": "'distance'"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.04108934543717152,
+        "MAE": 1.3338088359925921,
+        "MSE": 2.803174337743668,
+        "Pearson": 0.10779344932656135,
+        "RMSE": 1.674268299211231,
+        "R^2": -0.15580051348206436,
+        "Spearman": 0.06670468381548325
+      },
+      "model": "KNNRegressor",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "Lasso": {
+      "artifacts": [],
+      "best_hyperparameter_values": ["1.0", "2", "2048", "False", "False"],
+      "best_hyperparameters_at_record": {
+        "alpha": "1.0",
+        "n_bits": "2048",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.0,
+        "MAE": 1.2807660889204429,
+        "MSE": 2.426277759064572,
+        "Pearson": 0.0,
+        "RMSE": 1.557651359921267,
+        "R^2": -0.0003990982716319813,
+        "Spearman": 0.0
+      },
+      "model": "Lasso",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "MOLIR": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0001",
+        "0.01",
+        "0.5",
+        "0.5",
+        "1.5",
+        "1000",
+        "30",
+        "32",
+        "64",
+        "64",
+        "64"
+      ],
+      "best_hyperparameters_at_record": {
+        "dropout_rate": "0.5",
+        "epochs": "30",
+        "gamma": "0.5",
+        "h_dim1": "64",
+        "h_dim2": "64",
+        "h_dim3": "64",
+        "learning_rate": "0.01",
+        "margin": "1.5",
+        "mini_batch": "32",
+        "n_gene_expression_features": "1000",
+        "weight_decay": "0.0001"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.33540372670807456,
+        "MAE": 2.302605788020984,
+        "MSE": 6.889716869201382,
+        "Pearson": 0.4772043211321918,
+        "RMSE": 2.624827017005384,
+        "R^2": -1.8407574184553535,
+        "Spearman": 0.4905599309526378
+      },
+      "model": "MOLIR",
+      "round_trip_exact": true,
+      "seconds": 2.5
+    },
+    "MultiViewLightGBM": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0",
+        "0.0",
+        "0.1",
+        "0.6",
+        "0.8",
+        "100",
+        "2",
+        "2048",
+        "31",
+        "6",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "colsample_bytree": "0.6",
+        "learning_rate": "0.1",
+        "max_depth": "6",
+        "n_bits": "2048",
+        "n_estimators": "100",
+        "num_leaves": "31",
+        "radius": "2",
+        "reg_alpha": "0.0",
+        "reg_lambda": "0.0",
+        "subsample": "0.8",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7415193502150024,
+        "MAE": 0.5264988979584322,
+        "MSE": 0.48679910378340024,
+        "Pearson": 0.8965540138676031,
+        "RMSE": 0.6977098994448913,
+        "R^2": 0.7992837453811934,
+        "Spearman": 0.9062466285467687
+      },
+      "model": "MultiViewLightGBM",
+      "round_trip_exact": true,
+      "seconds": 0.5
+    },
+    "MultiViewNeuralNetwork": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "(16, 8, 4)",
+        "0.3",
+        "100",
+        "16",
+        "2",
+        "2048",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "batch_size": "16",
+        "dropout_prob": "0.3",
+        "max_epochs": "100",
+        "n_bits": "2048",
+        "patience": "5",
+        "radius": "2",
+        "units_per_layer": "(16, 8, 4)",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6913521261347347,
+        "MAE": 0.8007378839766202,
+        "MSE": 1.0040509867032537,
+        "Pearson": 0.7894100141323276,
+        "RMSE": 1.0020234461843962,
+        "R^2": 0.586011247902658,
+        "Spearman": 0.8721390811152381
+      },
+      "model": "MultiViewNeuralNetwork",
+      "round_trip_exact": true,
+      "seconds": 3.1
+    },
+    "MultiViewRandomForest": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.2",
+        "100",
+        "2",
+        "2048",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "max_depth": "5",
+        "max_samples": "0.2",
+        "n_bits": "2048",
+        "n_estimators": "100",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": false,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7080745341614907,
+        "MAE": 0.6085834676495415,
+        "MSE": 0.5847353041660787,
+        "Pearson": 0.8750282611984453,
+        "RMSE": 0.7646798703811148,
+        "R^2": 0.7589028425002492,
+        "Spearman": 0.8855324198942712
+      },
+      "model": "MultiViewRandomForest",
+      "round_trip_exact": false,
+      "seconds": 0.9
+    },
+    "MultiViewXGBoost": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0",
+        "0.1",
+        "0.1",
+        "0.6",
+        "0.8",
+        "10",
+        "100",
+        "2",
+        "2048",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "colsample_bytree": "0.6",
+        "learning_rate": "0.1",
+        "max_depth": "10",
+        "n_bits": "2048",
+        "n_estimators": "100",
+        "radius": "2",
+        "reg_alpha": "0.0",
+        "reg_lambda": "0.1",
+        "subsample": "0.8",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7290969899665551,
+        "MAE": 0.5282055524218342,
+        "MSE": 0.5456289959390687,
+        "Pearson": 0.8822696083504961,
+        "RMSE": 0.7386670399706953,
+        "R^2": 0.7750270951093636,
+        "Spearman": 0.8973691105528413
+      },
+      "model": "MultiViewXGBoost",
+      "round_trip_exact": true,
+      "seconds": 16.9
+    },
+    "NaiveDrugMeanPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.5645823584951559,
+        "MAE": 0.9048299434963056,
+        "MSE": 1.2553505243801937,
+        "Pearson": 0.7158121406932925,
+        "RMSE": 1.120424260885221,
+        "R^2": 0.48239581065568204,
+        "Spearman": 0.7264948876073274
+      },
+      "model": "NaiveDrugMeanPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "NaiveMeanEffectsPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6407071189679885,
+        "MAE": 0.7158723189246621,
+        "MSE": 0.772150181414902,
+        "Pearson": 0.8268242632281327,
+        "RMSE": 0.878720764187863,
+        "R^2": 0.6816282297721927,
+        "Spearman": 0.8350415363038084
+      },
+      "model": "NaiveMeanEffectsPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "NaivePredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.0,
+        "MAE": 1.28076608618599,
+        "MSE": 2.4262777512378317,
+        "Pearson": 0.0,
+        "RMSE": 1.5576513574089137,
+        "R^2": -0.00039909504452251277,
+        "Spearman": 0.0
+      },
+      "model": "NaivePredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "NaiveSampleMeanPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.007458385852082519,
+        "MAE": 1.3688648305660764,
+        "MSE": 3.0183117694925206,
+        "Pearson": 0.04528338633325554,
+        "RMSE": 1.7373289180499243,
+        "R^2": -0.24450564706454592,
+        "Spearman": 0.017691680146908695
+      },
+      "model": "NaiveSampleMeanPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "NaiveTissueDrugMeanPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.5462192333468634,
+        "MAE": 0.8708949923113609,
+        "MSE": 1.1774276903472247,
+        "Pearson": 0.7288148382258731,
+        "RMSE": 1.0850934016697478,
+        "R^2": 0.5145248332336274,
+        "Spearman": 0.7304874563817316
+      },
+      "model": "NaiveTissueDrugMeanPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "NaiveTissueMeanPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.044108187258076095,
+        "MAE": 1.2830026650529036,
+        "MSE": 2.59366869696816,
+        "Pearson": 0.04208601697140287,
+        "RMSE": 1.6104870992864737,
+        "R^2": -0.06941747125550446,
+        "Spearman": 0.05453046998393572
+      },
+      "model": "NaiveTissueMeanPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "PaccMann": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0",
+        "0.001",
+        "0.5",
+        "1",
+        "1",
+        "1.0",
+        "1.0",
+        "10",
+        "64",
+        "64",
+        "8",
+        "False",
+        "True",
+        "True",
+        "[16, 16, 16]",
+        "[2, 2, 2, 2]",
+        "[2, 2, 2, 2]",
+        "[512, 256]"
+      ],
+      "best_hyperparameters_at_record": {
+        "batch_norm": "True",
+        "batch_size": "64",
+        "dropout": "0.5",
+        "epochs": "1",
+        "filters": "[16, 16, 16]",
+        "gene_attention_size": "1",
+        "gene_heads": "[2, 2, 2, 2]",
+        "gene_temperature": "1.0",
+        "learning_rate": "0.001",
+        "minmax_scale": "False",
+        "molecule_heads": "[2, 2, 2, 2]",
+        "molecule_temperature": "1.0",
+        "patience": "10",
+        "smiles_attention_size": "64",
+        "smiles_embedding_size": "8",
+        "stacked_dense_hidden_sizes": "[512, 256]",
+        "standardize": "True",
+        "weight_decay": "0.0"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {
+        "epochs": 1
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.3005255613951266,
+        "MAE": 2.105015607226802,
+        "MSE": 5.97747404023495,
+        "Pearson": 0.4403983341771086,
+        "RMSE": 2.4448873266952305,
+        "R^2": -1.4646228641598769,
+        "Spearman": 0.4460952791948584
+      },
+      "model": "PaccMann",
+      "round_trip_exact": true,
+      "seconds": 52.9
+    },
+    "PharmaFormer": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.1",
+        "10",
+        "10000",
+        "128",
+        "128",
+        "128",
+        "1e-05",
+        "2",
+        "2048",
+        "256",
+        "3",
+        "8",
+        "8192"
+      ],
+      "best_hyperparameters_at_record": {
+        "batch_size": "128",
+        "dim_feedforward": "2048",
+        "dropout": "0.1",
+        "drug_hidden_size": "256",
+        "epochs": "2",
+        "feature_dim": "128",
+        "gene_hidden_size": "8192",
+        "lr": "1e-05",
+        "max_length": "128",
+        "nhead": "8",
+        "num_layers": "3",
+        "num_symbols": "10000",
+        "patience": "10"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {
+        "epochs": 2
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.4648829431438127,
+        "MAE": 1.2397801107524529,
+        "MSE": 2.30529231786456,
+        "Pearson": 0.711070988280216,
+        "RMSE": 1.5183189117786027,
+        "R^2": 0.04948543198394384,
+        "Spearman": 0.6477505664041427
+      },
+      "model": "PharmaFormer",
+      "round_trip_exact": true,
+      "seconds": 55.9
+    },
+    "Precily": {
+      "artifacts": [],
+      "best_hyperparameter_values": ["0.001", "0.1", "128", "42", "50", "8"],
+      "best_hyperparameters_at_record": {
+        "batch_size": "128",
+        "dropout": "0.1",
+        "epochs": "50",
+        "k": "8",
+        "learning_rate": "0.001",
+        "seed": "42"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.5919732441471571,
+        "MAE": 0.8267352886487851,
+        "MSE": 1.126222497337799,
+        "Pearson": 0.7476334788521283,
+        "RMSE": 1.0612363060778682,
+        "R^2": 0.5356376793297001,
+        "Spearman": 0.781637717121588
+      },
+      "model": "Precily",
+      "round_trip_exact": true,
+      "seconds": 6.7
+    },
+    "RandomForest": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.2",
+        "100",
+        "2",
+        "2048",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "max_depth": "5",
+        "max_samples": "0.2",
+        "n_bits": "2048",
+        "n_estimators": "100",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": false,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7023411371237458,
+        "MAE": 0.6166170328460154,
+        "MSE": 0.5943270760167741,
+        "Pearson": 0.873666410143823,
+        "RMSE": 0.7709261157963025,
+        "R^2": 0.7549479779451034,
+        "Spearman": 0.8809703620362805
+      },
+      "model": "RandomForest",
+      "round_trip_exact": false,
+      "seconds": 0.8
+    },
+    "RandomForestAEMolGNet": {
+      "artifacts": ["MolGNet.pt"],
+      "best_hyperparameter_values": [
+        "'mean_max'",
+        "0.0001",
+        "0.2",
+        "10",
+        "100",
+        "1024",
+        "5",
+        "50"
+      ],
+      "best_hyperparameters_at_record": {
+        "batch_size_autoencoder": "1024",
+        "epochs_autoencoder": "10",
+        "lr_autoencoder": "0.0001",
+        "max_depth": "5",
+        "max_samples": "0.2",
+        "n_estimators": "100",
+        "patience_autoencoder": "50",
+        "pooling": "'mean_max'"
+      },
+      "deterministic": false,
+      "hyperparameter_overrides": {
+        "epochs_autoencoder": 10
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6755852842809364,
+        "MAE": 0.6547714018197385,
+        "MSE": 0.7621835800706857,
+        "Pearson": 0.8286548498889648,
+        "RMSE": 0.8730312595037395,
+        "R^2": 0.6857376434451891,
+        "Spearman": 0.8571890942157421
+      },
+      "model": "RandomForestAEMolGNet",
+      "round_trip_exact": false,
+      "seconds": 24.9
+    },
+    "Ridge": {
+      "artifacts": [],
+      "best_hyperparameter_values": ["1.0", "2", "2048", "False", "False"],
+      "best_hyperparameters_at_record": {
+        "alpha": "1.0",
+        "n_bits": "2048",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6899187768752986,
+        "MAE": 0.6434025591968194,
+        "MSE": 0.6654183744280828,
+        "Pearson": 0.8530214653026206,
+        "RMSE": 0.8157318030015029,
+        "R^2": 0.7256357235834874,
+        "Spearman": 0.8742659864679498
+      },
+      "model": "Ridge",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "SRMF": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0",
+        "0.01",
+        "0.01",
+        "1",
+        "1036",
+        "2",
+        "2048",
+        "45",
+        "50",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "K": "45",
+        "lambda_c": "0.01",
+        "lambda_d": "0.0",
+        "lambda_l": "0.01",
+        "max_iter": "50",
+        "n_bits": "2048",
+        "n_features": "1036",
+        "radius": "2",
+        "seed": "1",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.429526994744386,
+        "MAE": 1.0565791239611177,
+        "MSE": 2.211629093152353,
+        "Pearson": 0.5407464745546122,
+        "RMSE": 1.487154697115385,
+        "R^2": 0.0881045081359797,
+        "Spearman": 0.5684231616910439
+      },
+      "model": "SRMF",
+      "round_trip_exact": true,
+      "seconds": 0.4
+    },
+    "SVR": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'rbf'",
+        "0.001",
+        "0.001",
+        "2",
+        "2048",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "C": "0.001",
+        "epsilon": "0.001",
+        "kernel": "'rbf'",
+        "n_bits": "2048",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.252269469660774,
+        "MAE": 1.2776402889320386,
+        "MSE": 2.419555574941775,
+        "Pearson": 0.39293418644031347,
+        "RMSE": 1.5554920684277933,
+        "R^2": 0.0023725823035773974,
+        "Spearman": 0.3846616216882697
+      },
+      "model": "SVR",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "SimpleNeuralNetwork": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "(32, 16, 8, 4)",
+        "0.3",
+        "100",
+        "16",
+        "2",
+        "2048",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "batch_size": "16",
+        "dropout_prob": "0.3",
+        "max_epochs": "100",
+        "n_bits": "2048",
+        "patience": "5",
+        "radius": "2",
+        "units_per_layer": "(32, 16, 8, 4)",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6880076445293836,
+        "MAE": 0.7004608666605275,
+        "MSE": 0.8592570011333156,
+        "Pearson": 0.822403333011863,
+        "RMSE": 0.9269611648463573,
+        "R^2": 0.6457124804009389,
+        "Spearman": 0.8668064053758304
+      },
+      "model": "SimpleNeuralNetwork",
+      "round_trip_exact": true,
+      "seconds": 5.4
+    },
+    "SingleDrugElasticNet": {
+      "artifacts": [],
+      "best_hyperparameter_values": ["0.2", "1.0"],
+      "best_hyperparameters_at_record": {
+        "alpha": "1.0",
+        "l1_ratio": "0.2"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7262302914476827,
+        "MAE": 0.527864601544064,
+        "MSE": 0.4804504126977379,
+        "Pearson": 0.8984645099435352,
+        "RMSE": 0.6931453041734741,
+        "R^2": 0.8019014278841853,
+        "Spearman": 0.8889539632877641
+      },
+      "model": "SingleDrugElasticNet",
+      "round_trip_exact": true,
+      "seconds": 0.2
+    },
+    "SingleDrugKNN": {
+      "artifacts": [],
+      "best_hyperparameter_values": ["'distance'", "3", "False", "False"],
+      "best_hyperparameters_at_record": {
+        "minmax_scale": "False",
+        "n_neighbors": "3",
+        "standardize": "False",
+        "weights": "'distance'"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6985188724319158,
+        "MAE": 0.6060889725214277,
+        "MSE": 0.6127976981273134,
+        "Pearson": 0.8795781325759215,
+        "RMSE": 0.782813961377359,
+        "R^2": 0.7473321995640563,
+        "Spearman": 0.8719695451813264
+      },
+      "model": "SingleDrugKNN",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "SingleDrugRandomForest": {
+      "artifacts": [],
+      "best_hyperparameter_values": ["0.2", "100", "5"],
+      "best_hyperparameters_at_record": {
+        "max_depth": "5",
+        "max_samples": "0.2",
+        "n_estimators": "100"
+      },
+      "deterministic": false,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7171524128045866,
+        "MAE": 0.5650656478592208,
+        "MSE": 0.5496285977798808,
+        "Pearson": 0.8813064630498488,
+        "RMSE": 0.7413694070973531,
+        "R^2": 0.7733779854556789,
+        "Spearman": 0.8830664426737358
+      },
+      "model": "SingleDrugRandomForest",
+      "round_trip_exact": false,
+      "seconds": 2.2
+    },
+    "SparseGO": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'expression'",
+        "0.0",
+        "0.002",
+        "0.1",
+        "0.15",
+        "0.15",
+        "0.15",
+        "0.9",
+        "12",
+        "2",
+        "20000",
+        "2048",
+        "2048",
+        "30",
+        "400",
+        "6",
+        "False",
+        "False",
+        "[100, 50, 6]"
+      ],
+      "best_hyperparameters_at_record": {
+        "batch_size": "20000",
+        "decay_rate": "0.002",
+        "drug_dim": "2048",
+        "epochs": "400",
+        "input_type": "'expression'",
+        "learning_rate": "0.1",
+        "momentum": "0.9",
+        "n_bits": "2048",
+        "num_neurons_drug": "[100, 50, 6]",
+        "num_neurons_final": "12",
+        "num_neurons_per_GO": "6",
+        "num_neurons_per_final_GO": "30",
+        "p_drop_drugs": "0.15",
+        "p_drop_final": "0.0",
+        "p_drop_genes": "0.15",
+        "p_drop_terms": "0.15",
+        "radius": "2",
+        "use_chirality": "False",
+        "use_counts": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7228858098423316,
+        "MAE": 0.6097980203997829,
+        "MSE": 0.5883749774790253,
+        "Pearson": 0.8853876894595898,
+        "RMSE": 0.7670560458525996,
+        "R^2": 0.7574021380212703,
+        "Spearman": 0.8918668988795215
+      },
+      "model": "SparseGO",
+      "round_trip_exact": true,
+      "seconds": 8.7
+    },
+    "SuperFELTR": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.01",
+        "0.01",
+        "0.5",
+        "1.0",
+        "1000",
+        "256",
+        "30",
+        "32",
+        "55",
+        "64"
+      ],
+      "best_hyperparameters_at_record": {
+        "dropout_rate": "0.5",
+        "epochs": "30",
+        "learning_rate": "0.01",
+        "margin": "1.0",
+        "mini_batch": "55",
+        "n_features_per_view": "1000",
+        "out_dim_cnv_encoder": "64",
+        "out_dim_expr_encoder": "256",
+        "out_dim_mutation_encoder": "32",
+        "weight_decay": "0.01"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": -0.010511227902532248,
+        "MAE": 2.4523158231142745,
+        "MSE": 7.936046153044242,
+        "Pearson": -0.0721789190890879,
+        "RMSE": 2.8170988894684266,
+        "R^2": -2.2721782927311676,
+        "Spearman": -0.02264075335604087
+      },
+      "model": "SuperFELTR",
+      "round_trip_exact": true,
+      "seconds": 0.2
+    }
+  },
+  "network_only": {},
+  "seed": 42,
+  "split": {
+    "fold_index": 0,
+    "mode": "LPO",
+    "n_splits": 5,
+    "random_state": 42
+  }
+}

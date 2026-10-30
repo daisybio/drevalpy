@@ -11,9 +11,10 @@ from drevalpy.evaluation._scoring import run_metrics
 from drevalpy.experiment._execution import ExecutionSpec, build_execution
 from drevalpy.experiment._tracking import log_summary, tracking_run
 from drevalpy.log import get_logger
+from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.spec import ModelSpec
-from drevalpy.models.tuning.config import build_experiment_hpo_config
+from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo import hpam_tune
 from drevalpy.types import SplitMasks
 from drevalpy.types.data.batch.response_batch import ResponseBatch
@@ -93,10 +94,8 @@ def _execute(
     fit_rng_seed = fit_seed(execution.seed, identity)
     trials: list[TrialResult] | None = None
     if execution.hyperparameter_tuning:
-        hpo_cfg = build_experiment_hpo_config(
-            hpo_metric,
-            n_trials=execution.hpo_num_trials,
-            random_state=execution.hpo_random_state,
+        hpo_cfg = HPOConfig(
+            n_trials=execution.hpo_num_trials, metric=hpo_metric, random_state=execution.hpo_random_state
         )
         seed_everything(fit_rng_seed)
         best_hpams, raw_trials = hpam_tune(
@@ -106,7 +105,6 @@ def _execute(
             val_scope=scopes.validation,
             early_stopping_scope=scopes.stopping,
             response_transformation=response_transformation,
-            metric=hpo_metric,
             model_checkpoint_dir=None,
             hpo_config=hpo_cfg,
             split_index=identity.fold_index,
@@ -124,7 +122,7 @@ def _execute(
             for params, trial_metrics, preds in raw_trials
         ]
     else:
-        best_hpams = model_spec.default_hyperparameters
+        best_hpams = thaw_value(dict(model_spec.hyperparameters))
 
     logger.info("Best hyperparameters: %s", best_hpams)
 

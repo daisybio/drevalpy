@@ -1,31 +1,53 @@
-"""Tests for the contract every plot shares: its output methods refuse to run before ``compute``."""
+"""Tests for the contract every built-in plot shares: it is registered, declares its result type and keeps no state."""
 
 from __future__ import annotations
 
 import pytest
 
-from drevalpy.visualization.plots.comparison_scatter import ComparisonScatterVisualization
-from drevalpy.visualization.plots.critical_difference import CriticalDifferenceVisualization
-from drevalpy.visualization.plots.heatmap import HeatmapVisualization
-from drevalpy.visualization.plots.leaderboard import LeaderboardVisualization
-from drevalpy.visualization.plots.regression_scatter import RegressionScatterVisualization
-from drevalpy.visualization.plots.violin import ViolinVisualization
+from drevalpy.registry.visualization import visualization_registry
+from drevalpy.types.results import ExperimentResult, ModelResult
+from drevalpy.visualization.base import Plot, Section
+from drevalpy.visualization.plots.comparison_scatter import ComparisonScatterPlot
+from drevalpy.visualization.plots.critical_difference import CriticalDifferencePlot
+from drevalpy.visualization.plots.heatmap import HeatmapPlot
+from drevalpy.visualization.plots.leaderboard import LeaderboardPlot
+from drevalpy.visualization.plots.regression_scatter import RegressionScatterPlot
+from drevalpy.visualization.plots.violin import ViolinPlot
+
+BUILTIN_PLOTS = {
+    "comparison_scatter": ComparisonScatterPlot,
+    "critical_difference": CriticalDifferencePlot,
+    "heatmap": HeatmapPlot,
+    "leaderboard": LeaderboardPlot,
+    "regression_scatter": RegressionScatterPlot,
+    "violin": ViolinPlot,
+}
 
 
-@pytest.mark.parametrize(
-    "plot_class",
-    [
-        ComparisonScatterVisualization,
-        CriticalDifferenceVisualization,
-        HeatmapVisualization,
-        LeaderboardVisualization,
-        RegressionScatterVisualization,
-        ViolinVisualization,
-    ],
-)
-@pytest.mark.parametrize("method", ["to_png", "to_multiqc", "show"])
-def test_methods_raise_before_compute(plot_class: type, tmp_path, method: str) -> None:
-    args = (tmp_path / "plot.png",) if method == "to_png" else ()
+@pytest.mark.parametrize(("name", "plot_class"), BUILTIN_PLOTS.items())
+def test_each_builtin_is_registered_under_its_name_with_metadata_read_from_the_class(name, plot_class) -> None:
+    metadata = visualization_registry.metadata(name)
 
-    with pytest.raises(RuntimeError, match=rf"Call compute\(\) before {method}\(\)"):
-        getattr(plot_class(), method)(*args)
+    assert visualization_registry.get(name) is plot_class
+    assert issubclass(plot_class, Plot)
+    assert plot_class.name == name
+    assert plot_class.result_type in (ExperimentResult, ModelResult)
+    assert metadata["result_type"] == plot_class.result_type.__name__
+    assert metadata["requirements"] == plot_class.requirements
+
+
+class TestStateless:
+    pytestmark = pytest.mark.slow
+
+    @pytest.mark.parametrize("plot_class", BUILTIN_PLOTS.values(), ids=BUILTIN_PLOTS)
+    def test_drawing_leaves_the_instance_unchanged(self, plot_class, experiment) -> None:
+        plot = plot_class()
+        before = dict(vars(plot))
+        result = experiment.models[0] if plot_class.result_type is ModelResult else experiment
+
+        sections = plot.sections(result)
+        plot.figure(result)
+
+        assert vars(plot) == before
+        assert sections
+        assert all(isinstance(section, Section) for section in sections)

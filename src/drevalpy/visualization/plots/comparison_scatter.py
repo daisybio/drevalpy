@@ -20,7 +20,7 @@ import numpy as np
 from drevalpy.evaluation._correlation_matrix import GroupCorrelationMatrix, model_group_correlations
 from drevalpy.evaluation._grouping import GROUPINGS
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import PlotlyVisualization, Section
+from drevalpy.visualization.base import Plot, Section
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -218,58 +218,58 @@ def _inline_plotly_html(fig: go.Figure, div_id: str) -> str:
     )
 
 
+def _matrices(result: ExperimentResult) -> dict[str, GroupCorrelationMatrix]:
+    """Compute the per-group correlations of every model, for each grouping with something to compare.
+
+    Each matrix is one ``float32`` array of shape ``n_models x n_groups``, independent of
+    the number of predictions.
+
+    :param result: Experiment to read.
+    :returns: Matrices keyed by grouping, in :data:`GROUPINGS` order, leaving out a grouping
+        with fewer than two models that have a defined correlation or with no group.
+    """
+    matrices = {}
+    for grouping in GROUPINGS:
+        matrix = model_group_correlations(result, grouping).drop_all_nan_models()
+        if matrix.n_models >= 2 and matrix.n_groups > 0:
+            matrices[grouping] = matrix
+    return matrices
+
+
 @register(
     "comparison_scatter",
     "Per-drug, per-sample and per-study correlation compared between two selectable models",
-    requirements=frozenset({PlotRequirement.MULTIPLE_MODELS}),
 )
-class ComparisonScatterVisualization(PlotlyVisualization):
+class ComparisonScatterPlot(Plot):
     """Model-against-model comparison of per-group correlation (Plotly)."""
 
-    def __init__(self) -> None:
-        """Initialize with empty state."""
-        self._fig: go.Figure | None = None
-        self._matrices: dict[str, GroupCorrelationMatrix] = {}
+    requirements = frozenset({PlotRequirement.MULTIPLE_MODELS})
 
-    def compute(self, result: ExperimentResult) -> None:
-        """Compute per-group correlations for every model and build the figure.
-
-        Retains one ``float32`` matrix of shape ``n_models x n_groups`` per
-        grouping, independent of the number of predictions.
+    def figure(self, result: ExperimentResult) -> go.Figure:
+        """Draw the two-dropdown figure of the first grouping with something to compare.
 
         :param result: Experiment result with at least two models.
+        :returns: The Plotly figure; empty when fewer than two models have defined correlations.
         """
         import plotly.graph_objects as go
 
-        self._matrices = {}
-        for grouping in GROUPINGS:
-            matrix = model_group_correlations(result, grouping).drop_all_nan_models()
-            if matrix.n_models >= 2 and matrix.n_groups > 0:
-                self._matrices[grouping] = matrix
-        self._fig = _build_figure(self._primary_matrix()) if self._matrices else go.Figure()
+        matrices = _matrices(result)
+        return _build_figure(next(iter(matrices.values()))) if matrices else go.Figure()
 
-    def _primary_matrix(self) -> GroupCorrelationMatrix:
-        """Return the matrix backing ``_fig``, i.e. the first available grouping."""
-        return self._matrices[next(iter(self._matrices))]
-
-    def to_multiqc(self) -> list[Section]:
+    def sections(self, result: ExperimentResult) -> list[Section]:
         """Return one Section per grouping, each holding a two-dropdown figure.
 
+        :param result: Experiment result with at least two models.
         :returns: Sections for the drug, sample and study groupings, in that order,
             leaving out a grouping with no defined group (such as ``"study"`` on a run
             that was not concatenated). Empty when fewer than two models have defined
             correlations.
-        :raises RuntimeError: If called before ``compute()``.
         """
-        if self._fig is None:
-            raise RuntimeError("Call compute() before to_multiqc()")
-
         sections: list[Section] = []
-        for grouping, matrix in self._matrices.items():
+        for grouping, matrix in _matrices(result).items():
             label = grouping
             plural = "studies" if label == "study" else f"{label}s"
             anchor = f"dreval_comp_scatter_{grouping}"
-            figure = self._fig if matrix is self._primary_matrix() else _build_figure(matrix)
             sections.append(
                 Section(
                     name=f"{label.capitalize()}-wise comparison",
@@ -280,7 +280,7 @@ class ComparisonScatterVisualization(PlotlyVisualization):
                         "Pick the model on each axis with the dropdowns; points above the diagonal "
                         "favour the model on the y-axis."
                     ),
-                    content=_inline_plotly_html(figure, f"{anchor}_div"),
+                    content=_inline_plotly_html(_build_figure(matrix), f"{anchor}_div"),
                 )
             )
         return sections

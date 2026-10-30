@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from drevalpy.evaluation import Metric, MetricKind
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import PlotlyVisualization, Section
+from drevalpy.visualization.base import Plot, Section
 from drevalpy.visualization.plots._utils import compute_ssmd, runs_frame
 from drevalpy.visualization.requirements import PlotRequirement
 
@@ -93,27 +93,20 @@ def _mean_trace(df_metrics: pd.DataFrame, setting: pd.Series, ps: str, metric_co
     )
 
 
-@register(
-    "heatmap",
-    "Heatmap of mean metrics per model",
-    requirements=frozenset({PlotRequirement.MULTIPLE_FOLDS}),
-)
-class HeatmapVisualization(PlotlyVisualization):
+@register("heatmap", "Heatmap of mean metrics per model")
+class HeatmapPlot(Plot):
     """Heatmap showing mean metric values (rows=models, cols=metrics) with SSMD subplots."""
 
-    def __init__(self) -> None:
-        """Initialize with empty state."""
-        self._fig: go.Figure | None = None
-        self._result: ExperimentResult | None = None
+    requirements = frozenset({PlotRequirement.MULTIPLE_FOLDS})
 
-    def compute(self, result: ExperimentResult) -> None:
-        """Build the Plotly heatmap figure with mean metrics and SSMD panels.
+    def figure(self, result: ExperimentResult) -> go.Figure:
+        """Draw the Plotly heatmap figure with mean metrics and SSMD panels.
 
         :param result: Experiment result with multiple folds.
+        :returns: The Plotly figure.
         """
         from plotly.subplots import make_subplots
 
-        self._result = result
         df = runs_frame(result, indexed=True)
         metric_cols = [m.value for m in Metric if m in df.columns]
         if not metric_cols:
@@ -131,7 +124,7 @@ class HeatmapVisualization(PlotlyVisualization):
             "SSMD for MSE",
         ]
 
-        self._fig = make_subplots(
+        fig = make_subplots(
             rows=len(plot_settings),
             cols=1,
             subplot_titles=tuple(titles),
@@ -144,28 +137,31 @@ class HeatmapVisualization(PlotlyVisualization):
             else:
                 trace = _mean_trace(df_metrics, setting, ps, metric_cols)
             if trace is not None:
-                self._fig.add_trace(trace, row=idx, col=1)
+                fig.add_trace(trace, row=idx, col=1)
 
         n_models = len(result.models)
         height_per_model = 35
         new_height = min(500 + n_models * height_per_model, 5000)
-        self._fig.update_layout(
+        fig.update_layout(
             height=new_height,
             width=1300,
             title_text="Heatmap of the evaluation metrics",
         )
+        return fig
 
-    def to_multiqc(self) -> list[Section]:
-        """Return a MultiQC heatmap Section using native heatmap plot API."""
-        if self._result is None:
-            raise RuntimeError("Call compute() before to_multiqc()")
+    def sections(self, result: ExperimentResult) -> list[Section]:
+        """Return a MultiQC heatmap Section using the native heatmap plot API.
+
+        :param result: Experiment result with multiple folds.
+        :returns: A single-element list.
+        """
         from multiqc.plots import heatmap as mqc_heatmap
 
-        metric_names = sorted({m for model in self._result.models for m in model.aggregate_metrics})
-        model_names = [m.model_name for m in self._result.models]
+        metric_names = sorted({m for model in result.models for m in model.aggregate_metrics})
+        model_names = [m.model_name for m in result.models]
 
         data: list[list[float | None]] = []
-        for model in self._result.models:
+        for model in result.models:
             row: list[float | None] = []
             for metric in metric_names:
                 agg = model.aggregate_metrics.get(metric)

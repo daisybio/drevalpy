@@ -7,16 +7,18 @@ import logging
 import re
 import weakref
 from collections.abc import Iterator
-from typing import Any, NamedTuple
+from typing import Any, ClassVar, NamedTuple
 
 import multiqc
 import pytest
 from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
 from upath import UPath
 
-from drevalpy.registry.visualization import visualization_registry
+from drevalpy.registry import visualization
 from drevalpy.types.results.experiment import ExperimentResult
-from drevalpy.visualization.base import PlotlyVisualization, Section, Visualization
+from drevalpy.types.results.model import ModelResult
+from drevalpy.visualization.base import Plot, Section
 from drevalpy.visualization.report import (
     _add_module,
     _applicable_results,
@@ -33,28 +35,20 @@ from tests.synthetic import (
 )
 
 
-class _StubViz(Visualization):
-    """Records what it was asked to compute and emits one trivial section."""
+class _StubPlot(Plot):
+    """Records every result it is asked to draw and emits one trivial section."""
 
-    registry_name = "stub_viz"
-    sections: list[Section] = [Section(name="Stub", anchor="stub_section", content="<p>stub</p>")]
-    last: Any = None
+    name = "stub_viz"
+    stub_sections: ClassVar[list[Section]] = [Section(name="Stub", anchor="stub_section", content="<p>stub</p>")]
+    drawn: ClassVar[list[Any]] = []
 
-    def __init__(self) -> None:
-        self.computed: list[Any] = []
-        type(self).last = self
+    def figure(self, result) -> Figure:
+        type(self).drawn.append(result)
+        return Figure(figsize=(1, 1))
 
-    def compute(self, result) -> None:
-        self.computed.append(result)
-
-    def to_png(self, path) -> None:
-        UPath(path).write_bytes(b"stub-png")
-
-    def to_multiqc(self) -> list[Section]:
-        return list(self.sections)
-
-    def show(self) -> None:  # pragma: no cover - not part of the report path
-        raise AssertionError("show() is not used by the report")
+    def sections(self, result) -> list[Section]:
+        type(self).drawn.append(result)
+        return list(self.stub_sections)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -81,16 +75,17 @@ def experiment() -> ExperimentResult:
 
 
 @pytest.fixture
-def only_stub_is_applicable(monkeypatch) -> type[_StubViz]:
-    """Restrict the report to a single cheap, experiment-level visualization."""
-    _make_applicable(monkeypatch, _StubViz, "ExperimentResult")
-    return _StubViz
+def only_stub_is_applicable(monkeypatch) -> type[_StubPlot]:
+    """Restrict the report to a single cheap, experiment-level plot."""
+    _make_applicable(monkeypatch, _StubPlot, ExperimentResult)
+    return _StubPlot
 
 
-def _make_applicable(monkeypatch, viz_cls: type[Visualization], result_type: str) -> None:
-    """Make *viz_cls* the only applicable visualization, consuming *result_type*."""
-    monkeypatch.setattr(visualization_registry, "applicable", lambda experiment: [viz_cls])
-    monkeypatch.setattr(visualization_registry, "result_type", lambda name: result_type)
+def _make_applicable(monkeypatch, plot_cls: type[Plot], result_type: type) -> None:
+    """Make *plot_cls* the only applicable plot, consuming *result_type*, with an empty record."""
+    monkeypatch.setattr(visualization, "applicable", lambda experiment: [plot_cls])
+    monkeypatch.setattr(plot_cls, "result_type", result_type)
+    monkeypatch.setattr(_StubPlot, "drawn", [])
 
 
 class _BuiltReport(NamedTuple):
@@ -137,7 +132,7 @@ def normalized_real_report(tmp_path_factory) -> _BuiltReport:
 def logged_stub_report(experiment: ExperimentResult, tmp_path_factory) -> _BuiltReport:
     """One stub-plot build, shared by the tests that only read its log."""
     with pytest.MonkeyPatch.context() as monkeypatch:
-        _make_applicable(monkeypatch, _StubViz, "ExperimentResult")
+        _make_applicable(monkeypatch, _StubPlot, ExperimentResult)
         return _build_report(tmp_path_factory.mktemp("logged"), experiment)
 
 
@@ -162,25 +157,23 @@ class TestAddModule:
 
 class TestApplicableResults:
     def test_experiment_plots_get_the_experiment_and_model_plots_get_each_model(self, experiment, monkeypatch):
-        _make_applicable(monkeypatch, _StubViz, "ExperimentResult")
-        assert list(_applicable_results(experiment)) == [(_StubViz, experiment)]
+        _make_applicable(monkeypatch, _StubPlot, ExperimentResult)
+        assert list(_applicable_results(experiment)) == [(_StubPlot, experiment)]
 
-        _make_applicable(monkeypatch, _StubViz, "ModelResult")
+        _make_applicable(monkeypatch, _StubPlot, ModelResult)
         pairs = list(_applicable_results(experiment))
-        assert [cls for cls, _ in pairs] == [_StubViz] * len(experiment.models)
+        assert [cls for cls, _ in pairs] == [_StubPlot] * len(experiment.models)
         assert [model.model_name for _, model in pairs] == experiment.model_names
 
-        monkeypatch.setattr(visualization_registry, "applicable", lambda experiment: [])
+        monkeypatch.setattr(visualization, "applicable", lambda experiment: [])
         assert list(_applicable_results(experiment)) == []
 
-    def test_real_plots_resolve_their_result_type_through_the_registry(self, experiment):
+    def test_real_plots_get_the_result_type_they_declare(self, experiment):
         pairs = list(_applicable_results(experiment))
 
-        assert "leaderboard" in {cls.registry_name for cls, result in pairs if result is experiment}
-        assert all(
-            (result is experiment) == (visualization_registry.result_type(cls.registry_name) == "ExperimentResult")
-            for cls, result in pairs
-        )
+        assert "leaderboard" in {cls.name for cls, result in pairs if result is experiment}
+        assert "regression_scatter" in {cls.name for cls, result in pairs if result is not experiment}
+        assert all(isinstance(result, cls.result_type) for cls, result in pairs)
 
 
 class TestCreateReport:
@@ -201,12 +194,12 @@ class TestCreateReport:
     def test_wraps_a_bare_run_result(self, tmp_path, only_stub_is_applicable):
         create_report(make_run_result(model_name="ElasticNet"), tmp_path / "run_report")
 
-        assert only_stub_is_applicable.last.computed[0].model_names == ["ElasticNet"]
+        assert only_stub_is_applicable.drawn[0].model_names == ["ElasticNet"]
 
     def test_normalizes_against_the_reference_model_when_asked(self, experiment, tmp_path, only_stub_is_applicable):
         create_report(experiment, tmp_path / "normalized", reference_model=REFERENCE_MODEL)
 
-        normalized = only_stub_is_applicable.last.computed[0]
+        normalized = only_stub_is_applicable.drawn[0]
         assert normalized.normalized_by == REFERENCE_MODEL
         assert REFERENCE_MODEL not in normalized.model_names
 
@@ -265,7 +258,7 @@ class TestLogging:
     def test_model_plot_logs_one_summary_at_info_and_per_model_timing_at_debug(
         self, experiment, tmp_path, monkeypatch, caplog, level
     ):
-        _make_applicable(monkeypatch, _StubViz, "ModelResult")
+        _make_applicable(monkeypatch, _StubPlot, ModelResult)
         with caplog.at_level(level, logger="drevalpy.visualization.report"):
             create_report(experiment, tmp_path / "models")
 
@@ -319,7 +312,7 @@ class TestSaveAllPng:
         assert [p.name for p in out.iterdir()] == ["stub_viz.png"]
 
     def test_writes_one_png_per_model_for_model_level_plots(self, experiment, tmp_path, monkeypatch):
-        _make_applicable(monkeypatch, _StubViz, "ModelResult")
+        _make_applicable(monkeypatch, _StubPlot, ModelResult)
 
         save_all_png(experiment, tmp_path)
 
@@ -330,15 +323,18 @@ class TestSaveAllPng:
     def test_normalizes_against_the_reference_model_when_asked(self, experiment, tmp_path, only_stub_is_applicable):
         save_all_png(experiment, tmp_path / "norm_pngs", reference_model=REFERENCE_MODEL)
 
-        assert only_stub_is_applicable.last.computed[0].normalized_by == REFERENCE_MODEL
+        assert only_stub_is_applicable.drawn[0].normalized_by == REFERENCE_MODEL
 
     def test_plotly_plots_are_skipped_with_one_warning_where_png_export_is_unsupported(
         self, experiment, tmp_path, monkeypatch, caplog
     ):
-        class _PlotlyStub(_StubViz, PlotlyVisualization):
-            registry_name = "plotly_stub"
+        class _PlotlyStub(_StubPlot):
+            name = "plotly_stub"
 
-        _make_applicable(monkeypatch, _PlotlyStub, "ExperimentResult")
+            def figure(self, result) -> object:
+                return object()
+
+        _make_applicable(monkeypatch, _PlotlyStub, ExperimentResult)
         monkeypatch.setattr("drevalpy.visualization.report.plotly_png_supported", lambda: False)
 
         with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.report"):

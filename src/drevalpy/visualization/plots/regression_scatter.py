@@ -14,12 +14,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import ImageVisualization, Section, embedded_png_html
+from drevalpy.types.results import ModelResult
+from drevalpy.visualization.base import Plot, Section, embedded_png_html
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
-
-    from drevalpy.types.results import ModelResult
 
 #: Hexagons per axis. 40 keeps the bins visible at report width without
 #: degenerating into one-observation cells on a 20k-point cloud.
@@ -58,58 +57,41 @@ def _pearson(x: np.ndarray, y: np.ndarray) -> float:
     return float(np.corrcoef(x, y)[0, 1])
 
 
-@register(
-    "regression_scatter",
-    "Density of predicted vs. observed drug response values",
-    result_type="ModelResult",
-)
-class RegressionScatterVisualization(ImageVisualization):
+@register("regression_scatter", "Density of predicted vs. observed drug response values")
+class RegressionScatterPlot(Plot):
     """Predicted vs. ground-truth hexbin density for a single model."""
 
-    def __init__(self) -> None:
-        """Initialize with empty state."""
-        self._fig: Figure | None = None
-        self._result: ModelResult | None = None
-        self._ground_truth: np.ndarray = np.empty(0)
-        self._predictions: np.ndarray = np.empty(0)
+    result_type = ModelResult
 
-    def compute(self, result: ModelResult) -> None:
-        """Pool the model's predictions and render the density figure.
-
-        :param result: Model result containing predictions and ground truth.
-        """
-        self._result = result
-        self._ground_truth, self._predictions = _pooled_predictions(result)
-        self._fig = self._create_figure()
-
-    def _create_figure(self) -> Figure:
-        """Create the hexbin figure with an identity line and a fit annotation.
+    def figure(self, result: ModelResult) -> Figure:
+        """Draw the pooled predictions as a hexbin with an identity line and a fit annotation.
 
         Built on :class:`matplotlib.figure.Figure` directly rather than through
         ``pyplot``, so the figure never enters pyplot's global registry and is
-        released with this object.
+        released with its last reference.
 
+        :param result: Model result containing predictions and ground truth.
         :returns: The rendered figure.
         """
         from matplotlib.figure import Figure
 
+        ground_truth, predictions = _pooled_predictions(result)
         fig = Figure(figsize=(7, 6.5), layout="constrained")
         ax = fig.add_subplot()
-        model_name = self._result.model_name if self._result is not None else ""
 
-        if self._ground_truth.size == 0:
+        if ground_truth.size == 0:
             ax.text(0.5, 0.5, "No data available", ha="center", va="center")
             ax.set_axis_off()
             return fig
 
-        low = float(min(self._ground_truth.min(), self._predictions.min()))
-        high = float(max(self._ground_truth.max(), self._predictions.max()))
+        low = float(min(ground_truth.min(), predictions.min()))
+        high = float(max(ground_truth.max(), predictions.max()))
         if low == high:
             low, high = low - 0.5, high + 0.5
 
         hexes = ax.hexbin(
-            self._ground_truth,
-            self._predictions,
+            ground_truth,
+            predictions,
             gridsize=_GRID_SIZE,
             bins="log",
             cmap="viridis",
@@ -119,8 +101,8 @@ class RegressionScatterVisualization(ImageVisualization):
         fig.colorbar(hexes, ax=ax, label="Predictions per bin (log scale)")
         ax.plot([low, high], [low, high], linestyle="--", linewidth=1, color="#d62728")
 
-        pcc = _pearson(self._ground_truth, self._predictions)
-        ax.set_title(f"{model_name}: predicted vs. observed response")
+        pcc = _pearson(ground_truth, predictions)
+        ax.set_title(f"{result.model_name}: predicted vs. observed response")
         ax.set_xlabel("Observed")
         ax.set_ylabel("Predicted")
         ax.set_xlim(low, high)
@@ -128,7 +110,7 @@ class RegressionScatterVisualization(ImageVisualization):
         ax.text(
             0.03,
             0.97,
-            f"n = {self._ground_truth.size:,}\nPearson = {pcc:.3f}\nR² = {pcc**2:.3f}",
+            f"n = {ground_truth.size:,}\nPearson = {pcc:.3f}\nR² = {pcc**2:.3f}",
             transform=ax.transAxes,
             va="top",
             ha="left",
@@ -137,25 +119,23 @@ class RegressionScatterVisualization(ImageVisualization):
         )
         return fig
 
-    def to_multiqc(self) -> list[Section]:
+    def sections(self, result: ModelResult) -> list[Section]:
         """Embed the figure in a Section anchored on the model name.
 
-        The base implementation anchors on ``registry_name`` alone, which would
-        collide across the one module per model that the report adds.
+        The default anchors on the plot name alone, which would collide across the
+        one module per model that the report adds.
 
+        :param result: Model result containing predictions and ground truth.
         :returns: A single-element list.
-        :raises RuntimeError: If called before ``compute()``.
         """
-        if self._fig is None or self._result is None:
-            raise RuntimeError("Call compute() before to_multiqc()")
         return [
             Section(
-                name=f"Regression density: {self._result.model_name}",
-                anchor=f"dreval_scatter_{self._result.model_name}",
+                name=f"Regression density: {result.model_name}",
+                anchor=f"dreval_scatter_{result.model_name}",
                 description=(
-                    f"Predicted vs. ground-truth values for {self._result.model_name} "
-                    f"across {self._result.n_folds} fold(s), binned by density."
+                    f"Predicted vs. ground-truth values for {result.model_name} "
+                    f"across {result.n_folds} fold(s), binned by density."
                 ),
-                content=embedded_png_html(self._fig),
+                content=embedded_png_html(self.figure(result)),
             )
         ]

@@ -11,14 +11,15 @@ import pytest
 from plotly.basedatatypes import BaseFigure
 
 from drevalpy.types.results.experiment import ExperimentResult
+from drevalpy.visualization.base import show
 from drevalpy.visualization.plots._utils import compute_ssmd, runs_frame
 from drevalpy.visualization.plots.heatmap import (
-    HeatmapVisualization,
+    HeatmapPlot,
     _columns_for_setting,
     _setting_groups,
     _ssmd_matrix,
 )
-from drevalpy.visualization.plots.violin import ViolinVisualization
+from drevalpy.visualization.plots.violin import ViolinPlot, _run_metrics
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 
@@ -35,10 +36,8 @@ def _ssmd_frame() -> pd.DataFrame:
 
 
 @pytest.fixture(scope="module")
-def heatmap(experiment) -> HeatmapVisualization:
-    plot = HeatmapVisualization()
-    plot.compute(experiment)
-    return plot
+def heatmap(experiment) -> BaseFigure:
+    return HeatmapPlot().figure(experiment)
 
 
 class TestSettingGroups:
@@ -93,9 +92,9 @@ def test_columns_for_setting_selects_the_metrics_belonging_to_the_panel(setting,
     assert _columns_for_setting(setting, metric_cols) == expected
 
 
-class TestHeatmapCompute:
+class TestHeatmapFigure:
     def test_builds_five_stacked_panels_with_models_as_rows(self, heatmap, experiment):
-        fig = heatmap._fig
+        fig = heatmap
 
         assert [trace.type for trace in fig.data] == ["heatmap"] * 5
         assert set(fig.data[0].y) == set(experiment.model_names)
@@ -105,7 +104,6 @@ class TestHeatmapCompute:
         assert fig.layout.height == 500 + len(experiment.models) * 35
         assert fig.layout.width == 1300
         assert fig.layout.title.text == "Heatmap of the evaluation metrics"
-        assert heatmap._result is experiment
 
     def test_panels_without_available_metrics_are_skipped(self):
         result = ExperimentResult(
@@ -115,46 +113,40 @@ class TestHeatmapCompute:
                 for i in range(2)
             ]
         )
-        plot = HeatmapVisualization()
+        fig = HeatmapPlot().figure(result)
 
-        plot.compute(result)
-
-        panels = [list(trace.x) for trace in plot._fig.data]
+        panels = [list(trace.x) for trace in fig.data]
         assert panels[0] == ["MSE"]
         assert sorted(panels[1]) == ["A", "B"]
         assert len(panels) == 2
 
     def test_a_normalized_experiment_populates_every_panel(self):
-        plot = HeatmapVisualization()
+        fig = HeatmapPlot().figure(make_experiment_result(n_models=3, n_folds=2).normalize(REFERENCE_MODEL))
 
-        plot.compute(make_experiment_result(n_models=3, n_folds=2).normalize(REFERENCE_MODEL))
-
-        assert len(plot._fig.data) == 5
+        assert len(fig.data) == 5
 
     def test_warns_when_no_expected_metric_is_present(self, caplog):
-        plot = HeatmapVisualization()
-
         with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.heatmap"):
-            plot.compute(ExperimentResult([make_run_result(metrics={"NotAMetric": 1.0})]))
+            HeatmapPlot().figure(ExperimentResult([make_run_result(metrics={"NotAMetric": 1.0})]))
 
         assert any("none of the expected metrics" in r.getMessage() for r in caplog.records)
 
 
-class TestHeatmapOutputsAndGuards:
-    def test_to_multiqc_returns_a_single_native_heatmap_section(self, heatmap):
-        (section,) = heatmap.to_multiqc()
+class TestHeatmapOutputs:
+    def test_sections_are_a_single_native_heatmap_section(self, experiment):
+        (section,) = HeatmapPlot().sections(experiment)
 
         assert (section.name, section.anchor) == ("Performance Heatmap", "dreval_heatmap")
         assert section.plot is not None
         assert "Mean metric values per model" in section.description
 
-    def test_show_delegates_to_the_plotly_figure(self, heatmap, monkeypatch):
+    def test_show_delegates_to_the_plotly_figure(self, experiment, monkeypatch):
         calls: list = []
         monkeypatch.setattr(BaseFigure, "show", lambda self, *a, **kw: calls.append(self))
 
-        heatmap.show()
+        show(HeatmapPlot(), experiment)
 
-        assert calls == [heatmap._fig]
+        assert [len(fig.data) for fig in calls] == [5]
 
 
 #: Metrics the plot draws: the seven base metrics.
@@ -162,15 +154,13 @@ N_PLOTTED_METRICS = 7
 
 
 @pytest.fixture(scope="module")
-def violin(experiment) -> ViolinVisualization:
-    plot = ViolinVisualization()
-    plot.compute(experiment)
-    return plot
+def violin(experiment) -> BaseFigure:
+    return ViolinPlot().figure(experiment)
 
 
-class TestViolinCompute:
+class TestViolinFigure:
     def test_draws_one_violin_per_model_and_metric_holding_one_point_per_fold(self, violin, experiment):
-        fig = violin._fig
+        fig = violin
         trace = fig.data[0]
 
         assert len(fig.data) == len(experiment.models) * N_PLOTTED_METRICS
@@ -182,58 +172,55 @@ class TestViolinCompute:
         assert fig.layout.title.text == "All Metrics"
         assert (fig.layout.height, fig.layout.width) == (600, 1100)
 
-    def test_multiqc_payload_is_keyed_by_run_identity_and_holds_raw_metrics(self, violin, experiment):
+    def test_multiqc_payload_is_keyed_by_run_identity_and_holds_raw_metrics(self, experiment):
         expected = {run.run_id for model in experiment.models for run in model.select_runs()}
         run = experiment.models[0].runs[0]
 
-        assert set(violin._data) == expected
-        assert violin._data[run.run_id] == run.metrics
+        data = _run_metrics(experiment)
+
+        assert set(data) == expected
+        assert data[run.run_id] == run.metrics
 
     def test_metrics_absent_from_the_result_are_dropped(self):
         result = ExperimentResult(
             [make_run_result(fold_index=i, metrics={"MSE": 0.5 + i, "Pearson": np.nan}) for i in range(2)]
         )
-        plot = ViolinVisualization()
+        fig = ViolinPlot().figure(result)
 
-        plot.compute(result)
-
-        assert [trace.name for trace in plot._fig.data] == ["ElasticNet: MSE"]
+        assert [trace.name for trace in fig.data] == ["ElasticNet: MSE"]
 
     def test_skips_cleanly_with_a_warning_when_no_metric_survives(self, caplog):
         result = ExperimentResult([make_run_result(fold_index=i, metrics={"Pearson": np.nan}) for i in range(2)])
-        plot = ViolinVisualization()
+        plot = ViolinPlot()
 
         with caplog.at_level(logging.WARNING, logger="drevalpy.visualization.plots.violin"):
-            plot.compute(result)
+            assert plot.figure(result).data == ()
+            assert plot.sections(result) == []
 
-        assert plot._fig.data == ()
-        assert plot.to_multiqc() == []
         assert any("no metric has a finite value" in r.getMessage() for r in caplog.records)
 
     def test_a_normalized_experiment_still_draws_every_base_metric(self):
         normalized = make_experiment_result(n_models=3, n_folds=2).normalize(REFERENCE_MODEL)
-        plot = ViolinVisualization()
+        fig = ViolinPlot().figure(normalized)
 
-        plot.compute(normalized)
-
-        assert len(plot._fig.data) == len(normalized.models) * N_PLOTTED_METRICS
+        assert len(fig.data) == len(normalized.models) * N_PLOTTED_METRICS
 
 
-class TestViolinOutputsAndGuards:
-    def test_to_multiqc_returns_a_single_native_violin_section(self, violin):
-        (section,) = violin.to_multiqc()
+class TestViolinOutputs:
+    def test_sections_are_a_single_native_violin_section(self, experiment):
+        (section,) = ViolinPlot().sections(experiment)
 
         assert (section.name, section.anchor) == ("Metric Distributions", "dreval_violin")
         assert section.plot is not None
         assert "Distribution of evaluation metrics" in section.description
 
-    def test_show_delegates_to_the_plotly_figure(self, violin, monkeypatch):
+    def test_show_delegates_to_the_plotly_figure(self, experiment, monkeypatch):
         calls: list = []
         monkeypatch.setattr(BaseFigure, "show", lambda self, *a, **kw: calls.append(self))
 
-        violin.show()
+        show(ViolinPlot(), experiment)
 
-        assert calls == [violin._fig]
+        assert [len(fig.data) for fig in calls] == [len(experiment.models) * N_PLOTTED_METRICS]
 
 
 class TestComputeSsmd:

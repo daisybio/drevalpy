@@ -1,4 +1,4 @@
-"""Leaderboard visualization (Matplotlib via ImageVisualization).
+"""Leaderboard plot (Matplotlib).
 
 The panels are the four of the 1.6.1 leaderboard: normalized Pearson, RMSE, raw Pearson and
 per-drug Pearson. Raw Pearson is left out of an experiment that was not normalized, where it
@@ -21,7 +21,7 @@ import numpy as np
 
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
-from drevalpy.visualization.base import ImageVisualization
+from drevalpy.visualization.base import Plot
 from drevalpy.visualization.plots._leaderboard_draw import (
     DARK_THEME,
     draw_gradient_title,
@@ -102,33 +102,23 @@ def _panels(df: pd.DataFrame, normalized: bool) -> list[_Panel]:
     return panels
 
 
-@register(
-    "leaderboard",
-    "Leaderboard visualization of normalized PCC, RMSE, raw and per-drug Pearson rankings",
-    requirements=frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS}),
-)
-class LeaderboardVisualization(ImageVisualization):
+@register("leaderboard", "Leaderboard visualization of normalized PCC, RMSE, raw and per-drug Pearson rankings")
+class LeaderboardPlot(Plot):
     """Leaderboard of up to four ranked panels using Matplotlib."""
 
-    def __init__(self) -> None:
-        """Initialize with empty state."""
-        self._result: ExperimentResult | None = None
-        self._fig: Figure | None = None
+    requirements = frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS})
 
-    def compute(self, result: ExperimentResult) -> None:
-        """Compute leaderboard rankings and create figure.
+    def figure(self, result: ExperimentResult) -> Figure:
+        """Rank the models and draw the leaderboard panels.
+
+        Drawing updates the global Matplotlib ``rcParams`` with the dark theme.
 
         :param result: Experiment result with multiple models and folds.
+        :returns: The leaderboard, or a placeholder figure when no model has a finite Pearson or RMSE.
         """
-        self._result = result
-        self._fig = self._create_figure()
-
-    def _create_figure(self) -> Figure:
-        """Create the leaderboard panels figure."""
         import matplotlib
         from matplotlib.figure import Figure
 
-        result = self._result
         colors = DARK_THEME
 
         df = build_leaderboard_df(result)
