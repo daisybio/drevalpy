@@ -7,17 +7,15 @@ import pytest
 import torch
 from torch import nn
 
-from drevalpy._utils.torch_io import save_trusted_mapping
 from drevalpy.components.predictors.literature.precily.model_utils import PrecilyNetwork
 from drevalpy.components.predictors.literature.precily.predictor import PrecilyPredictor
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.experiment._tracking import tracking_run
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from tests._fake_wandb import install_fake_wandb
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
-    assert_state_round_trip,
+    assert_pickle_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
     finite_predictions,
@@ -35,7 +33,7 @@ class TestTinyPrecilyFit:
     pytestmark = pytest.mark.slow
 
     @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_state(self, seed: int) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int) -> None:
         batch = two_by_two_batch(
             sample_blocks={
                 "pathways": numeric_feature_block(
@@ -62,16 +60,7 @@ class TestTinyPrecilyFit:
         assert_training_predictions("precily", seed, expected)
         assert_frozen_reference("precily", seed)
 
-        assert_state_round_trip(predictor, batch, expected)
-
-
-def test_set_state_requires_the_model_state() -> None:
-    payload = save_trusted_mapping(
-        {"predictor_hyperparameters": PrecilyPredictor.get_default_hyperparameters(), "input_dim": 8}
-    )
-
-    with pytest.raises(PredictorStateError, match="missing input_dim or model_state"):
-        PrecilyPredictor().set_state({"payload": payload})
+        assert_pickle_round_trip(predictor, batch, expected)
 
 
 def test_epoch_losses_are_logged_not_printed_and_sent_to_the_tracking_run(caplog, capsys, monkeypatch) -> None:

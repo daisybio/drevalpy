@@ -20,7 +20,7 @@ from drevalpy.components.predictors.literature.superfeltr.utils import (
 from drevalpy.registry.predictor import get as get_predictor
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
-    assert_state_round_trip,
+    assert_pickle_round_trip,
     assert_training_checkpoint_score,
     assert_training_predictions,
     finite_predictions,
@@ -37,7 +37,18 @@ class TestTinySuperFELTRFit:
     pytestmark = pytest.mark.slow
 
     @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_fits_triplet_batches_and_round_trips_state_without_feature_names(self, seed: int, tmp_path) -> None:
+    def test_fits_triplet_batches_and_round_trips_through_pickle_without_feature_names(
+        self, seed: int, tmp_path, monkeypatch
+    ) -> None:
+        from drevalpy.components.predictors.literature.superfeltr import utils
+
+        checkpoints: list = []
+        train = utils.train_superfeltr_model
+        monkeypatch.setattr(
+            utils,
+            "train_superfeltr_model",
+            lambda *args, **kwargs: checkpoints.append(train(*args, **kwargs)) or checkpoints[-1],
+        )
         seed_literature(seed)
         batch = single_drug_omics_batch(tmp_path)
         predictor = SuperFELTRPredictor(
@@ -51,15 +62,16 @@ class TestTinySuperFELTRFit:
             }
         )
         predictor.fit(batch)
-        fitted = predictor._models["d1"]
-        assert fitted.best_checkpoint is not None
-        assert np.isfinite(float(fitted.best_checkpoint.best_model_score))
-        assert_training_checkpoint_score("superfeltr", seed, fitted.best_checkpoint.best_model_score)
+        # The regressor is fitted last; its best checkpoint is no longer kept on the fitted model.
+        regressor_checkpoint = checkpoints[-1]
+        assert regressor_checkpoint is not None
+        assert np.isfinite(float(regressor_checkpoint.best_model_score))
+        assert_training_checkpoint_score("superfeltr", seed, regressor_checkpoint.best_model_score)
         expected = finite_predictions(predictor, batch)
         assert_training_predictions("superfeltr", seed, expected)
         assert_frozen_reference("superfeltr", seed)
 
-        assert_state_round_trip(predictor, batch, expected)
+        assert_pickle_round_trip(predictor, batch, expected)
 
 
 EXPR_DIM = 6

@@ -7,20 +7,19 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict, save_state_dict
+from drevalpy._utils.torch_io import load_state_dict
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_REFERENCE
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 # torch, pytorch_lightning and torch_geometric are imported inside the methods
 # that need them, not at module scope: this module is imported eagerly by
-# register_builtin_components(), so a module-scope import would put ~2s of the
+# register_builtins(), so a module-scope import would put ~2s of the
 # training stack on the critical path of every `import drevalpy`. Guarded by
 # tests/test_import_cost_policy.py.
 if TYPE_CHECKING:
@@ -85,22 +84,14 @@ class _DrugGNNDataset:
 @register(
     "drugGNN",
     description="DrugGNN: GCN on molecular graphs with dense sample features.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.GRAPH,
     reference=DRUGGNN_REFERENCE,
 )
-class DrugGNNPredictor(BlockPredictor):
+class DrugGNNPredictor(Predictor):
     """Registered DrugGNN predictor consuming ModelInputBatch directly."""
 
     supports_early_stopping: ClassVar[bool] = True
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("drug_graph",)
-    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-    )
-    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("drug_graph", FeatureFormat.GRAPH),)
-    validate_drug_graphs: ClassVar[bool] = True
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("drug_graph", FeatureFormat.GRAPH))
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the DrugGNN predictor.
@@ -113,26 +104,10 @@ class DrugGNNPredictor(BlockPredictor):
         self._num_cell_features: int = 0
 
     @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return default hyperparameters.
-
-        :returns: Default hyperparameter mapping.
-        """
-        return {
-            "learning_rate": 0.001,
-            "epochs": 100,
-            "hidden_dim": 64,
-            "dropout": 0.2,
-            "batch_size": 1024,
-            "precision": 32,
-            "log_every_n_steps": 50,
-        }
-
-    @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the tunable hyperparameter space.
+        """Return the hyperparameter space.
 
-        :returns: Hyperparameter search space specs.
+        :returns: Hyperparameter search space specs; the Lightning precision and logging interval are fixed.
         """
         return {
             "hidden_dim": {"type": "int", "low": 16, "high": 128, "default": 64},
@@ -140,6 +115,8 @@ class DrugGNNPredictor(BlockPredictor):
             "learning_rate": {"type": "float", "low": 1e-4, "high": 1e-2, "log": True, "default": 1e-3},
             "epochs": {"type": "int", "low": 1, "high": 100, "default": 100},
             "batch_size": {"type": "int", "low": 4, "high": 1024, "log": True, "default": 1024},
+            "precision": {"type": "fixed", "default": 32},
+            "log_every_n_steps": {"type": "fixed", "default": 50},
         }
 
     # ------------------------------------------------------------------
@@ -340,55 +317,3 @@ class DrugGNNPredictor(BlockPredictor):
             item for sublist in predictions_list for item in (sublist if isinstance(sublist, list) else [sublist])
         ]
         return torch.cat(predictions_flat).cpu().numpy()
-
-    # ------------------------------------------------------------------
-    # State serialization
-    # ------------------------------------------------------------------
-
-    def is_fitted(self) -> bool:
-        """Return whether the predictor has been fit.
-
-        :returns: True when model has been trained.
-        """
-        return self._model is not None
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted predictor state.
-
-        :returns: Mapping with the weight blob, the widths the network was built for and the
-            hyperparameters; empty before fitting.
-        """
-        if self._model is None:
-            return {}
-        return {
-            "model_state": save_state_dict(self._model.state_dict()),
-            "architecture": {
-                "num_node_features": self._num_node_features,
-                "num_cell_features": self._num_cell_features,
-            },
-            "predictor_hyperparameters": dict(self._hyperparameters),
-        }
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore predictor from get_state output.
-
-        :param state: Serialized state previously returned by get_state.
-        :raises PredictorStateError: If the weights, architecture or hyperparameters are missing or invalid.
-        """
-        owner = self.__class__.__name__
-        model_state_blob = state.get("model_state")
-        if not isinstance(model_state_blob, (bytes, bytearray)):
-            msg = f"{owner} state requires model_state bytes"
-            raise PredictorStateError(msg)
-        architecture = state.get("architecture")
-        if not isinstance(architecture, dict) or not {"num_node_features", "num_cell_features"} <= architecture.keys():
-            msg = f"{owner} state requires an architecture dict with num_node_features and num_cell_features"
-            raise PredictorStateError(msg)
-        hyperparameters = state.get("predictor_hyperparameters")
-        if not isinstance(hyperparameters, dict):
-            msg = f"{owner} state requires predictor_hyperparameters"
-            raise PredictorStateError(msg)
-
-        self._hyperparameters = dict(hyperparameters)
-        self._model = self._new_module(int(architecture["num_node_features"]), int(architecture["num_cell_features"]))
-        self._model.load_state_dict(load_state_dict(bytes(model_state_blob)))

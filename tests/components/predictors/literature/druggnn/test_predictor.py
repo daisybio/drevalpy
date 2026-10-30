@@ -14,14 +14,13 @@ from torch_geometric.data import Data
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule, DrugGraphNet
 from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
-from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.registry._builtins import register_builtin_components
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import graph_feature_block, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
-    assert_state_round_trip,
+    assert_pickle_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
     early_stopping_response,
@@ -30,11 +29,6 @@ from tests.components.predictors.literature._helpers import (
     trainable_parameter_vector,
     two_by_two_batch,
 )
-
-
-@pytest.fixture(autouse=True)
-def _register_components() -> None:
-    register_builtin_components()
 
 
 def _drug_graph(*, num_features: int = 9, offset: float = 0.0) -> Data:
@@ -66,59 +60,35 @@ TINY = {"epochs": 1, "batch_size": 2, "num_workers": 0}
 def test_registry_name_contract_and_defaults() -> None:
     cls = get_predictor("drugGNN")
     assert cls is DrugGNNPredictor
-    assert cls.drug_input_format == FeatureFormat.GRAPH
-    assert cls.required_drug_blocks == ("drug_graph",)
+    assert [(spec.name, spec.format) for spec in cls.drug_inputs.specs] == [("drug_graph", FeatureFormat.GRAPH)]
     assert cls.supports_early_stopping is True
-    defaults = DrugGNNPredictor.get_default_hyperparameters()
+    defaults = DrugGNNPredictor.default_hyperparameters()
     assert defaults["precision"] == 32
     assert defaults["log_every_n_steps"] == 50
     for name, spec in DrugGNNPredictor.get_hyperparameter_space().items():
         assert defaults[name] == spec["default"]
 
 
-def test_fit_round_trips_state_and_records_the_widths() -> None:
+def test_fit_round_trips_through_pickle_and_records_the_widths() -> None:
     predictor = DrugGNNPredictor(hyperparameters=TINY)
     predictor.fit(_druggnn_batch(with_early_stopping=True))
     assert predictor.is_fitted()
     assert predictor._model is not None
+    assert (predictor._num_node_features, predictor._num_cell_features) == (9, 3)
     original_weight = next(predictor._model.parameters()).detach().cpu()
-    state = predictor.get_state()
-    assert state["architecture"] == {"num_node_features": 9, "num_cell_features": 3}
-    assert state["predictor_hyperparameters"] == predictor._hyperparameters
 
-    restored = DrugGNNPredictor()
-    restored.set_state(state)
+    restored = pickle_round_trip(predictor)
     assert restored.is_fitted()
     assert restored._model is not None
+    assert restored._hyperparameters == predictor._hyperparameters
     assert torch.allclose(original_weight, next(restored._model.parameters()).detach().cpu())
-
-
-@pytest.mark.parametrize(
-    ("missing", "match"),
-    [
-        ("model_state", "model"),
-        ("architecture", "architecture"),
-        ("predictor_hyperparameters", "predictor"),
-        ("num_cell_features", "architecture"),
-    ],
-)
-def test_set_state_requires_every_entry(missing: str, match: str) -> None:
-    predictor = DrugGNNPredictor(hyperparameters=TINY)
-    predictor.fit(_druggnn_batch())
-    state = predictor.get_state()
-    if missing == "num_cell_features":
-        del state["architecture"][missing]
-    else:
-        del state[missing]
-    with pytest.raises(PredictorStateError, match=match):
-        DrugGNNPredictor().set_state(state)
 
 
 class TestTinyDrugGNNFit:
     pytestmark = pytest.mark.slow
 
     @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_state(self, seed: int) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int) -> None:
         hyperparameters = {
             "epochs": 1,
             "batch_size": 2,
@@ -142,7 +112,7 @@ class TestTinyDrugGNNFit:
         assert_training_predictions("druggnn", seed, expected)
         assert_frozen_reference("druggnn", seed)
 
-        assert_state_round_trip(predictor, batch, expected)
+        assert_pickle_round_trip(predictor, batch, expected)
 
     def test_restores_best_validation_epoch_when_a_later_epoch_is_worse(self) -> None:
         import pytorch_lightning as pl

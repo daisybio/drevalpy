@@ -12,11 +12,11 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict, save_state_dict, save_trusted_mapping
 from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors._state_helpers import load_payload_state
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
     run_epoch,
@@ -28,11 +28,10 @@ from drevalpy.components.predictors.literature._pair_predict import (
     predict_pairs,
     require_drug_pair_idx,
 )
-from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     import torch
@@ -66,64 +65,47 @@ def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any],
 @register(
     "pharmaFormer",
     description="PharmaFormer landmark genes + BPE PharmaFormer model.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
     reference=PHARMAFORMER_REFERENCE,
 )
-class PharmaFormerPredictor(BlockPredictor):
+class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
     """Registered PharmaFormer predictor consuming ModelInputBatch directly."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("bpe_smiles",)
-    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-    )
-    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX),
-    )
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX))
     supports_early_stopping: ClassVar[bool] = True
     requires_early_stopping: ClassVar[bool] = True
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the PharmaFormer predictor.
 
         :param hyperparameters: Optional hyperparameter overrides.
         """
-        import torch
-
         super().__init__(hyperparameters)
-        self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._device = select_device()
         self._model: CombinedModel | None = None
         self._gene_input_size: int | None = None
 
     @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return default hyperparameters for PharmaFormer.
-
-        :returns: Default hyperparameter mapping.
-        """
-        return {
-            "gene_hidden_size": 8192,
-            "drug_hidden_size": 256,
-            "feature_dim": 128,
-            "nhead": 8,
-            "num_layers": 3,
-            "dim_feedforward": 2048,
-            "dropout": 0.1,
-            "batch_size": 128,
-            "lr": 0.00001,
-            "epochs": 100,
-            "patience": 10,
-        }
-
-    @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the tunable hyperparameter space.
+        """Return the hyperparameter space; PharmaFormer tunes nothing.
 
-        :returns: Hyperparameter search space specs.
+        :returns: Fixed specs for every PharmaFormer hyperparameter.
         """
-        return {}
+        return fixed_entries(
+            {
+                "gene_hidden_size": 8192,
+                "drug_hidden_size": 256,
+                "feature_dim": 128,
+                "nhead": 8,
+                "num_layers": 3,
+                "dim_feedforward": 2048,
+                "dropout": 0.1,
+                "batch_size": 128,
+                "lr": 0.00001,
+                "epochs": 100,
+                "patience": 10,
+            }
+        )
 
     def _entity_blocks(self, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray]:
         """Return the entity-level gene expression and BPE SMILES matrices.
@@ -228,41 +210,3 @@ class PharmaFormerPredictor(BlockPredictor):
                 device=self._device,
             ),
         )
-
-    def is_fitted(self) -> bool:
-        """Return whether the model has been trained.
-
-        :returns: True when the model is initialized.
-        """
-        return self._model is not None
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted predictor state.
-
-        :returns: Mapping with binary payload blob when fitted, else empty.
-        """
-        if self._model is None:
-            return {}
-        payload: dict[str, Any] = {
-            "predictor_hyperparameters": dict(self._hyperparameters),
-            "gene_input_size": self._gene_input_size,
-            "model_state": save_state_dict(self._model.state_dict()),
-        }
-        return {"payload": save_trusted_mapping(payload)}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore predictor from get_state output.
-
-        :param state: Serialized state containing a payload byte blob.
-        :raises PredictorStateError: If payload is missing or invalid.
-        """
-        payload = load_payload_state(state, "PharmaFormer")
-        gene_input_size = payload.get("gene_input_size")
-        model_state = payload.get("model_state")
-        if not isinstance(gene_input_size, int) or not isinstance(model_state, (bytes, bytearray)):
-            msg = "PharmaFormer payload is missing gene_input_size or model_state"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(payload["predictor_hyperparameters"])
-        self._gene_input_size = gene_input_size
-        self._model = _build_combined_model(gene_input_size, self._hyperparameters, self._device)
-        self._model.load_state_dict(load_state_dict(bytes(model_state)))

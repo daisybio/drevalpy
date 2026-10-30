@@ -7,7 +7,6 @@ import pytest
 import torch
 from torch import nn
 
-from drevalpy._utils.torch_io import save_trusted_mapping
 from drevalpy.components.predictors.literature.pharmaformer.model_utils import (
     CombinedModel,
     FeatureExtractor,
@@ -17,13 +16,12 @@ from drevalpy.components.predictors.literature.pharmaformer.predictor import (
     PharmaFormerPredictor,
     _build_combined_model,
 )
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
-    assert_state_round_trip,
+    assert_pickle_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
     finite_predictions,
@@ -33,14 +31,8 @@ from tests.components.predictors.literature._helpers import (
 )
 
 
-def test_registry_name_and_set_state_requires_the_model_state() -> None:
+def test_registry_name() -> None:
     assert get_predictor("pharmaFormer") is PharmaFormerPredictor
-    payload = save_trusted_mapping(
-        {"predictor_hyperparameters": PharmaFormerPredictor.get_default_hyperparameters(), "gene_input_size": 6}
-    )
-
-    with pytest.raises(PredictorStateError, match="missing gene_input_size or model_state"):
-        PharmaFormerPredictor().set_state({"payload": payload})
 
 
 def _trainable_batch(tmp_path) -> ModelInputBatch:
@@ -56,7 +48,7 @@ class TestTinyPharmaFormerFit:
     pytestmark = pytest.mark.slow
 
     @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_state(self, seed: int, tmp_path) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int, tmp_path) -> None:
         hyperparameters = {
             "epochs": 1,
             "patience": 1,
@@ -84,7 +76,7 @@ class TestTinyPharmaFormerFit:
         assert_training_predictions("pharmaformer", seed, expected)
         assert_frozen_reference("pharmaformer", seed)
 
-        assert_state_round_trip(predictor, batch, expected)
+        assert_pickle_round_trip(predictor, batch, expected)
 
 
 SMILES_DIM = 128

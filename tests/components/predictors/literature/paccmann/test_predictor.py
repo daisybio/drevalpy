@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy._utils.torch_io import save_trusted_mapping
+from drevalpy.components.contracts.hyperparameter_space import tunable_entries
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.paccmann.network import (
     ContextAttentionLayer,
@@ -18,11 +18,11 @@ from drevalpy.components.predictors.literature.paccmann.predictor import (
     VARIANTS_BLOCK,
     PaccMannPredictor,
 )
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.literature._helpers import entity_pair_batch
 
 TINY = {
@@ -81,12 +81,12 @@ def _query(sample_ids: list[str], drug_ids: list[str]) -> ModelInputBatch:
 
 def test_registry_name_and_published_defaults() -> None:
     assert get_predictor("paccMann") is PaccMannPredictor
-    defaults = PaccMannPredictor.get_default_hyperparameters()
+    defaults = PaccMannPredictor.default_hyperparameters()
     assert (defaults["epochs"], defaults["batch_size"], defaults["filters"]) == (10, 64, [16, 16, 16])
     assert defaults["molecule_heads"] == [2, 2, 2, 2]
     assert defaults["stacked_dense_hidden_sizes"] == [512, 256]
     assert defaults["batch_norm"] is True
-    assert PaccMannPredictor.get_hyperparameter_space() == {}
+    assert tunable_entries(PaccMannPredictor.get_hyperparameter_space()) == {}
 
 
 def test_fit_predict_reads_the_plain_tokens_not_the_variants(tmp_path) -> None:
@@ -154,29 +154,24 @@ def test_each_row_draws_one_of_the_drug_variants(tmp_path) -> None:
     assert variants.shape[1] == VARIANTS * PADDING
 
 
-def test_state_round_trips_the_predictions(tmp_path) -> None:
+def test_pickle_round_trips_the_predictions(tmp_path) -> None:
     predictor = PaccMannPredictor(TINY)
     predictor.fit(_batch(tmp_path))
     query = _query(["s0", "v1", "s2"], ["d2", "d1", "d0"])
 
-    restored = PaccMannPredictor()
-    restored.set_state(predictor.get_state())
+    restored = pickle_round_trip(predictor)
 
     assert restored.is_fitted()
     assert restored._hyperparameters["epochs"] == 3
     np.testing.assert_allclose(restored.predict(query), predictor.predict(query), rtol=1e-6)
 
 
-def test_unfitted_predictor_has_no_state_and_refuses_to_predict_or_restore() -> None:
+def test_unfitted_predictor_refuses_to_predict() -> None:
     predictor = PaccMannPredictor()
 
-    assert predictor.get_state() == {}
     assert not predictor.is_fitted()
     with pytest.raises(ValueError, match="not initialized"):
         predictor.predict(_query(["s0"], ["d0"]))
-    payload = save_trusted_mapping({"predictor_hyperparameters": TINY, "architecture": {}, "model_state": b""})
-    with pytest.raises(PredictorStateError, match="missing architecture or model_state"):
-        predictor.set_state({"payload": payload})
 
 
 def test_inputs_missing_vocabulary_metadata_or_drug_features_are_rejected(tmp_path) -> None:

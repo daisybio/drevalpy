@@ -22,7 +22,7 @@ class PaccMannConfig:
     """Resolved, typed configuration for PaccMannNetwork.
 
     smiles_vocabulary_size, smiles_padding_length, and number_of_genes are derived from the training data;
-    every other field is a model hyperparameter, see ``PaccMannPredictor.get_default_hyperparameters`` for the
+    every other field is a model hyperparameter, see ``PaccMannPredictor.default_hyperparameters`` for the
     defaults.
     """
 
@@ -68,7 +68,7 @@ class PaccMannConfig:
     def from_hyperparameters(cls, params: dict[str, Any]) -> PaccMannConfig:
         """Resolve a config from a raw hyperparameter dictionary.
 
-        :param params: hyperparameters, see ``PaccMannPredictor.get_default_hyperparameters`` for the keys, plus
+        :param params: hyperparameters, see ``PaccMannPredictor.default_hyperparameters`` for the keys, plus
             smiles_vocabulary_size, smiles_padding_length, and number_of_genes, which are derived from the
             training data rather than configured
         :return: resolved config

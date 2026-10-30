@@ -13,11 +13,11 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict, save_state_dict, save_trusted_mapping
 from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors._state_helpers import load_payload_state
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
     run_epoch,
@@ -29,11 +29,10 @@ from drevalpy.components.predictors.literature._pair_predict import (
     predict_pairs,
     require_drug_pair_idx,
 )
-from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     import torch
@@ -77,69 +76,54 @@ def _build_network(
 @register(
     "paccMann",
     description="PaccMann: SMILES convolutions and gene expression linked by context attention.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
     reference=PACCMANN_REFERENCE,
 )
-class PaccMannPredictor(BlockPredictor):
+class PaccMannPredictor(DevicePicklingMixin, Predictor):
     """Registered PaccMann predictor consuming ModelInputBatch directly."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    required_drug_blocks: ClassVar[tuple[str, ...]] = (TOKENS_BLOCK, VARIANTS_BLOCK)
-    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-    )
-    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(
         BlockSpec(TOKENS_BLOCK, FeatureFormat.NUMERIC_MATRIX),
         BlockSpec(VARIANTS_BLOCK, FeatureFormat.NUMERIC_MATRIX),
     )
     supports_early_stopping: ClassVar[bool] = True
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the PaccMann predictor.
 
         :param hyperparameters: Optional hyperparameter overrides.
         """
-        import torch
-
         super().__init__(hyperparameters)
-        self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._device = select_device()
         self._model: PaccMannNetwork | None = None
         self._architecture: dict[str, int] = {}
 
     @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return the DrEvalPy 1.6.1 defaults.
-
-        :returns: Default hyperparameter mapping.
-        """
-        return {
-            "epochs": 10,
-            "patience": 10,
-            "batch_size": 64,
-            "learning_rate": 0.001,
-            "weight_decay": 0.0,
-            "smiles_embedding_size": 8,
-            "filters": [16, 16, 16],
-            "molecule_heads": [2, 2, 2, 2],
-            "gene_heads": [2, 2, 2, 2],
-            "dropout": 0.5,
-            "batch_norm": True,
-            "smiles_attention_size": 64,
-            "gene_attention_size": 1,
-            "molecule_temperature": 1.0,
-            "gene_temperature": 1.0,
-            "stacked_dense_hidden_sizes": [512, 256],
-        }
-
-    @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the tunable hyperparameter space.
+        """Return the hyperparameter space; PaccMann tunes nothing.
 
-        :returns: Empty mapping; 1.6.1 searched a single point.
+        :returns: Fixed specs for every PaccMann hyperparameter.
         """
-        return {}
+        return fixed_entries(
+            {
+                "epochs": 10,
+                "patience": 10,
+                "batch_size": 64,
+                "learning_rate": 0.001,
+                "weight_decay": 0.0,
+                "smiles_embedding_size": 8,
+                "filters": [16, 16, 16],
+                "molecule_heads": [2, 2, 2, 2],
+                "gene_heads": [2, 2, 2, 2],
+                "dropout": 0.5,
+                "batch_norm": True,
+                "smiles_attention_size": 64,
+                "gene_attention_size": 1,
+                "molecule_temperature": 1.0,
+                "gene_temperature": 1.0,
+                "stacked_dense_hidden_sizes": [512, 256],
+            }
+        )
 
     @staticmethod
     def _architecture_from(batch: ModelInputBatch) -> dict[str, int]:
@@ -276,45 +260,3 @@ class PaccMannPredictor(BlockPredictor):
             ),
             forward=lambda gene_inputs, drug_inputs: model(drug_inputs.long(), gene_inputs),
         )
-
-    def is_fitted(self) -> bool:
-        """Return whether the model has been trained.
-
-        :returns: True when the network is initialized.
-        """
-        return self._model is not None
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted predictor state.
-
-        :returns: Mapping with binary payload blob when fitted, else empty.
-        """
-        if self._model is None:
-            return {}
-        payload: dict[str, Any] = {
-            "predictor_hyperparameters": dict(self._hyperparameters),
-            "architecture": dict(self._architecture),
-            "model_state": save_state_dict(self._model.state_dict()),
-        }
-        return {"payload": save_trusted_mapping(payload)}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore predictor from get_state output.
-
-        :param state: Serialized state containing a payload byte blob.
-        :raises PredictorStateError: If payload is missing or invalid.
-        """
-        payload = load_payload_state(state, "PaccMann")
-        architecture, model_state = payload.get("architecture"), payload.get("model_state")
-        if (
-            not isinstance(architecture, dict)
-            or not set(_ARCHITECTURE_KEYS) <= architecture.keys()
-            or not isinstance(model_state, (bytes, bytearray))
-        ):
-            msg = "PaccMann payload is missing architecture or model_state"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(payload["predictor_hyperparameters"])
-        self._architecture = {key: int(architecture[key]) for key in _ARCHITECTURE_KEYS}
-        self._model = _build_network(self._hyperparameters, self._architecture, self._device)
-        self._model.load_state_dict(load_state_dict(bytes(model_state), map_location=self._device))
-        self._model.eval()

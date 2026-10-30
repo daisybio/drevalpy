@@ -6,14 +6,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict as _load_torch_state_dict
-from drevalpy._utils.torch_io import save_state_dict, save_trusted_mapping
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
 from drevalpy.components.predictors.literature._omic_helpers import (
-    OmicFeatureNames,
     aligned_pair_matrices,
-    feature_names_payload,
     omic_matrices,
     validation_split,
 )
@@ -22,7 +18,7 @@ from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 # .utils imports pytorch_lightning at module scope, and this module is imported
-# eagerly by register_builtin_components(), so the encoder/regressor imports are
+# eagerly by register_builtins(), so the encoder/regressor imports are
 # deferred to the methods that construct them. Guarded by
 # tests/test_import_cost_policy.py.
 if TYPE_CHECKING:
@@ -39,7 +35,7 @@ _ENCODER_DIM_KEYS = ("out_dim_expr_encoder", "out_dim_mutation_encoder", "out_di
 class _DrugModel:
     """Per-drug fitted model state for SuperFELTR."""
 
-    __slots__ = ("expr_encoder", "mut_encoder", "cnv_encoder", "regressor", "ranges", "best_checkpoint")
+    __slots__ = ("expr_encoder", "mut_encoder", "cnv_encoder", "regressor", "ranges")
 
     def __init__(
         self,
@@ -48,7 +44,6 @@ class _DrugModel:
         cnv_encoder: SuperFELTEncoder | None = None,
         regressor: SuperFELTRegressor | None = None,
         ranges: tuple[float, float] = (0.0, 1.0),
-        best_checkpoint: object = None,
     ) -> None:
         """Initialize per-drug model components.
 
@@ -57,21 +52,17 @@ class _DrugModel:
         :param cnv_encoder: CNV encoder module.
         :param regressor: Final regressor module.
         :param ranges: Response normalization range.
-        :param best_checkpoint: Best training checkpoint reference.
         """
         self.expr_encoder = expr_encoder
         self.mut_encoder = mut_encoder
         self.cnv_encoder = cnv_encoder
         self.regressor = regressor
         self.ranges = ranges
-        self.best_checkpoint = best_checkpoint
 
 
 @register(
     "superfeltr",
     description="SuperFELTR single-drug multi-omics model.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
     reference=SUPERFELTR_REFERENCE,
 )
 class SuperFELTRPredictor(SingleDrugOmicsPredictor):
@@ -102,7 +93,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         trainable = batch.n_pairs >= self._hyperparameters["mini_batch"]
 
         encoders = self._fit_encoders(matrices.widths(), ranges, train, val, checkpoint_dir, trainable)
-        regressor, best_checkpoint = self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)
+        regressor = self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)
 
         return _DrugModel(
             expr_encoder=encoders[0],
@@ -110,7 +101,6 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
             cnv_encoder=encoders[2],
             regressor=regressor,
             ranges=ranges,
-            best_checkpoint=best_checkpoint,
         )
 
     def _fit_encoders(
@@ -165,7 +155,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         val: OmicsSplit | None,
         checkpoint_dir: str,
         trainable: bool,
-    ) -> tuple[SuperFELTRegressor, object | None]:
+    ) -> SuperFELTRegressor:
         """Train the regression head on top of the frozen encoders.
 
         :param encoders: The fitted encoders.
@@ -173,8 +163,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         :param val: Validation split, or None.
         :param checkpoint_dir: Directory the fit checkpoints into.
         :param trainable: Whether there are enough pairs to fit at all.
-        :returns: Tuple of the regressor and its best checkpoint, the latter ``None``
-            when the fit was skipped.
+        :returns: The regressor, loaded from its best checkpoint when it was fitted.
         """
         from .utils import SuperFELTRegressor, train_superfeltr_model
 
@@ -185,7 +174,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
             encoders=encoders,
         )
         if not trainable:
-            return regressor, None
+            return regressor
 
         best_checkpoint = train_superfeltr_model(
             model=regressor,
@@ -202,7 +191,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
                 hpams=dict(self._hyperparameters),
                 encoders=encoders,
             )
-        return regressor, best_checkpoint
+        return regressor
 
     @staticmethod
     def _regressor_input_size(hpams: dict[str, Any]) -> int:
@@ -227,110 +216,22 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
 
         return np.atleast_1d(model.regressor.predict(*aligned_pair_matrices(batch, feature_names)))
 
-    def _serialize_model(self, drug_id: str, model: _DrugModel) -> bytes:
-        """Serialize a single per-drug model to bytes.
-
-        :param drug_id: Drug identifier, used to look up the recorded feature names.
-        :param model: Per-drug model container.
-        :returns: Serialized payload bytes.
-        """
-        fn = self._feature_names.get(drug_id)
-        payload: dict[str, Any] = {
-            "hyperparameters": dict(self._hyperparameters),
-            "ranges": model.ranges,
-            "input_dims": self._compute_input_dims(model, fn),
-            **feature_names_payload(fn),
-        }
-
-        for attr in ("expr_encoder", "mut_encoder", "cnv_encoder", "regressor"):
-            module = getattr(model, attr, None)
-            if module is not None and hasattr(module, "state_dict"):
-                payload[f"{attr}_state"] = save_state_dict(module.state_dict())
-
-        return save_trusted_mapping(payload)
-
-    @staticmethod
-    def _compute_input_dims(dm: _DrugModel, fn: OmicFeatureNames | None) -> dict[str, int | None]:
-        """Persist actual encoder widths even when feature names are absent.
-
-        :param dm: Fitted per-drug model.
-        :param fn: Feature name record.
-        :returns: Mapping of omic type to dimension.
-        """
-        names = fn.as_tuple() if fn is not None else (None, None, None)
-        keys = ("expression", "mutation", "cnv")
-        return {
-            key: int(encoder.encode[0].in_features) if encoder is not None else len(value) if value else None
-            for key, value, encoder in zip(keys, names, (dm.expr_encoder, dm.mut_encoder, dm.cnv_encoder), strict=True)
-        }
-
-    def _restore_model(self, payload: dict[str, Any]) -> _DrugModel:
-        """Reconstruct a _DrugModel from a deserialized payload.
-
-        :param payload: Deserialized drug model payload.
-        :returns: Reconstructed per-drug model; its modules stay ``None`` for a drug that was never fitted.
-        """
-        hpams = payload["hyperparameters"]
-        ranges = tuple(payload["ranges"])
-        input_dims = payload["input_dims"]
-        widths = tuple(input_dims[key] for key in ("expression", "mutation", "cnv"))
-
-        dm = _DrugModel(ranges=ranges)
-        if all(isinstance(width, int) for width in widths):
-            self._rebuild_encoders_and_regressor(dm, hpams, ranges, widths, payload)
-
-        return dm
-
     @classmethod
-    def _rebuild_encoders_and_regressor(
-        cls,
-        dm: _DrugModel,
-        hpams: dict[str, Any],
-        ranges: tuple[float, float],
-        widths: tuple[int, ...],
-        payload: dict[str, Any],
-    ) -> None:
-        """Rebuild encoder and regressor modules and load their state dicts.
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return the hyperparameter space; SuperFELTR tunes nothing.
 
-        :param dm: Drug model to populate.
-        :param hpams: Hyperparameters for the modules.
-        :param ranges: Response normalization range.
-        :param widths: Input widths of the expression, mutation and CNV encoders.
-        :param payload: Deserialized payload with state blobs.
+        :returns: Fixed specs for every SuperFELTR hyperparameter.
         """
-        from .utils import SuperFELTEncoder, SuperFELTRegressor
-
-        encoders = tuple(
-            SuperFELTEncoder(input_size=width, hpams=hpams, omic_type=omic_type, ranges=ranges)
-            for omic_type, width in zip(_ENCODER_OMIC_TYPES, widths, strict=True)
+        return fixed_entries(
+            {
+                "mini_batch": 55,
+                "dropout_rate": 0.5,
+                "weight_decay": 0.01,
+                "out_dim_expr_encoder": 256,
+                "out_dim_mutation_encoder": 32,
+                "out_dim_cnv_encoder": 64,
+                "epochs": 30,
+                "margin": 1.0,
+                "learning_rate": 0.01,
+            }
         )
-        dm.expr_encoder, dm.mut_encoder, dm.cnv_encoder = encoders
-        dm.regressor = SuperFELTRegressor(
-            input_size=cls._regressor_input_size(hpams),
-            hpams=hpams,
-            encoders=encoders,
-        )
-
-        for attr in ("expr_encoder", "mut_encoder", "cnv_encoder", "regressor"):
-            module = getattr(dm, attr, None)
-            state_blob = payload.get(f"{attr}_state")
-            if module is not None and isinstance(state_blob, (bytes, bytearray)):
-                module.load_state_dict(_load_torch_state_dict(bytes(state_blob)))
-
-    @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return default hyperparameters.
-
-        :returns: Default hyperparameter mapping.
-        """
-        return {
-            "mini_batch": 55,
-            "dropout_rate": 0.5,
-            "weight_decay": 0.01,
-            "out_dim_expr_encoder": 256,
-            "out_dim_mutation_encoder": 32,
-            "out_dim_cnv_encoder": 64,
-            "epochs": 30,
-            "margin": 1.0,
-            "learning_rate": 0.01,
-        }

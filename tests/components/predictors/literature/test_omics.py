@@ -9,7 +9,6 @@ import numpy as np
 import pytest
 from upath import UPath
 
-from drevalpy._utils.torch_io import save_trusted_mapping
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature._omic_helpers import (
     OMIC_BLOCK_NAMES,
@@ -18,19 +17,15 @@ from drevalpy.components.predictors.literature._omic_helpers import (
     aligned_pair_matrices,
     checkpoint_dir_for_drug,
     early_stopping_indices,
-    feature_names_from_payload,
-    feature_names_payload,
     iter_drug_subsets,
     omic_feature_names,
     omic_matrices,
-    restore_algorithms,
     validation_split,
 )
 from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
 from drevalpy.components.predictors.literature._single_drug_omics import SingleDrugOmicsPredictor
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
 from drevalpy.components.predictors.literature.superfeltr.predictor import SuperFELTRPredictor
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
@@ -106,17 +101,8 @@ def test_matrices_are_read_from_the_batch_and_split_by_pair() -> None:
     np.testing.assert_allclose(split.response, response)
 
 
-def test_feature_names_are_recorded_and_round_trip_through_the_payload() -> None:
+def test_feature_names_are_recorded_and_frozen() -> None:
     assert omic_feature_names(_batch()).as_tuple() == (EXPRESSION_FEATURES, MUTATION_FEATURES, CNV_FEATURES)
-    payload = feature_names_payload(_trained_names())
-    assert payload == {
-        "gene_expression_features": list(EXPRESSION_FEATURES),
-        "mutations_features": list(MUTATION_FEATURES),
-        "copy_number_variation_features": list(CNV_FEATURES),
-    }
-    assert feature_names_from_payload(payload) == _trained_names()
-    assert set(feature_names_payload(None).values()) == {None}
-    assert feature_names_from_payload({}) == OmicFeatureNames(None, None, None)
     with pytest.raises(AttributeError):
         _trained_names().gene_expression = ("other",)  # type: ignore[misc]
 
@@ -190,52 +176,12 @@ def test_a_same_width_reordering_is_aligned_to_the_training_columns() -> None:
     np.testing.assert_allclose(expression, EXPRESSION[[0, 0, 1, 1]])
 
 
-def _state(**overrides: object) -> dict[str, object]:
-    state: dict[str, object] = {
-        "algorithms": {"d1": save_trusted_mapping({"ranges": (0.0, 1.0)})},
-        "predictor_hyperparameters": {"epochs": 3},
-    }
-    state.update(overrides)
-    return state
-
-
-def test_restore_algorithms_decodes_payloads_and_hyperparameters_per_drug() -> None:
-    hyperparameters, payloads = restore_algorithms(_state(), "Toy")
-
-    assert hyperparameters == {"epochs": 3}
-    assert payloads == {"d1": {"ranges": (0.0, 1.0)}}
-
-
-@pytest.mark.parametrize(
-    ("overrides", "message"),
-    [
-        ({"algorithms": None}, "requires an 'algorithms' mapping"),
-        ({"predictor_hyperparameters": None}, "requires predictor_hyperparameters"),
-        ({"algorithms": {"d1": "text"}}, "'d1' must be bytes"),
-        ({"algorithms": {"d1": b"junk"}}, "'d1' could not be deserialized"),
-    ],
-)
-def test_malformed_state_is_a_predictor_state_error(overrides: dict[str, object], message: str) -> None:
-    with pytest.raises(PredictorStateError, match=message):
-        restore_algorithms(_state(**overrides), "Toy")
-
-
 @pytest.mark.parametrize("predictor_cls", [MOLIRPredictor, SuperFELTRPredictor])
-def test_the_shell_is_shared_and_a_failed_restore_leaves_the_predictor_untouched(
-    predictor_cls: type[SingleDrugOmicsPredictor],
-) -> None:
+def test_the_shell_is_shared_and_routes_by_drug_id(predictor_cls: type[SingleDrugOmicsPredictor]) -> None:
     assert issubclass(predictor_cls, SingleDrugOmicsPredictor)
-    assert predictor_cls.required_sample_blocks == OMIC_BLOCK_NAMES
+    assert tuple(spec.name for spec in predictor_cls.sample_inputs.specs) == OMIC_BLOCK_NAMES
+    assert predictor_cls.drug_inputs.kind == "none"
     assert predictor_cls().is_fitted() is False
-    assert predictor_cls().get_state() == {}
-
-    predictor = predictor_cls({"epochs": 7})
-    state = {"algorithms": {"d1": save_trusted_mapping({})}, "predictor_hyperparameters": {"epochs": 1}}
-    with pytest.raises(PredictorStateError, match="payload for 'd1' is missing"):
-        predictor.set_state(state)
-
-    assert predictor._hyperparameters["epochs"] == 7
-    assert predictor.is_fitted() is False
 
 
 class _RecordingPredictor(SingleDrugOmicsPredictor):
@@ -243,12 +189,6 @@ class _RecordingPredictor(SingleDrugOmicsPredictor):
         return None if drug_id == "d2" else f"model-{drug_id}"
 
     def _predict_single_drug(self, drug_id: str, model: Any, batch: Any) -> Any:
-        raise NotImplementedError
-
-    def _serialize_model(self, drug_id: str, model: Any) -> bytes:
-        raise NotImplementedError
-
-    def _restore_model(self, payload: dict[str, Any]) -> Any:
         raise NotImplementedError
 
 

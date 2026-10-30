@@ -22,7 +22,7 @@ from drevalpy.components.predictors.literature._metadata import (
     SUPERFELTR_REFERENCE,
 )
 from drevalpy.models import ModelSpec
-from drevalpy.models.config import ModelConfig, from_spec, validate
+from drevalpy.models.config import ModelConfig, validate
 from drevalpy.registry.components._metadata import LiteratureReference
 from drevalpy.registry.predictor import get as get_predictor
 
@@ -69,7 +69,9 @@ LITERATURE_PACKAGES = (
     "paccmann",
 )
 
-LIFECYCLE_METHODS = ("_fit", "_predict", "get_state", "set_state", "is_fitted")
+LIFECYCLE_METHODS = ("_fit", "_predict")
+#: A fitted predictor is persisted by pickling it, so no literature predictor serializes its own state.
+REMOVED_STATE_METHODS = ("get_state", "set_state")
 
 
 def _python_files_under(root: Path) -> list[Path]:
@@ -118,6 +120,7 @@ def test_literature_predictor_modules_own_lifecycle(package: str) -> None:
         defined_methods |= _defined_lifecycle_methods(SHARED_LIFECYCLE_OWNER)
     missing = [name for name in LIFECYCLE_METHODS if name not in defined_methods]
     assert not missing, f"{predictor_path} missing lifecycle methods: {missing}"
+    assert not defined_methods & set(REMOVED_STATE_METHODS)
 
 
 def test_literature_predictor_modules_avoid_removed_adapter_modules() -> None:
@@ -151,7 +154,7 @@ def test_literature_predictor_lazy_package_import() -> None:
 @pytest.mark.parametrize("name", LITERATURE_FACTORY_NAMES)
 def test_literature_factory_entries_are_native_facades_sharing_the_zoo_name(name: str) -> None:
     spec = ModelSpec.from_name(name)
-    config = from_spec(name)
+    config = spec.config
     validate(config)
     assert isinstance(config, ModelConfig)
     assert spec.name == name
