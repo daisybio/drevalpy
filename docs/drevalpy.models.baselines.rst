@@ -419,7 +419,11 @@ The four parameters DIPK also has keep DIPK's names, so that a configuration rea
 both models:
 
 - ``epochs_autoencoder`` (default 2000), ``lr_autoencoder`` (1e-4), ``patience_autoencoder`` (50),
-  ``batch_size_autoencoder`` (1024).
+  ``batch_size_autoencoder`` (32 for ``RandomForestAEMolGNet``; DIPK keeps its own default of 1024).
+
+The batch size differs from DIPK's on purpose. ``RandomForestAEMolGNet`` trains the autoencoder on one row per
+cell line (about 700 per fold), so a batch of 1024 is the full batch: one gradient step per epoch, and early stopping
+(patience 50) ends the training after roughly 100 to 170 steps. With 32 an epoch has about 21 steps.
 
 The cell lines of the early stopping split validate the autoencoder. The one parameter that only exists
 here is ``autoencoder_cache_dir`` (unset): see below.
