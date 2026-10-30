@@ -210,15 +210,16 @@ class TestOmicsViews:
 
     def test_the_landmark_featurizer_selects_the_whole_landmark_list(self):
         from drevalpy.components.featurizers.sample.landmark import LandmarkGenesFeaturizer
-        from drevalpy.types.data.feature_source import SampleFeatureSource
+        from drevalpy.types.data.feature_source import FeatureSource
 
         built = synthetic()
         ids = np.asarray(built.sample_ids)
-        featurizer = LandmarkGenesFeaturizer()
+        source = FeatureSource(built, "sample", ids)
+        featurizer = LandmarkGenesFeaturizer().fit(source, ids)
 
-        featurizer.fit(SampleFeatureSource(built, ids), entity_ids=ids)
+        result = featurizer.transform(source, ids)
 
-        assert featurizer.output_dim == len(resolve_gene_list("landmark_genes"))
+        assert result.blocks["gene_expression"].values.shape[1] == len(resolve_gene_list("landmark_genes"))
 
     def test_more_features_than_the_shipped_lists_pads_with_placeholder_names(self):
         width = len(view_gene_union("proteomics")) + 3

@@ -10,9 +10,9 @@ Usage::
     from drevalpy.data.datasets import registry
 
     registry  # displays Rich table via __repr__
-    registry.dataset_names  # programmatic access
+    registry.names()  # programmatic access
     registry.register_source("my_s3", "s3://bucket/data")
-    registry.register_dataset("MyStudy", source="my_s3", file="MyStudy.h5mu")
+    registry.register("MyStudy", source="my_s3", file="MyStudy.h5mu")
 """
 
 from __future__ import annotations

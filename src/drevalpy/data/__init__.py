@@ -37,11 +37,10 @@ def split(
     :returns: List of SplitMasks, one per fold.
     :raises ValueError: If two folds produce the same fold ID.
     """
-    from drevalpy.registry.splitter import splitter_registry
+    from drevalpy.registry import splitter as splitters
 
     rule = quality or CurveQuality.default()
-    mode = splitter_registry.canonical(mode)
-    splitter = splitter_registry.get(mode)
+    splitter = splitters.get(mode)
     folds = splitter(
         dataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state, quality=rule
     )

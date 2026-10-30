@@ -62,9 +62,6 @@ SMILES: Final = (
 #: Most drugs :func:`synthetic` can build; one SMILES per drug.
 MAX_SYNTHETIC_DRUGS: Final = len(SMILES)
 
-#: Most drugs :func:`synthetic` can build; one SMILES per drug.
-MAX_SYNTHETIC_DRUGS: Final = len(SMILES)
-
 FINGERPRINT_BITS: Final = 128
 CHEMBERTA_DIM: Final = 768
 BPE_LENGTH: Final = 128
@@ -129,25 +126,22 @@ def _graph_to_dict(graph: Any) -> dict[str, np.ndarray]:
 def _drug_graphs(dataset: Dataset) -> dict[str, dict[str, np.ndarray]]:
     """Featurize every drug's SMILES into a molecular graph with the real featurizer."""
     from drevalpy.components.featurizers.drug.drug_graph import DrugGraphFeaturizer
-    from drevalpy.types.data.feature_source import DrugFeatureSource
+    from drevalpy.types.data.feature_source import FeatureSource
 
     drug_ids = dataset.drug_ids
-    graphs = DrugGraphFeaturizer()._compute_from_source(DrugFeatureSource(dataset, drug_ids), drug_ids)
-    return {
-        str(drug_id): _graph_to_dict(graph)
-        for drug_id, graph in zip(drug_ids, graphs, strict=True)
-        if graph is not None
-    }
+    source = FeatureSource(dataset, "drug", drug_ids)
+    graphs = DrugGraphFeaturizer().fit(source, drug_ids).transform(source, drug_ids).blocks["drug_graph"].values
+    return {str(drug_id): _graph_to_dict(graph) for drug_id, graph in zip(drug_ids, graphs, strict=True)}
 
 
 def _fingerprints(dataset: Dataset) -> np.ndarray:
     """Featurize every drug's SMILES into Morgan fingerprints with the real featurizer."""
     from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
-    from drevalpy.types.data.feature_source import DrugFeatureSource
+    from drevalpy.types.data.feature_source import FeatureSource
 
     drug_ids = dataset.drug_ids
-    featurizer = FingerprintsFeaturizer(n_bits=FINGERPRINT_BITS)
-    return featurizer._compute_from_source(DrugFeatureSource(dataset, drug_ids), drug_ids)
+    source = FeatureSource(dataset, "drug", drug_ids)
+    return FingerprintsFeaturizer(n_bits=FINGERPRINT_BITS).fit(source, drug_ids).transform(source, drug_ids).matrix
 
 
 def add_drug_views(dataset: Dataset, views: Sequence[str], rng: np.random.Generator) -> None:

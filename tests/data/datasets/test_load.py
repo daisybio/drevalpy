@@ -63,12 +63,12 @@ class TestBuiltinRegistry:
             assert entry["file"].endswith(".h5mu")
 
     def test_names_sources_and_registration(self) -> None:
-        assert registry.dataset_names == sorted(registry.dataset_names)
-        assert set(_packaged_registry()["datasets"]) <= set(registry.dataset_names)
+        assert registry.names() == tuple(sorted(registry.names()))
+        assert set(_packaged_registry()["datasets"]) <= set(registry.names())
         assert set(_CORE_DATASETS) <= set(registry.datasets)
-        assert "orakl" in registry.source_names
-        assert registry.is_registered("GDSC1")
-        assert not registry.is_registered("NonExistent")
+        assert "orakl" in registry.source_names()
+        assert "GDSC1" in registry
+        assert "NonExistent" not in registry
         assert all(source.url for source in registry.sources.values())
 
     def test_builtin_vs_custom_separation(self) -> None:
@@ -99,7 +99,7 @@ class TestRegistration:
     def test_register_and_unregister(self) -> None:
         self.reg.register_source("src", "https://example.com/data")
         self.reg.register_source("s3_src", "s3://bucket/path", storage_options={"profile": "dev"})
-        self.reg.register_dataset("MyData", source="src", file="MyData.h5mu")
+        self.reg.register("MyData", source="src", file="MyData.h5mu")
 
         assert self.reg.sources["src"].url == "https://example.com/data"
         assert self.reg.sources["s3_src"].storage_options == {"profile": "dev"}
@@ -107,15 +107,15 @@ class TestRegistration:
 
         self.reg.unregister_dataset("MyData")
         self.reg.unregister_source("src")
-        assert not self.reg.is_registered("MyData")
+        assert "MyData" not in self.reg
         assert "src" not in self.reg.custom_sources
 
     def test_registration_errors(self) -> None:
         self.reg.register_source("src", "https://example.com")
-        self.reg.register_dataset("MyData", source="src", file="x.h5mu")
+        self.reg.register("MyData", source="src", file="x.h5mu")
 
         with pytest.raises(KeyError, match="not registered"):
-            self.reg.register_dataset("Other", source="nonexistent", file="x.h5mu")
+            self.reg.register("Other", source="nonexistent", file="x.h5mu")
         with pytest.raises(KeyError, match="not in custom"):
             self.reg.unregister_dataset("NonExistent")
         with pytest.raises(KeyError, match="not in custom"):
@@ -124,7 +124,7 @@ class TestRegistration:
             self.reg.unregister_source("src")
 
     def test_custom_overrides_builtin(self) -> None:
-        self.reg.register_source("orakl", "s3://my-mirror/data", override=True)
+        self.reg.register_source("orakl", "s3://my-mirror/data", replace=True)
 
         assert self.reg.sources["orakl"].url == "s3://my-mirror/data"
 
@@ -145,7 +145,7 @@ class TestRegistration:
         )
         self.reg.reload()
 
-        assert self.reg.is_registered("ExtData")
+        assert "ExtData" in self.reg
         assert "external" in self.reg.custom_sources
 
 

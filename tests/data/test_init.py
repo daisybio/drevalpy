@@ -7,7 +7,8 @@ import pytest
 from upath import UPath
 
 from drevalpy import data
-from drevalpy.data.splitters import leave_pair_out, splitter_registry
+from drevalpy.data.splitters import leave_pair_out
+from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.types import SplitMasks
 from tests._barrel_surface import DeclaredSurface
 
@@ -142,13 +143,9 @@ class TestSplitQuality:
             seen.append((dataset, quality))
             return leave_pair_out(dataset, n_splits, validation_ratio, random_state, quality=quality)
 
-        modes = frozenset(splitter_registry.modes)
-        splitter_registry.register("P3_PLUGIN", "Records what it is given", validation="LPO")(plugin)
-        try:
-            data.split(low_quality_dataset, "P3_PLUGIN", n_splits=2)
-            data.split(low_quality_dataset, "P3_PLUGIN", n_splits=2, quality=data.CurveQuality.off())
-        finally:
-            splitter_registry.retain_only(modes)
+        register_splitter("P3_PLUGIN", "Records what it is given", validation="LPO")(plugin)
+        data.split(low_quality_dataset, "P3_PLUGIN", n_splits=2)
+        data.split(low_quality_dataset, "P3_PLUGIN", n_splits=2, quality=data.CurveQuality.off())
 
         assert seen[0][0] is low_quality_dataset
         assert seen[0][1] == data.CurveQuality.default()
@@ -158,12 +155,8 @@ class TestSplitQuality:
         def plugin(dataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
             return leave_pair_out(dataset, n_splits, validation_ratio, random_state, quality=data.CurveQuality.off())
 
-        modes = frozenset(splitter_registry.modes)
-        splitter_registry.register("P3_IGNORES", "Ignores the rule", validation="LPO")(plugin)
-        try:
-            folds = data.split(low_quality_dataset, "P3_IGNORES", n_splits=2)
-        finally:
-            splitter_registry.retain_only(modes)
+        register_splitter("P3_IGNORES", "Ignores the rule", validation="LPO")(plugin)
+        folds = data.split(low_quality_dataset, "P3_IGNORES", n_splits=2)
 
         failed = ~data.CurveQuality.default().mask(low_quality_dataset)
         assert _covered(folds)[failed].any()

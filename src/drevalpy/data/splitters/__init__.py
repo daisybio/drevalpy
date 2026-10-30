@@ -8,9 +8,9 @@ Splitters are plain callables with the signature::
 A splitter calls :func:`observed_mask` with the ``quality`` it receives to get the usable pairs.
 
 Built-in modes (LPO, LSO, LDO, LTO, LStO) are registered via decorator on import.
-Register custom splitters with::
+Register custom splitters with :func:`drevalpy.registry.splitter.register`::
 
-    @splitter_registry.register("MY_MODE", "Description", validation="LSO")
+    @register("MY_MODE", "Description", validation="LSO")
     def my_splitter(dataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
         observed = observed_mask(dataset, quality)
         ...
@@ -18,11 +18,11 @@ Register custom splitters with::
 
 from drevalpy.registry.splitter import (
     Splitter,
-    SplitterRegistry,
     SplitValidationError,
     Validation,
     splitter_registry,
 )
+from drevalpy.registry.splitter import get as get_splitter
 
 from ._folds import observed_mask as observed_mask
 from .ldo import leave_drug_out as leave_drug_out
@@ -31,12 +31,9 @@ from .lso import leave_sample_out as leave_sample_out
 from .lsto import leave_study_out as leave_study_out
 from .lto import leave_tissue_out as leave_tissue_out
 
-get_splitter = splitter_registry.get
-
 __all__ = [
     "SplitValidationError",
     "Splitter",
-    "SplitterRegistry",
     "Validation",
     "get_splitter",
     "leave_drug_out",

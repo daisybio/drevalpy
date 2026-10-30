@@ -6,6 +6,8 @@ import numpy as np
 import pytest
 
 from drevalpy.data.quality import CurveQuality
+from drevalpy.registry.splitter import get as get_splitter
+from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.registry.splitter import splitter_registry
 from drevalpy.registry.splitter._validation import validate_folds
 from tests.data.splitters._helpers import MockDataset, covered_pairs, first_measured_pairs
@@ -14,7 +16,7 @@ QUALITY = CurveQuality.default()
 
 
 def test_no_drug_in_both_train_and_test(mock_dataset: MockDataset) -> None:
-    folds = splitter_registry.get("LDO")(mock_dataset, n_splits=3, quality=QUALITY)
+    folds = get_splitter("LDO")(mock_dataset, n_splits=3, quality=QUALITY)
     assert len(folds) == 3
     for fold in folds:
         train_cols = set(np.where(fold.train.mask.any(axis=0))[0].tolist())
@@ -25,7 +27,7 @@ def test_no_drug_in_both_train_and_test(mock_dataset: MockDataset) -> None:
 @pytest.mark.parametrize("mode", ["LDO", "LTO", "LPO", "LSO"])
 def test_low_quality_pairs_appear_in_no_fold(mock_dataset: MockDataset, mode: str) -> None:
     failing = first_measured_pairs(mock_dataset, 3)
-    splitter = splitter_registry.get(mode)
+    splitter = get_splitter(mode)
 
     without_filtering = covered_pairs(splitter(mock_dataset, n_splits=3, quality=QUALITY))
     with_filtering = covered_pairs(splitter(MockDataset(failing_pairs=failing), n_splits=3, quality=QUALITY))
@@ -36,7 +38,7 @@ def test_low_quality_pairs_appear_in_no_fold(mock_dataset: MockDataset, mode: st
 
 
 def test_no_tissue_in_both_train_and_test(mock_dataset: MockDataset) -> None:
-    folds = splitter_registry.get("LTO")(mock_dataset, n_splits=3, quality=QUALITY)
+    folds = get_splitter("LTO")(mock_dataset, n_splits=3, quality=QUALITY)
     assert len(folds) == 3
     tissues = mock_dataset.get_tissue(mock_dataset.sample_ids)
     for fold in folds:
@@ -46,7 +48,7 @@ def test_no_tissue_in_both_train_and_test(mock_dataset: MockDataset) -> None:
 
 
 def test_folds_are_disjoint_boolean_masks_with_metadata(mock_dataset: MockDataset) -> None:
-    folds = splitter_registry.get("LPO")(mock_dataset, n_splits=3, quality=QUALITY)
+    folds = get_splitter("LPO")(mock_dataset, n_splits=3, quality=QUALITY)
     assert len(folds) == 3
     for i, fold in enumerate(folds):
         for part in (fold.train, fold.val, fold.test):
@@ -59,7 +61,7 @@ def test_folds_are_disjoint_boolean_masks_with_metadata(mock_dataset: MockDatase
 
 
 def test_no_sample_in_both_train_and_test(mock_dataset: MockDataset) -> None:
-    folds = splitter_registry.get("LSO")(mock_dataset, n_splits=3, quality=QUALITY)
+    folds = get_splitter("LSO")(mock_dataset, n_splits=3, quality=QUALITY)
     assert len(folds) == 3
     for fold in folds:
         train_rows = set(np.where(fold.train.mask.any(axis=1))[0].tolist())
@@ -73,11 +75,11 @@ class TestLcoAlias:
     """``LCO`` is the pre-rename name of ``LSO`` and must keep working."""
 
     def test_the_alias_returns_the_same_splitter(self) -> None:
-        assert splitter_registry.get("LCO") is splitter_registry.get("LSO")
+        assert get_splitter("LCO") is get_splitter("LSO")
 
     def test_the_alias_gives_the_same_folds_under_the_canonical_mode(self, mock_dataset: MockDataset) -> None:
-        via_alias = splitter_registry.get("LCO")(mock_dataset, n_splits=3, quality=QUALITY)
-        via_mode = splitter_registry.get("LSO")(mock_dataset, n_splits=3, quality=QUALITY)
+        via_alias = get_splitter("LCO")(mock_dataset, n_splits=3, quality=QUALITY)
+        via_mode = get_splitter("LSO")(mock_dataset, n_splits=3, quality=QUALITY)
 
         assert len(via_alias) == len(via_mode)
         for old, new in zip(via_alias, via_mode, strict=True):
@@ -86,12 +88,12 @@ class TestLcoAlias:
         assert {fold.metadata["split_mode"] for fold in via_alias} == {"LSO"}
 
     def test_the_alias_is_not_a_separate_mode(self) -> None:
-        assert "LCO" not in splitter_registry.modes
-        assert splitter_registry.get_metadata("LCO")["aliases"] == ["LCO"]
+        assert "LCO" not in splitter_registry
+        assert splitter_registry.metadata("LSO")["aliases"] == frozenset({"LCO"})
 
     def test_re_registering_the_alias_as_a_mode_raises(self) -> None:
         with pytest.raises(ValueError, match="conflicts with an alias"):
-            splitter_registry.register("LCO", "clash", validation="LSO")(lambda *args, **kwargs: [])
+            register_splitter("LCO", "clash", validation="LSO")(lambda *args, **kwargs: [])
 
 
 STUDIES = ("GDSC2", "CTRPv2", "PRISM")
@@ -119,12 +121,12 @@ def study_dataset() -> StudyMuDataset:
 
 @pytest.fixture
 def splitter():
-    return splitter_registry.get("LStO")
+    return get_splitter("LStO")
 
 
 class TestLeaveStudyOut:
     def test_is_registered_with_its_validation(self) -> None:
-        metadata = splitter_registry.get_metadata("LStO")
+        metadata = splitter_registry.metadata("LStO")
 
         assert metadata["validation"] == "LStO"
         assert metadata["description"] == "Leave-Study-Out: test folds contain one unseen study"

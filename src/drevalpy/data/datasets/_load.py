@@ -185,5 +185,5 @@ def load(dataset_name: str) -> Dataset:
 
     raise InputNotFoundError(
         f"Cannot locate .h5mu for dataset '{dataset_name}'. "
-        f"Checked: {h5mu_path}, registry ({dataset_registry.dataset_names}), and direct path."
+        f"Checked: {h5mu_path}, registry ({list(dataset_registry.names())}), and direct path."
     )
