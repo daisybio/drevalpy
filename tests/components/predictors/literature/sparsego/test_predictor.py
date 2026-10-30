@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy._utils.torch_io import save_trusted_mapping
+from drevalpy.components.contracts.hyperparameter_space import tunable_entries
 from drevalpy.components.predictors.literature.sparsego.algorithm import SparseLinearNew
 from drevalpy.components.predictors.literature.sparsego.predictor import (
     SparseGOPredictor,
@@ -15,13 +15,12 @@ from drevalpy.components.predictors.literature.sparsego.predictor import (
     _resolve_active_view,
 )
 from drevalpy.components.predictors.literature.sparsego.utils import load_ontology
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
-    assert_state_round_trip,
+    assert_pickle_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
     finite_predictions,
@@ -42,11 +41,11 @@ def _batch(sample_block_names: tuple[str, ...], *, metadata: dict | None = None)
     )
 
 
-def test_registry_name_defaults_and_empty_hyperparameter_space() -> None:
+def test_registry_name_defaults_and_no_tunable_hyperparameters() -> None:
     assert get_predictor("sparsego") is SparseGOPredictor
-    defaults = SparseGOPredictor.get_default_hyperparameters()
+    defaults = SparseGOPredictor.default_hyperparameters()
     assert {"num_neurons_per_GO", "num_neurons_drug", "drug_dim", "epochs"} <= set(defaults)
-    assert SparseGOPredictor.get_hyperparameter_space() == {}
+    assert tunable_entries(SparseGOPredictor.get_hyperparameter_space()) == {}
 
 
 class TestFrozenSparseGONumericalReference:
@@ -61,7 +60,7 @@ class TestTinySparseGOFit:
     pytestmark = pytest.mark.slow
 
     @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_state(self, seed: int) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int) -> None:
         metadata = {
             "layer_connections": [
                 np.array([["term-1", "gene-1"], ["term-1", "gene-2"], ["term-2", "gene-3"]]),
@@ -116,7 +115,7 @@ class TestTinySparseGOFit:
         predictions = finite_predictions(predictor, batch)
         assert_training_predictions("sparsego", seed, predictions)
 
-        assert_state_round_trip(predictor, batch, predictions, rtol=1e-6, atol=1e-7)
+        assert_pickle_round_trip(predictor, batch, predictions, rtol=1e-6, atol=1e-7)
 
 
 def test_precomputed_ontology_structures_are_passed_through() -> None:
@@ -179,26 +178,6 @@ def test_guards_before_fit() -> None:
     with pytest.raises(ValueError, match="must be fitted before predict"):
         SparseGOPredictor()._predict(_batch(("gene_expression",)))
     assert SparseGOPredictor().is_fitted() is False
-    assert SparseGOPredictor().get_state() == {}
-
-
-def _payload(**entries: object) -> dict[str, bytes]:
-    base = {"predictor_hyperparameters": SparseGOPredictor.get_default_hyperparameters()}
-    return {"payload": save_trusted_mapping({**base, **entries})}
-
-
-@pytest.mark.parametrize(
-    ("state", "message"),
-    [
-        ({}, "payload byte blob"),
-        ({"payload": b"not a torch checkpoint"}, "could not be deserialized"),
-        (_payload(preload={}), "missing model_state"),
-        (_payload(model_state=b"x"), "missing preload"),
-    ],
-)
-def test_set_state_rejects_malformed_payloads(state: dict, message: str) -> None:
-    with pytest.raises(PredictorStateError, match=message):
-        SparseGOPredictor().set_state(state)
 
 
 def test_sparse_linear_new_with_explicit_connectivity() -> None:

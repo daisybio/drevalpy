@@ -13,21 +13,20 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict, save_state_dict, save_trusted_mapping
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors._state_helpers import load_payload_state
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.contracts.hyperparameter_space import fixed_entries
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
     run_epoch,
     train_with_early_stopping,
 )
 from drevalpy.components.predictors.literature._metadata import DIPK_REFERENCE
-from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     import torch
@@ -39,54 +38,46 @@ if TYPE_CHECKING:
 @register(
     "dipk",
     description="DIPK BIONIC + MolGNet model.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.RAGGED_SEQUENCE,
     reference=DIPK_REFERENCE,
 )
-class DIPKPredictor(BlockPredictor):
+class DIPKPredictor(DevicePicklingMixin, Predictor):
     """DIPK predictor that trains an attention-based model on gene expression, BIONIC, and MolGNet features."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression", "bionic_features")
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("molgnet_features",)
-    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
         BlockSpec("bionic_features", FeatureFormat.NUMERIC_MATRIX),
     )
-    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("molgnet_features", FeatureFormat.RAGGED_SEQUENCE),
-    )
-    validate_drug_graphs: ClassVar[bool] = False
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("molgnet_features", FeatureFormat.RAGGED_SEQUENCE))
     supports_early_stopping: ClassVar[bool] = True
     requires_early_stopping: ClassVar[bool] = True
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the DIPK predictor.
 
         :param hyperparameters: Optional hyperparameter overrides.
         """
-        import torch
-
         super().__init__(hyperparameters)
         self._model: DIPKNetwork | None = None
-        self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._device = select_device()
 
     @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return default hyperparameters for DIPK.
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return the hyperparameter space; DIPK tunes nothing.
 
-        :returns: Default hyperparameter mapping.
+        :returns: Fixed specs for every DIPK hyperparameter.
         """
-        return {
-            "batch_size": 64,
-            "lr": 0.0001,
-            "heads": 2,
-            "fc_layer_num": 3,
-            "fc_layer_dim": [256, 128, 64, 32, 16, 1],
-            "dropout_rate": 0.3,
-            "epochs": 100,
-            "patience": 10,
-        }
+        return fixed_entries(
+            {
+                "batch_size": 64,
+                "lr": 0.0001,
+                "heads": 2,
+                "fc_layer_num": 3,
+                "fc_layer_dim": [256, 128, 64, 32, 16, 1],
+                "dropout_rate": 0.3,
+                "epochs": 100,
+                "patience": 10,
+            }
+        )
 
     def _build_model(self) -> DIPKNetwork:
         """Construct the DIPK network from hyperparameters.
@@ -271,41 +262,6 @@ class DIPKPredictor(BlockPredictor):
         if not chunks:
             return np.empty(0, dtype=np.float64)
         return np.concatenate(chunks).astype(np.float64)
-
-    def is_fitted(self) -> bool:
-        """Return whether the model has been trained.
-
-        :returns: True when the model is initialized.
-        """
-        return self._model is not None
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted model state for persistence.
-
-        :returns: Mapping with a binary payload blob when fitted, else empty.
-        """
-        if self._model is None:
-            return {}
-        payload: dict[str, Any] = {
-            "predictor_hyperparameters": dict(self._hyperparameters),
-            "model_state": save_state_dict(self._model.state_dict()),
-        }
-        return {"payload": save_trusted_mapping(payload)}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted model from serialized state.
-
-        :param state: State mapping from ``get_state``.
-        :raises PredictorStateError: If the payload is missing, invalid or lacks ``model_state``.
-        """
-        payload = load_payload_state(state, "DIPK")
-        model_state = payload.get("model_state")
-        if not isinstance(model_state, (bytes, bytearray)):
-            msg = "DIPK payload is missing model_state"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(payload["predictor_hyperparameters"])
-        self._model = self._build_model()
-        self._model.load_state_dict(load_state_dict(bytes(model_state)))
 
 
 class _CollateFn:

@@ -2,32 +2,28 @@
 
 Both are single-drug models over the same three sample views, and both need: the
 per-drug checkpoint directory, the record of which feature names a model was trained
-on, the column realignment applied at predict time, the early-stopping index lookup,
-and the feature-name (de)serialization plus the decoding of the per-drug ``algorithms``
-state. The predictor shell that uses them is
+on, the column realignment applied at predict time and the early-stopping index lookup.
+The predictor shell that uses them is
 :class:`~drevalpy.components.predictors.literature._single_drug_omics.SingleDrugOmicsPredictor`.
 
 Only ``numpy`` is imported at module scope - both predictors are registered on
-``import drevalpy``, so the training stack must stay out. The leading underscore
-keeps the module out of ``registry/_builtins.py::_discover_modules``.
+``import drevalpy``, so the training stack must stay out.
 """
 
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 from upath import UPath
 
-from drevalpy._utils.torch_io import load_trusted_mapping
 from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit
 from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
-from drevalpy.components.predictors.state_errors import PredictorStateError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Iterator
 
     from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
@@ -181,28 +177,6 @@ def aligned_pair_matrices(
     return aligned[0], aligned[1], aligned[2]
 
 
-def feature_names_payload(feature_names: OmicFeatureNames | None) -> dict[str, list[str] | None]:
-    """Render feature names into the serializable form both predictors persist.
-
-    :param feature_names: Recorded feature names, or ``None`` when unknown.
-    :returns: Mapping of payload key to feature-name list.
-    """
-    names = feature_names.as_tuple() if feature_names is not None else (None, None, None)
-    keys = ("gene_expression_features", "mutations_features", "copy_number_variation_features")
-    return {key: list(value) if value else None for key, value in zip(keys, names, strict=True)}
-
-
-def feature_names_from_payload(payload: dict[str, Any]) -> OmicFeatureNames:
-    """Read feature names back out of a persisted payload.
-
-    :param payload: Deserialized per-drug payload.
-    :returns: The recorded feature names.
-    """
-    keys = ("gene_expression_features", "mutations_features", "copy_number_variation_features")
-    values = [tuple(payload[key]) if payload.get(key) else None for key in keys]
-    return OmicFeatureNames(*values)
-
-
 def _align(
     values: np.ndarray,
     model_features: tuple[str, ...] | None,
@@ -220,36 +194,3 @@ def _align(
     if len(model_features) == values.shape[1] and model_features == current_features:
         return values
     return _realign_omic_matrix(values, model_features, current_features)
-
-
-def restore_algorithms(
-    state: Mapping[str, Any],
-    owner: str,
-) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    """Decode the per-drug payloads a single-drug omics predictor stored in ``get_state``.
-
-    :param state: State mapping handed to ``set_state``.
-    :param owner: Predictor name used in error messages.
-    :returns: The predictor hyperparameters and one deserialized payload per drug id.
-    :raises PredictorStateError: If ``algorithms`` is not a mapping of byte blobs, a blob cannot be
-        deserialized, or ``predictor_hyperparameters`` is not a mapping.
-    """
-    algorithms = state.get("algorithms")
-    if not isinstance(algorithms, dict):
-        msg = f"{owner} state requires an 'algorithms' mapping"
-        raise PredictorStateError(msg)
-    hyperparameters = state.get("predictor_hyperparameters")
-    if not isinstance(hyperparameters, dict):
-        msg = f"{owner} state requires predictor_hyperparameters"
-        raise PredictorStateError(msg)
-    payloads: dict[str, dict[str, Any]] = {}
-    for drug_id, blob in algorithms.items():
-        if not isinstance(blob, (bytes, bytearray)):
-            msg = f"{owner} algorithm payload for {drug_id!r} must be bytes"
-            raise PredictorStateError(msg)
-        try:
-            payloads[str(drug_id)] = load_trusted_mapping(bytes(blob))
-        except Exception as exc:
-            msg = f"{owner} algorithm payload for {drug_id!r} could not be deserialized"
-            raise PredictorStateError(msg) from exc
-    return dict(hyperparameters), payloads

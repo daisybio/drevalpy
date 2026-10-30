@@ -8,14 +8,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy._utils.torch_io import save_trusted_mapping
 from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredictor
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
-    assert_state_round_trip,
+    assert_pickle_round_trip,
     assert_training_predictions,
     finite_predictions,
     seed_literature,
@@ -25,14 +23,6 @@ from tests.components.predictors.literature._helpers import (
 
 def test_srmf_predictor_registry_name() -> None:
     assert get_predictor("srmf") is SRMFPredictor
-
-
-def test_set_state_rejects_an_invalid_blob_and_missing_latent_factors() -> None:
-    with pytest.raises(PredictorStateError):
-        SRMFPredictor().set_state({"payload": b"invalid"})
-    payload = save_trusted_mapping({"predictor_hyperparameters": SRMFPredictor.get_default_hyperparameters()})
-    with pytest.raises(PredictorStateError, match="missing best_u"):
-        SRMFPredictor().set_state({"payload": payload})
 
 
 def test_unseen_entity_pairs_fall_back_to_the_training_mean() -> None:
@@ -54,7 +44,7 @@ class TestTinySRMFFit:
     pytestmark = pytest.mark.slow
 
     @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_learns_finite_factors_and_round_trips_state(self, seed: int) -> None:
+    def test_learns_finite_factors_and_round_trips_through_pickle(self, seed: int) -> None:
         seed_literature(seed)
         batch = two_by_two_batch(
             sample_blocks={
@@ -76,4 +66,4 @@ class TestTinySRMFFit:
         assert_training_predictions("srmf", seed, expected)
         assert_frozen_reference("srmf", seed)
 
-        assert_state_round_trip(predictor, batch, expected)
+        assert_pickle_round_trip(predictor, batch, expected)

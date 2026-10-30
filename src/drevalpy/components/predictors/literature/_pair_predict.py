@@ -9,10 +9,6 @@ rather than unified here.
 ``predictor.py`` that ``drevalpy.registry`` imports on ``import drevalpy``, so a
 module-scope import would put the training stack back on the CLI startup path. See
 ``tests/test_import_cost_policy.py``.
-
-The leading underscore keeps the module out of
-``registry/_builtins.py::_discover_modules``, which imports every public ``*.py`` in
-a component directory.
 """
 
 from __future__ import annotations

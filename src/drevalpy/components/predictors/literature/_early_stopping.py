@@ -8,8 +8,7 @@ whether progress is logged differed.
 
 ``torch`` is imported inside the entry point: both callers live in a ``predictor.py``
 that ``drevalpy.registry`` imports on ``import drevalpy``. See
-``tests/test_import_cost_policy.py``. The leading underscore keeps the module out of
-``registry/_builtins.py::_discover_modules``.
+``tests/test_import_cost_policy.py``.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""SparseGO literature predictor -- direct BlockPredictor implementation.
+"""SparseGO literature predictor -- direct Predictor implementation.
 
 ``torch``, the ``SparseGONetwork`` and the ontology helpers in ``.utils`` (which
 pull in ``networkx``) are imported inside the methods that need them.
@@ -12,11 +12,11 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict, save_state_dict, save_trusted_mapping
 from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors._state_helpers import load_payload_state
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import (
     PairEvalSpec,
@@ -24,11 +24,10 @@ from drevalpy.components.predictors.literature._pair_predict import (
     predict_pairs,
     require_drug_pair_idx,
 )
-from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     from torch.utils.data import DataLoader
@@ -75,70 +74,56 @@ def _resolve_active_view(batch: ModelInputBatch) -> str:
 @register(
     "sparsego",
     description="SparseGO GO-structured visible neural network.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
     reference=SPARSEGO_REFERENCE,
 )
-class SparseGOPredictor(BlockPredictor):
+class SparseGOPredictor(DevicePicklingMixin, Predictor):
     """SparseGO predictor consuming ModelInputBatch directly."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ()
-    required_sample_block_alternatives: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(
+        (
+            BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
+            BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
+        ),
     )
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("fingerprints",)
-    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),
-    )
-    validate_drug_graphs: ClassVar[bool] = False
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX))
     supports_early_stopping: ClassVar[bool] = False
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize SparseGOPredictor.
 
         :param hyperparameters: Optional overrides for algorithm defaults.
         """
-        import torch
-
         super().__init__(hyperparameters)
-        self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._device = select_device()
         self._model: SparseGONetwork | None = None
         self._layer_connections: list | None = None
         self._gene2id_mapping_ont: dict[str, int] | None = None
         self._ontology_gene_order: list[str] | None = None
 
     @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return default SparseGO hyperparameters.
-
-        :returns: Default hyperparameter mapping.
-        """
-        return {
-            "num_neurons_per_GO": 6,
-            "num_neurons_per_final_GO": 30,
-            "num_neurons_drug": [100, 50, 6],
-            "num_neurons_final": 12,
-            "drug_dim": 2048,
-            "learning_rate": 0.1,
-            "momentum": 0.9,
-            "decay_rate": 0.002,
-            "p_drop_genes": 0.15,
-            "p_drop_terms": 0.15,
-            "p_drop_drugs": 0.15,
-            "p_drop_final": 0.0,
-            "epochs": 400,
-            "batch_size": 20000,
-        }
-
-    @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the tunable hyperparameter space.
+        """Return the hyperparameter space; SparseGO tunes nothing.
 
-        :returns: Hyperparameter search space specs.
+        :returns: Fixed specs for every SparseGO hyperparameter.
         """
-        return {}
+        return fixed_entries(
+            {
+                "num_neurons_per_GO": 6,
+                "num_neurons_per_final_GO": 30,
+                "num_neurons_drug": [100, 50, 6],
+                "num_neurons_final": 12,
+                "drug_dim": 2048,
+                "learning_rate": 0.1,
+                "momentum": 0.9,
+                "decay_rate": 0.002,
+                "p_drop_genes": 0.15,
+                "p_drop_terms": 0.15,
+                "p_drop_drugs": 0.15,
+                "p_drop_final": 0.0,
+                "epochs": 400,
+                "batch_size": 20000,
+            }
+        )
 
     def _build_network(self) -> SparseGONetwork:
         """Construct the SparseGONetwork from stored ontology metadata and hyperparameters.
@@ -267,51 +252,3 @@ class SparseGOPredictor(BlockPredictor):
             ),
             forward=concatenated_forward(self._model),
         )
-
-    def is_fitted(self) -> bool:
-        """Return whether the predictor has been trained.
-
-        :returns: True if the model is built and trained.
-        """
-        return self._model is not None
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted predictor state.
-
-        :returns: Mapping with a binary payload blob when fitted, else empty.
-        """
-        if self._model is None:
-            return {}
-
-        payload: dict[str, Any] = {
-            "predictor_hyperparameters": dict(self._hyperparameters),
-            "preload": {
-                "layer_connections": self._layer_connections,
-                "gene2id_mapping_ont": self._gene2id_mapping_ont,
-                "ontology_gene_order": self._ontology_gene_order,
-            },
-            "model_state": save_state_dict(self._model.state_dict()),
-        }
-        return {"payload": save_trusted_mapping(payload)}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore a predictor from get_state output.
-
-        :param state: Serialized state containing a payload byte blob.
-        :raises PredictorStateError: If the payload is missing or invalid.
-        """
-        payload = load_payload_state(state, "SparseGO")
-        model_state = payload.get("model_state")
-        preload = payload.get("preload")
-        if not isinstance(model_state, (bytes, bytearray)):
-            msg = "SparseGO payload is missing model_state"
-            raise PredictorStateError(msg)
-        if not isinstance(preload, dict):
-            msg = "SparseGO payload is missing preload"
-            raise PredictorStateError(msg)
-
-        self._hyperparameters = dict(payload["predictor_hyperparameters"])
-        self._layer_connections = preload["layer_connections"]
-        self._gene2id_mapping_ont = preload["gene2id_mapping_ont"]
-        self._ontology_gene_order = preload["ontology_gene_order"]
-        self._build_network().load_state_dict(load_state_dict(bytes(model_state)))

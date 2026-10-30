@@ -6,16 +6,15 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy._utils.torch_io import save_trusted_mapping
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.ensemblemf.data import sorted_entities, split_pairs
 from drevalpy.components.predictors.literature.ensemblemf.predictor import EnsembleMFPredictor
 from drevalpy.components.predictors.literature.ensemblemf.training import PairTensors
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.literature._helpers import entity_pair_batch
 
 TINY = {
@@ -63,7 +62,7 @@ def _query(sample_ids: list[str], drug_ids: list[str]) -> ModelInputBatch:
 
 def test_registry_name_and_published_defaults() -> None:
     assert get_predictor("ensembleMF") is EnsembleMFPredictor
-    defaults = EnsembleMFPredictor.get_default_hyperparameters()
+    defaults = EnsembleMFPredictor.default_hyperparameters()
     assert (defaults["n_ensemble"], defaults["hidden_dim"], defaults["emb_dim"]) == (20, 256, 128)
     assert (defaults["batch_size"], defaults["max_epochs"], defaults["patience"]) == (2048, 300, 25)
     assert defaults["use_drug_id_embedding"] is True
@@ -155,29 +154,24 @@ def test_embedding_can_be_switched_off(tmp_path) -> None:
     assert np.isfinite(predictor.predict(_query(["s0"], ["d2"]))).all()
 
 
-def test_state_round_trips_the_predictions(tmp_path) -> None:
+def test_pickle_round_trips_the_predictions(tmp_path) -> None:
     predictor = EnsembleMFPredictor(TINY)
     predictor.fit(_batch(tmp_path))
     query = _query(["s0", "v1", "s2"], ["d2", "d1", "d0"])
 
-    restored = EnsembleMFPredictor()
-    restored.set_state(predictor.get_state())
+    restored = pickle_round_trip(predictor)
 
     assert restored.is_fitted()
     assert restored._hyperparameters["n_ensemble"] == 2
     np.testing.assert_allclose(restored.predict(query), predictor.predict(query), rtol=1e-6)
 
 
-def test_unfitted_predictor_has_no_state_and_refuses_to_predict() -> None:
+def test_unfitted_predictor_refuses_to_predict() -> None:
     predictor = EnsembleMFPredictor()
 
-    assert predictor.get_state() == {}
     assert not predictor.is_fitted()
     with pytest.raises(ValueError, match="not initialized"):
         predictor.predict(_query(["s0"], ["d0"]))
-    payload = save_trusted_mapping({"predictor_hyperparameters": TINY, "input_dims": [9, 12], "member_states": []})
-    with pytest.raises(PredictorStateError, match="missing input_dims or member_states"):
-        predictor.set_state({"payload": payload})
 
 
 def test_a_batch_without_drug_features_is_rejected(tmp_path) -> None:

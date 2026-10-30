@@ -16,6 +16,8 @@ import torch
 import torch.nn as nn
 from scipy import sparse
 
+from drevalpy.components.predictors.literature._torch_utils import select_device
+
 from .utils import create_index
 
 logger = logging.getLogger(__name__)
@@ -106,7 +108,7 @@ class SparseLinearNew(nn.Module):
         self.out_features = out_features
         self.connectivity = connectivity
 
-        coalesce_device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        coalesce_device = select_device()
         indices, nnz, effective_sparsity = _sparse_connectivity_indices(
             in_features, out_features, sparsity, connectivity, coalesce_device
         )

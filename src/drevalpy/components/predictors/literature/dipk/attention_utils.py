@@ -35,7 +35,11 @@ class MultiHeadAttentionLayer(nn.Module):
 
         # Dropout and scaling factor
         self.dropout = nn.Dropout(dropout)
-        self.scale = torch.sqrt(torch.tensor(self.head_dim, dtype=torch.float32, device=device))
+        # A buffer, so that moving the module (e.g. to the CPU for saving) moves it too.
+        self.register_buffer(
+            "scale", torch.sqrt(torch.tensor(self.head_dim, dtype=torch.float32, device=device)), persistent=False
+        )
+        self.scale: torch.Tensor
 
     def forward(
         self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.Tensor | None = None

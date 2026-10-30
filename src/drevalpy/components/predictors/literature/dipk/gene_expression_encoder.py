@@ -12,6 +12,7 @@ import torch.optim as optim
 from torch.nn import functional
 from torch.utils.data import DataLoader, Dataset
 
+from drevalpy.components.predictors.literature._torch_utils import select_device
 from drevalpy.components.predictors.literature.dipk._autoencoder_batches import validation_loss
 from drevalpy.experiment._tracking import log_metrics
 
@@ -175,7 +176,7 @@ def train_gene_expession_autoencoder(
     :returns: The trained encoder in eval mode.
     """
     noising = True
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = select_device()
 
     # create model
     encoder = GeneExpressionEncoder(len(gene_expression_input[0])).to(device)
@@ -259,7 +260,7 @@ def encode_gene_expression(gene_expression_input: np.ndarray, encoder: GeneExpre
     :returns: Latent embeddings with the leading dimension of the input.
     """
     encoder.eval()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = select_device()
     encoder.to(device)
 
     # Check the original input shape, because we have to unsqueeze the input if it is a single vector

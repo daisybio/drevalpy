@@ -9,9 +9,7 @@ Both used to take the three validation matrices as separately optional arguments
 raise when only some were given. :class:`OmicsSplit` makes that partial state
 unrepresentable, so the runtime guard is gone rather than shared.
 
-Nothing here imports ``torch``: ``make_pair_loader`` defers it. The leading
-underscore keeps the module out of
-``registry/_builtins.py::_discover_modules``.
+Nothing here imports ``torch``: ``make_pair_loader`` defers it.
 """
 
 from __future__ import annotations

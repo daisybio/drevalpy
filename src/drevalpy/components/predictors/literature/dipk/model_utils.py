@@ -3,11 +3,12 @@
 import torch
 import torch.nn as nn
 
+from drevalpy.components.predictors.literature._torch_utils import select_device
+
 from .attention_utils import MultiHeadAttentionLayer
 
 features_dim_gene = 512
 features_dim_bionic = 512
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class AttentionLayer(nn.Module):
@@ -21,8 +22,9 @@ class AttentionLayer(nn.Module):
         super().__init__()
         self.fc_layer_0 = nn.Linear(features_dim_gene, 768)
         self.fc_layer_1 = nn.Linear(features_dim_bionic, 768)
-        self.attention_0 = MultiHeadAttentionLayer(hid_dim=768, n_heads=heads, dropout=0.3, device=DEVICE)
-        self.attention_1 = MultiHeadAttentionLayer(hid_dim=768, n_heads=heads, dropout=0.3, device=DEVICE)
+        device = select_device()
+        self.attention_0 = MultiHeadAttentionLayer(hid_dim=768, n_heads=heads, dropout=0.3, device=device)
+        self.attention_1 = MultiHeadAttentionLayer(hid_dim=768, n_heads=heads, dropout=0.3, device=device)
 
     def forward(
         self, molgnet_features: torch.Tensor, mask: torch.Tensor, gene_expression: torch.Tensor, bionic: torch.Tensor

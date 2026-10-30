@@ -10,10 +10,8 @@ import pytest
 import torch
 from torch import nn
 
-from drevalpy._utils.torch_io import save_trusted_mapping
 from drevalpy.components.predictors.literature.dipk.attention_utils import MultiHeadAttentionLayer
 from drevalpy.components.predictors.literature.dipk.model_utils import (
-    DEVICE,
     AttentionLayer,
     DenseLayers,
     Predictor,
@@ -25,13 +23,12 @@ from drevalpy.components.predictors.literature.dipk.predictor import (
     _CollateFn,
     _DIPKDataset,
 )
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block, ragged_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
-    assert_state_round_trip,
+    assert_pickle_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
     finite_predictions,
@@ -74,7 +71,7 @@ def _trainable_dipk_batch(tmp_path: Path) -> ModelInputBatch:
 
 def test_registry_name_and_default_hyperparameters() -> None:
     assert get_predictor("dipk") is DIPKPredictor
-    assert {"batch_size", "lr", "epochs", "patience"} <= set(DIPKPredictor.get_default_hyperparameters())
+    assert {"batch_size", "lr", "epochs", "patience"} <= set(DIPKPredictor.default_hyperparameters())
 
 
 class TestFrozenDIPKNumericalReference:
@@ -89,7 +86,7 @@ class TestTinyDIPKFit:
     pytestmark = pytest.mark.slow
 
     @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_state(self, seed: int, tmp_path: Path) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int, tmp_path: Path) -> None:
         hyperparameters = {
             "batch_size": 4,
             "lr": 0.001,
@@ -114,7 +111,7 @@ class TestTinyDIPKFit:
         predictions = finite_predictions(predictor, batch)
         assert_training_predictions("dipk", seed, predictions)
 
-        assert_state_round_trip(predictor, batch, predictions, rtol=1e-6, atol=1e-7)
+        assert_pickle_round_trip(predictor, batch, predictions, rtol=1e-6, atol=1e-7)
 
 
 def test_build_pairs_selects_entity_rows_and_adds_the_target_for_a_response() -> None:
@@ -177,17 +174,8 @@ def test_guards_and_unfitted_state() -> None:
     assert np.isnan(predictions).all()
     assert len(predictions) == 4
     assert predictor.is_fitted() is False
-    assert predictor.get_state() == {}
     with pytest.raises(ValueError, match="early stopping data"):
         predictor._fit(_dipk_batch())
-
-
-def test_set_state_rejects_a_missing_payload_or_model_state() -> None:
-    with pytest.raises(PredictorStateError, match="payload byte blob"):
-        DIPKPredictor().set_state({"payload": "not-bytes"})
-    payload = save_trusted_mapping({"predictor_hyperparameters": DIPKPredictor.get_default_hyperparameters()})
-    with pytest.raises(PredictorStateError, match="missing model_state"):
-        DIPKPredictor().set_state({"payload": payload})
 
 
 FC_LAYER_DIM = [16, 8, 4, 4, 4, 4]
@@ -198,8 +186,7 @@ def _molgnet(batch_size: int, seq_len: int) -> torch.Tensor:
     return torch.randn(batch_size, seq_len, HIDDEN_DIM)
 
 
-def test_device_and_feature_dims() -> None:
-    assert DEVICE.type == ("cuda" if torch.cuda.is_available() else "cpu")
+def test_feature_dims() -> None:
     assert features_dim_gene == features_dim_bionic == 512
 
 
@@ -297,3 +284,11 @@ def test_attention_mask_removes_masked_keys_from_the_weights() -> None:
 
     assert attention[..., 2:].abs().max().item() == pytest.approx(0.0)
     torch.testing.assert_close(attention[..., :2].sum(dim=-1), torch.ones(1, 2, 1))
+
+
+def test_attention_scale_moves_with_the_module_and_is_not_in_the_state_dict() -> None:
+    layer = MultiHeadAttentionLayer(hid_dim=8, n_heads=2, dropout=0.0, device="cpu")
+
+    assert "scale" in dict(layer.named_buffers())
+    assert "scale" not in layer.state_dict()
+    assert layer.to(torch.float64).scale.dtype == torch.float64

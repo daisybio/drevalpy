@@ -14,16 +14,15 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict, save_state_dict, save_trusted_mapping
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors._state_helpers import load_payload_state
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.contracts.hyperparameter_space import fixed_entries
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import ENSEMBLEMF_REFERENCE
-from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     import torch
@@ -35,60 +34,52 @@ if TYPE_CHECKING:
 @register(
     "ensembleMF",
     description="EnsembleMF: ensembled two-tower matrix factorization over expression and fingerprints.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
     reference=ENSEMBLEMF_REFERENCE,
 )
-class EnsembleMFPredictor(BlockPredictor):
+class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
     """Ensemble of two-tower matrix-factorization networks consuming ModelInputBatch directly."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("fingerprints",)
-    required_sample_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-    )
-    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-        BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),
-    )
+    device_modules: ClassVar[tuple[str, ...]] = ("_nets",)
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX))
     supports_early_stopping: ClassVar[bool] = True
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the EnsembleMF predictor.
 
         :param hyperparameters: Optional hyperparameter overrides.
         """
-        import torch
-
         super().__init__(hyperparameters)
-        self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._device = select_device()
         self._nets: list[MFNet] = []
         self._drug_ids = np.empty(0, dtype=str)
         self._drug_seen = np.empty(0, dtype=bool)
         self._input_dims = (0, 0)
 
     @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return the DrEvalPy 1.6.1 defaults.
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return the hyperparameter space; EnsembleMF tunes nothing.
 
-        :returns: Default hyperparameter mapping.
+        :returns: Fixed specs for every EnsembleMF hyperparameter.
         """
-        return {
-            "hidden_dim": 256,
-            "emb_dim": 128,
-            "n_layers": 1,
-            "dropout": 0.2,
-            "use_mlp_head": True,
-            "mlp_hidden": 256,
-            "use_drug_id_embedding": True,
-            "n_ensemble": 20,
-            "learning_rate": 3e-4,
-            "weight_decay": 1e-5,
-            "batch_size": 2048,
-            "max_epochs": 300,
-            "patience": 25,
-            "seed": 0,
-        }
+        return fixed_entries(
+            {
+                "hidden_dim": 256,
+                "emb_dim": 128,
+                "n_layers": 1,
+                "dropout": 0.2,
+                "use_mlp_head": True,
+                "mlp_hidden": 256,
+                "use_drug_id_embedding": True,
+                "n_ensemble": 20,
+                "learning_rate": 3e-4,
+                "weight_decay": 1e-5,
+                "batch_size": 2048,
+                "max_epochs": 300,
+                "patience": 25,
+                "seed": 0,
+            }
+        )
 
     def _build_net(self, n_drugs: int) -> MFNet:
         """Construct one ensemble member on the target device.
@@ -233,48 +224,3 @@ class EnsembleMFPredictor(BlockPredictor):
                 z_sample, z_drug = net.encode(x_sample, x_drug, rows)
                 member_predictions.append(net.score_pairs(z_sample[sample_idx], z_drug[drug_idx]).cpu().numpy())
         return np.mean(member_predictions, axis=0).astype(np.float64)
-
-    def is_fitted(self) -> bool:
-        """Return whether the ensemble has been trained.
-
-        :returns: True when at least one member exists.
-        """
-        return bool(self._nets)
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted predictor state.
-
-        :returns: Mapping with binary payload blob when fitted, else empty.
-        """
-        if not self._nets:
-            return {}
-        payload: dict[str, Any] = {
-            "predictor_hyperparameters": dict(self._hyperparameters),
-            "input_dims": list(self._input_dims),
-            "drug_ids": self._drug_ids.tolist(),
-            "drug_seen": self._drug_seen.tolist(),
-            "member_states": [save_state_dict(net.state_dict()) for net in self._nets],
-        }
-        return {"payload": save_trusted_mapping(payload)}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore predictor from get_state output.
-
-        :param state: Serialized state containing a payload byte blob.
-        :raises PredictorStateError: If payload is missing or invalid.
-        """
-        payload = load_payload_state(state, "EnsembleMF")
-        input_dims, member_states = payload.get("input_dims"), payload.get("member_states")
-        if not isinstance(input_dims, list) or not isinstance(member_states, list) or not member_states:
-            msg = "EnsembleMF payload is missing input_dims or member_states"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(payload["predictor_hyperparameters"])
-        self._input_dims = (int(input_dims[0]), int(input_dims[1]))
-        self._drug_ids = np.asarray(payload["drug_ids"], dtype=str)
-        self._drug_seen = np.asarray(payload["drug_seen"], dtype=bool)
-        self._nets = []
-        for member_state in member_states:
-            net = self._build_net(len(self._drug_ids))
-            net.load_state_dict(load_state_dict(bytes(member_state), map_location=self._device))
-            net.eval()
-            self._nets.append(net)

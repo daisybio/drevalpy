@@ -12,16 +12,15 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import save_trusted_mapping
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors._state_helpers import load_payload_state
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.contracts.hyperparameter_space import fixed_entries
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import register
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -30,17 +29,14 @@ if TYPE_CHECKING:
 @register(
     "srmf",
     description="SRMF matrix factorization model.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
     reference=SRMF_REFERENCE,
 )
-class SRMFPredictor(BlockPredictor):
+class SRMFPredictor(Predictor):
     """Registered SRMF predictor using similarity-regularized matrix factorization."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("fingerprints",)
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX))
     supports_early_stopping: ClassVar[bool] = False
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize SRMF predictor.
@@ -55,28 +51,22 @@ class SRMFPredictor(BlockPredictor):
         self._training_mean: float = 0.0
 
     @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return default SRMF hyperparameters.
-
-        :returns: Default hyperparameter mapping.
-        """
-        return {
-            "K": 45,
-            "lambda_l": 0.01,
-            "lambda_d": 0.0,
-            "lambda_c": 0.01,
-            "max_iter": 50,
-            "seed": 1,
-            "n_features": 1036,
-        }
-
-    @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return tunable hyperparameter space.
+        """Return the hyperparameter space; SRMF tunes nothing.
 
-        :returns: Hyperparameter search space specs.
+        :returns: Fixed specs for every SRMF hyperparameter.
         """
-        return {}
+        return fixed_entries(
+            {
+                "K": 45,
+                "lambda_l": 0.01,
+                "lambda_d": 0.0,
+                "lambda_c": 0.01,
+                "max_iter": 50,
+                "seed": 1,
+                "n_features": 1036,
+            }
+        )
 
     # ------------------------------------------------------------------
     # Fit
@@ -180,53 +170,6 @@ class SRMFPredictor(BlockPredictor):
         # A mean response is a prediction fallback, not a latent coordinate:
         # multiplying mean-filled vectors would return K * mean**2.
         return np.where(known, np.einsum("ij,ji->i", best_u, best_v.T), self._training_mean)
-
-    # ------------------------------------------------------------------
-    # State serialization
-    # ------------------------------------------------------------------
-
-    def is_fitted(self) -> bool:
-        """Return whether the predictor has been fit.
-
-        :returns: True when latent factors have been learned.
-        """
-        return not self._best_u.empty
-
-    def get_state(self) -> dict[str, object]:
-        """Serialize fitted predictor state.
-
-        :returns: Mapping with binary payload blob.
-        """
-        if not self.is_fitted():
-            return {}
-        payload: dict[str, Any] = {
-            "best_u": self._best_u.to_dict(orient="split"),
-            "best_v": self._best_v.to_dict(orient="split"),
-            "training_mean": self._training_mean,
-            "predictor_hyperparameters": dict(self._hyperparameters),
-        }
-        return {"payload": save_trusted_mapping(payload)}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore predictor from get_state output.
-
-        :param state: Serialized state containing a payload byte blob.
-        :raises PredictorStateError: If payload is missing or invalid.
-        """
-        import pandas as pd
-
-        payload = load_payload_state(state, "SRMF")
-        try:
-            best_u = pd.DataFrame(**payload["best_u"])
-            best_v = pd.DataFrame(**payload["best_v"])
-            training_mean = float(payload["training_mean"])
-        except (KeyError, TypeError) as exc:
-            msg = "SRMF payload is missing best_u, best_v or training_mean"
-            raise PredictorStateError(msg) from exc
-        self._hyperparameters = dict(payload["predictor_hyperparameters"])
-        self._best_u = best_u
-        self._best_v = best_v
-        self._training_mean = training_mean
 
     # ------------------------------------------------------------------
     # SRMF algorithm internals

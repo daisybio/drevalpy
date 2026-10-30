@@ -13,6 +13,7 @@ from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from tests.components.predictors._helpers import pickle_round_trip
 from tests.models.synthetic_fixtures import multi_drug_response
 
 SAMPLE_IDS = np.array(["cl1", "cl2"])
@@ -144,12 +145,13 @@ def finite_predictions(predictor: Any, batch: ModelInputBatch) -> np.ndarray:
     return predictions
 
 
-def assert_state_round_trip(
+def assert_pickle_round_trip(
     predictor: Any, batch: ModelInputBatch, predictions: np.ndarray, *, rtol: float = 1e-5, atol: float = 1e-5
-) -> None:
-    restored = type(predictor)()
-    restored.set_state(predictor.get_state())
+) -> Any:
+    restored = pickle_round_trip(predictor)
+    assert restored.is_fitted()
     np.testing.assert_allclose(restored.predict(batch), predictions, rtol=rtol, atol=atol)
+    return restored
 
 
 def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:

@@ -15,7 +15,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from tests.components.predictors.literature._helpers import (
     assert_corrected_training_result,
     assert_frozen_reference,
-    assert_state_round_trip,
+    assert_pickle_round_trip,
     assert_trainable_parameters_changed,
     finite_predictions,
     seed_literature,
@@ -25,7 +25,7 @@ from tests.components.predictors.literature._helpers import (
 
 
 def _loss_model(gamma: float) -> MOLIModel:
-    hyperparameters = dict(MOLIRPredictor.get_default_hyperparameters())
+    hyperparameters = dict(MOLIRPredictor.default_hyperparameters())
     hyperparameters.update(
         {
             "gamma": gamma,
@@ -71,7 +71,7 @@ class TestTinyMOLIRFit:
     pytestmark = pytest.mark.slow
 
     @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_state_without_feature_names(self, seed: int, tmp_path) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle_without_feature_names(self, seed: int, tmp_path) -> None:
         hyperparameters = {
             "epochs": 1,
             # One full batch: BatchNorm over two rows amplifies platform rounding to ~1e-2.
@@ -102,7 +102,7 @@ class TestTinyMOLIRFit:
         )
         assert_frozen_reference("molir", seed)
 
-        assert_state_round_trip(predictor, batch, expected)
+        assert_pickle_round_trip(predictor, batch, expected)
 
 
 class TestMOLIRTrainer:
